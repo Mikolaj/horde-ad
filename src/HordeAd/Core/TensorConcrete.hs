@@ -16,6 +16,7 @@ import Data.Kind (Type)
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.Random
@@ -320,17 +321,17 @@ instance HVectorTensor ORArray OSArray where
   drev :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
-       -> HFunOf ORArray x x
+       -> HFunOf ORArray x (ADTensorKind x)
   drev _ftk h =
-    let rf :: Rep ORArray x -> Rep ORArray x
+    let rf :: Rep ORArray x -> Rep ORArray (ADTensorKind x)
         rf !a = fst $ crevOnHVector Nothing (unHFun h) a
     in rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z
-         -> HFunOf ORArray (TKProduct z x) x
+         -> HFunOf ORArray (TKProduct (ADTensorKind z) x) (ADTensorKind x)
   drevDt _ftk h =
-    let rf :: Rep ORArray (TKProduct z x) -> Rep ORArray x
+    let rf :: Rep ORArray (TKProduct (ADTensorKind z) x) -> Rep ORArray (ADTensorKind x)
         rf !db_a = fst $ crevOnHVector (Just $ fst db_a) (unHFun h) (snd db_a)
     in rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
@@ -465,6 +466,10 @@ instance (GoodScalar r, KnownNat n)
   type X (ORArray r n) = TKR r n
   toHVector = id
   fromHVector _aInit t = Just (t, Nothing)
+  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+    case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
+      Just Refl -> Just (t, Nothing)
+      _ -> Just (rzero (rshape aInit), Nothing)
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableHVector ORArray (AsHVector (ORArray r n)) where
@@ -484,6 +489,10 @@ instance (GoodScalar r, KnownShS sh)
   type X (OSArray r sh) = TKS r sh
   toHVector = id
   fromHVector _aInit t = Just (t, Nothing)
+  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
+      Just Refl -> Just (t, Nothing)
+      _ -> Just (srepl 0, Nothing)
 
 instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector ORArray (AsHVector (OSArray r sh)) where

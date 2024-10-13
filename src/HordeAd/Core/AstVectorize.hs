@@ -448,7 +448,13 @@ build1V snat@SNat (var, v00) =
      , Dict <- lemTensorKindOfBuild
                  snat (stensorKind @(BuildTensorKind k5 bShs))
      , Dict <- lemTensorKindOfBuild
-                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs)) -> traceRule $
+                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
+     , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+     , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+     , Just Refl <- lemBuildOfAD snat (stensorKind @accShs)
+     , Just Refl <- lemBuildOfAD snat (stensorKind @bShs)
+     , Just Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
       astLetFun
         (Ast.AstMapAccumRDer
            k5
@@ -474,7 +480,13 @@ build1V snat@SNat (var, v00) =
      , Dict <- lemTensorKindOfBuild
                  snat (stensorKind @(BuildTensorKind k5 bShs))
      , Dict <- lemTensorKindOfBuild
-                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs)) -> traceRule $
+                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
+     , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+     , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+     , Just Refl <- lemBuildOfAD snat (stensorKind @accShs)
+     , Just Refl <- lemBuildOfAD snat (stensorKind @bShs)
+     , Just Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
       astLetFun
         (Ast.AstMapAccumLDer
            k5

@@ -461,9 +461,9 @@ costVolume iStart nCount arrL arrR =
 
 test_disparityKonst :: Assertion
 test_disparityKonst = do
-  let arrL :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
+  let arrL :: ADReady ranked => ranked Double 4
       arrL = rreplicate0N [1, 2, 4, 6] (rscalar (-0.2))
-      arrR :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
+      arrR :: ADReady ranked => ranked Double 4
       arrR = rreplicate0N [1, 2, 4, 6] (rscalar 0.3)
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO
@@ -515,9 +515,9 @@ test_disparityKonst2 = do
 
 test_disparitySmall :: Assertion
 test_disparitySmall = do
-  let arrL :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
+  let arrL :: ADReady ranked => ranked Double 4
       arrL = ringestData [1, 2, 3, 2] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
-      arrR :: (ADReady ranked, GoodScalar r, Differentiable r) => ranked r 4
+      arrR :: ADReady ranked => ranked Double 4
       arrR = ringestData [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO

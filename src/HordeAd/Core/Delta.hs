@@ -55,7 +55,6 @@ import Data.Array.Internal (valueOf)
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
-import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (foldl')
 import Data.Maybe (fromMaybe)
@@ -65,7 +64,6 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import Foreign.C (CInt)
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
@@ -96,17 +94,18 @@ gradientFromDelta
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind z)
   => TensorKindFull x
   -> Rep ranked z
-  -> Maybe (Rep ranked z)
+  -> Maybe (Rep ranked (ADTensorKind z))
   -> Delta ranked z
-  -> Rep ranked x
+  -> Rep ranked (ADTensorKind x)
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = repConstant 1 $ tshapeFull (stensorKind @z) value
+  let oneAtF = repConstant 1 $ aDTensorKind $ tshapeFull (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
-      rebuildInputs :: [Some (RepM ranked)] -> TensorKindFull y
-                    -> (Rep ranked y, [Some (RepM ranked)])
+      rebuildInputs :: forall ady.  -- ady ~ ADTensorKind y
+                       [Some (RepM ranked)] -> TensorKindFull ady
+                    -> (Rep ranked ady, [Some (RepM ranked)])
       rebuildInputs els = \case
         FTKR @r @n _ -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
@@ -142,10 +141,10 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
         FTKX{} -> error "TODO"
-        FTKProduct ftk1 ftk2 ->
-          let (t1, rest1) = rebuildInputs els ftk1
-              (t2, rest2) = rebuildInputs rest1 ftk2
-          in (tpair t1 t2, rest2)
+        FTKProduct @y1 @y2 ftk1 ftk2 ->
+            let (t1, rest1) = rebuildInputs @y1 els ftk1
+                (t2, rest2) = rebuildInputs @y2 rest1 ftk2
+            in (tpair t1 t2, rest2)
         FTKUnit -> (tunit, els)
         FTKUntyped shs ->
           let toDynamicTensor :: Some (RepM ranked)
@@ -160,7 +159,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           in ( HVectorPseudoTensor $ dmkHVector
                $ V.fromList $ map toDynamicTensor els1
              , els2 )
-      (res, remainder) = rebuildInputs (DMap.elems $ iMap s2) parameters0
+      (res, remainder) = rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2)
+                         $ aDTensorKind parameters0
   in assert (null remainder) res
 
 showsPrec_iMap
@@ -209,13 +209,11 @@ derivativeFromDelta deltaTopLevel ds =
              , j + len )
       iMap = DMap.fromDistinctAscList $ fst
              $ generateDSums 0 (tshapeFull stensorKind ds) ds
-      -- EvalState is too complex for the forward derivative, but since
-      -- it's already defined, let's use it.
-      s0 = EvalState DMap.empty DMap.empty DMap.empty
+      s0 = DMap.empty
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
 
-evalRepM :: ADReadyNoLet ranked
+evalRepM :: forall ranked x. ADReadyNoLet ranked
          => RepM ranked x -> Rep ranked x
 evalRepM = \case
   MTKR t -> t
@@ -643,9 +641,9 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
-    -> HFun (TKProduct (TKProduct accShs bShs)
+    -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                        (TKProduct accShs eShs))
-            (TKProduct accShs eShs)
+            (ADTensorKind (TKProduct accShs eShs))
     -> Delta ranked accShs
     -> Delta ranked (BuildTensorKind k eShs)
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
@@ -663,9 +661,9 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> HFun (TKProduct (TKProduct accShs eShs)
                        (TKProduct accShs eShs))
             (TKProduct accShs bShs)
-    -> HFun (TKProduct (TKProduct accShs bShs)
+    -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                        (TKProduct accShs eShs))
-            (TKProduct accShs eShs)
+            (ADTensorKind (TKProduct accShs eShs))
     -> Delta ranked accShs
     -> Delta ranked (BuildTensorKind k eShs)
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
@@ -890,7 +888,7 @@ data EvalState ranked = EvalState
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap :: DEnumMap (NodeId ranked) (RepN ranked)
+  , dMap :: DEnumMap (NodeId ranked) (RepAD ranked)
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap :: DEnumMap (NodeId ranked) (Delta ranked)
@@ -900,6 +898,10 @@ data EvalState ranked = EvalState
       -- and not take into account the whole summed context when finally
       -- evaluating
   }
+
+type role RepAD nominal nominal
+newtype RepAD ranked y =
+  RepAD {unRepAD :: Rep ranked (ADTensorKind y)}
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -997,7 +999,8 @@ initEvalState ftk0 =
           InputId n :=> MTKRDummy @r @sh
         DynamicShapedDummy @r @sh _ _ ->
           InputId n :=> MTKSDummy @r @sh
-      iMap = DMap.fromDistinctAscList $ fst $ generateDSums 0 ftk0
+      iMap = DMap.fromDistinctAscList $ fst $ generateDSums 0
+             $ aDTensorKind ftk0
       dMap = DMap.empty
       nMap = DMap.empty
   in EvalState {..}
@@ -1012,8 +1015,8 @@ initEvalState ftk0 =
 evalRRuntimeSpecialized
   :: forall n r ranked.
      (GoodScalar r, KnownNat n, ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked
-  -> ranked r n -> Delta ranked (TKR r n)
+  => EvalState ranked -> Rep ranked (ADTensorKind (TKR r n))
+  -> Delta ranked (TKR r n)
   -> EvalState ranked
 evalRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
@@ -1023,57 +1026,49 @@ evalRRuntimeSpecialized !s !c =
   -- If the scalar type is not on the list, performance suffers greatly.
   -- TODO: can I pattern match on (typeRep @r) instead?
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalR @(TKR Double n) s c
+    Just Refl -> evalSame @(TKR Double n) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalR @(TKR Float n) s c
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> evalR @(TKR Int64 n) s c
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> evalR @(TKR CInt n) s c
-          _ -> error "evalRRuntimeSpecialized: unexpected scalar"
+      Just Refl -> evalSame @(TKR Float n) s c
+      _ -> const s
 
 evalSRuntimeSpecialized
   :: forall sh r ranked.
      (GoodScalar r, KnownShS sh, ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked -> ShapedOf ranked r sh -> Delta ranked (TKS r sh)
+  => EvalState ranked -> Rep ranked (ADTensorKind (TKS r sh))
+  -> Delta ranked (TKS r sh)
   -> EvalState ranked
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalR @(TKS Double sh) s c
+    Just Refl -> evalSame @(TKS Double sh) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalR @(TKS Float sh) s c
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> evalR @(TKS Int64 sh) s c
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> evalR @(TKS CInt sh) s c
-          _ -> error "evalSRuntimeSpecialized: unexpected scalar"
+      Just Refl -> evalSame @(TKS Float sh) s c
+      _ -> const s
 
+-- TODO: merge the STKUnit check into evalRRuntimeSpecialized, etc.
+-- to make sure both the check and the specialization are never missed
 evalR
   :: forall y ranked.
      (TensorKind y, ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked -> Rep ranked y -> Delta ranked y
+  => EvalState ranked -> Rep ranked (ADTensorKind y) -> Delta ranked y
   -> EvalState ranked
-evalR !s !c = \case
-  PairG d1 d2 -> let (c1, c2) = tunpair c
-                  in evalR (evalR s c1 d1) c2 d2
-  Project1G d -> case shapeDeltaFull d of
-    FTKProduct _ ftk2 ->
-      let zero = repConstant 0 ftk2
-      in evalR s (tpair c zero) d
-  Project2G d -> case shapeDeltaFull d of
-    FTKProduct ftk1 _ ->
-      let zero = repConstant 0 ftk1
-      in evalR s (tpair zero c) d
-  InputG _ftk i ->
-    let cs = repToM stensorKind c
-    in s {iMap = DMap.adjust (addRepM cs) i
-                 $ iMap s}
-    -- This and similar don't need to be runtime-specialized,
-    -- because the type of c determines the Num instance for (+).
-    -- Note that we can't express sharing by inserting ShareG constructors
-    -- into iMap, because often sharing needs to work across many
-    -- iMap keys. That's why global sharing is used.
-  ShareG n d ->
+evalR !s !c d0 = case d0 of
+  PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
+                      , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
+    let (c1, c2) = tunpair c
+    in evalR (evalR s c1 d1) c2 d2
+  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                    , Dict <- lemTensorKindOfAD (stensorKind @z) ->
+    case shapeDeltaFull d of
+      FTKProduct _ ftk2 ->
+        let zero = repConstant 0 $ aDTensorKind ftk2
+        in evalR s (tpair c zero) d
+  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                 , Dict <- lemTensorKindOfAD (stensorKind @x) ->
+    case shapeDeltaFull d of
+      FTKProduct ftk1 _ ->
+        let zero = repConstant 0 $ aDTensorKind ftk1
+        in evalR s (tpair zero c) d
+  ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
     -- considers position (node) p out of possibly multiple positions
@@ -1111,101 +1106,244 @@ evalR !s !c = \case
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
-          let addc x = RepN $ taddShare c (unRepN x)
+          let addc x = RepAD $ taddShare c (unRepAD x)
           in s {dMap = DMap.adjust addc n $ dMap s}
         Nothing ->
-          let cd = RepN c
+          let cd = RepAD c
           in s { nMap = DMap.insert n d $ nMap s
                , dMap = DMap.insert n cd $ dMap s }
+  MapAccumR @_ @_ @accShs @bShs @eShs
+            k accShs bShs eShs
+            (RepN q) (RepN es)
+            _df rf acc0' es'
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+    let accShsAD = aDTensorKind accShs
+        bShsAD = aDTensorKind bShs
+        eShsAD = aDTensorKind eShs
+        (c0, crest) = tunpair c
+        dacc_des =
+          dmapAccumL (Proxy @ranked)
+                     k accShsAD eShsAD (FTKProduct bShsAD
+                                                   (FTKProduct accShs eShs))
+                     (\dx (db, acc_e) ->
+                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
+                                         (unrepDeep acc_e)))
+                     c0
+                     (tpair crest (tpair q es))
+        (dacc, des) = tunpair dacc_des
+        s2 = evalR s dacc acc0'
+    in evalR s2 des es'
+  MapAccumL @_ @_ @accShs @bShs @eShs
+            k accShs bShs eShs
+            (RepN q) (RepN es)
+            _df rf acc0' es'
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+    let accShsAD = aDTensorKind accShs
+        bShsAD = aDTensorKind bShs
+        eShsAD = aDTensorKind eShs
+        (c0, crest) = tunpair c
+        dacc_des =
+          dmapAccumR (Proxy @ranked)
+                     k accShsAD eShsAD (FTKProduct bShsAD
+                                                   (FTKProduct accShs eShs))
+                     (\dx (db, acc_e) ->
+                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
+                                         (unrepDeep acc_e)))
+                     c0
+                     (tpair crest (tpair q es))
+        (dacc, des) = tunpair dacc_des
+        s2 = evalR s dacc acc0'
+    in evalR s2 des es'
+  _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
+      case sameTensorKind @y @(ADTensorKind y) of
+        Just Refl -> evalSame s c d0
+        _ -> s  -- ADTensorKind y is void due to static or runtime properties
+
+evalSame
+  :: forall y ranked.
+     ( TensorKind y, ADReadyNoLet ranked, ShareTensor ranked
+     , y ~ ADTensorKind y )
+  => EvalState ranked -> Rep ranked (ADTensorKind y) -> Delta ranked y
+  -> EvalState ranked
+evalSame !s !c = \case
+  PairG d1 d2 ->
+    let (c1, c2) = tunpair c
+    in evalSame (evalSame s c1 d1) c2 d2
+  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @z) ->
+    case shapeDeltaFull d of
+      FTKProduct _ ftk2 ->
+        let zero = repConstant 0 $ aDTensorKind ftk2
+        in evalR s (tpair c zero) d
+  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @x) ->
+    case shapeDeltaFull d of
+      FTKProduct ftk1 _ ->
+        let zero = repConstant 0 $ aDTensorKind ftk1
+        in evalR s (tpair zero c) d
+  ShareG n d ->
+    assert (case d of
+              ZeroR{} -> False
+              ShareG{} -> False  -- wasteful and nonsensical
+              ZeroS -> False
+              _ -> True)
+    $ case DMap.lookup n $ nMap s of
+        Just _ ->
+          let addc x = RepAD $ taddShare c (unRepAD x)
+          in s {dMap = DMap.adjust addc n $ dMap s}
+        Nothing ->
+          let cd = RepAD c
+          in s { nMap = DMap.insert n d $ nMap s
+               , dMap = DMap.insert n cd $ dMap s }
+  InputG _ftk i ->
+    let cs = repToM stensorKind c
+    in s {iMap = DMap.adjust (addRepM cs) i
+                 $ iMap s}
+    -- This and similar don't need to be runtime-specialized,
+    -- because the type of c determines the Num instance for (+).
+    -- Note that we can't express sharing by inserting ShareG constructors
+    -- into iMap, because often sharing needs to work across many
+    -- iMap keys. That's why global sharing is used.
 
   ZeroR{} -> s
-  ScaleR k d -> evalR s (k * c) d
+  ScaleR k d -> evalSame s (k * c) d
   AddR d e -> let cShared = tshare c
-              in evalR (evalR s cShared d) cShared e
-
-  IndexR d ix -> evalR s (rscatter @ranked @_ @0
-                                   (shapeDelta d) c (const ix)) d
-    -- equivalent: evalR s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
-  SumR d -> evalR s (rreplicate (lengthDelta d) c) d
-  Sum0R d -> evalR s (rreplicate0N (shapeDelta d) c) d
-  Dot0R v vd -> evalR s (v * rreplicate0N (rshape v) c) vd
-                  -- too slow: evalR s (rmap0N (* (tscalar c)) v) vd
-  ScatterR _sh d f -> evalR s (rgather (shapeDelta d) c f) d
-
+              in evalSame (evalSame s cShared d) cShared e
+  IndexR @r @n @m d ix ->
+    gcastWith (unsafeCoerce Refl :: TKR r (m + n)
+                                    :~: ADTensorKind (TKR r (m + n))) $
+    evalSame s (rscatter @ranked @_ @0
+                         (shapeDelta d) c (const ix)) d
+    -- equivalent: evalSame s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
+  SumR @r @n d ->
+    gcastWith (unsafeCoerce Refl :: TKR r (1 + n)
+                                    :~: ADTensorKind (TKR r (1 + n))) $
+    evalSame s (rreplicate (lengthDelta d) c) d
+  Sum0R @r @n  d ->
+    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+    evalSame s (rreplicate0N (shapeDelta d) c) d
+  Dot0R @n @r v vd ->
+    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+    evalSame s (v * rreplicate0N (rshape v) c) vd
+      -- too slow: evalSame s (rmap0N (* (tscalar c)) v) vd
+  ScatterR @r @m @_ @n _sh d f ->
+    gcastWith (unsafeCoerce Refl :: TKR r (m + n)
+                                    :~: ADTensorKind (TKR r (m + n))) $
+    evalSame s (rgather (shapeDelta d) c f) d
   FromVectorR @n1 @r ld ->
+    gcastWith (unsafeCoerce Refl :: TKR r n1 :~: ADTensorKind (TKR r n1)) $
     let cShared = tshare c
         cxs :: [ranked r n1]
         cxs = runravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalR s2 cx d2) s
+    in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
-  ReplicateR _n d -> evalR s (rsum c) d
+  ReplicateR @r @n _n d ->
+    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+    evalSame s (rsum c) d
   AppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
                    k = lengthDelta d
-                   s2 = evalR s (rslice 0 k cShared) d
-               in evalR s2 (rslice k (n - k) cShared) e
-    ZSR -> error "evalR: impossible pattern needlessly required"
+                   s2 = evalSame s (rslice 0 k cShared) d
+               in evalSame s2 (rslice k (n - k) cShared) e
+    ZSR -> error "evalSame: impossible pattern needlessly required"
   SliceR i n d -> case rshape c of
     n' :$: rest ->
       assert (n' == n `blame` (n', n)) $
-      evalR s (rconcat [ rzero (i :$: rest)
-                       , c
-                       , rzero (lengthDelta d - i - n :$: rest) ])
-              d
-    ZSR -> error "evalR: impossible pattern needlessly required"
-  ReverseR d -> evalR s (rreverse c) d
-  TransposeR perm d ->
+      evalSame s (rconcat [ rzero (i :$: rest)
+                          , c
+                          , rzero (lengthDelta d - i - n :$: rest) ])
+                  d
+    ZSR -> error "evalSame: impossible pattern needlessly required"
+  ReverseR d -> evalSame s (rreverse c) d
+  TransposeR @r @n perm d ->
+    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
     let permR = permInverse perm
-    in evalR s (rtranspose permR c) d
-  ReshapeR _sh d -> evalR s (rreshape (shapeDelta d) c) d
-  GatherR _sh d f -> evalR s (rscatter (shapeDelta d) c f) d
-
-  CastR d -> evalRRuntimeSpecialized s (rcast c) d
-
-  RFromS (SFromR d) -> evalR s c d  -- no information lost, so no checks
-  RFromS @sh d | Dict <- lemKnownNatRank (knownShS @sh) -> evalR s (sfromR c) d
-  -- We don't simplify deltas systematically elsewhere, so this is placed here.
+    in evalSame s (rtranspose permR c) d
+  ReshapeR @r @n _sh d ->
+    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+    evalSame s (rreshape (shapeDelta d) c) d
+  GatherR @r @_ @p @n _sh d f ->
+    gcastWith (unsafeCoerce Refl :: TKR r (p + n)
+                                    :~: ADTensorKind (TKR r (p + n))) $
+    evalSame s (rscatter (shapeDelta d) c f) d
+  CastR @r1 @_ @n d ->
+    evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR r1 n))
+                               $ rcast c) d
+  RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
+  RFromS @sh @r d | Dict <- lemKnownNatRank (knownShS @sh) ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+    evalSame s (sfromR c) d
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalR s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
+       evalSame s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
   ZeroS -> s
-  ScaleS k d -> evalR s (k * c) d
+  ScaleS k d -> evalSame s (k * c) d
   AddS d e -> let cShared = tshare c
-              in evalR (evalR s cShared d) cShared e
-
-  IndexS @sh1 @sh d ix ->
+              in evalSame (evalSame s cShared d) cShared e
+  IndexS @sh1 @sh @r d ix ->
+    gcastWith (unsafeCoerce Refl :: TKS r (sh1 ++ sh)
+                                    :~: ADTensorKind (TKS r (sh1 ++ sh))) $
     gcastWith (unsafeCoerce Refl
                :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
     gcastWith (unsafeCoerce Refl
                :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
     withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
     gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
-    evalR s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
-    -- equivalent: evalR s (updateNR (replicate0NR sh 0) [(ix, c)]) d
-  SumS d -> evalR s (sreplicate c) d
-  Sum0S d -> evalR s (sreplicate0N c) d
-  Dot0S v vd -> evalR s (v * sreplicate0N c) vd
-    -- too slow: evalR s (smap0N (* (sscalar c)) v) vd
-  ScatterS d f -> evalR s (sgather c f) d
-
-  FromVectorS ld ->
+    evalSame s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
+    -- equivalent: evalSame s (updateNR (replicate0NR sh 0) [(ix, c)]) d
+  SumS @r @n @sh d ->
+    gcastWith (unsafeCoerce Refl :: TKS r (n ': sh)
+                                    :~: ADTensorKind (TKS r (n ': sh))) $
+    evalSame s (sreplicate c) d
+  Sum0S @r @sh d ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+    evalSame s (sreplicate0N c) d
+  Dot0S @r @sh v vd ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+    evalSame s (v * sreplicate0N c) vd
+      -- too slow: evalSame s (smap0N (* (sscalar c)) v) vd
+  ScatterS @_ @r @sh2 @p @sh d f ->
+    gcastWith (unsafeCoerce Refl :: TKS r (sh2 ++ Drop p sh)
+                                    :~: ADTensorKind (TKS r (sh2 ++ Drop p sh))) $
+    evalSame s (sgather c f) d
+  FromVectorS @r @sh ld ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
     let cShared = tshare c
     in V.ifoldl' (\ !s2 i d2 ->
-         evalR s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
-  ReplicateS d -> evalR s (ssum c) d
-  AppendS @_ @_ @m d e ->
+         evalSame s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
+  ReplicateS @_ @r @_ @sh d ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+    evalSame s (ssum c) d
+  AppendS @_ @r @m @n @sh d e ->
+    gcastWith (unsafeCoerce Refl :: TKS r (m ': sh)
+                                    :~: ADTensorKind (TKS r (m ': sh))) $
+    gcastWith (unsafeCoerce Refl :: TKS r (n ': sh)
+                                    :~: ADTensorKind (TKS r (n ': sh))) $
     let cShared = tshare c
-        s2 = evalR s (sslice (Proxy @0) Proxy cShared) d
-    in evalR s2 (sslice (Proxy @m) Proxy cShared) e
-  SliceS @_ @i d ->
-    evalR s (sappend @_ @_ @i (srepl 0) (sappend c (srepl 0))) d
-  ReverseS d -> evalR s (sreverse c) d
-  TransposeS @perm @sh2 perm d ->
+        s2 = evalSame s (sslice (Proxy @0) Proxy cShared) d
+    in evalSame s2 (sslice (Proxy @m) Proxy cShared) e
+  SliceS @_ @i @n @k @r @sh d ->
+    gcastWith (unsafeCoerce Refl :: TKS r (i + n + k ': sh)
+                                    :~: ADTensorKind (TKS r (i + n + k ': sh))) $
+    evalSame s (sappend @_ @_ @i (srepl 0) (sappend c (srepl 0))) d
+  ReverseS d -> evalSame s (sreverse c) d
+  TransposeS @perm @sh2 @r perm d ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh2 :~: ADTensorKind (TKS r sh2)) $
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh2)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh2 :~: shp) $
@@ -1216,65 +1354,96 @@ evalR !s !c = \case
                      :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
         $ gcastWith (unsafeCoerce Refl
                      :: Rank permR :~: Rank perm)
-        $ evalR s (stranspose permRev c) d
-  ReshapeS d -> evalR s (sreshape c) d
-  GatherS d f -> evalR s (sscatter c f) d
-  CastS d -> evalSRuntimeSpecialized s (scast c) d
+        $ evalSame s (stranspose permRev c) d
+  ReshapeS @r @sh d ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+    evalSame s (sreshape c) d
+  GatherS @_ @r @_ @_ @sh d f ->
+    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+    evalSame s (sscatter c f) d
+  CastS @r1 @_ @sh d ->
+    evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS r1 sh))
+                               $ scast c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> evalR s c d
-      _ -> error "evalR: different shapes in SFromR(RFromS)"
-  SFromR d -> evalR s (rfromS c) d
+      Just Refl -> evalSame s c d
+      _ -> error "evalSame: different shapes in SFromR(RFromS)"
+  SFromR @sh @r d ->
+    gcastWith (unsafeCoerce Refl :: TKR r (Rank sh)
+                                    :~: ADTensorKind (TKR r (Rank sh))) $
+    evalSame s (rfromS c) d
   SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalR s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
+       evalSame s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
 
   ZeroX{} -> s
-  ScaleX k d -> evalR s (k * c) d
+  ScaleX k d -> evalSame s (k * c) d
   AddX d e -> let cShared = tshare c
-              in evalR (evalR s cShared d) cShared e
+              in evalSame (evalSame s cShared d) cShared e
   IndexX{} -> error "TODO"
-  FromVectorX ld ->
+  FromVectorX @r @sh ld ->
+    gcastWith (unsafeCoerce Refl :: TKX r sh :~: ADTensorKind (TKX r sh)) $
     let cShared = tshare c
-    in V.ifoldl' (\ !s2 i d2 ->
-         evalR s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2) s ld
+        f :: EvalState ranked -> Int -> Delta ranked (TKX r sh)
+             -> EvalState ranked
+        f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
+    in V.ifoldl' f s ld
 
   HToH v -> evalHVector s (tunvector c) v
-  MapAccumR @_ @_ @_ @bShs
+
+  MapAccumR @_ @_ @_ @bShs @eShs
             k accShs bShs eShs
             (RepN q) (RepN es)
             _df rf acc0' es'
-   | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-    let (c0, crest) = tunpair c
+   | Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+    let accShsAD = aDTensorKind accShs
+        bShsAD = aDTensorKind bShs
+        eShsAD = aDTensorKind eShs
+        (c0, crest) = tunpair c
         dacc_des =
           dmapAccumL (Proxy @ranked)
-                     k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
+                     k accShsAD eShsAD (FTKProduct bShsAD
+                                                   (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
                         unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
-                                          (unrepDeep acc_e)))
+                                         (unrepDeep acc_e)))
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
-        s2 = evalR s dacc acc0'
+        s2 = evalSame s dacc acc0'
     in evalR s2 des es'
-  MapAccumL @_ @_ @_ @bShs
+  MapAccumL @_ @_ @_ @bShs @eShs
             k accShs bShs eShs
             (RepN q) (RepN es)
             _df rf acc0' es'
-   | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-    let (c0, crest) = tunpair c
+   | Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+    let accShsAD = aDTensorKind accShs
+        bShsAD = aDTensorKind bShs
+        eShsAD = aDTensorKind eShs
+        (c0, crest) = tunpair c
         dacc_des =
           dmapAccumR (Proxy @ranked)
-                     k accShs eShs (FTKProduct bShs (FTKProduct accShs eShs))
+                     k accShsAD eShsAD (FTKProduct bShsAD
+                                                   (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
                         unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
-                                          (unrepDeep acc_e)))
+                                         (unrepDeep acc_e)))
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
-        s2 = evalR s dacc acc0'
+        s2 = evalSame s dacc acc0'
     in evalR s2 des es'
 
 evalDynamic
@@ -1282,13 +1451,25 @@ evalDynamic
   => EvalState ranked
   -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
   -> EvalState ranked
-evalDynamic !s3 (t, DynamicRanked d2) = evalR s3 (rfromD t) $ unDeltaR d2
-evalDynamic s3 (t, DynamicShaped d2) = evalR s3 (sfromD t) $ unDeltaS d2
+evalDynamic !s3 (t, DynamicRanked @r @n d2) =
+  gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+    -- this is a noble lie to maintain no ADTensorKind under HVector
+    -- and at the same time re-use the new eval function also for HVector
+  evalSame s3 (toADTensorKindShared (stensorKind @(TKR r n)) $ rfromD t) $ unDeltaR d2
+evalDynamic s3 (t, DynamicShaped @r @sh d2) =
+  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  evalSame s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t) $ unDeltaS d2
 evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
+  gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
   withListSh (Proxy @sh) $ \sh2 ->
-    evalR s3 (rfromD @r t) (ZeroR sh2)
+    evalSame @(TKR r (Rank sh))
+          s3 (toADTensorKindShared (stensorKind @(TKR r (Rank sh))) $ rfromD @r t)
+          (ZeroR sh2)
 evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
-  evalR @(TKS r sh) s3 (sfromD t) ZeroS
+  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  evalSame @(TKS r sh)
+        s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t)
+        ZeroS
 
 evalHVector
   :: (ADReadyNoLet ranked, ShareTensor ranked)
@@ -1296,7 +1477,7 @@ evalHVector
   -> EvalState ranked
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
-evalFromnMap :: (ADReadyNoLet ranked, ShareTensor ranked)
+evalFromnMap :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
              => EvalState ranked -> EvalState ranked
 evalFromnMap s@EvalState{nMap, dMap} =
   -- We discharge the non-vector cases before the vector ones, because
@@ -1308,21 +1489,23 @@ evalFromnMap s@EvalState{nMap, dMap} =
           errorMissing :: a
           errorMissing = error $ "evalFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
-            STKR{} -> case DMap.lookup n dMap of
-              Just (RepN c) -> evalRRuntimeSpecialized s2 c d
+            STKR @r @n _ _ -> case DMap.lookup n dMap of
+              Just (RepAD c) -> evalRRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
-            STKS{} -> case DMap.lookup n dMap of
-              Just (RepN c) -> evalSRuntimeSpecialized s2 c d
+            STKS @r @sh _ _ -> case DMap.lookup n dMap  of
+              Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
               Nothing -> errorMissing
             STKX{} -> case DMap.lookup n dMap of
-              Just (RepN c) -> evalR s2 c d
+              Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
             STKProduct{} -> case DMap.lookup n dMap of
-              Just (RepN c) -> evalR s2 c d
+              Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
-            STKUnit -> error "evalFromnMap: unit input is impossible"
+            STKUnit -> case DMap.lookup n dMap of
+              Just (RepAD c) -> evalR s2 c d
+              Nothing -> errorMissing
             STKUntyped -> case DMap.lookup n dMap of
-              Just (RepN c) -> evalR s2 c d
+              Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
       in evalFromnMap s3
     Nothing -> s  -- loop ends
@@ -1376,9 +1559,9 @@ evalFromnMap s@EvalState{nMap, dMap} =
 fwdDynamic
   :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
   => IMap ranked
-  -> EvalState ranked
+  -> DEnumMap (NodeId ranked) (RepN ranked)
   -> DynamicTensor (DeltaR ranked)
-  -> (EvalState ranked, DynamicTensor ranked)
+  -> (DEnumMap (NodeId ranked) (RepN ranked), DynamicTensor ranked)
 fwdDynamic params s (DynamicRanked d) =
   second DynamicRanked $ fwdR params s (unDeltaR d)
 fwdDynamic params s (DynamicShaped d) =
@@ -1392,16 +1575,25 @@ fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
 fwdHVector
   :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
   => IMap ranked
-  -> EvalState ranked
+  -> DEnumMap (NodeId ranked) (RepN ranked)
   -> HVector (DeltaR ranked)
-  -> (EvalState ranked, HVector ranked)
+  -> (DEnumMap (NodeId ranked) (RepN ranked),  HVector ranked)
 fwdHVector params = mapAccumL (fwdDynamic params)
+
+evalRepMFwd :: forall ranked x. ADReadyNoLet ranked
+         => RepM ranked x -> Rep ranked x
+evalRepMFwd =
+  \case
+    MTKR t -> t
+    MTKS t -> t
+    MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
+    MTKSDummy -> srepl 0
 
 fwdR
   :: forall ranked y.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind y)
-  => IMap ranked -> EvalState ranked -> Delta ranked y
-  -> (EvalState ranked, Rep ranked y)
+  => IMap ranked -> DEnumMap (NodeId ranked) (RepN ranked) -> Delta ranked y
+  -> (DEnumMap (NodeId ranked) (RepN ranked), Rep ranked y)
 fwdR params s = \case
   PairG d1 d2 -> let (s2, t) = fwdR params s d1
                      (s3, u) = fwdR params s2 d2
@@ -1412,10 +1604,10 @@ fwdR params s = \case
                  in (s2, tproject2 v)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, evalRepM dtk)
+      Just dtk -> (s, evalRepMFwd dtk)
       Nothing -> error "fwdR: missing input"
   ShareG n d ->
-    case DMap.lookup n $ dMap s of
+    case DMap.lookup n s of
       Just e1 -> (s, unRepN e1)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
@@ -1423,7 +1615,7 @@ fwdR params s = \case
             cd = RepN cShared
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
-            s3 = s2 {dMap = DMap.insert n cd (dMap s2)}
+            s3 = DMap.insert n cd s2
         in (s3, cShared)
 
   ZeroR sh -> (s, rzero sh)

@@ -82,7 +82,7 @@ revDt
      , TermValue astvals )
   => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
-  -> Rep ORArray z
+  -> Rep ORArray (ADTensorKind z)
   -> Value astvals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
@@ -95,10 +95,10 @@ revDtMaybe
      , TermValue astvals )
   => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
-  -> Maybe (Rep ORArray z)
+  -> Maybe (Rep ORArray (ADTensorKind z))
   -> Value astvals
 {-# INLINE revDtMaybe #-}
-revDtMaybe f vals0 mdt =
+revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
   let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
       g !hv = dlet hv $ \ !hvShared ->
@@ -106,7 +106,7 @@ revDtMaybe f vals0 mdt =
       valsH = toHVectorOf vals0
       voidH = tshapeFull stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in parseHVector vals0 $ repDeepDuplicable stensorKind
+  in parseHVectorAD vals0 $ repDeepDuplicable stensorKind
      $ fst $ revEvalArtifact artifact valsH mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
@@ -178,11 +178,12 @@ revEvalArtifact
   :: forall x z. (TensorKind x, TensorKind z)
   => AstArtifactRev x z
   -> Rep ORArray x
-  -> Maybe (Rep ORArray z)
-  -> (Rep ORArray x, Rep ORArray z)
+  -> Maybe (Rep ORArray (ADTensorKind z))
+  -> (Rep ORArray (ADTensorKind x), Rep ORArray z)
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact AstArtifactRev{..} parameters mdt =
-  let oneAtF = repConstant 1 $ shapeAstFull artPrimalRev
+revEvalArtifact AstArtifactRev{..} parameters mdt
+ | Dict <- lemTensorKindOfAD (stensorKind @z) =
+  let oneAtF = repConstant 1 $ aDTensorKind $ shapeAstFull artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
@@ -273,7 +274,7 @@ crevDt
      , DualNumberValue advals)
   => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
-  -> Rep ORArray z
+  -> Rep ORArray (ADTensorKind z)
   -> DValue advals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -286,16 +287,16 @@ crevDtMaybe
      , DualNumberValue advals)
   => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
-  -> Maybe (Rep ORArray z)
+  -> Maybe (Rep ORArray (ADTensorKind z))
   -> DValue advals
 {-# INLINE crevDtMaybe #-}
-crevDtMaybe f vals mdt =
+crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
       g = f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- crevOnHVector satisfies that via makeADInputs
       valsH = toHVectorOf vals
-  in parseHVector vals $ repDeepDuplicable stensorKind
+  in parseHVectorAD vals $ repDeepDuplicable stensorKind
      $ fst $ crevOnHVector mdt g valsH
        -- repDeepDuplicable requires its argument to be deeply duplicable and
        -- crevOnHVector satisfies that via gradientFromDelta

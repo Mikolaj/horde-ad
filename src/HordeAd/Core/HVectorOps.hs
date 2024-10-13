@@ -16,7 +16,7 @@ module HordeAd.Core.HVectorOps
   , mapHVectorShaped11, mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
   , index1HVector, replicate1HVector, mkreplicate1HVector
-  , repConstant
+  , repConstant, toADTensorKindShared
   ) where
 
 import Prelude
@@ -698,3 +698,29 @@ repConstant r = \case
     HVectorPseudoTensor $ dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
     $ V.map dynamicFromVoid ssh
+
+toADTensorKindShared :: forall ranked y. (ProductTensor ranked, ShareTensor ranked)
+                     => STensorKindType y -> Rep ranked y
+                     -> Rep ranked (ADTensorKind y)
+toADTensorKindShared stk t = case stk of
+  STKR @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> unsafeCoerce (tunit @ranked)  -- morally correct
+  STKS @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> unsafeCoerce (tunit @ranked)  -- morally correct
+  STKX @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> unsafeCoerce (tunit @ranked)  -- morally correct
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
+                       , Dict <- lemTensorKindOfAD stk2 ->
+    let (t1, t2) = tunpair t
+    in tpair (toADTensorKindShared stk1 t1) (toADTensorKindShared stk2 t2)
+  STKUnit -> t
+  STKUntyped -> t

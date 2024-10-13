@@ -82,7 +82,9 @@ revArtifactFromForwardPass
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revArtifactFromForwardPass #-}
-revArtifactFromForwardPass hasDt forwardPass ftk =
+revArtifactFromForwardPass hasDt forwardPass ftk
+ | Dict <- lemTensorKindOfAD (stensorKind @x)
+ , Dict <- lemTensorKindOfAD (stensorKind @z) =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -93,10 +95,14 @@ revArtifactFromForwardPass hasDt forwardPass ftk =
         unADValRep (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector in
   let (!varDt, !astDt) =
-        funToAst (shapeAstFull $ unRawY (stensorKind @z) primalBody) id in
-  let mdt = if hasDt then Just $ rawY (stensorKind @z) astDt else Nothing
+        funToAst (aDTensorKind $ shapeAstFull
+                  $ unRawY (stensorKind @z) primalBody) id in
+  let mdt = if hasDt
+            then Just $ rawY (stensorKind @(ADTensorKind z)) astDt
+            else Nothing
       !gradient = gradientFromDelta ftk primalBody mdt delta
-      !unGradient = unshareAstTensor $ unRawY (stensorKind @x) $ gradient
+      !unGradient = unshareAstTensor $ unRawY (stensorKind @(ADTensorKind x))
+                    $ gradient
       !unPrimal = unshareAstTensor $ unRawY (stensorKind @z) primalBody
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
      , delta )
@@ -250,6 +256,10 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
   type X (AstRanked s r n) = TKR r n
   toHVector = id
   fromHVector _aInit t = Just (t, Nothing)
+  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+    case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
+      Just Refl -> Just (t, Nothing)
+      _ -> Just (rzero (rshape aInit), Nothing)
 
 instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AsHVector (AstRanked s r n)) where
@@ -265,6 +275,11 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
   type X (AstGeneric AstMethodLet s r n) = TKR r n
   toHVector = AstRanked . unAstGeneric
   fromHVector _aInit t = Just (AstGeneric $ unAstRanked t, Nothing)
+  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+    case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
+      Just Refl -> Just (AstGeneric $ unAstRanked t, Nothing)
+      _ -> Just (AstGeneric $ unAstRanked
+                 $ rzero (rshape $ AstRanked $ unAstGeneric aInit), Nothing)
 
 {-
 instance (RankedTensor (AstRanked s), AstSpan s)
@@ -290,6 +305,10 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
   type X (AstShaped s r sh) = TKS r sh
   toHVector = id
   fromHVector _aInit t = Just (t, Nothing)
+  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
+      Just Refl -> Just (t, Nothing)
+      _ -> Just (srepl 0, Nothing)
 
 instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AsHVector (AstShaped s r sh)) where
@@ -707,8 +726,10 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   drev :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
-       -> AstHFun x x
-  drev ftkx f =  -- we don't have an AST constructor to hold it, so we compute
+       -> AstHFun x (ADTensorKind x)
+  drev ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x) =
+    -- we don't have an AST constructor to hold it, so we compute
+    --
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let -- No bangs here, because this goes under lambda and may be unneeded
@@ -724,13 +745,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z
-         -> AstHFun (TKProduct z x) x
-  drevDt ftkx f =
+         -> AstHFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
+  drevDt ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
+                , Dict <- lemTensorKindOfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = shapeAstFull primal
+        ftkz = aDTensorKind $ shapeAstFull primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDt (astProject1 astP)
@@ -764,9 +786,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
                                        (TKProduct accShs eShs))
                             (TKProduct accShs bShs)
-    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs bShs)
-                                       (TKProduct accShs eShs))
-                            (TKProduct accShs eShs)
+    -> HFunOf (AstRanked s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRanked s) accShs
     -> Rep (AstRanked s) (BuildTensorKind k eShs)
     -> Rep (AstRanked s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -789,9 +811,9 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
                                        (TKProduct accShs eShs))
                             (TKProduct accShs bShs)
-    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs bShs)
-                                       (TKProduct accShs eShs))
-                            (TKProduct accShs eShs)
+    -> HFunOf (AstRanked s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRanked s) accShs
     -> Rep (AstRanked s) (BuildTensorKind k eShs)
     -> Rep (AstRanked s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1168,9 +1190,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
                                     (TKProduct accShs eShs))
                          (TKProduct accShs bShs)
-    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs bShs)
-                                    (TKProduct accShs eShs))
-                         (TKProduct accShs eShs)
+    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRaw s) accShs
     -> Rep (AstRaw s) (BuildTensorKind k eShs)
     -> Rep (AstRaw s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1193,9 +1215,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
                                     (TKProduct accShs eShs))
                          (TKProduct accShs bShs)
-    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs bShs)
-                                    (TKProduct accShs eShs))
-                         (TKProduct accShs eShs)
+    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRaw s) accShs
     -> Rep (AstRaw s) (BuildTensorKind k eShs)
     -> Rep (AstRaw s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1586,9 +1608,9 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
                                             (TKProduct accShs eShs))
                                  (TKProduct accShs bShs)
-    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs bShs)
-                                            (TKProduct accShs eShs))
-                                (TKProduct accShs eShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstNoVectorize s) accShs
     -> Rep (AstNoVectorize s) (BuildTensorKind k eShs)
     -> Rep (AstNoVectorize s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1611,9 +1633,9 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
                                             (TKProduct accShs eShs))
                                  (TKProduct accShs bShs)
-    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs bShs)
-                                            (TKProduct accShs eShs))
-                                 (TKProduct accShs eShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstNoVectorize s) accShs
     -> Rep (AstNoVectorize s) (BuildTensorKind k eShs)
     -> Rep (AstNoVectorize s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -2034,9 +2056,9 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
                                            (TKProduct accShs eShs))
                                 (TKProduct accShs bShs)
-    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs bShs)
-                                           (TKProduct accShs eShs))
-                                (TKProduct accShs eShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstNoSimplify s) accShs
     -> Rep (AstNoSimplify s) (BuildTensorKind k eShs)
     -> Rep (AstNoSimplify s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -2059,9 +2081,9 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
                                            (TKProduct accShs eShs))
                                 (TKProduct accShs bShs)
-    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs bShs)
-                                           (TKProduct accShs eShs))
-                                (TKProduct accShs eShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                                (TKProduct accShs eShs))
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstNoSimplify s) accShs
     -> Rep (AstNoSimplify s) (BuildTensorKind k eShs)
     -> Rep (AstNoSimplify s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -2081,9 +2103,9 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
 prettifyArtifactRev
   :: forall x z. (TensorKind x, TensorKind z)
   => AstArtifactRev x z
-  -> ( AstVarName PrimalSpan z
+  -> ( AstVarName PrimalSpan (ADTensorKind z)
      , [AstDynamicVarName]
-     , AstTensor AstMethodLet PrimalSpan x
+     , AstTensor AstMethodLet PrimalSpan (ADTensorKind x)
      , AstTensor AstMethodLet PrimalSpan z )
 prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
  STKUntyped ->
@@ -2107,11 +2129,11 @@ prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
    in (artVarDtRev, [dynvar], artDerivativeRev, artPrimalRev)
 
 printArtifactSimple
-  :: (TensorKind x, TensorKind z)
+  :: forall x z. (TensorKind x, TensorKind z)
   => IntMap String
   -> AstArtifactRev x z
   -> String
-printArtifactSimple renames art =
+printArtifactSimple renames art | Dict <- lemTensorKindOfAD (stensorKind @z) =
   let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
   let !varsPP = printAstVarName renames varDt
                 : map (printAstDynamicVarNameBrief renames) vars1
@@ -2119,11 +2141,11 @@ printArtifactSimple renames art =
           ++ " -> " ++ printAstSimpleY renames derivative
 
 printArtifactPretty
-  :: (TensorKind x, TensorKind z)
+  :: forall x z. (TensorKind x, TensorKind z)
   => IntMap String
   -> AstArtifactRev x z
   -> String
-printArtifactPretty renames art =
+printArtifactPretty renames art | Dict <- lemTensorKindOfAD (stensorKind @z) =
   let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1

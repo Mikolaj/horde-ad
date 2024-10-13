@@ -53,7 +53,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- and specialize.
 -- | An implementation of the Adam gradient descent.
 sgdAdamDeep
-  :: forall a x z. (TensorKind x, TensorKind z)
+  :: forall a x z .(TensorKind x, TensorKind z)
   => (a -> Rep (ADVal ORArray) x -> Rep (ADVal ORArray) z)
   -> [a]
   -> Rep ORArray x
@@ -80,7 +80,8 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   go :: [a] -> Rep ORArray x -> StateAdamDeep x
      -> (Rep ORArray x, StateAdamDeep x)
   go [] parameters stateAdam = (parameters, stateAdam)
-  go (a : rest) !parameters !stateAdam =
+  go (a : rest) !parameters !stateAdam
+   | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let inputs :: Rep (ADVal ORArray) x
         inputs = makeADInputs parameters deltaInputs
         gradients = fst $ crevOnADInputs Nothing (f a) inputs

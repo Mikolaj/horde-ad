@@ -37,16 +37,16 @@ import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifact :: (TensorKind x, TensorKind z)
+simplifyArtifact :: forall x z. (TensorKind x, TensorKind z)
                  => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifact art =
+simplifyArtifact art | Dict <- lemTensorKindOfAD (stensorKind @x) =
   let !der = simplifyInline $ artDerivativeRev art in
   let !prim = simplifyInline $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
-simplifyArtifactGradient :: TensorKind x
+simplifyArtifactGradient :: forall x z. TensorKind x
                          => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactGradient art =
+simplifyArtifactGradient art | Dict <- lemTensorKindOfAD (stensorKind @x) =
   art { artDerivativeRev =
         simplifyInline $ artDerivativeRev art }
 

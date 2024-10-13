@@ -7,7 +7,7 @@
 -- that become the codomains of the reverse derivative functions
 -- and also to handle multiple arguments and results of fold-like operations.
 module HordeAd.Core.Adaptor
-  ( AdaptableHVector(..), parseHVector
+  ( AdaptableHVector(..), parseHVector, parseHVectorAD
   , TermValue(..), DualNumberValue(..)
   , ForgetShape(..), RandomHVector(..)
   , AsHVector(..)
@@ -51,6 +51,11 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
+  fromHVectorAD :: vals -> RepDeep ranked (ADTensorKind (X vals)) -> Maybe (vals, Maybe (RepDeep ranked (ADTensorKind (X vals))))
+  default fromHVectorAD :: X vals ~ ADTensorKind (X vals)
+                        => vals -> RepDeep ranked (ADTensorKind (X vals))
+                        -> Maybe (vals, Maybe (RepDeep ranked (ADTensorKind (X vals))))
+  fromHVectorAD = fromHVector
 
 -- | Recovers a value of a collection of tensors type and asserts
 -- there is no remainder. This is the main call of the recursive
@@ -61,6 +66,14 @@ parseHVector
   => vals -> RepDeep ranked (X vals) -> vals
 parseHVector aInit hVector =
   case fromHVector aInit hVector of
+    Just (vals, mrest) -> assert (maybe True nullRepDeep mrest) vals
+    Nothing -> error "parseHVector: truncated product of tensors"
+
+parseHVectorAD
+  :: forall vals ranked. (TensorKind (X vals), AdaptableHVector ranked vals)
+  => vals -> RepDeep ranked (ADTensorKind (X vals)) -> vals
+parseHVectorAD aInit hVector | Dict <- lemTensorKindOfAD (stensorKind @(X vals)) =
+  case fromHVectorAD aInit hVector of
     Just (vals, mrest) -> assert (maybe True nullRepDeep mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
@@ -170,6 +183,10 @@ instance ( AdaptableHVector ranked a
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
     return ((a, b), Nothing)
+  fromHVectorAD ~(aInit, bInit) (a1, b1) = do
+    (a, Nothing) <- fromHVectorAD aInit a1
+    (b, Nothing) <- fromHVectorAD bInit b1
+    return ((a, b), Nothing)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
   type Value (a, b) = (Value a, Value b)
@@ -205,6 +222,11 @@ instance ( AdaptableHVector ranked a
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
     (c, Nothing) <- fromHVector cInit c1
+    return ((a, b, c), Nothing)
+  fromHVectorAD ~(aInit, bInit, cInit) ((a1, b1), c1) = do
+    (a, Nothing) <- fromHVectorAD aInit a1
+    (b, Nothing) <- fromHVectorAD bInit b1
+    (c, Nothing) <- fromHVectorAD cInit c1
     return ((a, b, c), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c)
@@ -250,6 +272,12 @@ instance ( AdaptableHVector ranked a
     (b, Nothing) <- fromHVector bInit b1
     (c, Nothing) <- fromHVector cInit c1
     (d, Nothing) <- fromHVector dInit d1
+    return ((a, b, c, d), Nothing)
+  fromHVectorAD ~(aInit, bInit, cInit, dInit) ((a1, b1), (c1, d1)) = do
+    (a, Nothing) <- fromHVectorAD aInit a1
+    (b, Nothing) <- fromHVectorAD bInit b1
+    (c, Nothing) <- fromHVectorAD cInit c1
+    (d, Nothing) <- fromHVectorAD dInit d1
     return ((a, b, c, d), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
@@ -307,6 +335,14 @@ instance ( AdaptableHVector ranked a
     (c, Nothing) <- fromHVector cInit c1
     (d, Nothing) <- fromHVector dInit d1
     (e, Nothing) <- fromHVector eInit e1
+    return ((a, b, c, d, e), Nothing)
+  fromHVectorAD ~(aInit, bInit, cInit, dInit, eInit)
+              (((a1, b1), c1), (d1, e1)) = do
+    (a, Nothing) <- fromHVectorAD aInit a1
+    (b, Nothing) <- fromHVectorAD bInit b1
+    (c, Nothing) <- fromHVectorAD cInit c1
+    (d, Nothing) <- fromHVectorAD dInit d1
+    (e, Nothing) <- fromHVectorAD eInit e1
     return ((a, b, c, d, e), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)

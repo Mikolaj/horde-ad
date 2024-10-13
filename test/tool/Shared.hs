@@ -53,6 +53,9 @@ instance RankedTensor ranked => HasShape (DynamicTensor ranked) where
   shapeL (DynamicRankedDummy @_ @sh _ _) = shapeT @sh
   shapeL (DynamicShapedDummy @_ @sh _ _) = shapeT @sh
 
+instance HasShape (RepUnit (FlipR Nested.Ranked)) where
+  shapeL _ = [0]
+
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
   shapeL = (: []) . length
 
@@ -92,6 +95,9 @@ instance ( forall r n. (GoodScalar r, KnownNat n)
     map toDouble $ linearize @(ShapedOf ranked r2 sh2) @r2 t
   linearize (DynamicRankedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
   linearize (DynamicShapedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
+
+instance Linearizable (RepUnit a) (RepUnit a) where
+  linearize _ = []
 
 toDouble :: forall r. Typeable r => r -> Double
 toDouble =

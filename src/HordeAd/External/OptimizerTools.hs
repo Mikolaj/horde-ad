@@ -143,7 +143,7 @@ repDeepZero = \case
 
 updateWithGradientAdamDeep
   :: TensorKind y
-  => ArgsAdam -> StateAdamDeep y -> Rep ORArray y -> Rep ORArray y
+  => ArgsAdam -> StateAdamDeep y -> Rep ORArray y -> Rep ORArray (ADTensorKind y)
   -> (Rep ORArray y, StateAdamDeep y)
 updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
   let mAdamR = mAdamDeep
@@ -170,42 +170,53 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
            , p - (Nested.rreplicateScal sh (realToFrac alphat) * mANew)
                  / (sqrt vANew
                     + Nested.rreplicateScal sh (realToFrac epsilon)) )
-      updateProd :: STensorKindType y
-                 -> Rep ORArray y -> Rep ORArray y
-                 -> Rep ORArray y -> Rep ORArray y
-                 -> Rep ORArray (Triplify y)
-      updateProd stk mA vA p g = case stk of
+      updateProd :: forall y2.
+                    STensorKindType y2
+                 -> Rep ORArray y2 -> Rep ORArray y2
+                 -> Rep ORArray y2 -> Rep ORArray (ADTensorKind y2)
+                 -> Rep ORArray (Triplify y2)
+      updateProd stk mA vA p g
+       | Dict <- lemTensorKindOfAD stk = case stk of
         STKR @r _ _ ->
-          ifDifferentiable @r
-            (let (mAN, vAN, pN) = updateR (runFlipR mA) (runFlipR vA)
-                                          (runFlipR p) (runFlipR g)
-             in ((FlipR mAN, FlipR vAN), FlipR pN))
-            ((mA, vA), p)
+          case sameTensorKind @y2 @(ADTensorKind y2) of
+            Just Refl ->
+              ifDifferentiable @r
+                (let (mAN, vAN, pN) = updateR (runFlipR mA) (runFlipR vA)
+                                              (runFlipR p) (runFlipR g)
+                 in ((FlipR mAN, FlipR vAN), FlipR pN))
+                ((mA, vA), p)
+            _ -> ((mA, vA), p)
         STKS @r _ _ ->
-          ifDifferentiable @r
-            (let (mAN, vAN, pN) =
-                   updateR (Nested.stoRanked (runFlipS mA))
-                           (Nested.stoRanked (runFlipS vA))
-                           (Nested.stoRanked (runFlipS p))
-                           (Nested.stoRanked (runFlipS g))
-             in ( ( FlipS $ Nested.rcastToShaped mAN knownShS
-                  , FlipS $ Nested.rcastToShaped vAN knownShS )
-                , FlipS $ Nested.rcastToShaped pN knownShS ))
-            ((mA, vA), p)
+          case sameTensorKind @y2 @(ADTensorKind y2) of
+            Just Refl ->
+              ifDifferentiable @r
+                (let (mAN, vAN, pN) =
+                       updateR (Nested.stoRanked (runFlipS mA))
+                               (Nested.stoRanked (runFlipS vA))
+                               (Nested.stoRanked (runFlipS p))
+                               (Nested.stoRanked (runFlipS g))
+                 in ( ( FlipS $ Nested.rcastToShaped mAN knownShS
+                      , FlipS $ Nested.rcastToShaped vAN knownShS )
+                    , FlipS $ Nested.rcastToShaped pN knownShS ))
+                ((mA, vA), p)
+            _ -> ((mA, vA), p)
         STKX @r _ _ ->
-          ifDifferentiable @r
-            (let (mAN, vAN, pN) =
-                   updateR (Nested.mtoRanked (runFlipX mA))
-                           (Nested.mtoRanked (runFlipX vA))
-                           (Nested.mtoRanked (runFlipX p))
-                           (Nested.mtoRanked (runFlipX g))
-             in ( ( FlipX $ Nested.mreshape (Nested.mshape (runFlipX mA))
-                          $ Nested.rtoMixed mAN
-                  , FlipX $ Nested.mreshape (Nested.mshape (runFlipX vA))
-                          $ Nested.rtoMixed vAN )
-                , FlipX $ Nested.mreshape (Nested.mshape (runFlipX p))
-                          $ Nested.rtoMixed pN ))
-            ((mA, vA), p)
+          case sameTensorKind @y2 @(ADTensorKind y2) of
+            Just Refl ->
+              ifDifferentiable @r
+                (let (mAN, vAN, pN) =
+                       updateR (Nested.mtoRanked (runFlipX mA))
+                               (Nested.mtoRanked (runFlipX vA))
+                               (Nested.mtoRanked (runFlipX p))
+                               (Nested.mtoRanked (runFlipX g))
+                 in ( ( FlipX $ Nested.mreshape (Nested.mshape (runFlipX mA))
+                              $ Nested.rtoMixed mAN
+                      , FlipX $ Nested.mreshape (Nested.mshape (runFlipX vA))
+                              $ Nested.rtoMixed vAN )
+                    , FlipX $ Nested.mreshape (Nested.mshape (runFlipX p))
+                              $ Nested.rtoMixed pN ))
+                ((mA, vA), p)
+            _ -> ((mA, vA), p)
         STKProduct stk1 stk2 ->
           ( updateProd stk1 (fst mA) (fst vA) (fst p) (fst g)
           , updateProd stk2 (snd mA) (snd vA) (snd p) (snd g) )

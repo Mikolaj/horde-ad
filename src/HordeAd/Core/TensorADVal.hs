@@ -52,10 +52,10 @@ crevOnADInputs
   :: forall x z ranked.
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (Rep ranked z)
+  => Maybe (Rep ranked (ADTensorKind z))
   -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep (ADVal ranked) x
-  -> (Rep ranked x, Rep ranked z)
+  -> (Rep ranked (ADTensorKind x), Rep ranked z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -71,10 +71,10 @@ crevOnHVector
   :: forall x z ranked.
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (Rep ranked z)
+  => Maybe (Rep ranked (ADTensorKind z))
   -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep ranked x
-  -> (Rep ranked x, Rep ranked z)
+  -> (Rep ranked (ADTensorKind x), Rep ranked z)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs
                     $ tshapeFull (stensorKind @x) parameters
@@ -238,6 +238,10 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
   type X (ADVal ranked r n) = TKR r n
   toHVector = id
   fromHVector _aInit t = Just (t, Nothing)
+  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+    case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
+      Just Refl -> Just (t, Nothing)
+      _ -> Just (rzero (rshape aInit), Nothing)
 
 instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
          , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
@@ -409,6 +413,10 @@ instance ( ADReadyNoLetS shaped, ShareTensor ranked
   type X (ADVal shaped r sh) = TKS r sh
   toHVector = id
   fromHVector _aInit t = Just (t, Nothing)
+  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
+      Just Refl -> Just (t, Nothing)
+      _ -> Just (srepl 0, Nothing)
 
 instance ( ADReadyNoLetS shaped, ShareTensor ranked
          , ShareTensor (PrimalOf ranked)
@@ -587,11 +595,11 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   drev :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
-       -> HFun x x
-  drev _ftk h =
+       -> HFun x (ADTensorKind x)
+  drev _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let rf :: forall f. ADReady f
            => Rep f x
-           -> Rep f x
+           -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
         rf !a = blet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
@@ -602,11 +610,12 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z
-         -> HFun (TKProduct z x) x
-  drevDt _ftk h =
+         -> HFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
+  drevDt _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
+                , Dict <- lemTensorKindOfAD (stensorKind @z) =
     let rf :: forall f. ADReady f
-           => Rep f (TKProduct z x)
-           -> Rep f x
+           => Rep f (TKProduct (ADTensorKind z) x)
+           -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = blet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
@@ -641,16 +650,19 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs eShs)
                                         (TKProduct accShs eShs))
                              (TKProduct accShs bShs)
-    -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
+    -> HFunOf (ADVal ranked) (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                         (TKProduct accShs eShs))
-                             (TKProduct accShs eShs)
+                             (ADTensorKind (TKProduct accShs eShs))
     -> Rep (ADVal ranked) accShs
     -> Rep (ADVal ranked) (BuildTensorKind k eShs)
     -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
     let (acc0, acc0') = unADValRep stensorKind acc0D
         (esNotShared, es') = unADValRep stensorKind esD
         es = tshare esNotShared
@@ -671,10 +683,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (TKProduct accShs
-                                          (TKProduct accShs bShs))
+           => Rep f (TKProduct (ADTensorKind (TKProduct accShs
+                                                        (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
-           -> Rep f (TKProduct accShs eShs)
+           -> Rep f (ADTensorKind (TKProduct accShs eShs))
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
@@ -692,7 +704,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
                           (dlambda @ranked
-                             (FTKProduct (FTKProduct accShs codomainShs)
+                             (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
                           acc0 es
@@ -716,16 +728,19 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs eShs)
                                         (TKProduct accShs eShs))
                              (TKProduct accShs bShs)
-    -> HFunOf (ADVal ranked) (TKProduct (TKProduct accShs bShs)
+    -> HFunOf (ADVal ranked) (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                         (TKProduct accShs eShs))
-                             (TKProduct accShs eShs)
+                             (ADTensorKind (TKProduct accShs eShs))
     -> Rep (ADVal ranked) accShs
     -> Rep (ADVal ranked) (BuildTensorKind k eShs)
     -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs) =
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
     let (acc0, acc0') = unADValRep stensorKind acc0D
         (esNotShared, es') = unADValRep stensorKind esD
         es = tshare esNotShared
@@ -746,10 +761,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (TKProduct accShs
-                                          (TKProduct accShs bShs))
+           => Rep f (TKProduct (ADTensorKind (TKProduct accShs
+                                                        (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
-           -> Rep f (TKProduct accShs eShs)
+           -> Rep f (ADTensorKind (TKProduct accShs eShs))
         rg !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
@@ -767,7 +782,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
                           (dlambda @ranked
-                             (FTKProduct (FTKProduct accShs codomainShs)
+                             (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
                           acc0 es

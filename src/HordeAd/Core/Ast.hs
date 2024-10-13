@@ -229,9 +229,9 @@ tensorKindFromAstVarName AstVarName{} = Dict
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type role AstArtifactRev nominal nominal
 data AstArtifactRev x z = AstArtifactRev
-  { artVarDtRev      :: AstVarName PrimalSpan z
+  { artVarDtRev      :: AstVarName PrimalSpan (ADTensorKind z)
   , artVarDomainRev  :: AstVarName PrimalSpan x
-  , artDerivativeRev :: AstTensor AstMethodLet PrimalSpan x
+  , artDerivativeRev :: AstTensor AstMethodLet PrimalSpan (ADTensorKind x)
   , artPrimalRev     :: AstTensor AstMethodLet PrimalSpan z
   }
 
@@ -641,9 +641,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -> AstHFun (TKProduct (TKProduct accShs eShs)
                           (TKProduct accShs eShs))
                (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                           (TKProduct accShs eShs))
-               (TKProduct accShs eShs)
+               (ADTensorKind (TKProduct accShs eShs))
     -> AstTensor ms s accShs
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
@@ -657,9 +657,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -> AstHFun (TKProduct (TKProduct accShs eShs)
                           (TKProduct accShs eShs))
                (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                           (TKProduct accShs eShs))
-               (TKProduct accShs eShs)
+               (ADTensorKind (TKProduct accShs eShs))
     -> AstTensor ms s accShs
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))

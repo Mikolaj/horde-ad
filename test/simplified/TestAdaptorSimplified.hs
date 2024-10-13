@@ -445,14 +445,14 @@ testOverleaf =
 testOverleafInt64 :: Assertion
 testOverleafInt64 =
   assertEqualUpToEpsilon 1e-10
-    (ringestData [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (ringestData [28] (map round [0 :: Double,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]))
     (crev @_ @(TKR Int64 0)
           overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCInt :: Assertion
 testOverleafCInt =
   assertEqualUpToEpsilon 1e-10
-    (ringestData [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (ringestData [28] (map round [0 :: Double,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]))
     (rev @_ @(TKR CInt 0)
          overleaf (ringestData [28] [0 .. 27]))
 

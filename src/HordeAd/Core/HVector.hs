@@ -11,6 +11,7 @@ module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
   , Rep, RepN(..), RepUnit(..), RepProductN(..), RepShallow, RepDeep, RepD(..)
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
+  , aDTensorKind
   , DynamicTensor(..)
   , CRanked, CShaped, CMixed, CMixedSupports, CHFun, CHFun2, CRepProduct
   , HVector
@@ -29,10 +30,11 @@ import Data.Kind (Constraint, Type)
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality (testEquality)
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape (IShX)
 import Data.Array.Nested (KnownShX, SMayNat (..), ShX (..), type (++))
@@ -185,6 +187,32 @@ buildTensorKindFull snat@SNat = \case
                  (buildTensorKindFull snat ftk2)
   FTKUnit -> FTKUnit
   FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
+
+aDTensorKind :: TensorKindFull y
+             -> TensorKindFull (ADTensorKind y)
+aDTensorKind t = case t of
+  FTKR @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> unsafeCoerce FTKUnit  -- morally correct
+  FTKS @r -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> unsafeCoerce FTKUnit  -- morally correct
+  FTKX @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> unsafeCoerce FTKUnit  -- morally correct
+  FTKProduct ftk1 ftk2 ->
+    let gtk1 = aDTensorKind ftk1
+        gtk2 = aDTensorKind ftk2
+    in case (lemTensorKindOfF gtk1, lemTensorKindOfF gtk2) of
+      (Dict, Dict) -> FTKProduct gtk1 gtk2
+  FTKUnit -> t
+  FTKUntyped{} -> t
 
 -- For thousands of tensor parameters, orthotope's dynamic tensors
 -- are faster than the datatype below and the special dummy values are faster

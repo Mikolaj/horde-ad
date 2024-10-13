@@ -879,14 +879,20 @@ interpretAst !env = \case
   AstBuildHVector1 k (var, v) ->
     HVectorPseudoTensor
        $ dbuild1 k (interpretLambdaIHVector interpretAst env (var, v))
-  AstMapAccumRDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
+  AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
     in dmapAccumRDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
-  AstMapAccumLDer k accShs bShs eShs f0 df0 rf0 acc0 es ->
+  AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0

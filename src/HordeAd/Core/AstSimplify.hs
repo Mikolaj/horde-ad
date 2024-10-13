@@ -2526,16 +2526,20 @@ simplifyAst t = case t of
                                   (simplifyAst ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAst v)
-  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+  Ast.AstMapAccumRDer @accShs @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs
                           (simplifyAstHFun f)
                           (simplifyAstHFun df)
                           (simplifyAstHFun rf)
                           (simplifyAst acc0)
                           (simplifyAst es)
-  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+  Ast.AstMapAccumLDer @accShs @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
       Ast.AstMapAccumLDer k accShs bShs eShs
                           (simplifyAstHFun f)
                           (simplifyAstHFun df)
@@ -2742,16 +2746,20 @@ expandAst t = case t of
                                   (expandAst ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAst v)
-  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+  Ast.AstMapAccumRDer @accShs @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs
                           (expandAstHFun f)
                           (expandAstHFun df)
                           (expandAstHFun rf)
                           (expandAst acc0)
                           (expandAst es)
-  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+  Ast.AstMapAccumLDer @accShs @_ @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
       Ast.AstMapAccumLDer k accShs bShs eShs
                           (expandAstHFun f)
                           (expandAstHFun df)
@@ -3305,8 +3313,11 @@ substitute1Ast i var v1 = case v1 of
       (mt, mll) -> Just $ astHApply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstBuildHVector1 k (var2, v) ->
     Ast.AstBuildHVector1 k . (var2,) <$> substitute1Ast i var v
-  Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+  Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
            , substitute1AstHFun i var rf, substitute1Ast i var acc0
            , substitute1Ast i var es ) of
@@ -3318,8 +3329,11 @@ substitute1Ast i var v1 = case v1 of
                                      (fromMaybe rf mrf)
                                      (fromMaybe acc0 macc0)
                                      (fromMaybe es mes)
-  Ast.AstMapAccumLDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
+  Ast.AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
            , substitute1AstHFun i var rf, substitute1Ast i var acc0
            , substitute1Ast i var es ) of

@@ -15,10 +15,11 @@ module HordeAd.Core.Types
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType, MixedTensorType
   , TensorKindType (..), STensorKindType(..), TensorKind(..)
-  , lemTensorKindOfS, sameTensorKind
+  , lemTensorKindOfS, sameTensorKind, sameTK
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
+  , ADTensorKind, lemTensorKindOfAD, lemBuildOfAD
     -- * Type families that tensors will belong to
   , IntOf, RankedOf, ShapedOf, MixedOf
   , HFunOf, PrimalOf, DualOf, ShareOf
@@ -44,7 +45,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (KnownShX (..), StaticShX (..))
-import Data.Array.Mixed.Types (Dict (..))
+import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
 import Data.Array.Nested
   (IxS (..), KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
@@ -203,9 +204,9 @@ lemTensorKindOfS = \case
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
 sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
- where
-  sameTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
-  sameTK y1 y2 = case (y1, y2) of
+
+sameTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
+sameTK y1 y2 = case (y1, y2) of
     (STKR r1 snat1, STKR r2 snat2) ->
       case (testEquality r1 r2, testEquality snat1 snat2) of
         (Just Refl, Just Refl) -> Just Refl
@@ -280,6 +281,61 @@ instance IfDifferentiable Double where
   ifDifferentiable ra _ = ra
 instance IfDifferentiable Float where
   ifDifferentiable ra _ = ra
+
+type family ADTensorKind tk where
+  ADTensorKind (TKR Double n) = TKR Double n
+  ADTensorKind (TKR Float n) = TKR Float n
+  ADTensorKind (TKR r n) = TKUnit
+  ADTensorKind (TKS Double sh) = TKS Double sh
+  ADTensorKind (TKS Float sh) = TKS Float sh
+  ADTensorKind (TKS r sh) = TKUnit
+  ADTensorKind (TKX Double sh) = TKX Double sh
+  ADTensorKind (TKX Float sh) = TKX Float sh
+  ADTensorKind (TKX r sh) = TKUnit
+  ADTensorKind (TKProduct y z) =
+    TKProduct (ADTensorKind y) (ADTensorKind z)
+  ADTensorKind TKUnit = TKUnit
+  ADTensorKind TKUntyped = TKUntyped
+    -- TODO (unlikely): also affect the inside of HVectors
+
+lemTensorKindOfAD :: forall y.
+                     STensorKindType y
+                  -> Dict TensorKind (ADTensorKind y)
+lemTensorKindOfAD = \case
+  STKR @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> Dict
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> Dict
+      _ -> unsafeCoerce (Dict @TensorKind @TKUnit)
+  STKS @r _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> Dict
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> Dict
+      _ -> unsafeCoerce (Dict @TensorKind @TKUnit)
+  STKX @r _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> Dict
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> Dict
+      _ -> unsafeCoerce (Dict @TensorKind @TKUnit)
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
+                       , Dict <- lemTensorKindOfAD stk2 -> Dict
+  STKUnit -> Dict
+  STKUntyped -> Dict
+
+lemBuildOfAD :: forall k y.
+                SNat k -> STensorKindType y
+             -> Maybe (BuildTensorKind k (ADTensorKind y)
+                       :~: ADTensorKind (BuildTensorKind k y))
+lemBuildOfAD snat@SNat = \case
+  STKR{} -> Just unsafeCoerceRefl
+  STKS{} -> Just unsafeCoerceRefl
+  STKX{} -> Just unsafeCoerceRefl
+  STKProduct stk1 stk2 ->
+    case (lemBuildOfAD snat stk1, lemBuildOfAD snat stk2) of
+      (Just Refl, Just Refl) -> Just Refl
+      _ -> Nothing
+  STKUnit -> Just Refl
+  STKUntyped -> Just Refl
 
 
 -- * Type families that tensors will belong to

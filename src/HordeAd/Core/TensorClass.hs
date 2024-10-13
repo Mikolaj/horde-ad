@@ -178,6 +178,11 @@ class HVectorTensor ranked shaped
   taddLet :: TensorKind y
           => Rep ranked y -> Rep ranked y -> Rep ranked y
 
+  -- If the result of the argument function is not a scalar,
+  -- the result of this operation is the gradient of a function that additionally
+  -- sums all elements of the result. If all elements are equally important
+  -- for optimization, this may be exactly what is needed for gradient descent.
+  --
   -- The second argument is only used to determine tensor shapes
   -- and the third has to have the same shapes as the second.
   --
@@ -195,8 +200,8 @@ class HVectorTensor ranked shaped
        => (forall f. ADReady f => RepDeep f x -> f r n)
        -> TensorKindFull x
        -> RepDeep ranked x
-       -> Rep ranked x
-  rrev f ftk =
+       -> Rep ranked (ADTensorKind x)
+  rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es -> dHApply (drev @ranked ftk $ HFun g) (unrepDeep es)
@@ -208,9 +213,10 @@ class HVectorTensor ranked shaped
          => (forall f. ADReady f => RepDeep f x -> f r n)
          -> TensorKindFull x
          -> RepDeep ranked x
-         -> ranked r n  -- ^ incoming cotangent (dt)
-         -> Rep ranked x
-  rrevDt f ftk =
+         -> Rep ranked (ADTensorKind (TKR r n))  -- ^ incoming cotangent (dt)
+         -> Rep ranked (ADTensorKind x)
+  rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+               , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
@@ -228,12 +234,14 @@ class HVectorTensor ranked shaped
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
                             (tpair (unrepDeep ds) (unrepDeep es))
-  srev :: ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
-          , ShapedTensor shaped, shaped ~ ShapedOf ranked )
+  srev :: forall x r sh.
+          ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
+          , ShapedTensor shaped, shaped ~ ShapedOf ranked
+          , ADTensorKind (TKS r sh) ~ TKS r sh )
        => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
        -> TensorKindFull x
        -> RepDeep ranked x
-       -> Rep ranked x
+       -> Rep ranked (ADTensorKind x)
   srev f ftk es = srevDt f ftk es (srepl 1)
   srevDt :: forall x r sh.
             ( TensorKind x, GoodScalar r, KnownShS sh
@@ -241,9 +249,10 @@ class HVectorTensor ranked shaped
          => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
          -> TensorKindFull x
          -> RepDeep ranked x
-         -> shaped r sh
-         -> Rep ranked x
-  srevDt f ftk =
+         -> Rep ranked (ADTensorKind (TKS r sh))  -- ^ incoming cotangent (dt)
+         -> Rep ranked (ADTensorKind x)
+  srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+               , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
@@ -971,6 +980,13 @@ class HVectorTensor (ranked :: RankedTensorType)
                  -- outermost dimension k
   dzipWith1 k f u =
     dbuild1 @ranked k (f . index1HVectorF rshape sshape rindex sindex u)
+  -- If the result of the argument function is not a scalar,
+  -- the result of this operation is the gradient of a function that additionally
+  -- sums all elements of the result. If all elements are equally important
+  -- for optimization, this may be exactly what is needed for gradient descent,
+  -- unless there are floats of different resolution among the elements and,
+  -- e.g., one wants to compensate for that.
+  --
   -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
   -- producing HVectorOf and it's exactly what is needed as arguments
   -- of dmapAccumRDer
@@ -978,12 +994,13 @@ class HVectorTensor (ranked :: RankedTensorType)
     :: (TensorKind x, TensorKind z)
     => TensorKindFull x  -- shape of a and da
     -> HFun x z  -- a |-> b
-    -> HFunOf ranked x x  -- a |-> da
+    -> HFunOf ranked x (ADTensorKind x)  -- a |-> da
   drevDt
     :: (TensorKind x, TensorKind z)
     => TensorKindFull x  -- shape of a and da
     -> HFun x z  -- a |-> b
-    -> HFunOf ranked (TKProduct z x) x  -- [db, a] |-> da
+    -> HFunOf ranked (TKProduct (ADTensorKind z) x) (ADTensorKind x)
+                 -- [db, a] |-> da
   dfwd
     :: (TensorKind x, TensorKind z)
     => TensorKindFull x  -- shape of a and da
@@ -1148,9 +1165,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HFunOf ranked (TKProduct (TKProduct accShs eShs)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs bShs)
-    -> HFunOf ranked (TKProduct (TKProduct accShs bShs)
+    -> HFunOf ranked (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                 (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep ranked accShs  -- ^ acc0 :: accShs
     -> Rep ranked (BuildTensorKind k eShs)
          -- ^ es :: k ': eShs
@@ -1196,9 +1213,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> HFunOf ranked (TKProduct (TKProduct accShs eShs)
                                 (TKProduct accShs eShs))
                      (TKProduct accShs bShs)
-    -> HFunOf ranked (TKProduct (TKProduct accShs bShs)
+    -> HFunOf ranked (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                 (TKProduct accShs eShs))
-                     (TKProduct accShs eShs)
+                     (ADTensorKind (TKProduct accShs eShs))
     -> Rep ranked accShs
     -> Rep ranked (BuildTensorKind k eShs)
     -> Rep ranked (TKProduct accShs (BuildTensorKind k bShs))
