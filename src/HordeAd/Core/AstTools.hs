@@ -195,6 +195,7 @@ varInAst var = \case
   AstPair t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
+  AstUnit -> False
   AstVar _ var2 -> var == varNameToAstVarId var2
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a

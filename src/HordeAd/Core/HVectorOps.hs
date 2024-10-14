@@ -81,7 +81,7 @@ fromRepD = \case
   DTKS t -> t
   DTKX t -> t
   DTKProduct t1 t2 -> tpair (fromRepD t1) (fromRepD t2)
-  DTKUnit -> RepUnit ()
+  DTKUnit -> tunit
   DTKUntyped t -> HVectorPseudoTensor $ dmkHVector t
 
 addRepD ::

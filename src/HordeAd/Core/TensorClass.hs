@@ -1216,7 +1216,6 @@ class ProductTensor (ranked :: RankedTensorType) where
             => Rep ranked (TKProduct x z)
             -> Rep ranked z
   tunit :: Rep ranked TKUnit
-  tunit = RepUnit ()
   tmkHVector :: HVector ranked -> HVectorOf ranked
 
 rfromD :: forall r n ranked.
@@ -1326,7 +1325,7 @@ unrepShallow t = case stensorKind @y of
   STKS{} -> t
   STKX{} -> t
   STKProduct{} -> uncurry tpair t
-  STKUnit -> t
+  STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 unrepDeep :: forall ranked y.
@@ -1339,7 +1338,7 @@ unrepDeep t = case stensorKind @y of
   STKS{} -> t
   STKX{} -> t
   STKProduct{} -> tpair (unrepDeep (fst t)) (unrepDeep (snd t))
-  STKUnit -> t
+  STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 -- The argument of the first call (but not of recursive calls)
@@ -1358,7 +1357,7 @@ repDeepDuplicable stk t = case stk of
   STKX{} -> t
   STKProduct stk1 stk2 ->
     (repDeepDuplicable stk1 (tproject1 t), repDeepDuplicable stk2 (tproject2 t))
-  STKUnit -> t
+  STKUnit -> RepUnit ()
   STKUntyped -> dunHVector $ unHVectorPseudoTensor t
 
 mapDynamic

@@ -159,6 +159,7 @@ interpretAst !env = \case
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
+  AstUnit -> tunit
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of

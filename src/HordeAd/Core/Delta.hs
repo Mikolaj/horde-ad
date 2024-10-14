@@ -693,6 +693,8 @@ type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
 type instance Rep (DeltaR ranked) (TKProduct x z) =
   Delta ranked (TKProduct x z)
+type instance Rep (DeltaR ranked) TKUnit =
+  RepUnit (DeltaR ranked)  -- we don't have a Delta term for tunit
 
 instance ( RankedOf (ShapedOf ranked) ~ ranked
          , RankedOf (MixedOf ranked) ~ ranked )
@@ -701,6 +703,7 @@ instance ( RankedOf (ShapedOf ranked) ~ ranked
                       (unDeltaRY stensorKind t2)
   tproject1 = deltaRY stensorKind . Project1G
   tproject2 = deltaRY stensorKind . Project2G
+  tunit = RepUnit ()
   tmkHVector = HToH
 
 deltaRY :: forall y ranked.

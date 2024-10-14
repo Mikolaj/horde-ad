@@ -62,7 +62,7 @@ type instance Rep ranked (TKR r n) = ranked r n
 type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
 type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
 -- The TKProduct case is defined separately for each ranked argument.
-type instance Rep ranked TKUnit = RepUnit ranked
+-- The TKUnit case is defined separately for each ranked argument.
 type instance Rep ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
@@ -90,7 +90,7 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
     STKS{} -> showsPrec d t
     STKX{} -> showsPrec d t
     STKProduct{} -> showsPrec d (RepProductN t)
-    STKUnit -> showsPrec d t
+    STKUnit -> showsPrec d (RepUnit ())
     STKUntyped -> showsPrec d t
 
 type role RepProductN nominal nominal nominal

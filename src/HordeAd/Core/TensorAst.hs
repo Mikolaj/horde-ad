@@ -394,6 +394,7 @@ instance AstSpan s => ProductTensor (AstRanked s) where
                           (unRankedY stensorKind t2)
   tproject1 = rankedY stensorKind . astProject1
   tproject2 = rankedY stensorKind . astProject2
+  tunit = AstUnit
   tmkHVector = AstMkHVector . unRankedHVector
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
@@ -470,7 +471,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     STKX{} -> blet u f
     stk@STKProduct{} ->
       blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUnit -> f u
+    STKUnit -> f (RepUnit ())
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
@@ -482,7 +483,7 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
     STKX{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUnit -> f u
+    STKUnit -> f (RepUnit ())
     STKUntyped{} ->
       blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
@@ -905,6 +906,8 @@ deriving instance (RealFloatF (AstTensor AstMethodShare s (TKX r sh)))
 
 type instance Rep (AstRaw s) (TKProduct x z) =
   AstRawWrap (AstTensor AstMethodShare s (TKProduct x z))
+type instance Rep (AstRaw s) TKUnit =
+  AstRawWrap (AstTensor AstMethodShare s TKUnit)
 
 instance Show (RepProductN (AstRaw s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
@@ -914,6 +917,7 @@ instance ProductTensor (AstRaw s) where
                                        (unRawY stensorKind t2)
   tproject1 t = rawY stensorKind $ AstProject1 $ unAstRawWrap t
   tproject2 t = rawY stensorKind $ AstProject2 $ unAstRawWrap t
+  tunit = AstRawWrap AstUnit
   tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
 
 rawY :: STensorKindType y -> AstTensor AstMethodShare s y
@@ -923,7 +927,7 @@ rawY stk t = case stk of
   STKS{} -> AstRawS t
   STKX{} -> AstRawX t
   STKProduct{} -> AstRawWrap t
-  STKUnit -> tunit
+  STKUnit -> AstRawWrap t
   STKUntyped -> HVectorPseudoTensor $ AstRawWrap t
 
 unRawY :: STensorKindType y -> Rep (AstRaw s) y
@@ -933,7 +937,7 @@ unRawY stk t = case stk of
   STKS{} -> unAstRawS t
   STKX{} -> unAstRawX t
   STKProduct{} -> unAstRawWrap t
-  STKUnit -> undefined
+  STKUnit -> unAstRawWrap t
   STKUntyped -> unAstRawWrap $ unHVectorPseudoTensor t
 
 instance AstSpan s => ShareTensor (AstRaw s) where
@@ -1278,6 +1282,8 @@ deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
 
 type instance Rep (AstNoVectorize s) (TKProduct x z) =
   AstNoVectorizeWrap (AstTensor AstMethodLet s (TKProduct x z))
+type instance Rep (AstNoVectorize s) TKUnit =
+  AstNoVectorizeWrap (AstTensor AstMethodLet s TKUnit)
 
 instance Show (RepProductN (AstNoVectorize s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
@@ -1287,17 +1293,17 @@ instance AstSpan s => ProductTensor (AstNoVectorize s) where
                                              (unNoVectorizeY stensorKind t2)
   tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
   tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
+  tunit = AstNoVectorizeWrap AstUnit
   tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
 
-noVectorizeY :: AstSpan s
-             => STensorKindType y -> AstTensor AstMethodLet s y
+noVectorizeY :: STensorKindType y -> AstTensor AstMethodLet s y
              -> Rep (AstNoVectorize s) y
 noVectorizeY stk t = case stk of
   STKR{} -> AstNoVectorize t
   STKS{} -> AstNoVectorizeS t
   STKX{} -> AstNoVectorizeX t
   STKProduct{} -> AstNoVectorizeWrap t
-  STKUnit -> tunit
+  STKUnit -> AstNoVectorizeWrap t
   STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap t
 
 unNoVectorizeY :: STensorKindType y -> Rep (AstNoVectorize s) y
@@ -1307,7 +1313,7 @@ unNoVectorizeY stk t = case stk of
   STKS{} -> unAstNoVectorizeS t
   STKX{} -> unAstNoVectorizeX t
   STKProduct{} -> unAstNoVectorizeWrap t
-  STKUnit -> undefined
+  STKUnit -> unAstNoVectorizeWrap t
   STKUntyped -> unAstNoVectorizeWrap $ unHVectorPseudoTensor t
 
 unAstNoVectorize2 :: AstNoVectorize s r n -> AstRanked s r n
@@ -1360,7 +1366,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKX{} -> blet u f
     stk@STKProduct{} ->
       blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUnit -> f u
+    STKUnit -> f (RepUnit ())
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
@@ -1372,7 +1378,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKX{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUnit -> f u
+    STKUnit -> f (RepUnit ())
     STKUntyped{} ->
       blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)
@@ -1694,6 +1700,8 @@ deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
 
 type instance Rep (AstNoSimplify s) (TKProduct x z) =
   AstNoSimplifyWrap (AstTensor AstMethodLet s (TKProduct x z))
+type instance Rep (AstNoSimplify s) TKUnit =
+  AstNoSimplifyWrap (AstTensor AstMethodLet s TKUnit)
 
 instance Show (RepProductN (AstNoSimplify s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
@@ -1703,6 +1711,7 @@ instance AstSpan s => ProductTensor (AstNoSimplify s) where
                                             (unNoSimplifyY stensorKind t2)
   tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
   tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
+  tunit = AstNoSimplifyWrap AstUnit
   tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
 astLetFunNoSimplify
@@ -1726,15 +1735,14 @@ astLetHFunInFunNoSimplify a f =
       shs = shapeAstHFun a
   in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
 
-noSimplifyY :: AstSpan s
-            => STensorKindType y -> AstTensor AstMethodLet s y
+noSimplifyY :: STensorKindType y -> AstTensor AstMethodLet s y
             -> Rep (AstNoSimplify s) y
 noSimplifyY stk t = case stk of
   STKR{} -> AstNoSimplify t
   STKS{} -> AstNoSimplifyS t
   STKX{} -> AstNoSimplifyX t
   STKProduct{} -> AstNoSimplifyWrap t
-  STKUnit -> tunit
+  STKUnit -> AstNoSimplifyWrap t
   STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap t
 
 unNoSimplifyY :: STensorKindType y -> Rep (AstNoSimplify s) y
@@ -1744,7 +1752,7 @@ unNoSimplifyY stk t = case stk of
   STKS{} -> unAstNoSimplifyS t
   STKX{} -> unAstNoSimplifyX t
   STKProduct{} -> unAstNoSimplifyWrap t
-  STKUnit -> undefined
+  STKUnit -> unAstNoSimplifyWrap t
   STKUntyped -> unAstNoSimplifyWrap $ unHVectorPseudoTensor t
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstGeneric AstMethodLet s)
@@ -1779,7 +1787,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKX{} -> blet u f
     stk@STKProduct{} ->
       blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUnit -> f u
+    STKUnit -> f (RepUnit ())
     STKUntyped{} -> tlet u f
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
@@ -1791,7 +1799,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKX{} -> blet u f
     STKProduct{} ->
       blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUnit -> f u
+    STKUnit -> f (RepUnit ())
     STKUntyped{} ->
       blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
   blet :: forall x z. (TensorKind x, TensorKind z)

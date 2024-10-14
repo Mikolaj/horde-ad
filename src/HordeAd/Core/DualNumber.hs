@@ -344,11 +344,14 @@ type instance ShareOf (ADVal f) = ADVal f
 
 type instance Rep (ADVal ranked) (TKProduct x z) =
   (Rep (ADVal ranked) x, Rep (ADVal ranked) z)
+type instance Rep (ADVal ranked) TKUnit =
+  RepUnit (ADVal ranked)
 
 instance ProductTensor (ADVal ranked) where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
+  tunit = RepUnit ()
   tmkHVector = id
 
 

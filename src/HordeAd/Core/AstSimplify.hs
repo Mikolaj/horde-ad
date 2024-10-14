@@ -270,6 +270,7 @@ astNonIndexStep t = case t of
   Ast.AstPair t1 t2 -> astPair (astNonIndexStep t1) (astNonIndexStep t2)
   Ast.AstProject1 u -> astProject1 u
   Ast.AstProject2 u -> astProject2 u
+  Ast.AstUnit -> Ast.AstUnit
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
@@ -2118,6 +2119,7 @@ astPrimalPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
+  Ast.AstUnit -> Ast.AstUnit
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstConstant v -> v
   Ast.AstD u _ -> u
@@ -2191,6 +2193,7 @@ astDualPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astDualPart t1) (astDualPart t2)
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
+  Ast.AstUnit -> Ast.AstUnit
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstConstant{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
@@ -2433,6 +2436,7 @@ simplifyAst t = case t of
   Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
+  Ast.AstUnit -> Ast.AstUnit
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
@@ -2595,6 +2599,7 @@ expandAst t = case t of
   Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
+  Ast.AstUnit -> Ast.AstUnit
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
@@ -3101,6 +3106,7 @@ substitute1Ast i var v1 = case v1 of
       (mu, mv) -> Just $ astPair (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
   Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
+  Ast.AstUnit -> Nothing
   Ast.AstVar @y2 _sh var2 ->
     if var == varNameToAstVarId var2
     then case i of

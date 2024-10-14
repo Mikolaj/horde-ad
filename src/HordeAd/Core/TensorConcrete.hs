@@ -230,11 +230,14 @@ data DummyProduct vx vz = DummyProduct vx vz
 type instance Rep DummyDual (TKProduct x z) =
   DummyProduct (Rep DummyDual x)
                (Rep DummyDual z)
+type instance Rep DummyDual TKUnit =
+  RepUnit DummyDual
 
 instance ProductTensor DummyDual where
   tpair = DummyProduct
   tproject1 (DummyProduct vx _vz) = vx
   tproject2 (DummyProduct _vx vz) = vz
+  tunit = RepUnit ()
   tmkHVector = error "tmkHVector of DummyDual"
 
 instance ShapedTensor OSArray where
@@ -356,7 +359,10 @@ instance HVectorTensor ORArray OSArray where
     oRdmapAccumL k accShs bShs eShs (\ !a !b ->
       f (unrepDeep a, unrepDeep b)) acc0 es
 
-type instance Rep ORArray (TKProduct x z) = (Rep ORArray x, Rep ORArray z)
+type instance Rep ORArray (TKProduct x z) =
+  (Rep ORArray x, Rep ORArray z)
+type instance Rep ORArray TKUnit =
+  RepUnit ORArray
 
 instance (Show (RepN ORArray x), Show (RepN ORArray y))
          => Show (RepProductN ORArray x y) where
@@ -366,6 +372,7 @@ instance ProductTensor ORArray where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
+  tunit = RepUnit ()
   tmkHVector = id
 
 ravel :: forall k y. TensorKind y
