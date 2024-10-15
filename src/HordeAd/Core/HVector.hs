@@ -30,7 +30,7 @@ import Data.Kind (Constraint, Type)
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
@@ -191,21 +191,24 @@ buildTensorKindFull snat@SNat = \case
 aDTensorKind :: TensorKindFull y
              -> TensorKindFull (ADTensorKind y)
 aDTensorKind t = case t of
-  FTKR @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+  FTKR @r @n shr -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> unsafeCoerce FTKUnit  -- morally correct
-  FTKS @r -> case testEquality (typeRep @r) (typeRep @Double) of
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           FTKR @() @n shr
+  FTKS @r @sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> unsafeCoerce FTKUnit  -- morally correct
-  FTKX @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           FTKS @() @sh
+  FTKX @r @sh shx -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> unsafeCoerce FTKUnit  -- morally correct
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           FTKX @() @sh shx
   FTKProduct ftk1 ftk2 ->
     let gtk1 = aDTensorKind ftk1
         gtk2 = aDTensorKind ftk2

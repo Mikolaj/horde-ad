@@ -1044,8 +1044,6 @@ evalSRuntimeSpecialized !s !c =
       Just Refl -> evalSame @(TKS Float sh) s c
       _ -> const s
 
--- TODO: merge the STKUnit check into evalRRuntimeSpecialized, etc.
--- to make sure both the check and the specialization are never missed
 evalR
   :: forall y ranked.
      (TensorKind y, ADReadyNoLet ranked, ShareTensor ranked)

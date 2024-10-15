@@ -699,25 +699,32 @@ repConstant r = \case
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
     $ V.map dynamicFromVoid ssh
 
-toADTensorKindShared :: forall ranked y. (ProductTensor ranked, ShareTensor ranked)
-                     => STensorKindType y -> Rep ranked y
-                     -> Rep ranked (ADTensorKind y)
+toADTensorKindShared
+  :: forall ranked y.
+     ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
+     , ProductTensor ranked, ShareTensor ranked
+     , RankedOf (MixedOf ranked) ~ ranked )
+  => STensorKindType y -> Rep ranked y
+  -> Rep ranked (ADTensorKind y)
 toADTensorKindShared stk t = case stk of
   STKR @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> unsafeCoerce (tunit @ranked)  -- morally correct
-  STKS @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           rrepl @_ @_ @ranked (toList $ rshape t) ()
+  STKS @r @sh _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> unsafeCoerce (tunit @ranked)  -- morally correct
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           srepl @sh @() @(ShapedOf ranked) ()
   STKX @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> unsafeCoerce (tunit @ranked)  -- morally correct
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           xrepl @_ @_ @(MixedOf ranked) (xshape t) ()
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
                        , Dict <- lemTensorKindOfAD stk2 ->
     let (t1, t2) = tunpair t

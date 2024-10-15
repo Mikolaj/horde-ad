@@ -62,8 +62,8 @@ testTrees =
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
-  , testCase "2overleafInt64n" testOverleafInt64
-  , testCase "2overleafCIntn" testOverleafCInt
+  , testCase "2overleafInt64n" testOverleafInt64n
+  , testCase "2overleafCIntn" testOverleafCIntn
   , testCase "2overleafCIntToFloatn" testOverleafCIntToFloatn
   , testCase "2overleafInt64p" testOverleafInt64p
   , testCase "2overleafCIntp" testOverleafCIntp
@@ -442,15 +442,15 @@ testOverleaf =
     (OR.fromList @Double @1 [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @0 overleaf (FlipR $ OR.fromList [28] [0 .. 27]))
 
-testOverleafInt64 :: Assertion
-testOverleafInt64 =
+testOverleafInt64n :: Assertion
+testOverleafInt64n =
   assertEqualUpToEpsilon 1e-10
     (ringestData [28] (map round [0 :: Double,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]))
     (crev @_ @(TKR Int64 0)
           overleaf (ringestData [28] [0 .. 27]))
 
-testOverleafCInt :: Assertion
-testOverleafCInt =
+testOverleafCIntn :: Assertion
+testOverleafCIntn =
   assertEqualUpToEpsilon 1e-10
     (ringestData [28] (map round [0 :: Double,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]))
     (rev @_ @(TKR CInt 0)

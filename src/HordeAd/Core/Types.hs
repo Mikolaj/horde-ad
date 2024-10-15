@@ -19,7 +19,7 @@ module HordeAd.Core.Types
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
-  , ADTensorKind, lemTensorKindOfAD, lemBuildOfAD
+  , ADTensorKind, ADTensorScalar, lemTensorKindOfAD, lemBuildOfAD
     -- * Type families that tensors will belong to
   , IntOf, RankedOf, ShapedOf, MixedOf
   , HFunOf, PrimalOf, DualOf, ShareOf
@@ -37,7 +37,7 @@ import Data.Boolean (Boolean (..))
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
 import Type.Reflection (TypeRep, Typeable, typeRep)
@@ -283,40 +283,52 @@ instance IfDifferentiable Float where
   ifDifferentiable ra _ = ra
 
 type family ADTensorKind tk where
-  ADTensorKind (TKR Double n) = TKR Double n
-  ADTensorKind (TKR Float n) = TKR Float n
-  ADTensorKind (TKR r n) = TKUnit
-  ADTensorKind (TKS Double sh) = TKS Double sh
-  ADTensorKind (TKS Float sh) = TKS Float sh
-  ADTensorKind (TKS r sh) = TKUnit
-  ADTensorKind (TKX Double sh) = TKX Double sh
-  ADTensorKind (TKX Float sh) = TKX Float sh
-  ADTensorKind (TKX r sh) = TKUnit
+  ADTensorKind (TKR r n) = TKR (ADTensorScalar r) n
+  ADTensorKind (TKS r n) = TKS (ADTensorScalar r) n
+  ADTensorKind (TKX r n) = TKX (ADTensorScalar r) n
   ADTensorKind (TKProduct y z) =
     TKProduct (ADTensorKind y) (ADTensorKind z)
   ADTensorKind TKUnit = TKUnit
   ADTensorKind TKUntyped = TKUntyped
     -- TODO (unlikely): also affect the inside of HVectors
 
+type family ADTensorScalar r where
+  ADTensorScalar Double = Double
+  ADTensorScalar Float = Float
+  ADTensorScalar t = ()
+
+instance Num () where
+  () + () = ()
+  () * () = ()
+  negate () = ()
+  abs () = ()
+  signum () = ()
+  fromInteger _ = ()
+
+instance Nested.NumElt () where  -- TODO?
+
 lemTensorKindOfAD :: forall y.
                      STensorKindType y
                   -> Dict TensorKind (ADTensorKind y)
 lemTensorKindOfAD = \case
-  STKR @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKR @r @n _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> Dict
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> Dict
-      _ -> unsafeCoerce (Dict @TensorKind @TKUnit)
-  STKS @r _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           Dict @TensorKind @(TKR () n)
+  STKS @r @sh _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> Dict
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> Dict
-      _ -> unsafeCoerce (Dict @TensorKind @TKUnit)
-  STKX @r _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           Dict @TensorKind @(TKS () sh)
+  STKX @r @sh _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> Dict
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> Dict
-      _ -> unsafeCoerce (Dict @TensorKind @TKUnit)
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           Dict @TensorKind @(TKX () sh)
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
                        , Dict <- lemTensorKindOfAD stk2 -> Dict
   STKUnit -> Dict
