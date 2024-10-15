@@ -1050,6 +1050,8 @@ evalR
   => EvalState ranked -> Rep ranked (ADTensorKind y) -> Delta ranked y
   -> EvalState ranked
 evalR !s !c d0 = case d0 of
+  -- All constructors that admit a TKProduct kind need to be handled in evalR
+  -- except for InputG that is always constructed only in basic kinds.
   PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                       , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
     let (c1, c2) = tunpair c
@@ -1060,6 +1062,8 @@ evalR !s !c d0 = case d0 of
       FTKProduct _ ftk2 ->
         let zero = repConstant 0 $ aDTensorKind ftk2
         in evalR s (tpair c zero) d
+    -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
+    -- at the price of complicating or duplicating the code slightly more
   Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
                  , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     case shapeDeltaFull d of
@@ -1167,7 +1171,9 @@ evalR !s !c d0 = case d0 of
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
         Just Refl -> evalSame s c d0
-        _ -> s  -- ADTensorKind y is void due to static or runtime properties
+        _ -> s  -- the constructors remaining here have y that is a non-TKProduct
+                -- so if y is equal to ADTensorKind y, the latter has
+                -- the () scalar type and so no influence on the derivative.
 
 evalSame
   :: forall y ranked.
@@ -1176,33 +1182,9 @@ evalSame
   => EvalState ranked -> Rep ranked (ADTensorKind y) -> Delta ranked y
   -> EvalState ranked
 evalSame !s !c = \case
-  PairG d1 d2 ->
-    let (c1, c2) = tunpair c
-    in evalSame (evalSame s c1 d1) c2 d2
-  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @z) ->
-    case shapeDeltaFull d of
-      FTKProduct _ ftk2 ->
-        let zero = repConstant 0 $ aDTensorKind ftk2
-        in evalR s (tpair c zero) d
-  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @x) ->
-    case shapeDeltaFull d of
-      FTKProduct ftk1 _ ->
-        let zero = repConstant 0 $ aDTensorKind ftk1
-        in evalR s (tpair zero c) d
-  ShareG n d ->
-    assert (case d of
-              ZeroR{} -> False
-              ShareG{} -> False  -- wasteful and nonsensical
-              ZeroS -> False
-              _ -> True)
-    $ case DMap.lookup n $ nMap s of
-        Just _ ->
-          let addc x = RepAD $ taddShare c (unRepAD x)
-          in s {dMap = DMap.adjust addc n $ dMap s}
-        Nothing ->
-          let cd = RepAD c
-          in s { nMap = DMap.insert n d $ nMap s
-               , dMap = DMap.insert n cd $ dMap s }
+  -- All constructors that only admit a non-TKProduct kind
+  -- (and the InputG constructor) can be handled here, where the extra
+  -- constraint makes it easier.
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1354,58 +1336,8 @@ evalSame !s !c = \case
 
   HToH v -> evalHVector s (tunvector c) v
 
-  MapAccumR @_ @_ @_ @bShs @eShs
-            k accShs bShs eShs
-            (RepN q) (RepN es)
-            _df rf acc0' es'
-   | Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
-        (c0, crest) = tunpair c
-        dacc_des =
-          dmapAccumL (Proxy @ranked)
-                     k accShsAD eShsAD (FTKProduct bShsAD
-                                                   (FTKProduct accShs eShs))
-                     (\dx (db, acc_e) ->
-                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
-                                         (unrepDeep acc_e)))
-                     c0
-                     (tpair crest (tpair q es))
-        (dacc, des) = tunpair dacc_des
-        s2 = evalSame s dacc acc0'
-    in evalR s2 des es'
-  MapAccumL @_ @_ @_ @bShs @eShs
-            k accShs bShs eShs
-            (RepN q) (RepN es)
-            _df rf acc0' es'
-   | Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
-        (c0, crest) = tunpair c
-        dacc_des =
-          dmapAccumR (Proxy @ranked)
-                     k accShsAD eShsAD (FTKProduct bShsAD
-                                                   (FTKProduct accShs eShs))
-                     (\dx (db, acc_e) ->
-                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
-                                         (unrepDeep acc_e)))
-                     c0
-                     (tpair crest (tpair q es))
-        (dacc, des) = tunpair dacc_des
-        s2 = evalSame s dacc acc0'
-    in evalR s2 des es'
+  d -> evalR s c d
+    -- the remaining constructors are already handled in evalR, so let's use that
 
 evalDynamic
   :: (ADReadyNoLet ranked, ShareTensor ranked)
