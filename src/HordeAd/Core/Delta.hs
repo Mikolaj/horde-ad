@@ -1217,36 +1217,26 @@ evalSame !s !c = \case
   ScaleR k d -> evalSame s (k * c) d
   AddR d e -> let cShared = tshare c
               in evalSame (evalSame s cShared d) cShared e
-  IndexR @r @n @m d ix ->
-    gcastWith (unsafeCoerce Refl :: TKR r (m + n)
-                                    :~: ADTensorKind (TKR r (m + n))) $
+  IndexR d ix ->
     evalSame s (rscatter @ranked @_ @0
                          (shapeDelta d) c (const ix)) d
     -- equivalent: evalSame s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
-  SumR @r @n d ->
-    gcastWith (unsafeCoerce Refl :: TKR r (1 + n)
-                                    :~: ADTensorKind (TKR r (1 + n))) $
+  SumR d ->
     evalSame s (rreplicate (lengthDelta d) c) d
-  Sum0R @r @n  d ->
-    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  Sum0R d ->
     evalSame s (rreplicate0N (shapeDelta d) c) d
-  Dot0R @n @r v vd ->
-    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  Dot0R v vd ->
     evalSame s (v * rreplicate0N (rshape v) c) vd
       -- too slow: evalSame s (rmap0N (* (tscalar c)) v) vd
-  ScatterR @r @m @_ @n _sh d f ->
-    gcastWith (unsafeCoerce Refl :: TKR r (m + n)
-                                    :~: ADTensorKind (TKR r (m + n))) $
+  ScatterR _sh d f ->
     evalSame s (rgather (shapeDelta d) c f) d
   FromVectorR @n1 @r ld ->
-    gcastWith (unsafeCoerce Refl :: TKR r n1 :~: ADTensorKind (TKR r n1)) $
     let cShared = tshare c
         cxs :: [ranked r n1]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
-  ReplicateR @r @n _n d ->
-    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  ReplicateR _n d ->
     evalSame s (rsum c) d
   AppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
@@ -1263,23 +1253,18 @@ evalSame !s !c = \case
                   d
     ZSR -> error "evalSame: impossible pattern needlessly required"
   ReverseR d -> evalSame s (rreverse c) d
-  TransposeR @r @n perm d ->
-    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  TransposeR perm d ->
     let permR = permInverse perm
     in evalSame s (rtranspose permR c) d
-  ReshapeR @r @n _sh d ->
-    gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  ReshapeR _sh d ->
     evalSame s (rreshape (shapeDelta d) c) d
-  GatherR @r @_ @p @n _sh d f ->
-    gcastWith (unsafeCoerce Refl :: TKR r (p + n)
-                                    :~: ADTensorKind (TKR r (p + n))) $
+  GatherR _sh d f ->
     evalSame s (rscatter (shapeDelta d) c f) d
   CastR @r1 @_ @n d ->
     evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR r1 n))
                                $ rcast c) d
   RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
-  RFromS @sh @r d | Dict <- lemKnownNatRank (knownShS @sh) ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  RFromS @sh d | Dict <- lemKnownNatRank (knownShS @sh) ->
     evalSame s (sfromR c) d
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
@@ -1293,9 +1278,7 @@ evalSame !s !c = \case
   ScaleS k d -> evalSame s (k * c) d
   AddS d e -> let cShared = tshare c
               in evalSame (evalSame s cShared d) cShared e
-  IndexS @sh1 @sh @r d ix ->
-    gcastWith (unsafeCoerce Refl :: TKS r (sh1 ++ sh)
-                                    :~: ADTensorKind (TKS r (sh1 ++ sh))) $
+  IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
                :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
     gcastWith (unsafeCoerce Refl
@@ -1304,44 +1287,29 @@ evalSame !s !c = \case
     gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
     evalSame s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
     -- equivalent: evalSame s (updateNR (replicate0NR sh 0) [(ix, c)]) d
-  SumS @r @n @sh d ->
-    gcastWith (unsafeCoerce Refl :: TKS r (n ': sh)
-                                    :~: ADTensorKind (TKS r (n ': sh))) $
+  SumS d ->
     evalSame s (sreplicate c) d
-  Sum0S @r @sh d ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  Sum0S d ->
     evalSame s (sreplicate0N c) d
-  Dot0S @r @sh v vd ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  Dot0S v vd ->
     evalSame s (v * sreplicate0N c) vd
       -- too slow: evalSame s (smap0N (* (sscalar c)) v) vd
-  ScatterS @_ @r @sh2 @p @sh d f ->
-    gcastWith (unsafeCoerce Refl :: TKS r (sh2 ++ Drop p sh)
-                                    :~: ADTensorKind (TKS r (sh2 ++ Drop p sh))) $
+  ScatterS d f ->
     evalSame s (sgather c f) d
-  FromVectorS @r @sh ld ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  FromVectorS ld ->
     let cShared = tshare c
     in V.ifoldl' (\ !s2 i d2 ->
          evalSame s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
-  ReplicateS @_ @r @_ @sh d ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  ReplicateS d ->
     evalSame s (ssum c) d
-  AppendS @_ @r @m @n @sh d e ->
-    gcastWith (unsafeCoerce Refl :: TKS r (m ': sh)
-                                    :~: ADTensorKind (TKS r (m ': sh))) $
-    gcastWith (unsafeCoerce Refl :: TKS r (n ': sh)
-                                    :~: ADTensorKind (TKS r (n ': sh))) $
+  AppendS @_ @_ @m d e ->
     let cShared = tshare c
         s2 = evalSame s (sslice (Proxy @0) Proxy cShared) d
     in evalSame s2 (sslice (Proxy @m) Proxy cShared) e
-  SliceS @_ @i @n @k @r @sh d ->
-    gcastWith (unsafeCoerce Refl :: TKS r (i + n + k ': sh)
-                                    :~: ADTensorKind (TKS r (i + n + k ': sh))) $
+  SliceS @_ @i d ->
     evalSame s (sappend @_ @_ @i (srepl 0) (sappend c (srepl 0))) d
   ReverseS d -> evalSame s (sreverse c) d
-  TransposeS @perm @sh2 @r perm d ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh2 :~: ADTensorKind (TKS r sh2)) $
+  TransposeS @perm @sh2 perm d ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh2)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh2 :~: shp) $
@@ -1353,11 +1321,9 @@ evalSame !s !c = \case
         $ gcastWith (unsafeCoerce Refl
                      :: Rank permR :~: Rank perm)
         $ evalSame s (stranspose permRev c) d
-  ReshapeS @r @sh d ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  ReshapeS d ->
     evalSame s (sreshape c) d
-  GatherS @_ @r @_ @_ @sh d f ->
-    gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  GatherS d f ->
     evalSame s (sscatter c f) d
   CastS @r1 @_ @sh d ->
     evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS r1 sh))
@@ -1366,9 +1332,7 @@ evalSame !s !c = \case
     case sameShape @sh @sh2 of
       Just Refl -> evalSame s c d
       _ -> error "evalSame: different shapes in SFromR(RFromS)"
-  SFromR @sh @r d ->
-    gcastWith (unsafeCoerce Refl :: TKR r (Rank sh)
-                                    :~: ADTensorKind (TKR r (Rank sh))) $
+  SFromR d ->
     evalSame s (rfromS c) d
   SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
@@ -1382,7 +1346,6 @@ evalSame !s !c = \case
               in evalSame (evalSame s cShared d) cShared e
   IndexX{} -> error "TODO"
   FromVectorX @r @sh ld ->
-    gcastWith (unsafeCoerce Refl :: TKX r sh :~: ADTensorKind (TKX r sh)) $
     let cShared = tshare c
         f :: EvalState ranked -> Int -> Delta ranked (TKX r sh)
              -> EvalState ranked
