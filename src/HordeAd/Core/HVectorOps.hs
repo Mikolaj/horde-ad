@@ -693,8 +693,10 @@ repConstant r = \case
   FTKR sh -> rrepl (toList sh) r
   FTKS -> srepl r
   FTKX sh -> xrepl sh r
-  FTKProduct ftk1 ftk2 -> tpair (repConstant r ftk1)
-                                (repConstant r ftk2)
+  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
+                       , Dict <- lemTensorKindOfF ftk2 ->
+    tpair (repConstant r ftk1)
+          (repConstant r ftk2)
   FTKUnit -> tunit
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector

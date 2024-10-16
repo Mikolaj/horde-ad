@@ -246,7 +246,9 @@ interpretAst !env = \case
             FTKS -> sfromList0N []
             FTKX{} -> error "TODO"
             FTKProduct @z1 @z2 ftk1 ftk2
-              | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+              | Dict <- lemTensorKindOfF ftk1
+              , Dict <- lemTensorKindOfF ftk2
+              , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
                 tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
             FTKUnit -> tunit

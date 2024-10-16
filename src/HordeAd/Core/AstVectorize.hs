@@ -694,12 +694,14 @@ substProjRep snat@SNat var ftk2 var1 v
           FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
           FTKX{} -> Ast.AstIndexX prVar (Ast.AstIntVar var :.% ZIX)
           FTKProduct @z1 @z2 ftk41 ftk42
-            | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+            | Dict <- lemTensorKindOfF ftk41
+            , Dict <- lemTensorKindOfF ftk42
+            , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
               let prVar1 = astProject1 prVar
                   prVar2 = astProject2 prVar
               in astPair (projection prVar1 ftk41)
-                          (projection prVar2 ftk42)
+                         (projection prVar2 ftk42)
           FTKUnit -> prVar
           ftk@(FTKUntyped shs0) -> case buildTensorKindFull snat ftk of
             FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->

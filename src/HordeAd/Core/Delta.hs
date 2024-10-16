@@ -143,7 +143,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
         FTKX{} -> error "TODO"
-        FTKProduct @y1 @y2 ftk1 ftk2 ->
+        FTKProduct @y1 @y2 ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
+                                     , Dict <- lemTensorKindOfF ftk2 ->
             let (t1, rest1) = rebuildInputs @y1 els ftk1
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
             in (tpair t1 t2, rest2)
@@ -198,7 +199,8 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
             Dict -> ([InputId j :=> MTKR @r t], j + 1)
         FTKS @r @sh -> ([InputId j :=> MTKS @r @sh t], j + 1)
         FTKX{} -> error "TODO"
-        FTKProduct ftk1 ftk2 ->
+        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
+                             , Dict <- lemTensorKindOfF ftk2 ->
           let (t1, t2) = tunpair t
               (ds1, j1) = generateDSums j ftk1 t1
               (ds2, j2) = generateDSums j1 ftk2 t2

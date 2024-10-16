@@ -147,8 +147,7 @@ data TensorKindFull y where
   FTKR :: (GoodScalar r, KnownNat n) => IShR n -> TensorKindFull (TKR r n)
   FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
   FTKX :: (GoodScalar r, KnownShX sh) => IShX sh -> TensorKindFull (TKX r sh)
-  FTKProduct :: (TensorKind y, TensorKind z)
-             => TensorKindFull y -> TensorKindFull z
+  FTKProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
   FTKUnit :: TensorKindFull TKUnit
   FTKUntyped :: VoidHVector -> TensorKindFull TKUntyped
@@ -171,8 +170,8 @@ lemTensorKindOfF = \case
   FTKR{} -> Dict
   FTKS -> Dict
   FTKX{} -> Dict
-  FTKProduct stk1 stk2 | Dict <- lemTensorKindOfF stk1
-                       , Dict <- lemTensorKindOfF stk2 -> Dict
+  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
+                       , Dict <- lemTensorKindOfF ftk2 -> Dict
   FTKUnit -> Dict
   FTKUntyped{} -> Dict
 
@@ -182,9 +181,7 @@ buildTensorKindFull snat@SNat = \case
   FTKR sh -> FTKR $ sNatValue snat :$: sh
   FTKS -> FTKS
   FTKX sh -> FTKX $ SKnown snat :$% sh
-  FTKProduct @z1 @z2 ftk1 ftk2
-    | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-    , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+  FTKProduct ftk1 ftk2 ->
       FTKProduct (buildTensorKindFull snat ftk1)
                  (buildTensorKindFull snat ftk2)
   FTKUnit -> FTKUnit
