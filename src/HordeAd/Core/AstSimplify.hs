@@ -441,7 +441,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 k v | AstConst it <- i1 -> case stensorKind @y2 of
-    STKR{} ->
+    STKR _ SNat ->
       let i = fromIntegral $ Nested.runScalar it
       in if 0 <= i && i < sNatValue k
          then astIndex v rest1
@@ -629,9 +629,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
   Ast.AstCond b v w ->
     shareIxS ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 _snat v -> case stensorKind @y2 of
-    STKS{} -> astIndex v rest1
+    STKS _ sh -> withKnownShS sh $ astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
-    STKS{} ->
+    STKS _ sh -> withKnownShS sh $
       withListSh (Proxy @(shm1 ++ shn)) $ \_ ->
         astIndex (astSFromR @(shm1 ++ shn) $ astLet var2 i1 $ astRFromS v)
                  rest1
@@ -1978,7 +1978,7 @@ astReshapeS = \case
   Ast.AstReplicate @y2 (SNat @k) x
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       case stensorKind @y2 of
-        STKS{} -> astReshapeS x
+        STKS _ sh -> withKnownShS sh $ astReshapeS x
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 v)
   AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
   AstN2S opCode u v | not (isVar u && isVar v) ->
@@ -2321,9 +2321,9 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
                    (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
-        STKR{} -> astProjectR l i
-        STKS{} -> astProjectS l i
-        STKX{} -> error "TODO"
+        STKR _ SNat -> astProjectR l i
+        STKS _ sh -> withKnownShS sh $ astProjectS l i
+        STKX _ sh -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
@@ -2332,9 +2332,9 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKR{} -> astPrimalPart $ astProjectR l i
-        STKS{} -> astPrimalPart $ astProjectS l i
-        STKX{} -> error "TODO"
+        STKR _ SNat -> astPrimalPart $ astProjectR l i
+        STKS _ sh -> withKnownShS sh $ astPrimalPart $ astProjectS l i
+        STKX _ sh -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
@@ -2343,9 +2343,9 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKR{} -> astDualPart $ astProjectR l i
-        STKS{} -> astDualPart $ astProjectS l i
-        STKX{} -> error "TODO"
+        STKR _ SNat -> astDualPart $ astProjectR l i
+        STKS _ sh -> withKnownShS sh $ astDualPart $ astProjectS l i
+        STKX _ sh -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUnit -> error "astLetHVectorIn: STKUnit"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"

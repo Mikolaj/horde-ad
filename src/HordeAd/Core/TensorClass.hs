@@ -151,9 +151,9 @@ class HVectorTensor ranked shaped
              -> Rep ranked z
              -> Rep ranked (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
-    STKR{} -> rreplicate (sNatValue snat) u
-    STKS{} -> sreplicate u
-    STKX{} -> xreplicate u
+    STKR _ SNat -> rreplicate (sNatValue snat) u
+    STKS _ sh -> withKnownShS sh $ sreplicate u
+    STKX _ sh -> withKnownShX sh $ xreplicate u
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -1475,9 +1475,9 @@ mapRep
   -> Rep f y
   -> Rep g y
 mapRep fr fs fx stk b = case stk of
-  STKR{} -> fr b
-  STKS{} -> fs b
-  STKX{} -> fx b
+  STKR _ SNat -> fr b
+  STKS _ sh -> withKnownShS sh $ fs b
+  STKX _ sh -> withKnownShX sh $ fx b
   STKProduct stk1 stk2 ->
     let !t1 = mapRep fr fs fx stk1 $ tproject1 b
         !t2 = mapRep fr fs fx stk2 $ tproject2 b
@@ -1546,9 +1546,9 @@ mapRep2Weak
   -> Rep f1 y -> Rep f2 y
   -> Rep g y
 mapRep2Weak fr fs fx stk b1 b2 = case stk of
-  STKR{} -> fr b1 b2
-  STKS{} -> fs b1 b2
-  STKX{} -> fx b1 b2
+  STKR _ SNat -> fr b1 b2
+  STKS _ sh -> withKnownShS sh $ fs b1 b2
+  STKX _ sh -> withKnownShX sh $ fx b1 b2
   STKProduct stk1 stk2 ->
     let !t1 = mapRep2Weak fr fs fx stk1 (tproject1 b1) (tproject1 b2)
         !t2 = mapRep2Weak fr fs fx stk2 (tproject2 b1) (tproject2 b2)

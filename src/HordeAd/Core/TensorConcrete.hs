@@ -301,9 +301,9 @@ instance ShapedTensor OSArray where
 instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
-    STKR{} -> FTKR $ tshapeR $ runFlipR t
-    STKS{} -> FTKS
-    STKX{} -> FTKX $ Nested.mshape $ runFlipX t
+    STKR _ SNat -> FTKR $ tshapeR $ runFlipR t
+    STKS _ sh -> withKnownShS sh FTKS
+    STKX _ sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
                                        (tshapeFull stk2 (snd t))
     STKUnit -> FTKUnit
@@ -381,9 +381,9 @@ ravel :: forall k y. TensorKind y
       => SNat k -> [Rep ORArray y]
       -> Rep ORArray (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
-  STKR{} -> rfromList $ NonEmpty.fromList t
-  STKS{} -> sfromList $ NonEmpty.fromList t
-  STKX{} -> error "TODO"
+  STKR _ SNat -> rfromList $ NonEmpty.fromList t
+  STKS _ sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
+  STKX _ sh -> withKnownShX sh $ error "TODO"
   STKProduct{} ->
     let (lt1, lt2) = unzip t
     in (ravel k lt1, ravel k lt2)
@@ -394,9 +394,9 @@ unravel :: forall k y. TensorKind y
         => SNat k -> Rep ORArray (BuildTensorKind k y)
         -> [Rep ORArray y]
 unravel k@SNat t = case stensorKind @y of
-  STKR{} -> runravelToList t
-  STKS{} -> sunravelToList t
-  STKX{} -> error "TODO"
+  STKR _ SNat -> runravelToList t
+  STKS _ sh -> withKnownShS sh $ sunravelToList t
+  STKX _ sh -> withKnownShX sh $ error "TODO"
   STKProduct{} ->
     let lt1 = unravel k $ fst t
         lt2 = unravel k $ snd t

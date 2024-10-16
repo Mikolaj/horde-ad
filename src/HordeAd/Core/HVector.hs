@@ -88,9 +88,9 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , TensorKind y )
          => Show (RepN ranked y) where
   showsPrec d (RepN t) = case stensorKind @y of
-    STKR{} -> showsPrec d t
-    STKS{} -> showsPrec d t
-    STKX{} -> showsPrec d t
+    STKR _ SNat -> showsPrec d t
+    STKS _ sh -> withKnownShS sh $ showsPrec d t
+    STKX _ sh -> withKnownShX sh $ showsPrec d t
     STKProduct{} -> showsPrec d (RepProductN t)
     STKUnit -> showsPrec d (RepUnit ())
     STKUntyped -> showsPrec d t

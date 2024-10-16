@@ -502,11 +502,11 @@ unshareAst memo = \case
     in (memo3, Ast.AstCond b1 t2 t3)
   Ast.AstReplicate k v -> second (Ast.AstReplicate k) (unshareAst memo v)
   Ast.AstBuild1 @y2 snat (var, v) -> case stensorKind @y2 of
-    STKR{} ->
+    STKR _ SNat ->
       let (memo1, v2) = unshareAstScoped [var] memo v
       in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKS{} -> error "WIP"
-    STKX{} -> error "WIP"
+    STKS _ sh -> withKnownShS sh $ error "WIP"
+    STKX _ sh -> withKnownShX sh $ error "WIP"
     STKProduct{} -> error "WIP"
     STKUnit -> error "WIP"
     STKUntyped -> error "WIP"

@@ -79,7 +79,7 @@ shapeAstFull t = case t of
   AstScatter sh _ _ -> FTKR sh
   AstFromVector l -> case V.toList l of
     [] -> case stensorKind @y of
-      STKR @_ @n _ _ -> case sameNat (Proxy @n) (Proxy @1) of
+      STKR @_ @n _ SNat -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR $ singletonShape 0
         Nothing -> error "shapeAstFull: AstFromVector with no arguments"
     v : _ -> FTKR $ V.length l :$: shapeAst v

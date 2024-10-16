@@ -177,7 +177,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                  -> Rep ORArray (Triplify y2)
       updateProd stk mA vA p g
        | Dict <- lemTensorKindOfAD stk = case stk of
-        STKR @r _ _ ->
+        STKR @r _ SNat ->
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -186,7 +186,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                  in ((FlipR mAN, FlipR vAN), FlipR pN))
                 ((mA, vA), p)
             _ -> ((mA, vA), p)
-        STKS @r _ _ ->
+        STKS @r _ sh -> withKnownShS sh $
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -200,7 +200,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                     , FlipS $ Nested.rcastToShaped pN knownShS ))
                 ((mA, vA), p)
             _ -> ((mA, vA), p)
-        STKX @r _ _ ->
+        STKX @r _ sh -> withKnownShX sh $
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r

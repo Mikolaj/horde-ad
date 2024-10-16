@@ -540,9 +540,9 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
           => Rep (AstRanked s) y
           -> Rep (AstRaw s) y
   toShare t = case stensorKind @y of
-    STKR{} -> AstRaw $ AstToShare $ unAstRanked t
-    STKS{} -> AstRawS $ AstToShare $ unAstShaped t
-    STKX{} -> AstRawX $ AstToShare $ unAstMixed t
+    STKR _ SNat -> AstRaw $ AstToShare $ unAstRanked t
+    STKS _ sh -> withKnownShS sh $ AstRawS $ AstToShare $ unAstShaped t
+    STKX _ sh -> withKnownShX sh $ AstRawX $ AstToShare $ unAstMixed t
     STKProduct{} -> AstRawWrap $ AstToShare t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
@@ -557,9 +557,9 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
       Just Refl -> rankedY stensorKind . unshareAstTensor . unRawY stensorKind
       _ -> error "tunshare: used not at PrimalSpan"
   tconstant stk t = case stk of
-    STKR{} -> rconstant t
-    STKS{} -> sconstant t
-    STKX{} -> xconstant t
+    STKR _ SNat -> rconstant t
+    STKS _ sh -> withKnownShS sh $ sconstant t
+    STKX _ sh -> withKnownShX sh $ xconstant t
     STKProduct{} -> fromPrimal t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ fromPrimal $ unHVectorPseudoTensor t
@@ -674,26 +674,26 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstRanked t
-    STKS{} -> FTKS
-    STKX{} -> shapeAstFull $ unAstMixed t
+    STKR _ SNat -> shapeAstFull $ unAstRanked t
+    STKS _ sh -> withKnownShS sh FTKS
+    STKX _ sh -> withKnownShX sh shapeAstFull $ unAstMixed t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
     STKUntyped -> shapeAstFull $ unHVectorPseudoTensor t
   tcond stk b u v = case stk of
-    STKR{} -> ifF b u v
-    STKS{} -> ifF b u v
-    STKX{} -> ifF b u v
+    STKR _ SNat -> ifF b u v
+    STKS _ sh -> withKnownShS sh $ ifF b u v
+    STKX _ sh -> withKnownShX sh $ ifF b u v
     STKProduct{} -> AstCond b u v
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor
                   $ AstCond b (unHVectorPseudoTensor u)
                               (unHVectorPseudoTensor v)
   tprimalPart stk t = case stk of
-    STKR{} -> rprimalPart t
-    STKS{} -> sprimalPart t
-    STKX{} -> xprimalPart t
+    STKR _ SNat -> rprimalPart t
+    STKS _ sh -> withKnownShS sh $ sprimalPart t
+    STKX _ sh -> withKnownShX sh $ xprimalPart t
     STKProduct{} -> astSpanPrimal t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ astSpanPrimal $ unHVectorPseudoTensor t
@@ -1123,17 +1123,17 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
   tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstRaw t
-    STKS{} -> FTKS
-    STKX{} -> shapeAstFull $ unAstRawX t
+    STKR _ SNat -> shapeAstFull $ unAstRaw t
+    STKS _ sh -> withKnownShS sh FTKS
+    STKX _ sh -> withKnownShX sh shapeAstFull $ unAstRawX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
     STKUntyped -> shapeAstFull $ unAstRawWrap $ unHVectorPseudoTensor t
   tcond stk b u v = case stk of
-    STKR{} -> ifF b u v
-    STKS{} -> ifF b u v
-    STKX{} -> ifF b u v
+    STKR _ SNat -> ifF b u v
+    STKS _ sh -> withKnownShS sh $ ifF b u v
+    STKX _ sh -> withKnownShX sh $ ifF b u v
     STKProduct{} -> AstRawWrap
                     $ AstCond b (unAstRawWrap u) (unAstRawWrap v)
     STKUnit -> tunit
@@ -1141,9 +1141,9 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                   $ AstCond b (unAstRawWrap $ unHVectorPseudoTensor u)
                               (unAstRawWrap $ unHVectorPseudoTensor v)
   tprimalPart stk t = case stk of
-    STKR{} -> rprimalPart t
-    STKS{} -> sprimalPart t
-    STKX{} -> xprimalPart t
+    STKR _ SNat -> rprimalPart t
+    STKS _ sh -> withKnownShS sh $ sprimalPart t
+    STKX _ sh -> withKnownShX sh $ xprimalPart t
     STKProduct{} -> AstRawWrap $ astSpanPrimalRaw $ unAstRawWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap
@@ -1442,17 +1442,17 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
           => Rep (AstNoVectorize s) y
           -> Rep (AstRaw s) y
   toShare t = case (stensorKind @y) of
-    STKR{} -> AstRaw $ AstToShare $ unAstNoVectorize t
-    STKS{} -> AstRawS $ AstToShare $ unAstNoVectorizeS t
-    STKX{} -> AstRawX $ AstToShare $ unAstNoVectorizeX t
+    STKR _ SNat -> AstRaw $ AstToShare $ unAstNoVectorize t
+    STKS _ sh -> withKnownShS sh $ AstRawS $ AstToShare $ unAstNoVectorizeS t
+    STKX _ sh -> withKnownShX sh $ AstRawX $ AstToShare $ unAstNoVectorizeX t
     STKProduct{} -> AstRawWrap $ AstToShare $ unAstNoVectorizeWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   tconstant stk t = case stk of
-    STKR{} -> rconstant t
-    STKS{} -> sconstant t
-    STKX{} -> xconstant t
+    STKR _ SNat -> rconstant t
+    STKS _ sh -> withKnownShS sh $ sconstant t
+    STKX _ sh -> withKnownShX sh $ xconstant t
     STKProduct{} -> AstNoVectorizeWrap $ fromPrimal $ unAstNoVectorizeWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap $ fromPrimal
@@ -1559,17 +1559,17 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape . unAstNoVectorizeWrap
   tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstNoVectorize t
-    STKS{} -> FTKS
-    STKX{} -> shapeAstFull $ unAstNoVectorizeX t
+    STKR _ SNat -> shapeAstFull $ unAstNoVectorize t
+    STKS _ sh -> withKnownShS sh FTKS
+    STKX _ sh -> withKnownShX sh shapeAstFull $ unAstNoVectorizeX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
     STKUntyped -> shapeAstFull $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
   tcond stk b u v = case stk of
-    STKR{} -> ifF b u v
-    STKS{} -> ifF b u v
-    STKX{} -> ifF b u v
+    STKR _ SNat -> ifF b u v
+    STKS _ sh -> withKnownShS sh $ ifF b u v
+    STKX _ sh -> withKnownShX sh $ ifF b u v
     STKProduct{} -> AstNoVectorizeWrap
                     $ AstCond b (unAstNoVectorizeWrap u) (unAstNoVectorizeWrap v)
     STKUnit -> tunit
@@ -1577,9 +1577,9 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                   $ AstCond b (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
                               (unAstNoVectorizeWrap $ unHVectorPseudoTensor v)
   tprimalPart stk t = case stk of
-    STKR{} -> rprimalPart t
-    STKS{} -> sprimalPart t
-    STKX{} -> xprimalPart t
+    STKR _ SNat -> rprimalPart t
+    STKS _ sh -> withKnownShS sh $ sprimalPart t
+    STKX _ sh -> withKnownShX sh $ xprimalPart t
     STKProduct{} -> AstNoVectorizeWrap $ astSpanPrimal $ unAstNoVectorizeWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
@@ -1863,17 +1863,17 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
           => Rep (AstNoSimplify s) y
           -> Rep (AstRaw s) y
   toShare t = case (stensorKind @y) of
-    STKR{} -> AstRaw $ AstToShare $ unAstNoSimplify t
-    STKS{} -> AstRawS $ AstToShare $ unAstNoSimplifyS t
-    STKX{} -> AstRawX $ AstToShare $ unAstNoSimplifyX t
+    STKR _ SNat -> AstRaw $ AstToShare $ unAstNoSimplify t
+    STKS _ sh -> withKnownShS sh $ AstRawS $ AstToShare $ unAstNoSimplifyS t
+    STKX _ sh -> withKnownShX sh $ AstRawX $ AstToShare $ unAstNoSimplifyX t
     STKProduct{} -> AstRawWrap $ AstToShare $ unAstNoSimplifyWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   tconstant stk t = case stk of
-    STKR{} -> rconstant t
-    STKS{} -> sconstant t
-    STKX{} -> xconstant t
+    STKR _ SNat -> rconstant t
+    STKS _ sh -> withKnownShS sh $ sconstant t
+    STKX _ sh -> withKnownShX sh $ xconstant t
     STKProduct{} -> AstNoSimplifyWrap $ fromPrimal $ unAstNoSimplifyWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap $ fromPrimal
@@ -1997,17 +1997,17 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
   tshapeFull stk t = case stk of
-    STKR{} -> shapeAstFull $ unAstNoSimplify t
-    STKS{} -> FTKS
-    STKX{} -> shapeAstFull $ unAstNoSimplifyX t
+    STKR _ SNat -> shapeAstFull $ unAstNoSimplify t
+    STKS _ sh -> withKnownShS sh FTKS
+    STKX _ sh -> withKnownShX sh shapeAstFull $ unAstNoSimplifyX t
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (tproject1 t))
                                        (tshapeFull stk2 (tproject2 t))
     STKUnit -> FTKUnit
     STKUntyped -> shapeAstFull $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
   tcond stk b u v = case stk of
-    STKR{} -> ifF b u v
-    STKS{} -> ifF b u v
-    STKX{} -> ifF b u v
+    STKR _ SNat -> ifF b u v
+    STKS _ sh -> withKnownShS sh $ ifF b u v
+    STKX _ sh -> withKnownShX sh $ ifF b u v
     STKProduct{} -> AstNoSimplifyWrap
                     $ AstCond b (unAstNoSimplifyWrap u) (unAstNoSimplifyWrap v)
     STKUnit -> tunit
@@ -2015,9 +2015,9 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                   $ AstCond b (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
                               (unAstNoSimplifyWrap $ unHVectorPseudoTensor v)
   tprimalPart stk t = case stk of
-    STKR{} -> rprimalPart t
-    STKS{} -> sprimalPart t
-    STKX{} -> xprimalPart t
+    STKR _ SNat -> rprimalPart t
+    STKS _ sh -> withKnownShS sh $ sprimalPart t
+    STKX _ sh -> withKnownShX sh $ xprimalPart t
     STKProduct{} -> AstNoSimplifyWrap $ astSpanPrimal $ unAstNoSimplifyWrap t
     STKUnit -> tunit
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
@@ -2123,10 +2123,10 @@ prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
     in (artVarDtRev, vars1, derivative, primal)
  stk ->
    let dynvar = case stk of
-         STKR @r _ _ ->
+         STKR @r _ SNat ->
            AstDynamicVarName @Nat @r @'[]  -- TODO: ftk
                              (varNameToAstVarId artVarDomainRev)
-         STKS @r @sh _ _ ->
+         STKS @r @sh _ sh -> withKnownShS sh $
            AstDynamicVarName @Nat @r @sh
                              (varNameToAstVarId artVarDomainRev)
          _ -> AstDynamicVarName @Nat @Double @'[]  -- TODO: product?

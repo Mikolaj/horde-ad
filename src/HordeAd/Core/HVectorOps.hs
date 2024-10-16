@@ -45,9 +45,9 @@ toRepDShare
   :: ShareTensor ranked
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDShare stk t = case stk of
-  STKR{} -> DTKR t
-  STKS{} -> DTKS t
-  STKX{} -> DTKX t
+  STKR _ SNat -> DTKR t
+  STKS _ sh -> withKnownShS sh $ DTKS t
+  STKX _ sh -> withKnownShX sh $ DTKX t
   STKProduct stk1 stk2 ->
     let (t1, t2) = tunpair t
     in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
@@ -64,9 +64,9 @@ toRepDDuplicable
   :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDDuplicable stk t = case stk of
-  STKR{} -> DTKR t
-  STKS{} -> DTKS t
-  STKX{} -> DTKX t
+  STKR _ SNat -> DTKR t
+  STKS _ sh -> withKnownShS sh $ DTKS t
+  STKX _ sh -> withKnownShX sh $ DTKX t
   STKProduct stk1 stk2 ->
     DTKProduct (toRepDDuplicable stk1 (tproject1 t))
                (toRepDDuplicable stk2 (tproject2 t))
@@ -707,19 +707,21 @@ toADTensorKindShared
   => STensorKindType y -> Rep ranked y
   -> Rep ranked (ADTensorKind y)
 toADTensorKindShared stk t = case stk of
-  STKR @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKR @r _ SNat -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            rrepl @_ @_ @ranked (toList $ rshape t) ()
-  STKS @r @sh _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKS @r @sh _ sh -> withKnownShS sh
+                      $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            srepl @sh @() @(ShapedOf ranked) ()
-  STKX @r _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKX @r _ sh -> withKnownShX sh
+                  $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t

@@ -7,7 +7,7 @@ module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , ShS(..), KnownShS(..)
+  , ShS(..), KnownShS(..), withKnownShS, withKnownShX
   , sshapeKnown, slistKnown, sixKnown, knownShR
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemKnownNatRank
@@ -38,6 +38,7 @@ import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import GHC.Exts (withDict)
 import GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
 import Type.Reflection (TypeRep, Typeable, typeRep)
@@ -130,6 +131,12 @@ trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 
+withKnownShS :: forall sh r. ShS sh -> (KnownShS sh => r) -> r
+withKnownShS = withDict @(KnownShS sh)
+
+withKnownShX :: forall sh r. StaticShX sh -> (KnownShX sh => r) -> r
+withKnownShX = withDict @(KnownShX sh)
+
 
 -- * Types of types of tensors
 
@@ -157,11 +164,11 @@ type data TensorKindType =
 
 type role STensorKindType nominal
 data STensorKindType y where
-  STKR :: (GoodScalar r, KnownNat n)
+  STKR :: GoodScalar r
        => TypeRep r -> SNat n -> STensorKindType (TKR r n)
-  STKS :: (GoodScalar r, KnownShS sh)
+  STKS :: GoodScalar r
        => TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
-  STKX :: (GoodScalar r, KnownShX sh)
+  STKX :: GoodScalar r
        => TypeRep r -> StaticShX sh -> STensorKindType (TKX r sh)
   STKProduct :: (TensorKind y, TensorKind z)
              => STensorKindType y -> STensorKindType z
@@ -194,9 +201,9 @@ instance TensorKind TKUntyped where
 
 lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
 lemTensorKindOfS = \case
-  STKR{} -> Dict
-  STKS{} -> Dict
-  STKX{} -> Dict
+  STKR _ SNat -> Dict
+  STKS _ sh -> withKnownShS sh Dict
+  STKX _ sh -> withKnownShX sh Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> Dict
   STKUnit -> Dict
@@ -238,9 +245,9 @@ type family BuildTensorKind k tk where
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
 lemTensorKindOfBuild snat@SNat = \case
-  STKR{} -> Dict
-  STKS{} -> Dict
-  STKX{} -> Dict
+  STKR _ SNat -> Dict
+  STKS _ sh -> withKnownShS sh Dict
+  STKX _ sh -> withKnownShX sh Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
   STKUnit -> Dict
@@ -311,19 +318,19 @@ lemTensorKindOfAD :: forall y.
                      STensorKindType y
                   -> Dict TensorKind (ADTensorKind y)
 lemTensorKindOfAD = \case
-  STKR @r @n _ _ -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKR @r @n _ SNat -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> Dict
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> Dict
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            Dict @TensorKind @(TKR () n)
-  STKS @r @sh _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
+  STKS @r @sh _ sh -> withKnownShS sh $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> Dict
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> Dict
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            Dict @TensorKind @(TKS () sh)
-  STKX @r @sh _ _ ->  case testEquality (typeRep @r) (typeRep @Double) of
+  STKX @r @sh _ sh -> withKnownShX sh $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> Dict
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> Dict

@@ -177,30 +177,30 @@ build1V snat@SNat (var, v00) =
                  (build1VOccurenceUnknown snat (var, u'))
     Ast.AstCond b (Ast.AstConstant v)
                   (Ast.AstConstant w) -> case stensorKind @y of
-      STKR{} ->
+      STKR _ SNat ->
         let t = Ast.AstConstant
                 $ astIndexStep (astFromVector $ V.fromList [v, w])
                                (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
-      STKS{} ->
+      STKS _ sh -> withKnownShS sh $
         let t = Ast.AstConstant
                 $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                       (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
-      STKX{} ->  error "TODO"
+      STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
       STKUnit -> error "TODO"
       STKUntyped -> error "TODO"
     Ast.AstCond b v w -> case stensorKind @y of
-      STKR{} ->
+      STKR _ SNat ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
-      STKS{} ->
+      STKS _ sh -> withKnownShS sh $
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
-      STKX{} ->  error "TODO"
+      STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
       STKUnit -> error "TODO"
       STKUntyped -> error "TODO"
@@ -211,9 +211,9 @@ build1V snat@SNat (var, v00) =
                    -> AstTensor AstMethodLet s (BuildTensorKind k
                                                   (BuildTensorKind k2 z))
           repl2Stk stk u = case stk of
-            STKR{} -> astTr $ astReplicate snat2 u
-            STKS{} -> astTrS $ astReplicate snat2 u
-            STKX{} -> astTrX $ astReplicate snat2 u
+            STKR _ SNat -> astTr $ astReplicate snat2 u
+            STKS _ sh -> withKnownShS sh $ astTrS $ astReplicate snat2 u
+            STKX _ sh -> withKnownShX sh $ astTrX $ astReplicate snat2 u
             STKProduct @z1 @z2 stk1 stk2
               | Dict <- lemTensorKindOfBuild snat stk1
               , Dict <- lemTensorKindOfBuild snat2 stk1
@@ -829,9 +829,9 @@ astTrGeneral
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrGeneral stk t = case stk of
-  STKR{} -> astTr t
-  STKS{} -> astTrS t
-  STKX{} -> astTrX t
+  STKR _ SNat -> astTr t
+  STKS _ sh -> withKnownShS sh $ astTrS t
+  STKX _ sh -> withKnownShX sh $ astTrX t
   STKProduct @z1 @z2 stk1 stk2
     | Dict <- lemTensorKindOfBuild (SNat @k1) stk
     , Dict <- lemTensorKindOfBuild (SNat @k1) stk1

@@ -238,8 +238,8 @@ repToM
   :: STensorKindType x -> Rep ranked x
   -> RepM ranked x
 repToM stk t = case stk of
-  STKR{} -> MTKR t
-  STKS{} -> MTKS t
+  STKR _ SNat -> MTKR t
+  STKS _ sh -> withKnownShS sh $ MTKS t
   STKX{} -> error "repToM"
   STKProduct{} -> error "repToM"
   STKUnit -> error "repToM"
@@ -754,7 +754,7 @@ shapeDeltaFull = \case
   ScatterR sh _ _ -> FTKR sh
   FromVectorR l -> case V.toList l of
     [] -> case stensorKind @y of
-      STKR @_ @n _ _ -> case sameNat (Proxy @n) (Proxy @1) of
+      STKR @_ @n _ SNat -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR $ singletonShape 0  -- the only case where we can guess sh
         _ -> error "shapeDeltaFull: FromVectorR with no arguments"
     d : _ -> FTKR $ length l :$: shapeDelta d
@@ -1385,13 +1385,13 @@ evalFromnMap s@EvalState{nMap, dMap} =
           errorMissing :: a
           errorMissing = error $ "evalFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
-            STKR @r @n _ _ -> case DMap.lookup n dMap of
+            STKR @r @n _ SNat -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalRRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
-            STKS @r @sh _ _ -> case DMap.lookup n dMap  of
+            STKS @r @sh _ sh -> withKnownShS sh $ case DMap.lookup n dMap  of
               Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
               Nothing -> errorMissing
-            STKX{} -> case DMap.lookup n dMap of
+            STKX _ sh -> withKnownShX sh $ case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
             STKProduct{} -> case DMap.lookup n dMap of

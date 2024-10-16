@@ -137,9 +137,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        -> (RepShallow (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   tlet a f = case stensorKind @x of
-    STKR{} -> blet a f
-    STKS{} -> blet a f
-    STKX{} -> blet a f
+    STKR _ SNat -> blet a f
+    STKS _ sh -> withKnownShS sh $ blet a f
+    STKX _ sh -> withKnownShX sh $ blet a f
     STKProduct{} -> blet a f
     STKUnit -> f a
     STKUntyped{} ->
@@ -160,15 +160,15 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   blet a f = case stensorKind @x of
-    STKR{} ->
+    STKR _ SNat ->
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
-    STKS{} ->
+    STKS _ sh -> withKnownShS sh $
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
-    STKX{} ->
+    STKX _ sh -> withKnownShX sh $
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
@@ -191,9 +191,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
             -> Rep ranked y
             -> Rep (ADVal ranked) y
   tconstant stk t = case stk of
-    STKR{} -> rconstant t
-    STKS{} -> sconstant t
-    STKX{} -> xconstant t
+    STKR _ SNat -> rconstant t
+    STKS _ sh -> withKnownShS sh $ sconstant t
+    STKX _ sh -> withKnownShX sh $ xconstant t
     STKProduct stk1 stk2 ->
       let (t1, t2) = tunpair t
           !c1 = tconstant stk1 t1
@@ -546,20 +546,21 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
-    STKR{} -> let D u _ = t
-              in tshapeFull stk u
-    STKS{} -> FTKS
-    STKX{} -> let D u _ = t
-              in tshapeFull stk u
+    STKR _ SNat -> let D u _ = t
+                   in tshapeFull stk u
+    STKS _ sh -> withKnownShS sh FTKS
+    STKX _ sh -> withKnownShX sh $
+      let D u _ = t
+      in tshapeFull stk u
     STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
                                        (tshapeFull stk2 (snd t))
     STKUnit -> FTKUnit
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
   tcond stk b u v = case stk of
-    STKR{} -> ifF b u v
-    STKS{} -> ifF b u v
-    STKX{} -> ifF b u v
+    STKR _ SNat -> ifF b u v
+    STKS _ sh -> withKnownShS sh $ ifF b u v
+    STKX _ sh -> withKnownShX sh $ ifF b u v
     STKProduct stk1 stk2 ->
       let !t1 = tcond stk1 b (fst u) (fst v)
           !t2 = tcond stk2 b (snd u) (snd v)
@@ -573,9 +574,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
               -> Rep (ADVal ranked) y
               -> Rep ranked y
   tprimalPart stk t = case stk of
-    STKR{} -> rprimalPart t
-    STKS{} -> sprimalPart t
-    STKX{} -> xprimalPart t
+    STKR _ SNat -> rprimalPart t
+    STKS _ sh -> withKnownShS sh $ sprimalPart t
+    STKX _ sh -> withKnownShX sh $ xprimalPart t
     STKProduct stk1 stk2 ->
       let !t1 = tprimalPart stk1 $ fst t
           !t2 = tprimalPart stk2 $ snd t

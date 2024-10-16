@@ -270,9 +270,9 @@ interpretAst !env = \case
                 -> (IntOf ranked -> Rep ranked z)
                 -> Rep ranked (BuildTensorKind n z)
         replStk stk g = case stk of
-          STKR{} -> rbuild1 (sNatValue snat) g
-          STKS{} -> sbuild1 g
-          STKX{} -> error "TODO"
+          STKR _ SNat -> rbuild1 (sNatValue snat) g
+          STKS _ sh -> withKnownShS sh $ sbuild1 g
+          STKX _ sh -> withKnownShX sh $ error "TODO"
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
@@ -550,7 +550,7 @@ interpretAst !env = \case
          -- This is weak, but we don't need rproject nor sproject.
          -- Most likely, the term gets simplified before interpretation anyway.
   AstLetHVectorIn @_ @_ @z2 vars l v -> case stensorKind @z2 of
-    STKR{} ->
+    STKR _ SNat ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
@@ -559,7 +559,7 @@ interpretAst !env = \case
                                     , shapeVoidHVector (dshape lt) )) $
                    extendEnvHVector vars lw env
       in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-    STKS{} ->
+    STKS _ sh -> withKnownShS sh $
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
@@ -568,7 +568,7 @@ interpretAst !env = \case
                                     , shapeVoidHVector (dshape lt) )) $
                     extendEnvHVector vars lw env
       in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-    STKX{} -> error "TODO"
+    STKX _ sh -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUnit -> error "TODO"
     STKUntyped ->
@@ -583,15 +583,15 @@ interpretAst !env = \case
          $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor
                                            $ interpretAst (env2 lw) v)
   AstLetHFunIn @_ @x2 @y2 @z2 var f v -> case stensorKind @y2 of
-    STKR{} ->
+    STKR _ SNat ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
-    STKS{} ->
+    STKS _ sh -> withKnownShS sh $
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in sletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
-    STKX{} -> error "TODO"
+    STKX _ sh -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUnit -> error "TODO"
     STKUntyped ->
