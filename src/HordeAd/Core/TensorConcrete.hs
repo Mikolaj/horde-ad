@@ -304,8 +304,10 @@ instance HVectorTensor ORArray OSArray where
     STKR _ SNat -> FTKR $ tshapeR $ runFlipR t
     STKS _ sh -> withKnownShS sh FTKS
     STKX _ sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX t
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
-                                       (tshapeFull stk2 (snd t))
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      FTKProduct (tshapeFull stk1 (fst t))
+                 (tshapeFull stk2 (snd t))
     STKUnit -> FTKUnit
     STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
   tcond _ b u v = if b then u else v
@@ -384,7 +386,8 @@ ravel k@SNat t = case stensorKind @y of
   STKR _ SNat -> rfromList $ NonEmpty.fromList t
   STKS _ sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX _ sh -> withKnownShX sh $ error "TODO"
-  STKProduct{} ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
     let (lt1, lt2) = unzip t
     in (ravel k lt1, ravel k lt2)
   STKUnit -> tunit
@@ -397,7 +400,8 @@ unravel k@SNat t = case stensorKind @y of
   STKR _ SNat -> runravelToList t
   STKS _ sh -> withKnownShS sh $ sunravelToList t
   STKX _ sh -> withKnownShX sh $ error "TODO"
-  STKProduct{} ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
     let lt1 = unravel k $ fst t
         lt2 = unravel k $ snd t
     in zip lt1 lt2

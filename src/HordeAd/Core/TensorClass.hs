@@ -155,7 +155,9 @@ class HVectorTensor ranked shaped
     STKS _ sh -> withKnownShS sh $ sreplicate u
     STKX _ sh -> withKnownShX sh $ xreplicate u
     STKProduct @z1 @z2 stk1 stk2
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+      | Dict <- lemTensorKindOfS stk1
+      , Dict <- lemTensorKindOfS stk2
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
         tlet u $ \ (!u1, !u2) ->
           tpair (treplicate snat stk1 u1) (treplicate snat  stk2 u2)
@@ -1344,7 +1346,8 @@ unrepShallow t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
   STKX{} -> t
-  STKProduct{} -> uncurry tpair t
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 -> uncurry tpair t
   STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
@@ -1357,7 +1360,9 @@ unrepDeep t = case stensorKind @y of
   STKR{} -> t
   STKS{} -> t
   STKX{} -> t
-  STKProduct{} -> tpair (unrepDeep (fst t)) (unrepDeep (snd t))
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
+    tpair (unrepDeep (fst t)) (unrepDeep (snd t))
   STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
@@ -1375,7 +1380,8 @@ repDeepDuplicable stk t = case stk of
   STKR{} -> t
   STKS{} -> t
   STKX{} -> t
-  STKProduct stk1 stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
     (repDeepDuplicable stk1 (tproject1 t), repDeepDuplicable stk2 (tproject2 t))
   STKUnit -> RepUnit ()
   STKUntyped -> dunHVector $ unHVectorPseudoTensor t
@@ -1478,7 +1484,8 @@ mapRep fr fs fx stk b = case stk of
   STKR _ SNat -> fr b
   STKS _ sh -> withKnownShS sh $ fs b
   STKX _ sh -> withKnownShX sh $ fx b
-  STKProduct stk1 stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
     let !t1 = mapRep fr fs fx stk1 $ tproject1 b
         !t2 = mapRep fr fs fx stk2 $ tproject2 b
     in tpair t1 t2
@@ -1549,7 +1556,8 @@ mapRep2Weak fr fs fx stk b1 b2 = case stk of
   STKR _ SNat -> fr b1 b2
   STKS _ sh -> withKnownShS sh $ fs b1 b2
   STKX _ sh -> withKnownShX sh $ fx b1 b2
-  STKProduct stk1 stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
     let !t1 = mapRep2Weak fr fs fx stk1 (tproject1 b1) (tproject1 b2)
         !t2 = mapRep2Weak fr fs fx stk2 (tproject2 b1) (tproject2 b2)
     in tpair t1 t2

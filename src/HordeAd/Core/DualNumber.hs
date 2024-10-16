@@ -175,12 +175,14 @@ aDValRep p d = case stensorKind @y of
   STKR{} -> dDnotShared p (DeltaR d)
   STKS{} -> dDnotShared p (DeltaS d)
   STKX{} -> dDnotShared p (DeltaX d)
-  STKProduct{} -> let (p1, p2) = tunpair p
-                      (d1, d2) = case d of
-                        PairG t1 t2 -> (t1, t2)
-                        _ -> let dShared = wrapDelta d
-                             in (Project1G dShared, Project2G dShared)
-                  in (aDValRep p1 d1, aDValRep p2 d2)
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+    let (p1, p2) = tunpair p
+        (d1, d2) = case d of
+          PairG t1 t2 -> (t1, t2)
+          _ -> let dShared = wrapDelta d
+               in (Project1G dShared, Project2G dShared)
+    in (aDValRep p1 d1, aDValRep p2 d2)
   STKUnit -> tunit
   STKUntyped -> let pv = tunvector p
                 in HVectorPseudoTensor $ ahhToHVector pv d

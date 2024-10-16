@@ -274,7 +274,9 @@ interpretAst !env = \case
           STKS _ sh -> withKnownShS sh $ sbuild1 g
           STKX _ sh -> withKnownShX sh $ error "TODO"
           STKProduct @z1 @z2 stk1 stk2
-            | Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+            | Dict <- lemTensorKindOfS stk1
+            , Dict <- lemTensorKindOfS stk2
+            , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
               let f1 i = tproject1 $ g i
                   f2 i = tproject2 $ g i

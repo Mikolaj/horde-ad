@@ -172,7 +172,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
-    STKProduct{} ->
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
       -- Sharing is preserved despite `a` being repeated, because
       -- each repetition concerns a disjoint portion of `a` and so the whole `a`
       -- is computed only once.
@@ -194,7 +195,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
     STKR _ SNat -> rconstant t
     STKS _ sh -> withKnownShS sh $ sconstant t
     STKX _ sh -> withKnownShX sh $ xconstant t
-    STKProduct stk1 stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
       let (t1, t2) = tunpair t
           !c1 = tconstant stk1 t1
           !c2 = tconstant stk2 t2
@@ -552,8 +554,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKX _ sh -> withKnownShX sh $
       let D u _ = t
       in tshapeFull stk u
-    STKProduct stk1 stk2 -> FTKProduct (tshapeFull stk1 (fst t))
-                                       (tshapeFull stk2 (snd t))
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      FTKProduct (tshapeFull stk1 (fst t))
+                 (tshapeFull stk2 (snd t))
     STKUnit -> FTKUnit
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
@@ -561,7 +565,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKR _ SNat -> ifF b u v
     STKS _ sh -> withKnownShS sh $ ifF b u v
     STKX _ sh -> withKnownShX sh $ ifF b u v
-    STKProduct stk1 stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
       let !t1 = tcond stk1 b (fst u) (fst v)
           !t2 = tcond stk2 b (snd u) (snd v)
       in (t1, t2)
@@ -577,7 +582,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKR _ SNat -> rprimalPart t
     STKS _ sh -> withKnownShS sh $ sprimalPart t
     STKX _ sh -> withKnownShX sh $ xprimalPart t
-    STKProduct stk1 stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
       let !t1 = tprimalPart stk1 $ fst t
           !t2 = tprimalPart stk2 $ snd t
       in tpair t1 t2
@@ -842,7 +848,8 @@ unADValRep stk t = case (stk, t) of
   (STKR{}, D p (DeltaR d)) -> (p, d)
   (STKS{}, D p (DeltaS d)) -> (p, d)
   (STKX{}, D p (DeltaX d)) -> (p, d)
-  (STKProduct stk1 stk2, (t1, t2)) ->
+  (STKProduct stk1 stk2, (t1, t2)) | Dict <- lemTensorKindOfS stk1
+                                   , Dict <- lemTensorKindOfS stk2 ->
     let (!p1, !d1) = unADValRep stk1 t1 in
     let (!p2, !d2) = unADValRep stk2 t2
     in (tpair p1 p2, PairG d1 d2)

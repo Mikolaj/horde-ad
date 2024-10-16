@@ -48,7 +48,8 @@ toRepDShare stk t = case stk of
   STKR _ SNat -> DTKR t
   STKS _ sh -> withKnownShS sh $ DTKS t
   STKX _ sh -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
     let (t1, t2) = tunpair t
     in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
   STKUnit -> DTKUnit
@@ -67,7 +68,8 @@ toRepDDuplicable stk t = case stk of
   STKR _ SNat -> DTKR t
   STKS _ sh -> withKnownShS sh $ DTKS t
   STKX _ sh -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2 ->
     DTKProduct (toRepDDuplicable stk1 (tproject1 t))
                (toRepDDuplicable stk2 (tproject2 t))
   STKUnit -> DTKUnit
@@ -727,7 +729,9 @@ toADTensorKindShared stk t = case stk of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            xrepl @_ @_ @(MixedOf ranked) (xshape t) ()
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                       , Dict <- lemTensorKindOfS stk2
+                       , Dict <- lemTensorKindOfAD stk1
                        , Dict <- lemTensorKindOfAD stk2 ->
     let (t1, t2) = tunpair t
     in tpair (toADTensorKindShared stk1 t1) (toADTensorKindShared stk2 t2)

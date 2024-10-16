@@ -170,8 +170,7 @@ data STensorKindType y where
        => TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
   STKX :: GoodScalar r
        => TypeRep r -> StaticShX sh -> STensorKindType (TKX r sh)
-  STKProduct :: (TensorKind y, TensorKind z)
-             => STensorKindType y -> STensorKindType z
+  STKProduct :: STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
   STKUnit :: STensorKindType TKUnit
   STKUntyped :: STensorKindType TKUntyped

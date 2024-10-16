@@ -91,7 +91,9 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
     STKR _ SNat -> showsPrec d t
     STKS _ sh -> withKnownShS sh $ showsPrec d t
     STKX _ sh -> withKnownShX sh $ showsPrec d t
-    STKProduct{} -> showsPrec d (RepProductN t)
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      showsPrec d (RepProductN t)
     STKUnit -> showsPrec d (RepUnit ())
     STKUntyped -> showsPrec d t
 
