@@ -128,14 +128,18 @@ fwdArtifactFromForwardPass
   -> TensorKindFull x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdArtifactFromForwardPass #-}
-fwdArtifactFromForwardPass forwardPass ftk =
+fwdArtifactFromForwardPass forwardPass ftk
+ | Dict <- lemTensorKindOfAD (stensorKind @x)
+ , Dict <- lemTensorKindOfAD (stensorKind @z) =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd ftk in
   let !(!primalBody, !delta) =
         unADValRep (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector in
-  let !derivative = derivativeFromDelta delta (rawY (stensorKind @x) hVectorD)
-      !unDerivative = unshareAstTensor $ unRawY (stensorKind @z) derivative
+  let !derivative = derivativeFromDelta @x delta
+                    $ rawY (stensorKind @(ADTensorKind x)) hVectorD
+      !unDerivative = unshareAstTensor
+                      $ unRawY (stensorKind @(ADTensorKind z)) derivative
       !unPrimal = unshareAstTensor $ unRawY (stensorKind @z) primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
      , delta )
@@ -762,13 +766,14 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
-       -> AstHFun (TKProduct x x) z
-  dfwd ftkx f =
+       -> AstHFun (TKProduct (ADTensorKind x)  x) (ADTensorKind z)
+  dfwd ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
+              , Dict <- lemTensorKindOfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactFwd varDs var derivative _primal, _delta) =
           fwdProduceArtifact (unHFun f) emptyEnv ftkx
-        ftk2 = FTKProduct ftkx ftkx
+        ftk2 = FTKProduct (aDTensorKind ftkx) ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDs (astProject1 astP)
           $ astLet var (astProject2 astP)
@@ -783,12 +788,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstRanked s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstRanked s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                        (TKProduct accShs eShs))
-                            (TKProduct accShs bShs)
+                            (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstRanked s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
+                                       (TKProduct accShs eShs))
+                            (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRanked s) accShs
     -> Rep (AstRanked s) (BuildTensorKind k eShs)
     -> Rep (AstRanked s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -808,12 +813,12 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstRanked s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstRanked s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstRanked s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                        (TKProduct accShs eShs))
-                            (TKProduct accShs bShs)
+                            (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstRanked s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
+                                       (TKProduct accShs eShs))
+                            (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRanked s) accShs
     -> Rep (AstRanked s) (BuildTensorKind k eShs)
     -> Rep (AstRanked s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1187,12 +1192,12 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                     (TKProduct accShs eShs))
-                         (TKProduct accShs bShs)
+                         (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
+                                    (TKProduct accShs eShs))
+                         (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRaw s) accShs
     -> Rep (AstRaw s) (BuildTensorKind k eShs)
     -> Rep (AstRaw s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1212,12 +1217,12 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstRaw s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                     (TKProduct accShs eShs))
-                         (TKProduct accShs bShs)
+                         (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
+                                    (TKProduct accShs eShs))
+                         (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstRaw s) accShs
     -> Rep (AstRaw s) (BuildTensorKind k eShs)
     -> Rep (AstRaw s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1605,12 +1610,12 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                             (TKProduct accShs eShs))
-                                 (TKProduct accShs bShs)
+                                 (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
+                                            (TKProduct accShs eShs))
+                                 (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstNoVectorize s) accShs
     -> Rep (AstNoVectorize s) (BuildTensorKind k eShs)
     -> Rep (AstNoVectorize s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -1630,12 +1635,12 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoVectorize s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                             (TKProduct accShs eShs))
-                                 (TKProduct accShs bShs)
+                                 (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
+                                            (TKProduct accShs eShs))
+                                 (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstNoVectorize s) accShs
     -> Rep (AstNoVectorize s) (BuildTensorKind k eShs)
     -> Rep (AstNoVectorize s) (TKProduct accShs (BuildTensorKind k bShs))
@@ -2053,9 +2058,9 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                            (TKProduct accShs eShs))
-                                (TKProduct accShs bShs)
+                                (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                 (TKProduct accShs eShs))
                      (ADTensorKind (TKProduct accShs eShs))
@@ -2078,12 +2083,12 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoSimplify s) (TKProduct (TKProduct accShs eShs)
+    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                            (TKProduct accShs eShs))
-                                (TKProduct accShs bShs)
+                                (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
+                                           (TKProduct accShs eShs))
+                                (ADTensorKind (TKProduct accShs eShs))
     -> Rep (AstNoSimplify s) accShs
     -> Rep (AstNoSimplify s) (BuildTensorKind k eShs)
     -> Rep (AstNoSimplify s) (TKProduct accShs (BuildTensorKind k bShs))

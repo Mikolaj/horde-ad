@@ -10,9 +10,6 @@ module CrossTesting
 
 import Prelude
 
-import Data.Array.Internal qualified as OI
-import Data.Array.Internal.RankedG qualified as RG
-import Data.Array.Internal.RankedS qualified as RS
 import Data.Array.Ranked qualified as ORB
 import Data.Array.RankedS qualified as OR
 import Data.List.NonEmpty (NonEmpty)
@@ -40,7 +37,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (ORArray)
+import HordeAd.Internal.BackendOX (ORArray, tdot0R, tsum0R)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import HordeAd.Util.SizedList
 
@@ -76,7 +73,7 @@ crevDtMaybeBoth mdt f vals =
 rev' :: forall r m n v a w.
         ( KnownNat n, KnownNat m, GoodScalar r
         , v ~ Rep ORArray (TKR r m)
-        , w ~ FlipR OR.Array r m
+        , w ~ Rep ORArray (ADTensorKind (TKR r m))
         , a ~ Rep ORArray (ADTensorKind (TKR r n)) )
      => (forall f. ADReady f => f r n -> f r m)
      -> FlipR OR.Array r n
@@ -84,7 +81,7 @@ rev' :: forall r m n v a w.
         , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-        , FlipR OR.Array r n, w, w, w, w )
+        , Rep ORArray (TKR r n), w, w, w )
 rev' f valsOR =
   let vals :: FlipR Nested.Ranked r n
       vals = fromORArray valsOR
@@ -223,9 +220,8 @@ rev' f valsOR =
         revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst)
       cderivative = cfwd f vals vals
       derivative = fwd f vals vals
-      derivativeRfwd1 = rfwd1ds @ORArray @r @n @m f vals vals
-      derivativeRfwd2 = rfwd2ds @ORArray @r @n @m f vals vals
-      toORArray (FlipR t) = FlipR $ Nested.rtoOrthotope t
+      derivativeRfwd1 = rfwd1ds @ORArray @r @n @m @r f vals
+                        $ toADTensorKindShared stensorKind vals
       fromORArray (FlipR t) = FlipR $ Nested.rfromOrthotope SNat t
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
@@ -242,23 +238,23 @@ rev' f valsOR =
      , gradient2AstUnSimp, gradient2AstSUnSimp
      , gradient3AstUnSimp, gradient3AstSUnSimp
      , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-     , valsOR, toORArray cderivative, toORArray derivative, toORArray derivativeRfwd1, toORArray derivativeRfwd2)
+     , vals, cderivative, derivative, derivativeRfwd1 )
 
 assertEqualUpToEpsilon'
-    :: ( KnownNat m, KnownNat n
+    :: ( KnownNat n
        , v ~ Rep ORArray (TKR r m)
-       , w ~ FlipR OR.Array r m
+       , w ~ Rep ORArray (ADTensorKind (TKR r m))
        , a ~ Rep ORArray (ADTensorKind (TKR r n))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
-       , AssertEqualUpToEpsilon r
-       , GoodScalar r, HasCallStack)
+       , AssertEqualUpToEpsilon (ADTensorScalar r)
+       , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , FlipR OR.Array r n, w, w, w, w )
+       , Rep ORArray (TKR r n), w, w, w )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -278,7 +274,7 @@ assertEqualUpToEpsilon'
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-    , vals, cderivative, derivative, derivativeRfwd1, derivativeRfwd2 ) = do
+    , vals, cderivative, derivative, derivativeRfwd1 ) = do
   let fromORArray t = Nested.rfromOrthotope SNat t
       expected = toADTensorKindShared stensorKind $ FlipR $ fromORArray expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
@@ -354,14 +350,12 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
-  assertEqualUpToEpsilonWithMark "Derivatives rfwd2"
-                                 errMargin cderivative derivativeRfwd2
   -- The formula for comparing derivative and gradient is due to @awf
   -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
   -- and a similar property stated mathematically is in Lemma 1 in
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
-                                 1e-5 (tdot0R expected' (runFlipR vals)) (tsum0R $ runFlipR derivative)
+                                 1e-5 (tsum0R $ runFlipR derivative) (tdot0R (runFlipR expected) (runFlipR $ toADTensorKindShared stensorKind vals))
   {- TODO: this most probably leaks gigabytes of strings from one test case
   -- to another in -O0 mode, leading to OOMs, so it's disabled for now.
   -- We could also try to stream the strings and compare on the fly.
@@ -375,41 +369,21 @@ assertEqualUpToEpsilon'
               (show (simplifyInlineAst astVectSimp))
   -}
 
--- TODO: optimize and clean up these or maybe just switch away from OR
-tsum0R
-  :: (Num r, VS.Storable r)
-  => OR.Array n r -> r
-tsum0R (RS.A (RG.A sh (OI.T _ offset vt))) | V.length vt == 1 =
-  fromIntegral (product sh) * vt V.! offset
-tsum0R (RS.A (RG.A sh t)) =
-  V.sum $ OI.toUnorderedVectorT sh t
-
-tdot0R
-  :: (Num r, VS.Storable r)
-  => OR.Array n r -> OR.Array n r -> r
-tdot0R (RS.A (RG.A sh (OI.T _ _ vt))) (RS.A (RG.A _ (OI.T _ _ vu)))
-  | V.length vt == 1 && V.length vu == 1 =
-      fromIntegral (product sh) * vt V.! 0 * vu V.! 0
-tdot0R t u = V.sum $ V.zipWith (*) (OR.toVector t) (OR.toVector u)  -- OR.toVector t LA.<.> OR.toVector u
-  -- TODO: if offset 0 and same strides, use toUnorderedVectorT
-  -- TODO: if either has length 1 values, it may or may not be faster to do
-  -- tsum0R (t * u)
-
 assertEqualUpToEpsilonShort
-    :: ( KnownNat m, KnownNat n
+    :: ( KnownNat n
        , v ~ Rep ORArray (TKR r m)
-       , w ~ FlipR OR.Array r m
+       , w ~ Rep ORArray (ADTensorKind (TKR r m))
        , a ~ Rep ORArray (ADTensorKind (TKR r n))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
-       , AssertEqualUpToEpsilon r
-       , GoodScalar r, HasCallStack)
+       , AssertEqualUpToEpsilon (ADTensorScalar r)
+       , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , FlipR OR.Array r n, w, w, w, w )
+       , Rep ORArray (TKR r n), w, w, w )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -429,7 +403,7 @@ assertEqualUpToEpsilonShort
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
-    , vals, cderivative, derivative, derivativeRfwd1, derivativeRfwd2) = do
+    , vals, cderivative, derivative, derivativeRfwd1 ) = do
   let fromORArray t = Nested.rfromOrthotope SNat t
       expected = toADTensorKindShared stensorKind $ FlipR $ fromORArray expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
@@ -487,10 +461,8 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
-  assertEqualUpToEpsilonWithMark "Derivatives rfwd2"
-                                 errMargin cderivative derivativeRfwd2
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (tsum0R $ runFlipR derivative) (tdot0R expected' (runFlipR vals))
+                                 1e-5 (tsum0R $ runFlipR derivative) (tdot0R (runFlipR expected) (runFlipR $ toADTensorKindShared stensorKind vals))
   {- disabled, see above
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
@@ -550,25 +522,17 @@ rrev2 f u =
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n -> g r3 m
+        => (forall f. ADReady f => f r n -> f r3 m) -> g r n
+        -> Rep g (ADTensorKind (TKR r n))
+        -> Rep g (ADTensorKind (TKR r3 m))
 rfwd1ds f u ds = rfwd f (tshapeFull stensorKind u) u ds
 
-rfwd2ds :: forall g r n m r3.
-           (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n -> g r3 m
-rfwd2ds f u ds =
-  let fHVector :: forall f. ADReady f => HVector f -> f r3 m
-      fHVector v = f (rfromD $ v V.! 0)
-      sh = rshape u
-      zero = voidFromSh @r @n sh
-      shapes = V.fromList [zero]
-  in rfwd @g fHVector (FTKUntyped shapes) (V.singleton $ DynamicRanked u)
-                                            (V.singleton $ DynamicRanked ds)
-
 rfwd1 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-      => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r3 m
-rfwd1 f u = rfwd1ds f u (rreplicate0N (rshape u) 1)
+         ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
+         , GoodScalar r3, KnownNat n, KnownNat m )
+      => (forall f. ADReady f => f r n -> f r3 m) -> g r n
+      -> Rep g (ADTensorKind (TKR r3 m))
+rfwd1 f u = rfwd1ds f u (rreplicate0N @_ @(ADTensorScalar r) (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
          ( ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2
@@ -578,9 +542,11 @@ srev1 :: forall g r sh sh2 r3.
 srev1 f u = srev f (tshapeFull stensorKind u) u
 
 sfwd1 :: forall g r sh sh2 r3.
-         (ADReadyS g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
-      => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh -> g r3 sh2
-sfwd1 f u = sfwd f (tshapeFull stensorKind u) u (srepl 1)
+         ( ADReadyS g, GoodScalar r, GoodScalar (ADTensorScalar r)
+         , GoodScalar r3, KnownShS sh, KnownShS sh2 )
+      => (forall f. ADReadyS f => f r sh -> f r3 sh2) -> g r sh
+      -> Rep (RankedOf g) (ADTensorKind (TKS r3 sh2))
+sfwd1 f u = sfwd f (tshapeFull stensorKind u) u (srepl @_ @(ADTensorScalar r) 1)
 
 treplicateR
   :: forall n r. (KnownNat n, KnownNat (1 + n), VS.Storable r)

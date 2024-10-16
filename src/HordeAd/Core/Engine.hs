@@ -96,7 +96,7 @@ revDtMaybe
   => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
   -> Maybe (Rep ORArray (ADTensorKind z))
-  -> Value astvals
+  -> Value astvals  -- morally (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
   let g :: Rep (AstRanked FullSpan) (X astvals)
@@ -212,8 +212,8 @@ fwd
      , TermValue astvals )
   => (astvals -> Rep (AstRanked FullSpan) z)
   -> Value astvals
-  -> Value astvals
-  -> Rep ORArray z
+  -> Value astvals  -- morally (ADTensorKind astvals)
+  -> Rep ORArray (ADTensorKind z)
 fwd f vals ds =
   let g :: Rep (AstRanked FullSpan) (X astvals) -> Rep (AstRanked FullSpan) z
       g !hv = dlet hv $ \ !hvShared ->
@@ -222,17 +222,20 @@ fwd f vals ds =
       voidH = tshapeFull stensorKind valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
       dsH = toHVectorOf ds
-  in fst $ fwdEvalArtifact @_ @z artifact valsH dsH
+  in fst $ fwdEvalArtifact @_ @z artifact valsH
+         $ toADTensorKindShared stensorKind dsH
 
 fwdEvalArtifact
   :: forall x z. TensorKind x
   => AstArtifactFwd x z
   -> Rep ORArray x
-  -> Rep ORArray x
-  -> (Rep ORArray z, Rep ORArray z)
+  -> Rep ORArray (ADTensorKind x)
+  -> (Rep ORArray (ADTensorKind z), Rep ORArray z)
 {-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact AstArtifactFwd{..} parameters ds =
-  if tshapeFull (stensorKind @x) parameters == tshapeFull (stensorKind @x) ds then
+fwdEvalArtifact AstArtifactFwd{..} parameters ds
+ | Dict <- lemTensorKindOfAD (stensorKind @x) =
+  if aDTensorKind (tshapeFull (stensorKind @x) parameters)
+     == tshapeFull (stensorKind @(ADTensorKind x)) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env
         derivative = interpretAst envD artDerivativeFwd
@@ -288,7 +291,7 @@ crevDtMaybe
   => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
   -> Maybe (Rep ORArray (ADTensorKind z))
-  -> DValue advals
+  -> DValue advals  -- morally (ADTensorKind advals)
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
@@ -320,8 +323,8 @@ cfwd
      , DualNumberValue advals )
   => (advals -> Rep (ADVal ORArray) z)
   -> DValue advals
-  -> DValue advals
-  -> Rep ORArray z
+  -> DValue advals  -- morally (ADTensorKind advals)
+  -> Rep ORArray (ADTensorKind z)
 cfwd f vals ds =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
       g = f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
@@ -330,7 +333,7 @@ cfwd f vals ds =
         -- TODO: or use dlet as above?
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
-  in fst $ cfwdOnHVector valsH g dsH
+  in fst $ cfwdOnHVector valsH g $ toADTensorKindShared stensorKind dsH
 
 
 

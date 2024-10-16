@@ -89,6 +89,8 @@ import HordeAd.Util.SizedList
 
 type IMap ranked = DEnumMap (InputId ranked) (RepM ranked)
 
+type ADMap ranked = DEnumMap (NodeId ranked) (RepAD ranked)
+
 gradientFromDelta
   :: forall x z ranked.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind z)
@@ -182,10 +184,10 @@ show_iMap iMap = showsPrec_iMap 0 iMap ""
 
 derivativeFromDelta
   :: forall x z ranked.
-     (ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z)
-  => Delta ranked z -> Rep ranked x
-  -> Rep ranked z
-derivativeFromDelta deltaTopLevel ds =
+     ( ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z )
+  => Delta ranked z -> Rep ranked (ADTensorKind x)
+  -> Rep ranked (ADTensorKind z)
+derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x) =
   let -- Matches generateDeltaInputs.
       generateDSums :: Int -> TensorKindFull y -> Rep ranked y
                     -> ( [DSum (InputId ranked) (RepM ranked)]
@@ -638,9 +640,9 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull eShs
     -> RepN ranked (BuildTensorKind k accShs)
     -> RepN ranked (BuildTensorKind k eShs)
-    -> HFun (TKProduct (TKProduct accShs eShs)
+    -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                        (TKProduct accShs eShs))
-            (TKProduct accShs bShs)
+            (ADTensorKind (TKProduct accShs bShs))
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                        (TKProduct accShs eShs))
             (ADTensorKind (TKProduct accShs eShs))
@@ -658,9 +660,9 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull eShs
     -> RepN ranked (BuildTensorKind k accShs)
     -> RepN ranked (BuildTensorKind k eShs)
-    -> HFun (TKProduct (TKProduct accShs eShs)
+    -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                        (TKProduct accShs eShs))
-            (TKProduct accShs bShs)
+            (ADTensorKind (TKProduct accShs bShs))
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                        (TKProduct accShs eShs))
             (ADTensorKind (TKProduct accShs eShs))
@@ -888,7 +890,7 @@ data EvalState ranked = EvalState
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap :: DEnumMap (NodeId ranked) (RepAD ranked)
+  , dMap :: ADMap ranked
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
   , nMap :: DEnumMap (NodeId ranked) (Delta ranked)
@@ -1168,6 +1170,7 @@ evalR !s !c d0 = case d0 of
         (dacc, des) = tunpair dacc_des
         s2 = evalR s dacc acc0'
     in evalR s2 des es'
+
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
         Just Refl -> evalSame s c d0
@@ -1445,202 +1448,243 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
 --
--- This mimics 'buildFinMaps', but in reverse. Perhaps this can be
+-- This mimics the reverse derivative code, but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
 fwdDynamic
   :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
-  => IMap ranked
-  -> DEnumMap (NodeId ranked) (RepN ranked)
-  -> DynamicTensor (DeltaR ranked)
-  -> (DEnumMap (NodeId ranked) (RepN ranked), DynamicTensor ranked)
-fwdDynamic params s (DynamicRanked d) =
-  second DynamicRanked $ fwdR params s (unDeltaR d)
-fwdDynamic params s (DynamicShaped d) =
-  second DynamicShaped $ fwdR params s (unDeltaS d)
+  => IMap ranked -> ADMap ranked -> DynamicTensor (DeltaR ranked)
+  -> (ADMap ranked, DynamicTensor ranked)
+fwdDynamic params s (DynamicRanked @r @n d) =
+  gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  second DynamicRanked $ fwdSame params s (unDeltaR d)
+fwdDynamic params s (DynamicShaped @r @sh d) =
+  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  second DynamicShaped $ fwdSame params s (unDeltaS d)
 fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
+  gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
   withListSh (Proxy @sh) $ \sh2 ->
-    second (DynamicRanked @r) $ fwdR params s (ZeroR sh2)
+    second (DynamicRanked @r) $ fwdSame params s (ZeroR sh2)
 fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
-  second (DynamicShaped @r @sh) $ fwdR params s ZeroS
+  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  second (DynamicShaped @r @sh) $ fwdSame params s ZeroS
 
 fwdHVector
   :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
-  => IMap ranked
-  -> DEnumMap (NodeId ranked) (RepN ranked)
-  -> HVector (DeltaR ranked)
-  -> (DEnumMap (NodeId ranked) (RepN ranked),  HVector ranked)
+  => IMap ranked -> ADMap ranked -> HVector (DeltaR ranked)
+  -> (ADMap ranked,  HVector ranked)
 fwdHVector params = mapAccumL (fwdDynamic params)
-
-evalRepMFwd :: forall ranked x. ADReadyNoLet ranked
-         => RepM ranked x -> Rep ranked x
-evalRepMFwd =
-  \case
-    MTKR t -> t
-    MTKS t -> t
-    MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
-    MTKSDummy -> srepl 0
 
 fwdR
   :: forall ranked y.
      (ADReadyNoLet ranked, ShareTensor ranked, TensorKind y)
-  => IMap ranked -> DEnumMap (NodeId ranked) (RepN ranked) -> Delta ranked y
-  -> (DEnumMap (NodeId ranked) (RepN ranked), Rep ranked y)
-fwdR params s = \case
-  PairG d1 d2 -> let (s2, t) = fwdR params s d1
-                     (s3, u) = fwdR params s2 d2
-                 in (s3, tpair t u)
-  Project1G d -> let (s2, v) = fwdR params s d
-                 in (s2, tproject1 v)
-  Project2G d -> let (s2, v) = fwdR params s d
-                 in (s2, tproject2 v)
+  => IMap ranked -> ADMap ranked -> Delta ranked y
+  -> (ADMap ranked, Rep ranked (ADTensorKind y))
+fwdR params s d0 = case d0 of
+  PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
+                      , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
+    let (s2, t) = fwdR params s d1
+        (s3, u) = fwdR params s2 d2
+    in (s3, tpair t u)
+  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                    , Dict <- lemTensorKindOfAD (stensorKind @z) ->
+    let (s2, v) = fwdR params s d
+    in (s2, tproject1 v)
+  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                 , Dict <- lemTensorKindOfAD (stensorKind @x) ->
+    let (s2, v) = fwdR params s d
+    in (s2, tproject2 v)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, evalRepMFwd dtk)
+      Just dtk -> (s, toADTensorKindShared stensorKind $ evalRepM dtk)
       Nothing -> error "fwdR: missing input"
-  ShareG n d ->
+  ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     case DMap.lookup n s of
-      Just e1 -> (s, unRepN e1)
+      Just e1 -> (s, unRepAD e1)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
             cShared = tshare cRaw
-            cd = RepN cShared
+            cd = RepAD cShared
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
             s3 = DMap.insert n cd s2
         in (s3, cShared)
 
+  MapAccumR @_ @_ @accShs @bShs @eShs
+            k accShs bShs eShs
+            (RepN q) (RepN es)
+            df _rf acc0' es'
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+    let accShsAD = aDTensorKind accShs
+        bShsAD = aDTensorKind bShs
+        eShsAD = aDTensorKind eShs
+        (s2, cacc0) = fwdR params s acc0'
+        (s3, ces) = fwdR params s2 es'
+    in (s3, dmapAccumR (Proxy @ranked)
+                       k accShsAD bShsAD (FTKProduct eShsAD
+                                                     (FTKProduct accShs eShs))
+                       (\dacc (de, acc_e) ->
+                          unHFun df (tpair (tpair (unrepDeep dacc)
+                                                  (unrepDeep de))
+                                           (unrepDeep acc_e)))
+                       cacc0
+                       (tpair ces (tpair q es)))
+  MapAccumL @_ @_ @accShs @bShs @eShs
+            k accShs bShs eShs
+            (RepN q) (RepN es)
+            df _rf acc0' es'
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+    let accShsAD = aDTensorKind accShs
+        bShsAD = aDTensorKind bShs
+        eShsAD = aDTensorKind eShs
+        (s2, cacc0) = fwdR params s acc0'
+        (s3, ces) = fwdR params s2 es'
+    in (s3, dmapAccumL (Proxy @ranked)
+                       k accShsAD bShsAD (FTKProduct eShsAD
+                                                     (FTKProduct accShs eShs))
+                       (\dacc (de, acc_e) ->
+                          unHFun df (tpair (tpair (unrepDeep dacc)
+                                                  (unrepDeep de))
+                                           (unrepDeep acc_e)))
+                       cacc0
+                       (tpair ces (tpair q es)))
+
+  _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
+      case sameTensorKind @y @(ADTensorKind y) of
+        Just Refl -> fwdSame params s d0
+        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+
+fwdSame
+  :: forall ranked y.
+     ( TensorKind y, ADReadyNoLet ranked, ShareTensor ranked
+     , y ~ ADTensorKind y )
+  => IMap ranked -> ADMap ranked -> Delta ranked y
+  -> (ADMap ranked, Rep ranked (ADTensorKind y))
+fwdSame params s = \case
+  InputG _ftk inputId ->
+    case DMap.lookup inputId params of
+      Just dtk -> (s, evalRepM dtk)
+      Nothing -> error "fwdSame: missing input"
+
   ZeroR sh -> (s, rzero sh)
-  ScaleR k d -> second (* k) $ fwdR params s d
-  AddR d e -> let (s2, t) = fwdR params s d
-                  (s3, u) = fwdR params s2 e
+  ScaleR k d -> second (* k) $ fwdSame params s d
+  AddR d e -> let (s2, t) = fwdSame params s d
+                  (s3, u) = fwdSame params s2 e
               in (s3, t + u)
-
-  IndexR d ix -> second (`rindex` ix) $ fwdR params s d
-  SumR d -> second rsum $ fwdR params s d
+  IndexR d ix -> second (`rindex` ix) $ fwdSame params s d
+  SumR d -> second rsum $ fwdSame params s d
   Sum0R ZeroR{} -> (s, 0)
-  Sum0R d -> second rsum0 $ fwdR params s d
+  Sum0R d -> second rsum0 $ fwdSame params s d
   Dot0R _ ZeroR{} -> (s, 0)
-  Dot0R v d -> second (rdot0 v) $ fwdR params s d
+  Dot0R v d -> second (rdot0 v) $ fwdSame params s d
   ScatterR sh d f ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = fwdSame params s d
     in (s2, rscatter sh t f)
-
   FromVectorR lsd ->
-    let (s2, l) = mapAccumL (fwdR params) s lsd
+    let (s2, l) = mapAccumL (fwdSame params) s lsd
     in (s2, rfromVector l)
   ReplicateR n d ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = fwdSame params s d
     in (s2, rreplicate n t)
   AppendR d e ->
-    let (s2, t) = fwdR params s d
-        (s3, u) = fwdR params s2 e
+    let (s2, t) = fwdSame params s d
+        (s3, u) = fwdSame params s2 e
     in (s3, rappend t u)
-  SliceR i n d -> second (rslice i n) $ fwdR params s d
-  ReverseR d -> second rreverse $ fwdR params s d
-  TransposeR perm d -> second (rtranspose perm) $ fwdR params s d
-  ReshapeR sh d -> second (rreshape sh) $ fwdR params s d
+  SliceR i n d -> second (rslice i n) $ fwdSame params s d
+  ReverseR d -> second rreverse $ fwdSame params s d
+  TransposeR perm d -> second (rtranspose perm) $ fwdSame params s d
+  ReshapeR sh d -> second (rreshape sh) $ fwdSame params s d
   GatherR sh d f ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = fwdSame params s d
     in (s2, rgather sh t f)
-  CastR d ->
-    second rcast $ fwdR params s d
-
+  d0@(CastR @r1 @_ @n d)
+    | Dict <- lemTensorKindOfAD (stensorKind @(TKR r1 n)) ->
+      case sameTensorKind @(TKR r1 n) @(ADTensorKind (TKR r1 n)) of
+        Just Refl -> second rcast $ fwdSame params s d
+        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
   RFromS (SFromR d) ->
-    fwdR params s d  -- no information lost, so no checks
-  RFromS d -> second rfromS $ fwdR params s d
+    fwdSame params s d  -- no information lost, so no checks
+  RFromS d -> second rfromS $ fwdSame params s d
   RFromH d i ->
-    let (s2, v) = fwdR params s d
+    let (s2, v) = fwdSame params s d
     in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, rfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
 
   ZeroS -> (s, srepl 0)
-  ScaleS k d -> second (* k) $ fwdR params s d
-  AddS d e -> let (s2, t) = fwdR params s d
-                  (s3, u) = fwdR params s2 e
+  ScaleS k d -> second (* k) $ fwdSame params s d
+  AddS d e -> let (s2, t) = fwdSame params s d
+                  (s3, u) = fwdSame params s2 e
               in (s3, t + u)
-
-  IndexS d ix -> second (`sindex` ix) $ fwdR params s d
-  SumS d -> second ssum $ fwdR params s d
+  IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
+  SumS d -> second ssum $ fwdSame params s d
   Sum0S ZeroS -> (s, srepl 0)
-  Sum0S d -> second ssum0 $ fwdR params s d
+  Sum0S d -> second ssum0 $ fwdSame params s d
   Dot0S _ ZeroS -> (s, srepl 0)
-  Dot0S v d -> second (sdot0 v) $ fwdR params s d
+  Dot0S v d -> second (sdot0 v) $ fwdSame params s d
   ScatterS d f ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = fwdSame params s d
     in (s2, sscatter t f)
-
   FromVectorS lsd ->
-    let (s2, l) = mapAccumL (fwdR params) s lsd
+    let (s2, l) = mapAccumL (fwdSame params) s lsd
     in (s2, sfromVector l)
   ReplicateS d ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = fwdSame params s d
     in (s2, sreplicate t)
   AppendS d e ->
-    let (s2, t) = fwdR params s d
-        (s3, u) = fwdR params s2 e
+    let (s2, t) = fwdSame params s d
+        (s3, u) = fwdSame params s2 e
     in (s3, sappend t u)
-  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdR params s d
-  ReverseS d -> second sreverse $ fwdR params s d
+  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdSame params s d
+  ReverseS d -> second sreverse $ fwdSame params s d
   TransposeS perm d -> second (stranspose perm)
-                       $ fwdR params s d
-  ReshapeS d -> second sreshape $ fwdR params s d
+                       $ fwdSame params s d
+  ReshapeS d -> second sreshape $ fwdSame params s d
   GatherS d f ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = fwdSame params s d
     in (s2, sgather t f)
-  CastS d ->
-    second scast $ fwdR params s d
-
+  d0@(CastS @r1 @_ @sh d)
+    | Dict <- lemTensorKindOfAD (stensorKind @(TKS r1 sh)) ->
+      case sameTensorKind @(TKS r1 sh) @(ADTensorKind (TKS r1 sh)) of
+        Just Refl -> second scast $ fwdSame params s d
+        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> fwdR params s d
-      _ -> error "fwdR: different shapes in SFromR(RFromS)"
-  SFromR d -> second sfromR $ fwdR params s d
+      Just Refl -> fwdSame params s d
+      _ -> error "fwdSame: different shapes in SFromR(RFromS)"
+  SFromR d -> second sfromR $ fwdSame params s d
   SFromH d i ->
-    let (s2, v) = fwdR params s d
+    let (s2, v) = fwdSame params s d
     in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, sfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
 
   ZeroX sh -> (s, xzero sh)
-  ScaleX k d -> second (* k) $ fwdR params s d
-  AddX d e -> let (s2, t) = fwdR params s d
-                  (s3, u) = fwdR params s2 e
+  ScaleX k d -> second (* k) $ fwdSame params s d
+  AddX d e -> let (s2, t) = fwdSame params s d
+                  (s3, u) = fwdSame params s2 e
               in (s3, t + u)
-  IndexX d ix -> second (`xindex` ix) $ fwdR params s d
+  IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
   FromVectorX lsd ->
-    let (s2, l) = mapAccumL (fwdR params) s lsd
+    let (s2, l) = mapAccumL (fwdSame params) s lsd
     in (s2, xfromVector l)
 
   HToH v -> second (HVectorPseudoTensor . dmkHVector)
             $ fwdHVector params s v
-  MapAccumR k accShs bShs eShs
-            (RepN q) (RepN es)
-            df _rf acc0' es' ->
-    let (s2, cacc0) = fwdR params s acc0'
-        (s3, ces) = fwdR params s2 es'
-    in (s3, dmapAccumR (Proxy @ranked)
-                       k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
-                       (\dacc (de, acc_e) ->
-                          unHFun df (tpair (tpair (unrepDeep dacc)
-                                                    (unrepDeep de))
-                                            (unrepDeep acc_e)))
-                       cacc0
-                       (tpair ces (tpair q es)))
-  MapAccumL k accShs bShs eShs
-            (RepN q) (RepN es)
-            df _rf acc0' es' ->
-    let (s2, cacc0) = fwdR params s acc0'
-        (s3, ces) = fwdR params s2 es'
-    in (s3, dmapAccumL (Proxy @ranked)
-                       k accShs bShs (FTKProduct eShs (FTKProduct accShs eShs))
-                       (\dacc (de, acc_e) ->
-                          unHFun df (tpair (tpair (unrepDeep dacc)
-                                                    (unrepDeep de))
-                                            (unrepDeep acc_e)))
-                       cacc0
-                       (tpair ces (tpair q es)))
+
+  d -> fwdR params s d

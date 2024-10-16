@@ -238,9 +238,9 @@ data AstArtifactRev x z = AstArtifactRev
 -- The forward derivative artifact.
 type role AstArtifactFwd nominal nominal
 data AstArtifactFwd x z = AstArtifactFwd
-  { artVarDsFwd      :: AstVarName PrimalSpan x
+  { artVarDsFwd      :: AstVarName PrimalSpan (ADTensorKind x)
   , artVarDomainFwd  :: AstVarName PrimalSpan x
-  , artDerivativeFwd :: AstTensor AstMethodLet PrimalSpan z
+  , artDerivativeFwd :: AstTensor AstMethodLet PrimalSpan (ADTensorKind z)
   , artPrimalFwd     :: AstTensor AstMethodLet PrimalSpan z
   }
 
@@ -638,9 +638,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (TKProduct accShs eShs)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                           (TKProduct accShs eShs))
-               (TKProduct accShs bShs)
+               (ADTensorKind (TKProduct accShs bShs))
     -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                           (TKProduct accShs eShs))
                (ADTensorKind (TKProduct accShs eShs))
@@ -654,9 +654,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (TKProduct accShs eShs)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                           (TKProduct accShs eShs))
-               (TKProduct accShs bShs)
+               (ADTensorKind (TKProduct accShs bShs))
     -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                           (TKProduct accShs eShs))
                (ADTensorKind (TKProduct accShs eShs))

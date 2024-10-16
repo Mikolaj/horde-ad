@@ -227,9 +227,10 @@ class HVectorTensor ranked shaped
        => (forall f. ADReady f => RepDeep f x -> f r n)
        -> TensorKindFull x
        -> RepDeep ranked x
-       -> RepDeep ranked x  -- ^ incoming tangent (ds)
-       -> ranked r n
-  rfwd f ftk =
+       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
+       -> Rep ranked (ADTensorKind (TKR r n))
+  rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+             , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
@@ -263,9 +264,10 @@ class HVectorTensor ranked shaped
        => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
        -> TensorKindFull x
        -> RepDeep ranked x
-       -> RepDeep ranked x  -- ^ incoming tangent (ds)
-       -> shaped r sh
-  sfwd f ftk =
+       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
+       -> Rep ranked (ADTensorKind (TKS r sh))
+  sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+             , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
@@ -1005,7 +1007,8 @@ class HVectorTensor (ranked :: RankedTensorType)
     :: (TensorKind x, TensorKind z)
     => TensorKindFull x  -- shape of a and da
     -> HFun x z  -- a |-> b
-    -> HFunOf ranked (TKProduct x x) z  -- [da, a] |-> db
+    -> HFunOf ranked (TKProduct (ADTensorKind x) x) (ADTensorKind z)
+                 -- [da, a] |-> db
   -- | A strict left fold.
   rfold
     :: forall rn rm n m.
@@ -1162,9 +1165,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs -- ^ shapes of b
     -> TensorKindFull eShs -- ^ shapes of e
     -> HFunOf ranked (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf ranked (TKProduct (TKProduct accShs eShs)
+    -> HFunOf ranked (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                 (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                     (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf ranked (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                 (TKProduct accShs eShs))
                      (ADTensorKind (TKProduct accShs eShs))
@@ -1210,9 +1213,9 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> HFunOf ranked (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf ranked (TKProduct (TKProduct accShs eShs)
+    -> HFunOf ranked (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                 (TKProduct accShs eShs))
-                     (TKProduct accShs bShs)
+                     (ADTensorKind (TKProduct accShs bShs))
     -> HFunOf ranked (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                 (TKProduct accShs eShs))
                      (ADTensorKind (TKProduct accShs eShs))

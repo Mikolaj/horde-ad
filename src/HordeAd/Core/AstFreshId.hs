@@ -296,24 +296,25 @@ funToAstRev :: TensorKindFull x
 funToAstRev = unsafePerformIO . funToAstRevIO
 
 funToAstFwdIO :: forall x. TensorKindFull x
-              -> IO ( AstVarName PrimalSpan x
-                    , AstTensor AstMethodShare PrimalSpan x
+              -> IO ( AstVarName PrimalSpan (ADTensorKind x)
+                    , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
                     , AstVarName PrimalSpan x
                     , AstTensor AstMethodShare PrimalSpan x
                     , AstVarName FullSpan x
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstFwdIO #-}
-funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
+funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk
+                  , Dict <- lemTensorKindOfAD (stensorKind @x) = do
   freshIdDs <- unsafeGetFreshAstVarId
   freshId <- unsafeGetFreshAstVarId
-  let varPrimalD :: AstVarName PrimalSpan x
+  let varPrimalD :: AstVarName PrimalSpan (ADTensorKind x)
       varPrimalD = mkAstVarName freshIdDs
       varPrimal :: AstVarName PrimalSpan x
       varPrimal = mkAstVarName freshId
       var :: AstVarName FullSpan x
       var = mkAstVarName freshId
-      astVarPrimalD :: AstTensor AstMethodShare PrimalSpan x
-      !astVarPrimalD = AstVar ftk varPrimalD
+      astVarPrimalD :: AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
+      !astVarPrimalD = AstVar (aDTensorKind ftk) varPrimalD
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
       !astVarPrimal = AstVar ftk varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x
@@ -356,8 +357,8 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk = do
       return (varPrimalD, vD, varPrimal, vp, var, va)
 
 funToAstFwd :: TensorKindFull x
-            -> ( AstVarName PrimalSpan x
-               , AstTensor AstMethodShare PrimalSpan x
+            -> ( AstVarName PrimalSpan (ADTensorKind x)
+               , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
                , AstVarName PrimalSpan x
                , AstTensor AstMethodShare PrimalSpan x
                , AstVarName FullSpan x

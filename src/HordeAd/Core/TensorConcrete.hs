@@ -337,9 +337,10 @@ instance HVectorTensor ORArray OSArray where
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
-       -> HFunOf ORArray (TKProduct x x) z
+       -> HFunOf ORArray (TKProduct (ADTensorKind x) x) (ADTensorKind z)
   dfwd _shs h =
-    let df :: Rep ORArray (TKProduct x x) -> Rep ORArray z
+    let df :: Rep ORArray (TKProduct (ADTensorKind x) x)
+          -> Rep ORArray (ADTensorKind z)
         df !da_a = fst $ cfwdOnHVector (snd da_a) (unHFun h) (fst da_a)
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
