@@ -302,7 +302,7 @@ instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
     STKR _ SNat -> FTKR $ tshapeR $ runFlipR t
-    STKS _ sh -> withKnownShS sh FTKS
+    STKS _ sh -> FTKS sh
     STKX _ sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->

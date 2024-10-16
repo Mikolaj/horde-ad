@@ -74,6 +74,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
 import Data.Array.Nested (KnownShX, Rank, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shrRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import Data.Array.Mixed.Shape (IShX)
@@ -109,7 +110,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                        [Some (RepM ranked)] -> TensorKindFull ady
                     -> (Rep ranked ady, [Some (RepM ranked)])
       rebuildInputs els = \case
-        FTKR @r @n _ -> case els of
+        FTKR @r @n sh | SNat <- shrRank sh -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
             case ( sameNat (Proxy @n) (Proxy @n2)
                  , testEquality (typeRep @r) (typeRep @r2) ) of
@@ -126,7 +127,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
-        FTKS @r @sh -> case els of
+        FTKS @r @sh sh -> withKnownShS sh $ case els of
           Some mt@(MTKS @r2 @sh2 t) : rest ->
             case ( sameShape @sh @sh2
                  , testEquality (typeRep @r) (typeRep @r2) ) of
@@ -194,10 +195,12 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
                     -> ( [DSum (InputId ranked) (RepM ranked)]
                        , Int )
       generateDSums j ftk t = case ftk of
-        FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
-          case lemKnownNatRank (knownShS @sh) of
-            Dict -> ([InputId j :=> MTKR @r t], j + 1)
-        FTKS @r @sh -> ([InputId j :=> MTKS @r @sh t], j + 1)
+        FTKR @r sh | SNat <- shrRank sh ->
+          withShapeP (shapeToList sh) $ \(Proxy @sh) ->
+            case lemKnownNatRank (knownShS @sh) of
+              Dict -> ([InputId j :=> MTKR @r t], j + 1)
+        FTKS @r @sh sh -> withKnownShS sh
+                          $ ([InputId j :=> MTKS @r @sh t], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                              , Dict <- lemTensorKindOfF ftk2 ->
@@ -776,30 +779,30 @@ shapeDeltaFull = \case
     FTKR $ listToShape $ shapeT @sh
   RFromH d i -> FTKR $ listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
-  ZeroS{} -> FTKS
-  ScaleS{} -> FTKS
-  AddS{} -> FTKS
-  IndexS{} -> FTKS
-  SumS{} -> FTKS
-  Sum0S{} -> FTKS
-  Dot0S{} -> FTKS
-  ScatterS{} -> FTKS
-  FromVectorS{} -> FTKS
-  ReplicateS{} -> FTKS
-  AppendS{} -> FTKS
-  SliceS{} -> FTKS
-  ReverseS{} -> FTKS
+  ZeroS{} -> FTKS knownShS
+  ScaleS{} -> FTKS knownShS
+  AddS{} -> FTKS knownShS
+  IndexS{} -> FTKS knownShS
+  SumS{} -> FTKS knownShS
+  Sum0S{} -> FTKS knownShS
+  Dot0S{} -> FTKS knownShS
+  ScatterS{} -> FTKS knownShS
+  FromVectorS{} -> FTKS knownShS
+  ReplicateS{} -> FTKS knownShS
+  AppendS{} -> FTKS knownShS
+  SliceS{} -> FTKS knownShS
+  ReverseS{} -> FTKS knownShS
   TransposeS @perm @sh2 perm _v ->
     withShapeP
       (permutePrefixList (Permutation.permToList' perm)
                          (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2)
-        FTKS
-  ReshapeS{} -> FTKS
-  GatherS{} -> FTKS
-  CastS{} -> FTKS
-  SFromR{} -> FTKS
-  SFromH{} -> FTKS
+        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
+        FTKS knownShS
+  ReshapeS{} -> FTKS knownShS
+  GatherS{} -> FTKS knownShS
+  CastS{} -> FTKS knownShS
+  SFromR{} -> FTKS knownShS
+  SFromH{} -> FTKS knownShS
 
   ZeroX sh -> FTKX sh
   ScaleX _ d -> shapeDeltaFull d
@@ -971,7 +974,8 @@ initEvalState ftk0 =
         FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
           case lemKnownNatRank (knownShS @sh) of
             Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
-        FTKS @r @sh -> ([InputId j :=> MTKSDummy @r @sh], j + 1)
+        FTKS @r @sh sh -> withKnownShS sh
+                          $ ([InputId j :=> MTKSDummy @r @sh], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 ->
           let (ds1, j1) = generateDSums j ftk1

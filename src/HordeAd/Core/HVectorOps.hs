@@ -33,7 +33,9 @@ import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Shape (ssxFromShape)
 import Data.Array.Nested (Rank)
+import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
@@ -690,9 +692,9 @@ repConstant :: forall y ranked. ADReadyNoLet ranked
             => (forall r. GoodScalar r => r)
             -> TensorKindFull y -> Rep ranked y
 repConstant r = \case
-  FTKR sh -> rrepl (toList sh) r
-  FTKS -> srepl r
-  FTKX sh -> xrepl sh r
+  FTKR sh | SNat <- shrRank sh -> rrepl (toList sh) r
+  FTKS sh -> withKnownShS sh $ srepl r
+  FTKX sh -> withKnownShX (ssxFromShape sh) $ xrepl sh r
   FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                        , Dict <- lemTensorKindOfF ftk2 ->
     tpair (repConstant r ftk1)

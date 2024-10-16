@@ -679,7 +679,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
   tshapeFull stk t = case stk of
     STKR _ SNat -> shapeAstFull $ unAstRanked t
-    STKS _ sh -> withKnownShS sh FTKS
+    STKS _ sh -> FTKS sh
     STKX _ sh -> withKnownShX sh shapeAstFull $ unAstMixed t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
@@ -1132,7 +1132,7 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
   tshapeFull stk t = case stk of
     STKR _ SNat -> shapeAstFull $ unAstRaw t
-    STKS _ sh -> withKnownShS sh FTKS
+    STKS _ sh -> FTKS sh
     STKX _ sh -> withKnownShX sh shapeAstFull $ unAstRawX t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
@@ -1576,7 +1576,7 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape . unAstNoVectorizeWrap
   tshapeFull stk t = case stk of
     STKR _ SNat -> shapeAstFull $ unAstNoVectorize t
-    STKS _ sh -> withKnownShS sh FTKS
+    STKS _ sh -> FTKS sh
     STKX _ sh -> withKnownShX sh shapeAstFull $ unAstNoVectorizeX t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
@@ -2025,7 +2025,7 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
   tshapeFull stk t = case stk of
     STKR _ SNat -> shapeAstFull $ unAstNoSimplify t
-    STKS _ sh -> withKnownShS sh FTKS
+    STKS _ sh -> FTKS sh
     STKX _ sh -> withKnownShX sh shapeAstFull $ unAstNoSimplifyX t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->

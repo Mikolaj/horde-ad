@@ -27,8 +27,9 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxFromShape)
 import Data.Array.Nested (Rank, type (++))
+import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -690,9 +691,12 @@ substProjRep snat@SNat var ftk2 var1 v
                    -> TensorKindFull y4
                    -> AstTensor AstMethodLet s2 y4
         projection prVar = \case
-          FTKR{} -> Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-          FTKS -> Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
-          FTKX{} -> Ast.AstIndexX prVar (Ast.AstIntVar var :.% ZIX)
+          FTKR sh | SNat <- shrRank sh ->
+            Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
+          FTKS sh -> withKnownShS sh
+                     $ Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+          FTKX sh -> withKnownShX (ssxFromShape sh)
+                     $ Ast.AstIndexX prVar (Ast.AstIntVar var :.% ZIX)
           FTKProduct @z1 @z2 ftk41 ftk42
             | Dict <- lemTensorKindOfF ftk41
             , Dict <- lemTensorKindOfF ftk42
@@ -716,7 +720,7 @@ substProjRep snat@SNat var ftk2 var1 v
                   projDyn (DynamicShaped @_ @sh2 (AstGenericS t))
                           (DynamicShapedDummy @_ @sh3 _ _)
                     | Just Refl <- sameShape @sh2 @(k ': sh3) =
-                      DynamicShaped $ AstGenericS $ projection t (FTKS @_ @sh3)
+                      DynamicShaped $ AstGenericS $ projection t (FTKS @_ @sh3 knownShS)
                   projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
               in astLetHVectorIn
                    vars
@@ -752,7 +756,7 @@ substProjShaped :: forall k sh1 r1 s1 s y.
 substProjShaped var var1 =
   let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
       projection =
-        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) FTKS var2)
+        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) (FTKS knownShS) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
        (SubstitutionPayload @s1 projection) var1

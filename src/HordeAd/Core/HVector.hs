@@ -36,8 +36,9 @@ import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape (IShX)
+import Data.Array.Mixed.Shape (IShX, ssxFromShape)
 import Data.Array.Nested (KnownShX, SMayNat (..), ShX (..), type (++))
+import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances ()
@@ -144,9 +145,9 @@ data RepD ranked y where
 -- to FTKS
 type role TensorKindFull nominal
 data TensorKindFull y where
-  FTKR :: (GoodScalar r, KnownNat n) => IShR n -> TensorKindFull (TKR r n)
-  FTKS :: (GoodScalar r, KnownShS sh) => TensorKindFull (TKS r sh)
-  FTKX :: (GoodScalar r, KnownShX sh) => IShX sh -> TensorKindFull (TKX r sh)
+  FTKR :: GoodScalar r => IShR n -> TensorKindFull (TKR r n)
+  FTKS :: GoodScalar r => ShS sh -> TensorKindFull (TKS r sh)
+  FTKX :: GoodScalar r => IShX sh -> TensorKindFull (TKX r sh)
   FTKProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
   FTKUnit :: TensorKindFull TKUnit
@@ -167,9 +168,9 @@ nullRepDeep t = case stensorKind @y of
 
 lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
 lemTensorKindOfF = \case
-  FTKR{} -> Dict
-  FTKS -> Dict
-  FTKX{} -> Dict
+  FTKR sh | SNat <- shrRank sh -> Dict
+  FTKS sh -> withKnownShS sh Dict
+  FTKX sh -> withKnownShX (ssxFromShape sh) Dict
   FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                        , Dict <- lemTensorKindOfF ftk2 -> Dict
   FTKUnit -> Dict
@@ -179,7 +180,7 @@ buildTensorKindFull :: SNat k -> TensorKindFull y
                     -> TensorKindFull (BuildTensorKind k y)
 buildTensorKindFull snat@SNat = \case
   FTKR sh -> FTKR $ sNatValue snat :$: sh
-  FTKS -> FTKS
+  FTKS sh -> FTKS $ snat :$$ sh
   FTKX sh -> FTKX $ SKnown snat :$% sh
   FTKProduct ftk1 ftk2 ->
       FTKProduct (buildTensorKindFull snat ftk1)
@@ -190,24 +191,24 @@ buildTensorKindFull snat@SNat = \case
 aDTensorKind :: TensorKindFull y
              -> TensorKindFull (ADTensorKind y)
 aDTensorKind t = case t of
-  FTKR @r @n shr -> case testEquality (typeRep @r) (typeRep @Double) of
+  FTKR @r shr -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKR @() @n shr
-  FTKS @r @sh -> case testEquality (typeRep @r) (typeRep @Double) of
+           FTKR @() shr
+  FTKS @r shs -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKS @() @sh
-  FTKX @r @sh shx -> case testEquality (typeRep @r) (typeRep @Double) of
+           FTKS @() shs
+  FTKX @r shx -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKX @() @sh shx
+           FTKX @() shx
   FTKProduct ftk1 ftk2 ->
     let gtk1 = aDTensorKind ftk1
         gtk2 = aDTensorKind ftk2

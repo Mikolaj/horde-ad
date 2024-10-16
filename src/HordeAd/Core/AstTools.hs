@@ -105,36 +105,36 @@ shapeAstFull t = case t of
   AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
     FTKR $ listToShape $ shapeT @sh
 
-  AstMinIndexS{} -> FTKS
-  AstMaxIndexS{} -> FTKS
-  AstFloorS{} -> FTKS
-  AstIotaS{} -> FTKS
-  AstN1S{} -> FTKS
-  AstN2S{} -> FTKS
-  AstR1S{} -> FTKS
-  AstR2S{} -> FTKS
-  AstI2S{} -> FTKS
-  AstSumOfListS{} -> FTKS
-  AstIndexS{} -> FTKS
-  AstSumS{} -> FTKS
-  AstScatterS{} -> FTKS
-  AstFromVectorS{} -> FTKS
-  AstAppendS{} -> FTKS
-  AstSliceS{} -> FTKS
-  AstReverseS{} -> FTKS
+  AstMinIndexS{} -> FTKS knownShS
+  AstMaxIndexS{} -> FTKS knownShS
+  AstFloorS{} -> FTKS knownShS
+  AstIotaS{} -> FTKS knownShS
+  AstN1S{} -> FTKS knownShS
+  AstN2S{} -> FTKS knownShS
+  AstR1S{} -> FTKS knownShS
+  AstR2S{} -> FTKS knownShS
+  AstI2S{} -> FTKS knownShS
+  AstSumOfListS{} -> FTKS knownShS
+  AstIndexS{} -> FTKS knownShS
+  AstSumS{} -> FTKS knownShS
+  AstScatterS{} -> FTKS knownShS
+  AstFromVectorS{} -> FTKS knownShS
+  AstAppendS{} -> FTKS knownShS
+  AstSliceS{} -> FTKS knownShS
+  AstReverseS{} -> FTKS knownShS
   AstTransposeS @perm @sh2 perm _v ->
     withShapeP
       (permutePrefixList (Permutation.permToList' perm)
                          (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2)
-        FTKS
-  AstReshapeS{} -> FTKS
-  AstGatherS{} -> FTKS
-  AstCastS{} -> FTKS
-  AstFromIntegralS{} -> FTKS
-  AstConstS{} -> FTKS
-  AstProjectS{} -> FTKS
-  AstSFromR{} -> FTKS
+        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
+        FTKS knownShS
+  AstReshapeS{} -> FTKS knownShS
+  AstGatherS{} -> FTKS knownShS
+  AstCastS{} -> FTKS knownShS
+  AstFromIntegralS{} -> FTKS knownShS
+  AstConstS{} -> FTKS knownShS
+  AstProjectS{} -> FTKS knownShS
+  AstSFromR{} -> FTKS knownShS
 
   AstMkHVector v ->
     FTKUntyped

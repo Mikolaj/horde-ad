@@ -135,7 +135,7 @@ initialStateAdamDeep ftk =
 repDeepZero :: TensorKindFull y -> Rep ORArray y
 repDeepZero = \case
   FTKR sh -> FlipR $ Nested.rreplicateScal sh 0
-  FTKS -> FlipS $ Nested.sreplicateScal knownShS 0
+  FTKS sh -> FlipS $ Nested.sreplicateScal sh 0
   FTKX sh -> FlipX $ Nested.mreplicateScal sh 0
   FTKProduct ftk1 ftk2 -> (repDeepZero ftk1, repDeepZero ftk2)
   FTKUnit -> RepUnit ()

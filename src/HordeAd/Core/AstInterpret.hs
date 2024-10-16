@@ -33,6 +33,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
 import Data.Array.Nested (Rank, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -242,8 +243,8 @@ interpretAst !env = \case
       let emptyFromStk :: TensorKindFull z
                        -> Rep ranked (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
-            FTKR sh -> rfromList0N (0 :$: sh) []
-            FTKS -> sfromList0N []
+            FTKR sh | SNat <- shrRank sh -> rfromList0N (0 :$: sh) []
+            FTKS sh -> withKnownShS sh $ sfromList0N []
             FTKX{} -> error "TODO"
             FTKProduct @z1 @z2 ftk1 ftk2
               | Dict <- lemTensorKindOfF ftk1

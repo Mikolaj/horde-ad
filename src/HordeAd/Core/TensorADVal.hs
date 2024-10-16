@@ -550,7 +550,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   tshapeFull stk t = case stk of
     STKR _ SNat -> let D u _ = t
                    in tshapeFull stk u
-    STKS _ sh -> withKnownShS sh FTKS
+    STKS _ sh -> FTKS sh
     STKX _ sh -> withKnownShX sh $
       let D u _ = t
       in tshapeFull stk u

@@ -102,10 +102,10 @@ funToAstIO sh f = do
             !x = f (AstVar sh varName)
             dynVar = AstDynamicVarName @Nat @r @p_sh freshId
         in (varName, dynVar, x)
-    FTKS @r @sh -> do
+    FTKS @r @sh shs -> do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
-          dynVar = AstDynamicVarName @[Nat] @r @sh freshId
+          dynVar = withKnownShS shs $ AstDynamicVarName @[Nat] @r @sh freshId
       return (varName, dynVar, x)
     FTKX{} -> error "TODO"
     FTKProduct{} -> do
@@ -237,7 +237,7 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
   return $!
     let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
         dynE :: AstDynamic ms s
-        !dynE = DynamicShaped @r2 @sh2 (AstGenericS $ AstVar FTKS (mkAstVarName freshId))
+        !dynE = DynamicShaped @r2 @sh2 (AstGenericS $ AstVar (FTKS knownShS) (mkAstVarName freshId))
     in (varE, dynE)
 
 funToAstRevIO :: forall x. TensorKindFull x
@@ -259,7 +259,7 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
   case ftk of
     FTKR{} ->
       return (varPrimal, astVarPrimal, var, astVar)
-    FTKS ->
+    FTKS{} ->
       return (varPrimal, astVarPrimal, var, astVar)
     FTKX{} ->
       return (varPrimal, astVarPrimal, var, astVar)
@@ -322,7 +322,7 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk
   case ftk of
     FTKR{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
-    FTKS ->
+    FTKS{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKX{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)

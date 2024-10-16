@@ -25,8 +25,9 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxFromShape)
 import Data.Array.Nested (KnownShX, type (++))
+import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
@@ -134,9 +135,10 @@ generateDeltaInputs
 generateDeltaInputs =
   let gen :: Int -> TensorKindFull y -> (Delta ranked y, Int)
       gen j ftk = case ftk of
-        FTKR{} -> (InputG ftk (toInputId j), j + 1)
-        FTKS -> (InputG ftk (toInputId j), j + 1)
-        FTKX{} -> (InputG ftk (toInputId j), j + 1)
+        FTKR sh | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
+        FTKS sh -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
+        FTKX sh -> withKnownShX (ssxFromShape sh)
+                   $ (InputG ftk (toInputId j), j + 1)
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                              , Dict <- lemTensorKindOfF ftk2 ->
           let (d1, j1) = gen j ftk1
@@ -149,7 +151,7 @@ generateDeltaInputs =
                 withListSh (Proxy @sh) $ \sh ->
                   DynamicRanked $ DeltaR $ InputG (FTKR @r sh) (toInputId i)
               f (i, DynamicShapedDummy @r @sh _ _) =
-                DynamicShaped $ DeltaS $ InputG (FTKS @r @sh) (toInputId i)
+                DynamicShaped $ DeltaS $ InputG (FTKS @r @sh knownShS) (toInputId i)
               len = V.length shs
           in (HToH $ V.map f $ V.zip (V.enumFromN j len) shs, j + len)
   in fst . gen 0
