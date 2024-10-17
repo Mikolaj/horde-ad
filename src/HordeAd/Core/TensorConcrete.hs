@@ -91,7 +91,6 @@ instance LetTensor ORArray OSArray where
     STKS{} -> f a
     STKX{} -> f a
     stk@STKProduct{} -> f (repDeepDuplicable stk a)
-    STKUnit -> f a
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   tlet :: forall x z. TensorKind x
        => Rep ORArray x
@@ -103,7 +102,6 @@ instance LetTensor ORArray OSArray where
     STKS{} -> f a
     STKX{} -> f a
     STKProduct{} -> f a
-    STKUnit -> f a
     STKUntyped{} -> f $ unHVectorPseudoTensor a
   blet = (&)
   toShare = id
@@ -233,14 +231,11 @@ data DummyProduct vx vz = DummyProduct vx vz
 type instance Rep DummyDual (TKProduct x z) =
   DummyProduct (Rep DummyDual x)
                (Rep DummyDual z)
-type instance Rep DummyDual TKUnit =
-  RepUnit DummyDual
 
 instance ProductTensor DummyDual where
   tpair = DummyProduct
   tproject1 (DummyProduct vx _vz) = vx
   tproject2 (DummyProduct _vx vz) = vz
-  tunit = RepUnit ()
   tmkHVector = error "tmkHVector of DummyDual"
 
 instance ShapedTensor OSArray where
@@ -311,7 +306,6 @@ instance HVectorTensor ORArray OSArray where
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tshapeFull stk1 (fst t))
                  (tshapeFull stk2 (snd t))
-    STKUnit -> FTKUnit
     STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
   tcond _ b u v = if b then u else v
   tprimalPart _ = id
@@ -368,8 +362,6 @@ instance HVectorTensor ORArray OSArray where
 
 type instance Rep ORArray (TKProduct x z) =
   (Rep ORArray x, Rep ORArray z)
-type instance Rep ORArray TKUnit =
-  RepUnit ORArray
 
 instance (Show (RepN ORArray x), Show (RepN ORArray y))
          => Show (RepProductN ORArray x y) where
@@ -379,7 +371,6 @@ instance ProductTensor ORArray where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
-  tunit = RepUnit ()
   tmkHVector = id
 
 ravel :: forall k y. TensorKind y
@@ -394,7 +385,6 @@ ravel k@SNat t = case stensorKind @y of
                        , Dict <- lemTensorKindOfS stk2 ->
     let (lt1, lt2) = unzip t
     in (ravel k lt1, ravel k lt2)
-  STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ ravelHVector $ map unHVectorPseudoTensor t
 
 unravel :: forall k y. TensorKind y
@@ -410,7 +400,6 @@ unravel k@SNat t = case stensorKind @y of
     let lt1 = unravel k $ fst t
         lt2 = unravel k $ snd t
     in zip lt1 lt2
-  STKUnit -> replicate (sNatValue k) tunit
   STKUntyped ->
     if V.null $ unHVectorPseudoTensor t
     then replicate (sNatValue k) (HVectorPseudoTensor V.empty)

@@ -159,7 +159,6 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
             let (t1, rest1) = rebuildInputs @y1 els ftk1
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
             in (tpair t1 t2, rest2)
-        FTKUnit -> (tunit, els)
         FTKUntyped shs ->
           let toDynamicTensor :: Some (RepM ranked)
                               -> DynamicTensor ranked
@@ -221,7 +220,6 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
               (ds1, j1) = generateDSums j ftk1 t1
               (ds2, j2) = generateDSums j1 ftk2 t2
           in (ds1 ++ ds2, j2)
-        FTKUnit -> ([], j)
         FTKUntyped{} ->
           let ts = tunvector t
               len = V.length ts
@@ -263,7 +261,6 @@ repToM stk t = case stk of
   STKS _ sh -> withKnownShS sh $ MTKS t
   STKX{} -> error "repToM"
   STKProduct{} -> error "repToM"
-  STKUnit -> error "repToM"
   STKUntyped{} -> error "repToM"
 
 addRepM ::
@@ -732,8 +729,6 @@ type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
 type instance Rep (DeltaR ranked) (TKProduct x z) =
   Delta ranked (TKProduct x z)
-type instance Rep (DeltaR ranked) TKUnit =
-  RepUnit (DeltaR ranked)  -- we don't have a Delta term for tunit
 
 instance ( RankedOf (ShapedOf ranked) ~ ranked
          , RankedOf (MixedOf ranked) ~ ranked )
@@ -742,7 +737,6 @@ instance ( RankedOf (ShapedOf ranked) ~ ranked
                       (unDeltaRY stensorKind t2)
   tproject1 = deltaRY stensorKind . Project1G
   tproject2 = deltaRY stensorKind . Project2G
-  tunit = RepUnit ()
   tmkHVector = HToH
 
 deltaRY :: forall y ranked.
@@ -756,7 +750,6 @@ deltaRY stk t = case stk of
   STKS{} -> DeltaS t
   STKX{} -> DeltaX t
   STKProduct{} -> t
-  STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor t
 
 unDeltaRY :: forall y ranked.
@@ -770,7 +763,6 @@ unDeltaRY stk t = case stk of
   STKS{} -> unDeltaS t
   STKX{} -> unDeltaX t
   STKProduct{} -> t
-  STKUnit -> undefined
   STKUntyped -> unHVectorPseudoTensor t
 
 shapeDeltaFull :: forall ranked y.
@@ -1020,7 +1012,6 @@ initEvalState ftk0 =
           let (ds1, j1) = generateDSums j ftk1
               (ds2, j2) = generateDSums j1 ftk2
           in (ds1 ++ ds2, j2)
-        FTKUnit -> ([], j)
         FTKUntyped shs ->
           let len = V.length shs
           in ( zipWith fromDynamicTensor [j ..]
@@ -1445,9 +1436,6 @@ evalFromnMap s@EvalState{nMap, dMap} =
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
             STKProduct{} -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalR s2 c d
-              Nothing -> errorMissing
-            STKUnit -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
             STKUntyped -> case DMap.lookup n dMap of

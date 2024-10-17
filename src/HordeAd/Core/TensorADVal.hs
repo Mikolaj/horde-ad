@@ -127,7 +127,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
     STKS{} -> blet a f
     STKX{} -> blet a f
     stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUnit -> f a
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
@@ -143,7 +142,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
     STKS _ sh -> withKnownShS sh $ blet a f
     STKX _ sh -> withKnownShX sh $ blet a f
     STKProduct{} -> blet a f
-    STKUnit -> f a
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
@@ -182,7 +180,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       -- is computed only once.
       blet (fst a) $ \ !a1 ->
         blet (snd a) $ \ !a2 -> f (a1, a2)
-    STKUnit -> f a
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
@@ -205,7 +202,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
           !c1 = tconstant stk1 t1
           !c2 = tconstant stk2 t2
       in (c1, c2)
-    STKUnit -> tunit
     STKUntyped ->
       let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
           fd = mapDynamic rconstant sconstant
@@ -563,7 +559,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tshapeFull stk1 (fst t))
                  (tshapeFull stk2 (snd t))
-    STKUnit -> FTKUnit
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
   tcond stk b u v = case stk of
@@ -576,7 +571,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
       let !t1 = tcond stk1 b (fst u) (fst v)
           !t2 = tcond stk2 b (snd u) (snd v)
       in (t1, t2)
-    STKUnit -> tunit
     STKUntyped ->
       let fd = mapDynamic2 (ifF b) (ifF b)
       in HVectorPseudoTensor
@@ -594,7 +588,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
       let !t1 = tprimalPart stk1 $ fst t
           !t2 = tprimalPart stk2 $ snd t
       in tpair t1 t2
-    STKUnit -> tunit
     STKUntyped ->
       let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor ranked
           fd = mapDynamic rprimalPart sprimalPart
@@ -861,7 +854,6 @@ unADValRep stk t = case (stk, t) of
     let (!p1, !d1) = unADValRep stk1 t1 in
     let (!p2, !d2) = unADValRep stk2 t2
     in (tpair p1 p2, PairG d1 d2)
-  (STKUnit, _) -> (tunit, undefined)
   (STKUntyped, HVectorPseudoTensor u) ->
     let (!p, !d) = unADValHVector u
     in (HVectorPseudoTensor $ dmkHVector p, HToH d)

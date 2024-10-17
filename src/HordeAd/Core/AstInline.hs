@@ -111,7 +111,6 @@ inlineAst memo v0 = case v0 of
 -}
   Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
-  Ast.AstUnit -> (memo, v0)
   Ast.AstVar _ var ->
     let f Nothing = Just 1
         f (Just count) = Just $ count + 1
@@ -490,7 +489,6 @@ unshareAst memo = \case
     in (memo2, Ast.AstPair v1 v2)
   Ast.AstProject1 t -> second Ast.AstProject1 (unshareAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (unshareAst memo t)
-  Ast.AstUnit -> (memo, Ast.AstUnit)
   Ast.AstVar sh v -> (memo, Ast.AstVar sh v)
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ unshareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ unshareAst memo a
@@ -515,7 +513,6 @@ unshareAst memo = \case
     STKS _ sh -> withKnownShS sh $ error "WIP"
     STKX _ sh -> withKnownShX sh $ error "WIP"
     STKProduct{} -> error "WIP"
-    STKUnit -> error "WIP"
     STKUntyped -> error "WIP"
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.

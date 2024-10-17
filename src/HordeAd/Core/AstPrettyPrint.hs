@@ -134,7 +134,6 @@ printAstVar cfg var =
         fromIntegral $ fromSNat $ X.shxRank $ fromJust $ X.ssxToShX' sh
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
-      rankTensorKind STKUnit = -1
       rankTensorKind STKUntyped = -1
       n = rankTensorKind (stensorKind @y)
       varId = varNameToAstVarId var
@@ -265,7 +264,6 @@ printAstAux cfg d = \case
     STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]
     STKX{} -> printPrefixOp printAst cfg d "xreplicate" [v]
     STKProduct{} -> error "WIP"
-    STKUnit -> error "WIP"
     STKUntyped -> error "WIP"
   AstBuild1 @y2 k (var, v) -> case stensorKind @y2 of
    STKScalar{} ->
@@ -305,7 +303,6 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
    STKProduct{} -> error "WIP"
-   STKUnit -> error "WIP"
    STKUntyped -> error "WIP"
   AstGather sh v (vars, ix) ->
     showParen (d > 10)
@@ -342,7 +339,6 @@ printAstAux cfg d = \case
           STKS{} -> "slet "
           STKX{} -> "xlet "  -- TODO
           STKProduct{} -> "let "  -- TODO
-          STKUnit -> "let "
           STKUntyped{} -> "dlet ")
         . printAst cfg 11 u0
         . showString " "

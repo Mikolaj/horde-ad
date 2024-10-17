@@ -145,7 +145,6 @@ generateDeltaInputs =
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
           in (PairG d1 d2, j2)
-        FTKUnit -> (undefined, j)
         FTKUntyped shs ->
           let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (Dual ranked)
               f (i, DynamicRankedDummy @r @sh _ _) =
@@ -188,7 +187,6 @@ aDValRep p d = case stensorKind @y of
           _ -> let dShared = wrapDelta d
                in (Project1G dShared, Project2G dShared)
     in (aDValRep p1 d1, aDValRep p2 d2)
-  STKUnit -> tunit
   STKUntyped -> let pv = tunvector p
                 in HVectorPseudoTensor $ ahhToHVector pv d
 
@@ -351,14 +349,11 @@ type instance ShareOf (ADVal f) = ADVal f
 
 type instance Rep (ADVal ranked) (TKProduct x z) =
   (Rep (ADVal ranked) x, Rep (ADVal ranked) z)
-type instance Rep (ADVal ranked) TKUnit =
-  RepUnit (ADVal ranked)
 
 instance ProductTensor (ADVal ranked) where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
-  tunit = RepUnit ()
   tmkHVector = id
 
 

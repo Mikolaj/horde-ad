@@ -9,7 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepScalar(..), RepUnit(..), RepProductN(..)
+  , Rep, RepN(..), RepScalar(..), RepProductN(..)
   , RepShallow, RepDeep, RepD(..)
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
@@ -67,7 +67,6 @@ type instance Rep ranked (TKR r n) = ranked r n
 type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
 type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
 -- The TKProduct case is defined separately for each ranked argument.
--- The TKUnit case is defined separately for each ranked argument.
 type instance Rep ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
     -- HVectorPseudoTensor instead of HVectorOf required for injectivity
@@ -86,11 +85,6 @@ newtype RepScalar ranked r = RepScalar {unRepScalar :: ranked r 0}
 
 deriving instance Show (ranked r 0) => Show (RepScalar ranked r)
 
-type role RepUnit nominal
-type RepUnit :: RankedTensorType -> Type
-newtype RepUnit ranked = RepUnit ()
-  deriving Show
-
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , CMixed (MixedOf ranked) Show
          , Show (HVectorOf ranked), CRepProduct ranked Show
@@ -104,7 +98,6 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       showsPrec d (RepProductN t)
-    STKUnit -> showsPrec d (RepUnit ())
     STKUntyped -> showsPrec d t
 
 type role RepProductN nominal nominal nominal
@@ -119,7 +112,6 @@ type family RepShallow ranked y = result | result -> ranked y where
   RepShallow ranked (TKX r sh) = MixedOf ranked r sh
   RepShallow ranked (TKProduct x z) =
     (Rep ranked x, Rep ranked z)
-  RepShallow ranked TKUnit = RepUnit ranked
   RepShallow ranked TKUntyped = HVector ranked
 
 -- This is concrete throughout.
@@ -130,7 +122,6 @@ type family RepDeep ranked y = result | result -> ranked y where
   RepDeep ranked (TKX r sh) = MixedOf ranked r sh
   RepDeep ranked (TKProduct x z) =
     (RepDeep ranked x, RepDeep ranked z)
-  RepDeep ranked TKUnit = RepUnit ranked
   RepDeep ranked TKUntyped = HVector ranked
 
 -- A datatype matching RepDeep.
@@ -151,7 +142,6 @@ data RepD ranked y where
   DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
              => RepD ranked x -> RepD ranked z
              -> RepD ranked (TKProduct x z)
-  DTKUnit :: RepD ranked TKUnit
   DTKUntyped :: HVector ranked
              -> RepD ranked TKUntyped
 
@@ -165,7 +155,6 @@ data TensorKindFull y where
   FTKX :: GoodScalar r => IShX sh -> TensorKindFull (TKX r sh)
   FTKProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
-  FTKUnit :: TensorKindFull TKUnit
   FTKUntyped :: VoidHVector -> TensorKindFull TKUntyped
 
 deriving instance Show (TensorKindFull y)
@@ -179,7 +168,6 @@ nullRepDeep t = case stensorKind @y of
   STKS{} -> False
   STKX{} -> False
   STKProduct{} -> False
-  STKUnit -> True
   STKUntyped -> null t
 
 lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
@@ -190,7 +178,6 @@ lemTensorKindOfF = \case
   FTKX sh -> withKnownShX (ssxFromShape sh) Dict
   FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                        , Dict <- lemTensorKindOfF ftk2 -> Dict
-  FTKUnit -> Dict
   FTKUntyped{} -> Dict
 
 buildTensorKindFull :: SNat k -> TensorKindFull y
@@ -203,7 +190,6 @@ buildTensorKindFull snat@SNat = \case
   FTKProduct ftk1 ftk2 ->
       FTKProduct (buildTensorKindFull snat ftk1)
                  (buildTensorKindFull snat ftk2)
-  FTKUnit -> FTKUnit
   FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
 
 aDTensorKind :: TensorKindFull y
@@ -238,7 +224,6 @@ aDTensorKind t = case t of
         gtk2 = aDTensorKind ftk2
     in case (lemTensorKindOfF gtk1, lemTensorKindOfF gtk2) of
       (Dict, Dict) -> FTKProduct gtk1 gtk2
-  FTKUnit -> t
   FTKUntyped{} -> t
 
 -- For thousands of tensor parameters, orthotope's dynamic tensors

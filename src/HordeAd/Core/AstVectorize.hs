@@ -201,7 +201,6 @@ build1V snat@SNat (var, v00) =
         in build1V snat (var, t)
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
-      STKUnit -> error "TODO"
       STKUntyped -> error "TODO"
     Ast.AstCond b v w -> case stensorKind @y of
       STKScalar _ ->
@@ -219,7 +218,6 @@ build1V snat@SNat (var, v00) =
         in build1V snat (var, t)
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
-      STKUnit -> error "TODO"
       STKUntyped -> error "TODO"
     Ast.AstReplicate @y2 snat2@(SNat @k2) v -> traceRule $
       let repl2Stk :: forall z.
@@ -244,7 +242,6 @@ build1V snat@SNat (var, v00) =
                 astLetFun u $ \ !uShared ->
                   let (u1, u2) = (astProject1 uShared, astProject2 uShared)
                   in astPair (repl2Stk stk1 u1) (repl2Stk stk2 u2)
-            STKUnit -> u
             STKUntyped ->
               astTrAstHVector
               $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
@@ -725,7 +722,6 @@ substProjRep snat@SNat var ftk2 var1 v
                   prVar2 = astProject2 prVar
               in astPair (projection prVar1 ftk41)
                          (projection prVar2 ftk42)
-          FTKUnit -> prVar
           ftk@(FTKUntyped shs0) -> case buildTensorKindFull snat ftk of
             FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
               let projDyn :: DynamicTensor (AstGeneric AstMethodLet s2)
@@ -875,7 +871,6 @@ astTrGeneral stk t = case stk of
       astLetFun t $ \ !tShared ->
         let (u1, u2) = (astProject1 tShared, astProject2 tShared)
         in astPair (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)
-  STKUnit -> t
   STKUntyped -> astTrAstHVector t
 
 

@@ -118,10 +118,6 @@ funToAstIO sh f = do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
       return (varName, undefined, x)
-    FTKUnit -> do
-      let varName = mkAstVarName freshId
-          !x = f (AstVar sh varName)
-      return (varName, undefined, x)
     FTKUntyped{} -> do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
@@ -273,8 +269,6 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
       return (varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
       return (varPrimal, astVarPrimal, var, astVar)
-    FTKUnit ->
-      return (varPrimal, astVarPrimal, var, astVar)
     FTKUntyped parameters0 -> do
       let f :: Int -> DynamicTensor VoidTensor
             -> IO ( AstDynamic AstMethodShare PrimalSpan
@@ -337,8 +331,6 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk
     FTKX{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
-      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
-    FTKUnit ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKUntyped parameters0 -> do
       let f :: Int -> DynamicTensor VoidTensor

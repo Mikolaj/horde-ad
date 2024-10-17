@@ -15,7 +15,7 @@ module HordeAd.Core.TensorClass
   , LetTensor(..), ShareTensor(..), RankedTensor(..), ShapedTensor(..)
   , HVectorTensor(..), ProductTensor(..)
   , HFun(..)
-  , rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
+  , tunit, rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl, xrepl, unrepShallow, unrepDeep, repDeepDuplicable
   , mapDynamic, mapDynamic2, mapRep
   , mapRep2Weak
@@ -162,7 +162,6 @@ class HVectorTensor ranked shaped
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
         tlet u $ \ (!u1, !u2) ->
           tpair (treplicate snat stk1 u1) (treplicate snat  stk2 u2)
-    STKUnit -> u
     STKUntyped ->
       tlet u $ \ !hv ->
         HVectorPseudoTensor $ dmkHVector
@@ -1238,8 +1237,11 @@ class ProductTensor (ranked :: RankedTensorType) where
   tproject2 :: (TensorKind x, TensorKind z)
             => Rep ranked (TKProduct x z)
             -> Rep ranked z
-  tunit :: Rep ranked TKUnit
   tmkHVector :: HVector ranked -> HVectorOf ranked
+
+tunit :: RankedTensor ranked
+      => Rep ranked TKUnit
+tunit = RepScalar $ rscalar ()
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)
@@ -1350,7 +1352,6 @@ unrepShallow t = case stensorKind @y of
   STKX{} -> t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> uncurry tpair t
-  STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 unrepDeep :: forall ranked y.
@@ -1366,7 +1367,6 @@ unrepDeep t = case stensorKind @y of
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     tpair (unrepDeep (fst t)) (unrepDeep (snd t))
-  STKUnit -> tunit
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
 
 -- The argument of the first call (but not of recursive calls)
@@ -1387,7 +1387,6 @@ repDeepDuplicable stk t = case stk of
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     (repDeepDuplicable stk1 (tproject1 t), repDeepDuplicable stk2 (tproject2 t))
-  STKUnit -> RepUnit ()
   STKUntyped -> dunHVector $ unHVectorPseudoTensor t
 
 mapDynamic
@@ -1496,7 +1495,6 @@ mapRep fr fs fx stk b = case stk of
     in tpair t1 t2
       -- this shares properly only when the product instance for f is (,)
       -- and tlet wouldn't work because f and g differ
-  STKUnit -> tunit
   STKUntyped ->
     -- Here @dletHVectorInHVector@ or @tlet@ wouldn't work
     -- because f and g differ.
@@ -1568,7 +1566,6 @@ mapRep2Weak fr fs fx stk b1 b2 = case stk of
         !t2 = mapRep2Weak fr fs fx stk2 (tproject2 b1) (tproject2 b2)
     in tpair t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
-  STKUnit -> tunit
   STKUntyped -> error "TODO: mapRep2Weak is weak"
 
 -- These are user-accessible, so the constraint is `ADReady`, which means

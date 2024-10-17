@@ -85,8 +85,6 @@ type instance DualOf (AstGenericS ms s) = AstGenericS ms DualSpan
 
 type instance Rep (AstRanked s) (TKProduct x z) =
   AstTensor AstMethodLet s (TKProduct x z)
-type instance Rep (AstRanked s) TKUnit =
-  AstTensor AstMethodLet s TKUnit
 
 instance Show (RepProductN (AstRanked s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
@@ -333,7 +331,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s x
   AstProject2 :: forall x z s ms. (TensorKind x, TensorKind z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s z
-  AstUnit :: AstTensor ms s TKUnit
   AstVar :: TensorKind y
          => TensorKindFull y -> AstVarName s y -> AstTensor ms s y
   AstPrimalPart :: TensorKind y
@@ -1153,7 +1150,6 @@ rankedY stk t = case stk of
   STKS{} -> AstShaped t
   STKX{} -> AstMixed t
   STKProduct{} -> t
-  STKUnit -> t
   STKUntyped -> HVectorPseudoTensor t
 
 unRankedY :: STensorKindType y -> Rep (AstRanked s) y
@@ -1164,5 +1160,4 @@ unRankedY stk t = case stk of
   STKS{} -> unAstShaped t
   STKX{} -> unAstMixed t
   STKProduct{} -> t
-  STKUnit -> t
   STKUntyped -> unHVectorPseudoTensor t

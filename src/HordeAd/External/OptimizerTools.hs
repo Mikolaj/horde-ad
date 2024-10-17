@@ -104,7 +104,6 @@ type family Triplify y where
   Triplify (TKS r sh) = TKProduct (TKProduct (TKS r sh) (TKS r sh)) (TKS r sh)
   Triplify (TKX r sh) = TKProduct (TKProduct (TKX r sh) (TKX r sh)) (TKX r sh)
   Triplify (TKProduct x z) = TKProduct (Triplify x) (Triplify z)
-  Triplify TKUnit = TKUnit
   Triplify TKUntyped = TKUntyped  -- this it not tripled
 
 unzip3Rep
@@ -118,7 +117,6 @@ unzip3Rep stk t = case stk of
   STKProduct stk1 stk2 -> let (a1, b1, c1) = unzip3Rep stk1 $ fst t
                               (a2, b2, c2) = unzip3Rep stk2 $ snd t
                           in ((a1, a2), (b1, b2), (c1, c2))
-  STKUnit -> (t, t, t)
   STKUntyped -> (t, t, t)
 
 type role StateAdamDeep nominal
@@ -143,7 +141,6 @@ repDeepZero = \case
   FTKS sh -> FlipS $ Nested.sreplicateScal sh 0
   FTKX sh -> FlipX $ Nested.mreplicateScal sh 0
   FTKProduct ftk1 ftk2 -> (repDeepZero ftk1, repDeepZero ftk2)
-  FTKUnit -> RepUnit ()
   FTKUntyped{} -> error "repDeepZero: FTKUntyped"
 
 updateWithGradientAdamDeep
@@ -239,7 +236,6 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
         STKProduct stk1 stk2 ->
           ( updateProd stk1 (fst mA) (fst vA) (fst p) (fst g)
           , updateProd stk2 (snd mA) (snd vA) (snd p) (snd g) )
-        STKUnit -> RepUnit ()
         STKUntyped -> error "updateProd: STKUntyped"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         unzip3Rep stensorKind
