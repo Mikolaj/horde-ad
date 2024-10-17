@@ -322,6 +322,10 @@ type role AstTensor nominal nominal nominal
   -- r has to be nominal, because type class arguments always are
 data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type where
   -- Here starts the general part.
+  AstScalar :: GoodScalar r
+            => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKR r 0)
+  AstUnScalar :: GoodScalar r
+              => AstTensor ms s (TKR r 0) -> AstTensor ms s (TKScalar r)
   AstPair :: (TensorKind y, TensorKind z)
            => AstTensor ms s y -> AstTensor ms s z
            -> AstTensor ms s (TKProduct y z)
@@ -1144,6 +1148,7 @@ newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
 rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
         -> Rep (AstRanked s) y
 rankedY stk t = case stk of
+  STKScalar{} -> RepScalar $ AstRanked $ AstScalar t
   STKR{} -> AstRanked t
   STKS{} -> AstShaped t
   STKX{} -> AstMixed t
@@ -1154,6 +1159,7 @@ rankedY stk t = case stk of
 unRankedY :: STensorKindType y -> Rep (AstRanked s) y
           -> AstTensor AstMethodLet s y
 unRankedY stk t = case stk of
+  STKScalar{} -> AstUnScalar $ unAstRanked $ unRepScalar t
   STKR{} -> unAstRanked t
   STKS{} -> unAstShaped t
   STKX{} -> unAstMixed t

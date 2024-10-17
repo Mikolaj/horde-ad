@@ -47,6 +47,7 @@ toRepDShare
   :: ShareTensor ranked
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDShare stk t = case stk of
+  STKScalar _ -> DTKScalar t
   STKR _ SNat -> DTKR t
   STKS _ sh -> withKnownShS sh $ DTKS t
   STKX _ sh -> withKnownShX sh $ DTKX t
@@ -67,6 +68,7 @@ toRepDDuplicable
   :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDDuplicable stk t = case stk of
+  STKScalar _ -> DTKScalar t
   STKR _ SNat -> DTKR t
   STKS _ sh -> withKnownShS sh $ DTKS t
   STKX _ sh -> withKnownShX sh $ DTKX t
@@ -81,6 +83,7 @@ toRepDDuplicable stk t = case stk of
 fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
          => RepD ranked y -> Rep ranked y
 fromRepD = \case
+  DTKScalar t -> t
   DTKR t -> t
   DTKS t -> t
   DTKX t -> t
@@ -94,6 +97,8 @@ addRepD ::
   -> RepD ranked y
   -> RepD ranked y
 addRepD a b = case (a, b) of
+  (DTKScalar (RepScalar ta), DTKScalar (RepScalar tb)) ->
+    DTKScalar $ RepScalar $ ta + tb
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKX ta, DTKX tb) -> DTKX $ ta + tb
@@ -692,6 +697,7 @@ repConstant :: forall y ranked. ADReadyNoLet ranked
             => (forall r. GoodScalar r => r)
             -> TensorKindFull y -> Rep ranked y
 repConstant r = \case
+  FTKScalar -> RepScalar $ rscalar r
   FTKR sh | SNat <- shrRank sh -> rrepl (toList sh) r
   FTKS sh -> withKnownShS sh $ srepl r
   FTKX sh -> withKnownShX (ssxFromShape sh) $ xrepl sh r
@@ -713,6 +719,12 @@ toADTensorKindShared
   => STensorKindType y -> Rep ranked y
   -> Rep ranked (ADTensorKind y)
 toADTensorKindShared stk t = case stk of
+  STKScalar @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           RepScalar $ rscalar ()
   STKR @r _ SNat -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of

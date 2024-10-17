@@ -110,6 +110,16 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                        [Some (RepM ranked)] -> TensorKindFull ady
                     -> (Rep ranked ady, [Some (RepM ranked)])
       rebuildInputs els = \case
+        FTKScalar @r -> case els of
+          Some mt@(MTKScalar @r2 t) : rest ->
+            case testEquality (typeRep @r) (typeRep @r2) of
+              Just Refl -> (t, rest)
+              _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
+          Some mt@(MTKScalarDummy @r2) : rest
+            | Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
+              (evalRepM mt, rest)
+          _ -> error $ "gradientFromDelta: illegal RepM: "
+                       ++ show_iMap (iMap s2)
         FTKR @r @n sh | SNat <- shrRank sh -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
             case ( sameNat (Proxy @n) (Proxy @n2)
@@ -154,8 +164,10 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           let toDynamicTensor :: Some (RepM ranked)
                               -> DynamicTensor ranked
               toDynamicTensor (Some b) = case b of
+                MTKScalar @r t -> DynamicRanked @r @0 $ unRepScalar t
                 MTKR @r @n t -> DynamicRanked @r @n t
                 MTKS @r @sh t -> DynamicShaped @r @sh t
+                MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
                 MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
               len = V.length shs
@@ -195,6 +207,7 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
                     -> ( [DSum (InputId ranked) (RepM ranked)]
                        , Int )
       generateDSums j ftk t = case ftk of
+        FTKScalar @r -> ([InputId j :=> MTKScalar @r t], j + 1)
         FTKR @r sh | SNat <- shrRank sh ->
           withShapeP (shapeToList sh) $ \(Proxy @sh) ->
             case lemKnownNatRank (knownShS @sh) of
@@ -223,8 +236,10 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
 evalRepM :: forall ranked x. ADReadyNoLet ranked
          => RepM ranked x -> Rep ranked x
 evalRepM = \case
+  MTKScalar t -> t
   MTKR t -> t
   MTKS t -> t
+  MTKScalarDummy -> RepScalar $ rscalar 0
   MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
   MTKSDummy -> srepl 0
 
@@ -243,6 +258,7 @@ repToM
   :: STensorKindType x -> Rep ranked x
   -> RepM ranked x
 repToM stk t = case stk of
+  STKScalar _ -> MTKScalar t
   STKR _ SNat -> MTKR t
   STKS _ sh -> withKnownShS sh $ MTKS t
   STKX{} -> error "repToM"
@@ -256,7 +272,11 @@ addRepM ::
   -> RepM ranked y
   -> RepM ranked y
 addRepM a b = case (a, b) of
+  (MTKScalar (RepScalar ta), MTKScalar (RepScalar tb)) ->
+    MTKScalar $ RepScalar $ ta + tb
   (MTKR ta, MTKR tb) -> MTKR $ ta + tb
+  (MTKScalarDummy, _) -> b
+  (_, MTKScalarDummy) -> a
   (MTKRDummy, _) -> b
   (_, MTKRDummy) -> a
   (MTKS ta, MTKS tb) -> MTKS $ ta + tb
@@ -268,12 +288,17 @@ addRepM a b = case (a, b) of
 -- as opposed to existential vectors.
 type role RepM nominal nominal
 data RepM ranked y where
+  MTKScalar :: GoodScalar r
+            => Rep ranked (TKScalar r)
+            -> RepM ranked (TKScalar r)
   MTKR :: (GoodScalar r, KnownNat n)
        => Rep ranked (TKR r n)
        -> RepM ranked (TKR r n)
   MTKS :: (GoodScalar r, KnownShS sh)
        => Rep ranked (TKS r sh)
        -> RepM ranked (TKS r sh)
+  MTKScalarDummy :: GoodScalar r
+                 => RepM ranked (TKScalar r)
   MTKRDummy :: (GoodScalar r, KnownShS sh)
             => RepM ranked (TKR r (Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
@@ -284,6 +309,10 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , TensorKind y )
          => Show (RepM ranked y) where
   showsPrec d = \case
+    MTKScalar @r t ->
+      showParen (d > 10)
+        (showString ("MTKScalar @" ++ show (typeRep @r) ++ " ")
+         . showParen True (showsPrec d t))
     MTKR @r @n t ->
       showParen (d > 10)
         (showString ("MTKR @" ++ show (typeRep @r)
@@ -294,6 +323,7 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
         (showString ("MTKS @" ++ show (typeRep @r)
                      ++ " @" ++ show (shapeT @sh) ++ " ")
          . showParen True (showsPrec d t))
+    MTKScalarDummy -> showString "MTKScalarDummy"
     MTKRDummy -> showString "MTKRDummy"
     MTKSDummy -> showString "MTKSDummy"
 
@@ -422,6 +452,10 @@ instance ( RankedOf (ShapedOf ranked) ~ ranked
 
 type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
+  ScalarG :: GoodScalar r
+          => Delta ranked (TKScalar r) -> Delta ranked (TKR r 0)
+  UnScalarG :: GoodScalar r
+            => Delta ranked (TKR r 0) -> Delta ranked (TKScalar r)
   PairG :: (TensorKind y, TensorKind z)
          => Delta ranked y -> Delta ranked z
          -> Delta ranked (TKProduct y z)
@@ -717,6 +751,7 @@ deltaRY :: forall y ranked.
         => STensorKindType y -> Delta ranked y
         -> Rep (DeltaR ranked) y
 deltaRY stk t = case stk of
+  STKScalar{} -> RepScalar $ DeltaR $ ScalarG t
   STKR{} -> DeltaR t
   STKS{} -> DeltaS t
   STKX{} -> DeltaX t
@@ -730,6 +765,7 @@ unDeltaRY :: forall y ranked.
           => STensorKindType y -> Rep (DeltaR ranked) y
           -> Delta ranked y
 unDeltaRY stk t = case stk of
+  STKScalar{} -> UnScalarG $ unDeltaR $ unRepScalar t
   STKR{} -> unDeltaR t
   STKS{} -> unDeltaS t
   STKX{} -> unDeltaX t
@@ -741,6 +777,8 @@ shapeDeltaFull :: forall ranked y.
                   (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
                => Delta ranked y -> TensorKindFull y
 shapeDeltaFull = \case
+  ScalarG{} -> FTKR ZSR
+  UnScalarG{} -> FTKScalar
   PairG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
   Project1G v -> case shapeDeltaFull v of
     FTKProduct ftk1 _ -> ftk1
@@ -971,6 +1009,7 @@ initEvalState ftk0 =
       generateDSums :: Int -> TensorKindFull y
                     -> ([DSum (InputId ranked) (RepM ranked)], Int)
       generateDSums j ftk  = case ftk of
+        FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)
         FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
           case lemKnownNatRank (knownShS @sh) of
             Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
@@ -1194,6 +1233,8 @@ evalSame !s !c = \case
   -- All constructors that only admit a non-TKProduct kind
   -- (and the InputG constructor) can be handled here, where the extra
   -- constraint makes it easier.
+  ScalarG d -> evalSame s (RepScalar c) d
+  UnScalarG d -> evalSame s (unRepScalar c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1391,6 +1432,9 @@ evalFromnMap s@EvalState{nMap, dMap} =
           errorMissing :: a
           errorMissing = error $ "evalFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
+            STKScalar _ -> case DMap.lookup n dMap of
+              Just (RepAD c) -> evalR s2 c d
+              Nothing -> errorMissing
             STKR @r @n _ SNat -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalRRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
@@ -1580,6 +1624,10 @@ fwdSame
   => IMap ranked -> ADMap ranked -> Delta ranked y
   -> (ADMap ranked, Rep ranked (ADTensorKind y))
 fwdSame params s = \case
+  ScalarG d -> let (s2, t) = fwdSame params s d
+               in (s2, unRepScalar t)
+  UnScalarG d -> let (s2, t) = fwdSame params s d
+                 in (s2, RepScalar t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)

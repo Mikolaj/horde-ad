@@ -267,6 +267,8 @@ astNonIndexStep
   :: (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 astNonIndexStep t = case t of
+  Ast.AstScalar u -> Ast.AstScalar $ astNonIndexStep u
+  Ast.AstUnScalar u -> Ast.AstUnScalar $ astNonIndexStep u
   Ast.AstPair t1 t2 -> astPair (astNonIndexStep t1) (astNonIndexStep t2)
   Ast.AstProject1 u -> astProject1 u
   Ast.AstProject2 u -> astProject2 u
@@ -430,6 +432,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
                             (vars2, simplifyAstIndex ix2)
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
+  Ast.AstScalar{} -> Ast.AstIndex v0 ix
   Ast.AstProject1{} -> Ast.AstIndex v0 ix
   Ast.AstProject2{} -> Ast.AstIndex v0 ix
   Ast.AstVar{} -> Ast.AstIndex v0 ix
@@ -441,6 +444,13 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 k v | AstConst it <- i1 -> case stensorKind @y2 of
+    STKScalar _ ->
+      let i :: Int
+          i = fromIntegral $ Nested.runScalar it
+      in gcastWith (unsafeCoerce Refl :: n :~: 0) $
+         if 0 <= i && i < sNatValue k
+         then astIndex (Ast.AstScalar v) rest1
+         else astReplicate0N ZSR 0
     STKR _ SNat ->
       let i = fromIntegral $ Nested.runScalar it
       in if 0 <= i && i < sNatValue k
@@ -456,8 +466,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   Ast.AstReplicate @y2 _k v -> case stensorKind @y2 of
+    STKScalar{} -> gcastWith (unsafeCoerce Refl :: n :~: 0) $
+                   astIndex (Ast.AstScalar v) rest1
     STKR{} -> astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
+    STKScalar{} -> gcastWith (unsafeCoerce Refl :: n :~: 0) $
+                   astIndex (astLet var2 i1 (Ast.AstScalar v)) rest1
     STKR{} -> astIndex (astLet var2 i1 v) rest1
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
@@ -964,6 +978,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex AstMethodLet p1')) ) = case v4 of
+    Ast.AstScalar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProject1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -990,12 +1005,20 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
     Ast.AstReplicate @y2 snat v | AstConst it <- i4 -> case stensorKind @y2 of
+      STKScalar{} ->
+        let i = fromIntegral $ Nested.runScalar it
+        in if 0 <= i && i < sNatValue snat
+           then gcastWith (unsafeCoerce Refl :: n' :~: 0) $
+                     astGather sh4 (Ast.AstScalar v) (vars4, rest4)
+           else astReplicate0N sh4 0
       STKR{} ->
         let i = fromIntegral $ Nested.runScalar it
         in if 0 <= i && i < sNatValue snat
            then astGather sh4 v (vars4, rest4)
            else astReplicate0N sh4 0
     Ast.AstReplicate @y2 _ v -> case stensorKind @y2 of
+      STKScalar{} -> gcastWith (unsafeCoerce Refl :: n' :~: 0) $
+                     astGather @m' @0 @0 sh4 (Ast.AstScalar v) (vars4, ZIR)
       STKR{} -> astGather sh4 v (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
@@ -1441,6 +1464,8 @@ astSum t0 = case shapeAst t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum v)
     -- this is problematic, because it keeps huge tensors alive for longer
     Ast.AstReplicate @y2 k v -> case stensorKind @y2 of
+      STKScalar{} ->
+        Ast.AstScalar v * astReplicate0N ZSR (fromInteger $ fromSNat k)
       STKR{} -> v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
     Ast.AstFromVector l -> astSumOfList $ V.toList l
@@ -1697,6 +1722,7 @@ astSlice i n (AstConst t) = AstConst $ tsliceR i n t
 astSlice i n (Ast.AstConstant v) = Ast.AstConstant $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
 astSlice _i n (Ast.AstReplicate @y2 _ v) = case stensorKind @y2 of
+  STKScalar{} -> withSNat n $ \snat -> astReplicate snat (Ast.AstScalar v)
   STKR{} -> withSNat n $ \snat -> astReplicate snat v
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
 astSlice i n w@(Ast.AstAppend (u :: AstTensor AstMethodLet s (TKR r (1 + k)))
@@ -1951,6 +1977,7 @@ astReshape shOut = \case
   Ast.AstReplicate @y2 (SNat @k) x
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       case stensorKind @y2 of
+        STKScalar{} -> astReshape shOut (Ast.AstScalar x)
         STKR{} -> astReshape shOut x
   Ast.AstLet var u v -> astLet var u (astReshape shOut v)
   AstN1 opCode u | not (isVar u) -> AstN1 opCode (astReshape shOut u)
@@ -2114,8 +2141,11 @@ astSFromR (Ast.AstRFromS @sh1 v) =
 astSFromR v = Ast.AstSFromR v
 
 astPrimalPart :: TensorKind y
-              => AstTensor AstMethodLet FullSpan y -> AstTensor AstMethodLet PrimalSpan y
+              => AstTensor AstMethodLet FullSpan y
+              -> AstTensor AstMethodLet PrimalSpan y
 astPrimalPart t = case t of
+  Ast.AstScalar u -> Ast.AstScalar $ astPrimalPart u
+  Ast.AstUnScalar u -> Ast.AstUnScalar $ astPrimalPart u
   Ast.AstPair t1 t2 -> astPair (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
@@ -2188,8 +2218,12 @@ astPrimalPart t = case t of
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
-astDualPart :: TensorKind y => AstTensor AstMethodLet FullSpan y -> AstTensor AstMethodLet DualSpan y
+astDualPart :: TensorKind y
+            => AstTensor AstMethodLet FullSpan y
+            -> AstTensor AstMethodLet DualSpan y
 astDualPart t = case t of
+  Ast.AstScalar u -> Ast.AstScalar $ astDualPart u
+  Ast.AstUnScalar u -> Ast.AstUnScalar $ astDualPart u
   Ast.AstPair t1 t2 -> astPair (astDualPart t1) (astDualPart t2)
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
@@ -2321,6 +2355,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
                    (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
+        STKScalar _ -> Ast.AstUnScalar $ astProjectR l i
         STKR _ SNat -> astProjectR l i
         STKS _ sh -> withKnownShS sh $ astProjectS l i
         STKX _ sh -> withKnownShX sh $ error "TODO"
@@ -2332,6 +2367,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
+        STKScalar _ -> Ast.AstUnScalar $ astPrimalPart $ astProjectR l i
         STKR _ SNat -> astPrimalPart $ astProjectR l i
         STKS _ sh -> withKnownShS sh $ astPrimalPart $ astProjectS l i
         STKX _ sh -> withKnownShX sh $ error "TODO"
@@ -2343,6 +2379,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
+        STKScalar _ -> Ast.AstUnScalar $ astDualPart $ astProjectR l i
         STKR _ SNat -> astDualPart $ astProjectR l i
         STKS _ sh -> withKnownShS sh $ astDualPart $ astProjectS l i
         STKX _ sh -> withKnownShX sh $ error "TODO"
@@ -2433,6 +2470,8 @@ simplifyAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 simplifyAst t = case t of
+  Ast.AstScalar u -> Ast.AstScalar $ simplifyAst u
+  Ast.AstUnScalar u -> Ast.AstUnScalar $ simplifyAst u
   Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
@@ -2602,6 +2641,8 @@ expandAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 expandAst t = case t of
+  Ast.AstScalar u -> Ast.AstScalar $ expandAst u
+  Ast.AstUnScalar u -> Ast.AstUnScalar $ expandAst u
   Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
@@ -3112,6 +3153,8 @@ substitute1Ast :: forall s s2 y. (AstSpan s, AstSpan s2, TensorKind y)
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var v1 = case v1 of
+  Ast.AstScalar u -> Ast.AstScalar <$> substitute1Ast i var u
+  Ast.AstUnScalar u -> Ast.AstUnScalar <$> substitute1Ast i var u
   Ast.AstPair u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing

@@ -9,7 +9,8 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepUnit(..), RepProductN(..), RepShallow, RepDeep, RepD(..)
+  , Rep, RepN(..), RepScalar(..), RepUnit(..), RepProductN(..)
+  , RepShallow, RepDeep, RepD(..)
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
   , DynamicTensor(..)
@@ -61,6 +62,7 @@ type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
   = result | result -> ranked y
 
+type instance Rep ranked (TKScalar r) = RepScalar ranked r
 type instance Rep ranked (TKR r n) = ranked r n
 type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
 type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
@@ -78,6 +80,12 @@ type role RepN nominal nominal
 newtype RepN ranked y =
   RepN {unRepN :: Rep ranked y}
 
+type role RepScalar nominal nominal
+type RepScalar :: RankedTensorType -> Type -> Type
+newtype RepScalar ranked r = RepScalar {unRepScalar :: ranked r 0}
+
+deriving instance Show (ranked r 0) => Show (RepScalar ranked r)
+
 type role RepUnit nominal
 type RepUnit :: RankedTensorType -> Type
 newtype RepUnit ranked = RepUnit ()
@@ -89,6 +97,7 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , TensorKind y )
          => Show (RepN ranked y) where
   showsPrec d (RepN t) = case stensorKind @y of
+    STKScalar _ -> showsPrec d t
     STKR _ SNat -> showsPrec d t
     STKS _ sh -> withKnownShS sh $ showsPrec d t
     STKX _ sh -> withKnownShX sh $ showsPrec d t
@@ -104,6 +113,7 @@ newtype RepProductN ranked x y =
 
 -- This is concrete only in the outermost layer.
 type family RepShallow ranked y = result | result -> ranked y where
+  RepShallow ranked (TKScalar r) = RepScalar ranked r
   RepShallow ranked (TKR r n) = ranked r n
   RepShallow ranked (TKS r sh) = ShapedOf ranked r sh
   RepShallow ranked (TKX r sh) = MixedOf ranked r sh
@@ -114,6 +124,7 @@ type family RepShallow ranked y = result | result -> ranked y where
 
 -- This is concrete throughout.
 type family RepDeep ranked y = result | result -> ranked y where
+  RepDeep ranked (TKScalar r) = RepScalar ranked r
   RepDeep ranked (TKR r n) = ranked r n
   RepDeep ranked (TKS r sh) = ShapedOf ranked r sh
   RepDeep ranked (TKX r sh) = MixedOf ranked r sh
@@ -125,6 +136,9 @@ type family RepDeep ranked y = result | result -> ranked y where
 -- A datatype matching RepDeep.
 type role RepD nominal nominal
 data RepD ranked y where
+  DTKScalar :: GoodScalar r
+            => Rep ranked (TKScalar r)
+            -> RepD ranked (TKScalar r)
   DTKR :: (GoodScalar r, KnownNat n)
        => Rep ranked (TKR r n)
        -> RepD ranked (TKR r n)
@@ -145,6 +159,7 @@ data RepD ranked y where
 -- to FTKS
 type role TensorKindFull nominal
 data TensorKindFull y where
+  FTKScalar :: GoodScalar r => TensorKindFull (TKScalar r)
   FTKR :: GoodScalar r => IShR n -> TensorKindFull (TKR r n)
   FTKS :: GoodScalar r => ShS sh -> TensorKindFull (TKS r sh)
   FTKX :: GoodScalar r => IShX sh -> TensorKindFull (TKX r sh)
@@ -159,6 +174,7 @@ deriving instance Eq (TensorKindFull y)
 nullRepDeep :: forall y ranked. TensorKind y
             => RepDeep ranked y -> Bool
 nullRepDeep t = case stensorKind @y of
+  STKScalar{} -> False
   STKR{} -> False
   STKS{} -> False
   STKX{} -> False
@@ -168,6 +184,7 @@ nullRepDeep t = case stensorKind @y of
 
 lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
 lemTensorKindOfF = \case
+  FTKScalar -> Dict
   FTKR sh | SNat <- shrRank sh -> Dict
   FTKS sh -> withKnownShS sh Dict
   FTKX sh -> withKnownShX (ssxFromShape sh) Dict
@@ -179,6 +196,7 @@ lemTensorKindOfF = \case
 buildTensorKindFull :: SNat k -> TensorKindFull y
                     -> TensorKindFull (BuildTensorKind k y)
 buildTensorKindFull snat@SNat = \case
+  FTKScalar -> FTKR $ sNatValue snat :$: ZSR
   FTKR sh -> FTKR $ sNatValue snat :$: sh
   FTKS sh -> FTKS $ snat :$$ sh
   FTKX sh -> FTKX $ SKnown snat :$% sh
@@ -191,6 +209,12 @@ buildTensorKindFull snat@SNat = \case
 aDTensorKind :: TensorKindFull y
              -> TensorKindFull (ADTensorKind y)
 aDTensorKind t = case t of
+  FTKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           FTKScalar @()
   FTKR @r shr -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of

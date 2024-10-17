@@ -127,6 +127,7 @@ printAstVarId prefix cfg var =
 printAstVar :: forall s y. TensorKind y => PrintConfig -> AstVarName s y -> ShowS
 printAstVar cfg var =
   let rankTensorKind :: STensorKindType x -> Int
+      rankTensorKind (STKScalar _) = 0
       rankTensorKind (STKR _ snat) = fromIntegral $ fromSNat snat
       rankTensorKind (STKS _ sh) = fromIntegral $ fromSNat $ shsRank sh
       rankTensorKind (STKX _ sh) =
@@ -257,6 +258,8 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 a2
   AstReplicate @y2 snat v -> case stensorKind @y2 of
+    STKScalar{} -> printPrefixOp printAst cfg d
+                                 ("rreplicate " ++ show (sNatValue snat)) [v]
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]
@@ -265,6 +268,16 @@ printAstAux cfg d = \case
     STKUnit -> error "WIP"
     STKUntyped -> error "WIP"
   AstBuild1 @y2 k (var, v) -> case stensorKind @y2 of
+   STKScalar{} ->
+    showParen (d > 10)
+    $ showString "rbuild1 "
+      . shows k
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . printAst cfg 0 v)
    STKR{} ->
     showParen (d > 10)
     $ showString "rbuild1 "
@@ -324,6 +337,7 @@ printAstAux cfg d = \case
     else
       showParen (d > 10)
       $ showString (case stensorKind @z2 of
+          STKScalar{} -> "rlet "
           STKR{} -> "rlet "
           STKS{} -> "slet "
           STKX{} -> "xlet "  -- TODO

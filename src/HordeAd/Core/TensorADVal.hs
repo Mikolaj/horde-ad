@@ -122,6 +122,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        -> (RepDeep (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   dlet a f = case stensorKind @x of
+    STKScalar{} -> blet a f
     STKR{} -> blet a f
     STKS{} -> blet a f
     STKX{} -> blet a f
@@ -137,6 +138,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        -> (RepShallow (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   tlet a f = case stensorKind @x of
+    STKScalar{} -> blet a f
     STKR _ SNat -> blet a f
     STKS _ sh -> withKnownShS sh $ blet a f
     STKX _ sh -> withKnownShX sh $ blet a f
@@ -160,6 +162,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   blet a f = case stensorKind @x of
+    STKScalar{} -> blet (unRepScalar a) (f . RepScalar)
     STKR _ SNat ->
       let (D u u') = a
           !var2 = tshare u
@@ -192,6 +195,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
             -> Rep ranked y
             -> Rep (ADVal ranked) y
   tconstant stk t = case stk of
+    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
     STKR _ SNat -> rconstant t
     STKS _ sh -> withKnownShS sh $ sconstant t
     STKX _ sh -> withKnownShX sh $ xconstant t
@@ -548,6 +552,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          => HVectorTensor (ADVal ranked) (ADVal shaped) where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
+    STKScalar _ -> FTKScalar
     STKR _ SNat -> let D u _ = t
                    in tshapeFull stk u
     STKS _ sh -> FTKS sh
@@ -562,6 +567,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
   tcond stk b u v = case stk of
+    STKScalar _ -> RepScalar $ ifF b (unRepScalar u) (unRepScalar v)
     STKR _ SNat -> ifF b u v
     STKS _ sh -> withKnownShS sh $ ifF b u v
     STKX _ sh -> withKnownShX sh $ ifF b u v
@@ -579,6 +585,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
               -> Rep (ADVal ranked) y
               -> Rep ranked y
   tprimalPart stk t = case stk of
+    STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t
     STKR _ SNat -> rprimalPart t
     STKS _ sh -> withKnownShS sh $ sprimalPart t
     STKX _ sh -> withKnownShX sh $ xprimalPart t
@@ -845,6 +852,7 @@ unADValRep
   -> Rep (ADVal ranked) y
   -> (Rep ranked y, Delta ranked y)
 unADValRep stk t = case (stk, t) of
+  (STKScalar{}, RepScalar (D p (DeltaR d))) -> (RepScalar p, UnScalarG d)
   (STKR{}, D p (DeltaR d)) -> (p, d)
   (STKS{}, D p (DeltaS d)) -> (p, d)
   (STKX{}, D p (DeltaX d)) -> (p, d)

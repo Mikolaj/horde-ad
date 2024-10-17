@@ -86,6 +86,7 @@ instance LetTensor ORArray OSArray where
        -> (RepDeep ORArray x -> Rep ORArray z)
        -> Rep ORArray z
   dlet a f = case stensorKind @x of
+    STKScalar{} -> f a
     STKR{} -> f a
     STKS{} -> f a
     STKX{} -> f a
@@ -97,6 +98,7 @@ instance LetTensor ORArray OSArray where
        -> (RepShallow ORArray x -> Rep ORArray z)
        -> Rep ORArray z
   tlet a f = case stensorKind @x of
+    STKScalar{} -> f a
     STKR{} -> f a
     STKS{} -> f a
     STKX{} -> f a
@@ -301,6 +303,7 @@ instance ShapedTensor OSArray where
 instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
+    STKScalar _ -> FTKScalar
     STKR _ SNat -> FTKR $ tshapeR $ runFlipR t
     STKS _ sh -> FTKS sh
     STKX _ sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX t
@@ -383,6 +386,7 @@ ravel :: forall k y. TensorKind y
       => SNat k -> [Rep ORArray y]
       -> Rep ORArray (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
+  STKScalar _ -> rfromList $ NonEmpty.fromList $ unRepScalar <$> t
   STKR _ SNat -> rfromList $ NonEmpty.fromList t
   STKS _ sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX _ sh -> withKnownShX sh $ error "TODO"
@@ -397,6 +401,7 @@ unravel :: forall k y. TensorKind y
         => SNat k -> Rep ORArray (BuildTensorKind k y)
         -> [Rep ORArray y]
 unravel k@SNat t = case stensorKind @y of
+  STKScalar _ -> map RepScalar $ runravelToList t
   STKR _ SNat -> runravelToList t
   STKS _ sh -> withKnownShS sh $ sunravelToList t
   STKX _ sh -> withKnownShX sh $ error "TODO"

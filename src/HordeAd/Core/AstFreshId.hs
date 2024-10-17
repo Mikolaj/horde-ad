@@ -96,6 +96,12 @@ funToAstIO :: forall y z s s2 ms. TensorKind y
 funToAstIO sh f = do
   freshId <- unsafeGetFreshAstVarId
   case sh of
+    FTKScalar @r ->
+      return $!
+        let varName = mkAstVarName freshId
+            !x = f (AstVar FTKScalar varName)
+            dynVar = AstDynamicVarName @Nat @r @'[] freshId
+        in (varName, dynVar, x)
     FTKR @r shr ->
       return $! withShapeP (shapeToList shr) $ \(Proxy @p_sh) ->
         let varName = mkAstVarName freshId
@@ -257,6 +263,8 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
       astVar :: AstTensor AstMethodLet FullSpan x
       !astVar = AstVar ftk var
   case ftk of
+    FTKScalar{} ->
+      return (varPrimal, astVarPrimal, var, astVar)
     FTKR{} ->
       return (varPrimal, astVarPrimal, var, astVar)
     FTKS{} ->
@@ -320,6 +328,8 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk
       astVar :: AstTensor AstMethodLet FullSpan x
       !astVar = AstVar ftk var
   case ftk of
+    FTKScalar{} ->
+      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKR{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKS{} ->

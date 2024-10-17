@@ -25,6 +25,7 @@ import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (ORArray)
 import HordeAd.Internal.OrthotopeOrphanInstances
+import HordeAd.Util.SizedList
 
 updateWithGradient :: Double -> HVector ORArray -> HVector ORArray -> HVector ORArray
 updateWithGradient gamma params gradient =
@@ -97,6 +98,8 @@ defaultArgsAdam = ArgsAdam
   }
 
 type family Triplify y where
+  Triplify (TKScalar r) =
+    TKProduct (TKProduct (TKScalar r) (TKScalar r)) (TKScalar r)
   Triplify (TKR r n) = TKProduct (TKProduct (TKR r n) (TKR r n)) (TKR r n)
   Triplify (TKS r sh) = TKProduct (TKProduct (TKS r sh) (TKS r sh)) (TKS r sh)
   Triplify (TKX r sh) = TKProduct (TKProduct (TKX r sh) (TKX r sh)) (TKX r sh)
@@ -108,6 +111,7 @@ unzip3Rep
   :: STensorKindType y -> Rep ORArray (Triplify y)
   -> (Rep ORArray y, Rep ORArray y, Rep ORArray y)
 unzip3Rep stk t = case stk of
+  STKScalar{} -> (fst $ fst t, snd $ fst t, snd t)
   STKR{} -> (fst $ fst t, snd $ fst t, snd t)
   STKS{} -> (fst $ fst t, snd $ fst t, snd t)
   STKX{} -> (fst $ fst t, snd $ fst t, snd t)
@@ -134,6 +138,7 @@ initialStateAdamDeep ftk =
 -- TODO: introduce and use dummies
 repDeepZero :: TensorKindFull y -> Rep ORArray y
 repDeepZero = \case
+  FTKScalar -> RepScalar $ FlipR $ Nested.rreplicateScal ZSR 0
   FTKR sh -> FlipR $ Nested.rreplicateScal sh 0
   FTKS sh -> FlipS $ Nested.sreplicateScal sh 0
   FTKX sh -> FlipX $ Nested.mreplicateScal sh 0
@@ -177,6 +182,20 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                  -> Rep ORArray (Triplify y2)
       updateProd stk mA vA p g
        | Dict <- lemTensorKindOfAD stk = case stk of
+        STKScalar @r _ ->
+          case sameTensorKind @y2 @(ADTensorKind y2) of
+            Just Refl ->
+              ifDifferentiable @r
+                (let (mAN, vAN, pN) =
+                       updateR (runFlipR $ unRepScalar mA)
+                               (runFlipR $ unRepScalar vA)
+                               (runFlipR $ unRepScalar p)
+                               (runFlipR $ unRepScalar g)
+                 in (( RepScalar $ FlipR mAN
+                     , RepScalar $ FlipR vAN )
+                    , RepScalar $ FlipR pN ))
+                ((mA, vA), p)
+            _ -> ((mA, vA), p)
         STKR @r _ SNat ->
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->

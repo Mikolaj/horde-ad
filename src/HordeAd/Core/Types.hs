@@ -155,7 +155,8 @@ type GoodScalarConstraint r =
   , forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
 
 type data TensorKindType =
-    TKR Type Nat
+    TKScalar Type
+  | TKR Type Nat
   | TKS Type [Nat]
   | TKX Type [Maybe Nat]
   | TKProduct TensorKindType TensorKindType
@@ -164,6 +165,8 @@ type data TensorKindType =
 
 type role STensorKindType nominal
 data STensorKindType y where
+  STKScalar :: GoodScalar r
+            => TypeRep r -> STensorKindType (TKScalar r)
   STKR :: GoodScalar r
        => TypeRep r -> SNat n -> STensorKindType (TKR r n)
   STKS :: GoodScalar r
@@ -179,6 +182,9 @@ deriving instance Show (STensorKindType y)
 
 class TensorKind (y :: TensorKindType) where
   stensorKind :: STensorKindType y
+
+instance GoodScalar r => TensorKind (TKScalar r) where
+  stensorKind = STKScalar typeRep
 
 instance (GoodScalar r, KnownNat n) => TensorKind (TKR r n) where
   stensorKind = STKR typeRep SNat
@@ -200,6 +206,7 @@ instance TensorKind TKUntyped where
 
 lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
 lemTensorKindOfS = \case
+  STKScalar _ -> Dict
   STKR _ SNat -> Dict
   STKS _ sh -> withKnownShS sh Dict
   STKX _ sh -> withKnownShX sh Dict
@@ -213,6 +220,10 @@ sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
 
 sameTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
 sameTK y1 y2 = case (y1, y2) of
+    (STKScalar r1, STKScalar r2) ->
+      case testEquality r1 r2 of
+        Just Refl -> Just Refl
+        Nothing -> Nothing
     (STKR r1 snat1, STKR r2 snat2) ->
       case (testEquality r1 r2, testEquality snat1 snat2) of
         (Just Refl, Just Refl) -> Just Refl
@@ -233,6 +244,7 @@ sameTK y1 y2 = case (y1, y2) of
     _ -> Nothing
 
 type family BuildTensorKind k tk where
+  BuildTensorKind k (TKScalar r) = TKR r 1
   BuildTensorKind k (TKR r n) = TKR r (1 + n)
   BuildTensorKind k (TKS r sh) = TKS r (k : sh)
   BuildTensorKind k (TKX r sh) = TKX r (Just k : sh)
@@ -244,6 +256,7 @@ type family BuildTensorKind k tk where
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
 lemTensorKindOfBuild snat@SNat = \case
+  STKScalar _ -> Dict
   STKR _ SNat -> Dict
   STKS _ sh -> withKnownShS sh Dict
   STKX _ sh -> withKnownShX sh Dict
@@ -289,6 +302,7 @@ instance IfDifferentiable Float where
   ifDifferentiable ra _ = ra
 
 type family ADTensorKind tk where
+  ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)
   ADTensorKind (TKR r n) = TKR (ADTensorScalar r) n
   ADTensorKind (TKS r n) = TKS (ADTensorScalar r) n
   ADTensorKind (TKX r n) = TKX (ADTensorScalar r) n
@@ -317,6 +331,12 @@ lemTensorKindOfAD :: forall y.
                      STensorKindType y
                   -> Dict TensorKind (ADTensorKind y)
 lemTensorKindOfAD = \case
+  STKScalar @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> Dict
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> Dict
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
+           Dict @TensorKind @(TKScalar ())
   STKR @r @n _ SNat -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> Dict
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -345,6 +365,7 @@ lemBuildOfAD :: forall k y.
              -> Maybe (BuildTensorKind k (ADTensorKind y)
                        :~: ADTensorKind (BuildTensorKind k y))
 lemBuildOfAD snat@SNat = \case
+  STKScalar{} -> Just unsafeCoerceRefl
   STKR{} -> Just unsafeCoerceRefl
   STKS{} -> Just unsafeCoerceRefl
   STKX{} -> Just unsafeCoerceRefl

@@ -135,6 +135,7 @@ generateDeltaInputs
 generateDeltaInputs =
   let gen :: Int -> TensorKindFull y -> (Delta ranked y, Int)
       gen j ftk = case ftk of
+        FTKScalar -> (InputG ftk (toInputId j), j + 1)
         FTKR sh | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
         FTKS sh -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
         FTKX sh -> withKnownShX (ssxFromShape sh)
@@ -175,6 +176,7 @@ aDValRep
   => Rep ranked y -> Delta ranked y
   -> Rep (ADVal ranked) y
 aDValRep p d = case stensorKind @y of
+  STKScalar{} -> RepScalar $ dDnotShared (unRepScalar p) (DeltaR $ ScalarG d)
   STKR{} -> dDnotShared p (DeltaR d)
   STKS{} -> dDnotShared p (DeltaS d)
   STKX{} -> dDnotShared p (DeltaX d)

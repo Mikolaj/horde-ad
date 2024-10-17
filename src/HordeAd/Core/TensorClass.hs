@@ -151,6 +151,7 @@ class HVectorTensor ranked shaped
              -> Rep ranked z
              -> Rep ranked (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
+    STKScalar _ -> rreplicate (sNatValue snat) $ unRepScalar u
     STKR _ SNat -> rreplicate (sNatValue snat) u
     STKS _ sh -> withKnownShS sh $ sreplicate u
     STKX _ sh -> withKnownShX sh $ xreplicate u
@@ -1343,6 +1344,7 @@ unrepShallow :: forall ranked y.
                  => RepShallow ranked y
                  -> Rep ranked y
 unrepShallow t = case stensorKind @y of
+  STKScalar{} -> t
   STKR{} -> t
   STKS{} -> t
   STKX{} -> t
@@ -1357,6 +1359,7 @@ unrepDeep :: forall ranked y.
           => RepDeep ranked y
           -> Rep ranked y
 unrepDeep t = case stensorKind @y of
+  STKScalar{} -> t
   STKR{} -> t
   STKS{} -> t
   STKX{} -> t
@@ -1377,6 +1380,7 @@ repDeepDuplicable
   => STensorKindType y -> Rep ranked y
   -> RepDeep ranked y
 repDeepDuplicable stk t = case stk of
+  STKScalar{} -> t
   STKR{} -> t
   STKS{} -> t
   STKX{} -> t
@@ -1481,6 +1485,7 @@ mapRep
   -> Rep f y
   -> Rep g y
 mapRep fr fs fx stk b = case stk of
+  STKScalar _ -> RepScalar $ fr $ unRepScalar b
   STKR _ SNat -> fr b
   STKS _ sh -> withKnownShS sh $ fs b
   STKX _ sh -> withKnownShX sh $ fx b
@@ -1553,6 +1558,7 @@ mapRep2Weak
   -> Rep f1 y -> Rep f2 y
   -> Rep g y
 mapRep2Weak fr fs fx stk b1 b2 = case stk of
+  STKScalar _ -> RepScalar $ fr (unRepScalar b1) (unRepScalar b2)
   STKR _ SNat -> fr b1 b2
   STKS _ sh -> withKnownShS sh $ fs b1 b2
   STKX _ sh -> withKnownShX sh $ fx b1 b2

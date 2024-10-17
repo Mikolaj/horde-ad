@@ -157,6 +157,8 @@ interpretAst
   => AstEnv ranked
   -> AstTensor AstMethodLet s y -> Rep ranked y
 interpretAst !env = \case
+  AstScalar t -> unRepScalar $ interpretAst env t
+  AstUnScalar t -> RepScalar $ interpretAst env t
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
@@ -243,6 +245,7 @@ interpretAst !env = \case
       let emptyFromStk :: TensorKindFull z
                        -> Rep ranked (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
+            FTKScalar -> rfromList0N (0 :$: ZSR) []
             FTKR sh | SNat <- shrRank sh -> rfromList0N (0 :$: sh) []
             FTKS sh -> withKnownShS sh $ sfromList0N []
             FTKX{} -> error "TODO"
@@ -273,6 +276,7 @@ interpretAst !env = \case
                 -> (IntOf ranked -> Rep ranked z)
                 -> Rep ranked (BuildTensorKind n z)
         replStk stk g = case stk of
+          STKScalar _ -> rbuild1 (sNatValue snat) (unRepScalar . g)
           STKR _ SNat -> rbuild1 (sNatValue snat) g
           STKS _ sh -> withKnownShS sh $ sbuild1 g
           STKX _ sh -> withKnownShX sh $ error "TODO"
@@ -291,8 +295,12 @@ interpretAst !env = \case
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
     in replStk (stensorKind @y2) f
   AstLet @y2 var u v -> case stensorKind @y2 of
-    STKR{} ->
+    STKScalar{} ->
       -- We assume there are no nested lets with the same variable.
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in blet t (\w -> interpretAst (env2 w) v)
+    STKR{} ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
@@ -555,6 +563,17 @@ interpretAst !env = \case
          -- This is weak, but we don't need rproject nor sproject.
          -- Most likely, the term gets simplified before interpretation anyway.
   AstLetHVectorIn @_ @_ @z2 vars l v -> case stensorKind @z2 of
+    STKScalar _ ->
+      let lt = unHVectorPseudoTensor $ interpretAst env l
+          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
+                            `blame` ( shapeVoidHVector (voidFromVars vars)
+                                    , V.toList $ V.map shapeDynamic lw
+                                    , shapeAstFull l
+                                    , shapeVoidHVector (dshape lt) )) $
+                   extendEnvHVector vars lw env
+      in RepScalar
+         $ rletHVectorIn lt (\lw -> unRepScalar
+                                    $ interpretAst (env2 lw) v)
     STKR _ SNat ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -588,6 +607,12 @@ interpretAst !env = \case
          $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor
                                            $ interpretAst (env2 lw) v)
   AstLetHFunIn @_ @x2 @y2 @z2 var f v -> case stensorKind @y2 of
+    STKScalar _ ->
+      let g = interpretAstHFun env f
+          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
+      in RepScalar
+         $ rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> unRepScalar
+                                                   $ interpretAst (env2 h) v)
     STKR _ SNat ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
