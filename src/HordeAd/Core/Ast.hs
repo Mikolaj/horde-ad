@@ -287,31 +287,31 @@ type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 
 type role AstGeneric nominal nominal nominal nominal
 newtype AstGeneric ms s r n = AstGeneric {unAstGeneric :: AstTensor ms s (TKR r n)}
-instance GoodScalar r => Show (AstGeneric ms s r n) where
+instance Show (AstGeneric ms s r n) where
   showsPrec k (AstGeneric t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
 
 type role AstGenericS nominal nominal nominal nominal
 newtype AstGenericS ms s r sh = AstGenericS {unAstGenericS :: AstTensor ms s (TKS r sh)}
-instance GoodScalar r => Show (AstGenericS ms s r sh) where
+instance Show (AstGenericS ms s r sh) where
   showsPrec k (AstGenericS t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
 
 type role AstRanked nominal nominal nominal
 newtype AstRanked s r n = AstRanked {unAstRanked :: AstTensor AstMethodLet s (TKR r n)}
-instance GoodScalar r => Show (AstRanked s r n) where
+instance Show (AstRanked s r n) where
   showsPrec k (AstRanked t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
 
 type role AstShaped nominal nominal nominal
 newtype AstShaped s r sh = AstShaped {unAstShaped :: AstTensor AstMethodLet s (TKS r sh)}
-instance GoodScalar r => Show (AstShaped s r sh) where
+instance Show (AstShaped s r sh) where
   showsPrec k (AstShaped t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
 
 type role AstMixed nominal nominal nominal
 newtype AstMixed s r sh = AstMixed {unAstMixed :: AstTensor AstMethodLet s (TKX r sh)}
-instance GoodScalar r => Show (AstMixed s r sh) where
+instance Show (AstMixed s r sh) where
   showsPrec k (AstMixed t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
 
@@ -1088,17 +1088,17 @@ type instance DualOf (AstNoSimplifyX s) = AstNoSimplifyX DualSpan
 type role AstRaw nominal nominal nominal
 newtype AstRaw s r n =
   AstRaw {unAstRaw :: AstTensor AstMethodShare s (TKR r n)}
-deriving instance GoodScalar r => Show (AstRaw s r n)
+ deriving Show
 
 type role AstRawS nominal nominal nominal
 newtype AstRawS s r sh =
   AstRawS {unAstRawS :: AstTensor AstMethodShare s (TKS r sh)}
-deriving instance (GoodScalar r, KnownShS sh) => Show (AstRawS s r sh)
+ deriving Show
 
 type role AstRawX nominal nominal nominal
 newtype AstRawX s r sh =
   AstRawX {unAstRawX :: AstTensor AstMethodShare s (TKX r sh)}
-deriving instance (GoodScalar r, KnownShX sh) => Show (AstRawX s r sh)
+ deriving Show
 
 type role AstRawWrap nominal
 newtype AstRawWrap t = AstRawWrap {unAstRawWrap :: t}
@@ -1107,17 +1107,17 @@ newtype AstRawWrap t = AstRawWrap {unAstRawWrap :: t}
 type role AstNoVectorize nominal nominal nominal
 newtype AstNoVectorize s r n =
   AstNoVectorize {unAstNoVectorize :: AstTensor AstMethodLet s (TKR r n)}
-deriving instance GoodScalar r => Show (AstNoVectorize s r n)
+ deriving Show
 
 type role AstNoVectorizeS nominal nominal nominal
 newtype AstNoVectorizeS s r sh =
   AstNoVectorizeS {unAstNoVectorizeS :: AstTensor AstMethodLet s (TKS r sh)}
-deriving instance (GoodScalar r, KnownShS sh) => Show (AstNoVectorizeS s r sh)
+ deriving Show
 
 type role AstNoVectorizeX nominal nominal nominal
 newtype AstNoVectorizeX s r sh =
   AstNoVectorizeX {unAstNoVectorizeX :: AstTensor AstMethodLet s (TKX r sh)}
-deriving instance (GoodScalar r, KnownShX sh) => Show (AstNoVectorizeX s r sh)
+ deriving Show
 
 type role AstNoVectorizeWrap nominal
 newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
@@ -1126,17 +1126,17 @@ newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
 type role AstNoSimplify nominal nominal nominal
 newtype AstNoSimplify s r n =
   AstNoSimplify {unAstNoSimplify :: AstTensor AstMethodLet s (TKR r n)}
-deriving instance GoodScalar r => Show (AstNoSimplify s r n)
+ deriving Show
 
 type role AstNoSimplifyS nominal nominal nominal
 newtype AstNoSimplifyS s r sh =
   AstNoSimplifyS {unAstNoSimplifyS :: AstTensor AstMethodLet s (TKS r sh)}
-deriving instance (GoodScalar r, KnownShS sh) => Show (AstNoSimplifyS s r sh)
+ deriving Show
 
 type role AstNoSimplifyX nominal nominal nominal
 newtype AstNoSimplifyX s r sh =
   AstNoSimplifyX {unAstNoSimplifyX :: AstTensor AstMethodLet s (TKX r sh)}
-deriving instance (GoodScalar r, KnownShX sh) => Show (AstNoSimplifyX s r sh)
+ deriving Show
 
 type role AstNoSimplifyWrap nominal
 newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}

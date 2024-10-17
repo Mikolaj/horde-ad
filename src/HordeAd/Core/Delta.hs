@@ -301,29 +301,10 @@ data RepM ranked y where
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
              => RepM ranked (TKS r sh)
 
-instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
-         , Show (HVectorOf ranked), CRepProduct ranked Show
-         , TensorKind y )
-         => Show (RepM ranked y) where
-  showsPrec d = \case
-    MTKScalar @r t ->
-      showParen (d > 10)
-        (showString ("MTKScalar @" ++ show (typeRep @r) ++ " ")
-         . showParen True (showsPrec d t))
-    MTKR @r @n t ->
-      showParen (d > 10)
-        (showString ("MTKR @" ++ show (typeRep @r)
-                     ++ " @" ++ show (valueOf @n :: Int) ++ " ")
-         . showParen True (showsPrec d t))
-    MTKS @r @sh t ->
-      showParen (d > 10)
-        (showString ("MTKS @" ++ show (typeRep @r)
-                     ++ " @" ++ show (shapeT @sh) ++ " ")
-         . showParen True (showsPrec d t))
-    MTKScalarDummy -> showString "MTKScalarDummy"
-    MTKRDummy -> showString "MTKRDummy"
-    MTKSDummy -> showString "MTKSDummy"
-
+deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
+                  , Show (HVectorOf ranked), CRepProduct ranked Show
+                  , TensorKind y )
+                  => Show (RepM ranked y)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -400,7 +381,7 @@ type role DeltaR nominal nominal nominal
 newtype DeltaR ranked r n =
   DeltaR {unDeltaR :: Delta ranked (TKR r n)}
 instance ( RankedOf (ShapedOf ranked) ~ ranked
-         , GoodScalar r, Show (IntOf ranked)
+         , Show (IntOf ranked)
          , CRepProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
@@ -418,7 +399,7 @@ type DeltaS :: ShapedTensorType -> ShapedTensorType
 newtype DeltaS shaped r sh =
   DeltaS {unDeltaS :: Delta (RankedOf shaped) (TKS r sh)}
 instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
-         , GoodScalar r, Show (IntOf ranked)
+         , Show (IntOf ranked)
          , CRepProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
@@ -436,7 +417,7 @@ newtype DeltaX mixed r sh =
   DeltaX {unDeltaX :: Delta (RankedOf mixed) (TKX r sh)}
 instance ( RankedOf (ShapedOf ranked) ~ ranked
          , ranked ~ RankedOf mixed, RankedOf (MixedOf ranked) ~ ranked
-         , GoodScalar r, Show (IntOf ranked)
+         , Show (IntOf ranked)
          , CRepProduct ranked Show
          , Show (HVectorOf ranked)
          , Show (IntOf (ShapedOf ranked))
@@ -893,6 +874,7 @@ data InputId :: RankedTensorType -> TensorKindType -> Type where
   InputId :: forall ranked y. TensorKind y => Int -> InputId ranked y
 
 deriving instance Show (InputId ranked y)
+
 instance TensorKind y => Enum (InputId ranked y) where
   toEnum = InputId
   fromEnum (InputId n) = n
