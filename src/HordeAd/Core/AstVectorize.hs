@@ -189,12 +189,12 @@ build1V snat@SNat (var, v00) =
                                 $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
                                (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
-      STKR _ SNat ->
+      STKR STKScalar{} SNat ->
         let t = Ast.AstConstant
                 $ astIndexStep (astFromVector $ V.fromList [v, w])
                                (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
-      STKS _ sh -> withKnownShS sh $
+      STKS STKScalar{} sh -> withKnownShS sh $
         let t = Ast.AstConstant
                 $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                       (astCond b 0 1 :.$ ZIS)
@@ -202,23 +202,25 @@ build1V snat@SNat (var, v00) =
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
       STKUntyped -> error "TODO"
+      _ -> error "TODO"
     Ast.AstCond b v w -> case stensorKind @y of
       STKScalar _ ->
         let t = astIndexStep (astFromVector
                               $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
                              (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
-      STKR _ SNat ->
+      STKR STKScalar{} SNat ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
-      STKS _ sh -> withKnownShS sh $
+      STKS STKScalar{} sh -> withKnownShS sh $
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
       STKUntyped -> error "TODO"
+      _ -> error "TODO"
     Ast.AstReplicate @y2 snat2@(SNat @k2) v -> traceRule $
       let repl2Stk :: forall z.
                       STensorKindType z
@@ -227,9 +229,9 @@ build1V snat@SNat (var, v00) =
                                                   (BuildTensorKind k2 z))
           repl2Stk stk u = case stk of
             STKScalar _ -> astTr $ astReplicate snat2 u
-            STKR _ SNat -> astTr $ astReplicate snat2 u
-            STKS _ sh -> withKnownShS sh $ astTrS $ astReplicate snat2 u
-            STKX _ sh -> withKnownShX sh $ astTrX $ astReplicate snat2 u
+            STKR STKScalar{} SNat -> astTr $ astReplicate snat2 u
+            STKS STKScalar{} sh -> withKnownShS sh $ astTrS $ astReplicate snat2 u
+            STKX STKScalar{} sh -> withKnownShX sh $ astTrX $ astReplicate snat2 u
             STKProduct @z1 @z2 stk1 stk2
               | Dict <- lemTensorKindOfBuild snat stk1
               , Dict <- lemTensorKindOfBuild snat2 stk1
@@ -254,6 +256,7 @@ build1V snat@SNat (var, v00) =
                              AstGeneric . astReplicate snat3 . unAstGeneric)
                          (AstGenericS . astReplicate SNat . unAstGenericS)
                          snat2 asts)
+            _ -> error "TODO"
      in repl2Stk (stensorKind @y2) (build1V snat (var, v))
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
     Ast.AstLet @y2 var1 u v
@@ -851,9 +854,9 @@ astTrGeneral
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrGeneral stk t = case stk of
   STKScalar _ -> astTr t
-  STKR _ SNat -> astTr t
-  STKS _ sh -> withKnownShS sh $ astTrS t
-  STKX _ sh -> withKnownShX sh $ astTrX t
+  STKR STKScalar{} SNat -> astTr t
+  STKS STKScalar{} sh -> withKnownShS sh $ astTrS t
+  STKX STKScalar{} sh -> withKnownShX sh $ astTrX t
   STKProduct @z1 @z2 stk1 stk2
     | Dict <- lemTensorKindOfBuild (SNat @k1) stk
     , Dict <- lemTensorKindOfBuild (SNat @k1) stk1
@@ -872,6 +875,7 @@ astTrGeneral stk t = case stk of
         let (u1, u2) = (astProject1 tShared, astProject2 tShared)
         in astPair (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)
   STKUntyped -> astTrAstHVector t
+  _ -> error "TODO"
 
 
 -- * Rule tracing machinery

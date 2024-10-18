@@ -170,7 +170,7 @@ interpretAst !env = \case
       --         `blame` (sh, rshape t, var, t, env)) t
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
-                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
+-- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
     -- be morally the primal part of a dual numbers type that is the codomain
@@ -275,9 +275,9 @@ interpretAst !env = \case
                 -> Rep ranked (BuildTensorKind n z)
         replStk stk g = case stk of
           STKScalar _ -> rbuild1 (sNatValue snat) (unRepScalar . g)
-          STKR _ SNat -> rbuild1 (sNatValue snat) g
-          STKS _ sh -> withKnownShS sh $ sbuild1 g
-          STKX _ sh -> withKnownShX sh $ error "TODO"
+          STKR STKScalar{} SNat -> rbuild1 (sNatValue snat) g
+          STKS STKScalar{} sh -> withKnownShS sh $ sbuild1 g
+          STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfS stk1
             , Dict <- lemTensorKindOfS stk2
@@ -290,6 +290,7 @@ interpretAst !env = \case
               in tpair (replStk stk1 f1) (replStk stk2 f2)
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
+          _ -> error "TODO"
     in replStk (stensorKind @y2) f
   AstLet @y2 var u v -> case stensorKind @y2 of
     STKScalar{} ->
@@ -297,15 +298,15 @@ interpretAst !env = \case
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
-    STKR{} ->
+    STKR STKScalar{} _ ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
-    STKS{} ->
+    STKS STKScalar{} _ ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
-    STKX{} ->
+    STKX STKScalar{} _ ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
@@ -317,6 +318,7 @@ interpretAst !env = \case
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in blet t (\w -> interpretAst (env2 w) v)
+    _ -> error "TODO"
 
   AstMinIndex v ->
     rminIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
@@ -568,7 +570,7 @@ interpretAst !env = \case
       in RepScalar
          $ rletHVectorIn lt (\lw -> unRepScalar
                                     $ interpretAst (env2 lw) v)
-    STKR _ SNat ->
+    STKR STKScalar{} SNat ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
@@ -577,7 +579,7 @@ interpretAst !env = \case
                                     , shapeVoidHVector (dshape lt) )) $
                    extendEnvHVector vars lw env
       in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-    STKS _ sh -> withKnownShS sh $
+    STKS STKScalar{} sh -> withKnownShS sh $
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
@@ -586,7 +588,7 @@ interpretAst !env = \case
                                     , shapeVoidHVector (dshape lt) )) $
                     extendEnvHVector vars lw env
       in sletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
-    STKX _ sh -> withKnownShX sh $ error "TODO"
+    STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUntyped ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
@@ -599,6 +601,7 @@ interpretAst !env = \case
       in HVectorPseudoTensor
          $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor
                                            $ interpretAst (env2 lw) v)
+    _ -> error "TODO"
   AstLetHFunIn @_ @x2 @y2 @z2 var f v -> case stensorKind @y2 of
     STKScalar _ ->
       let g = interpretAstHFun env f
@@ -606,15 +609,15 @@ interpretAst !env = \case
       in RepScalar
          $ rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> unRepScalar
                                                    $ interpretAst (env2 h) v)
-    STKR _ SNat ->
+    STKR STKScalar{} SNat ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
-    STKS _ sh -> withKnownShS sh $
+    STKS STKScalar{} sh -> withKnownShS sh $
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in sletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
-    STKX _ sh -> withKnownShX sh $ error "TODO"
+    STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUntyped ->
       let g = interpretAstHFun env f
@@ -622,6 +625,7 @@ interpretAst !env = \case
       in HVectorPseudoTensor
          $ dletHFunInHVector @_ @_ @x2 @z2
              g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
+    _ -> error "TODO"
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstMinIndexS v ->

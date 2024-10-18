@@ -507,13 +507,14 @@ unshareAst memo = \case
     STKScalar _ ->
       let (memo1, v2) = unshareAstScoped [var] memo $ Ast.AstScalar v
       in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKR _ SNat ->
+    STKR STKScalar{} SNat ->
       let (memo1, v2) = unshareAstScoped [var] memo v
       in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKS _ sh -> withKnownShS sh $ error "WIP"
-    STKX _ sh -> withKnownShX sh $ error "WIP"
+    STKS STKScalar{} sh -> withKnownShS sh $ error "WIP"
+    STKX STKScalar{} sh -> withKnownShX sh $ error "WIP"
     STKProduct{} -> error "WIP"
     STKUntyped -> error "WIP"
+    _ -> error "TODO"
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let astVar = Ast.AstVar (shapeAstFull v) var

@@ -257,11 +257,12 @@ repToM
   -> RepM ranked x
 repToM stk t = case stk of
   STKScalar _ -> MTKScalar t
-  STKR _ SNat -> MTKR t
-  STKS _ sh -> withKnownShS sh $ MTKS t
+  STKR STKScalar{} SNat -> MTKR t
+  STKS STKScalar{} sh -> withKnownShS sh $ MTKS t
   STKX{} -> error "repToM"
   STKProduct{} -> error "repToM"
   STKUntyped{} -> error "repToM"
+  _ -> error "TODO"
 
 addRepM ::
   ADReadyNoLet ranked
@@ -410,7 +411,6 @@ instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
          => Show (DeltaS shaped r sh) where
   showsPrec k (DeltaS t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
-
 type role DeltaX nominal nominal nominal
 type DeltaX :: MixedTensorType -> MixedTensorType
 newtype DeltaX mixed r sh =
@@ -727,11 +727,12 @@ deltaRY :: forall y ranked.
         -> Rep (DeltaR ranked) y
 deltaRY stk t = case stk of
   STKScalar{} -> RepScalar $ DeltaR $ ScalarG t
-  STKR{} -> DeltaR t
-  STKS{} -> DeltaS t
-  STKX{} -> DeltaX t
+  STKR STKScalar{} _ -> DeltaR t
+  STKS STKScalar{} _ -> DeltaS t
+  STKX STKScalar{} _ -> DeltaX t
   STKProduct{} -> t
   STKUntyped -> HVectorPseudoTensor t
+  _ -> error "TODO"
 
 unDeltaRY :: forall y ranked.
              ( RankedOf (ShapedOf ranked) ~ ranked
@@ -740,11 +741,12 @@ unDeltaRY :: forall y ranked.
           -> Delta ranked y
 unDeltaRY stk t = case stk of
   STKScalar{} -> UnScalarG $ unDeltaR $ unRepScalar t
-  STKR{} -> unDeltaR t
-  STKS{} -> unDeltaS t
-  STKX{} -> unDeltaX t
+  STKR STKScalar{} _ -> unDeltaR t
+  STKS STKScalar{} _ -> unDeltaS t
+  STKX STKScalar{} _ -> unDeltaX t
   STKProduct{} -> t
   STKUntyped -> unHVectorPseudoTensor t
+  _ -> error "TODO"
 
 shapeDeltaFull :: forall ranked y.
                   (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
@@ -1408,13 +1410,13 @@ evalFromnMap s@EvalState{nMap, dMap} =
             STKScalar _ -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
-            STKR @r @n _ SNat -> case DMap.lookup n dMap of
+            STKR @_ @n (STKScalar @r _) SNat -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalRRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
-            STKS @r @sh _ sh -> withKnownShS sh $ case DMap.lookup n dMap  of
+            STKS @_ @sh (STKScalar @r _) sh -> withKnownShS sh $ case DMap.lookup n dMap  of
               Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
               Nothing -> errorMissing
-            STKX _ sh -> withKnownShX sh $ case DMap.lookup n dMap of
+            STKX (STKScalar _) sh -> withKnownShX sh $ case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
             STKProduct{} -> case DMap.lookup n dMap of
@@ -1423,6 +1425,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
             STKUntyped -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
+            _ -> error "TODO"
       in evalFromnMap s3
     Nothing -> s  -- loop ends
 

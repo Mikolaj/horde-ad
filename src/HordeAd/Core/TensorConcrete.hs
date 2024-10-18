@@ -87,22 +87,24 @@ instance LetTensor ORArray OSArray where
        -> Rep ORArray z
   dlet a f = case stensorKind @x of
     STKScalar{} -> f a
-    STKR{} -> f a
-    STKS{} -> f a
-    STKX{} -> f a
+    STKR STKScalar{} _ -> f a
+    STKS STKScalar{} _ -> f a
+    STKX STKScalar{} _ -> f a
     stk@STKProduct{} -> f (repDeepDuplicable stk a)
     STKUntyped{} -> f $ unHVectorPseudoTensor a
+    _ -> error "TODO"
   tlet :: forall x z. TensorKind x
        => Rep ORArray x
        -> (RepShallow ORArray x -> Rep ORArray z)
        -> Rep ORArray z
   tlet a f = case stensorKind @x of
     STKScalar{} -> f a
-    STKR{} -> f a
-    STKS{} -> f a
-    STKX{} -> f a
+    STKR STKScalar{} _ -> f a
+    STKS STKScalar{} _ -> f a
+    STKX STKScalar{} _ -> f a
     STKProduct{} -> f a
     STKUntyped{} -> f $ unHVectorPseudoTensor a
+    _ -> error "TODO"
   blet = (&)
   toShare = id
   tunshare = id
@@ -299,14 +301,15 @@ instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
-    STKR _ SNat -> FTKR $ tshapeR $ runFlipR t
-    STKS _ sh -> FTKS sh
-    STKX _ sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX t
+    STKR STKScalar{} SNat -> FTKR $ tshapeR $ runFlipR t
+    STKS STKScalar{} sh -> FTKS sh
+    STKX STKScalar{} sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tshapeFull stk1 (fst t))
                  (tshapeFull stk2 (snd t))
     STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
+    _ -> error "TODO"
   tcond _ b u v = if b then u else v
   tprimalPart _ = id
   dmkHVector = id
@@ -378,23 +381,24 @@ ravel :: forall k y. TensorKind y
       -> Rep ORArray (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
   STKScalar _ -> rfromList $ NonEmpty.fromList $ unRepScalar <$> t
-  STKR _ SNat -> rfromList $ NonEmpty.fromList t
-  STKS _ sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
-  STKX _ sh -> withKnownShX sh $ error "TODO"
+  STKR STKScalar{} SNat -> rfromList $ NonEmpty.fromList t
+  STKS STKScalar{} sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
+  STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     let (lt1, lt2) = unzip t
     in (ravel k lt1, ravel k lt2)
   STKUntyped -> HVectorPseudoTensor $ ravelHVector $ map unHVectorPseudoTensor t
+  _ -> error "TODO"
 
 unravel :: forall k y. TensorKind y
         => SNat k -> Rep ORArray (BuildTensorKind k y)
         -> [Rep ORArray y]
 unravel k@SNat t = case stensorKind @y of
   STKScalar _ -> map RepScalar $ runravelToList t
-  STKR _ SNat -> runravelToList t
-  STKS _ sh -> withKnownShS sh $ sunravelToList t
-  STKX _ sh -> withKnownShX sh $ error "TODO"
+  STKR STKScalar{} SNat -> runravelToList t
+  STKS STKScalar{} sh -> withKnownShS sh $ sunravelToList t
+  STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     let lt1 = unravel k $ fst t
@@ -404,6 +408,7 @@ unravel k@SNat t = case stensorKind @y of
     if V.null $ unHVectorPseudoTensor t
     then replicate (sNatValue k) (HVectorPseudoTensor V.empty)
     else map HVectorPseudoTensor $ unravelHVector $ unHVectorPseudoTensor t
+  _ -> error "TODO"
 
 oRdmapAccumR
   :: forall k accShs bShs eShs.

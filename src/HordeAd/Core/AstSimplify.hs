@@ -2353,9 +2353,9 @@ astLetHVectorIn vars l v = case v of
                    (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
         STKScalar _ -> Ast.AstUnScalar $ astProjectR l i
-        STKR _ SNat -> astProjectR l i
-        STKS _ sh -> withKnownShS sh $ astProjectS l i
-        STKX _ sh -> withKnownShX sh $ error "TODO"
+        STKR STKScalar{} SNat -> astProjectR l i
+        STKS STKScalar{} sh -> withKnownShS sh $ astProjectS l i
+        STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
@@ -2364,9 +2364,9 @@ astLetHVectorIn vars l v = case v of
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
         STKScalar _ -> Ast.AstUnScalar $ astPrimalPart $ astProjectR l i
-        STKR _ SNat -> astPrimalPart $ astProjectR l i
-        STKS _ sh -> withKnownShS sh $ astPrimalPart $ astProjectS l i
-        STKX _ sh -> withKnownShX sh $ error "TODO"
+        STKR STKScalar{} SNat -> astPrimalPart $ astProjectR l i
+        STKS STKScalar{} sh -> withKnownShS sh $ astPrimalPart $ astProjectS l i
+        STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v
@@ -2375,9 +2375,9 @@ astLetHVectorIn vars l v = case v of
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
         STKScalar _ -> Ast.AstUnScalar $ astDualPart $ astProjectR l i
-        STKR _ SNat -> astDualPart $ astProjectR l i
-        STKS _ sh -> withKnownShS sh $ astDualPart $ astProjectS l i
-        STKX _ sh -> withKnownShX sh $ error "TODO"
+        STKR STKScalar{} SNat -> astDualPart $ astProjectR l i
+        STKS STKScalar{} sh -> withKnownShS sh $ astDualPart $ astProjectS l i
+        STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
       _ -> v

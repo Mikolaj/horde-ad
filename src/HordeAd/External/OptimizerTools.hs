@@ -111,13 +111,14 @@ unzip3Rep
   -> (Rep ORArray y, Rep ORArray y, Rep ORArray y)
 unzip3Rep stk t = case stk of
   STKScalar{} -> (fst $ fst t, snd $ fst t, snd t)
-  STKR{} -> (fst $ fst t, snd $ fst t, snd t)
-  STKS{} -> (fst $ fst t, snd $ fst t, snd t)
-  STKX{} -> (fst $ fst t, snd $ fst t, snd t)
+  STKR STKScalar{} _ -> (fst $ fst t, snd $ fst t, snd t)
+  STKS STKScalar{} _ -> (fst $ fst t, snd $ fst t, snd t)
+  STKX STKScalar{} _ -> (fst $ fst t, snd $ fst t, snd t)
   STKProduct stk1 stk2 -> let (a1, b1, c1) = unzip3Rep stk1 $ fst t
                               (a2, b2, c2) = unzip3Rep stk2 $ snd t
                           in ((a1, a2), (b1, b2), (c1, c2))
   STKUntyped -> (t, t, t)
+  _ -> error "TODO"
 
 type role StateAdamDeep nominal
 data StateAdamDeep y = StateAdamDeep
@@ -193,7 +194,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                     , RepScalar $ FlipR pN ))
                 ((mA, vA), p)
             _ -> ((mA, vA), p)
-        STKR @r _ SNat ->
+        STKR (STKScalar @r _) SNat ->
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -202,7 +203,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                  in ((FlipR mAN, FlipR vAN), FlipR pN))
                 ((mA, vA), p)
             _ -> ((mA, vA), p)
-        STKS @r _ sh -> withKnownShS sh $
+        STKS (STKScalar @r _) sh -> withKnownShS sh $
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -216,7 +217,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                     , FlipS $ Nested.rcastToShaped pN knownShS ))
                 ((mA, vA), p)
             _ -> ((mA, vA), p)
-        STKX @r _ sh -> withKnownShX sh $
+        STKX (STKScalar @r _) sh -> withKnownShX sh $
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -237,6 +238,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
           ( updateProd stk1 (fst mA) (fst vA) (fst p) (fst g)
           , updateProd stk2 (snd mA) (snd vA) (snd p) (snd g) )
         STKUntyped -> error "updateProd: STKUntyped"
+        _ -> error "TODO"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         unzip3Rep stensorKind
         $ updateProd stensorKind mAdamR vAdamR paramsR gradientR

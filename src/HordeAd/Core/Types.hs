@@ -14,7 +14,8 @@ module HordeAd.Core.Types
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType, MixedTensorType
-  , TensorKindType (..), TKUnit, STensorKindType(..), TensorKind(..)
+  , TensorKindType (..), TKR, TKS, TKX, TKUnit
+  , STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind, sameTK
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
@@ -156,11 +157,15 @@ type GoodScalarConstraint r =
 
 type data TensorKindType =
     TKScalar Type
-  | TKR Type Nat
-  | TKS Type [Nat]
-  | TKX Type [Maybe Nat]
+  | TKR2 TensorKindType Nat
+  | TKS2 TensorKindType [Nat]
+  | TKX2 TensorKindType [Maybe Nat]
   | TKProduct TensorKindType TensorKindType
   | TKUntyped
+
+type TKR r n = TKR2 (TKScalar r) n
+type TKS r sh = TKS2 (TKScalar r) sh
+type TKX r sh = TKX2 (TKScalar r) sh
 
 type TKUnit = TKScalar ()
 
@@ -168,12 +173,9 @@ type role STensorKindType nominal
 data STensorKindType y where
   STKScalar :: GoodScalar r
             => TypeRep r -> STensorKindType (TKScalar r)
-  STKR :: GoodScalar r
-       => TypeRep r -> SNat n -> STensorKindType (TKR r n)
-  STKS :: GoodScalar r
-       => TypeRep r -> ShS sh -> STensorKindType (TKS r sh)
-  STKX :: GoodScalar r
-       => TypeRep r -> StaticShX sh -> STensorKindType (TKX r sh)
+  STKR :: STensorKindType x -> SNat n -> STensorKindType (TKR2 x n)
+  STKS :: STensorKindType x -> ShS sh -> STensorKindType (TKS2 x sh)
+  STKX :: STensorKindType x -> StaticShX sh -> STensorKindType (TKX2 x sh)
   STKProduct :: STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
   STKUntyped :: STensorKindType TKUntyped
@@ -186,14 +188,14 @@ class TensorKind (y :: TensorKindType) where
 instance GoodScalar r => TensorKind (TKScalar r) where
   stensorKind = STKScalar typeRep
 
-instance (GoodScalar r, KnownNat n) => TensorKind (TKR r n) where
-  stensorKind = STKR typeRep SNat
+instance (TensorKind x, KnownNat n) => TensorKind (TKR2 x n) where
+  stensorKind = STKR stensorKind SNat
 
-instance (GoodScalar r, KnownShS sh) => TensorKind (TKS r sh) where
-  stensorKind = STKS typeRep knownShS
+instance (TensorKind x, KnownShS sh) => TensorKind (TKS2 x sh) where
+  stensorKind = STKS stensorKind knownShS
 
-instance (GoodScalar r, KnownShX sh) => TensorKind (TKX r sh) where
-  stensorKind = STKX typeRep knownShX
+instance (TensorKind x, KnownShX sh) => TensorKind (TKX2 x sh) where
+  stensorKind = STKX stensorKind knownShX
 
 instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
@@ -204,9 +206,12 @@ instance TensorKind TKUntyped where
 lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
 lemTensorKindOfS = \case
   STKScalar _ -> Dict
-  STKR _ SNat -> Dict
-  STKS _ sh -> withKnownShS sh Dict
-  STKX _ sh -> withKnownShX sh Dict
+  STKR rs SNat -> case lemTensorKindOfS rs of
+    Dict -> Dict
+  STKS rs sh -> case lemTensorKindOfS rs of
+    Dict -> withKnownShS sh Dict
+  STKX rs sh -> case lemTensorKindOfS rs of
+    Dict -> withKnownShX sh Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> Dict
   STKUntyped -> Dict
@@ -221,15 +226,15 @@ sameTK y1 y2 = case (y1, y2) of
         Just Refl -> Just Refl
         Nothing -> Nothing
     (STKR r1 snat1, STKR r2 snat2) ->
-      case (testEquality r1 r2, testEquality snat1 snat2) of
+      case (sameTK r1 r2, testEquality snat1 snat2) of
         (Just Refl, Just Refl) -> Just Refl
         _ -> Nothing
     (STKS r1 shs1, STKS r2 shs2) ->
-      case (testEquality r1 r2, testEquality shs1 shs2) of
+      case (sameTK r1 r2, testEquality shs1 shs2) of
         (Just Refl, Just Refl) -> Just Refl
         _ -> Nothing
     (STKX r1 shs1, STKX r2 shs2) ->
-      case (testEquality r1 r2, testEquality shs1 shs2) of
+      case (sameTK r1 r2, testEquality shs1 shs2) of
         (Just Refl, Just Refl) -> Just Refl
         _ -> Nothing
     (STKProduct x1 z1, STKProduct x2 z2) -> case (sameTK x1 x2, sameTK z1 z2) of
@@ -239,10 +244,10 @@ sameTK y1 y2 = case (y1, y2) of
     _ -> Nothing
 
 type family BuildTensorKind k tk where
-  BuildTensorKind k (TKScalar r) = TKR r 1
-  BuildTensorKind k (TKR r n) = TKR r (1 + n)
-  BuildTensorKind k (TKS r sh) = TKS r (k : sh)
-  BuildTensorKind k (TKX r sh) = TKX r (Just k : sh)
+  BuildTensorKind k (TKScalar r) = TKR2 (TKScalar r) 1
+  BuildTensorKind k (TKR2 r n) = TKR2 r (1 + n)
+  BuildTensorKind k (TKS2 r sh) = TKS2 r (k : sh)
+  BuildTensorKind k (TKX2 r sh) = TKX2 r (Just k : sh)
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
   BuildTensorKind k TKUntyped = TKUntyped
@@ -251,9 +256,12 @@ lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
 lemTensorKindOfBuild snat@SNat = \case
   STKScalar _ -> Dict
-  STKR _ SNat -> Dict
-  STKS _ sh -> withKnownShS sh Dict
-  STKX _ sh -> withKnownShX sh Dict
+  STKR rs SNat -> case lemTensorKindOfS rs of
+    Dict -> Dict
+  STKS rs sh -> case lemTensorKindOfS rs of
+    Dict -> withKnownShS sh Dict
+  STKX rs sh -> case lemTensorKindOfS rs of
+    Dict -> withKnownShX sh Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
   STKUntyped -> Dict
@@ -296,9 +304,9 @@ instance IfDifferentiable Float where
 
 type family ADTensorKind tk where
   ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)
-  ADTensorKind (TKR r n) = TKR (ADTensorScalar r) n
-  ADTensorKind (TKS r n) = TKS (ADTensorScalar r) n
-  ADTensorKind (TKX r n) = TKX (ADTensorScalar r) n
+  ADTensorKind (TKR2 r n) = TKR2 (ADTensorKind r) n
+  ADTensorKind (TKS2 r n) = TKS2 (ADTensorKind r) n
+  ADTensorKind (TKX2 r n) = TKX2 (ADTensorKind r) n
   ADTensorKind (TKProduct y z) =
     TKProduct (ADTensorKind y) (ADTensorKind z)
   ADTensorKind TKUntyped = TKUntyped
@@ -323,30 +331,18 @@ lemTensorKindOfAD :: forall y.
                      STensorKindType y
                   -> Dict TensorKind (ADTensorKind y)
 lemTensorKindOfAD = \case
-  STKScalar @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKScalar @r rep -> case testEquality rep (typeRep @Double) of
     Just Refl -> Dict
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+    _ -> case testEquality rep (typeRep @Float) of
       Just Refl -> Dict
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            Dict @TensorKind @(TKScalar ())
-  STKR @r @n _ SNat -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> Dict
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> Dict
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           Dict @TensorKind @(TKR () n)
-  STKS @r @sh _ sh -> withKnownShS sh $ case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> Dict
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> Dict
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           Dict @TensorKind @(TKS () sh)
-  STKX @r @sh _ sh -> withKnownShX sh $ case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> Dict
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> Dict
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           Dict @TensorKind @(TKX () sh)
+  STKR rs SNat -> case lemTensorKindOfAD rs of
+    Dict -> Dict
+  STKS rs sh -> withKnownShS sh $ case lemTensorKindOfAD rs of
+    Dict -> Dict
+  STKX rs sh -> withKnownShX sh $ case lemTensorKindOfAD rs of
+    Dict -> Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
                        , Dict <- lemTensorKindOfAD stk2 -> Dict
   STKUntyped -> Dict

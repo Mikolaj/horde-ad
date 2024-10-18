@@ -152,9 +152,9 @@ class HVectorTensor ranked shaped
              -> Rep ranked (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
     STKScalar _ -> rreplicate (sNatValue snat) $ unRepScalar u
-    STKR _ SNat -> rreplicate (sNatValue snat) u
-    STKS _ sh -> withKnownShS sh $ sreplicate u
-    STKX _ sh -> withKnownShX sh $ xreplicate u
+    STKR STKScalar{} SNat -> rreplicate (sNatValue snat) u
+    STKS STKScalar{} sh -> withKnownShS sh $ sreplicate u
+    STKX STKScalar{} sh -> withKnownShX sh $ xreplicate u
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfS stk1
       , Dict <- lemTensorKindOfS stk2
@@ -166,6 +166,7 @@ class HVectorTensor ranked shaped
       tlet u $ \ !hv ->
         HVectorPseudoTensor $ dmkHVector
         $ replicate1HVectorF rreplicate sreplicate snat hv
+    _ -> error "TODO"
 
   toShare :: TensorKind y
           => Rep ranked y
@@ -1347,12 +1348,13 @@ unrepShallow :: forall ranked y.
                  -> Rep ranked y
 unrepShallow t = case stensorKind @y of
   STKScalar{} -> t
-  STKR{} -> t
-  STKS{} -> t
-  STKX{} -> t
+  STKR STKScalar{} _ -> t
+  STKS STKScalar{} _ -> t
+  STKX STKScalar{} _ -> t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> uncurry tpair t
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
+  _ -> error "TODO"
 
 unrepDeep :: forall ranked y.
              ( TensorKind y, HVectorTensor ranked (ShapedOf ranked)
@@ -1361,13 +1363,14 @@ unrepDeep :: forall ranked y.
           -> Rep ranked y
 unrepDeep t = case stensorKind @y of
   STKScalar{} -> t
-  STKR{} -> t
-  STKS{} -> t
-  STKX{} -> t
+  STKR STKScalar{} _ -> t
+  STKS STKScalar{} _ -> t
+  STKX STKScalar{} _ -> t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     tpair (unrepDeep (fst t)) (unrepDeep (snd t))
   STKUntyped -> HVectorPseudoTensor $ dmkHVector t
+  _ -> error "TODO"
 
 -- The argument of the first call (but not of recursive calls)
 -- is assumed to be duplicable. In AST case, this creates
@@ -1381,13 +1384,14 @@ repDeepDuplicable
   -> RepDeep ranked y
 repDeepDuplicable stk t = case stk of
   STKScalar{} -> t
-  STKR{} -> t
-  STKS{} -> t
-  STKX{} -> t
+  STKR STKScalar{} _ -> t
+  STKS STKScalar{} _ -> t
+  STKX STKScalar{} _ -> t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     (repDeepDuplicable stk1 (tproject1 t), repDeepDuplicable stk2 (tproject2 t))
   STKUntyped -> dunHVector $ unHVectorPseudoTensor t
+  _ -> error "TODO"
 
 mapDynamic
   :: (RankedTensor f, ShapedTensor (ShapedOf f))
@@ -1485,9 +1489,9 @@ mapRep
   -> Rep g y
 mapRep fr fs fx stk b = case stk of
   STKScalar _ -> RepScalar $ fr $ unRepScalar b
-  STKR _ SNat -> fr b
-  STKS _ sh -> withKnownShS sh $ fs b
-  STKX _ sh -> withKnownShX sh $ fx b
+  STKR STKScalar{} SNat -> fr b
+  STKS STKScalar{} sh -> withKnownShS sh $ fs b
+  STKX STKScalar{} sh -> withKnownShX sh $ fx b
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     let !t1 = mapRep fr fs fx stk1 $ tproject1 b
@@ -1503,6 +1507,7 @@ mapRep fr fs fx stk b = case stk of
     in HVectorPseudoTensor $ tmkHVector
        $ V.map fd
        $ dunHVector $ unHVectorPseudoTensor b
+  _ -> error "TODO"
 
 {- Not needed ATM and quite broken.
 mapRep2
@@ -1557,9 +1562,9 @@ mapRep2Weak
   -> Rep g y
 mapRep2Weak fr fs fx stk b1 b2 = case stk of
   STKScalar _ -> RepScalar $ fr (unRepScalar b1) (unRepScalar b2)
-  STKR _ SNat -> fr b1 b2
-  STKS _ sh -> withKnownShS sh $ fs b1 b2
-  STKX _ sh -> withKnownShX sh $ fx b1 b2
+  STKR STKScalar{} SNat -> fr b1 b2
+  STKS STKScalar{} sh -> withKnownShS sh $ fs b1 b2
+  STKX STKScalar{} sh -> withKnownShX sh $ fx b1 b2
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     let !t1 = mapRep2Weak fr fs fx stk1 (tproject1 b1) (tproject1 b2)
@@ -1567,6 +1572,7 @@ mapRep2Weak fr fs fx stk b1 b2 = case stk of
     in tpair t1 t2
       -- this shares properly only when the product instance for f1 and f2 is (,)
   STKUntyped -> error "TODO: mapRep2Weak is weak"
+  _ -> error "TODO"
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

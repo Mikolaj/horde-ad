@@ -176,9 +176,9 @@ aDValRep
   -> Rep (ADVal ranked) y
 aDValRep p d = case stensorKind @y of
   STKScalar{} -> RepScalar $ dDnotShared (unRepScalar p) (DeltaR $ ScalarG d)
-  STKR{} -> dDnotShared p (DeltaR d)
-  STKS{} -> dDnotShared p (DeltaS d)
-  STKX{} -> dDnotShared p (DeltaX d)
+  STKR STKScalar{} _ -> dDnotShared p (DeltaR d)
+  STKS STKScalar{} _ -> dDnotShared p (DeltaS d)
+  STKX STKScalar{} _ -> dDnotShared p (DeltaX d)
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
     let (p1, p2) = tunpair p
@@ -189,6 +189,7 @@ aDValRep p d = case stensorKind @y of
     in (aDValRep p1 d1, aDValRep p2 d2)
   STKUntyped -> let pv = tunvector p
                 in HVectorPseudoTensor $ ahhToHVector pv d
+  _ -> error "TODO"
 
 ahhToHVector
   :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked

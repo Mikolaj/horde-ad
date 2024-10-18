@@ -92,13 +92,14 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          => Show (RepN ranked y) where
   showsPrec d (RepN t) = case stensorKind @y of
     STKScalar _ -> showsPrec d t
-    STKR _ SNat -> showsPrec d t
-    STKS _ sh -> withKnownShS sh $ showsPrec d t
-    STKX _ sh -> withKnownShX sh $ showsPrec d t
+    STKR STKScalar{} SNat -> showsPrec d t
+    STKS STKScalar{} sh -> withKnownShS sh $ showsPrec d t
+    STKX STKScalar{} sh -> withKnownShX sh $ showsPrec d t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       showsPrec d (RepProductN t)
     STKUntyped -> showsPrec d t
+    _ -> error "TODO"
 
 type role RepProductN nominal nominal nominal
 newtype RepProductN ranked x y =

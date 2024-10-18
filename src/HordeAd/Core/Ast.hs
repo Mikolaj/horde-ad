@@ -1146,18 +1146,20 @@ rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
         -> Rep (AstRanked s) y
 rankedY stk t = case stk of
   STKScalar{} -> RepScalar $ AstRanked $ AstScalar t
-  STKR{} -> AstRanked t
-  STKS{} -> AstShaped t
-  STKX{} -> AstMixed t
+  STKR STKScalar{} _ -> AstRanked t
+  STKS STKScalar{} _ -> AstShaped t
+  STKX STKScalar{} _ -> AstMixed t
   STKProduct{} -> t
   STKUntyped -> HVectorPseudoTensor t
+  _ -> error "TODO"
 
 unRankedY :: STensorKindType y -> Rep (AstRanked s) y
           -> AstTensor AstMethodLet s y
 unRankedY stk t = case stk of
   STKScalar{} -> AstUnScalar $ unAstRanked $ unRepScalar t
-  STKR{} -> unAstRanked t
-  STKS{} -> unAstShaped t
-  STKX{} -> unAstMixed t
+  STKR STKScalar{} _ -> unAstRanked t
+  STKS STKScalar{} _ -> unAstShaped t
+  STKX STKScalar{} _ -> unAstMixed t
   STKProduct{} -> t
   STKUntyped -> unHVectorPseudoTensor t
+  _ -> error "TODO"

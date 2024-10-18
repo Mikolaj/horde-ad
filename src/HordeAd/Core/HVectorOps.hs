@@ -48,14 +48,15 @@ toRepDShare
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDShare stk t = case stk of
   STKScalar _ -> DTKScalar t
-  STKR _ SNat -> DTKR t
-  STKS _ sh -> withKnownShS sh $ DTKS t
-  STKX _ sh -> withKnownShX sh $ DTKX t
+  STKR STKScalar{} SNat -> DTKR t
+  STKS STKScalar{} sh -> withKnownShS sh $ DTKS t
+  STKX STKScalar{} sh -> withKnownShX sh $ DTKX t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     let (t1, t2) = tunpair t
     in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
   STKUntyped{} -> DTKUntyped $ tunvector t
+  _ -> error "TODO"
 
 -- The argument of the first call (but not of recursive calls)
 -- is assumed to be duplicable. In AST case, this creates
@@ -68,15 +69,16 @@ toRepDDuplicable
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDDuplicable stk t = case stk of
   STKScalar _ -> DTKScalar t
-  STKR _ SNat -> DTKR t
-  STKS _ sh -> withKnownShS sh $ DTKS t
-  STKX _ sh -> withKnownShX sh $ DTKX t
+  STKR STKScalar{} SNat -> DTKR t
+  STKS STKScalar{} sh -> withKnownShS sh $ DTKS t
+  STKX STKScalar{} sh -> withKnownShX sh $ DTKX t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     DTKProduct (toRepDDuplicable stk1 (tproject1 t))
                (toRepDDuplicable stk2 (tproject2 t))
   STKUntyped{} ->
     DTKUntyped $ dunHVector $ unHVectorPseudoTensor t
+  _ -> error "TODO"
 
 fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
          => RepD ranked y -> Rep ranked y
@@ -720,20 +722,20 @@ toADTensorKindShared stk t = case stk of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            RepScalar $ rscalar ()
-  STKR @r _ SNat -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKR (STKScalar @r _) SNat -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            rrepl @_ @_ @ranked (toList $ rshape t) ()
-  STKS @r @sh _ sh -> withKnownShS sh
+  STKS @_ @sh (STKScalar @r _) sh -> withKnownShS sh
                       $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            srepl @sh @() @(ShapedOf ranked) ()
-  STKX @r _ sh -> withKnownShX sh
+  STKX (STKScalar @r _) sh -> withKnownShX sh
                   $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -747,3 +749,4 @@ toADTensorKindShared stk t = case stk of
     let (t1, t2) = tunpair t
     in tpair (toADTensorKindShared stk1 t1) (toADTensorKindShared stk2 t2)
   STKUntyped -> t
+  _ -> error "TODO"

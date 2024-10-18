@@ -123,24 +123,25 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        -> Rep (ADVal ranked) z
   dlet a f = case stensorKind @x of
     STKScalar{} -> blet a f
-    STKR{} -> blet a f
-    STKS{} -> blet a f
-    STKX{} -> blet a f
+    STKR STKScalar{} _ -> blet a f
+    STKS STKScalar{} _ -> blet a f
+    STKX STKScalar{} _ -> blet a f
     stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeepDuplicable stk uShared)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
                   $ HVectorPseudoTensor $ dmkHVector u
       in f (aDValHVector var2 u')
+    _ -> error "TODO"
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
        -> (RepShallow (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   tlet a f = case stensorKind @x of
     STKScalar{} -> blet a f
-    STKR _ SNat -> blet a f
-    STKS _ sh -> withKnownShS sh $ blet a f
-    STKX _ sh -> withKnownShX sh $ blet a f
+    STKR STKScalar{} SNat -> blet a f
+    STKS STKScalar{} sh -> withKnownShS sh $ blet a f
+    STKX STKScalar{} sh -> withKnownShX sh $ blet a f
     STKProduct{} -> blet a f
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
@@ -155,21 +156,22 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
             -- but this is a let expression, so here we ensure what is passed
             -- to f is properly shared.
       in f (aDValHVector var2 u')
+    _ -> error "TODO"
   blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
        -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
   blet a f = case stensorKind @x of
     STKScalar{} -> blet (unRepScalar a) (f . RepScalar)
-    STKR _ SNat ->
+    STKR STKScalar{} SNat ->
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
-    STKS _ sh -> withKnownShS sh $
+    STKS STKScalar{} sh -> withKnownShS sh $
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
-    STKX _ sh -> withKnownShX sh $
+    STKX STKScalar{} sh -> withKnownShX sh $
       let (D u u') = a
           !var2 = tshare u
       in f (dDnotShared var2 u')
@@ -185,6 +187,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
                   $ HVectorPseudoTensor $ dmkHVector u
       in f (HVectorPseudoTensor $ aDValHVector var2 u')
+    _ -> error "TODO"
 
   toShare = id
   tunshare = id
@@ -193,9 +196,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
             -> Rep (ADVal ranked) y
   tconstant stk t = case stk of
     STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
-    STKR _ SNat -> rconstant t
-    STKS _ sh -> withKnownShS sh $ sconstant t
-    STKX _ sh -> withKnownShX sh $ xconstant t
+    STKR STKScalar{} SNat -> rconstant t
+    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
+    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let (t1, t2) = tunpair t
@@ -206,6 +209,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
           fd = mapDynamic rconstant sconstant
       in HVectorPseudoTensor $ V.map fd $ tunvector t
+    _ -> error "TODO"
   taddLet t1 t2 =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
@@ -549,10 +553,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
-    STKR _ SNat -> let D u _ = t
+    STKR STKScalar{} SNat -> let D u _ = t
                    in tshapeFull stk u
-    STKS _ sh -> FTKS sh
-    STKX _ sh -> withKnownShX sh $
+    STKS STKScalar{} sh -> FTKS sh
+    STKX STKScalar{} sh -> withKnownShX sh $
       let D u _ = t
       in tshapeFull stk u
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
@@ -561,11 +565,12 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                  (tshapeFull stk2 (snd t))
     STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
                   in tshapeFull stk u
+    _ -> error "TODO"
   tcond stk b u v = case stk of
     STKScalar _ -> RepScalar $ ifF b (unRepScalar u) (unRepScalar v)
-    STKR _ SNat -> ifF b u v
-    STKS _ sh -> withKnownShS sh $ ifF b u v
-    STKX _ sh -> withKnownShX sh $ ifF b u v
+    STKR STKScalar{} SNat -> ifF b u v
+    STKS STKScalar{} sh -> withKnownShS sh $ ifF b u v
+    STKX STKScalar{} sh -> withKnownShX sh $ ifF b u v
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let !t1 = tcond stk1 b (fst u) (fst v)
@@ -575,14 +580,15 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
       let fd = mapDynamic2 (ifF b) (ifF b)
       in HVectorPseudoTensor
          $ V.zipWith fd (unHVectorPseudoTensor u) (unHVectorPseudoTensor v)
+    _ -> error "TODO"
   tprimalPart :: STensorKindType y
               -> Rep (ADVal ranked) y
               -> Rep ranked y
   tprimalPart stk t = case stk of
     STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t
-    STKR _ SNat -> rprimalPart t
-    STKS _ sh -> withKnownShS sh $ sprimalPart t
-    STKX _ sh -> withKnownShX sh $ xprimalPart t
+    STKR STKScalar{} SNat -> rprimalPart t
+    STKS STKScalar{} sh -> withKnownShS sh $ sprimalPart t
+    STKX STKScalar{} sh -> withKnownShX sh $ xprimalPart t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let !t1 = tprimalPart stk1 $ fst t
@@ -593,6 +599,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           fd = mapDynamic rprimalPart sprimalPart
       in HVectorPseudoTensor $ tmkHVector
          $ V.map fd $ unHVectorPseudoTensor t
+    _ -> error "TODO"
   dmkHVector = id
   dlambda _ = id
   dHApply (HFun f) = f
@@ -846,9 +853,9 @@ unADValRep
   -> (Rep ranked y, Delta ranked y)
 unADValRep stk t = case (stk, t) of
   (STKScalar{}, RepScalar (D p (DeltaR d))) -> (RepScalar p, UnScalarG d)
-  (STKR{}, D p (DeltaR d)) -> (p, d)
-  (STKS{}, D p (DeltaS d)) -> (p, d)
-  (STKX{}, D p (DeltaX d)) -> (p, d)
+  (STKR STKScalar{} _, D p (DeltaR d)) -> (p, d)
+  (STKS STKScalar{} _, D p (DeltaS d)) -> (p, d)
+  (STKX STKScalar{} _, D p (DeltaX d)) -> (p, d)
   (STKProduct stk1 stk2, (t1, t2)) | Dict <- lemTensorKindOfS stk1
                                    , Dict <- lemTensorKindOfS stk2 ->
     let (!p1, !d1) = unADValRep stk1 t1 in
@@ -857,6 +864,7 @@ unADValRep stk t = case (stk, t) of
   (STKUntyped, HVectorPseudoTensor u) ->
     let (!p, !d) = unADValHVector u
     in (HVectorPseudoTensor $ dmkHVector p, HToH d)
+  _ -> error "TODO"
 
 aDValHVector :: ADReadyNoLet f
              => HVector f -> HVector (Dual f) -> HVector (ADVal f)
