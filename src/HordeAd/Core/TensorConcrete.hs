@@ -326,7 +326,8 @@ instance HVectorTensor ORArray OSArray where
        -> HFunOf ORArray x (ADTensorKind x)
   drev _ftk h =
     let rf :: Rep ORArray x -> Rep ORArray (ADTensorKind x)
-        rf !a = fst $ crevOnHVector Nothing (unHFun h Proxy) a
+        rf !a = fst $ crevOnHVector Proxy stensorKind stensorKind
+                                    Nothing (unHFun h Proxy) a
     in rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
@@ -334,7 +335,8 @@ instance HVectorTensor ORArray OSArray where
          -> HFunOf ORArray (TKProduct (ADTensorKind z) x) (ADTensorKind x)
   drevDt _ftk h =
     let rf :: Rep ORArray (TKProduct (ADTensorKind z) x) -> Rep ORArray (ADTensorKind x)
-        rf !db_a = fst $ crevOnHVector (Just $ fst db_a) (unHFun h Proxy) (snd db_a)
+        rf !db_a = fst $ crevOnHVector Proxy stensorKind stensorKind
+                                       (Just $ fst db_a) (unHFun h Proxy) (snd db_a)
     in rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
@@ -343,7 +345,8 @@ instance HVectorTensor ORArray OSArray where
   dfwd _shs h =
     let df :: Rep ORArray (TKProduct (ADTensorKind x) x)
           -> Rep ORArray (ADTensorKind z)
-        df !da_a = fst $ cfwdOnHVector (snd da_a) (unHFun h Proxy) (fst da_a)
+        df !da_a = fst $ cfwdOnHVector Proxy stensorKind stensorKind
+                                       (snd da_a) (unHFun h Proxy) (fst da_a)
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =

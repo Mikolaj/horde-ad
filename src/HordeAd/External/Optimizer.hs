@@ -10,6 +10,8 @@ module HordeAd.External.Optimizer
 
 import Prelude
 
+import Data.Proxy (Proxy (Proxy))
+
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
@@ -41,7 +43,8 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go (a : rest) !parameters =
     let inputs :: Rep (ADVal ORArray) TKUntyped
         inputs = makeADInputs (HVectorPseudoTensor parameters) deltaInputs
-        (gradients, valueNew) = crevOnADInputs Nothing (g a) inputs
+        (gradients, valueNew) = crevOnADInputs Proxy stensorKind stensorKind
+                                               Nothing (g a) inputs
         parametersNew = updateWithGradient gamma parameters
                         $ unHVectorPseudoTensor gradients
     in if null rest
@@ -84,7 +87,8 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
    | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let inputs :: Rep (ADVal ORArray) x
         inputs = makeADInputs parameters deltaInputs
-        gradients = fst $ crevOnADInputs Nothing (f a) inputs
+        gradients = fst $ crevOnADInputs Proxy stensorKind stensorKind
+                                         Nothing (f a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdamDeep argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
@@ -127,7 +131,8 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
     let inputs :: Rep (ADVal ORArray) TKUntyped
         inputs = makeADInputs (HVectorPseudoTensor parameters) deltaInputs
         gradients = unHVectorPseudoTensor $ fst
-                    $ crevOnADInputs Nothing (g a) inputs
+                    $ crevOnADInputs Proxy stensorKind stensorKind
+                                     Nothing (g a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

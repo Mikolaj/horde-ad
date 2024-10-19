@@ -301,7 +301,8 @@ crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
         -- crevOnHVector satisfies that via makeADInputs
       valsH = toHVectorOf Proxy vals
   in parseHVectorAD Proxy vals $ repDeepDuplicable stensorKind
-     $ fst $ crevOnHVector mdt g valsH
+     $ fst $ crevOnHVector Proxy stensorKind stensorKind
+                           mdt g valsH
        -- repDeepDuplicable requires its argument to be deeply duplicable and
        -- crevOnHVector satisfies that via gradientFromDelta
 
@@ -334,7 +335,8 @@ cfwd f vals ds =
         -- TODO: or use dlet as above?
       valsH = toHVectorOf Proxy vals
       dsH = toHVectorOf Proxy ds
-  in fst $ cfwdOnHVector valsH g $ toADTensorKindShared stensorKind dsH
+  in fst $ cfwdOnHVector Proxy stensorKind stensorKind
+                         valsH g $ toADTensorKindShared stensorKind dsH
 
 
 

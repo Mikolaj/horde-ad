@@ -68,7 +68,8 @@ crevDtMaybeBoth mdt f vals =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) (TKR r y)
       g = toHVector Proxy . f . parseHVector Proxy (fromDValue vals) . repDeepDuplicable stensorKind
       valsH = toHVectorOf Proxy vals
-  in crevOnHVector mdt g valsH
+  in crevOnHVector Proxy stensorKind stensorKind
+                   mdt g valsH
 
 rev' :: forall r m n v a w.
         ( KnownNat n, KnownNat m, GoodScalar r

@@ -50,20 +50,21 @@ import HordeAd.Util.SizedList
 
 crevOnADInputs
   :: forall x z ranked.
-     ( TensorKind x, TensorKind z, ADReadyNoLet ranked
+     ( TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (Rep ranked (ADTensorKind z))
+  => Proxy ranked -> STensorKindType x -> STensorKindType z
+  -> Maybe (Rep ranked (ADTensorKind z))
   -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep (ADVal ranked) x
   -> (Rep ranked (ADTensorKind x), Rep ranked z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
-crevOnADInputs mdt f inputs =
+crevOnADInputs _ stkx stkz mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
-  let parameters0 = tshapeFull (stensorKind @x) inputs
+      !(!v, !delta) = unADValRep stkz $ f inputs in
+  let parameters0 = tshapeFull stkx inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
   in (gradient, v)
 
@@ -71,41 +72,44 @@ crevOnHVector
   :: forall x z ranked.
      ( TensorKind x, TensorKind z, ADReadyNoLet ranked
      , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (Rep ranked (ADTensorKind z))
+  => Proxy ranked -> STensorKindType x -> STensorKindType z
+  -> Maybe (Rep ranked (ADTensorKind z))
   -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep ranked x
   -> (Rep ranked (ADTensorKind x), Rep ranked z)
-crevOnHVector mdt f parameters =
+crevOnHVector proxy stkx stkz mdt f parameters =
   let deltaInputs = generateDeltaInputs
-                    $ tshapeFull (stensorKind @x) parameters
+                    $ tshapeFull stkx parameters
       inputs = makeADInputs parameters deltaInputs
-  in crevOnADInputs mdt f inputs
+  in crevOnADInputs proxy stkx stkz mdt f inputs
 
 cfwdOnADInputs
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
-  => Rep (ADVal ranked) x
+  => Proxy ranked -> STensorKindType x -> STensorKindType z
+  -> Rep (ADVal ranked) x
   -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep ranked (ADTensorKind x)
   -> (Rep ranked (ADTensorKind z), Rep ranked z)
 {-# INLINE cfwdOnADInputs #-}
-cfwdOnADInputs inputs f ds =
-  let !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
+cfwdOnADInputs _ _ stkz inputs f ds =
+  let !(!v, !delta) = unADValRep stkz $ f inputs in
   let !derivative = derivativeFromDelta @x delta ds
   in (derivative, v)
 
 cfwdOnHVector
   :: forall x z ranked.
      (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
-  => Rep ranked x
+  => Proxy ranked -> STensorKindType x -> STensorKindType z
+  -> Rep ranked x
   -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
   -> Rep ranked (ADTensorKind x)
   -> (Rep ranked (ADTensorKind z), Rep ranked z)
-cfwdOnHVector parameters f ds =
+cfwdOnHVector proxy stkx stkz parameters f ds =
   let deltaInputs = generateDeltaInputs
-                    $ tshapeFull (stensorKind @x) parameters
+                    $ tshapeFull stkx parameters
       inputs = makeADInputs parameters deltaInputs
-  in cfwdOnADInputs inputs f ds
+  in cfwdOnADInputs proxy stkx stkz inputs f ds
 
 
 -- * Misc instances
@@ -617,7 +621,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
         rf Proxy !a = blet a $ \ !aShared ->
-          tunshare $ fst $ crevOnHVector
+          tunshare $ fst $ crevOnHVector Proxy stensorKind stensorKind
                              Nothing
                              (unHFun h (Proxy @(ADVal (ShareOf f))))
                              (toShare aShared)
@@ -634,7 +638,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
         rf Proxy !db_a = blet db_a $ \ !db_aShared ->
-          tunshare $ fst $ crevOnHVector
+          tunshare $ fst $ crevOnHVector Proxy stensorKind stensorKind
                              (Just $ toShare $ tproject1 db_aShared)
                              (unHFun h (Proxy @(ADVal (ShareOf f))))
                              (toShare $ tproject2 db_aShared)
@@ -651,7 +655,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            -> Rep f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
         df Proxy !da_a = blet da_a $ \ !da_aShared ->
-          tunshare $ fst $ cfwdOnHVector
+          tunshare $ fst $ cfwdOnHVector Proxy stensorKind stensorKind
                              (toShare $ tproject2 da_aShared)
                              (unHFun h (Proxy @(ADVal (ShareOf f))))
                              (toShare $ tproject1 da_aShared)
