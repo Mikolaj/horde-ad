@@ -8,6 +8,7 @@ import Prelude
 
 import Data.Array.RankedS qualified as OR
 import Data.Kind (Type)
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..), inline)
 import GHC.TypeLits (Nat)
@@ -105,7 +106,7 @@ afcnnMnistTest2 valsInit dataList testParams =
             nn :: ADFcnnMnist2Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
+            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector Proxy (AsHVector valsInit) testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

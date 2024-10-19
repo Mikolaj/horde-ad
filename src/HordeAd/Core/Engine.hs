@@ -20,6 +20,7 @@ import Prelude
 
 import Data.Int (Int64)
 import Data.Maybe (fromMaybe, isJust)
+import Data.Proxy (Proxy (Proxy))
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable)
 
@@ -102,11 +103,11 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
   let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
       g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector (fromValue vals0) hvShared
-      valsH = toHVectorOf vals0
+        f $ parseHVector Proxy (fromValue vals0) hvShared
+      valsH = toHVectorOf Proxy vals0
       voidH = tshapeFull stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in parseHVectorAD vals0 $ repDeepDuplicable stensorKind
+  in parseHVectorAD Proxy vals0 $ repDeepDuplicable stensorKind
      $ fst $ revEvalArtifact artifact valsH mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
@@ -134,8 +135,8 @@ revArtifactAdapt hasDt f vals0 =
   let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
       g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector (fromValue vals0) hvShared
-      valsH = toHVectorOf @ORArray vals0
+        f $ parseHVector Proxy (fromValue vals0) hvShared
+      valsH = toHVectorOf (Proxy @ORArray) vals0
       voidH = tshapeFull stensorKind valsH
   in revProduceArtifact hasDt g emptyEnv voidH
 {- TODO
@@ -217,11 +218,11 @@ fwd
 fwd f vals ds =
   let g :: Rep (AstRanked FullSpan) (X astvals) -> Rep (AstRanked FullSpan) z
       g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector (fromValue vals) hvShared
-      valsH = toHVectorOf vals
+        f $ parseHVector Proxy (fromValue vals) hvShared
+      valsH = toHVectorOf Proxy vals
       voidH = tshapeFull stensorKind valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
-      dsH = toHVectorOf ds
+      dsH = toHVectorOf Proxy ds
   in fst $ fwdEvalArtifact @_ @z artifact valsH
          $ toADTensorKindShared stensorKind dsH
 
@@ -295,11 +296,11 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
-      g = f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
+      g = f . parseHVector Proxy (fromDValue vals) . repDeepDuplicable stensorKind
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- crevOnHVector satisfies that via makeADInputs
-      valsH = toHVectorOf vals
-  in parseHVectorAD vals $ repDeepDuplicable stensorKind
+      valsH = toHVectorOf Proxy vals
+  in parseHVectorAD Proxy vals $ repDeepDuplicable stensorKind
      $ fst $ crevOnHVector mdt g valsH
        -- repDeepDuplicable requires its argument to be deeply duplicable and
        -- crevOnHVector satisfies that via gradientFromDelta
@@ -327,12 +328,12 @@ cfwd
   -> Rep ORArray (ADTensorKind z)
 cfwd f vals ds =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
-      g = f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
+      g = f . parseHVector Proxy (fromDValue vals) . repDeepDuplicable stensorKind
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- cfwdOnHVector satisfies that via makeADInputs
         -- TODO: or use dlet as above?
-      valsH = toHVectorOf vals
-      dsH = toHVectorOf ds
+      valsH = toHVectorOf Proxy vals
+      dsH = toHVectorOf Proxy ds
   in fst $ cfwdOnHVector valsH g $ toADTensorKindShared stensorKind dsH
 
 

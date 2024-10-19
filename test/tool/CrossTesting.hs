@@ -66,8 +66,8 @@ crevDtMaybeBoth
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth mdt f vals =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) (TKR r y)
-      g = toHVector . f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
-      valsH = toHVectorOf vals
+      g = toHVector Proxy . f . parseHVector Proxy (fromDValue vals) . repDeepDuplicable stensorKind
+      valsH = toHVectorOf Proxy vals
   in crevOnHVector mdt g valsH
 
 rev' :: forall r m n v a w.
@@ -91,13 +91,13 @@ rev' f valsOR =
       valsFrom = fromDValue vals
       g :: ADVal ORArray r n
         -> ADVal ORArray r m
-      g inputs = f $ parseHVector valsFrom inputs
+      g inputs = f $ parseHVector Proxy valsFrom inputs
       (gradient1, value1) = crevDtMaybeBoth dt g vals
       gradientRrev1 = rrev1 @ORArray @r @n @m f vals
       g9 :: ADVal (AstRaw PrimalSpan) r n
          -> ADVal (AstRaw PrimalSpan) r m
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
-                  $ parseHVector (fromDValue vals) inputs
+                  $ parseHVector Proxy (fromDValue vals) inputs
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation
                 False g9 ftk
@@ -125,7 +125,7 @@ rev' f valsOR =
         -> ADVal ORArray r m
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal ORArray) fx1 fx2 gx
-                 (parseHVector valsFrom inputs)
+                 (parseHVector Proxy valsFrom inputs)
       (gradient2, value2) =
         crevDtMaybeBoth dt (h id id id) vals
       (gradient3, value3) =
@@ -168,7 +168,7 @@ rev' f valsOR =
            -> ADVal (AstRaw PrimalSpan) r m
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRaw PrimalSpan))
-                   fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
+                   fx1 fx2 gx (parseHVector Proxy (fromDValue vals) inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
                 False (hAst id id id) ftk

@@ -242,9 +242,9 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   type X (ADVal ranked r n) = TKR r n
-  toHVector = id
-  fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+  toHVector Proxy = id
+  fromHVector Proxy _aInit t = Just (t, Nothing)
+  fromHVectorAD Proxy aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero (rshape aInit), Nothing)
@@ -254,8 +254,8 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
          => AdaptableHVector (ADVal ranked)
                              (AsHVector (ADVal ranked r n)) where
   type X (AsHVector (ADVal ranked r n)) = TKUntyped
-  toHVector = V.singleton . DynamicRanked . unAsHVector
-  fromHVector _aInit = fromHVectorR
+  toHVector Proxy = V.singleton . DynamicRanked . unAsHVector
+  fromHVector Proxy _aInit = fromHVectorR
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet ranked, ShareTensor ranked)
          => DualNumberValue (ADVal ranked r n) where
@@ -280,10 +280,10 @@ instance ( a ~ ranked r n, RankedTensor ranked, GoodScalar r, KnownNat n
                           [AstRanked s Double n] #-}
 -}
   type X [a] = TKUntyped
-  toHVector = V.concat . map (toHVector . DynamicRanked)
-  fromHVector lInit source =
+  toHVector Proxy = V.concat . map (toHVector Proxy . DynamicRanked)
+  fromHVector Proxy lInit source =
     let f (!lAcc, !restAcc) !aInit =
-          case fromHVector (DynamicRanked aInit) restAcc of
+          case fromHVector Proxy (DynamicRanked aInit) restAcc of
             Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe V.empty mrest)
             _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
@@ -299,10 +299,10 @@ instance ( RankedTensor ranked
          , X (AsHVector a) ~ TKUntyped )
          => AdaptableHVector ranked (AsHVector [a]) where
   type X (AsHVector [a]) = TKUntyped
-  toHVector = V.concat . map (toHVector . AsHVector) . unAsHVector
-  fromHVector (AsHVector lInit) source =
+  toHVector Proxy = V.concat . map (toHVector Proxy . AsHVector) . unAsHVector
+  fromHVector Proxy (AsHVector lInit) source =
     let f (!lAcc, !restAcc) !aInit =
-          case fromHVector (AsHVector aInit) restAcc of
+          case fromHVector Proxy (AsHVector aInit) restAcc of
             Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe V.empty mrest)
             _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
@@ -417,9 +417,9 @@ instance ( ADReadyNoLetS shaped, ShareTensor ranked
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   type X (ADVal shaped r sh) = TKS r sh
-  toHVector = id
-  fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+  toHVector Proxy = id
+  fromHVector Proxy _aInit t = Just (t, Nothing)
+  fromHVectorAD Proxy _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
@@ -431,8 +431,8 @@ instance ( ADReadyNoLetS shaped, ShareTensor ranked
          => AdaptableHVector (ADVal ranked)
                              (AsHVector (ADVal shaped r sh)) where
   type X (AsHVector (ADVal shaped r sh)) = TKUntyped
-  toHVector = V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit = fromHVectorS
+  toHVector Proxy = V.singleton . DynamicShaped . unAsHVector
+  fromHVector Proxy _aInit = fromHVectorS
 
 instance ( ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
          , KnownShS sh, GoodScalar r )
@@ -541,8 +541,8 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
                              (ADVal (HVectorPseudoTensor ranked)
                                     Float '()) where
   type X (ADVal (HVectorPseudoTensor ranked) Float '()) = TKUntyped
-  toHVector = aDValToHVector
-  fromHVector (D (HVectorPseudoTensor h) _) params =
+  toHVector Proxy = aDValToHVector
+  fromHVector Proxy (D (HVectorPseudoTensor h) _) params =
     let (portion, rest) = V.splitAt (V.length h) params
     in Just (hVectorADValToADVal portion, if V.null rest then Nothing else Just rest)
 

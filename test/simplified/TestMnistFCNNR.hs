@@ -10,6 +10,7 @@ import Control.Monad (foldM, unless)
 import Data.Array.RankedS qualified as OR
 import Data.IntMap.Strict qualified as IM
 import Data.List.Index (imap)
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (SomeNat (..), someNatVal)
@@ -106,7 +107,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
                      mnist (unAsHVector
-                            $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                            $ parseHVector Proxy (AsHVector $ fromDValue valsInit) adinputs)
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -201,7 +202,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (AstRanked astGlyph, AstRanked astLabel)
                    (unAsHVector
-                    $ parseHVector (AsHVector $ fromDValue valsInit)
+                    $ parseHVector Proxy (AsHVector $ fromDValue valsInit)
                                    (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
@@ -316,8 +317,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                (glyphR, labelR) pars
            g :: Rep (AstRanked FullSpan) TKUntyped
              -> Rep (AstRanked FullSpan) TKUntyped
-           g !hv = toHVectorOf $ AsHVector $ f
-                   $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv
+           g !hv = toHVectorOf Proxy $ AsHVector $ f
+                   $ unAsHVector $ parseHVector Proxy (AsHVector $ fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv
            (artRaw, _) = revProduceArtifact False g emptyEnv
                            (FTKUntyped $ voidFromHVector
                             $ hVectorInit
@@ -411,7 +412,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = toHVector Proxy $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -435,7 +436,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    -> ADVal ranked r 0
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                     mnist (unAsHVector $ parseHVector Proxy (AsHVector $ fromDValue valsInit) adinputs)
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -498,7 +499,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         OSArray widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = toHVector Proxy $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -524,7 +525,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (AstRanked astGlyph, AstRanked astLabel)
                    (unAsHVector
-                    $ parseHVector (AsHVector $ fromDValue valsInit)
+                    $ parseHVector Proxy (AsHVector $ fromDValue valsInit)
                                    (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
@@ -609,7 +610,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           -- but there is nowhere to get aInit from.
           --   parseHVector aInit hVectorInit
           forgetShape valsInitShaped
-        hVectorInit = toHVector $ AsHVector valsInit
+        hVectorInit = toHVector Proxy $ AsHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2

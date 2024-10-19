@@ -468,9 +468,9 @@ instance (GoodScalar r, KnownNat n)
       KnownNat n
       => AdaptableHVector ORArray (ORArray Double n) #-}
   type X (ORArray r n) = TKR r n
-  toHVector = id
-  fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+  toHVector Proxy = id
+  fromHVector Proxy _aInit t = Just (t, Nothing)
+  fromHVectorAD Proxy aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero (rshape aInit), Nothing)
@@ -481,8 +481,8 @@ instance (GoodScalar r, KnownNat n)
       KnownNat n
       => AdaptableHVector ORArray (AsHVector (ORArray Double n)) #-}
   type X (AsHVector (ORArray r n)) = TKUntyped
-  toHVector = V.singleton . DynamicRanked . unAsHVector
-  fromHVector _aInit = fromHVectorR
+  toHVector Proxy = V.singleton . DynamicRanked . unAsHVector
+  fromHVector Proxy _aInit = fromHVectorR
 
 instance ForgetShape (ORArray r n) where
   type NoShape (ORArray r n) = ORArray r n
@@ -491,9 +491,9 @@ instance ForgetShape (ORArray r n) where
 instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector ORArray (OSArray r sh) where
   type X (OSArray r sh) = TKS r sh
-  toHVector = id
-  fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+  toHVector Proxy = id
+  fromHVector Proxy _aInit t = Just (t, Nothing)
+  fromHVectorAD Proxy _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
@@ -501,8 +501,8 @@ instance (GoodScalar r, KnownShS sh)
 instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector ORArray (AsHVector (OSArray r sh)) where
   type X (AsHVector (OSArray r sh)) = TKUntyped
-  toHVector = V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit = fromHVectorS
+  toHVector Proxy = V.singleton . DynamicShaped . unAsHVector
+  fromHVector Proxy _aInit = fromHVectorS
 
 instance GoodScalar r
          => ForgetShape (OSArray r sh) where
@@ -525,8 +525,8 @@ instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
 instance AdaptableHVector ORArray
                           (HVectorPseudoTensor ORArray Float '()) where
   type X (HVectorPseudoTensor ORArray Float '()) = TKUntyped
-  toHVector = unHVectorPseudoTensor
-  fromHVector (HVectorPseudoTensor aInit) params =
+  toHVector Proxy = unHVectorPseudoTensor
+  fromHVector Proxy (HVectorPseudoTensor aInit) params =
     let (portion, rest) = V.splitAt (V.length aInit) params
     in Just (HVectorPseudoTensor portion, Just rest)
 

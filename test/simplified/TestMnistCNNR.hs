@@ -10,6 +10,7 @@ import Prelude
 
 import Control.Monad (foldM, unless)
 import Data.IntMap.Strict qualified as IM
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
 import Numeric.LinearAlgebra (Numeric)
@@ -67,7 +68,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = toHVector Proxy $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show kh, show kw, show c_out, show n_hidden
@@ -93,7 +94,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
-                     (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                     (unAsHVector $ parseHVector Proxy (AsHVector $ fromDValue valsInit) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -166,7 +167,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = toHVector Proxy $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show kh, show kw, show c_out, show n_hidden
@@ -196,7 +197,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (unAsHVector
-                    $ parseHVector (AsHVector $ fromDValue valsInit)
+                    $ parseHVector Proxy (AsHVector $ fromDValue valsInit)
                                    (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
            runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (HVector ORArray, StateAdam)
@@ -281,7 +282,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
-        hVectorInit = toHVector $ AsHVector valsInit
+        hVectorInit = toHVector Proxy $ AsHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show kh, show kw, show c_out, show n_hidden

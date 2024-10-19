@@ -7,6 +7,7 @@ import Prelude
 import Criterion.Main
 import Data.Array.RankedS qualified as OR
 import Data.List.Index (imap)
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
 import Numeric.LinearAlgebra qualified as LA
@@ -56,7 +57,7 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
         MnistFcnnRanked1.afcnnMnistLoss1
           widthHidden widthHidden2
           mnist (unAsHVector
-                 $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                 $ parseHVector Proxy (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
@@ -148,8 +149,8 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
             widthHidden widthHidden2 (glyphR, labelR) pars
         g :: Rep (AstRanked FullSpan) TKUntyped
           -> Rep (AstRanked FullSpan) TKUntyped
-        g !hv = toHVectorOf $ AsHVector $ f
-                $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv
+        g !hv = toHVectorOf Proxy $ AsHVector $ f
+                $ unAsHVector $ parseHVector Proxy (AsHVector $ fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv
         (artRaw, _) = revProduceArtifact False g emptyEnv
                         (FTKUntyped $ voidFromHVector
                          $ hVectorInit
@@ -225,12 +226,12 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = toHVector Proxy $ AsHVector valsInit
       f :: MnistData r -> HVector (ADVal ranked)
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
-          mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+          mnist (unAsHVector $ parseHVector Proxy (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
@@ -255,7 +256,7 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = toHVector Proxy $ AsHVector valsInit
       ftest :: [MnistData r] -> HVector ORArray -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength xs
@@ -311,7 +312,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = toHVector Proxy $ AsHVector valsInit
       name = extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
                         , " =" ++ show (sizeHVector hVectorInit) ]

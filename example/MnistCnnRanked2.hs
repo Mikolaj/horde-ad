@@ -6,6 +6,7 @@ module MnistCnnRanked2 where
 
 import Prelude
 
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (type (*), type (+), type Div)
@@ -134,7 +135,7 @@ convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
                -> ranked r 2  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
-        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
+        in nn $ unAsHVector $ parseHVector Proxy (AsHVector valsInit) testParams
       outputs = map (Nested.rtoVector . runFlipR) $ runravelToList
                 $ rtranspose [1, 0] outputR
       labels = map (Nested.rtoVector . runFlipR) $ runravelToList

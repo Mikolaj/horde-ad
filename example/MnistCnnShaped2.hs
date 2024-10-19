@@ -7,6 +7,7 @@ module MnistCnnShaped2 where
 
 import Prelude
 
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
@@ -162,7 +163,7 @@ convMnistTestS kh@SNat kw@SNat
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
+        in nn $ unAsHVector $ parseHVector Proxy (AsHVector valsInit) testParams
       outputs = map (Nested.stoVector . runFlipS) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
       labels = map (Nested.stoVector . runFlipS) $ sunravelToList

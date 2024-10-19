@@ -258,9 +258,9 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
   type X (AstRanked s r n) = TKR r n
-  toHVector = id
-  fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+  toHVector Proxy = id
+  fromHVector Proxy _aInit t = Just (t, Nothing)
+  fromHVectorAD Proxy aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero (rshape aInit), Nothing)
@@ -271,15 +271,15 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AsHVector (AstRanked s Double n)) #-}
   type X (AsHVector (AstRanked s r n)) = TKUntyped
-  toHVector = V.singleton . DynamicRanked . unAsHVector
-  fromHVector _aInit = fromHVectorR
+  toHVector Proxy = V.singleton . DynamicRanked . unAsHVector
+  fromHVector Proxy _aInit = fromHVectorR
 
 instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstGeneric AstMethodLet s r n) where
   type X (AstGeneric AstMethodLet s r n) = TKR r n
-  toHVector = AstRanked . unAstGeneric
-  fromHVector _aInit t = Just (AstGeneric $ unAstRanked t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+  toHVector Proxy = AstRanked . unAstGeneric
+  fromHVector Proxy _aInit t = Just (AstGeneric $ unAstRanked t, Nothing)
+  fromHVectorAD Proxy aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
       Just Refl -> Just (AstGeneric $ unAstRanked t, Nothing)
       _ -> Just (AstGeneric $ unAstRanked
@@ -307,9 +307,9 @@ instance (GoodScalar r, KnownNat n)
 instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
   type X (AstShaped s r sh) = TKS r sh
-  toHVector = id
-  fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+  toHVector Proxy = id
+  fromHVector Proxy _aInit t = Just (t, Nothing)
+  fromHVectorAD Proxy _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
@@ -317,8 +317,8 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
 instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AsHVector (AstShaped s r sh)) where
   type X (AsHVector (AstShaped s r sh)) = TKUntyped
-  toHVector = V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit = fromHVectorS
+  toHVector Proxy = V.singleton . DynamicShaped . unAsHVector
+  fromHVector Proxy _aInit = fromHVectorS
 
 instance (GoodScalar r, KnownShS sh, AstSpan s)
          => DualNumberValue (AstShaped s r sh) where

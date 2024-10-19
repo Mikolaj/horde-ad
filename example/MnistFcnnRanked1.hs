@@ -9,6 +9,7 @@ import Prelude
 import Control.Exception (assert)
 import Data.Array.RankedS qualified as OR
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..), inline)
 
@@ -115,7 +116,7 @@ afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
                -> ranked r 1
             nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
-            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
+            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector Proxy (AsHVector valsInit) testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

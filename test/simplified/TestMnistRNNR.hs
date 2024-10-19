@@ -17,6 +17,7 @@ import Prelude
 import Control.Monad (foldM, unless)
 import Data.Array.RankedS qualified as OR
 import Data.IntMap.Strict qualified as IM
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
 import Numeric.LinearAlgebra (Numeric)
@@ -71,7 +72,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                              OSArray width r)
                 0.4 (mkStdGen 44)
       hVectorInit :: Rep ORArray (X (ADRnnMnistParameters ORArray r))
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVector Proxy valsInit
       ftk = tshapeFull @ORArray
                        (stensorKind @(X (ADRnnMnistParameters ORArray r)))
                        hVectorInit
@@ -85,7 +86,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
             -> r
       ftest batch_size mnistData pars =
         MnistRnnRanked2.rnnMnistTestR
-          batch_size mnistData (parseHVector valsInit pars)
+          batch_size mnistData (parseHVector Proxy valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -107,7 +108,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
-                     (parseHVector (fromDValue valsInit)
+                     (parseHVector Proxy (fromDValue valsInit)
                       $ repDeepDuplicable @(ADVal ORArray) @(X (ADRnnMnistParameters ORArray r)) (stensorKind @(X (ADRnnMnistParameters ORArray r))) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -180,7 +181,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                              OSArray width r)
                 0.4 (mkStdGen 44)
       hVectorInit :: Rep ORArray (X (ADRnnMnistParameters ORArray r))
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVector Proxy valsInit
       ftk = tshapeFull @ORArray
                        (stensorKind @(X (ADRnnMnistParameters ORArray r)))
                        hVectorInit
@@ -194,7 +195,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
             -> r
       ftest batch_size mnistData pars =
         MnistRnnRanked2.rnnMnistTestR
-          batch_size mnistData (parseHVector valsInit pars)
+          batch_size mnistData (parseHVector Proxy valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -214,7 +215,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        let ast :: AstRanked FullSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
-                   (parseHVector (fromDValue valsInit)
+                   (parseHVector Proxy (fromDValue valsInit)
                     $ repDeepDuplicable stensorKind hVector)
            runBatch :: ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                        , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
@@ -301,7 +302,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: ADRnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
-        hVectorInit = toHVector $ AsHVector valsInit
+        hVectorInit = toHVector Proxy $ AsHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize
@@ -312,7 +313,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
           MnistRnnRanked2.rnnMnistTestR
             batch_size
             mnistData
-            (unAsHVector $ parseHVector (AsHVector valsInit) pars)
+            (unAsHVector $ parseHVector Proxy (AsHVector valsInit) pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -405,7 +406,7 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
         hVectorInit :: Rep ORArray (X (ADRnnMnistParameters ORArray r))
 --        hVectorInit = unrepDeep @ORArray @(X (ADRnnMnistParameters ORArray r))
 --                      $ toHVector valsInit
-        hVectorInit = toHVector valsInit
+        hVectorInit = toHVector Proxy valsInit
         ftk = tshapeFull @ORArray
                          (stensorKind @(X (ADRnnMnistParameters ORArray r)))
                          hVectorInit
@@ -419,7 +420,7 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
               -> r
         ftest batch_size mnistData pars =
           MnistRnnRanked2.rnnMnistTestR
-            batch_size mnistData (parseHVector valsInit pars)
+            batch_size mnistData (parseHVector Proxy valsInit pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
