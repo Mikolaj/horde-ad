@@ -55,7 +55,8 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
       f mnist adinputs =
         MnistFcnnRanked1.afcnnMnistLoss1
           widthHidden widthHidden2
-          mnist (parseHVector (fromDValue valsInit) adinputs)
+          mnist (unAsHVector
+                 $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
@@ -147,10 +148,8 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
             widthHidden widthHidden2 (glyphR, labelR) pars
         g :: Rep (AstRanked FullSpan) TKUntyped
           -> Rep (AstRanked FullSpan) TKUntyped
-        g !hv = HVectorPseudoTensor
-                $ toHVectorOf $ f
-                $ parseHVector (fromValue (valsInit, dataInit))
-                $ dunHVector $ unHVectorPseudoTensor hv
+        g !hv = toHVectorOf $ AsHVector $ f
+                $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv
         (artRaw, _) = revProduceArtifact False g emptyEnv
                         (FTKUntyped $ voidFromHVector
                          $ hVectorInit
@@ -226,12 +225,12 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVectorOf valsInit
+      hVectorInit = toHVector $ AsHVector valsInit
       f :: MnistData r -> HVector (ADVal ranked)
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
-          mnist (parseHVector (fromDValue valsInit) adinputs)
+          mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
@@ -256,7 +255,7 @@ mnistTestBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVectorOf valsInit
+      hVectorInit = toHVector $ AsHVector valsInit
       ftest :: [MnistData r] -> HVector ORArray -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength xs
@@ -312,7 +311,7 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVectorOf valsInit
+      hVectorInit = toHVector $ AsHVector valsInit
       name = extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
                         , " =" ++ show (sizeHVector hVectorInit) ]
@@ -324,10 +323,10 @@ mnistTrainBench2VTO extraPrefix chunkLength xs widthHidden widthHidden2
                       , FlipR $ Nested.rfromOrthotope SNat
                         $ OR.fromVector [sizeMnistLabelInt] dlabel )
           [] -> error "empty data"
-        f = \ (pars, (glyphR, labelR)) ->
+        f = \ (AsHVector (pars, (glyphR, labelR))) ->
           MnistFcnnRanked2.afcnnMnistLoss2TensorData
             (glyphR, labelR) pars
-        (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+        (artRaw, _) = revArtifactAdapt False f (AsHVector (valsInit, dataInit))
         art = simplifyArtifactGradient artRaw
         go :: [MnistData r] -> HVector ORArray -> HVector ORArray
         go [] parameters = parameters
