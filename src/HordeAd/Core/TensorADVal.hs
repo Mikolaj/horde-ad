@@ -602,7 +602,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     _ -> error "TODO"
   dmkHVector = id
   dlambda _ = id
-  dHApply (HFun f) = f
+  dHApply (HFun f) = f Proxy
   dunHVector = id
   dbuild1 k f =
     ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
@@ -612,13 +612,14 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
        -> HFun x (ADTensorKind x)
   drev _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let rf :: forall f. ADReady f
-           => Rep f x
+           => Proxy f
+           -> Rep f x
            -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
-        rf !a = blet a $ \ !aShared ->
+        rf Proxy !a = blet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
                              Nothing
-                             (unHFun h @(ADVal (ShareOf f)))
+                             (unHFun h (Proxy @(ADVal (ShareOf f))))
                              (toShare aShared)
     in HFun rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
@@ -628,13 +629,14 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   drevDt _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
                 , Dict <- lemTensorKindOfAD (stensorKind @z) =
     let rf :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind z) x)
+           => Proxy f
+           -> Rep f (TKProduct (ADTensorKind z) x)
            -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
-        rf !db_a = blet db_a $ \ !db_aShared ->
+        rf Proxy !db_a = blet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
                              (Just $ toShare $ tproject1 db_aShared)
-                             (unHFun h @(ADVal (ShareOf f)))
+                             (unHFun h (Proxy @(ADVal (ShareOf f))))
                              (toShare $ tproject2 db_aShared)
     in HFun rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
@@ -644,13 +646,14 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   dfwd _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
               , Dict <- lemTensorKindOfAD (stensorKind @z) =
     let df :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind x) x)
+           => Proxy f
+           -> Rep f (TKProduct (ADTensorKind x) x)
            -> Rep f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
-        df !da_a = blet da_a $ \ !da_aShared ->
+        df Proxy !da_a = blet da_a $ \ !da_aShared ->
           tunshare $ fst $ cfwdOnHVector
                              (toShare $ tproject2 da_aShared)
-                             (unHFun h @(ADVal (ShareOf f)))
+                             (unHFun h (Proxy @(ADVal (ShareOf f))))
                              (toShare $ tproject1 da_aShared)
     in HFun df
   dmapAccumRDer
@@ -683,30 +686,33 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => Rep f (TKProduct accShs eShs)
+          => Proxy f
+          -> Rep f (TKProduct accShs eShs)
           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
-        g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
-          tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
+        g Proxy !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
+          tlet (unHFun f Proxy acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair acc1 bRes1)
         dg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
+           => Proxy f
+           -> Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
-        dg !dacc_de_acc_e =
+        dg Proxy !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
-          tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
+          tlet (unHFun df Proxy dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs
+           => Proxy f
+           -> Rep f (TKProduct (ADTensorKind (TKProduct accShs
                                                         (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs eShs))
-        rg !args = tlet args $ \ (!dx_db, !acc_e) ->
+        rg Proxy !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
           let dx_dbRes = tpair dx1 dbRes
-          in tlet (unHFun rf (tpair dx_dbRes acc_e))
+          in tlet (unHFun rf Proxy (tpair dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
                  let added = taddLet daccRes1 dbacc
                  in tpair added deRes1
@@ -761,30 +767,33 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => Rep f (TKProduct accShs eShs)
+          => Proxy f
+          -> Rep f (TKProduct accShs eShs)
           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
-        g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
-          tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
+        g Proxy !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
+          tlet (unHFun f Proxy acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair acc1 bRes1)
         dg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
+           => Proxy f
+           -> Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
-        dg !dacc_de_acc_e =
+        dg Proxy !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
           tlet dacc_de $ \ (!dacc1, !_de) ->
-          tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
+          tlet (unHFun df Proxy dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
             tpair accRes1 (tpair dacc1 bRes1)
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs
+           => Proxy f
+           -> Rep f (TKProduct (ADTensorKind (TKProduct accShs
                                                         (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs eShs))
-        rg !args = tlet args $ \ (!dx_db, !acc_e) ->
+        rg Proxy !args = tlet args $ \ (!dx_db, !acc_e) ->
                    tlet dx_db $ \ (!dx1, !db1) ->
                    tlet db1 $ \ (!dbacc, !dbRes) ->
           let dx_dbRes = tpair dx1 dbRes
-          in tlet (unHFun rf (tpair dx_dbRes acc_e))
+          in tlet (unHFun rf Proxy (tpair dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
                  let added = taddLet daccRes1 dbacc
                  in tpair added deRes1

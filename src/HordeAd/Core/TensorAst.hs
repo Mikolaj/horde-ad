@@ -718,7 +718,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
           => TensorKindFull x -> HFun x z -> HFunOf (AstRanked s) x z
   dlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
-          unRankedY (stensorKind @z) $ unHFun f $ rankedY (stensorKind @x) ll
+          unRankedY (stensorKind @z) $ unHFun f Proxy $ rankedY (stensorKind @x) ll
     in AstLambda (var, shss, ast)
   dHApply :: forall x z. (TensorKind x, TensorKind z)
           => HFunOf (AstRanked s) x z
@@ -757,7 +757,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
         -- `error "tunshare: used not at PrimalSpan"`, because no derivative
         -- should be taken of spans other than PrimalSpan)
         (AstArtifactRev _varDt var gradient _primal, _delta) =
-          revProduceArtifact False (unHFun f) emptyEnv ftkx
+          revProduceArtifact False (unHFun f Proxy) emptyEnv ftkx
         (varP, ast) = funToAst ftkx $ \ !astP ->
           astLet var astP
           $ simplifyInline gradient
@@ -771,7 +771,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
-          revProduceArtifact True (unHFun f) emptyEnv ftkx
+          revProduceArtifact True (unHFun f Proxy) emptyEnv ftkx
         ftkz = aDTensorKind $ shapeAstFull primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
@@ -788,7 +788,7 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactFwd varDs var derivative _primal, _delta) =
-          fwdProduceArtifact (unHFun f) emptyEnv ftkx
+          fwdProduceArtifact (unHFun f Proxy) emptyEnv ftkx
         ftk2 = FTKProduct (aDTensorKind ftkx) ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDs (astProject1 astP)

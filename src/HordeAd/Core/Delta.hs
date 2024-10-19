@@ -1156,7 +1156,8 @@ evalR !s !c d0 = case d0 of
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
+                        unHFun rf Proxy
+                                  (tpair (tpair (unrepDeep dx) (unrepDeep db))
                                          (unrepDeep acc_e)))
                      c0
                      (tpair crest (tpair q es))
@@ -1183,7 +1184,8 @@ evalR !s !c d0 = case d0 of
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx (db, acc_e) ->
-                        unHFun rf (tpair (tpair (unrepDeep dx) (unrepDeep db))
+                        unHFun rf Proxy
+                                  (tpair (tpair (unrepDeep dx) (unrepDeep db))
                                          (unrepDeep acc_e)))
                      c0
                      (tpair crest (tpair q es))
@@ -1554,7 +1556,8 @@ fwdR params s d0 = case d0 of
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (tpair (tpair (unrepDeep dacc)
+                          unHFun df Proxy
+                                    (tpair (tpair (unrepDeep dacc)
                                                   (unrepDeep de))
                                            (unrepDeep acc_e)))
                        cacc0
@@ -1579,7 +1582,8 @@ fwdR params s d0 = case d0 of
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc (de, acc_e) ->
-                          unHFun df (tpair (tpair (unrepDeep dacc)
+                          unHFun df Proxy
+                                    (tpair (tpair (unrepDeep dacc)
                                                   (unrepDeep de))
                                            (unrepDeep acc_e)))
                        cacc0

@@ -205,8 +205,8 @@ class HVectorTensor ranked shaped
        -> RepDeep ranked x
        -> Rep ranked (ADTensorKind x)
   rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
+    let g :: forall f. ADReady f => Proxy f -> Rep f x -> Rep f (TKR r n)
+        g Proxy !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es -> dHApply (drev @ranked ftk $ HFun g) (unrepDeep es)
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
@@ -220,8 +220,8 @@ class HVectorTensor ranked shaped
          -> Rep ranked (ADTensorKind x)
   rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
+    let g :: forall f. ADReady f => Proxy f -> Rep f x -> Rep f (TKR r n)
+        g Proxy !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
                             (tpair dt (unrepDeep es))
   rfwd :: forall x r n.
@@ -234,8 +234,8 @@ class HVectorTensor ranked shaped
        -> Rep ranked (ADTensorKind (TKR r n))
   rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
+    let g :: forall f. ADReady f => Proxy f -> Rep f x -> Rep f (TKR r n)
+        g Proxy !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
                             (tpair (unrepDeep ds) (unrepDeep es))
   srev :: forall x r sh.
@@ -257,8 +257,8 @@ class HVectorTensor ranked shaped
          -> Rep ranked (ADTensorKind x)
   srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
-        g !x = dlet x $ \ !xDeep -> f xDeep
+    let g :: forall f. ADReady f => Proxy f -> Rep f x -> Rep f (TKS r sh)
+        g Proxy !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
                             (tpair dt (unrepDeep es))
   sfwd :: forall x r sh.
@@ -271,8 +271,8 @@ class HVectorTensor ranked shaped
        -> Rep ranked (ADTensorKind (TKS r sh))
   sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
-        g !x = dlet x $ \ !xDeep -> f xDeep
+    let g :: forall f. ADReady f => Proxy f -> Rep f x -> Rep f (TKS r sh)
+        g Proxy !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
                             (tpair (unrepDeep ds) (unrepDeep es))
 
@@ -1149,9 +1149,10 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = FTKProduct accShs eShs
         fl :: forall f. ADReady f
-           => Rep f (TKProduct accShs eShs)
+           => Proxy f
+           -> Rep f (TKProduct accShs eShs)
            -> Rep f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ (!acc1, !e1) ->
+        fl Proxy !args = tlet args $ \ (!acc1, !e1) ->
           dlet acc1 $ \ !acc ->
             dlet e1 $ \ !e ->
               f acc e
@@ -1197,9 +1198,10 @@ class HVectorTensor (ranked :: RankedTensorType)
   dmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
     let shs = FTKProduct accShs eShs
         fl :: forall f. ADReady f
-           => Rep f (TKProduct accShs eShs)
+           => Proxy f
+           -> Rep f (TKProduct accShs eShs)
            -> Rep f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ (!acc1, !e1) ->
+        fl Proxy !args = tlet args $ \ (!acc1, !e1) ->
           dlet acc1 $ \ !acc ->
             dlet e1 $ \ !e ->
               f acc e
@@ -1576,10 +1578,11 @@ mapRep2Weak fr fs fx stk b1 b2 = case stk of
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.
+-- The proxy is necessary due to Rep not being injective.
 type role HFun nominal nominal
 newtype HFun (x :: TensorKindType) (z :: TensorKindType) =
   HFun {unHFun :: forall f. ADReady f
-               => Rep f x -> Rep f z}
+               => Proxy f -> Rep f x -> Rep f z}
 
 instance Show (HFun x y) where
   show _ = "<lambda>"

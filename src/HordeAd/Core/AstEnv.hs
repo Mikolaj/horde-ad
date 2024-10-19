@@ -256,7 +256,7 @@ interpretLambdaHsH
   -> HFun x y
 {-# INLINE interpretLambdaHsH #-}
 interpretLambdaHsH interpret ~(var, ast) =
-  HFun $ \ws -> interpret (extendEnv var ws emptyEnv) ast
+  HFun $ \Proxy ws -> interpret (extendEnv var ws emptyEnv) ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations
