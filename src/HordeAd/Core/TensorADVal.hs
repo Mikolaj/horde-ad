@@ -210,19 +210,19 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
           fd = mapDynamic rconstant sconstant
       in HVectorPseudoTensor $ V.map fd $ tunvector t
     _ -> error "TODO"
-  taddLet t1 t2 =
+  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
-                         (toRepDDuplicable stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stk u1)
+                         (toRepDDuplicable stk u2)
 
 instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked))
          => ShareTensor (ADVal ranked) where
   tshare = id
   tunpair = id
   tunvector = unHVectorPseudoTensor
-  taddShare t1 t2 = fromRepD $ addRepD (toRepDShare stensorKind t1)
-                                       (toRepDShare stensorKind t2)
+  taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
+                                           (toRepDShare stk t2)
 
 -- * Ranked tensor instance
 
@@ -708,7 +708,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           let dx_dbRes = tpair dx1 dbRes
           in tlet (unHFun rf (tpair dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 let added = taddLet daccRes1 dbacc
+                 let added = taddLet stensorKind daccRes1 dbacc
                  in tpair added deRes1
         p = dmapAccumRDer (Proxy @ranked)
                           k accShs codomainShs eShs
@@ -786,7 +786,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
           let dx_dbRes = tpair dx1 dbRes
           in tlet (unHFun rf (tpair dx_dbRes acc_e))
              $ \ (!daccRes1, !deRes1) ->
-                 let added = taddLet daccRes1 dbacc
+                 let added = taddLet stensorKind daccRes1 dbacc
                  in tpair added deRes1
         p = dmapAccumLDer (Proxy @ranked)
                           k accShs codomainShs eShs

@@ -178,8 +178,7 @@ class HVectorTensor ranked shaped
   tconstant :: STensorKindType y
             -> Rep (PrimalOf ranked) y
             -> Rep ranked y
-  taddLet :: TensorKind y
-          => Rep ranked y -> Rep ranked y -> Rep ranked y
+  taddLet :: STensorKindType y -> Rep ranked y -> Rep ranked y -> Rep ranked y
 
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
@@ -284,8 +283,8 @@ class ShareTensor (ranked :: RankedTensorType) where
           -> RepShallow ranked (TKProduct x z)
   tunvector :: Rep ranked TKUntyped
             -> RepShallow ranked TKUntyped
-  taddShare :: TensorKind y
-            => Rep ranked y -> Rep ranked y -> Rep ranked y
+  taddShare :: STensorKindType y -> Rep ranked y -> Rep ranked y
+            -> Rep ranked y
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.

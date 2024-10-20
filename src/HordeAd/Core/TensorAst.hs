@@ -572,14 +572,14 @@ instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
                          , Dict <- lemTensorKindOfS stk2 -> fromPrimal t
     STKUntyped -> HVectorPseudoTensor $ fromPrimal $ unHVectorPseudoTensor t
     _ -> error "TODO"
-  taddLet t1 t2 =
+  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     -- when we have Num(AstTensor), this is better:
     --   rankedY stensorKind
     --   $ unRankedY stensorKind t1 + unRankedY stensorKind t2
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
-                         (toRepDDuplicable stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stk u1)
+                         (toRepDDuplicable stk u2)
 
 instance AstSpan s => RankedTensor (AstRanked s) where
   rshape = shapeAst . unAstRanked
@@ -1038,11 +1038,11 @@ instance AstSpan s => ShareTensor (AstRaw s) where
               in (tproject1 tShared, tproject2 tShared)
   tunvector (HVectorPseudoTensor (AstRawWrap (AstMkHVector l))) = rawHVector l
   tunvector t = dunHVector $ unHVectorPseudoTensor $ tshare t
-  taddShare t1 t2 =
+  taddShare stk t1 t2 =
     -- when we have Num(AstTensor), this is better:
     --   rawY stensorKind $ unRawY stensorKind t1 + unRawY stensorKind t2
-    fromRepD $ addRepD (toRepDShare stensorKind t1)
-                       (toRepDShare stensorKind t2)
+    fromRepD $ addRepD (toRepDShare stk t1)
+                       (toRepDShare stk t2)
 
 instance AstSpan s => RankedTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
@@ -1489,11 +1489,11 @@ instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap $ fromPrimal
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
-  taddLet t1 t2 =
+  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
-                         (toRepDDuplicable stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stk u1)
+                         (toRepDDuplicable stk u2)
 
 instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize2
@@ -1929,11 +1929,11 @@ instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap $ fromPrimal
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
-  taddLet t1 t2 =
+  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
-                         (toRepDDuplicable stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stk u1)
+                         (toRepDDuplicable stk u2)
 
 instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify

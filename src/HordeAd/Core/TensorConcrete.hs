@@ -109,18 +109,18 @@ instance LetTensor ORArray OSArray where
   toShare = id
   tunshare = id
   tconstant _ t = t
-  taddLet t1 t2 =
+  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stensorKind u1)
-                         (toRepDDuplicable stensorKind u2)
+      fromRepD $ addRepD (toRepDDuplicable stk u1)
+                         (toRepDDuplicable stk u2)
 
 instance ShareTensor ORArray where
   tshare = id
   tunpair = id
   tunvector = unHVectorPseudoTensor
-  taddShare t1 t2 = fromRepD $ addRepD (toRepDShare stensorKind t1)
-                                       (toRepDShare stensorKind t2)
+  taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
+                                           (toRepDShare stk t2)
 
 instance RankedTensor ORArray where
   rshape = tshapeR . runFlipR
