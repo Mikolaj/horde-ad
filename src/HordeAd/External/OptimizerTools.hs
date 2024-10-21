@@ -145,8 +145,9 @@ repDeepZero = \case
   FTKUntyped{} -> error "repDeepZero: FTKUntyped"
 
 updateWithGradientAdamDeep
-  :: TensorKind y
-  => ArgsAdam -> StateAdamDeep y -> Rep ORArray y -> Rep ORArray (ADTensorKind y)
+  :: forall y. TensorKind y
+  => ArgsAdam -> StateAdamDeep y -> Rep ORArray y
+  -> Rep ORArray (ADTensorKind y)
   -> (Rep ORArray y, StateAdamDeep y)
 updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
   let mAdamR = mAdamDeep
@@ -240,8 +241,8 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
         STKUntyped -> error "updateProd: STKUntyped"
         _ -> error "TODO"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
-        unzip3Rep stensorKind
-        $ updateProd stensorKind mAdamR vAdamR paramsR gradientR
+        unzip3Rep (stensorKind @y)
+        $ updateProd (stensorKind @y) mAdamR vAdamR paramsR gradientR
   in ( paramsRNew
      , StateAdamDeep
          { tAdamDeep = tAdamNew

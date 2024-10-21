@@ -66,7 +66,8 @@ deriving instance (Show (f r z), Show (Dual f r z))
 
 instance (Show (RepN (ADVal f) x), Show (RepN (ADVal f) y))
          => Show (RepProductN (ADVal f) x y) where
-  showsPrec d (RepProductN (t1, t2)) = showsPrec d (RepN t1, RepN t2)
+  showsPrec d (RepProductN @_ @y1 @y2 (t1, t2)) =
+    showsPrec d (RepN @(ADVal f) @y1 t1, RepN @(ADVal f) @y2 t2)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records delta
 -- expression sharing information (regardless if the basic value
@@ -179,9 +180,9 @@ aDValRep p d = case stensorKind @y of
   STKR STKScalar{} _ -> dDnotShared p (DeltaR d)
   STKS STKScalar{} _ -> dDnotShared p (DeltaS d)
   STKX STKScalar{} _ -> dDnotShared p (DeltaX d)
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-    let (p1, p2) = tunpair p
+  STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                               , Dict <- lemTensorKindOfS stk2 ->
+    let (p1, p2) = tunpair @ranked @y1 @y2 p
         (d1, d2) = case d of
           PairG t1 t2 -> (t1, t2)
           _ -> let dShared = wrapDelta d

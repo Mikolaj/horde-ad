@@ -103,10 +103,10 @@ interpretAstPrimal !env v1 = case v1 of
   AstCond @y2 b a1 a2 ->
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
-    in tcond (stensorKind @y2) c
+    in tcond @(PrimalOf ranked) (stensorKind @y2) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
   _ ->
-    tprimalPart (stensorKind @y) (interpretAst env v1)
+    tprimalPart @ranked (stensorKind @y) (interpretAst env v1)
 
 interpretAstDual
   :: forall ranked y. (ADReady ranked, TensorKind y)
@@ -159,9 +159,10 @@ interpretAst
 interpretAst !env = \case
   AstScalar t -> unRepScalar $ interpretAst env t
   AstUnScalar t -> RepScalar $ interpretAst env t
-  AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
-  AstProject1 t -> tproject1 (interpretAst env t)
-  AstProject2 t -> tproject2 (interpretAst env t)
+  AstPair @z1 @z2 t1 t2 ->
+    tpair @ranked @z1 @z2 (interpretAst env t1) (interpretAst env t2)
+  AstProject1 @z1 @z2 t -> tproject1 @ranked @z1 @z2 (interpretAst env t)
+  AstProject2 @z1 @z2 t -> tproject2 @ranked @z1 @z2 (interpretAst env t)
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
@@ -200,7 +201,8 @@ interpretAst !env = \case
     -- be morally the dual part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
-  AstConstant @y2 a -> tconstant (stensorKind @y2) (interpretAstPrimal env a)
+  AstConstant @y2 a ->
+    tconstant @ranked (stensorKind @y2) (interpretAstPrimal env a)
   AstD @y2 u u' ->
     -- TODO: get rid of mapRep2 similarly as for AstConstant and AstCond
     let t1 = interpretAstPrimal env u
@@ -212,9 +214,10 @@ interpretAst !env = \case
   AstCond @y2 b a1 a2 ->
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
-    in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
+    in tcond @ranked (stensorKind @y2)
+             c (interpretAst env a1) (interpretAst env a2)
   AstReplicate @y2 snat v ->
-    treplicate snat (stensorKind @y2) (interpretAst env v)
+    treplicate @ranked snat (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
             snat (var, AstSum (AstN2 TimesOp t (AstIndex
@@ -253,7 +256,8 @@ interpretAst !env = \case
               , Dict <- lemTensorKindOfF ftk2
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-                tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
+                tpair @ranked @(BuildTensorKind n z1) @(BuildTensorKind n z2)
+                      (emptyFromStk ftk1) (emptyFromStk ftk2)
             FTKUntyped ssh -> HVectorPseudoTensor
                               $ mkreplicate1HVector (SNat @0)
                               $ V.map dynamicFromVoid ssh
@@ -283,41 +287,44 @@ interpretAst !env = \case
             , Dict <- lemTensorKindOfS stk2
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-              let f1 i = tproject1 $ g i
-                  f2 i = tproject2 $ g i
+              let f1 :: IntOf ranked -> Rep ranked z1
+                  f1 i = tproject1 @ranked @z1 @z2 $ g i
+                  f2 :: IntOf ranked -> Rep ranked z2
+                  f2 i = tproject2 @ranked @z1 @z2 $ g i
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
-              in tpair (replStk stk1 f1) (replStk stk2 f2)
+              in tpair @ranked @(BuildTensorKind n z1) @(BuildTensorKind n z2)
+                       (replStk stk1 f1) (replStk stk2 f2)
           STKUntyped ->
             HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
           _ -> error "TODO"
     in replStk (stensorKind @y2) f
-  AstLet @y2 var u v -> case stensorKind @y2 of
+  AstLet @y2 @z var u v -> case stensorKind @y2 of
     STKScalar{} ->
       -- We assume there are no nested lets with the same variable.
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in blet @ranked (stensorKind @y2) (stensorKind @z) t (\w -> interpretAst (env2 w) v)
     STKR STKScalar{} _ ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in blet @ranked (stensorKind @y2) (stensorKind @z) t (\w -> interpretAst (env2 w) v)
     STKS STKScalar{} _ ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in blet @ranked (stensorKind @y2) (stensorKind @z) t (\w -> interpretAst (env2 w) v)
     STKX STKScalar{} _ ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in blet @ranked (stensorKind @y2) (stensorKind @z) t (\w -> interpretAst (env2 w) v)
     STKProduct{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in blet @ranked (stensorKind @y2) (stensorKind @z) t (\w -> interpretAst (env2 w) v)
     STKUntyped{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in blet @ranked (stensorKind @y2) (stensorKind @z) t (\w -> interpretAst (env2 w) v)
     _ -> error "TODO"
 
   AstMinIndex v ->
@@ -892,7 +899,7 @@ interpretAst !env = \case
 
   AstMkHVector l -> HVectorPseudoTensor
                     $ dmkHVector $ interpretAstDynamic env <$> l
-  AstHApply t ll ->
+  AstHApply @x @z t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
           -- FullSpan terms
@@ -901,7 +908,7 @@ interpretAst !env = \case
           -- as above so that the mixture becomes compatible; if the spans
           -- agreed, the AstHApply would likely be simplified before
           -- getting interpreted
-    in dHApply t2 ll2
+    in dHApply @ranked @_ @x @z t2 ll2
   AstBuildHVector1 k (var, v) ->
     HVectorPseudoTensor
        $ dbuild1 k (interpretLambdaIHVector interpretAst env (var, v))

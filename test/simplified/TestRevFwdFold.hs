@@ -17,8 +17,8 @@ import GHC.TypeLits (KnownNat, type (+))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested (Rank)
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
@@ -338,44 +338,44 @@ testFooRrev3 = do
         in a1
   assertEqualUpToEpsilon 1e-10
     0
-    (crev f (rscalar 1.1))
+    (crev @_ @(TKR Double 0) f (rscalar 1.1))
 
 testSin0Rrev :: Assertion
 testSin0Rrev = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
-    (rrev1 @ORArray @Double @0 @0 sin (rscalar 1.1))
+    (rrev1 @ORArray @Double @0 sin (rscalar 1.1))
 
 testSin0RrevPP1 :: Assertion
 testSin0RrevPP1 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
     @?= "cos 1.1 * 1.0"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 sin (rscalar 1.1)
   printAstSimple IM.empty a1
     @?= "cos 1.1 * 1.0"
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
-  let f = rrev1 @(ADVal ORArray) @Double @0 @0 sin
+  let f = rrev1 @(ADVal ORArray) @Double @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))
-    (crev f (rscalar 1.1))
+    (crev @_ @(TKR Double 0) f (rscalar 1.1))
 
 testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.8988770945225438)
-    ((rrev1 sin . rrev1 @ORArray @Double @0 @0 sin) (rscalar 1.1))
+    ((rrev1 sin . rrev1 @ORArray @Double @0 sin) (rscalar 1.1))
 
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
-  let a1 = (rrev1 sin . rrev1 @(AstRanked PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
+  let a1 = (rrev1 sin . rrev1 @(AstRanked PrimalSpan) @Double @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "cos (cos 1.1 * 1.0) * 1.0"
 
@@ -383,12 +383,12 @@ testSin0Rrev5 :: Assertion
 testSin0Rrev5 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))
-    (rrev1 @ORArray @Double @0 @0 (rrev1 sin) (rscalar 1.1))
+    (rrev1 @ORArray @Double @0 (rrev1 sin) (rscalar 1.1))
 
 testSin0RrevPP5 :: Assertion
 testSin0RrevPP5 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 (rrev1 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "negate (sin 1.1) * 1.0"
 
@@ -414,58 +414,58 @@ testSin0Rfwd :: Assertion
 testSin0Rfwd = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)  -- agrees with the rrev1 version above
-    (rfwd1 @ORArray @Double @0 @0 sin (rscalar 1.1))
+    (rfwd1 @ORArray @Double @0 sin (rscalar 1.1))
 
 testSin0RfwdPP0 :: Assertion
 testSin0RfwdPP0 = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
     @?= "1.0 * cos 1.1"
 
 testSin0RfwdPP1 :: Assertion
 testSin0RfwdPP1 = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 sin (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "1.0 * cos 1.1"  -- agrees with the rrev1 version above
 
 testSin0RfwdPP1FullUnsimp :: Assertion
 testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
     @?= "(\\x1 -> tproject1 x1 * cos (tproject2 x1)) (tpair (1.0, 1.1))"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 sin (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "(\\x1 -> tproject1 x1 * cos (tproject2 x1)) (tpair (1.0, 1.1))"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
-  let f = rfwd1 @(ADVal ORArray) @Double @0 @0 sin
+  let f = rfwd1 @(ADVal ORArray) @Double @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.9803280960675791))
-    (cfwd f (rscalar 1.1) (rscalar 1.1))
+    (cfwd @_ @(TKR Double 0) f (rscalar 1.1) (rscalar 1.1))
 
 testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.8988770945225438)  -- agrees with the rrev1 version above
-    ((rfwd1 sin . rfwd1 @ORArray @Double @0 @0 sin) (rscalar 1.1))
+    ((rfwd1 sin . rfwd1 @ORArray @Double @0 sin) (rscalar 1.1))
 
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
-  let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
+  let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "1.0 * cos (1.0 * cos 1.1)"  -- agrees with the rrev1 version above
 
 testSin0RfwdPP4Dual :: Assertion
 testSin0RfwdPP4Dual = do
-  let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 @0 sin) (rscalar 1.1)
+  let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "(\\x18 -> tproject1 x18 * cos (tproject2 x18)) (tpair (rdualPart 1.0, (\\x14 -> tproject1 x14 * cos (tproject2 x14)) (tpair (rdualPart 1.0, rdualPart 1.1))))"
 
@@ -473,11 +473,11 @@ testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))  -- agrees with the rrev1 version above
-    (rfwd1 @ORArray @Double @0 @0 (rfwd1 sin) (rscalar 1.1))
+    (rfwd1 @ORArray @Double @0 (rfwd1 sin) (rscalar 1.1))
 
 testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 (rfwd1 sin) (rscalar 1.1)
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 (rfwd1 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "(1.0 * negate (sin 1.1)) * 1.0"  -- agrees with the rrev1 version above
 
@@ -503,12 +503,12 @@ testSin0Rrev5S :: Assertion
 testSin0Rrev5S = do
   assertEqualUpToEpsilon 1e-10
     (srepl (-0.8912073600614354))
-    (srev1 @OSArray @Double @'[] @'[] (srev1 sin) (srepl 1.1))
+    (srev1 @OSArray @Double @'[] (srev1 sin) (srepl 1.1))
 
 testSin0RrevPP5S :: Assertion
 testSin0RrevPP5S = do
   resetVarCounter
-  let a1 = srev1 @(AstShaped PrimalSpan) @Double @'[] @'[] (srev1 sin) (srepl 1.1)
+  let a1 = srev1 @(AstShaped PrimalSpan) @Double @'[] (srev1 sin) (srepl 1.1)
   printAstPrettyS IM.empty (simplifyInlineAstS a1)
     @?= "negate (sin 1.1) * (1.0 * 1.0)"
 
@@ -560,7 +560,8 @@ testSin0FoldB2 :: Assertion
 testSin0FoldB2 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0 :: ORArray Double 0)
-    (rev (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+    (rev @_ @(TKR Double 0)
+         (let f :: forall f. ADReady f => f Double 0 -> f Double 0
               f x0 = rfold (\_x _a -> 7)
                        (rscalar 5) (rreplicate 1 x0)
           in f) (rscalar 1.1))
@@ -768,7 +769,7 @@ testSin0Fold8rev :: Assertion
 testSin0Fold8rev = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-2.200311410593445) :: ORArray Double 0)
-    (rrev1 @ORArray @Double @0 @2
+    (rrev1 @ORArray @Double @0
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -778,7 +779,7 @@ testSin0Fold8rev = do
 
 testSin0Fold8rev2 :: Assertion
 testSin0Fold8rev2 = do
-  let h = rrev1 @(ADVal ORArray) @Double @0 @2
+  let h = rrev1 @(ADVal ORArray) @Double @0
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -787,7 +788,7 @@ testSin0Fold8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rscalar 98.72666469795736)
-    (crev h (rscalar 1.1))
+    (crev @_ @(TKR Double 0) h (rscalar 1.1))
 
 testSin0Fold8Srev :: Assertion
 testSin0Fold8Srev = do
@@ -818,7 +819,8 @@ testSin0Fold8Srev2 = do
                  in f)
   assertEqualUpToEpsilon 1e-10
     (FlipS $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
-    (crev h (srepl 0.0001))
+    (crev @_ @(TKS Double '[])
+          h (srepl 0.0001))
 
 testSin0Fold182Srev :: Assertion
 testSin0Fold182Srev = do
@@ -866,7 +868,7 @@ testSin0Fold8fwd :: Assertion
 testSin0Fold8fwd = do
   assertEqualUpToEpsilon1 1e-10
     (OR.constant [2, 5] (-0.2200311410593445))
-    (rfwd1 @ORArray @Double @0 @2
+    (rfwd1 @ORArray @Double @0
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -876,7 +878,7 @@ testSin0Fold8fwd = do
 
 testSin0Fold8fwd2 :: Assertion
 testSin0Fold8fwd2 = do
-  let h = rfwd1 @(ADVal ORArray) @Double @0 @2
+  let h = rfwd1 @(ADVal ORArray) @Double @0
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -885,7 +887,7 @@ testSin0Fold8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rscalar 98.72666469795735)
-    (crev h (rscalar 1.1))
+    (crev @_ @(TKR Double 2) h (rscalar 1.1))
 
 testSin0Fold8Sfwd :: Assertion
 testSin0Fold8Sfwd = do
@@ -916,13 +918,14 @@ testSin0Fold8Sfwd2 = do
                  in rfromS . f . sfromR)
   assertEqualUpToEpsilon1 1e-10
     (OR.constant [2, 5] 10.859933116775313)
-    (cfwd h (rscalar 1.1) (rscalar 1.1))
+    (cfwd @_ @(TKR Double 2) h (rscalar 1.1) (rscalar 1.1))
 
 testSin0Fold5Sfwd :: Assertion
 testSin0Fold5Sfwd = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 1.4291653807319993)
-    (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (cfwd @_ @(TKR Double 0)
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f a0 = sfold (let g :: forall f2. ADReadyS f2
                                    => f2 Double '[] -> f2 Double '[2, 5]
                                    -> f2 Double '[]
@@ -941,7 +944,8 @@ testSin0Fold5Sfwds :: Assertion
 testSin0Fold5Sfwds = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1.4291653807319993)
-    (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (cfwd @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f a0 = sfold (let g :: forall f2. ADReadyS f2
                                    => f2 Double '[] -> f2 Double '[2, 5]
                                    -> f2 Double '[]
@@ -1048,7 +1052,7 @@ testSin0Scan8rev :: Assertion
 testSin0Scan8rev = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [9.53298735735276])
-    (rrev1 @ORArray @Double @0 @3
+    (rrev1 @ORArray @Double @0
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1058,7 +1062,7 @@ testSin0Scan8rev = do
 
 testSin0Scan8rev2 :: Assertion
 testSin0Scan8rev2 = do
-  let h = rrev1 @(ADVal ORArray) @Double @0 @3
+  let h = rrev1 @(ADVal ORArray) @Double @0
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1067,12 +1071,12 @@ testSin0Scan8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.9579482947575])
-    (crev h (rscalar 1.1))
+    (crev @_ @(TKR Double 0) h (rscalar 1.1))
 
 testSin0Scan1RevPP1 :: Assertion
 testSin0Scan1RevPP1 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
@@ -1081,7 +1085,7 @@ testSin0Scan1RevPP1 = do
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rfromList [sin (sin x0), sin x0, x0]) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v4 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in cos 1.1 * (cos (sin 1.1) * v4 ! [0]) + cos 1.1 * v4 ! [1] + v4 ! [2]"
@@ -1089,7 +1093,7 @@ testSin0Scan1RevPPForComparison = do
 testSin0ScanFwdPP :: Assertion
 testSin0ScanFwdPP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
@@ -1098,7 +1102,7 @@ testSin0ScanFwdPP = do
 testSin0ScanFwdPPFull :: Assertion
 testSin0ScanFwdPPFull = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
+  let a1 = rfwd1 @(AstRanked FullSpan) @Double @0
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineAst a1)
@@ -1107,7 +1111,7 @@ testSin0ScanFwdPPFull = do
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
@@ -1117,7 +1121,7 @@ testSin0Scan1Rev2PPA :: Assertion
 testSin0Scan1Rev2PPA = do
   resetVarCounter
   let (art, _) =
-        revArtifactAdapt
+        revArtifactAdapt @_ @(TKR Double 1)
                  True
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7])))
@@ -1152,7 +1156,7 @@ testSin0Scan1Rev2ForComparison = do
 testSin0Scan1Rev3PP :: Assertion
 testSin0Scan1Rev3PP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
@@ -1161,7 +1165,7 @@ testSin0Scan1Rev3PP = do
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
     @?= "let v4 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) ; x5 = v4 ! [1] ; x6 = v4 ! [0] ; x7 = cos (sin 1.1 - 1.1 * 5.0) * x6 in cos 1.1 * x7 + 5.0 * (-1.0 * x7) + 7.0 * (-1.0 * x6) + cos 1.1 * x5 + 5.0 * (-1.0 * x5) + v4 ! [2]"
@@ -1169,7 +1173,7 @@ testSin0Scan1Rev3PPForComparison = do
 testSin0ScanFwd3PP :: Assertion
 testSin0ScanFwd3PP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineAst a1)
@@ -1192,7 +1196,7 @@ testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [1] [1.0])
-    (rfwd1 @ORArray @Double @0 @1
+    (rfwd1 @ORArray @Double @0
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscan (\x _a -> sin x)
                       x0 (rzero @f @Double (0 :$: ZSR))
@@ -1202,7 +1206,7 @@ testSin0Scan1fwd :: Assertion
 testSin0Scan1fwd = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2] [1.0,0.4535961214255773])
-    (rfwd1 @ORArray @Double @0 @1
+    (rfwd1 @ORArray @Double @0
     (\x0 -> rscan (\x _a -> sin x)
                   x0 (rrepl @Double @1 [1] 42))
           (rscalar 1.1))
@@ -1211,14 +1215,14 @@ testSin0Scan1FwdForComparison :: Assertion
 testSin0Scan1FwdForComparison = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2] [1.0,0.4535961214255773])
-    (rfwd1 @ORArray @Double @0 @1
+    (rfwd1 @ORArray @Double @0
     (\x0 -> rfromList [x0, sin x0]) (rscalar 1.1))
 
 testSin0Scan8fwd :: Assertion
 testSin0Scan8fwd = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @ORArray @Double @0 @3
+    (rfwd1 @ORArray @Double @0
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1228,7 +1232,7 @@ testSin0Scan8fwd = do
 
 testSin0Scan8fwd2 :: Assertion
 testSin0Scan8fwd2 = do
-  let h = rfwd1 @(ADVal ORArray) @Double @0 @3
+  let h = rfwd1 @(ADVal ORArray) @Double @0
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1237,7 +1241,7 @@ testSin0Scan8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.95794829475744])
-    (crev h (rscalar 1.1))
+    (crev @_ @(TKR Double 3) h (rscalar 1.1))
 
 testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
@@ -1303,11 +1307,11 @@ rscanZip f eShs acc0 es =
          (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
          (FTKUntyped eShs)
          (let g :: forall f. ADReady f
-                => HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
-              g acc e =
-               blet
+                => Proxy f -> HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
+              g Proxy acc e =
+               blet (stensorKind @(TKR rn n)) (stensorKind @(TKProduct TKUntyped TKUntyped))
                 (f (rfromD $ acc V.! 0) e)
-                (\res -> tpair (HVectorPseudoTensor $ dmkHVector
+                (\res -> tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                          $ V.fromList
                              [ DynamicRanked @rn @n @f res ])
                              (HVectorPseudoTensor $ dmkHVector
@@ -1336,11 +1340,11 @@ sscanZip f eShs acc0 es =
        (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
        (FTKUntyped eShs)
        (let g :: forall f. ADReady f
-              => HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
-            g acc e =
-             blet
+              => Proxy f -> HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
+            g Proxy acc e =
+             blet (stensorKind @(TKS rn sh)) (stensorKind @(TKProduct TKUntyped TKUntyped))
                 (f (sfromD $ acc V.! 0) e)
-                (\res -> tpair (HVectorPseudoTensor $ dmkHVector
+                (\res -> tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                          $ V.fromList
                              [ DynamicShaped @rn @sh @f res ])
                              (HVectorPseudoTensor $ dmkHVector
@@ -1366,7 +1370,8 @@ testSin0rmapAccumRD0SC :: Assertion
 testSin0rmapAccumRD0SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (crev @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
@@ -1374,11 +1379,11 @@ testSin0rmapAccumRD0SC = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                   -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (HVectorPseudoTensor $ dmkHVector
+                                  in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
                                           (HVectorPseudoTensor $ dmkHVector
@@ -1393,7 +1398,8 @@ testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev @_ @(TKS Double '[])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
@@ -1401,11 +1407,11 @@ testSin0rmapAccumRD0S = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                   -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (HVectorPseudoTensor $ dmkHVector
+                                  in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
                                           (HVectorPseudoTensor $ dmkHVector
@@ -1420,7 +1426,8 @@ testSin0rmapAccumRD00SC :: Assertion
 testSin0rmapAccumRD00SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (crev @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
@@ -1428,11 +1435,11 @@ testSin0rmapAccumRD00SC = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (HVectorPseudoTensor $ dmkHVector
+                                  in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
                                           (HVectorPseudoTensor $ dmkHVector
@@ -1447,7 +1454,8 @@ testSin0rmapAccumRD00S0 :: Assertion
 testSin0rmapAccumRD00S0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev @_ @(TKS Double '[])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
@@ -1455,11 +1463,11 @@ testSin0rmapAccumRD00S0 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (HVectorPseudoTensor $ dmkHVector
+                                  in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
                                           (HVectorPseudoTensor $ dmkHVector
@@ -1475,7 +1483,8 @@ _testSin0rmapAccumRD00S :: Assertion
 _testSin0rmapAccumRD00S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev @_ @(TKS Double '[])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
@@ -1483,11 +1492,11 @@ _testSin0rmapAccumRD00S = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (HVectorPseudoTensor $ dmkHVector
+                                  in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
                                           (HVectorPseudoTensor $ dmkHVector
@@ -1503,7 +1512,8 @@ _testSin0rmapAccumRD00S7 :: Assertion
 _testSin0rmapAccumRD00S7 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[7]
+    (rev @_ @(TKS Double '[7])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[7]
               f x0 = (sfromD . (V.! 1))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
@@ -1511,11 +1521,11 @@ _testSin0rmapAccumRD00S7 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
                                           (HVectorPseudoTensor $ dmkHVector
@@ -1530,16 +1540,17 @@ testSin0rmapAccumRD00SCacc0 :: Assertion
 testSin0rmapAccumRD00SCacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (crev @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f _x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1551,16 +1562,17 @@ testSin0rmapAccumRD00SCacc :: Assertion
 testSin0rmapAccumRD00SCacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (crev @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1573,16 +1585,17 @@ testSin0rmapAccumRD00Sacc0 :: Assertion
 testSin0rmapAccumRD00Sacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev @_ @(TKS Double '[])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f _x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1594,16 +1607,17 @@ testSin0rmapAccumRD00Sacc :: Assertion
 testSin0rmapAccumRD00Sacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev @_ @(TKS Double '[])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1616,16 +1630,17 @@ testSin0rmapAccumRD00SCall0 :: Assertion
 testSin0rmapAccumRD00SCall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (crev @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f _x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1636,16 +1651,17 @@ testSin0rmapAccumRD00SCall :: Assertion
 testSin0rmapAccumRD00SCall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (crev @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f _x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1656,16 +1672,17 @@ testSin0rmapAccumRD00Sall0 :: Assertion
 testSin0rmapAccumRD00Sall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev @_ @(TKS Double '[])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f _x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @0)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1676,16 +1693,17 @@ testSin0rmapAccumRD00Sall :: Assertion
 testSin0rmapAccumRD00Sall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (rev @_ @(TKS Double '[])
+         (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
               f _x0 = sletHVectorIn
                       (productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @7)
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
@@ -1696,16 +1714,17 @@ testSin0rmapAccumRD0RC :: Assertion
 testSin0rmapAccumRD0RC = do
   assertEqualUpToEpsilon 1e-10
     1
-    (crev (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+    (crev @_ @(TKR Double 0)
+          (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f x0 = (rfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
-                          (\xh _a ->
+                          (\Proxy xh _a ->
                              let x = rfromD @Double @0 $ xh V.! 0
-                             in tpair (HVectorPseudoTensor $ dmkHVector
+                             in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicRanked $ sin x ])
                                  (HVectorPseudoTensor $ dmkHVector
@@ -1727,9 +1746,9 @@ testSin0rmapAccumRD0R = do
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
-                          (\xh _a ->
+                          (\Proxy xh _a ->
                              let x = rfromD @Double @0 $ xh V.! 0
-                             in tpair (HVectorPseudoTensor $ dmkHVector
+                             in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicRanked $ sin x ])
                                  (HVectorPseudoTensor $ dmkHVector
@@ -1756,7 +1775,8 @@ testSin0rmapAccumRD01SC :: Assertion
 testSin0rmapAccumRD01SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0.4535961214255773)
-    (crev (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
+    (crev @_ @(TKS Double '[])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[]
                f x0 = flip (sindex0 @_ @_ @'[1]) [0] $ (sfromD . (V.! 2))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @(RankedOf f)) (SNat @1)
@@ -1765,11 +1785,11 @@ testSin0rmapAccumRD01SC = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped $ sin x])
@@ -1794,11 +1814,11 @@ testSin0rmapAccumRD01SN = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 1
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x
                                         , DynamicShaped $ sin x ])
@@ -1823,11 +1843,11 @@ testSin0rmapAccumRD01SN2 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x ])
                                         (HVectorPseudoTensor $ dmkHVector
@@ -1850,11 +1870,11 @@ testSin0rmapAccumRD01SN3 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[3]])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[2]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x ])
                                            (HVectorPseudoTensor $ dmkHVector
@@ -1882,11 +1902,11 @@ testSin0rmapAccumRD01SN4 = do
                                       , voidFromShS @Double @'[2]
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x ])
                                            (HVectorPseudoTensor $ dmkHVector
@@ -1919,11 +1939,11 @@ testSin0rmapAccumRD01SN5 = do
                                       , voidFromShS @Double @'[2]
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -1968,12 +1988,12 @@ testSin0rmapAccumRD01SN51 = do
                                       , voidFromShS @Double @'[2]
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                     x1 = sfromD @Double @'[3] $ xh V.! 1
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -2019,11 +2039,11 @@ testSin0rmapAccumRD01SN52 = do
                                       , voidFromShS @Double @'[2]
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -2067,11 +2087,11 @@ testSin0rmapAccumRD01SN53 = do
                                       , voidFromShS @Double @'[3]
                                       , voidFromShS @Double @'[4] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x - sfromD (a V.! 2) ])
@@ -2113,11 +2133,11 @@ testSin0rmapAccumRD01SN531 = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[1]
                                       , voidFromShS @Double @'[3] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ ingestData [0.1, 0.2, 0.3]
@@ -2166,12 +2186,12 @@ testSin0rmapAccumRD01SN531a = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[1]
                                       , voidFromShS @Double @'[3] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                     x2 = sfromD @Double @'[6] $ xh V.! 1
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sfromList
@@ -2220,9 +2240,9 @@ testSin0rmapAccumRD01SN531b0 = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
-                                 => HVector g -> HVector g
+                                 => Proxy g -> HVector g -> HVector g
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
@@ -2246,9 +2266,9 @@ testSin0rmapAccumRD01SN531bS = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               g Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped x0 ])
@@ -2270,9 +2290,9 @@ testSin0rmapAccumRD01SN531bR = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
-                                 => HVector g -> HVector g
+                                 => Proxy g -> HVector g -> HVector g
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked x0 ])
@@ -2294,9 +2314,9 @@ testSin0rmapAccumRD01SN531b0PP = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
-                                 => HVector g -> HVector g
+                                 => Proxy g -> HVector g -> HVector g
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
@@ -2326,9 +2346,9 @@ testSin0rmapAccumRD01SN531bSPP = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let h :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector x0)
@@ -2356,9 +2376,9 @@ testSin0rmapAccumRD01SN531bSPPFull = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let h :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector x0)
@@ -2386,9 +2406,9 @@ testSin0rmapAccumRD01SN531bRPP = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
-                                 => HVector g -> HVector g
+                                 => Proxy g -> HVector g -> HVector g
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector x0)
@@ -2417,9 +2437,9 @@ testSin0rmapAccumRD01SN531b0PPj = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
-                                 => HVector g -> HVector g
+                                 => Proxy g -> HVector g -> HVector g
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList
@@ -2451,9 +2471,9 @@ testSin0rmapAccumRD01SN531bSPPj = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let h :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
                            in h)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList
@@ -2484,9 +2504,9 @@ testSin0rmapAccumRD01SN531bRPPj = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
                           (let h :: forall g. ADReady g
-                                 => HVector g -> HVector g
+                                 => Proxy g -> HVector g -> HVector g
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
+                               h Proxy xh _a = tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
 
                            in h)
@@ -2522,11 +2542,11 @@ testSin0rmapAccumRD01SN531c = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x - sfromD (a V.! 0) ])
@@ -2556,11 +2576,11 @@ testSin0rmapAccumRD01SN531d = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x - sfromD (a V.! 0) ])
@@ -2592,11 +2612,11 @@ _testSin0rmapAccumRD01SN531Slice = do
                           (FTKUntyped $ V.fromList [])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList [ DynamicShaped x ])
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
                            in g)
@@ -2619,11 +2639,11 @@ testSin0rmapAccumRD01SN54 = do
                                       , voidFromShS @Double @'[3]
                                       , voidFromShS @Double @'[4] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                  let x = sfromD @Double @'[3] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped
                                           $ sin x - sfromD (a V.! 2) ])
@@ -2652,12 +2672,12 @@ _testSin0rmapAccumRD01SN55 = do
                                       , voidFromShS @Double @'[3] ])
                           (FTKUntyped $ V.fromList [])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                 let x = sfromD @Double @'[3] $ xh V.! 0
                                     a = xh
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x - sfromD (a V.! 0) ])
@@ -2698,11 +2718,11 @@ testSin0rmapAccumRD01SN55acc = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[1]
                                       , voidFromShS @Double @'[3] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g _xh a =
+                               g Proxy _xh a =
                                 let x = sreplicate @g @3 (sscalar 2)
-                                in tpair (HVectorPseudoTensor $ dmkHVector
+                                in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [])
                                          (HVectorPseudoTensor $ dmkHVector
@@ -2745,11 +2765,11 @@ testSin0rmapAccumRD01SN56 = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped @Double @'[] (sscalar 1) ])
                                             (HVectorPseudoTensor $ dmkHVector
@@ -2764,7 +2784,8 @@ testSin0rmapAccumRD01SN57 :: Assertion
 testSin0rmapAccumRD01SN57 = do
   assertEqualUpToEpsilon 1e-10
     (sconst $ Nested.sfromListPrimLinear @_ @'[2] knownShS [0.4989557335681351,1.1])
-    (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2]
+    (cfwd @_ @(TKS Double '[2])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[2]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @2)
@@ -2772,11 +2793,11 @@ testSin0rmapAccumRD01SN57 = do
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x])
                                            (HVectorPseudoTensor $ dmkHVector
@@ -2790,7 +2811,8 @@ testSin0rmapAccumRD01SN58 :: Assertion
 testSin0rmapAccumRD01SN58 = do
   assertEqualUpToEpsilon 1e-10
     (sconst $ Nested.sfromListPrimLinear @_ @'[5] knownShS [0,0,0,0,1.1])
-    (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
+    (cfwd @_ @(TKS Double '[5])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[5]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @5)
@@ -2798,11 +2820,11 @@ testSin0rmapAccumRD01SN58 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped @Double @'[] (sscalar 1)])
                                            (HVectorPseudoTensor $ dmkHVector
@@ -2816,7 +2838,8 @@ testSin0rmapAccumRD01SN59 :: Assertion
 testSin0rmapAccumRD01SN59 = do
   assertEqualUpToEpsilon 1e-10
     (sconst $ Nested.sfromListPrimLinear @_ @'[1] knownShS [1.1])
-    (cfwd (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[1]
+    (cfwd @_ @(TKS Double '[1])
+          (let f :: forall f. ADReadyS f => f Double '[] -> f Double '[1]
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @(RankedOf f)) (SNat @1)
@@ -2824,11 +2847,11 @@ testSin0rmapAccumRD01SN59 = do
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
+                               g Proxy xh _a =
                                  let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (HVectorPseudoTensor $ dmkHVector
+                                 in tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped @Double @'[] (sscalar 1) ])
                                        (HVectorPseudoTensor $ dmkHVector
@@ -2854,12 +2877,12 @@ testSin0rmapAccumRD01SN6 = do
                                       , voidFromShS @Double @'[2]
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in
-                                  tpair (HVectorPseudoTensor $ dmkHVector
+                                  tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -2902,12 +2925,12 @@ testSin0rmapAccumRD01SN7 = do
                                       , voidFromShS @Double @'[2]
                                       , voidFromShS @Double @'[2] ])
                           (let g :: forall g. ADReadyS g
-                                 => HVector (RankedOf g) -> HVector (RankedOf g)
+                                 => Proxy (RankedOf g) -> HVector (RankedOf g) -> HVector (RankedOf g)
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
-                               g xh a =
+                               g Proxy xh a =
                                 let x = sfromD @Double @'[] $ xh V.! 0
                                 in
-                                  tpair (HVectorPseudoTensor $ dmkHVector
+                                  tpair @_ @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sin x
@@ -3115,10 +3138,10 @@ testSin0ScanD8MapAccum = do
                       [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                    (FTKUntyped $ V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZSR)])
                    (let g :: forall g. ADReady g
-                          => HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
-                        g xh a =
+                          => Proxy g -> HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
+                        g Proxy xh a =
                          let x = rfromD @Double @5 $ xh V.! 0
-                         in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
+                         in tpair @g @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
                                $ rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3137,7 +3160,7 @@ testSin0ScanD8rev :: Assertion
 testSin0ScanD8rev = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [9.53298735735276])
-    (rrev1 @ORArray @Double @0 @3
+    (rrev1 @ORArray @Double @0
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3150,7 +3173,7 @@ testSin0ScanD8rev = do
 
 testSin0ScanD8rev2 :: Assertion
 testSin0ScanD8rev2 = do
-  let h = rrev1 @(ADVal ORArray) @Double @0 @3
+  let h = rrev1 @(ADVal ORArray) @Double @0
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3163,12 +3186,12 @@ testSin0ScanD8rev2 = do
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.9579482947575])
-    (crev h (rscalar 1.1))
+    (crev @_ @(TKR Double 0) h (rscalar 1.1))
 
 testSin0ScanD8rev3 :: Assertion
 testSin0ScanD8rev3 = do
   let h :: forall f. ADReady f => f Double 0 -> f Double 0
-      h = rrev1 @f @Double @0 @3
+      h = rrev1 @f @Double @0
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3186,7 +3209,7 @@ testSin0ScanD8rev3 = do
 testSin0ScanD8rev4 :: Assertion
 testSin0ScanD8rev4 = do
   let h :: forall f. ADReady f => f Double 0 -> f Double 0
-      h = rrev1 @f @Double @0 @3
+      h = rrev1 @f @Double @0
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3208,7 +3231,7 @@ testSin0ScanD8rev4 = do
 testSin0ScanD1RevPP :: Assertion
 testSin0ScanD1RevPP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscanZip (\x _a -> sin x)
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
@@ -3219,7 +3242,7 @@ testSin0ScanD1RevPP = do
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscanZip (\x _a -> sin x)
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
@@ -3230,7 +3253,7 @@ testSin0ScanDFwdPP = do
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
   resetVarCounter
-  let a1 = rrev2 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev2 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
@@ -3241,7 +3264,7 @@ testSin0ScanD1Rev2PP = do
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
@@ -3275,7 +3298,7 @@ testSin0ScanD1Rev3 = do
 testSin0ScanD1Rev3PP :: Assertion
 testSin0ScanD1Rev3PP = do
   resetVarCounter
-  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscanZip (\x a -> x + rfromD (a V.! 0))
                            (V.fromList [voidFromSh @Double ZSR])
                            x0
@@ -3288,7 +3311,7 @@ testSin0ScanD1Rev3PP = do
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
+  let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                                 (V.fromList [voidFromSh @Double ZSR])
                                 x0 (V.singleton $ DynamicRanked
@@ -3300,7 +3323,7 @@ testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [1] [1.0])
-    (rfwd1 @ORArray @Double @0 @1
+    (rfwd1 @ORArray @Double @0
     (let f :: forall f. ADReady f => f Double 0 -> f Double 1
          f x0 = rscanZip (\x _a -> sin x)
                        (V.fromList [voidFromSh @Double ZSR])
@@ -3312,7 +3335,7 @@ testSin0ScanD1fwd :: Assertion
 testSin0ScanD1fwd = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [2] [1.0,0.4535961214255773])
-    (rfwd1 @ORArray @Double @0 @1
+    (rfwd1 @ORArray @Double @0
     (\x0 -> rscanZip (\x _a -> sin x)
                    (V.fromList [ voidFromSh @Double ZSR
                                , voidFromSh @Double (3 :$: 4 :$: ZSR)])
@@ -3327,7 +3350,7 @@ testSin0ScanD8fwd :: Assertion
 testSin0ScanD8fwd = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @ORArray @Double @0 @3
+    (rfwd1 @ORArray @Double @0
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3342,7 +3365,7 @@ testSin0ScanD8fwdMapAccum :: Assertion
 testSin0ScanD8fwdMapAccum = do
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @ORArray @Double @0 @3 @Double
+    (rfwd1 @ORArray @Double @0 @Double @3
        (\a0 -> rreverse $ (rfromD . (V.! 1))
                $ dunHVector $ productToVectorOf
                $ dmapAccumR Proxy (SNat @4)
@@ -3350,10 +3373,10 @@ testSin0ScanD8fwdMapAccum = do
                    (FTKUntyped $ V.fromList [voidFromSh @Double (2 :$: 5 :$: ZSR)])
                    (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                    (let g :: forall g. ADReady g
-                          => HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
-                        g xh a =
+                          => Proxy g -> HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
+                        g Proxy xh a =
                          let x = rfromD @Double @2 $ xh V.! 0
-                         in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
+                         in tpair @g @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
                                $ rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3368,7 +3391,7 @@ testSin0ScanD8fwdMapAccum = do
 
 testSin0ScanD8fwd2 :: Assertion
 testSin0ScanD8fwd2 = do
-  let h = rfwd1 @(ADVal ORArray) @Double @0 @3
+  let h = rfwd1 @(ADVal ORArray) @Double @0
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3381,7 +3404,7 @@ testSin0ScanD8fwd2 = do
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon1 1e-10
     (OR.fromList [] [285.95794829475744])
-    (crev h (rscalar 1.1))
+    (crev @_ @(TKR Double 3) h (rscalar 1.1))
 
 testSin0FoldNestedS1 :: Assertion
 testSin0FoldNestedS1 = do
@@ -3674,17 +3697,17 @@ testSin0MapAccumNestedR1PP = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 -> let y = rfromD @Double @0 $ x2 V.! 0
-                                    w = rfromD @Double @0 $ a2 V.! 0
-                                in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 -> let y = rfromD @Double @0 $ x2 V.! 0
+                                                w = rfromD @Double @0 $ a2 V.! 0
+                                            in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       g :: forall g. (LetTensor g (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
       g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
@@ -3705,23 +3728,23 @@ testSin0MapAccumNestedR3LengthPP = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 -> let y = rfromD @Double @0 $ x4 V.! 0
-                                        w = rfromD @Double @0 $ a4 V.! 0
-                                    in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 -> let y = rfromD @Double @0 $ x4 V.! 0
+                                                    w = rfromD @Double @0 $ a4 V.! 0
+                                                in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       g :: forall g. (LetTensor g (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
       g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
@@ -3746,26 +3769,26 @@ testSin0MapAccumNestedR4 = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 -> let y = rfromD @Double @0 $ x5 V.! 0
-                                          w = rfromD @Double @0 $ a5 V.! 0
-                                      in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 -> let y = rfromD @Double @0 $ x5 V.! 0
+                                                      w = rfromD @Double @0 $ a5 V.! 0
+                                                  in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) 0.0001)
 
 testSin0MapAccumNestedR5 :: Assertion
@@ -3780,36 +3803,36 @@ testSin0MapAccumNestedR5 = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                     dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 -> let y = rfromD @Double @0 $ x6 V.! 0
-                                            w = rfromD @Double @0 $ a6 V.! 0
-                                        in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                     dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                             (\ (Proxy @f) x6 a6 -> let y = rfromD @Double @0 $ x6 V.! 0
+                                                        w = rfromD @Double @0 $ a6 V.! 0
+                                                    in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * (y + tan w))
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                             (HVectorPseudoTensor $ dmkHVector @f a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) 1.1)
 
 testSin0MapAccumNestedR5r :: Assertion
 testSin0MapAccumNestedR5r = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.0837278549794862 :: ORArray Double 0)
-  (rev
+  (rev @(AstRanked FullSpan Double 0) @(TKR Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
@@ -3817,36 +3840,36 @@ testSin0MapAccumNestedR5r = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                     dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 -> let y = rfromD @Double @0 $ x6 V.! 0
-                                            w = rfromD @Double @0 $ a6 V.! 0
-                                        in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                     dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                             (\ (Proxy @f) x6 a6 -> let y = rfromD @Double @0 $ x6 V.! 0
+                                                        w = rfromD @Double @0 $ a6 V.! 0
+                                                    in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                             (HVectorPseudoTensor $ dmkHVector @f a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10r :: Assertion
 testSin0MapAccumNestedR10r = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.379370673816781 :: ORArray Double 0)
-  (rev
+  (rev @(AstRanked FullSpan Double 0) @(TKR Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
@@ -3854,52 +3877,52 @@ testSin0MapAccumNestedR10r = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                     dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 ->
-                         dmapAccumL Proxy (SNat @2) shs1 she shs1
-                               (\x7 a7 ->
-                           dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                 (\x8 a8 ->
-                             dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                   (\x9 a9 ->
-                               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                     (\x10 a10 ->
-                                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                       (\x11 a11 ->
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                     dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                             (\ (Proxy @f) x6 a6 ->
+                         dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                               (\ (Proxy @f) x7 a7 ->
+                           dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                 (\ (Proxy @f) x8 a8 ->
+                             dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                   (\ (Proxy @f) x9 a9 ->
+                               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                     (\ (Proxy @f) x10 a10 ->
+                                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                       (\ (Proxy @f) x11 a11 ->
                                           let y = rfromD @Double @0 $ x11 V.! 0
                                               w = rfromD @Double @0 $ a11 V.! 0
-                                          in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                                          in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                                       (HVectorPseudoTensor $ dmkHVector @f a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
+                                     (HVectorPseudoTensor $ dmkHVector @f a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
+                                   (HVectorPseudoTensor $ dmkHVector @f a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
+                                 (HVectorPseudoTensor $ dmkHVector @f a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
+                               (HVectorPseudoTensor $ dmkHVector @f a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
+                             (HVectorPseudoTensor $ dmkHVector @f a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10f :: Assertion
 testSin0MapAccumNestedR10f = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.379370673816781e-4 :: ORArray Double 0)
-  (fwd
+  (fwd @(AstRanked FullSpan Double 0) @(TKR Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
@@ -3907,53 +3930,53 @@ testSin0MapAccumNestedR10f = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                     dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 ->
-                         dmapAccumL Proxy (SNat @2) shs1 she shs1
-                               (\x7 a7 ->
-                           dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                 (\x8 a8 ->
-                             dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                   (\x9 a9 ->
-                               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                     (\x10 a10 ->
-                                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                       (\x11 a11 ->
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                     dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                             (\ (Proxy @f) x6 a6 ->
+                         dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                               (\ (Proxy @f) x7 a7 ->
+                           dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                 (\ (Proxy @f) x8 a8 ->
+                             dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                   (\ (Proxy @f) x9 a9 ->
+                               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                     (\ (Proxy @f) x10 a10 ->
+                                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                       (\ (Proxy @f) x11 a11 ->
                                           let y = rfromD @Double @0 $ x11 V.! 0
                                               w = rfromD @Double @0 $ a11 V.! 0
-                                          in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                                          in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in f) (rscalar 0.0001) (rscalar 0.0001))
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                                       (HVectorPseudoTensor $ dmkHVector @f a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
+                                     (HVectorPseudoTensor $ dmkHVector @f a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
+                                   (HVectorPseudoTensor $ dmkHVector @f a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
+                                 (HVectorPseudoTensor $ dmkHVector @f a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
+                               (HVectorPseudoTensor $ dmkHVector @f a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
+                             (HVectorPseudoTensor $ dmkHVector @f a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+    in f) (rscalar @_ @ORArray 0.0001) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10fN :: Assertion
 testSin0MapAccumNestedR10fN = do
  assertEqualUpToEpsilon 1e-10
   ( srepl 1.379370673816781e-4 :: OSArray Float '[1]
   , rscalar 1.379370673816781e-4 :: ORArray Double 0)
-  (fwd
+  (fwd @(AstRanked FullSpan Double 0) @(TKProduct (TKS Float '[1]) (TKR Double 0))
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
@@ -3961,55 +3984,56 @@ testSin0MapAccumNestedR10fN = do
       g :: forall f. ADReady f => f Double 0 -> f Double 0
       g z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                     dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 ->
-                         dmapAccumL Proxy (SNat @2) shs1 she shs1
-                               (\x7 a7 ->
-                           dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                 (\x8 a8 ->
-                             dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                   (\x9 a9 ->
-                               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                     (\x10 a10 ->
-                                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                       (\x11 a11 ->
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                     dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                             (\ (Proxy @f) x6 a6 ->
+                         dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                               (\ (Proxy @f) x7 a7 ->
+                           dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                 (\ (Proxy @f) x8 a8 ->
+                             dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                   (\ (Proxy @f) x9 a9 ->
+                               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                     (\ (Proxy @f) x10 a10 ->
+                                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                       (\ (Proxy @f) x11 a11 ->
                                           let y = rfromD @Double @0 $ x11 V.! 0
                                               w = rfromD @Double @0 $ a11 V.! 0
-                                          in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                                          in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                                       (HVectorPseudoTensor $ dmkHVector @f a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
+                                     (HVectorPseudoTensor $ dmkHVector @f a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
+                                   (HVectorPseudoTensor $ dmkHVector @f a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
+                                 (HVectorPseudoTensor $ dmkHVector @f a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
+                               (HVectorPseudoTensor $ dmkHVector @f a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
+                             (HVectorPseudoTensor $ dmkHVector @f a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       f :: forall f. ADReady f => f Double 0
         -> Rep f (TKProduct (TKS Float '[1]) (TKR Double 0))
-      f x = tpair (sfromList [scast $ sfromR $ g x]) (g x + rscalar 0.2)
-    in f) (rscalar 0.0001) (rscalar 0.0001))
+      f x = tpair @f @(TKS Float '[1]) @(TKR Double 0)
+                  (sfromList [scast $ sfromR $ g x]) (g x + rscalar 0.2)
+    in f) (rscalar @_ @ORArray 0.0001) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10rf :: Assertion
 testSin0MapAccumNestedR10rf = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.2264611684496617e-2 :: ORArray Double 0)
-  (rev
+  (rev @_ @(TKR Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
@@ -4017,52 +4041,52 @@ testSin0MapAccumNestedR10rf = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                     dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 ->
-                         dmapAccumL Proxy (SNat @2) shs1 she shs1
-                               (\x7 a7 ->
-                           dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                 (\x8 a8 ->
-                             dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                   (\x9 a9 ->
-                               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                     (\x10 a10 ->
-                                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                       (\x11 a11 ->
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                     dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                             (\ (Proxy @f) x6 a6 ->
+                         dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                               (\ (Proxy @f) x7 a7 ->
+                           dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                 (\ (Proxy @f) x8 a8 ->
+                             dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                   (\ (Proxy @f) x9 a9 ->
+                               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                     (\ (Proxy @f) x10 a10 ->
+                                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                       (\ (Proxy @f) x11 a11 ->
                                           let y = rfromD @Double @0 $ x11 V.! 0
                                               w = rfromD @Double @0 $ a11 V.! 0
-                                          in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                                          in tpair @f @TKUntyped @TKUntyped (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+                                                    (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                                       (HVectorPseudoTensor $ dmkHVector @f a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
+                                     (HVectorPseudoTensor $ dmkHVector @f a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
+                                   (HVectorPseudoTensor $ dmkHVector @f a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
+                                 (HVectorPseudoTensor $ dmkHVector @f a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
+                               (HVectorPseudoTensor $ dmkHVector @f a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
+                             (HVectorPseudoTensor $ dmkHVector @f a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in rfwd1 f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10rr :: Assertion
 testSin0MapAccumNestedR10rr = do
  assertEqualUpToEpsilon 1e-10
   (rscalar 1.2264611684496617e-2 :: ORArray Double 0)
-  (rev
+  (rev @_ @(TKR Double 0)
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
@@ -4070,54 +4094,55 @@ testSin0MapAccumNestedR10rr = do
       f :: forall f. ADReady f => f Double 0 -> f Double 0
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
-                   (\x a ->
-               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 ->
-                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                       (\x3 a3 ->
-                   dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 ->
-                     dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 ->
-                       dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 ->
-                         dmapAccumL Proxy (SNat @2) shs1 she shs1
-                               (\x7 a7 ->
-                           dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                 (\x8 a8 ->
-                             dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                   (\x9 a9 ->
-                               dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                     (\x10 a10 ->
-                                 dmapAccumL Proxy (SNat @2) shs1 she shs1
-                                       (\x11 a11 ->
+                   (\ (Proxy @f) x a ->
+               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                     (\ (Proxy @f) x2 a2 ->
+                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                       (\ (Proxy @f) x3 a3 ->
+                   dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                         (\ (Proxy @f) x4 a4 ->
+                     dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                           (\ (Proxy @f) x5 a5 ->
+                       dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                             (\ (Proxy @f) x6 a6 ->
+                         dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                               (\ (Proxy @f) x7 a7 ->
+                           dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                 (\ (Proxy @f) x8 a8 ->
+                             dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                   (\ (Proxy @f) x9 a9 ->
+                               dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                     (\ (Proxy @f) x10 a10 ->
+                                 dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
+                                       (\ (Proxy @f) x11 a11 ->
                                           let y = rfromD @Double @0 $ x11 V.! 0
                                               w = rfromD @Double @0 $ a11 V.! 0
-                                          in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
+                                          in tpair @f @TKUntyped @TKUntyped
+                                                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
-                                                    (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
-                   (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in rrev1 f) (rscalar 0.0001))
+                                                   (HVectorPseudoTensor $ dmkHVector @f V.empty))
+                                       (HVectorPseudoTensor $ dmkHVector @f a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
+                                     (HVectorPseudoTensor $ dmkHVector @f a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
+                                   (HVectorPseudoTensor $ dmkHVector @f a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
+                                 (HVectorPseudoTensor $ dmkHVector @f a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
+                               (HVectorPseudoTensor $ dmkHVector @f a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
+                             (HVectorPseudoTensor $ dmkHVector @f a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
+                           (HVectorPseudoTensor $ dmkHVector @f a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
+                         (HVectorPseudoTensor $ dmkHVector @f a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
+                       (HVectorPseudoTensor $ dmkHVector @f a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
+                     (HVectorPseudoTensor $ dmkHVector @f a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked z)
+                   (HVectorPseudoTensor $ dmkHVector @f $ V.singleton $ DynamicRanked $ rreplicate 2 z)
+    in rrev1 @_ @Double @0 @Double @0 f) (rscalar 0.0001))
 
 productToVectorOf
-  :: ADReady f
+  :: forall f. ADReady f
   => Rep f (TKProduct TKUntyped TKUntyped)
   -> HVectorOf f
 productToVectorOf p = unHVectorPseudoTensor
-                      $ tlet @_ @_ @_ @TKUntyped (tproject1 p) $ \p1 ->
-                          tlet (tproject2 p) $ \p2 ->
+                      $ tlet (stensorKind @TKUntyped) (stensorKind @TKUntyped) (tproject1 @f @TKUntyped @TKUntyped p) $ \p1 ->
+                          tlet (stensorKind @TKUntyped) (stensorKind @TKUntyped) (tproject2 @f @TKUntyped @TKUntyped p) $ \p2 ->
                             HVectorPseudoTensor $ dmkHVector $ p1 V.++ p2
 
 testSin0FoldNestedS1FwdFwd0 :: Assertion
@@ -4237,7 +4262,7 @@ testSin0FoldNestedS5rev = do
                             a0 (sreplicate @_ @1 a0)
   assertEqualUpToEpsilon 1e-10
     (srepl 0.22000000000000003)
-    (srev1 @OSArray @Double @'[] @'[] f (sscalar 1.1))
+    (srev1 @OSArray @Double @'[] f (sscalar 1.1))
 
 testSin0FoldNestedS5fwd :: Assertion
 testSin0FoldNestedS5fwd = do
@@ -4256,7 +4281,7 @@ testSin0FoldNestedS5fwd = do
                             a0 (sreplicate @_ @1 a0)
   assertEqualUpToEpsilon 1e-10
     (srepl 0.22000000000000003)
-    (sfwd1 @OSArray @Double @'[] @'[] f (sscalar 1.1))
+    (sfwd1 @OSArray @Double @'[] f (sscalar 1.1))
 
 testSin0FoldNestedSi :: Assertion
 testSin0FoldNestedSi = do
@@ -4467,7 +4492,7 @@ testSin0FoldNestedR21PP :: Assertion
 testSin0FoldNestedR21PP = do
   resetVarCounter
   let a1 =
-        rrev1 @(AstRanked PrimalSpan) @Double @0 @0
+        rrev1 @(AstRanked PrimalSpan) @Double @0
           (let f :: forall f. ADReady f => f Double 0 -> f Double 0
                f a0 = rfold (\x a -> rlet (x + a) $ \xpa ->
                           rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
@@ -4521,7 +4546,7 @@ testSin0revhV2 = do
       h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @0 (rscalar (-0.8912073600614354)))
-    (crev (h @ORArray) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    (crev @_ @TKUntyped (h @ORArray) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
 
 testSin0revhV3 :: Assertion
 testSin0revhV3 = do
@@ -4539,7 +4564,7 @@ testSin0revhV3 = do
       h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[] (sscalar $ -0.8912073600614354))
-    (crev (h @ORArray) (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
+    (crev @_ @TKUntyped (h @ORArray) (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
@@ -4558,7 +4583,7 @@ testSin0revhV4 = do
       h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0])
-    (crev (h @ORArray)
+    (crev @_ @TKUntyped (h @ORArray)
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV5 :: Assertion
@@ -4577,7 +4602,7 @@ testSin0revhV5 = do
       h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0])
-    (crev (h @ORArray)
+    (crev @_ @TKUntyped (h @ORArray)
           (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
@@ -4599,7 +4624,7 @@ testSin0revhV6 = do
       h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ ringestData1 [4.0,6.0,8.0])
-    (crev (h @ORArray)
+    (crev @_ @TKUntyped (h @ORArray)
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV7 :: Assertion
@@ -4620,7 +4645,7 @@ testSin0revhV7 = do
       h = HVectorPseudoTensor . f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [4.0,6.0,8.0])
-    (crev (h @ORArray)
+    (crev @_ @TKUntyped (h @ORArray)
           (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV8 :: Assertion
@@ -4726,7 +4751,7 @@ testSin0revhFoldZipR = do
     (V.fromList [ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0]
                 , DynamicRanked @Double @1
                   $ rreplicate 3 (rscalar (-7.313585321642452e-2)) ])
-    (crev h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)
+    (crev @_ @TKUntyped h (V.fromList [ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)
                         , DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1) ]))
 
 {-
@@ -4816,7 +4841,7 @@ testSin0revhFoldS :: Assertion
 testSin0revhFoldS = do
   assertEqualUpToEpsilon 1e-10
     (sreplicate @_ @3 (sscalar $ -7.313585321642452e-2))
-    (rev (fFoldSX @(AstShaped FullSpan))
+    (rev @_ @(TKS Double '[3]) (fFoldSX @(AstShaped FullSpan))
          (sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhFold2S :: Assertion
@@ -4832,7 +4857,7 @@ testSin0revhFold3S = do
     (V.fromList [ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0]
                 , DynamicShaped @Double @'[3]
                   $ sreplicate @_ @3 (sscalar (-7.313585321642452e-2)) ])
-    (crev (\(asD :: HVector (ADVal ORArray)) ->
+    (crev @_ @(TKS Double '[3]) (\(asD :: HVector (ADVal ORArray)) ->
              fFoldSX (sfromD (asD V.! 1)))
           (V.fromList [ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)
                       , DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1) ]))

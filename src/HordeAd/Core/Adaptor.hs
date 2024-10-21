@@ -41,7 +41,7 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
                  , HVectorTensor ranked (ShapedOf ranked)
                  , ProductTensor ranked )
               => Proxy ranked -> vals -> Rep ranked (X vals)
-  toHVectorOf Proxy = unrepDeep . toHVector Proxy
+  toHVectorOf Proxy = unrepDeep @ranked @(X vals) . toHVector (Proxy @ranked)
     -- ^ represent a collection of tensors in much less typed but canonical way
     -- as an untyped product of tensors
   toHVector :: Proxy ranked -> vals -> RepDeep ranked (X vals)
@@ -67,11 +67,11 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
 -- procedure where @fromHVector@ calls itself recursively for sub-values
 -- across mutliple instances.
 parseHVector
-  :: (TensorKind (X vals), AdaptableHVector ranked vals)
+  :: forall vals ranked. (TensorKind (X vals), AdaptableHVector ranked vals)
   => Proxy ranked -> vals -> RepDeep ranked (X vals) -> vals
 parseHVector Proxy aInit hVector =
-  case fromHVector Proxy aInit hVector of
-    Just (vals, mrest) -> assert (maybe True nullRepDeep mrest) vals
+  case fromHVector (Proxy @ranked) aInit hVector of
+    Just (vals, mrest) -> assert (maybe True (nullRepDeep @(X vals) @ranked) mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 parseHVectorAD
@@ -79,8 +79,8 @@ parseHVectorAD
   => Proxy ranked -> vals -> RepDeep ranked (ADTensorKind (X vals)) -> vals
 parseHVectorAD Proxy aInit hVector
  | Dict <- lemTensorKindOfAD (stensorKind @(X vals)) =
-  case fromHVectorAD Proxy aInit hVector of
-    Just (vals, mrest) -> assert (maybe True nullRepDeep mrest) vals
+  case fromHVectorAD (Proxy @ranked) aInit hVector of
+    Just (vals, mrest) -> assert (maybe True (nullRepDeep @(ADTensorKind (X vals)) @ranked) mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 class TermValue vals where
@@ -135,7 +135,9 @@ instance (X a ~ TKUntyped, AdaptableHVector ranked a)
   type X (Data.Vector.Vector a) = TKUntyped
   toHVector Proxy = V.concatMap (toHVector Proxy)
   fromHVector Proxy lInit source =
-    let f (!lAcc, !restAcc) !aInit =
+    let f :: (Data.Vector.Vector a, RepDeep ranked TKUntyped) -> a
+          -> (Data.Vector.Vector a, RepDeep ranked TKUntyped)
+        f (!lAcc, !restAcc) !aInit =
           case fromHVector Proxy aInit restAcc of
             Just (a, mrest) -> (V.snoc lAcc a, fromMaybe V.empty mrest)
               -- this snoc, if the vector is long, is very costly;
@@ -162,7 +164,9 @@ instance (X a ~ TKUntyped, AdaptableHVector ranked a)
   type X (Data.NonStrict.Vector.Vector a) = TKUntyped
   toHVector Proxy = V.concat . map (toHVector Proxy) . V.toList
   fromHVector Proxy lInit source =
-    let f (!lAcc, !restAcc) !aInit =
+    let f :: (Data.NonStrict.Vector.Vector a, RepDeep ranked TKUntyped) -> a
+          -> (Data.NonStrict.Vector.Vector a, RepDeep ranked TKUntyped)
+        f (!lAcc, !restAcc) !aInit =
           case fromHVector Proxy aInit restAcc of
             Just (a, mrest) -> (V.snoc lAcc a, fromMaybe V.empty mrest)
               -- this snoc, if the vector is long, is very costly;
@@ -182,16 +186,16 @@ instance ( AdaptableHVector ranked a
          , AdaptableHVector ranked b ) => AdaptableHVector ranked (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
   toHVector Proxy (a, b) =
-    let a1 = toHVector Proxy a
-        b1 = toHVector Proxy b
+    let a1 = toHVector (Proxy @ranked) a
+        b1 = toHVector (Proxy @ranked) b
     in (a1, b1)
   fromHVector Proxy ~(aInit, bInit) (a1, b1) = do
-    (a, Nothing) <- fromHVector Proxy aInit a1
-    (b, Nothing) <- fromHVector Proxy bInit b1
+    (a, Nothing) <- fromHVector (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVector (Proxy @ranked) bInit b1
     return ((a, b), Nothing)
   fromHVectorAD Proxy ~(aInit, bInit) (a1, b1) = do
-    (a, Nothing) <- fromHVectorAD Proxy aInit a1
-    (b, Nothing) <- fromHVectorAD Proxy bInit b1
+    (a, Nothing) <- fromHVectorAD (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVectorAD (Proxy @ranked) bInit b1
     return ((a, b), Nothing)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
@@ -220,19 +224,19 @@ instance ( AdaptableHVector ranked a
          => AdaptableHVector ranked (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
   toHVector Proxy (a, b, c) =
-    let a1 = toHVector Proxy a
-        b1 = toHVector Proxy b
-        c1 = toHVector Proxy c
+    let a1 = toHVector (Proxy @ranked) a
+        b1 = toHVector (Proxy @ranked) b
+        c1 = toHVector (Proxy @ranked) c
     in ((a1, b1), c1)
   fromHVector Proxy ~(aInit, bInit, cInit) ((a1, b1), c1) = do
-    (a, Nothing) <- fromHVector Proxy aInit a1
-    (b, Nothing) <- fromHVector Proxy bInit b1
-    (c, Nothing) <- fromHVector Proxy cInit c1
+    (a, Nothing) <- fromHVector (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVector (Proxy @ranked) bInit b1
+    (c, Nothing) <- fromHVector (Proxy @ranked) cInit c1
     return ((a, b, c), Nothing)
   fromHVectorAD Proxy ~(aInit, bInit, cInit) ((a1, b1), c1) = do
-    (a, Nothing) <- fromHVectorAD Proxy aInit a1
-    (b, Nothing) <- fromHVectorAD Proxy bInit b1
-    (c, Nothing) <- fromHVectorAD Proxy cInit c1
+    (a, Nothing) <- fromHVectorAD (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVectorAD (Proxy @ranked) bInit b1
+    (c, Nothing) <- fromHVectorAD (Proxy @ranked) cInit c1
     return ((a, b, c), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c)
@@ -268,22 +272,22 @@ instance ( AdaptableHVector ranked a
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
   toHVector Proxy (a, b, c, d) =
-    let a1 = toHVector Proxy a
-        b1 = toHVector Proxy b
-        c1 = toHVector Proxy c
-        d1 = toHVector Proxy d
+    let a1 = toHVector (Proxy @ranked) a
+        b1 = toHVector (Proxy @ranked) b
+        c1 = toHVector (Proxy @ranked) c
+        d1 = toHVector (Proxy @ranked) d
     in  ((a1, b1), (c1, d1))
   fromHVector Proxy ~(aInit, bInit, cInit, dInit) ((a1, b1), (c1, d1)) = do
-    (a, Nothing) <- fromHVector Proxy aInit a1
-    (b, Nothing) <- fromHVector Proxy bInit b1
-    (c, Nothing) <- fromHVector Proxy cInit c1
-    (d, Nothing) <- fromHVector Proxy dInit d1
+    (a, Nothing) <- fromHVector (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVector (Proxy @ranked) bInit b1
+    (c, Nothing) <- fromHVector (Proxy @ranked) cInit c1
+    (d, Nothing) <- fromHVector (Proxy @ranked) dInit d1
     return ((a, b, c, d), Nothing)
   fromHVectorAD Proxy ~(aInit, bInit, cInit, dInit) ((a1, b1), (c1, d1)) = do
-    (a, Nothing) <- fromHVectorAD Proxy aInit a1
-    (b, Nothing) <- fromHVectorAD Proxy bInit b1
-    (c, Nothing) <- fromHVectorAD Proxy cInit c1
-    (d, Nothing) <- fromHVectorAD Proxy dInit d1
+    (a, Nothing) <- fromHVectorAD (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVectorAD (Proxy @ranked) bInit b1
+    (c, Nothing) <- fromHVectorAD (Proxy @ranked) cInit c1
+    (d, Nothing) <- fromHVectorAD (Proxy @ranked) dInit d1
     return ((a, b, c, d), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
@@ -328,27 +332,27 @@ instance ( AdaptableHVector ranked a
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))
   toHVector Proxy (a, b, c, d, e) =
-    let a1 = toHVector Proxy a
-        b1 = toHVector Proxy b
-        c1 = toHVector Proxy c
-        d1 = toHVector Proxy d
-        e1 = toHVector Proxy e
+    let a1 = toHVector (Proxy @ranked) a
+        b1 = toHVector (Proxy @ranked) b
+        c1 = toHVector (Proxy @ranked) c
+        d1 = toHVector (Proxy @ranked) d
+        e1 = toHVector (Proxy @ranked) e
     in (((a1, b1), c1), (d1, e1))
   fromHVector Proxy ~(aInit, bInit, cInit, dInit, eInit)
               (((a1, b1), c1), (d1, e1)) = do
-    (a, Nothing) <- fromHVector Proxy aInit a1
-    (b, Nothing) <- fromHVector Proxy bInit b1
-    (c, Nothing) <- fromHVector Proxy cInit c1
-    (d, Nothing) <- fromHVector Proxy dInit d1
-    (e, Nothing) <- fromHVector Proxy eInit e1
+    (a, Nothing) <- fromHVector (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVector (Proxy @ranked) bInit b1
+    (c, Nothing) <- fromHVector (Proxy @ranked) cInit c1
+    (d, Nothing) <- fromHVector (Proxy @ranked) dInit d1
+    (e, Nothing) <- fromHVector (Proxy @ranked) eInit e1
     return ((a, b, c, d, e), Nothing)
   fromHVectorAD Proxy ~(aInit, bInit, cInit, dInit, eInit)
               (((a1, b1), c1), (d1, e1)) = do
-    (a, Nothing) <- fromHVectorAD Proxy aInit a1
-    (b, Nothing) <- fromHVectorAD Proxy bInit b1
-    (c, Nothing) <- fromHVectorAD Proxy cInit c1
-    (d, Nothing) <- fromHVectorAD Proxy dInit d1
-    (e, Nothing) <- fromHVectorAD Proxy eInit e1
+    (a, Nothing) <- fromHVectorAD (Proxy @ranked) aInit a1
+    (b, Nothing) <- fromHVectorAD (Proxy @ranked) bInit b1
+    (c, Nothing) <- fromHVectorAD (Proxy @ranked) cInit c1
+    (d, Nothing) <- fromHVectorAD (Proxy @ranked) dInit d1
+    (e, Nothing) <- fromHVectorAD (Proxy @ranked) eInit e1
     return ((a, b, c, d, e), Nothing)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)

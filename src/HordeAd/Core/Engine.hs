@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | The implementation of reverse derivative and (forward) derivative
 -- calculation for an objective function on values of complicated
@@ -65,7 +66,7 @@ rev
   -> Value astvals
   -> Value astvals
 {-# INLINE rev #-}
-rev f vals = revDtMaybe f vals Nothing
+rev f vals = revDtMaybe @astvals @z f vals Nothing
 
 -- | This version of the reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
@@ -86,7 +87,7 @@ revDt
   -> Rep ORArray (ADTensorKind z)
   -> Value astvals
 {-# INLINE revDt #-}
-revDt f vals dt = revDtMaybe f vals (Just dt)
+revDt f vals dt = revDtMaybe @astvals @z f vals (Just dt)
 
 revDtMaybe
   :: forall astvals z.
@@ -102,13 +103,17 @@ revDtMaybe
 revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
   let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
-      g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector Proxy (fromValue vals0) hvShared
-      valsH = toHVectorOf Proxy vals0
-      voidH = tshapeFull stensorKind valsH
+      g !hv = dlet @(AstRanked FullSpan)
+                   (stensorKind @(X astvals)) (stensorKind @z)
+                   hv $ \ !hvShared ->
+        f $ parseHVector (Proxy @(AstRanked FullSpan))
+                         (fromValue vals0) hvShared
+      valsH = toHVectorOf (Proxy @ORArray) vals0
+      voidH = tshapeFull @ORArray stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in parseHVectorAD Proxy vals0 $ repDeepDuplicable stensorKind
-     $ fst $ revEvalArtifact artifact valsH mdt
+  in parseHVectorAD (Proxy @ORArray) vals0
+     $ repDeepDuplicable @ORArray (stensorKind @(ADTensorKind (X astvals)))
+     $ fst $ revEvalArtifact @(X astvals) @z artifact valsH mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
@@ -134,10 +139,13 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals0 =
   let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
-      g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector Proxy (fromValue vals0) hvShared
+      g !hv = dlet @(AstRanked FullSpan)
+                   (stensorKind @(X astvals)) (stensorKind @z)
+                   hv $ \ !hvShared ->
+        f $ parseHVector (Proxy @(AstRanked FullSpan))
+                         (fromValue vals0) hvShared
       valsH = toHVectorOf (Proxy @ORArray) vals0
-      voidH = tshapeFull stensorKind valsH
+      voidH = tshapeFull @ORArray (stensorKind @(X astvals)) valsH
   in revProduceArtifact hasDt g emptyEnv voidH
 {- TODO
 {-# SPECIALIZE revArtifactAdapt
@@ -158,7 +166,7 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
-  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f)
+  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication @x @z f)
 
 forwardPassByApplication
   :: forall x z. TensorKind x
@@ -171,7 +179,8 @@ forwardPassByApplication
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
   let deltaInputs = generateDeltaInputs $ shapeAstFull hVectorPrimal
-      varInputs = makeADInputs (rawY (stensorKind @x) hVectorPrimal)
+      varInputs = makeADInputs @_ @(AstRaw PrimalSpan)
+                               (rawY (stensorKind @x) hVectorPrimal)
                                deltaInputs
   in g varInputs
 
@@ -184,12 +193,13 @@ revEvalArtifact
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt
  | Dict <- lemTensorKindOfAD (stensorKind @z) =
-  let oneAtF = repConstant 1 $ aDTensorKind $ shapeAstFull artPrimalRev
+  let oneAtF = repConstant (Proxy @ORArray) 1
+               $ aDTensorKind $ shapeAstFull artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
-      gradient = interpretAst envDt artDerivativeRev
-      primal = interpretAst env artPrimalRev
+      gradient = interpretAst @ORArray envDt artDerivativeRev
+      primal = interpretAst @ORArray env artPrimalRev
   in (gradient, primal)
 
 
@@ -217,14 +227,17 @@ fwd
   -> Rep ORArray (ADTensorKind z)
 fwd f vals ds =
   let g :: Rep (AstRanked FullSpan) (X astvals) -> Rep (AstRanked FullSpan) z
-      g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector Proxy (fromValue vals) hvShared
-      valsH = toHVectorOf Proxy vals
-      voidH = tshapeFull stensorKind valsH
+      g !hv = dlet @(AstRanked FullSpan)
+                   (stensorKind @(X astvals)) (stensorKind @z)
+                   hv $ \ !hvShared ->
+        f $ parseHVector (Proxy @(AstRanked FullSpan))
+                         (fromValue vals) hvShared
+      valsH = toHVectorOf (Proxy @ORArray) vals
+      voidH = tshapeFull @ORArray (stensorKind @(X astvals)) valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
-      dsH = toHVectorOf Proxy ds
+      dsH = toHVectorOf (Proxy @ORArray) ds
   in fst $ fwdEvalArtifact @_ @z artifact valsH
-         $ toADTensorKindShared stensorKind dsH
+         $ toADTensorKindShared (Proxy @ORArray) (stensorKind @(X astvals)) dsH
 
 fwdEvalArtifact
   :: forall x z. TensorKind x
@@ -235,12 +248,12 @@ fwdEvalArtifact
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds
  | Dict <- lemTensorKindOfAD (stensorKind @x) =
-  if aDTensorKind (tshapeFull (stensorKind @x) parameters)
-     == tshapeFull (stensorKind @(ADTensorKind x)) ds then
+  if aDTensorKind (tshapeFull @ORArray (stensorKind @x) parameters)
+     == tshapeFull @ORArray (stensorKind @(ADTensorKind x)) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env
-        derivative = interpretAst envD artDerivativeFwd
-        primal = interpretAst env artPrimalFwd
+        derivative = interpretAst @ORArray envD artDerivativeFwd
+        primal = interpretAst @ORArray env artPrimalFwd
     in (derivative, primal)
  else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
 
@@ -267,7 +280,7 @@ crev
   -> DValue advals
   -> DValue advals
 {-# INLINE crev #-}
-crev f vals = crevDtMaybe f vals Nothing
+crev f vals = crevDtMaybe @advals @z f vals Nothing
 
 -- | This version additionally takes the sensitivity parameter.
 crevDt
@@ -281,7 +294,7 @@ crevDt
   -> Rep ORArray (ADTensorKind z)
   -> DValue advals
 {-# INLINE crevDt #-}
-crevDt f vals dt = crevDtMaybe f vals (Just dt)
+crevDt f vals dt = crevDtMaybe @advals @z f vals (Just dt)
 
 crevDtMaybe
   :: forall advals z.
@@ -296,18 +309,22 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
-      g = f . parseHVector Proxy (fromDValue vals) . repDeepDuplicable stensorKind
+      g = f . parseHVector (Proxy @(ADVal ORArray)) (fromDValue vals)
+            . repDeepDuplicable @(ADVal ORArray) (stensorKind @(X advals))
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- crevOnHVector satisfies that via makeADInputs
-      valsH = toHVectorOf Proxy vals
-  in parseHVectorAD Proxy vals $ repDeepDuplicable stensorKind
-     $ fst $ crevOnHVector Proxy stensorKind stensorKind
-                           mdt g valsH
+      valsH = toHVectorOf (Proxy @ORArray) vals
+  in parseHVectorAD (Proxy @ORArray) vals
+     $ repDeepDuplicable @ORArray (stensorKind @(ADTensorKind (X advals)))
+     $ fst $ crevOnHVector
+               (Proxy @ORArray) (stensorKind @(X advals)) (stensorKind @z)
+               mdt g valsH
        -- repDeepDuplicable requires its argument to be deeply duplicable and
        -- crevOnHVector satisfies that via gradientFromDelta
 
 {-# SPECIALIZE crevOnHVector
-  :: Maybe (Rep ORArray TKUntyped)
+  :: Proxy ORArray -> STensorKindType TKUntyped -> STensorKindType TKUntyped
+  -> Maybe (Rep ORArray TKUntyped)
   -> (Rep (ADVal ORArray) TKUntyped
       -> Rep (ADVal ORArray) TKUntyped)
   -> Rep ORArray TKUntyped
@@ -329,14 +346,17 @@ cfwd
   -> Rep ORArray (ADTensorKind z)
 cfwd f vals ds =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
-      g = f . parseHVector Proxy (fromDValue vals) . repDeepDuplicable stensorKind
+      g = f . parseHVector (Proxy @(ADVal ORArray)) (fromDValue vals)
+            . repDeepDuplicable @(ADVal ORArray) (stensorKind @(X advals))
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- cfwdOnHVector satisfies that via makeADInputs
         -- TODO: or use dlet as above?
-      valsH = toHVectorOf Proxy vals
-      dsH = toHVectorOf Proxy ds
-  in fst $ cfwdOnHVector Proxy stensorKind stensorKind
-                         valsH g $ toADTensorKindShared stensorKind dsH
+      valsH = toHVectorOf (Proxy @ORArray) vals
+      dsH = toHVectorOf (Proxy @ORArray) ds
+  in fst $ cfwdOnHVector
+             (Proxy @ORArray) (stensorKind @(X advals)) (stensorKind @z)
+             valsH g $ toADTensorKindShared
+                         (Proxy @ORArray) (stensorKind @(X advals)) dsH
 
 
 

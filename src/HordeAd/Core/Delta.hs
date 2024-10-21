@@ -101,7 +101,8 @@ gradientFromDelta
   -> Delta ranked z
   -> Rep ranked (ADTensorKind x)
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = repConstant 1 $ aDTensorKind $ tshapeFull (stensorKind @z) value
+  let oneAtF = repConstant (Proxy @ranked) 1
+               $ aDTensorKind $ tshapeFull @ranked (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
@@ -158,7 +159,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                                      , Dict <- lemTensorKindOfF ftk2 ->
             let (t1, rest1) = rebuildInputs @y1 els ftk1
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
-            in (tpair t1 t2, rest2)
+            in (tpair @ranked @y1 @y2 t1 t2, rest2)
         FTKUntyped shs ->
           let toDynamicTensor :: Some (RepM ranked)
                               -> DynamicTensor ranked
@@ -200,7 +201,8 @@ derivativeFromDelta
      ( ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z )
   => Delta ranked z -> Rep ranked (ADTensorKind x)
   -> Rep ranked (ADTensorKind z)
-derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x) =
+derivativeFromDelta deltaTopLevel ds
+ | Dict <- lemTensorKindOfAD (stensorKind @x) =
   let -- Matches generateDeltaInputs.
       generateDSums :: Int -> TensorKindFull y -> Rep ranked y
                     -> ( [DSum (InputId ranked) (RepM ranked)]
@@ -214,9 +216,9 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
         FTKS @r @sh sh -> withKnownShS sh
                           $ ([InputId j :=> MTKS @r @sh t], j + 1)
         FTKX{} -> error "TODO"
-        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
-                             , Dict <- lemTensorKindOfF ftk2 ->
-          let (t1, t2) = tunpair t
+        FTKProduct @y1 @y2 ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
+                                     , Dict <- lemTensorKindOfF ftk2 ->
+          let (t1, t2) = tunpair @ranked @y1 @y2 t
               (ds1, j1) = generateDSums j ftk1 t1
               (ds2, j2) = generateDSums j1 ftk2 t2
           in (ds1 ++ ds2, j2)
@@ -226,7 +228,8 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
           in ( zipWith dynamicTensorToRepM [j ..] $ V.toList ts
              , j + len )
       iMap = DMap.fromDistinctAscList $ fst
-             $ generateDSums 0 (tshapeFull stensorKind ds) ds
+             $ generateDSums @(ADTensorKind x)
+                             0 (tshapeFull @ranked stensorKind ds) ds
       s0 = DMap.empty
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
@@ -1076,22 +1079,24 @@ evalR !s !c d0 = case d0 of
   -- except for InputG that is always constructed only in basic kinds.
   PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                       , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
-    let (c1, c2) = tunpair c
+    let (c1, c2) = tunpair @ranked @(ADTensorKind y1) @(ADTensorKind y2) c
     in evalR (evalR s c1 d1) c2 d2
-  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+  Project1G @x @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
                     , Dict <- lemTensorKindOfAD (stensorKind @z) ->
     case shapeDeltaFull d of
       FTKProduct _ ftk2 ->
-        let zero = repConstant 0 $ aDTensorKind ftk2
-        in evalR s (tpair c zero) d
+        let zero = repConstant (Proxy @ranked) 0 $ aDTensorKind ftk2
+        in evalR s (tpair @ranked @(ADTensorKind x) @(ADTensorKind z)
+                          c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
-  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
-                 , Dict <- lemTensorKindOfAD (stensorKind @x) ->
+  Project2G @x @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                    , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     case shapeDeltaFull d of
       FTKProduct ftk1 _ ->
-        let zero = repConstant 0 $ aDTensorKind ftk1
-        in evalR s (tpair zero c) d
+        let zero = repConstant (Proxy @ranked) 0 $ aDTensorKind ftk1
+        in evalR s (tpair @ranked @(ADTensorKind x) @(ADTensorKind z)
+                          zero c) d
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
@@ -1130,68 +1135,108 @@ evalR !s !c d0 = case d0 of
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
-          let addc x = RepAD $ taddShare stensorKind c (unRepAD x)
+          let addc x =
+                RepAD $ taddShare @ranked (stensorKind @(ADTensorKind y)) c
+                      $ unRepAD x
           in s {dMap = DMap.adjust addc n $ dMap s}
         Nothing ->
           let cd = RepAD c
           in s { nMap = DMap.insert n d $ nMap s
                , dMap = DMap.insert n cd $ dMap s }
-  MapAccumR @_ @_ @accShs @bShs @eShs
+  MapAccumR @_ @k @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
-            _df rf acc0' es'
-   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
-        (c0, crest) = tunpair c
-        dacc_des =
-          dmapAccumL (Proxy @ranked)
-                     k accShsAD eShsAD (FTKProduct bShsAD
-                                                   (FTKProduct accShs eShs))
-                     (\dx (db, acc_e) ->
-                        unHFun rf Proxy
-                                  (tpair (tpair (unrepDeep dx) (unrepDeep db))
-                                         (unrepDeep acc_e)))
-                     c0
-                     (tpair crest (tpair q es))
-        (dacc, des) = tunpair dacc_des
-        s2 = evalR s dacc acc0'
-    in evalR s2 des es'
-  MapAccumL @_ @_ @accShs @bShs @eShs
+            (RepN q) (RepN es) _df rf acc0' es'
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+      let accShsAD = aDTensorKind accShs
+          bShsAD = aDTensorKind bShs
+          eShsAD = aDTensorKind eShs
+          (c0, crest) = tunpair @ranked @(ADTensorKind accShs)
+                                @(BuildTensorKind k (ADTensorKind bShs))
+                                c
+          dacc_des =
+            dmapAccumL
+              (Proxy @ranked)
+              k accShsAD eShsAD (FTKProduct bShsAD
+                                            (FTKProduct accShs eShs))
+              (\ (Proxy @f) dx (db, acc_e) ->
+                 unHFun rf (Proxy @f)
+                           (tpair @f @(ADTensorKind (TKProduct accShs bShs))
+                                     @(TKProduct accShs eShs)
+                                  (tpair @f @(ADTensorKind accShs)
+                                            @(ADTensorKind bShs)
+                                         (unrepDeep @f @(ADTensorKind accShs)
+                                                    dx)
+                                         (unrepDeep @f @(ADTensorKind bShs)
+                                                    db))
+                                  (unrepDeep @f @(TKProduct accShs eShs)
+                                             acc_e)))
+              c0
+              (tpair @ranked
+                     @(ADTensorKind (BuildTensorKind k bShs))
+                     @(TKProduct (BuildTensorKind k accShs)
+                                 (BuildTensorKind k eShs))
+                     crest
+                     (tpair @ranked @(BuildTensorKind k accShs)
+                                    @(BuildTensorKind k eShs)
+                            q es))
+          (dacc, des) = tunpair @ranked @(ADTensorKind accShs)
+                                @(BuildTensorKind k (ADTensorKind eShs))
+                                dacc_des
+          s2 = evalR s dacc acc0'
+      in evalR s2 des es'
+  MapAccumL @_ @k @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
-            _df rf acc0' es'
-   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
-        (c0, crest) = tunpair c
-        dacc_des =
-          dmapAccumR (Proxy @ranked)
-                     k accShsAD eShsAD (FTKProduct bShsAD
-                                                   (FTKProduct accShs eShs))
-                     (\dx (db, acc_e) ->
-                        unHFun rf Proxy
-                                  (tpair (tpair (unrepDeep dx) (unrepDeep db))
-                                         (unrepDeep acc_e)))
-                     c0
-                     (tpair crest (tpair q es))
-        (dacc, des) = tunpair dacc_des
-        s2 = evalR s dacc acc0'
-    in evalR s2 des es'
+            (RepN q) (RepN es) _df rf acc0' es'
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+      let accShsAD = aDTensorKind accShs
+          bShsAD = aDTensorKind bShs
+          eShsAD = aDTensorKind eShs
+          (c0, crest) = tunpair @ranked @(ADTensorKind accShs)
+                                @(BuildTensorKind k (ADTensorKind bShs))
+                                c
+          dacc_des =
+            dmapAccumR
+              (Proxy @ranked)
+              k accShsAD eShsAD (FTKProduct bShsAD
+                                            (FTKProduct accShs eShs))
+              (\ (Proxy @f) dx (db, acc_e) ->
+                 unHFun rf (Proxy @f)
+                           (tpair @f @(ADTensorKind (TKProduct accShs bShs))
+                                     @(TKProduct accShs eShs)
+                                  (tpair @f @(ADTensorKind accShs)
+                                            @(ADTensorKind bShs)
+                                         (unrepDeep @f @(ADTensorKind accShs)
+                                                    dx)
+                                         (unrepDeep @f @(ADTensorKind bShs)
+                                                    db))
+                                  (unrepDeep @f @(TKProduct accShs eShs)
+                                             acc_e)))
+              c0
+              (tpair @ranked
+                     @(ADTensorKind (BuildTensorKind k bShs))
+                     @(TKProduct (BuildTensorKind k accShs)
+                                 (BuildTensorKind k eShs))
+                     crest
+                     (tpair @ranked @(BuildTensorKind k accShs)
+                                    @(BuildTensorKind k eShs)
+                            q es))
+          (dacc, des) = tunpair @ranked @(ADTensorKind accShs)
+                                @(BuildTensorKind k (ADTensorKind eShs))
+                                dacc_des
+          s2 = evalR s dacc acc0'
+      in evalR s2 des es'
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
@@ -1224,7 +1269,7 @@ evalSame !s !c = \case
 
   ZeroR{} -> s
   ScaleR k d -> evalSame s (k * c) d
-  AddR d e -> let cShared = tshare c
+  AddR d e -> let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
               in evalSame (evalSame s cShared d) cShared e
   IndexR d ix ->
     evalSame s (rscatter @ranked @_ @0
@@ -1240,7 +1285,7 @@ evalSame !s !c = \case
   ScatterR _sh d f ->
     evalSame s (rgather (shapeDelta d) c f) d
   FromVectorR @n1 @r ld ->
-    let cShared = tshare c
+    let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
         cxs :: [ranked r n1]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
@@ -1248,7 +1293,7 @@ evalSame !s !c = \case
   ReplicateR _n d ->
     evalSame s (rsum c) d
   AppendR d e -> case rshape c of
-    n :$: _ -> let cShared = tshare c
+    n :$: _ -> let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
                    k = lengthDelta d
                    s2 = evalSame s (rslice 0 k cShared) d
                in evalSame s2 (rslice k (n - k) cShared) e
@@ -1270,7 +1315,7 @@ evalSame !s !c = \case
   GatherR _sh d f ->
     evalSame s (rscatter (shapeDelta d) c f) d
   CastR @r1 @_ @n d ->
-    evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR r1 n))
+    evalRRuntimeSpecialized s (toADTensorKindShared Proxy (stensorKind @(TKR r1 n))
                                $ rcast c) d
   RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
   RFromS @sh d | Dict <- lemKnownNatRank (knownShS @sh) ->
@@ -1285,7 +1330,7 @@ evalSame !s !c = \case
 
   ZeroS -> s
   ScaleS k d -> evalSame s (k * c) d
-  AddS d e -> let cShared = tshare c
+  AddS d e -> let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
               in evalSame (evalSame s cShared d) cShared e
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
@@ -1306,13 +1351,13 @@ evalSame !s !c = \case
   ScatterS d f ->
     evalSame s (sgather c f) d
   FromVectorS ld ->
-    let cShared = tshare c
+    let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
     in V.ifoldl' (\ !s2 i d2 ->
          evalSame s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
   ReplicateS d ->
     evalSame s (ssum c) d
   AppendS @_ @_ @m d e ->
-    let cShared = tshare c
+    let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
         s2 = evalSame s (sslice (Proxy @0) Proxy cShared) d
     in evalSame s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d ->
@@ -1335,7 +1380,7 @@ evalSame !s !c = \case
   GatherS d f ->
     evalSame s (sscatter c f) d
   CastS @r1 @_ @sh d ->
-    evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS r1 sh))
+    evalSRuntimeSpecialized s (toADTensorKindShared Proxy (stensorKind @(TKS r1 sh))
                                $ scast c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
@@ -1351,11 +1396,11 @@ evalSame !s !c = \case
 
   ZeroX{} -> s
   ScaleX k d -> evalSame s (k * c) d
-  AddX d e -> let cShared = tshare c
+  AddX d e -> let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
               in evalSame (evalSame s cShared d) cShared e
   IndexX{} -> error "TODO"
   FromVectorX @r @sh ld ->
-    let cShared = tshare c
+    let cShared = tshare @ranked (stensorKind @(ADTensorKind y)) c
         f :: EvalState ranked -> Int -> Delta ranked (TKX r sh)
              -> EvalState ranked
         f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
@@ -1375,20 +1420,20 @@ evalDynamic !s3 (t, DynamicRanked @r @n d2) =
   gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
     -- this is a noble lie to maintain no ADTensorKind under HVector
     -- and at the same time re-use the new eval function also for HVector
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKR r n)) $ rfromD t) $ unDeltaR d2
+  evalSame s3 (toADTensorKindShared Proxy (stensorKind @(TKR r n)) $ rfromD t) $ unDeltaR d2
 evalDynamic s3 (t, DynamicShaped @r @sh d2) =
   gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t) $ unDeltaS d2
+  evalSame s3 (toADTensorKindShared Proxy (stensorKind @(TKS r sh)) $ sfromD t) $ unDeltaS d2
 evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
   withListSh (Proxy @sh) $ \sh2 ->
     evalSame @(TKR r (Rank sh))
-          s3 (toADTensorKindShared (stensorKind @(TKR r (Rank sh))) $ rfromD @r t)
+          s3 (toADTensorKindShared Proxy (stensorKind @(TKR r (Rank sh))) $ rfromD @r t)
           (ZeroR sh2)
 evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
   evalSame @(TKS r sh)
-        s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t)
+        s3 (toADTensorKindShared Proxy (stensorKind @(TKS r sh)) $ sfromD t)
         ZeroS
 
 evalHVector
@@ -1511,88 +1556,116 @@ fwdR params s d0 = case d0 of
                       , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
     let (s2, t) = fwdR params s d1
         (s3, u) = fwdR params s2 d2
-    in (s3, tpair t u)
-  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+    in (s3, tpair @ranked @(ADTensorKind y1) @(ADTensorKind y2) t u)
+  Project1G @x @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
                     , Dict <- lemTensorKindOfAD (stensorKind @z) ->
     let (s2, v) = fwdR params s d
-    in (s2, tproject1 v)
-  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
-                 , Dict <- lemTensorKindOfAD (stensorKind @x) ->
+    in (s2, tproject1 @ranked  @(ADTensorKind x) @(ADTensorKind z)v)
+  Project2G @x @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                    , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     let (s2, v) = fwdR params s d
-    in (s2, tproject2 v)
+    in (s2, tproject2 @ranked @(ADTensorKind x) @(ADTensorKind z) v)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, toADTensorKindShared stensorKind $ evalRepM dtk)
+      Just dtk -> (s, toADTensorKindShared (Proxy @ranked) (stensorKind @y)
+                      $ evalRepM dtk)
       Nothing -> error "fwdR: missing input"
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     case DMap.lookup n s of
       Just e1 -> (s, unRepAD e1)
       Nothing ->
         let (s2, cRaw) = fwdR params s d
-            cShared = tshare cRaw
+            cShared = tshare @ranked (stensorKind @(ADTensorKind y)) cRaw
             cd = RepAD cShared
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
             s3 = DMap.insert n cd s2
         in (s3, cShared)
 
-  MapAccumR @_ @_ @accShs @bShs @eShs
+  MapAccumR @_ @k @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
-            df _rf acc0' es'
-   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
-        (s2, cacc0) = fwdR params s acc0'
-        (s3, ces) = fwdR params s2 es'
-    in (s3, dmapAccumR (Proxy @ranked)
-                       k accShsAD bShsAD (FTKProduct eShsAD
-                                                     (FTKProduct accShs eShs))
-                       (\dacc (de, acc_e) ->
-                          unHFun df Proxy
-                                    (tpair (tpair (unrepDeep dacc)
-                                                  (unrepDeep de))
-                                           (unrepDeep acc_e)))
-                       cacc0
-                       (tpair ces (tpair q es)))
-  MapAccumL @_ @_ @accShs @bShs @eShs
+            (RepN q) (RepN es) df _rf acc0' es'
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+      let accShsAD = aDTensorKind accShs
+          bShsAD = aDTensorKind bShs
+          eShsAD = aDTensorKind eShs
+          (s2, cacc0) = fwdR params s acc0'
+          (s3, ces) = fwdR params s2 es'
+      in (s3, dmapAccumR
+                (Proxy @ranked)
+                k accShsAD bShsAD (FTKProduct eShsAD
+                                              (FTKProduct accShs eShs))
+                (\ (Proxy @f) dacc (de, acc_e) ->
+                   unHFun df (Proxy @f)
+                     (tpair @f @(ADTensorKind (TKProduct accShs eShs))
+                               @(TKProduct accShs eShs)
+                            (tpair @f @(ADTensorKind accShs)
+                                      @(ADTensorKind eShs)
+                                   (unrepDeep @f @(ADTensorKind accShs)
+                                              dacc)
+                                   (unrepDeep @f @(ADTensorKind eShs)
+                                              de))
+                            (unrepDeep @f @(TKProduct accShs eShs)
+                                       acc_e)))
+                 cacc0
+                 (tpair @ranked
+                        @(ADTensorKind (BuildTensorKind k eShs))
+                        @(TKProduct (BuildTensorKind k accShs)
+                                    (BuildTensorKind k eShs))
+                        ces (tpair @ranked @(BuildTensorKind k accShs)
+                                           @(BuildTensorKind k eShs)
+                                   q es)))
+  MapAccumL @_ @k @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
-            df _rf acc0' es'
-   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
-   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
-        (s2, cacc0) = fwdR params s acc0'
-        (s3, ces) = fwdR params s2 es'
-    in (s3, dmapAccumL (Proxy @ranked)
-                       k accShsAD bShsAD (FTKProduct eShsAD
-                                                     (FTKProduct accShs eShs))
-                       (\dacc (de, acc_e) ->
-                          unHFun df Proxy
-                                    (tpair (tpair (unrepDeep dacc)
-                                                  (unrepDeep de))
-                                           (unrepDeep acc_e)))
-                       cacc0
-                       (tpair ces (tpair q es)))
+            (RepN q) (RepN es) df _rf acc0' es'
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
+    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
+    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
+    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+      let accShsAD = aDTensorKind accShs
+          bShsAD = aDTensorKind bShs
+          eShsAD = aDTensorKind eShs
+          (s2, cacc0) = fwdR params s acc0'
+          (s3, ces) = fwdR params s2 es'
+      in (s3, dmapAccumL
+                (Proxy @ranked)
+                k accShsAD bShsAD (FTKProduct eShsAD
+                                              (FTKProduct accShs eShs))
+                (\ (Proxy @f) dacc (de, acc_e) ->
+                   unHFun df (Proxy @f)
+                     (tpair @f @(ADTensorKind (TKProduct accShs eShs))
+                               @(TKProduct accShs eShs)
+                            (tpair @f @(ADTensorKind accShs)
+                                      @(ADTensorKind eShs)
+                                   (unrepDeep @f @(ADTensorKind accShs)
+                                              dacc)
+                                   (unrepDeep @f @(ADTensorKind eShs)
+                                              de))
+                            (unrepDeep @f @(TKProduct accShs eShs)
+                                       acc_e)))
+                 cacc0
+                 (tpair @ranked
+                        @(ADTensorKind (BuildTensorKind k eShs))
+                        @(TKProduct (BuildTensorKind k accShs)
+                                    (BuildTensorKind k eShs))
+                        ces (tpair @ranked @(BuildTensorKind k accShs)
+                                           @(BuildTensorKind k eShs)
+                                   q es)))
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
         Just Refl -> fwdSame params s d0
-        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+        _ -> (s, repConstant (Proxy @ranked) 0
+                 $ aDTensorKind $ shapeDeltaFull d0)
 
 fwdSame
   :: forall ranked y.
@@ -1645,7 +1718,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKR r1 n)) ->
       case sameTensorKind @(TKR r1 n) @(ADTensorKind (TKR r1 n)) of
         Just Refl -> second rcast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+        _ -> (s, repConstant Proxy 0 $ aDTensorKind $ shapeDeltaFull d0)
   RFromS (SFromR d) ->
     fwdSame params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdSame params s d
@@ -1692,7 +1765,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKS r1 sh)) ->
       case sameTensorKind @(TKS r1 sh) @(ADTensorKind (TKS r1 sh)) of
         Just Refl -> second scast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+        _ -> (s, repConstant Proxy 0 $ aDTensorKind $ shapeDeltaFull d0)
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> fwdSame params s d

@@ -466,8 +466,8 @@ test_disparityKonst = do
       arrR :: ADReady ranked => ranked Double 4
       arrR = rreplicate0N [1, 2, 4, 6] (rscalar 0.3)
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (rconstant arrL) aR) arrR arrO
+      arrDL = revDt @_ @(TKR Double 4) (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO
+      arrDR = revDt @_ @(TKR Double 4) (\aR -> costVolume 0 4 (rconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
     arrO
@@ -497,9 +497,9 @@ test_disparityKonst2 = do
       res1 = OR.fromList [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
       res2 = OR.fromList [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
       arrDL :: ORArray Double 4
-      arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL (FlipR $ Nested.rfromOrthotope SNat arrO)
+      arrDL = revDt @_ @(TKR Double 4) (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL (FlipR $ Nested.rfromOrthotope SNat arrO)
       arrDR :: ORArray Double 4
-      arrDR = revDt (costVolume 0 4 (rconstant arrL)) arrR (FlipR $ Nested.rfromOrthotope SNat arrO)
+      arrDR = revDt @_ @(TKR Double 4) (costVolume 0 4 (rconstant arrL)) arrR (FlipR $ Nested.rfromOrthotope SNat arrO)
   assertEqualUpToEpsilon1 1e-7
     res1
     arrDL
@@ -520,8 +520,8 @@ test_disparitySmall = do
       arrR :: ADReady ranked => ranked Double 4
       arrR = ringestData [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (rconstant arrL) aR) arrR arrO
+      arrDL = revDt  @_ @(TKR Double 4)(\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO
+      arrDR = revDt @_ @(TKR Double 4) (\aR -> costVolume 0 4 (rconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
     arrO
@@ -580,8 +580,8 @@ testConv2dUnpadded2PP = do
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
-        revArtifactFromForwardPass
-          True (forwardPassByInterpretation f emptyEnv) (FTKUntyped shs)
+        revArtifactFromForwardPass @TKUntyped @TKUntyped
+          True (forwardPassByInterpretation (stensorKind @TKUntyped) (stensorKind @TKUntyped) f emptyEnv) (FTKUntyped shs)
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)
     @?= unPaddedPPString
 
@@ -598,8 +598,8 @@ testConv2dUnpadded3PP = do
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
       (artifactRev, _) =
-        revArtifactFromForwardPass
-          True (forwardPassByInterpretation f emptyEnv) (FTKUntyped shs)
+        revArtifactFromForwardPass @TKUntyped @TKUntyped
+          True (forwardPassByInterpretation (stensorKind @TKUntyped) (stensorKind @TKUntyped) f emptyEnv) (FTKUntyped shs)
   printArtifactPretty IM.empty artifactRev
     @?= "\\h34 u44 u45 -> let w32 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u45 (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w33 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u44 (\\[i30, i31] -> [i30 + i31])))))) in [rscatter [2,2,2,2] (rreshape [2,1,2,2,2] (rsum (rsum (rsum (rtranspose [1,3,4,2,0] (w32 * rreplicate 8 (rproject h34 0))))))) (\\[i35, i36] -> [i35 + i36]), rscatter [2,2,2,2] (rreshape [2,2,2,1,2,2,2] (rsum (rtranspose [2,1,3,4,0] (w33 * rreplicate 8 (rproject h34 0))))) (\\[i37, i38, i39, i40, i41, i42, i43] -> [i37 + i40, i41, i38 + i42, i39 + i43])]"
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)

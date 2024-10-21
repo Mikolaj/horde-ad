@@ -1142,7 +1142,8 @@ type role AstNoSimplifyWrap nominal
 newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
  deriving Show
 
-rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
+rankedY :: forall s y.
+           STensorKindType y -> AstTensor AstMethodLet s y
         -> Rep (AstRanked s) y
 rankedY stk t = case stk of
   STKScalar{} -> RepScalar $ AstRanked $ AstScalar t
@@ -1153,7 +1154,8 @@ rankedY stk t = case stk of
   STKUntyped -> HVectorPseudoTensor t
   _ -> error "TODO"
 
-unRankedY :: STensorKindType y -> Rep (AstRanked s) y
+unRankedY :: forall s y.
+             STensorKindType y -> Rep (AstRanked s) y
           -> AstTensor AstMethodLet s y
 unRankedY stk t = case stk of
   STKScalar{} -> AstUnScalar $ unAstRanked $ unRepScalar t

@@ -102,8 +102,10 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
   dAdd (DeltaR ZeroR{}) w = w
   dAdd v (DeltaR ZeroR{}) = v
   dAdd (DeltaR v) (DeltaR w) = DeltaR $ AddR v w
-  intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
-  sharePrimal = tshare
+  intOfShape tsh c =
+    rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
+  sharePrimal :: ranked r n -> ranked r n
+  sharePrimal = tshare @ranked (stensorKind @(TKR r n))
   shareDual d = case unDeltaR d of
     ZeroR{} -> d
     InputG{} -> d
@@ -124,7 +126,8 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
   intOfShape tsh c =  -- not needed for shaped, here, but ranked above needs it,
                       -- so we have to use it for both
     sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
-  sharePrimal = tshare
+  sharePrimal :: shaped r sh -> shaped r sh
+  sharePrimal = tshare @(RankedOf shaped) (stensorKind @(TKS r sh))
   shareDual d = case unDeltaS d of
     ZeroS -> d
     InputG{} -> d
@@ -143,7 +146,8 @@ instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
   dAdd (DeltaX v) (DeltaX w) = DeltaX $ AddX v w
   intOfShape tsh c =
     xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
-  sharePrimal = tshare
+  sharePrimal :: mixed r sh -> mixed r sh
+  sharePrimal = tshare @(RankedOf mixed) (stensorKind @(TKX r sh))
   shareDual d = case unDeltaX d of
     ZeroX{} -> d
     InputG{} -> d

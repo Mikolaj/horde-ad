@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.External.Optimizer
   ( sgd
@@ -43,8 +44,10 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go (a : rest) !parameters =
     let inputs :: Rep (ADVal ORArray) TKUntyped
         inputs = makeADInputs (HVectorPseudoTensor parameters) deltaInputs
-        (gradients, valueNew) = crevOnADInputs Proxy stensorKind stensorKind
-                                               Nothing (g a) inputs
+        (gradients, valueNew) =
+          crevOnADInputs
+            (Proxy @ORArray) (stensorKind @TKUntyped) (stensorKind @z)
+            Nothing (g a) inputs
         parametersNew = updateWithGradient gamma parameters
                         $ unHVectorPseudoTensor gradients
     in if null rest
@@ -63,7 +66,7 @@ sgdAdamDeep
   -> StateAdamDeep x
   -> (Rep ORArray x, StateAdamDeep x)
 {-# INLINE sgdAdamDeep #-}
-sgdAdamDeep = sgdAdamArgsDeep defaultArgsAdam
+sgdAdamDeep = sgdAdamArgsDeep @a @x @z defaultArgsAdam
 
 sgdAdamArgsDeep
   :: forall a x z. (TensorKind x, TensorKind z)
@@ -77,7 +80,7 @@ sgdAdamArgsDeep
 sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  ftk = tshapeFull stensorKind parameters0
+  ftk = tshapeFull @ORArray stensorKind parameters0
   deltaInputs :: Delta ORArray x
   deltaInputs = generateDeltaInputs ftk
   go :: [a] -> Rep ORArray x -> StateAdamDeep x
@@ -87,10 +90,11 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
    | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let inputs :: Rep (ADVal ORArray) x
         inputs = makeADInputs parameters deltaInputs
-        gradients = fst $ crevOnADInputs Proxy stensorKind stensorKind
-                                         Nothing (f a) inputs
+        gradients = fst $ crevOnADInputs
+                            (Proxy @ORArray) (stensorKind @x) (stensorKind @z)
+                            Nothing (f a) inputs
         (parametersNew, stateAdamNew) =
-          updateWithGradientAdamDeep argsAdam stateAdam parameters gradients
+          updateWithGradientAdamDeep @x argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
 
 -- We inline (possibly causing a binary blowup) until we are able to work around
@@ -105,7 +109,7 @@ sgdAdam
   -> StateAdam
   -> (HVector ORArray, StateAdam)
 {-# INLINE sgdAdam #-}
-sgdAdam = sgdAdamArgs defaultArgsAdam
+sgdAdam = sgdAdamArgs @a @z defaultArgsAdam
 
 sgdAdamArgs
   :: forall a z. TensorKind z
@@ -131,8 +135,10 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
     let inputs :: Rep (ADVal ORArray) TKUntyped
         inputs = makeADInputs (HVectorPseudoTensor parameters) deltaInputs
         gradients = unHVectorPseudoTensor $ fst
-                    $ crevOnADInputs Proxy stensorKind stensorKind
-                                     Nothing (g a) inputs
+                    $ crevOnADInputs
+                        (Proxy @ORArray) (stensorKind @TKUntyped)
+                                         (stensorKind @z)
+                        Nothing (g a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

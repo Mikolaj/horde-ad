@@ -113,7 +113,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters ORArray r)) f chunkR parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters ORArray r)) @(TKR r 0) f chunkR parameters stateAdam
                  !trainScore =
                    ftest (length chunk) (packBatchR chunk) parameters2
                  !testScore =
@@ -216,7 +216,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (parseHVector Proxy (fromDValue valsInit)
-                    $ repDeepDuplicable stensorKind hVector)
+                    $ repDeepDuplicable @(AstRanked FullSpan) @(X (ADRnnMnistParameters ORArray r)) stensorKind hVector)
            runBatch :: ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                        , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
                     -> (Int, [MnistDataR r])
@@ -234,7 +234,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters ORArray r)) f chunkR parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters ORArray r)) @(TKR r 0) f chunkR parameters stateAdam
                  !trainScore =
                    ftest (length chunk) (packBatchR chunk) parameters2
                  !testScore =
@@ -331,7 +331,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistRnnRanked2.rnnMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (AsHVector (valsInit, dataInit))
+           (artRaw, _) = revArtifactAdapt @_ @(TKR r 0) False f (AsHVector (valsInit, dataInit))
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r] -> (HVector ORArray, StateAdam)
               -> (HVector ORArray, StateAdam)
@@ -441,7 +441,7 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
            f = \ (pars, (glyphR, labelR)) ->
              MnistRnnRanked2.rnnMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           (artRaw, _) = revArtifactAdapt @_ @(TKR r 0) False f (valsInit, dataInit)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
@@ -579,7 +579,7 @@ testRNNOPP = do
               -> AstRanked FullSpan Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifactRev, _) =
-        revArtifactAdapt True afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
+        revArtifactAdapt @_ @(TKR Double 2) True afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
   printArtifactPretty renames artifactRev
     @?= "\\m12 x1 -> let m3 = rreshape [2,1] (rreplicate 2 0.0) ; t4 = rtranspose [1,0] (rreplicate 1 (rslice 0 1 m3)) ; m5 = tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t4)) ; t6 = rtranspose [1,0] (rreplicate 1 (rslice 0 1 m3)) ; m7 = tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t6)) ; t8 = rtranspose [1,0] (rreplicate 1 m7) ; t9 = rtranspose [1,0] (rreplicate 1 (rslice 1 1 m3)) ; m10 = tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject2 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * t8) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject2 (tproject1 m1))))) * t9)) ; t11 = rtranspose [1,0] (rreplicate 10 (rslice 1 1 (rappend m5 m10))) ; m13 = rappend (rreshape [1,1] (rreplicate 1 0.0)) (rappend (rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject2 m1))) * rreplicate 1 m12))) (rreshape [0,1] (rreplicate 0 0.0))) ; m14 = (rconst (rfromListLinear [1,1] [1.0]) - m10 * m10) * rslice 1 1 m13 ; t15 = rreplicate 1 m14 ; t16 = rreplicate 1 m14 ; m17 = (rconst (rfromListLinear [1,1] [1.0]) - m7 * m7) * rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * t16)) ; t18 = rreplicate 1 m17 ; m19 = (rconst (rfromListLinear [1,1] [1.0]) - m5 * m5) * rslice 0 1 m13 ; t20 = rreplicate 1 m19 in tpair (tpair (tpair (tpair (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0))) * rreplicate 1 m19)) + rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0))) * rreplicate 1 m17)), rsum (rtranspose [2,1,0] (t4 * t20)) + rsum (rtranspose [2,1,0] (t6 * t18))), rsum (rtranspose [1,0] m19) + rsum (rtranspose [1,0] m17)), tpair (tpair (rsum (rtranspose [2,1,0] (t8 * t16)), rsum (rtranspose [2,1,0] (t9 * t15))), rsum (rtranspose [1,0] m14))), tpair (rsum (rtranspose [2,1,0] (t11 * rreplicate 1 m12)), rsum (rtranspose [1,0] m12)))"
   printArtifactPrimalPretty renames artifactRev
@@ -605,7 +605,7 @@ testRNNOPP2 = do
               -> AstRanked FullSpan Double 2
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
       (artifactRev, _) =
-        revArtifactAdapt True afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)
+        revArtifactAdapt @_ @(TKR Double 2) True afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)
   printArtifactPretty renames artifactRev
     @?= "\\m21 x1 -> let m4 = rreshape [4,2] (rreplicate 8 0.0) ; t5 = rtranspose [1,0] (rreplicate 2 (rslice 0 2 m4)) ; m6 = tanh (rtranspose [1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t5)) ; t7 = rtranspose [1,0] (rreplicate 2 (rslice 0 2 m4)) ; m8 = tanh (rtranspose [1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t7)) ; t9 = rtranspose [1,0] (rreplicate 2 m8) ; t10 = rtranspose [1,0] (rreplicate 2 (rslice 2 2 m4)) ; m11 = tanh (rtranspose [1,0] (rreplicate 2 (tproject2 (tproject2 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * t9) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject2 (tproject1 m1))))) * t10)) ; m12 = rappend m6 m11 ; t13 = rtranspose [1,0] (rreplicate 2 (rslice 0 2 m12)) ; m14 = tanh (rtranspose [1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t13)) ; t15 = rtranspose [1,0] (rreplicate 2 (rslice 0 2 m12)) ; m16 = tanh (rtranspose [1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t15)) ; t17 = rtranspose [1,0] (rreplicate 2 m16) ; t18 = rtranspose [1,0] (rreplicate 2 (rslice 2 2 m12)) ; m19 = tanh (rtranspose [1,0] (rreplicate 2 (tproject2 (tproject2 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * t17) + rsum (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject2 (tproject1 m1))))) * t18)) ; t20 = rtranspose [1,0] (rreplicate 10 (rslice 2 2 (rappend m14 m19))) ; m22 = rappend (rreshape [2,2] (rreplicate 4 0.0)) (rappend (rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject2 m1))) * rreplicate 2 m21))) (rreshape [0,2] (rreplicate 0 0.0))) ; m23 = (rconst (rfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m19 * m19) * rslice 2 2 m22 ; t24 = rreplicate 2 m23 ; t25 = rreplicate 2 m23 ; m26 = (rconst (rfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m16 * m16) * rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * t25)) ; t27 = rreplicate 2 m26 ; m28 = (rconst (rfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m14 * m14) * rslice 0 2 m22 ; t29 = rreplicate 2 m28 ; m30 = rappend (rreshape [0,2] (rreplicate 0 0.0)) (rappend (rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t29))) (rreshape [2,2] (rreplicate 4 0.0))) + rappend (rreshape [0,2] (rreplicate 0 0.0)) (rappend (rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * t27))) (rreshape [2,2] (rreplicate 4 0.0))) + rappend (rreshape [2,2] (rreplicate 4 0.0)) (rappend (rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 2 (tproject2 (tproject1 (tproject2 (tproject1 m1))))) * t24))) (rreshape [0,2] (rreplicate 0 0.0))) ; m31 = (rconst (rfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m11 * m11) * rslice 2 2 m30 ; t32 = rreplicate 2 m31 ; t33 = rreplicate 2 m31 ; m34 = (rconst (rfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m8 * m8) * rsum (rtranspose [1,0] (rtranspose [2,1,0] (rreplicate 2 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * t33)) ; t35 = rreplicate 2 m34 ; m36 = (rconst (rfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m6 * m6) * rslice 0 2 m30 ; t37 = rreplicate 2 m36 in tpair (tpair (tpair (tpair (rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0))) * rreplicate 2 m36)) + rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0))) * rreplicate 2 m34)) + rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0))) * rreplicate 2 m28)) + rsum (rtranspose [2,1,0] (rtranspose [1,0] (rreplicate 2 (rreplicate 2 (rreplicate 2 7.0))) * rreplicate 2 m26)), rsum (rtranspose [2,1,0] (t5 * t37)) + rsum (rtranspose [2,1,0] (t7 * t35)) + rsum (rtranspose [2,1,0] (t13 * t29)) + rsum (rtranspose [2,1,0] (t15 * t27))), rsum (rtranspose [1,0] m36) + rsum (rtranspose [1,0] m34) + rsum (rtranspose [1,0] m28) + rsum (rtranspose [1,0] m26)), tpair (tpair (rsum (rtranspose [2,1,0] (t9 * t33)) + rsum (rtranspose [2,1,0] (t17 * t25)), rsum (rtranspose [2,1,0] (t10 * t32)) + rsum (rtranspose [2,1,0] (t18 * t24))), rsum (rtranspose [1,0] m31) + rsum (rtranspose [1,0] m23))), tpair (rsum (rtranspose [2,1,0] (t20 * rreplicate 2 m21)), rsum (rtranspose [1,0] m21)))"
   printArtifactPrimalPretty renames artifactRev

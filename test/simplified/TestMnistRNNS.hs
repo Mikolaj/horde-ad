@@ -120,7 +120,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) @(TKS r '[]) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )
@@ -225,8 +225,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        let ast :: AstShaped FullSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (AstShaped astGlyph, AstShaped astLabel)
-                   (parseHVector Proxy (fromDValue valsInit)
-                    $ repDeepDuplicable stensorKind hVector)
+                   (parseHVector (Proxy @(AstRanked FullSpan)) (fromDValue valsInit)
+                    $ repDeepDuplicable @(AstRanked FullSpan) @(XParams width r) stensorKind hVector)
            runBatch :: ( Rep ORArray (XParams width r)
                        , StateAdamDeep (XParams width r) )
                     -> (Int, [MnistDataS r])
@@ -244,7 +244,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) @(TKS r '[]) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
                    ( Data.Array.Convert.convert glyphs
                    , Data.Array.Convert.convert labels )
@@ -348,7 +348,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
            (artRaw, _) =
-             revArtifactAdapt False f (AsHVector (valsInit, dataInit))
+             revArtifactAdapt @_ @(TKS r '[]) False f (AsHVector (valsInit, dataInit))
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchS batch_size r] -> (HVector ORArray, StateAdam)
               -> (HVector ORArray, StateAdam)
@@ -462,7 +462,7 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
            f = \ (pars, (glyphS, labelS)) ->
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
-           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           (artRaw, _) = revArtifactAdapt @_ @(TKS r '[]) False f (valsInit, dataInit)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchS batch_size r]
               -> ( Rep ORArray (XParams width r)

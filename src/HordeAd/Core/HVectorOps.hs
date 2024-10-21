@@ -44,16 +44,16 @@ import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
 toRepDShare
-  :: ShareTensor ranked
+  :: forall ranked x. ShareTensor ranked
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDShare stk t = case stk of
   STKScalar _ -> DTKScalar t
   STKR STKScalar{} SNat -> DTKR t
   STKS STKScalar{} sh -> withKnownShS sh $ DTKS t
   STKX STKScalar{} sh -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    let (t1, t2) = tunpair t
+  STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                               , Dict <- lemTensorKindOfS stk2 ->
+    let (t1, t2) = tunpair @ranked @y1 @y2 t
     in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
   STKUntyped{} -> DTKUntyped $ tunvector t
   _ -> error "TODO"
@@ -65,29 +65,32 @@ toRepDShare stk t = case stk of
 -- excessively, which is hard for technical typing reasons.
 -- See repDeepDuplicable.
 toRepDDuplicable
-  :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
+  :: forall ranked x.
+     (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDDuplicable stk t = case stk of
   STKScalar _ -> DTKScalar t
   STKR STKScalar{} SNat -> DTKR t
   STKS STKScalar{} sh -> withKnownShS sh $ DTKS t
   STKX STKScalar{} sh -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    DTKProduct (toRepDDuplicable stk1 (tproject1 t))
-               (toRepDDuplicable stk2 (tproject2 t))
+  STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                               , Dict <- lemTensorKindOfS stk2 ->
+    DTKProduct (toRepDDuplicable stk1 (tproject1 @ranked @y1 @y2 t))
+               (toRepDDuplicable stk2 (tproject2 @ranked @y1 @y2 t))
   STKUntyped{} ->
     DTKUntyped $ dunHVector $ unHVectorPseudoTensor t
   _ -> error "TODO"
 
-fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
+fromRepD :: forall ranked y.
+            (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
          => RepD ranked y -> Rep ranked y
 fromRepD = \case
   DTKScalar t -> t
   DTKR t -> t
   DTKS t -> t
   DTKX t -> t
-  DTKProduct t1 t2 -> tpair (fromRepD t1) (fromRepD t2)
+  DTKProduct @y1 @y2 t1 t2 ->
+    tpair @ranked @y1 @y2 (fromRepD t1) (fromRepD t2)
   DTKUntyped t -> HVectorPseudoTensor $ dmkHVector t
 
 addRepD ::
@@ -692,17 +695,18 @@ mkreplicate1HVector :: ADReady ranked
 mkreplicate1HVector k = dmkHVector . replicate1HVector k
 
 repConstant :: forall y ranked. ADReadyNoLet ranked
-            => (forall r. GoodScalar r => r)
+            => Proxy ranked -> (forall r. GoodScalar r => r)
             -> TensorKindFull y -> Rep ranked y
-repConstant r = \case
+repConstant Proxy r = \case
   FTKScalar -> RepScalar $ rscalar r
   FTKR sh | SNat <- shrRank sh -> rrepl (toList sh) r
   FTKS sh -> withKnownShS sh $ srepl r
   FTKX sh -> withKnownShX (ssxFromShape sh) $ xrepl sh r
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
-                       , Dict <- lemTensorKindOfF ftk2 ->
-    tpair (repConstant r ftk1)
-          (repConstant r ftk2)
+  FTKProduct @y1 @y2 ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
+                               , Dict <- lemTensorKindOfF ftk2 ->
+    tpair @ranked @y1 @y2
+          (repConstant (Proxy @ranked) r ftk1)
+          (repConstant (Proxy @ranked) r ftk2)
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
@@ -713,9 +717,9 @@ toADTensorKindShared
      ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
      , ProductTensor ranked, ShareTensor ranked
      , RankedOf (MixedOf ranked) ~ ranked )
-  => STensorKindType y -> Rep ranked y
+  => Proxy ranked -> STensorKindType y -> Rep ranked y
   -> Rep ranked (ADTensorKind y)
-toADTensorKindShared stk t = case stk of
+toADTensorKindShared Proxy stk t = case stk of
   STKScalar @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -742,11 +746,13 @@ toADTensorKindShared stk t = case stk of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            xrepl @_ @_ @(MixedOf ranked) (xshape t) ()
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2
-                       , Dict <- lemTensorKindOfAD stk1
-                       , Dict <- lemTensorKindOfAD stk2 ->
-    let (t1, t2) = tunpair t
-    in tpair (toADTensorKindShared stk1 t1) (toADTensorKindShared stk2 t2)
+  STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                               , Dict <- lemTensorKindOfS stk2
+                               , Dict <- lemTensorKindOfAD stk1
+                               , Dict <- lemTensorKindOfAD stk2 ->
+    let (t1, t2) = tunpair @ranked @y1 @y2 t
+    in tpair @ranked @(ADTensorKind y1) @(ADTensorKind y2)
+             (toADTensorKindShared (Proxy @ranked) stk1 t1)
+             (toADTensorKindShared (Proxy @ranked) stk2 t2)
   STKUntyped -> t
   _ -> error "TODO"

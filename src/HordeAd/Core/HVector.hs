@@ -60,7 +60,6 @@ deriving instance Show (HVectorOf ranked)
 type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
 type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
-  = result | result -> ranked y
 
 type instance Rep ranked (TKScalar r) = RepScalar ranked r
 type instance Rep ranked (TKR r n) = ranked r n
@@ -95,9 +94,9 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
     STKR STKScalar{} SNat -> showsPrec d t
     STKS STKScalar{} sh -> withKnownShS sh $ showsPrec d t
     STKX STKScalar{} sh -> withKnownShX sh $ showsPrec d t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      showsPrec d (RepProductN t)
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                                 , Dict <- lemTensorKindOfS stk2 ->
+      showsPrec d (RepProductN @ranked @y1 @y2 t)
     STKUntyped -> showsPrec d t
     _ -> error "TODO"
 
@@ -106,7 +105,7 @@ newtype RepProductN ranked x y =
   RepProductN {unRepProductN :: Rep ranked (TKProduct x y)}
 
 -- This is concrete only in the outermost layer.
-type family RepShallow ranked y = result | result -> ranked y where
+type family RepShallow ranked y where
   RepShallow ranked (TKScalar r) = RepScalar ranked r
   RepShallow ranked (TKR r n) = ranked r n
   RepShallow ranked (TKS r sh) = ShapedOf ranked r sh
@@ -116,7 +115,7 @@ type family RepShallow ranked y = result | result -> ranked y where
   RepShallow ranked TKUntyped = HVector ranked
 
 -- This is concrete throughout.
-type family RepDeep ranked y = result | result -> ranked y where
+type family RepDeep ranked y where
   RepDeep ranked (TKScalar r) = RepScalar ranked r
   RepDeep ranked (TKR r n) = ranked r n
   RepDeep ranked (TKS r sh) = ShapedOf ranked r sh
@@ -491,7 +490,7 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     (:$$) @_ @sh2 _ tl | Dict <- sshapeKnown tl ->
                          DynamicShapedDummy @r @sh2 p1 Proxy
 
-replicate1HVectorF :: shaped ~ ShapedOf ranked
+replicate1HVectorF :: forall ranked shaped  k. shaped ~ ShapedOf ranked
                    => (forall r n. (GoodScalar r, KnownNat n)
                        => Int -> ranked r n -> ranked r (1 + n))
                    -> (forall n sh r. (KnownNat n, KnownShS sh, GoodScalar r)

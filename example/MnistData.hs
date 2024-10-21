@@ -24,7 +24,6 @@ import System.IO (IOMode (ReadMode), withBinaryFile)
 import System.Random
 
 import HordeAd
-import HordeAd.Internal.BackendOX (ORArray)
 
 type SizeMnistWidth = 28 :: Nat
 
@@ -163,7 +162,8 @@ chunksOf n = go where
          in chunk : go rest
 
 
-{-# SPECIALIZE sgd
+{- TODO:
+{-# SPECIALIZE sgd @(MnistData Double) @(TKR Double y)
   :: KnownNat y
   => Double
   -> (MnistData Double
@@ -172,6 +172,7 @@ chunksOf n = go where
   -> [MnistData Double]
   -> HVector ORArray
   -> (HVector ORArray, ORArray Double y) #-}
+-}
 
 {- TODO: RULE left-hand side too complicated to desugar
 
