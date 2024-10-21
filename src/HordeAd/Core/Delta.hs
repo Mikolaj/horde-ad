@@ -164,7 +164,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           let toDynamicTensor :: Some (RepM ranked)
                               -> DynamicTensor ranked
               toDynamicTensor (Some b) = case b of
-                MTKScalar @r t -> DynamicRanked @r @0 $ unRepScalar t
+                MTKScalar @r t -> DynamicRanked @r @0 t
                 MTKR @r @n t -> DynamicRanked @r @n t
                 MTKS @r @sh t -> DynamicShaped @r @sh t
                 MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
@@ -240,7 +240,7 @@ evalRepM = \case
   MTKScalar t -> t
   MTKR t -> t
   MTKS t -> t
-  MTKScalarDummy -> RepScalar $ rscalar 0
+  MTKScalarDummy -> rscalar 0
   MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
   MTKSDummy -> srepl 0
 
@@ -273,8 +273,7 @@ addRepM ::
   -> RepM ranked y
   -> RepM ranked y
 addRepM a b = case (a, b) of
-  (MTKScalar (RepScalar ta), MTKScalar (RepScalar tb)) ->
-    MTKScalar $ RepScalar $ ta + tb
+  (MTKScalar ta, MTKScalar tb) -> MTKScalar $ ta + tb
   (MTKR ta, MTKR tb) -> MTKR $ ta + tb
   (MTKScalarDummy, _) -> b
   (_, MTKScalarDummy) -> a
@@ -729,7 +728,7 @@ deltaRY :: forall y ranked.
         => STensorKindType y -> Delta ranked y
         -> Rep (DeltaR ranked) y
 deltaRY stk t = case stk of
-  STKScalar{} -> RepScalar $ DeltaR $ ScalarG t
+  STKScalar{} -> DeltaR $ ScalarG t
   STKR STKScalar{} _ -> DeltaR t
   STKS STKScalar{} _ -> DeltaS t
   STKX STKScalar{} _ -> DeltaX t
@@ -743,7 +742,7 @@ unDeltaRY :: forall y ranked.
           => STensorKindType y -> Rep (DeltaR ranked) y
           -> Delta ranked y
 unDeltaRY stk t = case stk of
-  STKScalar{} -> UnScalarG $ unDeltaR $ unRepScalar t
+  STKScalar{} -> UnScalarG $ unDeltaR t
   STKR STKScalar{} _ -> unDeltaR t
   STKS STKScalar{} _ -> unDeltaS t
   STKX STKScalar{} _ -> unDeltaX t
@@ -1255,8 +1254,8 @@ evalSame !s !c = \case
   -- All constructors that only admit a non-TKProduct kind
   -- (and the InputG constructor) can be handled here, where the extra
   -- constraint makes it easier.
-  ScalarG d -> evalSame s (RepScalar c) d
-  UnScalarG d -> evalSame s (unRepScalar c) d
+  ScalarG d -> evalSame s c d
+  UnScalarG d -> evalSame s c d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1675,9 +1674,9 @@ fwdSame
   -> (ADMap ranked, Rep ranked (ADTensorKind y))
 fwdSame params s = \case
   ScalarG d -> let (s2, t) = fwdSame params s d
-               in (s2, unRepScalar t)
+               in (s2, t)
   UnScalarG d -> let (s2, t) = fwdSame params s d
-                 in (s2, RepScalar t)
+                 in (s2, t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)

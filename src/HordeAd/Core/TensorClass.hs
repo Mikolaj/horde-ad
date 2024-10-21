@@ -153,7 +153,7 @@ class HVectorTensor ranked shaped
              -> Rep ranked z
              -> Rep ranked (BuildTensorKind k z)
   treplicate snat@(SNat @k) stk u = case stk of
-    STKScalar _ -> rreplicate (sNatValue snat) $ unRepScalar u
+    STKScalar _ -> rreplicate (sNatValue snat) u
     STKR STKScalar{} SNat -> rreplicate (sNatValue snat) u
     STKS STKScalar{} sh -> withKnownShS sh $ sreplicate u
     STKX STKScalar{} sh -> withKnownShX sh $ xreplicate u
@@ -1308,7 +1308,7 @@ class ProductTensor (ranked :: RankedTensorType) where
 
 tunit :: RankedTensor ranked
       => Rep ranked TKUnit
-tunit = RepScalar $ rscalar ()
+tunit = rscalar ()
 
 rfromD :: forall r n ranked.
           (RankedTensor ranked, GoodScalar r, KnownNat n)
@@ -1558,7 +1558,7 @@ mapRep
   -> Rep f y
   -> Rep g y
 mapRep fr fs fx stk b = case stk of
-  STKScalar _ -> RepScalar $ fr $ unRepScalar b
+  STKScalar _ -> fr b
   STKR STKScalar{} SNat -> fr b
   STKS STKScalar{} sh -> withKnownShS sh $ fs b
   STKX STKScalar{} sh -> withKnownShX sh $ fx b
@@ -1631,7 +1631,7 @@ mapRep2Weak
   -> Rep f1 y -> Rep f2 y
   -> Rep g y
 mapRep2Weak fr fs fx stk b1 b2 = case stk of
-  STKScalar _ -> RepScalar $ fr (unRepScalar b1) (unRepScalar b2)
+  STKScalar _ -> fr b1 b2
   STKR STKScalar{} SNat -> fr b1 b2
   STKS STKScalar{} sh -> withKnownShS sh $ fs b1 b2
   STKX STKScalar{} sh -> withKnownShX sh $ fx b1 b2

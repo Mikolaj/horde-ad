@@ -137,7 +137,7 @@ initialStateAdamDeep ftk =
 -- TODO: introduce and use dummies
 repDeepZero :: TensorKindFull y -> Rep ORArray y
 repDeepZero = \case
-  FTKScalar -> RepScalar $ FlipR $ Nested.rreplicateScal ZSR 0
+  FTKScalar -> FlipR $ Nested.rreplicateScal ZSR 0
   FTKR sh -> FlipR $ Nested.rreplicateScal sh 0
   FTKS sh -> FlipS $ Nested.sreplicateScal sh 0
   FTKX sh -> FlipX $ Nested.mreplicateScal sh 0
@@ -186,13 +186,13 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =
-                       updateR (runFlipR $ unRepScalar mA)
-                               (runFlipR $ unRepScalar vA)
-                               (runFlipR $ unRepScalar p)
-                               (runFlipR $ unRepScalar g)
-                 in (( RepScalar $ FlipR mAN
-                     , RepScalar $ FlipR vAN )
-                    , RepScalar $ FlipR pN ))
+                       updateR (runFlipR mA)
+                               (runFlipR vA)
+                               (runFlipR p)
+                               (runFlipR g)
+                 in (( FlipR mAN
+                     , FlipR vAN )
+                    , FlipR pN ))
                 ((mA, vA), p)
             _ -> ((mA, vA), p)
         STKR (STKScalar @r _) SNat ->

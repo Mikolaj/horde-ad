@@ -99,8 +99,7 @@ addRepD ::
   -> RepD ranked y
   -> RepD ranked y
 addRepD a b = case (a, b) of
-  (DTKScalar (RepScalar ta), DTKScalar (RepScalar tb)) ->
-    DTKScalar $ RepScalar $ ta + tb
+  (DTKScalar ta, DTKScalar tb) -> DTKScalar $ ta + tb
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKX ta, DTKX tb) -> DTKX $ ta + tb
@@ -698,7 +697,7 @@ repConstant :: forall y ranked. ADReadyNoLet ranked
             => Proxy ranked -> (forall r. GoodScalar r => r)
             -> TensorKindFull y -> Rep ranked y
 repConstant Proxy r = \case
-  FTKScalar -> RepScalar $ rscalar r
+  FTKScalar -> rscalar r
   FTKR sh | SNat <- shrRank sh -> rrepl (toList sh) r
   FTKS sh -> withKnownShS sh $ srepl r
   FTKX sh -> withKnownShX (ssxFromShape sh) $ xrepl sh r
@@ -725,7 +724,7 @@ toADTensorKindShared Proxy stk t = case stk of
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           RepScalar $ rscalar ()
+           rscalar ()
   STKR (STKScalar @r _) SNat -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of

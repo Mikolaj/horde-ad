@@ -428,7 +428,7 @@ ravel :: forall k y.
          SNat k -> STensorKindType y -> [Rep ORArray y]
       -> Rep ORArray (BuildTensorKind k y)
 ravel k@SNat stk t = case stk of
-  STKScalar _ -> rfromList $ NonEmpty.fromList $ unRepScalar <$> t
+  STKScalar _ -> rfromList $ NonEmpty.fromList t
   STKR STKScalar{} SNat -> rfromList $ NonEmpty.fromList t
   STKS STKScalar{} sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
@@ -443,7 +443,7 @@ unravel :: forall k y.
            SNat k -> STensorKindType y -> Rep ORArray (BuildTensorKind k y)
         -> [Rep ORArray y]
 unravel k@SNat stk t = case stk of
-  STKScalar _ -> map RepScalar $ runravelToList t
+  STKScalar _ -> runravelToList t
   STKR STKScalar{} SNat -> runravelToList t
   STKS STKScalar{} sh -> withKnownShS sh $ sunravelToList t
   STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"

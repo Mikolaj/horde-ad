@@ -176,7 +176,7 @@ aDValRep
   => Rep ranked y -> Delta ranked y
   -> Rep (ADVal ranked) y
 aDValRep p d = case stensorKind @y of
-  STKScalar{} -> RepScalar $ dDnotShared (unRepScalar p) (DeltaR $ ScalarG d)
+  STKScalar{} -> dDnotShared p (DeltaR $ ScalarG d)
   STKR STKScalar{} _ -> dDnotShared p (DeltaR d)
   STKS STKScalar{} _ -> dDnotShared p (DeltaS d)
   STKX STKScalar{} _ -> dDnotShared p (DeltaX d)

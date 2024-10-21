@@ -157,8 +157,8 @@ interpretAst
   => AstEnv ranked
   -> AstTensor AstMethodLet s y -> Rep ranked y
 interpretAst !env = \case
-  AstScalar t -> unRepScalar $ interpretAst env t
-  AstUnScalar t -> RepScalar $ interpretAst env t
+  AstScalar t -> interpretAst env t
+  AstUnScalar t -> interpretAst env t
   AstPair @z1 @z2 t1 t2 ->
     tpair @ranked @z1 @z2 (interpretAst env t1) (interpretAst env t2)
   AstProject1 @z1 @z2 t -> tproject1 @ranked @z1 @z2 (interpretAst env t)
@@ -278,7 +278,7 @@ interpretAst !env = \case
                 -> (IntOf ranked -> Rep ranked z)
                 -> Rep ranked (BuildTensorKind n z)
         replStk stk g = case stk of
-          STKScalar _ -> rbuild1 (sNatValue snat) (unRepScalar . g)
+          STKScalar _ -> rbuild1 (sNatValue snat) g
           STKR STKScalar{} SNat -> rbuild1 (sNatValue snat) g
           STKS STKScalar{} sh -> withKnownShS sh $ sbuild1 g
           STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
@@ -574,9 +574,7 @@ interpretAst !env = \case
                                     , shapeAstFull l
                                     , shapeVoidHVector (dshape lt) )) $
                    extendEnvHVector vars lw env
-      in RepScalar
-         $ rletHVectorIn lt (\lw -> unRepScalar
-                                    $ interpretAst (env2 lw) v)
+      in rletHVectorIn lt (\lw -> interpretAst (env2 lw) v)
     STKR STKScalar{} SNat ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -613,9 +611,7 @@ interpretAst !env = \case
     STKScalar _ ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
-      in RepScalar
-         $ rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> unRepScalar
-                                                   $ interpretAst (env2 h) v)
+      in rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
     STKR STKScalar{} SNat ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env

@@ -1146,7 +1146,7 @@ rankedY :: forall s y.
            STensorKindType y -> AstTensor AstMethodLet s y
         -> Rep (AstRanked s) y
 rankedY stk t = case stk of
-  STKScalar{} -> RepScalar $ AstRanked $ AstScalar t
+  STKScalar{} -> AstRanked $ AstScalar t
   STKR STKScalar{} _ -> AstRanked t
   STKS STKScalar{} _ -> AstShaped t
   STKX STKScalar{} _ -> AstMixed t
@@ -1158,7 +1158,7 @@ unRankedY :: forall s y.
              STensorKindType y -> Rep (AstRanked s) y
           -> AstTensor AstMethodLet s y
 unRankedY stk t = case stk of
-  STKScalar{} -> AstUnScalar $ unAstRanked $ unRepScalar t
+  STKScalar{} -> AstUnScalar $ unAstRanked t
   STKR STKScalar{} _ -> unAstRanked t
   STKS STKScalar{} _ -> unAstShaped t
   STKX STKScalar{} _ -> unAstMixed t

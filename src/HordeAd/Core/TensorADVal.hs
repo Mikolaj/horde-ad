@@ -172,7 +172,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
        -> Rep (ADVal ranked) z
   blet stkx stkz a f = case stkx of
     STKScalar @r _ -> blet @(ADVal ranked) (stensorKind @(TKR r 0)) stkz
-                           (unRepScalar @(ADVal ranked) a) (f . RepScalar)
+                           a f
     STKR STKScalar{} SNat ->
       let (D u u') = a
           !var2 = tshare @ranked stkx u
@@ -205,7 +205,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
             -> Rep ranked y
             -> Rep (ADVal ranked) y
   tconstant stk t = case stk of
-    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
+    STKScalar _ -> rconstant t
     STKR STKScalar{} SNat -> rconstant t
     STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
     STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
@@ -588,7 +588,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                   in tshapeFull stk u
     _ -> error "TODO"
   tcond stk b u v = case stk of
-    STKScalar _ -> RepScalar $ ifF b (unRepScalar u) (unRepScalar v)
+    STKScalar _ -> ifF b u v
     STKR STKScalar{} SNat -> ifF b u v
     STKS STKScalar{} sh -> withKnownShS sh $ ifF b u v
     STKX STKScalar{} sh -> withKnownShX sh $ ifF b u v
@@ -606,7 +606,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
               -> Rep (ADVal ranked) y
               -> Rep ranked y
   tprimalPart stk t = case stk of
-    STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t
+    STKScalar _ -> rprimalPart t
     STKR STKScalar{} SNat -> rprimalPart t
     STKS STKScalar{} sh -> withKnownShS sh $ sprimalPart t
     STKX STKScalar{} sh -> withKnownShX sh $ xprimalPart t
@@ -1023,7 +1023,7 @@ unADValRep
   -> Rep (ADVal ranked) y
   -> (Rep ranked y, Delta ranked y)
 unADValRep stk t = case (stk, t) of
-  (STKScalar{}, RepScalar (D p (DeltaR d))) -> (RepScalar p, UnScalarG d)
+  (STKScalar{}, D p (DeltaR d)) -> (p, UnScalarG d)
   (STKR STKScalar{} _, D p (DeltaR d)) -> (p, d)
   (STKS STKScalar{} _, D p (DeltaS d)) -> (p, d)
   (STKX STKScalar{} _, D p (DeltaX d)) -> (p, d)

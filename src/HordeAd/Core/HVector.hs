@@ -9,7 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepScalar(..), RepProductN(..)
+  , Rep, RepN(..), RepProductN(..)
   , RepShallow, RepDeep, RepD(..)
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
@@ -61,7 +61,7 @@ type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
 type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
 
-type instance Rep ranked (TKScalar r) = RepScalar ranked r
+type instance Rep ranked (TKScalar r) = ranked r 0
 type instance Rep ranked (TKR r n) = ranked r n
 type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
 type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
@@ -77,12 +77,6 @@ type instance Rep ranked TKUntyped =
 type role RepN nominal nominal
 newtype RepN ranked y =
   RepN {unRepN :: Rep ranked y}
-
-type role RepScalar nominal nominal
-type RepScalar :: RankedTensorType -> Type -> Type
-newtype RepScalar ranked r = RepScalar {unRepScalar :: ranked r 0}
-
-deriving instance Show (ranked r 0) => Show (RepScalar ranked r)
 
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , CMixed (MixedOf ranked) Show
@@ -106,7 +100,7 @@ newtype RepProductN ranked x y =
 
 -- This is concrete only in the outermost layer.
 type family RepShallow ranked y where
-  RepShallow ranked (TKScalar r) = RepScalar ranked r
+  RepShallow ranked (TKScalar r) = ranked r 0
   RepShallow ranked (TKR r n) = ranked r n
   RepShallow ranked (TKS r sh) = ShapedOf ranked r sh
   RepShallow ranked (TKX r sh) = MixedOf ranked r sh
@@ -116,7 +110,7 @@ type family RepShallow ranked y where
 
 -- This is concrete throughout.
 type family RepDeep ranked y where
-  RepDeep ranked (TKScalar r) = RepScalar ranked r
+  RepDeep ranked (TKScalar r) = ranked r 0
   RepDeep ranked (TKR r n) = ranked r n
   RepDeep ranked (TKS r sh) = ShapedOf ranked r sh
   RepDeep ranked (TKX r sh) = MixedOf ranked r sh
