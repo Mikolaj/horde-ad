@@ -349,6 +349,14 @@ type instance DualOf (ADVal f) = Dual f
 
 type instance ShareOf (ADVal f) = ADVal f
 
+type instance Rep (ADVal ranked) (TKScalar r) =
+  ADVal ranked r 0
+type instance Rep (ADVal ranked) (TKR r n) =
+  ADVal ranked r n
+type instance Rep (ADVal ranked) (TKS r sh) =
+  ShapedOf (ADVal ranked) r sh
+type instance Rep (ADVal ranked) (TKX r sh) =
+  MixedOf (ADVal ranked) r sh
 type instance Rep (ADVal ranked) (TKProduct x z) =
   (Rep (ADVal ranked) x, Rep (ADVal ranked) z)
 

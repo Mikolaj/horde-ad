@@ -1464,7 +1464,8 @@ repDeepDuplicable stk t = case stk of
   _ -> error "TODO"
 
 mapDynamic
-  :: (RankedTensor f, ShapedTensor (ShapedOf f))
+  :: forall f g.
+     (RankedTensor f, ShapedTensor (ShapedOf f))
   => (forall r n. (GoodScalar r, KnownNat n)
       => Rep f (TKR r n) -> Rep g (TKR r n))
   -> (forall r sh. (GoodScalar r, KnownShS sh)
@@ -1476,8 +1477,8 @@ mapDynamic fr _fs (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh1 ->
     DynamicRanked @r $ fr (rzero sh1)
 mapDynamic _fr fs (DynamicShapedDummy @r @sh _ _) =
-  DynamicShaped $ fs @r @sh (srepl 0)
-
+  DynamicShaped $ fs @r @sh (sreplTK @(ShapedOf f) @sh @r 0)
+{-
 mapDynamic2
   :: ( RankedTensor f1, ShapedTensor (ShapedOf f1)
      , RankedTensor f2, ShapedTensor (ShapedOf f2) )
@@ -1542,7 +1543,7 @@ mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _)
       Nothing -> error "mapDynamic2: n mismatch"
     Nothing -> error "mapDynamic2: r mismatch"
 mapDynamic2 _ _ _ _ = error "mapDynamic2: unexpected arguments"
-
+-}
 mapRep
   :: forall f g y.
      ( ProductTensor f, ProductTensor g
@@ -1557,27 +1558,33 @@ mapRep
   -> STensorKindType y
   -> Rep f y
   -> Rep g y
-mapRep fr fs fx stk b = case stk of
-  STKScalar _ -> fr b
-  STKR STKScalar{} SNat -> fr b
-  STKS STKScalar{} sh -> withKnownShS sh $ fs b
-  STKX STKScalar{} sh -> withKnownShX sh $ fx b
-  STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                               , Dict <- lemTensorKindOfS stk2 ->
-    let !t1 = mapRep fr fs fx stk1 $ tproject1 @f @y1 @y2 b
-        !t2 = mapRep fr fs fx stk2 $ tproject2 @f @y1 @y2 b
-    in tpair @g @y1 @y2 t1 t2
-      -- this shares properly only when the product instance for f is (,)
-      -- and tlet wouldn't work because f and g differ
-  STKUntyped ->
-    -- Here @dletHVectorInHVector@ or @tlet@ wouldn't work
-    -- because f and g differ.
-    let fd :: DynamicTensor f -> DynamicTensor g
-        fd = mapDynamic fr fs
-    in HVectorPseudoTensor $ tmkHVector
-       $ V.map fd
-       $ dunHVector $ unHVectorPseudoTensor b
-  _ -> error "TODO"
+mapRep fr fs fx = go
+ where
+  go :: STensorKindType y1
+     -> Rep f y1
+     -> Rep g y1
+  go stk b = case stk of
+    STKScalar{} -> error "TODO"
+    STKR @_ @n (STKScalar @r _) SNat -> fr @r @n b
+    STKS @_ @sh (STKScalar @r _) sh -> withKnownShS sh $ fs @r @sh b
+    STKX @_ @sh (STKScalar @r _) sh -> withKnownShX sh $ fx @r @sh b
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                                 , Dict <- lemTensorKindOfS stk2 ->
+      let !t1 = go stk1 $ tproject1 @f @y1 @y2 b
+          !t2 = go stk2 $ tproject2 @f @y1 @y2 b
+      in tpair @g @y1 @y2 t1 t2
+        -- this shares properly only when the product instance for f is (,)
+        -- and tlet wouldn't work because f and g differ
+{- TODO:    STKUntyped ->
+      -- Here @dletHVectorInHVector@ or @tlet@ wouldn't work
+      -- because f and g differ.
+      let fd :: DynamicTensor f -> DynamicTensor g
+          fd = mapDynamic @f @g fr fs
+      in HVectorPseudoTensor $ tmkHVector @g
+         $ V.map fd
+         $ dunHVector @f $ unHVectorPseudoTensor b
+    _ -> error "TODO"
+-}
 
 {- Not needed ATM and quite broken.
 mapRep2
@@ -1630,21 +1637,26 @@ mapRep2Weak
   -> STensorKindType y
   -> Rep f1 y -> Rep f2 y
   -> Rep g y
-mapRep2Weak fr fs fx stk b1 b2 = case stk of
-  STKScalar _ -> fr b1 b2
-  STKR STKScalar{} SNat -> fr b1 b2
-  STKS STKScalar{} sh -> withKnownShS sh $ fs b1 b2
-  STKX STKScalar{} sh -> withKnownShX sh $ fx b1 b2
-  STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                               , Dict <- lemTensorKindOfS stk2 ->
-    let !t1 = mapRep2Weak fr fs fx stk1 (tproject1 @f1 @y1 @y2 b1)
-                                        (tproject1 @f2 @y1 @y2 b2)
-        !t2 = mapRep2Weak fr fs fx stk2 (tproject2 @f1 @y1 @y2 b1)
-                                        (tproject2 @f2 @y1 @y2 b2)
-    in tpair @g @y1 @y2 t1 t2
-      -- this shares properly only when the product instance for f1 and f2 is (,)
-  STKUntyped -> error "TODO: mapRep2Weak is weak"
-  _ -> error "TODO"
+mapRep2Weak fr fs fx = go
+ where
+  go :: STensorKindType y1
+     -> Rep f1 y1 -> Rep f2 y1
+     -> Rep g y1
+  go stk b1 b2 = case stk of
+    STKScalar{} -> error "TODO"
+    STKR @_ @n (STKScalar @r _) SNat -> fr @r @n b1 b2
+    STKS @_ @sh (STKScalar @r _) sh -> withKnownShS sh $ fs @r @sh b1 b2
+    STKX @_ @sh (STKScalar @r _) sh -> withKnownShX sh $ fx @r @sh b1 b2
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                                 , Dict <- lemTensorKindOfS stk2 ->
+      let !t1 = go stk1 (tproject1 @f1 @y1 @y2 b1)
+                        (tproject1 @f2 @y1 @y2 b2)
+          !t2 = go stk2 (tproject2 @f1 @y1 @y2 b1)
+                        (tproject2 @f2 @y1 @y2 b2)
+      in tpair @g @y1 @y2 t1 t2
+        -- this shares properly only when the product instance for f1 and f2 is (,)
+    STKUntyped -> error "TODO: mapRep2Weak is weak"
+    _ -> error "TODO"
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

@@ -67,8 +67,17 @@ type role AstGenericWrap nominal
 newtype AstGenericWrap t = AstGenericWrap {unAstGenericWrap :: t}
  deriving Show
 
+type instance Rep (AstGeneric ms s) (TKScalar r) =
+  AstTensor ms s (TKScalar r)
+type instance Rep (AstGeneric ms s) (TKR r n) =
+  AstGeneric ms s r n
+type instance Rep (AstGeneric ms s) (TKS r sh) =
+  ShapedOf (AstGeneric ms s) r sh
+type instance Rep (AstGeneric ms s) (TKX r sh) =
+  MixedOf (AstGeneric ms s) r sh
 type instance Rep (AstGeneric ms s) (TKProduct x z) =
   AstGenericWrap (AstTensor ms s (TKProduct x z))
+
 type instance RankedOf (AstGeneric ms s) = AstGeneric ms s
 type instance ShapedOf (AstGeneric ms s) = AstGenericS ms s
 type instance PrimalOf (AstGeneric ms s) = AstGeneric ms PrimalSpan
@@ -83,6 +92,14 @@ type instance RankedOf (AstGenericS ms s) = AstGeneric ms s
 type instance PrimalOf (AstGenericS ms s) = AstGenericS ms PrimalSpan
 type instance DualOf (AstGenericS ms s) = AstGenericS ms DualSpan
 
+type instance Rep (AstRanked s) (TKScalar r) =
+  AstTensor AstMethodLet s (TKScalar r)
+type instance Rep (AstRanked s) (TKR r n) =
+  AstRanked s r n
+type instance Rep (AstRanked s) (TKS r sh) =
+  ShapedOf (AstRanked s) r sh
+type instance Rep (AstRanked s) (TKX r sh) =
+  MixedOf (AstRanked s) r sh
 type instance Rep (AstRanked s) (TKProduct x z) =
   AstTensor AstMethodLet s (TKProduct x z)
 
@@ -1146,7 +1163,7 @@ rankedY :: forall s y.
            STensorKindType y -> AstTensor AstMethodLet s y
         -> Rep (AstRanked s) y
 rankedY stk t = case stk of
-  STKScalar{} -> AstRanked $ AstScalar t
+  STKScalar{} -> t
   STKR STKScalar{} _ -> AstRanked t
   STKS STKScalar{} _ -> AstShaped t
   STKX STKScalar{} _ -> AstMixed t
@@ -1158,7 +1175,7 @@ unRankedY :: forall s y.
              STensorKindType y -> Rep (AstRanked s) y
           -> AstTensor AstMethodLet s y
 unRankedY stk t = case stk of
-  STKScalar{} -> AstUnScalar $ unAstRanked t
+  STKScalar{} -> t
   STKR STKScalar{} _ -> unAstRanked t
   STKS STKScalar{} _ -> unAstShaped t
   STKX STKScalar{} _ -> unAstMixed t

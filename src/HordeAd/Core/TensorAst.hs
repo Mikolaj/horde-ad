@@ -961,6 +961,14 @@ deriving instance Floating (AstTensor AstMethodShare s (TKX r sh))
 deriving instance (RealFloatF (AstTensor AstMethodShare s (TKX r sh)))
                   => RealFloatF (AstRawX s r sh)
 
+type instance Rep (AstRaw s) (TKScalar r) =
+  AstTensor AstMethodShare s (TKScalar r)
+type instance Rep (AstRaw s) (TKR r n) =
+  AstRaw s r n
+type instance Rep (AstRaw s) (TKS r sh) =
+  ShapedOf (AstRaw s) r sh
+type instance Rep (AstRaw s) (TKX r sh) =
+  MixedOf (AstRaw s) r sh
 type instance Rep (AstRaw s) (TKProduct x z) =
   AstRawWrap (AstTensor AstMethodShare s (TKProduct x z))
 
@@ -1350,6 +1358,14 @@ deriving instance Floating (AstTensor AstMethodLet s (TKX r sh))
 deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
                   => RealFloatF (AstNoVectorizeX s r sh)
 
+type instance Rep (AstNoVectorize s) (TKScalar r) =
+  AstTensor AstMethodLet s (TKScalar r)
+type instance Rep (AstNoVectorize s) (TKR r n) =
+  AstNoVectorize s r n
+type instance Rep (AstNoVectorize s) (TKS r sh) =
+  ShapedOf (AstNoVectorize s) r sh
+type instance Rep (AstNoVectorize s) (TKX r sh) =
+  MixedOf (AstNoVectorize s) r sh
 type instance Rep (AstNoVectorize s) (TKProduct x z) =
   AstNoVectorizeWrap (AstTensor AstMethodLet s (TKProduct x z))
 
@@ -1793,6 +1809,14 @@ deriving instance Floating (AstTensor AstMethodLet s (TKX r sh))
 deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
                   => RealFloatF (AstNoSimplifyX s r sh)
 
+type instance Rep (AstNoSimplify s) (TKScalar r) =
+  AstTensor AstMethodLet s (TKScalar r)
+type instance Rep (AstNoSimplify s) (TKR r n) =
+  AstNoSimplify s r n
+type instance Rep (AstNoSimplify s) (TKS r sh) =
+  ShapedOf (AstNoSimplify s) r sh
+type instance Rep (AstNoSimplify s) (TKX r sh) =
+  MixedOf (AstNoSimplify s) r sh
 type instance Rep (AstNoSimplify s) (TKProduct x z) =
   AstNoSimplifyWrap (AstTensor AstMethodLet s (TKProduct x z))
 

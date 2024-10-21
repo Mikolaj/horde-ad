@@ -710,6 +710,14 @@ type instance MixedOf (DeltaR ranked) = DeltaX (MixedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
+type instance Rep (DeltaR ranked) (TKScalar r) =
+  Delta ranked (TKScalar r)
+type instance Rep (DeltaR ranked) (TKR r n) =
+  DeltaR ranked  r n
+type instance Rep (DeltaR ranked) (TKS r sh) =
+  ShapedOf (DeltaR ranked)  r sh
+type instance Rep (DeltaR ranked) (TKX r sh) =
+  MixedOf (DeltaR ranked)  r sh
 type instance Rep (DeltaR ranked) (TKProduct x z) =
   Delta ranked (TKProduct x z)
 

@@ -230,6 +230,14 @@ type role DummyProduct representational representational
 type DummyProduct :: Type -> Type -> Type
 data DummyProduct vx vz = DummyProduct vx vz
 
+type instance Rep DummyDual (TKScalar r) =
+  ()
+type instance Rep DummyDual (TKR r n) =
+  DummyDual r n
+type instance Rep DummyDual (TKS r sh) =
+  ShapedOf DummyDual r sh
+type instance Rep DummyDual (TKX r sh) =
+  MixedOf DummyDual r sh
 type instance Rep DummyDual (TKProduct x z) =
   DummyProduct (Rep DummyDual x)
                (Rep DummyDual z)
@@ -410,6 +418,14 @@ instance HVectorTensor ORArray OSArray where
     oRdmapAccumL k accShs bShs eShs (\ !a !b ->
       f (unrepDeep @ORArray @accShs a, unrepDeep @ORArray @eShs b)) acc0 es
 
+type instance Rep ORArray (TKScalar r) =
+  r
+type instance Rep ORArray (TKR r n) =
+  ORArray r n
+type instance Rep ORArray (TKS r sh) =
+  ShapedOf ORArray r sh
+type instance Rep ORArray (TKX r sh) =
+  MixedOf ORArray r sh
 type instance Rep ORArray (TKProduct x z) =
   (Rep ORArray x, Rep ORArray z)
 

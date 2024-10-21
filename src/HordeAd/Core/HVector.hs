@@ -61,14 +61,9 @@ type instance RankedOf (HVectorPseudoTensor ranked) = ranked
 
 type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
 
-type instance Rep ranked (TKScalar r) = ranked r 0
-type instance Rep ranked (TKR r n) = ranked r n
-type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
-type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
--- The TKProduct case is defined separately for each ranked argument.
+-- TODO: defined here, because too much code depends on it:
 type instance Rep ranked TKUntyped =
   HVectorPseudoTensor ranked Float '()
-    -- HVectorPseudoTensor instead of HVectorOf required for injectivity
 
 -- Needed because `Rep` can't be partially applied.
 -- This type also lets us work around the woes with defining Show
@@ -78,6 +73,7 @@ type role RepN nominal nominal
 newtype RepN ranked y =
   RepN {unRepN :: Rep ranked y}
 
+{-
 instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
          , CMixed (MixedOf ranked) Show
          , Show (HVectorOf ranked), CRepProduct ranked Show
@@ -93,6 +89,9 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
       showsPrec d (RepProductN @ranked @y1 @y2 t)
     STKUntyped -> showsPrec d t
     _ -> error "TODO"
+-}
+instance Show (RepN ranked y) where
+  showsPrec _ (RepN _) = showString "TODO"
 
 type role RepProductN nominal nominal nominal
 newtype RepProductN ranked x y =
