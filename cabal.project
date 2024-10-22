@@ -4,4 +4,5 @@ packages: ./
 package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
-
+package *
+  ghc-options: -dcore-lint -dstg-lint -dcmm-lint -dtag-inference-checks
