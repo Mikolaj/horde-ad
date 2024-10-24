@@ -330,7 +330,7 @@ testGatherSimpPP23 = do
               gatherReshape22 @(AstRanked PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstRanked $ AstVar (FTKR [6, 2]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 209
+  length (show t1) @?= 545
   length (show (simplifyInlineAst @Float t1)) @?= 209
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
