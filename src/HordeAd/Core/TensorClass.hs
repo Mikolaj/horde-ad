@@ -1654,3 +1654,398 @@ type ADReadyClasses ranked shaped mixed =
   , CRepProduct ranked Show
   , CHFun2 ranked Show
   )
+
+
+-- TODO: move somewhere
+
+class NumNested ranked y where
+  addNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+  subNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+  mulNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+  negNested :: Rep ranked y -> Rep ranked y
+  absNested :: Rep ranked y -> Rep ranked y
+  sigNested :: Rep ranked y -> Rep ranked y
+  frINested :: Integer -> Rep ranked y
+
+instance Num (ranked r 0) =>
+         NumNested ranked (TKScalar r) where
+  addNested (RepScalar a) (RepScalar b) = RepScalar $ a + b
+  subNested (RepScalar a) (RepScalar b) = RepScalar $ a - b
+  mulNested (RepScalar a) (RepScalar b) = RepScalar $ a * b
+  negNested (RepScalar a) = RepScalar $ negate a
+  absNested (RepScalar a) = RepScalar $ abs a
+  sigNested (RepScalar a) = RepScalar $ signum a
+  frINested = RepScalar . fromInteger
+
+instance Num (ranked r n) =>
+         NumNested ranked (TKR r n) where
+  addNested = (+)
+  subNested = (-)
+  mulNested = (*)
+  negNested = negate
+  absNested = abs
+  sigNested = signum
+  frINested = fromInteger
+
+instance Num (ShapedOf ranked r sh) =>
+         NumNested ranked (TKS r sh) where
+  addNested = (+)
+  subNested = (-)
+  mulNested = (*)
+  negNested = negate
+  absNested = abs
+  sigNested = signum
+  frINested = fromInteger
+
+instance Num (MixedOf ranked r sh) =>
+         NumNested ranked (TKX r sh) where
+  addNested = (+)
+  subNested = (-)
+  mulNested = (*)
+  negNested = negate
+  absNested = abs
+  sigNested = signum
+  frINested = fromInteger
+
+instance ( TensorKind a, TensorKind b, LetTensor ranked (ShapedOf ranked)
+         , ProductTensor ranked, NumNested ranked a, NumNested ranked b ) =>
+         NumNested ranked (TKProduct a b) where
+  addNested a b = tlet a $ \(a1, a2) ->
+                  tlet b $ \(b1, b2) -> tpair (addNested a1 b1) (addNested a2 b2)
+  subNested a b = tlet a $ \(a1, a2) ->
+                  tlet b $ \(b1, b2) -> tpair (subNested a1 b1) (subNested a2 b2)
+  mulNested a b = tlet a $ \(a1, a2) ->
+                  tlet b $ \(b1, b2) -> tpair (mulNested a1 b1) (mulNested a2 b2)
+  negNested a = tpair (negNested $ tproject1 a) (negNested $ tproject2 a)
+  absNested a = tpair (absNested $ tproject1 a) (absNested $ tproject2 a)
+  sigNested a = tpair (sigNested $ tproject1 a) (sigNested $ tproject2 a)
+  frINested i = tpair (frINested i) (frINested i)
+
+instance Num (HVectorOf ranked) =>
+         NumNested ranked TKUntyped where
+  addNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a + b
+  subNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a - b
+  mulNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a * b
+  negNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ negate a
+  absNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ abs a
+  sigNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ signum a
+  frINested = HVectorPseudoTensor . fromInteger
+
+instance NumNested ranked y => Num (RepN ranked y) where
+  RepN a + RepN b = RepN $ addNested a b
+  RepN a * RepN b = RepN $ mulNested a b
+  RepN a - RepN b = RepN $ subNested a b
+  negate (RepN a) = RepN $ negNested a
+  abs (RepN a) = RepN $ absNested a
+  signum (RepN a) = RepN $ sigNested a
+  fromInteger i = RepN $ frINested i
+
+class IntegralFNested ranked y where
+  quotNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+  remNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+
+instance IntegralF (ranked r 0) =>
+         IntegralFNested ranked (TKScalar r) where
+  quotNested (RepScalar a) (RepScalar b) = RepScalar $ a `quotF` b
+  remNested (RepScalar a) (RepScalar b) = RepScalar $ a `remF` b
+
+instance IntegralF (ranked r n) =>
+         IntegralFNested ranked (TKR r n) where
+  quotNested = quotF
+  remNested = remF
+
+instance IntegralF (ShapedOf ranked r sh) =>
+         IntegralFNested ranked (TKS r sh) where
+  quotNested = quotF
+  remNested = remF
+
+instance IntegralF (MixedOf ranked r sh) =>
+         IntegralFNested ranked (TKX r sh) where
+  quotNested = quotF
+  remNested = remF
+
+instance ( TensorKind a, TensorKind b, LetTensor ranked (ShapedOf ranked)
+         , ProductTensor ranked
+         , IntegralFNested ranked a, IntegralFNested ranked b ) =>
+         IntegralFNested ranked (TKProduct a b) where
+  quotNested a b = tlet a $ \(a1, a2) ->
+                   tlet b $ \(b1, b2) ->
+                     tpair (quotNested a1 b1) (quotNested a2 b2)
+  remNested a b = tlet a $ \(a1, a2) ->
+                  tlet b $ \(b1, b2) -> tpair (remNested a1 b1) (remNested a2 b2)
+
+instance IntegralF (HVectorOf ranked) =>
+         IntegralFNested ranked TKUntyped where
+  quotNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a `quotF` b
+  remNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a `remF` b
+
+instance IntegralFNested ranked y => IntegralF (RepN ranked y) where
+  quotF (RepN a) (RepN b) = RepN $ quotNested a b
+  remF (RepN a) (RepN b) = RepN $ remNested a b
+
+class FractionalNested ranked y where
+  divNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+  recNested :: Rep ranked y -> Rep ranked y
+  frRNested :: Rational -> Rep ranked y
+
+instance Fractional (ranked r 0) =>
+         FractionalNested ranked (TKScalar r) where
+  divNested (RepScalar a) (RepScalar b) = RepScalar $ a / b
+  recNested (RepScalar a) = RepScalar $ recip a
+  frRNested = RepScalar . fromRational
+
+instance Fractional (ranked r n) =>
+         FractionalNested ranked (TKR r n) where
+  divNested = (/)
+  recNested = recip
+  frRNested = fromRational
+
+instance Fractional (ShapedOf ranked r sh) =>
+         FractionalNested ranked (TKS r sh) where
+  divNested = (/)
+  recNested = recip
+  frRNested = fromRational
+
+instance Fractional (MixedOf ranked r sh) =>
+         FractionalNested ranked (TKX r sh) where
+  divNested = (/)
+  recNested = recip
+  frRNested = fromRational
+
+instance ( TensorKind a, TensorKind b, LetTensor ranked (ShapedOf ranked)
+         , ProductTensor ranked
+         , FractionalNested ranked a, FractionalNested ranked b ) =>
+         FractionalNested ranked (TKProduct a b) where
+  divNested a b = tlet a $ \(a1, a2) ->
+                  tlet b $ \(b1, b2) -> tpair (divNested a1 b1) (divNested a2 b2)
+  recNested a = tpair (recNested $ tproject1 a) (recNested $ tproject2 a)
+  frRNested i = tpair (frRNested i) (frRNested i)
+
+instance Fractional (HVectorOf ranked) =>
+         FractionalNested ranked TKUntyped where
+  divNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a / b
+  recNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ recip a
+  frRNested = HVectorPseudoTensor . fromRational
+
+instance (NumNested ranked y, FractionalNested ranked y)
+         => Fractional (RepN ranked y) where
+  RepN a / RepN b = RepN $ divNested a b
+  recip (RepN a) = RepN $ recNested a
+  fromRational i = RepN $ frRNested i
+
+class FloatingNested ranked y where
+  piNested :: Rep ranked y
+  expNested :: Rep ranked y -> Rep ranked y
+  logNested :: Rep ranked y -> Rep ranked y
+  sqrtNested :: Rep ranked y -> Rep ranked y
+  powNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+  logBaseNested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+  sinNested :: Rep ranked y -> Rep ranked y
+  cosNested :: Rep ranked y -> Rep ranked y
+  tanNested :: Rep ranked y -> Rep ranked y
+  asinNested :: Rep ranked y -> Rep ranked y
+  acosNested :: Rep ranked y -> Rep ranked y
+  atanNested :: Rep ranked y -> Rep ranked y
+  sinhNested :: Rep ranked y -> Rep ranked y
+  coshNested :: Rep ranked y -> Rep ranked y
+  tanhNested :: Rep ranked y -> Rep ranked y
+  asinhNested :: Rep ranked y -> Rep ranked y
+  acoshNested :: Rep ranked y -> Rep ranked y
+  atanhNested :: Rep ranked y -> Rep ranked y
+
+instance Floating (ranked r 0) =>
+         FloatingNested ranked (TKScalar r) where
+  piNested = RepScalar pi
+  expNested (RepScalar a) = RepScalar $ exp a
+  logNested (RepScalar a) = RepScalar $ log a
+  sqrtNested (RepScalar a) = RepScalar $ sqrt a
+  powNested (RepScalar a) (RepScalar b) = RepScalar $ a ** b
+  logBaseNested (RepScalar a) (RepScalar b) = RepScalar $ a `logBase` b
+  sinNested (RepScalar a) = RepScalar $ sin a
+  cosNested (RepScalar a) = RepScalar $ cos a
+  tanNested (RepScalar a) = RepScalar $ tan a
+  asinNested (RepScalar a) = RepScalar $ asin a
+  acosNested (RepScalar a) = RepScalar $ acos a
+  atanNested (RepScalar a) = RepScalar $ atan a
+  sinhNested (RepScalar a) = RepScalar $ sinh a
+  coshNested (RepScalar a) = RepScalar $ cosh a
+  tanhNested (RepScalar a) = RepScalar $ tanh a
+  asinhNested (RepScalar a) = RepScalar $ asinh a
+  acoshNested (RepScalar a) = RepScalar $ acosh a
+  atanhNested (RepScalar a) = RepScalar $ atanh a
+
+instance Floating (ranked r n) =>
+         FloatingNested ranked (TKR r n) where
+  piNested = pi
+  expNested = exp
+  logNested = log
+  sqrtNested = sqrt
+  powNested = (**)
+  logBaseNested = logBase
+  sinNested = sin
+  cosNested = cos
+  tanNested = tan
+  asinNested = asin
+  acosNested = acos
+  atanNested = atan
+  sinhNested = sinh
+  coshNested = cosh
+  tanhNested = tanh
+  asinhNested = asinh
+  acoshNested = acosh
+  atanhNested = atanh
+
+instance Floating (ShapedOf ranked r sh) =>
+         FloatingNested ranked (TKS r sh) where
+  piNested = pi
+  expNested = exp
+  logNested = log
+  sqrtNested = sqrt
+  powNested = (**)
+  logBaseNested = logBase
+  sinNested = sin
+  cosNested = cos
+  tanNested = tan
+  asinNested = asin
+  acosNested = acos
+  atanNested = atan
+  sinhNested = sinh
+  coshNested = cosh
+  tanhNested = tanh
+  asinhNested = asinh
+  acoshNested = acosh
+  atanhNested = atanh
+
+instance Floating (MixedOf ranked r sh) =>
+         FloatingNested ranked (TKX r sh) where
+  piNested = pi
+  expNested = exp
+  logNested = log
+  sqrtNested = sqrt
+  powNested = (**)
+  logBaseNested = logBase
+  sinNested = sin
+  cosNested = cos
+  tanNested = tan
+  asinNested = asin
+  acosNested = acos
+  atanNested = atan
+  sinhNested = sinh
+  coshNested = cosh
+  tanhNested = tanh
+  asinhNested = asinh
+  acoshNested = acosh
+  atanhNested = atanh
+
+instance ( TensorKind a, TensorKind b, LetTensor ranked (ShapedOf ranked)
+         , ProductTensor ranked
+         , FloatingNested ranked a, FloatingNested ranked b ) =>
+         FloatingNested ranked (TKProduct a b) where
+  piNested = tpair piNested piNested
+  expNested a = tpair (expNested $ tproject1 a) (expNested $ tproject2 a)
+  logNested a = tpair (logNested $ tproject1 a) (logNested $ tproject2 a)
+  sqrtNested a = tpair (sqrtNested $ tproject1 a) (sqrtNested $ tproject2 a)
+  powNested a b = tlet a $ \(a1, a2) ->
+                  tlet b $ \(b1, b2) -> tpair (powNested a1 b1) (powNested a2 b2)
+  logBaseNested a b = tlet a $ \(a1, a2) ->
+                      tlet b $ \(b1, b2) ->
+                        tpair (logBaseNested a1 b1) (logBaseNested a2 b2)
+  sinNested a = tpair (sinNested $ tproject1 a) (sinNested $ tproject2 a)
+  cosNested a = tpair (cosNested $ tproject1 a) (cosNested $ tproject2 a)
+  tanNested a = tpair (tanNested $ tproject1 a) (tanNested $ tproject2 a)
+  asinNested a = tpair (asinNested $ tproject1 a) (asinNested $ tproject2 a)
+  acosNested a = tpair (acosNested $ tproject1 a) (acosNested $ tproject2 a)
+  atanNested a = tpair (atanNested $ tproject1 a) (atanNested $ tproject2 a)
+  sinhNested a = tpair (sinhNested $ tproject1 a) (sinhNested $ tproject2 a)
+  coshNested a = tpair (coshNested $ tproject1 a) (coshNested $ tproject2 a)
+  tanhNested a = tpair (tanhNested $ tproject1 a) (tanhNested $ tproject2 a)
+  asinhNested a = tpair (asinhNested $ tproject1 a) (asinhNested $ tproject2 a)
+  acoshNested a = tpair (acoshNested $ tproject1 a) (acoshNested $ tproject2 a)
+  atanhNested a = tpair (atanhNested $ tproject1 a) (atanhNested $ tproject2 a)
+
+instance Floating (HVectorOf ranked) =>
+         FloatingNested ranked TKUntyped where
+  piNested = HVectorPseudoTensor pi
+  expNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ exp a
+  logNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ log a
+  sqrtNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ sqrt a
+  powNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a ** b
+  logBaseNested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a `logBase` b
+  sinNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ sin a
+  cosNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ cos a
+  tanNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ tan a
+  asinNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ asin a
+  acosNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ acos a
+  atanNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ atan a
+  sinhNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ sinh a
+  coshNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ cosh a
+  tanhNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ tanh a
+  asinhNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ asinh a
+  acoshNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ acosh a
+  atanhNested (HVectorPseudoTensor a) = HVectorPseudoTensor $ atanh a
+
+instance (NumNested ranked y, FractionalNested ranked y, FloatingNested ranked y)
+         => Floating (RepN ranked y) where
+  pi = RepN piNested
+  exp (RepN a) = RepN $ expNested a
+  log (RepN a) = RepN $ logNested a
+  sqrt (RepN a) = RepN $ sqrtNested a
+  RepN a ** RepN b = RepN $ powNested a b
+  logBase (RepN a) (RepN b) = RepN $ logBaseNested a b
+  sin (RepN a) = RepN $ sinNested a
+  cos (RepN a) = RepN $ cosNested a
+  tan (RepN a) = RepN $ tanNested a
+  asin (RepN a) = RepN $ asinNested a
+  acos (RepN a) = RepN $ acosNested a
+  atan (RepN a) = RepN $ atanNested a
+  sinh (RepN a) = RepN $ sinhNested a
+  cosh (RepN a) = RepN $ coshNested a
+  tanh (RepN a) = RepN $ tanhNested a
+  asinh (RepN a) = RepN $ asinhNested a
+  acosh (RepN a) = RepN $ acoshNested a
+  atanh (RepN a) = RepN $ atanhNested a
+
+class RealFloatFNested ranked y where
+  atan2Nested :: Rep ranked y -> Rep ranked y -> Rep ranked y
+
+instance RealFloatF (ranked r 0) =>
+         RealFloatFNested ranked (TKScalar r) where
+  atan2Nested (RepScalar a) (RepScalar b) = RepScalar $ a `atan2F` b
+
+instance RealFloatF (ranked r n) =>
+         RealFloatFNested ranked (TKR r n) where
+  atan2Nested = atan2F
+
+instance RealFloatF (ShapedOf ranked r sh) =>
+         RealFloatFNested ranked (TKS r sh) where
+  atan2Nested = atan2F
+
+instance RealFloatF (MixedOf ranked r sh) =>
+         RealFloatFNested ranked (TKX r sh) where
+  atan2Nested = atan2F
+
+instance ( TensorKind a, TensorKind b, LetTensor ranked (ShapedOf ranked)
+         , ProductTensor ranked
+         , RealFloatFNested ranked a, RealFloatFNested ranked b ) =>
+         RealFloatFNested ranked (TKProduct a b) where
+  atan2Nested a b = tlet a $ \(a1, a2) ->
+                    tlet b $ \(b1, b2) ->
+                      tpair (atan2Nested a1 b1) (atan2Nested a2 b2)
+
+instance RealFloatF (HVectorOf ranked) =>
+         RealFloatFNested ranked TKUntyped where
+  atan2Nested (HVectorPseudoTensor a) (HVectorPseudoTensor b) =
+    HVectorPseudoTensor $ a `atan2F` b
+
+instance ( NumNested ranked y, FractionalNested ranked y
+         , FloatingNested ranked y, RealFloatFNested ranked y )
+         => RealFloatF (RepN ranked y) where
+  atan2F (RepN a) (RepN b) = RepN $ atan2Nested a b
