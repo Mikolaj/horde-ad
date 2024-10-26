@@ -1600,6 +1600,11 @@ type ADReadyBoth ranked shaped =
 -- The following can't be added, because we have instances like ADVal (AstRaw),
 -- so AstRaw would need to have a LetTensor instance:
 --  , LetTensor (PrimalOf ranked) (PrimalOf shaped)
+  , CRankedY ranked NumNested
+  , CRankedYSupports ranked IntegralTK IntegralFNested
+  , CRankedYSupports ranked DifferentiableTK FloatingNested
+  , CRankedYSupports ranked DifferentiableTK FractionalNested
+  , CRankedYSupports ranked DifferentiableTK RealFloatFNested
   )
 
 type ADReadyBothNoLet ranked shaped =
@@ -1716,7 +1721,7 @@ instance ( TensorKind a, TensorKind b, LetTensor ranked (ShapedOf ranked)
                   tlet b $ \(b1, b2) -> tpair (subNested a1 b1) (subNested a2 b2)
   mulNested a b = tlet a $ \(a1, a2) ->
                   tlet b $ \(b1, b2) -> tpair (mulNested a1 b1) (mulNested a2 b2)
-  negNested a = tpair (negNested $ tproject1 a) (negNested $ tproject2 a)
+  negNested a = tpair (negNested $ tproject1 a) (negNested $ tproject2 a)  -- TODO: here and elsewhere tlet is needed as well
   absNested a = tpair (absNested $ tproject1 a) (absNested $ tproject2 a)
   sigNested a = tpair (sigNested $ tproject1 a) (sigNested $ tproject2 a)
   frINested i = tpair (frINested i) (frINested i)

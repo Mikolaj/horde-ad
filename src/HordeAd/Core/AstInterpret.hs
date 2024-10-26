@@ -364,25 +364,87 @@ interpretAst !env = \case
           (AstLet var u (AstN2 TimesOp v (AstReplicate (SNat @m) s)))
   AstN1 opCode u ->
     let u2 = interpretAst env u
-    in interpretAstN1 opCode u2
+    in case stensorKind @y of
+      STKScalar _ -> unRepN $ interpretAstN1 opCode (RepN u2)
+      STKR STKScalar{} SNat -> unRepN $ interpretAstN1 opCode (RepN u2)
+      STKS STKScalar{} sh -> withKnownShS sh $
+        unRepN $ interpretAstN1 opCode (RepN u2)
+      STKX STKScalar{} sh -> withKnownShX sh $
+        unRepN $ interpretAstN1 opCode (RepN u2)
+--      STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+--                           , Dict <- lemTensorKindOfS stk2 ->
+--        unRepN $ interpretAstN1 opCode (RepN u2)
+      _ -> error "interpretAst: arithmetic"
   AstN2 opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
-    in interpretAstN2 opCode u2 v2
+    in case stensorKind @y of
+      STKScalar _ -> unRepN $ interpretAstN2 opCode (RepN u2) (RepN v2)
+      STKR STKScalar{} SNat -> unRepN $ interpretAstN2 opCode (RepN u2) (RepN v2)
+      STKS STKScalar{} sh -> withKnownShS sh $
+        unRepN $ interpretAstN2 opCode (RepN u2) (RepN v2)
+      STKX STKScalar{} sh -> withKnownShX sh $
+        unRepN $ interpretAstN2 opCode (RepN u2) (RepN v2)
+--      STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+--                           , Dict <- lemTensorKindOfS stk2 ->
+--        unRepN $ interpretAstN2 opCode (RepN u2) (RepN v2)
+      _ -> error "interpretAst: arithmetic"
   AstR1 opCode u ->
     let u2 = interpretAst env u
-    in interpretAstR1 opCode u2
+    in case stensorKind @y of
+      STKScalar _ -> unRepN $ interpretAstR1 opCode (RepN u2)
+      STKR STKScalar{} SNat -> unRepN $ interpretAstR1 opCode (RepN u2)
+      STKS STKScalar{} sh -> withKnownShS sh $
+        unRepN $ interpretAstR1 opCode (RepN u2)
+      STKX STKScalar{} sh -> withKnownShX sh $
+        unRepN $ interpretAstR1 opCode (RepN u2)
+--      STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+--                           , Dict <- lemTensorKindOfS stk2 ->
+--        unRepN $ interpretAstR1 opCode (RepN u2)
+      _ -> error "interpretAst: arithmetic"
   AstR2 opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
-    in interpretAstR2 opCode u2 v2
+    in case stensorKind @y of
+      STKScalar _ -> unRepN $ interpretAstR2 opCode (RepN u2) (RepN v2)
+      STKR STKScalar{} SNat -> unRepN $ interpretAstR2 opCode (RepN u2) (RepN v2)
+      STKS STKScalar{} sh -> withKnownShS sh $
+        unRepN $ interpretAstR2 opCode (RepN u2) (RepN v2)
+      STKX STKScalar{} sh -> withKnownShX sh $
+        unRepN $ interpretAstR2 opCode (RepN u2) (RepN v2)
+--      STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+--                           , Dict <- lemTensorKindOfS stk2 ->
+--        unRepN $ interpretAstR2 opCode (RepN u2) (RepN v2)
+      _ -> error "interpretAst: arithmetic"
   AstI2 opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
-    in interpretAstI2F opCode u2 v2
+    in case stensorKind @y of
+      STKScalar _ -> unRepN $ interpretAstI2F opCode (RepN u2) (RepN v2)
+      STKR STKScalar{} SNat -> unRepN $ interpretAstI2F opCode (RepN u2) (RepN v2)
+      STKS STKScalar{} sh -> withKnownShS sh $
+        unRepN $ interpretAstI2F opCode (RepN u2) (RepN v2)
+      STKX STKScalar{} sh -> withKnownShX sh $
+        unRepN $ interpretAstI2F opCode (RepN u2) (RepN v2)
+--      STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+--                           , Dict <- lemTensorKindOfS stk2 ->
+--        unRepN $ interpretAstI2F opCode (RepN u2) (RepN v2)
+      _ -> error "interpretAst: arithmetic"
   AstSumOfList args ->
     let args2 = interpretAst env <$> args
-    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
+    in foldr1 (\a b -> case stensorKind @y of
+      STKScalar _ -> unRepN $ RepN a + RepN b
+      STKR STKScalar{} SNat -> unRepN $ RepN a + RepN b
+      STKS STKScalar{} sh -> withKnownShS sh $
+        unRepN $ RepN a + RepN b
+      STKX STKScalar{} sh -> withKnownShX sh $
+        unRepN $ RepN a + RepN b
+--      STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+--                           , Dict <- lemTensorKindOfS stk2 ->
+--        unRepN $ RepN a + RepN b
+      _ -> error "interpretAst: arithmetic"
+              ) args2
+         -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIota (i :.: ZIR) ->
     rfromIntegral $ rconstant $ interpretAstPrimal env i
   AstIndex v ix ->
@@ -655,27 +717,6 @@ interpretAst !env = \case
         interpretAst env
           (AstLet var u (AstN2 TimesOp [v, AstReplicate @m k s]))
 -}
-  AstN1S opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstN1 opCode u2
-  AstN2S opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstN2 opCode u2 v2
-  AstR1S opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstR1 opCode u2
-  AstR2S opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstR2F opCode u2 v2
-  AstI2S opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstI2F opCode u2 v2
-  AstSumOfListS args ->
-    let args2 = interpretAst env <$> args
-    in foldl1 (+) (srepl 0 : args2)  -- backward compat vs @sum@
 -- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
     sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
@@ -841,27 +882,6 @@ interpretAst !env = \case
   AstMaxIndexX _v -> error "TODO"
   AstFloorX _v -> error "TODO"
   AstIotaX -> error "TODO"
-  AstN1X opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstN1 opCode u2
-  AstN2X opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstN2 opCode u2 v2
-  AstR1X opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstR1 opCode u2
-  AstR2X opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstR2F opCode u2 v2
-  AstI2X opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstI2F opCode u2 v2
-  AstSumOfListX args ->
-    let args2 = interpretAst env <$> args
-    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexX AstIotaX (_i :.% ZIX) -> error "TODO"
   AstIndexX @sh1 @_ @_ @r v ix ->
     let v2 = interpretAst env v

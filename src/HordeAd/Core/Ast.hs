@@ -373,21 +373,21 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstIota :: GoodScalar r => AstTensor ms PrimalSpan (TKR r 1)
 
   -- For the numeric classes:
-  AstN1 :: (GoodScalar r, KnownNat n)
-        => OpCodeNum1 -> AstTensor ms s (TKR r n) -> AstTensor ms s (TKR r n)
-  AstN2 :: (GoodScalar r, KnownNat n)
-        => OpCodeNum2 -> AstTensor ms s (TKR r n) -> AstTensor ms s (TKR r n)
-        -> AstTensor ms s (TKR r n)
-  AstR1 :: (Differentiable r, GoodScalar r, KnownNat n)
-        => OpCode1 -> AstTensor ms s (TKR r n) -> AstTensor ms s (TKR r n)
-  AstR2 :: (Differentiable r, GoodScalar r, KnownNat n)
-        => OpCode2 -> AstTensor ms s (TKR r n) -> AstTensor ms s (TKR r n)
-        -> AstTensor ms s (TKR r n)
-  AstI2 :: (Integral r, GoodScalar r, KnownNat n)
-        => OpCodeIntegral2 -> AstTensor ms s (TKR r n) -> AstTensor ms s (TKR r n)
-        -> AstTensor ms s (TKR r n)
-  AstSumOfList :: (GoodScalar r, KnownNat n)
-               => [AstTensor ms s (TKR r n)] -> AstTensor ms s (TKR r n)
+  AstN1 :: TensorKind y
+        => OpCodeNum1 -> AstTensor ms s y -> AstTensor ms s y
+  AstN2 :: TensorKind y
+        => OpCodeNum2 -> AstTensor ms s y -> AstTensor ms s y
+        -> AstTensor ms s y
+  AstR1 :: (DifferentiableTK y, TensorKind y)
+        => OpCode1 -> AstTensor ms s y -> AstTensor ms s y
+  AstR2 :: (DifferentiableTK y, TensorKind y)
+        => OpCode2 -> AstTensor ms s y -> AstTensor ms s y
+        -> AstTensor ms s y
+  AstI2 :: (IntegralTK y, TensorKind y)
+        => OpCodeIntegral2 -> AstTensor ms s y -> AstTensor ms s y
+        -> AstTensor ms s y
+  AstSumOfList :: TensorKind y
+               => [AstTensor ms s y] -> AstTensor ms s y
 
   -- For the main part of the RankedTensor class:
   AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, GoodScalar r)
@@ -457,23 +457,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
             -> AstTensor ms PrimalSpan (TKS r2 sh)
   AstIotaS :: forall n r ms. (GoodScalar r, KnownNat n)
            => AstTensor ms PrimalSpan (TKS r '[n])
-
-  -- For the numeric classes:
-  AstN1S :: (GoodScalar r, KnownShS sh)
-         => OpCodeNum1 -> AstTensor ms s (TKS r sh) -> AstTensor ms s (TKS r sh)
-  AstN2S :: (GoodScalar r, KnownShS sh)
-         => OpCodeNum2 -> AstTensor ms s (TKS r sh) -> AstTensor ms s (TKS r sh)
-         -> AstTensor ms s (TKS r sh)
-  AstR1S :: (Differentiable r, GoodScalar r, KnownShS sh)
-         => OpCode1 -> AstTensor ms s (TKS r sh) -> AstTensor ms s (TKS r sh)
-  AstR2S :: (Differentiable r, GoodScalar r, KnownShS sh)
-         => OpCode2 -> AstTensor ms s (TKS r sh) -> AstTensor ms s (TKS r sh)
-         -> AstTensor ms s (TKS r sh)
-  AstI2S :: (Integral r, GoodScalar r, KnownShS sh)
-         => OpCodeIntegral2 -> AstTensor ms s (TKS r sh) -> AstTensor ms s (TKS r sh)
-         -> AstTensor ms s (TKS r sh)
-  AstSumOfListS :: (KnownShS sh, GoodScalar r)
-                => [AstTensor ms s (TKS r sh)] -> AstTensor ms s (TKS r sh)
 
   -- For the main part of the ShapedTensor class:
   AstIndexS :: forall sh1 sh2 s r ms.
@@ -546,24 +529,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
             -> AstTensor ms PrimalSpan (TKX r2 sh)
   AstIotaX :: forall n r ms. (GoodScalar r, KnownNat n)
            => AstTensor ms PrimalSpan (TKX r '[Just n])
-
-  -- For the numeric classes:
-  AstN1X :: (GoodScalar r, KnownShX sh)
-         => OpCodeNum1 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
-  AstN2X :: (GoodScalar r, KnownShX sh)
-         => OpCodeNum2 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
-         -> AstTensor ms s (TKX r sh)
-  AstR1X :: (Differentiable r, GoodScalar r, KnownShX sh)
-         => OpCode1 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
-  AstR2X :: (Differentiable r, GoodScalar r, KnownShX sh)
-         => OpCode2 -> AstTensor ms s (TKX r sh) -> AstTensor ms s (TKX r sh)
-         -> AstTensor ms s (TKX r sh)
-  AstI2X :: (Integral r, GoodScalar r, KnownShX sh)
-         => OpCodeIntegral2 -> AstTensor ms s (TKX r sh)
-         -> AstTensor ms s (TKX r sh)
-         -> AstTensor ms s (TKX r sh)
-  AstSumOfListX :: (KnownShX sh, GoodScalar r)
-                => [AstTensor ms s (TKX r sh)] -> AstTensor ms s (TKX r sh)
 
   AstIndexX :: forall sh1 sh2 s r ms.
                (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
@@ -864,35 +829,35 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
          => Num (AstTensor ms s (TKS r sh)) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListS (AstConstS u : lu) + AstSumOfListS (AstConstS v : lv) =
-    AstSumOfListS (AstConstS (u + v) : lu ++ lv)
-  AstSumOfListS lu + AstSumOfListS (AstConstS v : lv) =
-    AstSumOfListS (AstConstS v : lv ++ lu)
-  AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
+  AstSumOfList (AstConstS u : lu) + AstSumOfList (AstConstS v : lv) =
+    AstSumOfList (AstConstS (u + v) : lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConstS v : lv) =
+    AstSumOfList (AstConstS v : lv ++ lu)
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
 
-  AstConstS u + AstSumOfListS (AstConstS v : lv) =
-    AstSumOfListS (AstConstS (u + v) : lv)
-  u + AstSumOfListS (AstConstS v : lv) = AstSumOfListS (AstConstS v : u : lv)
-  u + AstSumOfListS lv = AstSumOfListS (u : lv)
+  AstConstS u + AstSumOfList (AstConstS v : lv) =
+    AstSumOfList (AstConstS (u + v) : lv)
+  u + AstSumOfList (AstConstS v : lv) = AstSumOfList (AstConstS v : u : lv)
+  u + AstSumOfList lv = AstSumOfList (u : lv)
 
-  AstSumOfListS (AstConstS u : lu) + AstConstS v =
-    AstSumOfListS (AstConstS (u + v) : lu)
-  AstSumOfListS (AstConstS u : lu) + v = AstSumOfListS (AstConstS u : v : lu)
-  AstSumOfListS lu + v = AstSumOfListS (v : lu)
+  AstSumOfList (AstConstS u : lu) + AstConstS v =
+    AstSumOfList (AstConstS (u + v) : lu)
+  AstSumOfList (AstConstS u : lu) + v = AstSumOfList (AstConstS u : v : lu)
+  AstSumOfList lu + v = AstSumOfList (v : lu)
 
   AstConstS u + AstConstS v = AstConstS (u + v)
-  u + AstConstS v = AstSumOfListS [AstConstS v, u]
-  u + v = AstSumOfListS [u, v]
+  u + AstConstS v = AstSumOfList [AstConstS v, u]
+  u + v = AstSumOfList [u, v]
 
   AstConstS u - AstConstS v = AstConstS (u - v)  -- common in indexing
-  u - v = AstN2S MinusOp u v
+  u - v = AstN2 MinusOp u v
 
   AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
-  u * v = AstN2S TimesOp u v
+  u * v = AstN2 TimesOp u v
 
-  negate = AstN1S NegateOp
-  abs = AstN1S AbsOp
-  signum = AstN1S SignumOp
+  negate = AstN1 NegateOp
+  abs = AstN1 AbsOp
+  signum = AstN1 SignumOp
   fromInteger i = error $ "fromInteger not defined for AstShaped: "
                           ++ show i
 
@@ -901,41 +866,41 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
 -- they are going to work, but slowly.
 instance (Integral r, GoodScalar r, KnownShS sh)
          => IntegralF (AstTensor ms s (TKS r sh)) where
-  quotF = AstI2S QuotOp
-  remF = AstI2S RemOp
+  quotF = AstI2 QuotOp
+  remF = AstI2 RemOp
 
 instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
          , KnownShS sh )
          => Fractional (AstTensor ms s (TKS r sh)) where
-  u / v = AstR2S DivideOp u v
-  recip = AstR1S RecipOp
+  u / v = AstR2 DivideOp u v
+  recip = AstR1 RecipOp
   fromRational r = error $ "fromRational not defined for AstShaped: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
          => Floating (AstTensor ms s (TKS r sh)) where
   pi = fromPrimal $ AstConstS pi
-  exp = AstR1S ExpOp
-  log = AstR1S LogOp
-  sqrt = AstR1S SqrtOp
-  (**) = AstR2S PowerOp
-  logBase = AstR2S LogBaseOp
-  sin = AstR1S SinOp
-  cos = AstR1S CosOp
-  tan = AstR1S TanOp
-  asin = AstR1S AsinOp
-  acos = AstR1S AcosOp
-  atan = AstR1S AtanOp
-  sinh = AstR1S SinhOp
-  cosh = AstR1S CoshOp
-  tanh = AstR1S TanhOp
-  asinh = AstR1S AsinhOp
-  acosh = AstR1S AcoshOp
-  atanh = AstR1S AtanhOp
+  exp = AstR1 ExpOp
+  log = AstR1 LogOp
+  sqrt = AstR1 SqrtOp
+  (**) = AstR2 PowerOp
+  logBase = AstR2 LogBaseOp
+  sin = AstR1 SinOp
+  cos = AstR1 CosOp
+  tan = AstR1 TanOp
+  asin = AstR1 AsinOp
+  acos = AstR1 AcosOp
+  atan = AstR1 AtanOp
+  sinh = AstR1 SinhOp
+  cosh = AstR1 CoshOp
+  tanh = AstR1 TanhOp
+  asinh = AstR1 AsinhOp
+  acosh = AstR1 AcoshOp
+  atanh = AstR1 AtanhOp
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
          => RealFloatF (AstTensor ms s (TKS r sh)) where
-  atan2F = AstR2S Atan2Op
+  atan2F = AstR2 Atan2Op
 
 
 -- mixed
@@ -951,35 +916,35 @@ instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
          => Num (AstTensor ms s (TKX r sh)) where
   -- The normal form has AstConst, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListX (AstConstX u : lu) + AstSumOfListX (AstConstX v : lv) =
-    AstSumOfListX (AstConstX (u + v) : lu ++ lv)
-  AstSumOfListX lu + AstSumOfListX (AstConstX v : lv) =
-    AstSumOfListX (AstConstX v : lv ++ lu)
-  AstSumOfListX lu + AstSumOfListX lv = AstSumOfListX (lu ++ lv)
+  AstSumOfList (AstConstX u : lu) + AstSumOfList (AstConstX v : lv) =
+    AstSumOfList (AstConstX (u + v) : lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConstX v : lv) =
+    AstSumOfList (AstConstX v : lv ++ lu)
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
 
-  AstConstX u + AstSumOfListX (AstConstX v : lv) =
-    AstSumOfListX (AstConstX (u + v) : lv)
-  u + AstSumOfListX (AstConstX v : lv) = AstSumOfListX (AstConstX v : u : lv)
-  u + AstSumOfListX lv = AstSumOfListX (u : lv)
+  AstConstX u + AstSumOfList (AstConstX v : lv) =
+    AstSumOfList (AstConstX (u + v) : lv)
+  u + AstSumOfList (AstConstX v : lv) = AstSumOfList (AstConstX v : u : lv)
+  u + AstSumOfList lv = AstSumOfList (u : lv)
 
-  AstSumOfListX (AstConstX u : lu) + AstConstX v =
-    AstSumOfListX (AstConstX (u + v) : lu)
-  AstSumOfListX (AstConstX u : lu) + v = AstSumOfListX (AstConstX u : v : lu)
-  AstSumOfListX lu + v = AstSumOfListX (v : lu)
+  AstSumOfList (AstConstX u : lu) + AstConstX v =
+    AstSumOfList (AstConstX (u + v) : lu)
+  AstSumOfList (AstConstX u : lu) + v = AstSumOfList (AstConstX u : v : lu)
+  AstSumOfList lu + v = AstSumOfList (v : lu)
 
   AstConstX u + AstConstX v = AstConstX (u + v)
-  u + AstConstX v = AstSumOfListX [AstConstX v, u]
-  u + v = AstSumOfListX [u, v]
+  u + AstConstX v = AstSumOfList [AstConstX v, u]
+  u + v = AstSumOfList [u, v]
 
   AstConstX u - AstConstX v = AstConstX (u - v)  -- common in indexing
-  u - v = AstN2X MinusOp u v
+  u - v = AstN2 MinusOp u v
 
   AstConstX u * AstConstX v = AstConstX (u * v)  -- common in indexing
-  u * v = AstN2X TimesOp u v
+  u * v = AstN2 TimesOp u v
 
-  negate = AstN1X NegateOp
-  abs = AstN1X AbsOp
-  signum = AstN1X SignumOp
+  negate = AstN1 NegateOp
+  abs = AstN1 AbsOp
+  signum = AstN1 SignumOp
   fromInteger i = error $ "fromInteger not defined for AstShaped: "
                           ++ show i
 
@@ -988,41 +953,41 @@ instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
 -- they are going to work, but slowly.
 instance (Integral r, GoodScalar r, KnownShX sh)
          => IntegralF (AstTensor ms s (TKX r sh)) where
-  quotF = AstI2X QuotOp
-  remF = AstI2X RemOp
+  quotF = AstI2 QuotOp
+  remF = AstI2 RemOp
 
 instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
          , KnownShX sh )
          => Fractional (AstTensor ms s (TKX r sh)) where
-  u / v = AstR2X DivideOp u v
-  recip = AstR1X RecipOp
+  u / v = AstR2 DivideOp u v
+  recip = AstR1 RecipOp
   fromRational r = error $ "fromRational not defined for AstShaped: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
          => Floating (AstTensor ms s (TKX r sh)) where
   pi = fromPrimal $ AstConstX pi
-  exp = AstR1X ExpOp
-  log = AstR1X LogOp
-  sqrt = AstR1X SqrtOp
-  (**) = AstR2X PowerOp
-  logBase = AstR2X LogBaseOp
-  sin = AstR1X SinOp
-  cos = AstR1X CosOp
-  tan = AstR1X TanOp
-  asin = AstR1X AsinOp
-  acos = AstR1X AcosOp
-  atan = AstR1X AtanOp
-  sinh = AstR1X SinhOp
-  cosh = AstR1X CoshOp
-  tanh = AstR1X TanhOp
-  asinh = AstR1X AsinhOp
-  acosh = AstR1X AcoshOp
-  atanh = AstR1X AtanhOp
+  exp = AstR1 ExpOp
+  log = AstR1 LogOp
+  sqrt = AstR1 SqrtOp
+  (**) = AstR2 PowerOp
+  logBase = AstR2 LogBaseOp
+  sin = AstR1 SinOp
+  cos = AstR1 CosOp
+  tan = AstR1 TanOp
+  asin = AstR1 AsinOp
+  acos = AstR1 AcosOp
+  atan = AstR1 AtanOp
+  sinh = AstR1 SinhOp
+  cosh = AstR1 CoshOp
+  tanh = AstR1 TanhOp
+  asinh = AstR1 AsinhOp
+  acosh = AstR1 AcoshOp
+  atanh = AstR1 AtanhOp
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
          => RealFloatF (AstTensor ms s (TKX r sh)) where
-  atan2F = AstR2X Atan2Op
+  atan2F = AstR2 Atan2Op
 
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 

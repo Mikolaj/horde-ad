@@ -275,23 +275,32 @@ build1V snat@SNat (var, v00) =
     Ast.AstIota ->
       error "build1V: AstIota can't have free index variables"
 
-    Ast.AstN1 opCode u -> traceRule $
+    Ast.AstN1 opCode u
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
       Ast.AstN1 opCode (build1VOccurenceUnknown snat (var, u))
-    Ast.AstN2 opCode u v -> traceRule $
+    Ast.AstN2 opCode u v
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
       Ast.AstN2 opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
-    Ast.AstR1 opCode u -> traceRule $
+    Ast.AstR1 opCode u
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y)
+     , Dict <- lemDifferentiableTKOfBuild @y snat -> traceRule $
       Ast.AstR1 opCode (build1VOccurenceUnknown snat (var, u))
-    Ast.AstR2 opCode u v -> traceRule $
+    Ast.AstR2 opCode u v
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y)
+     , Dict <- lemDifferentiableTKOfBuild @y snat -> traceRule $
       Ast.AstR2 opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstI2 opCode u v -> traceRule $
+    Ast.AstI2 opCode u v
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y)
+     , Dict <- lemIntegralTKOfBuild @y snat -> traceRule $
       Ast.AstI2 opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstSumOfList args -> traceRule $
+    Ast.AstSumOfList args
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
       astSumOfList $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndex v ix -> traceRule $
@@ -361,25 +370,6 @@ build1V snat@SNat (var, v00) =
     Ast.AstFloorS v -> Ast.AstFloorS $ build1V snat (var, v)
     Ast.AstIotaS ->
       error "build1V: AstIotaS can't have free index variables"
-
-    Ast.AstN1S opCode u -> traceRule $
-      Ast.AstN1S opCode (build1VOccurenceUnknown snat (var, u))
-    Ast.AstN2S opCode u v -> traceRule $
-      Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-        -- we permit duplicated bindings, because they can't easily
-        -- be substituted into one another unlike. e.g., inside a let,
-        -- which may get inlined
-    Ast.AstR1S opCode u -> traceRule $
-      Ast.AstR1S opCode (build1VOccurenceUnknown snat (var, u))
-    Ast.AstR2S opCode u v -> traceRule $
-      Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstI2S opCode u v -> traceRule $
-      Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstSumOfListS args -> traceRule $
-      astSumOfListS $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndexS @sh1 v ix -> traceRule $ case stensorKind @y of
      STKS @_ @sh _ _ ->

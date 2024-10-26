@@ -1,5 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints, UndecidableInstances,
+             UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The product (heterogeneous list) object for tensors.
@@ -14,7 +14,8 @@ module HordeAd.Core.HVector
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
   , DynamicTensor(..)
-  , CRanked, CShaped, CMixed, CMixedSupports, CHFun, CHFun2, CRepProduct
+  , CRanked, CShaped, CMixed, CMixedSupports
+  , CHFun, CHFun2, CRepProduct, CRankedY, CRankedYSupports
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -310,12 +311,65 @@ instance
       (forall x y. c (HFunOf ranked x y)) => CHFun2 ranked c where
 
 type CRepProduct :: RankedTensorType -> (Type -> Constraint)
-                                  -> Constraint
+                 -> Constraint
 class (forall x y. (TensorKind x, TensorKind y) => c (RepProductN ranked x y))
-       => CRepProduct ranked c where
+      => CRepProduct ranked c where
 instance
       (forall x y. (TensorKind x, TensorKind y) => c (RepProductN ranked x y))
-       => CRepProduct ranked c where
+      => CRepProduct ranked c where
+
+type CRankedY :: RankedTensorType
+              -> (RankedTensorType -> TensorKindType -> Constraint)
+              -> Constraint
+class ( (forall r. GoodScalar r => c ranked (TKScalar r))
+      , (forall r n. (KnownNat n, GoodScalar r) => c ranked (TKR r n))
+      , (forall r sh. (KnownShS sh, GoodScalar r) => c ranked (TKS r sh))
+      , (forall r sh. (KnownShX sh, GoodScalar r) => c ranked (TKX r sh))
+      , (forall a b. (TensorKind a, TensorKind b, c ranked a, c ranked  b) => c ranked (TKProduct a b))
+--      , c ranked TKUntyped
+      )
+      => CRankedY ranked c where
+instance
+      ( (forall r. GoodScalar r => c ranked (TKScalar r))
+      , (forall r n. (KnownNat n, GoodScalar r) => c ranked (TKR r n))
+      , (forall r sh. (KnownShS sh, GoodScalar r) => c ranked (TKS r sh))
+      , (forall r sh. (KnownShX sh, GoodScalar r) => c ranked (TKX r sh))
+      , (forall a b. (TensorKind a, TensorKind b, c ranked a, c ranked  b) => c ranked (TKProduct a b))
+--      , c ranked TKUntyped
+      )
+      => CRankedY ranked c where
+
+type CRankedYSupports :: RankedTensorType
+                      -> (TensorKindType -> Constraint)
+                      -> (RankedTensorType -> TensorKindType -> Constraint)
+                      -> Constraint
+class ( (forall r. GoodScalar r => c1 (TKScalar r)
+         => c ranked (TKScalar r))
+      , (forall r n. (KnownNat n, GoodScalar r) => c1 (TKR r n)
+         => c ranked (TKR r n))
+      , (forall r sh. (KnownShS sh, GoodScalar r) => c1 (TKS r sh)
+         => c ranked (TKS r sh))
+      , (forall r sh. (KnownShX sh, GoodScalar r) => c1 (TKX r sh)
+         => c ranked (TKX r sh))
+      , (forall a b. (TensorKind a, TensorKind b, c ranked a, c ranked  b) => c1 (TKProduct a b)
+         => c ranked (TKProduct a b))
+--      , c1 TKUntyped => c ranked TKUntyped
+      )
+      => CRankedYSupports ranked c1 c where
+instance
+      ( (forall r. GoodScalar r => c1 (TKScalar r)
+         => c ranked (TKScalar r))
+      , (forall r n. (KnownNat n, GoodScalar r) => c1 (TKR r n)
+         => c ranked (TKR r n))
+      , (forall r sh. (KnownShS sh, GoodScalar r) => c1 (TKS r sh)
+         => c ranked (TKS r sh))
+      , (forall r sh. (KnownShX sh, GoodScalar r) => c1 (TKX r sh)
+         => c ranked (TKX r sh))
+      , (forall a b. (TensorKind a, TensorKind b, c ranked a, c ranked  b) => c1 (TKProduct a b)
+         => c ranked (TKProduct a b))
+--      , c1 TKUntyped => c ranked TKUntyped
+      )
+      => CRankedYSupports ranked c1 c where
 
 -- | This is a heterogeneous vector, used as represenation of tuples
 -- of tensors that need to have the same Haskell type regardless

@@ -90,12 +90,12 @@ areAllArgsInts = \case
   AstMaxIndex{} -> False
   AstFloor{} -> False
   AstIota -> False
-  AstN1{} -> True  -- has to keep rank and scalar, so it's ints
-  AstN2{} -> True  -- has to keep rank and scalar
-  AstR1{} -> True  -- has to keep rank and scalar
-  AstR2{} -> True  -- has to keep rank and scalar
-  AstI2{} -> True  -- has to keep rank and scalar
-  AstSumOfList{} -> True  -- has to keep rank and scalar
+  AstN1{} -> True
+  AstN2{} -> True
+  AstR1{} -> True
+  AstR2{} -> True
+  AstI2{} -> True
+  AstSumOfList{} -> True
   AstIndex{} -> False  -- the index arguments are taken care of via printAstInt
   AstSum{} -> False
   AstScatter{} -> False
@@ -469,17 +469,6 @@ printAstAux cfg d = \case
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
   AstFloorS a ->  printPrefixOp printAst cfg d "sfloor" [a]
   AstIotaS -> showString "siota"
-  AstN1S opCode u -> printAstN1 printAst cfg d opCode u
-  AstN2S opCode u v -> printAstN2 printAst cfg d opCode u v
-  AstR1S opCode u -> printAstR1 printAst cfg d opCode u
-  AstR2S opCode u v -> printAstR2 printAst cfg d opCode u v
-  AstI2S opCode u v -> printAstI2 printAst cfg d opCode u v
-  AstSumOfListS [] -> error "printAst: empty AstSumOfList"
-  AstSumOfListS (left : args) ->
-    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
-    in showParen (d > 6)
-       $ printAst cfg 7 left
-         . foldr (.) id rs
   AstIndexS v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v

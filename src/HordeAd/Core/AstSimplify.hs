@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
-  , astPair, astLet, astCond, astSumOfList, astSumOfListS
+  , astPair, astLet, astCond, astSumOfList
   , astSum, astSumS, astScatter, astScatterS
   , astFromVector, astFromVectorS, astFromVectorX
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
@@ -85,7 +85,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
-  , AstTensor (AstConst, AstConstS, AstConstX, AstN1, AstN1S, AstN2, AstN2S, AstSumOfList, AstSumOfListS)
+  , AstTensor (AstConst, AstConstS, AstConstX, AstN1, AstN2, AstSumOfList)
   )
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -328,12 +328,6 @@ astNonIndexStep t = case t of
   Ast.AstMaxIndexS{} -> t
   Ast.AstFloorS{} -> t
   Ast.AstIotaS -> t
-  AstN1S{} -> t
-  AstN2S{} -> t
-  Ast.AstR1S{} -> t
-  Ast.AstR2S{} -> t
-  Ast.AstI2S{} -> t
-  AstSumOfListS l -> astSumOfListS l
   Ast.AstIndexS{} -> t  -- was supposed to be *non*-index
   Ast.AstSumS v -> astSumS v
   Ast.AstScatterS v (vars, ix) -> astScatterS v (vars, ix)
@@ -686,21 +680,21 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
     Just Refl -> astFromIntegralS $ astSFromR i1
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
-  AstN1S opCode u ->
-    shareIxS ix $ \ !ix2 -> AstN1S opCode (astIndexRec u ix2)
-  AstN2S opCode u v ->
-    shareIxS ix $ \ !ix2 -> AstN2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  Ast.AstR1S opCode u ->
+  AstN1 opCode u ->
+    shareIxS ix $ \ !ix2 -> AstN1 opCode (astIndexRec u ix2)
+  AstN2 opCode u v ->
+    shareIxS ix $ \ !ix2 -> AstN2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstR1 opCode u ->
     shareIxS ix
-    $ \ !ix2 -> Ast.AstR1S opCode (astIndexRec u ix2)
-  Ast.AstR2S opCode u v ->
+    $ \ !ix2 -> Ast.AstR1 opCode (astIndexRec u ix2)
+  Ast.AstR2 opCode u v ->
     shareIxS ix
-    $ \ !ix2 -> Ast.AstR2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  Ast.AstI2S opCode u v ->
+    $ \ !ix2 -> Ast.AstR2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstI2 opCode u v ->
     shareIxS ix
-    $ \ !ix2 -> Ast.AstI2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  AstSumOfListS args ->
-    shareIxS ix $ \ !ix2 -> astSumOfListS (map (`astIndexRec` ix2) args)
+    $ \ !ix2 -> Ast.AstI2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  AstSumOfList args ->
+    shareIxS ix $ \ !ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
   Ast.AstIndexS v (ix2 :: AstIndexS AstMethodLet sh4) ->
     gcastWith (unsafeCoerce Refl
                :: (sh4 ++ shm) ++ shn :~: sh4 ++ (shm ++ shn)) $
@@ -1446,13 +1440,18 @@ astCond b (Ast.AstConstant v) (Ast.AstConstant w) =
   Ast.AstConstant $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
-astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
-             => [AstTensor AstMethodLet s (TKR r n)] -> AstTensor AstMethodLet s (TKR r n)
-astSumOfList = foldr1 (+)  -- @sum@ breaks and also reverse order
-
-astSumOfListS :: (GoodScalar r, KnownShS sh)
-              => [AstTensor AstMethodLet s (TKS r sh)] -> AstTensor AstMethodLet s (TKS r sh)
-astSumOfListS = foldr1 (+)  -- @sum@ reverses order
+astSumOfList :: forall y s. (TensorKind y, AstSpan s)
+             => [AstTensor AstMethodLet s y] -> AstTensor AstMethodLet s y
+astSumOfList =  -- @sum@ breaks and also reverses order
+  foldr1 (\ !a !b -> case stensorKind @y of
+--    STKScalar _ -> unRepN $ RepN a + RepN b
+    STKR STKScalar{} SNat -> a + b
+    STKS STKScalar{} sh -> withKnownShS sh $ a + b
+    STKX STKScalar{} sh -> withKnownShX sh $ a + b
+--    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+--                         , Dict <- lemTensorKindOfS stk2 ->
+--      unRepN $ RepN a + RepN b
+    _ -> error "astSumOfList: arithmetic")
 
 astSum :: (KnownNat n, GoodScalar r, AstSpan s)
        => AstTensor AstMethodLet s (TKR r (1 + n)) -> AstTensor AstMethodLet s (TKR r n)
@@ -1500,7 +1499,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
                      :: Drop 1 (Take p (n : sh)) :~: Take (p - 1) sh) $
           astScatterS @sh2 @(p - 1) @sh v (vars, ix)
         GTI -> error "astSumS: impossible p"
-    Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
+    Ast.AstFromVectorS l -> astSumOfList $ V.toList l
     Ast.AstSliceS @_ @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) -> astReplicate0NS 0
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
@@ -1856,26 +1855,26 @@ astTransposeS perm t = case perm of
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
     astLet var u (astTransposeS perm v)
-  AstN1S opCode u | not (isVar u) ->
+  AstN1 opCode u | not (isVar u) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
-    AstN1S opCode (astTransposeS perm u)
-  AstN2S opCode u v | not (isVar u && isVar v) ->
+    AstN1 opCode (astTransposeS perm u)
+  AstN2 opCode u v | not (isVar u && isVar v) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
-    AstN2S opCode (astTransposeS perm u) (astTransposeS perm v)
-  Ast.AstR1S opCode u | not (isVar u) ->
+    AstN2 opCode (astTransposeS perm u) (astTransposeS perm v)
+  Ast.AstR1 opCode u | not (isVar u) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
-   Ast.AstR1S opCode (astTransposeS perm u)
-  Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
+   Ast.AstR1 opCode (astTransposeS perm u)
+  Ast.AstR2 opCode u v | not (isVar u && isVar v) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
     gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
-   Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
+   Ast.AstR2 opCode (astTransposeS perm u) (astTransposeS perm v)
   Ast.AstSumS @n v ->
     let zsuccP :: Permutation.Perm (0 : Permutation.MapSucc perm)
         zsuccP = Permutation.permShift1 perm
@@ -2006,13 +2005,13 @@ astReshapeS = \case
       case stensorKind @y2 of
         STKS _ sh -> withKnownShS sh $ astReshapeS x
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 v)
-  AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
-  AstN2S opCode u v | not (isVar u && isVar v) ->
-    AstN2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
-  Ast.AstR1S opCode u | not (isVar u) ->
-    Ast.AstR1S opCode (astReshapeS @_ @sh2 u)
-  Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
-    Ast.AstR2S opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
+  AstN1 opCode u | not (isVar u) -> AstN1 opCode (astReshapeS @_ @sh2 u)
+  AstN2 opCode u v | not (isVar u && isVar v) ->
+    AstN2 opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
+  Ast.AstR1 opCode u | not (isVar u) ->
+    Ast.AstR1 opCode (astReshapeS @_ @sh2 u)
+  Ast.AstR2 opCode u v | not (isVar u && isVar v) ->
+    Ast.AstR2 opCode (astReshapeS @_ @sh2 u) (astReshapeS @_ @sh2 v)
   Ast.AstFromVectorS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS $ l V.! 0
   Ast.AstReshapeS v -> astReshapeS @_ @sh2 v
@@ -2178,14 +2177,6 @@ astPrimalPart t = case t of
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
 
-  AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
-  AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPrimalPart u)
-                                             (astPrimalPart v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astPrimalPart u)
-                                             (astPrimalPart v)
-  AstSumOfListS args -> astSumOfListS (map astPrimalPart args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPart v) ix
   Ast.AstSumS v -> astSumS (astPrimalPart v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astPrimalPart v) (var, ix)
@@ -2255,12 +2246,6 @@ astDualPart t = case t of
   Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
 
-  AstN1S{} -> Ast.AstDualPart t
-  AstN2S{} -> Ast.AstDualPart t
-  Ast.AstR1S{} -> Ast.AstDualPart t
-  Ast.AstR2S{} -> Ast.AstDualPart t
-  Ast.AstI2S{} -> Ast.AstDualPart t
-  AstSumOfListS args -> astSumOfListS (map astDualPart args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPart v) ix
   Ast.AstSumS v -> astSumS (astDualPart v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astDualPart v) (var, ix)
@@ -2529,12 +2514,6 @@ simplifyAst t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
   Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
   Ast.AstIotaS -> t
-  AstN1S opCode u -> AstN1S opCode (simplifyAst u)
-  AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
-  AstSumOfListS args -> astSumOfListS (map simplifyAst args)
   Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIndexS ix)
   Ast.AstSumS v -> astSumS (simplifyAst v)
   Ast.AstScatterS v (var, ix) ->
@@ -2749,12 +2728,6 @@ expandAst t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
   Ast.AstFloorS a -> Ast.AstFloorS (expandAst a)
   Ast.AstIotaS -> t
-  AstN1S opCode u -> AstN1S opCode (expandAst u)
-  AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
-  AstSumOfListS args -> astSumOfListS (map expandAst args)
   Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
                                        (expandAst v)
                                        (expandAstIndexS ix)
@@ -3277,31 +3250,6 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1Ast i var a
   Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1Ast i var a
   Ast.AstIotaS -> Nothing
-  Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1Ast i var u
-  Ast.AstN2S opCode u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
-    in if isJust mu || isJust mv
-       then Just $ Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
-       else Nothing
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> substitute1Ast i var u
-  Ast.AstR2S opCode u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
-    in if isJust mu || isJust mv
-       then Just $ Ast.AstR2S opCode (fromMaybe u mu) (fromMaybe v mv)
-       else Nothing
-  Ast.AstI2S opCode u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
-    in if isJust mu || isJust mv
-       then Just $ Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
-       else Nothing
-  Ast.AstSumOfListS args ->
-    let margs = map (substitute1Ast i var) args
-    in if any isJust margs
-       then Just $ astSumOfListS $ zipWith fromMaybe args margs
-       else Nothing
   Ast.AstIndexS v ix ->
     case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
       (Nothing, Nothing) -> Nothing

@@ -19,7 +19,10 @@ module HordeAd.Core.Types
   , lemTensorKindOfS, sameTensorKind, sameTK
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
-  , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
+  , GoodScalar, HasSingletonDict
+  , Differentiable, DifferentiableTK, lemDifferentiableTKOfBuild
+  , IntegralTK, lemIntegralTKOfBuild
+  , IfDifferentiable(..)
   , ADTensorKind, ADTensorScalar, lemTensorKindOfAD, lemBuildOfAD
     -- * Type families that tensors will belong to
   , IntOf, RankedOf, ShapedOf, MixedOf
@@ -284,6 +287,38 @@ type family HasSingletonDict (y :: ty) where
 
 type Differentiable r =
   (RealFloat r, Nested.FloatElt r)
+
+type family DifferentiableY tk where
+  DifferentiableY (TKScalar r) = Differentiable r
+  DifferentiableY (TKR2 r n) = DifferentiableY r
+  DifferentiableY (TKS2 r n) = DifferentiableY r
+  DifferentiableY (TKX2 r n) = DifferentiableY r
+  DifferentiableY (TKProduct y z) = (DifferentiableY y, DifferentiableY z)
+-- stuck:  DifferentiableY TKUntyped = ...
+
+class DifferentiableY y => DifferentiableTK y
+instance DifferentiableY y => DifferentiableTK y
+
+lemDifferentiableTKOfBuild
+  :: forall y k. DifferentiableTK y
+  => SNat k -> Dict DifferentiableTK (BuildTensorKind k y)
+lemDifferentiableTKOfBuild _ = unsafeCoerce (Dict :: Dict DifferentiableTK y)
+
+type family IntegralY tk where
+  IntegralY (TKScalar r) = Integral r
+  IntegralY (TKR2 r n) = IntegralY r
+  IntegralY (TKS2 r n) = IntegralY r
+  IntegralY (TKX2 r n) = IntegralY r
+  IntegralY (TKProduct y z) = (IntegralY y, IntegralY z)
+-- stuck:  IntegralY TKUntyped = ...
+
+class IntegralY y => IntegralTK y
+instance IntegralY y => IntegralTK y
+
+lemIntegralTKOfBuild
+  :: forall y k. IntegralTK y
+  => SNat k -> Dict IntegralTK (BuildTensorKind k y)
+lemIntegralTKOfBuild _ = unsafeCoerce (Dict :: Dict IntegralTK y)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates

@@ -111,12 +111,6 @@ shapeAstFull t = case t of
   AstMaxIndexS{} -> FTKS knownShS
   AstFloorS{} -> FTKS knownShS
   AstIotaS{} -> FTKS knownShS
-  AstN1S{} -> FTKS knownShS
-  AstN2S{} -> FTKS knownShS
-  AstR1S{} -> FTKS knownShS
-  AstR2S{} -> FTKS knownShS
-  AstI2S{} -> FTKS knownShS
-  AstSumOfListS{} -> FTKS knownShS
   AstIndexS{} -> FTKS knownShS
   AstSumS{} -> FTKS knownShS
   AstScatterS{} -> FTKS knownShS
@@ -243,12 +237,6 @@ varInAst var = \case
   AstMaxIndexS a -> varInAst var a
   AstFloorS a -> varInAst var a
   AstIotaS -> False
-  AstN1S _ t -> varInAst var t
-  AstN2S _ t u -> varInAst var t || varInAst var u
-  AstR1S _ t -> varInAst var t
-  AstR2S _ t u -> varInAst var t || varInAst var u
-  AstI2S _ t u -> varInAst var t || varInAst var u
-  AstSumOfListS l -> any (varInAst var) l
   AstIndexS v ix -> varInAst var v || varInIndexS var ix
   AstSumS v -> varInAst var v
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
@@ -269,12 +257,6 @@ varInAst var = \case
   AstMaxIndexX a -> varInAst var a
   AstFloorX a -> varInAst var a
   AstIotaX -> False
-  AstN1X _ t -> varInAst var t
-  AstN2X _ t u -> varInAst var t || varInAst var u
-  AstR1X _ t -> varInAst var t
-  AstR2X _ t u -> varInAst var t || varInAst var u
-  AstI2X _ t u -> varInAst var t || varInAst var u
-  AstSumOfListX l -> any (varInAst var) l
   AstIndexX v ix -> varInAst var v || varInIndexX var ix
   AstSumX v -> varInAst var v
   AstScatterX v (_vars, ix) -> varInIndexX var ix || varInAst var v
