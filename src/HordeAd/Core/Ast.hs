@@ -799,11 +799,6 @@ instance (Num (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
     -- it's crucial that there is no AstConstant in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
-instance (Real (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
-         => Real (AstTensor ms s (TKR r n)) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
-
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
@@ -839,12 +834,6 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
   asinh = AstR1 AsinhOp
   acosh = AstR1 AcoshOp
   atanh = AstR1 AtanhOp
-
-instance (GoodScalar r, Differentiable r, RealFrac (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => RealFrac (AstTensor ms s (TKR r n)) where
-  properFraction = undefined
-    -- The integral type doesn't have a Storable constraint,
-    -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
          => RealFloatF (AstTensor ms s (TKR r n)) where

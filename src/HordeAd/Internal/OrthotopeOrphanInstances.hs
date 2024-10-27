@@ -222,10 +222,6 @@ deriving instance (Num (FlipR f b a), Fractional (f a b)) => Fractional (FlipR f
 
 deriving instance (Num (FlipR f b a), Floating (f a b)) => Floating (FlipR f b a)
 
-deriving instance (Num (FlipR f b a), Real (f a b), Ord (FlipR f b a)) => Real (FlipR f b a)
-
-deriving instance (Num (FlipR f b a), RealFrac (f a b), Ord (FlipR f b a)) => RealFrac (FlipR f b a)
-
 deriving instance (Num (FlipR f b a), RealFloatF (f a b)) => RealFloatF (FlipR f b a)
 
 deriving instance NFData (f a b) => NFData (FlipR f b a)
