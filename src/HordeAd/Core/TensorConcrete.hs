@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for concrete Storable Vector-backed arrays.
 module HordeAd.Core.TensorConcrete
-  () where
+  (DummyDualTarget) where
 
 import Prelude hiding (foldl')
 

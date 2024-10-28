@@ -35,6 +35,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorConcrete
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (ORArray, OSArray)
 
@@ -443,62 +444,62 @@ cfwd f vals ds =
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal ORArray)
   -> AstTensor AstMethodLet DualSpan (TKR r n)
-  -> DeltaR ORArray r n #-}
+  -> Delta ORArray (TKR r n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal ORArray)
   -> AstTensor AstMethodLet DualSpan (TKR Double n)
-  -> DeltaR ORArray Double n #-}
+  -> Delta ORArray (TKR Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal ORArray)
   -> AstTensor AstMethodLet DualSpan (TKR Float n)
-  -> DeltaR ORArray Float n #-}
+  -> Delta ORArray (TKR Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal ORArray)
   -> AstTensor AstMethodLet DualSpan (TKR Int64 n)
-  -> DeltaR ORArray Int64 n #-}
+  -> Delta ORArray (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR r n)
-  -> DeltaR (AstRaw PrimalSpan) r n #-}
+  -> Delta (AstRaw PrimalSpan) (TKR r n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR Double n)
-  -> DeltaR (AstRaw PrimalSpan) Double n #-}
+  -> Delta (AstRaw PrimalSpan) (TKR Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR Float n)
-  -> DeltaR (AstRaw PrimalSpan) Float n #-}
+  -> Delta (AstRaw PrimalSpan) (TKR Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR Int64 n)
-  -> DeltaR (AstRaw PrimalSpan) Int64 n #-}
+  -> Delta (AstRaw PrimalSpan) (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv ORArray
   -> AstTensor AstMethodLet DualSpan (TKR r n)
-  -> DummyDual r n #-}
+  -> DummyDualTarget (TKR r n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv ORArray
   -> AstTensor AstMethodLet DualSpan (TKR Double n)
-  -> DummyDual Double n #-}
+  -> DummyDualTarget (TKR Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv ORArray
   -> AstTensor AstMethodLet DualSpan (TKR Float n)
-  -> DummyDual Float n #-}
+  -> DummyDualTarget (TKR Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
   => AstEnv ORArray
   -> AstTensor AstMethodLet DualSpan (TKR Int64 n)
-  -> DummyDual Int64 n #-}
+  -> DummyDualTarget (TKR Int64 n) #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
