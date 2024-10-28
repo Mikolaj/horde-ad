@@ -5,7 +5,8 @@
 -- | Dual numbers and arithmetic operations on them.
 module HordeAd.Core.DualNumber
   ( -- * The main dual number type
-    ADVal, dD, pattern D, dDnotShared, constantADVal
+    ADVal, pattern D, dD, dDnotShared, constantADVal
+  , pattern DR, dDR, dDnotSharedR
     -- * Auxiliary definitions
   , indexPrimal, fromVector, indexPrimalS, fromVectorS, indexPrimalX, fromVectorX
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
@@ -85,6 +86,17 @@ dD !a !dual = dDnotShared a (shareDual dual)
 -- in the per-node data stored while evaluating).
 dDnotShared :: f r z -> Dual f r z -> ADVal f r z
 dDnotShared = ADVal
+
+pattern DR :: f r z -> Delta f (TKR r z) -> ADVal f r z
+pattern DR t u <- ADVal t (DeltaR u)  -- enforces only pattern matching
+{-# COMPLETE DR #-}
+
+dDR :: IsPrimal f r z
+    => f r z -> Delta f (TKR r z) -> ADVal f r z
+dDR !a !dual = dDnotShared a (shareDual (DeltaR dual))
+
+dDnotSharedR :: f r z -> Delta f (TKR r z) -> ADVal f r z
+dDnotSharedR u u' = ADVal u (DeltaR u')
 
 
 -- * Auxiliary definitions

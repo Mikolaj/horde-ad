@@ -379,6 +379,7 @@ deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 
 -- The old DeltaR reconstructed:
 type role DeltaR nominal nominal nominal
+type DeltaR :: RankedTensorType -> RankedTensorType
 newtype DeltaR ranked r n =
   DeltaR {unDeltaR :: Delta ranked (TKR r n)}
 instance ( RankedOf (ShapedOf ranked) ~ ranked
