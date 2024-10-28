@@ -18,7 +18,6 @@ module HordeAd.Core.TensorClass
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl, xrepl, unrepShallow, unrepDeep, repDeepDuplicable
   , mapDynamic, mapDynamic2
-  , mapRep2Weak
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
   ) where
@@ -1474,71 +1473,6 @@ mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _)
       Nothing -> error "mapDynamic2: n mismatch"
     Nothing -> error "mapDynamic2: r mismatch"
 mapDynamic2 _ _ _ _ = error "mapDynamic2: unexpected arguments"
-
-{- Not needed ATM and quite broken.
-mapRep2
-  :: forall f1 f2 g y.
-     ( ProductTensor f1, ProductTensor f2, ProductTensor g
-     , RankedTensor f1, ShapedTensor (ShapedOf f1)
-     , RankedTensor f2, ShapedTensor (ShapedOf f2)
-     , HVectorTensor f1 (ShapedOf f1)
-     , HVectorTensor f2 (ShapedOf f2) )
-  => (forall r n. (GoodScalar r, KnownNat n)
-      => Rep f1 (TKR r n) -> Rep f2 (TKR r n)
-      -> Rep g (TKR r n))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => Rep f1 (TKS r sh) -> Rep f2 (TKS r sh)
-      -> Rep g (TKS r sh))
-  -> STensorKindType y
-  -> Rep f1 y -> Rep f2 y
-  -> Rep g y
-mapRep2 fr fs stk b1 b2 = case stk of
-  STKR{} -> fr b1 b2
-  STKS{} -> fs b1 b2
-  STKProduct stk1 stk2 ->
-    let !t1 = mapRep2 fr fs stk1 (tproject1 b1) (tproject1 b2)
-        !t2 = mapRep2 fr fs stk2 (tproject2 b1) (tproject2 b2)
-    in tpair t1 t2
-      -- this shares properly only when the product instance for f1 and f2 is (,)
-  STKUntyped ->
-    let fd :: DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
-        fd = mapDynamic2 fr fs
-    in HVectorPseudoTensor $ tmkHVector
-       $ V.zipWith fd
-           (dunHVector $ unHVectorPseudoTensor b1)
-           (dunHVector $ unHVectorPseudoTensor b2)
--- TODO: we probably need two versions, one with let, one with share
---           (dunHVector $ tshare $ unHVectorPseudoTensor b1)
---           (dunHVector $ tshare $ unHVectorPseudoTensor b2)
--}
-
-mapRep2Weak
-  :: forall f1 f2 g y. (ProductTensor f1, ProductTensor f2, ProductTensor g)
-  => (forall r n. (GoodScalar r, KnownNat n)
-      => Rep f1 (TKR r n) -> Rep f2 (TKR r n)
-      -> Rep g (TKR r n))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => Rep f1 (TKS r sh) -> Rep f2 (TKS r sh)
-      -> Rep g (TKS r sh))
-  -> (forall r sh. (GoodScalar r, KnownShX sh)
-      => Rep f1 (TKX r sh) -> Rep f2 (TKX r sh)
-      -> Rep g (TKX r sh))
-  -> STensorKindType y
-  -> Rep f1 y -> Rep f2 y
-  -> Rep g y
-mapRep2Weak fr fs fx stk b1 b2 = case stk of
-  STKScalar _ -> RepScalar $ fr (unRepScalar b1) (unRepScalar b2)
-  STKR STKScalar{} SNat -> fr b1 b2
-  STKS STKScalar{} sh -> withKnownShS sh $ fs b1 b2
-  STKX STKScalar{} sh -> withKnownShX sh $ fx b1 b2
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    let !t1 = mapRep2Weak fr fs fx stk1 (tproject1 b1) (tproject1 b2)
-        !t2 = mapRep2Weak fr fs fx stk2 (tproject2 b1) (tproject2 b2)
-    in tpair t1 t2
-      -- this shares properly only when the product instance for f1 and f2 is (,)
-  STKUntyped -> error "TODO: mapRep2Weak is weak"
-  _ -> error "TODO"
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.
