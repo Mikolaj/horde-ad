@@ -104,13 +104,7 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
   dAdd (DeltaR v) (DeltaR w) = DeltaR $ AddR v w
   intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual d = case unDeltaR d of
-    ZeroR{} -> d
-    InputG{} -> d
-    ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
-    -- SFromR{} -> d
-    -- the term inside SFromR is most likely shared already, but are we sure?
-    d1 -> DeltaR $ wrapDelta d1
+  shareDual d = DeltaR $ wrapDelta (unDeltaR d)
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
          , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
@@ -125,11 +119,7 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
                       -- so we have to use it for both
     sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual d = case unDeltaS d of
-    ZeroS -> d
-    InputG{} -> d
-    ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
-    d1 -> DeltaS $ wrapDelta d1
+  shareDual d = DeltaS $ wrapDelta (unDeltaS d)
 
 instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
          , RankedTensor (RankedOf mixed)
@@ -144,11 +134,7 @@ instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
   intOfShape tsh c =
     xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual d = case unDeltaX d of
-    ZeroX{} -> d
-    InputG{} -> d
-    ShareG{} -> d
-    d1 -> DeltaX $ wrapDelta d1
+  shareDual d = DeltaX $ wrapDelta (unDeltaX d)
 
 
 -- * Counter handling
@@ -188,4 +174,12 @@ wrapDelta :: TensorKind y => Delta ranked y -> Delta ranked y
 {-# NOINLINE wrapDelta #-}
 wrapDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! ShareG (NodeId n) d
+  return $! case d of
+    ZeroR{} -> d
+    -- SFromR{} -> d
+    -- the term inside SFromR is most likely shared already, but are we sure?
+    ZeroS -> d
+    ZeroX{} -> d
+    InputG{} -> d
+    ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> ShareG (NodeId n) d
