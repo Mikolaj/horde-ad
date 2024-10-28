@@ -961,6 +961,9 @@ class HVectorTensor (ranked :: RankedTensorType)
   tdualPart :: STensorKindType y
             -> Rep ranked y
             -> Rep (DualOf ranked) y
+  tD :: STensorKindType y
+     -> Rep (PrimalOf ranked) y -> Rep (DualOf ranked) y
+     -> Rep ranked y
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf ranked x z

@@ -199,13 +199,7 @@ interpretAst !env = \case
     -- Consequently, the result is a dual part, despite the appearances.
   AstConstant @y2 a -> tconstant (stensorKind @y2) (interpretAstPrimal env a)
   AstD @y2 u u' ->
-    -- TODO: get rid of mapRep2 similarly as for AstConstant and AstCond
-    let t1 = interpretAstPrimal env u
-        t2 = interpretAstDual env u'
-    in mapRep2Weak @(PrimalOf ranked) @(DualOf ranked) @ranked
-         rD sD xD
-         (stensorKind @y2)
-         t1 t2
+   tD (stensorKind @y2) (interpretAstPrimal env u) (interpretAstDual env u')
   AstCond @y2 b a1 a2 ->
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b

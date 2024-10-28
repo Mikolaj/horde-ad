@@ -323,6 +323,7 @@ instance HVectorTensor ORArray OSArray where
       in tpair t1 t2
     STKUntyped -> error "TODO"
     _ -> error "TODO"
+  tD _stk t _d = t
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
   dHApply f = f

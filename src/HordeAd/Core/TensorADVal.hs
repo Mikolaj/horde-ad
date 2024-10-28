@@ -616,6 +616,21 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
       in HVectorPseudoTensor $ HToH
          $ V.map fd $ unHVectorPseudoTensor t
     _ -> error "TODO"
+  tD stk t d = case stk of
+    STKScalar _ -> RepScalar $ rD (unRepScalar t) (unRepScalar d)
+    STKR STKScalar{} SNat -> rD t d
+    STKS STKScalar{} sh -> withKnownShS sh $ sD t d
+    STKX STKScalar{} sh -> withKnownShX sh $ xD t d
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      let (t1, t2) = tunpair t
+          (d1, d2) = (tproject1 d, tproject2 d)  -- TODO: sharing
+      in tpair (tD stk1 t1 d1) (tD stk2 t2 d2)
+    STKUntyped ->
+      let hv = tunvector t
+      in HVectorPseudoTensor $ dmkHVector
+         $ ahhToHVector hv (unHVectorPseudoTensor d)
+    _ -> error "TODO"
   dmkHVector = id
   dlambda _ = id
   dHApply (HFun f) = f
