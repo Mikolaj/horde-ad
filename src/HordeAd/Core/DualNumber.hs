@@ -355,7 +355,6 @@ instance ProductTensor (ADVal ranked) where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
-  tmkHVector = id
 
 
 -- * Numeric instances

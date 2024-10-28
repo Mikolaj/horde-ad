@@ -405,7 +405,6 @@ instance AstSpan s => ProductTensor (AstRanked s) where
                           (unRankedY stensorKind t2)
   tproject1 = rankedY stensorKind . astProject1
   tproject2 = rankedY stensorKind . astProject2
-  tmkHVector = AstMkHVector . unRankedHVector
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor AstMethodLet s y
@@ -951,7 +950,6 @@ instance ProductTensor (AstRaw s) where
                                        (unRawY stensorKind t2)
   tproject1 t = rawY stensorKind $ AstProject1 $ unAstRawWrap t
   tproject2 t = rawY stensorKind $ AstProject2 $ unAstRawWrap t
-  tmkHVector = AstRawWrap . AstMkHVector . unRawHVector
 
 rawY :: STensorKindType y -> AstTensor AstMethodShare s y
      -> Rep (AstRaw s) y
@@ -1342,7 +1340,6 @@ instance AstSpan s => ProductTensor (AstNoVectorize s) where
                                              (unNoVectorizeY stensorKind t2)
   tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
   tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
-  tmkHVector = AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
 
 noVectorizeY :: STensorKindType y -> AstTensor AstMethodLet s y
              -> Rep (AstNoVectorize s) y
@@ -1784,7 +1781,6 @@ instance AstSpan s => ProductTensor (AstNoSimplify s) where
                                             (unNoSimplifyY stensorKind t2)
   tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
   tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
-  tmkHVector = AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector
 
 astLetFunNoSimplify
   :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)

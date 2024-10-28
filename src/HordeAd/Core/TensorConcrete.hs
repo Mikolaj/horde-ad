@@ -238,7 +238,6 @@ instance ProductTensor DummyDual where
   tpair = DummyProduct
   tproject1 (DummyProduct vx _vz) = vx
   tproject2 (DummyProduct _vx vz) = vz
-  tmkHVector = error "tmkHVector of DummyDual"
 
 instance ShapedTensor OSArray where
   sminIndex = FlipS . tminIndexS . runFlipS
@@ -386,7 +385,6 @@ instance ProductTensor ORArray where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
-  tmkHVector = id
 
 ravel :: forall k y. TensorKind y
       => SNat k -> [Rep ORArray y]

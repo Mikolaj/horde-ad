@@ -17,7 +17,7 @@ module HordeAd.Core.TensorClass
   , HFun(..)
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl, xrepl, unrepShallow, unrepDeep, repDeepDuplicable
-  , mapDynamic, mapDynamic2, mapRep
+  , mapDynamic, mapDynamic2
   , mapRep2Weak
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
@@ -1228,8 +1228,6 @@ class HVectorTensor (ranked :: RankedTensorType)
     -> Rep ranked (BuildTensorKind k eShs)
     -> Rep ranked (TKProduct accShs (BuildTensorKind k bShs))
 
--- TODO: tmkHVector should be removed, but the Delta instance needed
--- in interpreter makes this difficult.
 class ProductTensor (ranked :: RankedTensorType) where
   tpair :: (TensorKind x, TensorKind z)
          => Rep ranked x -> Rep ranked z
@@ -1240,7 +1238,6 @@ class ProductTensor (ranked :: RankedTensorType) where
   tproject2 :: (TensorKind x, TensorKind z)
             => Rep ranked (TKProduct x z)
             -> Rep ranked z
-  tmkHVector :: HVector ranked -> HVectorOf ranked
 
 tunit :: RankedTensor ranked
       => Rep ranked TKUnit
@@ -1474,42 +1471,6 @@ mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _)
       Nothing -> error "mapDynamic2: n mismatch"
     Nothing -> error "mapDynamic2: r mismatch"
 mapDynamic2 _ _ _ _ = error "mapDynamic2: unexpected arguments"
-
-mapRep
-  :: forall f g y.
-     ( ProductTensor f, ProductTensor g
-     , RankedTensor f, ShapedTensor (ShapedOf f)
-     , HVectorTensor f (ShapedOf f) )
-  => (forall r n. (GoodScalar r, KnownNat n)
-      => Rep f (TKR r n) -> Rep g (TKR r n))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => Rep f (TKS r sh) -> Rep g (TKS r sh))
-  -> (forall r sh. (GoodScalar r, KnownShX sh)
-      => Rep f (TKX r sh) -> Rep g (TKX r sh))
-  -> STensorKindType y
-  -> Rep f y
-  -> Rep g y
-mapRep fr fs fx stk b = case stk of
-  STKScalar _ -> RepScalar $ fr $ unRepScalar b
-  STKR STKScalar{} SNat -> fr b
-  STKS STKScalar{} sh -> withKnownShS sh $ fs b
-  STKX STKScalar{} sh -> withKnownShX sh $ fx b
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    let !t1 = mapRep fr fs fx stk1 $ tproject1 b
-        !t2 = mapRep fr fs fx stk2 $ tproject2 b
-    in tpair t1 t2
-      -- this shares properly only when the product instance for f is (,)
-      -- and tlet wouldn't work because f and g differ
-  STKUntyped ->
-    -- Here @dletHVectorInHVector@ or @tlet@ wouldn't work
-    -- because f and g differ.
-    let fd :: DynamicTensor f -> DynamicTensor g
-        fd = mapDynamic fr fs
-    in HVectorPseudoTensor $ tmkHVector
-       $ V.map fd
-       $ dunHVector $ unHVectorPseudoTensor b
-  _ -> error "TODO"
 
 {- Not needed ATM and quite broken.
 mapRep2

@@ -718,7 +718,6 @@ instance ( RankedOf (ShapedOf ranked) ~ ranked
                       (unDeltaRY stensorKind t2)
   tproject1 = deltaRY stensorKind . Project1G
   tproject2 = deltaRY stensorKind . Project2G
-  tmkHVector = HToH
 
 deltaRY :: forall y ranked.
            ( RankedOf (ShapedOf ranked) ~ ranked
