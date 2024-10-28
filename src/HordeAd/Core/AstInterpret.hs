@@ -115,10 +115,7 @@ interpretAstDual
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ ->
-    -- TODO: get rid of mapRep similarly as with tprimalPart
-    mapRep @ranked @(DualOf ranked)
-      rdualPart sdualPart xdualPart (stensorKind @y)
-      (interpretAst env v1)
+    tdualPart (stensorKind @y) (interpretAst env v1)
 
 interpretAstRuntimeSpecialized
   :: forall ranked n s r.

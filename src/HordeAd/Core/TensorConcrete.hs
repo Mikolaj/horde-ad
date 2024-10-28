@@ -312,6 +312,18 @@ instance HVectorTensor ORArray OSArray where
     _ -> error "TODO"
   tcond _ b u v = if b then u else v
   tprimalPart _ = id
+  tdualPart stk t = case stk of
+    STKScalar _ -> RepScalar DummyDual
+    STKR STKScalar{} _ -> DummyDual
+    STKS STKScalar{} _ -> DummyDual
+    STKX STKScalar{} _ -> DummyDual
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      let !t1 = tdualPart stk1 $ fst t
+          !t2 = tdualPart stk2 $ snd t
+      in tpair t1 t2
+    STKUntyped -> error "TODO"
+    _ -> error "TODO"
   dmkHVector = id
   dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
   dHApply f = f

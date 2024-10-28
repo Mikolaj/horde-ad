@@ -701,6 +701,15 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
                          , Dict <- lemTensorKindOfS stk2 -> astSpanPrimal t
     STKUntyped -> HVectorPseudoTensor $ astSpanPrimal $ unHVectorPseudoTensor t
     _ -> error "TODO"
+  tdualPart stk t = case stk of
+    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKR STKScalar{} SNat -> rdualPart t
+    STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
+    STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 -> astSpanDual t
+    STKUntyped -> HVectorPseudoTensor $ astSpanDual $ unHVectorPseudoTensor t
+    _ -> error "TODO"
   dmkHVector = AstMkHVector . unRankedHVector
   dlambda :: forall x z. (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf (AstRanked s) x z
@@ -1156,6 +1165,17 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap
                   $ astSpanPrimalRaw $ unAstRawWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
+  tdualPart stk t = case stk of
+    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKR STKScalar{} SNat -> rdualPart t
+    STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
+    STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      AstRawWrap $ astSpanDualRaw $ unAstRawWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
+                  $ astSpanDualRaw $ unAstRawWrap $ unHVectorPseudoTensor t
+    _ -> error "TODO"
   dmkHVector = AstRawWrap . AstMkHVector . unRawHVector
   dlambda = dlambda @(AstRanked s)
   dHApply :: forall x z. (TensorKind x, TensorKind z)
@@ -1604,6 +1624,17 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
       AstNoVectorizeWrap $ astSpanPrimal $ unAstNoVectorizeWrap t
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
                   $ astSpanPrimal $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+    _ -> error "TODO"
+  tdualPart stk t = case stk of
+    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKR STKScalar{} SNat -> rdualPart t
+    STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
+    STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      AstNoVectorizeWrap $ astSpanDual $ unAstNoVectorizeWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
+                  $ astSpanDual $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   dmkHVector =
     AstNoVectorizeWrap . AstMkHVector . unNoVectorizeHVector
@@ -2057,6 +2088,17 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
       AstNoSimplifyWrap $ astSpanPrimal $ unAstNoSimplifyWrap t
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
                   $ astSpanPrimal $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
+    _ -> error "TODO"
+  tdualPart stk t = case stk of
+    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKR STKScalar{} SNat -> rdualPart t
+    STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
+    STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      AstNoSimplifyWrap $ astSpanDual $ unAstNoSimplifyWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
+                  $ astSpanDual $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   dmkHVector =
     AstNoSimplifyWrap . AstMkHVector . unNoSimplifyHVector

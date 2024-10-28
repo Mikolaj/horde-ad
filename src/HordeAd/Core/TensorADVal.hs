@@ -597,7 +597,23 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
     STKUntyped ->
       let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor ranked
           fd = mapDynamic rprimalPart sprimalPart
-      in HVectorPseudoTensor $ tmkHVector
+      in HVectorPseudoTensor $ dmkHVector
+         $ V.map fd $ unHVectorPseudoTensor t
+    _ -> error "TODO"
+  tdualPart stk t = case stk of
+    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKR STKScalar{} SNat -> rdualPart t
+    STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
+    STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      let !t1 = tdualPart stk1 $ fst t
+          !t2 = tdualPart stk2 $ snd t
+      in tpair t1 t2
+    STKUntyped ->
+      let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor (DeltaR ranked)
+          fd = mapDynamic rdualPart sdualPart
+      in HVectorPseudoTensor $ HToH
          $ V.map fd $ unHVectorPseudoTensor t
     _ -> error "TODO"
   dmkHVector = id
