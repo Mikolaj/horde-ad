@@ -203,8 +203,6 @@ type instance RankedOf OSArray = ORArray
 
 type instance PrimalOf OSArray = OSArray
 
-type instance DualOf OSArray = DummyDual
-
 type instance BoolOf OXArray = Bool
 
 instance EqF OXArray where
@@ -223,8 +221,6 @@ instance IfF OXArray where
 type instance RankedOf OXArray = ORArray
 
 type instance PrimalOf OXArray = OXArray
-
-type instance DualOf OXArray = DummyDual
 
 type role DummyProduct representational representational
 type DummyProduct :: Type -> Type -> Type

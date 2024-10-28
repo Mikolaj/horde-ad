@@ -576,9 +576,9 @@ class ( Num (IntOf ranked), Num (IntOf (MixedOf ranked))
   xprimalPart :: (GoodScalar r, KnownShX sh)
               => MixedOf ranked r sh -> PrimalOf (MixedOf ranked) r sh
   xdualPart :: (GoodScalar r, KnownShX sh)
-            => MixedOf ranked r sh -> DualOf (MixedOf ranked) r sh
+            => MixedOf ranked r sh -> MixedOf (DualOf ranked) r sh
   xD :: (GoodScalar r, KnownShX sh)
-     => PrimalOf (MixedOf ranked) r sh -> DualOf (MixedOf ranked) r sh
+     => PrimalOf (MixedOf ranked) r sh -> MixedOf (DualOf ranked) r sh
      -> MixedOf ranked r sh
 
 
@@ -932,11 +932,11 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
   sprimalPart :: (GoodScalar r, KnownShS sh)
               => shaped r sh -> PrimalOf shaped r sh
   sdualPart :: (GoodScalar r, KnownShS sh)
-            => shaped r sh -> DualOf shaped r sh
+            => shaped r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh
   sD :: (GoodScalar r, KnownShS sh)
-     => PrimalOf shaped r sh -> DualOf shaped r sh -> shaped r sh
+     => PrimalOf shaped r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh -> shaped r sh
   sScale :: (GoodScalar r, KnownShS sh)
-         => PrimalOf shaped r sh -> DualOf shaped r sh -> DualOf shaped r sh
+         => PrimalOf shaped r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh
 
 
 -- * HVectorTensor class definition

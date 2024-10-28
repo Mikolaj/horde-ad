@@ -81,7 +81,6 @@ type instance HFunOf (AstGeneric ms s) x z = AstHFun x z
 
 type instance RankedOf (AstGenericS ms s) = AstGeneric ms s
 type instance PrimalOf (AstGenericS ms s) = AstGenericS ms PrimalSpan
-type instance DualOf (AstGenericS ms s) = AstGenericS ms DualSpan
 
 type instance Rep (AstRanked s) (TKProduct x z) =
   AstTensor AstMethodLet s (TKProduct x z)
@@ -109,11 +108,9 @@ type instance HFunOf (AstRanked s) x z = AstHFun x z
 
 type instance RankedOf (AstShaped s) = AstRanked s
 type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
-type instance DualOf (AstShaped s) = AstShaped DualSpan
 
 type instance RankedOf (AstMixed s) = AstRanked s
 type instance PrimalOf (AstMixed s) = AstMixed PrimalSpan
-type instance DualOf (AstMixed s) = AstMixed DualSpan
 
 
 -- * The AstSpan kind
@@ -1037,10 +1034,8 @@ type instance HVectorOf (AstRaw s) = AstRawWrap (AstTensor AstMethodShare s TKUn
 type instance HFunOf (AstRaw s) x y = AstHFun x y
 type instance RankedOf (AstRawS s) = AstRaw s
 type instance PrimalOf (AstRawS s) = AstRawS PrimalSpan
-type instance DualOf (AstRawS s) = AstRawS DualSpan
 type instance RankedOf (AstRawX s) = AstRaw s
 type instance PrimalOf (AstRawX s) = AstRawX PrimalSpan
-type instance DualOf (AstRawX s) = AstRawX DualSpan
 
 type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
 type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
@@ -1053,10 +1048,8 @@ type instance HVectorOf (AstNoVectorize s) =
 type instance HFunOf (AstNoVectorize s) x z = AstHFun x z
 type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
 type instance PrimalOf (AstNoVectorizeS s) = AstNoVectorizeS PrimalSpan
-type instance DualOf (AstNoVectorizeS s) = AstNoVectorizeS DualSpan
 type instance RankedOf (AstNoVectorizeX s) = AstNoVectorize s
 type instance PrimalOf (AstNoVectorizeX s) = AstNoVectorizeX PrimalSpan
-type instance DualOf (AstNoVectorizeX s) = AstNoVectorizeX DualSpan
 
 type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
 type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
@@ -1069,10 +1062,8 @@ type instance HVectorOf (AstNoSimplify s) =
 type instance HFunOf (AstNoSimplify s) x z = AstHFun x z
 type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
 type instance PrimalOf (AstNoSimplifyS s) = AstNoSimplifyS PrimalSpan
-type instance DualOf (AstNoSimplifyS s) = AstNoSimplifyS DualSpan
 type instance RankedOf (AstNoSimplifyX s) = AstNoSimplify s
 type instance PrimalOf (AstNoSimplifyX s) = AstNoSimplifyX PrimalSpan
-type instance DualOf (AstNoSimplifyX s) = AstNoSimplifyX DualSpan
 
 type role AstRaw nominal nominal nominal
 newtype AstRaw s r n =

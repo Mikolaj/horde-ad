@@ -392,7 +392,7 @@ type family HFunOf (f :: RankedTensorType)
 
 type family PrimalOf (f :: TensorType ty) :: TensorType ty
 
-type family DualOf (f :: TensorType ty) :: TensorType ty
+type family DualOf (f :: RankedTensorType) :: TensorType ty
 
 type role DummyDual representational nominal
 type DummyDual :: TensorType ty
