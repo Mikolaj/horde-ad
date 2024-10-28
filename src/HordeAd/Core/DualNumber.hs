@@ -7,6 +7,7 @@ module HordeAd.Core.DualNumber
   ( -- * The main dual number type
     ADVal, pattern D, dD, dDnotShared, constantADVal
   , pattern DR, dDR, dDnotSharedR
+  , pattern DS, dDS, dDnotSharedS
     -- * Auxiliary definitions
   , indexPrimal, fromVector, indexPrimalS, fromVectorS, indexPrimalX, fromVectorX
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
@@ -97,6 +98,17 @@ dDR !a !dual = dDnotShared a (shareDual (DeltaR dual))
 
 dDnotSharedR :: f r z -> Delta f (TKR r z) -> ADVal f r z
 dDnotSharedR u u' = ADVal u (DeltaR u')
+
+pattern DS :: f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
+pattern DS t u <- ADVal t (DeltaS u)  -- enforces only pattern matching
+{-# COMPLETE DS #-}
+
+dDS :: IsPrimal f r z
+    => f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
+dDS !a !dual = dDnotShared a (shareDual (DeltaS dual))
+
+dDnotSharedS :: f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
+dDnotSharedS u u' = ADVal u (DeltaS u')
 
 
 -- * Auxiliary definitions
@@ -189,7 +201,7 @@ aDValRep
 aDValRep p d = case stensorKind @y of
   STKScalar{} -> RepScalar $ dDnotSharedR (unRepScalar p) (ScalarG d)
   STKR STKScalar{} _ -> dDnotSharedR p d
-  STKS STKScalar{} _ -> dDnotShared p (DeltaS d)
+  STKS STKScalar{} _ -> dDnotSharedS p d
   STKX STKScalar{} _ -> dDnotShared p (DeltaX d)
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
@@ -213,7 +225,7 @@ ahhToHVector h hNotShared' =
       selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of
         DynamicRanked t -> DynamicRanked $ dDnotSharedR t (rFromH h' i)
-        DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ sFromH h' i)
+        DynamicShaped t -> DynamicShaped $ dDnotSharedS t (sFromH h' i)
         DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
         DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
   in V.imap selectDual h
@@ -284,7 +296,7 @@ indexPrimalS :: ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
                 , KnownShS (sh1 ++ sh2) )
              => ADVal shaped r (sh1 ++ sh2) -> IndexSh shaped sh1
              -> ADVal shaped r sh2
-indexPrimalS (D u u') ix = dD (sindex u ix) (DeltaS $ IndexS (unDeltaS u') ix)
+indexPrimalS (DS u u') ix = dDS (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh shaped r.
                ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
@@ -293,8 +305,8 @@ fromVectorS :: forall n sh shaped r.
             => Data.Vector.Vector (ADVal shaped r sh)
             -> ADVal shaped r (n ': sh)
 fromVectorS lu = assert (length lu == valueOf @n) $
-  dD (sfromVector $ V.map (\(D u _) -> u) lu)
-     (DeltaS $ FromVectorS $ V.map (\(D _ u') -> unDeltaS u') lu)
+  dDS (sfromVector $ V.map (\(D u _) -> u) lu)
+      (FromVectorS $ V.map (\(DS _ u') -> u') lu)
 
 instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
          , ProductTensor (RankedOf shaped), IfF (RankedOf (PrimalOf shaped))

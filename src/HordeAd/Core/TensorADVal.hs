@@ -383,7 +383,7 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   rconst t = constantADVal (rconst t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Rank sh)
-  rfromS (D u u') = dDnotSharedR (rfromS u) (dRFromS $ unDeltaS u')
+  rfromS (DS u u') = dDnotSharedR (rfromS u) (dRFromS u')
    where
     dRFromS :: (GoodScalar r2, KnownShS sh2)
             => Delta ranked (TKS r2 sh2) -> Delta ranked (TKR r2 (Rank sh2))
@@ -462,44 +462,43 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
 
   siota = constantADVal siota
   sindex d i = indexPrimalS d (rprimalPart <$> i)
-  ssum (D u (DeltaS u')) = dD (ssum u) (DeltaS $ SumS u')
-  ssum0 (D u (DeltaS u')) = dD (ssum0 u) (DeltaS $ Sum0S u')
-  sdot0 (D ue (DeltaS u')) (D ve (DeltaS v')) =
+  ssum (DS u u') = dDS (ssum u) (SumS u')
+  ssum0 (DS u u') = dDS (ssum0 u) (Sum0S u')
+  sdot0 (DS ue u') (DS ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (sdot0 u v) (dAdd (DeltaS $ Dot0S v u') (DeltaS $ Dot0S u v'))
-  sscatter (D u (DeltaS u')) f =
+    in dDS (sdot0 u v) (AddS (Dot0S v u') (Dot0S u v'))
+  sscatter (DS u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
-    in dD (sscatter u g) (DeltaS $ ScatterS u' g)
+    in dDS (sscatter u g) (ScatterS u' g)
 
   sfromVector = fromVectorS
-  sunravelToList (D u (DeltaS u')) =
+  sunravelToList (DS u u') =
     let lu = sunravelToList u
-        f i ui = dD ui (DeltaS $ IndexS u' (ShapedList.singletonIndex
-                                            $ fromIntegral i))
+        f i ui = dDS ui (IndexS u' (ShapedList.singletonIndex $ fromIntegral i))
     in imap f lu
-  sreplicate (D u (DeltaS u')) = dD (sreplicate u) (DeltaS $ ReplicateS u')
-  sappend (D u (DeltaS u')) (D v (DeltaS v')) =
-    dD (sappend u v) (DeltaS $ AppendS u' v')
-  sslice (i_proxy :: Proxy i) n_proxy (D u (DeltaS u')) =
-    dD (sslice i_proxy n_proxy u) (DeltaS $ SliceS @(RankedOf shaped) @i u')
-  sreverse (D u (DeltaS u')) = dD (sreverse u) (DeltaS $ ReverseS u')
+  sreplicate (DS u u') = dDS (sreplicate u) ( ReplicateS u')
+  sappend (DS u u') (DS v v') =
+    dDS (sappend u v) (AppendS u' v')
+  sslice (i_proxy :: Proxy i) n_proxy (DS u u') =
+    dDS (sslice i_proxy n_proxy u) (SliceS @(RankedOf shaped) @i u')
+  sreverse (DS u u') = dDS (sreverse u) (ReverseS u')
 
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
                 , Rank perm <= Rank sh, GoodScalar r )
              => Permutation.Perm perm -> ADVal shaped r sh
              -> ADVal shaped r (Permutation.PermutePrefix perm sh)
-  stranspose perm (D u (DeltaS u')) | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
-    dD (stranspose perm u) (DeltaS $ TransposeS @_ @_ @_ @(RankedOf shaped) perm u')
+  stranspose perm (DS u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
+    dDS (stranspose perm u) (TransposeS @_ @_ @_ @(RankedOf shaped) perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2)
            => ADVal shaped r sh -> ADVal shaped r sh2
-  sreshape t@(D u (DeltaS u')) = case sameShape @sh2 @sh of
+  sreshape t@(DS u u') = case sameShape @sh2 @sh of
     Just Refl -> t
-    _ -> dD (sreshape u) (DeltaS $ ReshapeS u')
+    _ -> dDS (sreshape u) (ReshapeS u')
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
           => (IntOf (ADVal shaped) -> ADVal shaped r sh)
           -> ADVal shaped r (n ': sh)
@@ -509,17 +508,17 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
                    $ map (f . fromIntegral)
                          [0 :: Int .. k - 1]
            -- element-wise (POPL) version
-  sgather (D u (DeltaS u')) f =
+  sgather (DS u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
-    in dD (sgather u g) (DeltaS $ GatherS u' g)
-  scast (D u (DeltaS u')) = dD (scast u) (DeltaS $ CastS u')
+    in dDS (sgather u g) (GatherS u' g)
+  scast (DS u u') = dDS (scast u) (CastS u')
   sfromIntegral (D u _) =
     let v = sfromIntegral u
     in dDnotShared v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => ADVal (RankedOf shaped) r (Rank sh) -> ADVal shaped r sh
-  sfromR (DR u u') = dDnotShared (sfromR u) (DeltaS $ dSFromR u')
+  sfromR (DR u u') = dDnotSharedS (sfromR u) (dSFromR u')
    where
     dSFromR (RFromS @sh1 d) =
       case sameShape @sh1 @sh of
@@ -529,8 +528,8 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
 
   sconstant t = dDnotShared t (dZeroOfShape t)
   sprimalPart (D u _) = u
-  sdualPart (D _ u') = unDeltaS u'
-  sD t d = dD t (DeltaS d)
+  sdualPart (DS _ u') = u'
+  sD t d = dDS t d
   sScale = ScaleS
 
 
@@ -884,7 +883,7 @@ unADValRep
 unADValRep stk t = case (stk, t) of
   (STKScalar{}, RepScalar (DR p d)) -> (RepScalar p, UnScalarG d)
   (STKR STKScalar{} _, DR p d) -> (p, d)
-  (STKS STKScalar{} _, D p (DeltaS d)) -> (p, d)
+  (STKS STKScalar{} _, DS p d) -> (p, d)
   (STKX STKScalar{} _, D p (DeltaX d)) -> (p, d)
   (STKProduct stk1 stk2, (t1, t2)) | Dict <- lemTensorKindOfS stk1
                                    , Dict <- lemTensorKindOfS stk2 ->
@@ -936,7 +935,7 @@ aDValDynamicTensor (DynamicShaped @r1 @sh1 t')
                    (DynamicShapedDummy @r2 @sh2 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared t' (DeltaS ZeroS))
+    DynamicShaped (dDnotSharedS t' ZeroS)
 aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
                    (DynamicRankedDummy @r2 @sh2 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
