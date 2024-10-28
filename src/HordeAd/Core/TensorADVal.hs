@@ -882,8 +882,8 @@ unADValRep
   -> Rep (ADVal ranked) y
   -> (Rep ranked y, Delta ranked y)
 unADValRep stk t = case (stk, t) of
-  (STKScalar{}, RepScalar (D p (DeltaR d))) -> (RepScalar p, UnScalarG d)
-  (STKR STKScalar{} _, D p (DeltaR d)) -> (p, d)
+  (STKScalar{}, RepScalar (DR p d)) -> (RepScalar p, UnScalarG d)
+  (STKR STKScalar{} _, DR p d) -> (p, d)
   (STKS STKScalar{} _, D p (DeltaS d)) -> (p, d)
   (STKX STKScalar{} _, D p (DeltaX d)) -> (p, d)
   (STKProduct stk1 stk2, (t1, t2)) | Dict <- lemTensorKindOfS stk1
@@ -931,7 +931,7 @@ aDValDynamicTensor (DynamicRanked @r1 @n1 t')
   , Just Refl <- matchingRank @sh2 @n1 =
     withListShape (shapeT @sh2) $ \(sh4 :: IShR n4) ->
       gcastWith (unsafeCoerce Refl :: n4 :~: Rank sh2) $
-      DynamicRanked (dDnotShared t' (DeltaR $ ZeroR sh4))
+      DynamicRanked (dDnotSharedR t' (ZeroR sh4))
 aDValDynamicTensor (DynamicShaped @r1 @sh1 t')
                    (DynamicShapedDummy @r2 @sh2 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)

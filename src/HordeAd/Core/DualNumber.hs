@@ -187,8 +187,8 @@ aDValRep
   => Rep ranked y -> Delta ranked y
   -> Rep (ADVal ranked) y
 aDValRep p d = case stensorKind @y of
-  STKScalar{} -> RepScalar $ dDnotShared (unRepScalar p) (DeltaR $ ScalarG d)
-  STKR STKScalar{} _ -> dDnotShared p (DeltaR d)
+  STKScalar{} -> RepScalar $ dDnotSharedR (unRepScalar p) (ScalarG d)
+  STKR STKScalar{} _ -> dDnotSharedR p d
   STKS STKScalar{} _ -> dDnotShared p (DeltaS d)
   STKX STKScalar{} _ -> dDnotShared p (DeltaX d)
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
@@ -212,7 +212,7 @@ ahhToHVector h hNotShared' =
         _ -> wrapDelta hNotShared'
       selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of
-        DynamicRanked t -> DynamicRanked $ dDnotShared t (DeltaR $ rFromH h' i)
+        DynamicRanked t -> DynamicRanked $ dDnotSharedR t (rFromH h' i)
         DynamicShaped t -> DynamicShaped $ dDnotShared t (DeltaS $ sFromH h' i)
         DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
         DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
@@ -257,7 +257,7 @@ indexPrimal :: ( RankedTensor ranked, ShareTensor ranked
                , KnownNat m, KnownNat n, GoodScalar r )
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
-indexPrimal (D u u') ix = dD (rindex u ix) (DeltaR $ IndexR (unDeltaR u') ix)
+indexPrimal (DR u u') ix = dDR (rindex u ix) (IndexR u' ix)
 
 fromVector :: ( RankedTensor ranked, ShareTensor ranked
               , ProductTensor ranked, KnownNat n, GoodScalar r )
@@ -265,8 +265,8 @@ fromVector :: ( RankedTensor ranked, ShareTensor ranked
            -> ADVal ranked r (1 + n)
 fromVector lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (rfromVector $ V.map (\(D u _) -> u) lu)
-     (DeltaR $ FromVectorR $ V.map (\(D _ u') -> unDeltaR u') lu)
+  dDR (rfromVector $ V.map (\(D u _) -> u) lu)
+      (FromVectorR $ V.map (\(DR _ u') -> u') lu)
 
 instance ( RankedTensor ranked, ShareTensor ranked
          , ProductTensor ranked, IfF (RankedOf (PrimalOf ranked))
