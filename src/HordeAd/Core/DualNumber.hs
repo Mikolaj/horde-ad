@@ -344,7 +344,7 @@ type instance HFunOf (ADVal f) x y = HFun x y
 
 type instance PrimalOf (ADVal f) = f
 
-type instance DualOf (ADVal f) = DeltaR f
+type instance DualOf (ADVal f) = Delta f
 
 type instance ShareOf (ADVal f) = ADVal f
 

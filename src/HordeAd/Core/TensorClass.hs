@@ -543,11 +543,12 @@ class ( Num (IntOf ranked), Num (IntOf (MixedOf ranked))
   rprimalPart :: (GoodScalar r, KnownNat n)
               => ranked r n -> PrimalOf ranked r n
   rdualPart :: (GoodScalar r, KnownNat n)
-            => ranked r n -> DualOf ranked r n
+            => ranked r n -> DualOf ranked (TKR r n)
   rD :: (GoodScalar r, KnownNat n)
-     => PrimalOf ranked r n -> DualOf ranked r n -> ranked r n
+     => PrimalOf ranked r n -> DualOf ranked (TKR r n) -> ranked r n
   rScale :: (GoodScalar r, KnownNat n)
-         => PrimalOf ranked r n -> DualOf ranked r n -> DualOf ranked r n
+         => PrimalOf ranked r n -> DualOf ranked (TKR r n)
+         -> DualOf ranked (TKR r n)
   -- TODO: we'd probably also need dZero, dIndex0 and others from IsPrimal,
   -- because IsPrimal has subtly different types, operating on Deltas (Dual)
   -- instead of on terms (DualOf) that denote Deltas
@@ -576,9 +577,9 @@ class ( Num (IntOf ranked), Num (IntOf (MixedOf ranked))
   xprimalPart :: (GoodScalar r, KnownShX sh)
               => MixedOf ranked r sh -> PrimalOf (MixedOf ranked) r sh
   xdualPart :: (GoodScalar r, KnownShX sh)
-            => MixedOf ranked r sh -> MixedOf (DualOf ranked) r sh
+            => MixedOf ranked r sh -> DualOf ranked (TKX r sh)
   xD :: (GoodScalar r, KnownShX sh)
-     => PrimalOf (MixedOf ranked) r sh -> MixedOf (DualOf ranked) r sh
+     => PrimalOf (MixedOf ranked) r sh -> DualOf ranked (TKX r sh)
      -> MixedOf ranked r sh
 
 
@@ -932,11 +933,13 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
   sprimalPart :: (GoodScalar r, KnownShS sh)
               => shaped r sh -> PrimalOf shaped r sh
   sdualPart :: (GoodScalar r, KnownShS sh)
-            => shaped r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh
+            => shaped r sh -> DualOf (RankedOf shaped) (TKS r sh)
   sD :: (GoodScalar r, KnownShS sh)
-     => PrimalOf shaped r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh -> shaped r sh
+     => PrimalOf shaped r sh -> DualOf (RankedOf shaped) (TKS r sh)
+     -> shaped r sh
   sScale :: (GoodScalar r, KnownShS sh)
-         => PrimalOf shaped r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh -> ShapedOf (DualOf (RankedOf shaped)) r sh
+         => PrimalOf shaped r sh -> DualOf (RankedOf shaped) (TKS r sh)
+         -> DualOf (RankedOf shaped) (TKS r sh)
 
 
 -- * HVectorTensor class definition
@@ -959,9 +962,9 @@ class HVectorTensor (ranked :: RankedTensorType)
               -> Rep (PrimalOf ranked) y
   tdualPart :: STensorKindType y
             -> Rep ranked y
-            -> Rep (DualOf ranked) y
+            -> DualOf ranked y
   tD :: STensorKindType y
-     -> Rep (PrimalOf ranked) y -> Rep (DualOf ranked) y
+     -> Rep (PrimalOf ranked) y -> DualOf ranked y
      -> Rep ranked y
   dmkHVector :: HVector ranked -> HVectorOf ranked
   dlambda :: (TensorKind x, TensorKind z)

@@ -73,7 +73,11 @@ type instance HFunOf ORArray x z = Rep ORArray x -> Rep ORArray z
 
 type instance PrimalOf ORArray = ORArray
 
-type instance DualOf ORArray = DummyDual
+type instance DualOf ORArray = DummyDualTarget
+
+type role DummyDualTarget representational
+type DummyDualTarget :: TensorKindType -> Type
+data DummyDualTarget y = DummyDualTarget
 
 type instance ShareOf ORArray = ORArray
 
@@ -169,9 +173,9 @@ instance RankedTensor ORArray where
 
   rconstant = id
   rprimalPart = id
-  rdualPart _ = DummyDual
+  rdualPart _ = DummyDualTarget
   rD u _ = u
-  rScale _ _ = DummyDual
+  rScale _ _ = DummyDualTarget
 
   xshape = Nested.mshape . runFlipX
   xindex = error "TODO"
@@ -180,7 +184,7 @@ instance RankedTensor ORArray where
   xconst = FlipX
   xconstant = id
   xprimalPart = id
-  xdualPart _ = DummyDual
+  xdualPart _ = DummyDualTarget
   xD u _ = u
 
 
@@ -288,9 +292,9 @@ instance ShapedTensor OSArray where
 
   sconstant = id
   sprimalPart = id
-  sdualPart _ = DummyDual
+  sdualPart _ = DummyDualTarget
   sD u _ = u
-  sScale _ _ = DummyDual
+  sScale _ _ = DummyDualTarget
 
 instance HVectorTensor ORArray OSArray where
   dshape = voidFromHVector
@@ -308,15 +312,15 @@ instance HVectorTensor ORArray OSArray where
   tcond _ b u v = if b then u else v
   tprimalPart _ = id
   tdualPart stk t = case stk of
-    STKScalar _ -> RepScalar DummyDual
-    STKR STKScalar{} _ -> DummyDual
-    STKS STKScalar{} _ -> DummyDual
-    STKX STKScalar{} _ -> DummyDual
+    STKScalar _ -> DummyDualTarget
+    STKR STKScalar{} _ -> DummyDualTarget
+    STKS STKScalar{} _ -> DummyDualTarget
+    STKX STKScalar{} _ -> DummyDualTarget
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
-      let !t1 = tdualPart stk1 $ fst t
-          !t2 = tdualPart stk2 $ snd t
-      in tpair t1 t2
+      let !_t1 = tdualPart stk1 $ fst t
+          !_t2 = tdualPart stk2 $ snd t
+      in error "TODO"  -- PairG t1 t2
     STKUntyped -> error "TODO"
     _ -> error "TODO"
   tD _stk t _d = t

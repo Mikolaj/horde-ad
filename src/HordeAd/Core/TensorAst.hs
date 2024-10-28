@@ -609,9 +609,9 @@ instance AstSpan s => RankedTensor (AstRanked s) where
 
   rconstant = AstRanked . fromPrimal . unAstRanked
   rprimalPart = AstRanked . astSpanPrimal . unAstRanked
-  rdualPart = AstRanked . astSpanDual . unAstRanked
-  rD u u' = AstRanked $ astSpanD (unAstRanked u) (unAstRanked u')
-  rScale s t = AstRanked $ astDualPart $ AstConstant (unAstRanked s) * AstD (unAstRanked $ rzero (rshape s)) (unAstRanked t)
+  rdualPart = astSpanDual . unAstRanked
+  rD u u' = AstRanked $ astSpanD (unAstRanked u) u'
+  rScale s t = astDualPart $ AstConstant (unAstRanked s) * AstD (unAstRanked $ rzero (rshape s)) t
 
   xshape t = case shapeAstFull $ unAstMixed t of
     FTKX sh -> sh
@@ -622,9 +622,8 @@ instance AstSpan s => RankedTensor (AstRanked s) where
   xconst = AstMixed . fromPrimal . AstConstX
   xconstant = AstMixed . fromPrimal . unAstMixed
   xprimalPart = AstMixed . astSpanPrimal . unAstMixed
-  xdualPart = AstMixed . astSpanDual . unAstMixed
-  xD u u' =
-    AstMixed $ astSpanD (unAstMixed u) (unAstMixed u')
+  xdualPart = astSpanDual . unAstMixed
+  xD u u' = AstMixed $ astSpanD (unAstMixed u) u'
 
 instance AstSpan s => ShapedTensor (AstShaped s) where
   sminIndex = AstShaped . fromPrimal . AstMinIndexS . astSpanPrimal . unAstShaped
@@ -663,9 +662,9 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
 
   sconstant = AstShaped . fromPrimal . unAstShaped
   sprimalPart = AstShaped . astSpanPrimal . unAstShaped
-  sdualPart = AstShaped . astSpanDual . unAstShaped
-  sD u u' = AstShaped $ astSpanD (unAstShaped u) (unAstShaped u')
-  sScale s t = AstShaped $ astDualPart $ AstConstant (unAstShaped s) * AstD 0 (unAstShaped t)
+  sdualPart = astSpanDual . unAstShaped
+  sD u u' = AstShaped $ astSpanD (unAstShaped u) u'
+  sScale s t = astDualPart $ AstConstant (unAstShaped s) * AstD 0 t
 
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
   dshape = shapeAstHVector
@@ -701,23 +700,23 @@ instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
     STKUntyped -> HVectorPseudoTensor $ astSpanPrimal $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tdualPart stk t = case stk of
-    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKScalar _ -> AstUnScalar $ rdualPart $ unRepScalar t
     STKR STKScalar{} SNat -> rdualPart t
     STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
     STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 -> astSpanDual t
-    STKUntyped -> HVectorPseudoTensor $ astSpanDual $ unHVectorPseudoTensor t
+    STKUntyped -> astSpanDual $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tD stk t d = case stk of
-    STKScalar _ -> RepScalar $ rD (unRepScalar t) (unRepScalar d)
+    STKScalar _ -> RepScalar $ rD (unRepScalar t) (AstScalar d)
     STKR STKScalar{} SNat -> rD t d
     STKS STKScalar{} sh -> withKnownShS sh $ sD t d
     STKX STKScalar{} sh -> withKnownShX sh $ xD t d
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let (t1, t2) = (tproject1 t, tproject2 t)  -- TODO: sharing
-          (d1, d2) = (tproject1 d, tproject2 d)  -- TODO: sharing
+          (d1, d2) = (AstProject1 d, AstProject2 d)  -- TODO: sharing
       in tpair (tD stk1 t1 d1) (tD stk2 t2 d2)
     STKUntyped -> error "TODO"
     _ -> error "TODO"
@@ -1081,11 +1080,11 @@ instance AstSpan s => RankedTensor (AstRaw s) where
 
   rconstant = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
-  rdualPart = AstRaw . astSpanDualRaw . unAstRaw
-  rD u u' = AstRaw $ astSpanD (unAstRaw u) (unAstRaw u')
-  rScale s t = AstRaw $ AstDualPart
-               $ AstConstant (unAstRaw s)
-                 * AstD (unAstRaw $ rzero (rshape s)) (unAstRaw t)
+  rdualPart = astSpanDualRaw . unAstRaw
+  rD u u' = AstRaw $ astSpanD (unAstRaw u) u'
+  rScale s t =
+    AstDualPart $ AstConstant (unAstRaw s)
+                  * AstD (unAstRaw $ rzero (rshape s)) t
 
   xshape t = case shapeAstFull $ unAstRawX t of
     FTKX sh -> sh
@@ -1096,9 +1095,8 @@ instance AstSpan s => RankedTensor (AstRaw s) where
   xconst = AstRawX . fromPrimal . AstConstX
   xconstant = AstRawX . fromPrimal . unAstRawX
   xprimalPart = AstRawX . astSpanPrimalRaw . unAstRawX
-  xdualPart = AstRawX . astSpanDualRaw . unAstRawX
-  xD u u' =
-    AstRawX $ astSpanD (unAstRawX u) (unAstRawX u')
+  xdualPart = astSpanDualRaw . unAstRawX
+  xD u u' = AstRawX $ astSpanD (unAstRawX u) u'
 
 instance AstSpan s => ShapedTensor (AstRawS s) where
   sminIndex = AstRawS . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRawS
@@ -1134,10 +1132,9 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
 
   sconstant = AstRawS . fromPrimal . unAstRawS
   sprimalPart = AstRawS . astSpanPrimalRaw . unAstRawS
-  sdualPart = AstRawS . astSpanDualRaw . unAstRawS
-  sD u u' = AstRawS $ astSpanD (unAstRawS u) (unAstRawS u')
-  sScale s t = AstRawS $ AstDualPart
-               $ AstConstant (unAstRawS s) * AstD 0 (unAstRawS t)
+  sdualPart = astSpanDualRaw . unAstRawS
+  sD u u' = AstRawS $ astSpanD (unAstRawS u) u'
+  sScale s t = AstDualPart $ AstConstant (unAstRawS s) * AstD 0 t
 
 instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
   dshape = shapeAstHVector . unAstRawWrap
@@ -1176,25 +1173,24 @@ instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
                   $ astSpanPrimalRaw $ unAstRawWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tdualPart stk t = case stk of
-    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKScalar _ -> AstUnScalar $ rdualPart $ unRepScalar t
     STKR STKScalar{} SNat -> rdualPart t
     STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
     STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
-      AstRawWrap $ astSpanDualRaw $ unAstRawWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstRawWrap
-                  $ astSpanDualRaw $ unAstRawWrap $ unHVectorPseudoTensor t
+      astSpanDualRaw $ unAstRawWrap t
+    STKUntyped -> astSpanDualRaw $ unAstRawWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tD stk t d = case stk of
-    STKScalar _ -> RepScalar $ rD (unRepScalar t) (unRepScalar d)
+    STKScalar _ -> RepScalar $ rD (unRepScalar t) (AstScalar d)
     STKR STKScalar{} SNat -> rD t d
     STKS STKScalar{} sh -> withKnownShS sh $ sD t d
     STKX STKScalar{} sh -> withKnownShX sh $ xD t d
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let (t1, t2) = tunpair t
-          (d1, d2) = (tproject1 d, tproject2 d)  -- TODO: sharing
+          (d1, d2) = (AstProject1 d, AstProject2 d)  -- TODO: sharing
       in tpair (tD stk1 t1 d1) (tD stk2 t2 d2)
     STKUntyped -> error "TODO"
     _ -> error "TODO"
@@ -1549,10 +1545,9 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   rfromS = astNoVectorize2 . rfromS . unAstNoVectorizeS2
   rconstant = astNoVectorize2 . rconstant . unAstNoVectorize2
   rprimalPart = astNoVectorize2 . rprimalPart . unAstNoVectorize2
-  rdualPart = astNoVectorize2 . rdualPart . unAstNoVectorize2
-  rD u u' = astNoVectorize2 $ rD (unAstNoVectorize2 u) (unAstNoVectorize2 u')
-  rScale s t = astNoVectorize2 $ rScale @(AstRanked s)
-                                        (unAstNoVectorize2 s) (unAstNoVectorize2 t)
+  rdualPart = rdualPart . unAstNoVectorize2
+  rD u u' = astNoVectorize2 $ rD (unAstNoVectorize2 u) u'
+  rScale s t = rScale @(AstRanked s) (unAstNoVectorize2 s) t
 
   xshape t = case shapeAstFull $ unAstNoVectorizeX t of
     FTKX sh -> sh
@@ -1563,9 +1558,9 @@ instance AstSpan s => RankedTensor (AstNoVectorize s) where
   xconst = astNoVectorizeX2 . xconst
   xconstant = astNoVectorizeX2 . xconstant . unAstNoVectorizeX2
   xprimalPart = astNoVectorizeX2 . xprimalPart . unAstNoVectorizeX2
-  xdualPart = astNoVectorizeX2 . xdualPart . unAstNoVectorizeX2
+  xdualPart = xdualPart . unAstNoVectorizeX2
   xD u u' =
-    astNoVectorizeX2 $ xD (unAstNoVectorizeX2 u) (unAstNoVectorizeX2 u')
+    astNoVectorizeX2 $ xD (unAstNoVectorizeX2 u) u'
 
 instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sminIndex = astNoVectorizeS2 . sminIndex . unAstNoVectorizeS2
@@ -1602,12 +1597,9 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sconstant = astNoVectorizeS2 . sconstant . unAstNoVectorizeS2
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   sprimalPart = astNoVectorizeS2 . sprimalPart . unAstNoVectorizeS2
-  sdualPart = astNoVectorizeS2 . sdualPart . unAstNoVectorizeS2
-  sD u u' =
-    astNoVectorizeS2 $ sD (unAstNoVectorizeS2 u) (unAstNoVectorizeS2 u')
-  sScale s t =
-    astNoVectorizeS2 $ sScale @(AstShaped s)
-                              (unAstNoVectorizeS2 s) (unAstNoVectorizeS2 t)
+  sdualPart = sdualPart . unAstNoVectorizeS2
+  sD u u' = astNoVectorizeS2 $ sD @(AstShaped s) (unAstNoVectorizeS2 u) u'
+  sScale s t = sScale @(AstShaped s) (unAstNoVectorizeS2 s) t
 
 instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
   dshape = dshape . unAstNoVectorizeWrap
@@ -1647,25 +1639,24 @@ instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
                   $ astSpanPrimal $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tdualPart stk t = case stk of
-    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKScalar _ -> AstUnScalar $ rdualPart $ unRepScalar t
     STKR STKScalar{} SNat -> rdualPart t
     STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
     STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
-      AstNoVectorizeWrap $ astSpanDual $ unAstNoVectorizeWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
-                  $ astSpanDual $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
+      astSpanDual $ unAstNoVectorizeWrap t
+    STKUntyped -> astSpanDual $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tD stk t d = case stk of
-    STKScalar _ -> RepScalar $ rD (unRepScalar t) (unRepScalar d)
+    STKScalar _ -> RepScalar $ rD (unRepScalar t) (AstScalar d)
     STKR STKScalar{} SNat -> rD t d
     STKS STKScalar{} sh -> withKnownShS sh $ sD t d
     STKX STKScalar{} sh -> withKnownShX sh $ xD t d
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let (t1, t2) = (tproject1 t, tproject2 t)  -- TODO: sharing
-          (d1, d2) = (tproject1 d, tproject2 d)  -- TODO: sharing
+          (d1, d2) = (AstProject1 d, AstProject2 d)  -- TODO: sharing
       in tpair (tD stk1 t1 d1) (tD stk2 t2 d2)
     STKUntyped -> error "TODO"
     _ -> error "TODO"
@@ -2012,11 +2003,11 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplifyS
   rconstant = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
-  rdualPart = AstNoSimplify . astSpanDual . unAstNoSimplify
-  rD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) (unAstNoSimplify u')
-  rScale s t = AstNoSimplify $ astDualPart
-               $ AstConstant (unAstNoSimplify s)
-                 * AstD (unAstRanked $ rzero (rshape s)) (unAstNoSimplify t)
+  rdualPart = astSpanDual . unAstNoSimplify
+  rD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
+  rScale s t =
+    astDualPart $ AstConstant (unAstNoSimplify s)
+                  * AstD (unAstRanked $ rzero (rshape s)) t
 
   xshape t = case shapeAstFull $ unAstNoSimplifyX t of
     FTKX sh -> sh
@@ -2027,9 +2018,8 @@ instance AstSpan s => RankedTensor (AstNoSimplify s) where
   xconst = AstNoSimplifyX . fromPrimal . AstConstX
   xconstant = AstNoSimplifyX . fromPrimal . unAstNoSimplifyX
   xprimalPart = AstNoSimplifyX . astSpanPrimal . unAstNoSimplifyX
-  xdualPart = AstNoSimplifyX . astSpanDual . unAstNoSimplifyX
-  xD u u' =
-    AstNoSimplifyX $ astSpanD (unAstNoSimplifyX u) (unAstNoSimplifyX u')
+  xdualPart = astSpanDual . unAstNoSimplifyX
+  xD u u' = AstNoSimplifyX $ astSpanD (unAstNoSimplifyX u) u'
 
 instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sminIndex = AstNoSimplifyS . fromPrimal . AstMinIndexS
@@ -2073,16 +2063,10 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sconstant = AstNoSimplifyS . fromPrimal . unAstNoSimplifyS
     -- exceptionally we do simplify AstConstant to avoid long boring chains
   sprimalPart = AstNoSimplifyS . astSpanPrimal . unAstNoSimplifyS
-  sdualPart = AstNoSimplifyS . astSpanDual . unAstNoSimplifyS
-  sD u u' =
-    AstNoSimplifyS $ astSpanD (unAstNoSimplifyS u) (unAstNoSimplifyS u')
-  sScale :: forall r sh. (GoodScalar r, KnownShS sh)
-         => AstNoSimplifyS PrimalSpan r sh -> AstNoSimplifyS DualSpan r sh
-         -> AstNoSimplifyS DualSpan r sh
+  sdualPart = astSpanDual . unAstNoSimplifyS
+  sD u u' = AstNoSimplifyS $ astSpanD (unAstNoSimplifyS u) u'
   sScale s t =
-    AstNoSimplifyS $ astDualPart
-                   $ AstConstant (unAstNoSimplifyS s)
-                     * AstD 0 (unAstNoSimplifyS t)
+    astDualPart $ AstConstant (unAstNoSimplifyS s) * AstD 0 t
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
@@ -2122,25 +2106,24 @@ instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
                   $ astSpanPrimal $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tdualPart stk t = case stk of
-    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKScalar _ -> AstUnScalar $ rdualPart $ unRepScalar t
     STKR STKScalar{} SNat -> rdualPart t
     STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
     STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
-      AstNoSimplifyWrap $ astSpanDual $ unAstNoSimplifyWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
-                  $ astSpanDual $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
+      astSpanDual $ unAstNoSimplifyWrap t
+    STKUntyped -> astSpanDual $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tD stk t d = case stk of
-    STKScalar _ -> RepScalar $ rD (unRepScalar t) (unRepScalar d)
+    STKScalar _ -> RepScalar $ rD (unRepScalar t) (AstScalar d)
     STKR STKScalar{} SNat -> rD t d
     STKS STKScalar{} sh -> withKnownShS sh $ sD t d
     STKX STKScalar{} sh -> withKnownShX sh $ xD t d
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let (t1, t2) = (tproject1 t, tproject2 t)  -- TODO: sharing
-          (d1, d2) = (tproject1 d, tproject2 d)  -- TODO: sharing
+          (d1, d2) = (AstProject1 d, AstProject2 d)  -- TODO: sharing
       in tpair (tD stk1 t1 d1) (tD stk2 t2 d2)
     STKUntyped -> error "TODO"
     _ -> error "TODO"

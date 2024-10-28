@@ -392,9 +392,9 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
 
   rconstant t = dDnotShared t (dZeroOfShape t)
   rprimalPart (D u _) = u
-  rdualPart (D _ u') = u'
-  rD = dD
-  rScale = dScale
+  rdualPart (D _ u') = unDeltaR u'
+  rD t d = dD t (DeltaR d)
+  rScale t d = unDeltaR $ dScale t (DeltaR d)
 
   xshape (D u _) = xshape u
   xindex d i = indexPrimalX d (rprimalPart <$> i)
@@ -404,8 +404,8 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   xconst t = constantADVal (xconst t)
   xconstant t = dDnotShared t (dZeroOfShape t)
   xprimalPart (D u _) = u
-  xdualPart (D _ u') = u'
-  xD = xD
+  xdualPart (D _ u') = unDeltaX u'
+  xD t d = dD t (DeltaX d)
 
 
 -- * Shaped tensor instance
@@ -529,9 +529,9 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
 
   sconstant t = dDnotShared t (dZeroOfShape t)
   sprimalPart (D u _) = u
-  sdualPart (D _ u') = u'
-  sD = dD
-  sScale = dScale
+  sdualPart (D _ u') = unDeltaS u'
+  sD t d = dD t (DeltaS d)
+  sScale t d = unDeltaS $ dScale t (DeltaS d)
 
 
 -- * HVectorTensor instance
@@ -601,7 +601,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          $ V.map fd $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tdualPart stk t = case stk of
-    STKScalar _ -> RepScalar $ rdualPart $ unRepScalar t
+    STKScalar _ -> UnScalarG $ rdualPart $ unRepScalar t
     STKR STKScalar{} SNat -> rdualPart t
     STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
     STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
@@ -609,27 +609,26 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          , Dict <- lemTensorKindOfS stk2 ->
       let !t1 = tdualPart stk1 $ fst t
           !t2 = tdualPart stk2 $ snd t
-      in tpair t1 t2
+      in PairG t1 t2
     STKUntyped ->
       let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor (DeltaR ranked)
-          fd = mapDynamic rdualPart sdualPart
-      in HVectorPseudoTensor $ HToH
+          fd = mapDynamic (DeltaR . rdualPart) (DeltaS . sdualPart)
+      in HToH
          $ V.map fd $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tD stk t d = case stk of
-    STKScalar _ -> RepScalar $ rD (unRepScalar t) (unRepScalar d)
+    STKScalar _ -> RepScalar $ rD (unRepScalar t) (ScalarG d)
     STKR STKScalar{} SNat -> rD t d
     STKS STKScalar{} sh -> withKnownShS sh $ sD t d
     STKX STKScalar{} sh -> withKnownShX sh $ xD t d
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let (t1, t2) = tunpair t
-          (d1, d2) = (tproject1 d, tproject2 d)  -- TODO: sharing
+          (d1, d2) = (Project1G d, Project2G d)  -- TODO: sharing
       in tpair (tD stk1 t1 d1) (tD stk2 t2 d2)
     STKUntyped ->
       let hv = tunvector t
-      in HVectorPseudoTensor $ dmkHVector
-         $ ahhToHVector hv (unHVectorPseudoTensor d)
+      in HVectorPseudoTensor $ dmkHVector $ ahhToHVector hv d
     _ -> error "TODO"
   dmkHVector = id
   dlambda _ = id

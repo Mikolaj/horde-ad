@@ -111,7 +111,7 @@ interpretAstPrimal !env v1 = case v1 of
 interpretAstDual
   :: forall ranked y. (ADReady ranked, TensorKind y)
   => AstEnv ranked
-  -> AstTensor AstMethodLet DualSpan y -> Rep (DualOf ranked) y
+  -> AstTensor AstMethodLet DualSpan y -> DualOf ranked y
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ ->
