@@ -1516,7 +1516,6 @@ type ADReadyEqsClasses ranked shaped mixed =
   ( ADReadyEqs ranked shaped mixed
   , ADReadyClasses ranked shaped mixed
   , ADReadyClasses (PrimalOf ranked) (PrimalOf shaped) (PrimalOf mixed)
-  , ProductTensor (DualOf ranked)
   )
 
 type ADReadyEqs ranked shaped mixed =
@@ -1527,10 +1526,8 @@ type ADReadyEqs ranked shaped mixed =
   , RankedOf (PrimalOf shaped) ~ PrimalOf ranked
   , RankedOf (PrimalOf mixed) ~ PrimalOf ranked
   , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
-  , ShapedOf (DualOf ranked) ~ DualOf shaped
   , ShapedOf (PrimalOf ranked) ~ PrimalOf shaped
   , MixedOf (PrimalOf ranked) ~ PrimalOf mixed
-  , MixedOf (DualOf ranked) ~ DualOf mixed
   , MixedOf (PrimalOf ranked) ~ PrimalOf mixed
   , BoolOf ranked ~ BoolOf shaped
   , BoolOf ranked ~ BoolOf mixed
