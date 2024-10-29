@@ -40,7 +40,7 @@ module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
     -- * Abstract syntax trees of the delta expressions
-  , DeltaR (..), DeltaS (..), DeltaX (..), Delta(..)
+  , DeltaR (..), DeltaS (..), Delta(..)
   , -- * Delta expression identifiers
     NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
@@ -412,22 +412,6 @@ instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
          => Show (DeltaS shaped r sh) where
   showsPrec k (DeltaS t) = showsPrec k t
     -- to keep PP tests passing regardless of what wrappers we currently use
-type role DeltaX nominal nominal nominal
-type DeltaX :: MixedTensorType -> MixedTensorType
-newtype DeltaX mixed r sh =
-  DeltaX {unDeltaX :: Delta (RankedOf mixed) (TKX r sh)}
-instance ( RankedOf (ShapedOf ranked) ~ ranked
-         , ranked ~ RankedOf mixed, RankedOf (MixedOf ranked) ~ ranked
-         , Show (IntOf ranked)
-         , CRepProduct ranked Show
-         , Show (HVectorOf ranked)
-         , Show (IntOf (ShapedOf ranked))
-         , Show (IntOf (MixedOf ranked))
-         , CRanked ranked Show
-         , CShaped (ShapedOf ranked) Show
-         , CMixed (MixedOf ranked) Show )
-         => Show (DeltaX mixed r sh) where
-  showsPrec k (DeltaX t) = showsPrec k t
 
 type role Delta nominal nominal
 data Delta :: RankedTensorType -> TensorKindType -> Type where
@@ -704,8 +688,6 @@ deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
 type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
 
 type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
-
-type instance MixedOf (DeltaR ranked) = DeltaX (MixedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
