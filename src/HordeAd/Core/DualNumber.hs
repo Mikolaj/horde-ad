@@ -241,14 +241,14 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ >=. D v _ = u >=. v
 
 indexPrimal :: ( RankedTensor ranked, ShareTensor ranked
-               , HVectorTensor ranked
+               , ProductTensor ranked
                , KnownNat m, KnownNat n, GoodScalar r )
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
 fromVector :: ( RankedTensor ranked, ShareTensor ranked
-              , HVectorTensor ranked, KnownNat n, GoodScalar r )
+              , ProductTensor ranked, KnownNat n, GoodScalar r )
            => Data.Vector.Vector (ADVal ranked r n)
            -> ADVal ranked r (1 + n)
 fromVector lu =
@@ -257,7 +257,7 @@ fromVector lu =
      (FromVectorR $ V.map (\(D _ u') -> u') lu)
 
 instance ( RankedTensor ranked, ShareTensor ranked
-         , HVectorTensor ranked, IfF (RankedOf (PrimalOf ranked))
+         , ProductTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (BoolOf ranked)
          , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked )
          => IfF (ADVal ranked) where
@@ -267,7 +267,7 @@ instance ( RankedTensor ranked, ShareTensor ranked
     in dDnotShared u u'
 
 indexPrimalS :: ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
-                , HVectorTensor (RankedOf shaped)
+                , ProductTensor (RankedOf shaped)
                 , GoodScalar r, KnownShS sh1, KnownShS sh2
                 , KnownShS (sh1 ++ sh2) )
              => ADVal shaped r (sh1 ++ sh2) -> IndexSh shaped sh1
@@ -276,7 +276,7 @@ indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh shaped r.
                ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
-               , HVectorTensor (RankedOf shaped)
+               , ProductTensor (RankedOf shaped)
                , KnownNat n, KnownShS sh, GoodScalar r )
             => Data.Vector.Vector (ADVal shaped r sh)
             -> ADVal shaped r (n ': sh)
@@ -285,7 +285,7 @@ fromVectorS lu = assert (length lu == valueOf @n) $
      (FromVectorS $ V.map (\(D _ u') -> u') lu)
 
 instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
-         , HVectorTensor (RankedOf shaped), IfF (RankedOf (PrimalOf shaped))
+         , ProductTensor (RankedOf shaped), IfF (RankedOf (PrimalOf shaped))
          , Boolean (BoolOf shaped)
          , BoolOf (RankedOf (PrimalOf shaped)) ~ BoolOf shaped )
          => IfF (ADVal shaped) where
@@ -296,7 +296,7 @@ instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
     in dDnotShared u u'
 
 indexPrimalX :: ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
-                , HVectorTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+                , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
                 , GoodScalar r, KnownShX sh1, KnownShX sh2
                 , KnownShX (sh1 ++ sh2) )
              => ADVal mixed r (sh1 ++ sh2) -> IndexShX mixed sh1
@@ -305,7 +305,7 @@ indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 
 fromVectorX :: forall n sh mixed r.
                ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
-               , HVectorTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+               , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
                , KnownNat n, KnownShX sh, GoodScalar r )
             => Data.Vector.Vector (ADVal mixed r sh)
             -> ADVal mixed r (Just n ': sh)
@@ -314,7 +314,7 @@ fromVectorX lu = assert (length lu == valueOf @n) $
      (FromVectorX $ V.map (\(D _ u') -> u') lu)
 
 instance ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
-         , HVectorTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+         , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
          , IfF (RankedOf (PrimalOf mixed))
          , Boolean (BoolOf mixed)
          , BoolOf (RankedOf (PrimalOf mixed)) ~ BoolOf mixed )

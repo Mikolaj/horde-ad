@@ -932,7 +932,7 @@ interpretAstDynamic !env = \case
 
 interpretAstHFun
   :: forall ranked x y. (TensorKind x, TensorKind y)
-  => HVectorTensor ranked
+  => ProductTensor ranked
   => AstEnv ranked -> AstHFun x y -> HFunOf ranked x y
 interpretAstHFun !env = \case
   AstLambda ~(var, ftk, l) ->

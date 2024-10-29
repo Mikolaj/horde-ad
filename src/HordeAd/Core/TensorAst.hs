@@ -660,7 +660,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sD u u' = AstShaped $ astSpanD (unAstShaped u) u'
   sScale s t = astDualPart $ AstConstant (unAstShaped s) * AstD 0 t
 
-instance forall s. AstSpan s => HVectorTensor (AstRanked s) where
+instance forall s. AstSpan s => ProductTensor (AstRanked s) where
   tpair t1 t2 = astPair (unRankedY stensorKind t1)
                           (unRankedY stensorKind t2)
   tproject1 = rankedY stensorKind . astProject1
@@ -1128,7 +1128,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sD u u' = AstRawS $ astSpanD (unAstRawS u) u'
   sScale s t = AstDualPart $ AstConstant (unAstRawS s) * AstD 0 t
 
-instance AstSpan s => HVectorTensor (AstRaw s) where
+instance AstSpan s => ProductTensor (AstRaw s) where
   tpair t1 t2 = AstRawWrap $ AstPair (unRawY stensorKind t1)
                                        (unRawY stensorKind t2)
   tproject1 t = rawY stensorKind $ AstProject1 $ unAstRawWrap t
@@ -1591,7 +1591,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sD u u' = astNoVectorizeS2 $ sD @(AstShaped s) (unAstNoVectorizeS2 u) u'
   sScale s t = sScale @(AstShaped s) (unAstNoVectorizeS2 s) t
 
-instance AstSpan s => HVectorTensor (AstNoVectorize s) where
+instance AstSpan s => ProductTensor (AstNoVectorize s) where
   tpair t1 t2 = AstNoVectorizeWrap $ astPair (unNoVectorizeY stensorKind t1)
                                              (unNoVectorizeY stensorKind t2)
   tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
@@ -2056,7 +2056,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sScale s t =
     astDualPart $ AstConstant (unAstNoSimplifyS s) * AstD 0 t
 
-instance AstSpan s => HVectorTensor (AstNoSimplify s) where
+instance AstSpan s => ProductTensor (AstNoSimplify s) where
   tpair t1 t2 = AstNoSimplifyWrap $ astPair (unNoSimplifyY stensorKind t1)
                                             (unNoSimplifyY stensorKind t2)
   tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t

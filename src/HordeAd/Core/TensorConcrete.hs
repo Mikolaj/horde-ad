@@ -278,7 +278,7 @@ instance ShapedTensor OSArray where
   sD u _ = u
   sScale _ _ = DummyDualTarget
 
-instance HVectorTensor ORArray where
+instance ProductTensor ORArray where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
@@ -533,7 +533,7 @@ instance AdaptableHVector ORArray
   :: EvalState ORArray -> EvalState ORArray #-}
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , HVectorTensor ranked, ShareTensor ranked
+         , ProductTensor ranked, ShareTensor ranked
          , RankedOf (ShapedOf ranked) ~ ranked )
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray

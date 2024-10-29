@@ -533,7 +533,7 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
   sScale = ScaleS
 
 
--- * HVectorTensor instance
+-- * ProductTensor instance
 
 {-
 instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
@@ -550,7 +550,7 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          , ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
-         => HVectorTensor (ADVal ranked) where
+         => ProductTensor (ADVal ranked) where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
@@ -857,7 +857,7 @@ aDValToHVector (D (HVectorPseudoTensor h) (HVectorPseudoTensor h')) =
 -- `Ambiguous type variables ‘r1’, ‘y1’ arising from a use of ‘crev’`
 -- in contexts like `crev (hVectorADValToADVal . f)`.
 hVectorADValToADVal
-  :: forall ranked. HVectorTensor ranked (ShapedOf ranked)
+  :: forall ranked. ProductTensor ranked (ShapedOf ranked)
   => HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
 hVectorADValToADVal hv =
   let (!as, !as') = unADValHVector hv
@@ -884,7 +884,7 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 
 unADValRep
   :: forall y ranked.
-     ( HVectorTensor ranked
+     ( ProductTensor ranked
      , RankedOf (ShapedOf ranked) ~ ranked, RankedOf (MixedOf ranked) ~ ranked )
   => STensorKindType y
   -> Rep (ADVal ranked) y
