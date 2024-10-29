@@ -31,7 +31,6 @@ import Data.Array.Nested (KnownShX)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Delta
-import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
@@ -43,7 +42,6 @@ type family Dual f r z where
   Dual ranked r z = Delta ranked (TKR r z)
   Dual shaped r z = DeltaS shaped r z
   Dual mixed r z = DeltaX mixed r z
-  Dual (HVectorPseudoTensor ranked) r z = HVectorPseudoTensor (DeltaR ranked) r z
 
 
 -- * The IsPrimal class and its instances

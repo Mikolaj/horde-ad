@@ -8,7 +8,7 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( hVectorADValToADVal, unADValHVector, unADValDynamicTensor
+  ( unADValHVector, unADValDynamicTensor
   , unADValRep
   , crevOnADInputs, crevOnHVector, cfwdOnHVector
   ) where
@@ -535,6 +535,7 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
 
 -- * HVectorTensor instance
 
+{-
 instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
          => AdaptableHVector (ADVal ranked)
                              (ADVal (HVectorPseudoTensor ranked)
@@ -544,6 +545,7 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
   fromHVector (D (HVectorPseudoTensor h) _) params =
     let (portion, rest) = V.splitAt (V.length h) params
     in Just (hVectorADValToADVal portion, if V.null rest then Nothing else Just rest)
+-}
 
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          , ShareTensor ranked
@@ -562,8 +564,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tshapeFull stk1 (fst t))
                  (tshapeFull stk2 (snd t))
-    STKUntyped -> let D u _ = hVectorADValToADVal $ unHVectorPseudoTensor t
-                  in tshapeFull stk u
+    STKUntyped ->
+      let (!as, _) = unADValHVector $ unHVectorPseudoTensor t
+          u = HVectorPseudoTensor $ dmkHVector as
+      in tshapeFull stk u
     _ -> error "TODO"
   tcond stk b u v = case stk of
     STKScalar _ -> RepScalar $ ifF b (unRepScalar u) (unRepScalar v)
@@ -839,6 +843,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                          df rf acc0' es'
     in aDValRep (tpair accFin bs) dual
 
+{-
 aDValToHVector
   :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
   => ADVal (HVectorPseudoTensor ranked) r y -> HVector (ADVal ranked)
@@ -855,6 +860,7 @@ hVectorADValToADVal hv =
   let (!as, !as') = unADValHVector hv
   in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
                  (HVectorPseudoTensor $ HToH as')
+-}
 
 unADValHVector
   :: HVector (ADVal f)
