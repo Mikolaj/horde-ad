@@ -709,45 +709,6 @@ type instance MixedOf (DeltaR ranked) = DeltaX (MixedOf ranked)
 
 type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
 
-type instance Rep (DeltaR ranked) (TKProduct x z) =
-  Delta ranked (TKProduct x z)
-
-instance ( RankedOf (ShapedOf ranked) ~ ranked
-         , RankedOf (MixedOf ranked) ~ ranked )
-         => ProductTensor (DeltaR ranked) where
-  tpair t1 t2 = PairG (unDeltaRY stensorKind t1)
-                      (unDeltaRY stensorKind t2)
-  tproject1 = deltaRY stensorKind . Project1G
-  tproject2 = deltaRY stensorKind . Project2G
-
-deltaRY :: forall y ranked.
-           ( RankedOf (ShapedOf ranked) ~ ranked
-           , RankedOf (MixedOf ranked) ~ ranked )
-        => STensorKindType y -> Delta ranked y
-        -> Rep (DeltaR ranked) y
-deltaRY stk t = case stk of
-  STKScalar{} -> RepScalar $ DeltaR $ ScalarG t
-  STKR STKScalar{} _ -> DeltaR t
-  STKS STKScalar{} _ -> DeltaS t
-  STKX STKScalar{} _ -> DeltaX t
-  STKProduct{} -> t
-  STKUntyped -> HVectorPseudoTensor t
-  _ -> error "TODO"
-
-unDeltaRY :: forall y ranked.
-             ( RankedOf (ShapedOf ranked) ~ ranked
-             , RankedOf (MixedOf ranked) ~ ranked )
-          => STensorKindType y -> Rep (DeltaR ranked) y
-          -> Delta ranked y
-unDeltaRY stk t = case stk of
-  STKScalar{} -> UnScalarG $ unDeltaR $ unRepScalar t
-  STKR STKScalar{} _ -> unDeltaR t
-  STKS STKScalar{} _ -> unDeltaS t
-  STKX STKScalar{} _ -> unDeltaX t
-  STKProduct{} -> t
-  STKUntyped -> unHVectorPseudoTensor t
-  _ -> error "TODO"
-
 shapeDeltaFull :: forall ranked y.
                   (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
                => Delta ranked y -> TensorKindFull y
