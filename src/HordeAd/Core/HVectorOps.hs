@@ -65,7 +65,7 @@ toRepDShare stk t = case stk of
 -- excessively, which is hard for technical typing reasons.
 -- See repDeepDuplicable.
 toRepDDuplicable
-  :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
+  :: (HVectorTensor ranked, ProductTensor ranked)
   => STensorKindType x -> Rep ranked x -> RepD ranked x
 toRepDDuplicable stk t = case stk of
   STKScalar _ -> DTKScalar t
@@ -80,7 +80,7 @@ toRepDDuplicable stk t = case stk of
     DTKUntyped $ dunHVector $ unHVectorPseudoTensor t
   _ -> error "TODO"
 
-fromRepD :: (ProductTensor ranked, HVectorTensor ranked (ShapedOf ranked))
+fromRepD :: (ProductTensor ranked, HVectorTensor ranked)
          => RepD ranked y -> Rep ranked y
 fromRepD = \case
   DTKScalar t -> t

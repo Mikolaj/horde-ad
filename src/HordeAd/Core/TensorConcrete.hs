@@ -81,7 +81,7 @@ data DummyDualTarget y = DummyDualTarget
 
 type instance ShareOf ORArray = ORArray
 
-instance LetTensor ORArray OSArray where
+instance LetTensor ORArray where
   rletHFunIn = (&)
   sletHFunIn = (&)
   dletHFunInHVector = (&)
@@ -296,7 +296,7 @@ instance ShapedTensor OSArray where
   sD u _ = u
   sScale _ _ = DummyDualTarget
 
-instance HVectorTensor ORArray OSArray where
+instance HVectorTensor ORArray where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar

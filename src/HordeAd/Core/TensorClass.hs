@@ -70,49 +70,47 @@ class (RealFloat r, Nested.FloatElt r)
 instance (RealFloat r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
-class HVectorTensor ranked shaped
-      => LetTensor (ranked :: RankedTensorType)
-                   (shaped :: ShapedTensorType)
-                   | ranked -> shaped, shaped -> ranked where
+class HVectorTensor ranked
+      => LetTensor (ranked :: RankedTensorType) where
   rlet :: forall n m r r2. (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
-  rlet = blet @_ @_ @(TKR r n) @(TKR r2 m)
+  rlet = blet @_ @(TKR r n) @(TKR r2 m)
   rletHVectorIn :: forall n r. (KnownNat n, GoodScalar r)
                 => HVectorOf ranked
                 -> (HVector ranked -> ranked r n)
                 -> ranked r n
   rletHVectorIn a f =
-    tlet @_ @_ @TKUntyped @(TKR r n) (HVectorPseudoTensor a) f
+    tlet @_ @TKUntyped @(TKR r n) (HVectorPseudoTensor a) f
   rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind z)
              => HFunOf ranked x z
              -> (HFunOf ranked x z -> ranked r n)
              -> ranked r n
-  slet :: forall sh sh2 r r2.
+  slet :: forall sh sh2 r r2 shaped.
           ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
           , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
-  slet = blet @_ @_ @(TKS r sh) @(TKS r2 sh2)
-  sletHVectorIn :: forall sh r.
+  slet = blet @_ @(TKS r sh) @(TKS r2 sh2)
+  sletHVectorIn :: forall sh r shaped.
                    ( KnownShS sh, GoodScalar r
                    , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
                 => HVectorOf (RankedOf shaped)
                 -> (HVector (RankedOf shaped) -> shaped r sh)
                 -> shaped r sh
   sletHVectorIn a f =
-    tlet @_ @_ @TKUntyped @(TKS r sh) (HVectorPseudoTensor a) f
+    tlet @_ @TKUntyped @(TKS r sh) (HVectorPseudoTensor a) f
   sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind z)
-             => HFunOf (RankedOf shaped) x z
-             -> (HFunOf (RankedOf shaped) x z -> shaped r sh)
-             -> shaped r sh
+             => HFunOf ranked x z
+             -> (HFunOf ranked x z -> (ShapedOf ranked) r sh)
+             -> (ShapedOf ranked) r sh
   dletHVectorInHVector
     :: HVectorOf ranked
     -> (HVector ranked -> HVectorOf ranked)
     -> HVectorOf ranked
   dletHVectorInHVector a f =
     unHVectorPseudoTensor
-    $ tlet @_ @_ @TKUntyped @TKUntyped (HVectorPseudoTensor a)
+    $ tlet @_ @TKUntyped @TKUntyped (HVectorPseudoTensor a)
                                        (HVectorPseudoTensor . f)
   -- When the programmer uses the same closed function many times, the HFun
   -- makes it possible to prevent multiple simplification, inlining, etc.,
@@ -195,7 +193,7 @@ class HVectorTensor ranked shaped
   -- use the let operations and also their signatures mention @ADReady@,
   -- so it's awkward to put the methods into @RankedTensor@,
   -- which shouldn't know about lets, etc.
-  rrev :: forall x r n.
+  rrev :: forall x r n shaped.
           ( TensorKind x, GoodScalar r, KnownNat n
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
        => (forall f. ADReady f => RepDeep f x -> f r n)
@@ -208,7 +206,7 @@ class HVectorTensor ranked shaped
     in \ !es -> dHApply (drev @ranked ftk $ HFun g) (unrepDeep es)
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
-  rrevDt :: forall x r n.
+  rrevDt :: forall x r n shaped.
             ( TensorKind x, GoodScalar r, KnownNat n
             , ProductTensor ranked, shaped ~ ShapedOf ranked )
          => (forall f. ADReady f => RepDeep f x -> f r n)
@@ -222,7 +220,7 @@ class HVectorTensor ranked shaped
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
                             (tpair dt (unrepDeep es))
-  rfwd :: forall x r n.
+  rfwd :: forall x r n shaped.
           ( TensorKind x, GoodScalar r, KnownNat n
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
        => (forall f. ADReady f => RepDeep f x -> f r n)
@@ -236,7 +234,7 @@ class HVectorTensor ranked shaped
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
                             (tpair (unrepDeep ds) (unrepDeep es))
-  srev :: forall x r sh.
+  srev :: forall x r sh shaped.
           ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
           , ShapedTensor shaped, shaped ~ ShapedOf ranked
           , ADTensorKind (TKS r sh) ~ TKS r sh )
@@ -245,7 +243,7 @@ class HVectorTensor ranked shaped
        -> RepDeep ranked x
        -> Rep ranked (ADTensorKind x)
   srev f ftk es = srevDt f ftk es (srepl 1)
-  srevDt :: forall x r sh.
+  srevDt :: forall x r sh shaped.
             ( TensorKind x, GoodScalar r, KnownShS sh
             , ProductTensor ranked, shaped ~ ShapedOf ranked )
          => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
@@ -259,7 +257,7 @@ class HVectorTensor ranked shaped
         g !x = dlet x $ \ !xDeep -> f xDeep
     in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
                             (tpair dt (unrepDeep es))
-  sfwd :: forall x r sh.
+  sfwd :: forall x r sh shaped.
           ( TensorKind x, GoodScalar r, KnownShS sh
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
        => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
@@ -946,9 +944,7 @@ class ( Num (IntOf shaped), IntegralF (IntOf shaped), CShaped shaped Num
 
 -- This particular fundep really helps with type reconstruction in user code,
 -- e.g., in the shaped nested folds tests.
-class HVectorTensor (ranked :: RankedTensorType)
-                    (shaped :: ShapedTensorType)
-                    | ranked -> shaped, shaped -> ranked where
+class HVectorTensor (ranked :: RankedTensorType) where
   dshape :: HVectorOf ranked -> VoidHVector
   tshapeFull :: STensorKindType y -> Rep ranked y
              -> TensorKindFull y
@@ -1054,7 +1050,7 @@ class HVectorTensor (ranked :: RankedTensorType)
   rscan
     :: forall rn rm n m.
        ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
-       , RankedTensor ranked, LetTensor ranked shaped, ProductTensor ranked  )
+       , RankedTensor ranked, LetTensor ranked, ProductTensor ranked  )
     => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
     -> ranked rn n
     -> ranked rm (1 + m)
@@ -1083,7 +1079,7 @@ class HVectorTensor (ranked :: RankedTensorType)
       in rappend (rfromList [acc0]) bs
   -- | A strict left fold.
   sfold
-    :: forall rn rm sh shm k.
+    :: forall rn rm sh shm k shaped.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
        , ProductTensor ranked
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
@@ -1108,9 +1104,9 @@ class HVectorTensor (ranked :: RankedTensorType)
          acc0
          es)
   sscan
-    :: forall rn rm sh shm k.
+    :: forall rn rm sh shm k shaped.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
-       , ShapedTensor shaped, LetTensor ranked shaped, ProductTensor ranked
+       , ShapedTensor shaped, LetTensor ranked, ProductTensor ranked
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
     -> shaped rn sh
@@ -1346,10 +1342,9 @@ xrepl sh =
   xconst . Nested.mreplicateScal sh
 
 unrepShallow :: forall ranked y.
-                    ( TensorKind y, HVectorTensor ranked (ShapedOf ranked)
-                    , ProductTensor ranked )
-                 => RepShallow ranked y
-                 -> Rep ranked y
+                (TensorKind y, HVectorTensor ranked, ProductTensor ranked)
+             => RepShallow ranked y
+             -> Rep ranked y
 unrepShallow t = case stensorKind @y of
   STKScalar{} -> t
   STKR STKScalar{} _ -> t
@@ -1361,8 +1356,7 @@ unrepShallow t = case stensorKind @y of
   _ -> error "TODO"
 
 unrepDeep :: forall ranked y.
-             ( TensorKind y, HVectorTensor ranked (ShapedOf ranked)
-             , ProductTensor ranked )
+             (TensorKind y, HVectorTensor ranked, ProductTensor ranked)
           => RepDeep ranked y
           -> Rep ranked y
 unrepDeep t = case stensorKind @y of
@@ -1383,7 +1377,7 @@ unrepDeep t = case stensorKind @y of
 -- excessively, which is hard for technical typing reasons.
 -- See toRepDDuplicable.
 repDeepDuplicable
-  :: (HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked)
+  :: (HVectorTensor ranked, ProductTensor ranked)
   => STensorKindType y -> Rep ranked y
   -> RepDeep ranked y
 repDeepDuplicable stk t = case stk of
@@ -1500,10 +1494,10 @@ type ADReadyNoLetS shaped = ADReadyBothNoLet (RankedOf shaped) shaped
 
 type ADReadyBoth ranked shaped =
   ( ADReadyBothNoLet ranked shaped
-  , LetTensor ranked shaped
+  , LetTensor ranked
 -- The following can't be added, because we have instances like ADVal (AstRaw),
 -- so AstRaw would need to have a LetTensor instance:
---  , LetTensor (PrimalOf ranked) (PrimalOf shaped)
+--  , LetTensor (PrimalOf ranked)
   )
 
 type ADReadyBothNoLet ranked shaped =
@@ -1546,7 +1540,7 @@ type ADReadyClasses ranked shaped mixed =
   , OrdF ranked, OrdF shaped, OrdF mixed
   , RankedTensor ranked
   , ShapedTensor shaped
-  , HVectorTensor ranked shaped
+  , HVectorTensor ranked
   , ProductTensor ranked
   , CRanked ranked Show
   , CShaped shaped Show

@@ -598,23 +598,23 @@ interpretAst !env = \case
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in RepScalar
-         $ rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> unRepScalar
+         $ rletHFunIn @_ @_ @_ @x2 @z2 g (\h -> unRepScalar
                                                    $ interpretAst (env2 h) v)
     STKR STKScalar{} SNat ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
-      in rletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
+      in rletHFunIn @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
     STKS STKScalar{} sh -> withKnownShS sh $
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
-      in sletHFunIn @_ @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
+      in sletHFunIn @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
     STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUntyped ->
       let g = interpretAstHFun env f
           env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
       in HVectorPseudoTensor
-         $ dletHFunInHVector @_ @_ @x2 @z2
+         $ dletHFunInHVector @_ @x2 @z2
              g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
     _ -> error "TODO"
   AstRFromS v -> rfromS $ interpretAst env v
@@ -932,7 +932,7 @@ interpretAstDynamic !env = \case
 
 interpretAstHFun
   :: forall ranked x y. (TensorKind x, TensorKind y)
-  => HVectorTensor ranked (ShapedOf ranked)
+  => HVectorTensor ranked
   => AstEnv ranked -> AstHFun x y -> HFunOf ranked x y
 interpretAstHFun !env = \case
   AstLambda ~(var, ftk, l) ->

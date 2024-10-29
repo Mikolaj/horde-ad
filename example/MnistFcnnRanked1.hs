@@ -41,7 +41,7 @@ type ADFcnnMnist1Parameters (ranked :: RankedTensorType) r =
 
 listMatmul1
   :: forall ranked r.
-     (RankedTensor ranked, LetTensor ranked (ShapedOf ranked), GoodScalar r)
+     (RankedTensor ranked, LetTensor ranked, GoodScalar r)
   => ranked r 1 -> [ranked r 1]
   -> ranked r 1
 listMatmul1 x0 weights = rlet x0 $ \x ->

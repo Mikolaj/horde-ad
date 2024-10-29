@@ -96,7 +96,7 @@ reluLeakyS v0 = slet v0 $ \v ->
 
 -- TODO: verify how faster a dedicated ShapedTensor method would be
 logisticS :: forall shaped r sh.
-             ( ShapedTensor shaped, LetTensor (RankedOf shaped) shaped
+             ( ShapedTensor shaped, LetTensor (RankedOf shaped)
              , KnownShS sh, GoodScalar r
              , Floating (PrimalOf shaped r sh) )
           => shaped r sh -> shaped r sh
@@ -178,7 +178,7 @@ maxPool1S v =
   in sfromList $ NonEmpty.fromList $ map maxOfSlice l
 
 softMax1S :: ( KnownShS sh, KnownNat (Nested.Product sh)
-             , ShapedTensor shaped, LetTensor (RankedOf shaped) shaped
+             , ShapedTensor shaped, LetTensor (RankedOf shaped)
              , GoodScalar r, Differentiable r )
           => shaped r sh -> shaped r sh
 softMax1S d =

@@ -37,7 +37,7 @@ import HordeAd.Core.Types
 class AdaptableHVector (ranked :: RankedTensorType) vals where
   type X vals :: TensorKindType
   toHVectorOf :: ( TensorKind (X vals)
-                 , HVectorTensor ranked (ShapedOf ranked)
+                 , HVectorTensor ranked
                  , ProductTensor ranked )
               => vals -> Rep ranked (X vals)
   toHVectorOf = unrepDeep . toHVector

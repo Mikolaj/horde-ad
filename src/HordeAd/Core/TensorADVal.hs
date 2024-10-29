@@ -112,7 +112,7 @@ cfwdOnHVector parameters f ds =
 
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
-         => LetTensor (ADVal ranked) (ADVal shaped) where
+         => LetTensor (ADVal ranked) where
 -- TODO: is the sharing needed or can we just do:  rletHVectorIn = (&)
   rletHFunIn = (&)
   sletHFunIn = (&)
@@ -550,7 +550,7 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          , ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
-         => HVectorTensor (ADVal ranked) (ADVal shaped) where
+         => HVectorTensor (ADVal ranked) where
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -881,7 +881,7 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 
 unADValRep
   :: forall y ranked.
-     ( HVectorTensor ranked (ShapedOf ranked), ProductTensor ranked
+     ( HVectorTensor ranked, ProductTensor ranked
      , RankedOf (ShapedOf ranked) ~ ranked, RankedOf (MixedOf ranked) ~ ranked )
   => STensorKindType y
   -> Rep (ADVal ranked) y

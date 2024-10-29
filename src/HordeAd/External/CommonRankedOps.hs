@@ -37,7 +37,7 @@ rmaxIndexN :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
 rmaxIndexN t = fromLinearIdx (rscalar . fromIntegral) (rshape t) (rprimalPart $ rmaxIndex (rflatten t))
 
 rminimum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-            , LetTensor ranked (ShapedOf ranked), KnownNat n, GoodScalar r
+            , LetTensor ranked, KnownNat n, GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => ranked r n -> ranked r 0
 -- The let is required to preserve the sharing of the argument, which is
@@ -47,8 +47,7 @@ rminimum t0 = rlet t0 $ \t ->
                                           (rprimalPart $ rminIndex (rflatten t))
 
 rmaximum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-            , LetTensor ranked (ShapedOf ranked)
-            , KnownNat n, GoodScalar r
+            , LetTensor ranked, KnownNat n, GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => ranked r n -> ranked r 0
 rmaximum t0 = rlet t0 $ \t ->
@@ -88,8 +87,7 @@ rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 
 rletIx :: ( KnownNat n, KnownNat m, GoodScalar r
           , RankedTensor ranked, RankedTensor (PrimalOf ranked)
-          , LetTensor ranked (ShapedOf ranked)
-          , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
+          , LetTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
        => IndexOf ranked n -> (IndexOf ranked n -> ranked r m) -> ranked r m
 rletIx ix0 f = rlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 
@@ -115,7 +113,7 @@ reluLeaky v0 = rlet v0 $ \v ->
 
 -- TODO: verify how faster a dedicated RankedTensor method would be
 logistic :: forall ranked r n.
-            ( RankedTensor ranked, LetTensor ranked (ShapedOf ranked)
+            ( RankedTensor ranked, LetTensor ranked
             , RankedTensor (PrimalOf ranked), KnownNat n, GoodScalar r
             , Floating (PrimalOf ranked r n), Num (PrimalOf ranked r 0) )
          => ranked r n -> ranked r n
@@ -155,8 +153,7 @@ lossSoftMaxCrossEntropyR
   :: forall ranked n r.
      ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
      , RankedTensor (PrimalOf (PrimalOf ranked))
-     , LetTensor ranked (ShapedOf ranked)
-     , LetTensor (PrimalOf ranked) (ShapedOf (PrimalOf ranked))
+     , LetTensor ranked, LetTensor (PrimalOf ranked)
      , KnownNat n, GoodScalar r
      , RankedOf (PrimalOf (PrimalOf ranked)) ~ PrimalOf (PrimalOf ranked)
      , Differentiable r )
@@ -184,14 +181,14 @@ lossSoftMaxCrossEntropyR target d' = rlet d' $ \d ->
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-            , LetTensor ranked (ShapedOf ranked), GoodScalar r
+            , LetTensor ranked, GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => Int -> Int -> ranked r 1 -> ranked r 1
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rlength v - ksize]]
   in rfromList $ NonEmpty.fromList $ map rmaximum slices
 
-softMax1 :: ( RankedTensor ranked, LetTensor ranked (ShapedOf ranked)
+softMax1 :: ( RankedTensor ranked, LetTensor ranked
             , KnownNat n, GoodScalar r, Differentiable r )
          => ranked r n -> ranked r n
 softMax1 d =

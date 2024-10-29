@@ -466,7 +466,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 {-# SPECIALIZE evalFromnMap
   :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
 
-instance AstSpan s => LetTensor (AstRanked s) (AstShaped s) where
+instance AstSpan s => LetTensor (AstRanked s) where
   rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
   sletHFunIn a f = AstShaped $ astLetHFunInFun a (unAstShaped . f)
   dletHFunInHVector = astLetHFunInFun
@@ -666,7 +666,7 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sD u u' = AstShaped $ astSpanD (unAstShaped u) u'
   sScale s t = astDualPart $ AstConstant (unAstShaped s) * AstD 0 t
 
-instance forall s. AstSpan s => HVectorTensor (AstRanked s) (AstShaped s) where
+instance forall s. AstSpan s => HVectorTensor (AstRanked s) where
   dshape = shapeAstHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -1136,7 +1136,7 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sD u u' = AstRawS $ astSpanD (unAstRawS u) u'
   sScale s t = AstDualPart $ AstConstant (unAstRawS s) * AstD 0 t
 
-instance AstSpan s => HVectorTensor (AstRaw s) (AstRawS s) where
+instance AstSpan s => HVectorTensor (AstRaw s) where
   dshape = shapeAstHVector . unAstRawWrap
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -1417,7 +1417,7 @@ noVectorizeHVectorR =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-instance AstSpan s => LetTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+instance AstSpan s => LetTensor (AstNoVectorize s) where
   rletHFunIn a f = astNoVectorize2 $ rletHFunIn a (unAstNoVectorize2 . f)
   sletHFunIn a f = astNoVectorizeS2 $ sletHFunIn a (unAstNoVectorizeS2 . f)
   dletHFunInHVector t f =
@@ -1601,7 +1601,7 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sD u u' = astNoVectorizeS2 $ sD @(AstShaped s) (unAstNoVectorizeS2 u) u'
   sScale s t = sScale @(AstShaped s) (unAstNoVectorizeS2 s) t
 
-instance AstSpan s => HVectorTensor (AstNoVectorize s) (AstNoVectorizeS s) where
+instance AstSpan s => HVectorTensor (AstNoVectorize s) where
   dshape = dshape . unAstNoVectorizeWrap
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -1868,7 +1868,7 @@ noSimplifyHVector =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-instance AstSpan s => LetTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+instance AstSpan s => LetTensor (AstNoSimplify s) where
   rletHFunIn a f = AstNoSimplify $ astLetHFunInFunNoSimplify a (unAstNoSimplify . f)
   sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunNoSimplify a (unAstNoSimplifyS . f)
   dletHFunInHVector t f =
@@ -2068,7 +2068,7 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
   sScale s t =
     astDualPart $ AstConstant (unAstNoSimplifyS s) * AstD 0 t
 
-instance AstSpan s => HVectorTensor (AstNoSimplify s) (AstNoSimplifyS s) where
+instance AstSpan s => HVectorTensor (AstNoSimplify s) where
   dshape = shapeAstHVector . unAstNoSimplifyWrap
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
