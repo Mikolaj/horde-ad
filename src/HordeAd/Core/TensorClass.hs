@@ -1484,24 +1484,28 @@ instance Show (HFun x y) where
 
 -- * The giga-constraint
 
-type ADReady ranked = ADReadyBoth ranked (ShapedOf ranked)
+type ADReady ranked = ADReadyBoth ranked
 
-type ADReadyNoLet ranked = ADReadyBothNoLet ranked (ShapedOf ranked)
+type ADReadyNoLet ranked = ADReadyBothNoLet ranked
 
-type ADReadyS shaped = ADReadyBoth (RankedOf shaped) shaped
+type ADReadyS :: ShapedTensorType -> Constraint
+type ADReadyS shaped =
+  (ShapedOf (RankedOf shaped) ~ shaped, ADReadyBoth (RankedOf shaped))
 
-type ADReadyNoLetS shaped = ADReadyBothNoLet (RankedOf shaped) shaped
+type ADReadyNoLetS :: ShapedTensorType -> Constraint
+type ADReadyNoLetS shaped =
+  (ShapedOf (RankedOf shaped) ~ shaped, ADReadyBothNoLet (RankedOf shaped))
 
-type ADReadyBoth ranked shaped =
-  ( ADReadyBothNoLet ranked shaped
+type ADReadyBoth ranked =
+  ( ADReadyBothNoLet ranked
   , LetTensor ranked
 -- The following can't be added, because we have instances like ADVal (AstRaw),
 -- so AstRaw would need to have a LetTensor instance:
 --  , LetTensor (PrimalOf ranked)
   )
 
-type ADReadyBothNoLet ranked shaped =
-  ( ADReadyEqsClasses ranked shaped (MixedOf ranked)
+type ADReadyBothNoLet ranked =
+  ( ADReadyEqsClasses ranked (ShapedOf ranked) (MixedOf ranked)
   , ADReadyEqsClasses (ShareOf ranked) (ShapedOf (ShareOf ranked))
                       (MixedOf (ShareOf ranked))
   , ShareTensor (ShareOf ranked)
