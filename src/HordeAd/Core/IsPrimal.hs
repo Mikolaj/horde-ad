@@ -35,13 +35,12 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
 -- | The type family that to each dfferentiable type assigns
--- its delta expression type. The dispatch is on the type parameter @ty@,
--- which is 'Nat', @[Nat]@ or @()@, respectively.
+-- its delta expression type. The dispatch is on the type parameter @ty@.
 type Dual :: TensorType ty -> TensorType ty
 type family Dual f r z where
   Dual ranked r z = Delta ranked (TKR r z)
-  Dual shaped r z = DeltaS shaped r z
-  Dual mixed r z = DeltaX mixed r z
+  Dual shaped r z = Delta (RankedOf shaped) (TKS r z)
+  Dual mixed r z = Delta (RankedOf mixed) (TKX r z)
 
 
 -- * The IsPrimal class and its instances
@@ -107,32 +106,32 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
          , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
          => IsPrimal @[Nat] shaped r sh where
-  dZeroOfShape _tsh = DeltaS ZeroS
-  dScale _ (DeltaS ZeroS) = DeltaS ZeroS
-  dScale v (DeltaS u') = DeltaS $ ScaleS v u'
-  dAdd (DeltaS ZeroS) w = w
-  dAdd v (DeltaS ZeroS) = v
-  dAdd (DeltaS v) (DeltaS w) = DeltaS $ AddS v w
+  dZeroOfShape _tsh = ZeroS
+  dScale _ ZeroS = ZeroS
+  dScale v u' = ScaleS v u'
+  dAdd ZeroS w = w
+  dAdd v ZeroS = v
+  dAdd v w = AddS v w
   intOfShape tsh c =  -- not needed for shaped, here, but ranked above needs it,
                       -- so we have to use it for both
     sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual d = DeltaS $ wrapDelta (unDeltaS d)
+  shareDual = wrapDelta
 
 instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
          , RankedTensor (RankedOf mixed)
          , ShareTensor (RankedOf mixed), ProductTensor (RankedOf mixed) )
          => IsPrimal @[Maybe Nat] mixed r sh where
-  dZeroOfShape tsh = DeltaX $ ZeroX (xshape tsh)
-  dScale _ (DeltaX (ZeroX sh)) = DeltaX (ZeroX sh)
-  dScale v (DeltaX u') = DeltaX $ ScaleX v u'
-  dAdd (DeltaX ZeroX{}) w = w
-  dAdd v (DeltaX ZeroX{}) = v
-  dAdd (DeltaX v) (DeltaX w) = DeltaX $ AddX v w
+  dZeroOfShape tsh = ZeroX (xshape tsh)
+  dScale _ (ZeroX sh) = ZeroX sh
+  dScale v u' = ScaleX v u'
+  dAdd ZeroX{} w = w
+  dAdd v ZeroX{} = v
+  dAdd v w = AddX v w
   intOfShape tsh c =
     xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual d = DeltaX $ wrapDelta (unDeltaX d)
+  shareDual = wrapDelta
 
 
 -- * Counter handling

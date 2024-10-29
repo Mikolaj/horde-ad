@@ -100,15 +100,15 @@ dDnotSharedR :: f r z -> Delta f (TKR r z) -> ADVal f r z
 dDnotSharedR u u' = ADVal u u'
 
 pattern DS :: f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
-pattern DS t u <- ADVal t (DeltaS u)  -- enforces only pattern matching
+pattern DS t u <- ADVal t u  -- enforces only pattern matching
 {-# COMPLETE DS #-}
 
 dDS :: forall f r z. IsPrimal f r z
     => f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
-dDS !a !dual = dDnotShared a (shareDual @_ @f @r @z (DeltaS dual))
+dDS !a !dual = dDnotShared a (shareDual @_ @f @r @z dual)
 
 dDnotSharedS :: f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
-dDnotSharedS u u' = ADVal u (DeltaS u')
+dDnotSharedS u u' = ADVal u u'
 
 
 -- * Auxiliary definitions
@@ -200,9 +200,9 @@ aDValRep
   -> Rep (ADVal ranked) y
 aDValRep p d = case stensorKind @y of
   STKScalar{} -> RepScalar $ dDnotSharedR (unRepScalar p) (ScalarG d)
-  STKR STKScalar{} _ -> dDnotSharedR p d
-  STKS STKScalar{} _ -> dDnotSharedS p d
-  STKX STKScalar{} _ -> dDnotShared p (DeltaX d)
+  STKR STKScalar{} _ -> dDnotShared p d
+  STKS STKScalar{} _ -> dDnotShared p d
+  STKX STKScalar{} _ -> dDnotShared p d
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
     let (p1, p2) = tunpair p
@@ -305,8 +305,8 @@ fromVectorS :: forall n sh shaped r.
             => Data.Vector.Vector (ADVal shaped r sh)
             -> ADVal shaped r (n ': sh)
 fromVectorS lu = assert (length lu == valueOf @n) $
-  dDS (sfromVector $ V.map (\(D u _) -> u) lu)
-      (FromVectorS $ V.map (\(DS _ u') -> u') lu)
+  dD (sfromVector $ V.map (\(D u _) -> u) lu)
+     (FromVectorS $ V.map (\(DS _ u') -> u') lu)
 
 instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
          , ProductTensor (RankedOf shaped), IfF (RankedOf (PrimalOf shaped))
@@ -325,7 +325,7 @@ indexPrimalX :: ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
                 , KnownShX (sh1 ++ sh2) )
              => ADVal mixed r (sh1 ++ sh2) -> IndexShX mixed sh1
              -> ADVal mixed r sh2
-indexPrimalX (D u u') ix = dD (xindex u ix) (DeltaX $ IndexX (unDeltaX u') ix)
+indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 
 fromVectorX :: forall n sh mixed r.
                ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
@@ -335,7 +335,7 @@ fromVectorX :: forall n sh mixed r.
             -> ADVal mixed r (Just n ': sh)
 fromVectorX lu = assert (length lu == valueOf @n) $
   dD (xfromVector $ V.map (\(D u _) -> u) lu)
-     (DeltaX $ FromVectorX $ V.map (\(D _ u') -> unDeltaX u') lu)
+     (FromVectorX $ V.map (\(D _ u') -> u') lu)
 
 instance ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
          , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)

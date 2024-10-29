@@ -404,8 +404,8 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   xconst t = constantADVal (xconst t)
   xconstant t = dDnotShared t (dZeroOfShape t)
   xprimalPart (D u _) = u
-  xdualPart (D _ u') = unDeltaX u'
-  xD t d = dD t (DeltaX d)
+  xdualPart (D _ u') = u'
+  xD t d = dD t d
 
 
 -- * Shaped tensor instance
@@ -873,7 +873,7 @@ unADValDynamicTensor
 unADValDynamicTensor (DynamicRanked (D t t')) =
   (DynamicRanked t, DynamicRanked (DeltaR t'))
 unADValDynamicTensor (DynamicShaped (D t t')) =
-  (DynamicShaped t, DynamicShaped t')
+  (DynamicShaped t, DynamicShaped (DeltaS t'))
 unADValDynamicTensor (DynamicRankedDummy p1 p2) =
   (DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
 unADValDynamicTensor (DynamicShapedDummy p1 p2) =
@@ -888,9 +888,9 @@ unADValRep
   -> (Rep ranked y, Delta ranked y)
 unADValRep stk t = case (stk, t) of
   (STKScalar{}, RepScalar (DR p d)) -> (RepScalar p, UnScalarG d)
-  (STKR STKScalar{} _, DR p d) -> (p, d)
-  (STKS STKScalar{} _, DS p d) -> (p, d)
-  (STKX STKScalar{} _, D p (DeltaX d)) -> (p, d)
+  (STKR STKScalar{} _, D p d) -> (p, d)
+  (STKS STKScalar{} _, D p d) -> (p, d)
+  (STKX STKScalar{} _, D p d) -> (p, d)
   (STKProduct stk1 stk2, (t1, t2)) | Dict <- lemTensorKindOfS stk1
                                    , Dict <- lemTensorKindOfS stk2 ->
     let (!p1, !d1) = unADValRep stk1 t1 in
@@ -916,7 +916,7 @@ aDValDynamicTensor (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
 aDValDynamicTensor (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared t t')
+    DynamicShaped (dDnotShared t (unDeltaS t'))
 aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
                    (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
@@ -928,7 +928,7 @@ aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
                    (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared (srepl 0) t')
+    DynamicShaped (dDnotShared (srepl 0) (unDeltaS t'))
 -- TODO: explain how these remaining cases arise (maybe ADVal (ADVal)?)
 aDValDynamicTensor (DynamicRanked @r1 @n1 t')
                    (DynamicRankedDummy @r2 @sh2 _ _)
