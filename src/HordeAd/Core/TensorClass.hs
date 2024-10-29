@@ -70,8 +70,7 @@ class (RealFloat r, Nested.FloatElt r)
 instance (RealFloat r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
-class ProductTensor ranked
-      => LetTensor (ranked :: RankedTensorType) where
+class LetTensor (ranked :: RankedTensorType) where
   rlet :: forall n m r r2. (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
