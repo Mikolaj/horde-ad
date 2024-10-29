@@ -40,7 +40,7 @@ import HordeAd.Core.Types
 -- which is 'Nat', @[Nat]@ or @()@, respectively.
 type Dual :: TensorType ty -> TensorType ty
 type family Dual f r z = result | result -> f r z where
-  Dual ranked r z = DeltaR ranked r z
+  Dual ranked r z = Delta ranked (TKR r z)
   Dual shaped r z = DeltaS shaped r z
   Dual mixed r z = DeltaX mixed r z
   Dual (HVectorPseudoTensor ranked) r z = HVectorPseudoTensor (DeltaR ranked) r z
@@ -96,15 +96,15 @@ class IsPrimal f r z where
 instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
          , ProductTensor ranked )
          => IsPrimal @Nat ranked r n where
-  dZeroOfShape tsh = DeltaR $ ZeroR (rshape tsh)
-  dScale _ (DeltaR (ZeroR sh)) = DeltaR $ ZeroR sh
-  dScale v (DeltaR u') = DeltaR $ ScaleR v u'
-  dAdd (DeltaR ZeroR{}) w = w
-  dAdd v (DeltaR ZeroR{}) = v
-  dAdd (DeltaR v) (DeltaR w) = DeltaR $ AddR v w
+  dZeroOfShape tsh = ZeroR (rshape tsh)
+  dScale _ (ZeroR sh) = ZeroR sh
+  dScale v u' = ScaleR v u'
+  dAdd ZeroR{} w = w
+  dAdd v ZeroR{} = v
+  dAdd v w = AddR v w
   intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual d = DeltaR $ wrapDelta (unDeltaR d)
+  shareDual = wrapDelta
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
          , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )

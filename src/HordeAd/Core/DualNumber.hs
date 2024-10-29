@@ -89,15 +89,15 @@ dDnotShared :: f r z -> Dual f r z -> ADVal f r z
 dDnotShared = ADVal
 
 pattern DR :: f r z -> Delta f (TKR r z) -> ADVal f r z
-pattern DR t u <- ADVal t (DeltaR u)  -- enforces only pattern matching
+pattern DR t u <- ADVal t u  -- enforces only pattern matching
 {-# COMPLETE DR #-}
 
 dDR :: IsPrimal f r z
     => f r z -> Delta f (TKR r z) -> ADVal f r z
-dDR !a !dual = dDnotShared a (shareDual (DeltaR dual))
+dDR !a !dual = dDnotShared a (shareDual dual)
 
 dDnotSharedR :: f r z -> Delta f (TKR r z) -> ADVal f r z
-dDnotSharedR u u' = ADVal u (DeltaR u')
+dDnotSharedR u u' = ADVal u u'
 
 pattern DS :: f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
 pattern DS t u <- ADVal t (DeltaS u)  -- enforces only pattern matching

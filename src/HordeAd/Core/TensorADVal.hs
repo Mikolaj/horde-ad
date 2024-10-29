@@ -865,7 +865,7 @@ unADValDynamicTensor
   :: DynamicTensor (ADVal f)
   -> (DynamicTensor f, DynamicTensor (DeltaR f))
 unADValDynamicTensor (DynamicRanked (D t t')) =
-  (DynamicRanked t, DynamicRanked t')
+  (DynamicRanked t, DynamicRanked (DeltaR t'))
 unADValDynamicTensor (DynamicShaped (D t t')) =
   (DynamicShaped t, DynamicShaped t')
 unADValDynamicTensor (DynamicRankedDummy p1 p2) =
@@ -906,7 +906,7 @@ aDValDynamicTensor :: ADReadyNoLet f
 aDValDynamicTensor (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
-    DynamicRanked (dDnotShared t t')
+    DynamicRanked (dDnotShared t (unDeltaR t'))
 aDValDynamicTensor (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
@@ -917,7 +917,7 @@ aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
   , Just Refl <- matchingRank @sh1 @n2 =
     withListShape (shapeT @sh1) $ \(sh4 :: IShR n4) ->
       gcastWith (unsafeCoerce Refl :: n4 :~: Rank sh1) $
-      DynamicRanked (dDnotShared (rzero sh4) t')
+      DynamicRanked (dDnotShared (rzero sh4) (unDeltaR t'))
 aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
                    (DynamicShaped @r2 @sh2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
