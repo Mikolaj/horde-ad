@@ -208,7 +208,7 @@ aDValRep p d = case stensorKind @y of
     let (p1, p2) = tunpair p
         (d1, d2) = case d of
           PairG t1 t2 -> (t1, t2)
-          _ -> let dShared = wrapDelta d
+          _ -> let dShared = shareDelta d
                in (Project1G dShared, Project2G dShared)
     in (aDValRep p1 d1, aDValRep p2 d2)
   STKUntyped -> let pv = tunvector p
@@ -221,7 +221,7 @@ ahhToHVector
 ahhToHVector h hNotShared' =
   let h' = case hNotShared' of
         HToH{} -> hNotShared'
-        _ -> wrapDelta hNotShared'
+        _ -> shareDelta hNotShared'
       selectDual :: Int -> DynamicTensor ranked -> DynamicTensor (ADVal ranked)
       selectDual i d = case d of
         DynamicRanked t -> DynamicRanked $ dDnotSharedR t (rFromH h' i)

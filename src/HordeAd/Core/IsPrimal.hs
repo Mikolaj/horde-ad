@@ -17,7 +17,7 @@
 -- and operations for reading or reseting the impure counter.
 module HordeAd.Core.IsPrimal
   ( Dual, IsPrimal(..)
-  , unsafeGetFreshId, resetIdCounter, wrapDelta
+  , unsafeGetFreshId, resetIdCounter, shareDelta
   ) where
 
 import Prelude
@@ -101,7 +101,7 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
   dAdd v w = AddR v w
   intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual = wrapDelta
+  shareDual = shareDelta
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
          , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
@@ -116,7 +116,7 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
                       -- so we have to use it for both
     sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual = wrapDelta
+  shareDual = shareDelta
 
 instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
          , RankedTensor (RankedOf mixed)
@@ -131,7 +131,7 @@ instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
   intOfShape tsh c =
     xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
   sharePrimal = tshare
-  shareDual = wrapDelta
+  shareDual = shareDelta
 
 
 -- * Counter handling
@@ -167,9 +167,9 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDelta :: TensorKind y => Delta ranked y -> Delta ranked y
-{-# NOINLINE wrapDelta #-}
-wrapDelta d = unsafePerformIO $ do
+shareDelta :: TensorKind y => Delta ranked y -> Delta ranked y
+{-# NOINLINE shareDelta #-}
+shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! case d of
     ZeroR{} -> d
