@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, UndecidableInstances #-}
 -- | The class relating the primal datatype to its dual counterpart
 -- and the instances of the class for all kinds it's going to be use at
 -- (@Nat@ and @[Nat]@). This class abstract over some of the operations
@@ -39,7 +39,7 @@ import HordeAd.Core.Types
 -- its delta expression type. The dispatch is on the type parameter @ty@,
 -- which is 'Nat', @[Nat]@ or @()@, respectively.
 type Dual :: TensorType ty -> TensorType ty
-type family Dual f r z = result | result -> f r z where
+type family Dual f r z where
   Dual ranked r z = Delta ranked (TKR r z)
   Dual shaped r z = DeltaS shaped r z
   Dual mixed r z = DeltaX mixed r z

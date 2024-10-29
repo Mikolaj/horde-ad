@@ -75,9 +75,9 @@ instance (Show (RepN (ADVal f) x), Show (RepN (ADVal f) y))
 -- of the dual number is an AST term or not).
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal f r z
+dD :: forall f r z. IsPrimal f r z
    => f r z -> Dual f r z -> ADVal f r z
-dD !a !dual = dDnotShared a (shareDual dual)
+dD !a !dual = dDnotShared a (shareDual @_ @f @r @z dual)
 
 -- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
@@ -92,9 +92,9 @@ pattern DR :: f r z -> Delta f (TKR r z) -> ADVal f r z
 pattern DR t u <- ADVal t u  -- enforces only pattern matching
 {-# COMPLETE DR #-}
 
-dDR :: IsPrimal f r z
+dDR :: forall f r z. IsPrimal f r z
     => f r z -> Delta f (TKR r z) -> ADVal f r z
-dDR !a !dual = dDnotShared a (shareDual dual)
+dDR !a !dual = dDnotShared a (shareDual @_ @f @r @z dual)
 
 dDnotSharedR :: f r z -> Delta f (TKR r z) -> ADVal f r z
 dDnotSharedR u u' = ADVal u u'
@@ -103,9 +103,9 @@ pattern DS :: f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
 pattern DS t u <- ADVal t (DeltaS u)  -- enforces only pattern matching
 {-# COMPLETE DS #-}
 
-dDS :: IsPrimal f r z
+dDS :: forall f r z. IsPrimal f r z
     => f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
-dDS !a !dual = dDnotShared a (shareDual (DeltaS dual))
+dDS !a !dual = dDnotShared a (shareDual @_ @f @r @z (DeltaS dual))
 
 dDnotSharedS :: f r z -> Delta (RankedOf f) (TKS r z) -> ADVal f r z
 dDnotSharedS u u' = ADVal u (DeltaS u')
@@ -127,14 +127,14 @@ scaleNotShared :: (Num (f r z), IsPrimal f r z)
                => f r z -> ADVal f r z -> ADVal f r z
 scaleNotShared !a (D u u') = dDnotShared (a * u) (dScale a u')
 
-addNotShared :: (Num (f r z), IsPrimal f r z)
+addNotShared :: forall f r z. (Num (f r z), IsPrimal f r z)
              => ADVal f r z -> ADVal f r z -> ADVal f r z
-addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
+addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd @_ @f @r @z u' v')
 
-multNotShared :: (Num (f r z), IsPrimal f r z)
+multNotShared :: forall f r z. (Num (f r z), IsPrimal f r z)
               => ADVal f r z -> ADVal f r z -> ADVal f r z
 multNotShared (D u u') (D v v') =
-  dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
+  dDnotShared (u * v) (dAdd @_ @f @r @z (dScale v u') (dScale u v'))
 {-
 addParameters :: (DTensorOf r ~ OD.Array r)
               => HVector r -> HVector r -> HVector r
@@ -406,14 +406,14 @@ instance (Num (f r z), IsPrimal f r z)
   {-# SPECIALIZE instance KnownNat n
                           => Num (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  D u u' + D v v' = dD (u + v) (dAdd u' v')
+  D u u' + D v v' = dD (u + v) (dAdd @_ @f @r @z u' v')
   D u u' - D v v' =
-    dD (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
+    dD (u - v) (dAdd @_ @f @r @z u' (dScale (intOfShape v (-1)) v'))
   D ue u' * D ve v' =
     -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = sharePrimal ue in
     let !v = sharePrimal ve
-    in dD (u * v) (dAdd (dScale v u') (dScale u v'))
+    in dD (u * v) (dAdd @_ @f @r @z (dScale v u') (dScale u v'))
   negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
   abs (D ve v') = let !v = sharePrimal ve
                   in dD (abs v) (dScale (signum v) v')
@@ -448,7 +448,7 @@ instance (Fractional (f r z), IsPrimal f r z)
     let !u = sharePrimal ue in
     let !v = sharePrimal ve
     in dD (u / v)
-          (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
+          (dAdd @_ @f @r @z (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
   recip (D ve v') =
     let !v = sharePrimal ve
         minusRecipSq = - recip (v * v)
@@ -479,7 +479,7 @@ instance (Floating (f r z), IsPrimal f r z)
   D ue u' ** D ve v' =
     let !u = sharePrimal ue in
     let !v = sharePrimal ve
-    in dD (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
+    in dD (u ** v) (dAdd @_ @f @r @z (dScale (v * (u ** (v - intOfShape v 1))) u')
                          (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
   sin (D ue u') = let !u = sharePrimal ue
@@ -526,7 +526,7 @@ instance (Fractional (f r z), RealFloatF (f r z), IsPrimal f r z)
     let !u = sharePrimal ue in
     let !v = sharePrimal ve in
     let !t = sharePrimal (recip (u * u + v * v))
-    in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
+    in dD (atan2F u v) (dAdd @_ @f @r @z (dScale ((- u) * t) v') (dScale (v * t) u'))
 
 instance (RealFloat (f r z), IsPrimal f r z)
          => RealFloat (ADVal f r z) where
@@ -546,7 +546,7 @@ instance (RealFloat (f r z), IsPrimal f r z)
     let !u = sharePrimal ue in
     let !v = sharePrimal ve in
     let !t = sharePrimal (recip (u * u + v * v))
-    in dD (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
+    in dD (atan2 u v) (dAdd @_ @f @r @z (dScale ((- u) * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this is
   -- unimplemented anyway.
