@@ -551,6 +551,9 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          , ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => HVectorTensor (ADVal ranked) where
+  tpair u v = (u, v)
+  tproject1 = fst
+  tproject2 = snd
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -881,7 +884,7 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 
 unADValRep
   :: forall y ranked.
-     ( HVectorTensor ranked, ProductTensor ranked
+     ( HVectorTensor ranked
      , RankedOf (ShapedOf ranked) ~ ranked, RankedOf (MixedOf ranked) ~ ranked )
   => STensorKindType y
   -> Rep (ADVal ranked) y

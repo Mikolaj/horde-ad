@@ -279,6 +279,9 @@ instance ShapedTensor OSArray where
   sScale _ _ = DummyDualTarget
 
 instance HVectorTensor ORArray where
+  tpair u v = (u, v)
+  tproject1 = fst
+  tproject2 = snd
   dshape = voidFromHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -363,11 +366,6 @@ type instance Rep ORArray (TKProduct x z) =
 instance (Show (RepN ORArray x), Show (RepN ORArray y))
          => Show (RepProductN ORArray x y) where
   showsPrec d (RepProductN (t1, t2)) = showsPrec d (RepN t1, RepN t2)
-
-instance ProductTensor ORArray where
-  tpair u v = (u, v)
-  tproject1 = fst
-  tproject2 = snd
 
 ravel :: forall k y. TensorKind y
       => SNat k -> [Rep ORArray y]
@@ -535,7 +533,7 @@ instance AdaptableHVector ORArray
   :: EvalState ORArray -> EvalState ORArray #-}
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , ProductTensor ranked, ShareTensor ranked
+         , HVectorTensor ranked, ShareTensor ranked
          , RankedOf (ShapedOf ranked) ~ ranked )
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray

@@ -400,12 +400,6 @@ deriving instance Floating (AstTensor AstMethodLet s (TKX r sh))
 deriving instance (RealFloatF (AstTensor AstMethodLet s (TKX r sh)))
                   => RealFloatF (AstMixed s r sh)
 
-instance AstSpan s => ProductTensor (AstRanked s) where
-  tpair t1 t2 = astPair (unRankedY stensorKind t1)
-                          (unRankedY stensorKind t2)
-  tproject1 = rankedY stensorKind . astProject1
-  tproject2 = rankedY stensorKind . astProject2
-
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet PrimalSpan y
@@ -667,6 +661,10 @@ instance AstSpan s => ShapedTensor (AstShaped s) where
   sScale s t = astDualPart $ AstConstant (unAstShaped s) * AstD 0 t
 
 instance forall s. AstSpan s => HVectorTensor (AstRanked s) where
+  tpair t1 t2 = astPair (unRankedY stensorKind t1)
+                          (unRankedY stensorKind t2)
+  tproject1 = rankedY stensorKind . astProject1
+  tproject2 = rankedY stensorKind . astProject2
   dshape = shapeAstHVector
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -956,12 +954,6 @@ type instance Rep (AstRaw s) (TKProduct x z) =
 instance Show (RepProductN (AstRaw s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
 
-instance ProductTensor (AstRaw s) where
-  tpair t1 t2 = AstRawWrap $ AstPair (unRawY stensorKind t1)
-                                       (unRawY stensorKind t2)
-  tproject1 t = rawY stensorKind $ AstProject1 $ unAstRawWrap t
-  tproject2 t = rawY stensorKind $ AstProject2 $ unAstRawWrap t
-
 rawY :: STensorKindType y -> AstTensor AstMethodShare s y
      -> Rep (AstRaw s) y
 rawY stk t = case stk of
@@ -1137,6 +1129,10 @@ instance AstSpan s => ShapedTensor (AstRawS s) where
   sScale s t = AstDualPart $ AstConstant (unAstRawS s) * AstD 0 t
 
 instance AstSpan s => HVectorTensor (AstRaw s) where
+  tpair t1 t2 = AstRawWrap $ AstPair (unRawY stensorKind t1)
+                                       (unRawY stensorKind t2)
+  tproject1 t = rawY stensorKind $ AstProject1 $ unAstRawWrap t
+  tproject2 t = rawY stensorKind $ AstProject2 $ unAstRawWrap t
   dshape = shapeAstHVector . unAstRawWrap
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -1354,12 +1350,6 @@ type instance Rep (AstNoVectorize s) (TKProduct x z) =
 
 instance Show (RepProductN (AstNoVectorize s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
-
-instance AstSpan s => ProductTensor (AstNoVectorize s) where
-  tpair t1 t2 = AstNoVectorizeWrap $ astPair (unNoVectorizeY stensorKind t1)
-                                             (unNoVectorizeY stensorKind t2)
-  tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
-  tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
 
 noVectorizeY :: STensorKindType y -> AstTensor AstMethodLet s y
              -> Rep (AstNoVectorize s) y
@@ -1602,6 +1592,10 @@ instance AstSpan s => ShapedTensor (AstNoVectorizeS s) where
   sScale s t = sScale @(AstShaped s) (unAstNoVectorizeS2 s) t
 
 instance AstSpan s => HVectorTensor (AstNoVectorize s) where
+  tpair t1 t2 = AstNoVectorizeWrap $ astPair (unNoVectorizeY stensorKind t1)
+                                             (unNoVectorizeY stensorKind t2)
+  tproject1 t = noVectorizeY stensorKind $ astProject1 $ unAstNoVectorizeWrap t
+  tproject2 t = noVectorizeY stensorKind $ astProject2 $ unAstNoVectorizeWrap t
   dshape = dshape . unAstNoVectorizeWrap
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
@@ -1802,12 +1796,6 @@ type instance Rep (AstNoSimplify s) (TKProduct x z) =
 
 instance Show (RepProductN (AstNoSimplify s) x y) where
   showsPrec d (RepProductN t) = showsPrec d t
-
-instance AstSpan s => ProductTensor (AstNoSimplify s) where
-  tpair t1 t2 = AstNoSimplifyWrap $ astPair (unNoSimplifyY stensorKind t1)
-                                            (unNoSimplifyY stensorKind t2)
-  tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
-  tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
 
 astLetFunNoSimplify
   :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
@@ -2069,6 +2057,10 @@ instance AstSpan s => ShapedTensor (AstNoSimplifyS s) where
     astDualPart $ AstConstant (unAstNoSimplifyS s) * AstD 0 t
 
 instance AstSpan s => HVectorTensor (AstNoSimplify s) where
+  tpair t1 t2 = AstNoSimplifyWrap $ astPair (unNoSimplifyY stensorKind t1)
+                                            (unNoSimplifyY stensorKind t2)
+  tproject1 t = noSimplifyY stensorKind $ astProject1 $ unAstNoSimplifyWrap t
+  tproject2 t = noSimplifyY stensorKind $ astProject2 $ unAstNoSimplifyWrap t
   dshape = shapeAstHVector . unAstNoSimplifyWrap
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar

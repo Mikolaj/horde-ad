@@ -91,7 +91,7 @@ class IsPrimal f r z where
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
 instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
-         , ProductTensor ranked )
+         , HVectorTensor ranked )
          => IsPrimal @Nat ranked r n where
   dZeroOfShape tsh = ZeroR (rshape tsh)
   dScale _ (ZeroR sh) = ZeroR sh
@@ -104,7 +104,7 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
   shareDual = shareDelta
 
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
-         , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
+         , ShareTensor (RankedOf shaped), HVectorTensor (RankedOf shaped) )
          => IsPrimal @[Nat] shaped r sh where
   dZeroOfShape _tsh = ZeroS
   dScale _ ZeroS = ZeroS
@@ -120,7 +120,7 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
 
 instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
          , RankedTensor (RankedOf mixed)
-         , ShareTensor (RankedOf mixed), ProductTensor (RankedOf mixed) )
+         , ShareTensor (RankedOf mixed), HVectorTensor (RankedOf mixed) )
          => IsPrimal @[Maybe Nat] mixed r sh where
   dZeroOfShape tsh = ZeroX (xshape tsh)
   dScale _ (ZeroX sh) = ZeroX sh
