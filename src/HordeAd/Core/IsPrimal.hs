@@ -31,6 +31,7 @@ import Data.Array.Nested (KnownShX)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Delta
+import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
@@ -93,12 +94,12 @@ class IsPrimal f r z where
 instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
          , ProductTensor ranked )
          => IsPrimal @Nat ranked r n where
-  dZeroOfShape tsh = ZeroR (rshape tsh)
-  dScale _ (ZeroR sh) = ZeroR sh
-  dScale v u' = ScaleR v u'
-  dAdd ZeroR{} w = w
-  dAdd v ZeroR{} = v
-  dAdd v w = AddR v w
+  dZeroOfShape tsh = ZeroG (FTKR $ rshape tsh)
+  dScale _ (ZeroG ftk) = ZeroG ftk
+  dScale v u' = ScaleG (RepN v) u'
+  dAdd ZeroG{} w = w
+  dAdd v ZeroG{} = v
+  dAdd v w = AddG v w
   intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
   sharePrimal = tshare
   shareDual = shareDelta
@@ -106,12 +107,12 @@ instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
 instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
          , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
          => IsPrimal @[Nat] shaped r sh where
-  dZeroOfShape _tsh = ZeroS
-  dScale _ ZeroS = ZeroS
-  dScale v u' = ScaleS v u'
-  dAdd ZeroS w = w
-  dAdd v ZeroS = v
-  dAdd v w = AddS v w
+  dZeroOfShape tsh = ZeroG (FTKS $ sshape tsh)
+  dScale _ (ZeroG ftk) = ZeroG ftk
+  dScale v u' = ScaleG (RepN v) u'
+  dAdd ZeroG{} w = w
+  dAdd v ZeroG{} = v
+  dAdd v w = AddG v w
   intOfShape tsh c =  -- not needed for shaped, here, but ranked above needs it,
                       -- so we have to use it for both
     sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
@@ -122,12 +123,12 @@ instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
          , RankedTensor (RankedOf mixed)
          , ShareTensor (RankedOf mixed), ProductTensor (RankedOf mixed) )
          => IsPrimal @[Maybe Nat] mixed r sh where
-  dZeroOfShape tsh = ZeroX (xshape tsh)
-  dScale _ (ZeroX sh) = ZeroX sh
-  dScale v u' = ScaleX v u'
-  dAdd ZeroX{} w = w
-  dAdd v ZeroX{} = v
-  dAdd v w = AddX v w
+  dZeroOfShape tsh = ZeroG (FTKX $ xshape tsh)
+  dScale _ (ZeroG ftk) = ZeroG ftk
+  dScale v u' = ScaleG (RepN v) u'
+  dAdd ZeroG{} w = w
+  dAdd v ZeroG{} = v
+  dAdd v w = AddG v w
   intOfShape tsh c =
     xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
   sharePrimal = tshare
@@ -172,11 +173,9 @@ shareDelta :: TensorKind y => Delta ranked y -> Delta ranked y
 shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! case d of
-    ZeroR{} -> d
+    ZeroG{} -> d
     -- SFromR{} -> d
     -- the term inside SFromR is most likely shared already, but are we sure?
-    ZeroS -> d
-    ZeroX{} -> d
     InputG{} -> d
     ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> ShareG (NodeId n) d

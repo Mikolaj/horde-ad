@@ -429,7 +429,7 @@ testPiecewiseLinear2PP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> ifF (x1 >. 0.0) 2.0 5.0 * x1"
   show deltas
-    @?= "ShareG 100000005 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstVar (FTKR []) (AstVarId 100000001)) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [2.0])) (AstConst (rfromListLinear [] [5.0])))}) (InputG (FTKR []) (InputId 0)))"
+    @?= "ShareG 100000005 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstVar (FTKR []) (AstVarId 100000001)) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [2.0])) (AstConst (rfromListLinear [] [5.0])))}) (InputG (FTKR []) (InputId 0)))"
 
 overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
          => ranked r 1 -> ranked r 0
@@ -699,7 +699,7 @@ testListSumrPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x48 x49 x50 x51 -> x48 + x49 + x50 + x51"
   show deltas
-    @?= "ShareG 100000003 (AddR (InputG (FTKR []) (InputId 0)) (ShareG 100000002 (AddR (InputG (FTKR []) (InputId 1)) (ShareG 100000001 (AddR (InputG (FTKR []) (InputId 2)) (InputG (FTKR []) (InputId 3)))))))"
+    @?= "ShareG 100000003 (AddG (InputG (FTKR []) (InputId 0)) (ShareG 100000002 (AddG (InputG (FTKR []) (InputId 1)) (ShareG 100000001 (AddG (InputG (FTKR []) (InputId 2)) (InputG (FTKR []) (InputId 3)))))))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (RankedTensor ranked, GoodScalar r)
@@ -862,7 +862,7 @@ testReluPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1"
   show deltas
-    @?= "ShareG 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
+    @?= "ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -907,7 +907,7 @@ testReluSimplerPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1"
   show deltas
-    @?= "ShareG 100000003 (ScaleR (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
+    @?= "ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConst (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [0])) (AstConst (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -1056,7 +1056,7 @@ testReluMaxPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [3,4] (rfromVector (fromList [rreplicate 3 (rreplicate 4 0.0), m1])) (\\[i6, i7] -> [ifF (0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])"
   show deltas
-    @?= "ShareG 100000005 (GatherR [3,4] (ShareG 100000003 (FromVectorR [ZeroR [3,4],InputG (FTKR [3,4]) (InputId 0)])) <function>)"
+    @?= "ShareG 100000005 (GatherR [3,4] (ShareG 100000003 (FromVectorR [ZeroG (FTKR [3,4]),InputG (FTKR [3,4]) (InputId 0)])) <function>)"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -1121,7 +1121,7 @@ testDot2PP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rsum (rreshape [6] (tproject1 m1) * rreshape [6] (tproject2 m1))"
   show deltas
-    @?= "ShareG 100000003 (AddR (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000003) (AstReshape [6] (AstProject2 (AstVar (FTKProduct (FTKR [2,3]) (FTKR [2,3])) (AstVarId 100000001))))}) (ShareG 100000001 (ReshapeR [6] (InputG (FTKR [2,3]) (InputId 0))))) (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstReshape [6] (AstProject1 (AstVar (FTKProduct (FTKR [2,3]) (FTKR [2,3])) (AstVarId 100000001))))}) (ShareG 100000002 (ReshapeR [6] (InputG (FTKR [2,3]) (InputId 1))))))"
+    @?= "ShareG 100000003 (AddG (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000003) (AstReshape [6] (AstProject2 (AstVar (FTKProduct (FTKR [2,3]) (FTKR [2,3])) (AstVarId 100000001))))}) (ShareG 100000001 (ReshapeR [6] (InputG (FTKR [2,3]) (InputId 0))))) (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstReshape [6] (AstProject1 (AstVar (FTKProduct (FTKR [2,3]) (FTKR [2,3])) (AstVarId 100000001))))}) (ShareG 100000002 (ReshapeR [6] (InputG (FTKR [2,3]) (InputId 1))))))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do
@@ -1578,7 +1578,7 @@ barReluMaxS
   => shaped r sh -> shaped r sh
 barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)
 
--- Previously the shape of FromListR[ZeroR] couldn't be determined
+-- Previously the shape of FromListR[ZeroG] couldn't be determined
 -- in buildDerivative, so this was needed. See below that it now works fine.
 testBarReluMax3FwdS :: Assertion
 testBarReluMax3FwdS =

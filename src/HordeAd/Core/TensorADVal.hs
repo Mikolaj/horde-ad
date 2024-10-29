@@ -339,7 +339,7 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (rdot0 u v) (AddR (Dot0R v u') (Dot0R u v'))
+    in dD (rdot0 u v) (AddG (Dot0R v u') (Dot0R u v'))
   rscatter sh (D u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
     in dD (rscatter sh u g) (ScatterR sh u' g)
@@ -394,7 +394,7 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   rprimalPart (D u _) = u
   rdualPart (D _ u') = u'
   rD t d = dD t d
-  rScale = ScaleR
+  rScale k = ScaleG (RepN k)
 
   xshape (D u _) = xshape u
   xindex d i = indexPrimalX d (rprimalPart <$> i)
@@ -468,7 +468,7 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (sdot0 u v) (AddS (Dot0S v u') (Dot0S u v'))
+    in dD (sdot0 u v) (AddG (Dot0S v u') (Dot0S u v'))
   sscatter (D u u') f =
     let g x = rprimalPart <$> f (rconstant <$> x)
     in dD (sscatter u g) (ScatterS u' g)
@@ -530,7 +530,7 @@ instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
   sprimalPart (D u _) = u
   sdualPart (D _ u') = u'
   sD t d = dD t d
-  sScale = ScaleS
+  sScale k = ScaleG (RepN k)
 
 
 -- * ProductTensor instance
@@ -939,12 +939,12 @@ aDValDynamicTensor (DynamicRanked @r1 @n1 t')
   , Just Refl <- matchingRank @sh2 @n1 =
     withListShape (shapeT @sh2) $ \(sh4 :: IShR n4) ->
       gcastWith (unsafeCoerce Refl :: n4 :~: Rank sh2) $
-      DynamicRanked (dDnotShared t' (ZeroR sh4))
+      DynamicRanked (dDnotShared t' (ZeroG $ FTKR sh4))
 aDValDynamicTensor (DynamicShaped @r1 @sh1 t')
                    (DynamicShapedDummy @r2 @sh2 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared t' ZeroS)
+    DynamicShaped (dDnotShared t' (ZeroG $ FTKS knownShS))
 aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
                    (DynamicRankedDummy @r2 @sh2 _ _)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)

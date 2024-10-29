@@ -16,7 +16,7 @@ module HordeAd.Core.HVectorOps
   , mapHVectorShaped11, mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
   , index1HVector, replicate1HVector, mkreplicate1HVector
-  , repConstant, toADTensorKindShared
+  , repConstant, repConstant0Old, toADTensorKindShared
   ) where
 
 import Prelude
@@ -706,6 +706,21 @@ repConstant r = \case
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     HVectorPseudoTensor $ dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @(ShapedOf ranked) r)
+    $ V.map dynamicFromVoid ssh
+
+repConstant0Old :: forall y ranked. ADReadyNoLet ranked
+                => TensorKindFull y -> Rep ranked y
+repConstant0Old = \case
+  FTKScalar -> RepScalar $ rscalar 0
+  FTKR sh | SNat <- shrRank sh -> rzero sh
+  FTKS sh -> withKnownShS sh $ srepl 0
+  FTKX sh -> withKnownShX (ssxFromShape sh) $ xzero sh
+  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
+                       , Dict <- lemTensorKindOfF ftk2 ->
+    tpair (repConstant0Old ftk1)
+          (repConstant0Old ftk2)
+  FTKUntyped ssh ->
+    HVectorPseudoTensor $ dmkHVector
     $ V.map dynamicFromVoid ssh
 
 toADTensorKindShared

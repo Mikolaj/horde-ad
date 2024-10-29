@@ -77,7 +77,6 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
-import Data.Array.Mixed.Shape (IShX)
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
@@ -382,7 +381,8 @@ type role DeltaR nominal nominal nominal
 type DeltaR :: RankedTensorType -> RankedTensorType
 newtype DeltaR ranked r n =
   DeltaR {unDeltaR :: Delta ranked (TKR r n)}
-instance ( RankedOf (ShapedOf ranked) ~ ranked
+instance ( TensorKind (TKR r n)
+         , RankedOf (ShapedOf ranked) ~ ranked
          , Show (IntOf ranked)
          , CRepProduct ranked Show
          , Show (HVectorOf ranked)
@@ -400,7 +400,9 @@ type role DeltaS nominal nominal nominal
 type DeltaS :: ShapedTensorType -> ShapedTensorType
 newtype DeltaS shaped r sh =
   DeltaS {unDeltaS :: Delta (RankedOf shaped) (TKS r sh)}
-instance ( ranked ~ RankedOf shaped, RankedOf (ShapedOf ranked) ~ ranked
+instance ( TensorKind (TKS r sh)
+         , ranked ~ RankedOf shaped
+         , RankedOf (ShapedOf ranked) ~ ranked
          , Show (IntOf ranked)
          , CRepProduct ranked Show
          , Show (HVectorOf ranked)
@@ -429,14 +431,11 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   InputG :: forall ranked y.
             TensorKindFull y -> InputId ranked y -> Delta ranked y
   ShareG :: NodeId ranked y -> Delta ranked y -> Delta ranked y
-
-  ZeroR :: (KnownNat n, GoodScalar r) => IShR n -> Delta ranked (TKR r n)
-    -- ^ the shape is required for @shapeDelta@ and forward derivative
-  ScaleR :: (KnownNat n, GoodScalar r)
-         =>  ranked r n -> Delta ranked (TKR r n) -> Delta ranked (TKR r n)
-  AddR :: (GoodScalar r, KnownNat n)
-       => Delta ranked (TKR r n) -> Delta ranked (TKR r n)
-       -> Delta ranked (TKR r n)
+  ZeroG :: TensorKindFull y -> Delta ranked y
+  ScaleG :: Num (Rep ranked y)
+         => RepN ranked y -> Delta ranked y -> Delta ranked y
+  AddG :: Num (Rep ranked y)
+       => Delta ranked y -> Delta ranked y -> Delta ranked y
 
   IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
          => Delta ranked (TKR r (m + n)) -> IndexOf ranked m
@@ -512,14 +511,6 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
          -> Delta ranked (TKR r (Rank sh))
   RFromH :: (GoodScalar r, KnownNat n)
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKR r n)
-
-  ZeroS :: (GoodScalar r, KnownShS sh) => Delta ranked (TKS r sh)
-  ScaleS :: (KnownShS sh, GoodScalar r)
-         => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
-         -> Delta ranked (TKS r sh)
-  AddS :: (GoodScalar r, KnownShS sh)
-       => Delta ranked (TKS r sh) -> Delta ranked (TKS r sh)
-       -> Delta ranked (TKS r sh)
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
          => Delta ranked (TKS r (sh1 ++ sh2))
@@ -615,13 +606,6 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
   SFromH :: (GoodScalar r, KnownShS sh)
          => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
 
-  ZeroX :: (GoodScalar r, KnownShX sh) => IShX sh -> Delta ranked (TKX r sh)
-  ScaleX :: (KnownShX sh, GoodScalar r)
-         => MixedOf ranked r sh -> Delta ranked (TKX r sh)
-         -> Delta ranked (TKX r sh)
-  AddX :: (GoodScalar r, KnownShX sh)
-       => Delta ranked (TKX r sh) -> Delta ranked (TKX r sh)
-       -> Delta ranked (TKX r sh)
   IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
          => Delta ranked (TKX r (sh1 ++ sh2))
          -> IndexShX (MixedOf ranked) sh1
@@ -672,7 +656,8 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> Delta ranked (BuildTensorKind k eShs)
     -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
 
-deriving instance ( RankedOf (ShapedOf ranked) ~ ranked
+deriving instance ( TensorKind y
+                  , RankedOf (ShapedOf ranked) ~ ranked
                   , CRepProduct ranked Show
                   , Show (HVectorOf ranked)
                   , Show (IntOf ranked)
@@ -704,10 +689,10 @@ shapeDeltaFull = \case
     FTKProduct _ ftk2 -> ftk2
   InputG ftk _ -> ftk
   ShareG _ d -> shapeDeltaFull d
+  ZeroG ftk -> ftk
+  ScaleG _ d -> shapeDeltaFull d
+  AddG d _ -> shapeDeltaFull d
 
-  ZeroR sh -> FTKR sh
-  ScaleR _ d -> shapeDeltaFull d
-  AddR d _ -> shapeDeltaFull d
   IndexR d _ -> FTKR $ dropShape (shapeDelta d)
   SumR d -> FTKR $ tailShape (shapeDelta d)
   Sum0R{} -> FTKR ZSR
@@ -735,9 +720,6 @@ shapeDeltaFull = \case
     FTKR $ listToShape $ shapeT @sh
   RFromH d i -> FTKR $ listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
 
-  ZeroS{} -> FTKS knownShS
-  ScaleS{} -> FTKS knownShS
-  AddS{} -> FTKS knownShS
   IndexS{} -> FTKS knownShS
   SumS{} -> FTKS knownShS
   Sum0S{} -> FTKS knownShS
@@ -760,9 +742,6 @@ shapeDeltaFull = \case
   SFromR{} -> FTKS knownShS
   SFromH{} -> FTKS knownShS
 
-  ZeroX sh -> FTKX sh
-  ScaleX _ d -> shapeDeltaFull d
-  AddX d _ -> shapeDeltaFull d
   IndexX{} -> error "TODO"
   FromVectorX{} -> error "TODO"
 
@@ -1067,9 +1046,8 @@ evalR !s !c d0 = case d0 of
     -- in the cells of the gradient vectors that are the final
     -- result of the evaluation.
     assert (case d of
-              ZeroR{} -> False
+              ZeroG{} -> False
               ShareG{} -> False  -- wasteful and nonsensical
-              ZeroS -> False
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
@@ -1149,7 +1127,8 @@ evalSame
   -> EvalState ranked
 evalSame !s !c = \case
   -- All constructors that only admit a non-TKProduct kind
-  -- (and the InputG constructor) can be handled here, where the extra
+  -- (and the InputG constructor and the vector space constructors)
+  -- can be handled here, where the extra
   -- constraint makes it easier.
   ScalarG d -> evalSame s (RepScalar c) d
   UnScalarG d -> evalSame s (unRepScalar c) d
@@ -1162,11 +1141,15 @@ evalSame !s !c = \case
     -- Note that we can't express sharing by inserting ShareG constructors
     -- into iMap, because often sharing needs to work across many
     -- iMap keys. That's why global sharing is used.
-
-  ZeroR{} -> s
-  ScaleR k d -> evalSame s (k * c) d
-  AddR d e -> let cShared = tshare c
+  -- By placing these here, we force their derivatives to be zeroed
+  -- whenever they are called on non-base types, which they should not ever be.
+  -- This is ensured by the types of the three constructors, assuming that
+  -- no Num instances are defined for the non-base type tensors.
+  ZeroG{} -> s
+  ScaleG (RepN k) d -> evalSame s (k * c) d
+  AddG d e -> let cShared = tshare c
               in evalSame (evalSame s cShared d) cShared e
+
   IndexR d ix ->
     evalSame s (rscatter @ranked @_ @0
                          (shapeDelta d) c (const ix)) d
@@ -1224,10 +1207,6 @@ evalSame !s !c = \case
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
-  ZeroS -> s
-  ScaleS k d -> evalSame s (k * c) d
-  AddS d e -> let cShared = tshare c
-              in evalSame (evalSame s cShared d) cShared e
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
                :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
@@ -1290,10 +1269,6 @@ evalSame !s !c = \case
     in assert (dynamicsMatch (cs V.! i) ci) $
        evalSame s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
 
-  ZeroX{} -> s
-  ScaleX k d -> evalSame s (k * c) d
-  AddX d e -> let cShared = tshare c
-              in evalSame (evalSame s cShared d) cShared e
   IndexX{} -> error "TODO"
   FromVectorX @r @sh ld ->
     let cShared = tshare c
@@ -1324,13 +1299,14 @@ evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
   withListSh (Proxy @sh) $ \sh2 ->
     evalSame @(TKR r (Rank sh))
-          s3 (toADTensorKindShared (stensorKind @(TKR r (Rank sh))) $ rfromD @r t)
-          (ZeroR sh2)
+             s3 (toADTensorKindShared (stensorKind @(TKR r (Rank sh)))
+                 $ rfromD @r t)
+             (ZeroG $ FTKR sh2)
 evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
   evalSame @(TKS r sh)
         s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t)
-        ZeroS
+        (ZeroG $ FTKS knownShS)
 
 evalHVector
   :: (ADReadyNoLet ranked, ShareTensor ranked)
@@ -1431,10 +1407,10 @@ fwdDynamic params s (DynamicShaped @r @sh d) =
 fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
   withListSh (Proxy @sh) $ \sh2 ->
-    second (DynamicRanked @r) $ fwdSame params s (ZeroR sh2)
+    second (DynamicRanked @r) $ fwdSame params s (ZeroG $ FTKR sh2)
 fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
-  second (DynamicShaped @r @sh) $ fwdSame params s ZeroS
+  second (DynamicShaped @r @sh) $ fwdSame params s (ZeroG $ FTKS knownShS)
 
 fwdHVector
   :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
@@ -1548,17 +1524,18 @@ fwdSame params s = \case
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)
       Nothing -> error "fwdSame: missing input"
-
-  ZeroR sh -> (s, rzero sh)
-  ScaleR k d -> second (* k) $ fwdSame params s d
-  AddR d e -> let (s2, t) = fwdSame params s d
+  -- See the comment about these three in evalSame.
+  ZeroG ftk -> (s, repConstant0Old $ aDTensorKind ftk)  -- TODO: not repConstant only for backward compatibility with test results
+  ScaleG (RepN k) d -> second (* k) $ fwdSame params s d
+  AddG d e -> let (s2, t) = fwdSame params s d
                   (s3, u) = fwdSame params s2 e
               in (s3, t + u)
+
   IndexR d ix -> second (`rindex` ix) $ fwdSame params s d
   SumR d -> second rsum $ fwdSame params s d
-  Sum0R ZeroR{} -> (s, 0)
+  Sum0R ZeroG{} -> (s, 0)
   Sum0R d -> second rsum0 $ fwdSame params s d
-  Dot0R _ ZeroR{} -> (s, 0)
+  Dot0R _ ZeroG{} -> (s, 0)
   Dot0R v d -> second (rdot0 v) $ fwdSame params s d
   ScatterR sh d f ->
     let (s2, t) = fwdSame params s d
@@ -1595,16 +1572,11 @@ fwdSame params s = \case
 -- so v is not copied.
 --  in (s2, rfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
 
-  ZeroS -> (s, srepl 0)
-  ScaleS k d -> second (* k) $ fwdSame params s d
-  AddS d e -> let (s2, t) = fwdSame params s d
-                  (s3, u) = fwdSame params s2 e
-              in (s3, t + u)
   IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
   SumS d -> second ssum $ fwdSame params s d
-  Sum0S ZeroS -> (s, srepl 0)
+  Sum0S ZeroG{} -> (s, srepl 0)
   Sum0S d -> second ssum0 $ fwdSame params s d
-  Dot0S _ ZeroS -> (s, srepl 0)
+  Dot0S _ ZeroG{} -> (s, srepl 0)
   Dot0S v d -> second (sdot0 v) $ fwdSame params s d
   ScatterS d f ->
     let (s2, t) = fwdSame params s d
@@ -1644,11 +1616,6 @@ fwdSame params s = \case
 -- so v is not copied.
 --  in (s2, sfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
 
-  ZeroX sh -> (s, xzero sh)
-  ScaleX k d -> second (* k) $ fwdSame params s d
-  AddX d e -> let (s2, t) = fwdSame params s d
-                  (s3, u) = fwdSame params s2 e
-              in (s3, t + u)
   IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
   FromVectorX lsd ->
     let (s2, l) = mapAccumL (fwdSame params) s lsd
