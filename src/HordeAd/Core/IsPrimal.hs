@@ -39,11 +39,11 @@ import HordeAd.Core.Types
 -- its delta expression type. The dispatch is on the type parameter @ty@,
 -- which is 'Nat', @[Nat]@ or @()@, respectively.
 type Dual :: TensorType ty -> TensorType ty
-type family Dual f = result | result -> f where
-  Dual ranked = DeltaR ranked
-  Dual shaped = DeltaS shaped
-  Dual mixed = DeltaX mixed
-  Dual (HVectorPseudoTensor ranked) = HVectorPseudoTensor (DeltaR ranked)
+type family Dual f r z = result | result -> f r z where
+  Dual ranked r z = DeltaR ranked r z
+  Dual shaped r z = DeltaS shaped r z
+  Dual mixed r z = DeltaX mixed r z
+  Dual (HVectorPseudoTensor ranked) r z = HVectorPseudoTensor (DeltaR ranked) r z
 
 
 -- * The IsPrimal class and its instances

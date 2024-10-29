@@ -858,12 +858,12 @@ hVectorADValToADVal hv =
 
 unADValHVector
   :: HVector (ADVal f)
-  -> (HVector f, HVector (Dual f))
+  -> (HVector f, HVector (DeltaR f))
 unADValHVector = V.unzip . V.map unADValDynamicTensor
 
 unADValDynamicTensor
   :: DynamicTensor (ADVal f)
-  -> (DynamicTensor f, DynamicTensor (Dual f))
+  -> (DynamicTensor f, DynamicTensor (DeltaR f))
 unADValDynamicTensor (DynamicRanked (D t t')) =
   (DynamicRanked t, DynamicRanked t')
 unADValDynamicTensor (DynamicShaped (D t t')) =
@@ -896,12 +896,12 @@ unADValRep stk t = case (stk, t) of
   _ -> error "TODO"
 
 aDValHVector :: ADReadyNoLet f
-             => HVector f -> HVector (Dual f) -> HVector (ADVal f)
+             => HVector f -> HVector (DeltaR f) -> HVector (ADVal f)
 aDValHVector = V.zipWith aDValDynamicTensor
 
 -- TODO: Apparently other combinations occur in dletHVectorInHVector. Why?
 aDValDynamicTensor :: ADReadyNoLet f
-                   => DynamicTensor f -> DynamicTensor (Dual f)
+                   => DynamicTensor f -> DynamicTensor (DeltaR f)
                    -> DynamicTensor (ADVal f)
 aDValDynamicTensor (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)

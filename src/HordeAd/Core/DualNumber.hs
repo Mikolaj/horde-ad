@@ -170,7 +170,7 @@ generateDeltaInputs =
               (d2, j2) = gen j1 ftk2
           in (PairG d1 d2, j2)
         FTKUntyped shs ->
-          let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (Dual ranked)
+          let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (DeltaR ranked)
               f (i, DynamicRankedDummy @r @sh _ _) =
                 withListSh (Proxy @sh) $ \sh ->
                   DynamicRanked $ DeltaR $ InputG (FTKR @r sh) (toInputId i)
