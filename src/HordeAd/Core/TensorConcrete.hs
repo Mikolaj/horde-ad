@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for concrete Storable Vector-backed arrays.
 module HordeAd.Core.TensorConcrete
-  (DummyDualTarget) where
+  () where
 
 import Prelude hiding (foldl')
 
@@ -12,7 +12,6 @@ import Data.Array.Internal (valueOf)
 import Data.Array.RankedS qualified as OR
 import Data.Array.ShapedS qualified as OS
 import Data.Function ((&))
-import Data.Kind (Type)
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -74,10 +73,6 @@ type instance HFunOf ORArray x z = Rep ORArray x -> Rep ORArray z
 type instance PrimalOf ORArray = ORArray
 
 type instance DualOf ORArray = DummyDualTarget
-
-type role DummyDualTarget representational
-type DummyDualTarget :: TensorKindType -> Type
-data DummyDualTarget y = DummyDualTarget
 
 type instance ShareOf ORArray = ORArray
 
@@ -225,19 +220,6 @@ instance IfF OXArray where
 type instance RankedOf OXArray = ORArray
 
 type instance PrimalOf OXArray = OXArray
-
-type role DummyProduct representational representational
-type DummyProduct :: Type -> Type -> Type
-data DummyProduct vx vz = DummyProduct vx vz
-
-type instance Rep DummyDual (TKProduct x z) =
-  DummyProduct (Rep DummyDual x)
-               (Rep DummyDual z)
-
-instance ProductTensor DummyDual where
-  tpair = DummyProduct
-  tproject1 (DummyProduct vx _vz) = vx
-  tproject2 (DummyProduct _vx vz) = vz
 
 instance ShapedTensor OSArray where
   sminIndex = FlipS . tminIndexS . runFlipS

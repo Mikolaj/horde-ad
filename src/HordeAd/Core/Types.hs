@@ -24,7 +24,7 @@ module HordeAd.Core.Types
     -- * Type families that tensors will belong to
   , IntOf, RankedOf, ShapedOf, MixedOf
   , HFunOf, PrimalOf, DualOf, ShareOf
-  , DummyDual(..)
+  , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
   , IfF(..), EqF(..), OrdF(..), minF, maxF
@@ -394,15 +394,11 @@ type family PrimalOf (f :: TensorType ty) :: TensorType ty
 
 type family DualOf (f :: TensorType ty) :: TensorKindType -> Type
 
-type role DummyDual representational nominal
-type DummyDual :: TensorType ty
-data DummyDual r (y :: ty) = DummyDual
-
-type instance RankedOf DummyDual = DummyDual
-type instance ShapedOf DummyDual = DummyDual
-type instance MixedOf DummyDual = DummyDual
-
 type family ShareOf (f :: RankedTensorType) :: RankedTensorType
+
+type role DummyDualTarget representational
+type DummyDualTarget :: TensorKindType -> Type
+data DummyDualTarget y = DummyDualTarget
 
 
 -- * Generic types of booleans and related class definitions
