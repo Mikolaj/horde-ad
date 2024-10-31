@@ -74,13 +74,13 @@ class LetTensor (ranked :: RankedTensorType) where
   rlet :: forall n m r r2. (KnownNat n, KnownNat m, GoodScalar r, GoodScalar r2)
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
-  rlet = blet @_ @(TKR r n) @(TKR r2 m)
+  rlet = tlet @_ @(TKR r n) @(TKR r2 m)
   slet :: forall sh sh2 r r2 shaped.
           ( KnownShS sh, KnownShS sh2, GoodScalar r, GoodScalar r2
           , shaped ~ ShapedOf ranked, RankedOf shaped ~ ranked )
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
-  slet = blet @_ @(TKS r sh) @(TKS r2 sh2)
+  slet = tlet @_ @(TKS r sh) @(TKS r2 sh2)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep ranked x
        -> (RepDeep ranked x -> Rep ranked z)
