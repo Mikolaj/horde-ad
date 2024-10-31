@@ -81,17 +81,6 @@ class LetTensor (ranked :: RankedTensorType) where
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
   slet = blet @_ @(TKS r sh) @(TKS r2 sh2)
-  -- When the programmer uses the same closed function many times, the HFun
-  -- makes it possible to prevent multiple simplification, inlining, etc.,
-  -- once for each copy (shared on the Haskell heap) of the function
-  -- representation. However, the engine code itself never uses closed
-  -- functions in a way that would benefit from the HFun lets.
-  --
-  -- To prevent double derivative computation in
-  -- > let f = ... in ... (dmapAccumR ... f ...) ... (dmapAccumR ... f ...)
-  -- one needs to use dmapAccumRDer manually as in (simplified)
-  -- > let f = ...; df = dfwd f; rf = drev f
-  -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumRDer f df rf ...)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep ranked x
        -> (RepDeep ranked x -> Rep ranked z)
@@ -1104,6 +1093,13 @@ class ProductTensor (ranked :: RankedTensorType) where
   -- and that its result is shared. However, most of the time
   -- the computation is unnneeded, so the AST instance uses a non-strict
   -- constructor 'AstLambda' for it's instance of 'HFunOf'.
+  --
+  -- If the same argument functions are passed to many dmapAccum calls, as in
+  -- > let f = ... in ... (dmapAccumR ... f ...) ... (dmapAccumL ... f ...)
+  -- extra care is needed to prevent double derivative computation.
+  -- One needs to use dmapAccumRDer manually as in (simplified)
+  -- > let f = ...; df = dfwd f; rf = drev f
+  -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumLDer f df rf ...)
   dmapAccumR
     :: forall k accShs bShs eShs.
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
