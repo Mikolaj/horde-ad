@@ -139,101 +139,6 @@ class LetTensor (ranked :: RankedTensorType) where
             -> Rep ranked y
   taddLet :: STensorKindType y -> Rep ranked y -> Rep ranked y -> Rep ranked y
 
-  -- If the result of the argument function is not a scalar,
-  -- the result of this operation is the gradient of a function that additionally
-  -- sums all elements of the result. If all elements are equally important
-  -- for optimization, this may be exactly what is needed for gradient descent.
-  --
-  -- The second argument is only used to determine tensor shapes
-  -- and the third has to have the same shapes as the second.
-  --
-  -- The function argument needs to be quantified,
-  -- because otherwise in the ADVal instance one could put an illegal
-  -- InputR there, confusing the two levels of contangents.
-  --
-  -- These methods are in this class, because their implementations
-  -- use the let operations and also their signatures mention @ADReady@,
-  -- so it's awkward to put the methods into @RankedTensor@,
-  -- which shouldn't know about lets, etc.
-  rrev :: forall x r n shaped.
-          ( TensorKind x, GoodScalar r, KnownNat n
-          , ProductTensor ranked, shaped ~ ShapedOf ranked )
-       => (forall f. ADReady f => RepDeep f x -> f r n)
-       -> TensorKindFull x
-       -> RepDeep ranked x
-       -> Rep ranked (ADTensorKind x)
-  rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es -> dHApply (drev @ranked ftk $ HFun g) (unrepDeep es)
-  -- We can't get sh from anywhere, so this is not possible:
-  -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
-  rrevDt :: forall x r n shaped.
-            ( TensorKind x, GoodScalar r, KnownNat n
-            , ProductTensor ranked, shaped ~ ShapedOf ranked )
-         => (forall f. ADReady f => RepDeep f x -> f r n)
-         -> TensorKindFull x
-         -> RepDeep ranked x
-         -> Rep ranked (ADTensorKind (TKR r n))  -- ^ incoming cotangent (dt)
-         -> Rep ranked (ADTensorKind x)
-  rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-               , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
-                            (tpair dt (unrepDeep es))
-  rfwd :: forall x r n shaped.
-          ( TensorKind x, GoodScalar r, KnownNat n
-          , ProductTensor ranked, shaped ~ ShapedOf ranked )
-       => (forall f. ADReady f => RepDeep f x -> f r n)
-       -> TensorKindFull x
-       -> RepDeep ranked x
-       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
-       -> Rep ranked (ADTensorKind (TKR r n))
-  rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-             , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
-                            (tpair (unrepDeep ds) (unrepDeep es))
-  srev :: forall x r sh shaped.
-          ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
-          , ShapedTensor shaped, shaped ~ ShapedOf ranked
-          , ADTensorKind (TKS r sh) ~ TKS r sh )
-       => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
-       -> TensorKindFull x
-       -> RepDeep ranked x
-       -> Rep ranked (ADTensorKind x)
-  srev f ftk es = srevDt f ftk es (srepl 1)
-  srevDt :: forall x r sh shaped.
-            ( TensorKind x, GoodScalar r, KnownShS sh
-            , ProductTensor ranked, shaped ~ ShapedOf ranked )
-         => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
-         -> TensorKindFull x
-         -> RepDeep ranked x
-         -> Rep ranked (ADTensorKind (TKS r sh))  -- ^ incoming cotangent (dt)
-         -> Rep ranked (ADTensorKind x)
-  srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-               , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
-                            (tpair dt (unrepDeep es))
-  sfwd :: forall x r sh shaped.
-          ( TensorKind x, GoodScalar r, KnownShS sh
-          , ProductTensor ranked, shaped ~ ShapedOf ranked )
-       => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
-       -> TensorKindFull x
-       -> RepDeep ranked x
-       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
-       -> Rep ranked (ADTensorKind (TKS r sh))
-  sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-             , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
-                            (tpair (unrepDeep ds) (unrepDeep es))
-
 class ShareTensor (ranked :: RankedTensorType) where
   tshare :: forall y. (TensorKind y, ProductTensor ranked)
          => Rep ranked y -> Rep ranked y
@@ -959,6 +864,100 @@ class ProductTensor (ranked :: RankedTensorType) where
                  -- outermost dimension k
   dzipWith1 k f u =
     dbuild1 @ranked k (f . index1HVectorF rshape sshape rindex sindex u)
+  -- If the result of the argument function is not a scalar,
+  -- the result of this operation is the gradient of a function that additionally
+  -- sums all elements of the result. If all elements are equally important
+  -- for optimization, this may be exactly what is needed for gradient descent.
+  --
+  -- The second argument is only used to determine tensor shapes
+  -- and the third has to have the same shapes as the second.
+  --
+  -- The function argument needs to be quantified,
+  -- because otherwise in the ADVal instance one could put an illegal
+  -- InputR there, confusing the two levels of contangents.
+  --
+  -- These methods are in this class, because their implementations
+  -- use the let operations and also their signatures mention @ADReady@,
+  -- so it's awkward to put the methods into @RankedTensor@,
+  -- which shouldn't know about lets, etc.
+  rrev :: forall x r n shaped.
+          ( TensorKind x, GoodScalar r, KnownNat n
+          , ProductTensor ranked, shaped ~ ShapedOf ranked )
+       => (forall f. ADReady f => RepDeep f x -> f r n)
+       -> TensorKindFull x
+       -> RepDeep ranked x
+       -> Rep ranked (ADTensorKind x)
+  rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
+    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
+        g !x = dlet x $ \ !xDeep -> f xDeep
+    in \ !es -> dHApply (drev @ranked ftk $ HFun g) (unrepDeep es)
+  -- We can't get sh from anywhere, so this is not possible:
+  -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
+  rrevDt :: forall x r n shaped.
+            ( TensorKind x, GoodScalar r, KnownNat n
+            , ProductTensor ranked, shaped ~ ShapedOf ranked )
+         => (forall f. ADReady f => RepDeep f x -> f r n)
+         -> TensorKindFull x
+         -> RepDeep ranked x
+         -> Rep ranked (ADTensorKind (TKR r n))  -- ^ incoming cotangent (dt)
+         -> Rep ranked (ADTensorKind x)
+  rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+               , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
+        g !x = dlet x $ \ !xDeep -> f xDeep
+    in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
+                            (tpair dt (unrepDeep es))
+  rfwd :: forall x r n shaped.
+          ( TensorKind x, GoodScalar r, KnownNat n
+          , ProductTensor ranked, shaped ~ ShapedOf ranked )
+       => (forall f. ADReady f => RepDeep f x -> f r n)
+       -> TensorKindFull x
+       -> RepDeep ranked x
+       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
+       -> Rep ranked (ADTensorKind (TKR r n))
+  rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+             , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
+    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
+        g !x = dlet x $ \ !xDeep -> f xDeep
+    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
+                            (tpair (unrepDeep ds) (unrepDeep es))
+  srev :: forall x r sh shaped.
+          ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
+          , ShapedTensor shaped, shaped ~ ShapedOf ranked
+          , ADTensorKind (TKS r sh) ~ TKS r sh )
+       => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
+       -> TensorKindFull x
+       -> RepDeep ranked x
+       -> Rep ranked (ADTensorKind x)
+  srev f ftk es = srevDt f ftk es (srepl 1)
+  srevDt :: forall x r sh shaped.
+            ( TensorKind x, GoodScalar r, KnownShS sh
+            , ProductTensor ranked, shaped ~ ShapedOf ranked )
+         => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
+         -> TensorKindFull x
+         -> RepDeep ranked x
+         -> Rep ranked (ADTensorKind (TKS r sh))  -- ^ incoming cotangent (dt)
+         -> Rep ranked (ADTensorKind x)
+  srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+               , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
+        g !x = dlet x $ \ !xDeep -> f xDeep
+    in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
+                            (tpair dt (unrepDeep es))
+  sfwd :: forall x r sh shaped.
+          ( TensorKind x, GoodScalar r, KnownShS sh
+          , ProductTensor ranked, shaped ~ ShapedOf ranked )
+       => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
+       -> TensorKindFull x
+       -> RepDeep ranked x
+       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
+       -> Rep ranked (ADTensorKind (TKS r sh))
+  sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+             , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
+        g !x = dlet x $ \ !xDeep -> f xDeep
+    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
+                            (tpair (unrepDeep ds) (unrepDeep es))
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important
