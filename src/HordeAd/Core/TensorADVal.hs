@@ -907,7 +907,6 @@ aDValHVector :: ADReadyNoLet f
              => HVector f -> HVector (DeltaR f) -> HVector (ADVal f)
 aDValHVector = V.zipWith aDValDynamicTensor
 
--- TODO: Apparently other combinations occur in dletHVectorInHVector. Why?
 aDValDynamicTensor :: ADReadyNoLet f
                    => DynamicTensor f -> DynamicTensor (DeltaR f)
                    -> DynamicTensor (ADVal f)

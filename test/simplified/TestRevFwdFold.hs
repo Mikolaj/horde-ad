@@ -4691,9 +4691,11 @@ fFoldZipR domsOD p as rf shn cShared =
         dzipWith1 k
                   (\doms ->
                      let (cr, x, a) = domsTo3 doms
-                     in dletHVectorInHVector
-                          (rf cr x a) $ \ !rfRes ->
-                            dmkHVector $ snd $ domsToPair rfRes)
+                     in unHVectorPseudoTensor
+                        $ tlet @_ @TKUntyped @TKUntyped
+                               (HVectorPseudoTensor (rf cr x a))
+                               $ \ !rfRes ->
+                                   HVectorPseudoTensor $ dmkHVector $ snd $ domsToPair rfRes)
                   (V.cons (DynamicRanked cr2)
                    $ V.cons (DynamicRanked x2) a2)
       cas = rg (rslice 1 width crs)

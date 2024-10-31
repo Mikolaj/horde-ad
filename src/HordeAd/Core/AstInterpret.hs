@@ -588,9 +588,7 @@ interpretAst !env = \case
                                     , shapeAstFull l
                                     , shapeVoidHVector (dshape lt) )) $
                     extendEnvHVector vars lw env
-      in HVectorPseudoTensor
-         $ dletHVectorInHVector lt (\lw -> unHVectorPseudoTensor
-                                           $ interpretAst (env2 lw) v)
+      in tlet (HVectorPseudoTensor lt) (\lw -> interpretAst (env2 lw) v)
     _ -> error "TODO"
   AstLetHFunIn @_ @x2 @y2 @z2 var f v -> case stensorKind @y2 of
     STKScalar _ ->

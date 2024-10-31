@@ -89,14 +89,6 @@ class LetTensor (ranked :: RankedTensorType) where
              => HFunOf ranked x z
              -> (HFunOf ranked x z -> (ShapedOf ranked) r sh)
              -> (ShapedOf ranked) r sh
-  dletHVectorInHVector
-    :: HVectorOf ranked
-    -> (HVector ranked -> HVectorOf ranked)
-    -> HVectorOf ranked
-  dletHVectorInHVector a f =
-    unHVectorPseudoTensor
-    $ tlet @_ @TKUntyped @TKUntyped (HVectorPseudoTensor a)
-                                       (HVectorPseudoTensor . f)
   -- When the programmer uses the same closed function many times, the HFun
   -- makes it possible to prevent multiple simplification, inlining, etc.,
   -- once for each copy (shared on the Haskell heap) of the function
@@ -117,8 +109,6 @@ class LetTensor (ranked :: RankedTensorType) where
        => Rep ranked x
        -> (RepDeep ranked x -> Rep ranked z)
        -> Rep ranked z
-  -- This type signature generalizes dletHVectorInHVector and is easier
-  -- for the user to work with, giving him access to concrete vectors and tuples.
   tlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep ranked x
        -> (RepShallow ranked x -> Rep ranked z)
