@@ -1020,7 +1020,7 @@ class ProductTensor (ranked :: RankedTensorType) where
   rscan
     :: forall rn rm n m.
        ( GoodScalar rn, GoodScalar rm, KnownNat n, KnownNat m
-       , RankedTensor ranked, LetTensor ranked )
+       , RankedTensor ranked )
     => (forall f. ADReady f => f rn n -> f rm m -> f rn n)
     -> ranked rn n
     -> ranked rm (1 + m)
@@ -1075,7 +1075,7 @@ class ProductTensor (ranked :: RankedTensorType) where
   sscan
     :: forall rn rm sh shm k shaped.
        ( GoodScalar rn, GoodScalar rm, KnownShS sh, KnownShS shm, KnownNat k
-       , ShapedTensor shaped, LetTensor ranked
+       , ShapedTensor shaped
        , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
     => (forall f. ADReadyS f => f rn sh -> f rm shm -> f rn sh)
     -> shaped rn sh
