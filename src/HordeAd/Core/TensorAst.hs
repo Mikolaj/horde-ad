@@ -531,15 +531,6 @@ instance AstSpan s => LetTensor (AstRanked s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> rankedY stensorKind . unshareAstTensor . unRawY stensorKind
       _ -> error "tunshare: used not at PrimalSpan"
-  tconstant stk t = case stk of
-    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
-    STKR STKScalar{} SNat -> rconstant t
-    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
-    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 -> fromPrimal t
-    STKUntyped -> HVectorPseudoTensor $ fromPrimal $ unHVectorPseudoTensor t
-    _ -> error "TODO"
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     -- when we have Num(AstTensor), this is better:
     --   rankedY stensorKind
@@ -674,6 +665,15 @@ instance forall s. AstSpan s => ProductTensor (AstRanked s) where
     STKUntyped -> HVectorPseudoTensor
                   $ AstCond b (unHVectorPseudoTensor u)
                               (unHVectorPseudoTensor v)
+    _ -> error "TODO"
+  tconstant stk t = case stk of
+    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
+    STKR STKScalar{} SNat -> rconstant t
+    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
+    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 -> fromPrimal t
+    STKUntyped -> HVectorPseudoTensor $ fromPrimal $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tprimalPart stk t = case stk of
     STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t
@@ -1144,6 +1144,17 @@ instance AstSpan s => ProductTensor (AstRaw s) where
                   $ AstCond b (unAstRawWrap $ unHVectorPseudoTensor u)
                               (unAstRawWrap $ unHVectorPseudoTensor v)
     _ -> error "TODO"
+  tconstant stk t = case stk of
+    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
+    STKR STKScalar{} SNat -> rconstant t
+    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
+    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      AstRawWrap $ fromPrimal $ unAstRawWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ fromPrimal
+                  $ unAstRawWrap $ unHVectorPseudoTensor t
+    _ -> error "TODO"
   tprimalPart stk t = case stk of
     STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t
     STKR STKScalar{} SNat -> rprimalPart t
@@ -1467,17 +1478,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
-  tconstant stk t = case stk of
-    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
-    STKR STKScalar{} SNat -> rconstant t
-    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
-    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      AstNoVectorizeWrap $ fromPrimal $ unAstNoVectorizeWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap $ fromPrimal
-                  $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
-    _ -> error "TODO"
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
@@ -1602,6 +1602,17 @@ instance AstSpan s => ProductTensor (AstNoVectorize s) where
     STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap
                   $ AstCond b (unAstNoVectorizeWrap $ unHVectorPseudoTensor u)
                               (unAstNoVectorizeWrap $ unHVectorPseudoTensor v)
+    _ -> error "TODO"
+  tconstant stk t = case stk of
+    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
+    STKR STKScalar{} SNat -> rconstant t
+    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
+    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      AstNoVectorizeWrap $ fromPrimal $ unAstNoVectorizeWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoVectorizeWrap $ fromPrimal
+                  $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tprimalPart stk t = case stk of
     STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t
@@ -1904,17 +1915,6 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
     STKUntyped -> HVectorPseudoTensor $ AstRawWrap $ AstToShare
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
-  tconstant stk t = case stk of
-    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
-    STKR STKScalar{} SNat -> rconstant t
-    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
-    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      AstNoSimplifyWrap $ fromPrimal $ unAstNoSimplifyWrap t
-    STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap $ fromPrimal
-                  $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
-    _ -> error "TODO"
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
@@ -2053,6 +2053,17 @@ instance AstSpan s => ProductTensor (AstNoSimplify s) where
     STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap
                   $ AstCond b (unAstNoSimplifyWrap $ unHVectorPseudoTensor u)
                               (unAstNoSimplifyWrap $ unHVectorPseudoTensor v)
+    _ -> error "TODO"
+  tconstant stk t = case stk of
+    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
+    STKR STKScalar{} SNat -> rconstant t
+    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
+    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      AstNoSimplifyWrap $ fromPrimal $ unAstNoSimplifyWrap t
+    STKUntyped -> HVectorPseudoTensor $ AstNoSimplifyWrap $ fromPrimal
+                  $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tprimalPart stk t = case stk of
     STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t

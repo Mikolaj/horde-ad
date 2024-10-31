@@ -104,7 +104,6 @@ instance LetTensor ORArray where
   blet = (&)
   toShare = id
   tunshare = id
-  tconstant _ t = t
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
@@ -292,6 +291,7 @@ instance ProductTensor ORArray where
     STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
     _ -> error "TODO"
   tcond _ b u v = if b then u else v
+  tconstant _ t = t
   tprimalPart _ = id
   tdualPart stk t = case stk of
     STKScalar _ -> DummyDualTarget

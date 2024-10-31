@@ -186,25 +186,6 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
 
   toShare = id
   tunshare = id
-  tconstant :: STensorKindType y
-            -> Rep ranked y
-            -> Rep (ADVal ranked) y
-  tconstant stk t = case stk of
-    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
-    STKR STKScalar{} SNat -> rconstant t
-    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
-    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      let (t1, t2) = tunpair t
-          !c1 = tconstant stk1 t1
-          !c2 = tconstant stk2 t2
-      in (c1, c2)
-    STKUntyped ->
-      let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
-          fd = mapDynamic rconstant sconstant
-      in HVectorPseudoTensor $ V.map fd $ tunvector t
-    _ -> error "TODO"
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
     blet t1 $ \ !u1 ->
     blet t2 $ \ !u2 ->
@@ -581,6 +562,25 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
       let fd = mapDynamic2 (ifF b) (ifF b)
       in HVectorPseudoTensor
          $ V.zipWith fd (unHVectorPseudoTensor u) (unHVectorPseudoTensor v)
+    _ -> error "TODO"
+  tconstant :: STensorKindType y
+            -> Rep ranked y
+            -> Rep (ADVal ranked) y
+  tconstant stk t = case stk of
+    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
+    STKR STKScalar{} SNat -> rconstant t
+    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
+    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      let (t1, t2) = tunpair t
+          !c1 = tconstant stk1 t1
+          !c2 = tconstant stk2 t2
+      in (c1, c2)
+    STKUntyped ->
+      let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
+          fd = mapDynamic rconstant sconstant
+      in HVectorPseudoTensor $ V.map fd $ tunvector t
     _ -> error "TODO"
   tprimalPart :: STensorKindType y
               -> Rep (ADVal ranked) y

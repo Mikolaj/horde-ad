@@ -134,9 +134,6 @@ class LetTensor (ranked :: RankedTensorType) where
            => Rep (ShareOf ranked) y
            -> Rep ranked y
   tunshare = error "tunshare: this instance should never be used"
-  tconstant :: STensorKindType y
-            -> Rep (PrimalOf ranked) y
-            -> Rep ranked y
   taddLet :: STensorKindType y -> Rep ranked y -> Rep ranked y -> Rep ranked y
 
 class ShareTensor (ranked :: RankedTensorType) where
@@ -829,6 +826,9 @@ class ProductTensor (ranked :: RankedTensorType) where
         -> BoolOf ranked
         -> Rep ranked y -> Rep ranked y
         -> Rep ranked y
+  tconstant :: STensorKindType y
+            -> Rep (PrimalOf ranked) y
+            -> Rep ranked y
   tprimalPart :: STensorKindType y
               -> Rep ranked y
               -> Rep (PrimalOf ranked) y
