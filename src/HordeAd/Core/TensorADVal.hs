@@ -113,7 +113,6 @@ cfwdOnHVector parameters f ds =
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => LetTensor (ADVal ranked) where
--- TODO: is the sharing needed or can we just do:  rletHVectorIn = (&)
   rletHFunIn = (&)
   sletHFunIn = (&)
   dletHFunInHVector = (&)

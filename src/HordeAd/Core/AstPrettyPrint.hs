@@ -432,7 +432,7 @@ printAstAux cfg d = \case
         . printAst cfg 0 v
     else
       showParen (d > 10)
-      $ showString "rletHVectorIn "  -- TODO
+      $ showString "tlet "
         . printAst cfg 11 l
         . showString " "
         . (showParen True

@@ -518,7 +518,7 @@ rrev2 f u =
       domsOf =
         unHVectorPseudoTensor
         $ rrev @g fHVector (FTKUntyped shapes) (V.singleton $ DynamicRanked u)
-  in rletHVectorIn domsOf (\v -> rfromD $ v V.! 0)
+  in tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ v V.! 0)
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)

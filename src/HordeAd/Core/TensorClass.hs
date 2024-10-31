@@ -75,12 +75,6 @@ class LetTensor (ranked :: RankedTensorType) where
        => ranked r n -> (ranked r n -> ranked r2 m)
        -> ranked r2 m
   rlet = blet @_ @(TKR r n) @(TKR r2 m)
-  rletHVectorIn :: forall n r. (KnownNat n, GoodScalar r)
-                => HVectorOf ranked
-                -> (HVector ranked -> ranked r n)
-                -> ranked r n
-  rletHVectorIn a f =
-    tlet @_ @TKUntyped @(TKR r n) (HVectorPseudoTensor a) f
   rletHFunIn :: (KnownNat n, GoodScalar r, TensorKind x, TensorKind z)
              => HFunOf ranked x z
              -> (HFunOf ranked x z -> ranked r n)
@@ -91,14 +85,6 @@ class LetTensor (ranked :: RankedTensorType) where
        => shaped r sh -> (shaped r sh -> shaped r2 sh2)
        -> shaped r2 sh2
   slet = blet @_ @(TKS r sh) @(TKS r2 sh2)
-  sletHVectorIn :: forall sh r shaped.
-                   ( KnownShS sh, GoodScalar r
-                   , shaped ~ ShapedOf ranked, ranked ~ RankedOf shaped )
-                => HVectorOf (RankedOf shaped)
-                -> (HVector (RankedOf shaped) -> shaped r sh)
-                -> shaped r sh
-  sletHVectorIn a f =
-    tlet @_ @TKUntyped @(TKS r sh) (HVectorPseudoTensor a) f
   sletHFunIn :: (KnownShS sh, GoodScalar r, TensorKind x, TensorKind z)
              => HFunOf ranked x z
              -> (HFunOf ranked x z -> (ShapedOf ranked) r sh)
