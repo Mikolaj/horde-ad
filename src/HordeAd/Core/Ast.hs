@@ -432,10 +432,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
                   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
                   -> AstTensor AstMethodLet s2 z
                   -> AstTensor AstMethodLet s2 z
-  AstLetHFunIn :: forall s2 x y z. (TensorKind x, TensorKind y, TensorKind z)
-               => AstVarId -> AstHFun x z
-               -> AstTensor AstMethodLet s2 y
-               -> AstTensor AstMethodLet s2 y
   AstRFromS :: (KnownShS sh, GoodScalar r)
             => AstTensor ms s (TKS r sh) -> AstTensor ms s (TKR r (Rank sh))
 
@@ -687,7 +683,6 @@ data AstHFun x z where
     -- to under 2^n (TODO: determine the exact cost). Note, however,
     -- that if the n-th forward and reverse derivative is taken,
     -- the laziness is defeated.
-  AstVarHFun :: TensorKindFull x -> TensorKindFull z -> AstVarId -> AstHFun x z
 
 deriving instance Show (AstHFun x z)
 

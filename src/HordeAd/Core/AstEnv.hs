@@ -6,7 +6,7 @@
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..), emptyEnv, showsPrecAstEnv
-  , extendEnv, extendEnvHVector, extendEnvHFun
+  , extendEnv, extendEnvHVector
   , extendEnvD, extendEnvI
     -- * The operations for interpreting bindings
   , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
@@ -54,20 +54,14 @@ type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
 type role AstEnvElem nominal nominal
 data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
   AstEnvElemRep :: RepN ranked y -> AstEnvElem ranked y
-  AstEnvElemHFun :: forall ranked x y. TensorKind x
-                 => HFunOf ranked x y -> AstEnvElem ranked y
-    -- the "y" is a lie; it should be "TKFun x y"; BTW, Proxy would not help
 
-deriving instance ( Show (RepN ranked y)
-                  , CHFun ranked Show y )
-                  => Show (AstEnvElem ranked y)
+deriving instance Show (RepN ranked y) => Show (AstEnvElem ranked y)
 
 emptyEnv :: AstEnv ranked
 emptyEnv = DMap.empty
 
 showsPrecAstEnv
-  :: ( forall y. TensorKind y => Show (RepN ranked y)
-     , forall y. CHFun ranked Show y )
+  :: (forall y. TensorKind y => Show (RepN ranked y))
   => Int -> AstEnv ranked -> ShowS
 showsPrecAstEnv d demap =
   showParen (d > 10) $
@@ -96,17 +90,6 @@ extendEnvHVector :: forall ranked. ADReady ranked
                  -> AstEnv ranked
 extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
   foldr extendEnvD env $ zip vars (V.toList pars)
-
-extendEnvHFun :: forall ranked x y. (TensorKind x, TensorKind y)
-              => Proxy x -> Proxy y
-              -> AstVarId -> HFunOf ranked x y -> AstEnv ranked
-              -> AstEnv ranked
-extendEnvHFun _ _ !varId !t !env =
-  let var2 :: AstVarName FullSpan y
-      var2 = mkAstVarName varId
-  in DMap.insertWithKey (\_ _ _ -> error
-                                   $ "extendEnvHFun: duplicate " ++ show varId)
-                        var2 (AstEnvElemHFun @_ @x t) env
 
 extendEnvD :: forall ranked. ADReady ranked
            => (AstDynamicVarName, DynamicTensor ranked)

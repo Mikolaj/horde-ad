@@ -590,30 +590,6 @@ interpretAst !env = \case
                     extendEnvHVector vars lw env
       in tlet (HVectorPseudoTensor lt) (\lw -> interpretAst (env2 lw) v)
     _ -> error "TODO"
-  AstLetHFunIn @_ @x2 @y2 @z2 var f v -> case stensorKind @y2 of
-    STKScalar _ ->
-      let g = interpretAstHFun env f
-          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
-      in RepScalar
-         $ rletHFunIn @_ @_ @_ @x2 @z2 g (\h -> unRepScalar
-                                                   $ interpretAst (env2 h) v)
-    STKR STKScalar{} SNat ->
-      let g = interpretAstHFun env f
-          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
-      in rletHFunIn @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
-    STKS STKScalar{} sh -> withKnownShS sh $
-      let g = interpretAstHFun env f
-          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
-      in sletHFunIn @_ @_ @_ @x2 @z2 g (\h -> interpretAst (env2 h) v)
-    STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
-    STKProduct{} -> error "TODO"
-    STKUntyped ->
-      let g = interpretAstHFun env f
-          env2 h = extendEnvHFun (Proxy @x2) (Proxy @z2) var h env
-      in HVectorPseudoTensor
-         $ dletHFunInHVector @_ @x2 @z2
-             g (\h -> unHVectorPseudoTensor $ interpretAst (env2 h) v)
-    _ -> error "TODO"
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstMinIndexS v ->
@@ -931,18 +907,11 @@ interpretAstHFun
   :: forall ranked x y. (TensorKind x, TensorKind y)
   => ProductTensor ranked
   => AstEnv ranked -> AstHFun x y -> HFunOf ranked x y
-interpretAstHFun !env = \case
+interpretAstHFun _env = \case
   AstLambda ~(var, ftk, l) ->
     dlambda @ranked ftk $ interpretLambdaHsH interpretAst (var, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
-  AstVarHFun _shss _shs varId ->
-    case DMap.lookup (mkAstVarName @_ @y varId) env of
-      Just (AstEnvElemHFun @_ @x2 f) -> case sameTensorKind @x @x2 of
-        Just Refl -> f
-        Nothing -> error $ "interpretAstHFun: wrong type for variable "
-                           ++ show varId
-      _ -> error $ "interpretAstHFun: unknown variable " ++ show varId
 
 interpretAstBool :: ADReady ranked
                  => AstEnv ranked -> AstBool AstMethodLet -> BoolOf ranked

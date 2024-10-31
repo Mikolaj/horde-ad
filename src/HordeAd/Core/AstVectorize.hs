@@ -344,15 +344,6 @@ build1V snat@SNat (var, v00) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstLetHFunIn @_ @x @y2 @z var1 f v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
-        -- We take advantage of the fact that f contains no free index
-        -- variables (it may contain function variables, though).
-        -- If it could contain index variables, e.g., in a conditional
-        -- expression, we might need to add projections as above.
-        astLetHFunIn var1 (build1VHFun snat (var, f)) (build1V snat (var, v))
     Ast.AstRFromS @sh1 v ->
       astRFromS @(k ': sh1) $ build1V snat (var, v)
 
@@ -665,10 +656,6 @@ build1VHFun snat@SNat (var, v0) = case v0 of
       let (var2, ftk2, l2) = substProjRep snat var ftk var1 l
       in Ast.AstLambda
            (var2, ftk2, build1VOccurenceUnknownRefresh snat (var, l2))
-  Ast.AstVarHFun ftkx ftky var2 ->
-    Ast.AstVarHFun (buildTensorKindFull snat ftkx)
-                   (buildTensorKindFull snat ftky)
-                   var2
 
 build1VOccurenceUnknownDynamic
   :: forall k s. AstSpan s

@@ -7,7 +7,7 @@ module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
   , unRankedHVector, rankedHVector
   , funToAstIO, funToAst, fun2ToAst, fun1ToAst, fun1ToX
-  , fun1DToAst, fun1HToAst, fun1LToAst
+  , fun1DToAst, fun1LToAst
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
@@ -210,20 +210,6 @@ fun1DToAst :: VoidHVector
            -> a
 {-# NOINLINE fun1DToAst #-}
 fun1DToAst od f = unsafePerformIO $ fun1DToAstIO od f
-
-fun1HToAstIO :: TensorKindFull x -> TensorKindFull y
-             -> (AstVarId -> AstHFun x y -> a)
-             -> IO a
-{-# INLINE fun1HToAstIO #-}
-fun1HToAstIO shss shs f = do
-  !freshId <- unsafeGetFreshAstVarId
-  return $! f freshId (AstVarHFun shss shs freshId)
-
-fun1HToAst :: TensorKindFull x -> TensorKindFull y
-           -> (AstVarId -> AstHFun x y -> a)
-           -> a
-{-# NOINLINE fun1HToAst #-}
-fun1HToAst shss shs f = unsafePerformIO $ fun1HToAstIO shss shs f
 
 dynamicToVar :: DynamicTensor VoidTensor
              -> IO (AstDynamicVarName, DynamicTensor (AstGeneric ms s))

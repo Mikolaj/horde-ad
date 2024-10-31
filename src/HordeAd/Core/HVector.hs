@@ -14,7 +14,7 @@ module HordeAd.Core.HVector
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
   , DynamicTensor(..)
-  , CRanked, CShaped, CMixed, CMixedSupports, CHFun, CHFun2, CRepProduct
+  , CRanked, CShaped, CMixed, CMixedSupports, CRepProduct
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -296,18 +296,6 @@ instance
       (forall r40 y40. (KnownShX y40, GoodScalar r40)
        => (c1 r40 => c2 (mixed r40 y40)))
       => CMixedSupports c1 c2 mixed where
-
-type CHFun :: RankedTensorType -> (Type -> Constraint) -> TensorKindType
-           -> Constraint
-class (forall x. c (HFunOf ranked x y)) => CHFun ranked c y where
-instance
-      (forall x. c (HFunOf ranked x y)) => CHFun ranked c y where
-
-type CHFun2 :: RankedTensorType -> (Type -> Constraint)
-            -> Constraint
-class (forall x y. c (HFunOf ranked x y)) => CHFun2 ranked c where
-instance
-      (forall x y. c (HFunOf ranked x y)) => CHFun2 ranked c where
 
 type CRepProduct :: RankedTensorType -> (Type -> Constraint)
                                   -> Constraint

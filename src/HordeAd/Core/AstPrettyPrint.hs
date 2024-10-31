@@ -111,7 +111,6 @@ areAllArgsInts = \case
   AstConst{} -> True
   AstProjectR{} -> True  -- too early to tell
   AstLetHVectorIn{} -> True  -- too early to tell
-  AstLetHFunIn{} -> True  -- too early to tell
   AstRFromS{} -> False
   _ -> False  -- shaped  -- TODO: change type to TKR to catch missing cases
 
@@ -149,9 +148,6 @@ printAstVar cfg var =
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
-
-printAstFunVar :: PrintConfig -> AstVarId -> ShowS
-printAstFunVar = printAstVarId "f"
 
 printAstVarFromLet
   :: forall s y ms. (AstSpan s, TensorKind y)
@@ -442,27 +438,6 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstLetHFunIn var f v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . printAstFunVar cfg var
-        . showString " = "
-        . printAstHFun cfg 0 f
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "rletHFunIn "  -- TODO
-        . printAstHFun cfg 11 f
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstFunVar cfg var
-             . showString " -> "
-             . printAst cfg 0 v)
-        -- TODO: this does not roundtrip yet
   AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
 
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
@@ -661,7 +636,6 @@ printAstHFun cfg d = \case
            . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
-  AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
 printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
@@ -679,7 +653,6 @@ printAstHFunOneUnignore cfg d = \case
            . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
-  AstVarHFun _shss _shs var -> printAstFunVar cfg var
 
 printAstBool :: PrintConfig -> Int -> AstBool ms -> ShowS
 printAstBool cfg d = \case

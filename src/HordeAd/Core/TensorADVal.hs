@@ -16,7 +16,6 @@ module HordeAd.Core.TensorADVal
 import Prelude hiding (foldl')
 
 import Data.Array.Internal (valueOf)
-import Data.Function ((&))
 import Data.List (foldl')
 import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -113,9 +112,6 @@ cfwdOnHVector parameters f ds =
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => LetTensor (ADVal ranked) where
-  rletHFunIn = (&)
-  sletHFunIn = (&)
-  dletHFunInHVector = (&)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
        -> (RepDeep (ADVal ranked) x -> Rep (ADVal ranked) z)

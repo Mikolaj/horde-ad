@@ -18,7 +18,6 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.EnumMap.Strict qualified as EM
 import Data.Foldable qualified as Foldable
 import Data.List (mapAccumR)
-import Data.Maybe (fromMaybe)
 import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -226,17 +225,6 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAst memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
-  Ast.AstLetHFunIn var f v ->
-    -- We assume there are no nested lets with the same variable.
-    -- We assume functions are never small enough to justify inlining
-    -- into more than one place.
-    let (memo1, v2) = inlineAst memo v
-        (memo2, f2) = inlineAstHFun memo1 f
-    in case EM.findWithDefault 0 var memo2 of
-      0 -> (memo1, v2)
-      1 -> (memo2, fromMaybe v2 $ substitute1Ast
-                                    (SubstitutionPayloadHFun f2) var v2)
-      _ -> (memo2, Ast.AstLetHFunIn var f2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
@@ -406,10 +394,6 @@ inlineAstHFun memo v0 = case v0 of
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
     (memo, Ast.AstLambda (var, ftk, snd $ inlineAst EM.empty l))
-  Ast.AstVarHFun _shss _shs var ->
-    let f Nothing = Just 1
-        f (Just count) = Just $ count + 1
-    in (EM.alter f var memo, v0)
 
 inlineAstBool :: AstMemo -> AstBool AstMethodLet -> (AstMemo, AstBool AstMethodLet)
 inlineAstBool memo v0 = case v0 of
@@ -750,7 +734,6 @@ unshareAstHFun memo v0 = case v0 of
     -- so we don't need to pass the information from v upwards
     -- nor remove the Share constructors.
     (memo, v0)
-  Ast.AstVarHFun{} -> (memo, v0)
 
 unshareAstBool :: AstBindings -> AstBool AstMethodShare
                -> (AstBindings, AstBool AstMethodLet)

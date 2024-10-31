@@ -30,8 +30,7 @@ module HordeAd.Core.AstSimplify
   , astCast, astCastS, astFromIntegral, astFromIntegralS
   , astProject1, astProject2, astProjectR, astProjectS, astRFromS, astSFromR
   , astPrimalPart, astDualPart
-  , astLetHVectorIn, astLetHFunIn, astHApply
-  , astLetFun
+  , astLetHVectorIn, astHApply, astLetFun
     -- * The simplifying bottom-up pass
   , simplifyAst
     -- * The expanding (to gather expressions) bottom-up pass
@@ -321,7 +320,6 @@ astNonIndexStep t = case t of
   AstConst{} -> t
   Ast.AstProjectR l p -> astProjectR l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
-  Ast.AstLetHFunIn var u v -> astLetHFunIn var u v
   Ast.AstRFromS v -> astRFromS v
 
   Ast.AstMinIndexS{} -> t
@@ -579,8 +577,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
       in astLetHVectorIn vars l (astIndexRec (unAstRanked lp) ix) -}
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
-  Ast.AstLetHFunIn var f v ->
-    astLetHFunIn var f (astIndexRec v ix)
   Ast.AstRFromS @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (shapeT @sh)
     in withShapeP takeSh $ \(Proxy @p_take) ->
@@ -815,8 +811,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
-  Ast.AstLetHFunIn var f v ->
-    astLetHFunIn var f (astIndexRec v ix)
   Ast.AstSFromR t ->
     withListSh (Proxy @shn) $ \_ ->
     withListSh (Proxy @shm) $ \_ ->
@@ -1176,8 +1170,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetHVectorIn vars l v ->
       astLetHVectorIn vars l (astGatherCase sh4 v (vars4, ix4))
-    Ast.AstLetHFunIn var f v ->
-      astLetHFunIn var f (astGatherCase sh4 v (vars4, ix4))
     Ast.AstRFromS{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
       -- TODO: this is broken
       {-
@@ -1425,9 +1417,6 @@ astLet var (Ast.AstConstant (Ast.AstLetHVectorIn
         in foldr (mapRankedShaped clet clet)
                  v2 (zip vars (V.toList l3))
   in astLetHVectorIn varsN lN $ fun1DToAst shs f
-astLet var (Ast.AstLetHFunIn varN uN vN) v =
-  astLetHFunIn varN uN
-  $ astLet var vN v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -2060,7 +2049,6 @@ astProject1 u = case u of
   Ast.AstPair x _z -> x
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
-  Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject1 v)
 -- TODO: generalize AstConst, unless it's not the best idea? currently these must be explicit AstPair, so the other rule works fine:  Ast.AstConst u1 -> Ast.AstConst $ tproject1 u1
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject1 u1
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
@@ -2073,7 +2061,6 @@ astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject2 v)
-  Ast.AstLetHFunIn vars l v -> astLetHFunIn vars l (astProject2 v)
   Ast.AstConstant u1 -> Ast.AstConstant $ astProject2 u1
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
   _ -> Ast.AstProject2 u
@@ -2090,8 +2077,6 @@ astProjectR l p = case l of
     astLet var u2 (astProjectR d2 p)
   Ast.AstLetHVectorIn vars d1 d2 ->
     astLetHVectorIn vars d1 (astProjectR d2 p)
-  Ast.AstLetHFunIn vars d1 d2 ->
-    astLetHFunIn vars d1 (astProjectR d2 p)
   Ast.AstConstant l1 -> Ast.AstConstant $ astProjectR l1 p
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectR v1 p) (astProjectR v2 p)
   _ -> Ast.AstProjectR l p
@@ -2108,8 +2093,6 @@ astProjectS l p = case l of
     astLet var u2 (astProjectS d2 p)
   Ast.AstLetHVectorIn vars d1 d2 ->
     astLetHVectorIn vars d1 (astProjectS d2 p)
-  Ast.AstLetHFunIn vars d1 d2 ->
-    astLetHFunIn vars d1 (astProjectS d2 p)
   Ast.AstConstant l1 -> Ast.AstConstant $ astProjectS l1 p
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectS v1 p) (astProjectS v2 p)
   _ -> Ast.AstProjectS l p
@@ -2175,7 +2158,6 @@ astPrimalPart t = case t of
   Ast.AstCast v -> astCast $ astPrimalPart v
   Ast.AstProjectR l p -> astProjectR (astPrimalPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
-  Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
 
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
@@ -2252,7 +2234,6 @@ astDualPart t = case t of
   Ast.AstCast v -> astCast $ astDualPart v
   Ast.AstProjectR l p -> astProjectR (astDualPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
-  Ast.AstLetHFunIn var f v -> astLetHFunIn var f (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
 
   AstN1S{} -> Ast.AstDualPart t
@@ -2296,7 +2277,6 @@ astHApply t u = case t of
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astLet var u v
       _ -> Ast.AstHApply t u
-  Ast.AstVarHFun{} -> Ast.AstHApply t u
 
 mapRankedShaped
   :: AstSpan s2
@@ -2400,9 +2380,6 @@ astLetHVectorIn vars l v = case v of
         Ast.AstLet var2 u2 d2 ->
           astLet var2 u2
           $ astLetHVectorIn vars d2 v
-        Ast.AstLetHFunIn var2 u2 d2 ->
-          astLetHFunIn var2 u2
-          $ astLetHVectorIn vars d2 v
 {- TODO: convert vars? do more generally?
         Ast.AstConstant (Ast.AstLet var2 u2 d2) ->
           astLet var2 (Ast.AstConstant u2)
@@ -2424,15 +2401,6 @@ astLetHVectorIn vars l v = case v of
                               (astProjectS l i)
                in ifoldr mkLet v vars
           else Ast.AstLetHVectorIn vars l v
-
--- Inlining works for this let constructor, because it has just one variable,
--- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
--- We assume functions are never small enough to justify inlining on the spot.
-astLetHFunIn
-  :: forall s2 x y z. (TensorKind x, TensorKind y, TensorKind z)
-  => AstVarId -> AstHFun x z -> AstTensor AstMethodLet s2 y
-  -> AstTensor AstMethodLet s2 y
-astLetHFunIn = Ast.AstLetHFunIn
 
 -- TODO: a new section for this one?
 astLetFun :: forall y z s s2.
@@ -2521,8 +2489,6 @@ simplifyAst t = case t of
   Ast.AstProjectR l p -> astProjectR (simplifyAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
-  Ast.AstLetHFunIn var f v ->
-    astLetHFunIn var (simplifyAstHFun f) (simplifyAst v)
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
@@ -2596,7 +2562,6 @@ simplifyAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
 simplifyAstHFun = \case
   Ast.AstLambda ~(vvars, ftk, l) ->
     Ast.AstLambda (vvars, ftk, simplifyAst l)
-  t@(Ast.AstVarHFun{}) -> t
 
 simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 simplifyAstBool t = case t of
@@ -2741,8 +2706,6 @@ expandAst t = case t of
   Ast.AstProjectR l p -> astProjectR (expandAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (expandAst l) (expandAst v)
-  Ast.AstLetHFunIn var f v ->
-    astLetHFunIn var (expandAstHFun f) (expandAst v)
   Ast.AstRFromS v -> astRFromS $ expandAst v
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
@@ -2819,7 +2782,6 @@ expandAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
 expandAstHFun = \case
   Ast.AstLambda ~(vvars, ftk, l) ->
     Ast.AstLambda (vvars, ftk, expandAst l)
-  t@(Ast.AstVarHFun{}) -> t
 
 expandAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 expandAstBool t = case t of
@@ -3266,11 +3228,6 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorIn vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstLetHFunIn var2 f v ->
-    case (substitute1AstHFun i var f, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (mf, mv) ->
-        Just $ astLetHFunIn var2 (fromMaybe f mf) (fromMaybe v mv)
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1Ast i var a
@@ -3418,22 +3375,11 @@ substitute1AstDynamic i var = \case
   DynamicShapedDummy{} -> Nothing
 
 substitute1AstHFun
-  :: forall s2 x y. (TensorKind x, TensorKind y)
-  => SubstitutionPayload s2 -> AstVarId -> AstHFun x y
+  :: forall s2 x y.
+     SubstitutionPayload s2 -> AstVarId -> AstHFun x y
   -> Maybe (AstHFun x y)
-substitute1AstHFun i var = \case
+substitute1AstHFun _i _var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
-  Ast.AstVarHFun _shss _shs var2 ->
-    if var == var2
-    then case i of
-      SubstitutionPayload{} ->
-        error "substitute1AstHFun: unexpected tensor"
-      SubstitutionPayloadHFun @x2 @y2 h -> case sameTensorKind @x @x2 of
-        Just Refl -> case sameTensorKind @y @y2 of
-          Just Refl -> Just h
-          Nothing -> error "substitute1AstHFun: wrong function result type"
-        Nothing -> error "substitute1AstHFun: wrong function argument type"
-    else Nothing
 
 substitute1AstBool :: AstSpan s2
                    => SubstitutionPayload s2 -> AstVarId -> AstBool AstMethodLet

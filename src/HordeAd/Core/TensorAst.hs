@@ -427,16 +427,6 @@ astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
 astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
 astSpanD _ _ = error "a spuriuos case for pattern match coverage"
 
-astLetHFunInFun
-  :: (TensorKind x, TensorKind y, TensorKind z)
-  => AstHFun x z -> (AstHFun x z -> AstTensor AstMethodLet s y)
-  -> AstTensor AstMethodLet s y
-{-# INLINE astLetHFunInFun #-}
-astLetHFunInFun a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> astLetHFunIn var a (f ast)
-
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization
@@ -461,9 +451,6 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
   :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
 
 instance AstSpan s => LetTensor (AstRanked s) where
-  rletHFunIn a f = AstRanked $ astLetHFunInFun a (unAstRanked . f)
-  sletHFunIn a f = AstShaped $ astLetHFunInFun a (unAstShaped . f)
-  dletHFunInHVector = astLetHFunInFun
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
        -> (RepDeep (AstRanked s) x -> Rep (AstRanked s) z)
@@ -1408,11 +1395,6 @@ noVectorizeHVectorR =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoVectorize s) where
-  rletHFunIn a f = astNoVectorize2 $ rletHFunIn a (unAstNoVectorize2 . f)
-  sletHFunIn a f = astNoVectorizeS2 $ sletHFunIn a (unAstNoVectorizeS2 . f)
-  dletHFunInHVector t f =
-    AstNoVectorizeWrap
-    $ dletHFunInHVector t (unAstNoVectorizeWrap . f)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
        -> (RepDeep (AstNoVectorize s) x -> Rep (AstNoVectorize s) z)
@@ -1809,15 +1791,6 @@ astLetFunNoSimplify a f =
       (var, ast) = funToAst sh f
   in AstLet var a ast  -- safe, because subsitution ruled out above
 
-astLetHFunInFunNoSimplify
-  :: (TensorKind x, TensorKind y, TensorKind z)
-  => AstHFun x y -> (AstHFun x y -> AstTensor AstMethodLet s z)
-  -> AstTensor AstMethodLet s z
-astLetHFunInFunNoSimplify a f =
-  let shss = domainShapeAstHFun a
-      shs = shapeAstHFun a
-  in fun1HToAst shss shs $ \ !var !ast -> AstLetHFunIn var a (f ast)
-
 noSimplifyY :: STensorKindType y -> AstTensor AstMethodLet s y
             -> Rep (AstNoSimplify s) y
 noSimplifyY stk t = case stk of
@@ -1857,11 +1830,6 @@ noSimplifyHVector =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoSimplify s) where
-  rletHFunIn a f = AstNoSimplify $ astLetHFunInFunNoSimplify a (unAstNoSimplify . f)
-  sletHFunIn a f = AstNoSimplifyS $ astLetHFunInFunNoSimplify a (unAstNoSimplifyS . f)
-  dletHFunInHVector t f =
-    AstNoSimplifyWrap
-    $ astLetHFunInFunNoSimplify t (unAstNoSimplifyWrap . f)
   dlet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
        -> (RepDeep (AstNoSimplify s) x -> Rep (AstNoSimplify s) z)
