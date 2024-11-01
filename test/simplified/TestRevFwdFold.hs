@@ -328,7 +328,7 @@ testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty (simplifyInlineAst a1)
-    @?= "rlet (sin 2.2) (\\x60 -> rlet (1.1 * x60) (\\x62 -> x60 * ((negate 3.3 * recip (3.3 * 3.3 + x62 * x62)) * 1.0) + sin 2.2 * (3.3 * 1.0)))"
+    @?= "blet (sin 2.2) (\\x60 -> blet (1.1 * x60) (\\x62 -> x60 * ((negate 3.3 * recip (3.3 * 3.3 + x62 * x62)) * 1.0) + sin 2.2 * (3.3 * 1.0)))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -3283,7 +3283,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 3704
+    @?= 3718
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -3487,7 +3487,7 @@ testSin0FoldNestedR0LengthPPs = do
       IM.empty
       (simplifyInline
        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 1678
+    @?= 1687
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -3507,7 +3507,7 @@ testSin0FoldNestedR1LengthPPs = do
       IM.empty
       (simplifyInline
        $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 20999
+    @?= 21119
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -3529,7 +3529,7 @@ testSin0FoldNestedR2LengthPPs = do
        IM.empty
        (simplifyInline
         $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 286935
+    @?= 288587
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -3553,7 +3553,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyInline
         $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 4486192
+    @?= 4511499
 
 -- Takes 100s, probably due to some of the pipelines forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -3632,7 +3632,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
        IM.empty
        (simplifyInline
         $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 80995
+    @?= 81082
 
 testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
@@ -3732,7 +3732,7 @@ testSin0MapAccumNestedR3LengthPP = do
        IM.empty
        (simplifyInline
         $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 5940471
+    @?= 5965823
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
@@ -4454,7 +4454,7 @@ testSin0FoldNestedR21 = do
   assertEqualUpToEpsilon' 1e-10
     (7.667553331540788e-3 :: OR.Array 0 Double)
     (rev' (let f :: forall f. ADReady f => f Double 0 -> f Double 0
-               f a0 = rfold (\x a -> rlet (x + a) $ \xpa ->
+               f a0 = rfold (\x a -> tlet (x + a) $ \xpa ->
                           rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
                                 (rfold (\x4 a4 -> x4 * a4) xpa
                                        (rreplicate 2 x))
@@ -4469,7 +4469,7 @@ testSin0FoldNestedR21PP = do
   let a1 =
         rrev1 @(AstRanked PrimalSpan) @Double @0 @0
           (let f :: forall f. ADReady f => f Double 0 -> f Double 0
-               f a0 = rfold (\x a -> rlet (x + a) $ \xpa ->
+               f a0 = rfold (\x a -> tlet (x + a) $ \xpa ->
                           rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
                                 (rfold (\x4 a4 -> x4 * a4) xpa
                                        (rreplicate 2 x))
@@ -4478,7 +4478,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineAst a1))
-    @?= 42984
+    @?= 43092
 
 testSin0revhV :: Assertion
 testSin0revhV = do

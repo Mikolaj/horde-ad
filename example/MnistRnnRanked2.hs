@@ -92,7 +92,7 @@ rnnMnistTwoR
 rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
   out_width_x_2 :$: _batch_size :$: ZSR ->
     let out_width = out_width_x_2 `div` 2
-        s3 = rlet s' $ \s ->
+        s3 = tlet s' $ \s ->
           let s1 = rslice 0 out_width s
               s2 = rslice out_width out_width s
               vec1 = rnnMnistLayerR s1 (rconstant x) (wX, wS, b)

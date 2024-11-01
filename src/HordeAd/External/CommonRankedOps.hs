@@ -42,7 +42,7 @@ rminimum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
          => ranked r n -> ranked r 0
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in tindex0.
-rminimum t0 = rlet t0 $ \t ->
+rminimum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
                                           (rprimalPart $ rminIndex (rflatten t))
 
@@ -50,7 +50,7 @@ rmaximum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
             , LetTensor ranked, KnownNat n, GoodScalar r
             , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
          => ranked r n -> ranked r 0
-rmaximum t0 = rlet t0 $ \t ->
+rmaximum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
                                           (rprimalPart $ rmaxIndex (rflatten t))
 
@@ -85,11 +85,11 @@ rint64ToIndex1 :: forall n ranked.
                => ranked Int64 1 -> IndexOf ranked n
 rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 
-rletIx :: ( KnownNat n, KnownNat m, GoodScalar r
+tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
           , RankedTensor ranked, RankedTensor (PrimalOf ranked)
           , LetTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
        => IndexOf ranked n -> (IndexOf ranked n -> ranked r m) -> ranked r m
-rletIx ix0 f = rlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
+tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 
 scale :: forall ranked r n.
          (ADReady ranked, GoodScalar r, KnownNat n)
@@ -103,11 +103,11 @@ relu, reluLeaky
   :: forall ranked n r.
      (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
   => ranked r n -> ranked r n
-relu v0 = rlet v0 $ \v ->
+relu v0 = tlet v0 $ \v ->
   let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
   in oneIfGtZero * v
 
-reluLeaky v0 = rlet v0 $ \v ->
+reluLeaky v0 = tlet v0 $ \v ->
   let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
   in oneIfGtZero * v
 
@@ -117,10 +117,10 @@ logistic :: forall ranked r n.
             , RankedTensor (PrimalOf ranked), KnownNat n, GoodScalar r
             , Floating (PrimalOf ranked r n), Num (PrimalOf ranked r 0) )
          => ranked r n -> ranked r n
-logistic d0 = rlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
+logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
       y0 = recip (rreplicate0N sh 1 + exp (- rprimalPart @ranked d))
-  in rlet (rconstant @ranked y0)  -- we don't have rletPrimal
+  in tlet (rconstant @ranked y0)  -- we don't have tletPrimal
      $ \y1 -> let y = rprimalPart @ranked y1
               in rD y (rScale @ranked (y * (rreplicate0N sh 1 - y))
                        $ rdualPart @ranked d)
@@ -158,7 +158,7 @@ lossSoftMaxCrossEntropyR
      , RankedOf (PrimalOf (PrimalOf ranked)) ~ PrimalOf (PrimalOf ranked)
      , Differentiable r )
   => PrimalOf ranked r n -> ranked r n -> ranked r 0
-lossSoftMaxCrossEntropyR target d' = rlet d' $ \d ->
+lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
   -- values we don't fully control.
@@ -167,12 +167,12 @@ lossSoftMaxCrossEntropyR target d' = rlet d' $ \d ->
   let softMaxU' =
         let u = rprimalPart @ranked d
             expU' = exp (u - rreplicate0N (rshape u) (rminimum u))
-        in rlet expU' $ \expU ->
+        in tlet expU' $ \expU ->
           let sumExpU = rsum0 expU
               recipSum = recip sumExpU
           in rscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in rlet (rconstant @ranked softMaxU') $ \softMaxU ->
+  in tlet (rconstant @ranked softMaxU') $ \softMaxU ->
     rD (negate $ log (rprimalPart @ranked softMaxU) `rdot0` target)
          -- TODO: avoid: log . exp
        (rdualPart @ranked $ (softMaxU - rconstant @ranked target) `rdot0` d)
@@ -193,7 +193,7 @@ softMax1 :: ( RankedTensor ranked, LetTensor ranked
          => ranked r n -> ranked r n
 softMax1 d =
   let expU0 = exp d
-  in rlet expU0 $ \expU -> rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
+  in tlet expU0 $ \expU -> rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
 
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
@@ -236,17 +236,17 @@ slicez shOut d ixBase =
 indexz0Let
   :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)
   => ranked r n -> IndexOf ranked n -> ranked r 0
-indexz0Let d ix0 = rletIx ix0 $ \ix ->
+indexz0Let d ix0 = tletIx ix0 $ \ix ->
                      ifF (within0 @ranked (rshape @ranked d) ix) (d ! ix) 0
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 --
 -- Warning: this uses ix twice and within0 again uses it twice,
--- so this variant without rlet should be used only when it's known
+-- so this variant without tlet should be used only when it's known
 -- that ix is of small constant size (e.g., if it contains conditionals
 -- that compare big tensors or their minimal elements, it likely is not,
--- unless the tensors are under rlet and only variables representing them
+-- unless the tensors are under tlet and only variables representing them
 -- are used).
 indexz0
   :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)

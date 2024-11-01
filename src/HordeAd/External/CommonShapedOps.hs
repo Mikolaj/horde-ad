@@ -72,7 +72,7 @@ sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
 sletIx :: forall r sh n shaped.
           (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat n)
        => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
-sletIx ix0 f = slet (sfromR @shaped @Int64 @'[n]
+sletIx ix0 f = tlet (sfromR @shaped @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
                  f $ rint64ToIndex1 $ rfromS @(RankedOf shaped) ixT
 
@@ -86,11 +86,11 @@ reluS, reluLeakyS
      ( KnownShS sh, KnownNat (Rank sh), ADReadyS shaped, GoodScalar r
      , Differentiable r )
   => shaped r sh -> shaped r sh
-reluS v0 = slet v0 $ \v ->
+reluS v0 = tlet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
   in oneIfGtZero * v
 
-reluLeakyS v0 = slet v0 $ \v ->
+reluLeakyS v0 = tlet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
   in oneIfGtZero * v
 
@@ -100,9 +100,9 @@ logisticS :: forall shaped r sh.
              , KnownShS sh, GoodScalar r
              , Floating (PrimalOf shaped r sh) )
           => shaped r sh -> shaped r sh
-logisticS d0 = slet d0 $ \d ->  -- used in rprimalPart and in sdualPart
+logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let y0 = recip (sprimalPart @shaped (srepl 1) + exp (- sprimalPart d))
-  in slet (sconstant y0)  -- we don't have sletPrimal
+  in tlet (sconstant y0)  -- we don't have tletPrimal
      $ \y1 -> let y = sprimalPart y1
               in sD y (sScale @shaped (y * (sprimalPart @shaped (srepl 1) - y)) $ sdualPart d)
 
@@ -139,7 +139,7 @@ lossSoftMaxCrossEntropyS
      , GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh)
      , Differentiable r )
   => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
-lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
+lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
   -- values we don't fully control.
@@ -148,12 +148,12 @@ lossSoftMaxCrossEntropyS target d' = slet d' $ \d ->
   let softMaxU' =
         let u = sprimalPart d
             expU' = exp (u - sreplicate0N (sminimum u))
-        in slet expU' $ \expU ->
+        in tlet expU' $ \expU ->
           let sumExpU = ssum0 expU
               recipSum = recip sumExpU
           in sscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in slet (sconstant softMaxU') $ \softMaxU ->
+  in tlet (sconstant softMaxU') $ \softMaxU ->
     sD (negate $ log (sprimalPart softMaxU) `sdot0` target)
          -- TODO: avoid: log . exp
        (sdualPart $ (softMaxU - sconstant target) `sdot0` d)
@@ -183,7 +183,7 @@ softMax1S :: ( KnownShS sh, KnownNat (Nested.Product sh)
           => shaped r sh -> shaped r sh
 softMax1S d =
   let expU0 = exp d
-  in slet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
+  in tlet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
 
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
@@ -262,10 +262,10 @@ indexz0SLet d ix0 =
 --   returning zero for out of range indices.
 --
 -- Warning: this uses ix twice and within0 again uses it twice,
--- so this variant without rlet should be used only when it's known
+-- so this variant without tlet should be used only when it's known
 -- that ix is of small constant size (e.g., if it contains conditionals
 -- that compare big tensors or their minimal elements, it likely is not,
--- unless the tensors are under rlet and only variables representing them
+-- unless the tensors are under tlet and only variables representing them
 -- are used).
 indexz0S
   :: forall shOut sh shaped r.

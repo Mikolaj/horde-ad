@@ -44,7 +44,7 @@ listMatmul1
      (RankedTensor ranked, LetTensor ranked, GoodScalar r)
   => ranked r 1 -> [ranked r 1]
   -> ranked r 1
-listMatmul1 x0 weights = rlet x0 $ \x ->
+listMatmul1 x0 weights = tlet x0 $ \x ->
   let f :: ranked r 1 -> ranked r 0
       f v = v `rdot0` x
   in rfromList $ NonEmpty.fromList $ map f weights

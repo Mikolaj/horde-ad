@@ -311,7 +311,7 @@ printAstAux cfg d = \case
                           (sizedToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (indexToList ix))
-  t@(AstLet @_ @z2 var0 u0 v0) ->
+  t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
@@ -329,13 +329,7 @@ printAstAux cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString (case stensorKind @z2 of
-          STKScalar{} -> "rlet "
-          STKR{} -> "rlet "
-          STKS{} -> "slet "
-          STKX{} -> "xlet "  -- TODO
-          STKProduct{} -> "let "  -- TODO
-          STKUntyped{} -> "dlet ")
+      $ showString "blet "
         . printAst cfg 11 u0
         . showString " "
         . (showParen True

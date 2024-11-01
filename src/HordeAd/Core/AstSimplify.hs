@@ -820,9 +820,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
 
   Ast.AstHApply{} -> Ast.AstIndexS v0 ix
 
--- TODO: compared to rletIx, it adds many lets, not one, but does not
+-- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
--- so it's probably more efficient. Use this instead of rletIx/sletIx
+-- so it's probably more efficient. Use this instead of tletIx/sletIx
 -- or design something even better.
 shareIx :: (KnownNat n, GoodScalar r, KnownNat m)
         => AstIndex AstMethodLet n -> (AstIndex AstMethodLet n -> AstTensor AstMethodLet s (TKR r m))
@@ -980,7 +980,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstConstant v -> Ast.AstConstant $ astGather sh4 v (vars4, ix4)
     Ast.AstD u u' ->
       -- Term ix4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use rlet.
+      -- because it needs to be in scope of vars4, so we can't use tlet.
       -- Also, the sharing would be dissolved by the substitution, anyway,
       -- and the same subsitution would be unsound with sharing.
       funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
@@ -1084,7 +1084,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use rlet.
+      -- because it needs to be in scope of vars4, so we can't use tlet.
       funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
         let f v = astGatherRec sh4 v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
@@ -1135,11 +1135,11 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       else Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use rlet.
+      -- because it needs to be in scope of vars4, so we can't use tlet.
       --
       -- Independently, we need to insert lets to each index element,
       -- bloating the term. TODO: would going via a rank 1 vector,
-      -- as in rletIx help or would we need to switch indexes to vector
+      -- as in tletIx help or would we need to switch indexes to vector
       -- altogether (terrible for user comfort, especially wrt typing).
       let substLet :: AstIndex AstMethodLet m7 -> AstVarList m7 -> AstInt AstMethodLet -> AstInt AstMethodLet
           substLet ix vars i =
@@ -2865,7 +2865,7 @@ contractRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
--- We could use sharing via @rlet@ when terms are duplicated, but it's
+-- We could use sharing via @tlet@ when terms are duplicated, but it's
 -- unclear if the term bloat is worth it.
 contractAstPlusOp :: AstInt AstMethodLet -> AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstPlusOp (AstSumOfList (AstConst u : lu))

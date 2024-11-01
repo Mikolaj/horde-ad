@@ -89,7 +89,7 @@ rnnMnistTwoS out_width@SNat
              batch_size@SNat
              sizeMnistHeightHere@SNat
              s' x ((wX, wS, b), (wX2, wS2, b2)) =
-    let s3 = slet s' $ \s ->
+    let s3 = tlet s' $ \s ->
           let s1 = sslice (Proxy @0) (proxyFromSNat out_width) s
               s2 = sslice (proxyFromSNat out_width) (proxyFromSNat out_width) s
               vec1 = rnnMnistLayerS sizeMnistHeightHere
