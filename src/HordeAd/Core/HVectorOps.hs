@@ -322,22 +322,23 @@ fromDynamicS zero = \case
     _ -> error "fromDynamicS: shape mismatch"
 
 fromHVectorR :: forall r n ranked.
-                (RankedTensor ranked, GoodScalar r, KnownNat n)
-             => HVector ranked
-             -> Maybe (AsHVector (ranked r n), Maybe (HVector ranked))
-fromHVectorR params = case V.uncons params of
+                (RankedTensor ranked, ProductTensor ranked, GoodScalar r, KnownNat n)
+             => HVectorPseudoTensor ranked Float '()
+             -> Maybe (AsHVector (ranked r n), Maybe (HVectorPseudoTensor ranked Float '()))
+fromHVectorR params = case V.uncons $ dunHVector $ unHVectorPseudoTensor params of
   Just (dynamic, rest) ->
-    Just (AsHVector $ fromDynamicR rzero dynamic, Just rest)
+    Just (AsHVector $ fromDynamicR rzero dynamic, Just $ HVectorPseudoTensor $ dmkHVector rest)
   Nothing -> Nothing
 
-fromHVectorS :: forall r sh shaped
-              . ( ShapedTensor shaped, GoodScalar r, KnownShS sh
+fromHVectorS :: forall r sh shaped.
+                ( ShapedTensor shaped, ProductTensor (RankedOf shaped)
+                , GoodScalar r, KnownShS sh
                 , ShapedOf (RankedOf shaped) ~ shaped )
-             => HVector (RankedOf shaped)
-             -> Maybe (AsHVector (shaped r sh), Maybe (HVector (RankedOf shaped)))
-fromHVectorS params = case V.uncons params of
+             => HVectorPseudoTensor (RankedOf shaped) Float '()
+             -> Maybe (AsHVector (shaped r sh), Maybe (HVectorPseudoTensor (RankedOf shaped) Float '()))
+fromHVectorS params = case V.uncons $ dunHVector $ unHVectorPseudoTensor params of
   Just (dynamic, rest) ->
-    Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just rest)
+    Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ HVectorPseudoTensor $ dmkHVector rest)
   Nothing -> Nothing
 
 unravelDynamic

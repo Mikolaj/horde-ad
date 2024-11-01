@@ -61,7 +61,7 @@ testTrees = [ tensorADValMnistTestsRNNSA
 mnistTestCaseRNNSA
   :: forall shaped width batch_size r.
      ( shaped ~ OSArray, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
@@ -92,7 +92,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
           in MnistRnnShaped2.rnnMnistTestS
-               width bs mnist (parseHVector valsInit testParams)
+               width bs mnist (parseHVector @_ @ORArray valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -114,8 +114,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (sconst $ Nested.sfromOrthotope knownShS glyphS, sconst $ Nested.sfromOrthotope knownShS labelS)
-                     (parseHVector (fromDValue valsInit)
-                      $ repDeepDuplicable @(ADVal ORArray) @(XParams width r) (stensorKind @(XParams width r)) adinputs)
+                     (parseHVector @_ @(ADVal ORArray) (fromDValue valsInit) adinputs)
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -175,7 +174,7 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 mnistTestCaseRNNSI
   :: forall shaped width batch_size r.
      ( shaped ~ OSArray, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
@@ -206,7 +205,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
           let mnist = ( Data.Array.Convert.convert glyphs
                       , Data.Array.Convert.convert labels )
           in MnistRnnShaped2.rnnMnistTestS
-               width bs mnist (parseHVector valsInit testParams)
+               width bs mnist (parseHVector @_ @ORArray valsInit testParams)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -224,8 +223,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        let ast :: AstShaped FullSpan r '[]
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (AstShaped astGlyph, AstShaped astLabel)
-                   (parseHVector (fromDValue valsInit)
-                    $ repDeepDuplicable stensorKind hVector)
+                   (parseHVector (fromDValue valsInit) hVector)
            runBatch :: ( Rep ORArray (XParams width r)
                        , StateAdamDeep (XParams width r) )
                     -> (Int, [MnistDataS r])
@@ -329,7 +327,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                         , Data.Array.Convert.convert labels )
             in MnistRnnShaped2.rnnMnistTestS
                  width bs mnist
-                 (unAsHVector $ parseHVector (AsHVector valsInit) testParams)
+                 (unAsHVector $ parseHVector (AsHVector valsInit) (HVectorPseudoTensor testParams))
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -412,7 +410,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
 mnistTestCaseRNNSD
   :: forall shaped width batch_size r.
      ( shaped ~ OSArray, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
@@ -444,7 +442,7 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
                         , Data.Array.Convert.convert labels )
             in MnistRnnShaped2.rnnMnistTestS
                  width bs mnist
-                 (parseHVector valsInit testParams)
+                 (parseHVector @_ @ORArray valsInit testParams)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

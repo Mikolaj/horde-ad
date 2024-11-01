@@ -56,7 +56,7 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
         MnistFcnnRanked1.afcnnMnistLoss1
           widthHidden widthHidden2
           mnist (unAsHVector
-                 $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                 $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix
@@ -149,7 +149,7 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
         g :: Rep (AstRanked FullSpan) TKUntyped
           -> Rep (AstRanked FullSpan) TKUntyped
         g !hv = toHVectorOf $ AsHVector $ f
-                $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv
+                $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) hv
         (artRaw, _) = revProduceArtifact False g emptyEnv
                         (FTKUntyped $ voidFromHVector
                          $ hVectorInit
@@ -230,7 +230,7 @@ mnistTrainBench2VTA extraPrefix chunkLength xs widthHidden widthHidden2
         -> ADVal ranked r 0
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
-          mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+          mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c hVectorInit
       name = extraPrefix

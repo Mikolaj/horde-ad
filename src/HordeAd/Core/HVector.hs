@@ -9,8 +9,8 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepScalar(..), RepProductN(..), RepDeep, RepD(..)
-  , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
+  , Rep, RepN(..), RepScalar(..), RepProductN(..), RepD(..)
+  , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
   , DynamicTensor(..)
   , CRanked, CShaped, CMixed, CMixedSupports, CRepProduct
@@ -104,16 +104,6 @@ type role RepProductN nominal nominal nominal
 newtype RepProductN ranked x y =
   RepProductN {unRepProductN :: Rep ranked (TKProduct x y)}
 
-type family RepDeep ranked y = result | result -> ranked y where
-  RepDeep ranked (TKScalar r) = RepScalar ranked r
-  RepDeep ranked (TKR r n) = ranked r n
-  RepDeep ranked (TKS r sh) = ShapedOf ranked r sh
-  RepDeep ranked (TKX r sh) = MixedOf ranked r sh
-  RepDeep ranked (TKProduct x z) =
-    (RepDeep ranked x, RepDeep ranked z)
-  RepDeep ranked TKUntyped = HVector ranked
-
--- A datatype matching RepDeep.
 type role RepD nominal nominal
 data RepD ranked y where
   DTKScalar :: GoodScalar r
@@ -148,16 +138,6 @@ data TensorKindFull y where
 
 deriving instance Show (TensorKindFull y)
 deriving instance Eq (TensorKindFull y)
-
-nullRepDeep :: forall y ranked. TensorKind y
-            => RepDeep ranked y -> Bool
-nullRepDeep t = case stensorKind @y of
-  STKScalar{} -> False
-  STKR{} -> False
-  STKS{} -> False
-  STKX{} -> False
-  STKProduct{} -> False
-  STKUntyped -> null t
 
 lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
 lemTensorKindOfF = \case

@@ -93,7 +93,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
-                     (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                     (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -197,7 +197,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
                    (unAsHVector
                     $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
+                                   (rankedY (stensorKind @TKUntyped) hVector2))
            runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
                     -> IO (HVector ORArray, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do

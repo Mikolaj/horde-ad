@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , ProductTensor(..)
   , HFun(..)
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, xrepl, unrepDeep, repDeepDuplicable
+  , ingestData, sscalar, srepl, xrepl, nullRep
   , mapDynamic, mapDynamic2
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS
@@ -1265,41 +1265,15 @@ xrepl :: forall sh r mixed.
 xrepl sh =
   xconst . Nested.mreplicateScal sh
 
-unrepDeep :: forall ranked y.
-             (TensorKind y, ProductTensor ranked)
-          => RepDeep ranked y
-          -> Rep ranked y
-unrepDeep t = case stensorKind @y of
-  STKScalar{} -> t
-  STKR STKScalar{} _ -> t
-  STKS STKScalar{} _ -> t
-  STKX STKScalar{} _ -> t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    tpair (unrepDeep (fst t)) (unrepDeep (snd t))
-  STKUntyped -> HVectorPseudoTensor $ dmkHVector t
-  _ -> error "TODO"
-
--- The argument of the first call (but not of recursive calls)
--- is assumed to be duplicable. In AST case, this creates
--- a tower of projections for product, but if it's balanced,
--- that's of logarithmic length, so maybe even better than sharing
--- excessively, which is hard for technical typing reasons.
--- See toRepDDuplicable.
-repDeepDuplicable
-  :: ProductTensor ranked
-  => STensorKindType y -> Rep ranked y
-  -> RepDeep ranked y
-repDeepDuplicable stk t = case stk of
-  STKScalar{} -> t
-  STKR STKScalar{} _ -> t
-  STKS STKScalar{} _ -> t
-  STKX STKScalar{} _ -> t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    (repDeepDuplicable stk1 (tproject1 t), repDeepDuplicable stk2 (tproject2 t))
-  STKUntyped -> dunHVector $ unHVectorPseudoTensor t
-  _ -> error "TODO"
+nullRep :: forall y ranked. (TensorKind y, ProductTensor ranked)
+        => Rep ranked y -> Bool
+nullRep t = case stensorKind @y of
+  STKScalar{} -> False
+  STKR{} -> False
+  STKS{} -> False
+  STKX{} -> False
+  STKProduct{} -> False
+  STKUntyped -> null $ dunHVector $ unHVectorPseudoTensor t
 
 mapDynamic
   :: (RankedTensor f, ShapedTensor (ShapedOf f))

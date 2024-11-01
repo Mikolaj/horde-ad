@@ -38,15 +38,15 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
   type X vals :: TensorKindType
   toHVectorOf :: vals -> Rep ranked (X vals)
     -- ^ represent a collection of tensors
-  fromHVector :: vals -> RepDeep ranked (X vals) -> Maybe (vals, Maybe (RepDeep ranked (X vals)))
+  fromHVector :: vals -> Rep ranked (X vals) -> Maybe (vals, Maybe (Rep ranked (X vals)))
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
-  fromHVectorAD :: vals -> RepDeep ranked (ADTensorKind (X vals)) -> Maybe (vals, Maybe (RepDeep ranked (ADTensorKind (X vals))))
+  fromHVectorAD :: vals -> Rep ranked (ADTensorKind (X vals)) -> Maybe (vals, Maybe (Rep ranked (ADTensorKind (X vals))))
   default fromHVectorAD :: X vals ~ ADTensorKind (X vals)
-                        => vals -> RepDeep ranked (ADTensorKind (X vals))
-                        -> Maybe (vals, Maybe (RepDeep ranked (ADTensorKind (X vals))))
+                        => vals -> Rep ranked (ADTensorKind (X vals))
+                        -> Maybe (vals, Maybe (Rep ranked (ADTensorKind (X vals))))
   fromHVectorAD = fromHVector
 
 -- | Recovers a value of a collection of tensors type and asserts
@@ -54,19 +54,20 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
 -- procedure where @fromHVector@ calls itself recursively for sub-values
 -- across mutliple instances.
 parseHVector
-  :: (TensorKind (X vals), AdaptableHVector ranked vals)
-  => vals -> RepDeep ranked (X vals) -> vals
+  :: (TensorKind (X vals), AdaptableHVector ranked vals, ProductTensor ranked)
+  => vals -> Rep ranked (X vals) -> vals
 parseHVector aInit hVector =
   case fromHVector aInit hVector of
-    Just (vals, mrest) -> assert (maybe True nullRepDeep mrest) vals
+    Just (vals, mrest) -> assert (maybe True nullRep mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 parseHVectorAD
-  :: forall vals ranked. (TensorKind (X vals), AdaptableHVector ranked vals)
-  => vals -> RepDeep ranked (ADTensorKind (X vals)) -> vals
+  :: forall vals ranked.
+     (TensorKind (X vals), AdaptableHVector ranked vals, ProductTensor ranked)
+  => vals -> Rep ranked (ADTensorKind (X vals)) -> vals
 parseHVectorAD aInit hVector | Dict <- lemTensorKindOfAD (stensorKind @(X vals)) =
   case fromHVectorAD aInit hVector of
-    Just (vals, mrest) -> assert (maybe True nullRepDeep mrest) vals
+    Just (vals, mrest) -> assert (maybe True nullRep mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 class TermValue vals where
@@ -125,12 +126,12 @@ instance (X a ~ TKUntyped, AdaptableHVector ranked a, ProductTensor ranked)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
-            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe V.empty mrest)
+            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
             _ -> error "fromHVector (Data.Vector.Vector a)"
         (!l, !restAll) = V.foldl' f (V.empty, source) lInit
-    in Just (l, if V.null restAll then Nothing else Just restAll)
+    in Just (l, if nullRep restAll then Nothing else Just restAll)
 
 instance TermValue a => TermValue (Data.Vector.Vector a) where
   type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
@@ -154,35 +155,47 @@ instance (X a ~ TKUntyped, AdaptableHVector ranked a, ProductTensor ranked)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
-            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe V.empty mrest)
+            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
             _ -> error "fromHVector: Nothing"
-        (!l, !restAll) = V.foldl' f (V.empty, source) lInit
-    in Just (l, if V.null restAll then Nothing else Just restAll)
+        (!l, !restAll) =
+          V.foldl' f (V.empty, source) lInit
+    in Just (l, if nullRep restAll then Nothing else Just restAll)
 
 instance ProductTensor ranked
          => AdaptableHVector ranked (DynamicTensor ranked) where
   type X (DynamicTensor ranked) = TKUntyped
   toHVectorOf = HVectorPseudoTensor . dmkHVector . V.singleton
-  fromHVector _aInit v = case V.uncons v of
-    Just (t, rest) -> Just (t, if V.null rest then Nothing else Just rest)
+  fromHVector _aInit v = case V.uncons $ dunHVector $ unHVectorPseudoTensor v of
+    Just (t, rest) ->
+      Just (t, if V.null rest
+               then Nothing
+               else Just $ HVectorPseudoTensor $ dmkHVector rest)
     Nothing -> Nothing
 
 instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a)
-         , AdaptableHVector ranked b, TensorKind (X b) )
+         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b)) )
          => AdaptableHVector ranked (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
   toHVectorOf (a, b) =
     let a1 = toHVectorOf a
         b1 = toHVectorOf b
     in tpair a1 b1
-  fromHVector ~(aInit, bInit) (a1, b1) = do
+  fromHVector ~(aInit, bInit)
+              ab = do
+    let (a1, b1) =
+          ( tproject1 ab
+          , tproject2 ab )
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
     return ((a, b), Nothing)
-  fromHVectorAD ~(aInit, bInit) (a1, b1) = do
+  fromHVectorAD ~(aInit, bInit)
+              ab = do
+    let (a1, b1) =
+          ( tproject1 ab
+          , tproject2 ab )
     (a, Nothing) <- fromHVectorAD aInit a1
     (b, Nothing) <- fromHVectorAD bInit b1
     return ((a, b), Nothing)
@@ -208,9 +221,9 @@ instance ( RandomHVector a
     in ((v1, v2), g2)
 
 instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a)
-         , AdaptableHVector ranked b, TensorKind (X b)
-         , AdaptableHVector ranked c, TensorKind (X c) )
+         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableHVector ranked c, TensorKind (X c), TensorKind (ADTensorKind (X c)) )
          => AdaptableHVector ranked (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
   toHVectorOf (a, b, c) =
@@ -218,12 +231,22 @@ instance ( ProductTensor ranked
         b1 = toHVectorOf b
         c1 = toHVectorOf c
     in tpair (tpair a1 b1) c1
-  fromHVector ~(aInit, bInit, cInit) ((a1, b1), c1) = do
+  fromHVector ~(aInit, bInit, cInit)
+              abc = do
+    let (a1, b1, c1) =
+          ( tproject1 (tproject1 abc)
+          , tproject2 (tproject1 abc)
+          , tproject2 abc )
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
     (c, Nothing) <- fromHVector cInit c1
     return ((a, b, c), Nothing)
-  fromHVectorAD ~(aInit, bInit, cInit) ((a1, b1), c1) = do
+  fromHVectorAD ~(aInit, bInit, cInit)
+              abc = do
+    let (a1, b1, c1) =
+          ( tproject1 (tproject1 abc)
+          , tproject2 (tproject1 abc)
+          , tproject2 abc )
     (a, Nothing) <- fromHVectorAD aInit a1
     (b, Nothing) <- fromHVectorAD bInit b1
     (c, Nothing) <- fromHVectorAD cInit c1
@@ -255,10 +278,10 @@ instance ( RandomHVector a
     in ((v1, v2, v3), g3)
 
 instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a)
-         , AdaptableHVector ranked b, TensorKind (X b)
-         , AdaptableHVector ranked c, TensorKind (X c)
-         , AdaptableHVector ranked d, TensorKind (X d) )
+         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableHVector ranked c, TensorKind (X c), TensorKind (ADTensorKind (X c))
+         , AdaptableHVector ranked d, TensorKind (X d), TensorKind (ADTensorKind (X d)) )
          => AdaptableHVector ranked (a, b, c, d) where
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
@@ -268,13 +291,25 @@ instance ( ProductTensor ranked
         c1 = toHVectorOf c
         d1 = toHVectorOf d
     in  tpair (tpair a1 b1) (tpair c1 d1)
-  fromHVector ~(aInit, bInit, cInit, dInit) ((a1, b1), (c1, d1)) = do
+  fromHVector ~(aInit, bInit, cInit, dInit)
+              abcd = do
+    let (a1, b1, c1, d1) =
+          ( tproject1 (tproject1 abcd)
+          , tproject2 (tproject1 abcd)
+          , tproject1 (tproject2 abcd)
+          , tproject2 (tproject2 abcd) )
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
     (c, Nothing) <- fromHVector cInit c1
     (d, Nothing) <- fromHVector dInit d1
     return ((a, b, c, d), Nothing)
-  fromHVectorAD ~(aInit, bInit, cInit, dInit) ((a1, b1), (c1, d1)) = do
+  fromHVectorAD ~(aInit, bInit, cInit, dInit)
+              abcd = do
+    let (a1, b1, c1, d1) =
+          ( tproject1 (tproject1 abcd)
+          , tproject2 (tproject1 abcd)
+          , tproject1 (tproject2 abcd)
+          , tproject2 (tproject2 abcd) )
     (a, Nothing) <- fromHVectorAD aInit a1
     (b, Nothing) <- fromHVectorAD bInit b1
     (c, Nothing) <- fromHVectorAD cInit c1
@@ -315,11 +350,11 @@ instance ( RandomHVector a
     in ((v1, v2, v3, v4), g4)
 
 instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a)
-         , AdaptableHVector ranked b, TensorKind (X b)
-         , AdaptableHVector ranked c, TensorKind (X c)
-         , AdaptableHVector ranked d, TensorKind (X d)
-         , AdaptableHVector ranked e, TensorKind (X e) )
+         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableHVector ranked c, TensorKind (X c), TensorKind (ADTensorKind (X c))
+         , AdaptableHVector ranked d, TensorKind (X d), TensorKind (ADTensorKind (X d))
+         , AdaptableHVector ranked e, TensorKind (X e), TensorKind (ADTensorKind (X e)) )
          => AdaptableHVector ranked (a, b, c, d, e) where
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))
@@ -331,7 +366,13 @@ instance ( ProductTensor ranked
         e1 = toHVectorOf e
     in tpair (tpair (tpair a1 b1) c1) (tpair d1 e1)
   fromHVector ~(aInit, bInit, cInit, dInit, eInit)
-              (((a1, b1), c1), (d1, e1)) = do
+              abcde = do
+    let (a1, b1, c1, d1, e1) =
+          ( tproject1 (tproject1 (tproject1 abcde))
+          , tproject2 (tproject1 (tproject1 abcde))
+          , tproject2 (tproject1 abcde)
+          , tproject1 (tproject2 abcde)
+          , tproject2 (tproject2 abcde) )
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
     (c, Nothing) <- fromHVector cInit c1
@@ -339,7 +380,13 @@ instance ( ProductTensor ranked
     (e, Nothing) <- fromHVector eInit e1
     return ((a, b, c, d, e), Nothing)
   fromHVectorAD ~(aInit, bInit, cInit, dInit, eInit)
-              (((a1, b1), c1), (d1, e1)) = do
+              abcde = do
+    let (a1, b1, c1, d1, e1) =
+          ( tproject1 (tproject1 (tproject1 abcde))
+          , tproject2 (tproject1 (tproject1 abcde))
+          , tproject2 (tproject1 abcde)
+          , tproject1 (tproject2 abcde)
+          , tproject2 (tproject2 abcde) )
     (a, Nothing) <- fromHVectorAD aInit a1
     (b, Nothing) <- fromHVectorAD bInit b1
     (c, Nothing) <- fromHVectorAD cInit c1

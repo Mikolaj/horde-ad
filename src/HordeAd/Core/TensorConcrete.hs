@@ -474,8 +474,8 @@ instance AdaptableHVector ORArray
   type X (HVectorPseudoTensor ORArray Float '()) = TKUntyped
   toHVectorOf = id
   fromHVector (HVectorPseudoTensor aInit) params =
-    let (portion, rest) = V.splitAt (V.length aInit) params
-    in Just (HVectorPseudoTensor portion, Just rest)
+    let (portion, rest) = V.splitAt (V.length aInit) $ unHVectorPseudoTensor params
+    in Just (HVectorPseudoTensor portion, Just $ HVectorPseudoTensor rest)
 
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:

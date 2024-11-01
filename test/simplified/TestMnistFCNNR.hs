@@ -106,7 +106,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
                      mnist (unAsHVector
-                            $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                            $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -202,7 +202,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                    widthHidden widthHidden2 (AstRanked astGlyph, AstRanked astLabel)
                    (unAsHVector
                     $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
+                                   (rankedY (stensorKind @TKUntyped) hVector2))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
@@ -317,7 +317,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            g :: Rep (AstRanked FullSpan) TKUntyped
              -> Rep (AstRanked FullSpan) TKUntyped
            g !hv = toHVectorOf $ AsHVector $ f
-                   $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) $ dunHVector $ unHVectorPseudoTensor hv
+                   $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) hv
            (artRaw, _) = revProduceArtifact False g emptyEnv
                            (FTKUntyped $ voidFromHVector
                             $ hVectorInit
@@ -435,7 +435,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    -> ADVal ranked r 0
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -525,7 +525,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    (AstRanked astGlyph, AstRanked astLabel)
                    (unAsHVector
                     $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   (dunHVector $ unHVectorPseudoTensor (rankedY (stensorKind @TKUntyped) hVector2)))
+                                   (rankedY (stensorKind @TKUntyped) hVector2))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)

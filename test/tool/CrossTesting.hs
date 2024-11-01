@@ -66,7 +66,7 @@ crevDtMaybeBoth
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth mdt f vals =
   let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) (TKR r y)
-      g = toHVectorOf . f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
+      g = toHVectorOf . f . parseHVector (fromDValue vals)
       valsH = toHVectorOf vals
   in crevOnHVector mdt g valsH
 

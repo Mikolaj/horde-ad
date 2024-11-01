@@ -222,11 +222,11 @@ instance ( a ~ ranked r n, RankedTensor ranked, ProductTensor ranked
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector (DynamicRanked aInit) restAcc of
-            Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe V.empty mrest)
+            Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
             _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l
-    in Just (rl, if V.null restAll then Nothing else Just restAll)
+    in Just (rl, if nullRep restAll then Nothing else Just restAll)
     -- is the following as performant? benchmark:
     -- > fromHVector lInit source =
     -- >   let f = swap . flip fromHVector
@@ -244,7 +244,7 @@ instance ( RankedTensor ranked, ProductTensor ranked
   fromHVector (AsHVector lInit) source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector (AsHVector aInit) restAcc of
-            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe V.empty mrest)
+            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
             _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l

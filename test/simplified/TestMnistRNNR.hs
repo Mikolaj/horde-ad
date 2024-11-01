@@ -55,7 +55,7 @@ testTrees = [ tensorADValMnistTestsRNNA
 mnistTestCaseRNNA
   :: forall ranked r.
      ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -85,7 +85,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
             -> r
       ftest batch_size mnistData pars =
         MnistRnnRanked2.rnnMnistTestR
-          batch_size mnistData (parseHVector valsInit pars)
+          batch_size mnistData (parseHVector @_ @ORArray valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -107,8 +107,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
-                     (parseHVector (fromDValue valsInit)
-                      $ repDeepDuplicable @(ADVal ORArray) @(X (ADRnnMnistParameters ORArray r)) (stensorKind @(X (ADRnnMnistParameters ORArray r))) adinputs)
+                     (parseHVector @_ @(ADVal ORArray) (fromDValue valsInit) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -164,7 +163,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 mnistTestCaseRNNI
   :: forall ranked r.
      ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -194,7 +193,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
             -> r
       ftest batch_size mnistData pars =
         MnistRnnRanked2.rnnMnistTestR
-          batch_size mnistData (parseHVector valsInit pars)
+          batch_size mnistData (parseHVector @_ @ORArray valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -214,8 +213,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        let ast :: AstRanked FullSpan r 0
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
-                   (parseHVector (fromDValue valsInit)
-                    $ repDeepDuplicable stensorKind hVector)
+                   (parseHVector (fromDValue valsInit) hVector)
            runBatch :: ( Rep ORArray (X (ADRnnMnistParameters ORArray r))
                        , StateAdamDeep (X (ADRnnMnistParameters ORArray r)) )
                     -> (Int, [MnistDataR r])
@@ -286,7 +284,7 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 mnistTestCaseRNNO
   :: forall ranked r.
      ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -313,7 +311,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
           MnistRnnRanked2.rnnMnistTestR
             batch_size
             mnistData
-            (unAsHVector $ parseHVector (AsHVector valsInit) pars)
+            (unAsHVector $ parseHVector (AsHVector valsInit) (HVectorPseudoTensor pars))
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -388,7 +386,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
 mnistTestCaseRNND
   :: forall ranked r.
      ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -420,7 +418,7 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
               -> r
         ftest batch_size mnistData pars =
           MnistRnnRanked2.rnnMnistTestR
-            batch_size mnistData (parseHVector valsInit pars)
+            batch_size mnistData (parseHVector @_ @ORArray valsInit pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

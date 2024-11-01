@@ -95,7 +95,7 @@ afcnnMnistTest2
      (ranked ~ ORArray, GoodScalar r, Differentiable r)
   => ADFcnnMnist2Parameters ranked r
   -> [MnistData r]
-  -> HVector ORArray  -- RepDeep ranked (X (ADFcnnMnist2Parameters ranked r))
+  -> HVector ORArray
   -> r
 afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
@@ -105,7 +105,7 @@ afcnnMnistTest2 valsInit dataList testParams =
             nn :: ADFcnnMnist2Parameters ranked r
                -> ranked r 1
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) testParams
+            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (HVectorPseudoTensor testParams)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)
