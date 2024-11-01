@@ -386,10 +386,10 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
 
 -- * Shaped tensor instance
 
-instance ( ADReadyNoLetS shaped, ShareTensor ranked
+instance ( ADReadyNoLet (RankedOf shaped), ShareTensor ranked
          , ShareTensor (PrimalOf ranked)
          , KnownShS sh, GoodScalar r
-         , ranked ~ RankedOf shaped )
+         , ShapedOf (RankedOf shaped) ~ shaped, ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   type X (ADVal shaped r sh) = TKS r sh
@@ -400,18 +400,18 @@ instance ( ADReadyNoLetS shaped, ShareTensor ranked
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
 
-instance ( ADReadyNoLetS shaped, ShareTensor ranked
+instance ( ADReadyNoLet (RankedOf shaped), ShareTensor ranked
          , ShareTensor (PrimalOf ranked)
          , KnownShS sh, GoodScalar r
-         , ranked ~ RankedOf shaped )
+         , ShapedOf (RankedOf shaped) ~ shaped, ranked ~ RankedOf shaped )
          => AdaptableHVector (ADVal ranked)
                              (AsHVector (ADVal shaped r sh)) where
   type X (AsHVector (ADVal shaped r sh)) = TKUntyped
   toHVector = V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
-instance ( ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
-         , KnownShS sh, GoodScalar r )
+instance ( ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
+         , KnownShS sh, GoodScalar r, ShapedOf (RankedOf shaped) ~ shaped )
          => DualNumberValue (ADVal shaped r sh) where
   type DValue (ADVal shaped r sh) = OSArray r sh   -- ! not Value(shaped)
   fromDValue t = constantADVal $ sconst $ runFlipS t
@@ -423,7 +423,8 @@ instance ( ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance (ADReadyNoLetS shaped, ShareTensor (RankedOf shaped)
+instance (ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
+         , ShapedOf (RankedOf shaped) ~ shaped
          , ShareTensor (PrimalOf (RankedOf shaped)) )
          => ShapedTensor (ADVal shaped) where
   sminIndex (D u _) =

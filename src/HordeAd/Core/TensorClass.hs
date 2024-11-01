@@ -19,7 +19,7 @@ module HordeAd.Core.TensorClass
   , ingestData, sscalar, srepl, xrepl, unrepShallow, unrepDeep, repDeepDuplicable
   , mapDynamic, mapDynamic2
     -- * The giga-constraint
-  , ADReady, ADReadyNoLet, ADReadyS, ADReadyNoLetS
+  , ADReady, ADReadyNoLet, ADReadyS
   ) where
 
 import Prelude
@@ -1435,10 +1435,6 @@ type ADReadyNoLet ranked = ADReadyBothNoLet ranked
 type ADReadyS :: ShapedTensorType -> Constraint
 type ADReadyS shaped =
   (ShapedOf (RankedOf shaped) ~ shaped, ADReadyBoth (RankedOf shaped))
-
-type ADReadyNoLetS :: ShapedTensorType -> Constraint
-type ADReadyNoLetS shaped =
-  (ShapedOf (RankedOf shaped) ~ shaped, ADReadyBothNoLet (RankedOf shaped))
 
 type ADReadyBoth ranked =
   ( ADReadyBothNoLet ranked
