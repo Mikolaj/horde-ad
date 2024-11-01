@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , ProductTensor(..)
   , HFun(..)
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
-  , ingestData, sscalar, srepl, xrepl, unrepShallow, unrepDeep, repDeepDuplicable
+  , ingestData, sscalar, srepl, xrepl, unrepDeep, repDeepDuplicable
   , mapDynamic, mapDynamic2
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, ADReadyS
@@ -71,15 +71,7 @@ instance (RealFloat r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (ranked :: RankedTensorType) where
-  dlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep ranked x
-       -> (RepDeep ranked x -> Rep ranked z)
-       -> Rep ranked z
   tlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep ranked x
-       -> (RepShallow ranked x -> Rep ranked z)
-       -> Rep ranked z
-  blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep ranked x
        -> (Rep ranked x -> Rep ranked z)
        -> Rep ranked z
@@ -98,12 +90,14 @@ class LetTensor (ranked :: RankedTensorType) where
       , Dict <- lemTensorKindOfS stk2
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-        tlet u $ \ (!u1, !u2) ->
-          tpair (treplicate snat stk1 u1) (treplicate snat  stk2 u2)
+        tlet u $ \ !u1 ->
+          tpair (treplicate snat stk1 (tproject1 u1))
+                (treplicate snat stk2 (tproject2 u1))
     STKUntyped ->
-      tlet u $ \ !hv ->
+      tlet u $ \ !u1 ->
         HVectorPseudoTensor $ dmkHVector
-        $ replicate1HVectorF rreplicate sreplicate snat hv
+        $ replicate1HVectorF rreplicate sreplicate snat
+        $ dunHVector $ unHVectorPseudoTensor u1
     _ -> error "TODO"
 
   toShare :: TensorKind y
@@ -120,9 +114,9 @@ class ShareTensor (ranked :: RankedTensorType) where
          => Rep ranked y -> Rep ranked y
   tunpair :: (TensorKind x, TensorKind z)
           => Rep ranked (TKProduct x z)
-          -> RepShallow ranked (TKProduct x z)
+          -> (Rep ranked x, Rep ranked z)
   tunvector :: Rep ranked TKUntyped
-            -> RepShallow ranked TKUntyped
+            -> HVector ranked
   taddShare :: STensorKindType y -> Rep ranked y -> Rep ranked y
             -> Rep ranked y
 
@@ -862,81 +856,71 @@ class ProductTensor (ranked :: RankedTensorType) where
   rrev :: forall x r n shaped.
           ( TensorKind x, GoodScalar r, KnownNat n
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
-       => (forall f. ADReady f => RepDeep f x -> f r n)
+       => (forall f. ADReady f => Rep f x -> f r n)
        -> TensorKindFull x
-       -> RepDeep ranked x
+       -> Rep ranked x
        -> Rep ranked (ADTensorKind x)
   rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es -> dHApply (drev @ranked ftk $ HFun g) (unrepDeep es)
+    \ !es -> dHApply (drev @ranked ftk $ HFun f) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n shaped.
             ( TensorKind x, GoodScalar r, KnownNat n
             , ProductTensor ranked, shaped ~ ShapedOf ranked )
-         => (forall f. ADReady f => RepDeep f x -> f r n)
+         => (forall f. ADReady f => Rep f x -> f r n)
          -> TensorKindFull x
-         -> RepDeep ranked x
+         -> Rep ranked x
          -> Rep ranked (ADTensorKind (TKR r n))  -- ^ incoming cotangent (dt)
          -> Rep ranked (ADTensorKind x)
   rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
-                            (tpair dt (unrepDeep es))
+    \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun f)
+                         (tpair dt es)
   rfwd :: forall x r n shaped.
           ( TensorKind x, GoodScalar r, KnownNat n
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
-       => (forall f. ADReady f => RepDeep f x -> f r n)
+       => (forall f. ADReady f => Rep f x -> f r n)
        -> TensorKindFull x
-       -> RepDeep ranked x
-       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
+       -> Rep ranked x
+       -> Rep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> Rep ranked (ADTensorKind (TKR r n))
   rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKR r n)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
-                            (tpair (unrepDeep ds) (unrepDeep es))
+    \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun f)
+                         (tpair ds es)
   srev :: forall x r sh shaped.
           ( TensorKind x, GoodScalar r, KnownShS sh, ProductTensor ranked
           , ShapedTensor shaped, shaped ~ ShapedOf ranked
           , ADTensorKind (TKS r sh) ~ TKS r sh )
-       => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
+       => (forall f. ADReadyS f => Rep (RankedOf f) x -> f r sh)
        -> TensorKindFull x
-       -> RepDeep ranked x
+       -> Rep ranked x
        -> Rep ranked (ADTensorKind x)
   srev f ftk es = srevDt f ftk es (srepl 1)
   srevDt :: forall x r sh shaped.
             ( TensorKind x, GoodScalar r, KnownShS sh
             , ProductTensor ranked, shaped ~ ShapedOf ranked )
-         => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
+         => (forall f. ADReadyS f => Rep (RankedOf f) x -> f r sh)
          -> TensorKindFull x
-         -> RepDeep ranked x
+         -> Rep ranked x
          -> Rep ranked (ADTensorKind (TKS r sh))  -- ^ incoming cotangent (dt)
          -> Rep ranked (ADTensorKind x)
   srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun g)
-                            (tpair dt (unrepDeep es))
+    \ !es !dt -> dHApply (drevDt @ranked ftk $ HFun f)
+                         (tpair dt es)
   sfwd :: forall x r sh shaped.
           ( TensorKind x, GoodScalar r, KnownShS sh
           , ProductTensor ranked, shaped ~ ShapedOf ranked )
-       => (forall f. ADReadyS f => RepDeep (RankedOf f) x -> f r sh)
+       => (forall f. ADReadyS f => Rep (RankedOf f) x -> f r sh)
        -> TensorKindFull x
-       -> RepDeep ranked x
-       -> RepDeep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
+       -> Rep ranked x
+       -> Rep ranked (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> Rep ranked (ADTensorKind (TKS r sh))
   sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    let g :: forall f. ADReady f => Rep f x -> Rep f (TKS r sh)
-        g !x = dlet x $ \ !xDeep -> f xDeep
-    in \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun g)
-                            (tpair (unrepDeep ds) (unrepDeep es))
+    \ !es !ds -> dHApply (dfwd @ranked ftk $ HFun f)
+                         (tpair ds es)
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important
@@ -1021,7 +1005,7 @@ class ProductTensor (ranked :: RankedTensorType) where
                 (let g :: forall f. ADReady f
                        => Rep f (TKR rn n) -> Rep f (TKR rm m)
                        -> Rep f (TKProduct (TKR rn n) (TKR rn n))
-                     g !acc !e = blet (f acc e) $ \ !res -> tpair res res
+                     g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
                  in g)
                 acc0
                 es
@@ -1071,7 +1055,7 @@ class ProductTensor (ranked :: RankedTensorType) where
              (let g :: forall f. ADReady f
                     => Rep f (TKS rn sh) -> Rep f (TKS rm shm)
                     -> Rep f (TKProduct (TKS rn sh) (TKS rn sh))
-                  g !acc !e = blet (f acc e) $ \ !res -> tpair res res
+                  g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
               in g)
              acc0
              es
@@ -1099,7 +1083,7 @@ class ProductTensor (ranked :: RankedTensorType) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => RepDeep f accShs -> RepDeep f eShs
+        => Rep f accShs -> Rep f eShs
         -> Rep f (TKProduct accShs bShs))
     -> Rep ranked accShs
     -> Rep ranked (BuildTensorKind k eShs)
@@ -1109,10 +1093,8 @@ class ProductTensor (ranked :: RankedTensorType) where
         fl :: forall f. ADReady f
            => Rep f (TKProduct accShs eShs)
            -> Rep f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ (!acc1, !e1) ->
-          dlet acc1 $ \ !acc ->
-            dlet e1 $ \ !e ->
-              f acc e
+        fl !args = tlet args $ \ !args1 ->
+                     f (tproject1 args1) (tproject2 args1)
     in dmapAccumRDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))
                      (dfwd @ranked shs $ HFun fl)
@@ -1147,7 +1129,7 @@ class ProductTensor (ranked :: RankedTensorType) where
     -> TensorKindFull bShs
     -> TensorKindFull eShs
     -> (forall f. ADReady f
-        => RepDeep f accShs -> RepDeep f eShs
+        => Rep f accShs -> Rep f eShs
         -> Rep f (TKProduct accShs bShs))
     -> Rep ranked accShs
     -> Rep ranked (BuildTensorKind k eShs)
@@ -1157,10 +1139,8 @@ class ProductTensor (ranked :: RankedTensorType) where
         fl :: forall f. ADReady f
            => Rep f (TKProduct accShs eShs)
            -> Rep f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ (!acc1, !e1) ->
-          dlet acc1 $ \ !acc ->
-            dlet e1 $ \ !e ->
-              f acc e
+        fl !args = tlet args $ \ !args1 ->
+                     f (tproject1 args1) (tproject2 args1)
     in dmapAccumLDer proxy k accShs bShs eShs
                      (dlambda @ranked shs (HFun fl))
                      (dfwd @ranked shs $ HFun fl)
@@ -1284,20 +1264,6 @@ xrepl :: forall sh r mixed.
       => IShX sh -> r -> mixed r sh
 xrepl sh =
   xconst . Nested.mreplicateScal sh
-
-unrepShallow :: forall ranked y.
-                (TensorKind y, ProductTensor ranked)
-             => RepShallow ranked y
-             -> Rep ranked y
-unrepShallow t = case stensorKind @y of
-  STKScalar{} -> t
-  STKR STKScalar{} _ -> t
-  STKS STKScalar{} _ -> t
-  STKX STKScalar{} _ -> t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 -> uncurry tpair t
-  STKUntyped -> HVectorPseudoTensor $ dmkHVector t
-  _ -> error "TODO"
 
 unrepDeep :: forall ranked y.
              (TensorKind y, ProductTensor ranked)

@@ -77,36 +77,12 @@ type instance DualOf ORArray = DummyDualTarget
 type instance ShareOf ORArray = ORArray
 
 instance LetTensor ORArray where
-  dlet :: forall x z. TensorKind x
-       => Rep ORArray x
-       -> (RepDeep ORArray x -> Rep ORArray z)
-       -> Rep ORArray z
-  dlet a f = case stensorKind @x of
-    STKScalar{} -> f a
-    STKR STKScalar{} _ -> f a
-    STKS STKScalar{} _ -> f a
-    STKX STKScalar{} _ -> f a
-    stk@STKProduct{} -> f (repDeepDuplicable stk a)
-    STKUntyped{} -> f $ unHVectorPseudoTensor a
-    _ -> error "TODO"
-  tlet :: forall x z. TensorKind x
-       => Rep ORArray x
-       -> (RepShallow ORArray x -> Rep ORArray z)
-       -> Rep ORArray z
-  tlet a f = case stensorKind @x of
-    STKScalar{} -> f a
-    STKR STKScalar{} _ -> f a
-    STKS STKScalar{} _ -> f a
-    STKX STKScalar{} _ -> f a
-    STKProduct{} -> f a
-    STKUntyped{} -> f $ unHVectorPseudoTensor a
-    _ -> error "TODO"
-  blet = (&)
+  tlet = (&)
   toShare = id
   tunshare = id
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    blet t1 $ \ !u1 ->
-    blet t2 $ \ !u2 ->
+    tlet t1 $ \ !u1 ->
+    tlet t2 $ \ !u2 ->
       fromRepD $ addRepD (toRepDDuplicable stk u1)
                          (toRepDDuplicable stk u2)
 
@@ -349,13 +325,11 @@ instance ProductTensor ORArray where
   dmapAccumR _ k accShs bShs eShs f acc0 es =
     oRdmapAccumR k accShs bShs eShs f acc0 es
   dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumR k accShs bShs eShs (\ !a !b ->
-      f (unrepDeep a, unrepDeep b)) acc0 es
+    oRdmapAccumR k accShs bShs eShs (\ !a !b -> f (a, b)) acc0 es
   dmapAccumL _ k accShs bShs eShs f acc0 es =
     oRdmapAccumL k accShs bShs eShs f acc0 es
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumL k accShs bShs eShs (\ !a !b ->
-      f (unrepDeep a, unrepDeep b)) acc0 es
+    oRdmapAccumL k accShs bShs eShs (\ !a !b -> f (a, b)) acc0 es
 
 type instance Rep ORArray (TKProduct x z) =
   (Rep ORArray x, Rep ORArray z)
@@ -400,12 +374,12 @@ unravel k@SNat t = case stensorKind @y of
 
 oRdmapAccumR
   :: forall k accShs bShs eShs.
-     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+     (TensorKind bShs, TensorKind eShs)
   => SNat k
   -> TensorKindFull accShs
   -> TensorKindFull bShs
   -> TensorKindFull eShs
-  -> (RepDeep ORArray accShs -> RepDeep ORArray eShs
+  -> (Rep ORArray accShs -> Rep ORArray eShs
       -> Rep ORArray (TKProduct accShs bShs))
   -> Rep ORArray accShs
   -> Rep ORArray (BuildTensorKind k eShs)
@@ -413,26 +387,18 @@ oRdmapAccumR
 oRdmapAccumR k _ bShs _ f acc0 es = case sNatValue k of
   0 -> (acc0, treplicate k (stensorKind @bShs) (repConstant 0 bShs))
   _ ->
-    let g :: RepDeep ORArray accShs -> RepDeep ORArray eShs
-          -> ( RepDeep ORArray accShs
-             , RepDeep ORArray bShs )
-        g !x !a = let (a1, b1) = f x a
-                  in (repDeepDuplicable stensorKind a1, repDeepDuplicable stensorKind b1)
-                    -- TODO: coerce instead? elsewhere, too?
-        (xout, lout) = mapAccumR g (repDeepDuplicable stensorKind acc0)
-                                   (map (repDeepDuplicable stensorKind) $ unravel k es)
-    in ( unrepDeep xout
-       , ravel k $ map unrepDeep lout )
+    let (xout, lout) = mapAccumR f acc0 (unravel k es)
+    in (xout, ravel k lout)
       -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
 
 oRdmapAccumL
   :: forall k accShs bShs eShs.
-     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+     (TensorKind bShs, TensorKind eShs)
   => SNat k
   -> TensorKindFull accShs
   -> TensorKindFull bShs
   -> TensorKindFull eShs
-  -> (RepDeep ORArray accShs -> RepDeep ORArray eShs
+  -> (Rep ORArray accShs -> Rep ORArray eShs
       -> Rep ORArray (TKProduct accShs bShs))
   -> Rep ORArray accShs
   -> Rep ORArray (BuildTensorKind k eShs)
@@ -440,15 +406,8 @@ oRdmapAccumL
 oRdmapAccumL k _ bShs _ f acc0 es = case sNatValue k of
   0 -> (acc0, treplicate k (stensorKind @bShs) (repConstant 0 bShs))
   _ ->
-    let g :: RepDeep ORArray accShs -> RepDeep ORArray eShs
-          -> ( RepDeep ORArray accShs
-             , RepDeep ORArray bShs )
-        g !x !a = let (a1, b1) = f x a
-                  in (repDeepDuplicable stensorKind a1, repDeepDuplicable stensorKind b1)
-        (xout, lout) = mapAccumL g (repDeepDuplicable stensorKind acc0)
-                                   (map (repDeepDuplicable stensorKind) $ unravel k es)
-    in ( unrepDeep xout
-       , ravel k $ map unrepDeep lout )
+    let (xout, lout) = mapAccumL f acc0 (unravel k es)
+    in (xout, ravel k lout)
 
 instance (GoodScalar r, KnownNat n)
          => AdaptableHVector ORArray (ORArray r n) where

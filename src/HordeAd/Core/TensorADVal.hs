@@ -112,52 +112,12 @@ cfwdOnHVector parameters f ds =
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
          => LetTensor (ADVal ranked) where
-  dlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (ADVal ranked) x
-       -> (RepDeep (ADVal ranked) x -> Rep (ADVal ranked) z)
-       -> Rep (ADVal ranked) z
-  dlet a f = case stensorKind @x of
-    STKScalar{} -> blet a f
-    STKR STKScalar{} _ -> blet a f
-    STKS STKScalar{} _ -> blet a f
-    STKX STKScalar{} _ -> blet a f
-    stk@STKProduct{} -> blet a $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUntyped{} ->
-      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
-                  $ HVectorPseudoTensor $ dmkHVector u
-      in f (aDValHVector var2 u')
-    _ -> error "TODO"
   tlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (ADVal ranked) x
-       -> (RepShallow (ADVal ranked) x -> Rep (ADVal ranked) z)
-       -> Rep (ADVal ranked) z
-  tlet a f = case stensorKind @x of
-    STKScalar{} -> blet a f
-    STKR STKScalar{} SNat -> blet a f
-    STKS STKScalar{} sh -> withKnownShS sh $ blet a f
-    STKX STKScalar{} sh -> withKnownShX sh $ blet a f
-    STKProduct{} -> blet a f
-    STKUntyped{} ->
-      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
-                  $ HVectorPseudoTensor $ dmkHVector u
-            -- dunHVector is fine, because its argument is shared
-            -- (and even without that, it comes from an explicit HVector)
-            -- and tshare is needed due to f possibly using the argument many times
-            -- and while the Haskell computation would be performed only once,
-            -- a term could get duplicated and then interpreted many times.
-            -- Normally it would be the reponsibility of f to share its argument
-            -- but this is a let expression, so here we ensure what is passed
-            -- to f is properly shared.
-      in f (aDValHVector var2 u')
-    _ -> error "TODO"
-  blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (ADVal ranked) x
        -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
        -> Rep (ADVal ranked) z
-  blet a f = case stensorKind @x of
-    STKScalar{} -> blet (unRepScalar a) (f . RepScalar)
+  tlet a f = case stensorKind @x of
+    STKScalar{} -> tlet (unRepScalar a) (f . RepScalar)
     STKR STKScalar{} SNat ->
       let (D u u') = a
           !var2 = tshare u
@@ -175,8 +135,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       -- Sharing is preserved despite `a` being repeated, because
       -- each repetition concerns a disjoint portion of `a` and so the whole `a`
       -- is computed only once.
-      blet (fst a) $ \ !a1 ->
-        blet (snd a) $ \ !a2 -> f (a1, a2)
+      tlet (fst a) $ \ !a1 ->
+        tlet (snd a) $ \ !a2 -> f (a1, a2)
     STKUntyped{} ->
       let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
           !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
@@ -187,8 +147,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
   toShare = id
   tunshare = id
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    blet t1 $ \ !u1 ->
-    blet t2 $ \ !u2 ->
+    tlet t1 $ \ !u1 ->
+    tlet t2 $ \ !u2 ->
       fromRepD $ addRepD (toRepDDuplicable stk u1)
                          (toRepDDuplicable stk u2)
 
@@ -647,7 +607,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            => Rep f x
            -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
-        rf !a = blet a $ \ !aShared ->
+        rf !a = tlet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
                              Nothing
                              (unHFun h @(ADVal (ShareOf f)))
@@ -663,7 +623,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            => Rep f (TKProduct (ADTensorKind z) x)
            -> Rep f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
-        rf !db_a = blet db_a $ \ !db_aShared ->
+        rf !db_a = tlet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
                              (Just $ toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
@@ -679,7 +639,7 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
            => Rep f (TKProduct (ADTensorKind x) x)
            -> Rep f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
-        df !da_a = blet da_a $ \ !da_aShared ->
+        df !da_a = tlet da_a $ \ !da_aShared ->
           tunshare $ fst $ cfwdOnHVector
                              (toShare $ tproject2 da_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
@@ -717,31 +677,38 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         g :: forall f. ADReady f
           => Rep f (TKProduct accShs eShs)
           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
-        g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
-          tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
-            tpair accRes1 (tpair acc1 bRes1)
+        g !acc_e =
+          tlet acc_e $ \ !acc_e1 ->
+          tlet (unHFun f acc_e) $ \ !accRes_bRes ->
+            tpair (tproject1 accRes_bRes)
+                  (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
            => Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
-          tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
-          tlet dacc_de $ \ (!dacc1, !_de) ->
-          tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
-            tpair accRes1 (tpair dacc1 bRes1)
+          tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
+            let (!dacc_de, !_acc_e) =
+                  (tproject1 dacc_de_acc_e1, tproject2 dacc_de_acc_e1)
+                !dacc1 = tproject1 dacc_de
+            in tlet (unHFun df dacc_de_acc_e) $ \ !accRes_bRes ->
+                 tpair (tproject1 accRes_bRes)
+                       (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
            => Rep f (TKProduct (ADTensorKind (TKProduct accShs
                                                         (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs eShs))
-        rg !args = tlet args $ \ (!dx_db, !acc_e) ->
-                   tlet dx_db $ \ (!dx1, !db1) ->
-                   tlet db1 $ \ (!dbacc, !dbRes) ->
-          let dx_dbRes = tpair dx1 dbRes
-          in tlet (unHFun rf (tpair dx_dbRes acc_e))
-             $ \ (!daccRes1, !deRes1) ->
-                 let added = taddLet stensorKind daccRes1 dbacc
-                 in tpair added deRes1
+        rg !args =
+          tlet args $ \ args1 ->
+            let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
+            in tlet dx_db $ \ !dx_db1 ->
+              let (!dx1, !db1) = (tproject1 dx_db1, tproject2 dx_db1)
+                  dx_dbRes = tpair dx1 (tproject2 db1)
+              in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                   let added = taddLet stensorKind (tproject1 daccRes_deRes)
+                                                   (tproject1 db1)
+                   in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumRDer (Proxy @ranked)
                           k accShs codomainShs eShs
                           (dlambda @ranked (FTKProduct accShs eShs)
@@ -795,31 +762,38 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         g :: forall f. ADReady f
           => Rep f (TKProduct accShs eShs)
           -> Rep f (TKProduct accShs (TKProduct accShs bShs))
-        g !acc_e = tlet acc_e $ \ (!acc1, !_e) ->
-          tlet (unHFun f acc_e) $ \ (!accRes1, !bRes1) ->
-            tpair accRes1 (tpair acc1 bRes1)
+        g !acc_e =
+          tlet acc_e $ \ !acc_e1 ->
+          tlet (unHFun f acc_e) $ \ !accRes_bRes ->
+            tpair (tproject1 accRes_bRes)
+                  (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
            => Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
-          tlet dacc_de_acc_e $ \(!dacc_de, !_acc_e) ->
-          tlet dacc_de $ \ (!dacc1, !_de) ->
-          tlet (unHFun df dacc_de_acc_e) $ \ (!accRes1, !bRes1) ->
-            tpair accRes1 (tpair dacc1 bRes1)
+          tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
+            let (!dacc_de, !_acc_e) =
+                  (tproject1 dacc_de_acc_e1, tproject2 dacc_de_acc_e1)
+                !dacc1 = tproject1 dacc_de
+            in tlet (unHFun df dacc_de_acc_e) $ \ !accRes_bRes ->
+                 tpair (tproject1 accRes_bRes)
+                       (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
            => Rep f (TKProduct (ADTensorKind (TKProduct accShs
                                                         (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
            -> Rep f (ADTensorKind (TKProduct accShs eShs))
-        rg !args = tlet args $ \ (!dx_db, !acc_e) ->
-                   tlet dx_db $ \ (!dx1, !db1) ->
-                   tlet db1 $ \ (!dbacc, !dbRes) ->
-          let dx_dbRes = tpair dx1 dbRes
-          in tlet (unHFun rf (tpair dx_dbRes acc_e))
-             $ \ (!daccRes1, !deRes1) ->
-                 let added = taddLet stensorKind daccRes1 dbacc
-                 in tpair added deRes1
+        rg !args =
+          tlet args $ \ args1 ->
+            let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
+            in tlet dx_db $ \ !dx_db1 ->
+              let (!dx1, !db1) = (tproject1 dx_db1, tproject2 dx_db1)
+                  dx_dbRes = tpair dx1 (tproject2 db1)
+              in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                   let added = taddLet stensorKind (tproject1 daccRes_deRes)
+                                                   (tproject1 db1)
+                   in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumLDer (Proxy @ranked)
                           k accShs codomainShs eShs
                           (dlambda @ranked (FTKProduct accShs eShs)

@@ -573,9 +573,9 @@ testFooPP = do
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooT (4, 5, 6)
   printArtifactSimple renames artifactRev
-    @?= "\\x7 x1 -> blet (sin (tproject2 (tproject1 x1))) (\\x -> blet (tproject1 (tproject1 x1) * x) (\\y -> blet (recip (tproject2 x1 * tproject2 x1 + y * y)) (\\z -> blet (sin (tproject2 (tproject1 x1))) (\\x5 -> blet (tproject1 (tproject1 x1) * x5) (\\x6 -> blet (tproject2 x1 * x7) (\\x8 -> blet ((negate (tproject2 x1) * z) * x7) (\\x9 -> tpair (tpair (x * x9 + x5 * x8, cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x9) + cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x8)), (y * z) * x7 + x6 * x7))))))))"
+    @?= "\\x7 x1 -> tlet (sin (tproject2 (tproject1 x1))) (\\x -> tlet (tproject1 (tproject1 x1) * x) (\\y -> tlet (recip (tproject2 x1 * tproject2 x1 + y * y)) (\\z -> tlet (sin (tproject2 (tproject1 x1))) (\\x5 -> tlet (tproject1 (tproject1 x1) * x5) (\\x6 -> tlet (tproject2 x1 * x7) (\\x8 -> tlet ((negate (tproject2 x1) * z) * x7) (\\x9 -> tpair (tpair (x * x9 + x5 * x8, cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x9) + cos (tproject2 (tproject1 x1)) * (tproject1 (tproject1 x1) * x8)), (y * z) * x7 + x6 * x7))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 -> blet (sin (tproject2 (tproject1 x1))) (\\x -> blet (tproject1 (tproject1 x1) * x) (\\y -> blet (sin (tproject2 (tproject1 x1))) (\\x5 -> blet (tproject1 (tproject1 x1) * x5) (\\x6 -> atan2F (tproject2 x1) y + tproject2 x1 * x6))))"
+    @?= "\\x1 -> tlet (sin (tproject2 (tproject1 x1))) (\\x -> tlet (tproject1 (tproject1 x1) * x) (\\y -> tlet (sin (tproject2 (tproject1 x1))) (\\x5 -> tlet (tproject1 (tproject1 x1) * x5) (\\x6 -> atan2F (tproject2 x1) y + tproject2 x1 * x6))))"
 
 fooLet :: forall ranked r n.
           ( RealFloatF (ranked r n)
@@ -604,7 +604,7 @@ testFooLetPP = do
       (var3, ast3) = funToAst (FTKR ZSR) $ unAstRanked . fooLet3 . AstRanked
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
-    @?= "\\x1 -> blet (x1 * sin x1) (\\x2 -> atan2F x1 x2 + x1 * x2)"
+    @?= "\\x1 -> tlet (x1 * sin x1) (\\x2 -> atan2F x1 x2 + x1 * x2)"
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooLetT (4, 5, 6)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -625,9 +625,9 @@ testListProdPP = do
       fT = shapedListProd
   let (artifactRev, _deltas) = revArtifactAdapt True fT [srepl 1, srepl 2, srepl 3, srepl 4]
   printArtifactSimple renames artifactRev
-    @?= "\\x17 x20 x21 x22 x23 -> dlet (x20 * x21) (\\x12 -> dlet (x12 * x22) (\\x15 -> dlet (x23 * x17) (\\x18 -> dlet (x22 * x18) (\\x19 -> dmkHVector (fromList [DynamicShaped (x21 * x19), DynamicShaped (x20 * x19), DynamicShaped (x12 * x18), DynamicShaped (x15 * x17)])))))"
+    @?= "\\x17 x20 x21 x22 x23 -> tlet (x20 * x21) (\\x12 -> tlet (x12 * x22) (\\x15 -> tlet (x23 * x17) (\\x18 -> tlet (x22 * x18) (\\x19 -> dmkHVector (fromList [DynamicShaped (x21 * x19), DynamicShaped (x20 * x19), DynamicShaped (x12 * x18), DynamicShaped (x15 * x17)])))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x56 x57 x58 x59 -> blet (x56 * x57) (\\x12 -> blet (x12 * x58) (\\x15 -> x15 * x59))"
+    @?= "\\x56 x57 x58 x59 -> tlet (x56 * x57) (\\x12 -> tlet (x12 * x58) (\\x15 -> x15 * x59))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x17 x124 x125 x126 x127 -> let x12 = x124 * x125 ; x18 = x127 * x17 ; x19 = x126 * x18 in [x125 * x19, x124 * x19, x12 * x18, (x12 * x126) * x17]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -659,9 +659,9 @@ testListProdrLongPP = do
   let (artifactRev, _) =
         revArtifactAdapt True fT [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
   printArtifactSimple renames artifactRev
-    @?= "\\x53 x65 x66 x67 x68 x69 x70 x71 x72 x73 x74 x75 x76 x77 -> blet (x76 * x77) (\\x32 -> blet (x75 * x32) (\\x34 -> blet (x74 * x34) (\\x36 -> blet (x73 * x36) (\\x38 -> blet (x72 * x38) (\\x40 -> blet (x71 * x40) (\\x42 -> blet (x70 * x42) (\\x44 -> blet (x69 * x44) (\\x46 -> blet (x68 * x46) (\\x48 -> blet (x67 * x48) (\\x50 -> blet (x66 * x50) (\\x52 -> blet (x65 * x53) (\\x54 -> blet (x66 * x54) (\\x55 -> blet (x67 * x55) (\\x56 -> blet (x68 * x56) (\\x57 -> blet (x69 * x57) (\\x58 -> blet (x70 * x58) (\\x59 -> blet (x71 * x59) (\\x60 -> blet (x72 * x60) (\\x61 -> blet (x73 * x61) (\\x62 -> blet (x74 * x62) (\\x63 -> blet (x75 * x63) (\\x64 -> dmkHVector (fromList [DynamicRanked (x52 * x53), DynamicRanked (x50 * x54), DynamicRanked (x48 * x55), DynamicRanked (x46 * x56), DynamicRanked (x44 * x57), DynamicRanked (x42 * x58), DynamicRanked (x40 * x59), DynamicRanked (x38 * x60), DynamicRanked (x36 * x61), DynamicRanked (x34 * x62), DynamicRanked (x32 * x63), DynamicRanked (x77 * x64), DynamicRanked (x76 * x64)])))))))))))))))))))))))"
+    @?= "\\x53 x65 x66 x67 x68 x69 x70 x71 x72 x73 x74 x75 x76 x77 -> tlet (x76 * x77) (\\x32 -> tlet (x75 * x32) (\\x34 -> tlet (x74 * x34) (\\x36 -> tlet (x73 * x36) (\\x38 -> tlet (x72 * x38) (\\x40 -> tlet (x71 * x40) (\\x42 -> tlet (x70 * x42) (\\x44 -> tlet (x69 * x44) (\\x46 -> tlet (x68 * x46) (\\x48 -> tlet (x67 * x48) (\\x50 -> tlet (x66 * x50) (\\x52 -> tlet (x65 * x53) (\\x54 -> tlet (x66 * x54) (\\x55 -> tlet (x67 * x55) (\\x56 -> tlet (x68 * x56) (\\x57 -> tlet (x69 * x57) (\\x58 -> tlet (x70 * x58) (\\x59 -> tlet (x71 * x59) (\\x60 -> tlet (x72 * x60) (\\x61 -> tlet (x73 * x61) (\\x62 -> tlet (x74 * x62) (\\x63 -> tlet (x75 * x63) (\\x64 -> dmkHVector (fromList [DynamicRanked (x52 * x53), DynamicRanked (x50 * x54), DynamicRanked (x48 * x55), DynamicRanked (x46 * x56), DynamicRanked (x44 * x57), DynamicRanked (x42 * x58), DynamicRanked (x40 * x59), DynamicRanked (x38 * x60), DynamicRanked (x36 * x61), DynamicRanked (x34 * x62), DynamicRanked (x32 * x63), DynamicRanked (x77 * x64), DynamicRanked (x76 * x64)])))))))))))))))))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x416 x417 x418 x419 x420 x421 x422 x423 x424 x425 x426 x427 x428 -> blet (x427 * x428) (\\x32 -> blet (x426 * x32) (\\x34 -> blet (x425 * x34) (\\x36 -> blet (x424 * x36) (\\x38 -> blet (x423 * x38) (\\x40 -> blet (x422 * x40) (\\x42 -> blet (x421 * x42) (\\x44 -> blet (x420 * x44) (\\x46 -> blet (x419 * x46) (\\x48 -> blet (x418 * x48) (\\x50 -> blet (x417 * x50) (\\x52 -> x416 * x52)))))))))))"
+    @?= "\\x416 x417 x418 x419 x420 x421 x422 x423 x424 x425 x426 x427 x428 -> tlet (x427 * x428) (\\x32 -> tlet (x426 * x32) (\\x34 -> tlet (x425 * x34) (\\x36 -> tlet (x424 * x36) (\\x38 -> tlet (x423 * x38) (\\x40 -> tlet (x422 * x40) (\\x42 -> tlet (x421 * x42) (\\x44 -> tlet (x420 * x44) (\\x46 -> tlet (x419 * x46) (\\x48 -> tlet (x418 * x48) (\\x50 -> tlet (x417 * x50) (\\x52 -> x416 * x52)))))))))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x53 x1105 x1106 x1107 x1108 x1109 x1110 x1111 x1112 x1113 x1114 x1115 x1116 x1117 -> let x32 = x1116 * x1117 ; x34 = x1115 * x32 ; x36 = x1114 * x34 ; x38 = x1113 * x36 ; x40 = x1112 * x38 ; x42 = x1111 * x40 ; x44 = x1110 * x42 ; x46 = x1109 * x44 ; x48 = x1108 * x46 ; x50 = x1107 * x48 ; x54 = x1105 * x53 ; x55 = x1106 * x54 ; x56 = x1107 * x55 ; x57 = x1108 * x56 ; x58 = x1109 * x57 ; x59 = x1110 * x58 ; x60 = x1111 * x59 ; x61 = x1112 * x60 ; x62 = x1113 * x61 ; x63 = x1114 * x62 ; x64 = x1115 * x63 in [(x1106 * x50) * x53, x50 * x54, x48 * x55, x46 * x56, x44 * x57, x42 * x58, x40 * x59, x38 * x60, x36 * x61, x34 * x62, x32 * x63, x1117 * x64, x1116 * x64]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -920,7 +920,7 @@ testReluSimplerPP2 = do
       (var3, ast3) = funToAst (FTKR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
-    @?= "\\v1 -> blet (v1 * rconstant (rreplicate 5 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> tlet (v1 * rconstant (rreplicate 5 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -939,7 +939,7 @@ testReluSimplerPP3 = do
       (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
-    @?= "\\v1 -> blet (v1 * rconstant (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> tlet (v1 * rconstant (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -968,7 +968,7 @@ testReluSimplerPP4 = do
       (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
-    @?= "\\v1 -> blet (v1 * rconstant (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> tlet (v1 * rconstant (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -996,7 +996,7 @@ testReluSimplerPP4S = do
       (var3, ast3) = funToAst (FTKS knownShS) (\t -> unAstShaped $ reluT2 (AstShaped t, srepl 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimpleS renamesNull (AstShaped ast3)
-    @?= "\\v1 -> blet (v1 * sconstant (sreshape (sreplicate 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> tlet (v1 * sconstant (sreshape (sreplicate 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
 
 testReluSimplerPP4S2 :: Assertion
 testReluSimplerPP4S2 = do
@@ -2023,9 +2023,9 @@ fblowupPP = do
       fblowupT = fblowup @(AstRanked FullSpan) @Double 1
   let (artifactRev, _) = revArtifactAdapt True fblowupT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
-    @?= "\\x7 x1 -> blet (v1 ! [0]) (\\x2 -> blet (v1 ! [1]) (\\x3 -> blet (v1 ! [0]) (\\x4 -> blet (v1 ! [1]) (\\x5 -> blet (0.499999985 * x7) (\\x8 -> rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))))))"
+    @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x2 -> tlet (v1 ! [1]) (\\x3 -> tlet (v1 ! [0]) (\\x4 -> tlet (v1 ! [1]) (\\x5 -> tlet (0.499999985 * x7) (\\x8 -> rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 -> blet (v1 ! [0]) (\\x2 -> blet (v1 ! [1]) (\\x3 -> blet (v1 ! [0]) (\\x4 -> blet (v1 ! [1]) (\\x5 -> blet ((x2 / x3 + x4 / x5) - 0.0) (\\x6 -> 0.499999985 * x6 - 0.0)))))"
+    @?= "\\x1 -> tlet (v1 ! [0]) (\\x2 -> tlet (v1 ! [1]) (\\x3 -> tlet (v1 ! [0]) (\\x4 -> tlet (v1 ! [1]) (\\x5 -> tlet ((x2 / x3 + x4 / x5) - 0.0) (\\x6 -> 0.499999985 * x6 - 0.0)))))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -2034,9 +2034,9 @@ fblowupLetPP = do
       fblowupLetT = fblowupLet @(AstRanked FullSpan) @Double 0 1
   let (artifactRev, _) = revArtifactAdapt True fblowupLetT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
-    @?= "\\x7 x1 -> blet (v1 ! [0]) (\\x3 -> blet (v1 ! [1]) (\\x4 -> blet (0.499999985 * x7) (\\x8 -> blet (x8 + x8) (\\x9 -> rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1])))))"
+    @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x3 -> tlet (v1 ! [1]) (\\x4 -> tlet (0.499999985 * x7) (\\x8 -> tlet (x8 + x8) (\\x9 -> rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1])))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 -> blet (v1 ! [0]) (\\x3 -> blet (v1 ! [1]) (\\x4 -> blet (x3 / x4) (\\x5 -> blet ((x5 + x5) - 0.0) (\\x6 -> 0.499999985 * x6 - 0.0))))"
+    @?= "\\x1 -> tlet (v1 ! [0]) (\\x3 -> tlet (v1 ! [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet ((x5 + x5) - 0.0) (\\x6 -> 0.499999985 * x6 - 0.0))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree

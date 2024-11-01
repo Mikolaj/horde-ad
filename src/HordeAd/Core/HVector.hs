@@ -9,8 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepScalar(..), RepProductN(..)
-  , RepShallow, RepDeep, RepD(..)
+  , Rep, RepN(..), RepScalar(..), RepProductN(..), RepDeep, RepD(..)
   , TensorKindFull(..), nullRepDeep, lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
   , DynamicTensor(..)
@@ -104,16 +103,6 @@ instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 type role RepProductN nominal nominal nominal
 newtype RepProductN ranked x y =
   RepProductN {unRepProductN :: Rep ranked (TKProduct x y)}
-
--- This is concrete only in the outermost layer.
-type family RepShallow ranked y = result | result -> ranked y where
-  RepShallow ranked (TKScalar r) = RepScalar ranked r
-  RepShallow ranked (TKR r n) = ranked r n
-  RepShallow ranked (TKS r sh) = ShapedOf ranked r sh
-  RepShallow ranked (TKX r sh) = MixedOf ranked r sh
-  RepShallow ranked (TKProduct x z) =
-    (Rep ranked x, Rep ranked z)
-  RepShallow ranked TKUntyped = HVector ranked
 
 -- This is concrete throughout.
 type family RepDeep ranked y = result | result -> ranked y where

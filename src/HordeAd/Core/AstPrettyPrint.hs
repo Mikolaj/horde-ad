@@ -329,7 +329,7 @@ printAstAux cfg d = \case
               . core
     else
       showParen (d > 10)
-      $ showString "blet "
+      $ showString "tlet "
         . printAst cfg 11 u0
         . showString " "
         . (showParen True

@@ -101,8 +101,8 @@ revDtMaybe
 revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
   let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
-      g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector (fromValue vals0) hvShared
+      g !hv = tlet hv $ \ !hvShared ->
+        f $ parseHVector (fromValue vals0) (repDeepDuplicable stensorKind hvShared)
       valsH = toHVectorOf vals0
       voidH = tshapeFull stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
@@ -133,8 +133,8 @@ revArtifactAdapt
 revArtifactAdapt hasDt f vals0 =
   let g :: Rep (AstRanked FullSpan) (X astvals)
         -> Rep (AstRanked FullSpan) z
-      g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector (fromValue vals0) hvShared
+      g !hv = tlet hv $ \ !hvShared ->
+        f $ parseHVector (fromValue vals0) (repDeepDuplicable stensorKind hvShared)
       valsH = toHVectorOf @ORArray vals0
       voidH = tshapeFull stensorKind valsH
   in revProduceArtifact hasDt g emptyEnv voidH
@@ -216,8 +216,8 @@ fwd
   -> Rep ORArray (ADTensorKind z)
 fwd f vals ds =
   let g :: Rep (AstRanked FullSpan) (X astvals) -> Rep (AstRanked FullSpan) z
-      g !hv = dlet hv $ \ !hvShared ->
-        f $ parseHVector (fromValue vals) hvShared
+      g !hv = tlet hv $ \ !hvShared ->
+        f $ parseHVector (fromValue vals) (repDeepDuplicable stensorKind hvShared)
       valsH = toHVectorOf vals
       voidH = tshapeFull stensorKind valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
@@ -330,7 +330,7 @@ cfwd f vals ds =
       g = f . parseHVector (fromDValue vals) . repDeepDuplicable stensorKind
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- cfwdOnHVector satisfies that via makeADInputs
-        -- TODO: or use dlet as above?
+        -- TODO: or use tlet as above?
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
   in fst $ cfwdOnHVector valsH g $ toADTensorKindShared stensorKind dsH

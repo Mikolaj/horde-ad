@@ -451,40 +451,12 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
   :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
 
 instance AstSpan s => LetTensor (AstRanked s) where
-  dlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (AstRanked s) x
-       -> (RepDeep (AstRanked s) x -> Rep (AstRanked s) z)
-       -> Rep (AstRanked s) z
-  dlet u f = case stensorKind @x of
-    STKScalar{} -> blet u f
-    STKR STKScalar{} _ -> blet u f
-    STKS STKScalar{} _ -> blet u f
-    STKX STKScalar{} _ -> blet u f
-    stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUntyped{} -> tlet u f
-    _ -> error "TODO"
   tlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (AstRanked s) x
-       -> (RepShallow (AstRanked s) x -> Rep (AstRanked s) z)
-       -> Rep (AstRanked s) z
-  tlet u f = case stensorKind @x of
-    STKScalar{} -> blet u f
-    STKR STKScalar{} _ -> blet u f
-    STKS STKScalar{} _ -> blet u f
-    STKX STKScalar{} _ -> blet u f
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUntyped{} ->
-      blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
-    _ -> error "TODO"
-  blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstRanked s) x
        -> (Rep (AstRanked s) x -> Rep (AstRanked s) z)
        -> Rep (AstRanked s) z
-  blet u f = case stensorKind @x of
-    STKScalar{} -> blet (unRepScalar u) (f . RepScalar)
+  tlet u f = case stensorKind @x of
+    STKScalar{} -> tlet (unRepScalar u) (f . RepScalar)
     STKR STKScalar{} _ ->
       rankedY (stensorKind @z)
       $ astLetFun (unAstRanked u)
@@ -535,8 +507,8 @@ instance AstSpan s => LetTensor (AstRanked s) where
     -- when we have Num(AstTensor), this is better:
     --   rankedY stensorKind
     --   $ unRankedY stensorKind t1 + unRankedY stensorKind t2
-    blet t1 $ \ !u1 ->
-    blet t2 $ \ !u2 ->
+    tlet t1 $ \ !u1 ->
+    tlet t2 $ \ !u2 ->
       fromRepD $ addRepD (toRepDDuplicable stk u1)
                          (toRepDDuplicable stk u2)
 
@@ -1406,40 +1378,12 @@ noVectorizeHVectorR =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoVectorize s) where
-  dlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (AstNoVectorize s) x
-       -> (RepDeep (AstNoVectorize s) x -> Rep (AstNoVectorize s) z)
-       -> Rep (AstNoVectorize s) z
-  dlet u f = case stensorKind @x of
-    STKScalar{} -> blet u f
-    STKR STKScalar{} _ -> blet u f
-    STKS STKScalar{} _ -> blet u f
-    STKX STKScalar{} _ -> blet u f
-    stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUntyped{} -> tlet u f
-    _ -> error "TODO"
   tlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (AstNoVectorize s) x
-       -> (RepShallow (AstNoVectorize s) x -> Rep (AstNoVectorize s) z)
-       -> Rep (AstNoVectorize s) z
-  tlet u f = case stensorKind @x of
-    STKScalar{} -> blet u f
-    STKR STKScalar{} _ -> blet u f
-    STKS STKScalar{} _ -> blet u f
-    STKX STKScalar{} _ -> blet u f
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUntyped{} ->
-      blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
-    _ -> error "TODO"
-  blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoVectorize s) x
        -> (Rep (AstNoVectorize s) x -> Rep (AstNoVectorize s) z)
        -> Rep (AstNoVectorize s) z
-  blet u f = case stensorKind @x of
-    STKScalar{} -> blet (unRepScalar u) (f . RepScalar)
+  tlet u f = case stensorKind @x of
+    STKScalar{} -> tlet (unRepScalar u) (f . RepScalar)
     STKR STKScalar{} _ -> noVectorizeY (stensorKind @z)
               $ astLetFun
                   (unAstNoVectorize u)
@@ -1479,8 +1423,8 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
                   $ unAstNoVectorizeWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    blet t1 $ \ !u1 ->
-    blet t2 $ \ !u2 ->
+    tlet t1 $ \ !u1 ->
+    tlet t2 $ \ !u2 ->
       fromRepD $ addRepD (toRepDDuplicable stk u1)
                          (toRepDDuplicable stk u2)
 
@@ -1841,40 +1785,12 @@ noSimplifyHVector =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoSimplify s) where
-  dlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (AstNoSimplify s) x
-       -> (RepDeep (AstNoSimplify s) x -> Rep (AstNoSimplify s) z)
-       -> Rep (AstNoSimplify s) z
-  dlet u f = case stensorKind @x of
-    STKScalar{} -> blet u f
-    STKR STKScalar{} _ -> blet u f
-    STKS STKScalar{} _ -> blet u f
-    STKX STKScalar{} _ -> blet u f
-    stk@STKProduct{} ->
-      blet u $ \ !uShared -> f (repDeepDuplicable stk uShared)
-    STKUntyped{} -> tlet u f
-    _ -> error "TODO"
   tlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (AstNoSimplify s) x
-       -> (RepShallow (AstNoSimplify s) x -> Rep (AstNoSimplify s) z)
-       -> Rep (AstNoSimplify s)  z
-  tlet u f = case stensorKind @x of
-    STKScalar{} -> blet u f
-    STKR STKScalar{} _ -> blet u f
-    STKS STKScalar{} _ -> blet u f
-    STKX STKScalar{} _ -> blet u f
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      blet u $ \ !uShared -> f (tproject1 uShared, tproject2 uShared)
-    STKUntyped{} ->
-      blet u $ \ !uShared -> f $ dunHVector $ unHVectorPseudoTensor uShared
-    _ -> error "TODO"
-  blet :: forall x z. (TensorKind x, TensorKind z)
        => Rep (AstNoSimplify s) x
        -> (Rep (AstNoSimplify s) x -> Rep (AstNoSimplify s) z)
        -> Rep (AstNoSimplify s)  z
-  blet u f = case stensorKind @x of
-    STKScalar{} -> blet (unRepScalar u) (f . RepScalar)
+  tlet u f = case stensorKind @x of
+    STKScalar{} -> tlet (unRepScalar u) (f . RepScalar)
     STKR STKScalar{} _ -> noSimplifyY (stensorKind @z)
               $ astLetFunNoSimplify
                   (unAstNoSimplify u)
@@ -1916,8 +1832,8 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
                   $ unAstNoSimplifyWrap $ unHVectorPseudoTensor t
     _ -> error "TODO"
   taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    blet t1 $ \ !u1 ->
-    blet t2 $ \ !u2 ->
+    tlet t1 $ \ !u1 ->
+    tlet t2 $ \ !u2 ->
       fromRepD $ addRepD (toRepDDuplicable stk u1)
                          (toRepDDuplicable stk u2)
 

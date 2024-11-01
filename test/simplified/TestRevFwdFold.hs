@@ -291,19 +291,19 @@ foo (x, y, z) =
 fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
         => (a, a, a) -> (g a 0, g a 0, g a 0)
 fooRrev (x, y, z) =
-  let fHVector :: forall f. ADReady f => HVector f -> f a 0
-      fHVector v = foo (rfromD $ v V.! 0, rfromD $ v V.! 1, rfromD $ v V.! 2)
+  let fHVector :: forall f. ADReady f => HVectorPseudoTensor f Float '() -> f a 0
+      fHVector v = foo (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 1, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 2)
       sh = []
       zero = voidFromSh @a @0 sh
       shapes = V.fromList [zero, zero, zero]
       domsOf = unHVectorPseudoTensor $ rrev @g fHVector (FTKUntyped shapes)
-                    (V.fromList
+                    (HVectorPseudoTensor $ dmkHVector $ V.fromList
                        [ DynamicRanked $ rconst @g $ Nested.rscalar x
                        , DynamicRanked $ rconst @g $ Nested.rscalar y
                        , DynamicRanked $ rconst @g $ Nested.rscalar z ])
-  in ( tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ v V.! 0)
-     , tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ v V.! 1)
-     , tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ v V.! 2) )
+  in ( tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0)
+     , tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 1)
+     , tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 2) )
 
 testFooRrev :: Assertion
 testFooRrev = do
@@ -322,13 +322,13 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRrev @(AstRanked PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
-    @?= "let h48 = let x12 = sin 2.2 ; x14 = 1.1 * x12 ; x15 = recip (3.3 * 3.3 + x14 * x14) ; x21 = sin 2.2 ; x24 = 3.3 * 1.0 ; x25 = (negate 3.3 * x15) * 1.0 in [x12 * x25 + x21 * x24, cos 2.2 * (1.1 * x25) + cos 2.2 * (1.1 * x24), (x14 * x15) * 1.0 + (1.1 * x21) * 1.0] in rproject h48 0"
+    @?= "let h44 = let x8 = sin 2.2 ; x10 = 1.1 * x8 ; x11 = recip (3.3 * 3.3 + x10 * x10) ; x17 = sin 2.2 ; x20 = 3.3 * 1.0 ; x21 = (negate 3.3 * x11) * 1.0 in [x8 * x21 + x17 * x20, cos 2.2 * (1.1 * x21) + cos 2.2 * (1.1 * x20), (x10 * x11) * 1.0 + (1.1 * x17) * 1.0] in rproject h44 0"
 
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty (simplifyInlineAst a1)
-    @?= "blet (sin 2.2) (\\x60 -> blet (1.1 * x60) (\\x62 -> x60 * ((negate 3.3 * recip (3.3 * 3.3 + x62 * x62)) * 1.0) + sin 2.2 * (3.3 * 1.0)))"
+    @?= "tlet (sin 2.2) (\\x52 -> tlet (1.1 * x52) (\\x54 -> x52 * ((negate 3.3 * recip (3.3 * 3.3 + x54 * x54)) * 1.0) + sin 2.2 * (3.3 * 1.0)))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -1305,7 +1305,7 @@ rscanZip f eShs acc0 es =
          (let g :: forall f. ADReady f
                 => HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
               g acc e =
-               blet
+               tlet
                 (f (rfromD $ acc V.! 0) e)
                 (\res -> tpair (HVectorPseudoTensor $ dmkHVector
                          $ V.fromList
@@ -1313,10 +1313,10 @@ rscanZip f eShs acc0 es =
                              (HVectorPseudoTensor $ dmkHVector
                          $ V.fromList
                              [ DynamicRanked @rn @n @f res ]))
-          in g)
+          in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
          (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked acc0)
          (HVectorPseudoTensor $ dmkHVector es)))
-      (\res -> rappend (rfromList [acc0]) (rfromD $ res V.! 1))
+      (\res -> rappend (rfromList [acc0]) (rfromD $ dunHVector (unHVectorPseudoTensor res) V.! 1))
 
 sscanZip :: forall rn sh k ranked shaped.
             ( GoodScalar rn, KnownShS sh, KnownNat k
@@ -1338,7 +1338,7 @@ sscanZip f eShs acc0 es =
        (let g :: forall f. ADReady f
               => HVector f -> HVector f -> Rep f (TKProduct TKUntyped TKUntyped)
             g acc e =
-             blet
+             tlet
                 (f (sfromD $ acc V.! 0) e)
                 (\res -> tpair (HVectorPseudoTensor $ dmkHVector
                          $ V.fromList
@@ -1346,10 +1346,10 @@ sscanZip f eShs acc0 es =
                              (HVectorPseudoTensor $ dmkHVector
                          $ V.fromList
                              [ DynamicShaped @rn @sh @f res ]))
-        in g)
+        in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
        (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped acc0)
        (HVectorPseudoTensor $ dmkHVector es)))
-    (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ res V.! 1))
+    (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ dunHVector (unHVectorPseudoTensor res) V.! 1))
 
 testSin0ScanD0 :: Assertion
 testSin0ScanD0 = do
@@ -1384,7 +1384,7 @@ testSin0rmapAccumRD0SC = do
                                           (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))
            in f) (srepl 1.1))
@@ -1411,7 +1411,7 @@ testSin0rmapAccumRD0S = do
                                           (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))
            in f) (srepl 1.1))
@@ -1438,7 +1438,7 @@ testSin0rmapAccumRD00SC = do
                                           (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
            in f) (srepl 1.1))
@@ -1465,7 +1465,7 @@ testSin0rmapAccumRD00S0 = do
                                           (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
            in f) (srepl 1.1))
@@ -1493,7 +1493,7 @@ _testSin0rmapAccumRD00S = do
                                           (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
            in f) (srepl 1.1))
@@ -1521,7 +1521,7 @@ _testSin0rmapAccumRD00S7 = do
                                           (HVectorPseudoTensor $ dmkHVector
                                       $ V.fromList
                                           [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
            in f) (srepl 1.1))
@@ -1541,7 +1541,7 @@ testSin0rmapAccumRD00SCacc0 = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))))
                        $ \_ -> srepl 3
@@ -1562,7 +1562,7 @@ testSin0rmapAccumRD00SCacc = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[7]
                            $ sreplicate @_ @7 x0)))
@@ -1584,7 +1584,7 @@ testSin0rmapAccumRD00Sacc0 = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))))
                        $ \_ -> srepl 3
@@ -1605,7 +1605,7 @@ testSin0rmapAccumRD00Sacc = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[7]
                            $ sreplicate @_ @7 x0)))
@@ -1627,7 +1627,7 @@ testSin0rmapAccumRD00SCall0 = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList []))) $ \_ -> sscalar 3
            in f) (srepl 1.1))
@@ -1647,7 +1647,7 @@ testSin0rmapAccumRD00SCall = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList []))) $ \_ -> srepl 3
            in f) (srepl 1.1))
@@ -1667,7 +1667,7 @@ testSin0rmapAccumRD00Sall0 = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList []))) $ \_ -> srepl 3
            in f) (srepl 1.1))
@@ -1687,7 +1687,7 @@ testSin0rmapAccumRD00Sall = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList []))) $ \_ -> srepl 3
            in f) (srepl 1.1))
@@ -1704,7 +1704,7 @@ testSin0rmapAccumRD0RC = do
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (\xh _a ->
-                             let x = rfromD @Double @0 $ xh V.! 0
+                             let x = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor xh) V.! 0
                              in tpair (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicRanked $ sin x ])
@@ -1728,7 +1728,7 @@ testSin0rmapAccumRD0R = do
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                           (\xh _a ->
-                             let x = rfromD @Double @0 $ xh V.! 0
+                             let x = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor xh) V.! 0
                              in tpair (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicRanked $ sin x ])
@@ -1776,7 +1776,7 @@ testSin0rmapAccumRD01SC = do
                                         (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [DynamicShaped x0, DynamicShaped x0])
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[1] (srepl 0))
            in f) (srepl 1.1))
@@ -1805,7 +1805,7 @@ testSin0rmapAccumRD01SN = do
                                         (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[] (srepl 3)
                                       , DynamicShaped x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[1] (srepl 0))
@@ -1833,7 +1833,7 @@ testSin0rmapAccumRD01SN2 = do
                                         (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[1] (srepl 0))
            in rfromS . f . sfromR) 1.1)
@@ -1861,7 +1861,7 @@ testSin0rmapAccumRD01SN3 = do
                                     $ V.fromList
                                         [ DynamicShaped
                                           $ sreplicate @_ @3 (sin x / srepl 3) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped @Double @'[1, 2] (srepl 0))
            in rfromS . f . sfromR) 1.1)
@@ -1895,7 +1895,7 @@ testSin0rmapAccumRD01SN4 = do
                                           $ sreplicate @_ @3 (sin x / srepl 3)
                                         , DynamicShaped
                                           $ sreplicate @_ @3 (sin x / srepl 3) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1, 2] (srepl 0)
                                          , DynamicShaped @Double @'[1, 2] (srepl 0)
@@ -1941,7 +1941,7 @@ testSin0rmapAccumRD01SN5 = do
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
                                               + sin x / srepl 3) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1, 2] (srepl 0)
                                          , DynamicShaped @Double @'[1, 2] (srepl 0)
@@ -1992,7 +1992,7 @@ testSin0rmapAccumRD01SN51 = do
                                              sfromD (a V.! 1)
                                              - sin x1 / sreplicate @_ @3
                                                           (srepl 1 + sfromIndex0 i) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped $ x0 / (srepl 1 + sfromIntegral (sconstant (sfromR j)))
                                       , DynamicShaped $ sreplicate @_ @3 x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 1)
@@ -2041,7 +2041,7 @@ testSin0rmapAccumRD01SN52 = do
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
                                               + sin x / srepl 3) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 1)
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 2)
@@ -2089,7 +2089,7 @@ testSin0rmapAccumRD01SN53 = do
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1)))
                                            + sin x / srepl 3 ])
-                          in g)
+                          in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped (sreplicate @_ @3 x0))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[5, 1] (sreplicate0N $ sscalar 1)
                                       , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 2)
@@ -2138,7 +2138,7 @@ testSin0rmapAccumRD01SN531 = do
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
                                                  (sin x / srepl 3)) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[2, 1]
                                           (ingestData [-0.1, 0.23])
@@ -2193,7 +2193,7 @@ testSin0rmapAccumRD01SN531a = do
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
                                                  (sin x / srepl 3)) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped
                                         $ x0 / (srepl 1 + sreplicate @_ @3 (sfromIntegral (sconstant (sfromR j))))
                                       , DynamicShaped
@@ -2224,12 +2224,12 @@ testSin0rmapAccumRD01SN531b0 = do
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
                                         $ sfromR x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear (fromList [0]) [] ])))))
-                        $ \ !d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
            in f) 1.1)
 
 testSin0rmapAccumRD01SN531bS :: Assertion
@@ -2250,10 +2250,10 @@ testSin0rmapAccumRD01SN531bS = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                g xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ])))))
-                        $ \ !d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
            in rfromS . f . sfromR) 1.1)
 
 testSin0rmapAccumRD01SN531bR :: Assertion
@@ -2274,18 +2274,18 @@ testSin0rmapAccumRD01SN531bR = do
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear (fromList [1]) [0] ])))))
-                        $ \ !d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
            in f) 1.1)
 
 testSin0rmapAccumRD01SN531b0PP :: Assertion
 testSin0rmapAccumRD01SN531b0PP = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => HVector f -> f Double 2
+        => HVectorPseudoTensor f Float '() -> f Double 2
       f x0 = tlet @_ @TKUntyped (HVectorPseudoTensor
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2298,15 +2298,15 @@ testSin0rmapAccumRD01SN531b0PP = do
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[]
-                                        $ sfromD (x0 V.! 0) ])
+                                        $ sfromD (dunHVector (unHVectorPseudoTensor x0) V.! 0) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear (fromList [0]) [] ])))))
-                        $ \ !d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
+      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR))) . HVectorPseudoTensor . dmkHVector
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInline
@@ -2317,7 +2317,7 @@ testSin0rmapAccumRD01SN531bSPP :: Assertion
 testSin0rmapAccumRD01SN531bSPP = do
   resetVarCounter
   let f :: forall f. ADReadyS f
-        => HVector (RankedOf f) -> f Double '[2, 2]
+        => HVectorPseudoTensor  (RankedOf f) Float '() -> f Double '[2, 2]
       f x0 = tlet @_ @TKUntyped (HVectorPseudoTensor
                        (dbuild1 @(RankedOf f) (SNat @2) $ \_i ->
                        (dbuild1 @(RankedOf f) (SNat @2) $ \_j ->
@@ -2330,13 +2330,13 @@ testSin0rmapAccumRD01SN531bSPP = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
-                          (HVectorPseudoTensor $ dmkHVector x0)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
+                          x0
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ])))))
-                        $ \ !d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
       g :: forall g. ADReady g => HVector g -> HVectorOf g
       g = unHVectorPseudoTensor
-          . srev f (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
+          . srev f (FTKUntyped $ V.singleton (voidFromShS @Double @'[])) . HVectorPseudoTensor . dmkHVector
   printAstHVectorPretty
     IM.empty
     (simplifyInline
@@ -2347,7 +2347,7 @@ testSin0rmapAccumRD01SN531bSPPFull :: Assertion
 testSin0rmapAccumRD01SN531bSPPFull = do
   resetVarCounter
   let f :: forall f. ADReadyS f
-        => HVector (RankedOf f) -> f Double '[2, 2]
+        => HVectorPseudoTensor  (RankedOf f) Float '() -> f Double '[2, 2]
       f x0 = tlet @_ @TKUntyped (HVectorPseudoTensor
                        (dbuild1 @(RankedOf f) (SNat @2) $ \_i ->
                        (dbuild1 @(RankedOf f) (SNat @2) $ \_j ->
@@ -2360,13 +2360,13 @@ testSin0rmapAccumRD01SN531bSPPFull = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
-                          (HVectorPseudoTensor $ dmkHVector x0)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
+                          x0
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ])))))
-                        $ \ !d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
       g :: forall g. ADReady g => HVector g -> HVectorOf g
       g = unHVectorPseudoTensor
-          . srev f (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
+          . srev f (FTKUntyped $ V.singleton (voidFromShS @Double @'[])) . HVectorPseudoTensor . dmkHVector
   printAstHVectorPretty
     IM.empty
     (simplifyInline
@@ -2377,7 +2377,7 @@ testSin0rmapAccumRD01SN531bRPP :: Assertion
 testSin0rmapAccumRD01SN531bRPP = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => HVector f -> f Double 2
+        => HVectorPseudoTensor f Float '() -> f Double 2
       f x0 = tlet @_ @TKUntyped (HVectorPseudoTensor
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2390,14 +2390,14 @@ testSin0rmapAccumRD01SN531bRPP = do
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
-                          (HVectorPseudoTensor $ dmkHVector x0)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
+                          x0
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear (fromList [1]) [0] ])))))
-                        $ \ !d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
+      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR))) . HVectorPseudoTensor . dmkHVector
   printAstHVectorSimple
     IM.empty
     (simplifyInline
@@ -2408,7 +2408,7 @@ testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => HVector f -> f Double 2
+        => HVectorPseudoTensor f Float '() -> f Double 2
       f x0 = tlet @_ @TKUntyped (HVectorPseudoTensor
                        (dbuild1 @f (SNat @2) $ \i ->
                        (dbuild1 @f (SNat @2) $ \j ->
@@ -2421,17 +2421,17 @@ testSin0rmapAccumRD01SN531b0PPj = do
                                  -> Rep g (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
                                $ sfromIntegral (sconstant (sfromR (i + j)))
-                                 + sfromD (x0 V.! 0) ])
+                                 + sfromD (dunHVector (unHVectorPseudoTensor x0) V.! 0) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear (fromList [0]) [] ])))))
-                        $ \ !d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
+      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR))) . HVectorPseudoTensor . dmkHVector
   printAstHVectorPretty
     IM.empty
     (simplifyInline
@@ -2442,7 +2442,7 @@ testSin0rmapAccumRD01SN531bSPPj :: Assertion
 testSin0rmapAccumRD01SN531bSPPj = do
   resetVarCounter
   let f :: forall f. ADReadyS f
-        => HVector (RankedOf f) -> f Double '[2, 2]
+        => HVectorPseudoTensor  (RankedOf f) Float '() -> f Double '[2, 2]
       f x0 = tlet @_ @TKUntyped (HVectorPseudoTensor
                        (dbuild1 @(RankedOf f) (SNat @2) $ \i ->
                        (dbuild1 @(RankedOf f) (SNat @2) $ \j ->
@@ -2455,16 +2455,16 @@ testSin0rmapAccumRD01SN531bSPPj = do
                                  -> Rep (RankedOf g) (TKProduct TKUntyped TKUntyped)
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in h)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
                                $ sfromIntegral (sconstant (sfromR (i + j)))
-                                 + sfromD (x0 V.! 0) ])
+                                 + sfromD (dunHVector (unHVectorPseudoTensor x0) V.! 0) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ])))))
-                        $ \ !d -> sfromD $ d V.! 0
+                        $ \ !d -> sfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
       g :: forall g. ADReady g => HVector g -> HVectorOf g
       g = unHVectorPseudoTensor
-          . srev f (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
+          . srev f (FTKUntyped $ V.singleton (voidFromShS @Double @'[])) . HVectorPseudoTensor . dmkHVector
   printAstHVectorPretty
     IM.empty
     (simplifyInline
@@ -2475,7 +2475,7 @@ testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => HVector f -> f Double 2
+        => HVectorPseudoTensor f Float '() -> f Double 2
       f x0 = tlet @_ @TKUntyped (HVectorPseudoTensor
                        (dbuild1 @f (SNat @2) $ \i ->
                        (dbuild1 @f (SNat @2) $ \j ->
@@ -2489,17 +2489,17 @@ testSin0rmapAccumRD01SN531bRPPj = do
                                h xh _a = tpair (HVectorPseudoTensor $ dmkHVector xh)
                                             (HVectorPseudoTensor $ dmkHVector V.empty)
 
-                           in h)
+                           in \x y -> h (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList
                              [ DynamicRanked @Double @0
                                $ rfromIntegral (rconstant (i + j))
-                                 + rfromD (x0 V.! 0) ])
+                                 + rfromD (dunHVector (unHVectorPseudoTensor x0) V.! 0) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear (fromList [1]) [0] ])))))
-                        $ \ !d -> rfromD $ d V.! 0
+                        $ \ !d -> rfromD $ dunHVector (unHVectorPseudoTensor d) V.! 0
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
+      g = unHVectorPseudoTensor . rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR))) . HVectorPseudoTensor . dmkHVector
   printAstHVectorPretty
     IM.empty
     (simplifyInline
@@ -2534,7 +2534,7 @@ testSin0rmapAccumRD01SN531c = do
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ srepl 1 - sin x / srepl 3 - sfromD (a V.! 0) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped
                                         $ x0 / (srepl 1 + sfromIntegral (sconstant (sfromR j))) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
@@ -2568,7 +2568,7 @@ testSin0rmapAccumRD01SN531d = do
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ srepl 1 - sin x / srepl 3 - sfromD (a V.! 0) ])
-                            in g)
+                            in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped
                                         $ x0 / (1 + sfromIntegral (sconstant (sfromR j))) ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
@@ -2599,7 +2599,7 @@ _testSin0rmapAccumRD01SN531Slice = do
                                 in tpair (HVectorPseudoTensor $ dmkHVector
                                    $ V.fromList [ DynamicShaped x ])
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped x0 ])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])))
            in rfromS . f . sfromR) 1.1)
@@ -2628,7 +2628,7 @@ testSin0rmapAccumRD01SN54 = do
                                         [ DynamicShaped
                                           $ sin x - sfromD (a V.! 2) ])
                                            (HVectorPseudoTensor $ dmkHVector V.empty)
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped (sreplicate @_ @3 x0))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[5, 1] (sreplicate0N $ sscalar 1)
                                       , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 2)
@@ -2675,7 +2675,7 @@ _testSin0rmapAccumRD01SN55 = do
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 0)))
                                            + sin x / srepl 3 ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped (sreplicate @_ @3 x0))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
            in rfromS . f . sfromR) 1.1)
@@ -2724,7 +2724,7 @@ testSin0rmapAccumRD01SN55acc = do
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
                                                  (sin x / sreplicate0N (sscalar 3))) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [])
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[2, 1]
                                           (ingestData [-0.1, 0.23])
@@ -2755,7 +2755,7 @@ testSin0rmapAccumRD01SN56 = do
                                             (HVectorPseudoTensor $ dmkHVector
                                     $ V.fromList
                                         [ DynamicShaped $ sin x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [DynamicShaped @Double @'[2] (srepl 0)])
            in rfromS . f . sfromR) 1.1)
@@ -2781,7 +2781,7 @@ testSin0rmapAccumRD01SN57 = do
                                         [ DynamicShaped $ sin x])
                                            (HVectorPseudoTensor $ dmkHVector
                                         [ DynamicShaped x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [DynamicShaped @Double @'[2] (srepl 0)])
            in f) (srepl 1.1) (srepl 1.1))
@@ -2807,7 +2807,7 @@ testSin0rmapAccumRD01SN58 = do
                                         [ DynamicShaped @Double @'[] (sscalar 1)])
                                            (HVectorPseudoTensor $ dmkHVector
                                       [ DynamicShaped x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [DynamicShaped @Double @'[5] (srepl 0)])
            in f) (srepl 1.1) (srepl 1.1))
@@ -2833,7 +2833,7 @@ testSin0rmapAccumRD01SN59 = do
                                         [ DynamicShaped @Double @'[] (sscalar 1) ])
                                        (HVectorPseudoTensor $ dmkHVector
                                         [ DynamicShaped x ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [DynamicShaped @Double @'[1] (srepl 0)])
            in f) (srepl 1.1) (srepl 1.1))
@@ -2877,7 +2877,7 @@ testSin0rmapAccumRD01SN6 = do
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
                                               + sin x / srepl 3) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
@@ -2926,7 +2926,7 @@ testSin0rmapAccumRD01SN7 = do
                                          $ sreplicate @_ @3
                                              (ssum @_ @_ @2 (sfromD (a V.! 1))
                                               + sin x / srepl 6) ])
-                           in g)
+                           in \x y -> g (dunHVector (unHVectorPseudoTensor x)) (dunHVector (unHVectorPseudoTensor y)))
                           (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicShaped x0)
                           (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
@@ -3115,16 +3115,16 @@ testSin0ScanD8MapAccum = do
                       [voidFromSh @Double (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                    (FTKUntyped $ V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZSR)])
                    (let g :: forall g. ADReady g
-                          => HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
+                          => HVectorPseudoTensor g Float '() -> HVectorPseudoTensor g Float '() -> Rep g (TKProduct TKUntyped TKUntyped)
                         g xh a =
-                         let x = rfromD @Double @5 $ xh V.! 0
+                         let x = rfromD @Double @5 $ dunHVector (unHVectorPseudoTensor xh) V.! 0
                          in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
                                $ rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
-                                                     (rsum . rreplicate 7) a)))
+                                                     (rsum . rreplicate 7) (dunHVector (unHVectorPseudoTensor a)))))
                                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked x)
                     in g)
                       (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
@@ -3350,16 +3350,16 @@ testSin0ScanD8fwdMapAccum = do
                    (FTKUntyped $ V.fromList [voidFromSh @Double (2 :$: 5 :$: ZSR)])
                    (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
                    (let g :: forall g. ADReady g
-                          => HVector g -> HVector g -> Rep g (TKProduct TKUntyped TKUntyped)
+                          => HVectorPseudoTensor g Float '() -> HVectorPseudoTensor g Float '() -> Rep g (TKProduct TKUntyped TKUntyped)
                         g xh a =
-                         let x = rfromD @Double @2 $ xh V.! 0
+                         let x = rfromD @Double @2 $ dunHVector (unHVectorPseudoTensor xh) V.! 0
                          in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
                                $ rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rfromD $ (V.! 0)
                                                  $ mapHVectorRanked
-                                                     (rsum . rreplicate 7) a)))
+                                                     (rsum . rreplicate 7) (dunHVector (unHVectorPseudoTensor a)))))
                                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked x)
                     in g)
                       (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked
@@ -3404,9 +3404,9 @@ testSin0FoldNestedS1PP = do
                   z (sreplicate @_ @11 z)
       g :: forall g. ADReady g => HVector g -> HVectorOf g
       g x = unHVectorPseudoTensor $
-            srev (\v -> f (sfromD $ v V.! 0))
+            srev (\v -> f (sfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   printAstHVectorPretty
     IM.empty
     (g @(AstRanked PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
@@ -3423,9 +3423,9 @@ testSin0FoldNestedR1PP = do
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
       g x = unHVectorPseudoTensor
-            $ rrev (\v -> f (rfromD $ v V.! 0))
+            $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                    (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                   x
+                   (HVectorPseudoTensor $ dmkHVector x)
   printAstHVectorPretty
     IM.empty
     (g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
@@ -3442,9 +3442,9 @@ testSin0FoldNestedR1SimpPP = do
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
       g x = unHVectorPseudoTensor
-            $ rrev (\v -> f (rfromD $ v V.! 0))
+            $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                    (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                   x
+                   (HVectorPseudoTensor $ dmkHVector x)
   printAstHVectorPretty
     IM.empty
     (simplifyInline
@@ -3462,9 +3462,9 @@ testSin0FoldNestedR1SimpNestedPP = do
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
       g x = unHVectorPseudoTensor
-            $ rrev (\v -> f (rfromD $ v V.! 0))
+            $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                    (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                   x
+                   (HVectorPseudoTensor $ dmkHVector x)
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInline
@@ -3479,9 +3479,9 @@ testSin0FoldNestedR0LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
       IM.empty
@@ -3499,9 +3499,9 @@ testSin0FoldNestedR1LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
       IM.empty
@@ -3521,9 +3521,9 @@ testSin0FoldNestedR2LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
        IM.empty
@@ -3545,9 +3545,9 @@ testSin0FoldNestedR3LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
        IM.empty
@@ -3572,9 +3572,9 @@ _testSin0FoldNestedR4LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
        IM.empty
@@ -3600,9 +3600,9 @@ _testSin0FoldNestedR5LengthPPs = do
                   z (rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
        IM.empty
@@ -3624,9 +3624,9 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
                   z (rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
        IM.empty
@@ -3676,25 +3676,25 @@ testSin0MapAccumNestedR1PP = do
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
                dmapAccumL Proxy (SNat @2) shs1 she shs1
-                     (\x2 a2 -> let y = rfromD @Double @0 $ x2 V.! 0
-                                    w = rfromD @Double @0 $ a2 V.! 0
+                     (\x2 a2 -> let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x2) V.! 0
+                                    w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a2) V.! 0
                                 in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   printAstHVectorPrettyButNested
     IM.empty
     (simplifyInline
      $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "let h15 = dmapAccumRDer (SNat @2) (\\h19 -> let h30 = dmapAccumRDer (SNat @2) (\\h31 -> let x38 = cos (rproject (tproject2 (tproject2 (tproject2 h31))) 0) in tpair ([rproject (tproject1 h31) 0], [recip (x38 * x38) * rproject (tproject1 h31) 0])) (\\h39 -> let x51 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h39)))) 0) ; x52 = x51 * x51 ; x53 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h39)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h39)))) 0)) in tpair ([rproject (tproject1 (tproject1 h39)) 0], [((x53 * x51 + x53 * x51) * negate (recip (x52 * x52))) * rproject (tproject1 (tproject2 h39)) 0 + rproject (tproject1 (tproject1 h39)) 0 * recip x52])) (\\h54 -> let x63 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h54)))) 0) ; x64 = x63 * x63 ; x65 = negate (recip (x64 * x64)) * (rproject (tproject1 (tproject2 h54)) 0 * rproject (tproject2 (tproject1 h54)) 0) in tpair ([recip x64 * rproject (tproject2 (tproject1 h54)) 0 + rproject (tproject1 (tproject1 h54)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h54)))) 0)) * (x63 * x65 + x63 * x65)])))) [rproject (tproject1 h19) 0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h66 -> tpair ([rproject (tproject1 h66) 0 + tan (rproject (tproject2 h66) 0)], tpair (tproject1 h66, []))) (\\h73 -> let x86 = cos (rproject (tproject2 (tproject2 h73)) 0) in tpair ([rproject (tproject1 (tproject1 h73)) 0 + rproject (tproject2 (tproject1 h73)) 0 * recip (x86 * x86)], tpair (tproject1 (tproject1 h73), []))) (\\h87 -> let x93 = cos (rproject (tproject2 (tproject2 h87)) 0) in tpair ([rproject (tproject1 (tproject1 h87)) 0 + rproject (tproject1 (tproject2 (tproject1 h87))) 0], [recip (x93 * x93) * rproject (tproject1 (tproject1 h87)) 0])) [rproject (tproject2 (tproject2 (tproject2 h19))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 h19))) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 h19))) 0)]))) in tpair ([rsum (rproject (tproject2 h30) 0)], [rproject (tproject1 h30) 0])) (\\h94 -> let h98 = dmapAccumLDer (SNat @2) (\\h119 -> tpair ([rproject (tproject1 h119) 0 + tan (rproject (tproject2 h119) 0)], tpair (tproject1 h119, tpair (tproject1 h119, [])))) (\\h126 -> let x129 = cos (rproject (tproject2 (tproject2 h126)) 0) in tpair ([rproject (tproject1 (tproject1 h126)) 0 + rproject (tproject2 (tproject1 h126)) 0 * recip (x129 * x129)], tpair (tproject1 (tproject1 h126), tpair (tproject1 (tproject1 h126), [])))) (\\h135 -> let x138 = cos (rproject (tproject2 (tproject2 h135)) 0) in tpair ([rproject (tproject1 (tproject2 (tproject1 h135))) 0 + rproject (tproject1 (tproject1 h135)) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h135)))) 0], [recip (x138 * x138) * rproject (tproject1 (tproject1 h135)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h94)))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)] ; h114 = dmapAccumRDer (SNat @2) (\\h144 -> let x149 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h144))))) 0) ; x150 = x149 * x149 ; x151 = rproject (tproject2 (tproject2 (tproject1 (tproject2 h144)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h144))))) 0)) in tpair ([rproject (tproject1 h144) 0], [((x151 * x149 + x151 * x149) * negate (recip (x150 * x150))) * rproject (tproject1 (tproject2 (tproject2 h144))) 0 + rproject (tproject1 h144) 0 * recip x150])) (\\h152 -> let x158 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0) ; x159 = x158 * x158 ; x160 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0)) ; x161 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h152))))) 0 * x160 ; x162 = x159 * x159 ; x163 = x161 * x158 + x161 * x158 ; x164 = negate (recip x162) ; x169 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 h152))))) 0 * x160 + ((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h152)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0)) * -1.0) * rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h152))))) 0 ; x170 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h152)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0)) ; x174 = x170 * x158 + x170 * x158 in tpair ([rproject (tproject1 (tproject1 h152)) 0], [((x169 * x158 + x170 * x161 + x169 * x158 + x170 * x161) * x164 + (((x174 * x159 + x174 * x159) * negate (recip (x162 * x162))) * -1.0) * x163) * rproject (tproject1 (tproject2 (tproject2 (tproject2 h152)))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h152)))) 0 * (x163 * x164) + rproject (tproject1 (tproject1 h152)) 0 * recip x159 + (x174 * negate (recip (x159 * x159))) * rproject (tproject1 (tproject2 h152)) 0])) (\\h183 -> let x188 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0) ; x189 = x188 * x188 ; x190 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0)) ; x191 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h183))))) 0 * x190 ; x192 = x189 * x189 ; x193 = x191 * x188 + x191 * x188 ; x194 = negate (recip x192) ; x198 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h183)))) 0 * rproject (tproject2 (tproject1 h183)) 0 ; x199 = negate (recip (x192 * x192)) * (-1.0 * (x193 * x198)) ; x200 = x194 * x198 ; x201 = x188 * x200 + x188 * x200 ; x202 = x189 * x199 + x189 * x199 + negate (recip (x189 * x189)) * (rproject (tproject1 (tproject2 h183)) 0 * rproject (tproject2 (tproject1 h183)) 0) in tpair ([recip x189 * rproject (tproject2 (tproject1 h183)) 0 + rproject (tproject1 (tproject1 h183)) 0], tpair (tpair ([], tpair ([0], [x190 * x201])), tpair ([(x193 * x194) * rproject (tproject2 (tproject1 h183)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0)) * (x188 * x202 + x188 * x202 + x191 * x200 + x191 * x200) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0) * (-1.0 * (rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h183))))) 0 * x201))])))))) [rproject (tproject1 (tproject1 h94)) 0] (tpair (tpair ([], tpair ([rproject (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h203 -> let x204 = cos (rproject (tproject2 (tproject2 (tproject2 h203))) 0) in tpair ([rproject (tproject1 h203) 0 + rproject (tproject1 (tproject2 h203)) 0 * recip (x204 * x204)], tpair ([rproject (tproject1 h203) 0], []))) (\\h205 -> let x209 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h205)))) 0) ; x210 = x209 * x209 ; x212 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h205)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h205)))) 0)) in tpair ([rproject (tproject1 (tproject1 h205)) 0 + rproject (tproject1 (tproject2 (tproject1 h205))) 0 * recip x210 + ((x212 * x209 + x212 * x209) * negate (recip (x210 * x210))) * rproject (tproject1 (tproject2 (tproject2 h205))) 0], tpair ([rproject (tproject1 (tproject1 h205)) 0], []))) (\\h217 -> let x220 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h217)))) 0) ; x221 = x220 * x220 ; x224 = negate (recip (x221 * x221)) * (rproject (tproject1 (tproject2 (tproject2 h217))) 0 * rproject (tproject1 (tproject1 h217)) 0) in tpair ([rproject (tproject1 (tproject1 h217)) 0 + rproject (tproject1 (tproject2 (tproject1 h217))) 0], tpair ([recip x221 * rproject (tproject1 (tproject1 h217)) 0], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h217)))) 0)) * (x220 * x224 + x220 * x224)])))) [rproject (tproject2 (tproject2 (tproject2 (tproject1 h94)))) 0] (tpair ([rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h94)))) 0)], tpair (tproject1 (tproject2 h98), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)])))))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h94)))) 0)])), tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @2) (\\h225 -> let x228 = cos (rproject (tproject2 (tproject2 (tproject2 h225))) 0) in tpair ([rproject (tproject1 h225) 0], tpair (tproject1 h225, [recip (x228 * x228) * rproject (tproject1 h225) 0]))) (\\h232 -> let h236 = let x233 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h232)))) 0) ; x234 = x233 * x233 ; x235 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h232)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h232)))) 0)) in tpair ([rproject (tproject1 (tproject1 h232)) 0], [((x235 * x233 + x235 * x233) * negate (recip (x234 * x234))) * rproject (tproject1 (tproject2 h232)) 0 + rproject (tproject1 (tproject1 h232)) 0 * recip x234]) in tpair (tproject1 h236, tpair (tproject1 (tproject1 h232), tproject2 h236))) (\\h237 -> let h245 = let x242 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h237)))) 0) ; x243 = x242 * x242 ; x244 = negate (recip (x243 * x243)) * (rproject (tproject1 (tproject2 h237)) 0 * rproject (tproject2 (tproject2 (tproject1 h237))) 0) in tpair ([recip x243 * rproject (tproject2 (tproject2 (tproject1 h237))) 0 + rproject (tproject1 (tproject1 h237)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h237)))) 0)) * (x242 * x244 + x242 * x244)]))) in tpair ([rproject (tproject1 h245) 0 + rproject (tproject1 (tproject2 (tproject1 h237))) 0], tproject2 h245)) [rproject (tproject1 (tproject2 h94)) 0] (tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h98))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)]))))), tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h98))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)]))))) in tpair ([rsum (rproject (tproject2 h114) 0)], [rproject (tproject1 h114) 0])) (\\h246 -> let h249 = dmapAccumLDer (SNat @2) (\\h274 -> tpair ([rproject (tproject1 h274) 0 + tan (rproject (tproject2 h274) 0)], tpair (tproject1 h274, tpair (tproject1 h274, [])))) (\\h281 -> let x284 = cos (rproject (tproject2 (tproject2 h281)) 0) in tpair ([rproject (tproject1 (tproject1 h281)) 0 + rproject (tproject2 (tproject1 h281)) 0 * recip (x284 * x284)], tpair (tproject1 (tproject1 h281), tpair (tproject1 (tproject1 h281), [])))) (\\h290 -> let x293 = cos (rproject (tproject2 (tproject2 h290)) 0) in tpair ([rproject (tproject1 (tproject2 (tproject1 h290))) 0 + rproject (tproject1 (tproject1 h290)) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h290)))) 0], [recip (x293 * x293) * rproject (tproject1 (tproject1 h290)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h246)))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)] ; h263 = dmapAccumLDer (SNat @2) (\\h299 -> let x304 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h299))))) 0) ; x305 = x304 * x304 ; x306 = negate (recip (x305 * x305)) * (rproject (tproject1 (tproject2 (tproject2 h299))) 0 * rproject (tproject1 (tproject2 h299)) 0) in tpair ([recip x305 * rproject (tproject1 (tproject2 h299)) 0 + rproject (tproject1 h299) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h299))))) 0)) * (x304 * x306 + x304 * x306)])))) (\\h307 -> let x313 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0) ; x314 = x313 * x313 ; x315 = x314 * x314 ; x316 = negate (recip x315) ; x317 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h307)))) 0 * rproject (tproject1 (tproject2 (tproject2 h307))) 0 ; x318 = x316 * x317 ; x322 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h307)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0)) ; x323 = x322 * x313 + x322 * x313 ; x333 = (((x323 * x314 + x323 * x314) * negate (recip (x315 * x315))) * -1.0) * x317 + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h307)))) 0 * rproject (tproject1 (tproject2 (tproject2 h307))) 0 + rproject (tproject1 (tproject2 (tproject1 h307))) 0 * rproject (tproject1 (tproject2 (tproject2 (tproject2 h307)))) 0) * x316 in tpair ([rproject (tproject1 (tproject1 h307)) 0 + (x323 * negate (recip (x314 * x314))) * rproject (tproject1 (tproject2 (tproject2 h307))) 0 + rproject (tproject1 (tproject2 (tproject1 h307))) 0 * recip x314], tpair ([], tpair ([0.0], [((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h307)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0)) * -1.0) * (x313 * x318 + x313 * x318) + (x322 * x318 + x333 * x313 + x322 * x318 + x333 * x313) * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0))])))) (\\h338 -> let x343 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0) ; x344 = x343 * x343 ; x345 = x344 * x344 ; x346 = negate (recip x345) ; x347 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h338)))) 0 * rproject (tproject1 (tproject2 (tproject2 h338))) 0 ; x348 = x346 * x347 ; x353 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0)) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h338)))) 0 ; x354 = x343 * x353 + x343 * x353 ; x355 = x346 * x354 ; x356 = negate (recip (x345 * x345)) * (-1.0 * (x347 * x354)) ; x357 = x344 * x356 + x344 * x356 + negate (recip (x344 * x344)) * (rproject (tproject1 (tproject2 (tproject2 h338))) 0 * rproject (tproject1 (tproject1 h338)) 0) in tpair ([rproject (tproject1 (tproject1 h338)) 0], tpair ([rproject (tproject1 (tproject2 (tproject2 (tproject2 h338)))) 0 * x355 + recip x344 * rproject (tproject1 (tproject1 h338)) 0], tpair ([rproject (tproject1 (tproject2 (tproject2 h338))) 0 * x355], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0)) * (x343 * x357 + x343 * x357 + x348 * x353 + x348 * x353) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0) * (-1.0 * ((x343 * x348 + x343 * x348) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h338)))) 0))])))))) [0.0 + rproject (tproject2 (tproject1 h246)) 0] (tpair ([rconst (rfromListLinear [2] [0.0,0.0]) + rreplicate 2 (rproject (tproject1 (tproject1 h246)) 0)], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @2) (\\h358 -> let x361 = cos (rproject (tproject2 (tproject2 (tproject2 h358))) 0) in tpair ([rproject (tproject1 h358) 0], tpair (tproject1 h358, [recip (x361 * x361) * rproject (tproject1 h358) 0]))) (\\h365 -> let h373 = let x370 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h365)))) 0) ; x371 = x370 * x370 ; x372 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h365)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h365)))) 0)) in tpair ([rproject (tproject1 (tproject1 h365)) 0], [((x372 * x370 + x372 * x370) * negate (recip (x371 * x371))) * rproject (tproject1 (tproject2 h365)) 0 + rproject (tproject1 (tproject1 h365)) 0 * recip x371]) in tpair (tproject1 h373, tpair (tproject1 (tproject1 h365), tproject2 h373))) (\\h374 -> let h378 = let x375 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h374)))) 0) ; x376 = x375 * x375 ; x377 = negate (recip (x376 * x376)) * (rproject (tproject1 (tproject2 h374)) 0 * rproject (tproject2 (tproject2 (tproject1 h374))) 0) in tpair ([recip x376 * rproject (tproject2 (tproject2 (tproject1 h374))) 0 + rproject (tproject1 (tproject1 h374)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h374)))) 0)) * (x375 * x377 + x375 * x377)]))) in tpair ([rproject (tproject1 h378) 0 + rproject (tproject1 (tproject2 (tproject1 h374))) 0], tproject2 h378)) [rproject (tproject1 (tproject2 h246)) 0] (tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h249))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)]))))), tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h249))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)]))))) ; h270 = dmapAccumRDer (SNat @2) (\\h379 -> let x380 = cos (rproject (tproject2 (tproject2 (tproject2 h379))) 0) in tpair ([rproject (tproject1 h379) 0 + rproject (tproject1 (tproject1 (tproject2 h379))) 0], [recip (x380 * x380) * rproject (tproject1 h379) 0])) (\\h381 -> let x385 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h381)))) 0) ; x386 = x385 * x385 ; x389 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h381)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h381)))) 0)) in tpair ([rproject (tproject1 (tproject1 h381)) 0 + rproject (tproject1 (tproject1 (tproject2 (tproject1 h381)))) 0], [((x389 * x385 + x389 * x385) * negate (recip (x386 * x386))) * rproject (tproject1 (tproject2 h381)) 0 + rproject (tproject1 (tproject1 h381)) 0 * recip x386])) (\\h393 -> let x396 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h393)))) 0) ; x397 = x396 * x396 ; x400 = negate (recip (x397 * x397)) * (rproject (tproject1 (tproject2 h393)) 0 * rproject (tproject2 (tproject1 h393)) 0) in tpair ([rproject (tproject1 (tproject1 h393)) 0 + recip x397 * rproject (tproject2 (tproject1 h393)) 0], tpair (tpair ([rproject (tproject1 (tproject1 h393)) 0], []), tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h393)))) 0)) * (x396 * x400 + x396 * x400)])))) [0.0] (tpair (tpair ([rproject (tproject1 (tproject2 (tproject2 h263))) 0], []), tpair (tproject1 (tproject2 h249), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)]))) in tpair ([rproject (tproject1 h263) 0], tpair ([], tpair ([rsum (rproject (tproject2 h270) 0) + rsum (rproject (tproject2 (tproject2 (tproject2 h263))) 0)], [rproject (tproject1 h270) 0])))) [1.0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h401 -> let h403 = dmapAccumLDer (SNat @2) (\\h404 -> tpair ([rproject (tproject1 h404) 0 + tan (rproject (tproject2 h404) 0)], [])) (\\h406 -> let x413 = cos (rproject (tproject2 (tproject2 h406)) 0) in tpair ([rproject (tproject1 (tproject1 h406)) 0 + rproject (tproject2 (tproject1 h406)) 0 * recip (x413 * x413)], [])) (\\h414 -> let x419 = cos (rproject (tproject2 (tproject2 h414)) 0) in tpair ([rproject (tproject1 (tproject1 h414)) 0], [recip (x419 * x419) * rproject (tproject1 (tproject1 h414)) 0])) [rproject (tproject2 h401) 0] [rreplicate 2 (rproject (tproject1 h401) 0)] in tpair (tproject1 h403, tpair (tproject1 h401, tproject2 h403))) (\\h420 -> tpair ([rproject (tproject1 (dmapAccumLDer (SNat @2) (\\h435 -> let x444 = cos (rproject (tproject2 (tproject2 (tproject2 h435))) 0) in tpair ([rproject (tproject1 h435) 0 + rproject (tproject1 (tproject2 h435)) 0 * recip (x444 * x444)], [])) (\\h445 -> let x458 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h445)))) 0) ; x459 = x458 * x458 ; x460 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h445)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h445)))) 0)) in tpair ([rproject (tproject1 (tproject1 h445)) 0 + rproject (tproject1 (tproject2 (tproject1 h445))) 0 * recip x459 + ((x460 * x458 + x460 * x458) * negate (recip (x459 * x459))) * rproject (tproject1 (tproject2 (tproject2 h445))) 0], [])) (\\h461 -> let x470 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h461)))) 0) ; x471 = x470 * x470 ; x472 = negate (recip (x471 * x471)) * (rproject (tproject1 (tproject2 (tproject2 h461))) 0 * rproject (tproject1 (tproject1 h461)) 0) in tpair ([rproject (tproject1 (tproject1 h461)) 0], tpair ([recip x471 * rproject (tproject1 (tproject1 h461)) 0], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h461)))) 0)) * (x470 * x472 + x470 * x472)])))) [rproject (tproject2 (tproject1 h420)) 0] (tpair ([rreplicate 2 (rproject (tproject1 (tproject1 h420)) 0)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h473 -> tpair ([rproject (tproject1 h473) 0 + tan (rproject (tproject2 h473) 0)], tpair (tproject1 h473, []))) (\\h480 -> let x487 = cos (rproject (tproject2 (tproject2 h480)) 0) in tpair ([rproject (tproject1 (tproject1 h480)) 0 + rproject (tproject2 (tproject1 h480)) 0 * recip (x487 * x487)], tpair (tproject1 (tproject1 h480), []))) (\\h488 -> let x498 = cos (rproject (tproject2 (tproject2 h488)) 0) in tpair ([rproject (tproject1 (tproject1 h488)) 0 + rproject (tproject1 (tproject2 (tproject1 h488))) 0], [recip (x498 * x498) * rproject (tproject1 (tproject1 h488)) 0])) [rproject (tproject2 (tproject2 h420)) 0] [rreplicate 2 (rproject (tproject1 (tproject2 h420)) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 h420)) 0)]))))) 0], tpair (tproject1 (tproject1 h420), []))) (\\h499 -> let h500 = dmapAccumRDer (SNat @2) (\\h504 -> let x505 = cos (rproject (tproject2 (tproject2 (tproject2 h504))) 0) in tpair ([rproject (tproject1 h504) 0], [recip (x505 * x505) * rproject (tproject1 h504) 0])) (\\h506 -> let x507 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h506)))) 0) ; x508 = x507 * x507 ; x509 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h506)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h506)))) 0)) in tpair ([rproject (tproject1 (tproject1 h506)) 0], [((x509 * x507 + x509 * x507) * negate (recip (x508 * x508))) * rproject (tproject1 (tproject2 h506)) 0 + rproject (tproject1 (tproject1 h506)) 0 * recip x508])) (\\h510 -> let x511 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h510)))) 0) ; x512 = x511 * x511 ; x513 = negate (recip (x512 * x512)) * (rproject (tproject1 (tproject2 h510)) 0 * rproject (tproject2 (tproject1 h510)) 0) in tpair ([recip x512 * rproject (tproject2 (tproject1 h510)) 0 + rproject (tproject1 (tproject1 h510)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h510)))) 0)) * (x511 * x513 + x511 * x513)])))) [rproject (tproject1 (tproject1 h499)) 0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h514 -> tpair ([rproject (tproject1 h514) 0 + tan (rproject (tproject2 h514) 0)], tpair (tproject1 h514, []))) (\\h515 -> let x516 = cos (rproject (tproject2 (tproject2 h515)) 0) in tpair ([rproject (tproject1 (tproject1 h515)) 0 + rproject (tproject2 (tproject1 h515)) 0 * recip (x516 * x516)], tpair (tproject1 (tproject1 h515), []))) (\\h517 -> let x518 = cos (rproject (tproject2 (tproject2 h517)) 0) in tpair ([rproject (tproject1 (tproject1 h517)) 0 + rproject (tproject1 (tproject2 (tproject1 h517))) 0], [recip (x518 * x518) * rproject (tproject1 (tproject1 h517)) 0])) [rproject (tproject2 (tproject2 h499)) 0] [rreplicate 2 (rproject (tproject1 (tproject2 h499)) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 h499)) 0)]))) in tpair ([rsum (rproject (tproject2 h500) 0) + rproject (tproject1 (tproject2 (tproject1 h499))) 0], [rproject (tproject1 h500) 0])) [1.1] [rreplicate 2 1.1])), [rreplicate 2 1.1]))) in [rsum (rproject (tproject2 h15) 0) + rproject (tproject1 h15) 0]"
+    @?= "let h15 = dmapAccumRDer (SNat @2) (\\h19 -> let h30 = dmapAccumRDer (SNat @2) (\\h31 -> let x38 = cos (rproject (tproject2 (tproject2 (tproject2 h31))) 0) in tpair ([rproject (tproject1 h31) 0], [recip (x38 * x38) * rproject (tproject1 h31) 0])) (\\h39 -> let x51 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h39)))) 0) ; x52 = x51 * x51 ; x53 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h39)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h39)))) 0)) in tpair ([rproject (tproject1 (tproject1 h39)) 0], [((x53 * x51 + x53 * x51) * negate (recip (x52 * x52))) * rproject (tproject1 (tproject2 h39)) 0 + rproject (tproject1 (tproject1 h39)) 0 * recip x52])) (\\h54 -> let x63 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h54)))) 0) ; x64 = x63 * x63 ; x65 = negate (recip (x64 * x64)) * (rproject (tproject1 (tproject2 h54)) 0 * rproject (tproject2 (tproject1 h54)) 0) in tpair ([recip x64 * rproject (tproject2 (tproject1 h54)) 0 + rproject (tproject1 (tproject1 h54)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h54)))) 0)) * (x63 * x65 + x63 * x65)])))) [rproject (tproject1 h19) 0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h66 -> tpair ([rproject (tproject1 h66) 0 + tan (rproject (tproject2 h66) 0)], tpair (tproject1 h66, []))) (\\h73 -> let x86 = cos (rproject (tproject2 (tproject2 h73)) 0) in tpair ([rproject (tproject1 (tproject1 h73)) 0 + rproject (tproject2 (tproject1 h73)) 0 * recip (x86 * x86)], tpair (tproject1 (tproject1 h73), []))) (\\h87 -> let x93 = cos (rproject (tproject2 (tproject2 h87)) 0) in tpair ([rproject (tproject1 (tproject1 h87)) 0 + rproject (tproject1 (tproject2 (tproject1 h87))) 0], [recip (x93 * x93) * rproject (tproject1 (tproject1 h87)) 0])) [rproject (tproject2 (tproject2 (tproject2 h19))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 h19))) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 h19))) 0)]))) in tpair ([rsum (rproject (tproject2 h30) 0)], [rproject (tproject1 h30) 0])) (\\h94 -> let h98 = dmapAccumLDer (SNat @2) (\\h119 -> tpair ([rproject (tproject1 h119) 0 + tan (rproject (tproject2 h119) 0)], tpair (tproject1 h119, tpair (tproject1 h119, [])))) (\\h126 -> let x129 = cos (rproject (tproject2 (tproject2 h126)) 0) in tpair ([rproject (tproject1 (tproject1 h126)) 0 + rproject (tproject2 (tproject1 h126)) 0 * recip (x129 * x129)], tpair (tproject1 (tproject1 h126), tpair (tproject1 (tproject1 h126), [])))) (\\h135 -> let x138 = cos (rproject (tproject2 (tproject2 h135)) 0) in tpair ([rproject (tproject1 (tproject2 (tproject1 h135))) 0 + rproject (tproject1 (tproject1 h135)) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h135)))) 0], [recip (x138 * x138) * rproject (tproject1 (tproject1 h135)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h94)))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)] ; h114 = dmapAccumRDer (SNat @2) (\\h144 -> let x149 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h144))))) 0) ; x150 = x149 * x149 ; x151 = rproject (tproject2 (tproject2 (tproject1 (tproject2 h144)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h144))))) 0)) in tpair ([rproject (tproject1 h144) 0], [((x151 * x149 + x151 * x149) * negate (recip (x150 * x150))) * rproject (tproject1 (tproject2 (tproject2 h144))) 0 + rproject (tproject1 h144) 0 * recip x150])) (\\h152 -> let x158 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0) ; x159 = x158 * x158 ; x160 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0)) ; x161 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h152))))) 0 * x160 ; x162 = x159 * x159 ; x163 = x161 * x158 + x161 * x158 ; x164 = negate (recip x162) ; x169 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 h152))))) 0 * x160 + ((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h152)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0)) * -1.0) * rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h152))))) 0 ; x170 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h152)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h152)))))) 0)) ; x174 = x170 * x158 + x170 * x158 in tpair ([rproject (tproject1 (tproject1 h152)) 0], [((x169 * x158 + x170 * x161 + x169 * x158 + x170 * x161) * x164 + (((x174 * x159 + x174 * x159) * negate (recip (x162 * x162))) * -1.0) * x163) * rproject (tproject1 (tproject2 (tproject2 (tproject2 h152)))) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h152)))) 0 * (x163 * x164) + rproject (tproject1 (tproject1 h152)) 0 * recip x159 + (x174 * negate (recip (x159 * x159))) * rproject (tproject1 (tproject2 h152)) 0])) (\\h183 -> let x188 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0) ; x189 = x188 * x188 ; x190 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0)) ; x191 = rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h183))))) 0 * x190 ; x192 = x189 * x189 ; x193 = x191 * x188 + x191 * x188 ; x194 = negate (recip x192) ; x198 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h183)))) 0 * rproject (tproject2 (tproject1 h183)) 0 ; x199 = negate (recip (x192 * x192)) * (-1.0 * (x193 * x198)) ; x200 = x194 * x198 ; x201 = x188 * x200 + x188 * x200 ; x202 = x189 * x199 + x189 * x199 + negate (recip (x189 * x189)) * (rproject (tproject1 (tproject2 h183)) 0 * rproject (tproject2 (tproject1 h183)) 0) in tpair ([recip x189 * rproject (tproject2 (tproject1 h183)) 0 + rproject (tproject1 (tproject1 h183)) 0], tpair (tpair ([], tpair ([0], [x190 * x201])), tpair ([(x193 * x194) * rproject (tproject2 (tproject1 h183)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0)) * (x188 * x202 + x188 * x202 + x191 * x200 + x191 * x200) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h183)))))) 0) * (-1.0 * (rproject (tproject2 (tproject2 (tproject1 (tproject2 (tproject2 h183))))) 0 * x201))])))))) [rproject (tproject1 (tproject1 h94)) 0] (tpair (tpair ([], tpair ([rproject (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h203 -> let x204 = cos (rproject (tproject2 (tproject2 (tproject2 h203))) 0) in tpair ([rproject (tproject1 h203) 0 + rproject (tproject1 (tproject2 h203)) 0 * recip (x204 * x204)], tpair (tproject1 h203, []))) (\\h205 -> let x209 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h205)))) 0) ; x210 = x209 * x209 ; x212 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h205)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h205)))) 0)) in tpair ([rproject (tproject1 (tproject1 h205)) 0 + rproject (tproject1 (tproject2 (tproject1 h205))) 0 * recip x210 + ((x212 * x209 + x212 * x209) * negate (recip (x210 * x210))) * rproject (tproject1 (tproject2 (tproject2 h205))) 0], tpair ([rproject (tproject1 (tproject1 h205)) 0], []))) (\\h217 -> let x220 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h217)))) 0) ; x221 = x220 * x220 ; x224 = negate (recip (x221 * x221)) * (rproject (tproject1 (tproject2 (tproject2 h217))) 0 * rproject (tproject1 (tproject1 h217)) 0) in tpair ([rproject (tproject1 (tproject1 h217)) 0 + rproject (tproject1 (tproject2 (tproject1 h217))) 0], tpair ([recip x221 * rproject (tproject1 (tproject1 h217)) 0], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h217)))) 0)) * (x220 * x224 + x220 * x224)])))) [rproject (tproject2 (tproject2 (tproject2 (tproject1 h94)))) 0] (tpair ([rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h94)))) 0)], tpair (tproject1 (tproject2 h98), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)])))))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject1 h94)))) 0)])), tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @2) (\\h225 -> let x228 = cos (rproject (tproject2 (tproject2 (tproject2 h225))) 0) in tpair ([rproject (tproject1 h225) 0], tpair (tproject1 h225, [recip (x228 * x228) * rproject (tproject1 h225) 0]))) (\\h232 -> let h236 = let x233 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h232)))) 0) ; x234 = x233 * x233 ; x235 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h232)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h232)))) 0)) in tpair ([rproject (tproject1 (tproject1 h232)) 0], [((x235 * x233 + x235 * x233) * negate (recip (x234 * x234))) * rproject (tproject1 (tproject2 h232)) 0 + rproject (tproject1 (tproject1 h232)) 0 * recip x234]) in tpair (tproject1 h236, tpair (tproject1 (tproject1 h232), tproject2 h236))) (\\h237 -> let h245 = let x242 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h237)))) 0) ; x243 = x242 * x242 ; x244 = negate (recip (x243 * x243)) * (rproject (tproject1 (tproject2 h237)) 0 * rproject (tproject2 (tproject2 (tproject1 h237))) 0) in tpair ([recip x243 * rproject (tproject2 (tproject2 (tproject1 h237))) 0 + rproject (tproject1 (tproject1 h237)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h237)))) 0)) * (x242 * x244 + x242 * x244)]))) in tpair ([rproject (tproject1 h245) 0 + rproject (tproject1 (tproject2 (tproject1 h237))) 0], tproject2 h245)) [rproject (tproject1 (tproject2 h94)) 0] (tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h98))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)]))))), tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h98))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h94)))) 0)]))))) in tpair ([rsum (rproject (tproject2 h114) 0)], [rproject (tproject1 h114) 0])) (\\h246 -> let h249 = dmapAccumLDer (SNat @2) (\\h274 -> tpair ([rproject (tproject1 h274) 0 + tan (rproject (tproject2 h274) 0)], tpair (tproject1 h274, tpair (tproject1 h274, [])))) (\\h281 -> let x284 = cos (rproject (tproject2 (tproject2 h281)) 0) in tpair ([rproject (tproject1 (tproject1 h281)) 0 + rproject (tproject2 (tproject1 h281)) 0 * recip (x284 * x284)], tpair (tproject1 (tproject1 h281), tpair (tproject1 (tproject1 h281), [])))) (\\h290 -> let x293 = cos (rproject (tproject2 (tproject2 h290)) 0) in tpair ([rproject (tproject1 (tproject2 (tproject1 h290))) 0 + rproject (tproject1 (tproject1 h290)) 0 + rproject (tproject1 (tproject2 (tproject2 (tproject1 h290)))) 0], [recip (x293 * x293) * rproject (tproject1 (tproject1 h290)) 0])) [rproject (tproject2 (tproject2 (tproject2 (tproject2 h246)))) 0] [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)] ; h263 = dmapAccumLDer (SNat @2) (\\h299 -> let x304 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h299))))) 0) ; x305 = x304 * x304 ; x306 = negate (recip (x305 * x305)) * (rproject (tproject1 (tproject2 (tproject2 h299))) 0 * rproject (tproject1 (tproject2 h299)) 0) in tpair ([recip x305 * rproject (tproject1 (tproject2 h299)) 0 + rproject (tproject1 h299) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h299))))) 0)) * (x304 * x306 + x304 * x306)])))) (\\h307 -> let x313 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0) ; x314 = x313 * x313 ; x315 = x314 * x314 ; x316 = negate (recip x315) ; x317 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h307)))) 0 * rproject (tproject1 (tproject2 (tproject2 h307))) 0 ; x318 = x316 * x317 ; x322 = rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h307)))))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0)) ; x323 = x322 * x313 + x322 * x313 ; x333 = (((x323 * x314 + x323 * x314) * negate (recip (x315 * x315))) * -1.0) * x317 + (rproject (tproject1 (tproject2 (tproject2 (tproject1 h307)))) 0 * rproject (tproject1 (tproject2 (tproject2 h307))) 0 + rproject (tproject1 (tproject2 (tproject1 h307))) 0 * rproject (tproject1 (tproject2 (tproject2 (tproject2 h307)))) 0) * x316 in tpair ([rproject (tproject1 (tproject1 h307)) 0 + (x323 * negate (recip (x314 * x314))) * rproject (tproject1 (tproject2 (tproject2 h307))) 0 + rproject (tproject1 (tproject2 (tproject1 h307))) 0 * recip x314], tpair ([], tpair ([0.0], [((rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 h307)))))) 0 * cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0)) * -1.0) * (x313 * x318 + x313 * x318) + (x322 * x318 + x333 * x313 + x322 * x318 + x333 * x313) * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h307)))))) 0))])))) (\\h338 -> let x343 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0) ; x344 = x343 * x343 ; x345 = x344 * x344 ; x346 = negate (recip x345) ; x347 = rproject (tproject1 (tproject2 (tproject2 (tproject2 h338)))) 0 * rproject (tproject1 (tproject2 (tproject2 h338))) 0 ; x348 = x346 * x347 ; x353 = negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0)) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h338)))) 0 ; x354 = x343 * x353 + x343 * x353 ; x355 = x346 * x354 ; x356 = negate (recip (x345 * x345)) * (-1.0 * (x347 * x354)) ; x357 = x344 * x356 + x344 * x356 + negate (recip (x344 * x344)) * (rproject (tproject1 (tproject2 (tproject2 h338))) 0 * rproject (tproject1 (tproject1 h338)) 0) in tpair ([rproject (tproject1 (tproject1 h338)) 0], tpair ([rproject (tproject1 (tproject2 (tproject2 (tproject2 h338)))) 0 * x355 + recip x344 * rproject (tproject1 (tproject1 h338)) 0], tpair ([rproject (tproject1 (tproject2 (tproject2 h338))) 0 * x355], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0)) * (x343 * x357 + x343 * x357 + x348 * x353 + x348 * x353) + cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 h338)))))) 0) * (-1.0 * ((x343 * x348 + x343 * x348) * rproject (tproject2 (tproject2 (tproject2 (tproject1 h338)))) 0))])))))) [0.0 + rproject (tproject2 (tproject1 h246)) 0] (tpair ([rconst (rfromListLinear [2] [0.0,0.0]) + rreplicate 2 (rproject (tproject1 (tproject1 h246)) 0)], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @2) (\\h358 -> let x361 = cos (rproject (tproject2 (tproject2 (tproject2 h358))) 0) in tpair ([rproject (tproject1 h358) 0], tpair (tproject1 h358, [recip (x361 * x361) * rproject (tproject1 h358) 0]))) (\\h365 -> let h373 = let x370 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h365)))) 0) ; x371 = x370 * x370 ; x372 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h365)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h365)))) 0)) in tpair ([rproject (tproject1 (tproject1 h365)) 0], [((x372 * x370 + x372 * x370) * negate (recip (x371 * x371))) * rproject (tproject1 (tproject2 h365)) 0 + rproject (tproject1 (tproject1 h365)) 0 * recip x371]) in tpair (tproject1 h373, tpair (tproject1 (tproject1 h365), tproject2 h373))) (\\h374 -> let h378 = let x375 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h374)))) 0) ; x376 = x375 * x375 ; x377 = negate (recip (x376 * x376)) * (rproject (tproject1 (tproject2 h374)) 0 * rproject (tproject2 (tproject2 (tproject1 h374))) 0) in tpair ([recip x376 * rproject (tproject2 (tproject2 (tproject1 h374))) 0 + rproject (tproject1 (tproject1 h374)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h374)))) 0)) * (x375 * x377 + x375 * x377)]))) in tpair ([rproject (tproject1 h378) 0 + rproject (tproject1 (tproject2 (tproject1 h374))) 0], tproject2 h378)) [rproject (tproject1 (tproject2 h246)) 0] (tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h249))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)]))))), tpair ([], tpair ([rproject (tproject1 (tproject2 (tproject2 h249))) 0], [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)]))))) ; h270 = dmapAccumRDer (SNat @2) (\\h379 -> let x380 = cos (rproject (tproject2 (tproject2 (tproject2 h379))) 0) in tpair ([rproject (tproject1 h379) 0 + rproject (tproject1 (tproject1 (tproject2 h379))) 0], [recip (x380 * x380) * rproject (tproject1 h379) 0])) (\\h381 -> let x385 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h381)))) 0) ; x386 = x385 * x385 ; x389 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h381)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h381)))) 0)) in tpair ([rproject (tproject1 (tproject1 h381)) 0 + rproject (tproject1 (tproject1 (tproject2 (tproject1 h381)))) 0], [((x389 * x385 + x389 * x385) * negate (recip (x386 * x386))) * rproject (tproject1 (tproject2 h381)) 0 + rproject (tproject1 (tproject1 h381)) 0 * recip x386])) (\\h393 -> let x396 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h393)))) 0) ; x397 = x396 * x396 ; x400 = negate (recip (x397 * x397)) * (rproject (tproject1 (tproject2 h393)) 0 * rproject (tproject2 (tproject1 h393)) 0) in tpair ([rproject (tproject1 (tproject1 h393)) 0 + recip x397 * rproject (tproject2 (tproject1 h393)) 0], tpair (tpair ([rproject (tproject1 (tproject1 h393)) 0], []), tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h393)))) 0)) * (x396 * x400 + x396 * x400)])))) [0.0] (tpair (tpair ([rproject (tproject1 (tproject2 (tproject2 h263))) 0], []), tpair (tproject1 (tproject2 h249), [rreplicate 2 (rproject (tproject1 (tproject2 (tproject2 (tproject2 h246)))) 0)]))) in tpair ([rproject (tproject1 h263) 0], tpair ([], tpair ([rsum (rproject (tproject2 h270) 0) + rsum (rproject (tproject2 (tproject2 (tproject2 h263))) 0)], [rproject (tproject1 h270) 0])))) [1.0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h401 -> let h403 = dmapAccumLDer (SNat @2) (\\h404 -> tpair ([rproject (tproject1 h404) 0 + tan (rproject (tproject2 h404) 0)], [])) (\\h406 -> let x413 = cos (rproject (tproject2 (tproject2 h406)) 0) in tpair ([rproject (tproject1 (tproject1 h406)) 0 + rproject (tproject2 (tproject1 h406)) 0 * recip (x413 * x413)], [])) (\\h414 -> let x419 = cos (rproject (tproject2 (tproject2 h414)) 0) in tpair ([rproject (tproject1 (tproject1 h414)) 0], [recip (x419 * x419) * rproject (tproject1 (tproject1 h414)) 0])) (tproject2 h401) [rreplicate 2 (rproject (tproject1 h401) 0)] in tpair (tproject1 h403, tpair (tproject1 h401, tproject2 h403))) (\\h420 -> tpair ([rproject (tproject1 (dmapAccumLDer (SNat @2) (\\h435 -> let x444 = cos (rproject (tproject2 (tproject2 (tproject2 h435))) 0) in tpair ([rproject (tproject1 h435) 0 + rproject (tproject1 (tproject2 h435)) 0 * recip (x444 * x444)], [])) (\\h445 -> let x458 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h445)))) 0) ; x459 = x458 * x458 ; x460 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h445)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h445)))) 0)) in tpair ([rproject (tproject1 (tproject1 h445)) 0 + rproject (tproject1 (tproject2 (tproject1 h445))) 0 * recip x459 + ((x460 * x458 + x460 * x458) * negate (recip (x459 * x459))) * rproject (tproject1 (tproject2 (tproject2 h445))) 0], [])) (\\h461 -> let x470 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h461)))) 0) ; x471 = x470 * x470 ; x472 = negate (recip (x471 * x471)) * (rproject (tproject1 (tproject2 (tproject2 h461))) 0 * rproject (tproject1 (tproject1 h461)) 0) in tpair ([rproject (tproject1 (tproject1 h461)) 0], tpair ([recip x471 * rproject (tproject1 (tproject1 h461)) 0], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h461)))) 0)) * (x470 * x472 + x470 * x472)])))) [rproject (tproject2 (tproject1 h420)) 0] (tpair ([rreplicate 2 (rproject (tproject1 (tproject1 h420)) 0)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h473 -> tpair ([rproject (tproject1 h473) 0 + tan (rproject (tproject2 h473) 0)], tpair (tproject1 h473, []))) (\\h480 -> let x487 = cos (rproject (tproject2 (tproject2 h480)) 0) in tpair ([rproject (tproject1 (tproject1 h480)) 0 + rproject (tproject2 (tproject1 h480)) 0 * recip (x487 * x487)], tpair (tproject1 (tproject1 h480), []))) (\\h488 -> let x498 = cos (rproject (tproject2 (tproject2 h488)) 0) in tpair ([rproject (tproject1 (tproject1 h488)) 0 + rproject (tproject1 (tproject2 (tproject1 h488))) 0], [recip (x498 * x498) * rproject (tproject1 (tproject1 h488)) 0])) [rproject (tproject2 (tproject2 h420)) 0] [rreplicate 2 (rproject (tproject1 (tproject2 h420)) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 h420)) 0)]))))) 0], tpair (tproject1 (tproject1 h420), []))) (\\h499 -> let h500 = dmapAccumRDer (SNat @2) (\\h504 -> let x505 = cos (rproject (tproject2 (tproject2 (tproject2 h504))) 0) in tpair ([rproject (tproject1 h504) 0], [recip (x505 * x505) * rproject (tproject1 h504) 0])) (\\h506 -> let x507 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h506)))) 0) ; x508 = x507 * x507 ; x509 = rproject (tproject2 (tproject2 (tproject2 (tproject1 h506)))) 0 * negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h506)))) 0)) in tpair ([rproject (tproject1 (tproject1 h506)) 0], [((x509 * x507 + x509 * x507) * negate (recip (x508 * x508))) * rproject (tproject1 (tproject2 h506)) 0 + rproject (tproject1 (tproject1 h506)) 0 * recip x508])) (\\h510 -> let x511 = cos (rproject (tproject2 (tproject2 (tproject2 (tproject2 h510)))) 0) ; x512 = x511 * x511 ; x513 = negate (recip (x512 * x512)) * (rproject (tproject1 (tproject2 h510)) 0 * rproject (tproject2 (tproject1 h510)) 0) in tpair ([recip x512 * rproject (tproject2 (tproject1 h510)) 0 + rproject (tproject1 (tproject1 h510)) 0], tpair ([], tpair ([0], [negate (sin (rproject (tproject2 (tproject2 (tproject2 (tproject2 h510)))) 0)) * (x511 * x513 + x511 * x513)])))) [rproject (tproject1 (tproject1 h499)) 0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\h514 -> tpair ([rproject (tproject1 h514) 0 + tan (rproject (tproject2 h514) 0)], tpair (tproject1 h514, []))) (\\h515 -> let x516 = cos (rproject (tproject2 (tproject2 h515)) 0) in tpair ([rproject (tproject1 (tproject1 h515)) 0 + rproject (tproject2 (tproject1 h515)) 0 * recip (x516 * x516)], tpair (tproject1 (tproject1 h515), []))) (\\h517 -> let x518 = cos (rproject (tproject2 (tproject2 h517)) 0) in tpair ([rproject (tproject1 (tproject1 h517)) 0 + rproject (tproject1 (tproject2 (tproject1 h517))) 0], [recip (x518 * x518) * rproject (tproject1 (tproject1 h517)) 0])) [rproject (tproject2 (tproject2 h499)) 0] [rreplicate 2 (rproject (tproject1 (tproject2 h499)) 0)])), [rreplicate 2 (rproject (tproject1 (tproject2 h499)) 0)]))) in tpair ([rsum (rproject (tproject2 h500) 0) + rproject (tproject1 (tproject2 (tproject1 h499))) 0], [rproject (tproject1 h500) 0])) [1.1] [rreplicate 2 1.1])), [rreplicate 2 1.1]))) in [rsum (rproject (tproject2 h15) 0) + rproject (tproject1 h15) 0]"
 
 testSin0MapAccumNestedR3LengthPP :: Assertion
 testSin0MapAccumNestedR3LengthPP = do
@@ -3711,28 +3711,28 @@ testSin0MapAccumNestedR3LengthPP = do
                  dmapAccumL Proxy (SNat @2) shs1 she shs1
                        (\x3 a3 ->
                    dmapAccumL Proxy (SNat @2) shs1 she shs1
-                         (\x4 a4 -> let y = rfromD @Double @0 $ x4 V.! 0
-                                        w = rfromD @Double @0 $ a4 V.! 0
+                         (\x4 a4 -> let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x4) V.! 0
+                                        w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a4) V.! 0
                                     in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       g :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
-      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ v V.! 0))
+      g x = unHVectorPseudoTensor $ rrev (\v -> f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
                  (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-                 x
+                 (HVectorPseudoTensor $ dmkHVector x)
   length
     (printAstHVectorSimple
        IM.empty
        (simplifyInline
         $ g @(AstRanked PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 5965823
+    @?= 5949393
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
@@ -3754,16 +3754,16 @@ testSin0MapAccumNestedR4 = do
                    dmapAccumL Proxy (SNat @2) shs1 she shs1
                          (\x4 a4 ->
                        dmapAccumL Proxy (SNat @2) shs1 she shs1
-                           (\x5 a5 -> let y = rfromD @Double @0 $ x5 V.! 0
-                                          w = rfromD @Double @0 $ a5 V.! 0
+                           (\x5 a5 -> let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x5) V.! 0
+                                          w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a5) V.! 0
                                       in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) 0.0001)
@@ -3790,17 +3790,17 @@ testSin0MapAccumNestedR5 = do
                      dmapAccumL Proxy (SNat @2) shs1 she shs1
                            (\x5 a5 ->
                        dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 -> let y = rfromD @Double @0 $ x6 V.! 0
-                                            w = rfromD @Double @0 $ a6 V.! 0
+                             (\x6 a6 -> let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x6) V.! 0
+                                            w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a6) V.! 0
                                         in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * (y + tan w))
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                             a5 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x5))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) 1.1)
@@ -3827,17 +3827,17 @@ testSin0MapAccumNestedR5r = do
                      dmapAccumL Proxy (SNat @2) shs1 she shs1
                            (\x5 a5 ->
                        dmapAccumL Proxy (SNat @2) shs1 she shs1
-                             (\x6 a6 -> let y = rfromD @Double @0 $ x6 V.! 0
-                                            w = rfromD @Double @0 $ a6 V.! 0
+                             (\x6 a6 -> let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x6) V.! 0
+                                            w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a6) V.! 0
                                         in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                             a5 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x5))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) (rscalar 0.0001))
@@ -3875,22 +3875,22 @@ testSin0MapAccumNestedR10r = do
                                      (\x10 a10 ->
                                  dmapAccumL Proxy (SNat @2) shs1 she shs1
                                        (\x11 a11 ->
-                                          let y = rfromD @Double @0 $ x11 V.! 0
-                                              w = rfromD @Double @0 $ a11 V.! 0
+                                          let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x11) V.! 0
+                                              w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a11) V.! 0
                                           in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                                       a10 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x10))
+                                     a9 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x9))
+                                   a8 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x8))
+                                 a7 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x7))
+                               a6 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x6))
+                             a5 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x5))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) (rscalar 0.0001))
@@ -3928,22 +3928,22 @@ testSin0MapAccumNestedR10f = do
                                      (\x10 a10 ->
                                  dmapAccumL Proxy (SNat @2) shs1 she shs1
                                        (\x11 a11 ->
-                                          let y = rfromD @Double @0 $ x11 V.! 0
-                                              w = rfromD @Double @0 $ a11 V.! 0
+                                          let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x11) V.! 0
+                                              w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a11) V.! 0
                                           in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                                       a10 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x10))
+                                     a9 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x9))
+                                   a8 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x8))
+                                 a7 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x7))
+                               a6 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x6))
+                             a5 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x5))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in f) (rscalar 0.0001) (rscalar 0.0001))
@@ -3982,22 +3982,22 @@ testSin0MapAccumNestedR10fN = do
                                      (\x10 a10 ->
                                  dmapAccumL Proxy (SNat @2) shs1 she shs1
                                        (\x11 a11 ->
-                                          let y = rfromD @Double @0 $ x11 V.! 0
-                                              w = rfromD @Double @0 $ a11 V.! 0
+                                          let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x11) V.! 0
+                                              w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a11) V.! 0
                                           in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                                       a10 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x10))
+                                     a9 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x9))
+                                   a8 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x8))
+                                 a7 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x7))
+                               a6 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x6))
+                             a5 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x5))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
       f :: forall f. ADReady f => f Double 0
@@ -4038,22 +4038,22 @@ testSin0MapAccumNestedR10rf = do
                                      (\x10 a10 ->
                                  dmapAccumL Proxy (SNat @2) shs1 she shs1
                                        (\x11 a11 ->
-                                          let y = rfromD @Double @0 $ x11 V.! 0
-                                              w = rfromD @Double @0 $ a11 V.! 0
+                                          let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x11) V.! 0
+                                              w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a11) V.! 0
                                           in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                                       a10 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x10))
+                                     a9 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x9))
+                                   a8 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x8))
+                                 a7 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x7))
+                               a6 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x6))
+                             a5 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x5))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in rfwd1 f) (rscalar 0.0001))
@@ -4091,22 +4091,22 @@ testSin0MapAccumNestedR10rr = do
                                      (\x10 a10 ->
                                  dmapAccumL Proxy (SNat @2) shs1 she shs1
                                        (\x11 a11 ->
-                                          let y = rfromD @Double @0 $ x11 V.! 0
-                                              w = rfromD @Double @0 $ a11 V.! 0
+                                          let y = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor x11) V.! 0
+                                              w = rfromD @Double @0 $ dunHVector (unHVectorPseudoTensor a11) V.! 0
                                           in tpair (HVectorPseudoTensor $ dmkHVector $ V.singleton
                                                      $ DynamicRanked
                                                      $ rscalar 0.01 * y + tan w)
                                                     (HVectorPseudoTensor $ dmkHVector V.empty))
-                                       (HVectorPseudoTensor $ dmkHVector a10) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x10))
-                                     (HVectorPseudoTensor $ dmkHVector a9) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x9))
-                                   (HVectorPseudoTensor $ dmkHVector a8) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x8))
-                                 (HVectorPseudoTensor $ dmkHVector a7) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x7))
-                               (HVectorPseudoTensor $ dmkHVector a6) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x6))
-                             (HVectorPseudoTensor $ dmkHVector a5) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x5))
-                           (HVectorPseudoTensor $ dmkHVector a4) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x4))
-                         (HVectorPseudoTensor $ dmkHVector a3) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x3))
-                       (HVectorPseudoTensor $ dmkHVector a2) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x2))
-                     (HVectorPseudoTensor $ dmkHVector a) (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) x))
+                                       a10 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x10))
+                                     a9 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x9))
+                                   a8 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x8))
+                                 a7 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x7))
+                               a6 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x6))
+                             a5 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x5))
+                           a4 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x4))
+                         a3 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x3))
+                       a2 (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x2))
+                     a (HVectorPseudoTensor $ mkreplicate1HVector (SNat @2) $ dunHVector $ unHVectorPseudoTensor x))
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked z)
                    (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
     in rrev1 f) (rscalar 0.0001))
@@ -4118,7 +4118,7 @@ productToVectorOf
 productToVectorOf p = unHVectorPseudoTensor
                       $ tlet @_ @_ @TKUntyped (tproject1 p) $ \p1 ->
                           tlet (tproject2 p) $ \p2 ->
-                            HVectorPseudoTensor $ dmkHVector $ p1 V.++ p2
+                            HVectorPseudoTensor $ dmkHVector $ dunHVector (unHVectorPseudoTensor p1) V.++ dunHVector (unHVectorPseudoTensor p2)
 
 testSin0FoldNestedS1FwdFwd0 :: Assertion
 testSin0FoldNestedS1FwdFwd0 = do
@@ -4485,9 +4485,9 @@ testSin0revhV = do
   let f :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
       f x =
-        unHVectorPseudoTensor $ rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
+        unHVectorPseudoTensor $ rrev @g @_ @Double @0 (\v -> sin (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
              (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-             x
+             (HVectorPseudoTensor $ dmkHVector x)
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @0 (rscalar 0.4535961214255773))
     (f @ORArray (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
@@ -4498,9 +4498,9 @@ testSin0revhVPP = do
   let f :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
       f x =
-        unHVectorPseudoTensor $ rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
+        unHVectorPseudoTensor $ rrev @g @_ @Double @0 (\v -> sin (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
              (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-             x
+             (HVectorPseudoTensor $ dmkHVector x)
   printAstHVectorSimple IM.empty (f @(AstRanked PrimalSpan)
                                     (V.singleton
                                      $ DynamicRanked @Double @0 (rscalar 1.1)))
@@ -4511,9 +4511,9 @@ testSin0revhV2 = do
   let f :: forall g. ProductTensor g
         => HVector g -> HVectorOf g
       f x =
-        unHVectorPseudoTensor $ rrev @g @_ @Double @0 (\v -> sin (rfromD $ v V.! 0))
+        unHVectorPseudoTensor $ rrev @g @_ @Double @0 (\v -> sin (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
              (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-             x
+             (HVectorPseudoTensor $ dmkHVector x)
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
@@ -4529,9 +4529,9 @@ testSin0revhV3 = do
         => HVector g -> HVectorOf g
       f x =
         unHVectorPseudoTensor $
-        srev @g @_ @Double @'[] (\v -> sin (sfromD $ v V.! 0))
+        srev @g @_ @Double @'[] (\v -> sin (sfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0))
              (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
-             x
+             (HVectorPseudoTensor $ dmkHVector x)
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
@@ -4549,8 +4549,8 @@ testSin0revhV4 = do
         => HVector g -> HVectorOf g
       f x =
         unHVectorPseudoTensor $
-        rrevDt @g @_ @Double @1 (rscanZip const doms 5)
-               (FTKUntyped doms3) x (ringestData1 [1, 2, 3, 4])
+        rrevDt @g @_ @Double @1 (rscanZip const doms 5 . dunHVector . unHVectorPseudoTensor)
+               (FTKUntyped doms3) (HVectorPseudoTensor $ dmkHVector x) (ringestData1 [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
@@ -4568,8 +4568,8 @@ testSin0revhV5 = do
       f :: forall g. (ShapedTensor (ShapedOf g), ProductTensor g)
         => HVector g -> HVectorOf g
       f x = unHVectorPseudoTensor $
-        srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5))
-               (FTKUntyped doms3) x (ingestData [1, 2, 3, 4])
+        srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5) . dunHVector . unHVectorPseudoTensor)
+               (FTKUntyped doms3) (HVectorPseudoTensor $ dmkHVector x) (ingestData [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
@@ -4590,8 +4590,8 @@ testSin0revhV6 = do
         unHVectorPseudoTensor $
         rrevDt @g @_ @Double @1
                (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
-                                        in z * z) doms 5 v)
-                (FTKUntyped doms3) x (ringestData1 [1, 2, 3, 4])
+                                        in z * z) doms 5 (dunHVector (unHVectorPseudoTensor v)))
+                (FTKUntyped doms3) (HVectorPseudoTensor $ dmkHVector x) (ringestData1 [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
@@ -4611,8 +4611,8 @@ testSin0revhV7 = do
       f x =unHVectorPseudoTensor $
         srevDt @g @_ @Double @'[4]
                (\v -> sscanZip (\_ w -> let z = sfromD $ w V.! 0
-                                        in z * z) doms (srepl 5) v)
-               (FTKUntyped doms3) x (ingestData [1, 2, 3, 4])
+                                        in z * z) doms (srepl 5) (dunHVector (unHVectorPseudoTensor v)))
+               (FTKUntyped doms3) (HVectorPseudoTensor $ dmkHVector x) (ingestData [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
@@ -4679,7 +4679,7 @@ fFoldZipR domsOD p as rf shn cShared =
           (\cr doms ->
               let (x, a) = domsToPair doms
               in tlet @_ @TKUntyped (HVectorPseudoTensor (rf cr x a)) $ \ !rfRes ->
-                   fst (domsToPair rfRes))
+                   fst (domsToPair (dunHVector (unHVectorPseudoTensor rfRes))))
           domsF
           cShared
           (V.cons (DynamicRanked lp) las)
@@ -4695,7 +4695,7 @@ fFoldZipR domsOD p as rf shn cShared =
                         $ tlet @_ @TKUntyped @TKUntyped
                                (HVectorPseudoTensor (rf cr x a))
                                $ \ !rfRes ->
-                                   HVectorPseudoTensor $ dmkHVector $ snd $ domsToPair rfRes)
+                                   HVectorPseudoTensor $ dmkHVector $ snd $ domsToPair (dunHVector (unHVectorPseudoTensor rfRes)))
                   (V.cons (DynamicRanked cr2)
                    $ V.cons (DynamicRanked x2) a2)
       cas = rg (rslice 1 width crs)
@@ -4707,15 +4707,15 @@ fFoldZipRX :: forall ranked. ADReady ranked
   => HVector ranked
   -> HVectorOf ranked
 fFoldZipRX as =
-  let f :: forall f. ADReady f => f Double 0 -> HVector f -> f Double 0
-      f _t v = sin (rfromD (v V.! 1)) * rfromD (v V.! 1)
+  let f :: forall f. ADReady f => f Double 0 -> HVectorPseudoTensor f Float '() -> f Double 0
+      f _t v = sin (rfromD (dunHVector (unHVectorPseudoTensor v) V.! 1)) * rfromD (dunHVector (unHVectorPseudoTensor v) V.! 1)
       doms = V.fromList [ voidFromSh @Double ZSR
                         , voidFromSh @Double ZSR ]
       p :: ranked Double 1
-      p = rscanZip f doms 7 as
+      p = rscanZip (\x y -> f x (HVectorPseudoTensor $ dmkHVector y)) doms 7 as
       rf :: forall f. ADReady f
          => f Double 0 -> f Double 0 -> HVector f -> HVectorOf f
-      rf _x _y = unHVectorPseudoTensor . rrev @f (f 42) (FTKUntyped doms)  -- not exactly the rev of f
+      rf _x _y = unHVectorPseudoTensor . rrev @f (f 42) (FTKUntyped doms) . HVectorPseudoTensor . dmkHVector  -- not exactly the rev of f
   in fFoldZipR doms p as rf ZSR 26
 
 testSin0revhFoldZipR :: Assertion
@@ -4770,7 +4770,7 @@ fFoldS p as rf cShared =
                     let (x, a) = domsToPair doms
                     in tlet @_ @TKUntyped (HVectorPseudoTensor
                          (rf cr x a)) $ \ !rfRes ->
-                           fst (domsToPair rfRes))
+                           fst (domsToPair (dunHVector (unHVectorPseudoTensor rfRes))))
                domsF
                cShared
                (V.fromList
@@ -4784,7 +4784,7 @@ fFoldS p as rf cShared =
          -> shaped rm (k ': shm)
       rg = szipWith31 (\cr x a ->
                          tlet @_ @TKUntyped (HVectorPseudoTensor (rf cr x a)) $ \ !rfRes ->
-                           snd $ domsToPair rfRes)
+                           snd $ domsToPair (dunHVector (unHVectorPseudoTensor rfRes)))
       cas = rg (sslice @_ @_ @_ @_ @0
                        (Proxy @1) (Proxy @k) crs)
                (sslice @_ @_ @_ @_ @1
@@ -4807,9 +4807,9 @@ fFoldSX as =
          => f Double '[] -> f Double '[] -> f Double '[]
          -> HVectorOf (RankedOf f)
       rf _x _y z = unHVectorPseudoTensor $
-                   srev @(RankedOf f) (\v -> f (sscalar 42) (sfromD (v V.! 1)))
-                        (FTKUntyped  doms)
-                        (V.fromList [ DynamicShaped @Double @'[] z
+                   srev @(RankedOf f) (\v -> f (sscalar 42) (sfromD (dunHVector (unHVectorPseudoTensor v) V.! 1)))
+                        (FTKUntyped doms)
+                        (HVectorPseudoTensor $ dmkHVector $ V.fromList [ DynamicShaped @Double @'[] z
                                     , DynamicShaped @Double @'[] z ])
                      -- not exactly the rev of f
   in fFoldS @0 p as rf (srepl 26)

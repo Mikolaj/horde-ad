@@ -288,27 +288,27 @@ interpretAst !env = \case
       -- We assume there are no nested lets with the same variable.
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKR STKScalar{} _ ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKS STKScalar{} _ ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKX STKScalar{} _ ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKProduct{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     STKUntyped{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
-      in blet t (\w -> interpretAst (env2 w) v)
+      in tlet t (\w -> interpretAst (env2 w) v)
     _ -> error "TODO"
 
   AstMinIndex v ->
@@ -546,9 +546,10 @@ interpretAst !env = \case
   AstConst a -> rconst a
   AstProjectR l p ->
     let lt = unHVectorPseudoTensor $ interpretAst env l
-    in tlet @_ @TKUntyped (HVectorPseudoTensor lt) (\lw -> rfromD $ lw V.! p)
-         -- This is weak, but we don't need rproject nor sproject.
-         -- Most likely, the term gets simplified before interpretation anyway.
+    in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
+         (\lw -> rfromD $ dunHVector (unHVectorPseudoTensor lw) V.! p)
+           -- This is awkward, but we don't need rproject nor sproject.
+           -- Most likely, the term gets simplified before interpretation anyway.
   AstLetHVectorIn @_ @_ @z2 vars l v -> case stensorKind @z2 of
     STKScalar _ ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
@@ -559,7 +560,8 @@ interpretAst !env = \case
                                     , shapeVoidHVector (dshape lt) )) $
                    extendEnvHVector vars lw env
       in RepScalar
-         $ tlet (HVectorPseudoTensor lt) (\lw -> unRepScalar $ interpretAst (env2 lw) v)
+         $ tlet @_ @TKUntyped (HVectorPseudoTensor lt)
+             (\lw -> unRepScalar $ interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
     STKR STKScalar{} SNat ->
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -568,7 +570,8 @@ interpretAst !env = \case
                                     , shapeAstFull l
                                     , shapeVoidHVector (dshape lt) )) $
                    extendEnvHVector vars lw env
-      in tlet (HVectorPseudoTensor lt) (\lw -> interpretAst (env2 lw) v)
+      in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
+           (\lw -> interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
     STKS STKScalar{} sh -> withKnownShS sh $
       let lt = unHVectorPseudoTensor $ interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -577,7 +580,8 @@ interpretAst !env = \case
                                     , shapeAstFull l
                                     , shapeVoidHVector (dshape lt) )) $
                     extendEnvHVector vars lw env
-      in tlet (HVectorPseudoTensor lt) (\lw -> interpretAst (env2 lw) v)
+      in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
+           (\lw -> interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
     STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUntyped ->
@@ -588,7 +592,8 @@ interpretAst !env = \case
                                     , shapeAstFull l
                                     , shapeVoidHVector (dshape lt) )) $
                     extendEnvHVector vars lw env
-      in tlet (HVectorPseudoTensor lt) (\lw -> interpretAst (env2 lw) v)
+      in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
+           (\lw -> interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
     _ -> error "TODO"
   AstRFromS v -> rfromS $ interpretAst env v
 
@@ -798,7 +803,8 @@ interpretAst !env = \case
   AstConstS a -> sconst a
   AstProjectS l p ->
     let lt = unHVectorPseudoTensor $ interpretAst env l
-    in tlet @_ @TKUntyped (HVectorPseudoTensor lt) (\lw -> sfromD $ lw V.! p)
+    in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
+         (\lw -> sfromD $ dunHVector (unHVectorPseudoTensor lw) V.! p)
   AstSFromR v -> sfromR $ interpretAst env v
 
   AstMinIndexX _v -> error "TODO"

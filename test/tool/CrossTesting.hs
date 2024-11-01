@@ -510,15 +510,15 @@ rrev2 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f r n -> f r3 m) -> g r n -> g r n
 rrev2 f u =
-  let fHVector :: forall f. ADReady f => HVector f -> f r3 m
-      fHVector v = f (rfromD $ v V.! 0)
+  let fHVector :: forall f. ADReady f => HVectorPseudoTensor f Float '() -> f r3 m
+      fHVector v = f (rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0)
       sh = rshape u
       zero = voidFromSh @r @n sh
       shapes = V.fromList [zero]
       domsOf =
         unHVectorPseudoTensor
-        $ rrev @g fHVector (FTKUntyped shapes) (V.singleton $ DynamicRanked u)
-  in tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ v V.! 0)
+        $ rrev @g fHVector (FTKUntyped shapes) (HVectorPseudoTensor $ dmkHVector $ V.singleton $ DynamicRanked u)
+  in tlet @_ @TKUntyped (HVectorPseudoTensor domsOf) (\v -> rfromD $ dunHVector (unHVectorPseudoTensor v) V.! 0)
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
