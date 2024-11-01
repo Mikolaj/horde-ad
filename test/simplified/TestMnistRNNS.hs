@@ -72,7 +72,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit :: Rep ORArray (XParams width r)
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf @ORArray valsInit
       ftk = tshapeFull @ORArray
                        (stensorKind @(XParams width r))
                        hVectorInit
@@ -185,7 +185,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     shaped SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit :: Rep ORArray (XParams width r)
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf @ORArray valsInit
       ftk = tshapeFull @ORArray
                        (stensorKind @(XParams width r))
                        hVectorInit
@@ -312,7 +312,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
     let valsInit :: ADRnnMnistParametersShaped
                       shaped SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-        hVectorInit = toHVector $ AsHVector valsInit
+        hVectorInit = unHVectorPseudoTensor
+                      $ toHVectorOf @ORArray $ AsHVector valsInit
         miniBatchSize = sNatValue batch_size
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
@@ -422,7 +423,7 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
                       shaped SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
         hVectorInit :: Rep ORArray (XParams width r)
-        hVectorInit = toHVector valsInit
+        hVectorInit = toHVectorOf @ORArray valsInit
         ftk = tshapeFull @ORArray
                          (stensorKind @(XParams width r))
                          hVectorInit

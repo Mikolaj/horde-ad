@@ -36,14 +36,8 @@ import HordeAd.Core.Types
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableHVector (ranked :: RankedTensorType) vals where
   type X vals :: TensorKindType
-  toHVectorOf :: (TensorKind (X vals), ProductTensor ranked)
-              => vals -> Rep ranked (X vals)
-  toHVectorOf = unrepDeep . toHVector
-    -- ^ represent a collection of tensors in much less typed but canonical way
-    -- as an untyped product of tensors
-  toHVector :: vals -> RepDeep ranked (X vals)
-    -- ^ a helper function, not to be used, but to be a building block
-    -- for @toHVectorOf@ for some instances
+  toHVectorOf :: vals -> Rep ranked (X vals)
+    -- ^ represent a collection of tensors
   fromHVector :: vals -> RepDeep ranked (X vals) -> Maybe (vals, Maybe (RepDeep ranked (X vals)))
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
@@ -122,10 +116,12 @@ instance ForgetShape a
   type NoShape [a] = [NoShape a]
   forgetShape = map forgetShape
 
-instance (X a ~ TKUntyped, AdaptableHVector ranked a)
+instance (X a ~ TKUntyped, AdaptableHVector ranked a, ProductTensor ranked)
          => AdaptableHVector ranked (Data.Vector.Vector a) where
   type X (Data.Vector.Vector a) = TKUntyped
-  toHVector = V.concatMap toHVector
+  toHVectorOf =
+    HVectorPseudoTensor . dmkHVector
+    . V.concatMap (dunHVector . unHVectorPseudoTensor . toHVectorOf)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
@@ -149,10 +145,12 @@ instance ForgetShape a
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
   forgetShape = V.map forgetShape
 
-instance (X a ~ TKUntyped, AdaptableHVector ranked a)
+instance (X a ~ TKUntyped, AdaptableHVector ranked a, ProductTensor ranked)
          => AdaptableHVector ranked (Data.NonStrict.Vector.Vector a) where
   type X (Data.NonStrict.Vector.Vector a) = TKUntyped
-  toHVector = V.concat . map toHVector . V.toList
+  toHVectorOf =
+    HVectorPseudoTensor . dmkHVector
+    . V.concat . map (dunHVector . unHVectorPseudoTensor . toHVectorOf) . V.toList
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
@@ -163,20 +161,23 @@ instance (X a ~ TKUntyped, AdaptableHVector ranked a)
         (!l, !restAll) = V.foldl' f (V.empty, source) lInit
     in Just (l, if V.null restAll then Nothing else Just restAll)
 
-instance AdaptableHVector ranked (DynamicTensor ranked) where
+instance ProductTensor ranked
+         => AdaptableHVector ranked (DynamicTensor ranked) where
   type X (DynamicTensor ranked) = TKUntyped
-  toHVector = V.singleton
+  toHVectorOf = HVectorPseudoTensor . dmkHVector . V.singleton
   fromHVector _aInit v = case V.uncons v of
     Just (t, rest) -> Just (t, if V.null rest then Nothing else Just rest)
     Nothing -> Nothing
 
-instance ( AdaptableHVector ranked a
-         , AdaptableHVector ranked b ) => AdaptableHVector ranked (a, b) where
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked a, TensorKind (X a)
+         , AdaptableHVector ranked b, TensorKind (X b) )
+         => AdaptableHVector ranked (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
-  toHVector (a, b) =
-    let a1 = toHVector a
-        b1 = toHVector b
-    in (a1, b1)
+  toHVectorOf (a, b) =
+    let a1 = toHVectorOf a
+        b1 = toHVectorOf b
+    in tpair a1 b1
   fromHVector ~(aInit, bInit) (a1, b1) = do
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
@@ -206,16 +207,17 @@ instance ( RandomHVector a
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
 
-instance ( AdaptableHVector ranked a
-         , AdaptableHVector ranked b
-         , AdaptableHVector ranked c )
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked a, TensorKind (X a)
+         , AdaptableHVector ranked b, TensorKind (X b)
+         , AdaptableHVector ranked c, TensorKind (X c) )
          => AdaptableHVector ranked (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
-  toHVector (a, b, c) =
-    let a1 = toHVector a
-        b1 = toHVector b
-        c1 = toHVector c
-    in ((a1, b1), c1)
+  toHVectorOf (a, b, c) =
+    let a1 = toHVectorOf a
+        b1 = toHVectorOf b
+        c1 = toHVectorOf c
+    in tpair (tpair a1 b1) c1
   fromHVector ~(aInit, bInit, cInit) ((a1, b1), c1) = do
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
@@ -252,19 +254,20 @@ instance ( RandomHVector a
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
 
-instance ( AdaptableHVector ranked a
-         , AdaptableHVector ranked b
-         , AdaptableHVector ranked c
-         , AdaptableHVector ranked d )
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked a, TensorKind (X a)
+         , AdaptableHVector ranked b, TensorKind (X b)
+         , AdaptableHVector ranked c, TensorKind (X c)
+         , AdaptableHVector ranked d, TensorKind (X d) )
          => AdaptableHVector ranked (a, b, c, d) where
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
-  toHVector (a, b, c, d) =
-    let a1 = toHVector a
-        b1 = toHVector b
-        c1 = toHVector c
-        d1 = toHVector d
-    in  ((a1, b1), (c1, d1))
+  toHVectorOf (a, b, c, d) =
+    let a1 = toHVectorOf a
+        b1 = toHVectorOf b
+        c1 = toHVectorOf c
+        d1 = toHVectorOf d
+    in  tpair (tpair a1 b1) (tpair c1 d1)
   fromHVector ~(aInit, bInit, cInit, dInit) ((a1, b1), (c1, d1)) = do
     (a, Nothing) <- fromHVector aInit a1
     (b, Nothing) <- fromHVector bInit b1
@@ -311,21 +314,22 @@ instance ( RandomHVector a
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
 
-instance ( AdaptableHVector ranked a
-         , AdaptableHVector ranked b
-         , AdaptableHVector ranked c
-         , AdaptableHVector ranked d
-         , AdaptableHVector ranked e )
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked a, TensorKind (X a)
+         , AdaptableHVector ranked b, TensorKind (X b)
+         , AdaptableHVector ranked c, TensorKind (X c)
+         , AdaptableHVector ranked d, TensorKind (X d)
+         , AdaptableHVector ranked e, TensorKind (X e) )
          => AdaptableHVector ranked (a, b, c, d, e) where
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))
-  toHVector (a, b, c, d, e) =
-    let a1 = toHVector a
-        b1 = toHVector b
-        c1 = toHVector c
-        d1 = toHVector d
-        e1 = toHVector e
-    in (((a1, b1), c1), (d1, e1))
+  toHVectorOf (a, b, c, d, e) =
+    let a1 = toHVectorOf a
+        b1 = toHVectorOf b
+        c1 = toHVectorOf c
+        d1 = toHVectorOf d
+        e1 = toHVectorOf e
+    in tpair (tpair (tpair a1 b1) c1) (tpair d1 e1)
   fromHVector ~(aInit, bInit, cInit, dInit, eInit)
               (((a1, b1), c1), (d1, e1)) = do
     (a, Nothing) <- fromHVector aInit a1
@@ -384,18 +388,25 @@ type role AsHVector representational
 newtype AsHVector a =
   AsHVector {unAsHVector :: a}
 
-instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped )
          => AdaptableHVector ranked (AsHVector (a, b)) where
   type X (AsHVector (a, b)) = TKUntyped
-  toHVector (AsHVector (a, b)) =
-    let a1 = toHVector $ AsHVector a
-        b1 = toHVector $ AsHVector b
-    in V.concat [a1, b1]
+  toHVectorOf (AsHVector (a, b)) =
+    let a1 = toHVectorOf $ AsHVector a
+        b1 = toHVectorOf $ AsHVector b
+    in hvappend a1 b1
   fromHVector ~(AsHVector (aInit, bInit)) source = do
     (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
     (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
     return (AsHVector (a, b), Just bRest)
+
+hvappend :: ProductTensor f
+         => HVectorPseudoTensor f Float '() -> HVectorPseudoTensor f Float '()
+         -> HVectorPseudoTensor f Float '()
+hvappend v u = HVectorPseudoTensor $ dmkHVector $
+  dunHVector (unHVectorPseudoTensor v) V.++ dunHVector (unHVectorPseudoTensor u)
 
 instance (TermValue a, TermValue b)
          => TermValue (AsHVector (a, b)) where
@@ -404,16 +415,17 @@ instance (TermValue a, TermValue b)
   fromValue (AsHVector (va, vb)) =
     AsHVector (fromValue va, fromValue vb)
 
-instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped)
          => AdaptableHVector ranked (AsHVector (a, b, c)) where
   type X (AsHVector (a, b, c)) = TKUntyped
-  toHVector (AsHVector (a, b, c)) =
-    let a1 = toHVector $ AsHVector a
-        b1 = toHVector $ AsHVector b
-        c1 = toHVector $ AsHVector c
-    in V.concat [a1, b1, c1]
+  toHVectorOf (AsHVector (a, b, c)) =
+    let a1 = toHVectorOf $ AsHVector a
+        b1 = toHVectorOf $ AsHVector b
+        c1 = toHVectorOf $ AsHVector c
+    in hvappend (hvappend a1 b1) c1
   fromHVector ~(AsHVector (aInit, bInit, cInit)) source = do
     (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
     (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
@@ -427,18 +439,19 @@ instance (TermValue a, TermValue b, TermValue c)
   fromValue (AsHVector (va, vb, vc)) =
     AsHVector (fromValue va, fromValue vb, fromValue vc)
 
-instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector d), X (AsHVector d) ~ TKUntyped )
          => AdaptableHVector ranked (AsHVector (a, b, c, d)) where
   type X (AsHVector (a, b, c, d)) = TKUntyped
-  toHVector (AsHVector (a, b, c, d)) =
-    let a1 = toHVector $ AsHVector a
-        b1 = toHVector $ AsHVector b
-        c1 = toHVector $ AsHVector c
-        d1 = toHVector $ AsHVector d
-    in V.concat [a1, b1, c1, d1]
+  toHVectorOf (AsHVector (a, b, c, d)) =
+    let a1 = toHVectorOf $ AsHVector a
+        b1 = toHVectorOf $ AsHVector b
+        c1 = toHVectorOf $ AsHVector c
+        d1 = toHVectorOf $ AsHVector d
+    in hvappend (hvappend a1 b1) (hvappend c1 d1)
   fromHVector ~(AsHVector (aInit, bInit, cInit, dInit)) source = do
     (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
     (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
@@ -453,20 +466,21 @@ instance (TermValue a, TermValue b, TermValue c, TermValue d)
   fromValue (AsHVector (va, vb, vc, vd)) =
     AsHVector (fromValue va, fromValue vb, fromValue vc, fromValue vd)
 
-instance ( AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
+instance ( ProductTensor ranked
+         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector d), X (AsHVector d) ~ TKUntyped
          , AdaptableHVector ranked (AsHVector e), X (AsHVector e) ~ TKUntyped )
          => AdaptableHVector ranked (AsHVector (a, b, c, d, e)) where
   type X (AsHVector (a, b, c, d, e)) = TKUntyped
-  toHVector (AsHVector (a, b, c, d, e)) =
-    let a1 = toHVector $ AsHVector a
-        b1 = toHVector $ AsHVector b
-        c1 = toHVector $ AsHVector c
-        d1 = toHVector $ AsHVector d
-        e1 = toHVector $ AsHVector e
-    in V.concat [a1, b1, c1, d1, e1]
+  toHVectorOf (AsHVector (a, b, c, d, e)) =
+    let a1 = toHVectorOf $ AsHVector a
+        b1 = toHVectorOf $ AsHVector b
+        c1 = toHVectorOf $ AsHVector c
+        d1 = toHVectorOf $ AsHVector d
+        e1 = toHVectorOf $ AsHVector e
+    in hvappend (hvappend (hvappend a1 b1) c1) (hvappend d1 e1)
   fromHVector ~(AsHVector (aInit, bInit, cInit, dInit, eInit)) source = do
     (AsHVector a, Just aRest) <- fromHVector (AsHVector aInit) source
     (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest

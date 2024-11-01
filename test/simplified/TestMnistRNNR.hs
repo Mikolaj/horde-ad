@@ -71,7 +71,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                              OSArray width r)
                 0.4 (mkStdGen 44)
       hVectorInit :: Rep ORArray (X (ADRnnMnistParameters ORArray r))
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf @ORArray valsInit
       ftk = tshapeFull @ORArray
                        (stensorKind @(X (ADRnnMnistParameters ORArray r)))
                        hVectorInit
@@ -180,7 +180,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                              OSArray width r)
                 0.4 (mkStdGen 44)
       hVectorInit :: Rep ORArray (X (ADRnnMnistParameters ORArray r))
-      hVectorInit = toHVector valsInit
+      hVectorInit = toHVectorOf @ORArray valsInit
       ftk = tshapeFull @ORArray
                        (stensorKind @(X (ADRnnMnistParameters ORArray r)))
                        hVectorInit
@@ -301,7 +301,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: ADRnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
-        hVectorInit = toHVector $ AsHVector valsInit
+        hVectorInit = unHVectorPseudoTensor
+                      $ toHVectorOf @ORArray $ AsHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show width, show miniBatchSize
@@ -404,8 +405,8 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInit = forgetShape valsInitShaped
         hVectorInit :: Rep ORArray (X (ADRnnMnistParameters ORArray r))
 --        hVectorInit = unrepDeep @ORArray @(X (ADRnnMnistParameters ORArray r))
---                      $ toHVector valsInit
-        hVectorInit = toHVector valsInit
+--                      $ toHVectorOf valsInit
+        hVectorInit = toHVectorOf @ORArray valsInit
         ftk = tshapeFull @ORArray
                          (stensorKind @(X (ADRnnMnistParameters ORArray r)))
                          hVectorInit

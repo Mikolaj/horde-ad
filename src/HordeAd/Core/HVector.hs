@@ -104,7 +104,6 @@ type role RepProductN nominal nominal nominal
 newtype RepProductN ranked x y =
   RepProductN {unRepProductN :: Rep ranked (TKProduct x y)}
 
--- This is concrete throughout.
 type family RepDeep ranked y = result | result -> ranked y where
   RepDeep ranked (TKScalar r) = RepScalar ranked r
   RepDeep ranked (TKR r n) = ranked r n

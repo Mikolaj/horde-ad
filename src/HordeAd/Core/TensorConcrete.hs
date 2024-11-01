@@ -415,7 +415,7 @@ instance (GoodScalar r, KnownNat n)
       KnownNat n
       => AdaptableHVector ORArray (ORArray Double n) #-}
   type X (ORArray r n) = TKR r n
-  toHVector = id
+  toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
@@ -428,7 +428,7 @@ instance (GoodScalar r, KnownNat n)
       KnownNat n
       => AdaptableHVector ORArray (AsHVector (ORArray Double n)) #-}
   type X (AsHVector (ORArray r n)) = TKUntyped
-  toHVector = V.singleton . DynamicRanked . unAsHVector
+  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
 instance ForgetShape (ORArray r n) where
@@ -438,7 +438,7 @@ instance ForgetShape (ORArray r n) where
 instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector ORArray (OSArray r sh) where
   type X (OSArray r sh) = TKS r sh
-  toHVector = id
+  toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
@@ -448,7 +448,7 @@ instance (GoodScalar r, KnownShS sh)
 instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector ORArray (AsHVector (OSArray r sh)) where
   type X (AsHVector (OSArray r sh)) = TKUntyped
-  toHVector = V.singleton . DynamicShaped . unAsHVector
+  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
 instance GoodScalar r
@@ -472,7 +472,7 @@ instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
 instance AdaptableHVector ORArray
                           (HVectorPseudoTensor ORArray Float '()) where
   type X (HVectorPseudoTensor ORArray Float '()) = TKUntyped
-  toHVector = unHVectorPseudoTensor
+  toHVectorOf = id
   fromHVector (HVectorPseudoTensor aInit) params =
     let (portion, rest) = V.splitAt (V.length aInit) params
     in Just (HVectorPseudoTensor portion, Just rest)

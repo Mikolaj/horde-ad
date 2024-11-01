@@ -244,13 +244,13 @@ deriving instance Floating (AstTensor AstMethodLet s (TKS r sh))
 deriving instance (RealFloatF (AstTensor AstMethodLet s (TKS r sh)))
                   => RealFloatF (AstShaped s r sh)
 
-instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
+instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
          => AdaptableHVector (AstRanked s) (AstRanked s r n) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AstRanked s Double n) #-}
   type X (AstRanked s r n) = TKR r n
-  toHVector = id
+  toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
@@ -263,13 +263,13 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstRanked s) (AsHVector (AstRanked s Double n)) #-}
   type X (AsHVector (AstRanked s r n)) = TKUntyped
-  toHVector = V.singleton . DynamicRanked . unAsHVector
+  toHVectorOf = HVectorPseudoTensor . dmkHVector . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
-instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
+instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s))
          => AdaptableHVector (AstRanked s) (AstGeneric AstMethodLet s r n) where
   type X (AstGeneric AstMethodLet s r n) = TKR r n
-  toHVector = AstRanked . unAstGeneric
+  toHVectorOf = AstRanked . unAstGeneric
   fromHVector _aInit t = Just (AstGeneric $ unAstRanked t, Nothing)
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
@@ -280,7 +280,7 @@ instance (GoodScalar r, KnownNat n, RankedTensor (AstRanked s), AstSpan s)
 {-
 instance (RankedTensor (AstRanked s), AstSpan s)
          => AdaptableHVector (AstRanked s) (DynamicTensor (AstGeneric AstMethodLet s)) where
-  toHVector = rankedHVector . V.singleton
+  toHVectorOf = rankedHVector . V.singleton
   fromHVector _aInit hv = case V.uncons $ unRankedHVector hv of
     Nothing -> Nothing
     Just (generic, rest) ->
@@ -296,10 +296,10 @@ instance (GoodScalar r, KnownNat n)
   type Value (AstRanked FullSpan r n) = ORArray r n
   fromValue t = AstRanked $ fromPrimal $ AstConst $ runFlipR t
 
-instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
+instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s))
          => AdaptableHVector (AstRanked s) (AstShaped s r sh) where
   type X (AstShaped s r sh) = TKS r sh
-  toHVector = id
+  toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
@@ -309,7 +309,7 @@ instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
 instance (GoodScalar r, KnownShS sh, ShapedTensor (AstShaped s), AstSpan s)
          => AdaptableHVector (AstRanked s) (AsHVector (AstShaped s r sh)) where
   type X (AsHVector (AstShaped s r sh)) = TKUntyped
-  toHVector = V.singleton . DynamicShaped . unAsHVector
+  toHVectorOf = HVectorPseudoTensor . dmkHVector . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
 instance (GoodScalar r, KnownShS sh, AstSpan s)
@@ -326,7 +326,7 @@ instance (GoodScalar r, KnownShS sh)
 and this possibly breaks the cfwdOnHVector duplicability invariant in cfwd.
 Analyze and, if possible, remove together with toHVectorOf.
 instance AdaptableHVector (AstRanked s) (AstTensor AstMethodLet s TKUntyped) where
-  toHVector = undefined  -- impossible without losing sharing
+  toHVectorOf = undefined  -- impossible without losing sharing
   toHVectorOf = id  -- but this is possible
   fromHVector aInit params =
     let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params

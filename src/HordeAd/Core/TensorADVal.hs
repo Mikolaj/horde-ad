@@ -178,7 +178,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   type X (ADVal ranked r n) = TKR r n
-  toHVector = id
+  toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
@@ -190,7 +190,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
          => AdaptableHVector (ADVal ranked)
                              (AsHVector (ADVal ranked r n)) where
   type X (AsHVector (ADVal ranked r n)) = TKUntyped
-  toHVector = V.singleton . DynamicRanked . unAsHVector
+  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet ranked, ShareTensor ranked)
@@ -199,8 +199,8 @@ instance (KnownNat n, GoodScalar r, ADReadyNoLet ranked, ShareTensor ranked)
   fromDValue t = constantADVal $ rconst $ runFlipR t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
-instance ( a ~ ranked r n, RankedTensor ranked, GoodScalar r, KnownNat n
-         , AdaptableHVector ranked a )
+instance ( a ~ ranked r n, RankedTensor ranked, ProductTensor ranked
+         , GoodScalar r, KnownNat n, AdaptableHVector ranked a )
          => AdaptableHVector ranked [a] where
 {- TODO
   {-# SPECIALIZE instance
@@ -216,7 +216,9 @@ instance ( a ~ ranked r n, RankedTensor ranked, GoodScalar r, KnownNat n
                           [AstRanked s Double n] #-}
 -}
   type X [a] = TKUntyped
-  toHVector = V.concat . map (toHVector . DynamicRanked)
+  toHVectorOf =
+    HVectorPseudoTensor . dmkHVector . V.concat
+    . map (dunHVector . unHVectorPseudoTensor . toHVectorOf . DynamicRanked)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector (DynamicRanked aInit) restAcc of
@@ -230,12 +232,15 @@ instance ( a ~ ranked r n, RankedTensor ranked, GoodScalar r, KnownNat n
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
 
-instance ( RankedTensor ranked
+instance ( RankedTensor ranked, ProductTensor ranked
          , AdaptableHVector ranked (AsHVector a)
          , X (AsHVector a) ~ TKUntyped )
          => AdaptableHVector ranked (AsHVector [a]) where
   type X (AsHVector [a]) = TKUntyped
-  toHVector = V.concat . map (toHVector . AsHVector) . unAsHVector
+  toHVectorOf =
+    HVectorPseudoTensor . dmkHVector . V.concat
+    . map (dunHVector . unHVectorPseudoTensor . toHVectorOf . AsHVector)
+    . unAsHVector
   fromHVector (AsHVector lInit) source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector (AsHVector aInit) restAcc of
@@ -353,7 +358,7 @@ instance ( ADReadyNoLet (RankedOf shaped), ShareTensor ranked
          => AdaptableHVector (ADVal ranked)
                              (ADVal shaped r sh) where
   type X (ADVal shaped r sh) = TKS r sh
-  toHVector = id
+  toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
@@ -367,7 +372,7 @@ instance ( ADReadyNoLet (RankedOf shaped), ShareTensor ranked
          => AdaptableHVector (ADVal ranked)
                              (AsHVector (ADVal shaped r sh)) where
   type X (AsHVector (ADVal shaped r sh)) = TKUntyped
-  toHVector = V.singleton . DynamicShaped . unAsHVector
+  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
 instance ( ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
@@ -478,7 +483,7 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
                              (ADVal (HVectorPseudoTensor ranked)
                                     Float '()) where
   type X (ADVal (HVectorPseudoTensor ranked) Float '()) = TKUntyped
-  toHVector = aDValToHVector
+  toHVectorOf = aDValToHVector
   fromHVector (D (HVectorPseudoTensor h) _) params =
     let (portion, rest) = V.splitAt (V.length h) params
     in Just (hVectorADValToADVal portion, if V.null rest then Nothing else Just rest)

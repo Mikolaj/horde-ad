@@ -411,7 +411,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -498,7 +498,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         OSArray widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
-      hVectorInit = toHVector $ AsHVector valsInit
+      hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -609,7 +609,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           -- but there is nowhere to get aInit from.
           --   parseHVector aInit hVectorInit
           forgetShape valsInitShaped
-        hVectorInit = toHVector $ AsHVector valsInit
+        hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2
