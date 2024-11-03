@@ -327,7 +327,7 @@ testFooRrevPP1 = do
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstRanked PrimalSpan) @Double (1.1, 2.2, 3.3)
-  printAstSimple IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstSimple IM.empty (simplifyInline $ unAstRanked a1)
     @?= "tlet (sin 2.2) (\\x52 -> tlet (1.1 * x52) (\\x54 -> x52 * ((negate 3.3 * recip (3.3 * 3.3 + x54 * x54)) * 1.0) + sin 2.2 * (3.3 * 1.0)))"
 
 testFooRrev3 :: Assertion
@@ -376,7 +376,7 @@ testSin0Rrev4 = do
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
   let a1 = (rrev1 sin . rrev1 @(AstRanked PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "cos (cos 1.1 * 1.0) * 1.0"
 
 testSin0Rrev5 :: Assertion
@@ -389,7 +389,7 @@ testSin0RrevPP5 :: Assertion
 testSin0RrevPP5 = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "negate (sin 1.1) * 1.0"
 
 testSin0Rrev3' :: Assertion
@@ -427,7 +427,7 @@ testSin0RfwdPP1 :: Assertion
 testSin0RfwdPP1 = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "1.0 * cos 1.1"  -- agrees with the rrev1 version above
 
 testSin0RfwdPP1FullUnsimp :: Assertion
@@ -441,7 +441,7 @@ testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @0 sin (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "(\\x1 -> tproject1 x1 * cos (tproject2 x1)) (tpair (1.0, 1.1))"
 
 testSin0Rfwd3 :: Assertion
@@ -460,13 +460,13 @@ testSin0Rfwd4 = do
 testSin0RfwdPP4 :: Assertion
 testSin0RfwdPP4 = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "1.0 * cos (1.0 * cos 1.1)"  -- agrees with the rrev1 version above
 
 testSin0RfwdPP4Dual :: Assertion
 testSin0RfwdPP4Dual = do
   let a1 = (rfwd1 sin . rfwd1 @(AstRanked DualSpan) @Double @0 @0 sin) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "(\\x18 -> tproject1 x18 * cos (tproject2 x18)) (tpair (rdualPart 1.0, (\\x14 -> tproject1 x14 * cos (tproject2 x14)) (tpair (rdualPart 1.0, rdualPart 1.1))))"
 
 testSin0Rfwd5 :: Assertion
@@ -478,7 +478,7 @@ testSin0Rfwd5 = do
 testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @0 (rfwd1 sin) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "(1.0 * negate (sin 1.1)) * 1.0"  -- agrees with the rrev1 version above
 
 testSin0Rfwd3' :: Assertion
@@ -509,7 +509,7 @@ testSin0RrevPP5S :: Assertion
 testSin0RrevPP5S = do
   resetVarCounter
   let a1 = srev1 @(AstShaped PrimalSpan) @Double @'[] @'[] (srev1 sin) (srepl 1.1)
-  printAstPretty IM.empty (unAstShaped $ simplifyInlineAstS a1)
+  printAstPretty IM.empty (simplifyInline $ unAstShaped a1)
     @?= "negate (sin 1.1) * (1.0 * 1.0)"
 
 testSin0Fold0 :: Assertion
@@ -1075,7 +1075,7 @@ testSin0Scan1RevPP1 = do
   let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
-  printAstPrettyButNested IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPrettyButNested IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v3 = rconst (rfromListLinear [2] [42.0,42.0]) ; v6 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in v6 ! [0] + tproject1 (dmapAccumRDer (SNat @2) (\\x9 -> tpair (cos (tproject1 (tproject2 (tproject2 x9))) * (tproject1 (tproject2 x9) + tproject1 x9), 0.0)) (\\x15 -> tpair ((tproject1 (tproject2 (tproject2 (tproject1 x15))) * negate (sin (tproject1 (tproject2 (tproject2 (tproject2 x15)))))) * (tproject1 (tproject2 (tproject2 x15)) + tproject1 (tproject2 x15)) + (tproject1 (tproject2 (tproject1 x15)) + tproject1 (tproject1 x15)) * cos (tproject1 (tproject2 (tproject2 (tproject2 x15)))), 0.0)) (\\x23 -> let x28 = cos (tproject1 (tproject2 (tproject2 (tproject2 x23)))) * tproject1 (tproject1 x23) in tpair (x28, tpair (x28, tpair (negate (sin (tproject1 (tproject2 (tproject2 (tproject2 x23))))) * ((tproject1 (tproject2 (tproject2 x23)) + tproject1 (tproject2 x23)) * tproject1 (tproject1 x23)), 0.0)))) 0.0 (tpair (rslice 1 2 v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\x29 -> let x32 = sin (tproject1 x29) in tpair (x32, tpair (tproject1 x29, x32))) (\\x34 -> let x41 = tproject1 (tproject1 x34) * cos (tproject1 (tproject2 x34)) in tpair (x41, tpair (tproject1 (tproject1 x34), x41))) (\\x43 -> tpair (cos (tproject1 (tproject2 x43)) * (tproject2 (tproject2 (tproject1 x43)) + tproject1 (tproject1 x43)) + tproject1 (tproject2 (tproject1 x43)), 0.0)) 1.1 v3)), v3))))"
 
 testSin0Scan1RevPPForComparison :: Assertion
@@ -1083,7 +1083,7 @@ testSin0Scan1RevPPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0), sin x0, x0]) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v4 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in cos 1.1 * (cos (sin 1.1) * v4 ! [0]) + cos 1.1 * v4 ! [1] + v4 ! [2]"
 
 testSin0ScanFwdPP :: Assertion
@@ -1092,7 +1092,7 @@ testSin0ScanFwdPP = do
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
-  printAstPrettyButNested IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPrettyButNested IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v4 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (tproject2 (dmapAccumLDer (SNat @2) (\\x9 -> let x16 = tproject1 x9 * cos (tproject1 (tproject2 (tproject2 x9))) in tpair (x16, x16)) (\\x17 -> let x24 = tproject1 (tproject1 x17) * cos (tproject1 (tproject2 (tproject2 (tproject2 x17)))) + (tproject1 (tproject2 (tproject2 (tproject1 x17))) * negate (sin (tproject1 (tproject2 (tproject2 (tproject2 x17)))))) * tproject1 (tproject2 x17) in tpair (x24, x24)) (\\x25 -> let x31 = tproject2 (tproject1 x25) + tproject1 (tproject1 x25) in tpair (cos (tproject1 (tproject2 (tproject2 (tproject2 x25)))) * x31, tpair (0.0, tpair (negate (sin (tproject1 (tproject2 (tproject2 (tproject2 x25))))) * (tproject1 (tproject2 x25) * x31), 0.0)))) 1.0 (tpair (rreplicate 2 0.0, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\x32 -> let x35 = sin (tproject1 x32) in tpair (x35, tpair (tproject1 x32, x35))) (\\x37 -> let x38 = tproject1 (tproject1 x37) * cos (tproject1 (tproject2 x37)) in tpair (x38, tpair (tproject1 (tproject1 x37), x38))) (\\x40 -> tpair (cos (tproject1 (tproject2 x40)) * (tproject2 (tproject2 (tproject1 x40)) + tproject1 (tproject1 x40)) + tproject1 (tproject2 (tproject1 x40)), 0.0)) 1.1 v4)), v4)))))"
 
 testSin0ScanFwdPPFull :: Assertion
@@ -1101,7 +1101,7 @@ testSin0ScanFwdPPFull = do
   let a1 = rfwd1 @(AstRanked FullSpan) @Double @0 @1
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
-  printAstPrettyButNested IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPrettyButNested IM.empty (simplifyInline $ unAstRanked a1)
     @?= "(\\x1 -> let v4 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 (tproject1 x1)) (tproject2 (dmapAccumLDer (SNat @2) (\\x9 -> let x16 = tproject1 x9 * cos (tproject1 (tproject2 (tproject2 x9))) in tpair (x16, x16)) (\\x17 -> let x24 = tproject1 (tproject1 x17) * cos (tproject1 (tproject2 (tproject2 (tproject2 x17)))) + (tproject1 (tproject2 (tproject2 (tproject1 x17))) * negate (sin (tproject1 (tproject2 (tproject2 (tproject2 x17)))))) * tproject1 (tproject2 x17) in tpair (x24, x24)) (\\x25 -> let x31 = tproject2 (tproject1 x25) + tproject1 (tproject1 x25) in tpair (cos (tproject1 (tproject2 (tproject2 (tproject2 x25)))) * x31, tpair (0.0, tpair (negate (sin (tproject1 (tproject2 (tproject2 (tproject2 x25))))) * (tproject1 (tproject2 x25) * x31), 0.0)))) (tproject1 x1) (tpair (rreplicate 2 0.0, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\x32 -> let x35 = sin (tproject1 x32) in tpair (x35, tpair (tproject1 x32, x35))) (\\x37 -> let x38 = tproject1 (tproject1 x37) * cos (tproject1 (tproject2 x37)) in tpair (x38, tpair (tproject1 (tproject1 x37), x38))) (\\x40 -> tpair (cos (tproject1 (tproject2 x40)) * (tproject2 (tproject2 (tproject1 x40)) + tproject1 (tproject1 x40)) + tproject1 (tproject2 (tproject1 x40)), 0.0)) (tproject2 x1) v4)), v4)))))) (tpair (1.0, 1.1))"
 
 testSin0Scan1Rev2PP1 :: Assertion
@@ -1110,7 +1110,7 @@ testSin0Scan1Rev2PP1 = do
   let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v3 = rconst (rfromListLinear [2] [5.0,7.0]) ; v6 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in v6 ! [0] + tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> 0.0 (tpair (rslice 1 2 v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 v3)), v3))))"
 
 testSin0Scan1Rev2PPA :: Assertion
@@ -1155,7 +1155,7 @@ testSin0Scan1Rev3PP = do
   let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v3 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) ; v6 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) ; v7 = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> 0.0 (tpair (rslice 1 2 v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 v3)), v3))) in v6 ! [0] + 5.0 * tproject2 v7 ! [0] + 7.0 * tproject2 v7 ! [1] + tproject1 v7"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
@@ -1163,7 +1163,7 @@ testSin0Scan1Rev3PPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v4 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) ; x5 = v4 ! [1] ; x6 = v4 ! [0] ; x7 = cos (sin 1.1 - 1.1 * 5.0) * x6 in cos 1.1 * x7 + 5.0 * (-1.0 * x7) + 7.0 * (-1.0 * x6) + cos 1.1 * x5 + 5.0 * (-1.0 * x5) + v4 ! [2]"
 
 testSin0ScanFwd3PP :: Assertion
@@ -1172,7 +1172,7 @@ testSin0ScanFwd3PP = do
   let a1 = rfwd1 @(AstRanked PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v4 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.0 (tpair (rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 v4)), v4)))))"
 
 testSin0Scan1Rev3 :: Assertion
@@ -1246,7 +1246,7 @@ testUnitriangular0PP = do
       a1 = rbuild1 @(AstRanked PrimalSpan) @Double @1 k
            $ \i -> rbuild1 k
            $ \j -> ifF (i <=. j) 0 1
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "rgather [1000000,1000000] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifF (i3 <=. i2) 0 1])"
 
 unitriangular1 :: (KnownNat k, GoodScalar rk, ADReady ranked)
@@ -1262,7 +1262,7 @@ testUnitriangular1PP = do
   let sh = 200 :$: 300 :$: 600 :$: ZSR
       k = 1000000
       a1 = unitriangular1 @3 @Double @(AstRanked PrimalSpan) k sh
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i5, i6] -> [ifF (i5 <=. i6) 0 1, i5, i6])"
 
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady ranked)
@@ -1279,7 +1279,7 @@ testUnitriangular2PP = do
   let sh = 200 :$: 300 :$: 600 :$: ZSR
       k = 1000000
       a1 = unitriangular2 @3 @Double @(AstRanked PrimalSpan) k sh
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4])"
 
 rscanZip :: forall rn n ranked. (GoodScalar rn, KnownNat n, ADReady ranked)
@@ -3213,7 +3213,7 @@ testSin0ScanD1RevPP = do
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
                                (rrepl @Double @1 [2] 42))) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v25 = rconst (rfromListLinear [2] [42.0,42.0]) ; v20 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in rproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] (tpair ([rslice 1 2 v20], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v25])), [v25]))))) 0 + v20 ! [0]"
 
 testSin0ScanDFwdPP :: Assertion
@@ -3224,7 +3224,7 @@ testSin0ScanDFwdPP = do
                            (V.fromList [voidFromSh @Double ZSR])
                            x0 (V.singleton $ DynamicRanked
                                (rrepl @Double @1 [2] 42))) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v24 = rconst (rfromListLinear [2] [42.0,42.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (tpair ([rreplicate 2 0.0], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v24])), [v24]))))) 0)"
 
 testSin0ScanD1Rev2PP :: Assertion
@@ -3235,7 +3235,7 @@ testSin0ScanD1Rev2PP = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              $ rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v25 = rconst (rfromListLinear [2] [5.0,7.0]) ; v20 = rconst (rfromListLinear [3] [1.0,1.0,1.0]) in rproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [0.0] (tpair ([rslice 1 2 v20], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v25])), [v25]))))) 0 + v20 ! [0]"
 
 testSin0ScanDFwd2PP :: Assertion
@@ -3246,7 +3246,7 @@ testSin0ScanDFwd2PP = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                          $ rconst (Nested.rfromListPrimLinear @Double @1 (fromList [2]) [5, 7]))) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v24 = rconst (rfromListLinear [2] [5.0,7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (tpair ([rreplicate 2 0.0], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v24])), [v24]))))) 0)"
 
 testSin0ScanD1Rev2 :: Assertion
@@ -3282,7 +3282,7 @@ testSin0ScanD1Rev3PP = do
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * 5, x0]))) (rscalar 1.1)
-  length (printAstSimple IM.empty (unAstRanked $ simplifyInlineAst a1))
+  length (printAstSimple IM.empty (simplifyInline $ unAstRanked a1))
     @?= 3718
 
 testSin0ScanDFwd3PP :: Assertion
@@ -3293,7 +3293,7 @@ testSin0ScanDFwd3PP = do
                                 (V.fromList [voidFromSh @Double ZSR])
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
-  printAstPretty IM.empty (unAstRanked $ simplifyInlineAst a1)
+  printAstPretty IM.empty (simplifyInline $ unAstRanked a1)
     @?= "let v27 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (tpair ([rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0])], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v27])), [v27]))))) 0)"
 
 testSin0ScanD0fwd :: Assertion
@@ -4477,7 +4477,7 @@ testSin0FoldNestedR21PP = do
                                        (rreplicate 2 xpa)))
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
-  length (printAstSimple IM.empty (unAstRanked $ simplifyInlineAst a1))
+  length (printAstSimple IM.empty (simplifyInline $ unAstRanked a1))
     @?= 43092
 
 testSin0revhV :: Assertion

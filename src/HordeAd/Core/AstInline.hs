@@ -4,7 +4,7 @@
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
     simplifyArtifact, simplifyArtifactGradient
-  , simplifyInlineAst, simplifyInlineAstS
+  , simplifyInlineAst
   , simplifyInline
     -- * The translates global sharing to normal lets
   , unshareAstTensor
@@ -56,14 +56,6 @@ simplifyInlineAst = AstRanked . simplifyInline . unAstRanked
 {-# SPECIALIZE simplifyInlineAst
   :: (KnownNat n, AstSpan s)
   => AstRanked s Double n -> AstRanked s Double n #-}
-
-simplifyInlineAstS
-  :: forall r sh s. (GoodScalar r, KnownShS sh, AstSpan s)
-  => AstShaped s r sh -> AstShaped s r sh
-simplifyInlineAstS = AstShaped . simplifyInline . unAstShaped
-{-# SPECIALIZE simplifyInlineAstS
-  :: (KnownShS sh, AstSpan s)
-  => AstShaped s Double sh -> AstShaped s Double sh #-}
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
