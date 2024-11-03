@@ -493,7 +493,7 @@ testOverleafPP = do
       fT = overleaf
       (var3, ast3) = funToAst (FTKR [28]) $ unAstRanked . fT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v -> rsum (rgather [50] v (\\[i] -> [remF i 28]))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True fT (ringestData [28] [0 .. 27])
@@ -568,7 +568,7 @@ testFooPP = do
       foo3 x = fooT (x, x, x)
       (var3, ast3) = funToAst (FTKR ZSR) $ unAstRanked . foo3 . AstRanked
   "\\" ++ printAstVarName IM.empty var3
-       ++ " -> " ++ printAstSimple IM.empty (AstRanked ast3)
+       ++ " -> " ++ printAstSimple IM.empty ast3
     @?= "\\x1 -> atan2F x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooT (4, 5, 6)
@@ -603,7 +603,7 @@ testFooLetPP = do
       fooLet3 x = fooLetT (x, x, x)
       (var3, ast3) = funToAst (FTKR ZSR) $ unAstRanked . fooLet3 . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> tlet (x1 * sin x1) (\\x2 -> atan2F x1 x2 + x1 * x2)"
   resetVarCounter
   let (artifactRev, _) = revArtifactAdapt True fooLetT (4, 5, 6)
@@ -853,7 +853,7 @@ testReluPP = do
       reluT = reluPrimal
       (var3, ast3) = funToAst (FTKR [3, 4]) $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
@@ -874,7 +874,7 @@ testReluPP2 = do
       reluT2 (t, r) = reluPrimal (t * rreplicate 5 r)
       (var3, ast3) = funToAst (FTKR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rconstant (rreplicate 5 7.0))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
@@ -898,7 +898,7 @@ testReluSimplerPP = do
       reluT = relu
       (var3, ast3) = funToAst (FTKR [3, 4]) $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
@@ -919,7 +919,7 @@ testReluSimplerPP2 = do
       reluT2 (t, r) = relu (t * rreplicate 5 r)
       (var3, ast3) = funToAst (FTKR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rconstant (rreplicate 5 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
@@ -938,7 +938,7 @@ testReluSimplerPP3 = do
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
       (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rconstant (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
@@ -967,7 +967,7 @@ testReluSimplerPP4 = do
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
       (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rconstant (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
@@ -995,7 +995,7 @@ testReluSimplerPP4S = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
       (var3, ast3) = funToAst (FTKS knownShS) (\t -> unAstShaped $ reluT2 (AstShaped t, srepl 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimpleS renamesNull (AstShaped ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * sconstant (sreshape (sreplicate 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
 
 testReluSimplerPP4S2 :: Assertion
@@ -1047,7 +1047,7 @@ testReluMaxPP = do
       reluT = reluMax
       (var3, ast3) = funToAst (FTKR [3, 4]) $ unAstRanked . reluT . AstRanked
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1])) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
@@ -1068,7 +1068,7 @@ testReluMaxPP2 = do
       reluT2 (t, r) = reluMax (t * rreplicate 5 r)
       (var3, ast3) = funToAst (FTKR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
   "\\" ++ printAstVarName renamesNull var3
-       ++ " -> " ++ printAstSimple renamesNull (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rgather [5] (rfromVector (fromList [rconstant (rreplicate 5 0.0), v1 * rconstant (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
@@ -2094,7 +2094,7 @@ testConcatBuild3PP = do
       t = concatBuild33 @(AstRanked FullSpan) @Float
       (var3, ast3) = funToAst (FTKR [3]) $ unAstRanked . t . AstRanked
   "\\" ++ printAstVarName renames var3
-       ++ " -> " ++ printAstSimple renames (AstRanked ast3)
+       ++ " -> " ++ printAstSimple renames ast3
     @?= "\\v1 -> rconstant (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
 
 testConcatBuild3PP2 :: Assertion

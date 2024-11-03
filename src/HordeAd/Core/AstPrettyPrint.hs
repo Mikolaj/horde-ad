@@ -8,10 +8,7 @@ module HordeAd.Core.AstPrettyPrint
   , printAstDynamicVarName
   , printAstIntVarName
     -- * Pretty-printing terms in a few useful configurations
-  , printAstSimpleY, printAstSimple, printAstPrettyY, printAstPretty
-  , printAstPrettyButNested
-  , printAstSimpleS, printAstPrettyS, printAstPrettyButNestedS
-  , printAstHVectorSimple, printAstHVectorPretty, printAstHVectorPrettyButNested
+  , printAstSimple, printAstPretty, printAstPrettyButNested
   ) where
 
 import Prelude
@@ -756,51 +753,15 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstSimpleY :: AstSpan s
-                => IntMap String -> AstTensor ms s y -> String
-printAstSimpleY renames t = printAst (defaulPrintConfig False renames) 0 t ""
-
 printAstSimple :: AstSpan s
-               => IntMap String -> AstRanked s r n -> String
-printAstSimple renames (AstRanked t) = printAst (defaulPrintConfig False renames) 0 t ""
-
-printAstPrettyY :: AstSpan s
-                => IntMap String -> AstTensor ms s y -> String
-printAstPrettyY renames t = printAst (defaulPrintConfig True renames) 0 t ""
+               => IntMap String -> AstTensor ms s y -> String
+printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
 printAstPretty :: AstSpan s
-               => IntMap String -> AstRanked s r n -> String
-printAstPretty renames (AstRanked t) = printAst (defaulPrintConfig True renames) 0 t ""
+               => IntMap String -> AstTensor ms s y -> String
+printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
 printAstPrettyButNested :: AstSpan s
-                        => IntMap String -> AstRanked s r n -> String
-printAstPrettyButNested renames (AstRanked t) =
-  printAst (defaulPrintConfig2 True False renames) 0 t ""
-
-printAstSimpleS :: AstSpan s
-                => IntMap String -> AstShaped s r sh -> String
-printAstSimpleS renames (AstShaped t) = printAst (defaulPrintConfig False renames) 0 t ""
-
-printAstPrettyS :: AstSpan s
-                => IntMap String -> AstShaped s r sh -> String
-printAstPrettyS renames (AstShaped t) = printAst (defaulPrintConfig True renames) 0 t ""
-
-printAstPrettyButNestedS :: AstSpan s
-                         => IntMap String -> AstShaped s r sh -> String
-printAstPrettyButNestedS renames (AstShaped t) =
-  printAst (defaulPrintConfig2 True False renames) 0 t ""
-
-printAstHVectorSimple :: AstSpan s => IntMap String -> AstTensor ms s TKUntyped
-                      -> String
-printAstHVectorSimple renames t =
-  printAst (defaulPrintConfig False renames) 0 t ""
-
-printAstHVectorPretty :: AstSpan s => IntMap String -> AstTensor ms s TKUntyped
-                      -> String
-printAstHVectorPretty renames t =
-  printAst (defaulPrintConfig True renames) 0 t ""
-
-printAstHVectorPrettyButNested
-  :: AstSpan s => IntMap String -> AstTensor ms s TKUntyped -> String
-printAstHVectorPrettyButNested renames t =
+                        => IntMap String -> AstTensor ms s y -> String
+printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""

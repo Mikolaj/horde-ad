@@ -73,14 +73,14 @@ build1Vectorize snat@SNat (var, v0)
     hPutStrLnFlush stderr $
       "\n"
       ++ "START of vectorization for term "
-      ++ ellipsisString width (printAstSimpleY renames startTerm)
+      ++ ellipsisString width (printAstSimple renames startTerm)
       ++ "\n"
   let !endTerm = build1VOccurenceUnknown snat (var, v0)
   when enabled $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "END of vectorization yields "
-      ++ ellipsisString width (printAstSimpleY renames endTerm)
+      ++ ellipsisString width (printAstSimple renames endTerm)
       ++ "\n"
   let !_A = assert (shapeAstFull startTerm == shapeAstFull endTerm
                    `blame` "build1Vectorize: term shape changed"
@@ -902,7 +902,7 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
       renames = IM.fromList [(1, ""), (2, "")]
       constructorName =
         unwords $ take nwords $ words $ take 20
-        $ printAstSimpleY renames caseAnalysed
+        $ printAstSimple renames caseAnalysed
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
   when enabled $ do
@@ -910,8 +910,8 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel succ
     let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
     -- Force in the correct order:
-    let !stringFrom = printAstSimpleY renames from
-    let !stringTo = printAstSimpleY renames to
+    let !stringFrom = printAstSimple renames from
+    let !stringTo = printAstSimple renames to
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo

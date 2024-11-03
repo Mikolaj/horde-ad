@@ -2135,7 +2135,7 @@ printArtifactSimple renames art | Dict <- lemTensorKindOfAD (stensorKind @z) =
   let !varsPP = printAstVarName renames varDt
                 : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimpleY renames derivative
+          ++ " -> " ++ printAstSimple renames derivative
 
 printArtifactPretty
   :: forall x z. (TensorKind x, TensorKind z)
@@ -2147,7 +2147,7 @@ printArtifactPretty renames art | Dict <- lemTensorKindOfAD (stensorKind @z) =
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPrettyY renames derivative
+          ++ " -> " ++ printAstPretty renames derivative
 
 printArtifactPrimalSimple
   :: forall x z. (TensorKind x, TensorKind z)
@@ -2158,7 +2158,7 @@ printArtifactPrimalSimple renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
   let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimpleY renames primal
+          ++ " -> " ++ printAstSimple renames primal
 
 printArtifactPrimalPretty
   :: forall x z. (TensorKind x, TensorKind z)
@@ -2169,4 +2169,4 @@ printArtifactPrimalPretty renames art =
   let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
   let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPrettyY renames primal
+          ++ " -> " ++ printAstPretty renames primal
