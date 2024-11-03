@@ -78,7 +78,7 @@ rev' :: forall r m n v a w.
      => (forall f. ADReady f => f r n -> f r m)
      -> FlipR OR.Array r n
      -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-        , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
+        , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
         , Rep ORArray (TKR r n), w, w, w )
@@ -108,19 +108,19 @@ rev' f valsOR =
       revEvalArtifact7 a1 = revEvalArtifact a1 vals Nothing
       hGeneral
         :: (ADReady fgen, ADReady f1)
-        => (f1 r m -> AstRanked PrimalSpan r m)
-        -> (AstRanked PrimalSpan r n -> f1 r n)
-        -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
+        => (f1 (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR r n) -> f1 (TKR r n))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
         -> fgen r n
         -> fgen r m
       hGeneral fx1 fx2 gx inputs =
-        let (var, ast) = funToAst (FTKR $ rshape vals) (unAstRanked . fx1 . f . fx2 . AstRanked)
+        let (var, ast) = funToAst (FTKR $ rshape vals) (fx1 . f . fx2)
             env = extendEnv var inputs emptyEnv
-        in interpretAst env (unAstRanked $ gx $ AstRanked ast)
+        in interpretAst env (gx ast)
       h :: ADReady f1
-        => (f1 r m -> AstRanked PrimalSpan r m)
-        -> (AstRanked PrimalSpan r n -> f1 r n)
-        -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
+        => (f1 (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR r n) -> f1 (TKR r n))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
         -> ADVal ORArray r n
         -> ADVal ORArray r m
       h fx1 fx2 gx inputs =
@@ -129,41 +129,41 @@ rev' f valsOR =
       (gradient2, value2) =
         crevDtMaybeBoth dt (h id id id) vals
       (gradient3, value3) =
-        crevDtMaybeBoth dt (h id id simplifyInlineAst) vals
+        crevDtMaybeBoth dt (h id id simplifyInline) vals
       (gradient2UnSimp, value2UnSimp) =
-        crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) vals
+        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) vals
       gradientRrev2UnSimp =
         rrev1 @ORArray @r @n @m @r
-              (hGeneral (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) vals
+              (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (gradient3UnSimp, value3UnSimp) =
-        crevDtMaybeBoth dt (h (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
+        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInline)
                       vals
       gradientRrev3UnSimp =
         rrev1 @ORArray @r @n @m @r
-              (hGeneral (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst) vals
+              (hGeneral unAstNoSimplify AstNoSimplify simplifyInline) vals
       (gradient4, value4) =
-        crevDtMaybeBoth dt (h (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id)
+        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
                       vals
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradientRrev4 =
         rrev1 @ORArray @r @n @m @r
-              (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) vals
+              (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (gradient5, value5) =
-        crevDtMaybeBoth dt (h (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
+        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInline)
                       vals
       gradientRrev5 =
         rrev1 @ORArray @r @n @m @r
-              (hGeneral (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst) vals
-      astVectSimp = simplifyInlineAst $ AstRanked $ snd $ funToAst (FTKR $ rshape vals) (unAstRanked . f . AstRanked)
+              (hGeneral unAstNoVectorize AstNoVectorize simplifyInline) vals
+      astVectSimp = simplifyInline $ snd $ funToAst (FTKR $ rshape vals) (unAstRanked . f . AstRanked)
       astSimp =
-        simplifyInlineAst $ simplifyInlineAst $ AstRanked $ snd  -- builds simplify with difficulty
+        simplifyInline $ simplifyInline $ snd  -- builds simplify with difficulty
         $ funToAst (FTKR $ rshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
-           => (f1 r m -> AstRanked PrimalSpan r m)
-           -> (AstRanked PrimalSpan r n -> f1 r n)
-           -> (AstRanked PrimalSpan r m -> AstRanked PrimalSpan r m)
+           => (f1 (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
+           -> (AstTensor AstMethodLet PrimalSpan (TKR r n) -> f1 (TKR r n))
+           -> (AstTensor AstMethodLet PrimalSpan (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
            -> ADVal (AstRaw PrimalSpan) r n
            -> ADVal (AstRaw PrimalSpan) r m
       hAst fx1 fx2 gx inputs
@@ -183,21 +183,21 @@ rev' f valsOR =
         revEvalArtifact7 (simplifyArtifact artifactsGradAstT)
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id simplifyInlineAst) ftk
+                False (hAst id id simplifyInline) ftk
       (gradient3Ast, value3Ast) =
         revEvalArtifact7 artifactsSimpleAst
       (gradient3AstS, value3AstS) =
         revEvalArtifact7 (simplifyArtifact artifactsSimpleAst)
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) id) ftk
+                False (hAst unAstNoSimplify AstNoSimplify id) ftk
       (gradient2AstUnSimp, value2AstUnSimp) =
         revEvalArtifact7 artifactsGradAstUnSimp
       (gradient2AstSUnSimp, value2AstSUnSimp) =
         revEvalArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoSimplify) (AstNoSimplify . unAstRanked) simplifyInlineAst)
+                False (hAst unAstNoSimplify AstNoSimplify simplifyInline)
                 ftk
       (gradient3AstUnSimp, value3AstUnSimp) =
         revEvalArtifact7 artifactsSimpleAstUnSimp
@@ -205,14 +205,14 @@ rev' f valsOR =
         revEvalArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) id) ftk
+                False (hAst unAstNoVectorize AstNoVectorize id) ftk
       (gradient4Ast, value4Ast) =
         revEvalArtifact7 artifactsPrimalAst
       (gradient4AstS, value4AstS) =
         revEvalArtifact7 (simplifyArtifact artifactsPrimalAst)
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst (AstRanked . unAstNoVectorize) (AstNoVectorize . unAstRanked) simplifyInlineAst)
+                False (hAst unAstNoVectorize AstNoVectorize simplifyInline)
                 ftk
       (gradient5Ast, value5Ast) =
         revEvalArtifact7 artifactsPSimpleAst
@@ -251,7 +251,7 @@ assertEqualUpToEpsilon'
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-       , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
+       , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
        , Rep ORArray (TKR r n), w, w, w )
@@ -363,10 +363,10 @@ assertEqualUpToEpsilon'
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of simplification of non-vectorized AST"
               (show astSimp)
-              (show (simplifyInlineAst astSimp))
+              (show (simplifyInline astSimp))
   assertEqual "Idempotence of simplification of vectorized AST"
               (show astVectSimp)
-              (show (simplifyInlineAst astVectSimp))
+              (show (simplifyInline astVectSimp))
   -}
 
 assertEqualUpToEpsilonShort
@@ -380,7 +380,7 @@ assertEqualUpToEpsilonShort
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> OR.Array n r  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-       , AstRanked PrimalSpan r m, AstRanked PrimalSpan r m
+       , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
        , Rep ORArray (TKR r n), w, w, w )
@@ -467,10 +467,10 @@ assertEqualUpToEpsilonShort
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
               (show astSimp)
-              (show (simplifyInlineAst astSimp))
+              (show (simplifyInline astSimp))
   assertEqual "Idempotence of gradient simplification"
               (show astVectSimp)
-              (show (simplifyInlineAst astVectSimp))
+              (show (simplifyInline astVectSimp))
   -}
 
 t16 :: (Fractional r, Nested.PrimElt r) => ORArray r 5

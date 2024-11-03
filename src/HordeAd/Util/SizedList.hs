@@ -47,12 +47,12 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested
   ( IxR (..)
   , ListR (..)
+  , Rank
   , ShR (..)
   , pattern (:.:)
   , pattern (:::)
   , pattern ZIR
   , pattern ZR
-  , Rank
   )
 
 import HordeAd.Core.Types
@@ -66,7 +66,7 @@ import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZIR).
-type IndexOf (f :: TensorType ty) n = Index n (IntOf f)
+type IndexOf (f :: Target) n = Index n (IntOf f)
 
 -- | Standard strict sized lists indexed by the GHC @Nat@ type.
 --

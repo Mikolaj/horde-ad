@@ -34,19 +34,19 @@ import HordeAd.Core.Types
 -- * Adaptor classes
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class AdaptableHVector (ranked :: RankedTensorType) vals where
+class AdaptableHVector (target :: Target) vals where
   type X vals :: TensorKindType
-  toHVectorOf :: vals -> Rep ranked (X vals)
+  toHVectorOf :: vals -> target (X vals)
     -- ^ represent a collection of tensors
-  fromHVector :: vals -> Rep ranked (X vals) -> Maybe (vals, Maybe (Rep ranked (X vals)))
+  fromHVector :: vals -> target (X vals) -> Maybe (vals, Maybe (target (X vals)))
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
-  fromHVectorAD :: vals -> Rep ranked (ADTensorKind (X vals)) -> Maybe (vals, Maybe (Rep ranked (ADTensorKind (X vals))))
+  fromHVectorAD :: vals -> target (ADTensorKind (X vals)) -> Maybe (vals, Maybe (target (ADTensorKind (X vals))))
   default fromHVectorAD :: X vals ~ ADTensorKind (X vals)
-                        => vals -> Rep ranked (ADTensorKind (X vals))
-                        -> Maybe (vals, Maybe (Rep ranked (ADTensorKind (X vals))))
+                        => vals -> target (ADTensorKind (X vals))
+                        -> Maybe (vals, Maybe (target (ADTensorKind (X vals))))
   fromHVectorAD = fromHVector
 
 -- | Recovers a value of a collection of tensors type and asserts
@@ -54,17 +54,17 @@ class AdaptableHVector (ranked :: RankedTensorType) vals where
 -- procedure where @fromHVector@ calls itself recursively for sub-values
 -- across mutliple instances.
 parseHVector
-  :: (TensorKind (X vals), AdaptableHVector ranked vals, ProductTensor ranked)
-  => vals -> Rep ranked (X vals) -> vals
+  :: (TensorKind (X vals), AdaptableHVector target vals, BaseTensor target)
+  => vals -> target (X vals) -> vals
 parseHVector aInit hVector =
   case fromHVector aInit hVector of
     Just (vals, mrest) -> assert (maybe True nullRep mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 parseHVectorAD
-  :: forall vals ranked.
-     (TensorKind (X vals), AdaptableHVector ranked vals, ProductTensor ranked)
-  => vals -> Rep ranked (ADTensorKind (X vals)) -> vals
+  :: forall vals target.
+     (TensorKind (X vals), AdaptableHVector target vals, BaseTensor target)
+  => vals -> target (ADTensorKind (X vals)) -> vals
 parseHVectorAD aInit hVector | Dict <- lemTensorKindOfAD (stensorKind @(X vals)) =
   case fromHVectorAD aInit hVector of
     Just (vals, mrest) -> assert (maybe True nullRep mrest) vals
@@ -100,8 +100,8 @@ class RandomHVector vals where
 -- * Basic Adaptor class instances
 
 {- This is temporarily moved to TensorADVal in order to specialize manually
-instance AdaptableHVector ranked a
-         => AdaptableHVector ranked [a] where
+instance AdaptableHVector target a
+         => AdaptableHVector target [a] where
 -}
 
 instance TermValue a => TermValue [a] where
@@ -117,16 +117,14 @@ instance ForgetShape a
   type NoShape [a] = [NoShape a]
   forgetShape = map forgetShape
 
-instance (X a ~ TKUntyped, AdaptableHVector ranked a, ProductTensor ranked)
-         => AdaptableHVector ranked (Data.Vector.Vector a) where
+instance (X a ~ TKUntyped, AdaptableHVector target a, BaseTensor target)
+         => AdaptableHVector target (Data.Vector.Vector a) where
   type X (Data.Vector.Vector a) = TKUntyped
-  toHVectorOf =
-    HVectorPseudoTensor . dmkHVector
-    . V.concatMap (dunHVector . unHVectorPseudoTensor . toHVectorOf)
+  toHVectorOf = dmkHVector . V.concatMap (dunHVector . toHVectorOf)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
-            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
+            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (dmkHVector V.empty) mrest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
             _ -> error "fromHVector (Data.Vector.Vector a)"
@@ -146,16 +144,14 @@ instance ForgetShape a
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
   forgetShape = V.map forgetShape
 
-instance (X a ~ TKUntyped, AdaptableHVector ranked a, ProductTensor ranked)
-         => AdaptableHVector ranked (Data.NonStrict.Vector.Vector a) where
+instance (X a ~ TKUntyped, AdaptableHVector target a, BaseTensor target)
+         => AdaptableHVector target (Data.NonStrict.Vector.Vector a) where
   type X (Data.NonStrict.Vector.Vector a) = TKUntyped
-  toHVectorOf =
-    HVectorPseudoTensor . dmkHVector
-    . V.concat . map (dunHVector . unHVectorPseudoTensor . toHVectorOf) . V.toList
+  toHVectorOf = dmkHVector . V.concat . map (dunHVector . toHVectorOf) . V.toList
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
-            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
+            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (dmkHVector V.empty) mrest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
             _ -> error "fromHVector: Nothing"
@@ -163,21 +159,21 @@ instance (X a ~ TKUntyped, AdaptableHVector ranked a, ProductTensor ranked)
           V.foldl' f (V.empty, source) lInit
     in Just (l, if nullRep restAll then Nothing else Just restAll)
 
-instance ProductTensor ranked
-         => AdaptableHVector ranked (DynamicTensor ranked) where
-  type X (DynamicTensor ranked) = TKUntyped
-  toHVectorOf = HVectorPseudoTensor . dmkHVector . V.singleton
-  fromHVector _aInit v = case V.uncons $ dunHVector $ unHVectorPseudoTensor v of
+instance BaseTensor target
+         => AdaptableHVector target (DynamicTensor target) where
+  type X (DynamicTensor target) = TKUntyped
+  toHVectorOf = dmkHVector . V.singleton
+  fromHVector _aInit v = case V.uncons $ dunHVector v of
     Just (t, rest) ->
       Just (t, if V.null rest
                then Nothing
-               else Just $ HVectorPseudoTensor $ dmkHVector rest)
+               else Just $ dmkHVector rest)
     Nothing -> Nothing
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b)) )
-         => AdaptableHVector ranked (a, b) where
+instance ( BaseTensor target
+         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b)) )
+         => AdaptableHVector target (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
   toHVectorOf (a, b) =
     let a1 = toHVectorOf a
@@ -220,11 +216,11 @@ instance ( RandomHVector a
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector ranked c, TensorKind (X c), TensorKind (ADTensorKind (X c)) )
-         => AdaptableHVector ranked (a, b, c) where
+instance ( BaseTensor target
+         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c)) )
+         => AdaptableHVector target (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
   toHVectorOf (a, b, c) =
     let a1 = toHVectorOf a
@@ -277,12 +273,12 @@ instance ( RandomHVector a
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector ranked c, TensorKind (X c), TensorKind (ADTensorKind (X c))
-         , AdaptableHVector ranked d, TensorKind (X d), TensorKind (ADTensorKind (X d)) )
-         => AdaptableHVector ranked (a, b, c, d) where
+instance ( BaseTensor target
+         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
+         , AdaptableHVector target d, TensorKind (X d), TensorKind (ADTensorKind (X d)) )
+         => AdaptableHVector target (a, b, c, d) where
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
   toHVectorOf (a, b, c, d) =
@@ -349,13 +345,13 @@ instance ( RandomHVector a
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector ranked b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector ranked c, TensorKind (X c), TensorKind (ADTensorKind (X c))
-         , AdaptableHVector ranked d, TensorKind (X d), TensorKind (ADTensorKind (X d))
-         , AdaptableHVector ranked e, TensorKind (X e), TensorKind (ADTensorKind (X e)) )
-         => AdaptableHVector ranked (a, b, c, d, e) where
+instance ( BaseTensor target
+         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
+         , AdaptableHVector target d, TensorKind (X d), TensorKind (ADTensorKind (X d))
+         , AdaptableHVector target e, TensorKind (X e), TensorKind (ADTensorKind (X e)) )
+         => AdaptableHVector target (a, b, c, d, e) where
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))
   toHVectorOf (a, b, c, d, e) =
@@ -435,10 +431,10 @@ type role AsHVector representational
 newtype AsHVector a =
   AsHVector {unAsHVector :: a}
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped )
-         => AdaptableHVector ranked (AsHVector (a, b)) where
+instance ( BaseTensor target
+         , AdaptableHVector target (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector target (AsHVector b), X (AsHVector b) ~ TKUntyped )
+         => AdaptableHVector target (AsHVector (a, b)) where
   type X (AsHVector (a, b)) = TKUntyped
   toHVectorOf (AsHVector (a, b)) =
     let a1 = toHVectorOf $ AsHVector a
@@ -449,11 +445,9 @@ instance ( ProductTensor ranked
     (AsHVector b, Just bRest) <- fromHVector (AsHVector bInit) aRest
     return (AsHVector (a, b), Just bRest)
 
-hvappend :: ProductTensor f
-         => HVectorPseudoTensor f Float '() -> HVectorPseudoTensor f Float '()
-         -> HVectorPseudoTensor f Float '()
-hvappend v u = HVectorPseudoTensor $ dmkHVector $
-  dunHVector (unHVectorPseudoTensor v) V.++ dunHVector (unHVectorPseudoTensor u)
+hvappend :: BaseTensor f
+         => f TKUntyped -> f TKUntyped -> f TKUntyped
+hvappend v u = dmkHVector $ dunHVector v V.++ dunHVector u
 
 instance (TermValue a, TermValue b)
          => TermValue (AsHVector (a, b)) where
@@ -462,11 +456,11 @@ instance (TermValue a, TermValue b)
   fromValue (AsHVector (va, vb)) =
     AsHVector (fromValue va, fromValue vb)
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped)
-         => AdaptableHVector ranked (AsHVector (a, b, c)) where
+instance ( BaseTensor target
+         , AdaptableHVector target (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector target (AsHVector b), X (AsHVector b) ~ TKUntyped
+         , AdaptableHVector target (AsHVector c), X (AsHVector c) ~ TKUntyped)
+         => AdaptableHVector target (AsHVector (a, b, c)) where
   type X (AsHVector (a, b, c)) = TKUntyped
   toHVectorOf (AsHVector (a, b, c)) =
     let a1 = toHVectorOf $ AsHVector a
@@ -486,12 +480,12 @@ instance (TermValue a, TermValue b, TermValue c)
   fromValue (AsHVector (va, vb, vc)) =
     AsHVector (fromValue va, fromValue vb, fromValue vc)
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector d), X (AsHVector d) ~ TKUntyped )
-         => AdaptableHVector ranked (AsHVector (a, b, c, d)) where
+instance ( BaseTensor target
+         , AdaptableHVector target (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector target (AsHVector b), X (AsHVector b) ~ TKUntyped
+         , AdaptableHVector target (AsHVector c), X (AsHVector c) ~ TKUntyped
+         , AdaptableHVector target (AsHVector d), X (AsHVector d) ~ TKUntyped )
+         => AdaptableHVector target (AsHVector (a, b, c, d)) where
   type X (AsHVector (a, b, c, d)) = TKUntyped
   toHVectorOf (AsHVector (a, b, c, d)) =
     let a1 = toHVectorOf $ AsHVector a
@@ -513,13 +507,13 @@ instance (TermValue a, TermValue b, TermValue c, TermValue d)
   fromValue (AsHVector (va, vb, vc, vd)) =
     AsHVector (fromValue va, fromValue vb, fromValue vc, fromValue vd)
 
-instance ( ProductTensor ranked
-         , AdaptableHVector ranked (AsHVector a), X (AsHVector a) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector b), X (AsHVector b) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector c), X (AsHVector c) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector d), X (AsHVector d) ~ TKUntyped
-         , AdaptableHVector ranked (AsHVector e), X (AsHVector e) ~ TKUntyped )
-         => AdaptableHVector ranked (AsHVector (a, b, c, d, e)) where
+instance ( BaseTensor target
+         , AdaptableHVector target (AsHVector a), X (AsHVector a) ~ TKUntyped
+         , AdaptableHVector target (AsHVector b), X (AsHVector b) ~ TKUntyped
+         , AdaptableHVector target (AsHVector c), X (AsHVector c) ~ TKUntyped
+         , AdaptableHVector target (AsHVector d), X (AsHVector d) ~ TKUntyped
+         , AdaptableHVector target (AsHVector e), X (AsHVector e) ~ TKUntyped )
+         => AdaptableHVector target (AsHVector (a, b, c, d, e)) where
   type X (AsHVector (a, b, c, d, e)) = TKUntyped
   toHVectorOf (AsHVector (a, b, c, d, e)) =
     let a1 = toHVectorOf $ AsHVector a

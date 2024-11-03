@@ -64,10 +64,6 @@ pattern D t u <- ADVal t u  -- enforces only pattern matching
 deriving instance (Show (f r z), Show (Dual f r z))
                   => Show (ADVal f r z)
 
-instance (Show (RepN (ADVal f) x), Show (RepN (ADVal f) y))
-         => Show (RepProductN (ADVal f) x y) where
-  showsPrec d (RepProductN (t1, t2)) = showsPrec d (RepN t1, RepN t2)
-
 -- | Smart constructor for 'D' of 'ADVal' that additionally records delta
 -- expression sharing information (regardless if the basic value
 -- of the dual number is an AST term or not).
@@ -241,14 +237,14 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ >=. D v _ = u >=. v
 
 indexPrimal :: ( RankedTensor ranked, ShareTensor ranked
-               , ProductTensor ranked
+               , BaseTensor ranked
                , KnownNat m, KnownNat n, GoodScalar r )
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
 fromVector :: ( RankedTensor ranked, ShareTensor ranked
-              , ProductTensor ranked, KnownNat n, GoodScalar r )
+              , BaseTensor ranked, KnownNat n, GoodScalar r )
            => Data.Vector.Vector (ADVal ranked r n)
            -> ADVal ranked r (1 + n)
 fromVector lu =
@@ -257,7 +253,7 @@ fromVector lu =
      (FromVectorR $ V.map (\(D _ u') -> u') lu)
 
 instance ( RankedTensor ranked, ShareTensor ranked
-         , ProductTensor ranked, IfF (RankedOf (PrimalOf ranked))
+         , BaseTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (BoolOf ranked)
          , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked )
          => IfF (ADVal ranked) where
@@ -267,7 +263,7 @@ instance ( RankedTensor ranked, ShareTensor ranked
     in dDnotShared u u'
 
 indexPrimalS :: ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
-                , ProductTensor (RankedOf shaped)
+                , BaseTensor (RankedOf shaped)
                 , GoodScalar r, KnownShS sh1, KnownShS sh2
                 , KnownShS (sh1 ++ sh2) )
              => ADVal shaped r (sh1 ++ sh2) -> IndexSh shaped sh1
@@ -276,7 +272,7 @@ indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh shaped r.
                ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
-               , ProductTensor (RankedOf shaped)
+               , BaseTensor (RankedOf shaped)
                , KnownNat n, KnownShS sh, GoodScalar r )
             => Data.Vector.Vector (ADVal shaped r sh)
             -> ADVal shaped r (n ': sh)
@@ -285,7 +281,7 @@ fromVectorS lu = assert (length lu == valueOf @n) $
      (FromVectorS $ V.map (\(D _ u') -> u') lu)
 
 instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
-         , ProductTensor (RankedOf shaped), IfF (RankedOf (PrimalOf shaped))
+         , BaseTensor (RankedOf shaped), IfF (RankedOf (PrimalOf shaped))
          , Boolean (BoolOf shaped)
          , BoolOf (RankedOf (PrimalOf shaped)) ~ BoolOf shaped )
          => IfF (ADVal shaped) where
@@ -296,7 +292,7 @@ instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
     in dDnotShared u u'
 
 indexPrimalX :: ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
-                , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+                , BaseTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
                 , GoodScalar r, KnownShX sh1, KnownShX sh2
                 , KnownShX (sh1 ++ sh2) )
              => ADVal mixed r (sh1 ++ sh2) -> IndexShX mixed sh1
@@ -305,7 +301,7 @@ indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 
 fromVectorX :: forall n sh mixed r.
                ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
-               , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+               , BaseTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
                , KnownNat n, KnownShX sh, GoodScalar r )
             => Data.Vector.Vector (ADVal mixed r sh)
             -> ADVal mixed r (Just n ': sh)
@@ -314,7 +310,7 @@ fromVectorX lu = assert (length lu == valueOf @n) $
      (FromVectorX $ V.map (\(D _ u') -> u') lu)
 
 instance ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
-         , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
+         , BaseTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
          , IfF (RankedOf (PrimalOf mixed))
          , Boolean (BoolOf mixed)
          , BoolOf (RankedOf (PrimalOf mixed)) ~ BoolOf mixed )
@@ -347,9 +343,6 @@ type instance PrimalOf (ADVal f) = f
 type instance DualOf (ADVal f) = Delta f
 
 type instance ShareOf (ADVal f) = ADVal f
-
-type instance Rep (ADVal ranked) (TKProduct x z) =
-  (Rep (ADVal ranked) x, Rep (ADVal ranked) z)
 
 
 -- * Numeric instances

@@ -199,7 +199,7 @@ instance (KnownNat n, GoodScalar r, ADReadyNoLet ranked, ShareTensor ranked)
   fromDValue t = constantADVal $ rconst $ runFlipR t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
-instance ( a ~ ranked r n, RankedTensor ranked, ProductTensor ranked
+instance ( a ~ ranked r n, RankedTensor ranked, BaseTensor ranked
          , GoodScalar r, KnownNat n, AdaptableHVector ranked a )
          => AdaptableHVector ranked [a] where
 {- TODO
@@ -232,7 +232,7 @@ instance ( a ~ ranked r n, RankedTensor ranked, ProductTensor ranked
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
 
-instance ( RankedTensor ranked, ProductTensor ranked
+instance ( RankedTensor ranked, BaseTensor ranked
          , AdaptableHVector ranked (AsHVector a)
          , X (AsHVector a) ~ TKUntyped )
          => AdaptableHVector ranked (AsHVector [a]) where
@@ -475,7 +475,7 @@ instance (ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
   sScale k = ScaleG (RepN k)
 
 
--- * ProductTensor instance
+-- * BaseTensor instance
 
 {-
 instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
@@ -492,7 +492,7 @@ instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
 instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
          , ShareTensor ranked
          , ShareTensor (PrimalOf ranked) )
-         => ProductTensor (ADVal ranked) where
+         => BaseTensor (ADVal ranked) where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
@@ -832,7 +832,7 @@ aDValToHVector (D (HVectorPseudoTensor h) (HVectorPseudoTensor h')) =
 -- `Ambiguous type variables ‘r1’, ‘y1’ arising from a use of ‘crev’`
 -- in contexts like `crev (hVectorADValToADVal . f)`.
 hVectorADValToADVal
-  :: forall ranked. ProductTensor ranked (ShapedOf ranked)
+  :: forall ranked. BaseTensor ranked (ShapedOf ranked)
   => HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
 hVectorADValToADVal hv =
   let (!as, !as') = unADValHVector hv
@@ -859,7 +859,7 @@ unADValDynamicTensor (DynamicShapedDummy p1 p2) =
 
 unADValRep
   :: forall y ranked.
-     ( ProductTensor ranked
+     ( BaseTensor ranked
      , RankedOf (ShapedOf ranked) ~ ranked, RankedOf (MixedOf ranked) ~ ranked )
   => STensorKindType y
   -> Rep (ADVal ranked) y

@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for concrete Storable Vector-backed arrays.
 module HordeAd.Core.TensorConcrete
-  () where
+  (Rep, RepN(..), RepScalar(..)) where
 
 import Prelude hiding (foldl')
 
@@ -250,7 +250,7 @@ instance ShapedTensor OSArray where
   sD u _ = u
   sScale _ _ = DummyDualTarget
 
-instance ProductTensor ORArray where
+instance BaseTensor ORArray where
   tpair u v = (u, v)
   tproject1 = fst
   tproject2 = snd
@@ -331,12 +331,28 @@ instance ProductTensor ORArray where
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumL k accShs bShs eShs (\ !a !b -> f (a, b)) acc0 es
 
-type instance Rep ORArray (TKProduct x z) =
-  (Rep ORArray x, Rep ORArray z)
+type family Rep (y :: TensorKindType) = result | result -> y where
+  Rep (TKScalar r) = RepScalar r
+  Rep (TKR r n) = ORArray r n
+  Rep (TKS r sh) = OSArray r sh
+  Rep (TKX r sh) = OXArray r sh
+  Rep (TKProduct x z) = (Rep x, Rep z)
+  Rep TKUntyped =
+    HVectorPseudoTensor ORArray Float '()
+      -- HVectorPseudoTensor instead of HVectorOf required for injectivity
+ deriving Show
 
-instance (Show (RepN ORArray x), Show (RepN ORArray y))
-         => Show (RepProductN ORArray x y) where
-  showsPrec d (RepProductN (t1, t2)) = showsPrec d (RepN t1, RepN t2)
+-- Needed because `Rep` can't be partially applied.  -- TODO
+-- This type also lets us work around the woes with defining Show
+-- for the Rep type family. It gives us a concrete thing
+-- to attach a Show instance to.
+type role RepN nominal nominal
+newtype RepN y = RepN {unRepN :: Rep y}
+
+type role RepScalar nominal nominal
+type RepScalar :: RankedTensorType -> Type -> Type
+newtype RepScalar r = RepScalar {unRepScalar :: ORArray r 0}
+  deriving Show
 
 ravel :: forall k y. TensorKind y
       => SNat k -> [Rep ORArray y]
@@ -489,7 +505,7 @@ instance AdaptableHVector ORArray
   :: EvalState ORArray -> EvalState ORArray #-}
 
 instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , ProductTensor ranked, ShareTensor ranked
+         , BaseTensor ranked, ShareTensor ranked
          , RankedOf (ShapedOf ranked) ~ ranked )
          => DualNumberValue (DynamicTensor (ADVal ranked)) where
   type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray

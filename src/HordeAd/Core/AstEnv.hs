@@ -48,21 +48,21 @@ import HordeAd.Util.SizedList
 -- * The environment and operations for extending it
 
 -- | The environment that keeps variables values during interpretation
-type AstEnv ranked = DEnumMap (AstVarName FullSpan) (AstEnvElem ranked)
+type AstEnv target = DEnumMap (AstVarName FullSpan) (AstEnvElem target)
   -- the FullSpan is a lie
 
 type role AstEnvElem nominal nominal
-data AstEnvElem (ranked :: RankedTensorType) (y :: TensorKindType) where
-  AstEnvElemRep :: RepN ranked y -> AstEnvElem ranked y
+data AstEnvElem (target :: Target) (y :: TensorKindType) where
+  AstEnvElemRep :: target y -> AstEnvElem target y
 
-deriving instance Show (RepN ranked y) => Show (AstEnvElem ranked y)
+deriving instance Show (target y) => Show (AstEnvElem target y)
 
-emptyEnv :: AstEnv ranked
+emptyEnv :: AstEnv target
 emptyEnv = DMap.empty
 
 showsPrecAstEnv
-  :: (forall y. TensorKind y => Show (RepN ranked y))
-  => Int -> AstEnv ranked -> ShowS
+  :: (forall y. TensorKind y => Show (target y))
+  => Int -> AstEnv target -> ShowS
 showsPrecAstEnv d demap =
   showParen (d > 10) $
     showString "fromList "
@@ -72,29 +72,29 @@ showsPrecAstEnv d demap =
             Dict -> showsPrec 2 k . showString " :=> " . showsPrec 1 target)
         (DMap.toList demap)
 
--- An informal invariant: if s is FullSpan, ranked is dual numbers,
--- and if s is PrimalSpan, ranked is their primal part.
+-- An informal invariant: if s is FullSpan, target is dual numbers,
+-- and if s is PrimalSpan, target is their primal part.
 -- The same for all functions below.
-extendEnv :: forall ranked s y. TensorKind y
-          => AstVarName s y -> Rep ranked y -> AstEnv ranked
-          -> AstEnv ranked
+extendEnv :: forall target s y. TensorKind y
+          => AstVarName s y -> target y -> AstEnv target
+          -> AstEnv target
 extendEnv var !t !env =
   let var2 :: AstVarName FullSpan y
       var2 = mkAstVarName (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
-                        var2 (AstEnvElemRep $ RepN t) env
+                        var2 (AstEnvElemRep t) env
 
-extendEnvHVector :: forall ranked. ADReady ranked
-                 => [AstDynamicVarName] -> HVector ranked -> AstEnv ranked
-                 -> AstEnv ranked
+extendEnvHVector :: forall target. ADReady target
+                 => [AstDynamicVarName] -> HVector target -> AstEnv target
+                 -> AstEnv target
 extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
   foldr extendEnvD env $ zip vars (V.toList pars)
 
-extendEnvD :: forall ranked. ADReady ranked
-           => (AstDynamicVarName, DynamicTensor ranked)
-           -> AstEnv ranked
-           -> AstEnv ranked
+extendEnvD :: forall target. ADReady target
+           => (AstDynamicVarName, DynamicTensor target)
+           -> AstEnv target
+           -> AstEnv target
 extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
   DynamicRanked @r3 @n3 u
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
@@ -111,39 +111,34 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListSh (Proxy @sh) $ \sh4 ->
-        extendEnv @ranked @_ @(TKR r (Rank sh)) (mkAstVarName varId) (rzero sh4) env
+        extendEnv @target @_ @(TKR r (Rank sh)) (mkAstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnv @ranked @_ @(TKS r sh) (mkAstVarName varId) (srepl 0) env
+      extendEnv @target @_ @(TKS r sh) (mkAstVarName varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r, shapeT @sh
                , scalarDynamic d, shapeDynamic d )
 
-extendEnvI :: ( RankedTensor ranked
-              , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-           => IntVarName -> IntOf ranked -> AstEnv ranked
-           -> AstEnv ranked
+extendEnvI :: BaseTensor target
+           => IntVarName -> IntOf target -> AstEnv target
+           -> AstEnv target
 extendEnvI var !i !env = extendEnv var (rconstant i) env
 
-extendEnvVars :: forall ranked m.
-                 ( RankedTensor ranked
-                 , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-              => AstVarList m -> IndexOf ranked m
-              -> AstEnv ranked
-              -> AstEnv ranked
+extendEnvVars :: forall target m. BaseTensor target
+              => AstVarList m -> IndexOf target m
+              -> AstEnv target
+              -> AstEnv target
 extendEnvVars vars !ix !env =
   let assocs = zip (sizedToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-extendEnvVarsS :: forall ranked sh.
-                  ( RankedTensor ranked
-                  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-               => AstVarListS sh -> IndexSh ranked sh
-               -> AstEnv ranked
-               -> AstEnv ranked
+extendEnvVarsS :: forall target sh. BaseTensor target
+               => AstVarListS sh -> IndexSh target sh
+               -> AstEnv target
+               -> AstEnv target
 extendEnvVarsS vars !ix !env =
   let assocs = zip (ShapedList.sizedToList vars)
                    (ShapedList.indexToList ix)
@@ -153,88 +148,80 @@ extendEnvVarsS vars !ix !env =
 -- * The operations for interpreting bindings
 
 interpretLambdaI
-  :: forall ranked n s r ms.
-     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor ms s (TKR r n) -> ranked r n)
-  -> AstEnv ranked -> (IntVarName, AstTensor ms s (TKR r n))
-  -> IntOf ranked
-  -> ranked r n
+  :: forall target n s r ms. BaseTensor target
+  => (AstEnv target -> AstTensor ms s (TKR r n) -> target (TKR r n))
+  -> AstEnv target -> (IntVarName, AstTensor ms s (TKR r n))
+  -> IntOf target
+  -> target (TKR r n)
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f !env (!var, !ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIS
-  :: forall ranked sh s r ms.
-     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor ms s (TKS r sh) -> ShapedOf ranked r sh)
-  -> AstEnv ranked -> (IntVarName, AstTensor ms s (TKS r sh))
-  -> IntOf ranked
-  -> ShapedOf ranked r sh
+  :: forall target sh s r ms. BaseTensor target
+  => (AstEnv target -> AstTensor ms s (TKS r sh) -> target (TKS r sh))
+  -> AstEnv target -> (IntVarName, AstTensor ms s (TKS r sh))
+  -> IntOf target
+  -> target (TKS r sh)
 {-# INLINE interpretLambdaIS #-}
 interpretLambdaIS f !env (!var, ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIHVector
-  :: forall ranked s ms.
-     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor ms s TKUntyped
-      -> HVectorPseudoTensor ranked Float '())
-  -> AstEnv ranked -> (IntVarName, AstTensor ms s TKUntyped)
-  -> IntOf ranked
-  -> HVectorOf ranked
+  :: forall target s ms. BaseTensor target
+  => (AstEnv target -> AstTensor ms s TKUntyped -> HVectorOf target)
+  -> AstEnv target -> (IntVarName, AstTensor ms s TKUntyped)
+  -> IntOf target
+  -> HVectorOf target
 {-# INLINE interpretLambdaIHVector #-}
 interpretLambdaIHVector f !env (!var, !ast) =
-  \i -> unHVectorPseudoTensor $ f (extendEnvI var i env) ast
+  \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIndex
-  :: forall ranked s r m n ms.
-     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor ms s (TKR r n) -> ranked r n)
-  -> AstEnv ranked -> (AstVarList m, AstTensor ms s (TKR r n))
-  -> IndexOf ranked m
-  -> ranked r n
+  :: forall target s r m n ms. BaseTensor target
+  => (AstEnv target -> AstTensor ms s (TKR r n) -> target (TKR r n))
+  -> AstEnv target -> (AstVarList m, AstTensor ms s (TKR r n))
+  -> IndexOf target m
+  -> target (TKR r n)
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f !env (!vars, !ast) =
   \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
-  :: forall sh sh2 ranked s r ms.
-     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstTensor ms s (TKS r sh) -> ShapedOf ranked r sh)
-  -> AstEnv ranked -> (AstVarListS sh2, AstTensor ms s (TKS r sh))
-  -> IndexSh ranked sh2
-  -> ShapedOf ranked r sh
+  :: forall sh sh2 target s r ms. BaseTensor target
+  => (AstEnv target -> AstTensor ms s (TKS r sh) -> target (TKS r sh))
+  -> AstEnv target -> (AstVarListS sh2, AstTensor ms s (TKS r sh))
+  -> IndexSh target sh2
+  -> target (TKS r sh)
 {-# INLINE interpretLambdaIndexS #-}
 interpretLambdaIndexS f !env (!vars, !ast) =
   \ix -> f (extendEnvVarsS vars ix env) ast
 
 interpretLambdaIndexToIndex
-  :: forall ranked m n ms.
-     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstInt ms -> IntOf ranked)
-  -> AstEnv ranked -> (AstVarList m, AstIndex ms n)
-  -> IndexOf ranked m
-  -> IndexOf ranked n
+  :: forall target m n ms. BaseTensor target
+  => (AstEnv target -> AstInt ms -> IntOf target)
+  -> AstEnv target -> (AstVarList m, AstIndex ms n)
+  -> IndexOf target m
+  -> IndexOf target n
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f !env (!vars, !asts) =
   \ix -> f (extendEnvVars vars ix env) <$> asts
 
 interpretLambdaIndexToIndexS
-  :: forall ranked sh sh2 ms.
-     (RankedTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked)
-  => (AstEnv ranked -> AstInt ms -> IntOf ranked)
-  -> AstEnv ranked -> (AstVarListS sh, AstIndexS ms sh2)
-  -> IndexSh ranked sh
-  -> IndexSh ranked sh2
+  :: forall target sh sh2 ms. BaseTensor target
+  => (AstEnv target -> AstInt ms -> IntOf target)
+  -> AstEnv target -> (AstVarListS sh, AstIndexS ms sh2)
+  -> IndexSh target sh
+  -> IndexSh target sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 interpretLambdaHsH
   :: TensorKind x
-  => (forall ranked z. ADReady ranked
-      => AstEnv ranked -> AstTensor ms s z
-      -> Rep ranked z)
+  => (forall target z. ADReady target
+      => AstEnv target -> AstTensor ms s z
+      -> target z)
   -> (AstVarName s x, AstTensor ms s y)
   -> HFun x y
 {-# INLINE interpretLambdaHsH #-}
@@ -307,8 +294,8 @@ interpretAstB2 :: Boolean b
 interpretAstB2 AndOp u v = u &&* v
 interpretAstB2 OrOp u v = u ||* v
 
-interpretAstRelOp :: (EqF f, OrdF f, GoodScalar r, HasSingletonDict y)
-                  => OpCodeRel -> f r y -> f r y -> BoolOf f
+interpretAstRelOp :: (EqF f, OrdF f)
+                  => OpCodeRel -> f y -> f y -> BoolOf f
 {-# INLINE interpretAstRelOp #-}
 interpretAstRelOp EqOp u v = u ==. v
 interpretAstRelOp NeqOp u v = u /=. v

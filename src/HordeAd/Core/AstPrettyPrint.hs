@@ -585,21 +585,21 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
 printAstDynamic :: AstSpan s
                 => PrintConfig -> Int -> AstDynamic ms s -> ShowS
 printAstDynamic cfg d = \case
-  DynamicRanked (AstGeneric v) -> printPrefixOp printAst cfg d "DynamicRanked" [v]
-  DynamicShaped (AstGenericS v) -> printPrefixOp printAst cfg d "DynamicShaped" [v]
+  DynamicRanked v -> printPrefixOp printAst cfg d "DynamicRanked" [v]
+  DynamicShaped v -> printPrefixOp printAst cfg d "DynamicShaped" [v]
   DynamicRankedDummy{} -> showString "DynamicRankedDummy"
   DynamicShapedDummy{} -> showString "DynamicShapedDummy"
 
 printAstUnDynamic :: AstSpan s
                   => PrintConfig -> Int -> AstDynamic ms s -> ShowS
 printAstUnDynamic cfg d = \case
-  DynamicRanked (AstGeneric v) -> printAst cfg d v
-  DynamicShaped (AstGenericS v) -> printAst cfg d v
+  DynamicRanked v -> printAst cfg d v
+  DynamicShaped v -> printAst cfg d v
   DynamicRankedDummy{} -> showString "0"  -- not "0.0" to mark a dummy
   DynamicShapedDummy{} -> showString "0"
 
 printHVectorAst :: forall s ms. AstSpan s
-                => PrintConfig -> HVector (AstGeneric ms s) -> ShowS
+                => PrintConfig -> HVector (AstTensor ms s) -> ShowS
 printHVectorAst cfg l =
   if loseRoudtrip cfg
   then
