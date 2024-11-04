@@ -182,12 +182,6 @@ type role FlipR nominal nominal nominal
 type FlipR :: forall {k}. (Nat -> k -> Type) -> k -> Nat -> Type
 newtype FlipR p a (b :: Nat) = FlipR { runFlipR :: p b a }
 
-instance (Show r, VS.Storable r, KnownNat n)
-         => Show (FlipR OR.Array r n) where
-  showsPrec :: Int -> FlipR OR.Array r n -> ShowS
-  showsPrec d (FlipR u) =
-    showString "Flip " . showParen True (showsPrec d u)
-
 instance (Nested.Elt r, Show r, Show (Nested.Mixed (Replicate n Nothing) r))
          => Show (FlipR Nested.Ranked r n) where
   showsPrec :: Int -> FlipR Nested.Ranked r n -> ShowS

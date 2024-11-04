@@ -9,8 +9,6 @@ module HordeAd.Core.TensorConcrete
 import Prelude hiding (foldl')
 
 import Data.Array.Internal (valueOf)
-import Data.Array.RankedS qualified as OR
-import Data.Array.ShapedS qualified as OS
 import Data.Function ((&))
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
@@ -34,16 +32,6 @@ import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), FlipX (..))
-
-type instance BoolOf (FlipR OR.Array) = Bool
-type instance RankedOf (FlipR OR.Array) = FlipR OR.Array
-type instance ShapedOf (FlipR OR.Array) = FlipS OS.Array
-type instance HVectorOf (FlipR OR.Array) = HVector (FlipR OR.Array)
-type instance PrimalOf (FlipR OR.Array) = FlipR OR.Array
-
-type instance BoolOf (FlipS OS.Array) = Bool
-type instance RankedOf (FlipS OS.Array) = FlipR OR.Array
-type instance PrimalOf (FlipS OS.Array) = FlipS OS.Array
 
 type instance BoolOf ORArray = Bool
 
