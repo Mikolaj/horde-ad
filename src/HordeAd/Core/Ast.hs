@@ -735,11 +735,11 @@ data OpCodeRel =
 -- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
 
 -- These are, unfortunately, required by some numeric instances.
-instance Eq (AstTensor ms s (TKR r n)) where
+instance Eq (AstTensor ms s y) where
   (==) = error "AST requires that EqF be used instead"
   (/=) = error "AST requires that EqF be used instead"
 
-instance Ord (AstTensor ms s (TKR r n)) where
+instance Ord (AstTensor ms s y) where
   (<=) = error "AST requires that OrdF be used instead"
 
 instance (Num (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
@@ -827,13 +827,6 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
 
-instance Eq (AstTensor ms s (TKS r sh)) where
-  (==) = error "AST requires that EqF be used instead"
-  (/=) = error "AST requires that EqF be used instead"
-
-instance Ord (AstTensor ms s (TKS r sh)) where
-  (<=) = error "AST requires that OrdF be used instead"
-
 instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
          => Num (AstTensor ms s (TKS r sh)) where
   -- The normal form has AstConst, if any, as the first element of the list.
@@ -913,13 +906,6 @@ instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped s
 
 
 -- mixed
-
-instance Eq (AstTensor ms s (TKX r sh)) where
-  (==) = error "AST requires that EqF be used instead"
-  (/=) = error "AST requires that EqF be used instead"
-
-instance Ord (AstTensor ms s (TKX r sh)) where
-  (<=) = error "AST requires that OrdF be used instead"
 
 instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
          => Num (AstTensor ms s (TKX r sh)) where
