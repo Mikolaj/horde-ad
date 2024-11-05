@@ -651,8 +651,6 @@ printAstBool cfg d = \case
   AstB2 opCode arg1 arg2 -> printAstB2 cfg d opCode arg1 arg2
   AstBoolConst b -> showString $ if b then "true" else "false"
   AstRel opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
-  AstRelS opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
-  AstRelX opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
 
 printAstN1 :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS

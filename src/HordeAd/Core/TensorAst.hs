@@ -207,24 +207,24 @@ type instance BoolOf (AstShaped s) = AstBool AstMethodLet
 instance AstSpan s => EqF (AstShaped s) where
   AstShaped (AstConstS u) ==. AstShaped (AstConstS v) = AstBoolConst $ u == v
     -- common in indexing
-  AstShaped v ==. AstShaped u = AstRelS EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstShaped v ==. AstShaped u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
   AstShaped (AstConstS u) /=. AstShaped (AstConstS v) = AstBoolConst $ u /= v
     -- common in indexing
-  AstShaped v /=. AstShaped u = AstRelS NeqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstShaped v /=. AstShaped u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstShaped s) where
   AstShaped (AstConstS u) <. AstShaped (AstConstS v) = AstBoolConst $ u < v
     -- common in indexing
-  v <. u = AstRelS LsOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
+  v <. u = AstRel LsOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
   AstShaped (AstConstS u) <=. AstShaped (AstConstS v) = AstBoolConst $ u <= v
     -- common in indexing
-  v <=. u = AstRelS LeqOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
+  v <=. u = AstRel LeqOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
   AstShaped (AstConstS u) >. AstShaped (AstConstS v) = AstBoolConst $ u > v
     -- common in indexing
-  v >. u = AstRelS GtOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
+  v >. u = AstRel GtOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
   AstShaped (AstConstS u) >=. AstShaped (AstConstS v) =  AstBoolConst $ u >= v
     -- common in indexing
-  v >=. u = AstRelS GeqOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
+  v >=. u = AstRel GeqOp (astSpanPrimal (unAstShaped v)) (astSpanPrimal (unAstShaped u))
 
 instance IfF (AstShaped s) where
   ifF cond a b = AstShaped $ astCond cond (unAstShaped a) (unAstShaped b)
@@ -363,24 +363,24 @@ type instance BoolOf (AstMixed s) = AstBool AstMethodLet
 instance AstSpan s => EqF (AstMixed s) where
   AstMixed (AstConstX u) ==. AstMixed (AstConstX v) = AstBoolConst $ u == v
     -- common in indexing
-  AstMixed v ==. AstMixed u = AstRelX EqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstMixed v ==. AstMixed u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
   AstMixed (AstConstX u) /=. AstMixed (AstConstX v) = AstBoolConst $ u /= v
     -- common in indexing
-  AstMixed v /=. AstMixed u = AstRelX NeqOp (astSpanPrimal v) (astSpanPrimal u)
+  AstMixed v /=. AstMixed u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstMixed s) where
   AstMixed (AstConstX u) <. AstMixed (AstConstX v) = AstBoolConst $ u < v
     -- common in indexing
-  v <. u = AstRelX LsOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+  v <. u = AstRel LsOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
   AstMixed (AstConstX u) <=. AstMixed (AstConstX v) = AstBoolConst $ u <= v
     -- common in indexing
-  v <=. u = AstRelX LeqOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+  v <=. u = AstRel LeqOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
   AstMixed (AstConstX u) >. AstMixed (AstConstX v) = AstBoolConst $ u > v
     -- common in indexing
-  v >. u = AstRelX GtOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+  v >. u = AstRel GtOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
   AstMixed (AstConstX u) >=. AstMixed (AstConstX v) =  AstBoolConst $ u >= v
     -- common in indexing
-  v >=. u = AstRelX GeqOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
+  v >=. u = AstRel GeqOp (astSpanPrimal (unAstMixed v)) (astSpanPrimal (unAstMixed u))
 
 instance IfF (AstMixed s) where
   ifF cond a b = AstMixed $ astCond cond (unAstMixed a) (unAstMixed b)
@@ -864,13 +864,13 @@ type instance BoolOf (AstRawS s) = AstBool AstMethodShare
 instance IfF (AstRawS s) where
   ifF cond a b = AstRawS $ AstCond cond (unAstRawS a) (unAstRawS b)
 instance AstSpan s => EqF (AstRawS s) where
-  AstRawS v ==. AstRawS u = AstRelS EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
-  AstRawS v /=. AstRawS u = AstRelS NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+  AstRawS v ==. AstRawS u = AstRel EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+  AstRawS v /=. AstRawS u = AstRel NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
 instance AstSpan s => OrdF (AstRawS s) where
-  v <. u = AstRelS LsOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
-  v <=. u = AstRelS LeqOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
-  v >. u = AstRelS GtOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
-  v >=. u = AstRelS GeqOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
+  v <. u = AstRel LsOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
+  v <=. u = AstRel LeqOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
+  v >. u = AstRel GtOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
+  v >=. u = AstRel GeqOp (astSpanPrimalRaw (unAstRawS v)) (astSpanPrimalRaw (unAstRawS u))
 deriving instance Eq (AstRawS s r sh)
 deriving instance Ord (AstRawS s r sh)
 deriving instance Num (AstTensor AstMethodShare s (TKS r sh)) => Num (AstRawS s r sh)
@@ -888,13 +888,13 @@ type instance BoolOf (AstRawX s) = AstBool AstMethodShare
 instance IfF (AstRawX s) where
   ifF cond a b = AstRawX $ AstCond cond (unAstRawX a) (unAstRawX b)
 instance AstSpan s => EqF (AstRawX s) where
-  AstRawX v ==. AstRawX u = AstRelX EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
-  AstRawX v /=. AstRawX u = AstRelX NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+  AstRawX v ==. AstRawX u = AstRel EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
+  AstRawX v /=. AstRawX u = AstRel NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
 instance AstSpan s => OrdF (AstRawX s) where
-  v <. u = AstRelX LsOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
-  v <=. u = AstRelX LeqOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
-  v >. u = AstRelX GtOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
-  v >=. u = AstRelX GeqOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+  v <. u = AstRel LsOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+  v <=. u = AstRel LeqOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+  v >. u = AstRel GtOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
+  v >=. u = AstRel GeqOp (astSpanPrimalRaw (unAstRawX v)) (astSpanPrimalRaw (unAstRawX u))
 deriving instance Eq (AstRawX s r sh)
 deriving instance Ord (AstRawX s r sh)
 deriving instance Num (AstTensor AstMethodShare s (TKX r sh)) => Num (AstRawX s r sh)

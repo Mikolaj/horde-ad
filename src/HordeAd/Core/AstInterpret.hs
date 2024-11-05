@@ -928,15 +928,18 @@ interpretAstBool !env = \case
         b2 = interpretAstBool env arg2
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
-  AstRel opCodeRel arg1 arg2 ->
-    let r1 = interpretAstPrimalRuntimeSpecialized env arg1
-        r2 = interpretAstPrimalRuntimeSpecialized env arg2
-    in interpretAstRelOp opCodeRel r1 r2
-  AstRelS opCodeRel arg1 arg2 ->
-    let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
-        r2 = interpretAstPrimalSRuntimeSpecialized env arg2
-    in interpretAstRelOp opCodeRel r1 r2
-  AstRelX opCodeRel arg1 arg2 ->
-    let r1 = interpretAstPrimal env arg1
-        r2 = interpretAstPrimal env arg2
-    in interpretAstRelOp opCodeRel r1 r2
+  AstRel @y3 opCodeRel arg1 arg2 ->
+    case stensorKind @y3 of
+      STKR STKScalar{} SNat ->
+        let r1 = interpretAstPrimalRuntimeSpecialized env arg1
+            r2 = interpretAstPrimalRuntimeSpecialized env arg2
+        in interpretAstRelOp opCodeRel r1 r2
+      STKS STKScalar{} sh -> withKnownShS sh $
+        let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
+            r2 = interpretAstPrimalSRuntimeSpecialized env arg2
+        in interpretAstRelOp opCodeRel r1 r2
+      STKX STKScalar{} sh -> withKnownShX sh $
+        let r1 = interpretAstPrimal env arg1
+            r2 = interpretAstPrimal env arg2
+        in interpretAstRelOp opCodeRel r1 r2
+      _ -> error "TODO"

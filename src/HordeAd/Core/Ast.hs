@@ -692,16 +692,9 @@ data AstBool ms where
   AstB2 :: OpCodeBool -> AstBool ms -> AstBool ms -> AstBool ms
   AstBoolConst :: Bool -> AstBool ms
   -- There are existential variables here, as well.
-  AstRel :: (KnownNat n, GoodScalar r)
-         => OpCodeRel -> AstTensor ms PrimalSpan (TKR r n)
-         -> AstTensor ms PrimalSpan (TKR r n)
+  AstRel :: TensorKind y
+         => OpCodeRel -> AstTensor ms PrimalSpan y -> AstTensor ms PrimalSpan y
          -> AstBool ms
-  AstRelS :: (KnownShS sh, GoodScalar r)
-          => OpCodeRel -> AstTensor ms PrimalSpan (TKS r sh) -> AstTensor ms PrimalSpan (TKS r sh)
-          -> AstBool ms
-  AstRelX :: (KnownShX sh, GoodScalar r)
-          => OpCodeRel -> AstTensor ms PrimalSpan (TKX r sh) -> AstTensor ms PrimalSpan (TKX r sh)
-          -> AstBool ms
 deriving instance Show (AstBool ms)
 
 data OpCodeNum1 =

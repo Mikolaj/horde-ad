@@ -2570,18 +2570,17 @@ simplifyAstBool t = case t of
   Ast.AstB2 opCodeBool arg1 arg2 ->
     contractAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+  Ast.AstRel @y3 opCodeRel arg1 arg2 ->
+    case stensorKind @y3 of
+      STKR STKScalar{} SNat ->
+        contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
       -- These expressions potentially represent large tensors that are
       -- expensive to compute even when constant so we simplify and ignore them,
       -- because computation should be done on GPU, not on CPU when simplifying;
       -- we'd need a flag to control how much we pre-compute.
       -- Anyway, because these tensors sometimes represent indexes,
       -- we simplify them a bit more than the shaped ones.
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (simplifyAst arg1) (simplifyAst arg2)
-  Ast.AstRelX opCodeRel arg1 arg2 ->
-    Ast.AstRelX opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+      _ -> Ast.AstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
 
 
 -- * The expanding (to gather expressions) bottom-up pass
@@ -2790,18 +2789,17 @@ expandAstBool t = case t of
   Ast.AstB2 opCodeBool arg1 arg2 ->
     contractAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
   AstBoolConst{} -> t
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
+  Ast.AstRel @y3 opCodeRel arg1 arg2 ->
+    case stensorKind @y3 of
+      STKR STKScalar{} SNat ->
+        contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
       -- These expressions potentially represent large tensors that are
       -- expensive to compute even when constant so we expand and ignore them,
       -- because computation should be done on GPU, not on CPU when expanding;
       -- we'd need a flag to control how much we pre-compute.
       -- Anyway, because these tensors sometimes represent indexes,
       -- we expand them a bit more than the shaped ones.
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (expandAst arg1) (expandAst arg2)
-  Ast.AstRelX opCodeRel arg1 arg2 ->
-    Ast.AstRelX opCodeRel (expandAst arg1) (expandAst arg2)
+      _ -> Ast.AstRel opCodeRel (expandAst arg1) (expandAst arg2)
 
 
 -- * Contraction of arithmetic and boolean operation terms
@@ -3395,24 +3393,14 @@ substitute1AstBool i var = \case
                                             (fromMaybe arg2 mb2)
        else Nothing
   Ast.AstBoolConst{} -> Nothing
-  Ast.AstRel opCodeRel arg1 arg2 ->
+  Ast.AstRel @y3 opCodeRel arg1 arg2 ->
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
-                                           (fromMaybe arg2 mr2)
-       else Nothing
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
-    in if isJust mr1 || isJust mr2
-       then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
-                                         (fromMaybe arg2 mr2)
-       else Nothing
-  Ast.AstRelX opCodeRel arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
-    in if isJust mr1 || isJust mr2
-       then Just $ Ast.AstRelX opCodeRel (fromMaybe arg1 mr1)
-                                         (fromMaybe arg2 mr2)
+       then case stensorKind @y3 of
+         STKR STKScalar{} SNat ->
+           Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
+                                          (fromMaybe arg2 mr2)
+         _ -> Just $ Ast.AstRel opCodeRel (fromMaybe arg1 mr1)
+                                          (fromMaybe arg2 mr2)
        else Nothing

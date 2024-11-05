@@ -322,8 +322,6 @@ varInAstBool var = \case
   AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
   AstBoolConst{} -> False
   AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstRelX _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstSpan s2
              => AstVarName f y -> AstTensor ms s2 y2 -> Bool

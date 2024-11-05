@@ -401,14 +401,6 @@ inlineAstBool memo v0 = case v0 of
     let (memo1, r1) = inlineAst memo arg1
         (memo2, r2) = inlineAst memo1 arg2
     in (memo2, Ast.AstRel opCodeRel r1 r2)
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    let (memo1, r1) = inlineAst memo arg1
-        (memo2, r2) = inlineAst memo1 arg2
-    in (memo2, Ast.AstRelS opCodeRel r1 r2)
-  Ast.AstRelX opCodeRel arg1 arg2 ->
-    let (memo1, r1) = inlineAst memo arg1
-        (memo2, r2) = inlineAst memo1 arg2
-    in (memo2, Ast.AstRelX opCodeRel r1 r2)
 
 
 -- * The translates global sharing to normal lets
@@ -742,11 +734,3 @@ unshareAstBool memo = \case
     let (memo1, r1) = unshareAst memo arg1
         (memo2, r2) = unshareAst memo1 arg2
     in (memo2, Ast.AstRel opCodeRel r1 r2)
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    let (memo1, r1) = unshareAst memo arg1
-        (memo2, r2) = unshareAst memo1 arg2
-    in (memo2, Ast.AstRelS opCodeRel r1 r2)
-  Ast.AstRelX opCodeRel arg1 arg2 ->
-    let (memo1, r1) = unshareAst memo arg1
-        (memo2, r2) = unshareAst memo1 arg2
-    in (memo2, Ast.AstRelX opCodeRel r1 r2)
