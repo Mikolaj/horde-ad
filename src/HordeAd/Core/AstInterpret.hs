@@ -8,19 +8,13 @@
 -- The sharing mechanisms are translated so as to preserve sharing in case
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
-  ( interpretAstPrimal, interpretAst
-  -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
-  , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
-  , interpretAstDual
-  , interpretAstRuntimeSpecialized, interpretAstSRuntimeSpecialized
-  , interpretAstBool
+  ( interpretAst
   ) where
 
 import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.Array.Internal (valueOf)
-import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -36,7 +30,6 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstEnv
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
@@ -48,8 +41,16 @@ import HordeAd.Util.SizedList
 
 interpretAst
   :: forall target s y. (ADReady target, AstSpan s)
-  => AstEnv target
+  => target (TKR Double 0)
   -> AstTensor AstMethodLet s y -> target y
-interpretAst !env = \case
-  AstBuildHVector1 k (var, v) ->
-    {-dmkHVector0 $-} dbuild1 k (interpretLambdaIHVector (\env2 t2 -> dunHVector0 $ interpretAst env2 t2) env (var, v))
+interpretAst env = \case
+  AstBuildHVector1 k _ ->
+    {- dmkHVector0 $ -} dbuild1 (SNat @42) (interpretLambdaIHVector (\env2 t2 -> undefined) env)
+
+interpretLambdaIHVector
+  :: forall target s ms. BaseTensor target
+  => (target (TKR Double 0) -> AstTensor ms s TKUntyped -> HVectorOf target)
+  -> target (TKR Double 0)
+  -> IntOf target
+  -> HVectorOf target
+interpretLambdaIHVector = undefined
