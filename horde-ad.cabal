@@ -128,43 +128,29 @@ common exe-options-test
 library horde-ad-simplified
     import:           options
 
-    exposed-modules:  HordeAd
-                      HordeAd.Core.Adaptor
-                      HordeAd.Core.Ast
-                      HordeAd.Core.AstFreshId
+    exposed-modules:  HordeAd.Core.Ast
                       HordeAd.Core.AstInterpret
-                      HordeAd.Core.AstPrettyPrint
-                      HordeAd.Core.AstSimplify
-                      HordeAd.Core.AstTools
                       HordeAd.Core.HVector
-                      HordeAd.Core.HVectorOps
                       HordeAd.Core.TensorClass
                       HordeAd.Core.Types
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Internal.BackendOX
                       HordeAd.Util.ShapedList
                       HordeAd.Util.SizedList
 
     hs-source-dirs:   src
 
     build-depends:
-        assert-failure
-      , base >= 4.18 && < 99
+        base >= 4.18 && < 99
       , Boolean
-      , containers
       , deepseq
       , dependent-enummap
-      , dependent-sum
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix
-      , ilist
       , orthotope >= 0.1.4.0
       , ox-arrays
-      , random
       , some
       , strict-containers
-      , unboxed-ref
       , vector
 
     if os(linux)
