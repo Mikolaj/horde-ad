@@ -40,17 +40,16 @@ import HordeAd.Util.ShapedList (Drop, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 interpretAst
-  :: forall target s y. (ADReady target, AstSpan s)
-  => target (TKR Double 0)
-  -> AstTensor AstMethodLet s y -> target y
+  :: forall target y. BaseTensor target
+  => target TKUnit
+  -> AstTensor AstMethodLet FullSpan y
+  -> target y
 interpretAst env = \case
-  AstBuildHVector1 k _ ->
-    {- dmkHVector0 $ -} dbuild1 (SNat @42) (interpretLambdaIHVector (\env2 t2 -> undefined) env)
+  AstBuildHVector1{} ->
+    {- dmkHVector0 $ -} dbuild1 undefined (interpretLambdaIHVector env)
 
 interpretLambdaIHVector
-  :: forall target s ms. BaseTensor target
-  => (target (TKR Double 0) -> AstTensor ms s TKUntyped -> HVectorOf target)
-  -> target (TKR Double 0)
+  :: target TKUnit
   -> IntOf target
   -> HVectorOf target
 interpretLambdaIHVector = undefined
