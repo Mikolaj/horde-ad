@@ -7,6 +7,7 @@ module HordeAd.Core.DualNumber
   ( -- * The main dual number type
     ADVal, pattern D, dD, dDnotShared, constantADVal
     -- * Auxiliary definitions
+  , unPairG, unPairGUnshared
   , indexPrimal, fromVector, indexPrimalS, fromVectorS, indexPrimalX, fromVectorX
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
@@ -83,6 +84,71 @@ dDnotShared = ADVal
 
 
 -- * Auxiliary definitions
+
+-- TODO: maybe create a separate module of Delta smart constructors
+-- and then use the followign haddocks for the module:
+--
+-- | The impurity in this module, stemming from the use of this operation
+-- under @unsafePerformIO@, is thread-safe, admits parallel tests
+-- and does not require @-fno-full-laziness@ nor @-fno-cse@.
+-- The only tricky point is mandatory use of the smart constructors
+-- above and that any new smart constructors should be similarly
+-- call-by-value to ensure proper order of identifiers of subterms.
+--
+-- | This module uses and rather safely encapsulates impure side-effects.
+-- The impurity produces pure data with a particular property.
+-- The property is an order of per-node integer identifiers that represents
+-- data dependencies and sharing between delta expressions. The low-level API
+-- depends on this property, but is completely isolated from the impurity.
+-- The high-level API triggers the impurity but can't observe
+-- any impure behaviour. Neither can any other module in the package,
+-- except for the testing modules that import testing-exclusive class instances
+-- and operations for reading or reseting the impure counter.
+
+-- | The instances are impure, because 'shareDelta'
+-- adorns terms with an @Int@ identifier from a counter that is afterwards
+-- incremented (and never changed in any other way).
+--
+-- The identifiers are not part of any non-internal module API
+-- and the impure counter that gets incremented is not exposed
+-- (except for low level tests). The identifiers are read only in internal
+-- modules. They are assigned here once and ever accessed read-only.
+-- Their uniqueness ensures that subterms that are shared in memory
+-- are evaluated only once. If pointer equality worked efficiently
+-- (e.g., if compact regions with sharing were cheaper), we wouldn't need
+-- the impurity.
+--
+-- Given that we have to use impurity anyway, we make the implementation
+-- faster by ensuring the order of identifiers reflects data dependency,
+-- that is, parent nodes always have higher identifier than child nodes.
+-- The @StrictData@ extension ensures that the implementation of the instances
+-- are call by value, which is needed for that identifier ordering.
+--
+-- As long as "HordeAd.Core.Delta" is used exclusively through
+-- smart constructors from this API, the impurity is completely safe.
+-- Even compiler optimizations, e.g., cse and full-laziness,
+-- can't break the required invariants. On the contrary,
+-- they increase sharing and make evaluation yet cheaper.
+-- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
+-- all this breaks down.
+--
+-- The pattern-matching in 'shareDelta' is a crucial optimization
+-- and it could, presumably, be extended to further limit which
+-- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
+-- or library definitions that use it could be made smarter.
+
+unPairG :: (TensorKind x, TensorKind y)
+        => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+unPairG (PairG a b) = (a, b)
+unPairG (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
+unPairG d = let dShared = shareDelta d  -- TODO: more cases
+            in (Project1G dShared, Project2G dShared)
+
+unPairGUnshared :: (TensorKind x, TensorKind y)
+                => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+unPairGUnshared (PairG a b) = (a, b)
+unPairGUnshared (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
+unPairGUnshared d = (Project1G d, Project2G d)
 
 dScale :: Num (f z) => f z -> Delta f z -> Delta f z
 dScale _ (ZeroG ftk) = ZeroG ftk

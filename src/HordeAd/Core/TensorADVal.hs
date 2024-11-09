@@ -31,7 +31,6 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
-import HordeAd.Core.DeltaFreshId
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
@@ -135,19 +134,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                        in ahhToHVector vh u'
   taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
                                            (toRepDShare stk t2)
-
-unPairG :: (TensorKind x, TensorKind y)
-        => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
-unPairG (PairG a b) = (a, b)
-unPairG (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
-unPairG d = let dShared = shareDelta d  -- TODO: more cases
-            in (Project1G dShared, Project2G dShared)
-
-unPairGUnshared :: (TensorKind x, TensorKind y)
-                => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
-unPairGUnshared (PairG a b) = (a, b)
-unPairGUnshared (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
-unPairGUnshared d = (Project1G d, Project2G d)
 
 
 -- * Base tensor instance
