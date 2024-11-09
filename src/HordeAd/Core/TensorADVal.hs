@@ -283,13 +283,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
   rmaxIndex (D u _) =
     let v = rmaxIndex u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
   rfloor (D u _) =
     let v = rfloor u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
 
   -- TODO: speed up by using tindex0R and dIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
@@ -341,7 +341,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rcast (D u u') = dD (rcast u) (CastR u')
   rfromIntegral (D u _) =
     let v = rfromIntegral u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
   rconst t = constantADVal (rconst t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal target (TKS r sh) -> ADVal target (TKR r (Rank sh))
@@ -352,7 +352,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
 
-  rconstant t = dDnotShared t (dZeroOfShape t)
+  rconstant t = constantADVal t
   rprimalPart (D u _) = u
   rdualPart (D _ u') = u'
   rD t d = dD t d
@@ -364,20 +364,20 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
   xconst t = constantADVal (xconst t)
-  xconstant t = dDnotShared t (dZeroOfShape t)
+  xconstant t = constantADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
   xD t d = dD t d
 
   sminIndex (D u _) =
     let v = sminIndex u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
   smaxIndex (D u _) =
     let v = smaxIndex u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
   sfloor (D u _) =
     let v = sfloor u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
 
   siota = constantADVal siota
   sindex d i = indexPrimalS d (rprimalPart <$> i)
@@ -433,7 +433,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   scast (D u u') = dD (scast u) (CastS u')
   sfromIntegral (D u _) =
     let v = sfromIntegral u
-    in dDnotShared v (dZeroOfShape v)
+    in constantADVal v
   sconst t = constantADVal (sconst t)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => ADVal target (TKR r (Rank sh)) -> ADVal target (TKS r sh)
@@ -445,7 +445,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromR d = SFromR d
 
-  sconstant t = dDnotShared t (dZeroOfShape t)
+  sconstant t = constantADVal t
   sprimalPart (D u _) = u
   sdualPart (D _ u') = u'
   sD t d = dD t d
@@ -477,7 +477,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tconstant :: STensorKindType y
             -> target y
             -> ADVal target y
-  tconstant stk t | Dict <- lemTensorKindOfS stk = dDnotShared t (dZeroOfShape t)
+  tconstant stk t | Dict <- lemTensorKindOfS stk = constantADVal t
   tprimalPart :: STensorKindType y
               -> ADVal target y
               -> target y
