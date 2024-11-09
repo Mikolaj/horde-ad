@@ -46,7 +46,6 @@ import HordeAd.Core.Types
 -- in particular in case of numeric literals and also for forward derivative.
 type IsPrimal :: Target -> TensorKindType -> Constraint
 class IsPrimal f z where
-  dZeroOfShape :: f z -> Delta f z
   dScale :: Num (f z) => f z -> Delta f z -> Delta f z
   dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
   intOfShape :: f z -> Int -> f z
@@ -84,7 +83,6 @@ class IsPrimal f z where
 -- or library definitions that use it could be made smarter.
 instance (ADReadyNoLet target, ShareTensor target, TensorKind z)
          => IsPrimal target z where
-  dZeroOfShape tsh = ZeroG (tshapeFull stensorKind tsh)
   dScale _ (ZeroG ftk) = ZeroG ftk
   dScale v u' = ScaleG v u'
   dAdd ZeroG{} w = w

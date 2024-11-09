@@ -82,8 +82,8 @@ dDnotShared = ADVal
 
 -- * Auxiliary definitions
 
-constantADVal :: IsPrimal f z => f z -> ADVal f z
-constantADVal a = dDnotShared a (dZeroOfShape a)
+constantADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
+constantADVal a = dDnotShared a (ZeroG $ tshapeFull stensorKind a)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
@@ -339,7 +339,7 @@ instance (Num (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
   negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v _) = dD (signum v) (dZeroOfShape v)
+  signum (D v _) = dDnotShared (signum v) (ZeroG $ tshapeFull stensorKind v)
   fromInteger = constantADVal . fromInteger
 
 instance (Real (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
@@ -347,10 +347,10 @@ instance (Real (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (IntegralF (f z), IsPrimal f z, TensorKind z)
+instance (IntegralF (f z), TensorKind z, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
-  quotF (D u _) (D v _) = dD (quotF u v) (dZeroOfShape u)
-  remF (D u _) (D v _) = dD (remF u v) (dZeroOfShape u)
+  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((ZeroG $ tshapeFull stensorKind u))
+  remF (D u _) (D v _) = dDnotShared (remF u v) ((ZeroG $ tshapeFull stensorKind u))
 
 instance (Fractional (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where

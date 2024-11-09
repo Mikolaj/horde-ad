@@ -487,7 +487,7 @@ instance AdaptableHVector RepN (HVector RepN) where
 {-# SPECIALIZE evalFromnMap
   :: EvalState RepN -> EvalState RepN #-}
 
-instance (ADReady target, ShareTensor target)
+instance ADReady target
          => DualNumberValue (DynamicTensor (ADVal target)) where
   type DValue (DynamicTensor (ADVal target)) = DynamicTensor RepN
   fromDValue = \case

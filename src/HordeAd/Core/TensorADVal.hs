@@ -183,7 +183,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
   toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
-instance (KnownNat n, GoodScalar r, ADReadyNoLet target, ShareTensor target)
+instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
          => DualNumberValue (ADVal target (TKR r n)) where
   type DValue (ADVal target (TKR r n)) = RepN (TKR r n)  -- ! not Value(target)
   fromDValue t = constantADVal $ rconst $ runFlipR $ unRepN t
@@ -210,8 +210,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   toHVectorOf = dmkHVector . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
-instance ( ADReadyNoLet target, ShareTensor target
-         , KnownShS sh, GoodScalar r )
+instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS r sh)) where
   type DValue (ADVal target (TKS r sh)) = RepN (TKS r sh)   -- ! not Value(shaped)
   fromDValue t = constantADVal $ sconst $ runFlipS $ unRepN t
