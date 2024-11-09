@@ -27,10 +27,12 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxFromShape)
 import Data.Array.Nested (KnownShX, type (++))
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
 import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
@@ -82,6 +84,25 @@ dDnotShared = ADVal
 
 -- * Auxiliary definitions
 
+dScale :: Num (f z) => f z -> Delta f z -> Delta f z
+dScale _ (ZeroG ftk) = ZeroG ftk
+dScale v u' = ScaleG v u'
+
+dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
+dAdd ZeroG{} w = w
+dAdd v ZeroG{} = v
+dAdd v w = AddG v w
+
+-- This hack is needed to recover shape from tensors,
+-- in particular in case of numeric literals and also for forward derivative.
+intOfShape :: forall z f. (ADReadyNoLet f, TensorKind z)
+           => f z -> Int -> f z
+intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
+  STKR STKScalar{} SNat -> rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
+  STKS STKScalar{} sh -> withKnownShS sh $ sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
+  STKX STKScalar{} sh -> withKnownShX sh $ xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
+  _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
+
 constantADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
 constantADVal a = dDnotShared a (ZeroG $ tshapeFull stensorKind a)
 
@@ -92,15 +113,15 @@ constantADVal a = dDnotShared a (ZeroG $ tshapeFull stensorKind a)
 ensureToplevelSharing :: TensorKind z => ADVal f z -> ADVal f z
 ensureToplevelSharing (D u u') = dD u u'
 
-scaleNotShared :: (Num (f z), IsPrimal f z)
+scaleNotShared :: Num (f z)
                => f z -> ADVal f z -> ADVal f z
 scaleNotShared !a (D u u') = dDnotShared (a * u) (dScale a u')
 
-addNotShared :: forall f z. (Num (f z), IsPrimal f z)
+addNotShared :: forall f z. Num (f z)
              => ADVal f z -> ADVal f z -> ADVal f z
 addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
 
-multNotShared :: forall f z. (Num (f z), IsPrimal f z)
+multNotShared :: forall f z. Num (f z)
               => ADVal f z -> ADVal f z -> ADVal f z
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
@@ -316,7 +337,7 @@ instance Eq (ADVal f z) where
 instance Ord (ADVal f z) where
   (<=) = error "AST requires that OrdB be used instead"
 
-instance (Num (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Num (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
@@ -342,7 +363,7 @@ instance (Num (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
   signum (D v _) = dDnotShared (signum v) (ZeroG $ tshapeFull stensorKind v)
   fromInteger = constantADVal . fromInteger
 
-instance (Real (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
@@ -352,7 +373,7 @@ instance (IntegralF (f z), TensorKind z, ADReadyNoLet f)
   quotF (D u _) (D v _) = dDnotShared (quotF u v) ((ZeroG $ tshapeFull stensorKind u))
   remF (D u _) (D v _) = dDnotShared (remF u v) ((ZeroG $ tshapeFull stensorKind u))
 
-instance (Fractional (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Fractional (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -377,7 +398,7 @@ instance (Fractional (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNo
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
-instance (Floating (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Floating (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -436,13 +457,13 @@ instance (Floating (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLe
                     in dD (atanh u)
                           (dScale (recip (intOfShape u 1 - u * u)) u')
 
-instance (RealFrac (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (RealFrac (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Fractional (f z), RealFloatF (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Fractional (f z), RealFloatF (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => RealFloatF (ADVal f z) where
   atan2F (D ue u') (D ve v') =
     let !u = tshare ue in
@@ -450,7 +471,7 @@ instance (Fractional (f z), RealFloatF (f z), IsPrimal f z, TensorKind z, ShareT
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance (RealFloat (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (RealFloat (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => RealFloat (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance

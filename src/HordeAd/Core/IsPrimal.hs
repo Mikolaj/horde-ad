@@ -16,8 +16,7 @@
 -- except for the testing modules that import testing-exclusive class instances
 -- and operations for reading or reseting the impure counter.
 module HordeAd.Core.IsPrimal
-  ( IsPrimal(..)
-  , unsafeGetFreshId, resetIdCounter, shareDelta
+  ( unsafeGetFreshId, resetIdCounter, shareDelta
   ) where
 
 import Prelude
@@ -36,19 +35,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-
--- * The IsPrimal class and its instances
-
--- | The class states that @f z@ type is the primal component
--- of a dual number as exeplified by the operations.
---
--- The OfShape hacks are needed to recover shape from ranked tensors,
--- in particular in case of numeric literals and also for forward derivative.
-type IsPrimal :: Target -> TensorKindType -> Constraint
-class IsPrimal f z where
-  dScale :: Num (f z) => f z -> Delta f z -> Delta f z
-  dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
-  intOfShape :: f z -> Int -> f z
 
 -- | The instances are impure, because 'shareDelta'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
@@ -81,18 +67,6 @@ class IsPrimal f z where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance (ADReadyNoLet target, ShareTensor target, TensorKind z)
-         => IsPrimal target z where
-  dScale _ (ZeroG ftk) = ZeroG ftk
-  dScale v u' = ScaleG v u'
-  dAdd ZeroG{} w = w
-  dAdd v ZeroG{} = v
-  dAdd v w = AddG v w
-  intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
-    STKR STKScalar{} SNat -> rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
-    STKS STKScalar{} sh -> withKnownShS sh $ sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
-    STKX STKScalar{} sh -> withKnownShX sh $ xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
-    _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
 
 
 -- * Counter handling
