@@ -66,9 +66,9 @@ deriving instance (Show (f z), Show (Delta f z))
 -- of the dual number is an AST term or not).
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: forall f z. IsPrimal f z
+dD :: forall f z. TensorKind z
    => f z -> Delta f z -> ADVal f z
-dD !a !dual = dDnotShared a (shareDual dual)
+dD !a !dual = dDnotShared a (shareDelta dual)
 
 -- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where sharing may occur,
@@ -89,7 +89,7 @@ constantADVal a = dDnotShared a (dZeroOfShape a)
 -- constructed using multiple applications of the `dDnotShared` operation.
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
-ensureToplevelSharing :: IsPrimal f z => ADVal f z -> ADVal f z
+ensureToplevelSharing :: TensorKind z => ADVal f z -> ADVal f z
 ensureToplevelSharing (D u u') = dD u u'
 
 scaleNotShared :: (Num (f z), IsPrimal f z)
@@ -220,13 +220,13 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ >. D v _ = u >. v
   D u _ >=. D v _ = u >=. v
 
-indexPrimal :: ( ADReadyNoLet target, ShareTensor target
+indexPrimal :: ( ADReadyNoLet target
                , KnownNat m, KnownNat n, GoodScalar r )
             => ADVal target (TKR r (m + n)) -> IndexOf target m
             -> ADVal target (TKR r n)
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
-fromVector :: ( ADReadyNoLet target, ShareTensor target
+fromVector :: ( ADReadyNoLet target
               , KnownNat n, GoodScalar r )
            => Data.Vector.Vector (ADVal target (TKR r n))
            -> ADVal target (TKR r (1 + n))
@@ -235,7 +235,7 @@ fromVector lu =
   dD (rfromVector $ V.map (\(D u _) -> u) lu)
      (FromVectorR $ V.map (\(D _ u') -> u') lu)
 
-instance ( ADReadyNoLet target, ShareTensor target
+instance ( ADReadyNoLet target
          , BoolOf (PrimalOf target) ~ BoolOf target )
          => IfF (ADVal target) where
   ifF :: forall y. TensorKind y
@@ -254,7 +254,7 @@ instance ( ADReadyNoLet target, ShareTensor target
                    (fromList [ifF b 0 1])
     _ -> error "TODO"
 
-indexPrimalS :: ( ADReadyNoLet target, ShareTensor target
+indexPrimalS :: ( ADReadyNoLet target
                 , GoodScalar r, KnownShS sh1, KnownShS sh2
                 , KnownShS (sh1 ++ sh2) )
              => ADVal target (TKS r (sh1 ++ sh2)) -> IndexSh target sh1
@@ -262,7 +262,7 @@ indexPrimalS :: ( ADReadyNoLet target, ShareTensor target
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh target r.
-               ( ADReadyNoLet target, ShareTensor target
+               ( ADReadyNoLet target
                , KnownNat n, KnownShS sh, GoodScalar r )
             => Data.Vector.Vector (ADVal target (TKS r sh))
             -> ADVal target (TKS r (n ': sh))
@@ -270,7 +270,7 @@ fromVectorS lu = assert (length lu == valueOf @n) $
   dD (sfromVector $ V.map (\(D u _) -> u) lu)
      (FromVectorS $ V.map (\(D _ u') -> u') lu)
 
-indexPrimalX :: ( ADReadyNoLet target, ShareTensor target
+indexPrimalX :: ( ADReadyNoLet target
                 , GoodScalar r, KnownShX sh1, KnownShX sh2
                 , KnownShX (sh1 ++ sh2) )
              => ADVal target (TKX r (sh1 ++ sh2)) -> IndexShX target sh1
@@ -278,7 +278,7 @@ indexPrimalX :: ( ADReadyNoLet target, ShareTensor target
 indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 
 fromVectorX :: forall n sh target r.
-               ( ADReadyNoLet target, ShareTensor target
+               ( ADReadyNoLet target
                , KnownNat n, KnownShX sh, GoodScalar r )
             => Data.Vector.Vector (ADVal target (TKX r sh))
             -> ADVal target (TKX r (Just n ': sh))
@@ -316,7 +316,7 @@ instance Eq (ADVal f z) where
 instance Ord (ADVal f z) where
   (<=) = error "AST requires that OrdB be used instead"
 
-instance (Num (f z), IsPrimal f z)
+instance (Num (f z), IsPrimal f z, TensorKind z)
          => Num (ADVal f z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
@@ -342,17 +342,17 @@ instance (Num (f z), IsPrimal f z)
   signum (D v _) = dD (signum v) (dZeroOfShape v)
   fromInteger = constantADVal . fromInteger
 
-instance (Real (f z), IsPrimal f z)
+instance (Real (f z), IsPrimal f z, TensorKind z)
          => Real (ADVal f z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (IntegralF (f z), IsPrimal f z)
+instance (IntegralF (f z), IsPrimal f z, TensorKind z)
          => IntegralF (ADVal f z) where
   quotF (D u _) (D v _) = dD (quotF u v) (dZeroOfShape u)
   remF (D u _) (D v _) = dD (remF u v) (dZeroOfShape u)
 
-instance (Fractional (f z), IsPrimal f z)
+instance (Fractional (f z), IsPrimal f z, TensorKind z)
          => Fractional (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -377,7 +377,7 @@ instance (Fractional (f z), IsPrimal f z)
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
-instance (Floating (f z), IsPrimal f z)
+instance (Floating (f z), IsPrimal f z, TensorKind z)
          => Floating (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -436,13 +436,13 @@ instance (Floating (f z), IsPrimal f z)
                     in dD (atanh u)
                           (dScale (recip (intOfShape u 1 - u * u)) u')
 
-instance (RealFrac (f z), IsPrimal f z)
+instance (RealFrac (f z), IsPrimal f z, TensorKind z)
          => RealFrac (ADVal f z) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Fractional (f z), RealFloatF (f z), IsPrimal f z)
+instance (Fractional (f z), RealFloatF (f z), IsPrimal f z, TensorKind z)
          => RealFloatF (ADVal f z) where
   atan2F (D ue u') (D ve v') =
     let !u = sharePrimal ue in
@@ -450,7 +450,7 @@ instance (Fractional (f z), RealFloatF (f z), IsPrimal f z)
     let !t = sharePrimal (recip (u * u + v * v))
     in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance (RealFloat (f z), IsPrimal f z)
+instance (RealFloat (f z), IsPrimal f z, TensorKind z)
          => RealFloat (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance

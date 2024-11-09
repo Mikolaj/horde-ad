@@ -51,9 +51,8 @@ class IsPrimal f z where
   dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
   intOfShape :: f z -> Int -> f z
   sharePrimal :: f z -> f z  -- impure
-  shareDual :: Delta f z -> Delta f z
 
--- | The instances are impure, because 'shareDual'
+-- | The instances are impure, because 'shareDelta'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
 -- incremented (and never changed in any other way).
 --
@@ -80,7 +79,7 @@ class IsPrimal f z where
 -- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
 -- all this breaks down.
 --
--- The pattern-matching in 'shareDual' is a crucial optimization
+-- The pattern-matching in 'shareDelta' is a crucial optimization
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
@@ -98,7 +97,6 @@ instance (ADReadyNoLet target, ShareTensor target, TensorKind z)
     STKX STKScalar{} sh -> withKnownShX sh $ xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
     _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
   sharePrimal = tshare
-  shareDual = shareDelta
 
 
 -- * Counter handling
