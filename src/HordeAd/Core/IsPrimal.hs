@@ -50,7 +50,6 @@ class IsPrimal f z where
   dScale :: Num (f z) => f z -> Delta f z -> Delta f z
   dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
   intOfShape :: f z -> Int -> f z
-  sharePrimal :: f z -> f z  -- impure
 
 -- | The instances are impure, because 'shareDelta'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
@@ -96,7 +95,6 @@ instance (ADReadyNoLet target, ShareTensor target, TensorKind z)
     STKS STKScalar{} sh -> withKnownShS sh $ sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
     STKX STKScalar{} sh -> withKnownShX sh $ xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
     _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
-  sharePrimal = tshare
 
 
 -- * Counter handling

@@ -316,7 +316,7 @@ instance Eq (ADVal f z) where
 instance Ord (ADVal f z) where
   (<=) = error "AST requires that OrdB be used instead"
 
-instance (Num (f z), IsPrimal f z, TensorKind z)
+instance (Num (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
@@ -333,16 +333,16 @@ instance (Num (f z), IsPrimal f z, TensorKind z)
     dD (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
   D ue u' * D ve v' =
     -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !u = sharePrimal ue in
-    let !v = sharePrimal ve
+    let !u = tshare ue in
+    let !v = tshare ve
     in dD (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
-  abs (D ve v') = let !v = sharePrimal ve
+  abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
   signum (D v _) = dD (signum v) (dZeroOfShape v)
   fromInteger = constantADVal . fromInteger
 
-instance (Real (f z), IsPrimal f z, TensorKind z)
+instance (Real (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
@@ -352,7 +352,7 @@ instance (IntegralF (f z), IsPrimal f z, TensorKind z)
   quotF (D u _) (D v _) = dD (quotF u v) (dZeroOfShape u)
   remF (D u _) (D v _) = dD (remF u v) (dZeroOfShape u)
 
-instance (Fractional (f z), IsPrimal f z, TensorKind z)
+instance (Fractional (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -367,17 +367,17 @@ instance (Fractional (f z), IsPrimal f z, TensorKind z)
       => Fractional (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   D ue u' / D ve v' =
-    let !u = sharePrimal ue in
-    let !v = sharePrimal ve
+    let !u = tshare ue in
+    let !v = tshare ve
     in dD (u / v)
           (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
   recip (D ve v') =
-    let !v = sharePrimal ve
+    let !v = tshare ve
         minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
-instance (Floating (f z), IsPrimal f z, TensorKind z)
+instance (Floating (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -392,65 +392,65 @@ instance (Floating (f z), IsPrimal f z, TensorKind z)
       => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   pi = constantADVal pi
-  exp (D ue u') = let !expU = sharePrimal (exp ue)
+  exp (D ue u') = let !expU = tshare (exp ue)
                   in dD expU (dScale expU u')
-  log (D ue u') = let !u = sharePrimal ue
+  log (D ue u') = let !u = tshare ue
                   in dD (log u) (dScale (recip u) u')
-  sqrt (D ue u') = let !sqrtU = sharePrimal (sqrt ue)
+  sqrt (D ue u') = let !sqrtU = tshare (sqrt ue)
                    in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D ue u' ** D ve v' =
-    let !u = sharePrimal ue in
-    let !v = sharePrimal ve
+    let !u = tshare ue in
+    let !v = tshare ve
     in dD (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
                          (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D ue u') = let !u = sharePrimal ue
+  sin (D ue u') = let !u = tshare ue
                   in dD (sin u) (dScale (cos u) u')
-  cos (D ue u') = let !u = sharePrimal ue
+  cos (D ue u') = let !u = tshare ue
                   in dD (cos u) (dScale (- (sin u)) u')
-  tan (D ue u') = let !u = sharePrimal ue in
-                  let !cosU = sharePrimal (cos u)
+  tan (D ue u') = let !u = tshare ue in
+                  let !cosU = tshare (cos u)
                   in dD (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D ue u') = let !u = sharePrimal ue
+  asin (D ue u') = let !u = tshare ue
                    in dD (asin u)
                          (dScale (recip (sqrt (intOfShape u 1 - u * u))) u')
-  acos (D ue u') = let !u = sharePrimal ue
+  acos (D ue u') = let !u = tshare ue
                    in dD (acos u)
                          (dScale (- recip (sqrt (intOfShape u 1 - u * u))) u')
-  atan (D ue u') = let !u = sharePrimal ue
+  atan (D ue u') = let !u = tshare ue
                    in dD (atan u)
                          (dScale (recip (intOfShape u 1 + u * u)) u')
-  sinh (D ue u') = let !u = sharePrimal ue
+  sinh (D ue u') = let !u = tshare ue
                    in dD (sinh u) (dScale (cosh u) u')
-  cosh (D ue u') = let !u = sharePrimal ue
+  cosh (D ue u') = let !u = tshare ue
                    in dD (cosh u) (dScale (sinh u) u')
-  tanh (D ue u') = let !y = sharePrimal (tanh ue)
+  tanh (D ue u') = let !y = tshare (tanh ue)
                    in dD y (dScale (intOfShape y 1 - y * y) u')
-  asinh (D ue u') = let !u = sharePrimal ue
+  asinh (D ue u') = let !u = tshare ue
                     in dD (asinh u)
                           (dScale (recip (sqrt (intOfShape u 1 + u * u))) u')
-  acosh (D ue u') = let !u = sharePrimal ue
+  acosh (D ue u') = let !u = tshare ue
                     in dD (acosh u)
                           (dScale (recip (sqrt (u * u - intOfShape u 1))) u')
-  atanh (D ue u') = let !u = sharePrimal ue
+  atanh (D ue u') = let !u = tshare ue
                     in dD (atanh u)
                           (dScale (recip (intOfShape u 1 - u * u)) u')
 
-instance (RealFrac (f z), IsPrimal f z, TensorKind z)
+instance (RealFrac (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Fractional (f z), RealFloatF (f z), IsPrimal f z, TensorKind z)
+instance (Fractional (f z), RealFloatF (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => RealFloatF (ADVal f z) where
   atan2F (D ue u') (D ve v') =
-    let !u = sharePrimal ue in
-    let !v = sharePrimal ve in
-    let !t = sharePrimal (recip (u * u + v * v))
+    let !u = tshare ue in
+    let !v = tshare ve in
+    let !t = tshare (recip (u * u + v * v))
     in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance (RealFloat (f z), IsPrimal f z, TensorKind z)
+instance (RealFloat (f z), IsPrimal f z, TensorKind z, ShareTensor f, ADReadyNoLet f)
          => RealFloat (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -465,9 +465,9 @@ instance (RealFloat (f z), IsPrimal f z, TensorKind z)
       => RealFloat (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   atan2 (D ue u') (D ve v') =
-    let !u = sharePrimal ue in
-    let !v = sharePrimal ve in
-    let !t = sharePrimal (recip (u * u + v * v))
+    let !u = tshare ue in
+    let !v = tshare ve in
+    let !t = tshare (recip (u * u + v * v))
     in dD (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
   -- Note that for term types @a@ this is invalid without an extra let
   -- containing the first field of @D@. However, for terms this is
