@@ -31,10 +31,10 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
+import HordeAd.Core.DeltaFreshId
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (RepN (..))

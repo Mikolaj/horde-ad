@@ -24,7 +24,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
-import HordeAd.Core.IsPrimal (resetIdCounter)
+import HordeAd.Core.DeltaFreshId (resetIdCounter)
 import HordeAd.Core.TensorAst
 import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances

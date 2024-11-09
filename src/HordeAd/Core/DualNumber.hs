@@ -31,9 +31,9 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Delta
+import HordeAd.Core.DeltaFreshId
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances

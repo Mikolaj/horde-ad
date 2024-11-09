@@ -7,7 +7,7 @@
 -- any impure behaviour. Neither can any other module in the package,
 -- except for the testing modules that import testing-exclusive
 -- low level operations on the impure counter.
-module HordeAd.Core.IsPrimal
+module HordeAd.Core.DeltaFreshId
   ( shareDelta
     -- * Low level counter manipulation to be used only in tests
   , resetIdCounter
