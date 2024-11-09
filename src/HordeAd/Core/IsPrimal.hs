@@ -24,6 +24,7 @@ import Prelude
 
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import Data.Kind (Constraint, Type)
+import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -92,7 +93,7 @@ class IsPrimal f r z where
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
 instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
-         , ProductTensor ranked )
+         , ProductTensor ranked, RankedOf (ShapedOf ranked) ~ ranked )
          => IsPrimal @Nat ranked r n where
   dZeroOfShape tsh = ZeroG (FTKR $ rshape tsh)
   dScale _ (ZeroG ftk) = ZeroG ftk
@@ -121,7 +122,7 @@ instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
 
 instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
          , RankedTensor (RankedOf mixed)
-         , ShareTensor (RankedOf mixed), ProductTensor (RankedOf mixed) )
+         , ShareTensor (RankedOf mixed), ProductTensor (RankedOf mixed), RankedOf (ShapedOf (RankedOf mixed)) ~ RankedOf mixed )
          => IsPrimal @[Maybe Nat] mixed r sh where
   dZeroOfShape tsh = ZeroG (FTKX $ xshape tsh)
   dScale _ (ZeroG ftk) = ZeroG ftk
@@ -168,12 +169,24 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-shareDelta :: TensorKind y => Delta ranked y -> Delta ranked y
+shareDelta :: forall y ranked. (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
+           => Delta ranked y -> Delta ranked y
 {-# NOINLINE shareDelta #-}
 shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! case d of
     ZeroG{} -> d
+    PairG d1 d2 -> PairG (shareDelta d1) (shareDelta d2)
+      -- PairG is only a container; all work is done inside; TODO: more cases
+    HToH hv ->
+      let shareDynamic :: DynamicTensor (DeltaR ranked)
+                       -> DynamicTensor (DeltaR ranked)
+          shareDynamic t = case t of
+            DynamicRanked (DeltaR u) -> DynamicRanked $ DeltaR $ shareDelta u
+            DynamicShaped @r @sh (DeltaS u) -> DynamicShaped @r @sh @(DeltaR ranked) $ DeltaS $ shareDelta @(TKS r sh) @ranked u
+            DynamicRankedDummy{} -> t
+            DynamicShapedDummy{} -> t
+      in HToH $ V.map shareDynamic hv
     -- SFromR{} -> d
     -- the term inside SFromR is most likely shared already, but are we sure?
     InputG{} -> d

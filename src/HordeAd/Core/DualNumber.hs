@@ -242,13 +242,13 @@ instance OrdF f => OrdF (ADVal f) where
 
 indexPrimal :: ( RankedTensor ranked, ShareTensor ranked
                , ProductTensor ranked
-               , KnownNat m, KnownNat n, GoodScalar r )
+               , KnownNat m, KnownNat n, GoodScalar r, RankedOf (ShapedOf ranked) ~ ranked )
             => ADVal ranked r (m + n) -> IndexOf ranked m
             -> ADVal ranked r n
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
 fromVector :: ( RankedTensor ranked, ShareTensor ranked
-              , ProductTensor ranked, KnownNat n, GoodScalar r )
+              , ProductTensor ranked, KnownNat n, GoodScalar r, RankedOf (ShapedOf ranked) ~ ranked )
            => Data.Vector.Vector (ADVal ranked r n)
            -> ADVal ranked r (1 + n)
 fromVector lu =
@@ -259,7 +259,7 @@ fromVector lu =
 instance ( RankedTensor ranked, ShareTensor ranked
          , ProductTensor ranked, IfF (RankedOf (PrimalOf ranked))
          , Boolean (BoolOf ranked)
-         , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked )
+         , BoolOf (RankedOf (PrimalOf ranked)) ~ BoolOf ranked, RankedOf (ShapedOf ranked) ~ ranked )
          => IfF (ADVal ranked) where
   ifF !b !v !w =  -- bangs for the proper order of sharing stamps
     let D u u' = indexPrimal (fromVector $ V.fromList [v, w])
@@ -298,7 +298,7 @@ instance ( ShapedTensor shaped, ShareTensor (RankedOf shaped)
 indexPrimalX :: ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
                 , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
                 , GoodScalar r, KnownShX sh1, KnownShX sh2
-                , KnownShX (sh1 ++ sh2) )
+                , KnownShX (sh1 ++ sh2), RankedOf (ShapedOf (RankedOf mixed)) ~ RankedOf mixed )
              => ADVal mixed r (sh1 ++ sh2) -> IndexShX mixed sh1
              -> ADVal mixed r sh2
 indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
@@ -306,7 +306,7 @@ indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 fromVectorX :: forall n sh mixed r.
                ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
                , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
-               , KnownNat n, KnownShX sh, GoodScalar r )
+               , KnownNat n, KnownShX sh, GoodScalar r, RankedOf (ShapedOf (RankedOf mixed)) ~ RankedOf mixed )
             => Data.Vector.Vector (ADVal mixed r sh)
             -> ADVal mixed r (Just n ': sh)
 fromVectorX lu = assert (length lu == valueOf @n) $
@@ -317,7 +317,7 @@ instance ( RankedTensor (RankedOf mixed), ShareTensor (RankedOf mixed)
          , ProductTensor (RankedOf mixed), mixed ~ MixedOf (RankedOf mixed)
          , IfF (RankedOf (PrimalOf mixed))
          , Boolean (BoolOf mixed)
-         , BoolOf (RankedOf (PrimalOf mixed)) ~ BoolOf mixed )
+         , BoolOf (RankedOf (PrimalOf mixed)) ~ BoolOf mixed, RankedOf (ShapedOf (RankedOf mixed)) ~ RankedOf mixed )
          => IfF (ADVal @[Maybe Nat] mixed) where
   ifF !b !v !w =  -- bangs for the proper order of sharing stamps
     let D u u' = indexPrimalX (fromVectorX @2 $ V.fromList [v, w])
