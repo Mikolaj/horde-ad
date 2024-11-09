@@ -19,7 +19,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.BackendOX (ORArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import MnistData
 
@@ -30,22 +30,22 @@ afcnnMnistLen1 widthHidden widthHidden2 =
   ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
 
 -- | The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist1Parameters (ranked :: RankedTensorType) r =
-  ( ( [ranked r 1]  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
-    , ranked r 1 )  -- ^ length @widthHidden@
-  , ( [ranked r 1]  -- ^ @widthHidden2@ copies, length @widthHidden@
-    , ranked r 1 )  -- ^ length @widthHidden2@
-  , ( [ranked r 1]  -- ^ @sizeMnistLabelInt@ copies, length @widthHidden2@
-    , ranked r 1 )  -- ^ length @sizeMnistLabelInt@
+type ADFcnnMnist1Parameters (target :: Target) r =
+  ( ( [target (TKR r 1)]  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
+    , target (TKR r 1) )  -- ^ length @widthHidden@
+  , ( [target (TKR r 1)]  -- ^ @widthHidden2@ copies, length @widthHidden@
+    , target (TKR r 1) )  -- ^ length @widthHidden2@
+  , ( [target (TKR r 1)]  -- ^ @sizeMnistLabelInt@ copies, length @widthHidden2@
+    , target (TKR r 1) )  -- ^ length @sizeMnistLabelInt@
   )
 
 listMatmul1
-  :: forall ranked r.
-     (RankedTensor ranked, LetTensor ranked, GoodScalar r)
-  => ranked r 1 -> [ranked r 1]
-  -> ranked r 1
+  :: forall target r.
+     (BaseTensor target, LetTensor target, GoodScalar r)
+  => target (TKR r 1) -> [target (TKR r 1)]
+  -> target (TKR r 1)
 listMatmul1 x0 weights = tlet x0 $ \x ->
-  let f :: ranked r 1 -> ranked r 0
+  let f :: target (TKR r 1) -> target (TKR r 0)
       f v = v `rdot0` x
   in rfromList $ NonEmpty.fromList $ map f weights
 
@@ -56,13 +56,13 @@ listMatmul1 x0 weights = tlet x0 $ \x ->
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
-afcnnMnist1 :: (ADReady ranked, GoodScalar r)
-            => (ranked r 1 -> ranked r 1)
-            -> (ranked r 1 -> ranked r 1)
+afcnnMnist1 :: (ADReady target, GoodScalar r)
+            => (target (TKR r 1) -> target (TKR r 1))
+            -> (target (TKR r 1) -> target (TKR r 1))
             -> Int -> Int
-            -> ranked r 1
-            -> ADFcnnMnist1Parameters ranked r
-            -> ranked r 1
+            -> target (TKR r 1)
+            -> ADFcnnMnist1Parameters target r
+            -> target (TKR r 1)
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let !_A = assert (sizeMnistGlyphInt == rlength datum
@@ -79,18 +79,18 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1TensorData
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => Int -> Int -> (ranked r 1, ranked r 1) -> ADFcnnMnist1Parameters ranked r
-  -> ranked r 0
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => Int -> Int -> (target (TKR r 1), target (TKR r 1)) -> ADFcnnMnist1Parameters target r
+  -> target (TKR r 0)
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMax1
                                   widthHidden widthHidden2 datum adparams
   in lossCrossEntropyV target result
 
 afcnnMnistLoss1
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters ranked r
-  -> ranked r 0
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters target r
+  -> target (TKR r 0)
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
   let datum1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
       target1 = rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
@@ -99,23 +99,23 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest1
-  :: forall ranked r.
-     (ranked ~ ORArray, GoodScalar r, Differentiable r)
-  => ADFcnnMnist1Parameters ranked r
+  :: forall target r.
+     (target ~ RepN, GoodScalar r, Differentiable r)
+  => ADFcnnMnist1Parameters target r
   -> Int -> Int
   -> [MnistData r]
-  -> HVector ORArray
+  -> HVector RepN
   -> r
 afcnnMnistTest1 _ _ _ [] _ = 0
 afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
-            nn :: ADFcnnMnist1Parameters ranked r
-               -> ranked r 1
+            nn :: ADFcnnMnist1Parameters target r
+               -> target (TKR r 1)
             nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
-            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (HVectorPseudoTensor testParams)
+            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

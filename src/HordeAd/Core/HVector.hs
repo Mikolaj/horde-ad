@@ -8,12 +8,11 @@
 -- that become the codomains of the reverse derivative functions
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
-  ( HVectorOf, HVectorPseudoTensor(..)
-  , Rep, RepN(..), RepScalar(..), RepProductN(..), RepD(..)
+  ( RepD(..)
   , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
   , aDTensorKind
   , DynamicTensor(..)
-  , CRanked, CShaped, CMixed, CMixedSupports, CRepProduct
+  , CRanked
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -45,84 +44,25 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
-type HVectorOf :: RankedTensorType -> Type
-type family HVectorOf f = result | result -> f
-
-type role HVectorPseudoTensor nominal phantom phantom
-type HVectorPseudoTensor :: RankedTensorType -> TensorType ()
-newtype HVectorPseudoTensor ranked r y =
-  HVectorPseudoTensor {unHVectorPseudoTensor :: HVectorOf ranked}
-
-deriving instance Show (HVectorOf ranked)
-                  => Show (HVectorPseudoTensor ranked r y)
-
-type instance RankedOf (HVectorPseudoTensor ranked) = ranked
-
-type family Rep (ranked :: RankedTensorType) (y :: TensorKindType)
-  = result | result -> ranked y
-
-type instance Rep ranked (TKScalar r) = RepScalar ranked r
-type instance Rep ranked (TKR r n) = ranked r n
-type instance Rep ranked (TKS r sh) = ShapedOf ranked r sh
-type instance Rep ranked (TKX r sh) = MixedOf ranked r sh
--- The TKProduct case is defined separately for each ranked argument.
-type instance Rep ranked TKUntyped =
-  HVectorPseudoTensor ranked Float '()
-    -- HVectorPseudoTensor instead of HVectorOf required for injectivity
-
--- Needed because `Rep` can't be partially applied.
--- This type also lets us work around the woes with defining Show
--- for the Rep type family. It gives us a concrete thing
--- to attach a Show instance to.
-type role RepN nominal nominal
-newtype RepN ranked y =
-  RepN {unRepN :: Rep ranked y}
-
-type role RepScalar nominal nominal
-type RepScalar :: RankedTensorType -> Type -> Type
-newtype RepScalar ranked r = RepScalar {unRepScalar :: ranked r 0}
-
-deriving instance Show (ranked r 0) => Show (RepScalar ranked r)
-
-instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
-         , CMixed (MixedOf ranked) Show
-         , Show (HVectorOf ranked), CRepProduct ranked Show
-         , TensorKind y )
-         => Show (RepN ranked y) where
-  showsPrec d (RepN t) = case stensorKind @y of
-    STKScalar _ -> showsPrec d t
-    STKR STKScalar{} SNat -> showsPrec d t
-    STKS STKScalar{} sh -> withKnownShS sh $ showsPrec d t
-    STKX STKScalar{} sh -> withKnownShX sh $ showsPrec d t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      showsPrec d (RepProductN t)
-    STKUntyped -> showsPrec d t
-    _ -> error "TODO"
-
-type role RepProductN nominal nominal nominal
-newtype RepProductN ranked x y =
-  RepProductN {unRepProductN :: Rep ranked (TKProduct x y)}
-
 type role RepD nominal nominal
-data RepD ranked y where
+data RepD target y where
   DTKScalar :: GoodScalar r
-            => Rep ranked (TKScalar r)
-            -> RepD ranked (TKScalar r)
+            => target (TKScalar r)
+            -> RepD target (TKScalar r)
   DTKR :: (GoodScalar r, KnownNat n)
-       => Rep ranked (TKR r n)
-       -> RepD ranked (TKR r n)
+       => target (TKR r n)
+       -> RepD target (TKR r n)
   DTKS :: (GoodScalar r, KnownShS sh)
-       => Rep ranked (TKS r sh)
-       -> RepD ranked (TKS r sh)
+       => target (TKS r sh)
+       -> RepD target (TKS r sh)
   DTKX :: (GoodScalar r, KnownShX sh)
-       => Rep ranked (TKX r sh)
-       -> RepD ranked (TKX r sh)
-  DTKProduct :: forall x z ranked. (TensorKind x, TensorKind z)
-             => RepD ranked x -> RepD ranked z
-             -> RepD ranked (TKProduct x z)
-  DTKUntyped :: HVector ranked
-             -> RepD ranked TKUntyped
+       => target (TKX r sh)
+       -> RepD target (TKX r sh)
+  DTKProduct :: forall x z target. (TensorKind x, TensorKind z)
+             => RepD target x -> RepD target z
+             -> RepD target (TKProduct x z)
+  DTKUntyped :: HVector target
+             -> RepD target TKUntyped
 
 -- TODO: the constraints should not be necessary if we instead add ShS singleton
 -- to FTKS
@@ -204,15 +144,15 @@ aDTensorKind t = case t of
 -- Warning: r is an existential variable, a proper specialization needs
 -- to be picked explicitly at runtime.
 type role DynamicTensor nominal
-data DynamicTensor (ranked :: RankedTensorType) where
+data DynamicTensor (target :: Target) where
   DynamicRanked :: (GoodScalar r, KnownNat n)
-                => ranked r n -> DynamicTensor ranked
+                => target (TKR r n) -> DynamicTensor target
   DynamicShaped :: (GoodScalar r, KnownShS sh)
-                => ShapedOf ranked r sh -> DynamicTensor ranked
+                => target (TKS r sh) -> DynamicTensor target
   DynamicRankedDummy :: (GoodScalar r, KnownShS sh)
-                     => Proxy r -> Proxy sh -> DynamicTensor ranked
+                     => Proxy r -> Proxy sh -> DynamicTensor target
   DynamicShapedDummy :: (GoodScalar r, KnownShS sh)
-                     => Proxy r -> Proxy sh -> DynamicTensor ranked
+                     => Proxy r -> Proxy sh -> DynamicTensor target
 
 -- Ignores the contents of tensors --- to be used only for VoidHVector.
 instance Eq (DynamicTensor VoidTensor) where
@@ -226,52 +166,22 @@ dynamicsMatchVoid t u = case (scalarDynamic t, scalarDynamic u) of
     && isDynamicRanked t == isDynamicRanked u
 
 deriving instance
-  (CRanked ranked Show, CShaped (ShapedOf ranked) Show)
-  => Show (DynamicTensor ranked)
+  CRanked target Show
+  => Show (DynamicTensor target)
 
-instance (CRanked ranked NFData, CShaped (ShapedOf ranked) NFData)
-         => NFData (DynamicTensor ranked) where
+instance CRanked target NFData
+         => NFData (DynamicTensor target) where
   rnf (DynamicRanked x) = rnf x
   rnf (DynamicShaped x) = rnf x
   rnf (DynamicRankedDummy{}) = ()
   rnf (DynamicShapedDummy{}) = ()
 
-type CRanked :: RankedTensorType -> (Type -> Constraint) -> Constraint
-class (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
-      => CRanked ranked c where
-instance (forall r20 y20. (KnownNat y20, GoodScalar r20) => c (ranked r20 y20))
-      => CRanked ranked c where
-
-type CShaped :: ShapedTensorType -> (Type -> Constraint) -> Constraint
-class (forall r30 y30. (KnownShS y30, GoodScalar r30) => c (shaped r30 y30))
-      => CShaped shaped c where
+type CRanked :: Target -> (Type -> Constraint) -> Constraint
+class (forall y20. TensorKind y20 => c (target y20))
+      => CRanked target c where
 instance
-      (forall r30 y30. (KnownShS y30, GoodScalar r30) => c (shaped r30 y30))
-      => CShaped shaped c where
-
-type CMixed :: MixedTensorType -> (Type -> Constraint) -> Constraint
-class (forall r40 y40. (KnownShX y40, GoodScalar r40) => c (mixed r40 y40))
-      => CMixed mixed c where
-instance
-      (forall r40 y40. (KnownShX y40, GoodScalar r40) => c (mixed r40 y40))
-      => CMixed mixed c where
-
-type CMixedSupports :: (Type -> Constraint) -> (Type -> Constraint) -> MixedTensorType -> Constraint
-class (forall r40 y40. (KnownShX y40, GoodScalar r40)
-       => (c1 r40 => c2 (mixed r40 y40)))
-      => CMixedSupports c1 c2 mixed where
-instance
-      (forall r40 y40. (KnownShX y40, GoodScalar r40)
-       => (c1 r40 => c2 (mixed r40 y40)))
-      => CMixedSupports c1 c2 mixed where
-
-type CRepProduct :: RankedTensorType -> (Type -> Constraint)
-                                  -> Constraint
-class (forall x y. (TensorKind x, TensorKind y) => c (RepProductN ranked x y))
-       => CRepProduct ranked c where
-instance
-      (forall x y. (TensorKind x, TensorKind y) => c (RepProductN ranked x y))
-       => CRepProduct ranked c where
+      (forall y20. TensorKind y20 => c (target y20))
+      => CRanked target c where
 
 -- | This is a heterogeneous vector, used as represenation of tuples
 -- of tensors that need to have the same Haskell type regardless
@@ -282,32 +192,28 @@ instance
 -- an AST type `AstHVector` with a similar API. Both are used for arguments
 -- and the result in the internal representation of lambdas (closed functions)
 -- as used in fold-like and rev-like operations in the main library API.
--- The type family `HVectorOf` assigns this or the AST implementation
+-- The `target` assigns this or the AST implementation
 -- based on the nature (symbolic or not) of the tensor type given to it.
-type HVector (ranked :: RankedTensorType) =
-  Data.Vector.Vector (DynamicTensor ranked)
-    -- When @ranked@ is terms, `HVector AstHVector` is a mixed half-symbolic
+type HVector (target :: Target) =
+  Data.Vector.Vector (DynamicTensor target)
+    -- When @target@ is terms, `HVector AstHVector` is a mixed half-symbolic
     -- representation, usually used for vectors composed of variables only,
     -- to adapt them into more complex types and back again.
     -- This representation is not used for vectors of large terms,
     -- since they'd share values, so AstHVector is used there instead.
     -- Operations such as AstHVectorLet serve to convert between
     -- the two, preserving sharing whenever possible. The only reason
-    -- HVectorOf exists is to express and preserve sharing, which is
+    -- this exists is to express and preserve sharing, which is
     -- not possible with `HVector AstHVector` alone.
 
-type role VoidTensor nominal nominal
-data VoidTensor :: TensorType ty
+type role VoidTensor nominal
+data VoidTensor :: Target
 
-absurdTensor :: VoidTensor r y -> a
+absurdTensor :: VoidTensor y -> a
 absurdTensor = \case
 
-instance Show (VoidTensor t u) where
+instance Show (VoidTensor y) where
   showsPrec _d = absurdTensor
-
-type instance RankedOf VoidTensor = VoidTensor
-
-type instance ShapedOf VoidTensor = VoidTensor
 
 -- This is a tuple of void tensor, which incidentally makes this more like
 -- a unit type (the only values beeing the dummy DynamicTensor constructors),
@@ -315,15 +221,15 @@ type instance ShapedOf VoidTensor = VoidTensor
 type VoidHVector = HVector VoidTensor
 
 type role DynamicScalar representational
-data DynamicScalar (ranked :: RankedTensorType) where
+data DynamicScalar (target :: Target) where
   DynamicScalar :: GoodScalar r
-                => Proxy r -> DynamicScalar ranked
+                => Proxy r -> DynamicScalar target
 
-instance Show (DynamicScalar ranked) where
+instance Show (DynamicScalar target) where
   showsPrec d (DynamicScalar (Proxy @t)) =
     showsPrec d (typeRep @t)  -- abuse for better error messages
 
-scalarDynamic :: DynamicTensor ranked -> DynamicScalar ranked
+scalarDynamic :: DynamicTensor target -> DynamicScalar target
 scalarDynamic (DynamicRanked @r2 _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicShaped @r2 _) = DynamicScalar @r2 Proxy
 scalarDynamic (DynamicRankedDummy @r2 _ _) = DynamicScalar @r2 Proxy
@@ -335,27 +241,27 @@ shapeVoidDynamic  = shapeDynamicF absurdTensor
 shapeVoidHVector :: VoidHVector -> [[Int]]
 shapeVoidHVector = V.toList . V.map shapeVoidDynamic
 
-shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
-              -> DynamicTensor ranked -> [Int]
+shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => target (TKR r n) -> [Int])
+              -> DynamicTensor target -> [Int]
 {-# INLINE shapeDynamicF #-}
 shapeDynamicF f (DynamicRanked t) = f t
 shapeDynamicF _ (DynamicShaped @_ @sh _) = shapeT @sh
 shapeDynamicF _ (DynamicRankedDummy _ proxy_sh) = shapeP proxy_sh
 shapeDynamicF _ (DynamicShapedDummy _ proxy_sh) = shapeP proxy_sh
 
-rankDynamic :: DynamicTensor ranked -> Int
+rankDynamic :: DynamicTensor target -> Int
 rankDynamic (DynamicRanked @_ @n _) = valueOf @n
 rankDynamic (DynamicShaped @_ @sh _) = length $ shapeT @sh
 rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ shapeP proxy_sh
 rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ shapeP proxy_sh
 
-isDynamicRanked :: DynamicTensor ranked -> Bool
+isDynamicRanked :: DynamicTensor target -> Bool
 isDynamicRanked DynamicRanked{} = True
 isDynamicRanked DynamicShaped{} = False
 isDynamicRanked DynamicRankedDummy{} = True
 isDynamicRanked DynamicShapedDummy{} = False
 
-isDynamicDummy :: DynamicTensor ranked -> Bool
+isDynamicDummy :: DynamicTensor target -> Bool
 isDynamicDummy DynamicRanked{} = False
 isDynamicDummy DynamicShaped{} = False
 isDynamicDummy DynamicRankedDummy{} = True
@@ -375,9 +281,9 @@ voidFromShS :: forall r sh. (GoodScalar r, KnownShS sh)
 voidFromShS = DynamicShapedDummy @r @sh Proxy Proxy
 
 voidFromDynamicF
-  :: forall ranked.
-     (forall r n. (GoodScalar r, KnownNat n) => ranked r n -> [Int])
-  -> DynamicTensor ranked -> DynamicTensor VoidTensor
+  :: forall target.
+     (forall r n. (GoodScalar r, KnownNat n) => target (TKR r n) -> [Int])
+  -> DynamicTensor target -> DynamicTensor VoidTensor
 {-# INLINE voidFromDynamicF #-}
 voidFromDynamicF f (DynamicRanked @r2 t) =
   let sh = f t
@@ -397,38 +303,34 @@ replicate1VoidTensor (SNat @k) u = case u of
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
-index1HVectorF :: ( shaped ~ ShapedOf ranked
-                  , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
-               => (forall r n. (GoodScalar r, KnownNat n)
-                   => ranked r n -> IShR n)
+index1HVectorF :: (forall r n. (GoodScalar r, KnownNat n)
+                   => target (TKR r n) -> IShR n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
-                   => shaped r sh -> ShS sh)
+                   => target (TKS r sh) -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-                   => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
+                   => target (TKR r (m + n)) -> IndexOf target m -> target (TKR r n))
                -> (forall r sh1 sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
                    , KnownShS (sh1 ++ sh2) )
-                   => shaped r (sh1 ++ sh2) -> ShapedList.IndexSh shaped sh1
-                   -> shaped r sh2)
-               -> HVector ranked -> IntOf ranked -> HVector ranked
+                   => target (TKS r (sh1 ++ sh2)) -> ShapedList.IndexSh target sh1
+                   -> target (TKS r sh2))
+               -> HVector target -> IntOf target -> HVector target
 {-# INLINE index1HVectorF #-}
 index1HVectorF rshape sshape rindex sindex u i =
   V.map (flip (index1DynamicF rshape sshape rindex sindex) i) u
 
-index1DynamicF :: ( shaped ~ ShapedOf ranked
-                  , RankedOf (PrimalOf shaped) ~ RankedOf (PrimalOf ranked) )
-               => (forall r n. (GoodScalar r, KnownNat n)
-                   => ranked r n -> IShR n)
+index1DynamicF :: (forall r n. (GoodScalar r, KnownNat n)
+                   => target (TKR r n) -> IShR n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
-                   => shaped r sh -> ShS sh)
+                   => target (TKS r sh) -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-                   => ranked r (m + n) -> IndexOf ranked m -> ranked r n)
+                   => target (TKR r (m + n)) -> IndexOf target m -> target (TKR r n))
                -> (forall r sh1 sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
                    , KnownShS (sh1 ++ sh2) )
-                   => shaped r (sh1 ++ sh2) -> ShapedList.IndexSh shaped sh1
-                   -> shaped r sh2)
-               -> DynamicTensor ranked -> IntOf ranked -> DynamicTensor ranked
+                   => target (TKS r (sh1 ++ sh2)) -> ShapedList.IndexSh target sh1
+                   -> target (TKS r sh2))
+               -> DynamicTensor target -> IntOf target -> DynamicTensor target
 {-# INLINE index1DynamicF #-}
 index1DynamicF rshape sshape rindex sindex u i = case u of
   DynamicRanked t -> case rshape t of
@@ -447,22 +349,20 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     (:$$) @_ @sh2 _ tl | Dict <- sshapeKnown tl ->
                          DynamicShapedDummy @r @sh2 p1 Proxy
 
-replicate1HVectorF :: shaped ~ ShapedOf ranked
-                   => (forall r n. (GoodScalar r, KnownNat n)
-                       => Int -> ranked r n -> ranked r (1 + n))
+replicate1HVectorF :: (forall r n. (GoodScalar r, KnownNat n)
+                       => Int -> target (TKR r n) -> target (TKR r (1 + n)))
                    -> (forall n sh r. (KnownNat n, KnownShS sh, GoodScalar r)
-                       => shaped r sh -> shaped r (n ': sh))
-                   -> SNat k -> HVector ranked -> HVector ranked
+                       => target (TKS r sh) -> target (TKS r (n ': sh)))
+                   -> SNat k -> HVector target -> HVector target
 {-# INLINE replicate1HVectorF #-}
 replicate1HVectorF rreplicate sreplicate k =
   V.map (replicate1DynamicF rreplicate sreplicate k)
 
-replicate1DynamicF :: shaped ~ ShapedOf ranked
-                   => (forall r n. (GoodScalar r, KnownNat n)
-                       => Int -> ranked r n -> ranked r (1 + n))
+replicate1DynamicF :: (forall r n. (GoodScalar r, KnownNat n)
+                       => Int -> target (TKR r n) -> target (TKR r (1 + n)))
                    -> (forall n sh r. (KnownNat n, KnownShS sh, GoodScalar r)
-                       => shaped r sh -> shaped r (n ': sh))
-                   -> SNat k -> DynamicTensor ranked -> DynamicTensor ranked
+                       => target (TKS r sh) -> target (TKS r (n ': sh)))
+                   -> SNat k -> DynamicTensor target -> DynamicTensor target
 {-# INLINE replicate1DynamicF #-}
 replicate1DynamicF rreplicate sreplicate k@(SNat @k) u = case u of
   DynamicRanked t -> DynamicRanked $ rreplicate (sNatValue k) t

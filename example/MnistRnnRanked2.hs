@@ -17,63 +17,63 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.BackendOX (ORArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import HordeAd.Util.SizedList
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
-type ADRnnMnistParametersShaped (shaped :: ShapedTensorType) width r =
-  ( LayerWeigthsRNNShaped shaped SizeMnistHeight width r
-  , LayerWeigthsRNNShaped shaped width width r
-  , ( shaped r '[SizeMnistLabel, width]
-    , shaped r '[SizeMnistLabel] ) )
+type ADRnnMnistParametersShaped (target :: Target) width r =
+  ( LayerWeigthsRNNShaped target SizeMnistHeight width r
+  , LayerWeigthsRNNShaped target width width r
+  , ( target (TKS r '[SizeMnistLabel, width])
+    , target (TKS r '[SizeMnistLabel]) ) )
 
-type LayerWeigthsRNNShaped :: ShapedTensorType -> Nat -> Nat -> Type -> Type
-type LayerWeigthsRNNShaped shaped in_width out_width r =
-  ( shaped r '[out_width, in_width]   -- input weight
-  , shaped r '[out_width, out_width]  -- state weight
-  , shaped r '[out_width] )           -- bias
+type LayerWeigthsRNNShaped :: Target -> Nat -> Nat -> Type -> Type
+type LayerWeigthsRNNShaped target in_width out_width r =
+  ( target (TKS r '[out_width, in_width])   -- input weight
+  , target (TKS r '[out_width, out_width])  -- state weight
+  , target (TKS r '[out_width] ))           -- bias
 
 -- | The differentiable type of all trainable parameters of this nn.
-type ADRnnMnistParameters ranked r =
-  ( LayerWeigthsRNN ranked r
-  , LayerWeigthsRNN ranked r
-  , ( ranked r 2
-    , ranked r 1 ) )
+type ADRnnMnistParameters target r =
+  ( LayerWeigthsRNN target r
+  , LayerWeigthsRNN target r
+  , ( target (TKR r 2)
+    , target (TKR r 1) ) )
 
-type LayerWeigthsRNN (ranked :: RankedTensorType) r =
-  ( ranked r 2
-  , ranked r 2
-  , ranked r 1 )
+type LayerWeigthsRNN (target :: Target) r =
+  ( target (TKR r 2)
+  , target (TKR r 2)
+  , target (TKR r 1) )
 
 zeroStateR
-  :: (RankedTensor ranked, GoodScalar r, KnownNat n)
-  => IShR n -> (ranked r n  -- state
+  :: (BaseTensor target, GoodScalar r, KnownNat n)
+  => IShR n -> (target (TKR r n)  -- state
                     -> a)
   -> a
 zeroStateR sh f = f (rzero sh)
 
-unrollLastR :: forall ranked state c w r n.
-               (RankedTensor ranked, GoodScalar r, KnownNat n, KnownNat (1 + n))
-            => (state -> ranked r n -> w -> (c, state))
-            -> (state -> ranked r (1 + n) -> w -> (c, state))
+unrollLastR :: forall target state c w r n.
+               (BaseTensor target, GoodScalar r, KnownNat n, KnownNat (1 + n))
+            => (state -> target (TKR r n) -> w -> (c, state))
+            -> (state -> target (TKR r (1 + n)) -> w -> (c, state))
 unrollLastR f s0 xs w =
-  let g :: (c, state) -> ranked r n -> (c, state)
+  let g :: (c, state) -> target (TKR r n) -> (c, state)
       g (_, !s) x = f s x w
-      projections :: [ranked r n]
+      projections :: [target (TKR r n)]
       projections = case rshape xs of
         len :$: _ -> map (\i -> rindex xs (fromIntegral i :.: ZIR)) [0 .. len - 1]
         ZSR -> error "impossible pattern needlessly required"
   in foldl' g (undefined, s0) projections
 
 rnnMnistLayerR
-  :: (ADReady ranked, GoodScalar r, Numeric r, Differentiable r)
-  => ranked r 2  -- in state, [out_width, batch_size]
-  -> ranked r 2  -- input, [in_width, batch_size]
-  -> LayerWeigthsRNN ranked r  -- in_width out_width
-  -> ranked r 2  -- output state, [out_width, batch_size]
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  => target (TKR r 2)  -- in state, [out_width, batch_size]
+  -> target (TKR r 2)  -- input, [in_width, batch_size]
+  -> LayerWeigthsRNN target r  -- in_width out_width
+  -> target (TKR r 2)  -- output state, [out_width, batch_size]
 rnnMnistLayerR s x (wX, wS, b) = case rshape s of
   _out_width :$: batch_size :$: ZSR ->
     let y = wX `rmatmul2` x + wS `rmatmul2` s
@@ -82,13 +82,13 @@ rnnMnistLayerR s x (wX, wS, b) = case rshape s of
   _ -> error "rnnMnistLayerR: wrong shape of the state"
 
 rnnMnistTwoR
-  :: (ADReady ranked, GoodScalar r, Numeric r, Differentiable r)
-  => ranked r 2  -- initial state, [2 * out_width, batch_size]
-  -> PrimalOf ranked r 2  -- [sizeMnistHeight, batch_size]
-  -> ( LayerWeigthsRNN ranked r  -- sizeMnistHeight out_width
-     , LayerWeigthsRNN ranked r )  -- out_width out_width
-  -> ( ranked r 2  -- [out_width, batch_size]
-     , ranked r 2 )  -- final state, [2 * out_width, batch_size]
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  => target (TKR r 2)  -- initial state, [2 * out_width, batch_size]
+  -> PrimalOf target (TKR r 2)  -- [sizeMnistHeight, batch_size]
+  -> ( LayerWeigthsRNN target r  -- sizeMnistHeight out_width
+     , LayerWeigthsRNN target r )  -- out_width out_width
+  -> ( target (TKR r 2)  -- [out_width, batch_size]
+     , target (TKR r 2) )  -- final state, [2 * out_width, batch_size]
 rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
   out_width_x_2 :$: _batch_size :$: ZSR ->
     let out_width = out_width_x_2 `div` 2
@@ -102,11 +102,11 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
   _ -> error "rnnMnistTwoR: wrong shape of the state"
 
 rnnMnistZeroR
-  :: (ADReady ranked, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => Int
-  -> PrimalOf ranked r 3  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
-  -> ADRnnMnistParameters ranked r  -- sizeMnistHeight out_width
-  -> ranked r 2  -- [SizeMnistLabel, batch_size]
+  -> PrimalOf target (TKR r 3)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
+  -> ADRnnMnistParameters target r  -- sizeMnistHeight out_width
+  -> target (TKR r 2)  -- [SizeMnistLabel, batch_size]
 rnnMnistZeroR batch_size xs
               ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case rshape b of
   out_width :$: ZSR ->
@@ -117,11 +117,11 @@ rnnMnistZeroR batch_size xs
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
-  :: (ADReady ranked, ADReady (PrimalOf ranked), GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r, Differentiable r)
   => Int
-  -> (PrimalOf ranked r 3, PrimalOf ranked r 2)  -- batch_size
-  -> ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width
-  -> ranked r 0
+  -> (PrimalOf target (TKR r 3), PrimalOf target (TKR r 2))  -- batch_size
+  -> ADRnnMnistParameters target r  -- SizeMnistHeight out_width
+  -> target (TKR r 0)
 rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let xs = rtranspose [2, 1, 0] glyphR
       result = rnnMnistZeroR batch_size xs adparameters
@@ -130,26 +130,26 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   in rconstant (recip $ fromIntegral batch_size) * loss
 
 rnnMnistTestR
-  :: forall ranked r.
-     (ranked ~ ORArray, GoodScalar r, Numeric r, Differentiable r)
+  :: forall target r.
+     (target ~ RepN, GoodScalar r, Numeric r, Differentiable r)
   => Int
   -> MnistDataBatchR r  -- batch_size
-  -> ADRnnMnistParameters ranked r
+  -> ADRnnMnistParameters target r
   -> r
 rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) testParams =
-  let input :: ranked r 3
+  let input :: target (TKR r 3)
       input = rconst $ Nested.rtranspose [2, 1, 0] $ Nested.rfromOrthotope SNat glyphR
-      outputR :: FlipR Nested.Ranked r 2
+      outputR :: RepN (TKR r 2)
       outputR =
-        let nn :: ADRnnMnistParameters ranked r  -- SizeMnistHeight out_width
-               -> ranked r 2  -- [SizeMnistLabel, batch_size]
+        let nn :: ADRnnMnistParameters target r  -- SizeMnistHeight out_width
+               -> target (TKR r 2)  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size input
         in nn testParams
-      outputs = map (Nested.rtoVector . runFlipR) $ runravelToList
+      outputs = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
-      labels = map (Nested.rtoVector . runFlipR) $ runravelToList
-               $ FlipR $ Nested.rfromOrthotope SNat labelR
+      labels = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
+               $ RepN $ FlipR $ Nested.rfromOrthotope SNat labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

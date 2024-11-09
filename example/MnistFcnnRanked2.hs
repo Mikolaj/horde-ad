@@ -19,32 +19,32 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.BackendOX (ORArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
-type ADFcnnMnist2ParametersShaped (shaped :: ShapedTensorType)
+type ADFcnnMnist2ParametersShaped (target :: Target)
                                   (widthHidden :: Nat)
                                   (widthHidden2 :: Nat)
                                   (r :: Type) =
-  ( ( shaped r '[widthHidden, SizeMnistGlyph]
-    , shaped r '[widthHidden] )
-  , ( shaped Float '[widthHidden2, widthHidden]
-    , shaped r '[widthHidden2] )
-  , ( shaped r '[SizeMnistLabel, widthHidden2]
-    , shaped r '[SizeMnistLabel] )
+  ( ( target (TKS r '[widthHidden, SizeMnistGlyph])
+    , target (TKS r '[widthHidden]) )
+  , ( target (TKS Float '[widthHidden2, widthHidden])
+    , target (TKS r '[widthHidden2]) )
+  , ( target (TKS r '[SizeMnistLabel, widthHidden2])
+    , target (TKS r '[SizeMnistLabel]) )
   )
 
 -- | The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist2Parameters (ranked :: RankedTensorType) r =
-  ( ( ranked r 2
-    , ranked r 1 )
-  , ( ranked Float 2
-    , ranked r 1 )
-  , ( ranked r 2
-    , ranked r 1 )
+type ADFcnnMnist2Parameters (target :: Target) r =
+  ( ( target (TKR r 2)
+    , target (TKR r 1) )
+  , ( target (TKR Float 2)
+    , target (TKR r 1) )
+  , ( target (TKR r 2)
+    , target (TKR r 1) )
   )
 
 -- | Fully connected neural network for the MNIST digit classification task.
@@ -54,12 +54,12 @@ type ADFcnnMnist2Parameters (ranked :: RankedTensorType) r =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
-afcnnMnist2 :: (ADReady ranked, GoodScalar r, Differentiable r)
-            => (ranked r 1 -> ranked r 1)
-            -> (ranked r 1 -> ranked r 1)
-            -> ranked r 1
-            -> ADFcnnMnist2Parameters ranked r
-            -> ranked r 1
+afcnnMnist2 :: (ADReady target, GoodScalar r, Differentiable r)
+            => (target (TKR r 1) -> target (TKR r 1))
+            -> (target (TKR r 1) -> target (TKR r 1))
+            -> target (TKR r 1)
+            -> ADFcnnMnist2Parameters target r
+            -> target (TKR r 1)
 afcnnMnist2 factivationHidden factivationOutput
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let hiddenLayer1 = rmatvecmul hidden datum + bias
@@ -72,17 +72,17 @@ afcnnMnist2 factivationHidden factivationOutput
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss2TensorData
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => (ranked r 1, ranked r 1) -> ADFcnnMnist2Parameters ranked r
-  -> ranked r 0
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => (target (TKR r 1), target (TKR r 1)) -> ADFcnnMnist2Parameters target r
+  -> target (TKR r 0)
 afcnnMnistLoss2TensorData (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
   in lossCrossEntropyV target result
 
 afcnnMnistLoss2
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => MnistData r -> ADFcnnMnist2Parameters ranked r
-  -> ranked r 0
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => MnistData r -> ADFcnnMnist2Parameters target r
+  -> target (TKR r 0)
 afcnnMnistLoss2 (datum, target) =
   let datum1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
       target1 = rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
@@ -91,21 +91,21 @@ afcnnMnistLoss2 (datum, target) =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest2
-  :: forall ranked r.
-     (ranked ~ ORArray, GoodScalar r, Differentiable r)
-  => ADFcnnMnist2Parameters ranked r
+  :: forall target r.
+     (target ~ RepN, GoodScalar r, Differentiable r)
+  => ADFcnnMnist2Parameters target r
   -> [MnistData r]
-  -> HVector ORArray
+  -> HVector RepN
   -> r
 afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
-            nn :: ADFcnnMnist2Parameters ranked r
-               -> ranked r 1
+            nn :: ADFcnnMnist2Parameters target r
+               -> target (TKR r 1)
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (HVectorPseudoTensor testParams)
+            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

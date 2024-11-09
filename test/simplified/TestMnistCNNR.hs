@@ -27,7 +27,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
@@ -46,7 +46,7 @@ testTrees = [ tensorADValMnistTestsCNNA
 -- which side-steps vectorization.
 mnistTestCaseCNNA
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -63,18 +63,18 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
            ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
             forgetShape $ fst
             $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                             OSArray SizeMnistHeight SizeMnistWidth
+                             RepN SizeMnistHeight SizeMnistWidth
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
-      hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
+      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show kh, show kw, show c_out, show n_hidden
                         , show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector ORArray -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
       ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -85,15 +85,15 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector ORArray, StateAdam)
+           runBatch :: (HVector RepN, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector RepN, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal ORArray)
-                   -> ADVal ranked r 0
+             let f :: MnistDataBatchR r -> HVector (ADVal RepN)
+                   -> ADVal ranked (TKR r 0)
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconst $ Nested.rfromOrthotope SNat glyphR, rconst $ Nested.rfromOrthotope SNat labelR)
-                     (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
+                     (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -108,7 +108,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector ORArray, StateAdam) -> IO (HVector ORArray)
+       let runEpoch :: Int -> (HVector RepN, StateAdam) -> IO (HVector RepN)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -145,7 +145,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNI
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -162,18 +162,18 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
             forgetShape $ fst
             $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                             OSArray SizeMnistHeight SizeMnistWidth
+                             RepN SizeMnistHeight SizeMnistWidth
                              kh kw c_out n_hidden r)
                 0.4 (mkStdGen 44)
           _ -> error "impossible someNatVal error"
-      hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
+      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show kh, show kw, show c_out, show n_hidden
                         , show miniBatchSize
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector ORArray -> r
+      ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
       ftest = MnistCnnRanked2.convMnistTestR valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -192,22 +192,22 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
-       let ast :: AstRanked FullSpan r 0
+       let ast :: AstTensor AstMethodLet FullSpan (TKR r 0)
            ast = MnistCnnRanked2.convMnistLossFusedR
-                   miniBatchSize (AstRanked astGlyph, AstRanked astLabel)
+                   miniBatchSize (astGlyph, astLabel)
                    (unAsHVector
                     $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   (rankedY (stensorKind @TKUntyped) hVector2))
-           runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector ORArray, StateAdam)
+                                   hVector2)
+           runBatch :: (HVector RepN, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector RepN, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal ORArray)
-                   -> ADVal ranked r 0
+             let f :: MnistDataBatchR r -> HVector (ADVal RepN)
+                   -> ADVal ranked (TKR r 0)
                  f (glyph, label) varInputs =
-                   let env = extendEnv var (HVectorPseudoTensor varInputs) emptyEnv
+                   let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist = extendEnv varGlyph (rconst $ Nested.rfromOrthotope SNat glyph)
                                   $ extendEnv varLabel (rconst $ Nested.rfromOrthotope SNat label) env
-                   in interpretAst envMnist $ unAstRanked ast
+                   in interpretAst envMnist ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -222,7 +222,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector ORArray, StateAdam) -> IO (HVector ORArray)
+       let runEpoch :: Int -> (HVector RepN, StateAdam) -> IO (HVector RepN)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -260,7 +260,7 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseCNNO
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Numeric r, Random r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -276,19 +276,19 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
     ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
     let valsInitShaped
           :: MnistCnnRanked2.ADCnnMnistParametersShaped
-               OSArray SizeMnistHeight SizeMnistWidth
+               RepN SizeMnistHeight SizeMnistWidth
                kh kw c_out n_hidden r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
         valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
-        hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
+        hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show kh, show kw, show c_out, show n_hidden
                           , show miniBatchSize
                           , show (V.length hVectorInit)
                           , show (sizeHVector hVectorInit) ]
-        ftest :: Int -> MnistDataBatchR r -> HVector ORArray -> r
+        ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
         ftest = MnistCnnRanked2.convMnistTestR valsInit
     in testCase name $ do
        hPutStrLn stderr $
@@ -301,30 +301,30 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize testData of
              d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( FlipR $ Nested.rfromOrthotope SNat dglyph
-                         , FlipR $ Nested.rfromOrthotope SNat dlabel )
+                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat dglyph
+                         , RepN $ FlipR $ Nested.rfromOrthotope SNat dlabel )
              [] -> error "empty test data"
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
            (artRaw, _) = revArtifactAdapt False f (AsHVector (valsInit, dataInit))
            art = simplifyArtifactGradient artRaw
-           go :: [MnistDataBatchR r] -> (HVector ORArray, StateAdam)
-              -> (HVector ORArray, StateAdam)
+           go :: [MnistDataBatchR r] -> (HVector RepN, StateAdam)
+              -> (HVector RepN, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let glyphD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat glyph
                  labelD = DynamicRanked $ rconst $ Nested.rfromOrthotope SNat label
                  parametersAndInput =
-                   HVectorPseudoTensor
+                   dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   unHVectorPseudoTensor
+                   dunHVector
                    $ fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
                                                 parameters gradientHVector)
-           runBatch :: (HVector ORArray, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector ORArray, StateAdam)
+           runBatch :: (HVector RepN, StateAdam) -> (Int, [MnistDataR r])
+                    -> IO (HVector RepN, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -340,7 +340,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector ORArray, StateAdam) -> IO (HVector ORArray)
+       let runEpoch :: Int -> (HVector RepN, StateAdam) -> IO (HVector RepN)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
              unless (n_hidden < 10) $
@@ -386,23 +386,22 @@ testCNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
-      blackGlyph :: AstRanked PrimalSpan Double 4
-      blackGlyph = AstRanked
-                   $ AstReplicate (SNat @1)
+      blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR Double 4)
+      blackGlyph = AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @4)
                    $ AstReplicate (SNat @4)
                        (7 :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
-      valsInit :: MnistCnnRanked2.ADCnnMnistParameters ORArray Double
+      valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN Double
       valsInit =
         forgetShape $ fst
         $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                         OSArray 4 4  -- see sizeMnistWidthI, etc.
+                         RepN 4 4  -- see sizeMnistWidthI, etc.
                          1 1 1 1 Double)
                      0.4 (mkStdGen 44)
-      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstRanked FullSpan)
+      afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
-              -> AstRanked FullSpan Double 2
+              -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       afcnn2T = MnistCnnRanked2.convMnistTwoR sizeMnistHeightI sizeMnistWidthI
                                               batch_size blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInit

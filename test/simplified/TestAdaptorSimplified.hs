@@ -26,7 +26,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
 import HordeAd.Core.IsPrimal (resetIdCounter)
 import HordeAd.Core.TensorAst
-import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), IntegralF (..), RealFloatF (..))
 
@@ -184,7 +184,7 @@ testZeroZ :: Assertion
 testZeroZ =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Double @0 [] [0])
-    (rev' @Double @0 (let f :: forall f. ADReady f => f Double 0 -> f Double 0
+    (rev' @Double @0 (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
                           f = const 3
                       in f) 42)
 
@@ -192,8 +192,8 @@ testZeroS :: Assertion
 testZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (crev (let f :: ADVal OSArray Double '[0, 2, 4, 0, 1]
-                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+    (crev (let f :: ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
+                 -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
                f = const (srepl 3)
            in f) (srepl 42))
 
@@ -201,8 +201,8 @@ testCFwdZeroS :: Assertion
 testCFwdZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (cfwd (let f :: ADVal OSArray Double '[0, 2, 4, 0, 1]
-                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+    (cfwd (let f :: ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
+                 -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
                f = const (srepl 3)
            in f) 42 41)
 
@@ -210,8 +210,8 @@ testFwdZeroS :: Assertion
 testFwdZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (fwd (let f :: AstShaped FullSpan Double '[0, 2, 4, 0, 1]
-                -> AstShaped FullSpan Double '[0, 2, 4, 0, 1]
+    (fwd (let f :: AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1])
+                -> AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1])
               f = const (srepl 3)
           in f) (srepl 42) (srepl 41))
 
@@ -246,25 +246,25 @@ testZero3S :: Assertion
 testZero3S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.6174114266850617))
-    (crev (\x -> barF @(ADVal OSArray Double '[33, 2]) (x, x)) (srepl 1))
+    (crev (\x -> barF @(ADVal RepN (TKS Double '[33, 2])) (x, x)) (srepl 1))
 
 testCFwdZero3S :: Assertion
 testCFwdZero3S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.9791525693535674))
-    (cfwd (\x -> barF @(ADVal OSArray Double '[33, 2]) (x, x)) (srepl 1) (srepl 1.1))
+    (cfwd (\x -> barF @(ADVal RepN (TKS Double '[33, 2])) (x, x)) (srepl 1) (srepl 1.1))
 
 testFwdZero3S :: Assertion
 testFwdZero3S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.9791525693535674))
-    (fwd (\x -> barF @(AstShaped FullSpan Double '[33, 2]) (x, x)) (srepl 1) (srepl 1.1))
+    (fwd (\x -> barF @(AstTensor AstMethodLet FullSpan (TKS Double '[33, 2])) (x, x)) (srepl 1) (srepl 1.1))
 
 testZero4S :: Assertion
 testZero4S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[] knownShS [0])
-    (rev @(AstShaped FullSpan Double '[]) @(TKS Double '[])
+    (rev @(AstTensor AstMethodLet FullSpan (TKS Double '[])) @(TKS Double '[])
          (let f = const (srepl 3)
           in f) (srepl 42))
 
@@ -274,7 +274,7 @@ testZero5S =
     (sconst $ Nested.sfromListPrimLinear @_ @'[44] knownShS (replicate 44 1))
     (rev (let f :: a -> a
               f = id
-          in f @(AstShaped FullSpan Double '[44])) (srepl 42))
+          in f @(AstTensor AstMethodLet FullSpan (TKS Double '[44]))) (srepl 42))
 
 testZero6S :: Assertion
 testZero6S =
@@ -287,20 +287,20 @@ testZero7S :: Assertion
 testZero7S =
   assertEqualUpToEpsilon 1e-10
     (sconst $ Nested.sfromListPrimLinear @_ @'[] knownShS [0])
-    (rev (const 3 :: AstShaped FullSpan Double '[] -> AstRanked FullSpan Double 0) (srepl 42))
+    (rev (const 3 :: AstTensor AstMethodLet FullSpan (TKS Double '[]) -> AstTensor AstMethodLet FullSpan (TKR Double 0)) (srepl 42))
 
 testZero8 :: Assertion
 testZero8 =
   assertEqualUpToEpsilon 1e-10
     (rfromList0N [] [0])
-    (rev (const (sscalar 3) :: AstRanked FullSpan Double 0 -> AstShaped FullSpan Double '[]) 42)
+    (rev (const (sscalar 3) :: AstTensor AstMethodLet FullSpan (TKR Double 0) -> AstTensor AstMethodLet FullSpan (TKS Double '[])) 42)
 
 testZero9S :: Assertion
 testZero9S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
-    (crev (let f :: ADVal ORArray Double 5
-                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+    (crev (let f :: ADVal RepN (TKR Double 5)
+                 -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
                f = const (srepl 3)
            in f)
           (rreplicate0N [0, 2, 4, 0, 1] 42))
@@ -309,8 +309,8 @@ testCFwdZero9S :: Assertion
 testCFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (cfwd (let f :: ADVal ORArray Double 5
-                 -> ADVal OSArray Double '[0, 2, 4, 0, 1]
+    (cfwd (let f :: ADVal RepN (TKR Double 5)
+                 -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
                f = const (srepl 3)
            in f)
           (rreplicate0N [0, 2, 4, 0, 1] 42) (rreplicate0N [0, 2, 4, 0, 1] 41))
@@ -319,8 +319,8 @@ testFwdZero9S :: Assertion
 testFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (fwd (let f :: AstRanked FullSpan Double 5
-                -> AstShaped FullSpan Double '[0, 2, 4, 0, 1]
+    (fwd (let f :: AstTensor AstMethodLet FullSpan (TKR Double 5)
+                -> AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1])
               f = const (srepl 3)
           in f)
          (rreplicate0N [0, 2, 4, 0, 1] 42) (rreplicate0N [0, 2, 4, 0, 1] 41))
@@ -331,9 +331,9 @@ testZero10S =
     ( rfromList0N [0, 2, 4, 0, 1] []
     , sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
     (crev (let f = const (srepl 3) . snd
-           in f :: ( ADVal ORArray Double 5
-                   , ADVal OSArray Double '[0, 2, 4, 0, 1] )
-                   -> ADVal OSArray Double '[0, 2, 4, 0, 1])
+           in f :: ( ADVal RepN (TKR Double 5)
+                   , ADVal RepN (TKS Double '[0, 2, 4, 0, 1]) )
+                   -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1]))
           (rreplicate0N [0, 2, 4, 0, 1] 42, srepl 21))
 
 testCFwdZero10S :: Assertion
@@ -341,9 +341,9 @@ testCFwdZero10S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (cfwd (let f = const (srepl 3) . snd
-           in f :: ( ADVal ORArray Double 5
-                   , ADVal OSArray Double '[0, 2, 4, 0, 1] )
-                   -> ADVal OSArray Double '[0, 2, 4, 0, 1])
+           in f :: ( ADVal RepN (TKR Double 5)
+                   , ADVal RepN (TKS Double '[0, 2, 4, 0, 1]) )
+                   -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1]))
           ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
@@ -354,9 +354,9 @@ testFwdZero10S =
   assertEqualUpToEpsilon 1e-9
     (sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
     (fwd  (let f = const (srepl 3) . snd
-           in f :: ( AstRanked FullSpan Double 5
-                   , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
-                   -> AstShaped FullSpan Double '[0, 2, 4, 0, 1])
+           in f :: ( AstTensor AstMethodLet FullSpan (TKR Double 5)
+                   , AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1]) )
+                   -> AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1]))
           ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
@@ -368,9 +368,9 @@ testZero11S =
     ( rfromList0N [0, 2, 4, 0, 1] []
     , sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
     (crev (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
-           in f :: ( ADVal ORArray Double 5
-                   , ADVal OSArray Double '[0, 2, 4, 0, 1] )
-                   -> ADVal ORArray Double 5)
+           in f :: ( ADVal RepN (TKR Double 5)
+                   , ADVal RepN (TKS Double '[0, 2, 4, 0, 1]) )
+                   -> ADVal RepN (TKR Double 5))
           (rreplicate0N [0, 2, 4, 0, 1] 42, srepl 21))
 
 testCFwdZero11S :: Assertion
@@ -378,9 +378,9 @@ testCFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
     (cfwd (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
-           in f :: ( ADVal ORArray Double 5
-                   , ADVal OSArray Double '[0, 2, 4, 0, 1] )
-                   -> ADVal ORArray Double 5)
+           in f :: ( ADVal RepN (TKR Double 5)
+                   , ADVal RepN (TKS Double '[0, 2, 4, 0, 1]) )
+                   -> ADVal RepN (TKR Double 5))
           ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
@@ -391,9 +391,9 @@ testFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
     (fwd  (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
-           in f :: ( AstRanked FullSpan Double 5
-                   , AstShaped FullSpan Double '[0, 2, 4, 0, 1] )
-                   -> AstRanked FullSpan Double 5)
+           in f :: ( AstTensor AstMethodLet FullSpan (TKR Double 5)
+                   , AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1]) )
+                   -> AstTensor AstMethodLet FullSpan (TKR Double 5))
           ( rfromList0N [0, 2, 4, 0, 1] []
           , sconst $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
           ( rfromList0N [0, 2, 4, 0, 1] []
@@ -403,8 +403,8 @@ testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: AstRanked FullSpan Double 0
-         -> AstRanked FullSpan Double 0
+      fT :: AstTensor AstMethodLet FullSpan (TKR Double 0)
+         -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT x = ifF (x >. 0) (2 * x) (5 * x)
       (artifactRev, _deltas) = revArtifactAdapt True fT 42
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -416,8 +416,8 @@ testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
   resetVarCounter
   let renames = IM.empty
-      fT :: AstRanked FullSpan Double 0
-         -> AstRanked FullSpan Double 0
+      fT :: AstTensor AstMethodLet FullSpan (TKR Double 0)
+         -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT x = ifF (x >. 0) 2 5 * x
       (artifactRev, deltas) = revArtifactAdapt True fT 42
   printArtifactPretty renames artifactRev
@@ -431,10 +431,10 @@ testPiecewiseLinear2PP = do
   show deltas
     @?= "ShareG 100000005 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstVar (FTKR []) (AstVarId 100000001)) (AstConst (rfromListLinear [] [0.0]))) (AstConst (rfromListLinear [] [2.0])) (AstConst (rfromListLinear [] [5.0])))}) (InputG (FTKR []) (InputId 0)))"
 
-overleaf :: forall r ranked. (RankedTensor ranked, GoodScalar r)
-         => ranked r 1 -> ranked r 0
+overleaf :: forall r target. (BaseTensor target, GoodScalar r)
+         => target (TKR r 1) -> target (TKR r 0)
 overleaf v = let wrap i = i `remF` fromIntegral (rlength v)
-             in rsum (rbuild @ranked @r @1 [50] (\[i] -> rindex v [wrap i]))
+             in rsum (rbuild @target @r @1 [50] (\[i] -> rindex v [wrap i]))
 
 testOverleaf :: Assertion
 testOverleaf =
@@ -479,7 +479,7 @@ testOverleafCIntToFloatp :: Assertion
 testOverleafCIntToFloatp =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList @Float @1 [28] (replicate 28 0.0))
-    (let f :: forall f. ADReady f => f Float 1 -> f Float 0
+    (let f :: forall f. ADReady f => f (TKR Float 1) -> f (TKR Float 0)
          f = rfromIntegral . overleaf @CInt . rfloor
      in rev' @Float @0 f (FlipR $ OR.fromList [28] [0 .. 27]))
 
@@ -488,10 +488,10 @@ testOverleafPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v"), (2, "i")]
-      fT :: AstRanked FullSpan Double 1
-         -> AstRanked FullSpan Double 0
+      fT :: AstTensor AstMethodLet FullSpan (TKR Double 1)
+         -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = overleaf
-      (var3, ast3) = funToAst (FTKR [28]) $ unAstRanked . fT . AstRanked
+      (var3, ast3) = funToAst (FTKR [28]) $ fT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v -> rsum (rgather [50] v (\\[i] -> [remF i 28]))"
@@ -538,7 +538,7 @@ testFooSToFloat = do
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
     (rev @_ @(TKS Float '[3, 534, 3])
          (scast . fooF)
-         (srepl 1.1 :: OSArray Double '[3, 534, 3], srepl 2.2, srepl 3.3))
+         (srepl 1.1 :: RepN (TKS Double '[3, 534, 3]), srepl 2.2, srepl 3.3))
 
 testFooSBoth :: Assertion
 testFooSBoth = do
@@ -546,8 +546,8 @@ testFooSBoth = do
     (srepl 2.439628436155373, srepl (-1.9533749), srepl 0.9654825479484146)
     (rev @_ @(TKS Float '[3, 534, 3])
          (scast . fooF . (\(d, f, d2) -> (d, scast f, d2)))
-         ( srepl 1.1 :: OSArray Double '[3, 534, 3]
-         , srepl 2.2 :: OSArray Float '[3, 534, 3]
+         ( srepl 1.1 :: RepN (TKS Double '[3, 534, 3])
+         , srepl 2.2 :: RepN (TKS Float '[3, 534, 3])
          , srepl 3.3 ))
 
 testFooBoth :: Assertion
@@ -556,17 +556,17 @@ testFooBoth = do
     (rscalar 2.439628436155373, rscalar (-1.9533749), rscalar 0.9654825479484146)
     (rev @_ @(TKR Float 0)
          (rcast . foo . (\(d, f, d2) -> (d, rcast f, d2)))
-         ( rscalar 1.1 :: ORArray Double 0
-         , rscalar 2.2 :: ORArray Float 0
+         ( rscalar 1.1 :: RepN (TKR Double 0)
+         , rscalar 2.2 :: RepN (TKR Float 0)
          , rscalar 3.3 ))
 
 testFooPP :: Assertion
 testFooPP = do
   resetVarCounter
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
-      fooT = foo @(AstRanked FullSpan Double 0)
+      fooT = foo @(AstTensor AstMethodLet FullSpan (TKR Double 0))
       foo3 x = fooT (x, x, x)
-      (var3, ast3) = funToAst (FTKR ZSR) $ unAstRanked . foo3 . AstRanked
+      (var3, ast3) = funToAst (FTKR ZSR) $ foo3
   "\\" ++ printAstVarName IM.empty var3
        ++ " -> " ++ printAstSimple IM.empty ast3
     @?= "\\x1 -> atan2F x1 (x1 * sin x1) + x1 * (x1 * sin x1)"
@@ -577,11 +577,11 @@ testFooPP = do
   printArtifactPrimalSimple renames artifactRev
     @?= "\\x1 -> tlet (sin (tproject2 (tproject1 x1))) (\\x -> tlet (tproject1 (tproject1 x1) * x) (\\y -> tlet (sin (tproject2 (tproject1 x1))) (\\x5 -> tlet (tproject1 (tproject1 x1) * x5) (\\x6 -> atan2F (tproject2 x1) y + tproject2 x1 * x6))))"
 
-fooLet :: forall ranked r n.
-          ( RealFloatF (ranked r n)
-          , LetTensor ranked
+fooLet :: forall target r n.
+          ( RealFloatF (target (TKR r n))
+          , LetTensor target
           , KnownNat n, GoodScalar r )
-       => (ranked r n, ranked r n, ranked r n) -> ranked r n
+       => (target (TKR r n), target (TKR r n), target (TKR r n)) -> target (TKR r n)
 fooLet (x, y, z) =
   let w0 = x * sin y
   in tlet w0 $ \w ->
@@ -599,9 +599,9 @@ testFooLetPP = do
   resetVarCounter
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
       renamesNull = IM.fromList [(1, "x1"), (2, "x2")]
-      fooLetT = fooLet @(AstRanked FullSpan) @Double
+      fooLetT = fooLet @(AstTensor AstMethodLet FullSpan) @Double
       fooLet3 x = fooLetT (x, x, x)
-      (var3, ast3) = funToAst (FTKR ZSR) $ unAstRanked . fooLet3 . AstRanked
+      (var3, ast3) = funToAst (FTKR ZSR) $ fooLet3
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\x1 -> tlet (x1 * sin x1) (\\x2 -> atan2F x1 x2 + x1 * x2)"
@@ -612,8 +612,8 @@ testFooLetPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> let z = tproject1 (tproject1 x1) * sin (tproject2 (tproject1 x1)) in atan2F (tproject2 x1) z + tproject2 x1 * z"
 
-_shapedListProd :: (ShapedTensor shaped, GoodScalar r)
-               => [shaped r '[]] -> shaped r '[]
+_shapedListProd :: (BaseTensor target, GoodScalar r)
+               => [target (TKS r '[])] -> target (TKS r '[])
 _shapedListProd = foldl1' (*)
 
 {- TODO: this requires a better AdaptableHVector instance for [a]
@@ -621,7 +621,7 @@ testListProdPP :: Assertion
 testListProdPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstShaped FullSpan Double '[]] -> AstShaped FullSpan Double '[]
+      fT :: [AstTensor AstMethodLet FullSpan (TKS Double '[])] -> AstTensor AstMethodLet FullSpan (TKS Double '[])
       fT = shapedListProd
   let (artifactRev, _deltas) = revArtifactAdapt True fT [srepl 1, srepl 2, srepl 3, srepl 4]
   printArtifactSimple renames artifactRev
@@ -634,15 +634,15 @@ testListProdPP = do
     @?= "\\x160 x161 x162 x163 -> ((x160 * x161) * x162) * x163"
 -}
 
-rankedListProdr :: (RankedTensor ranked, GoodScalar r)
-                => [ranked r 0] -> ranked r 0
+rankedListProdr :: (BaseTensor target, GoodScalar r)
+                => [target (TKR r 0)] -> target (TKR r 0)
 rankedListProdr = foldr1 (*)
 
 testListProdrPP :: Assertion
 testListProdrPP = do
   resetVarCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListProdr
   let (artifactRev, _deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -654,7 +654,7 @@ testListProdrLongPP :: Assertion
 testListProdrLongPP = do
   resetVarCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListProdr
   let (artifactRev, _) =
         revArtifactAdapt True fT [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
@@ -683,15 +683,15 @@ testListProdr = do
     (rev @_ @(TKR Double 0)
          rankedListProdr [1, 2, 3, 4])
 
-rankedListSumr :: (RankedTensor ranked, GoodScalar r)
-                => [ranked r 0] -> ranked r 0
+rankedListSumr :: (BaseTensor target, GoodScalar r)
+                => [target (TKR r 0)] -> target (TKR r 0)
 rankedListSumr = foldr1 (+)
 
 testListSumrPP :: Assertion
 testListSumrPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListSumr
   let (artifactRev, deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -702,15 +702,15 @@ testListSumrPP = do
     @?= "ShareG 100000003 (AddG (InputG (FTKR []) (InputId 0)) (ShareG 100000002 (AddG (InputG (FTKR []) (InputId 1)) (ShareG 100000001 (AddG (InputG (FTKR []) (InputId 2)) (InputG (FTKR []) (InputId 3)))))))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
-rankedListSum2r :: (RankedTensor ranked, GoodScalar r)
-                => [ranked r 0] -> ranked r 0
+rankedListSum2r :: (BaseTensor target, GoodScalar r)
+                => [target (TKR r 0)] -> target (TKR r 0)
 rankedListSum2r = foldr1 (\x y -> x + 2 * y)
 
 testListSum2rPP :: Assertion
 testListSum2rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListSum2r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -718,15 +718,15 @@ testListSum2rPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x53 x54 x55 x56 -> x53 + 2.0 * (x54 + 2.0 * (x55 + 2.0 * x56))"
 
-rankedListSum22r :: (RankedTensor ranked, GoodScalar r)
-                 => [ranked r 0] -> ranked r 0
+rankedListSum22r :: (BaseTensor target, GoodScalar r)
+                 => [target (TKR r 0)] -> target (TKR r 0)
 rankedListSum22r = foldr1 (\x y -> 2 * x + 2 * y)
 
 testListSum22rPP :: Assertion
 testListSum22rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListSum22r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -735,16 +735,16 @@ testListSum22rPP = do
     @?= "\\x56 x57 x58 x59 -> 2.0 * x56 + 2.0 * (2.0 * x57 + 2.0 * (2.0 * x58 + 2.0 * x59))"
 
 -- Note how this tlet did not change anything, in particular the sharing.
-rankedListSumk22r :: ( RankedTensor ranked, LetTensor ranked
+rankedListSumk22r :: ( BaseTensor target, LetTensor target
                      , GoodScalar r )
-                 => [ranked r 0] -> ranked r 0
+                 => [target (TKR r 0)] -> target (TKR r 0)
 rankedListSumk22r = foldr1 (\x y -> tlet 2 (\k -> k * x + k * y))
 
 testListSumk22rPP :: Assertion
 testListSumk22rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListSumk22r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -752,15 +752,15 @@ testListSumk22rPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x56 x57 x58 x59 -> 2.0 * x56 + 2.0 * (2.0 * x57 + 2.0 * (2.0 * x58 + 2.0 * x59))"
 
-rankedListSum2xpyr :: (RankedTensor ranked, GoodScalar r)
-                   => [ranked r 0] -> ranked r 0
+rankedListSum2xpyr :: (BaseTensor target, GoodScalar r)
+                   => [target (TKR r 0)] -> target (TKR r 0)
 rankedListSum2xpyr = foldr1 (\x y -> 2 * (x + y))
 
 testListSum2xpyrPP :: Assertion
 testListSum2xpyrPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListSum2xpyr
   let (artifactRev, _deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -768,15 +768,15 @@ testListSum2xpyrPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x54 x55 x56 x57 -> 2.0 * (x54 + 2.0 * (x55 + 2.0 * (x56 + x57)))"
 
-rankedListSum2xyr :: (RankedTensor ranked, GoodScalar r)
-                  => [ranked r 0] -> ranked r 0
+rankedListSum2xyr :: (BaseTensor target, GoodScalar r)
+                  => [target (TKR r 0)] -> target (TKR r 0)
 rankedListSum2xyr = foldr1 (\x y -> 2 * (x * y))
 
 testListSum2xyrPP :: Assertion
 testListSum2xyrPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListSum2xyr
   let (artifactRev, _deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -784,16 +784,16 @@ testListSum2xyrPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x92 x93 x94 x95 -> 2.0 * (x92 * (2.0 * (x93 * (2.0 * (x94 * x95)))))"
 
-ranked2xy :: (RankedTensor ranked, GoodScalar r)
-          => (ranked r 0, ranked r 0) -> ranked r 0
+ranked2xy :: (BaseTensor target, GoodScalar r)
+          => (target (TKR r 0), target (TKR r 0)) -> target (TKR r 0)
 ranked2xy = \(x, y) -> rscalar 2 * x * y
 
 test2xyPP :: Assertion
 test2xyPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: (AstRanked FullSpan Double 0, AstRanked FullSpan Double 0)
-         -> AstRanked FullSpan Double 0
+      fT :: (AstTensor AstMethodLet FullSpan (TKR Double 0), AstTensor AstMethodLet FullSpan (TKR Double 0))
+         -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = ranked2xy
   let (artifactRev, _deltas) = revArtifactAdapt True fT (4, 5)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -802,15 +802,15 @@ test2xyPP = do
     @?= "\\x1 -> (2.0 * tproject1 x1) * tproject2 x1"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
-rankedListSum23r :: (RankedTensor ranked, GoodScalar r)
-                 => [ranked r 0] -> ranked r 0
+rankedListSum23r :: (BaseTensor target, GoodScalar r)
+                 => [target (TKR r 0)] -> target (TKR r 0)
 rankedListSum23r = foldr1 (\x y -> rscalar 2 * x + rscalar 3 * y)
 
 testListSum23rPP :: Assertion
 testListSum23rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstRanked FullSpan Double 0] -> AstRanked FullSpan Double 0
+      fT :: [AstTensor AstMethodLet FullSpan (TKR Double 0)] -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = rankedListSum23r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [1, 2, 3, 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -818,16 +818,16 @@ testListSum23rPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x56 x57 x58 x59 -> 2.0 * x56 + 3.0 * (2.0 * x57 + 3.0 * (2.0 * x58 + 3.0 * x59))"
 
-ranked23 :: (RankedTensor ranked, GoodScalar r)
-         => (ranked r 0, ranked r 0) -> ranked r 0
+ranked23 :: (BaseTensor target, GoodScalar r)
+         => (target (TKR r 0), target (TKR r 0)) -> target (TKR r 0)
 ranked23 = \(x, y) -> rscalar 2 * x + rscalar 3 * y
 
 test23PP :: Assertion
 test23PP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: (AstRanked FullSpan Double 0, AstRanked FullSpan Double 0)
-         -> AstRanked FullSpan Double 0
+      fT :: (AstTensor AstMethodLet FullSpan (TKR Double 0), AstTensor AstMethodLet FullSpan (TKR Double 0))
+         -> AstTensor AstMethodLet FullSpan (TKR Double 0)
       fT = ranked23
   let (artifactRev, _deltas) = revArtifactAdapt True fT (4, 5)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -836,9 +836,9 @@ test23PP = do
     @?= "\\x1 -> 2.0 * tproject1 x1 + 3.0 * tproject2 x1"
 
 reluPrimal
-  :: forall ranked n r.
-     (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
-  => ranked r n -> ranked r n
+  :: forall target n r.
+     (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+  => target (TKR r n) -> target (TKR r n)
 reluPrimal v =
   let oneIfGtZero = rmap0N (\x -> ifF (x <=. 0) (rscalar 0.0) (rscalar 1.0))
                            (rprimalPart v)
@@ -849,9 +849,9 @@ testReluPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
-      reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
+      reluT :: AstTensor AstMethodLet FullSpan (TKR Double 2) -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT = reluPrimal
-      (var3, ast3) = funToAst (FTKR [3, 4]) $ unAstRanked . reluT . AstRanked
+      (var3, ast3) = funToAst (FTKR [3, 4]) $ reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
@@ -869,10 +869,10 @@ testReluPP2 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 1
+      reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 1), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 1)
       reluT2 (t, r) = reluPrimal (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rconstant (rreplicate 5 7.0))"
@@ -894,9 +894,9 @@ testReluSimplerPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
-      reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
+      reluT :: AstTensor AstMethodLet FullSpan (TKR Double 2) -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT = relu
-      (var3, ast3) = funToAst (FTKR [3, 4]) $ unAstRanked . reluT . AstRanked
+      (var3, ast3) = funToAst (FTKR [3, 4]) $ reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
@@ -914,10 +914,10 @@ testReluSimplerPP2 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 1
+      reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 1), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 1)
       reluT2 (t, r) = relu (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rconstant (rreplicate 5 7.0)) (\\i2 -> rconstant (rgather [5] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
@@ -933,10 +933,10 @@ testReluSimplerPP3 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 2
+      reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 2), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
-      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rconstant (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -949,8 +949,8 @@ testReluSimplerPP3 = do
 
 testReluSimpler3 :: Assertion
 testReluSimpler3 = do
-  let reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 2
+  let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 2), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
@@ -962,10 +962,10 @@ testReluSimplerPP4 = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 2
+      reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 2), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
-      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rconstant (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rconstant (rgather [3,4] (rconst (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -978,8 +978,8 @@ testReluSimplerPP4 = do
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
-  let reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 2
+  let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 2), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
@@ -990,10 +990,10 @@ testReluSimplerPP4S :: Assertion
 testReluSimplerPP4S = do
   resetVarCounter
   let renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstShaped FullSpan Float '[3, 4], AstShaped FullSpan Float '[])
-             -> AstShaped FullSpan Float '[3, 4]
+      reluT2 :: (AstTensor AstMethodLet FullSpan (TKS Float '[3, 4]), AstTensor AstMethodLet FullSpan (TKS Float '[]))
+             -> AstTensor AstMethodLet FullSpan (TKS Float '[3, 4])
       reluT2 (t, r) = reluS (t * sreplicate0N r)
-      (var3, ast3) = funToAst (FTKS knownShS) (\t -> unAstShaped $ reluT2 (AstShaped t, srepl 7))
+      (var3, ast3) = funToAst (FTKS knownShS) (\t -> reluT2 (t, srepl 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * sconstant (sreshape (sreplicate 7.0))) (\\i2 -> sconstant (sgather (sreplicate (sconst @[2] (sfromListLinear [2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -1002,8 +1002,8 @@ testReluSimplerPP4S2 :: Assertion
 testReluSimplerPP4S2 = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      reluT2 :: (AstShaped FullSpan Double '[3, 4], AstShaped FullSpan Double '[])
-             -> AstShaped FullSpan Double '[3, 4]
+      reluT2 :: (AstTensor AstMethodLet FullSpan (TKS Double '[3, 4]), AstTensor AstMethodLet FullSpan (TKS Double '[]))
+             -> AstTensor AstMethodLet FullSpan (TKS Double '[3, 4])
       -- This is tweaked compared to above to avoid test artifacts coming
       -- from counter resets, which are inherently unsafe (cse, etc.).
       reluT2 (t, r) = reluS (t * sreplicate0N r)
@@ -1019,8 +1019,8 @@ testReluSimplerPP4S2 = do
 
 testReluSimpler4S :: Assertion
 testReluSimpler4S = do
-  let reluT2 :: (AstShaped FullSpan Double '[3, 4], AstShaped FullSpan Double '[])
-             -> AstShaped FullSpan Double '[3, 4]
+  let reluT2 :: (AstTensor AstMethodLet FullSpan (TKS Double '[3, 4]), AstTensor AstMethodLet FullSpan (TKS Double '[]))
+             -> AstTensor AstMethodLet FullSpan (TKS Double '[3, 4])
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   assertEqualUpToEpsilon 1e-10
     ( sconst
@@ -1028,8 +1028,8 @@ testReluSimpler4S = do
     , srepl 57.1 )
     (rev reluT2 (sconst $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
 
-reluMax :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
-        => ranked r n -> ranked r n
+reluMax :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
+        => target (TKR r n) -> target (TKR r n)
 reluMax = rmap0N (maxF (rscalar 0))
 
 testReluMax :: Assertion
@@ -1043,9 +1043,9 @@ testReluMaxPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "m1"), (2, "i2")]
-      reluT :: AstRanked FullSpan Double 2 -> AstRanked FullSpan Double 2
+      reluT :: AstTensor AstMethodLet FullSpan (TKR Double 2) -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT = reluMax
-      (var3, ast3) = funToAst (FTKR [3, 4]) $ unAstRanked . reluT . AstRanked
+      (var3, ast3) = funToAst (FTKR [3, 4]) $ reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rconstant (rreplicate 3 (rreplicate 4 0.0)), m1])) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
@@ -1063,10 +1063,10 @@ testReluMaxPP2 = do
   resetVarCounter
   let renames = IM.empty
       renamesNull = IM.fromList [(1, "v1"), (2, "i2")]
-      reluT2 :: (AstRanked FullSpan Double 1, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 1
+      reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 1), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 1)
       reluT2 (t, r) = reluMax (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5]) (\t -> unAstRanked $ reluT2 (AstRanked t, 7))
+      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rgather [5] (rfromVector (fromList [rconstant (rreplicate 5 0.0), v1 * rconstant (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
@@ -1083,8 +1083,8 @@ testReluMaxPP2 = do
 
 testReluMax3 :: Assertion
 testReluMax3 = do
-  let reluT2 :: (AstRanked FullSpan Double 2, AstRanked FullSpan Double 0)
-             -> AstRanked FullSpan Double 2
+  let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 2), AstTensor AstMethodLet FullSpan (TKR Double 0))
+             -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT2 (t, r) = reluMax (t * rreplicate 3 (rreplicate 4 r))
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
@@ -1096,7 +1096,7 @@ testDot1PP = do
   resetVarCounter
   let renames = IM.empty
       (artifactRev, _) =
-        revArtifactAdapt True (uncurry (rdot0 @(AstRanked FullSpan) @Double @1))
+        revArtifactAdapt True (uncurry (rdot0 @(AstTensor AstMethodLet FullSpan) @Double @1))
                  ( ringestData [3] [1 .. 3]
                  , ringestData [3] [4 .. 6] )
   printArtifactPretty renames artifactRev
@@ -1109,7 +1109,7 @@ testDot2PP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       (artifactRev, deltas) =
-        revArtifactAdapt True (uncurry (rdot0 @(AstRanked FullSpan) @Double @2))
+        revArtifactAdapt True (uncurry (rdot0 @(AstTensor AstMethodLet FullSpan) @Double @2))
                  ( ringestData [2,3] [1 .. 6]
                  , ringestData [2,3] [7 .. 12] )
   printArtifactPretty renames artifactRev
@@ -1163,8 +1163,8 @@ testMatmul2FromMatvecmulPP :: Assertion
 testMatmul2FromMatvecmulPP = do
   resetVarCounter
   let renames = IM.empty
-      rmatmul2F :: (RankedTensor ranked, GoodScalar r)
-                => ranked r 2 -> ranked r 2 -> ranked r 2
+      rmatmul2F :: (BaseTensor target, GoodScalar r)
+                => target (TKR r 2) -> target (TKR r 2) -> target (TKR r 2)
       rmatmul2F m1 m2 =
         rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
       (artifactRev, _) =
@@ -1181,8 +1181,8 @@ testMatmul2PaperPP :: Assertion
 testMatmul2PaperPP = do
   resetVarCounter
   let renames = IM.empty
-      rmatmul2P :: (RankedTensor ranked, GoodScalar r)
-                => ranked r 2 -> ranked r 2 -> ranked r 2
+      rmatmul2P :: (BaseTensor target, GoodScalar r)
+                => target (TKR r 2) -> target (TKR r 2) -> target (TKR r 2)
       rmatmul2P a b =
         let k :$: m :$: _ = rshape a
             _ :$: n :$: _ = rshape b
@@ -1219,14 +1219,14 @@ testMatmul2PPS = do
 
 testAddSpeedBig :: Assertion
 testAddSpeedBig =
-  let m1 :: ORArray Double 2
+  let m1 :: RepN (TKR Double 2)
       m1 = ringestData [1000,1000] [1 .. 1000000]
       m2 = m1 + m1
   in assertEqualUpToEpsilon 1e-10 m2 m2
 
 testMatmul2SpeedBig :: Assertion
 testMatmul2SpeedBig =
-  let m1 :: ORArray Double 2
+  let m1 :: RepN (TKR Double 2)
       m1 = ringestData [1000,1000] [1 .. 1000000]
       m2 = rmatmul2 m1 m1
   in assertEqualUpToEpsilon 1e-10 m2 m2
@@ -1245,25 +1245,25 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
     (rscalar 3.1435239435581166,rscalar (-1.1053869545195814))
-    (crev (bar @(ADVal ORArray Double 0)) (rscalar 1.1, rscalar 2.2))
+    (crev (bar @(ADVal RepN (TKR Double 0))) (rscalar 1.1, rscalar 2.2))
 
 testBarS :: Assertion
 testBarS =
   assertEqualUpToEpsilon 1e-9
     (srepl 3.1435239435581166, srepl (-1.1053869545195814))
-    (crev (barF @(ADVal OSArray Double '[])) (srepl 1.1, srepl 2.2))
+    (crev (barF @(ADVal RepN (TKS Double '[]))) (srepl 1.1, srepl 2.2))
 
 testBar2S :: Assertion
 testBar2S =
   assertEqualUpToEpsilon 1e-9
     (srepl 3.1435239435581166, srepl (-1.1053869545195814))
-    (rev (barF @(AstShaped FullSpan Double '[52, 2, 2, 1, 1, 3])) (srepl 1.1, srepl 2.2))
+    (rev (barF @(AstTensor AstMethodLet FullSpan (TKS Double '[52, 2, 2, 1, 1, 3]))) (srepl 1.1, srepl 2.2))
 
 testBarCFwd :: Assertion
 testBarCFwd =
   assertEqualUpToEpsilon 1e-9
     (rscalar 9.327500345189534e-2)
-    (cfwd (bar @(ADVal ORArray Double 0)) (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
+    (cfwd (bar @(ADVal RepN (TKR Double 0))) (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
 
 testBarFwd :: Assertion
 testBarFwd =
@@ -1289,16 +1289,16 @@ barADVal2 (x,y,z) =
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
 -- of crashes in naive gradient computing code.
-baz :: ( ADVal ORArray Double 0
-       , ADVal ORArray Double 0
-       , ADVal ORArray Double 0 )
-    -> ADVal ORArray Double 0
+baz :: ( ADVal RepN (TKR Double 0)
+       , ADVal RepN (TKR Double 0)
+       , ADVal RepN (TKR Double 0) )
+    -> ADVal RepN (TKR Double 0)
 baz (_x,y,z) =
   let w = fooConstant * barADVal2 (y,y,z) * sin y
   in atan2F z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: ADVal ORArray Double 0
+fooConstant :: ADVal RepN (TKR Double 0)
 fooConstant = foo (rscalar 7, rscalar 8, rscalar 9)
 
 testBaz :: Assertion
@@ -1326,7 +1326,7 @@ testBazRenumbered =
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
 fooD :: forall r. r ~ Double
-     => [ADVal ORArray r 0] -> ADVal ORArray r 0
+     => [ADVal RepN (TKR r 0)] -> ADVal RepN (TKR r 0)
 fooD [x, y, z] =
   let w = x * sin y
   in atan2F z w + z * w
@@ -1338,8 +1338,8 @@ testFooD =
     [rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627]
     (crev fooD [rscalar 1.1, rscalar 2.2, rscalar 3.3])
 
-fooBuild1 :: (ADReady ranked, GoodScalar r, Differentiable r)
-          => ranked r 1 -> ranked r 1
+fooBuild1 :: (ADReady target, GoodScalar r, Differentiable r)
+          => target (TKR r 1) -> target (TKR r 1)
 fooBuild1 v =
   let r = rsum0 v
       v' = rminimum v
@@ -1376,8 +1376,8 @@ testFooBuild =
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
     (rev' @Double @1 fooBuild1 (FlipR $ OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
-fooMap1 :: (ADReady ranked, GoodScalar r, Differentiable r)
-        => ranked r 0 -> ranked r 1
+fooMap1 :: (ADReady target, GoodScalar r, Differentiable r)
+        => target (TKR r 0) -> target (TKR r 1)
 fooMap1 r =
   let v = fooBuild1 $ rreplicate0N [130] r
   in rmap0N (\x -> x * r + rscalar 5) v
@@ -1389,13 +1389,13 @@ testFooMap1 =
     (rev' @Double @1 fooMap1 1.1)
 
 barAst :: (GoodScalar r, Differentiable r)
-       => (AstRanked PrimalSpan r 0, AstRanked PrimalSpan r 0) -> AstRanked PrimalSpan r 0
+       => (AstTensor AstMethodLet PrimalSpan (TKR r 0), AstTensor AstMethodLet PrimalSpan (TKR r 0)) -> AstTensor AstMethodLet PrimalSpan (TKR r 0)
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2F x w + y * w
 
 fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
-           => AstRanked PrimalSpan r 1 -> AstRanked PrimalSpan r 1
+           => AstTensor AstMethodLet PrimalSpan (TKR r 1) -> AstTensor AstMethodLet PrimalSpan (TKR r 1)
 fooNoGoAst v =
   let r = rsum0 v
   in rbuild1 3 (\ix ->
@@ -1411,24 +1411,24 @@ fooNoGoAst v =
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal ORArray r 1 -> ADVal ORArray r 1
+        => ADVal RepN (TKR r 1) -> ADVal RepN (TKR r 1)
       f x = interpretAst (extendEnv @_ @_ @(TKR r 1)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ fooNoGoAst (AstRanked $ AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
+                         (fooNoGoAst (AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-6
        (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @_ @(TKR Double 1)
              f
              (ringestData1 [1.1, 2.2, 3.3, 4, 5]))
 
-fooNoGo :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
-        => ranked r 1 -> ranked r 1
+fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+        => target (TKR r 1) -> target (TKR r 1)
 fooNoGo v =
   let r = rsum0 v
   in rbuild1 3 (\ix ->
        bar (rscalar 3.14, bar (rscalar 3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
-       + ifF ((&&*) (rindex @ranked @r @1 v [ix * 2] <=. rscalar 0)
+       + ifF ((&&*) (rindex @target @r @1 v [ix * 2] <=. rscalar 0)
                     (rscalar 6 >. abs ix))
                r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
@@ -1441,12 +1441,12 @@ testFooNoGo0 =
    (rev' @Double @1 fooNoGo
          (FlipR $ OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
-nestedBuildMap :: forall ranked r.
-                  (ADReady ranked, GoodScalar r, Differentiable r)
-               => ranked r 0 -> ranked r 1
+nestedBuildMap :: forall target r.
+                  (ADReady target, GoodScalar r, Differentiable r)
+               => target (TKR r 0) -> target (TKR r 1)
 nestedBuildMap r =
-  let w = rreplicate0N @ranked [4]
-      v0' = rreplicate0N [177] r :: ranked r 1
+  let w = rreplicate0N @target [4]
+      v0' = rreplicate0N [177] r :: target (TKR r 1)
   in tlet v0' $ \v' ->
     let nestedMap x0 = tlet x0 $ \x -> rmap0N (x /) (w x)
         variableLengthBuild iy = rbuild1 7 (\ix -> rindex v' (ix + iy :.: ZIR))
@@ -1463,8 +1463,8 @@ testNestedBuildMap1 =
     107.25984443006627
     (rev' @Double @1 nestedBuildMap 1.1)
 
-nestedSumBuild :: (ADReady ranked, GoodScalar r, Differentiable r)
-               => ranked r 1 -> ranked r 1
+nestedSumBuild :: (ADReady target, GoodScalar r, Differentiable r)
+               => target (TKR r 1) -> target (TKR r 1)
 nestedSumBuild v0 = tlet v0 $ \v ->
  tlet (rsum (rbuild1 9 rfromIndex0)) (\tbtf ->
   (rbuild1 13 (\ix ->
@@ -1488,8 +1488,8 @@ testNestedSumBuild =
     (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
     (rev' @Double @1 nestedSumBuild (FlipR $ OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
-nestedBuildIndex :: forall ranked r. (ADReady ranked, GoodScalar r)
-                 => ranked r 1 -> ranked r 1
+nestedBuildIndex :: forall target r. (ADReady target, GoodScalar r)
+                 => target (TKR r 1) -> target (TKR r 1)
 nestedBuildIndex v =
   rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 4 $ \ix4 -> rindex v (ix4 :.: ZIR)) [ix3]) (ix2 :.: ZIR)
 
@@ -1500,8 +1500,8 @@ testNestedBuildIndex =
     (rev' @Double @1 nestedBuildIndex (FlipR $ OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
-  :: ( ADReady ranked, GoodScalar r, KnownNat n, Differentiable r )
-  => ranked r n -> ranked r n
+  :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+  => target (TKR r n) -> target (TKR r n)
 barRelu x = relu $ bar (x, relu x)
 
 testBarReluDt :: Assertion
@@ -1524,13 +1524,13 @@ testBarRelu3 =
     (rev' @Double @3 barRelu (FlipR $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluMax0
-  :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloatF (ranked r n) )
-  => ranked r n -> ranked r n
+  :: ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR r n)) )
+  => target (TKR r n) -> target (TKR r n)
 barReluMax0 x = reluMax $ bar (x, x)
 
 barReluMax
-  :: ( ADReady ranked, GoodScalar r, KnownNat n, RealFloatF (ranked r n) )
-  => ranked r n -> ranked r n
+  :: ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR r n)) )
+  => target (TKR r n) -> target (TKR r n)
 barReluMax x = reluMax $ bar (x, reluMax x)
 
 testBarReluMaxDt :: Assertion
@@ -1567,15 +1567,15 @@ testBarReluMax3CFwd =
                      (rconst $ Nested.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
                      (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
-reluMaxS :: forall shaped sh r.
-            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-         => shaped r sh -> shaped r sh
+reluMaxS :: forall target sh r.
+            (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Rank sh))
+         => target (TKS r sh) -> target (TKS r sh)
 reluMaxS = smap0N (maxF (srepl 0))
 
 barReluMaxS
-  :: ( ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Rank sh)
-     , RealFloatF (shaped r sh) )
-  => shaped r sh -> shaped r sh
+  :: ( ADReady target, GoodScalar r, KnownShS sh, KnownNat (Rank sh)
+     , RealFloatF (target (TKS r sh)) )
+  => target (TKS r sh) -> target (TKS r sh)
 barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)
 
 -- Previously the shape of FromListR[ZeroG] couldn't be determined
@@ -1609,19 +1609,19 @@ testBarReluMax3FwdR =
 
 barReluAst
   :: forall n r.
-     ( KnownNat n, ADReady (AstRanked PrimalSpan), GoodScalar r
+     ( KnownNat n, ADReady (AstTensor AstMethodLet PrimalSpan), GoodScalar r
      , Differentiable r )
-  => AstRanked PrimalSpan r n -> AstRanked PrimalSpan r n
+  => AstTensor AstMethodLet PrimalSpan (TKR r n) -> AstTensor AstMethodLet PrimalSpan (TKR r n)
 barReluAst x = relu $ bar (x, relu x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal ORArray r 0 -> ADVal ORArray r 0
+        => ADVal RepN (TKR r 0) -> ADVal RepN (TKR r 0)
       f x = interpretAst (extendEnv @_ @_ @(TKR r 0)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ barReluAst (AstRanked $ AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
+                         (barReluAst (AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [191.20462646925841])
        (crevDt @_ @(TKR Double 0)
@@ -1630,11 +1630,11 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal ORArray r 1 -> ADVal ORArray r 1
+        => ADVal RepN (TKR r 1) -> ADVal RepN (TKR r 1)
       f x = interpretAst (extendEnv @_ @_ @(TKR r 1)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ barReluAst (AstRanked $ AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
+                         (barReluAst (AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @_ @(TKR Double 1)
@@ -1642,24 +1642,24 @@ testBarReluAst1 =
 
 konstReluAst
   :: forall r.
-     (ADReady (AstRanked PrimalSpan), GoodScalar r, Differentiable r)
-  => AstRanked PrimalSpan r 0 -> AstRanked PrimalSpan r 0
+     (ADReady (AstTensor AstMethodLet PrimalSpan), GoodScalar r, Differentiable r)
+  => AstTensor AstMethodLet PrimalSpan (TKR r 0) -> AstTensor AstMethodLet PrimalSpan (TKR r 0)
 konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$: ZSR) x
 
 testReplicateReluAst :: Assertion
 testReplicateReluAst =
   let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal ORArray r 0 -> ADVal ORArray r 0
+        => ADVal RepN (TKR r 0) -> ADVal RepN (TKR r 0)
       f x = interpretAst (extendEnv @_ @_ @(TKR r 0)
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
-                         (unAstRanked $ konstReluAst (AstRanked $ AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
+                         (konstReluAst (AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
   in assertEqualUpToEpsilon1 1e-10
        (OR.fromList [] [295.4])
        (crevDt @_ @(TKR Double 0)
                f (rscalar 1.1) (rscalar 42.2))
 
-f1 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 0
+f1 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 0)
 f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
 
 testF1 :: Assertion
@@ -1674,8 +1674,8 @@ testF11 =
     45.0
     (rev' @Double @0 f1 1.1)
 
-f2 :: forall ranked r. (ADReady ranked, GoodScalar r)
-   => ranked r 0 -> ranked r 0
+f2 :: forall target r. (ADReady target, GoodScalar r)
+   => target (TKR r 0) -> target (TKR r 0)
 f2 = \arg ->
   let fun1 i = arg * rfromIndex0 i
       v1a = rsum0 (rbuild1 10 fun1)
@@ -1711,9 +1711,9 @@ testF2Fwd =
     (fwd @_ @(TKR Double 0)
          f2 (rscalar 1.1) (rscalar 0.1))
 
-braidedBuilds :: forall ranked r.
-                 (ADReady ranked, GoodScalar r, Differentiable r)
-              => ranked r 0 -> ranked r 2
+braidedBuilds :: forall target r.
+                 (ADReady target, GoodScalar r, Differentiable r)
+              => target (TKR r 0) -> target (TKR r 2)
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
     rbuild1 4 (\ix2 -> rindex (rfromList0N [4]
@@ -1725,8 +1725,8 @@ testBraidedBuilds1 =
     4.0
     (rev' @Double @2 braidedBuilds 3.4)
 
-recycled :: (ADReady ranked, GoodScalar r, Differentiable r)
-         => ranked r 0 -> ranked r 5
+recycled :: (ADReady target, GoodScalar r, Differentiable r)
+         => target (TKR r 0) -> target (TKR r 5)
 recycled r =
   tlet (nestedSumBuild (rreplicate0N [7] r)) $ \nsb ->
     rbuild1 2 $ \_ -> rbuild1 4 $ \_ -> rbuild1 2 $ \_ -> rbuild1 3 $ const nsb
@@ -1737,7 +1737,7 @@ testRecycled1 =
     348356.9278600814
     (rev' @Double @5 recycled 0.0000001)
 
-concatBuild :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 2
+concatBuild :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 concatBuild r =
   rbuild1 7 (\i ->
     rappend (rappend (rbuild1 5 (const r))
@@ -1750,7 +1750,7 @@ testConcatBuild1 =
     126.0
     (rev' @Double @2 concatBuild 3.4)
 
-concatBuild2 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+concatBuild2 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild2 r =
   tlet (rfromList [r, 1, 2, 3, 4]) $ \a ->
     rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5]))
@@ -1761,7 +1761,7 @@ testConcatBuild2 =
     2.0
     (rev' @Double @1 concatBuild2 3.4)
 
-concatBuild3 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+concatBuild3 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild3 r =
   tlet (rfromList [r, 1, 2, 3, 4]) $ \a ->
     rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotF` maxF 1 (i - 5))]))
@@ -1772,7 +1772,7 @@ testConcatBuild3 =
     1
     (rev' @Double @1 concatBuild3 3.4)
 
-concatBuild4 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+concatBuild4 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild4 r =
   tlet (rgather1 5 (rreplicate 1 r)
                    (\i -> (1 `quotF` (4 + i)) :.: ZIR)) $ \a ->
@@ -1784,7 +1784,7 @@ testConcatBuild4 =
     10
     (rev' @Double @1 concatBuild4 3.4)
 
-concatBuild5 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+concatBuild5 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild5 r =
   tlet (rgather1 5 (rreplicate 1 r)
                    (\i -> (1 `quotF` (5 + i)) :.: ZIR)) $ \a ->
@@ -1797,7 +1797,7 @@ testConcatBuild5 =
     10
     (rev' @Double @1 concatBuild5 3.4)
 
-concatBuild6 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 2
+concatBuild6 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 concatBuild6 r =
   rbuild1 7 (\j ->
     rappend (rappend
@@ -1814,7 +1814,7 @@ testConcatBuild6 =
     161
     (rev' @Double @2 concatBuild6 3.4)
 
-concatBuild7 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+concatBuild7 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild7 r =
   rbuild1 10 $ \j ->
     (rappend (rreplicate 5 r) (rgather1 5 (rreplicate 1 r)
@@ -1830,7 +1830,7 @@ testConcatBuild7 =
 -- These tests show that term rewriting changes the value
 -- of out-of-bounds indexing, e.g., of gather(replicate)
 -- that reduces to a non-gather. Vectorization is not needed for that.
-_concatBuild8 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+_concatBuild8 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 _concatBuild8 r =
   tlet (rgather1 5 (rreplicate 1 r)
                    (\i -> (1 `quotF` (5 - i)) :.: ZIR)) $ \a ->
@@ -1843,7 +1843,7 @@ _testConcatBuild8 =
     10
     (rev' @Double @1 _concatBuild8 3.4)
 
-_concatBuild9 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 2
+_concatBuild9 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 _concatBuild9 r =
   rbuild1 7 (\j ->
     rappend (rappend
@@ -1860,7 +1860,7 @@ _testConcatBuild9 =
     161
     (rev' @Double @2 _concatBuild9 3.4)
 
-concatBuild10 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 2
+concatBuild10 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 concatBuild10 r =
   rbuild1 7 (\j ->
     rappend (rappend
@@ -1877,7 +1877,7 @@ testConcatBuild10 =
     91
     (rev' @Double @2 concatBuild10 3.4)
 
-concatBuild11 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 1
+concatBuild11 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild11 r =
   rgather1 5 (rreplicate 1 r) (\_i -> (-1) :.: ZIR)
 
@@ -1887,7 +1887,7 @@ testConcatBuild11 =
     0
     (rev' @Double @1 concatBuild11 3.4)
 
-concatBuild12 :: (ADReady ranked, GoodScalar r) => ranked r 0 -> ranked r 0
+concatBuild12 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 0)
 concatBuild12 r =
   rindex (rreplicate 1 r) ((-1) :.: ZIR)
 
@@ -1897,28 +1897,28 @@ testConcatBuild12 =
     0
     (rev' @Double @0 concatBuild12 3.4)
 
-emptyArgs :: forall ranked r. (ADReady ranked, GoodScalar r) -- , Differentiable r)
-          => ranked r 1 -> ranked r 1
+emptyArgs :: forall target r. (ADReady target, GoodScalar r) -- , Differentiable r)
+          => target (TKR r 1) -> target (TKR r 1)
 emptyArgs _t =
   emptyTensor
---  - rfromList0N (rshape @ranked @r emptyTensor) []
-  - rreshape @ranked @r @1 [0] emptyTensor
+--  - rfromList0N (rshape @target @r emptyTensor) []
+  - rreshape @target @r @1 [0] emptyTensor
 --  - rgather1 0 emptyTensor (:.: ZIR)
 --  - rsum (rgather1 0 emptyTensor (const ZIR))
---  - rsum (rgather @ranked @r @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
---  - rsum (rgather @ranked @r @2 @0 @1 [0, 0] emptyTensor (const [0]))
-  - rsum (rreshape @ranked @r @1 [0, 0] emptyTensor)
+--  - rsum (rgather @target @r @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
+--  - rsum (rgather @target @r @2 @0 @1 [0, 0] emptyTensor (const [0]))
+  - rsum (rreshape @target @r @1 [0, 0] emptyTensor)
 --  - rindex (rfromList0N (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
---  - rindex (rfromList0N (0 :$: rshape @ranked @r emptyTensor) []) (42 :.: ZIR)
---  - rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])
---  * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @ranked @r emptyTensor) [])])
+--  - rindex (rfromList0N (0 :$: rshape @target @r emptyTensor) []) (42 :.: ZIR)
+--  - rsum (rfromList0N (0 :$: rshape @target @r emptyTensor) [])
+--  * rsum (rfromList [rsum (rfromList0N (0 :$: rshape @target @r emptyTensor) [])])
 --  * rflatten (rtr (rgather1 0 t (const ZIR)))
 --  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
-  -- - rsum (rbuild @ranked @r @2 (0 :$: 0 :$: ZSR) (const 73))
-  -- - rsum (rbuild @ranked @r @1 (0 :$: 0 :$: ZSR) (const $ rfromList []))
+  -- - rsum (rbuild @target @r @2 (0 :$: 0 :$: ZSR) (const 73))
+  -- - rsum (rbuild @target @r @1 (0 :$: 0 :$: ZSR) (const $ rfromList []))
        -- these two fail and rightly so; TODO: make them fail earlier
  where
-  emptyTensor :: ranked r 1
+  emptyTensor :: target (TKR r 1)
   emptyTensor = rconst $ Nested.rfromListPrimLinear (fromList [0]) []
 
 testEmptyArgs0 :: Assertion
@@ -1941,14 +1941,14 @@ testEmptyArgs4 =
           (\t -> rbuild [2, 5, 11, 0] (const $ emptyArgs t))
           (FlipR $ OR.fromList [1] [0.24]))
 
-filterPositiveFail :: ADReady ranked
-                   => ranked Double 1 -> ranked Double 1
+filterPositiveFail :: ADReady target
+                   => target (TKR Double 1) -> target (TKR Double 1)
 filterPositiveFail v =
   let l = runravelToList v
       -- l2 = filter (\x -> x >= 0) l
-      -- Could not deduce ‘Ord (ranked Double 0)’
+      -- Could not deduce ‘Ord (target Double 0)’
       -- l2 = filter (\x -> x >=. 0) l
-      -- Could not deduce ‘BoolOf ranked ~ Bool’
+      -- Could not deduce ‘BoolOf target ~ Bool’
       l2 = take 3 l  -- the most I can do
   in rfromList $ NonEmpty.fromList l2
 
@@ -1961,10 +1961,10 @@ testFilterPositiveFail =
           (FlipR $ OR.fromList [5] [0.24, 52, -0.5, 0.33, 0.1]))
 
 -- Catastrophic loss of sharing prevented.
-fblowup :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
-        => Int -> ranked r 1 -> ranked r 0
+fblowup :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+        => Int -> target (TKR r 1) -> target (TKR r 0)
 fblowup k inputs =
-  let blowup :: Int -> ranked r 0 -> ranked r 0
+  let blowup :: Int -> target (TKR r 0) -> target (TKR r 0)
       blowup 0 y = y - rfromIndex0 0
       blowup n y =
         let ysum = y + y - rfromIndex0 0
@@ -1974,10 +1974,10 @@ fblowup k inputs =
       y0 = (inputs ! [0]) / (inputs ! [1])
   in blowup k y0
 
-fblowupLet :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
-           => IntOf ranked -> Int -> ranked r 1 -> ranked r 0
+fblowupLet :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+           => IntOf target -> Int -> target (TKR r 1) -> target (TKR r 0)
 fblowupLet i k inputs =
-  let blowup :: Int -> ranked r 0 -> ranked r 0
+  let blowup :: Int -> target (TKR r 0) -> target (TKR r 0)
       blowup 0 y = y - rfromIndex0 i
       blowup n y1 = tlet y1 $ \y ->
         let ysum = y + y - rfromIndex0 i
@@ -1988,10 +1988,10 @@ fblowupLet i k inputs =
   in blowup k y0
 
 -- Catastrophic loss of sharing prevented also with non-trivial multiplication.
-fblowupMult :: forall ranked r. (ADReady ranked, GoodScalar r, Differentiable r)
-            => Int -> ranked r 1 -> ranked r 0
+fblowupMult :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+            => Int -> target (TKR r 1) -> target (TKR r 0)
 fblowupMult k inputs =
-  let blowup :: Int -> ranked r 0 -> ranked r 0
+  let blowup :: Int -> target (TKR r 0) -> target (TKR r 0)
       blowup 0 y = y
       blowup n y =
         let ysum = y + y * y / (y - rscalar 0.000000001)
@@ -2001,11 +2001,11 @@ fblowupMult k inputs =
       y0 = (inputs ! [0 `remF` 2]) * (inputs ! [1])
   in blowup k y0
 
-fblowupMultLet :: forall ranked r.
-                  (ADReady ranked, GoodScalar r, Differentiable r)
-               => IntOf ranked -> Int -> ranked r 1 -> ranked r 0
+fblowupMultLet :: forall target r.
+                  (ADReady target, GoodScalar r, Differentiable r)
+               => IntOf target -> Int -> target (TKR r 1) -> target (TKR r 0)
 fblowupMultLet i k inputs =
-  let blowup :: Int -> ranked r 0 -> ranked r 0
+  let blowup :: Int -> target (TKR r 0) -> target (TKR r 0)
       blowup 0 y = y
       blowup n y1 = tlet y1 $ \y ->
         let ysum0 = y + y * y / (y - rscalar 0.000001)
@@ -2020,7 +2020,7 @@ fblowupPP :: Assertion
 fblowupPP = do
   resetVarCounter
   let renames = IM.empty
-      fblowupT = fblowup @(AstRanked FullSpan) @Double 1
+      fblowupT = fblowup @(AstTensor AstMethodLet FullSpan) @Double 1
   let (artifactRev, _) = revArtifactAdapt True fblowupT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
     @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x2 -> tlet (v1 ! [1]) (\\x3 -> tlet (v1 ! [0]) (\\x4 -> tlet (v1 ! [1]) (\\x5 -> tlet (0.499999985 * x7) (\\x8 -> rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))))))"
@@ -2031,7 +2031,7 @@ fblowupLetPP :: Assertion
 fblowupLetPP = do
   resetVarCounter
   let renames = IM.empty
-      fblowupLetT = fblowupLet @(AstRanked FullSpan) @Double 0 1
+      fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 1
   let (artifactRev, _) = revArtifactAdapt True fblowupLetT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
     @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x3 -> tlet (v1 ! [1]) (\\x4 -> tlet (0.499999985 * x7) (\\x8 -> tlet (x8 + x8) (\\x9 -> rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1])))))"
@@ -2081,8 +2081,8 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
               (FlipR $ OR.fromList [2] [0.2, 0.3]))
   ]
 
-concatBuild33 :: (ADReady ranked, GoodScalar r)
-             => ranked r 1 -> ranked r 2
+concatBuild33 :: (ADReady target, GoodScalar r)
+             => target (TKR r 1) -> target (TKR r 2)
 concatBuild33 _r =
   rbuild1 5 (\i ->
     rbuild1 2 (\j -> rfromIndex0 (maxF j (i `quotF` (j + 1)))))
@@ -2091,8 +2091,8 @@ testConcatBuild3PP :: Assertion
 testConcatBuild3PP = do
   resetVarCounter
   let renames = IM.empty
-      t = concatBuild33 @(AstRanked FullSpan) @Float
-      (var3, ast3) = funToAst (FTKR [3]) $ unAstRanked . t . AstRanked
+      t = concatBuild33 @(AstTensor AstMethodLet FullSpan) @Float
+      (var3, ast3) = funToAst (FTKR [3]) $ t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
     @?= "\\v1 -> rconstant (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
@@ -2101,9 +2101,9 @@ testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
   resetVarCounter
   let renames = IM.empty
-      t = concatBuild33 @(AstRanked FullSpan) @Double
+      t = concatBuild33 @(AstTensor AstMethodLet FullSpan) @Double
   let (artifactRev, _) =
-        revArtifactAdapt True t (FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [0.651,0.14,0.3414])
+        revArtifactAdapt True t (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [0.651,0.14,0.3414])
   printArtifactSimple renames artifactRev
     @?= "\\m8 x1 -> rreshape [3] (rreplicate 3 0.0)"
   printArtifactPrimalSimple renames artifactRev

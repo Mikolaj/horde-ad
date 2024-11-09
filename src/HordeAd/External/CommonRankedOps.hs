@@ -2,8 +2,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
--- to have specialized implementations to be included in the 'RankedTensor'
--- class. Some of the operations may also depend on more than 'RankedTensor',
+-- to have specialized implementations to be included in the 'BaseTensor'
+-- class. Some of the operations may also depend on more than 'BaseTensor',
 -- e.g., also on the 'ConvertTensor' class.
 module HordeAd.External.CommonRankedOps
   ( module HordeAd.External.CommonRankedOps
@@ -24,85 +24,78 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
-rminIndexN :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-              , KnownNat n, GoodScalar r
-              , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-           => ranked r n -> IndexOf ranked n
+rminIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
+              , KnownNat n, GoodScalar r )
+           => target (TKR r n) -> IndexOf target n
 rminIndexN t = fromLinearIdx (rscalar . fromIntegral) (rshape t) (rprimalPart $ rminIndex (rflatten t))
 
-rmaxIndexN :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-              , KnownNat n, GoodScalar r
-              , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-           => ranked r n -> IndexOf ranked n
+rmaxIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
+              , KnownNat n, GoodScalar r )
+           => target (TKR r n) -> IndexOf target n
 rmaxIndexN t = fromLinearIdx (rscalar . fromIntegral) (rshape t) (rprimalPart $ rmaxIndex (rflatten t))
 
-rminimum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-            , LetTensor ranked, KnownNat n, GoodScalar r
-            , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-         => ranked r n -> ranked r 0
+rminimum :: ( BaseTensor target, BaseTensor (PrimalOf target)
+            , LetTensor target, KnownNat n, GoodScalar r )
+         => target (TKR r n) -> target (TKR r 0)
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in tindex0.
 rminimum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
                                           (rprimalPart $ rminIndex (rflatten t))
 
-rmaximum :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-            , LetTensor ranked, KnownNat n, GoodScalar r
-            , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-         => ranked r n -> ranked r 0
+rmaximum :: ( BaseTensor target, BaseTensor (PrimalOf target)
+            , LetTensor target, KnownNat n, GoodScalar r )
+         => target (TKR r n) -> target (TKR r 0)
 rmaximum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
                                           (rprimalPart $ rmaxIndex (rflatten t))
 
-rfromIndex0 :: forall r ranked.
-               ( RankedTensor ranked
-               , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-            => IntOf ranked -> ranked r 0
+rfromIndex0 :: forall r target.
+               (BaseTensor target, GoodScalar r)
+            => IntOf target -> target (TKR r 0)
 rfromIndex0 = rfromIntegral . rconstant
 
-rfromIndex1 :: forall n r ranked.
+rfromIndex1 :: forall n r target.
                ( KnownNat n
-               , RankedTensor ranked, RankedTensor (PrimalOf ranked)
-               , GoodScalar r, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-            => IndexOf ranked n -> ranked r 1
+               , BaseTensor target, BaseTensor (PrimalOf target)
+               , GoodScalar r )
+            => IndexOf target n -> target (TKR r 1)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromIntegral . rconstant . rfromList . NonEmpty.fromList . indexToList
 
-rint64FromIndex1 :: forall n ranked.
+rint64FromIndex1 :: forall n target.
                     ( KnownNat n
-                    , RankedTensor ranked, RankedTensor (PrimalOf ranked)
-                    , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-                 => IndexOf ranked n -> ranked Int64 1
+                    , BaseTensor target, BaseTensor (PrimalOf target) )
+                 => IndexOf target n -> target (TKR Int64 1)
 rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rconstant . rfromList . NonEmpty.fromList . indexToList
 
-rint64ToIndex1 :: forall n ranked.
+rint64ToIndex1 :: forall n target.
                   ( KnownNat n
-                  , RankedTensor ranked, RankedTensor (PrimalOf ranked)
-                  , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-               => ranked Int64 1 -> IndexOf ranked n
+                  , BaseTensor target, BaseTensor (PrimalOf target) )
+               => target (TKR Int64 1) -> IndexOf target n
 rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 
 tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
-          , RankedTensor ranked, RankedTensor (PrimalOf ranked)
-          , LetTensor ranked, RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-       => IndexOf ranked n -> (IndexOf ranked n -> ranked r m) -> ranked r m
+          , BaseTensor target, BaseTensor (PrimalOf target)
+          , LetTensor target )
+       => IndexOf target n -> (IndexOf target n -> target (TKR r m)) -> target (TKR r m)
 tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 
-scale :: forall ranked r n.
-         (ADReady ranked, GoodScalar r, KnownNat n)
-      => PrimalOf ranked r n -> ranked r n -> ranked r n
-scale a d = rconstant @ranked a * d
+scale :: forall target r n.
+         (ADReady target, GoodScalar r, KnownNat n)
+      => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r n)
+scale a d = rconstant @target a * d
 -- This should be faster, but is slower. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
 -- scale a d = rD (a * rprimalPart d) (rScale @r a (rdualPart d))
 
 relu, reluLeaky
-  :: forall ranked n r.
-     (ADReady ranked, GoodScalar r, KnownNat n, Differentiable r)
-  => ranked r n -> ranked r n
+  :: forall target n r.
+     (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+  => target (TKR r n) -> target (TKR r n)
 relu v0 = tlet v0 $ \v ->
   let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
   in oneIfGtZero * v
@@ -111,53 +104,51 @@ reluLeaky v0 = tlet v0 $ \v ->
   let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
   in oneIfGtZero * v
 
--- TODO: verify how faster a dedicated RankedTensor method would be
-logistic :: forall ranked r n.
-            ( RankedTensor ranked, LetTensor ranked
-            , RankedTensor (PrimalOf ranked), KnownNat n, GoodScalar r
-            , Floating (PrimalOf ranked r n), Num (PrimalOf ranked r 0) )
-         => ranked r n -> ranked r n
+-- TODO: verify how faster a dedicated BaseTensor method would be
+logistic :: forall target r n.
+            ( BaseTensor target, LetTensor target
+            , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
+            , Floating (PrimalOf target (TKR r n)), Num (PrimalOf target (TKR r 0)) )
+         => target (TKR r n) -> target (TKR r n)
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
-      y0 = recip (rreplicate0N sh 1 + exp (- rprimalPart @ranked d))
-  in tlet (rconstant @ranked y0)  -- we don't have tletPrimal
-     $ \y1 -> let y = rprimalPart @ranked y1
-              in rD y (rScale @ranked (y * (rreplicate0N sh 1 - y))
-                       $ rdualPart @ranked d)
+      y0 = recip (rreplicate0N sh 1 + exp (- rprimalPart @target d))
+  in tlet (rconstant @target y0)  -- we don't have tletPrimal
+     $ \y1 -> let y = rprimalPart @target y1
+              in rD y (rScale @target (y * (rreplicate0N sh 1 - y))
+                       $ rdualPart @target d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
-square :: forall ranked r n.
-          ( RankedTensor ranked, KnownNat n, Num (PrimalOf ranked r n)
+square :: forall target r n.
+          ( BaseTensor target, KnownNat n, Num (PrimalOf target (TKR r n))
           , GoodScalar r )
-       => ranked r n -> ranked r n
-square d = let u = rprimalPart @ranked d
-               u' = rdualPart @ranked d
-           in rD (u * u) (rScale @ranked (2 * u) u')
+       => target (TKR r n) -> target (TKR r n)
+square d = let u = rprimalPart @target d
+               u' = rdualPart @target d
+           in rD (u * u) (rScale @target (2 * u) u')
 
 squaredDifference
-  :: forall ranked n r.
-     (RankedTensor ranked, KnownNat n, Num (PrimalOf ranked r n), GoodScalar r)
-  => PrimalOf ranked r n -> ranked r n -> ranked r n
-squaredDifference targ res = square @ranked $ res - rconstant @ranked targ
+  :: forall target n r.
+     (BaseTensor target, KnownNat n, Num (PrimalOf target (TKR r n)), GoodScalar r)
+  => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r n)
+squaredDifference targ res = square @target $ res - rconstant @target targ
 
 lossCrossEntropyV
-  :: (RankedTensor ranked, KnownNat n, GoodScalar r, Differentiable r)
-  => ranked r n -> ranked r n -> ranked r 0
+  :: (BaseTensor target, KnownNat n, GoodScalar r, Differentiable r)
+  => target (TKR r n) -> target (TKR r n) -> target (TKR r 0)
 lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
-  :: forall ranked n r.
-     ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-     , RankedTensor (PrimalOf (PrimalOf ranked))
-     , LetTensor ranked, LetTensor (PrimalOf ranked)
-     , KnownNat n, GoodScalar r
-     , RankedOf (PrimalOf (PrimalOf ranked)) ~ PrimalOf (PrimalOf ranked)
-     , Differentiable r )
-  => PrimalOf ranked r n -> ranked r n -> ranked r 0
+  :: forall target n r.
+     ( BaseTensor target, BaseTensor (PrimalOf target)
+     , BaseTensor (PrimalOf (PrimalOf target))
+     , LetTensor target, LetTensor (PrimalOf target)
+     , KnownNat n, GoodScalar r, Differentiable r )
+  => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r 0)
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
@@ -165,32 +156,31 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let softMaxU' =
-        let u = rprimalPart @ranked d
+        let u = rprimalPart @target d
             expU' = exp (u - rreplicate0N (rshape u) (rminimum u))
         in tlet expU' $ \expU ->
           let sumExpU = rsum0 expU
               recipSum = recip sumExpU
           in rscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (rconstant @ranked softMaxU') $ \softMaxU ->
-    rD (negate $ log (rprimalPart @ranked softMaxU) `rdot0` target)
+  in tlet (rconstant @target softMaxU') $ \softMaxU ->
+    rD (negate $ log (rprimalPart @target softMaxU) `rdot0` target)
          -- TODO: avoid: log . exp
-       (rdualPart @ranked $ (softMaxU - rconstant @ranked target) `rdot0` d)
+       (rdualPart @target $ (softMaxU - rconstant @target target) `rdot0` d)
          -- TODO: probably defining tDot0 would lead to a faster
          -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1 :: ( RankedTensor ranked, RankedTensor (PrimalOf ranked)
-            , LetTensor ranked, GoodScalar r
-            , RankedOf (PrimalOf ranked) ~ PrimalOf ranked )
-         => Int -> Int -> ranked r 1 -> ranked r 1
+maxPool1 :: ( BaseTensor target, BaseTensor (PrimalOf target)
+            , LetTensor target, GoodScalar r )
+         => Int -> Int -> target (TKR r 1) -> target (TKR r 1)
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rlength v - ksize]]
   in rfromList $ NonEmpty.fromList $ map rmaximum slices
 
-softMax1 :: ( RankedTensor ranked, LetTensor ranked
+softMax1 :: ( BaseTensor target, LetTensor target
             , KnownNat n, GoodScalar r, Differentiable r )
-         => ranked r n -> ranked r n
+         => target (TKR r n) -> target (TKR r n)
 softMax1 d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
@@ -204,8 +194,8 @@ softMax1 d =
 -- If another value than 0 was needed, the conditional
 -- would be necessary even without vectorization.
 conv2dUnpadded
-  :: (ADReady ranked, GoodScalar r)
-  => ranked r 4 -> ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r)
+  => target (TKR r 4) -> target (TKR r 4) -> target (TKR r 4)
 conv2dUnpadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
@@ -225,8 +215,8 @@ conv2dUnpadded arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicez
-  :: (ADReady ranked, GoodScalar r, KnownNat n)
-  => IShR n -> ranked r n -> IndexOf ranked n -> ranked r n
+  :: (ADReady target, GoodScalar r, KnownNat n)
+  => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
 slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
@@ -234,10 +224,10 @@ slicez shOut d ixBase =
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 indexz0Let
-  :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)
-  => ranked r n -> IndexOf ranked n -> ranked r 0
+  :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
+  => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
 indexz0Let d ix0 = tletIx ix0 $ \ix ->
-                     ifF (within0 @ranked (rshape @ranked d) ix) (d ! ix) 0
+                     ifF (within0 @target (rshape @target d) ix) (d ! ix) 0
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
@@ -249,24 +239,24 @@ indexz0Let d ix0 = tletIx ix0 $ \ix ->
 -- unless the tensors are under tlet and only variables representing them
 -- are used).
 indexz0
-  :: forall ranked r n. (ADReady ranked, GoodScalar r, KnownNat n)
-  => ranked r n -> IndexOf ranked n -> ranked r 0
-indexz0 d ix = ifF (within0 @ranked (rshape @ranked d) ix) (d ! ix) 0
+  :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
+  => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
+indexz0 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.
 within0
-  :: forall ranked n. ADReady ranked
-  => IShR n -> IndexOf ranked n -> BoolOf ranked
+  :: forall target n. ADReady target
+  => IShR n -> IndexOf target n -> BoolOf target
 within0 sh ix =
-  let within :: IntOf ranked -> IntOf ranked -> BoolOf ranked
+  let within :: IntOf target -> IntOf target -> BoolOf target
       within i dim = 0 <=. i &&* dim >. i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
 
 maxPool2dUnpadded
-  :: (ADReady ranked, GoodScalar r)
-  => Int -> Int -> ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r)
+  => Int -> Int -> target (TKR r 4) -> target (TKR r 4)
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = rshape arr
       shOut = [batch_size, channels, h `div` stride, w `div` stride]

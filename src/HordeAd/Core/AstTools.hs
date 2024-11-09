@@ -139,7 +139,7 @@ shapeAstFull t = case t of
 
   AstMkHVector v ->
     FTKUntyped
-    $ V.map (voidFromDynamicF (shapeToList . shapeAst . unAstGeneric)) v
+    $ V.map (voidFromDynamicF (shapeToList . shapeAst)) v
   AstHApply v _ll -> shapeAstHFun v
   AstBuildHVector1 k (_, v) ->
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
@@ -307,8 +307,8 @@ varInIndexX var = any (varInAst var)
 varInAstDynamic :: AstSpan s
                 => AstVarId -> AstDynamic ms s -> Bool
 varInAstDynamic var = \case
-  DynamicRanked (AstGeneric t) -> varInAst var t
-  DynamicShaped (AstGenericS t) -> varInAst var t
+  DynamicRanked t -> varInAst var t
+  DynamicShaped t -> varInAst var t
   DynamicRankedDummy{} -> False
   DynamicShapedDummy{} -> False
 
@@ -370,8 +370,8 @@ astIsSmall relaxed = \case
   AstSFromR v -> astIsSmall relaxed v
 
   AstMkHVector v | V.length v == 1 -> case v V.! 0 of
-    DynamicRanked (AstGeneric t) -> astIsSmall relaxed t
-    DynamicShaped (AstGenericS t) -> astIsSmall relaxed t
+    DynamicRanked t -> astIsSmall relaxed t
+    DynamicShaped t -> astIsSmall relaxed t
     DynamicRankedDummy{} -> True
     DynamicShapedDummy{} -> True
 

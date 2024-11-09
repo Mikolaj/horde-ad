@@ -18,17 +18,14 @@ module HordeAd.Core.Ast
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase, AstBindings
     -- * ASTs
-  , AstMethodOfSharing(..)
-  , AstRanked(..), AstTensor(..), AstShaped(..), AstMixed(..)
-  , AstGeneric(..), AstGenericS(..), AstGenericWrap(..)
+  , AstMethodOfSharing(..), AstTensor(..)
   , AstDynamic, AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
     -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
-  , AstRaw(..), AstRawS(..), AstRawX(..), AstRawWrap(..)
-  , AstNoVectorize(..), AstNoVectorizeS(..), AstNoVectorizeX(..), AstNoVectorizeWrap(..)
-  , AstNoSimplify(..), AstNoSimplifyS(..), AstNoSimplifyX(..), AstNoSimplifyWrap(..)
-  , rankedY, unRankedY
+  , AstRaw(..)
+  , AstNoVectorize(..)
+  , AstNoSimplify(..)
   ) where
 
 import Prelude hiding (foldl')
@@ -63,54 +60,11 @@ import HordeAd.Util.SizedList
 
 -- * Basic type family instances
 
-type role AstGenericWrap nominal
-newtype AstGenericWrap t = AstGenericWrap {unAstGenericWrap :: t}
- deriving Show
+type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
+type instance DualOf (AstTensor ms s) = AstTensor ms DualSpan
+type instance ShareOf (AstTensor ms s) = AstRaw s
 
-type instance Rep (AstGeneric ms s) (TKProduct x z) =
-  AstGenericWrap (AstTensor ms s (TKProduct x z))
-type instance RankedOf (AstGeneric ms s) = AstGeneric ms s
-type instance ShapedOf (AstGeneric ms s) = AstGenericS ms s
-type instance PrimalOf (AstGeneric ms s) = AstGeneric ms PrimalSpan
-type instance DualOf (AstGeneric ms s) = AstTensor ms DualSpan
-type instance ShareOf (AstGeneric ms s) = AstRaw s
-
-type instance HVectorOf (AstGeneric ms s) =
-  AstGenericWrap (AstTensor ms s TKUntyped)
-type instance HFunOf (AstGeneric ms s) x z = AstHFun x z
-
-type instance RankedOf (AstGenericS ms s) = AstGeneric ms s
-type instance PrimalOf (AstGenericS ms s) = AstGenericS ms PrimalSpan
-
-type instance Rep (AstRanked s) (TKProduct x z) =
-  AstTensor AstMethodLet s (TKProduct x z)
-
-instance Show (RepProductN (AstRanked s) x y) where
-  showsPrec d (RepProductN t) = showsPrec d t
-
-type instance RankedOf (AstRanked s) = AstRanked s
-type instance ShapedOf (AstRanked s) = AstShaped s
-type instance MixedOf (AstRanked s) = AstMixed s
-type instance PrimalOf (AstRanked s) = AstRanked PrimalSpan
-type instance DualOf (AstRanked s) = AstTensor AstMethodLet DualSpan
-type instance ShareOf (AstRanked s) = AstRaw s
-
-type instance HVectorOf (AstRanked s) = AstTensor AstMethodLet s TKUntyped
--- This can't be just HFun, because they need to be vectorized
--- and vectorization applies such functions to the variable from build1
--- and the variable has to be eliminated via vectorization to preserve
--- the closed form of the function. Just applying a Haskell closure
--- to the build1 variable and then duplicating the result of the function
--- would not eliminate the variable and also would likely results
--- in more costly computations. Also, that would prevent simplification
--- of the instances, especially after applied to arguments that are terms.
-type instance HFunOf (AstRanked s) x z = AstHFun x z
-
-type instance RankedOf (AstShaped s) = AstRanked s
-type instance PrimalOf (AstShaped s) = AstShaped PrimalSpan
-
-type instance RankedOf (AstMixed s) = AstRanked s
-type instance PrimalOf (AstMixed s) = AstMixed PrimalSpan
+type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z  -- TODO: PrimalSpan
 
 
 -- * The AstSpan kind
@@ -281,36 +235,6 @@ type AstBindings = DEnumMap (AstVarName PrimalSpan)
 -- * ASTs
 
 type data AstMethodOfSharing = AstMethodShare | AstMethodLet
-
-type role AstGeneric nominal nominal nominal nominal
-newtype AstGeneric ms s r n = AstGeneric {unAstGeneric :: AstTensor ms s (TKR r n)}
-instance Show (AstGeneric ms s r n) where
-  showsPrec k (AstGeneric t) = showsPrec k t
-    -- to keep PP tests passing regardless of what wrappers we currently use
-
-type role AstGenericS nominal nominal nominal nominal
-newtype AstGenericS ms s r sh = AstGenericS {unAstGenericS :: AstTensor ms s (TKS r sh)}
-instance Show (AstGenericS ms s r sh) where
-  showsPrec k (AstGenericS t) = showsPrec k t
-    -- to keep PP tests passing regardless of what wrappers we currently use
-
-type role AstRanked nominal nominal nominal
-newtype AstRanked s r n = AstRanked {unAstRanked :: AstTensor AstMethodLet s (TKR r n)}
-instance Show (AstRanked s r n) where
-  showsPrec k (AstRanked t) = showsPrec k t
-    -- to keep PP tests passing regardless of what wrappers we currently use
-
-type role AstShaped nominal nominal nominal
-newtype AstShaped s r sh = AstShaped {unAstShaped :: AstTensor AstMethodLet s (TKS r sh)}
-instance Show (AstShaped s r sh) where
-  showsPrec k (AstShaped t) = showsPrec k t
-    -- to keep PP tests passing regardless of what wrappers we currently use
-
-type role AstMixed nominal nominal nominal
-newtype AstMixed s r sh = AstMixed {unAstMixed :: AstTensor AstMethodLet s (TKX r sh)}
-instance Show (AstMixed s r sh) where
-  showsPrec k (AstMixed t) = showsPrec k t
-    -- to keep PP tests passing regardless of what wrappers we currently use
 
 -- | AST for ranked and shaped tensors that are meant to be differentiated.
 type role AstTensor nominal nominal nominal
@@ -617,10 +541,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   -- Here starts the misc part
 
   -- There are existential variables inside DynamicTensor here.
-  AstMkHVector :: HVector (AstGeneric ms s) -> AstTensor ms s TKUntyped
+  AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
   AstHApply :: (TensorKind x, TensorKind z)
             => AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
-  -- The operations below is why we need AstTensor ms s TKUntyped and so HVectorOf.
+  -- The operations below is why we need AstTensor ms s TKUntyped.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
   -- of the terms separately, duplicating the let-bound term.
   AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor ms s TKUntyped)
@@ -660,7 +584,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
 
 deriving instance Show (AstTensor ms s y)
 
-type AstDynamic ms (s :: AstSpanType) = DynamicTensor (AstGeneric ms s)
+type AstDynamic ms (s :: AstSpanType) = DynamicTensor (AstTensor ms s)
 
 type role AstHFun nominal nominal
 data AstHFun x z where
@@ -998,122 +922,32 @@ instance Boolean (AstBool ms) where
 
 -- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
 
-type instance RankedOf (AstRaw s) = AstRaw s
-type instance ShapedOf (AstRaw s) = AstRawS s
-type instance MixedOf (AstRaw s) = AstRawX s
 type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
 type instance ShareOf (AstRaw s) = AstRaw s
-type instance HVectorOf (AstRaw s) = AstRawWrap (AstTensor AstMethodShare s TKUntyped)
 type instance HFunOf (AstRaw s) x y = AstHFun x y
-type instance RankedOf (AstRawS s) = AstRaw s
-type instance PrimalOf (AstRawS s) = AstRawS PrimalSpan
-type instance RankedOf (AstRawX s) = AstRaw s
-type instance PrimalOf (AstRawX s) = AstRawX PrimalSpan
 
-type instance RankedOf (AstNoVectorize s) = AstNoVectorize s
-type instance ShapedOf (AstNoVectorize s) = AstNoVectorizeS s
-type instance MixedOf (AstNoVectorize s) = AstNoVectorizeX s
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoVectorize s) = AstRaw s
-type instance HVectorOf (AstNoVectorize s) =
-  AstNoVectorizeWrap (AstTensor AstMethodLet s TKUntyped)
 type instance HFunOf (AstNoVectorize s) x z = AstHFun x z
-type instance RankedOf (AstNoVectorizeS s) = AstNoVectorize s
-type instance PrimalOf (AstNoVectorizeS s) = AstNoVectorizeS PrimalSpan
-type instance RankedOf (AstNoVectorizeX s) = AstNoVectorize s
-type instance PrimalOf (AstNoVectorizeX s) = AstNoVectorizeX PrimalSpan
 
-type instance RankedOf (AstNoSimplify s) = AstNoSimplify s
-type instance ShapedOf (AstNoSimplify s) = AstNoSimplifyS s
-type instance MixedOf (AstNoSimplify s) = AstNoSimplifyX s
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
-type instance HVectorOf (AstNoSimplify s) =
-  AstNoSimplifyWrap (AstTensor AstMethodLet s TKUntyped)
 type instance HFunOf (AstNoSimplify s) x z = AstHFun x z
-type instance RankedOf (AstNoSimplifyS s) = AstNoSimplify s
-type instance PrimalOf (AstNoSimplifyS s) = AstNoSimplifyS PrimalSpan
-type instance RankedOf (AstNoSimplifyX s) = AstNoSimplify s
-type instance PrimalOf (AstNoSimplifyX s) = AstNoSimplifyX PrimalSpan
 
-type role AstRaw nominal nominal nominal
-newtype AstRaw s r n =
-  AstRaw {unAstRaw :: AstTensor AstMethodShare s (TKR r n)}
+type role AstRaw nominal nominal
+newtype AstRaw s y =
+  AstRaw {unAstRaw :: AstTensor AstMethodShare s y}
  deriving Show
 
-type role AstRawS nominal nominal nominal
-newtype AstRawS s r sh =
-  AstRawS {unAstRawS :: AstTensor AstMethodShare s (TKS r sh)}
+type role AstNoVectorize nominal nominal
+newtype AstNoVectorize s y =
+  AstNoVectorize {unAstNoVectorize :: AstTensor AstMethodLet s y}
  deriving Show
 
-type role AstRawX nominal nominal nominal
-newtype AstRawX s r sh =
-  AstRawX {unAstRawX :: AstTensor AstMethodShare s (TKX r sh)}
+type role AstNoSimplify nominal nominal
+newtype AstNoSimplify s y =
+  AstNoSimplify {unAstNoSimplify :: AstTensor AstMethodLet s y}
  deriving Show
-
-type role AstRawWrap nominal
-newtype AstRawWrap t = AstRawWrap {unAstRawWrap :: t}
- deriving Show
-
-type role AstNoVectorize nominal nominal nominal
-newtype AstNoVectorize s r n =
-  AstNoVectorize {unAstNoVectorize :: AstTensor AstMethodLet s (TKR r n)}
- deriving Show
-
-type role AstNoVectorizeS nominal nominal nominal
-newtype AstNoVectorizeS s r sh =
-  AstNoVectorizeS {unAstNoVectorizeS :: AstTensor AstMethodLet s (TKS r sh)}
- deriving Show
-
-type role AstNoVectorizeX nominal nominal nominal
-newtype AstNoVectorizeX s r sh =
-  AstNoVectorizeX {unAstNoVectorizeX :: AstTensor AstMethodLet s (TKX r sh)}
- deriving Show
-
-type role AstNoVectorizeWrap nominal
-newtype AstNoVectorizeWrap t = AstNoVectorizeWrap {unAstNoVectorizeWrap :: t}
- deriving Show
-
-type role AstNoSimplify nominal nominal nominal
-newtype AstNoSimplify s r n =
-  AstNoSimplify {unAstNoSimplify :: AstTensor AstMethodLet s (TKR r n)}
- deriving Show
-
-type role AstNoSimplifyS nominal nominal nominal
-newtype AstNoSimplifyS s r sh =
-  AstNoSimplifyS {unAstNoSimplifyS :: AstTensor AstMethodLet s (TKS r sh)}
- deriving Show
-
-type role AstNoSimplifyX nominal nominal nominal
-newtype AstNoSimplifyX s r sh =
-  AstNoSimplifyX {unAstNoSimplifyX :: AstTensor AstMethodLet s (TKX r sh)}
- deriving Show
-
-type role AstNoSimplifyWrap nominal
-newtype AstNoSimplifyWrap t = AstNoSimplifyWrap {unAstNoSimplifyWrap :: t}
- deriving Show
-
-rankedY :: STensorKindType y -> AstTensor AstMethodLet s y
-        -> Rep (AstRanked s) y
-rankedY stk t = case stk of
-  STKScalar{} -> RepScalar $ AstRanked $ AstScalar t
-  STKR STKScalar{} _ -> AstRanked t
-  STKS STKScalar{} _ -> AstShaped t
-  STKX STKScalar{} _ -> AstMixed t
-  STKProduct{} -> t
-  STKUntyped -> HVectorPseudoTensor t
-  _ -> error "TODO"
-
-unRankedY :: STensorKindType y -> Rep (AstRanked s) y
-          -> AstTensor AstMethodLet s y
-unRankedY stk t = case stk of
-  STKScalar{} -> AstUnScalar $ unAstRanked $ unRepScalar t
-  STKR STKScalar{} _ -> unAstRanked t
-  STKS STKScalar{} _ -> unAstShaped t
-  STKX STKScalar{} _ -> unAstMixed t
-  STKProduct{} -> t
-  STKUntyped -> unHVectorPseudoTensor t
-  _ -> error "TODO"

@@ -2,8 +2,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
--- to have specialized implementations to be included in the 'ShapedTensor'
--- class. Some of the operations may also depend on more than 'ShapedTensor',
+-- to have specialized implementations to be included in the 'BaseTensor'
+-- class. Some of the operations may also depend on more than 'BaseTensor',
 -- e.g., also on the 'ConvertTensor' class.
 module HordeAd.External.CommonShapedOps
   ( module HordeAd.External.CommonShapedOps
@@ -31,61 +31,61 @@ import HordeAd.Util.ShapedList (Drop, IndexSh, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
-sminIndexN :: ( ADReadyS shaped, GoodScalar r
+sminIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
-           => shaped r sh -> IndexSh shaped sh
+           => target (TKS r sh) -> IndexSh target sh
 sminIndexN t =
   ShapedList.fromLinearIdx (rscalar . fromIntegral)
     (sshape t)
     (rfromS $ sprimalPart $ sminIndex (sflatten t))
 
-smaxIndexN :: ( ADReadyS shaped, GoodScalar r
+smaxIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
-           => shaped r sh -> IndexSh shaped sh
+           => target (TKS r sh) -> IndexSh target sh
 smaxIndexN t =
   ShapedList.fromLinearIdx (rscalar . fromIntegral)
     (sshape t)
     (rfromS $ sprimalPart $ smaxIndex (sflatten t))
 
-sminimum :: forall r sh shaped.
-            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-         => shaped r sh -> shaped r '[]
+sminimum :: forall r sh target.
+            (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
+         => target (TKS r sh) -> target (TKS r '[])
 sminimum t = sindex0 t (sminIndexN t)
 
-smaximum :: forall r sh shaped.
-            (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-         => shaped r sh -> shaped r '[]
+smaximum :: forall r sh target.
+            (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
+         => target (TKS r sh) -> target (TKS r '[])
 smaximum t = sindex0 t (smaxIndexN t)
 
-sfromIndex0 :: forall r shaped. (ADReadyS shaped, GoodScalar r)
-            => IntOf shaped -> shaped r '[]
+sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
+            => IntOf target -> target (TKS r '[])
 sfromIndex0 = sfromIntegral . sconstant . sfromR
 
-sfromIndex1 :: forall r sh shaped.
-               (ADReadyS shaped, GoodScalar r, KnownNat (Rank sh))
-            => IndexSh shaped sh -> shaped r '[Rank sh]
+sfromIndex1 :: forall r sh target.
+               (ADReady target, GoodScalar r, KnownNat (Rank sh))
+            => IndexSh target sh -> target (TKS r '[Rank sh])
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconst $ Nested.sfromListPrimLinear knownShS []
   _ -> sfromIntegral . sconstant . sfromR . rfromList
        . NonEmpty.fromList . ShapedList.indexToList
 
-sletIx :: forall r sh n shaped.
-          (ADReadyS shaped, GoodScalar r, KnownShS sh, KnownNat n)
-       => IndexOf shaped n -> (IndexOf shaped n -> shaped r sh) -> shaped r sh
-sletIx ix0 f = tlet (sfromR @shaped @Int64 @'[n]
+sletIx :: forall r sh n target.
+          (ADReady target, GoodScalar r, KnownShS sh, KnownNat n)
+       => IndexOf target n -> (IndexOf target n -> target (TKS r sh)) -> target (TKS r sh)
+sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
-                 f $ rint64ToIndex1 $ rfromS @(RankedOf shaped) ixT
+                 f $ rint64ToIndex1 $ rfromS @target ixT
 
-scaleS :: forall shaped r sh.
-          (KnownShS sh, ADReadyS shaped, GoodScalar r)
-       => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
+scaleS :: forall target r sh.
+          (KnownShS sh, ADReady target, GoodScalar r)
+       => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r sh)
 scaleS a d = sconstant a * d
 
 reluS, reluLeakyS
-  :: forall shaped sh r.
-     ( KnownShS sh, KnownNat (Rank sh), ADReadyS shaped, GoodScalar r
+  :: forall target sh r.
+     ( KnownShS sh, KnownNat (Rank sh), ADReady target, GoodScalar r
      , Differentiable r )
-  => shaped r sh -> shaped r sh
+  => target (TKS r sh) -> target (TKS r sh)
 reluS v0 = tlet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
   in oneIfGtZero * v
@@ -94,51 +94,51 @@ reluLeakyS v0 = tlet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
   in oneIfGtZero * v
 
--- TODO: verify how faster a dedicated ShapedTensor method would be
-logisticS :: forall shaped r sh.
-             ( ShapedTensor shaped, LetTensor (RankedOf shaped)
+-- TODO: verify how faster a dedicated BaseTensor method would be
+logisticS :: forall target r sh.
+             ( BaseTensor target, LetTensor target
              , KnownShS sh, GoodScalar r
-             , Floating (PrimalOf shaped r sh) )
-          => shaped r sh -> shaped r sh
+             , Floating (PrimalOf target (TKS r sh)) )
+          => target (TKS r sh) -> target (TKS r sh)
 logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
-  let y0 = recip (sprimalPart @shaped (srepl 1) + exp (- sprimalPart d))
+  let y0 = recip (sprimalPart @target (srepl 1) + exp (- sprimalPart d))
   in tlet (sconstant y0)  -- we don't have tletPrimal
      $ \y1 -> let y = sprimalPart y1
-              in sD y (sScale @shaped (y * (sprimalPart @shaped (srepl 1) - y)) $ sdualPart d)
+              in sD y (sScale @target (y * (sprimalPart @target (srepl 1) - y)) $ sdualPart d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
-squareS :: forall shaped r sh.
-           ( KnownShS sh, ShapedTensor shaped, Num (PrimalOf shaped r sh)
+squareS :: forall target r sh.
+           ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS r sh))
            , GoodScalar r )
-       => shaped r sh -> shaped r sh
+       => target (TKS r sh) -> target (TKS r sh)
 squareS d = let u = sprimalPart d
                 u' = sdualPart d
-            in sD (u * u) (sScale @shaped (2 * u) u')
+            in sD (u * u) (sScale @target (2 * u) u')
 
 squaredDifferenceS
-  :: forall shaped sh r.
-     ( KnownShS sh, ShapedTensor shaped, Num (PrimalOf shaped r sh)
+  :: forall target sh r.
+     ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS r sh))
      , GoodScalar r )
-  => PrimalOf shaped r sh -> shaped r sh -> shaped r sh
+  => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r sh)
 squaredDifferenceS targ res = squareS $ res - sconstant targ
 
 lossCrossEntropyVS :: ( KnownShS sh, KnownNat (Nested.Product sh)
-                      , ShapedTensor shaped, GoodScalar r, Differentiable r )
-                   => shaped r sh
-                   -> shaped r sh
-                   -> shaped r '[]
+                      , BaseTensor target, GoodScalar r, Differentiable r )
+                   => target (TKS r sh)
+                   -> target (TKS r sh)
+                   -> target (TKS r '[])
 lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
-  :: forall shaped sh r.
-     ( ADReadyS shaped, ADReadyS (PrimalOf shaped)
+  :: forall target sh r.
+     ( ADReady target, ADReady (PrimalOf target)
      , GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh)
      , Differentiable r )
-  => PrimalOf shaped r sh -> shaped r sh -> shaped r '[]
+  => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r '[])
 lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
@@ -161,10 +161,10 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
          -- sDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1S :: forall ksize stride m shaped r.
-             ( ADReadyS shaped, GoodScalar r
+maxPool1S :: forall ksize stride m target r.
+             ( ADReady target, GoodScalar r
              , KnownNat ksize, KnownNat stride, KnownNat m )
-          => shaped r '[m] -> shaped r '[m]
+          => target (TKS r '[m]) -> target (TKS r '[m])
 maxPool1S v =
   let l = [0, valueOf @stride .. slength v - valueOf @ksize]
       maxOfSlice i =
@@ -172,15 +172,15 @@ maxPool1S v =
           Just (SomeNat @i _proxy) ->
             gcastWith (unsafeCoerce Refl :: Compare i m :~: LT) $
             gcastWith (unsafeCoerce Refl :: Compare ksize (m - i) :~: LT) $
-            smaximum $ sslice @shaped @r @i @(m - i - ksize) @ksize
+            smaximum $ sslice @target @r @i @(m - i - ksize) @ksize
                               Proxy Proxy v
           Nothing -> error "maxPool1S: impossible someNatVal error"
   in sfromList $ NonEmpty.fromList $ map maxOfSlice l
 
 softMax1S :: ( KnownShS sh, KnownNat (Nested.Product sh)
-             , ShapedTensor shaped, LetTensor (RankedOf shaped)
+             , BaseTensor target, LetTensor target
              , GoodScalar r, Differentiable r )
-          => shaped r sh -> shaped r sh
+          => target (TKS r sh) -> target (TKS r sh)
 softMax1S d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
@@ -195,19 +195,19 @@ softMax1S d =
 -- would be necessary even without vectorization.
 conv2dUnpaddedS
   :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
-            (shaped :: ShapedTensorType) r shB shK1.
+            target r shB shK1.
      ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
      , KnownNat nImgs, KnownNat nAh, KnownNat nAw
-     , ADReadyS shaped, GoodScalar r
+     , ADReady target, GoodScalar r
      , nCinpA ~ nCinpK
      , shB ~ '[nImgs, nCoutK, nAh, nAw]
      , shK1 ~ '[1, nCinpA, nKh, nKw]
      )
-  => shaped r '[nCoutK, nCinpK, nKh, nKw]
-  -> shaped r '[nImgs, nCinpA, nAh, nAw]
-  -> shaped r shB
+  => target (TKS r '[nCoutK, nCinpK, nKh, nKw])
+  -> target (TKS r '[nImgs, nCinpA, nAh, nAw])
+  -> target (TKS r shB)
 conv2dUnpaddedS arrK arrA =
-  sbuild @shaped @r @(Rank shB) $ \case
+  sbuild @target @r @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK [iCout, 0, 0, 0]
@@ -220,16 +220,16 @@ conv2dUnpaddedS arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicezS
-  :: forall shOut sh shaped r.
+  :: forall shOut sh target r.
      ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
      , KnownNat (Rank sh)
-     , Rank shOut ~ Rank sh, ADReadyS shaped, GoodScalar r )
-  => shaped r sh -> IndexSh shaped sh -> shaped r shOut
+     , Rank shOut ~ Rank sh, ADReady target, GoodScalar r )
+  => target (TKS r sh) -> IndexSh target sh -> target (TKS r shOut)
 slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
   gcastWith (unsafeCoerce Refl :: Drop (Rank sh) shOut :~: '[]) $
-  sbuild @shaped @r @(Rank shOut)
+  sbuild @target @r @(Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)
                                        (ShapedList.shapedToIndex ixBase)
@@ -248,13 +248,13 @@ slicezS d ixBase =
 -- may make it not fit and that's fine. In the worst case, indexing ignores
 -- such invalid indexes and returns 0.
 indexz0SLet
-  :: forall shOut sh shaped r.
+  :: forall shOut sh target r.
      ( KnownShS shOut, KnownNat (Rank shOut), KnownShS sh
-     , ADReadyS shaped, GoodScalar r )
-  => shaped r sh -> IndexOf shaped (Rank shOut) -> shaped r '[]
+     , ADReady target, GoodScalar r )
+  => target (TKS r sh) -> IndexOf target (Rank shOut) -> target (TKS r '[])
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
-    ifF (within0S @shOut @shaped ix)
+    ifF (within0S @shOut @target ix)
         (sindex0 d (ShapedList.listToIndex (indexToList ix)))
         (srepl 0)
 
@@ -268,43 +268,43 @@ indexz0SLet d ix0 =
 -- unless the tensors are under tlet and only variables representing them
 -- are used).
 indexz0S
-  :: forall shOut sh shaped r.
-     (KnownShS shOut, KnownShS sh, ADReadyS shaped, GoodScalar r)
-  => shaped r sh -> IndexOf shaped (Rank shOut) -> shaped r '[]
+  :: forall shOut sh target r.
+     (KnownShS shOut, KnownShS sh, ADReady target, GoodScalar r)
+  => target (TKS r sh) -> IndexOf target (Rank shOut) -> target (TKS r '[])
 indexz0S d ix =
-  ifF (within0S @shOut @shaped ix)
+  ifF (within0S @shOut @target ix)
       (sindex0 d (ShapedList.listToIndex (indexToList ix)))
       (srepl 0)
 
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.
 within0S
-  :: forall shOut shaped. (KnownShS shOut, ADReadyS shaped)
-  => IndexOf shaped (Rank shOut)
+  :: forall shOut target. (KnownShS shOut, ADReady target)
+  => IndexOf target (Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
-  -> BoolOf shaped
+  -> BoolOf target
 within0S ix =
-  let within :: IntOf shaped -> IntOf shaped -> BoolOf shaped
+  let within :: IntOf target -> IntOf target -> BoolOf target
       within i dim = 0 <=. i &&* dim >. i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeT @shOut)
        -- or use sfromIndex1 and compare vectors?
 
 maxPool2dUnpaddedS
-  :: forall ksize stride batch_size channels h w shaped r shOut shK1.
+  :: forall ksize stride batch_size channels h w target r shOut shK1.
      ( KnownNat ksize, KnownNat stride, KnownNat batch_size, KnownNat channels
      , KnownNat h, KnownNat w
      , 1 <= stride  -- wrongly reported as redundant due to plugins
-     , ADReadyS shaped, GoodScalar r
+     , ADReady target, GoodScalar r
      , shOut ~ '[batch_size, channels, h `Div` stride, w `Div` stride]
      , shK1 ~ '[1, 1, ksize, ksize]
      )
-  => shaped r '[batch_size, channels, h, w]
-  -> shaped r shOut
+  => target (TKS r '[batch_size, channels, h, w])
+  -> target (TKS r shOut)
 maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
-  in sbuild @shaped @r @(Rank shOut) $ \case
+  in sbuild @target @r @(Rank shOut) $ \case
     [iImg, iChan, iBh, iBw] ->
       let arrt = slicezS @shK1
                          arr [ iImg, iChan

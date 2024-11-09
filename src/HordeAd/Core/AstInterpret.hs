@@ -47,10 +47,10 @@ import HordeAd.Util.ShapedList (Drop, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
 interpretAstPrimalRuntimeSpecialized
-  :: forall ranked n r.
-     (KnownNat n, ADReady ranked, Typeable r)
-  => AstEnv ranked
-  -> AstTensor AstMethodLet PrimalSpan (TKR r n) -> PrimalOf ranked r n
+  :: forall target n r.
+     (KnownNat n, ADReady target, Typeable r)
+  => AstEnv target
+  -> AstTensor AstMethodLet PrimalSpan (TKR r n) -> PrimalOf target (TKR r n)
 interpretAstPrimalRuntimeSpecialized !env t =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -60,29 +60,29 @@ interpretAstPrimalRuntimeSpecialized !env t =
   -- TODO: revisit using TypeRepOf to pattern match
   -- instead of nesting conditionals
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimal @ranked @(TKR Double n) env t
+    Just Refl -> interpretAstPrimal @target @(TKR Double n) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimal @ranked @(TKR Float n) env t
+      Just Refl -> interpretAstPrimal @target @(TKR Float n) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimal @ranked @(TKR Int64 n) env t
+        Just Refl -> interpretAstPrimal @target @(TKR Int64 n) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimal @ranked @(TKR CInt n) env t
+          Just Refl -> interpretAstPrimal @target @(TKR CInt n) env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 interpretAstPrimalSRuntimeSpecialized
-  :: forall ranked sh r.
-     (KnownShS sh, ADReady ranked, Typeable r)
-  => AstEnv ranked
-  -> AstTensor AstMethodLet PrimalSpan (TKS r sh) -> PrimalOf (ShapedOf ranked) r sh
+  :: forall target sh r.
+     (KnownShS sh, ADReady target, Typeable r)
+  => AstEnv target
+  -> AstTensor AstMethodLet PrimalSpan (TKS r sh) -> PrimalOf target (TKS r sh)
 interpretAstPrimalSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimal @ranked @(TKS Double sh) env t
+    Just Refl -> interpretAstPrimal @target @(TKS Double sh) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimal @ranked @(TKS Float sh) env t
+      Just Refl -> interpretAstPrimal @target @(TKS Float sh) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimal @ranked @(TKS Int64 sh) env t
+        Just Refl -> interpretAstPrimal @target @(TKS Int64 sh) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimal @ranked @(TKS CInt sh) env t
+          Just Refl -> interpretAstPrimal @target @(TKS CInt sh) env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
@@ -93,10 +93,10 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall ranked y. (ADReady ranked, TensorKind y)
-  => AstEnv ranked
+  :: forall target y. (ADReady target, TensorKind y)
+  => AstEnv target
   -> AstTensor AstMethodLet PrimalSpan y
-  -> Rep (PrimalOf ranked) y
+  -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
@@ -109,67 +109,67 @@ interpretAstPrimal !env v1 = case v1 of
     tprimalPart (stensorKind @y) (interpretAst env v1)
 
 interpretAstDual
-  :: forall ranked y. (ADReady ranked, TensorKind y)
-  => AstEnv ranked
-  -> AstTensor AstMethodLet DualSpan y -> DualOf ranked y
+  :: forall target y. (ADReady target, TensorKind y)
+  => AstEnv target
+  -> AstTensor AstMethodLet DualSpan y -> DualOf target y
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstD _ u') -> interpretAstDual env u'
   _ ->
     tdualPart (stensorKind @y) (interpretAst env v1)
 
 interpretAstRuntimeSpecialized
-  :: forall ranked n s r.
-     (ADReady ranked, Typeable r, AstSpan s)
-  => AstEnv ranked
-  -> AstTensor AstMethodLet s (TKR r n) -> ranked r n
+  :: forall target n s r.
+     (ADReady target, Typeable r, AstSpan s)
+  => AstEnv target
+  -> AstTensor AstMethodLet s (TKR r n) -> target (TKR r n)
 interpretAstRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @ranked @s @(TKR Double n) env t
+    Just Refl -> interpretAst @target @s @(TKR Double n) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @ranked @s @(TKR Float n) env t
+      Just Refl -> interpretAst @target @s @(TKR Float n) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @ranked @s @(TKR Int64 n) env t
+        Just Refl -> interpretAst @target @s @(TKR Int64 n) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @ranked @s @(TKR CInt n) env t
+          Just Refl -> interpretAst @target @s @(TKR CInt n) env t
           _ -> error "an unexpected underlying scalar type"
 
 interpretAstSRuntimeSpecialized
-  :: forall ranked sh s r.
-     (ADReady ranked, Typeable r, AstSpan s)
-  => AstEnv ranked
-  -> AstTensor AstMethodLet s (TKS r sh) -> ShapedOf ranked r sh
+  :: forall target sh s r.
+     (ADReady target, Typeable r, AstSpan s)
+  => AstEnv target
+  -> AstTensor AstMethodLet s (TKS r sh) -> target (TKS r sh)
 interpretAstSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @ranked @s @(TKS Double sh) env t
+    Just Refl -> interpretAst @target @s @(TKS Double sh) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @ranked @s @(TKS Float sh) env t
+      Just Refl -> interpretAst @target @s @(TKS Float sh) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @ranked @s @(TKS Int64 sh) env t
+        Just Refl -> interpretAst @target @s @(TKS Int64 sh) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @ranked @s @(TKS CInt sh) env t
+          Just Refl -> interpretAst @target @s @(TKS CInt sh) env t
           _ -> error "an unexpected underlying scalar type"
 
 interpretAst
-  :: forall ranked s y. (ADReady ranked, AstSpan s)
-  => AstEnv ranked
-  -> AstTensor AstMethodLet s y -> Rep ranked y
+  :: forall target s y. (ADReady target, AstSpan s)
+  => AstEnv target
+  -> AstTensor AstMethodLet s y -> target y
 interpretAst !env = \case
-  AstScalar t -> unRepScalar $ interpretAst env t
-  AstUnScalar t -> RepScalar $ interpretAst env t
+  AstScalar t -> runRepScalar $ interpretAst env t
+  AstUnScalar t -> rmkRepScalar $ interpretAst env t
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
-    Just (AstEnvElemRep (RepN t)) ->
+    Just (AstEnvElemRep t) ->
       -- TODO: assert (rshape t == sh
       --         `blame` (sh, rshape t, var, t, env)) t
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
 -- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstPrimalPart a -> interpretAst env a
-    -- This is correct, because @s@ must be @PrimalSpan@ and so @ranked@ must
+    -- This is correct, because @s@ must be @PrimalSpan@ and so @target@ must
     -- be morally the primal part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a primal part, despite the appearances.
@@ -179,7 +179,7 @@ interpretAst !env = \case
     --
     -- For example, if I'm interpreting @AstRanked PrimalSpan@ in
     -- @AstRanked FullSpan@ (basically doing the forward pass
-    -- via interpretation), then @ranked@ is a primal part
+    -- via interpretation), then @target@ is a primal part
     -- of @ADVal (AstRanked FullSpan)@, even though @ADVal@ never appears
     -- and @a@ could even be returned as is (but @AstPrimalPart@ never occurs
     -- in terms created by AD, I think, so no point optimizing). What happens
@@ -193,7 +193,7 @@ interpretAst !env = \case
     -- If we had an @AstRanked@ variant without the dual number constructors,
     -- instead of the spans, the mixup would vanish.
   AstDualPart a -> interpretAst env a
-    -- This is correct, because @s@ must be @DualSpan@ and so @ranked@ must
+    -- This is correct, because @s@ must be @DualSpan@ and so @target@ must
     -- be morally the dual part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
@@ -233,7 +233,7 @@ interpretAst !env = \case
   AstBuild1 snat@(SNat @n) (_, v)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
       let emptyFromStk :: TensorKindFull z
-                       -> Rep ranked (BuildTensorKind n z)
+                       -> target (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
             FTKScalar -> rfromList0N (0 :$: ZSR) []
             FTKR sh | SNat <- shrRank sh -> rfromList0N (0 :$: sh) []
@@ -245,8 +245,7 @@ interpretAst !env = \case
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
                 tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
-            FTKUntyped ssh -> HVectorPseudoTensor
-                              $ mkreplicate1HVector (SNat @0)
+            FTKUntyped ssh -> dmkHVector $ replicate1HVector @target (SNat @0)
                               $ V.map dynamicFromVoid ssh
       in emptyFromStk (shapeAstFull v)
   -- The following can't be, in general, so partially evaluated, because v
@@ -262,10 +261,10 @@ interpretAst !env = \case
     let f i = interpretAst (extendEnvI var i env) v
         replStk :: forall z.
                    STensorKindType z
-                -> (IntOf ranked -> Rep ranked z)
-                -> Rep ranked (BuildTensorKind n z)
+                -> (IntOf target -> target z)
+                -> target (BuildTensorKind n z)
         replStk stk g = case stk of
-          STKScalar _ -> rbuild1 (sNatValue snat) (unRepScalar . g)
+          STKScalar _ -> rbuild1 (sNatValue snat) (runRepScalar . g)
           STKR STKScalar{} SNat -> rbuild1 (sNatValue snat) g
           STKS STKScalar{} sh -> withKnownShS sh $ sbuild1 g
           STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
@@ -279,8 +278,7 @@ interpretAst !env = \case
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
               in tpair (replStk stk1 f1) (replStk stk2 f2)
-          STKUntyped ->
-            HVectorPseudoTensor $ dbuild1 snat (unHVectorPseudoTensor . g)
+          STKUntyped -> dbuild1 @target snat g
           _ -> error "TODO"
     in replStk (stensorKind @y2) f
   AstLet @y2 var u v -> case stensorKind @y2 of
@@ -545,55 +543,55 @@ interpretAst !env = \case
     rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
   AstProjectR l p ->
-    let lt = unHVectorPseudoTensor $ interpretAst env l
-    in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
-         (\lw -> rfromD $ dunHVector (unHVectorPseudoTensor lw) V.! p)
+    let lt = interpretAst env l
+    in tlet @_ @TKUntyped lt
+         (\lw -> rfromD $ dunHVector lw V.! p)
            -- This is awkward, but we don't need rproject nor sproject.
            -- Most likely, the term gets simplified before interpretation anyway.
   AstLetHVectorIn @_ @_ @z2 vars l v -> case stensorKind @z2 of
     STKScalar _ ->
-      let lt = unHVectorPseudoTensor $ interpretAst env l
+      let lt = interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
                                     , shapeAstFull l
-                                    , shapeVoidHVector (dshape lt) )) $
+                                    , shapeVoidHVector (dshape @target lt) )) $
                    extendEnvHVector vars lw env
-      in RepScalar
-         $ tlet @_ @TKUntyped (HVectorPseudoTensor lt)
-             (\lw -> unRepScalar $ interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
+      in rmkRepScalar
+         $ tlet @_ @TKUntyped lt
+             (\lw -> runRepScalar $ interpretAst (env2 (dunHVector lw)) v)
     STKR STKScalar{} SNat ->
-      let lt = unHVectorPseudoTensor $ interpretAst env l
+      let lt = interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
                                     , shapeAstFull l
-                                    , shapeVoidHVector (dshape lt) )) $
+                                    , shapeVoidHVector (dshape @target lt) )) $
                    extendEnvHVector vars lw env
-      in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
-           (\lw -> interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
+      in tlet @_ @TKUntyped lt
+           (\lw -> interpretAst (env2 (dunHVector lw)) v)
     STKS STKScalar{} sh -> withKnownShS sh $
-      let lt = unHVectorPseudoTensor $ interpretAst env l
+      let lt = interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
                                     , shapeAstFull l
-                                    , shapeVoidHVector (dshape lt) )) $
+                                    , shapeVoidHVector (dshape @target lt) )) $
                     extendEnvHVector vars lw env
-      in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
-           (\lw -> interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
+      in tlet @_ @TKUntyped lt
+           (\lw -> interpretAst (env2 (dunHVector lw)) v)
     STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUntyped ->
-      let lt = unHVectorPseudoTensor $ interpretAst env l
+      let lt = interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
                                     , shapeAstFull l
-                                    , shapeVoidHVector (dshape lt) )) $
+                                    , shapeVoidHVector (dshape @target lt) )) $
                     extendEnvHVector vars lw env
-      in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
-           (\lw -> interpretAst (env2 (dunHVector (unHVectorPseudoTensor lw))) v)
+      in tlet @_ @TKUntyped lt
+           (\lw -> interpretAst (env2 (dunHVector lw)) v)
     _ -> error "TODO"
   AstRFromS v -> rfromS $ interpretAst env v
 
@@ -651,7 +649,7 @@ interpretAst !env = \case
   AstIndexS @sh1 @_ @_ @r v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
-    in sindex @(ShapedOf ranked) @r @sh1 v2 ix3
+    in sindex @target @r @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
@@ -779,7 +777,7 @@ interpretAst !env = \case
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Drop p sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
-    $ sbuild @(ShapedOf ranked) @r @(Rank sh2)
+    $ sbuild @target @r @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
                 (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR i))
@@ -802,9 +800,9 @@ interpretAst !env = \case
     sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
   AstConstS a -> sconst a
   AstProjectS l p ->
-    let lt = unHVectorPseudoTensor $ interpretAst env l
-    in tlet @_ @TKUntyped (HVectorPseudoTensor lt)
-         (\lw -> sfromD $ dunHVector (unHVectorPseudoTensor lw) V.! p)
+    let lt = interpretAst env l
+    in tlet @_ @TKUntyped lt
+         (\lw -> sfromD $ dunHVector lw V.! p)
   AstSFromR v -> sfromR $ interpretAst env v
 
   AstMinIndexX _v -> error "TODO"
@@ -836,7 +834,7 @@ interpretAst !env = \case
   AstIndexX @sh1 @_ @_ @r v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
-    in xindex @ranked @r @sh1 v2 ix3
+    in xindex @target @r @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
@@ -860,8 +858,7 @@ interpretAst !env = \case
   AstProjectX _l _p -> error "TODO"
   AstXFromR _v ->  error "TODO"
 
-  AstMkHVector l -> HVectorPseudoTensor
-                    $ dmkHVector $ interpretAstDynamic env <$> l
+  AstMkHVector l -> dmkHVector $ interpretAstDynamic env <$> l
   AstHApply t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
@@ -873,8 +870,7 @@ interpretAst !env = \case
           -- getting interpreted
     in dHApply t2 ll2
   AstBuildHVector1 k (var, v) ->
-    HVectorPseudoTensor
-       $ dbuild1 k (interpretLambdaIHVector interpretAst env (var, v))
+    dbuild1 @target k (interpretLambdaIHVector (\env2 t2 -> interpretAst env2 t2) env (var, v))
   AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
     | Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
@@ -884,7 +880,7 @@ interpretAst !env = \case
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in dmapAccumRDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
+    in dmapAccumRDer (Proxy @target) k accShs bShs eShs f df rf acc02 es2
   AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
     | Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
@@ -894,33 +890,33 @@ interpretAst !env = \case
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in dmapAccumLDer (Proxy @ranked) k accShs bShs eShs f df rf acc02 es2
+    in dmapAccumLDer (Proxy @target) k accShs bShs eShs f df rf acc02 es2
 
 interpretAstDynamic
-  :: forall ranked s. (ADReady ranked, AstSpan s)
-  => AstEnv ranked
-  -> AstDynamic AstMethodLet s -> DynamicTensor ranked
+  :: forall target s. (ADReady target, AstSpan s)
+  => AstEnv target
+  -> AstDynamic AstMethodLet s -> DynamicTensor target
 {-# INLINE interpretAstDynamic #-}
 interpretAstDynamic !env = \case
-  DynamicRanked (AstGeneric w) ->
+  DynamicRanked w ->
     DynamicRanked $ interpretAstRuntimeSpecialized env w
-  DynamicShaped (AstGenericS w) ->
+  DynamicShaped w ->
     DynamicShaped $ interpretAstSRuntimeSpecialized env w
   DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
   DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 interpretAstHFun
-  :: forall ranked x y. (TensorKind x, TensorKind y)
-  => ProductTensor ranked
-  => AstEnv ranked -> AstHFun x y -> HFunOf ranked x y
+  :: forall target x y. (TensorKind x, TensorKind y)
+  => BaseTensor target
+  => AstEnv target -> AstHFun x y -> HFunOf target x y
 interpretAstHFun _env = \case
   AstLambda ~(var, ftk, l) ->
-    dlambda @ranked ftk $ interpretLambdaHsH interpretAst (var, l)
+    dlambda @target ftk $ interpretLambdaHsH interpretAst (var, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
 
-interpretAstBool :: ADReady ranked
-                 => AstEnv ranked -> AstBool AstMethodLet -> BoolOf ranked
+interpretAstBool :: ADReady target
+                 => AstEnv target -> AstBool AstMethodLet -> BoolOf target
 interpretAstBool !env = \case
   AstBoolNot arg -> notB $ interpretAstBool env arg
   AstB2 opCodeBool arg1 arg2 ->

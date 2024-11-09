@@ -22,7 +22,7 @@ import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.TensorAst
-import HordeAd.Internal.BackendOX (ORArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import CrossTesting
@@ -81,8 +81,8 @@ testTrees =
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
 conv2d
-  :: (ADReady ranked, GoodScalar r)
-  => ranked r 4 -> ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r)
+  => target (TKR r 4) -> target (TKR r 4) -> target (TKR r 4)
 conv2d arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
@@ -101,27 +101,27 @@ conv2d arrK arrA =
 --
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
-slicezF :: forall ranked n r. (ADReady ranked, GoodScalar r, KnownNat n)
-        => IShR n -> ranked r n -> IndexOf ranked n -> ranked r n
+slicezF :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
+        => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
 slicezF shOut d ixBase =
   rbuild shOut $ \ixResult ->
-    rindex @ranked @r @n @0 d (zipWith_Index (+) ixBase ixResult)
+    rindex @target @r @n @0 d (zipWith_Index (+) ixBase ixResult)
       -- rindex0 would not require a single type application here
 
 conv2d1
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2d1 = conv2d $ rconst $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dA
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2dA = conv2d $ rconst $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dB
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
-conv2dB = conv2d $ rconst $ runFlipR t16b
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
+conv2dB = conv2d $ rconst $ runFlipR $ unRepN t16b
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
@@ -133,27 +133,27 @@ testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [-0.2])
-    (rev' @Double @4 conv2d1 (FlipR $ Nested.rtoOrthotope $ runFlipR $ rzero [1, 1, 1, 1]))
+    (rev' @Double @4 conv2d1 (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rzero [1, 1, 1, 1]))
 
 testKonstG0TinyS :: Assertion
 testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2d $ rconst $ runFlipR $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
+          (conv2d $ rconst $ runFlipR $ unRepN $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
           (FlipR $ OR.fromList [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
 testKonstG0TinyA =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 2, 1, 1] [-0.2,25.0003])
-    (rev' @Double @4 conv2dA (FlipR $ Nested.rtoOrthotope $ runFlipR $ rzero [1, 2, 1, 1]))
+    (rev' @Double @4 conv2dA (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rzero [1, 2, 1, 1]))
 
 testKonstG0LittleA :: Assertion
 testKonstG0LittleA =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])
-    (rev' @Double @4 conv2dA (FlipR $ Nested.rtoOrthotope $ runFlipR $ rzero [2, 2, 2, 2]))
+    (rev' @Double @4 conv2dA (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rzero [2, 2, 2, 2]))
 
 
 -- * A laborious version
@@ -164,44 +164,44 @@ testKonstG0LittleA =
 -- the same.
 
 conv2d1Laborious
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2d1Laborious = conv2dUnpadded $ rconst $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dALaborious
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2dALaborious =
   conv2dUnpadded $ rconst $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBLaborious
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
-conv2dBLaborious = conv2dUnpadded $ rconst $ runFlipR t16b
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
+conv2dBLaborious = conv2dUnpadded $ rconst $ runFlipR $ unRepN t16b
 
 conv2dCLaborious
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
-conv2dCLaborious = flip conv2dUnpadded $ rconst $ runFlipR t16b
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
+conv2dCLaborious = flip conv2dUnpadded $ rconst $ runFlipR $ unRepN t16b
 
 conv2dBLaborious128b
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2dBLaborious128b = conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128b
 
 conv2dCLaborious128b
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2dCLaborious128b = flip conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128b
 
 conv2dBLaborious128c
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2dBLaborious128c = conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128c
 
 conv2dCLaborious128c
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4 -> ranked r 4
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4) -> target (TKR r 4)
 conv2dCLaborious128c = flip conv2dUnpadded $ rconst $ Nested.rfromOrthotope SNat $ runFlipR t128c
 
 testReplicate0RevLaborious :: Assertion
@@ -214,27 +214,27 @@ testReplicate0Tiny1Laborious :: Assertion
 testReplicate0Tiny1Laborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [-0.2])
-    (rev' @Double @4 conv2d1Laborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ rzero [1, 1, 1, 1]))
+    (rev' @Double @4 conv2d1Laborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rzero [1, 1, 1, 1]))
 
 testReplicate0TinySLaborious :: Assertion
 testReplicate0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dUnpadded $ rconst $ runFlipR $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
+          (conv2dUnpadded $ rconst $ runFlipR $ unRepN $ rreplicate0N [1, 1, 1, 1] (rsum0 t16b))
           (FlipR $ OR.fromList [1, 1, 1, 1] [0]))
 
 testReplicate0TinyALaborious :: Assertion
 testReplicate0TinyALaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 2, 1, 1] [-0.2,25.0003])
-    (rev' @Double @4 conv2dALaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ rzero [1, 2, 1, 1]))
+    (rev' @Double @4 conv2dALaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rzero [1, 2, 1, 1]))
 
 testReplicate0LittleALaborious :: Assertion
 testReplicate0LittleALaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])
-    (rev' @Double @4 conv2dALaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ rzero [2, 2, 2, 2]))
+    (rev' @Double @4 conv2dALaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rzero [2, 2, 2, 2]))
 
 -- with data t16
 
@@ -242,19 +242,19 @@ testKonst5LittleBLaborious :: Assertion
 testKonst5LittleBLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev' @Double @4 conv2dBLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dBLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [2, 2, 2, 2] 5))
 
 testKonst5LittleCLaborious :: Assertion
 testKonst5LittleCLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8,40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8])
-    (rev' @Double @4 conv2dCLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dCLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [2, 2, 2, 2] 5))
 
 testKonst5BigBLaborious :: Assertion
 testKonst5BigBLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001])
-    (rev' @Double @4 conv2dBLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dBLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -263,13 +263,13 @@ testKonstNotBigBLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001])
     (rev' @Double @4 conv2dBLaborious
-          (FlipR $ Nested.rtoOrthotope $ runFlipR $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
+          (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 testKonst5BigCLaborious :: Assertion
 testKonst5BigCLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0])
-    (rev' @Double @4 conv2dCLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dCLaborious (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -278,7 +278,7 @@ testKonstNotBigCLaborious =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0])
     (rev' @Double @4 conv2dCLaborious
-          (FlipR $ Nested.rtoOrthotope $ runFlipR $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
+          (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 -- with data t128b
 
@@ -286,19 +286,19 @@ testKonst5LittleBLaborious128b :: Assertion
 testKonst5LittleBLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [112.3003,251.5006,209.49462,482.69492000000014,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,112.3003,251.5006,209.49462,482.69492000000014,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004])
-    (rev' @Double @4 conv2dBLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [2, 2, 2, 2] 5))
 
 testKonst5LittleCLaborious128b :: Assertion
 testKonst5LittleCLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987])
-    (rev' @Double @4 conv2dCLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [2, 2, 2, 2] 5))
 
 testKonst5BigBLaborious128b :: Assertion
 testKonst5BigBLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993])
-    (rev' @Double @4 conv2dBLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -307,13 +307,13 @@ testKonstNotBigBLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993,112.3003,251.5006,209.49462,482.69492000000014,229.49462000000003,610.5892400000002,56.58894000000004,580.6778800001001,3.000000000000032,65.90000000000003,164.10000000000002,365.89432000010004,667.2003000000001,1060.8778800002,893.3003,1465.6665200003993])
     (rev' @Double @4 conv2dBLaborious128b
-          (FlipR $ Nested.rtoOrthotope $ runFlipR $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
+          (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 testKonst5BigCLaborious128b :: Assertion
 testKonst5BigCLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001])
-    (rev' @Double @4 conv2dCLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128b (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -322,7 +322,7 @@ testKonstNotBigCLaborious128b =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001])
     (rev' @Double @4 conv2dCLaborious128b
-          (FlipR $ Nested.rtoOrthotope $ runFlipR $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
+          (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 -- with data t128c
 
@@ -330,19 +330,19 @@ testKonst5LittleBLaborious128c :: Assertion
 testKonst5LittleBLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [54.100300000000004,111.20060000000001,119.09462,270.29492000000005,58.2,140.3,90.4,212.4,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,58.2,140.3,90.4,212.4])
-    (rev' @Double @4 conv2dBLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [2, 2, 2, 2] 5))
 
 testKonst5LittleCLaborious128c :: Assertion
 testKonst5LittleCLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [2, 2, 2, 2] [2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992])
-    (rev' @Double @4 conv2dCLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [2, 2, 2, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [2, 2, 2, 2] 5))
 
 testKonst5BigBLaborious128c :: Assertion
 testKonst5BigBLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005])
-    (rev' @Double @4 conv2dBLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dBLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -351,13 +351,13 @@ testKonstNotBigBLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005,54.100300000000004,111.20060000000001,119.09462,270.29492000000005,109.09462000000002,318.19492,174.08894000000004,477.28924000000006,58.2,140.3,90.4,212.4,120.4,292.39432000000005,-117.5,103.38864000010005])
     (rev' @Double @4 conv2dBLaborious128c
-          (FlipR $ Nested.rtoOrthotope $ runFlipR $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
+          (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 testKonst5BigCLaborious128c :: Assertion
 testKonst5BigCLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002])
-    (rev' @Double @4 conv2dCLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ rreplicate0N [3, 2, 4, 2] 5))
+    (rev' @Double @4 conv2dCLaborious128c (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rreplicate0N [3, 2, 4, 2] 5))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
@@ -366,7 +366,7 @@ testKonstNotBigCLaborious128c =
   assertEqualUpToEpsilon' 1e-8
     (OR.fromList [3, 2, 4, 2] [2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002,2640.8154000007976,1836.3264600007988,2412.414800000798,1662.026160000799,2121.6375200006987,1436.2432000006995,1953.5375200006988,1258.1432000006998,1712.044990000598,1566.644690000599,1445.5506800005985,1358.3503800005992,1279.150680000599,1224.1503800005996,987.1677200004992,962.1674200005002])
     (rev' @Double @4 conv2dCLaborious128c
-          (FlipR $ Nested.rtoOrthotope $ runFlipR $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
+          (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 -- with data t128b and t128c
 
@@ -446,8 +446,8 @@ testKonstNotBigCLaborious128cb =
 --    Section III b).
 --
 costVolume
-  :: forall r ranked. (ADReady ranked, GoodScalar r)
-  => Int -> Int -> ranked r 4 -> ranked r 4 -> ranked r 4
+  :: forall r target. (ADReady target, GoodScalar r)
+  => Int -> Int -> target (TKR r 4) -> target (TKR r 4) -> target (TKR r 4)
 costVolume iStart nCount arrL arrR =
   let [nImgs, nChas, nRows, nCols] = rshape arrL
       shO = [nImgs, nCount, nRows, nCols]
@@ -461,9 +461,9 @@ costVolume iStart nCount arrL arrR =
 
 test_disparityKonst :: Assertion
 test_disparityKonst = do
-  let arrL :: ADReady ranked => ranked Double 4
+  let arrL :: ADReady target => target (TKR Double 4)
       arrL = rreplicate0N [1, 2, 4, 6] (rscalar (-0.2))
-      arrR :: ADReady ranked => ranked Double 4
+      arrR :: ADReady target => target (TKR Double 4)
       arrR = rreplicate0N [1, 2, 4, 6] (rscalar 0.3)
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO
@@ -479,27 +479,27 @@ test_disparityKonst = do
    arrDR
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
-    (rev' @Double @4 (costVolume 0 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrR))
+    (rev' @Double @4 (costVolume 0 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ arrR))
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,4,6] [-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0])
-    (rev' @Double @4 (\aL -> costVolume 0 2 aL arrR) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrL))
+    (rev' @Double @4 (\aL -> costVolume 0 2 aL arrR) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ arrL))
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,4,6] [2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0])
-    (rev' @Double @4 (costVolume 0 2 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrR))
+    (rev' @Double @4 (costVolume 0 2 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ arrR))
 
 test_disparityKonst2 :: Assertion
 test_disparityKonst2 = do
-  let arrL :: (RankedTensor ranked, GoodScalar r, Differentiable r) => ranked r 4
+  let arrL :: (BaseTensor target, GoodScalar r, Differentiable r) => target (TKR r 4)
       arrL = ringestData [1, 2, 4, 6] [0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0, 1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263]
-      arrR :: (RankedTensor ranked, GoodScalar r, Differentiable r) => ranked r 4
+      arrR :: (BaseTensor target, GoodScalar r, Differentiable r) => target (TKR r 4)
       arrR = ringestData [1, 2, 4, 6] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40, -0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25, -2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,0.6964466094067263,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,0.50001,0.42000000000000004,0.2801,0.78,1.1,0.50001,0.42000000000000004,0.2801,0.78]
       arrO = OR.constant [1, 4, 4, 6] (1 :: Double)
       res1 = OR.fromList [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
       res2 = OR.fromList [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
-      arrDL :: ORArray Double 4
-      arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL (FlipR $ Nested.rfromOrthotope SNat arrO)
-      arrDR :: ORArray Double 4
-      arrDR = revDt (costVolume 0 4 (rconstant arrL)) arrR (FlipR $ Nested.rfromOrthotope SNat arrO)
+      arrDL :: RepN (TKR Double 4)
+      arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL (RepN $ FlipR $ Nested.rfromOrthotope SNat arrO)
+      arrDR :: RepN (TKR Double 4)
+      arrDR = revDt (costVolume 0 4 (rconstant arrL)) arrR (RepN $ FlipR $ Nested.rfromOrthotope SNat arrO)
   assertEqualUpToEpsilon1 1e-7
     res1
     arrDL
@@ -508,16 +508,16 @@ test_disparityKonst2 = do
     arrDR
   assertEqualUpToEpsilon' 1e-7
     res1
-    (rev' @Double @4 (\aL -> costVolume 0 4 aL (rconstant arrR)) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrL))
+    (rev' @Double @4 (\aL -> costVolume 0 4 aL (rconstant arrR)) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ arrL))
   assertEqualUpToEpsilon' 1e-7
     res2
-    (rev' @Double @4 (costVolume 0 4 (rconstant arrL)) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrR))
+    (rev' @Double @4 (costVolume 0 4 (rconstant arrL)) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ arrR))
 
 test_disparitySmall :: Assertion
 test_disparitySmall = do
-  let arrL :: ADReady ranked => ranked Double 4
+  let arrL :: ADReady target => target (TKR Double 4)
       arrL = ringestData [1, 2, 3, 2] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
-      arrR :: ADReady ranked => ranked Double 4
+      arrR :: ADReady target => target (TKR Double 4)
       arrR = ringestData [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (rconstant arrR)) arrL arrO
@@ -527,7 +527,7 @@ test_disparitySmall = do
     arrO
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-2.0,-1.0,-2.0,-1.0,-2.0,-1.0,2.0,1.0,-2.0,1.0,2.0,1.0])
-    (rev' @Double @4 (costVolume 0 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ arrR))
+    (rev' @Double @4 (costVolume 0 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN $ arrR))
   assertEqualUpToEpsilon1 1e-7
     (OR.fromList [1,2,3,2] [5.004124145231932,3.3241241452319317,-1.0464466094067264,1.7006200572599404,3.0731698975466575,4.5496165069533845,-5.004124145231932,-1.3240841452319316,-1.0464466094067264,-0.9933132760733929,-3.0731698975466575,-4.5496165069533845])
     arrDL
@@ -536,13 +536,13 @@ test_disparitySmall = do
    arrDR
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])
-    (rev' @Double @4 (costVolume 1 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR arrR))
+    (rev' @Double @4 (costVolume 1 4 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN arrR))
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [2.0,2.0,-2.0,2.0,2.0,2.0,-2.0,2.0,-2.0,-2.0,-2.0,-2.0])
-    (rev' @Double @4 (\aL -> costVolume 2 2 aL arrR) (FlipR $ Nested.rtoOrthotope $ runFlipR arrL))
+    (rev' @Double @4 (\aL -> costVolume 2 2 aL arrR) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN arrL))
   assertEqualUpToEpsilon' 1e-7
     (OR.fromList [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])
-    (rev' @Double @4 (costVolume 1 2 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR arrR))
+    (rev' @Double @4 (costVolume 1 2 arrL) (FlipR $ Nested.rtoOrthotope $ runFlipR $ unRepN arrR))
 
 
 -- * PP Tests
@@ -551,9 +551,9 @@ test_disparitySmall = do
 testConv2dUnpaddedPP :: Assertion
 testConv2dUnpaddedPP = do
   resetVarCounter
-  let f :: HVector (AstGeneric AstMethodLet FullSpan) -> AstRanked FullSpan Double 4
+  let f :: HVector (AstGeneric AstMethodLet FullSpan) -> AAstTensor AstMethodLet FullSpan (TKR Double 4)
       f v = conv2dUnpadded (rfromD $ rankedHVector v V.! 0) (rfromD $ rankedHVector v V.! 1)
-      g :: Double -> ORArray Double 4
+      g :: Double -> RepN (TKR Double 4)
       g x = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2,2,2,2] $ replicate 16 x
       (artifactRev, _) =
         revArtifactAdapt
@@ -568,10 +568,10 @@ testConv2dUnpaddedPP = do
 testConv2dUnpadded2PP :: Assertion
 testConv2dUnpadded2PP = do
   resetVarCounter
-  let f :: Rep (AstRanked FullSpan) TKUntyped
-        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-      f hv = let v = dunHVector $ unHVectorPseudoTensor hv
-             in HVectorPseudoTensor $ dmkHVector
+  let f :: AstTensor AstMethodLet FullSpan TKUntyped
+        -> AstTensor AstMethodLet FullSpan TKUntyped
+      f hv = let v = dunHVector hv
+             in dmkHVector
                 $ V.singleton $ DynamicRanked @Double @4
                 $ conv2dUnpadded (rfromD $ v V.! 0) (rfromD $ v V.! 1)
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
@@ -586,10 +586,10 @@ testConv2dUnpadded2PP = do
 testConv2dUnpadded3PP :: Assertion
 testConv2dUnpadded3PP = do
   resetVarCounter
-  let f :: Rep (AstRanked FullSpan) TKUntyped
-        -> HVectorPseudoTensor (AstRanked FullSpan) Float '()
-      f hv = let v = dunHVector $ unHVectorPseudoTensor hv
-             in HVectorPseudoTensor $ dmkHVector
+  let f :: AstTensor AstMethodLet FullSpan TKUntyped
+        -> AstTensor AstMethodLet FullSpan TKUntyped
+      f hv = let v = dunHVector hv
+             in dmkHVector
                 $ V.singleton $ DynamicRanked @Double @4
                 $ conv2d (rfromD $ v V.! 0) (rfromD $ v V.! 1)
       shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)

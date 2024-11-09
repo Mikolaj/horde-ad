@@ -4,7 +4,6 @@
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
     simplifyArtifact, simplifyArtifactGradient
-  , simplifyInlineAst
   , simplifyInline
     -- * The translates global sharing to normal lets
   , unshareAstTensor
@@ -49,20 +48,13 @@ simplifyArtifactGradient art | Dict <- lemTensorKindOfAD (stensorKind @x) =
   art { artDerivativeRev =
         simplifyInline $ artDerivativeRev art }
 
-simplifyInlineAst
-  :: forall r n s. (KnownNat n, GoodScalar r, AstSpan s)
-  => AstRanked s r n -> AstRanked s r n
-simplifyInlineAst = AstRanked . simplifyInline . unAstRanked
-{-# SPECIALIZE simplifyInlineAst
-  :: (KnownNat n, AstSpan s)
-  => AstRanked s Double n -> AstRanked s Double n #-}
-
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInline
-  :: (AstSpan s, TensorKind z) => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
+  :: forall z s.(AstSpan s, TensorKind z)
+  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
   snd . inlineAst EM.empty
   . simplifyAst . expandAst
@@ -372,10 +364,10 @@ inlineAstDynamic
   => AstMemo -> AstDynamic AstMethodLet s
   -> (AstMemo, AstDynamic AstMethodLet s)
 inlineAstDynamic memo = \case
-  DynamicRanked (AstGeneric w) ->
-    second (DynamicRanked . AstGeneric) $ inlineAst memo w
-  DynamicShaped (AstGenericS w) ->
-    second (DynamicShaped . AstGenericS) $ inlineAst memo w
+  DynamicRanked w ->
+    second DynamicRanked $ inlineAst memo w
+  DynamicShaped w ->
+    second DynamicShaped $ inlineAst memo w
   u@DynamicRankedDummy{} -> (memo, u)
   u@DynamicShapedDummy{} -> (memo, u)
 
@@ -703,10 +695,10 @@ unshareAstDynamic
   => AstBindings -> AstDynamic AstMethodShare s
   -> (AstBindings, AstDynamic AstMethodLet s)
 unshareAstDynamic memo = \case
-  DynamicRanked (AstGeneric w) ->
-    second (DynamicRanked . AstGeneric) $ unshareAst memo w
-  DynamicShaped (AstGenericS w) ->
-    second (DynamicShaped . AstGenericS) $ unshareAst memo w
+  DynamicRanked w ->
+    second DynamicRanked $ unshareAst memo w
+  DynamicShaped w ->
+    second DynamicShaped $ unshareAst memo w
   DynamicRankedDummy p1 p2 -> (memo, DynamicRankedDummy p1 p2)
   DynamicShapedDummy p1 p2 -> (memo, DynamicShapedDummy p1 p2)
 

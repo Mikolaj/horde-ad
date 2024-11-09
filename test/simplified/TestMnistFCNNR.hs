@@ -28,7 +28,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.TensorAst
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
@@ -54,7 +54,7 @@ testTrees = [ tensorADValMnistTests
 -- which side-steps vectorization.
 mnistTestCase1VTA
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -64,7 +64,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
+          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
           $ V.map realToFrac
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
@@ -75,7 +75,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      emptyR = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
+      emptyR = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
@@ -87,7 +87,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> HVector ORArray -> r
+      ftest :: [MnistData r] -> HVector RepN -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
@@ -98,15 +98,15 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
+       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal ORArray)
-                   -> ADVal ranked r 0
+             let f :: MnistData r -> HVector (ADVal RepN)
+                   -> ADVal ranked (TKR r 0)
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
                      mnist (unAsHVector
-                            $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
+                            $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -116,7 +116,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector ORArray -> IO (HVector ORArray)
+       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -149,7 +149,7 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase1VTI
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -159,12 +159,12 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
+          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
           $ V.map realToFrac
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
           nParams1
-      emptyR = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
+      emptyR = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
       hVectorInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
@@ -182,7 +182,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> HVector ORArray -> r
+      ftest :: [MnistData r] -> HVector RepN -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
@@ -197,27 +197,27 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let ast :: AstRanked FullSpan r 0
+       let ast :: AstTensor AstMethodLet FullSpan (TKR r 0)
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
-                   widthHidden widthHidden2 (AstRanked astGlyph, AstRanked astLabel)
+                   widthHidden widthHidden2 (astGlyph, astLabel)
                    (unAsHVector
                     $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   (rankedY (stensorKind @TKUntyped) hVector2))
+                                   hVector2)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
+       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal ORArray)
-                   -> ADVal ranked r 0
+             let f :: MnistData r -> HVector (ADVal RepN)
+                   -> ADVal ranked (TKR r 0)
                  f (glyph, label) varInputs =
-                   let env = extendEnv var (HVectorPseudoTensor varInputs) emptyEnv
+                   let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist =
                          extendEnv varGlyph
                            (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
                          $ extendEnv varLabel
                              (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
-                   in interpretAst envMnist $ unAstRanked ast
+                   in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -227,7 +227,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector ORArray -> IO (HVector ORArray)
+       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -261,7 +261,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCase1VTO
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -271,12 +271,12 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
+          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
           $ V.map realToFrac
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
           nParams1
-      emptyR = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
+      emptyR = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
       hVectorInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
@@ -294,7 +294,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                         , show (length params1Init)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> HVector ORArray -> r
+      ftest :: [MnistData r] -> HVector RepN -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 valsInit widthHidden widthHidden2
   in testCase name $ do
        hPutStrLn stderr $
@@ -305,17 +305,17 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let dataInit = case testData of
              d : _ -> let (dglyph, dlabel) = d
-                      in ( FlipR $ Nested.rfromOrthotope SNat
+                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat
                            $ OR.fromVector [sizeMnistGlyphInt] dglyph
-                         , FlipR $ Nested.rfromOrthotope SNat
+                         , RepN $ FlipR $ Nested.rfromOrthotope SNat
                            $ OR.fromVector [sizeMnistLabelInt] dlabel )
              [] -> error "empty test data"
            f = \ (pars, (glyphR, labelR)) ->
              MnistFcnnRanked1.afcnnMnistLoss1TensorData
                widthHidden widthHidden2
                (glyphR, labelR) pars
-           g :: Rep (AstRanked FullSpan) TKUntyped
-             -> Rep (AstRanked FullSpan) TKUntyped
+           g :: AstTensor AstMethodLet FullSpan TKUntyped
+             -> AstTensor AstMethodLet FullSpan TKUntyped
            g !hv = toHVectorOf $ AsHVector $ f
                    $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) hv
            (artRaw, _) = revProduceArtifact False g emptyEnv
@@ -326,25 +326,25 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                                               , DynamicRanked @r @1
                                                 $ snd dataInit ])
            art = simplifyArtifactGradient artRaw
-           go :: [MnistData r] -> HVector ORArray -> HVector ORArray
+           go :: [MnistData r] -> HVector RepN -> HVector RepN
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
                           $ OR.fromVector [sizeMnistGlyphInt] glyph
                  labelD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
                           $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
-                   HVectorPseudoTensor
+                   dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   unHVectorPseudoTensor
+                   dunHVector
                    $ fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
+       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let res = go chunk hVector
                  trainScore = ftest chunk res
@@ -355,7 +355,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector ORArray -> IO (HVector ORArray)
+       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -391,7 +391,7 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 -- which side-steps vectorization.
 mnistTestCase2VTA
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -407,18 +407,18 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        OSArray widthHidden widthHidden2 r)
+                        RepN widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
+      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> HVector ORArray -> r
+      ftest :: [MnistData r] -> HVector RepN -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -429,13 +429,13 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
+       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal ORArray)
-                   -> ADVal ranked r 0
+             let f :: MnistData r -> HVector (ADVal RepN)
+                   -> ADVal ranked (TKR r 0)
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (HVectorPseudoTensor adinputs))
+                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -445,7 +445,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector ORArray -> IO (HVector ORArray)
+       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -478,7 +478,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase2VTI
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -496,16 +496,16 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                 forgetShape $ fst
                 $ randomVals
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                        OSArray widthHidden widthHidden2 r)
+                        RepN widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
-      hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
+      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> HVector ORArray -> r
+      ftest :: [MnistData r] -> HVector RepN -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
   in testCase name $ do
        hPutStrLn stderr $
@@ -520,27 +520,27 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let ast :: AstRanked FullSpan r 0
+       let ast :: AstTensor AstMethodLet FullSpan (TKR r 0)
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                   (AstRanked astGlyph, AstRanked astLabel)
+                   (astGlyph, astLabel)
                    (unAsHVector
                     $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   (rankedY (stensorKind @TKUntyped) hVector2))
+                                   hVector2)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
+       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal ORArray)
-                   -> ADVal ranked r 0
+             let f :: MnistData r -> HVector (ADVal RepN)
+                   -> ADVal ranked (TKR r 0)
                  f (glyph, label) varInputs =
-                   let env = extendEnv var (HVectorPseudoTensor varInputs) emptyEnv
+                   let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist =
                          extendEnv varGlyph
                            (rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
                          $ extendEnv varLabel
                              (rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
-                   in interpretAst envMnist $ unAstRanked ast
+                   in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -550,7 +550,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector ORArray -> IO (HVector ORArray)
+       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -586,7 +586,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCase2VTO
   :: forall ranked r.
-     ( ranked ~ ORArray, Differentiable r, GoodScalar r, Random r
+     ( ranked ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -601,7 +601,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
    Just (SomeNat @widthHidden2 _) ->
     let valsInitShaped
           :: MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-               OSArray widthHidden widthHidden2 r
+               RepN widthHidden widthHidden2 r
         valsInitShaped = fst $ randomVals 1 (mkStdGen 44)
         valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
         valsInit =
@@ -609,14 +609,14 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           -- but there is nowhere to get aInit from.
           --   parseHVector aInit hVectorInit
           forgetShape valsInitShaped
-        hVectorInit = unHVectorPseudoTensor $ toHVectorOf $ AsHVector valsInit
+        hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2
                           , show (V.length hVectorInit)
                           , show (sizeHVector hVectorInit)
                           , show gamma ]
-        ftest :: [MnistData r] -> HVector ORArray -> r
+        ftest :: [MnistData r] -> HVector RepN -> r
         ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
     in testCase name $ do
        hPutStrLn stderr $
@@ -627,9 +627,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let dataInit = case testData of
              d : _ -> let (dglyph, dlabel) = d
-                      in ( FlipR $ Nested.rfromOrthotope SNat
+                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat
                            $ OR.fromVector [sizeMnistGlyphInt] dglyph
-                         , FlipR $ Nested.rfromOrthotope SNat
+                         , RepN $ FlipR $ Nested.rfromOrthotope SNat
                            $ OR.fromVector [sizeMnistLabelInt] dlabel )
              [] -> error "empty test data"
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
@@ -637,25 +637,25 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                (glyphR, labelR) pars
            (artRaw, _) = revArtifactAdapt False f (AsHVector (valsInit, dataInit))
            art = simplifyArtifactGradient artRaw
-           go :: [MnistData r] -> HVector ORArray -> HVector ORArray
+           go :: [MnistData r] -> HVector RepN -> HVector RepN
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
                           $ OR.fromVector [sizeMnistGlyphInt] glyph
                  labelD = DynamicRanked @r @1
-                          $ FlipR $ Nested.rfromOrthotope SNat
+                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
                           $ OR.fromVector [sizeMnistLabelInt] label
                  parametersAndInput =
-                   HVectorPseudoTensor
+                   dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
                  gradientHVector =
-                   unHVectorPseudoTensor
+                   dunHVector
                    $ fst $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradient gamma parameters gradientHVector)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector ORArray -> (Int, [MnistData r]) -> IO (HVector ORArray)
+       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let res = go chunk hVector
                  trainScore = ftest chunk res
@@ -666,7 +666,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector ORArray -> IO (HVector ORArray)
+       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -706,14 +706,14 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
   , testCase "VT2OPPNonLin2" testVT2OPPNonLin2
   ]
 
-valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters ORArray Double
+valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters RepN Double
 valsInitVTOPP =
-  ( ( replicate 3 (FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [1, 2, 3])
-    , FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [1, 2, 3] )
-  , ( replicate 4 (FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [4] [1, 2, 3, 4])
-    , FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [4] [1, 2, 3, 4] )
-  , ( replicate 5 (FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [5] [1, 2, 3, 4, 5])
-    , FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [5] [1, 2, 3, 4, 5] ) )
+  ( ( replicate 3 (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [1, 2, 3])
+    , RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [1, 2, 3] )
+  , ( replicate 4 (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [4] [1, 2, 3, 4])
+    , RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [4] [1, 2, 3, 4] )
+  , ( replicate 5 (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [5] [1, 2, 3, 4, 5])
+    , RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [5] [1, 2, 3, 4, 5] ) )
 
 testVTOPP :: Assertion
 testVTOPP = do
@@ -721,19 +721,19 @@ testVTOPP = do
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
                      (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
-      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstRanked FullSpan)
+      afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan)
                                                          Double
-              -> AstRanked FullSpan Double 1
-      afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 $ AstRanked blackGlyph
+              -> AstTensor AstMethodLet FullSpan (TKR Double 1)
+      afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVTOPP
   printArtifactPretty renames artifactRev
-    @?= "\\v39 x1 -> let h4 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v5 = rproject h4 0 ; h6 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v7 = rproject h6 1 ; h8 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v9 = rproject h8 2 ; v10 = rfromVector (fromList [rsum (rreshape [3] (v5 * rreplicate 3 7.0)), rsum (rreshape [3] (v7 * rreplicate 3 7.0)), rsum (rreshape [3] (v9 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; h11 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v12 = rproject h11 0 ; v13 = rreshape [4] v10 ; h14 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v15 = rproject h14 1 ; v16 = rreshape [4] v10 ; h17 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v18 = rproject h17 2 ; v19 = rreshape [4] v10 ; h20 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v21 = rproject h20 3 ; v22 = rreshape [4] v10 ; v23 = rfromVector (fromList [rsum (rreshape [4] (v12 * v13)), rsum (rreshape [4] (v15 * v16)), rsum (rreshape [4] (v18 * v19)), rsum (rreshape [4] (v21 * v22))]) + tproject2 (tproject2 (tproject1 v1)) ; h24 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v25 = rproject h24 0 ; v26 = rreshape [5] v23 ; h27 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v28 = rproject h27 1 ; v29 = rreshape [5] v23 ; h30 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v31 = rproject h30 2 ; v32 = rreshape [5] v23 ; h33 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v34 = rproject h33 3 ; v35 = rreshape [5] v23 ; h36 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v37 = rproject h36 4 ; v38 = rreshape [5] v23 ; x40 = v39 ! [4] ; x41 = v39 ! [3] ; x42 = v39 ! [2] ; x43 = v39 ! [1] ; x44 = v39 ! [0] ; v45 = rreshape [4] (v25 * rreshape [5] (rreplicate 5 x44)) + rreshape [4] (v28 * rreshape [5] (rreplicate 5 x43)) + rreshape [4] (v31 * rreshape [5] (rreplicate 5 x42)) + rreshape [4] (v34 * rreshape [5] (rreplicate 5 x41)) + rreshape [4] (v37 * rreshape [5] (rreplicate 5 x40)) ; x46 = v45 ! [3] ; x47 = v45 ! [2] ; x48 = v45 ! [1] ; x49 = v45 ! [0] ; v50 = rreshape [3] (v12 * rreshape [4] (rreplicate 4 x49)) + rreshape [3] (v15 * rreshape [4] (rreplicate 4 x48)) + rreshape [3] (v18 * rreshape [4] (rreplicate 4 x47)) + rreshape [3] (v21 * rreshape [4] (rreplicate 4 x46)) ; x51 = v50 ! [2] ; x52 = v50 ! [1] ; x53 = v50 ! [0] in tpair (tpair (tpair ([rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x53), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x52), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x51)], v50), tpair ([v13 * rreshape [4] (rreplicate 4 x49), v16 * rreshape [4] (rreplicate 4 x48), v19 * rreshape [4] (rreplicate 4 x47), v22 * rreshape [4] (rreplicate 4 x46)], v45)), tpair ([v26 * rreshape [5] (rreplicate 5 x44), v29 * rreshape [5] (rreplicate 5 x43), v32 * rreshape [5] (rreplicate 5 x42), v35 * rreshape [5] (rreplicate 5 x41), v38 * rreshape [5] (rreplicate 5 x40)], v39))"
+    @?= "\\v15 x1 -> let v4 = rfromVector (fromList [rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v5 = rreshape [4] v4 ; v6 = rreshape [4] v4 ; v7 = rreshape [4] v4 ; v8 = rreshape [4] v4 ; v9 = rfromVector (fromList [rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v5)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v6)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v7)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v8))]) + tproject2 (tproject2 (tproject1 v1)) ; v10 = rreshape [5] v9 ; v11 = rreshape [5] v9 ; v12 = rreshape [5] v9 ; v13 = rreshape [5] v9 ; v14 = rreshape [5] v9 ; x16 = v15 ! [4] ; x17 = v15 ! [3] ; x18 = v15 ! [2] ; x19 = v15 ! [1] ; x20 = v15 ! [0] ; v21 = rreshape [4] (rproject (tproject1 (tproject2 v1)) 0 * rreshape [5] (rreplicate 5 x20)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 1 * rreshape [5] (rreplicate 5 x19)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 2 * rreshape [5] (rreplicate 5 x18)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 3 * rreshape [5] (rreplicate 5 x17)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 4 * rreshape [5] (rreplicate 5 x16)) ; x22 = v21 ! [3] ; x23 = v21 ! [2] ; x24 = v21 ! [1] ; x25 = v21 ! [0] ; v26 = rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * rreshape [4] (rreplicate 4 x25)) + rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * rreshape [4] (rreplicate 4 x24)) + rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * rreshape [4] (rreplicate 4 x23)) + rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * rreshape [4] (rreplicate 4 x22)) ; x27 = v26 ! [2] ; x28 = v26 ! [1] ; x29 = v26 ! [0] in tpair (tpair (tpair ([rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x29), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x28), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x27)], v26), tpair ([v5 * rreshape [4] (rreplicate 4 x25), v6 * rreshape [4] (rreplicate 4 x24), v7 * rreshape [4] (rreplicate 4 x23), v8 * rreshape [4] (rreplicate 4 x22)], v21)), tpair ([v10 * rreshape [5] (rreplicate 5 x20), v11 * rreshape [5] (rreplicate 5 x19), v12 * rreshape [5] (rreplicate 5 x18), v13 * rreshape [5] (rreplicate 5 x17), v14 * rreshape [5] (rreplicate 5 x16)], v15))"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\x1 -> let h4 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v5 = rproject h4 0 ; h6 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v7 = rproject h6 1 ; h8 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v9 = rproject h8 2 ; v10 = rfromVector (fromList [rsum (rreshape [3] (v5 * rreplicate 3 7.0)), rsum (rreshape [3] (v7 * rreplicate 3 7.0)), rsum (rreshape [3] (v9 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; h11 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v12 = rproject h11 0 ; v13 = rreshape [4] v10 ; h14 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v15 = rproject h14 1 ; v16 = rreshape [4] v10 ; h17 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v18 = rproject h17 2 ; v19 = rreshape [4] v10 ; h20 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v21 = rproject h20 3 ; v22 = rreshape [4] v10 ; v23 = rfromVector (fromList [rsum (rreshape [4] (v12 * v13)), rsum (rreshape [4] (v15 * v16)), rsum (rreshape [4] (v18 * v19)), rsum (rreshape [4] (v21 * v22))]) + tproject2 (tproject2 (tproject1 v1)) ; h24 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v25 = rproject h24 0 ; v26 = rreshape [5] v23 ; h27 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v28 = rproject h27 1 ; v29 = rreshape [5] v23 ; h30 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v31 = rproject h30 2 ; v32 = rreshape [5] v23 ; h33 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v34 = rproject h33 3 ; v35 = rreshape [5] v23 ; h36 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v37 = rproject h36 4 ; v38 = rreshape [5] v23 in rfromVector (fromList [rsum (rreshape [5] (v25 * v26)), rsum (rreshape [5] (v28 * v29)), rsum (rreshape [5] (v31 * v32)), rsum (rreshape [5] (v34 * v35)), rsum (rreshape [5] (v37 * v38))]) + tproject2 (tproject2 v1)"
+    @?= "\\x1 -> let v4 = rfromVector (fromList [rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v5 = rreshape [4] v4 ; v6 = rreshape [4] v4 ; v7 = rreshape [4] v4 ; v8 = rreshape [4] v4 ; v9 = rfromVector (fromList [rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v5)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v6)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v7)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v8))]) + tproject2 (tproject2 (tproject1 v1)) ; v10 = rreshape [5] v9 ; v11 = rreshape [5] v9 ; v12 = rreshape [5] v9 ; v13 = rreshape [5] v9 ; v14 = rreshape [5] v9 in rfromVector (fromList [rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 0 * v10)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 1 * v11)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 2 * v12)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 3 * v13)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 4 * v14))]) + tproject2 (tproject2 v1)"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v39 x1 -> let v10 = rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1)) ; v13 = rreshape [4] v10 ; v16 = rreshape [4] v10 ; v19 = rreshape [4] v10 ; v22 = rreshape [4] v10 ; v23 = rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v13), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v16), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v19), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v22)]) + tproject2 (tproject2 (tproject1 v1)) ; x40 = v39 ! [4] ; x41 = v39 ! [3] ; x42 = v39 ! [2] ; x43 = v39 ! [1] ; x44 = v39 ! [0] ; v45 = rgather [4] (rproject (tproject1 (tproject2 v1)) 0) (\\[i162] -> [remF i162 5]) * rreplicate 4 x44 + rgather [4] (rproject (tproject1 (tproject2 v1)) 1) (\\[i164] -> [remF i164 5]) * rreplicate 4 x43 + rgather [4] (rproject (tproject1 (tproject2 v1)) 2) (\\[i166] -> [remF i166 5]) * rreplicate 4 x42 + rgather [4] (rproject (tproject1 (tproject2 v1)) 3) (\\[i168] -> [remF i168 5]) * rreplicate 4 x41 + rgather [4] (rproject (tproject1 (tproject2 v1)) 4) (\\[i170] -> [remF i170 5]) * rreplicate 4 x40 ; x46 = v45 ! [3] ; x47 = v45 ! [2] ; x48 = v45 ! [1] ; x49 = v45 ! [0] ; v50 = rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 0) (\\[i154] -> [remF i154 4]) * rreplicate 3 x49 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 1) (\\[i156] -> [remF i156 4]) * rreplicate 3 x48 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 2) (\\[i158] -> [remF i158 4]) * rreplicate 3 x47 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 3) (\\[i160] -> [remF i160 4]) * rreplicate 3 x46 in tpair (tpair (tpair ([rreplicate 3 7.0 * rreplicate 3 (v50 ! [0]), rreplicate 3 7.0 * rreplicate 3 (v50 ! [1]), rreplicate 3 7.0 * rreplicate 3 (v50 ! [2])], v50), tpair ([v13 * rreplicate 4 x49, v16 * rreplicate 4 x48, v19 * rreplicate 4 x47, v22 * rreplicate 4 x46], v45)), tpair ([rreshape [5] v23 * rreplicate 5 x44, rreshape [5] v23 * rreplicate 5 x43, rreshape [5] v23 * rreplicate 5 x42, rreshape [5] v23 * rreplicate 5 x41, rreshape [5] v23 * rreplicate 5 x40], v39))"
+    @?= "\\v15 x1 -> let v4 = rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1)) ; v5 = rreshape [4] v4 ; v6 = rreshape [4] v4 ; v7 = rreshape [4] v4 ; v8 = rreshape [4] v4 ; v9 = rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v5), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v6), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v7), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v8)]) + tproject2 (tproject2 (tproject1 v1)) ; x16 = v15 ! [4] ; x17 = v15 ! [3] ; x18 = v15 ! [2] ; x19 = v15 ! [1] ; x20 = v15 ! [0] ; v21 = rgather [4] (rproject (tproject1 (tproject2 v1)) 0) (\\[i38] -> [remF i38 5]) * rreplicate 4 x20 + rgather [4] (rproject (tproject1 (tproject2 v1)) 1) (\\[i40] -> [remF i40 5]) * rreplicate 4 x19 + rgather [4] (rproject (tproject1 (tproject2 v1)) 2) (\\[i42] -> [remF i42 5]) * rreplicate 4 x18 + rgather [4] (rproject (tproject1 (tproject2 v1)) 3) (\\[i44] -> [remF i44 5]) * rreplicate 4 x17 + rgather [4] (rproject (tproject1 (tproject2 v1)) 4) (\\[i46] -> [remF i46 5]) * rreplicate 4 x16 ; x22 = v21 ! [3] ; x23 = v21 ! [2] ; x24 = v21 ! [1] ; x25 = v21 ! [0] ; v26 = rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 0) (\\[i30] -> [remF i30 4]) * rreplicate 3 x25 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 1) (\\[i32] -> [remF i32 4]) * rreplicate 3 x24 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 2) (\\[i34] -> [remF i34 4]) * rreplicate 3 x23 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 3) (\\[i36] -> [remF i36 4]) * rreplicate 3 x22 in tpair (tpair (tpair ([rreplicate 3 7.0 * rreplicate 3 (v26 ! [0]), rreplicate 3 7.0 * rreplicate 3 (v26 ! [1]), rreplicate 3 7.0 * rreplicate 3 (v26 ! [2])], v26), tpair ([v5 * rreplicate 4 x25, v6 * rreplicate 4 x24, v7 * rreplicate 4 x23, v8 * rreplicate 4 x22], v21)), tpair ([rreshape [5] v9 * rreplicate 5 x20, rreshape [5] v9 * rreplicate 5 x19, rreshape [5] v9 * rreplicate 5 x18, rreshape [5] v9 * rreplicate 5 x17, rreshape [5] v9 * rreplicate 5 x16], v15))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> let v10 = rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1)) ; v23 = rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * rreshape [4] v10), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * rreshape [4] v10), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * rreshape [4] v10), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * rreshape [4] v10)]) + tproject2 (tproject2 (tproject1 v1)) in rfromVector (fromList [rsum (rproject (tproject1 (tproject2 v1)) 0 * rreshape [5] v23), rsum (rproject (tproject1 (tproject2 v1)) 1 * rreshape [5] v23), rsum (rproject (tproject1 (tproject2 v1)) 2 * rreshape [5] v23), rsum (rproject (tproject1 (tproject2 v1)) 3 * rreshape [5] v23), rsum (rproject (tproject1 (tproject2 v1)) 4 * rreshape [5] v23)]) + tproject2 (tproject2 v1)"
+    @?= "\\x1 -> let v4 = rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1)) ; v9 = rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * rreshape [4] v4), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * rreshape [4] v4), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * rreshape [4] v4), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * rreshape [4] v4)]) + tproject2 (tproject2 (tproject1 v1)) in rfromVector (fromList [rsum (rproject (tproject1 (tproject2 v1)) 0 * rreshape [5] v9), rsum (rproject (tproject1 (tproject2 v1)) 1 * rreshape [5] v9), rsum (rproject (tproject1 (tproject2 v1)) 2 * rreshape [5] v9), rsum (rproject (tproject1 (tproject2 v1)) 3 * rreshape [5] v9), rsum (rproject (tproject1 (tproject2 v1)) 4 * rreshape [5] v9)]) + tproject2 (tproject2 v1)"
 
 testVTOPPNonLin :: Assertion
 testVTOPPNonLin = do
@@ -742,34 +742,34 @@ testVTOPPNonLin = do
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
                      (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                         (AstRanked FullSpan) Double
-                    -> AstRanked FullSpan Double 1
+                         (AstTensor AstMethodLet FullSpan) Double
+                    -> AstTensor AstMethodLet FullSpan (TKR Double 1)
       afcnn2TnonLin =
-        MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 $ AstRanked blackGlyph
+        MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
       (artifactRevnonLin, _) =
         revArtifactAdapt True afcnn2TnonLin valsInitVTOPP
   printArtifactPretty renames artifactRevnonLin
-    @?= "\\v57 x1 -> let h9 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v10 = rproject h9 0 ; h11 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v12 = rproject h11 1 ; h13 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v14 = rproject h13 2 ; v15 = rfromVector (fromList [rsum (rreshape [3] (v10 * rreplicate 3 7.0)), rsum (rreshape [3] (v12 * rreplicate 3 7.0)), rsum (rreshape [3] (v14 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v16 = exp (negate v15) ; v17 = rreplicate 3 1.0 + v16 ; v18 = recip v17 ; v19 = rreplicate 3 1.0 - v18 ; v20 = v18 * v19 ; h21 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v22 = rproject h21 0 ; v23 = rreshape [4] v18 ; h24 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v25 = rproject h24 1 ; v26 = rreshape [4] v18 ; h27 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v28 = rproject h27 2 ; v29 = rreshape [4] v18 ; h30 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v31 = rproject h30 3 ; v32 = rreshape [4] v18 ; v33 = rfromVector (fromList [rsum (rreshape [4] (v22 * v23)), rsum (rreshape [4] (v25 * v26)), rsum (rreshape [4] (v28 * v29)), rsum (rreshape [4] (v31 * v32))]) + tproject2 (tproject2 (tproject1 v1)) ; v34 = exp (negate v33) ; v35 = rreplicate 4 1.0 + v34 ; v36 = recip v35 ; v37 = rreplicate 4 1.0 - v36 ; v38 = v36 * v37 ; h39 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v40 = rproject h39 0 ; v41 = rreshape [5] v36 ; h42 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v43 = rproject h42 1 ; v44 = rreshape [5] v36 ; h45 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v46 = rproject h45 2 ; v47 = rreshape [5] v36 ; h48 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v49 = rproject h48 3 ; v50 = rreshape [5] v36 ; h51 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v52 = rproject h51 4 ; v53 = rreshape [5] v36 ; v54 = exp (rfromVector (fromList [rsum (rreshape [5] (v40 * v41)), rsum (rreshape [5] (v43 * v44)), rsum (rreshape [5] (v46 * v47)), rsum (rreshape [5] (v49 * v50)), rsum (rreshape [5] (v52 * v53))]) + tproject2 (tproject2 v1)) ; x55 = rsum v54 ; v56 = rreplicate 5 (recip x55) ; v58 = v54 * (rreplicate 5 (negate (recip (x55 * x55)) * rsum (v54 * v57)) + v56 * v57) ; x59 = v58 ! [4] ; x60 = v58 ! [3] ; x61 = v58 ! [2] ; x62 = v58 ! [1] ; x63 = v58 ! [0] ; v64 = v38 * (rreshape [4] (v40 * rreshape [5] (rreplicate 5 x63)) + rreshape [4] (v43 * rreshape [5] (rreplicate 5 x62)) + rreshape [4] (v46 * rreshape [5] (rreplicate 5 x61)) + rreshape [4] (v49 * rreshape [5] (rreplicate 5 x60)) + rreshape [4] (v52 * rreshape [5] (rreplicate 5 x59))) ; x65 = v64 ! [3] ; x66 = v64 ! [2] ; x67 = v64 ! [1] ; x68 = v64 ! [0] ; v69 = v20 * (rreshape [3] (v22 * rreshape [4] (rreplicate 4 x68)) + rreshape [3] (v25 * rreshape [4] (rreplicate 4 x67)) + rreshape [3] (v28 * rreshape [4] (rreplicate 4 x66)) + rreshape [3] (v31 * rreshape [4] (rreplicate 4 x65))) ; x70 = v69 ! [2] ; x71 = v69 ! [1] ; x72 = v69 ! [0] in tpair (tpair (tpair ([rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x72), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x71), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x70)], v69), tpair ([v23 * rreshape [4] (rreplicate 4 x68), v26 * rreshape [4] (rreplicate 4 x67), v29 * rreshape [4] (rreplicate 4 x66), v32 * rreshape [4] (rreplicate 4 x65)], v64)), tpair ([v41 * rreshape [5] (rreplicate 5 x63), v44 * rreshape [5] (rreplicate 5 x62), v47 * rreshape [5] (rreplicate 5 x61), v50 * rreshape [5] (rreplicate 5 x60), v53 * rreshape [5] (rreplicate 5 x59)], v58))"
+    @?= "\\v33 x1 -> let v9 = rfromVector (fromList [rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v10 = exp (negate v9) ; v11 = rreplicate 3 1.0 + v10 ; v12 = recip v11 ; v13 = rreplicate 3 1.0 - v12 ; v14 = v12 * v13 ; v15 = rreshape [4] v12 ; v16 = rreshape [4] v12 ; v17 = rreshape [4] v12 ; v18 = rreshape [4] v12 ; v19 = rfromVector (fromList [rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v15)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v16)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v17)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v18))]) + tproject2 (tproject2 (tproject1 v1)) ; v20 = exp (negate v19) ; v21 = rreplicate 4 1.0 + v20 ; v22 = recip v21 ; v23 = rreplicate 4 1.0 - v22 ; v24 = v22 * v23 ; v25 = rreshape [5] v22 ; v26 = rreshape [5] v22 ; v27 = rreshape [5] v22 ; v28 = rreshape [5] v22 ; v29 = rreshape [5] v22 ; v30 = exp (rfromVector (fromList [rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 0 * v25)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 1 * v26)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 2 * v27)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 3 * v28)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 4 * v29))]) + tproject2 (tproject2 v1)) ; x31 = rsum v30 ; v32 = rreplicate 5 (recip x31) ; v34 = v30 * (rreplicate 5 (negate (recip (x31 * x31)) * rsum (v30 * v33)) + v32 * v33) ; x35 = v34 ! [4] ; x36 = v34 ! [3] ; x37 = v34 ! [2] ; x38 = v34 ! [1] ; x39 = v34 ! [0] ; v40 = v24 * (rreshape [4] (rproject (tproject1 (tproject2 v1)) 0 * rreshape [5] (rreplicate 5 x39)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 1 * rreshape [5] (rreplicate 5 x38)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 2 * rreshape [5] (rreplicate 5 x37)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 3 * rreshape [5] (rreplicate 5 x36)) + rreshape [4] (rproject (tproject1 (tproject2 v1)) 4 * rreshape [5] (rreplicate 5 x35))) ; x41 = v40 ! [3] ; x42 = v40 ! [2] ; x43 = v40 ! [1] ; x44 = v40 ! [0] ; v45 = v14 * (rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * rreshape [4] (rreplicate 4 x44)) + rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * rreshape [4] (rreplicate 4 x43)) + rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * rreshape [4] (rreplicate 4 x42)) + rreshape [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * rreshape [4] (rreplicate 4 x41))) ; x46 = v45 ! [2] ; x47 = v45 ! [1] ; x48 = v45 ! [0] in tpair (tpair (tpair ([rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x48), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x47), rreplicate 3 7.0 * rreshape [3] (rreplicate 3 x46)], v45), tpair ([v15 * rreshape [4] (rreplicate 4 x44), v16 * rreshape [4] (rreplicate 4 x43), v17 * rreshape [4] (rreplicate 4 x42), v18 * rreshape [4] (rreplicate 4 x41)], v40)), tpair ([v25 * rreshape [5] (rreplicate 5 x39), v26 * rreshape [5] (rreplicate 5 x38), v27 * rreshape [5] (rreplicate 5 x37), v28 * rreshape [5] (rreplicate 5 x36), v29 * rreshape [5] (rreplicate 5 x35)], v34))"
   printArtifactPrimalPretty renames artifactRevnonLin
-    @?= "\\x1 -> let h9 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v10 = rproject h9 0 ; h11 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v12 = rproject h11 1 ; h13 = [rproject (tproject1 (tproject1 (tproject1 v1))) 0, rproject (tproject1 (tproject1 (tproject1 v1))) 1, rproject (tproject1 (tproject1 (tproject1 v1))) 2] ; v14 = rproject h13 2 ; v15 = rfromVector (fromList [rsum (rreshape [3] (v10 * rreplicate 3 7.0)), rsum (rreshape [3] (v12 * rreplicate 3 7.0)), rsum (rreshape [3] (v14 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v16 = exp (negate v15) ; v17 = rreplicate 3 1.0 + v16 ; v18 = recip v17 ; h21 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v22 = rproject h21 0 ; v23 = rreshape [4] v18 ; h24 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v25 = rproject h24 1 ; v26 = rreshape [4] v18 ; h27 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v28 = rproject h27 2 ; v29 = rreshape [4] v18 ; h30 = [rproject (tproject1 (tproject2 (tproject1 v1))) 0, rproject (tproject1 (tproject2 (tproject1 v1))) 1, rproject (tproject1 (tproject2 (tproject1 v1))) 2, rproject (tproject1 (tproject2 (tproject1 v1))) 3] ; v31 = rproject h30 3 ; v32 = rreshape [4] v18 ; v33 = rfromVector (fromList [rsum (rreshape [4] (v22 * v23)), rsum (rreshape [4] (v25 * v26)), rsum (rreshape [4] (v28 * v29)), rsum (rreshape [4] (v31 * v32))]) + tproject2 (tproject2 (tproject1 v1)) ; v34 = exp (negate v33) ; v35 = rreplicate 4 1.0 + v34 ; v36 = recip v35 ; h39 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v40 = rproject h39 0 ; v41 = rreshape [5] v36 ; h42 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v43 = rproject h42 1 ; v44 = rreshape [5] v36 ; h45 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v46 = rproject h45 2 ; v47 = rreshape [5] v36 ; h48 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v49 = rproject h48 3 ; v50 = rreshape [5] v36 ; h51 = [rproject (tproject1 (tproject2 v1)) 0, rproject (tproject1 (tproject2 v1)) 1, rproject (tproject1 (tproject2 v1)) 2, rproject (tproject1 (tproject2 v1)) 3, rproject (tproject1 (tproject2 v1)) 4] ; v52 = rproject h51 4 ; v53 = rreshape [5] v36 ; v54 = exp (rfromVector (fromList [rsum (rreshape [5] (v40 * v41)), rsum (rreshape [5] (v43 * v44)), rsum (rreshape [5] (v46 * v47)), rsum (rreshape [5] (v49 * v50)), rsum (rreshape [5] (v52 * v53))]) + tproject2 (tproject2 v1)) ; x55 = rsum v54 ; v56 = rreplicate 5 (recip x55) in v56 * v54"
+    @?= "\\x1 -> let v9 = rfromVector (fromList [rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0)), rsum (rreshape [3] (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v10 = exp (negate v9) ; v11 = rreplicate 3 1.0 + v10 ; v12 = recip v11 ; v15 = rreshape [4] v12 ; v16 = rreshape [4] v12 ; v17 = rreshape [4] v12 ; v18 = rreshape [4] v12 ; v19 = rfromVector (fromList [rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v15)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v16)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v17)), rsum (rreshape [4] (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v18))]) + tproject2 (tproject2 (tproject1 v1)) ; v20 = exp (negate v19) ; v21 = rreplicate 4 1.0 + v20 ; v22 = recip v21 ; v25 = rreshape [5] v22 ; v26 = rreshape [5] v22 ; v27 = rreshape [5] v22 ; v28 = rreshape [5] v22 ; v29 = rreshape [5] v22 ; v30 = exp (rfromVector (fromList [rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 0 * v25)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 1 * v26)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 2 * v27)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 3 * v28)), rsum (rreshape [5] (rproject (tproject1 (tproject2 v1)) 4 * v29))]) + tproject2 (tproject2 v1)) ; x31 = rsum v30 ; v32 = rreplicate 5 (recip x31) in v32 * v30"
   printArtifactPretty renames (simplifyArtifact artifactRevnonLin)
-    @?= "\\v57 x1 -> let v18 = recip (rreplicate 3 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1))))) ; v23 = rreshape [4] v18 ; v26 = rreshape [4] v18 ; v29 = rreshape [4] v18 ; v32 = rreshape [4] v18 ; v36 = recip (rreplicate 4 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v23), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v26), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v29), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v32)]) + tproject2 (tproject2 (tproject1 v1))))) ; v41 = rreshape [5] v36 ; v44 = rreshape [5] v36 ; v47 = rreshape [5] v36 ; v50 = rreshape [5] v36 ; v53 = rreshape [5] v36 ; v54 = exp (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 v1)) 0 * v41), rsum (rproject (tproject1 (tproject2 v1)) 1 * v44), rsum (rproject (tproject1 (tproject2 v1)) 2 * v47), rsum (rproject (tproject1 (tproject2 v1)) 3 * v50), rsum (rproject (tproject1 (tproject2 v1)) 4 * v53)]) + tproject2 (tproject2 v1)) ; x55 = rsum v54 ; v58 = v54 * (rreplicate 5 (negate (recip (x55 * x55)) * rsum (v54 * v57)) + rreplicate 5 (recip x55) * v57) ; x59 = v58 ! [4] ; x60 = v58 ! [3] ; x61 = v58 ! [2] ; x62 = v58 ! [1] ; x63 = v58 ! [0] ; v64 = (v36 * (rreplicate 4 1.0 - v36)) * (rgather [4] (rproject (tproject1 (tproject2 v1)) 0) (\\[i181] -> [remF i181 5]) * rreplicate 4 x63 + rgather [4] (rproject (tproject1 (tproject2 v1)) 1) (\\[i183] -> [remF i183 5]) * rreplicate 4 x62 + rgather [4] (rproject (tproject1 (tproject2 v1)) 2) (\\[i185] -> [remF i185 5]) * rreplicate 4 x61 + rgather [4] (rproject (tproject1 (tproject2 v1)) 3) (\\[i187] -> [remF i187 5]) * rreplicate 4 x60 + rgather [4] (rproject (tproject1 (tproject2 v1)) 4) (\\[i189] -> [remF i189 5]) * rreplicate 4 x59) ; x65 = v64 ! [3] ; x66 = v64 ! [2] ; x67 = v64 ! [1] ; x68 = v64 ! [0] ; v69 = (v18 * (rreplicate 3 1.0 - v18)) * (rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 0) (\\[i173] -> [remF i173 4]) * rreplicate 3 x68 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 1) (\\[i175] -> [remF i175 4]) * rreplicate 3 x67 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 2) (\\[i177] -> [remF i177 4]) * rreplicate 3 x66 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 3) (\\[i179] -> [remF i179 4]) * rreplicate 3 x65) in tpair (tpair (tpair ([rreplicate 3 7.0 * rreplicate 3 (v69 ! [0]), rreplicate 3 7.0 * rreplicate 3 (v69 ! [1]), rreplicate 3 7.0 * rreplicate 3 (v69 ! [2])], v69), tpair ([v23 * rreplicate 4 x68, v26 * rreplicate 4 x67, v29 * rreplicate 4 x66, v32 * rreplicate 4 x65], v64)), tpair ([v41 * rreplicate 5 x63, v44 * rreplicate 5 x62, v47 * rreplicate 5 x61, v50 * rreplicate 5 x60, v53 * rreplicate 5 x59], v58))"
+    @?= "\\v33 x1 -> let v12 = recip (rreplicate 3 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1))))) ; v15 = rreshape [4] v12 ; v16 = rreshape [4] v12 ; v17 = rreshape [4] v12 ; v18 = rreshape [4] v12 ; v22 = recip (rreplicate 4 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * v15), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * v16), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * v17), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * v18)]) + tproject2 (tproject2 (tproject1 v1))))) ; v25 = rreshape [5] v22 ; v26 = rreshape [5] v22 ; v27 = rreshape [5] v22 ; v28 = rreshape [5] v22 ; v29 = rreshape [5] v22 ; v30 = exp (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 v1)) 0 * v25), rsum (rproject (tproject1 (tproject2 v1)) 1 * v26), rsum (rproject (tproject1 (tproject2 v1)) 2 * v27), rsum (rproject (tproject1 (tproject2 v1)) 3 * v28), rsum (rproject (tproject1 (tproject2 v1)) 4 * v29)]) + tproject2 (tproject2 v1)) ; x31 = rsum v30 ; v34 = v30 * (rreplicate 5 (negate (recip (x31 * x31)) * rsum (v30 * v33)) + rreplicate 5 (recip x31) * v33) ; x35 = v34 ! [4] ; x36 = v34 ! [3] ; x37 = v34 ! [2] ; x38 = v34 ! [1] ; x39 = v34 ! [0] ; v40 = (v22 * (rreplicate 4 1.0 - v22)) * (rgather [4] (rproject (tproject1 (tproject2 v1)) 0) (\\[i57] -> [remF i57 5]) * rreplicate 4 x39 + rgather [4] (rproject (tproject1 (tproject2 v1)) 1) (\\[i59] -> [remF i59 5]) * rreplicate 4 x38 + rgather [4] (rproject (tproject1 (tproject2 v1)) 2) (\\[i61] -> [remF i61 5]) * rreplicate 4 x37 + rgather [4] (rproject (tproject1 (tproject2 v1)) 3) (\\[i63] -> [remF i63 5]) * rreplicate 4 x36 + rgather [4] (rproject (tproject1 (tproject2 v1)) 4) (\\[i65] -> [remF i65 5]) * rreplicate 4 x35) ; x41 = v40 ! [3] ; x42 = v40 ! [2] ; x43 = v40 ! [1] ; x44 = v40 ! [0] ; v45 = (v12 * (rreplicate 3 1.0 - v12)) * (rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 0) (\\[i49] -> [remF i49 4]) * rreplicate 3 x44 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 1) (\\[i51] -> [remF i51 4]) * rreplicate 3 x43 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 2) (\\[i53] -> [remF i53 4]) * rreplicate 3 x42 + rgather [3] (rproject (tproject1 (tproject2 (tproject1 v1))) 3) (\\[i55] -> [remF i55 4]) * rreplicate 3 x41) in tpair (tpair (tpair ([rreplicate 3 7.0 * rreplicate 3 (v45 ! [0]), rreplicate 3 7.0 * rreplicate 3 (v45 ! [1]), rreplicate 3 7.0 * rreplicate 3 (v45 ! [2])], v45), tpair ([v15 * rreplicate 4 x44, v16 * rreplicate 4 x43, v17 * rreplicate 4 x42, v18 * rreplicate 4 x41], v40)), tpair ([v25 * rreplicate 5 x39, v26 * rreplicate 5 x38, v27 * rreplicate 5 x37, v28 * rreplicate 5 x36, v29 * rreplicate 5 x35], v34))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRevnonLin)
-    @?= "\\x1 -> let v18 = recip (rreplicate 3 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1))))) ; v36 = recip (rreplicate 4 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * rreshape [4] v18), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * rreshape [4] v18), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * rreshape [4] v18), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * rreshape [4] v18)]) + tproject2 (tproject2 (tproject1 v1))))) ; v54 = exp (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 v1)) 0 * rreshape [5] v36), rsum (rproject (tproject1 (tproject2 v1)) 1 * rreshape [5] v36), rsum (rproject (tproject1 (tproject2 v1)) 2 * rreshape [5] v36), rsum (rproject (tproject1 (tproject2 v1)) 3 * rreshape [5] v36), rsum (rproject (tproject1 (tproject2 v1)) 4 * rreshape [5] v36)]) + tproject2 (tproject2 v1)) in rreplicate 5 (recip (rsum v54)) * v54"
+    @?= "\\x1 -> let v12 = recip (rreplicate 3 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 0 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 1 * rreplicate 3 7.0), rsum (rproject (tproject1 (tproject1 (tproject1 v1))) 2 * rreplicate 3 7.0)]) + tproject2 (tproject1 (tproject1 v1))))) ; v22 = recip (rreplicate 4 1.0 + exp (negate (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 0 * rreshape [4] v12), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 1 * rreshape [4] v12), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 2 * rreshape [4] v12), rsum (rproject (tproject1 (tproject2 (tproject1 v1))) 3 * rreshape [4] v12)]) + tproject2 (tproject2 (tproject1 v1))))) ; v30 = exp (rfromVector (fromList [rsum (rproject (tproject1 (tproject2 v1)) 0 * rreshape [5] v22), rsum (rproject (tproject1 (tproject2 v1)) 1 * rreshape [5] v22), rsum (rproject (tproject1 (tproject2 v1)) 2 * rreshape [5] v22), rsum (rproject (tproject1 (tproject2 v1)) 3 * rreshape [5] v22), rsum (rproject (tproject1 (tproject2 v1)) 4 * rreshape [5] v22)]) + tproject2 (tproject2 v1)) in rreplicate 5 (recip (rsum v30)) * v30"
 
-valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters ORArray Double
+valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters RepN Double
 valsInitVT2OPP =
-  ( ( FlipR $ Nested.rfromOrthotope SNat
+  ( ( RepN $ FlipR $ Nested.rfromOrthotope SNat
       $ OR.fromList [4, 3] (concat $ replicate 4 [1, 2, 3])
-    , FlipR $ Nested.rfromOrthotope SNat
+    , RepN $ FlipR $ Nested.rfromOrthotope SNat
       $ OR.fromList [4] [1, 2, 3, 4] )
-  , ( FlipR $ Nested.rfromOrthotope SNat
+  , ( RepN $ FlipR $ Nested.rfromOrthotope SNat
       $ OR.fromList [5, 4] (concat $ replicate 5 [1, 2, 3, 4])
-    , FlipR $ Nested.rfromOrthotope SNat
+    , RepN $ FlipR $ Nested.rfromOrthotope SNat
       $ OR.fromList [5] [1, 2, 3, 4, 5] )
-  , ( FlipR $ Nested.rfromOrthotope SNat
+  , ( RepN $ FlipR $ Nested.rfromOrthotope SNat
       $ OR.fromList [2, 5] (concat $ replicate 2 [1, 2, 3, 4, 5])
-    , FlipR $ Nested.rfromOrthotope SNat
+    , RepN $ FlipR $ Nested.rfromOrthotope SNat
       $ OR.fromList [2] [1, 2] ) )
 
 testVT2OPP :: Assertion
@@ -779,9 +779,9 @@ testVT2OPP = do
       blackGlyph = AstReplicate (SNat @3)
                      (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
-                   (AstRanked FullSpan) Double
-              -> AstRanked FullSpan Double 1
-      afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id $ AstRanked blackGlyph
+                   (AstTensor AstMethodLet FullSpan) Double
+              -> AstTensor AstMethodLet FullSpan (TKR Double 1)
+      afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVT2OPP
   printArtifactPretty renames artifactRev
     @?= "\\v7 x1 -> let m5 = rtranspose [1,0] (rreplicate 5 (rcast (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 7.0)) * rtranspose [1,0] (tproject1 (tproject1 (tproject1 m1)))) + tproject2 (tproject1 (tproject1 m1))))) ; m6 = rtranspose [1,0] (rreplicate 2 (rcast (rsum (m5 * rtranspose [1,0] (tproject1 (tproject2 (tproject1 m1))))) + tproject2 (tproject2 (tproject1 m1)))) ; v8 = rsum (rtranspose [1,0] (rtranspose [1,0] (tproject1 (tproject2 m1)) * rreplicate 5 v7)) ; m9 = rreplicate 4 (rcast v8) ; v10 = rcast (rsum (rtranspose [1,0] (rtranspose [1,0] (tproject1 (tproject2 (tproject1 m1))) * m9))) ; m11 = rreplicate 3 v10 in tpair (tpair (tpair (rtranspose [1,0] (rtranspose [1,0] (rreplicate 4 (rreplicate 3 7.0)) * m11), v10), tpair (rtranspose [1,0] (m5 * m9), v8)), tpair (rtranspose [1,0] (m6 * rreplicate 5 v7), v7))"
@@ -801,18 +801,18 @@ testVT2OPPNonLin = do
       blackGlyph = AstReplicate (SNat @3)
                      (7 :: AstTensor AstMethodLet FullSpan (TKR Float 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
-                         (AstRanked FullSpan) Float
-                    -> AstRanked FullSpan Float 1
-      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 $ AstRanked blackGlyph
+                         (AstTensor AstMethodLet FullSpan) Float
+                    -> AstTensor AstMethodLet FullSpan (TKR Float 1)
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstRanked $ AstCast $ AstConstant $ AstConst $ runFlipR a1
-                      , AstRanked $ AstCast $ AstConstant $ AstConst $ runFlipR a2 )
-                    , ( AstRanked $ AstConstant $ AstCast $ AstConst $ runFlipR a3
-                      , AstRanked $ AstConstant $ AstCast $ AstConst $ runFlipR a4 )
-                    , ( AstRanked $ AstCast $ AstConstant $ AstConst $ runFlipR a5
-                      , AstRanked $ AstConstant $ AstCast $ AstConst $ runFlipR a6 ) )
+                 in ( ( AstCast $ AstConstant $ AstConst $ runFlipR $ unRepN a1
+                      , AstCast $ AstConstant $ AstConst $ runFlipR $ unRepN a2 )
+                    , ( AstConstant $ AstCast $ AstConst $ runFlipR $ unRepN a3
+                      , AstConstant $ AstCast $ AstConst $ runFlipR $ unRepN a4 )
+                    , ( AstCast $ AstConstant $ AstConst $ runFlipR $ unRepN a5
+                      , AstConstant $ AstCast $ AstConst $ runFlipR $ unRepN a6 ) )
       (_, ast3) = funToAst (FTKR @Float $ singletonShape 0)
-                           (const $ unAstRanked $ afcnn2TnonLin constant)
+                           (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
     @?= "\\dummy -> tlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rconstant 7.0))) * rconstant (rconst (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rconstant (rconst (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> tlet (rconstant (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rconstant (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rconstant (rconst (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rconstant (rcast (rconst (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> tlet (rconstant (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rconstant (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rconstant (rconst (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rconstant (rcast (rconst (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
 
@@ -823,9 +823,9 @@ testVT2OPPNonLin2 = do
       blackGlyph = AstReplicate (SNat @3)
                      (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
-                         (AstRanked FullSpan) Double
-                    -> AstRanked FullSpan Double 1
-      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 $ AstRanked blackGlyph
+                         (AstTensor AstMethodLet FullSpan) Double
+                    -> AstTensor AstMethodLet FullSpan (TKR Double 1)
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
   let (artifactRevnonLin, _) =
         revArtifactAdapt True afcnn2TnonLin valsInitVT2OPP
   printArtifactPretty renames artifactRevnonLin

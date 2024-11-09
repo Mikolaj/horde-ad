@@ -40,9 +40,9 @@ module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
     -- * Abstract syntax trees of the delta expressions
-  , DeltaR (..), DeltaS (..), Delta(..)
-  , -- * Delta expression identifiers
-    NodeId (..), InputId, toInputId
+  , Delta(..)
+    -- * Delta expression identifiers
+  , NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
   , evalFromnMap, EvalState
   ) where
@@ -85,20 +85,18 @@ import HordeAd.Util.ShapedList
   (Drop, IndexSh, IndexShX, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 
--- * Reverse and forward derivative computation for HVectorPseudoTensor
+type IMap target = DEnumMap (InputId target) (RepM target)
 
-type IMap ranked = DEnumMap (InputId ranked) (RepM ranked)
-
-type ADMap ranked = DEnumMap (NodeId ranked) (RepAD ranked)
+type ADMap target = DEnumMap (NodeId target) (RepAD target)
 
 gradientFromDelta
-  :: forall x z ranked.
-     (ADReadyNoLet ranked, ShareTensor ranked, TensorKind z)
+  :: forall x z target.
+     (ADReadyNoLet target, ShareTensor target, TensorKind z)
   => TensorKindFull x
-  -> Rep ranked z
-  -> Maybe (Rep ranked (ADTensorKind z))
-  -> Delta ranked z
-  -> Rep ranked (ADTensorKind x)
+  -> target z
+  -> Maybe (target (ADTensorKind z))
+  -> Delta target z
+  -> target (ADTensorKind x)
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   let oneAtF = repConstant 1 $ aDTensorKind $ tshapeFull (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
@@ -106,8 +104,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
       rebuildInputs :: forall ady.  -- ady ~ ADTensorKind y
-                       [Some (RepM ranked)] -> TensorKindFull ady
-                    -> (Rep ranked ady, [Some (RepM ranked)])
+                       [Some (RepM target)] -> TensorKindFull ady
+                    -> (target ady, [Some (RepM target)])
       rebuildInputs els = \case
         FTKScalar @r -> case els of
           Some mt@(MTKScalar @r2 t) : rest ->
@@ -159,10 +157,10 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
             in (tpair t1 t2, rest2)
         FTKUntyped shs ->
-          let toDynamicTensor :: Some (RepM ranked)
-                              -> DynamicTensor ranked
+          let toDynamicTensor :: Some (RepM target)
+                              -> DynamicTensor target
               toDynamicTensor (Some b) = case b of
-                MTKScalar @r t -> DynamicRanked @r @0 $ unRepScalar t
+                MTKScalar @r t -> DynamicRanked @r @0 $ runRepScalar t
                 MTKR @r @n t -> DynamicRanked @r @n t
                 MTKS @r @sh t -> DynamicShaped @r @sh t
                 MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
@@ -170,7 +168,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
               len = V.length shs
               (els1, els2) = splitAt len els
-          in ( HVectorPseudoTensor $ dmkHVector
+          in ( dmkHVector
                $ V.fromList $ map toDynamicTensor els1
              , els2 )
       (res, remainder) = rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2)
@@ -178,8 +176,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   in assert (null remainder) res
 
 showsPrec_iMap
-  :: (forall y. TensorKind y => Show (RepM ranked y))
-  => Int -> IMap ranked -> ShowS
+  :: (forall y. TensorKind y => Show (RepM target y))
+  => Int -> IMap target -> ShowS
 showsPrec_iMap d demap =
   showParen (d > 10) $
     showString "fromList "
@@ -190,19 +188,19 @@ showsPrec_iMap d demap =
         (DMap.toList demap)
 
 show_iMap
-  :: (forall y. TensorKind y => Show (RepM ranked y))
-  => IMap ranked -> String
+  :: (forall y. TensorKind y => Show (RepM target y))
+  => IMap target -> String
 show_iMap iMap = showsPrec_iMap 0 iMap ""
 
 derivativeFromDelta
-  :: forall x z ranked.
-     ( ADReadyNoLet ranked, ShareTensor ranked, TensorKind x, TensorKind z )
-  => Delta ranked z -> Rep ranked (ADTensorKind x)
-  -> Rep ranked (ADTensorKind z)
+  :: forall x z target.
+     ( ADReadyNoLet target, ShareTensor target, TensorKind x, TensorKind z )
+  => Delta target z -> target (ADTensorKind x)
+  -> target (ADTensorKind z)
 derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x) =
   let -- Matches generateDeltaInputs.
-      generateDSums :: Int -> TensorKindFull y -> Rep ranked y
-                    -> ( [DSum (InputId ranked) (RepM ranked)]
+      generateDSums :: Int -> TensorKindFull y -> target y
+                    -> ( [DSum (InputId target) (RepM target)]
                        , Int )
       generateDSums j ftk t = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalar @r t], j + 1)
@@ -230,19 +228,19 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
 
-evalRepM :: forall ranked x. ADReadyNoLet ranked
-         => RepM ranked x -> Rep ranked x
+evalRepM :: forall target x. ADReadyNoLet target
+         => RepM target x -> target x
 evalRepM = \case
   MTKScalar t -> t
   MTKR t -> t
   MTKS t -> t
-  MTKScalarDummy -> RepScalar $ rscalar 0
+  MTKScalarDummy -> rmkRepScalar $ rscalar 0
   MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
   MTKSDummy -> srepl 0
 
 dynamicTensorToRepM
-  :: Int -> DynamicTensor ranked
-  -> DSum (InputId ranked) (RepM ranked)
+  :: Int -> DynamicTensor target
+  -> DSum (InputId target) (RepM target)
 dynamicTensorToRepM n = \case
   DynamicRanked t -> InputId n :=> MTKR t
   DynamicShaped t -> InputId n :=> MTKS t
@@ -252,8 +250,8 @@ dynamicTensorToRepM n = \case
     error "dynamicTensorToRepM: unexpected DynamicShapedDummy"
 
 repToM
-  :: STensorKindType x -> Rep ranked x
-  -> RepM ranked x
+  :: STensorKindType x -> target x
+  -> RepM target x
 repToM stk t = case stk of
   STKScalar _ -> MTKScalar t
   STKR STKScalar{} SNat -> MTKR t
@@ -264,13 +262,13 @@ repToM stk t = case stk of
   _ -> error "TODO"
 
 addRepM ::
-  ADReadyNoLet ranked
-  => RepM ranked y
-  -> RepM ranked y
-  -> RepM ranked y
+  ADReadyNoLet target
+  => RepM target y
+  -> RepM target y
+  -> RepM target y
 addRepM a b = case (a, b) of
-  (MTKScalar (RepScalar ta), MTKScalar (RepScalar tb)) ->
-    MTKScalar $ RepScalar $ ta + tb
+  (MTKScalar ta, MTKScalar tb) ->
+    MTKScalar $ rmkRepScalar $ runRepScalar ta + runRepScalar tb
   (MTKR ta, MTKR tb) -> MTKR $ ta + tb
   (MTKScalarDummy, _) -> b
   (_, MTKScalarDummy) -> a
@@ -284,27 +282,27 @@ addRepM a b = case (a, b) of
 -- gives a peek of what's inside, which is crucial for dependent maps
 -- as opposed to existential vectors.
 type role RepM nominal nominal
-data RepM ranked y where
+data RepM target y where
   MTKScalar :: GoodScalar r
-            => Rep ranked (TKScalar r)
-            -> RepM ranked (TKScalar r)
+            => target (TKScalar r)
+            -> RepM target (TKScalar r)
   MTKR :: (GoodScalar r, KnownNat n)
-       => Rep ranked (TKR r n)
-       -> RepM ranked (TKR r n)
+       => target (TKR r n)
+       -> RepM target (TKR r n)
   MTKS :: (GoodScalar r, KnownShS sh)
-       => Rep ranked (TKS r sh)
-       -> RepM ranked (TKS r sh)
+       => target (TKS r sh)
+       -> RepM target (TKS r sh)
   MTKScalarDummy :: GoodScalar r
-                 => RepM ranked (TKScalar r)
+                 => RepM target (TKScalar r)
   MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => RepM ranked (TKR r (Rank sh))
+            => RepM target (TKR r (Rank sh))
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
-             => RepM ranked (TKS r sh)
+             => RepM target (TKS r sh)
 
-deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
-                  , Show (HVectorOf ranked), CRepProduct ranked Show
+deriving instance ( CRanked target Show
+                  , Show (target TKUntyped)
                   , TensorKind y )
-                  => Show (RepM ranked y)
+                  => Show (RepM target y)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -376,82 +374,43 @@ deriving instance ( CRanked ranked Show, CShaped (ShapedOf ranked) Show
 -- (transposing the represented linear map) in order to compute gradients
 -- provides a different semantics.
 
--- The old DeltaR reconstructed:
-type role DeltaR nominal nominal nominal
-type DeltaR :: RankedTensorType -> RankedTensorType
-newtype DeltaR ranked r n =
-  DeltaR {unDeltaR :: Delta ranked (TKR r n)}
-instance ( TensorKind (TKR r n)
-         , RankedOf (ShapedOf ranked) ~ ranked
-         , Show (IntOf ranked)
-         , CRepProduct ranked Show
-         , Show (HVectorOf ranked)
-         , Show (IntOf (ShapedOf ranked))
-         , Show (IntOf (MixedOf ranked))
-         , CRanked ranked Show
-         , CShaped (ShapedOf ranked) Show
-         , CMixed (MixedOf ranked) Show )
-         => Show (DeltaR ranked r n) where
-  showsPrec k (DeltaR t) = showsPrec k t
-    -- to keep PP tests passing regardless of what wrappers we currently use
-
--- The old DeltaS reconstructed:
-type role DeltaS nominal nominal nominal
-type DeltaS :: ShapedTensorType -> ShapedTensorType
-newtype DeltaS shaped r sh =
-  DeltaS {unDeltaS :: Delta (RankedOf shaped) (TKS r sh)}
-instance ( TensorKind (TKS r sh)
-         , ranked ~ RankedOf shaped
-         , RankedOf (ShapedOf ranked) ~ ranked
-         , Show (IntOf ranked)
-         , CRepProduct ranked Show
-         , Show (HVectorOf ranked)
-         , Show (IntOf (ShapedOf ranked))
-         , Show (IntOf (MixedOf ranked))
-         , CRanked ranked Show
-         , CShaped (ShapedOf ranked) Show
-         , CMixed (MixedOf ranked) Show )
-         => Show (DeltaS shaped r sh) where
-  showsPrec k (DeltaS t) = showsPrec k t
-    -- to keep PP tests passing regardless of what wrappers we currently use
-
 type role Delta nominal nominal
-data Delta :: RankedTensorType -> TensorKindType -> Type where
+data Delta :: Target -> TensorKindType -> Type where
   ScalarG :: GoodScalar r
-          => Delta ranked (TKScalar r) -> Delta ranked (TKR r 0)
+          => Delta target (TKScalar r) -> Delta target (TKR r 0)
   UnScalarG :: GoodScalar r
-            => Delta ranked (TKR r 0) -> Delta ranked (TKScalar r)
+            => Delta target (TKR r 0) -> Delta target (TKScalar r)
   PairG :: (TensorKind y, TensorKind z)
-         => Delta ranked y -> Delta ranked z
-         -> Delta ranked (TKProduct y z)
-  Project1G :: forall x z ranked. TensorKind z
-            => Delta ranked (TKProduct x z) -> Delta ranked x
-  Project2G :: forall x z ranked. TensorKind x
-            => Delta ranked (TKProduct x z) -> Delta ranked z
-  InputG :: forall ranked y.
-            TensorKindFull y -> InputId ranked y -> Delta ranked y
-  ShareG :: NodeId ranked y -> Delta ranked y -> Delta ranked y
-  ZeroG :: TensorKindFull y -> Delta ranked y
-  ScaleG :: Num (Rep ranked y)
-         => RepN ranked y -> Delta ranked y -> Delta ranked y
-  AddG :: Num (Rep ranked y)
-       => Delta ranked y -> Delta ranked y -> Delta ranked y
+         => Delta target y -> Delta target z
+         -> Delta target (TKProduct y z)
+  Project1G :: forall x z target. TensorKind z
+            => Delta target (TKProduct x z) -> Delta target x
+  Project2G :: forall x z target. TensorKind x
+            => Delta target (TKProduct x z) -> Delta target z
+  InputG :: forall target y.
+            TensorKindFull y -> InputId target y -> Delta target y
+  ShareG :: NodeId target y -> Delta target y -> Delta target y
+  ZeroG :: TensorKindFull y -> Delta target y
+  ScaleG :: Num (target y)
+         => target y -> Delta target y -> Delta target y
+  AddG :: Num (target y)
+       => Delta target y -> Delta target y -> Delta target y
 
   IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
-         => Delta ranked (TKR r (m + n)) -> IndexOf ranked m
-         -> Delta ranked (TKR r n)
+         => Delta target (TKR r (m + n)) -> IndexOf target m
+         -> Delta target (TKR r n)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
   SumR :: (GoodScalar r, KnownNat n)
-       => Delta ranked (TKR r (1 + n)) -> Delta ranked (TKR r n)
+       => Delta target (TKR r (1 + n)) -> Delta target (TKR r n)
   Sum0R :: (GoodScalar r, KnownNat n)
-        => Delta ranked (TKR r n) -> Delta ranked (TKR r 0)
+        => Delta target (TKR r n) -> Delta target (TKR r 0)
   Dot0R :: (KnownNat n, GoodScalar r)
-        => ranked r n -> Delta ranked (TKR r n) -> Delta ranked (TKR r 0)
+        => target (TKR r n) -> Delta target (TKR r n) -> Delta target (TKR r 0)
   ScatterR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
-           => IShR (p + n) -> Delta ranked (TKR r (m + n))
-           -> (IndexOf ranked m -> IndexOf ranked p)
-           -> Delta ranked (TKR r (p + n))
+           => IShR (p + n) -> Delta target (TKR r (m + n))
+           -> (IndexOf target m -> IndexOf target p)
+           -> Delta target (TKR r (p + n))
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -463,39 +422,39 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- TODO: this is a haddock for Scatter1; fix.
 
   FromVectorR :: (KnownNat n, GoodScalar r)
-              => Data.Vector.Vector (Delta ranked (TKR r n))
-              -> Delta ranked (TKR r (1 + n))
+              => Data.Vector.Vector (Delta target (TKR r n))
+              -> Delta target (TKR r (1 + n))
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateR :: (GoodScalar r, KnownNat n)
-             => Int -> Delta ranked (TKR r n)
-             -> Delta ranked (TKR r (1 + n))
+             => Int -> Delta target (TKR r n)
+             -> Delta target (TKR r (1 + n))
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendR :: (GoodScalar r, KnownNat n)
-          => Delta ranked (TKR r (1 + n))
-          -> Delta ranked (TKR r (1 + n))
-          -> Delta ranked (TKR r (1 + n))
+          => Delta target (TKR r (1 + n))
+          -> Delta target (TKR r (1 + n))
+          -> Delta target (TKR r (1 + n))
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
   SliceR :: (GoodScalar r, KnownNat n)
-         => Int -> Int -> Delta ranked (TKR r (1 + n))
-         -> Delta ranked (TKR r (1 + n))
+         => Int -> Int -> Delta target (TKR r (1 + n))
+         -> Delta target (TKR r (1 + n))
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
   ReverseR :: (GoodScalar r, KnownNat n)
-           => Delta ranked (TKR r (1 + n)) -> Delta ranked (TKR r (1 + n))
+           => Delta target (TKR r (1 + n)) -> Delta target (TKR r (1 + n))
     -- ^ Reverse elements of the outermost dimension.
   TransposeR :: (GoodScalar r, KnownNat n)
-             => Permutation.PermR -> Delta ranked (TKR r n)
-             -> Delta ranked (TKR r n)
+             => Permutation.PermR -> Delta target (TKR r n)
+             -> Delta target (TKR r n)
     -- ^ Transpose according to the permutation.
   ReshapeR :: (GoodScalar r, KnownNat n, KnownNat m)
-           => IShR m -> Delta ranked (TKR r n)
-           -> Delta ranked (TKR r m)
+           => IShR m -> Delta target (TKR r n)
+           -> Delta target (TKR r m)
     -- ^ Change the shape of the tensor to the given one.
   GatherR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
-          => IShR (m + n) -> Delta ranked (TKR r (p + n))
-          -> (IndexOf ranked m -> IndexOf ranked p)
-          -> Delta ranked (TKR r (m + n))
+          => IShR (m + n) -> Delta target (TKR r (p + n))
+          -> (IndexOf target m -> IndexOf target p)
+          -> Delta target (TKR r (m + n))
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -505,34 +464,34 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownNat n)
-        => Delta ranked (TKR r1 n) -> Delta ranked (TKR r2 n)
-  RFromS :: forall sh r ranked. (GoodScalar r, KnownShS sh)
-         => Delta ranked (TKS r sh)
-         -> Delta ranked (TKR r (Rank sh))
+        => Delta target (TKR r1 n) -> Delta target (TKR r2 n)
+  RFromS :: forall sh r target. (GoodScalar r, KnownShS sh)
+         => Delta target (TKS r sh)
+         -> Delta target (TKR r (Rank sh))
   RFromH :: (GoodScalar r, KnownNat n)
-         => Delta ranked TKUntyped -> Int -> Delta ranked (TKR r n)
+         => Delta target TKUntyped -> Int -> Delta target (TKR r n)
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
-         => Delta ranked (TKS r (sh1 ++ sh2))
-         -> IndexSh (ShapedOf ranked) sh1
-         -> Delta ranked (TKS r sh2)
+         => Delta target (TKS r (sh1 ++ sh2))
+         -> IndexSh target sh1
+         -> Delta target (TKS r sh2)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
-       => Delta ranked (TKS r (n ': sh)) -> Delta ranked (TKS r sh)
+       => Delta target (TKS r (n ': sh)) -> Delta target (TKS r sh)
   Sum0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-        => Delta ranked (TKS r sh) -> Delta ranked (TKS r '[])
+        => Delta target (TKS r sh) -> Delta target (TKS r '[])
   Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-        => ShapedOf ranked r sh -> Delta ranked (TKS r sh)
-        -> Delta ranked (TKS r '[])
-  ScatterS :: forall ranked r sh2 p sh.
+        => target (TKS r sh) -> Delta target (TKS r sh)
+        -> Delta target (TKS r '[])
+  ScatterS :: forall target r sh2 p sh.
               ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
               , KnownShS (Take p sh), KnownShS (Drop p sh)
               , KnownShS (sh2 ++ Drop p sh) )
-           => Delta ranked (TKS r (sh2 ++ Drop p sh))
-           -> (IndexSh (ShapedOf ranked) sh2
-               -> IndexSh (ShapedOf ranked) (Take p sh))
-           -> Delta ranked (TKS r sh)
+           => Delta target (TKS r (sh2 ++ Drop p sh))
+           -> (IndexSh target sh2
+               -> IndexSh target (Take p sh))
+           -> Delta target (TKS r sh)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -544,52 +503,52 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- TODO: this is a haddock for Scatter1; fix.
 
   FromVectorS :: (GoodScalar r, KnownShS sh, KnownNat n)
-              => Data.Vector.Vector (Delta ranked (TKS r sh))
-              -> Delta ranked (TKS r (n ': sh))
+              => Data.Vector.Vector (Delta target (TKS r sh))
+              -> Delta target (TKS r (n ': sh))
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  ReplicateS :: forall ranked r n sh.
+  ReplicateS :: forall target r n sh.
                 (GoodScalar r, KnownShS sh, KnownNat n)
-             => Delta ranked (TKS r sh) -> Delta ranked (TKS r (n ': sh))
+             => Delta target (TKS r sh) -> Delta target (TKS r (n ': sh))
     -- ^ Copy the given tensor along the new, outermost dimension.
-  AppendS :: forall ranked r m n sh.
+  AppendS :: forall target r m n sh.
              (GoodScalar r, KnownNat m, KnownNat n, KnownShS sh)
-          => Delta ranked (TKS r (m ': sh))
-          -> Delta ranked (TKS r (n ': sh))
-          -> Delta ranked (TKS r ((m + n) ': sh))
+          => Delta target (TKS r (m ': sh))
+          -> Delta target (TKS r (n ': sh))
+          -> Delta target (TKS r ((m + n) ': sh))
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
-  SliceS :: forall ranked i n k r sh.
+  SliceS :: forall target i n k r sh.
             (GoodScalar r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
-         => Delta ranked (TKS r (i + n + k ': sh))
-         -> Delta ranked (TKS r (n ': sh))
+         => Delta target (TKS r (i + n + k ': sh))
+         -> Delta target (TKS r (n ': sh))
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
   ReverseS :: (GoodScalar r, KnownShS sh, KnownNat n)
-           => Delta ranked (TKS r (n ': sh))
-           -> Delta ranked (TKS r (n ': sh))
+           => Delta target (TKS r (n ': sh))
+           -> Delta target (TKS r (n ': sh))
     -- ^ Reverse elements of the outermost dimension.
-  TransposeS :: forall perm sh r ranked.
+  TransposeS :: forall perm sh r target.
                 (GoodScalar r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
              => Permutation.Perm perm
-             -> Delta ranked (TKS r sh)
-             -> Delta ranked (TKS r (Permutation.PermutePrefix perm sh))
+             -> Delta target (TKS r sh)
+             -> Delta target (TKS r (Permutation.PermutePrefix perm sh))
     -- ^ Transpose according to the permutation.
   ReshapeS :: ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Nested.Product sh
                 ~ Nested.Product sh2 )
-           => Delta ranked (TKS r sh)
-           -> Delta ranked (TKS r sh2)
+           => Delta target (TKS r sh)
+           -> Delta target (TKS r sh2)
     -- ^ Change the shape of the tensor from the first to the second.
-  GatherS :: forall ranked r sh2 p sh.
+  GatherS :: forall target r sh2 p sh.
              ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
              , KnownShS (Take p sh), KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
-          => Delta ranked (TKS r sh)
-          -> (IndexSh (ShapedOf ranked) sh2
-              -> IndexSh (ShapedOf ranked) (Take p sh))
-          -> Delta ranked (TKS r (sh2 ++ Drop p sh))
+          => Delta target (TKS r sh)
+          -> (IndexSh target sh2
+              -> IndexSh target (Take p sh))
+          -> Delta target (TKS r (sh2 ++ Drop p sh))
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -599,24 +558,24 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
-        => Delta ranked (TKS r1 sh) -> Delta ranked (TKS r2 sh)
-  SFromR :: forall sh r ranked. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-         => Delta ranked (TKR r (Rank sh))
-         -> Delta ranked (TKS r sh)
+        => Delta target (TKS r1 sh) -> Delta target (TKS r2 sh)
+  SFromR :: forall sh r target. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
+         => Delta target (TKR r (Rank sh))
+         -> Delta target (TKS r sh)
   SFromH :: (GoodScalar r, KnownShS sh)
-         => Delta ranked TKUntyped -> Int -> Delta ranked (TKS r sh)
+         => Delta target TKUntyped -> Int -> Delta target (TKS r sh)
 
   IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
-         => Delta ranked (TKX r (sh1 ++ sh2))
-         -> IndexShX (MixedOf ranked) sh1
-         -> Delta ranked (TKX r sh2)
+         => Delta target (TKX r (sh1 ++ sh2))
+         -> IndexShX target sh1
+         -> Delta target (TKX r sh2)
   FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
-              => Data.Vector.Vector (Delta ranked (TKX r sh))
-              -> Delta ranked (TKX r (Just n ': sh))
+              => Data.Vector.Vector (Delta target (TKX r sh))
+              -> Delta target (TKX r (Just n ': sh))
 
-  HToH :: HVector (DeltaR ranked) -> Delta ranked TKUntyped
+  HToH :: HVector (Delta target) -> Delta target TKUntyped
   MapAccumR
-    :: forall ranked k accShs bShs eShs.
+    :: forall target k accShs bShs eShs.
        ( TensorKind accShs, TensorKind bShs, TensorKind eShs
        , TensorKind (BuildTensorKind k eShs)
        , TensorKind (BuildTensorKind k accShs) )
@@ -624,19 +583,19 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> RepN ranked (BuildTensorKind k accShs)
-    -> RepN ranked (BuildTensorKind k eShs)
+    -> target (BuildTensorKind k accShs)
+    -> target (BuildTensorKind k eShs)
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                        (TKProduct accShs eShs))
             (ADTensorKind (TKProduct accShs bShs))
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                        (TKProduct accShs eShs))
             (ADTensorKind (TKProduct accShs eShs))
-    -> Delta ranked accShs
-    -> Delta ranked (BuildTensorKind k eShs)
-    -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
+    -> Delta target accShs
+    -> Delta target (BuildTensorKind k eShs)
+    -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
   MapAccumL
-    :: forall ranked k accShs bShs eShs.
+    :: forall target k accShs bShs eShs.
        ( TensorKind accShs, TensorKind bShs, TensorKind eShs
        , TensorKind (BuildTensorKind k eShs)
        , TensorKind (BuildTensorKind k accShs) )
@@ -644,41 +603,26 @@ data Delta :: RankedTensorType -> TensorKindType -> Type where
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> RepN ranked (BuildTensorKind k accShs)
-    -> RepN ranked (BuildTensorKind k eShs)
+    -> target (BuildTensorKind k accShs)
+    -> target (BuildTensorKind k eShs)
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                        (TKProduct accShs eShs))
             (ADTensorKind (TKProduct accShs bShs))
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
                        (TKProduct accShs eShs))
             (ADTensorKind (TKProduct accShs eShs))
-    -> Delta ranked accShs
-    -> Delta ranked (BuildTensorKind k eShs)
-    -> Delta ranked (TKProduct accShs (BuildTensorKind k bShs))
+    -> Delta target accShs
+    -> Delta target (BuildTensorKind k eShs)
+    -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
 
 deriving instance ( TensorKind y
-                  , RankedOf (ShapedOf ranked) ~ ranked
-                  , CRepProduct ranked Show
-                  , Show (HVectorOf ranked)
-                  , Show (IntOf ranked)
-                  , Show (IntOf (ShapedOf ranked))
-                  , Show (IntOf (MixedOf ranked))
-                  , CRanked ranked Show
-                  , CShaped (ShapedOf ranked) Show
-                  , CMixed (MixedOf ranked) Show )
-                  => Show (Delta ranked y)
+                  , Show (target TKUntyped)
+                  , Show (IntOf target)
+                  , CRanked target Show )
+                  => Show (Delta target y)
 
--- This is needed for the Show instances due to HVector (Delta...)
--- referring to ShapedOf (Delta..).
-type instance RankedOf (DeltaS shaped) = DeltaR (RankedOf shaped)
-
-type instance ShapedOf (DeltaR ranked) = DeltaS (ShapedOf ranked)
-
-type instance HVectorOf (DeltaR ranked) = Delta ranked TKUntyped
-
-shapeDeltaFull :: forall ranked y.
-                  (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
-               => Delta ranked y -> TensorKindFull y
+shapeDeltaFull :: forall target y. TensorKind y
+               => Delta target y -> TensorKindFull y
 shapeDeltaFull = \case
   ScalarG{} -> FTKR ZSR
   UnScalarG{} -> FTKScalar
@@ -746,7 +690,7 @@ shapeDeltaFull = \case
   FromVectorX{} -> error "TODO"
 
   HToH v ->
-    FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta . unDeltaR)) v
+    FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta)) v
   MapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildTensorKindFull k bShs)
@@ -754,21 +698,21 @@ shapeDeltaFull = \case
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildTensorKindFull k bShs)
 
-shapeDelta :: forall ranked r n.
-              (GoodScalar r, KnownNat n, RankedOf (ShapedOf ranked) ~ ranked)
-           => Delta ranked (TKR r n) -> IShR n
+shapeDelta :: forall target r n.
+              (GoodScalar r, KnownNat n)
+           => Delta target (TKR r n) -> IShR n
 shapeDelta t = case shapeDeltaFull t of
   FTKR sh -> sh
 
-lengthDelta :: forall ranked r n.
-               (GoodScalar r, KnownNat n, RankedOf (ShapedOf ranked) ~ ranked)
-            => Delta ranked (TKR r (1 + n)) -> Int
+lengthDelta :: forall target r n.
+               (GoodScalar r, KnownNat n)
+            => Delta target (TKR r (1 + n)) -> Int
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"
   k :$: _ -> k
 
-shapeDeltaH :: forall ranked. RankedOf (ShapedOf ranked) ~ ranked
-            => Delta ranked TKUntyped -> VoidHVector
+shapeDeltaH :: forall target.
+               Delta target TKUntyped -> VoidHVector
 shapeDeltaH t = case shapeDeltaFull t of
   FTKUntyped shs -> shs
 
@@ -776,37 +720,37 @@ shapeDeltaH t = case shapeDeltaFull t of
 -- * Delta expression identifiers and evaluation state
 
 type role NodeId nominal nominal
-data NodeId :: RankedTensorType -> TensorKindType -> Type where
-  NodeId :: forall ranked y. TensorKind y => Int -> NodeId ranked y
+data NodeId :: Target -> TensorKindType -> Type where
+  NodeId :: forall target y. TensorKind y => Int -> NodeId target y
 
-instance Show (NodeId ranked y) where
+instance Show (NodeId target y) where
   showsPrec d (NodeId n) =
     showsPrec d n  -- less verbose, more readable
 
   -- No Eq instance to limit hacks outside this module.
-instance TensorKind y => Enum (NodeId ranked y) where
+instance TensorKind y => Enum (NodeId target y) where
   toEnum = NodeId
   fromEnum (NodeId n) = n
 
-instance DMap.Enum1 (NodeId ranked) where
-  type Enum1Info (NodeId ranked) = Some (Dict TensorKind)
+instance DMap.Enum1 (NodeId target) where
+  type Enum1Info (NodeId target) = Some (Dict TensorKind)
   fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
-  toEnum1 n (Some @_ @a Dict) = Some $ NodeId @ranked @a n
+  toEnum1 n (Some @_ @a Dict) = Some $ NodeId @target @a n
 
 type role InputId nominal nominal
-data InputId :: RankedTensorType -> TensorKindType -> Type where
-  InputId :: forall ranked y. TensorKind y => Int -> InputId ranked y
+data InputId :: Target -> TensorKindType -> Type where
+  InputId :: forall target y. TensorKind y => Int -> InputId target y
 
-deriving instance Show (InputId ranked y)
+deriving instance Show (InputId target y)
 
-instance TensorKind y => Enum (InputId ranked y) where
+instance TensorKind y => Enum (InputId target y) where
   toEnum = InputId
   fromEnum (InputId n) = n
 
-instance DMap.Enum1 (InputId ranked) where
-  type Enum1Info (InputId ranked) = Some (Dict TensorKind)
+instance DMap.Enum1 (InputId target) where
+  type Enum1Info (InputId target) = Some (Dict TensorKind)
   fromEnum1 (InputId @_ @a n) = (n, Some @_ @a Dict)
-  toEnum1 n (Some @_ @a Dict) = Some $ InputId @ranked @a n
+  toEnum1 n (Some @_ @a Dict) = Some $ InputId @target @a n
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 toInputId :: TensorKind y => Int -> InputId f y
@@ -825,16 +769,16 @@ tensorKindFromInputId InputId{} = Dict
 -- 1. keys nMap == keys dMap
 -- 2. key `member` dMap == nMap!key is DynamicRanked
 type role EvalState nominal
-data EvalState ranked = EvalState
-  { iMap :: IMap ranked
+data EvalState target = EvalState
+  { iMap :: IMap target
       -- ^ eventually, cotangents of objective function inputs
       -- (eventually copied to the vector representing the gradient
       -- of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , dMap :: ADMap ranked
+  , dMap :: ADMap target
       -- ^ eventually, cotangents of non-input subterms indexed
       -- by their node identifiers
-  , nMap :: DEnumMap (NodeId ranked) (Delta ranked)
+  , nMap :: DEnumMap (NodeId target) (Delta target)
       -- ^ nodes left to be evaluated;
       -- we can't evaluate them at once, because their other shared copies
       -- may still not be processed, so we'd not take advantage of the sharing
@@ -843,8 +787,8 @@ data EvalState ranked = EvalState
   }
 
 type role RepAD nominal nominal
-newtype RepAD ranked y =
-  RepAD {unRepAD :: Rep ranked (ADTensorKind y)}
+newtype RepAD target y =
+  RepAD {unRepAD :: target (ADTensorKind y)}
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -901,11 +845,11 @@ newtype RepAD ranked y =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) are given as arguments.
 initEvalState
-  :: TensorKindFull x -> EvalState ranked
+  :: TensorKindFull x -> EvalState target
 initEvalState ftk0 =
   let -- Matches generateDeltaInputs.
       generateDSums :: Int -> TensorKindFull y
-                    -> ([DSum (InputId ranked) (RepM ranked)], Int)
+                    -> ([DSum (InputId target) (RepM target)], Int)
       generateDSums j ftk  = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)
         FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
@@ -933,9 +877,9 @@ initEvalState ftk0 =
       -- We take care to keep the scalar type of the dummy correct,
       -- but a shape is not preserved in a dummy, so it's not shape-correct.
       fromDynamicTensor
-        :: forall ranked.
-           Int -> DynamicTensor ranked
-        -> DSum (InputId ranked) (RepM ranked)
+        :: forall target.
+           Int -> DynamicTensor target
+        -> DSum (InputId target) (RepM target)
       fromDynamicTensor n b = case b of
         DynamicRanked{} -> error "fromDynamicTensor: impossible case"
         DynamicShaped{} -> error "fromDynamicTensor: impossible case"
@@ -957,11 +901,11 @@ initEvalState ftk0 =
 -- cotangent contribution when complete (see below for an explanation)
 -- and the third argument is the node to evaluate.
 evalRRuntimeSpecialized
-  :: forall n r ranked.
-     (GoodScalar r, KnownNat n, ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked -> Rep ranked (ADTensorKind (TKR r n))
-  -> Delta ranked (TKR r n)
-  -> EvalState ranked
+  :: forall n r target.
+     (GoodScalar r, KnownNat n, ADReadyNoLet target, ShareTensor target)
+  => EvalState target -> target (ADTensorKind (TKR r n))
+  -> Delta target (TKR r n)
+  -> EvalState target
 evalRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -976,11 +920,11 @@ evalRRuntimeSpecialized !s !c =
       _ -> const s
 
 evalSRuntimeSpecialized
-  :: forall sh r ranked.
-     (GoodScalar r, KnownShS sh, ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked -> Rep ranked (ADTensorKind (TKS r sh))
-  -> Delta ranked (TKS r sh)
-  -> EvalState ranked
+  :: forall sh r target.
+     (GoodScalar r, KnownShS sh, ADReadyNoLet target, ShareTensor target)
+  => EvalState target -> target (ADTensorKind (TKS r sh))
+  -> Delta target (TKS r sh)
+  -> EvalState target
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> evalSame @(TKS Double sh) s c
@@ -989,10 +933,10 @@ evalSRuntimeSpecialized !s !c =
       _ -> const s
 
 evalR
-  :: forall y ranked.
-     (TensorKind y, ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked -> Rep ranked (ADTensorKind y) -> Delta ranked y
-  -> EvalState ranked
+  :: forall y target.
+     (TensorKind y, ADReadyNoLet target, ShareTensor target)
+  => EvalState target -> target (ADTensorKind y) -> Delta target y
+  -> EvalState target
 evalR !s !c d0 = case d0 of
   -- All constructors that admit a TKProduct kind need to be handled in evalR
   -- except for InputG that is always constructed only in basic kinds.
@@ -1059,7 +1003,7 @@ evalR !s !c d0 = case d0 of
                , dMap = DMap.insert n cd $ dMap s }
   MapAccumR @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
+            q es
             _df rf acc0' es'
    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
@@ -1073,7 +1017,7 @@ evalR !s !c d0 = case d0 of
         eShsAD = aDTensorKind eShs
         (c0, crest) = tunpair c
         dacc_des =
-          dmapAccumL (Proxy @ranked)
+          dmapAccumL (Proxy @target)
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx (db_acc_e) ->
@@ -1086,7 +1030,7 @@ evalR !s !c d0 = case d0 of
     in evalR s2 des es'
   MapAccumL @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
+            q es
             _df rf acc0' es'
    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
@@ -1100,7 +1044,7 @@ evalR !s !c d0 = case d0 of
         eShsAD = aDTensorKind eShs
         (c0, crest) = tunpair c
         dacc_des =
-          dmapAccumR (Proxy @ranked)
+          dmapAccumR (Proxy @target)
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx (db_acc_e) ->
@@ -1120,18 +1064,18 @@ evalR !s !c d0 = case d0 of
                 -- the () scalar type and so no influence on the derivative.
 
 evalSame
-  :: forall y ranked.
-     ( TensorKind y, ADReadyNoLet ranked, ShareTensor ranked
+  :: forall y target.
+     ( TensorKind y, ADReadyNoLet target, ShareTensor target
      , y ~ ADTensorKind y )
-  => EvalState ranked -> Rep ranked (ADTensorKind y) -> Delta ranked y
-  -> EvalState ranked
+  => EvalState target -> target (ADTensorKind y) -> Delta target y
+  -> EvalState target
 evalSame !s !c = \case
   -- All constructors that only admit a non-TKProduct kind
   -- (and the InputG constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
-  ScalarG d -> evalSame s (RepScalar c) d
-  UnScalarG d -> evalSame s (unRepScalar c) d
+  ScalarG d -> evalSame s (rmkRepScalar c) d
+  UnScalarG d -> evalSame s (runRepScalar c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1146,12 +1090,12 @@ evalSame !s !c = \case
   -- This is ensured by the types of the three constructors, assuming that
   -- no Num instances are defined for the non-base type tensors.
   ZeroG{} -> s
-  ScaleG (RepN k) d -> evalSame s (k * c) d
+  ScaleG k d -> evalSame s (k * c) d
   AddG d e -> let cShared = tshare c
               in evalSame (evalSame s cShared d) cShared e
 
   IndexR d ix ->
-    evalSame s (rscatter @ranked @_ @0
+    evalSame s (rscatter @target @_ @0
                          (shapeDelta d) c (const ix)) d
     -- equivalent: evalSame s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
   SumR d ->
@@ -1165,7 +1109,7 @@ evalSame !s !c = \case
     evalSame s (rgather (shapeDelta d) c f) d
   FromVectorR @n1 @r ld ->
     let cShared = tshare c
-        cxs :: [ranked r n1]
+        cxs :: [target (TKR r n1)]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
@@ -1203,7 +1147,7 @@ evalSame !s !c = \case
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalSame s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
+       evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
@@ -1267,13 +1211,13 @@ evalSame !s !c = \case
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalSame s (HVectorPseudoTensor $ dmkHVector $ cs V.// [(i, ci)]) d
+       evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
 
   IndexX{} -> error "TODO"
   FromVectorX @r @sh ld ->
     let cShared = tshare c
-        f :: EvalState ranked -> Int -> Delta ranked (TKX r sh)
-             -> EvalState ranked
+        f :: EvalState target -> Int -> Delta target (TKX r sh)
+             -> EvalState target
         f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
     in V.ifoldl' f s ld
 
@@ -1283,18 +1227,18 @@ evalSame !s !c = \case
     -- the remaining constructors are already handled in evalR, so let's use that
 
 evalDynamic
-  :: (ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked
-  -> (DynamicTensor ranked, DynamicTensor (DeltaR ranked))
-  -> EvalState ranked
+  :: (ADReadyNoLet target, ShareTensor target)
+  => EvalState target
+  -> (DynamicTensor target, DynamicTensor (Delta target))
+  -> EvalState target
 evalDynamic !s3 (t, DynamicRanked @r @n d2) =
   gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
     -- this is a noble lie to maintain no ADTensorKind under HVector
     -- and at the same time re-use the new eval function also for HVector
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKR r n)) $ rfromD t) $ unDeltaR d2
+  evalSame s3 (toADTensorKindShared (stensorKind @(TKR r n)) $ rfromD t) d2
 evalDynamic s3 (t, DynamicShaped @r @sh d2) =
   gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t) $ unDeltaS d2
+  evalSame s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t) d2
 evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
   withListSh (Proxy @sh) $ \sh2 ->
@@ -1309,13 +1253,13 @@ evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
         (ZeroG $ FTKS knownShS)
 
 evalHVector
-  :: (ADReadyNoLet ranked, ShareTensor ranked)
-  => EvalState ranked -> HVector ranked -> HVector (DeltaR ranked)
-  -> EvalState ranked
+  :: (ADReadyNoLet target, ShareTensor target)
+  => EvalState target -> HVector target -> HVector (Delta target)
+  -> EvalState target
 evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
 
-evalFromnMap :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
-             => EvalState ranked -> EvalState ranked
+evalFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
+             => EvalState target -> EvalState target
 evalFromnMap s@EvalState{nMap, dMap} =
   -- We discharge the non-vector cases before the vector ones, because
   -- the latter tend to create and store more cases and so enlarge
@@ -1395,15 +1339,15 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
 fwdDynamic
-  :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
-  => IMap ranked -> ADMap ranked -> DynamicTensor (DeltaR ranked)
-  -> (ADMap ranked, DynamicTensor ranked)
+  :: forall target. (ADReadyNoLet target, ShareTensor target)
+  => IMap target -> ADMap target -> DynamicTensor (Delta target)
+  -> (ADMap target, DynamicTensor target)
 fwdDynamic params s (DynamicRanked @r @n d) =
   gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
-  second DynamicRanked $ fwdSame params s (unDeltaR d)
+  second DynamicRanked $ fwdSame params s d
 fwdDynamic params s (DynamicShaped @r @sh d) =
   gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
-  second DynamicShaped $ fwdSame params s (unDeltaS d)
+  second DynamicShaped $ fwdSame params s d
 fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
   withListSh (Proxy @sh) $ \sh2 ->
@@ -1413,16 +1357,16 @@ fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
   second (DynamicShaped @r @sh) $ fwdSame params s (ZeroG $ FTKS knownShS)
 
 fwdHVector
-  :: forall ranked. (ADReadyNoLet ranked, ShareTensor ranked)
-  => IMap ranked -> ADMap ranked -> HVector (DeltaR ranked)
-  -> (ADMap ranked,  HVector ranked)
+  :: forall target. (ADReadyNoLet target, ShareTensor target)
+  => IMap target -> ADMap target -> HVector (Delta target)
+  -> (ADMap target,  HVector target)
 fwdHVector params = mapAccumL (fwdDynamic params)
 
 fwdR
-  :: forall ranked y.
-     (ADReadyNoLet ranked, ShareTensor ranked, TensorKind y)
-  => IMap ranked -> ADMap ranked -> Delta ranked y
-  -> (ADMap ranked, Rep ranked (ADTensorKind y))
+  :: forall target y.
+     (ADReadyNoLet target, ShareTensor target, TensorKind y)
+  => IMap target -> ADMap target -> Delta target y
+  -> (ADMap target, target (ADTensorKind y))
 fwdR params s d0 = case d0 of
   PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                       , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
@@ -1455,7 +1399,7 @@ fwdR params s d0 = case d0 of
 
   MapAccumR @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
+            q es
             df _rf acc0' es'
    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
@@ -1469,7 +1413,7 @@ fwdR params s d0 = case d0 of
         eShsAD = aDTensorKind eShs
         (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
-    in (s3, dmapAccumR (Proxy @ranked)
+    in (s3, dmapAccumR (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc (de_acc_e) ->
@@ -1479,7 +1423,7 @@ fwdR params s d0 = case d0 of
                        (tpair ces (tpair q es)))
   MapAccumL @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
-            (RepN q) (RepN es)
+            q es
             df _rf acc0' es'
    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
@@ -1493,7 +1437,7 @@ fwdR params s d0 = case d0 of
         eShsAD = aDTensorKind eShs
         (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
-    in (s3, dmapAccumL (Proxy @ranked)
+    in (s3, dmapAccumL (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc (de_acc_e) ->
@@ -1508,23 +1452,23 @@ fwdR params s d0 = case d0 of
         _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
 
 fwdSame
-  :: forall ranked y.
-     ( TensorKind y, ADReadyNoLet ranked, ShareTensor ranked
+  :: forall target y.
+     ( TensorKind y, ADReadyNoLet target, ShareTensor target
      , y ~ ADTensorKind y )
-  => IMap ranked -> ADMap ranked -> Delta ranked y
-  -> (ADMap ranked, Rep ranked (ADTensorKind y))
+  => IMap target -> ADMap target -> Delta target y
+  -> (ADMap target, target (ADTensorKind y))
 fwdSame params s = \case
   ScalarG d -> let (s2, t) = fwdSame params s d
-               in (s2, unRepScalar t)
+               in (s2, runRepScalar t)
   UnScalarG d -> let (s2, t) = fwdSame params s d
-                 in (s2, RepScalar t)
+                 in (s2, rmkRepScalar t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)
       Nothing -> error "fwdSame: missing input"
   -- See the comment about these three in evalSame.
   ZeroG ftk -> (s, repConstant0Old $ aDTensorKind ftk)  -- TODO: not repConstant only for backward compatibility with test results
-  ScaleG (RepN k) d -> second (* k) $ fwdSame params s d
+  ScaleG k d -> second (* k) $ fwdSame params s d
   AddG d e -> let (s2, t) = fwdSame params s d
                   (s3, u) = fwdSame params s2 e
               in (s3, t + u)
@@ -1565,10 +1509,10 @@ fwdSame params s = \case
   RFromS d -> second rfromS $ fwdSame params s d
   RFromH d i ->
     let (s2, v) = fwdSame params s d
-    in (s2, rfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+    in (s2, rfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
---  in (s2, rfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
+--  in (s2, rfromD $ dunHVector $ tshare v) V.! i)
 
   IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
   SumS d -> second ssum $ fwdSame params s d
@@ -1609,17 +1553,17 @@ fwdSame params s = \case
   SFromR d -> second sfromR $ fwdSame params s d
   SFromH d i ->
     let (s2, v) = fwdSame params s d
-    in (s2, sfromD $ dunHVector (unHVectorPseudoTensor v) V.! i)
+    in (s2, sfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
---  in (s2, sfromD $ dunHVector (unHVectorPseudoTensor $ tshare v) V.! i)
+--  in (s2, sfromD $ dunHVector (tshare v) V.! i)
 
   IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
   FromVectorX lsd ->
     let (s2, l) = mapAccumL (fwdSame params) s lsd
     in (s2, xfromVector l)
 
-  HToH v -> second (HVectorPseudoTensor . dmkHVector)
+  HToH v -> second dmkHVector
             $ fwdHVector params s v
 
   d -> fwdR params s d

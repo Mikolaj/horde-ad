@@ -16,7 +16,7 @@
 -- except for the testing modules that import testing-exclusive class instances
 -- and operations for reading or reseting the impure counter.
 module HordeAd.Core.IsPrimal
-  ( Dual, IsPrimal(..)
+  ( IsPrimal(..)
   , unsafeGetFreshId, resetIdCounter, shareDelta
   ) where
 
@@ -33,33 +33,25 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Delta
 import HordeAd.Core.HVector
+import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 
--- | The type family that to each dfferentiable type assigns
--- its delta expression type. The dispatch is on the type parameter @ty@.
-type Dual :: TensorType ty -> TensorType ty
-type family Dual f r z where
-  Dual ranked r z = Delta ranked (TKR r z)
-  Dual shaped r z = Delta (RankedOf shaped) (TKS r z)
-  Dual mixed r z = Delta (RankedOf mixed) (TKX r z)
-
-
 -- * The IsPrimal class and its instances
 
--- | The class states that @f r z@ type is the primal component
+-- | The class states that @f z@ type is the primal component
 -- of a dual number as exeplified by the operations.
 --
 -- The OfShape hacks are needed to recover shape from ranked tensors,
 -- in particular in case of numeric literals and also for forward derivative.
-type IsPrimal :: TensorType ty -> Type -> ty -> Constraint
-class IsPrimal f r z where
-  dZeroOfShape :: f r z -> Dual f r z
-  dScale :: f r z -> Dual f r z -> Dual f r z
-  dAdd :: Dual f r z -> Dual f r z -> Dual f r z
-  intOfShape :: f r z -> Int -> f r z
-  sharePrimal :: f r z -> f r z  -- impure
-  shareDual :: Dual f r z -> Dual f r z
+type IsPrimal :: Target -> TensorKindType -> Constraint
+class IsPrimal f z where
+  dZeroOfShape :: f z -> Delta f z
+  dScale :: Num (f z) => f z -> Delta f z -> Delta f z
+  dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
+  intOfShape :: f z -> Int -> f z
+  sharePrimal :: f z -> f z  -- impure
+  shareDual :: Delta f z -> Delta f z
 
 -- | The instances are impure, because 'shareDual'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
@@ -92,46 +84,19 @@ class IsPrimal f r z where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance ( GoodScalar r, KnownNat n, RankedTensor ranked, ShareTensor ranked
-         , ProductTensor ranked, RankedOf (ShapedOf ranked) ~ ranked )
-         => IsPrimal @Nat ranked r n where
-  dZeroOfShape tsh = ZeroG (FTKR $ rshape tsh)
+instance (ADReadyNoLet target, ShareTensor target, TensorKind z)
+         => IsPrimal target z where
+  dZeroOfShape tsh = ZeroG (tshapeFull stensorKind tsh)
   dScale _ (ZeroG ftk) = ZeroG ftk
-  dScale v u' = ScaleG (RepN v) u'
+  dScale v u' = ScaleG v u'
   dAdd ZeroG{} w = w
   dAdd v ZeroG{} = v
   dAdd v w = AddG v w
-  intOfShape tsh c = rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
-  sharePrimal = tshare
-  shareDual = shareDelta
-
-instance ( GoodScalar r, KnownShS sh, ShapedTensor shaped
-         , ShareTensor (RankedOf shaped), ProductTensor (RankedOf shaped) )
-         => IsPrimal @[Nat] shaped r sh where
-  dZeroOfShape tsh = ZeroG (FTKS $ sshape tsh)
-  dScale _ (ZeroG ftk) = ZeroG ftk
-  dScale v u' = ScaleG (RepN v) u'
-  dAdd ZeroG{} w = w
-  dAdd v ZeroG{} = v
-  dAdd v w = AddG v w
-  intOfShape tsh c =  -- not needed for shaped, here, but ranked above needs it,
-                      -- so we have to use it for both
-    sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
-  sharePrimal = tshare
-  shareDual = shareDelta
-
-instance ( GoodScalar r, KnownShX sh, mixed ~ MixedOf (RankedOf mixed)
-         , RankedTensor (RankedOf mixed)
-         , ShareTensor (RankedOf mixed), ProductTensor (RankedOf mixed), RankedOf (ShapedOf (RankedOf mixed)) ~ RankedOf mixed )
-         => IsPrimal @[Maybe Nat] mixed r sh where
-  dZeroOfShape tsh = ZeroG (FTKX $ xshape tsh)
-  dScale _ (ZeroG ftk) = ZeroG ftk
-  dScale v u' = ScaleG (RepN v) u'
-  dAdd ZeroG{} w = w
-  dAdd v ZeroG{} = v
-  dAdd v w = AddG v w
-  intOfShape tsh c =
-    xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
+  intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
+    STKR STKScalar{} SNat -> rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
+    STKS STKScalar{} sh -> withKnownShS sh $ sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
+    STKX STKScalar{} sh -> withKnownShX sh $ xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
+    _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
   sharePrimal = tshare
   shareDual = shareDelta
 
@@ -169,8 +134,8 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-shareDelta :: forall y ranked. (TensorKind y, RankedOf (ShapedOf ranked) ~ ranked)
-           => Delta ranked y -> Delta ranked y
+shareDelta :: forall y target. TensorKind y
+           => Delta target y -> Delta target y
 {-# NOINLINE shareDelta #-}
 shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
@@ -179,11 +144,11 @@ shareDelta d = unsafePerformIO $ do
     PairG d1 d2 -> PairG (shareDelta d1) (shareDelta d2)
       -- PairG is only a container; all work is done inside; TODO: more cases
     HToH hv ->
-      let shareDynamic :: DynamicTensor (DeltaR ranked)
-                       -> DynamicTensor (DeltaR ranked)
+      let shareDynamic :: DynamicTensor (Delta target)
+                       -> DynamicTensor (Delta target)
           shareDynamic t = case t of
-            DynamicRanked (DeltaR u) -> DynamicRanked $ DeltaR $ shareDelta u
-            DynamicShaped @r @sh (DeltaS u) -> DynamicShaped @r @sh @(DeltaR ranked) $ DeltaS $ shareDelta @(TKS r sh) @ranked u
+            DynamicRanked u -> DynamicRanked $ shareDelta u
+            DynamicShaped u -> DynamicShaped $ shareDelta u
             DynamicRankedDummy{} -> t
             DynamicShapedDummy{} -> t
       in HToH $ V.map shareDynamic hv

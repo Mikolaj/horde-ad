@@ -8,8 +8,7 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.TensorADVal
-  ( unADValHVector, unADValDynamicTensor
-  , unADValRep
+  ( unADValRep
   , crevOnADInputs, crevOnHVector, cfwdOnHVector
   ) where
 
@@ -21,11 +20,9 @@ import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
-import Type.Reflection (typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested (Rank)
@@ -40,7 +37,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.IsPrimal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
@@ -48,13 +45,13 @@ import HordeAd.Util.SizedList
 -- * Non-symbolic reverse and forward derivative computation
 
 crevOnADInputs
-  :: forall x z ranked.
-     ( TensorKind x, TensorKind z, ADReadyNoLet ranked
-     , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (Rep ranked (ADTensorKind z))
-  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
-  -> Rep (ADVal ranked) x
-  -> (Rep ranked (ADTensorKind x), Rep ranked z)
+  :: forall x z target.
+     ( TensorKind x, TensorKind z, ADReadyNoLet target
+     , ShareTensor target, ShareTensor (PrimalOf target) )
+  => Maybe (target (ADTensorKind z))
+  -> (ADVal target x -> ADVal target z)
+  -> ADVal target x
+  -> (target (ADTensorKind x), target z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
@@ -67,13 +64,13 @@ crevOnADInputs mdt f inputs =
   in (gradient, v)
 
 crevOnHVector
-  :: forall x z ranked.
-     ( TensorKind x, TensorKind z, ADReadyNoLet ranked
-     , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-  => Maybe (Rep ranked (ADTensorKind z))
-  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
-  -> Rep ranked x
-  -> (Rep ranked (ADTensorKind x), Rep ranked z)
+  :: forall x z target.
+     ( TensorKind x, TensorKind z, ADReadyNoLet target
+     , ShareTensor target, ShareTensor (PrimalOf target) )
+  => Maybe (target (ADTensorKind z))
+  -> (ADVal target x -> ADVal target z)
+  -> target x
+  -> (target (ADTensorKind x), target z)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs
                     $ tshapeFull (stensorKind @x) parameters
@@ -81,12 +78,12 @@ crevOnHVector mdt f parameters =
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
-  :: forall x z ranked.
-     (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
-  => Rep (ADVal ranked) x
-  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
-  -> Rep ranked (ADTensorKind x)
-  -> (Rep ranked (ADTensorKind z), Rep ranked z)
+  :: forall x z target.
+     (TensorKind x, TensorKind z, ADReadyNoLet target, ShareTensor target)
+  => ADVal target x
+  -> (ADVal target x -> ADVal target z)
+  -> target (ADTensorKind x)
+  -> (target (ADTensorKind z), target z)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
   let !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
@@ -94,12 +91,12 @@ cfwdOnADInputs inputs f ds =
   in (derivative, v)
 
 cfwdOnHVector
-  :: forall x z ranked.
-     (TensorKind x, TensorKind z, ADReadyNoLet ranked, ShareTensor ranked)
-  => Rep ranked x
-  -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
-  -> Rep ranked (ADTensorKind x)
-  -> (Rep ranked (ADTensorKind z), Rep ranked z)
+  :: forall x z target.
+     (TensorKind x, TensorKind z, ADReadyNoLet target, ShareTensor target)
+  => target x
+  -> (ADVal target x -> ADVal target z)
+  -> target (ADTensorKind x)
+  -> (target (ADTensorKind z), target z)
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs
                     $ tshapeFull (stensorKind @x) parameters
@@ -109,40 +106,16 @@ cfwdOnHVector parameters f ds =
 
 -- * Misc instances
 
-instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
-         , ShareTensor (PrimalOf ranked) )
-         => LetTensor (ADVal ranked) where
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => Rep (ADVal ranked) x
-       -> (Rep (ADVal ranked) x -> Rep (ADVal ranked) z)
-       -> Rep (ADVal ranked) z
-  tlet a f = case stensorKind @x of
-    STKScalar{} -> tlet (unRepScalar a) (f . RepScalar)
-    STKR STKScalar{} SNat ->
-      let (D u u') = a
-          !var2 = tshare u
-      in f (dDnotShared var2 u')
-    STKS STKScalar{} sh -> withKnownShS sh $
-      let (D u u') = a
-          !var2 = tshare u
-      in f (dDnotShared var2 u')
-    STKX STKScalar{} sh -> withKnownShX sh $
-      let (D u u') = a
-          !var2 = tshare u
-      in f (dDnotShared var2 u')
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      -- Sharing is preserved despite `a` being repeated, because
-      -- each repetition concerns a disjoint portion of `a` and so the whole `a`
-      -- is computed only once.
-      tlet (fst a) $ \ !a1 ->
-        tlet (snd a) $ \ !a2 -> f (a1, a2)
-    STKUntyped{} ->
-      let (!u, !u') = unADValHVector $ unHVectorPseudoTensor a
-          !var2 = dunHVector $ unHVectorPseudoTensor $ tshare @_ @TKUntyped
-                  $ HVectorPseudoTensor $ dmkHVector u
-      in f (HVectorPseudoTensor $ aDValHVector var2 u')
-    _ -> error "TODO"
+instance ( ADReadyNoLet target, ShareTensor target
+         , ShareTensor (PrimalOf target) )
+         => LetTensor (ADVal target) where
+  tlet :: forall x z. TensorKind x
+       => ADVal target x
+       -> (ADVal target x -> ADVal target z)
+       -> ADVal target z
+  tlet (D u u') f =
+    let !var2 = tshare u
+    in f (dDnotShared var2 u')
 
   toShare = id
   tunshare = id
@@ -152,20 +125,37 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked, ShareTensor ranked
       fromRepD $ addRepD (toRepDDuplicable stk u1)
                          (toRepDDuplicable stk u2)
 
-instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked))
-         => ShareTensor (ADVal ranked) where
+instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
+         => ShareTensor (ADVal target) where
   tshare = id
-  tunpair = id
-  tunvector = unHVectorPseudoTensor
+  tunpair (D u u') = let (u1, u2) = tunpair u
+                         (d1, d2) = unPairG u'
+                     in (dDnotShared u1 d1, dDnotShared u2 d2)
+  tunvector (D u u') = let vh = tunvector u
+                       in ahhToHVector vh u'
   taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
                                            (toRepDShare stk t2)
 
--- * Ranked tensor instance
+unPairG :: (TensorKind x, TensorKind y)
+        => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+unPairG (PairG a b) = (a, b)
+unPairG (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
+unPairG d = let dShared = shareDelta d  -- TODO: more cases
+            in (Project1G dShared, Project2G dShared)
 
-instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
-         , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-         => AdaptableHVector (ADVal ranked)
-                             (ADVal ranked r n) where
+unPairGUnshared :: (TensorKind x, TensorKind y)
+                => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+unPairGUnshared (PairG a b) = (a, b)
+unPairGUnshared (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
+unPairGUnshared d = (Project1G d, Project2G d)
+
+
+-- * Base tensor instance
+
+instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
+         , ShareTensor target, ShareTensor (PrimalOf target) )
+         => AdaptableHVector (ADVal target)
+                             (ADVal target (TKR r n)) where
 {- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
@@ -177,7 +167,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  type X (ADVal ranked r n) = TKR r n
+  type X (ADVal target (TKR r n)) = TKR r n
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
@@ -185,23 +175,51 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero (rshape aInit), Nothing)
 
-instance ( KnownNat n, GoodScalar r, ADReadyNoLet ranked
-         , ShareTensor ranked, ShareTensor (PrimalOf ranked) )
-         => AdaptableHVector (ADVal ranked)
-                             (AsHVector (ADVal ranked r n)) where
-  type X (AsHVector (ADVal ranked r n)) = TKUntyped
-  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicRanked . unAsHVector
+instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
+         , ShareTensor target, ShareTensor (PrimalOf target) )
+         => AdaptableHVector (ADVal target)
+                             (AsHVector (ADVal target (TKR r n))) where
+  type X (AsHVector (ADVal target (TKR r n))) = TKUntyped
+  toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
-instance (KnownNat n, GoodScalar r, ADReadyNoLet ranked, ShareTensor ranked)
-         => DualNumberValue (ADVal ranked r n) where
-  type DValue (ADVal ranked r n) = ORArray r n  -- ! not Value(ranked)
-  fromDValue t = constantADVal $ rconst $ runFlipR t
+instance (KnownNat n, GoodScalar r, ADReadyNoLet target, ShareTensor target)
+         => DualNumberValue (ADVal target (TKR r n)) where
+  type DValue (ADVal target (TKR r n)) = RepN (TKR r n)  -- ! not Value(target)
+  fromDValue t = constantADVal $ rconst $ runFlipR $ unRepN t
+
+instance ( ADReadyNoLet target, ShareTensor target
+         , ShareTensor (PrimalOf target)
+         , KnownShS sh, GoodScalar r )
+         => AdaptableHVector (ADVal target)
+                             (ADVal target (TKS r sh)) where
+  type X (ADVal target (TKS r sh)) = TKS r sh
+  toHVectorOf = id
+  fromHVector _aInit t = Just (t, Nothing)
+  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
+    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
+      Just Refl -> Just (t, Nothing)
+      _ -> Just (srepl 0, Nothing)
+
+instance ( ADReadyNoLet target, ShareTensor target
+         , ShareTensor (PrimalOf target)
+         , KnownShS sh, GoodScalar r )
+         => AdaptableHVector (ADVal target)
+                             (AsHVector (ADVal target (TKS r sh))) where
+  type X (AsHVector (ADVal target (TKS r sh))) = TKUntyped
+  toHVectorOf = dmkHVector . V.singleton . DynamicShaped . unAsHVector
+  fromHVector _aInit = fromHVectorS
+
+instance ( ADReadyNoLet target, ShareTensor target
+         , KnownShS sh, GoodScalar r )
+         => DualNumberValue (ADVal target (TKS r sh)) where
+  type DValue (ADVal target (TKS r sh)) = RepN (TKS r sh)   -- ! not Value(shaped)
+  fromDValue t = constantADVal $ sconst $ runFlipS $ unRepN t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
-instance ( a ~ ranked r n, RankedTensor ranked, ProductTensor ranked
-         , GoodScalar r, KnownNat n, AdaptableHVector ranked a )
-         => AdaptableHVector ranked [a] where
+instance ( a ~ target (TKR r n), BaseTensor target
+         , GoodScalar r, KnownNat n, AdaptableHVector target a )
+         => AdaptableHVector target [a] where
 {- TODO
   {-# SPECIALIZE instance
       AdaptableHVector ORArray (OR.Array n Double)
@@ -217,12 +235,12 @@ instance ( a ~ ranked r n, RankedTensor ranked, ProductTensor ranked
 -}
   type X [a] = TKUntyped
   toHVectorOf =
-    HVectorPseudoTensor . dmkHVector . V.concat
-    . map (dunHVector . unHVectorPseudoTensor . toHVectorOf . DynamicRanked)
+    dmkHVector . V.concat
+    . map (dunHVector . toHVectorOf . DynamicRanked)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector (DynamicRanked aInit) restAcc of
-            Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
+            Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe (dmkHVector V.empty) mrest)
             _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l
@@ -232,19 +250,19 @@ instance ( a ~ ranked r n, RankedTensor ranked, ProductTensor ranked
     -- >   let f = swap . flip fromHVector
     -- >   in swap $ mapAccumL f source lInit
 
-instance ( RankedTensor ranked, ProductTensor ranked
-         , AdaptableHVector ranked (AsHVector a)
+instance ( BaseTensor target
+         , AdaptableHVector target (AsHVector a)
          , X (AsHVector a) ~ TKUntyped )
-         => AdaptableHVector ranked (AsHVector [a]) where
+         => AdaptableHVector target (AsHVector [a]) where
   type X (AsHVector [a]) = TKUntyped
   toHVectorOf =
-    HVectorPseudoTensor . dmkHVector . V.concat
-    . map (dunHVector . unHVectorPseudoTensor . toHVectorOf . AsHVector)
+    dmkHVector . V.concat
+    . map (dunHVector . toHVectorOf . AsHVector)
     . unAsHVector
   fromHVector (AsHVector lInit) source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector (AsHVector aInit) restAcc of
-            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe (HVectorPseudoTensor $ dmkHVector V.empty) mrest)
+            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe (dmkHVector V.empty) mrest)
             _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l
@@ -257,8 +275,11 @@ instance ( RankedTensor ranked, ProductTensor ranked
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked))
-         => RankedTensor (ADVal ranked) where
+instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
+         => BaseTensor (ADVal target) where
+  rmkRepScalar (D t d) = dDnotShared (rmkRepScalar t) (UnScalarG d)
+  runRepScalar (D t d) = dDnotShared (runRepScalar t) (ScalarG d)
+
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u
@@ -297,13 +318,13 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   rreverse (D u u') = dD (rreverse u) (ReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (TransposeR perm u')
   rreshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
-           => IShR m -> ADVal ranked r n -> ADVal ranked r m
+           => IShR m -> ADVal target (TKR r n) -> ADVal target (TKR r m)
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
   rbuild1 :: forall r n. (GoodScalar r, KnownNat n)
-          => Int -> (IntOf (ADVal ranked) -> ADVal ranked r n)
-          -> ADVal ranked r (1 + n)
+          => Int -> (IntOf (ADVal target) -> ADVal target (TKR r n))
+          -> ADVal target (TKR r (1 + n))
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
                    -- the only case where we can guess sh
@@ -323,11 +344,11 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
     in dDnotShared v (dZeroOfShape v)
   rconst t = constantADVal (rconst t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ADVal (ShapedOf ranked) r sh -> ADVal ranked r (Rank sh)
+         => ADVal target (TKS r sh) -> ADVal target (TKR r (Rank sh))
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
    where
     dRFromS :: (GoodScalar r2, KnownShS sh2)
-            => Delta ranked (TKS r2 sh2) -> Delta ranked (TKR r2 (Rank sh2))
+            => Delta target (TKS r2 sh2) -> Delta target (TKR r2 (Rank sh2))
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
 
@@ -335,7 +356,7 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   rprimalPart (D u _) = u
   rdualPart (D _ u') = u'
   rD t d = dD t d
-  rScale k = ScaleG (RepN k)
+  rScale k = ScaleG k
 
   xshape (D u _) = xshape u
   xindex d i = indexPrimalX d (rprimalPart <$> i)
@@ -348,50 +369,6 @@ instance (ADReadyNoLet ranked, ShareTensor ranked, ShareTensor (PrimalOf ranked)
   xdualPart (D _ u') = u'
   xD t d = dD t d
 
-
--- * Shaped tensor instance
-
-instance ( ADReadyNoLet (RankedOf shaped), ShareTensor ranked
-         , ShareTensor (PrimalOf ranked)
-         , KnownShS sh, GoodScalar r
-         , ShapedOf (RankedOf shaped) ~ shaped, ranked ~ RankedOf shaped )
-         => AdaptableHVector (ADVal ranked)
-                             (ADVal shaped r sh) where
-  type X (ADVal shaped r sh) = TKS r sh
-  toHVectorOf = id
-  fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
-      Just Refl -> Just (t, Nothing)
-      _ -> Just (srepl 0, Nothing)
-
-instance ( ADReadyNoLet (RankedOf shaped), ShareTensor ranked
-         , ShareTensor (PrimalOf ranked)
-         , KnownShS sh, GoodScalar r
-         , ShapedOf (RankedOf shaped) ~ shaped, ranked ~ RankedOf shaped )
-         => AdaptableHVector (ADVal ranked)
-                             (AsHVector (ADVal shaped r sh)) where
-  type X (AsHVector (ADVal shaped r sh)) = TKUntyped
-  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit = fromHVectorS
-
-instance ( ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
-         , KnownShS sh, GoodScalar r, ShapedOf (RankedOf shaped) ~ shaped )
-         => DualNumberValue (ADVal shaped r sh) where
-  type DValue (ADVal shaped r sh) = OSArray r sh   -- ! not Value(shaped)
-  fromDValue t = constantADVal $ sconst $ runFlipS t
-
--- Note that these instances don't do vectorization. To enable it,
--- use the Ast instance and only then interpret in ADVal.
--- In any case, only the Ast instantiation of this instance
--- is used in the codebase, in particular, to satisfy the constraints
--- needed for the interpretation of Ast in ADVal.
--- The ADVal Double and ADVal Float instantiations are only used
--- in tests. None others are used anywhere.
-instance (ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
-         , ShapedOf (RankedOf shaped) ~ shaped
-         , ShareTensor (PrimalOf (RankedOf shaped)) )
-         => ShapedTensor (ADVal shaped) where
   sminIndex (D u _) =
     let v = sminIndex u
     in dDnotShared v (dZeroOfShape v)
@@ -424,26 +401,26 @@ instance (ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
   sappend (D u u') (D v v') =
     dD (sappend u v) (AppendS u' v')
   sslice (i_proxy :: Proxy i) n_proxy (D u u') =
-    dD (sslice i_proxy n_proxy u) (SliceS @(RankedOf shaped) @i u')
+    dD (sslice i_proxy n_proxy u) (SliceS @target @i u')
   sreverse (D u u') = dD (sreverse u) (ReverseS u')
 
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
                 , Rank perm <= Rank sh, GoodScalar r )
-             => Permutation.Perm perm -> ADVal shaped r sh
-             -> ADVal shaped r (Permutation.PermutePrefix perm sh)
+             => Permutation.Perm perm -> ADVal target (TKS r sh)
+             -> ADVal target (TKS r (Permutation.PermutePrefix perm sh))
   stranspose perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
-    dD (stranspose perm u) (TransposeS @_ @_ @_ @(RankedOf shaped) perm u')
+    dD (stranspose perm u) (TransposeS @_ @_ @_ @target perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2)
-           => ADVal shaped r sh -> ADVal shaped r sh2
+           => ADVal target (TKS r sh) -> ADVal target (TKS r sh2)
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (ADVal shaped) -> ADVal shaped r sh)
-          -> ADVal shaped r (n ': sh)
+          => (IntOf (ADVal target) -> ADVal target (TKS r sh))
+          -> ADVal target (TKS r (n ': sh))
   sbuild1 f = case valueOf @n of
     0 -> sconst $ Nested.sfromListPrimLinear knownShS []
     k -> sfromList $ NonEmpty.fromList
@@ -459,7 +436,7 @@ instance (ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
     in dDnotShared v (dZeroOfShape v)
   sconst t = constantADVal (sconst t)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-         => ADVal (RankedOf shaped) r (Rank sh) -> ADVal shaped r sh
+         => ADVal target (TKR r (Rank sh)) -> ADVal target (TKS r sh)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
     dSFromR (RFromS @sh1 d) =
@@ -472,145 +449,57 @@ instance (ADReadyNoLet (RankedOf shaped), ShareTensor (RankedOf shaped)
   sprimalPart (D u _) = u
   sdualPart (D _ u') = u'
   sD t d = dD t d
-  sScale k = ScaleG (RepN k)
+  sScale k = ScaleG k
 
-
--- * ProductTensor instance
-
-{-
-instance (ADReadyNoLet ranked, HVectorOf ranked ~ HVector ranked)
-         => AdaptableHVector (ADVal ranked)
-                             (ADVal (HVectorPseudoTensor ranked)
-                                    Float '()) where
-  type X (ADVal (HVectorPseudoTensor ranked) Float '()) = TKUntyped
-  toHVectorOf = aDValToHVector
-  fromHVector (D (HVectorPseudoTensor h) _) params =
-    let (portion, rest) = V.splitAt (V.length h) params
-    in Just (hVectorADValToADVal portion, if V.null rest then Nothing else Just rest)
--}
-
-instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
-         , ShareTensor ranked
-         , ShareTensor (PrimalOf ranked) )
-         => ProductTensor (ADVal ranked) where
-  tpair u v = (u, v)
-  tproject1 = fst
-  tproject2 = snd
-  dshape = voidFromHVector
-  tshapeFull stk t = case stk of
-    STKScalar _ -> FTKScalar
-    STKR STKScalar{} SNat -> let D u _ = t
-                   in tshapeFull stk u
-    STKS STKScalar{} sh -> FTKS sh
-    STKX STKScalar{} sh -> withKnownShX sh $
-      let D u _ = t
-      in tshapeFull stk u
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      FTKProduct (tshapeFull stk1 (fst t))
-                 (tshapeFull stk2 (snd t))
-    STKUntyped ->
-      let (!as, _) = unADValHVector $ unHVectorPseudoTensor t
-          u = HVectorPseudoTensor $ dmkHVector as
-      in tshapeFull stk u
-    _ -> error "TODO"
+  tpair (D u u') (D v v') = dDnotShared (tpair u v) (PairG u' v')
+  tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unPairGUnshared u')
+  tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unPairGUnshared u')
+  dshape (D u _) = dshape u
+  tshapeFull stk (D u _) = tshapeFull stk u
   tcond stk b u v = case stk of
-    STKScalar _ -> RepScalar $ ifF b (unRepScalar u) (unRepScalar v)
+    STKScalar _ -> rmkRepScalar $ ifF b (runRepScalar u) (runRepScalar v)
     STKR STKScalar{} SNat -> ifF b u v
     STKS STKScalar{} sh -> withKnownShS sh $ ifF b u v
     STKX STKScalar{} sh -> withKnownShX sh $ ifF b u v
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
-      let !t1 = tcond stk1 b (fst u) (fst v)
-          !t2 = tcond stk2 b (snd u) (snd v)
-      in (t1, t2)
-    STKUntyped ->
-      let fd = mapDynamic2 (ifF b) (ifF b)
-      in HVectorPseudoTensor
-         $ V.zipWith fd (unHVectorPseudoTensor u) (unHVectorPseudoTensor v)
-    _ -> error "TODO"
-  tconstant :: STensorKindType y
-            -> Rep ranked y
-            -> Rep (ADVal ranked) y
-  tconstant stk t = case stk of
-    STKScalar _ -> RepScalar $ rconstant $ unRepScalar t
-    STKR STKScalar{} SNat -> rconstant t
-    STKS STKScalar{} sh -> withKnownShS sh $ sconstant t
-    STKX STKScalar{} sh -> withKnownShX sh $ xconstant t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      let (t1, t2) = tunpair t
-          !c1 = tconstant stk1 t1
-          !c2 = tconstant stk2 t2
-      in (c1, c2)
-    STKUntyped ->
-      let fd :: DynamicTensor ranked -> DynamicTensor (ADVal ranked)
-          fd = mapDynamic rconstant sconstant
-      in HVectorPseudoTensor $ V.map fd $ tunvector t
-    _ -> error "TODO"
-  tprimalPart :: STensorKindType y
-              -> Rep (ADVal ranked) y
-              -> Rep ranked y
-  tprimalPart stk t = case stk of
-    STKScalar _ -> RepScalar $ rprimalPart $ unRepScalar t
-    STKR STKScalar{} SNat -> rprimalPart t
-    STKS STKScalar{} sh -> withKnownShS sh $ sprimalPart t
-    STKX STKScalar{} sh -> withKnownShX sh $ xprimalPart t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      let !t1 = tprimalPart stk1 $ fst t
-          !t2 = tprimalPart stk2 $ snd t
+      let (u1, u2) = tunpair u
+          (v1, v2) = tunpair v
+          !t1 = tcond stk1 b u1 v1
+          !t2 = tcond stk2 b u2 v2
       in tpair t1 t2
     STKUntyped ->
-      let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor ranked
-          fd = mapDynamic rprimalPart sprimalPart
-      in HVectorPseudoTensor $ dmkHVector
-         $ V.map fd $ unHVectorPseudoTensor t
+      let us = tunvector u
+          vs = tunvector v
+          fd = mapDynamic2 (ifF b) (ifF b)
+      in dmkHVector $ V.zipWith fd us vs
     _ -> error "TODO"
-  tdualPart stk t = case stk of
-    STKScalar _ -> UnScalarG $ rdualPart $ unRepScalar t
-    STKR STKScalar{} SNat -> rdualPart t
-    STKS STKScalar{} sh -> withKnownShS sh $ sdualPart t
-    STKX STKScalar{} sh -> withKnownShX sh $ xdualPart t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      let !t1 = tdualPart stk1 $ fst t
-          !t2 = tdualPart stk2 $ snd t
-      in PairG t1 t2
-    STKUntyped ->
-      let fd :: DynamicTensor (ADVal ranked) -> DynamicTensor (DeltaR ranked)
-          fd = mapDynamic (DeltaR . rdualPart) (DeltaS . sdualPart)
-      in HToH
-         $ V.map fd $ unHVectorPseudoTensor t
-    _ -> error "TODO"
-  tD stk t d = case stk of
-    STKScalar _ -> RepScalar $ rD (unRepScalar t) (ScalarG d)
-    STKR STKScalar{} SNat -> rD t d
-    STKS STKScalar{} sh -> withKnownShS sh $ sD t d
-    STKX STKScalar{} sh -> withKnownShX sh $ xD t d
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      let (t1, t2) = tunpair t
-          (d1, d2) = (Project1G d, Project2G d)  -- TODO: sharing
-      in tpair (tD stk1 t1 d1) (tD stk2 t2 d2)
-    STKUntyped ->
-      let hv = tunvector t
-      in HVectorPseudoTensor $ dmkHVector $ ahhToHVector hv d
-    _ -> error "TODO"
-  dmkHVector = id
+  tconstant :: STensorKindType y
+            -> target y
+            -> ADVal target y
+  tconstant stk t | Dict <- lemTensorKindOfS stk = dDnotShared t (dZeroOfShape t)
+  tprimalPart :: STensorKindType y
+              -> ADVal target y
+              -> target y
+  tprimalPart _stk (D u _) = u
+  tdualPart _stk (D _ u') = u'
+  tD stk t d | Dict <- lemTensorKindOfS stk = dD t d
+  dmkHVector hv =
+    let (!as, !as') = V.unzip $ V.map unADValDynamicTensor hv
+    in dDnotShared (dmkHVector as) (HToH as')
   dlambda _ = id
   dHApply (HFun f) = f
-  dunHVector = id
+  dunHVector = tunvector
   dbuild1 k f =
-    ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
+    dmkHVector $ ravelHVector $ map (dunHVector . f . fromIntegral) [0 .. sNatValue k - 1]
   drev :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
        -> HFun x (ADTensorKind x)
   drev _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let rf :: forall f. ADReady f
-           => Rep f x
-           -> Rep f (ADTensorKind x)
+           => f x
+           -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
         rf !a = tlet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
@@ -625,8 +514,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   drevDt _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
                 , Dict <- lemTensorKindOfAD (stensorKind @z) =
     let rf :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind z) x)
-           -> Rep f (ADTensorKind x)
+           => f (TKProduct (ADTensorKind z) x)
+           -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = tlet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
@@ -641,8 +530,8 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   dfwd _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
               , Dict <- lemTensorKindOfAD (stensorKind @z) =
     let df :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind x) x)
-           -> Rep f (ADTensorKind z)
+           => f (TKProduct (ADTensorKind x) x)
+           -> f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
         df !da_a = tlet da_a $ \ !da_aShared ->
           tunshare $ fst $ cfwdOnHVector
@@ -653,21 +542,21 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
   dmapAccumRDer
     :: forall k accShs bShs eShs.
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (ADVal ranked)
+    => Proxy (ADVal target)
     -> SNat k
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> HFunOf (ADVal ranked) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (ADVal ranked) (TKProduct (ADTensorKind (TKProduct accShs eShs))
+    -> HFunOf (ADVal target) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (ADVal target) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                         (TKProduct accShs eShs))
                              (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (ADVal ranked) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+    -> HFunOf (ADVal target) (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                         (TKProduct accShs eShs))
                              (ADTensorKind (TKProduct accShs eShs))
-    -> Rep (ADVal ranked) accShs
-    -> Rep (ADVal ranked) (BuildTensorKind k eShs)
-    -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
+    -> ADVal target accShs
+    -> ADVal target (BuildTensorKind k eShs)
+    -> ADVal target (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
@@ -680,17 +569,17 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => Rep f (TKProduct accShs eShs)
-          -> Rep f (TKProduct accShs (TKProduct accShs bShs))
+          => f (TKProduct accShs eShs)
+          -> f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e =
           tlet acc_e $ \ !acc_e1 ->
           tlet (unHFun f acc_e) $ \ !accRes_bRes ->
             tpair (tproject1 accRes_bRes)
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
+           => f (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                (TKProduct accShs eShs))
-           -> Rep f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
+           -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
             let (!dacc_de, !_acc_e) =
@@ -700,10 +589,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                  tpair (tproject1 accRes_bRes)
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs
+           => f (TKProduct (ADTensorKind (TKProduct accShs
                                                         (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
-           -> Rep f (ADTensorKind (TKProduct accShs eShs))
+           -> f (ADTensorKind (TKProduct accShs eShs))
         rg !args =
           tlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
@@ -714,15 +603,15 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                    let added = taddLet stensorKind (tproject1 daccRes_deRes)
                                                    (tproject1 db1)
                    in tpair added (tproject2 daccRes_deRes)
-        p = dmapAccumRDer (Proxy @ranked)
+        p = dmapAccumRDer (Proxy @target)
                           k accShs codomainShs eShs
-                          (dlambda @ranked (FTKProduct accShs eShs)
+                          (dlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
-                          (dlambda @ranked
+                          (dlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
-                          (dlambda @ranked
+                          (dlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
@@ -732,27 +621,27 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = MapAccumR k accShs bShs eShs
-                         (RepN q) (RepN es)
+                         q es
                          df rf acc0' es'
-    in aDValRep (tpair accFin bs) dual
+    in dD (tpair accFin bs) dual
   dmapAccumLDer
     :: forall k accShs bShs eShs.
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (ADVal ranked)
+    => Proxy (ADVal target)
     -> SNat k
     -> TensorKindFull accShs
     -> TensorKindFull bShs
     -> TensorKindFull eShs
-    -> HFunOf (ADVal ranked) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (ADVal ranked) (TKProduct (ADTensorKind (TKProduct accShs eShs))
+    -> HFunOf (ADVal target) (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> HFunOf (ADVal target) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                         (TKProduct accShs eShs))
                              (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (ADVal ranked) (TKProduct (ADTensorKind (TKProduct accShs bShs))
+    -> HFunOf (ADVal target) (TKProduct (ADTensorKind (TKProduct accShs bShs))
                                         (TKProduct accShs eShs))
                              (ADTensorKind (TKProduct accShs eShs))
-    -> Rep (ADVal ranked) accShs
-    -> Rep (ADVal ranked) (BuildTensorKind k eShs)
-    -> Rep (ADVal ranked) (TKProduct accShs (BuildTensorKind k bShs))
+    -> ADVal target accShs
+    -> ADVal target (BuildTensorKind k eShs)
+    -> ADVal target (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
@@ -765,17 +654,17 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
-          => Rep f (TKProduct accShs eShs)
-          -> Rep f (TKProduct accShs (TKProduct accShs bShs))
+          => f (TKProduct accShs eShs)
+          -> f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e =
           tlet acc_e $ \ !acc_e1 ->
           tlet (unHFun f acc_e) $ \ !accRes_bRes ->
             tpair (tproject1 accRes_bRes)
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs eShs))
+           => f (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                (TKProduct accShs eShs))
-           -> Rep f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
+           -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
             let (!dacc_de, !_acc_e) =
@@ -785,10 +674,10 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                  tpair (tproject1 accRes_bRes)
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
-           => Rep f (TKProduct (ADTensorKind (TKProduct accShs
+           => f (TKProduct (ADTensorKind (TKProduct accShs
                                                         (TKProduct accShs bShs)))
                                (TKProduct accShs eShs))
-           -> Rep f (ADTensorKind (TKProduct accShs eShs))
+           -> f (ADTensorKind (TKProduct accShs eShs))
         rg !args =
           tlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
@@ -799,15 +688,15 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
                    let added = taddLet stensorKind (tproject1 daccRes_deRes)
                                                    (tproject1 db1)
                    in tpair added (tproject2 daccRes_deRes)
-        p = dmapAccumLDer (Proxy @ranked)
+        p = dmapAccumLDer (Proxy @target)
                           k accShs codomainShs eShs
-                          (dlambda @ranked (FTKProduct accShs eShs)
+                          (dlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
-                          (dlambda @ranked
+                          (dlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
-                          (dlambda @ranked
+                          (dlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
@@ -817,117 +706,25 @@ instance ( shaped ~ ShapedOf ranked, ADReadyNoLet ranked
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = MapAccumL k accShs bShs eShs
-                         (RepN q) (RepN es)
+                         q es
                          df rf acc0' es'
-    in aDValRep (tpair accFin bs) dual
-
-{-
-aDValToHVector
-  :: (HVectorOf ranked ~ HVector ranked, RankedOf (ShapedOf ranked) ~ ranked)
-  => ADVal (HVectorPseudoTensor ranked) r y -> HVector (ADVal ranked)
-aDValToHVector (D (HVectorPseudoTensor h) (HVectorPseudoTensor h')) =
-  ahhToHVector h h'
-
--- `Float '()` instead of `r y` is needed to avoid
--- `Ambiguous type variables ‘r1’, ‘y1’ arising from a use of ‘crev’`
--- in contexts like `crev (hVectorADValToADVal . f)`.
-hVectorADValToADVal
-  :: forall ranked. ProductTensor ranked (ShapedOf ranked)
-  => HVector (ADVal ranked) -> ADVal (HVectorPseudoTensor ranked) Float '()
-hVectorADValToADVal hv =
-  let (!as, !as') = unADValHVector hv
-  in dDnotShared (HVectorPseudoTensor $ dmkHVector as)
-                 (HVectorPseudoTensor $ HToH as')
--}
-
-unADValHVector
-  :: HVector (ADVal f)
-  -> (HVector f, HVector (DeltaR f))
-unADValHVector = V.unzip . V.map unADValDynamicTensor
+    in dD (tpair accFin bs) dual
 
 unADValDynamicTensor
   :: DynamicTensor (ADVal f)
-  -> (DynamicTensor f, DynamicTensor (DeltaR f))
+  -> (DynamicTensor f, DynamicTensor (Delta f))
 unADValDynamicTensor (DynamicRanked (D t t')) =
-  (DynamicRanked t, DynamicRanked (DeltaR t'))
+  (DynamicRanked t, DynamicRanked t')
 unADValDynamicTensor (DynamicShaped (D t t')) =
-  (DynamicShaped t, DynamicShaped (DeltaS t'))
+  (DynamicShaped t, DynamicShaped t')
 unADValDynamicTensor (DynamicRankedDummy p1 p2) =
   (DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
 unADValDynamicTensor (DynamicShapedDummy p1 p2) =
   (DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
 
 unADValRep
-  :: forall y ranked.
-     ( ProductTensor ranked
-     , RankedOf (ShapedOf ranked) ~ ranked, RankedOf (MixedOf ranked) ~ ranked )
-  => STensorKindType y
-  -> Rep (ADVal ranked) y
-  -> (Rep ranked y, Delta ranked y)
-unADValRep stk t = case (stk, t) of
-  (STKScalar{}, RepScalar (D p d)) -> (RepScalar p, UnScalarG d)
-  (STKR STKScalar{} _, D p d) -> (p, d)
-  (STKS STKScalar{} _, D p d) -> (p, d)
-  (STKX STKScalar{} _, D p d) -> (p, d)
-  (STKProduct stk1 stk2, (t1, t2)) | Dict <- lemTensorKindOfS stk1
-                                   , Dict <- lemTensorKindOfS stk2 ->
-    let (!p1, !d1) = unADValRep stk1 t1 in
-    let (!p2, !d2) = unADValRep stk2 t2
-    in (tpair p1 p2, PairG d1 d2)
-  (STKUntyped, HVectorPseudoTensor u) ->
-    let (!p, !d) = unADValHVector u
-    in (HVectorPseudoTensor $ dmkHVector p, HToH d)
-  _ -> error "TODO"
-
-aDValHVector :: ADReadyNoLet f
-             => HVector f -> HVector (DeltaR f) -> HVector (ADVal f)
-aDValHVector = V.zipWith aDValDynamicTensor
-
-aDValDynamicTensor :: ADReadyNoLet f
-                   => DynamicTensor f -> DynamicTensor (DeltaR f)
-                   -> DynamicTensor (ADVal f)
-aDValDynamicTensor (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
-    DynamicRanked (dDnotShared t (unDeltaR t'))
-aDValDynamicTensor (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared t (unDeltaS t'))
-aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
-                   (DynamicRanked @r2 @n2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- matchingRank @sh1 @n2 =
-    withListShape (shapeT @sh1) $ \(sh4 :: IShR n4) ->
-      gcastWith (unsafeCoerce Refl :: n4 :~: Rank sh1) $
-      DynamicRanked (dDnotShared (rzero sh4) (unDeltaR t'))
-aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
-                   (DynamicShaped @r2 @sh2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared (srepl 0) (unDeltaS t'))
--- TODO: explain how these remaining cases arise (maybe ADVal (ADVal)?)
-aDValDynamicTensor (DynamicRanked @r1 @n1 t')
-                   (DynamicRankedDummy @r2 @sh2 _ _)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- matchingRank @sh2 @n1 =
-    withListShape (shapeT @sh2) $ \(sh4 :: IShR n4) ->
-      gcastWith (unsafeCoerce Refl :: n4 :~: Rank sh2) $
-      DynamicRanked (dDnotShared t' (ZeroG $ FTKR sh4))
-aDValDynamicTensor (DynamicShaped @r1 @sh1 t')
-                   (DynamicShapedDummy @r2 @sh2 _ _)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped (dDnotShared t' (ZeroG $ FTKS knownShS))
-aDValDynamicTensor (DynamicRankedDummy @r1 @sh1 _ _)
-                   (DynamicRankedDummy @r2 @sh2 _ _)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-     DynamicRankedDummy @r1 @sh1 Proxy Proxy
-aDValDynamicTensor (DynamicShapedDummy @r1 @sh1 _ _)
-                   (DynamicShapedDummy @r2 @sh2 _ _)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShapedDummy @r1 @sh1 Proxy Proxy
-aDValDynamicTensor u v = error $ "aDValDynamicTensor: wrong arguments: ("
-                                 ++ show u ++ ", " ++ show v ++ ")"
+  :: forall y target.
+     STensorKindType y
+  -> ADVal target y
+  -> (target y, Delta target y)
+unADValRep _stk (D p d) = (p, d)

@@ -27,6 +27,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
@@ -93,41 +94,41 @@ benchProd ~(_l, list, _vec) =
     , bench "NoShare List crev" $ nf crevRankedNoShareListProd list
     ]
 
-rankedListProd :: (RankedTensor ranked, GoodScalar r)
-               => [ranked r 0] -> ranked r 0
+rankedListProd :: (BaseTensor target, GoodScalar r)
+               => [target (TKR r 0)] -> target (TKR r 0)
 rankedListProd = foldl1' (*)
 
 crevRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
+crevRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
                      . crev rankedListProd
-                     . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
+                     . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 revRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-revRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
+revRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
                     . rev rankedListProd
-                    . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
+                    . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
-rankedListProdr :: (RankedTensor ranked, GoodScalar r)
-                => [ranked r 0] -> ranked r 0
+rankedListProdr :: (BaseTensor target, GoodScalar r)
+                => [target (TKR r 0)] -> target (TKR r 0)
 rankedListProdr = foldr1 (*)
 
 crevRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR)
+crevRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
                       . crev rankedListProdr
-                      . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
+                      . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 revRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-revRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR)
+revRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
                      . rev rankedListProdr
-                     . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
+                     . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
 crevRankedNoShareListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedNoShareListProd = map (FlipR . Nested.rtoOrthotope . runFlipR)
+crevRankedNoShareListProd = map (FlipR . Nested.rtoOrthotope . runFlipR . unRepN)
                             . crev rankedNoShareListProd
-                            . map (FlipR . Nested.rfromOrthotope SNat . runFlipR)
+                            . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
 
-_rankedVecProd :: (RankedTensor ranked, GoodScalar r)
-               => Data.Vector.Vector (ranked r 0) -> ranked r 0
+_rankedVecProd :: (BaseTensor target, GoodScalar r)
+               => Data.Vector.Vector (target (TKR r 0)) -> target (TKR r 0)
 _rankedVecProd = V.foldl1' (*)
 
 -- This one saves on running the adaptor and on comparing the scalar
@@ -141,9 +142,9 @@ _rankedVecProd = V.foldl1' (*)
 -- Eventually, we could add another Delta GADT only for scalars
 -- and use these instead of rank 0 tensors, but it's probably better
 -- to add fold on tensors instead.
-rankedVecDProd :: forall r ranked.
-                  (RankedTensor ranked, GoodScalar r)
-               => HVector ranked -> ranked r 0
+rankedVecDProd :: forall r target.
+                  (BaseTensor target, GoodScalar r)
+               => HVector target -> target (TKR r 0)
 rankedVecDProd =
   let f acc (DynamicRanked @r2 @n2 d) =
         gcastWith (unsafeCoerce Refl :: r2 :~: r) $
@@ -153,13 +154,13 @@ rankedVecDProd =
   in V.foldl' f 0
 
 rankedNoShareListProd :: GoodScalar r
-                      => [ADVal (FlipR Nested.Ranked) r 0]
-                      -> ADVal (FlipR Nested.Ranked) r 0
+                      => [ADVal RepN (TKR r 0)]
+                      -> ADVal RepN (TKR r 0)
 rankedNoShareListProd = foldl1' multNotShared
 
 _rankedNoShareVecProd :: GoodScalar r
-                      => Data.Vector.Vector (ADVal (FlipR Nested.Ranked) r 0)
-                      -> ADVal (FlipR Nested.Ranked) r 0
+                      => Data.Vector.Vector (ADVal RepN (TKR r 0))
+                      -> ADVal RepN (TKR r 0)
 _rankedNoShareVecProd = V.foldl1' multNotShared
 
 

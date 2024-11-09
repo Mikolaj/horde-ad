@@ -1429,7 +1429,7 @@ astLetInt var u v | var `varNameInAst` v = astLet var u v
 astLetInt _ _ v = v
 
 astCond :: TensorKind y
-        => AstBool AstMethodLet -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
+        => AstBool ms -> AstTensor ms s y -> AstTensor ms s y -> AstTensor ms s y
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstConstant v) (Ast.AstConstant w) =
   Ast.AstConstant $ astCond b v w
@@ -2071,8 +2071,7 @@ astProjectR
   -> AstTensor AstMethodLet s (TKR r n)
 astProjectR l p = case l of
   Ast.AstMkHVector l3 ->
-    unAstGeneric
-    $ fromDynamicR (\sh -> AstGeneric $ astReplicate0N sh 0) (l3 V.! p)
+    fromDynamicR (\sh -> astReplicate0N sh 0) (l3 V.! p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectR d2 p)
   Ast.AstLetHVectorIn vars d1 d2 ->
@@ -2087,8 +2086,7 @@ astProjectS
   -> AstTensor AstMethodLet s (TKS r sh)
 astProjectS l p = case l of
   Ast.AstMkHVector l3 ->
-    unAstGenericS
-    $ fromDynamicS (AstGenericS $ astReplicate0NS 0) (l3 V.! p)
+    fromDynamicS (astReplicate0NS 0) (l3 V.! p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectS d2 p)
   Ast.AstLetHVectorIn vars d1 d2 ->
@@ -2292,12 +2290,12 @@ mapRankedShaped
 {-# INLINE mapRankedShaped #-}
 mapRankedShaped fRanked fShaped
                 vd@(AstDynamicVarName @ty @r3 @sh3 varId, d) acc = case d of
-  DynamicRanked @r4 @n4 (AstGeneric v3)
+  DynamicRanked @r4 @n4 v3
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh3 @n4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         fRanked (mkAstVarName varId) v3 acc
-  DynamicShaped @r4 @sh4 (AstGenericS v3)
+  DynamicShaped @r4 @sh4 v3
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
@@ -2551,10 +2549,10 @@ simplifyAst t = case t of
 simplifyAstDynamic
   :: AstSpan s
   => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
-simplifyAstDynamic (DynamicRanked (AstGeneric u)) =
-  DynamicRanked $ AstGeneric $ simplifyAst u
-simplifyAstDynamic (DynamicShaped (AstGenericS u)) =
-  DynamicShaped $ AstGenericS $ simplifyAst u
+simplifyAstDynamic (DynamicRanked u) =
+  DynamicRanked $ simplifyAst u
+simplifyAstDynamic (DynamicShaped u) =
+  DynamicShaped $ simplifyAst u
 simplifyAstDynamic u@DynamicRankedDummy{} = u
 simplifyAstDynamic u@DynamicShapedDummy{} = u
 
@@ -2770,10 +2768,10 @@ expandAst t = case t of
 expandAstDynamic
   :: AstSpan s
   => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
-expandAstDynamic (DynamicRanked (AstGeneric u)) =
-  DynamicRanked $ AstGeneric $ expandAst u
-expandAstDynamic (DynamicShaped (AstGenericS u)) =
-  DynamicShaped $ AstGenericS $ expandAst u
+expandAstDynamic (DynamicRanked u) =
+  DynamicRanked $ expandAst u
+expandAstDynamic (DynamicShaped u) =
+  DynamicShaped $ expandAst u
 expandAstDynamic u@DynamicRankedDummy{} = u
 expandAstDynamic u@DynamicShapedDummy{} = u
 
@@ -3365,10 +3363,10 @@ substitute1AstDynamic
   => SubstitutionPayload s2 -> AstVarId -> AstDynamic AstMethodLet s
   -> Maybe (AstDynamic AstMethodLet s)
 substitute1AstDynamic i var = \case
-  DynamicRanked (AstGeneric t) ->
-    DynamicRanked . AstGeneric <$> substitute1Ast i var t
-  DynamicShaped (AstGenericS t) ->
-    DynamicShaped . AstGenericS <$> substitute1Ast i var t
+  DynamicRanked t ->
+    DynamicRanked <$> substitute1Ast i var t
+  DynamicShaped t ->
+    DynamicShaped <$> substitute1Ast i var t
   DynamicRankedDummy{} -> Nothing
   DynamicShapedDummy{} -> Nothing
 

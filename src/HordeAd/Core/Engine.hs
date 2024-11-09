@@ -35,8 +35,9 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (ORArray, OSArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 
 -- * Reverse derivative adaptors
 
@@ -57,10 +58,10 @@ import HordeAd.Internal.BackendOX (ORArray, OSArray)
 rev
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableHVector RepN (Value astvals)
      , TermValue astvals )
-  => (astvals -> Rep (AstRanked FullSpan) z)
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Value astvals
 {-# INLINE rev #-}
@@ -77,12 +78,12 @@ rev f vals = revDtMaybe f vals Nothing
 revDt
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableHVector RepN (Value astvals)
      , TermValue astvals )
-  => (astvals -> Rep (AstRanked FullSpan) z)
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
-  -> Rep ORArray (ADTensorKind z)
+  -> RepN (ADTensorKind z)
   -> Value astvals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
@@ -90,17 +91,17 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 revDtMaybe
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableHVector RepN (Value astvals)
      , TermValue astvals )
-  => (astvals -> Rep (AstRanked FullSpan) z)
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
-  -> Maybe (Rep ORArray (ADTensorKind z))
+  -> Maybe (RepN (ADTensorKind z))
   -> Value astvals  -- morally (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
-  let g :: Rep (AstRanked FullSpan) (X astvals)
-        -> Rep (AstRanked FullSpan) z
+  let g :: AstTensor AstMethodLet FullSpan (X astvals)
+        -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ parseHVector (fromValue vals0) hvShared
       valsH = toHVectorOf vals0
@@ -110,48 +111,48 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
 {- TODO
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableHVector RepN (Value astvals)
      , TermValue astvals )
-  => (astvals -> AstRanked FullSpan Double n)
+  => (astvals -> AstTensor AstMethodLet FullSpan Double n)
   -> Value astvals
-  -> Maybe (ORArray Double n)
+  -> Maybe (RepN (TKR Double n))
   -> Value astvals #-}
 -}
 
 revArtifactAdapt
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableHVector RepN (Value astvals)
      , TermValue astvals )
   => Bool
-  -> (astvals -> Rep (AstRanked FullSpan) z)
+  -> (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
 revArtifactAdapt hasDt f vals0 =
-  let g :: Rep (AstRanked FullSpan) (X astvals)
-        -> Rep (AstRanked FullSpan) z
+  let g :: AstTensor AstMethodLet FullSpan (X astvals)
+        -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ parseHVector (fromValue vals0) hvShared
-      valsH = toHVectorOf @ORArray vals0
+      valsH = toHVectorOf @RepN vals0
       voidH = tshapeFull stensorKind valsH
   in revProduceArtifact hasDt g emptyEnv voidH
 {- TODO
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableHVector RepN (Value astvals)
      , TermValue astvals )
-  => Bool -> (astvals -> AstRanked FullSpan Double n) -> Value astvals
+  => Bool -> (astvals -> AstTensor AstMethodLet FullSpan Double n) -> Value astvals
   -> (AstArtifactRev TKUntyped (TKR Double n), Delta (AstRaw PrimalSpan) (TKR Double n)) #-}
 -}
 
 revProduceArtifactWithoutInterpretation
   :: forall x z. (TensorKind x, TensorKind z)
   => Bool
-  -> (Rep (ADVal (AstRaw PrimalSpan)) x
-      -> Rep (ADVal (AstRaw PrimalSpan)) z)
+  -> (ADVal (AstRaw PrimalSpan) x
+      -> ADVal (AstRaw PrimalSpan) z)
   -> TensorKindFull x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
@@ -160,25 +161,24 @@ revProduceArtifactWithoutInterpretation hasDt f =
 
 forwardPassByApplication
   :: forall x z. TensorKind x
-  => (Rep (ADVal (AstRaw PrimalSpan)) x
-      -> Rep (ADVal (AstRaw PrimalSpan)) z)
+  => (ADVal (AstRaw PrimalSpan) x
+      -> ADVal (AstRaw PrimalSpan) z)
   -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
   -> AstTensor AstMethodLet FullSpan x
-  -> Rep (ADVal (AstRaw PrimalSpan)) z
+  -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
   let deltaInputs = generateDeltaInputs $ shapeAstFull hVectorPrimal
-      varInputs = makeADInputs (rawY (stensorKind @x) hVectorPrimal)
-                               deltaInputs
+      varInputs = makeADInputs (AstRaw hVectorPrimal) deltaInputs
   in g varInputs
 
 revEvalArtifact
   :: forall x z. (TensorKind x, TensorKind z)
   => AstArtifactRev x z
-  -> Rep ORArray x
-  -> Maybe (Rep ORArray (ADTensorKind z))
-  -> (Rep ORArray (ADTensorKind x), Rep ORArray z)
+  -> RepN x
+  -> Maybe (RepN (ADTensorKind z))
+  -> (RepN (ADTensorKind x), RepN z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt
  | Dict <- lemTensorKindOfAD (stensorKind @z) =
@@ -206,15 +206,15 @@ fwd
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals)
      , TensorKind z
-     , AdaptableHVector (AstRanked FullSpan) astvals
-     , AdaptableHVector ORArray (Value astvals)
+     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableHVector RepN (Value astvals)
      , TermValue astvals )
-  => (astvals -> Rep (AstRanked FullSpan) z)
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Value astvals  -- morally (ADTensorKind astvals)
-  -> Rep ORArray (ADTensorKind z)
+  -> RepN (ADTensorKind z)
 fwd f vals ds =
-  let g :: Rep (AstRanked FullSpan) (X astvals) -> Rep (AstRanked FullSpan) z
+  let g :: AstTensor AstMethodLet FullSpan (X astvals) -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ parseHVector (fromValue vals) hvShared
       valsH = toHVectorOf vals
@@ -227,9 +227,9 @@ fwd f vals ds =
 fwdEvalArtifact
   :: forall x z. TensorKind x
   => AstArtifactFwd x z
-  -> Rep ORArray x
-  -> Rep ORArray (ADTensorKind x)
-  -> (Rep ORArray (ADTensorKind z), Rep ORArray z)
+  -> RepN x
+  -> RepN (ADTensorKind x)
+  -> (RepN (ADTensorKind z), RepN z)
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds
  | Dict <- lemTensorKindOfAD (stensorKind @x) =
@@ -245,9 +245,6 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
 
--- The equality `RankedOf f ~ ORArray` is needed for type-checking
--- later on, even though GHC 9.6.4 reports it as redundant.
---
 -- We are inlining these functions because they take function arguments
 -- and are not too large. However, becausethey are called in many places,
 -- we break the inline chain at crevOnHVector, to avoid exe blowup.
@@ -258,10 +255,10 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds
 crev
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector ORArray (DValue advals)
+     , AdaptableHVector (ADVal RepN) advals
+     , AdaptableHVector RepN (DValue advals)
      , DualNumberValue advals)
-  => (advals -> Rep (ADVal ORArray) z)
+  => (advals -> ADVal RepN z)
   -> DValue advals
   -> DValue advals
 {-# INLINE crev #-}
@@ -271,12 +268,12 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector ORArray (DValue advals)
+     , AdaptableHVector (ADVal RepN) advals
+     , AdaptableHVector RepN (DValue advals)
      , DualNumberValue advals)
-  => (advals -> Rep (ADVal ORArray) z)
+  => (advals -> ADVal RepN z)
   -> DValue advals
-  -> Rep ORArray (ADTensorKind z)
+  -> RepN (ADTensorKind z)
   -> DValue advals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -284,16 +281,16 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector ORArray (DValue advals)
+     , AdaptableHVector (ADVal RepN) advals
+     , AdaptableHVector RepN (DValue advals)
      , DualNumberValue advals)
-  => (advals -> Rep (ADVal ORArray) z)
+  => (advals -> ADVal RepN z)
   -> DValue advals
-  -> Maybe (Rep ORArray (ADTensorKind z))
+  -> Maybe (RepN (ADTensorKind z))
   -> DValue advals  -- morally (ADTensorKind advals)
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
-  let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
+  let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . parseHVector (fromDValue vals)
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- crevOnHVector satisfies that via makeADInputs
@@ -303,11 +300,11 @@ crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
        -- crevOnHVector satisfies that via gradientFromDelta
 
 {-# SPECIALIZE crevOnHVector
-  :: Maybe (Rep ORArray TKUntyped)
-  -> (Rep (ADVal ORArray) TKUntyped
-      -> Rep (ADVal ORArray) TKUntyped)
-  -> Rep ORArray TKUntyped
-  -> (Rep ORArray TKUntyped, Rep ORArray TKUntyped) #-}
+  :: Maybe (RepN TKUntyped)
+  -> (ADVal RepN TKUntyped
+      -> ADVal RepN TKUntyped)
+  -> RepN TKUntyped
+  -> (RepN TKUntyped, RepN TKUntyped) #-}
 
 
 -- * Old derivative adaptors, with constant and fixed inputs
@@ -316,15 +313,15 @@ crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
 cfwd
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal ORArray) advals
-     , AdaptableHVector ORArray (DValue advals)
+     , AdaptableHVector (ADVal RepN) advals
+     , AdaptableHVector RepN (DValue advals)
      , DualNumberValue advals )
-  => (advals -> Rep (ADVal ORArray) z)
+  => (advals -> ADVal RepN z)
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
-  -> Rep ORArray (ADTensorKind z)
+  -> RepN (ADTensorKind z)
 cfwd f vals ds =
-  let g :: Rep (ADVal ORArray) (X advals) -> Rep (ADVal ORArray) z
+  let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . parseHVector (fromDValue vals)
         -- repDeepDuplicable requires its argument to be deeply duplicable and
         -- cfwdOnHVector satisfies that via makeADInputs
@@ -346,117 +343,117 @@ cfwd f vals ds =
 
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR r n)
-  -> ORArray r n #-}
+  -> RepN (TKR r n) #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR r n)
-  -> AstRaw PrimalSpan r n #-}
+  -> AstRaw PrimalSpan (TKR r n) #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: (KnownNat n, Typeable r)
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR r n)
-  -> ORArray r n #-}
+  -> RepN (TKR r n) #-}
 
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKS r sh)
-  -> OSArray r sh #-}
+  -> RepN (TKS r sh) #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKS r sh)
-  -> AstRawS PrimalSpan r sh #-}
+  -> AstRaw PrimalSpan (TKS r sh) #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
   :: (KnownShS sh, Typeable r)
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKS r sh)
-  -> OSArray r sh #-}
+  -> RepN (TKS r sh) #-}
 
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR r n)
-  -> ORArray r n #-}
+  -> RepN (TKR r n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR Double n)
-  -> ORArray Double n #-}
+  -> RepN (TKR Double n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR Float n)
-  -> ORArray Float n #-}
+  -> RepN (TKR Float n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR Int64 n)
-  -> ORArray Int64 n #-}
+  -> RepN (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR r n)
-  -> AstRaw PrimalSpan r n #-}
+  -> AstRaw PrimalSpan (TKR r n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR Double n)
-  -> AstRaw PrimalSpan Double n #-}
+  -> AstRaw PrimalSpan (TKR Double n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR Float n)
-  -> AstRaw PrimalSpan Float n #-}
+  -> AstRaw PrimalSpan (TKR Float n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR Int64 n)
-  -> AstRaw PrimalSpan Int64 n #-}
+  -> AstRaw PrimalSpan (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: (KnownNat n, GoodScalar r)
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR r n)
-  -> ORArray r n #-}
+  -> RepN (TKR r n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR Double n)
-  -> ORArray Double n #-}
+  -> RepN (TKR Double n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR Float n)
-  -> ORArray Float n #-}
+  -> RepN (TKR Float n) #-}
 {-# SPECIALIZE interpretAstPrimal
   :: KnownNat n
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR Int64 n)
-  -> ORArray Int64 n #-}
+  -> RepN (TKR Int64 n) #-}
 
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR r n)
-  -> Delta ORArray (TKR r n) #-}
+  -> Delta RepN (TKR r n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR Double n)
-  -> Delta ORArray (TKR Double n) #-}
+  -> Delta RepN (TKR Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR Float n)
-  -> Delta ORArray (TKR Float n) #-}
+  -> Delta RepN (TKR Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR Int64 n)
-  -> Delta ORArray (TKR Int64 n) #-}
+  -> Delta RepN (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
   => AstEnv (ADVal (AstRaw PrimalSpan))
@@ -479,22 +476,22 @@ cfwd f vals ds =
   -> Delta (AstRaw PrimalSpan) (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAstDual
   :: (KnownNat n, GoodScalar r)
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR r n)
   -> DummyDualTarget (TKR r n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR Double n)
   -> DummyDualTarget (TKR Double n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR Float n)
   -> DummyDualTarget (TKR Float n) #-}
 {-# SPECIALIZE interpretAstDual
   :: KnownNat n
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR Int64 n)
   -> DummyDualTarget (TKR Int64 n) #-}
 
@@ -502,185 +499,180 @@ cfwd f vals ds =
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (Typeable r, AstSpan s)
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKR r n)
-  -> ADVal ORArray r n #-}
+  -> ADVal RepN (TKR r n) #-}
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKR r n)
-  -> ADVal (AstRaw PrimalSpan) r n #-}
+  -> ADVal (AstRaw PrimalSpan) (TKR r n) #-}
 {-# SPECIALIZE interpretAstRuntimeSpecialized
   :: (Typeable r, AstSpan s)
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKR r n)
-  -> ORArray r n #-}
+  -> RepN (TKR r n) #-}
 
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (Typeable r, AstSpan s)
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKS r sh)
-  -> ADVal OSArray r sh #-}
+  -> ADVal RepN (TKS r sh) #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKS r sh)
-  -> ADVal (AstRawS PrimalSpan) r sh #-}
+  -> ADVal (AstRaw PrimalSpan) (TKS r sh) #-}
 {-# SPECIALIZE interpretAstSRuntimeSpecialized
   :: (Typeable r, AstSpan s)
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKS r sh)
-  -> OSArray r sh #-}
+  -> RepN (TKS r sh) #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKR r n)
-  -> ADVal ORArray r n #-}
+  -> ADVal RepN (TKR r n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKR Double n)
-  -> ADVal ORArray Double n #-}
+  -> ADVal RepN (TKR Double n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKR Float n)
-  -> ADVal ORArray Float n #-}
+  -> ADVal RepN (TKR Float n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKR Int64 n)
-  -> ADVal ORArray Int64 n #-}
+  -> ADVal RepN (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKR r n)
-  -> ADVal (AstRaw PrimalSpan) r n #-}
+  -> ADVal (AstRaw PrimalSpan) (TKR r n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKR Double n)
-  -> ADVal (AstRaw PrimalSpan) Double n #-}
+  -> ADVal (AstRaw PrimalSpan) (TKR Double n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKR Float n)
-  -> ADVal (AstRaw PrimalSpan) Float n #-}
+  -> ADVal (AstRaw PrimalSpan) (TKR Float n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKR Int64 n)
-  -> ADVal (AstRaw PrimalSpan) Int64 n #-}
+  -> ADVal (AstRaw PrimalSpan) (TKR Int64 n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKR r n)
-  -> ORArray r n #-}
+  -> RepN (TKR r n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKR Double n)
-  -> ORArray Double n #-}
+  -> RepN (TKR Double n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKR Float n)
-  -> ORArray Float n #-}
+  -> RepN (TKR Float n) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKR Int64 n)
-  -> ORArray Int64 n #-}
+  -> RepN (TKR Int64 n) #-}
 
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKS r sh)
-  -> ADVal OSArray r sh #-}
+  -> ADVal RepN (TKS r sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKS Double sh)
-  -> ADVal OSArray Double sh #-}
+  -> ADVal RepN (TKS Double sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKS Float sh)
-  -> ADVal OSArray Float sh #-}
+  -> ADVal RepN (TKS Float sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKS Int64 sh)
-  -> ADVal OSArray Int64 sh #-}
+  -> ADVal RepN (TKS Int64 sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKS r sh)
-  -> ADVal (AstRawS PrimalSpan) r sh #-}
+  -> ADVal (AstRaw PrimalSpan) (TKS r sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKS Double sh)
-  -> ADVal (AstRawS PrimalSpan) Double sh #-}
+  -> ADVal (AstRaw PrimalSpan) (TKS Double sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKS Float sh)
-  -> ADVal (AstRawS PrimalSpan) Float sh #-}
+  -> ADVal (AstRaw PrimalSpan) (TKS Float sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKS Int64 sh)
-  -> ADVal (AstRawS PrimalSpan) Int64 sh #-}
+  -> ADVal (AstRaw PrimalSpan) (TKS Int64 sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKS r sh)
-  -> OSArray r sh #-}
+  -> RepN (TKS r sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKS Double sh)
-  -> OSArray Double sh #-}
+  -> RepN (TKS Double sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKS Float sh)
-  -> OSArray Float sh #-}
+  -> RepN (TKS Float sh) #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s (TKS Int64 sh)
-  -> OSArray Int64 sh #-}
+  -> RepN (TKS Int64 sh) #-}
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv (ADVal ORArray)
+  => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s TKUntyped
-  -> HVectorPseudoTensor (ADVal ORArray) Float '() #-}
+  -> ADVal RepN TKUntyped #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s TKUntyped
-  -> HVectorPseudoTensor (ADVal (AstRaw PrimalSpan)) Float '() #-}
+  -> ADVal (AstRaw PrimalSpan) TKUntyped #-}
 {-# SPECIALIZE interpretAst
   :: AstSpan s
-  => AstEnv ORArray
+  => AstEnv RepN
   -> AstTensor AstMethodLet s TKUntyped
-  -> HVectorPseudoTensor ORArray Float '() #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv ORArray
-  -> AstTensor AstMethodLet s TKUntyped
-  -> HVectorPseudoTensor ORArray Float '() #-}
+  -> RepN TKUntyped #-}
 
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal ORArray)
+  :: AstEnv (ADVal RepN)
   -> AstBool AstMethodLet
   -> Bool #-}
 {-# SPECIALIZE interpretAstBool
@@ -688,6 +680,6 @@ cfwd f vals ds =
   -> AstBool AstMethodLet
   -> AstBool AstMethodShare #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv ORArray
+  :: AstEnv RepN
   -> AstBool AstMethodLet
   -> Bool #-}

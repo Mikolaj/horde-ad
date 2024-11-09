@@ -22,7 +22,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
-import HordeAd.Internal.BackendOX (OSArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
@@ -30,46 +30,46 @@ import MnistData
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
 type ADRnnMnistParametersShaped
-       (shaped :: ShapedTensorType) sizeMnistHeight width r =
-  ( LayerWeigthsRNNShaped shaped sizeMnistHeight width r
-  , LayerWeigthsRNNShaped shaped width width r
-  , ( shaped r '[SizeMnistLabel, width]
-    , shaped r '[SizeMnistLabel] ) )
+       (target :: Target) sizeMnistHeight width r =
+  ( LayerWeigthsRNNShaped target sizeMnistHeight width r
+  , LayerWeigthsRNNShaped target width width r
+  , ( target (TKS r '[SizeMnistLabel, width])
+    , target (TKS r '[SizeMnistLabel]) ) )
 
-type LayerWeigthsRNNShaped :: ShapedTensorType -> Nat -> Nat -> Type -> Type
-type LayerWeigthsRNNShaped shaped in_width out_width r =
-  ( shaped r '[out_width, in_width]   -- input weight
-  , shaped r '[out_width, out_width]  -- state weight
-  , shaped r '[out_width] )           -- bias
+type LayerWeigthsRNNShaped :: Target -> Nat -> Nat -> Type -> Type
+type LayerWeigthsRNNShaped target in_width out_width r =
+  ( target (TKS r '[out_width, in_width])   -- input weight
+  , target (TKS r '[out_width, out_width])  -- state weight
+  , target (TKS r '[out_width]) )           -- bias
 
 zeroStateS
-  :: (ShapedTensor shaped, KnownShS sh, GoodScalar r)
-  => (shaped r sh  -- state
+  :: (BaseTensor target, KnownShS sh, GoodScalar r)
+  => (target (TKS r sh)  -- state
       -> a)
   -> a
 zeroStateS f = f (srepl 0)
 
-unrollLastS :: forall shaped state c w r n sh.
-               (ShapedTensor shaped, KnownNat n, KnownShS sh, GoodScalar r)
-            => (state -> shaped r sh -> w -> (c, state))
-            -> (state -> shaped r (n ': sh) -> w -> (c, state))
+unrollLastS :: forall target state c w r n sh.
+               (BaseTensor target, KnownNat n, KnownShS sh, GoodScalar r)
+            => (state -> target (TKS r sh) -> w -> (c, state))
+            -> (state -> target (TKS r (n ': sh)) -> w -> (c, state))
 unrollLastS f s0 xs w =
-  let g :: (c, state) -> shaped r sh -> (c, state)
+  let g :: (c, state) -> target (TKS r sh) -> (c, state)
       g (_, !s) x = f s x w
-      projections :: [shaped r sh]
+      projections :: [target (TKS r sh)]
       projections = map (\i -> sindex xs (fromIntegral i :.$ ZIS))
                         [0 .. (valueOf @n :: Int)- 1]
   in foldl' g (undefined, s0) projections
 
 rnnMnistLayerS
-  :: (ADReadyS shaped, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => SNat in_width -> SNat out_width -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- value parameters (@SNat@ below) denoting basic dimensions
-  -> shaped r '[out_width, batch_size]  -- state
-  -> shaped r '[in_width, batch_size]  -- input
-  -> LayerWeigthsRNNShaped shaped in_width out_width r
-  -> shaped r '[out_width, batch_size]  -- output state
+  -> target (TKS r '[out_width, batch_size])  -- state
+  -> target (TKS r '[in_width, batch_size])  -- input
+  -> LayerWeigthsRNNShaped target in_width out_width r
+  -> target (TKS r '[out_width, batch_size])  -- output state
 rnnMnistLayerS SNat SNat SNat
                s x (wX, wS, b) =
     let y = wX `smatmul2` x + wS `smatmul2` s
@@ -77,14 +77,14 @@ rnnMnistLayerS SNat SNat SNat
     in tanh y
 
 rnnMnistTwoS
-  :: (ADReadyS shaped, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => SNat out_width -> SNat batch_size -> SNat sizeMnistH
-  -> shaped r '[2 * out_width, batch_size]  -- initial state
-  -> PrimalOf shaped r '[sizeMnistH, batch_size]
-  -> ( LayerWeigthsRNNShaped shaped sizeMnistH out_width r
-     , LayerWeigthsRNNShaped shaped out_width out_width r )
-  -> ( shaped r '[out_width, batch_size]
-     , shaped r '[2 * out_width, batch_size] )  -- final state
+  -> target (TKS r '[2 * out_width, batch_size])  -- initial state
+  -> PrimalOf target (TKS r '[sizeMnistH, batch_size])
+  -> ( LayerWeigthsRNNShaped target sizeMnistH out_width r
+     , LayerWeigthsRNNShaped target out_width out_width r )
+  -> ( target (TKS r '[out_width, batch_size])
+     , target (TKS r '[2 * out_width, batch_size]) )  -- final state
 rnnMnistTwoS out_width@SNat
              batch_size@SNat
              sizeMnistHeightHere@SNat
@@ -104,13 +104,13 @@ rnnMnistTwoS out_width@SNat
     in (sslice (proxyFromSNat out_width) (proxyFromSNat out_width) s3, s3)
 
 rnnMnistZeroS
-  :: (ADReadyS shaped, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => SNat out_width
   -> SNat batch_size
   -> SNat sizeMnistH -> SNat sizeMnistW
-  -> PrimalOf shaped r '[sizeMnistW, sizeMnistH, batch_size]
-  -> ADRnnMnistParametersShaped shaped sizeMnistH out_width r
-  -> shaped r '[SizeMnistLabel, batch_size]
+  -> PrimalOf target (TKS r '[sizeMnistW, sizeMnistH, batch_size])
+  -> ADRnnMnistParametersShaped target sizeMnistH out_width r
+  -> target (TKS r '[SizeMnistLabel, batch_size])
 rnnMnistZeroS out_width@SNat
               batch_size@SNat
               sizeMnistHeightHere@SNat _sizeMnistWidthHere@SNat
@@ -121,15 +121,15 @@ rnnMnistZeroS out_width@SNat
     in w3 `smatmul2` out + str (sreplicate {-@batch_size-} b3)
 
 rnnMnistLossFusedS
-  :: forall shaped h w out_width batch_size r.
+  :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth, Differentiable r
-     , ADReadyS shaped, ADReadyS (PrimalOf shaped), GoodScalar r, Numeric r)
+     , ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r)
   => SNat out_width
   -> SNat batch_size
-  -> ( PrimalOf shaped r '[batch_size, h, w]
-     , PrimalOf shaped r '[batch_size, SizeMnistLabel] )
-  -> ADRnnMnistParametersShaped shaped h out_width r
-  -> shaped r '[]
+  -> ( PrimalOf target (TKS r '[batch_size, h, w])
+     , PrimalOf target (TKS r '[batch_size, SizeMnistLabel]) )
+  -> ADRnnMnistParametersShaped target h out_width r
+  -> target (TKS r '[])
 rnnMnistLossFusedS out_width@SNat
                    batch_size@SNat
                    (glyphS, labelS) adparameters =
@@ -143,32 +143,32 @@ rnnMnistLossFusedS out_width@SNat
   in sconstant (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
 
 rnnMnistTestS
-  :: forall shaped h w out_width batch_size r.
+  :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
-     , shaped ~ OSArray, Differentiable r
+     , target ~ RepN, Differentiable r
      , GoodScalar r, Numeric r )
   => SNat out_width
   -> SNat batch_size
   -> MnistDataBatchS batch_size r
-  -> ADRnnMnistParametersShaped shaped h out_width r
+  -> ADRnnMnistParametersShaped target h out_width r
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               (glyphS, labelS) testParams =
-  let -- input :: PrimalOf shaped r '[sizeMnistW, sizeMnistH, batch_size]
+  let -- input :: PrimalOf target (TKS r '[sizeMnistW, sizeMnistH, batch_size])
       input = sconst $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) $ Nested.sfromOrthotope knownShS glyphS
-      outputS :: FlipS Nested.Shaped r '[SizeMnistLabel, batch_size]
+      outputS :: RepN (TKS r '[SizeMnistLabel, batch_size])
       outputS =
-        let nn :: ADRnnMnistParametersShaped shaped h out_width r
-               -> shaped r '[SizeMnistLabel, batch_size]
+        let nn :: ADRnnMnistParametersShaped target h out_width r
+               -> target (TKS r '[SizeMnistLabel, batch_size])
             nn = rnnMnistZeroS out_width
                                batch_size
                                (SNat @h) (SNat @w)
                                input
         in nn testParams
-      outputs = map (Nested.stoVector . runFlipS) $ sunravelToList
+      outputs = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
-      labels = map (Nested.stoVector . runFlipS) $ sunravelToList
-               $ FlipS $ Nested.sfromOrthotope knownShS labelS
+      labels = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
+               $ RepN $ FlipS $ Nested.sfromOrthotope knownShS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

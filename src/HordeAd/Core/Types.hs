@@ -13,7 +13,7 @@ module HordeAd.Core.Types
   , withShapeP, sameShape, matchingRank, lemKnownNatRank
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
-  , TensorType, RankedTensorType, ShapedTensorType, MixedTensorType
+  , TensorType, RankedTensorType, ShapedTensorType, MixedTensorType, Target
   , TensorKindType (..), TKR, TKS, TKX, TKUnit
   , STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind, sameTK
@@ -22,8 +22,7 @@ module HordeAd.Core.Types
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
   , ADTensorKind, ADTensorScalar, lemTensorKindOfAD, lemBuildOfAD
     -- * Type families that tensors will belong to
-  , IntOf, RankedOf, ShapedOf, MixedOf
-  , HFunOf, PrimalOf, DualOf, ShareOf
+  , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
@@ -148,6 +147,8 @@ type RankedTensorType = TensorType Nat
 type ShapedTensorType = TensorType [Nat]
 
 type MixedTensorType = TensorType [Maybe Nat]
+
+type Target = TensorKindType -> Type
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r
@@ -369,16 +370,7 @@ lemBuildOfAD snat@SNat = \case
 -- If used as size or shape, it would give more expressiveness,
 -- but would lead to irregular tensors, especially after vectorization,
 -- and would prevent statically known shapes.
-type IntOf (f :: TensorType ty) = RankedOf (PrimalOf f) Int64 0
-
--- ty is intended to be Nat or [Nat] (or nothing, if we support scalars)
-type family RankedOf (f :: TensorType ty) :: RankedTensorType
-
-type family ShapedOf (f :: RankedTensorType) = (result :: ShapedTensorType)
-  | result -> f
-
-type family MixedOf (f :: RankedTensorType) = (result :: MixedTensorType)
-  | result -> f
+type IntOf (f :: Target) = PrimalOf f (TKR Int64 0)
 
 -- | The type family is defined in order to give a special instance
 -- for AST that preservs sharing and, even more importantly, keeps
@@ -387,48 +379,45 @@ type family MixedOf (f :: RankedTensorType) = (result :: MixedTensorType)
 --
 -- The type family can't easily be made injective, because the @ADVal f@
 -- instance is independent of @f@.
-type family HFunOf (f :: RankedTensorType)
+type family HFunOf (f :: Target)
                    (x :: TensorKindType) (z :: TensorKindType) :: Type
 
-type family PrimalOf (f :: TensorType ty) :: TensorType ty
+type family PrimalOf (f :: Target) :: Target
 
-type family DualOf (f :: TensorType ty) :: TensorKindType -> Type
+type family DualOf (f :: Target) :: Target
 
-type family ShareOf (f :: RankedTensorType) :: RankedTensorType
+type family ShareOf (f :: Target) :: Target
 
 type role DummyDualTarget representational
-type DummyDualTarget :: TensorKindType -> Type
+type DummyDualTarget :: Target
 data DummyDualTarget y = DummyDualTarget
 
 
 -- * Generic types of booleans and related class definitions
 
-type family BoolOf (t :: ty) :: Type
+type family BoolOf (t :: Target) :: Type
 
-class Boolean (BoolOf f) => IfF (f :: TensorType ty) where
-  ifF :: (GoodScalar r, HasSingletonDict y)
-      => BoolOf f -> f r y -> f r y -> f r y
+class Boolean (BoolOf f) => IfF (f :: Target) where
+  ifF :: TensorKind y => BoolOf f -> f y -> f y -> f y
 
 infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: TensorType ty) where
+class Boolean (BoolOf f) => EqF (f :: Target) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
-  (==.), (/=.) :: (GoodScalar r, HasSingletonDict y)
-               => f r y -> f r y -> BoolOf f
+  (==.), (/=.) :: TensorKind y => f y -> f y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: TensorType ty) where
+class Boolean (BoolOf f) => OrdF (f :: Target) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
-  (<.), (<=.), (>.), (>=.) :: (GoodScalar r, HasSingletonDict y)
-                           => f r y -> f r y -> BoolOf f
+  (<.), (<=.), (>.), (>=.) :: TensorKind y => f y -> f y -> BoolOf f
   u >. v = v <. u
   u >=. v = notB (u <. v)
   u <=. v = v >=. u
 
-minF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
+minF :: (IfF f, OrdF f, TensorKind y)
+     => f y -> f y -> f y
 minF u v = ifF (u <=. v) u v
 
-maxF :: (IfF f, OrdF f, GoodScalar r, HasSingletonDict y)
-     => f r y -> f r y -> f r y
+maxF :: (IfF f, OrdF f, TensorKind y)
+     => f y -> f y -> f y
 maxF u v = ifF (u >=. v) u v

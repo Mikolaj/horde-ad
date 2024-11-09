@@ -31,40 +31,49 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), FlipX (..))
+  (FlipR (..), FlipS (..), FlipX (..), IntegralF (..), RealFloatF (..))
 
-type instance BoolOf ORArray = Bool
+type instance BoolOf RepN = Bool
 
-instance EqF ORArray where
-  u ==. v = u == v
-  u /=. v = u /= v
+instance EqF RepN where
+  (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
+  RepN u ==. RepN v = case stensorKind @y of
+    STKScalar _ -> unRepScalar u == unRepScalar v
+    STKR STKScalar{} SNat -> u == v
+    STKS STKScalar{} sh -> withKnownShS sh $ u == v
+    STKX STKScalar{} sh -> withKnownShX sh $ u == v
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      RepN (fst u) ==. RepN (fst v) && RepN (snd u) ==. RepN (snd v)
+    STKUntyped -> error "TODO"
+    _ -> error "TODO"
 
-instance OrdF ORArray where
-  u <. v = u < v
-  u <=. v = u <= v
-  u >. v = u > v
-  u >=. v = u >= v
+instance OrdF RepN where
+  (<.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
+  RepN u <. RepN v = case stensorKind @y of
+    STKScalar _ -> unRepScalar u < unRepScalar v
+    STKR STKScalar{} SNat -> u < v
+    STKS STKScalar{} sh -> withKnownShS sh $ u < v
+    STKX STKScalar{} sh -> withKnownShX sh $ u < v
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                         , Dict <- lemTensorKindOfS stk2 ->
+      RepN (fst u) <. RepN (fst v) && RepN (snd u) <. RepN (snd v)
+        -- lexicographic ordering  -- TODO: is this standard and the same as for <=. ? as for || ?
+    STKUntyped -> error "TODO"
+    _ -> error "TODO"
 
-instance IfF ORArray where
+instance IfF RepN where
   ifF b v w = if b then v else w
 
-type instance RankedOf ORArray = ORArray
+type instance HFunOf RepN x z = RepORArray x -> RepORArray z
 
-type instance ShapedOf ORArray = OSArray
+type instance PrimalOf RepN = RepN
 
-type instance MixedOf ORArray = OXArray
+type instance DualOf RepN = DummyDualTarget
 
-type instance HVectorOf ORArray = HVector ORArray
+type instance ShareOf RepN = RepN
 
-type instance HFunOf ORArray x z = Rep ORArray x -> Rep ORArray z
-
-type instance PrimalOf ORArray = ORArray
-
-type instance DualOf ORArray = DummyDualTarget
-
-type instance ShareOf ORArray = ORArray
-
-instance LetTensor ORArray where
+instance LetTensor RepN where
   tlet = (&)
   toShare = id
   tunshare = id
@@ -74,57 +83,60 @@ instance LetTensor ORArray where
       fromRepD $ addRepD (toRepDDuplicable stk u1)
                          (toRepDDuplicable stk u2)
 
-instance ShareTensor ORArray where
+instance ShareTensor RepN where
   tshare = id
-  tunpair = id
-  tunvector = unHVectorPseudoTensor
+  tunpair (RepN (t1, t2)) = (RepN t1, RepN t2)
+  tunvector = unRepN
   taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
                                            (toRepDShare stk t2)
 
-instance RankedTensor ORArray where
-  rshape = tshapeR . runFlipR
-  rminIndex = FlipR . tminIndexR . runFlipR
-  rmaxIndex = FlipR . tmaxIndexR . runFlipR
-  rfloor = FlipR . tfloorR . runFlipR
-  rindex v ix = FlipR $ tindexZR (runFlipR v) (fromIndexOfR ix)
-  rindex0 v ix = FlipR . tscalarR $ tindex0R (runFlipR v) (fromIndexOfR ix)
-  rsum = FlipR . tsumR . runFlipR
-  rsum0 = FlipR . tscalarR . tsum0R . runFlipR
-  rdot0 u v = FlipR $ tscalarR $ tdot0R (runFlipR u) (runFlipR v)
-  rmatmul2 m1 m2 = FlipR $ tmatmul2R (runFlipR m1) (runFlipR m2)
-  rscatter sh t f = FlipR $ tscatterZR sh (runFlipR t)
-                                         (fromIndexOfR . f . toIndexOfR)
-  rscatter1 sh t f = FlipR $ tscatterZ1R sh (runFlipR t)
-                                           (fromIndexOfR . f . FlipR . tscalarR)
-  rfromList = FlipR . tfromListR . NonEmpty.map runFlipR
-  rfromList0N sh = FlipR . tfromList0NR sh . map (tunScalarR . runFlipR)
-  rfromVector = FlipR . tfromVectorR . V.map runFlipR
-  rfromVector0N sh = FlipR . tfromVector0NR sh . V.map (tunScalarR . runFlipR)
-  runravelToList = map FlipR . tunravelToListR . runFlipR
-  rreplicate k = FlipR . treplicateR k . runFlipR
-  rreplicate0N sh = FlipR . treplicate0NR sh . tunScalarR . runFlipR
-  rappend u v = FlipR $ tappendR (runFlipR u) (runFlipR v)
-  rslice i n = FlipR . tsliceR i n . runFlipR
-  rreverse = FlipR . treverseR . runFlipR
-  rtranspose perm = FlipR . ttransposeR perm . runFlipR
-  rreshape sh = FlipR . treshapeR sh . runFlipR
-  rbuild1 k f = FlipR $ tbuild1R k (runFlipR . f . FlipR . tscalarR)
-  rmap0N f t = FlipR $ tmap0NR (runFlipR . f . FlipR) (runFlipR t)
+instance BaseTensor RepN where
+  rmkRepScalar = RepN . RepScalar . unRepN
+  runRepScalar = RepN . unRepScalar . unRepN
+
+  rshape = tshapeR . runFlipR . unRepN
+  rminIndex = RepN . FlipR . tminIndexR . runFlipR . unRepN
+  rmaxIndex = RepN . FlipR . tmaxIndexR . runFlipR . unRepN
+  rfloor = RepN . FlipR . tfloorR . runFlipR . unRepN
+  rindex v ix = RepN $ FlipR $ tindexZR (runFlipR $ unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
+  rindex0 v ix = RepN . FlipR . tscalarR $ tindex0R (runFlipR $ unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
+  rsum = RepN . FlipR . tsumR . runFlipR . unRepN
+  rsum0 = RepN . FlipR . tscalarR . tsum0R . runFlipR . unRepN
+  rdot0 u v = RepN $ FlipR $ tscalarR $ tdot0R (runFlipR $ unRepN u) (runFlipR $ unRepN v)
+  rmatmul2 m1 m2 = RepN $ FlipR $ tmatmul2R (runFlipR $ unRepN m1) (runFlipR $ unRepN m2)
+  rscatter sh t f = RepN $ FlipR $ tscatterZR sh (runFlipR $ unRepN t)
+                                         (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
+  rscatter1 sh t f = RepN $ FlipR $ tscatterZ1R sh (runFlipR $ unRepN t)
+                                           (fromIndexOfR . fmap unRepN . f . RepN . FlipR . tscalarR)
+  rfromList = RepN . FlipR . tfromListR . NonEmpty.map (runFlipR . unRepN)
+  rfromList0N sh = RepN . FlipR . tfromList0NR sh . map (tunScalarR . runFlipR . unRepN)
+  rfromVector = RepN . FlipR . tfromVectorR . V.map (runFlipR . unRepN)
+  rfromVector0N sh = RepN . FlipR . tfromVector0NR sh . V.map (tunScalarR . runFlipR . unRepN)
+  runravelToList = map (RepN . FlipR) . tunravelToListR . runFlipR . unRepN
+  rreplicate k = RepN . FlipR . treplicateR k . runFlipR . unRepN
+  rreplicate0N sh = RepN . FlipR . treplicate0NR sh . tunScalarR . runFlipR . unRepN
+  rappend u v = RepN $ FlipR $ tappendR (runFlipR $ unRepN u) (runFlipR $ unRepN v)
+  rslice i n = RepN . FlipR . tsliceR i n . runFlipR . unRepN
+  rreverse = RepN . FlipR . treverseR . runFlipR . unRepN
+  rtranspose perm = RepN . FlipR . ttransposeR perm . runFlipR . unRepN
+  rreshape sh = RepN . FlipR . treshapeR sh . runFlipR . unRepN
+  rbuild1 k f = RepN $ FlipR $ tbuild1R k (runFlipR . unRepN . f . RepN . FlipR . tscalarR)
+  rmap0N f t = RepN $ FlipR $ tmap0NR (runFlipR . unRepN . f . RepN . FlipR) (runFlipR $ unRepN t)
   rzipWith0N f t u =
-    FlipR $ tzipWith0NR (\v w -> runFlipR $ f (FlipR v) (FlipR w))
-                        (runFlipR t) (runFlipR u)
-  rgather sh t f = FlipR $ tgatherZR sh (runFlipR t)
-                                       (fromIndexOfR . f . toIndexOfR)
-  rgather1 k t f = FlipR $ tgatherZ1R k (runFlipR t)
-                                       (fromIndexOfR . f . FlipR . tscalarR)
-  rcast = FlipR . tcastR . runFlipR
-  rfromIntegral = FlipR . tfromIntegralR . runFlipR
-  rconst = FlipR
-  rfromS = FlipR . Nested.stoRanked . runFlipS
+    RepN $ FlipR $ tzipWith0NR (\v w -> runFlipR $ unRepN $ f (RepN $ FlipR v) (RepN $ FlipR w))
+                        (runFlipR $ unRepN t) (runFlipR $ unRepN u)
+  rgather sh t f = RepN $ FlipR $ tgatherZR sh (runFlipR $ unRepN t)
+                                       (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
+  rgather1 k t f = RepN $ FlipR $ tgatherZ1R k (runFlipR $ unRepN t)
+                                       (fromIndexOfR . fmap unRepN . f . RepN . FlipR . tscalarR)
+  rcast = RepN . FlipR . tcastR . runFlipR . unRepN
+  rfromIntegral = RepN . FlipR . tfromIntegralR . runFlipR . unRepN
+  rconst = RepN . FlipR
+  rfromS = RepN . FlipR . Nested.stoRanked . runFlipS . unRepN
 
   rscaleByScalar s v =
-    FlipR $ tscaleByScalarR (tunScalarR $ runFlipR s) (runFlipR v)
-  rdot1In u v = FlipR $ tdot1InR (runFlipR u) (runFlipR v)
+    RepN $ FlipR $ tscaleByScalarR (tunScalarR $ runFlipR $ unRepN s) (runFlipR $ unRepN v)
+  rdot1In u v = RepN $ FlipR $ tdot1InR (runFlipR $ unRepN u) (runFlipR $ unRepN v)
 
   rconstant = id
   rprimalPart = id
@@ -132,105 +144,63 @@ instance RankedTensor ORArray where
   rD u _ = u
   rScale _ _ = DummyDualTarget
 
-  xshape = Nested.mshape . runFlipX
+  xshape = Nested.mshape . runFlipX . unRepN
   xindex = error "TODO"
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
-  xconst = FlipX
+  xconst = RepN . FlipX
   xconstant = id
   xprimalPart = id
   xdualPart _ = DummyDualTarget
   xD u _ = u
 
-
-type instance BoolOf OSArray = Bool
-
-instance EqF OSArray where
-  u ==. v = u == v
-  u /=. v = u /= v
-
-instance OrdF OSArray where
-  u <. v = u < v
-  u <=. v = u <= v
-  u >. v = u > v
-  u >=. v = u >= v
-
-instance IfF OSArray where
-  ifF b v w = if b then v else w
-
-type instance RankedOf OSArray = ORArray
-
-type instance PrimalOf OSArray = OSArray
-
-type instance BoolOf OXArray = Bool
-
-instance EqF OXArray where
-  u ==. v = u == v
-  u /=. v = u /= v
-
-instance OrdF OXArray where
-  u <. v = u < v
-  u <=. v = u <= v
-  u >. v = u > v
-  u >=. v = u >= v
-
-instance IfF OXArray where
-  ifF b v w = if b then v else w
-
-type instance RankedOf OXArray = ORArray
-
-type instance PrimalOf OXArray = OXArray
-
-instance ShapedTensor OSArray where
-  sminIndex = FlipS . tminIndexS . runFlipS
-  smaxIndex = FlipS . tmaxIndexS . runFlipS
-  sfloor = FlipS . tfloorS . runFlipS
+  sminIndex = RepN . FlipS . tminIndexS . runFlipS . unRepN
+  smaxIndex = RepN . FlipS . tmaxIndexS . runFlipS . unRepN
+  sfloor = RepN . FlipS . tfloorS . runFlipS . unRepN
   siota :: forall n r. (GoodScalar r, KnownNat n)
-        => OSArray r '[n]  -- from 0 to n - 1
+        => RepN (TKS r '[n])  -- from 0 to n - 1
   siota = let n = valueOf @n :: Int
-          in FlipS $ Nested.sfromList1 SNat
+          in RepN $ FlipS $ Nested.sfromList1 SNat
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
-  sindex v ix = FlipS $ tindexZS (runFlipS v) (fromIndexOfS ix)
-  sindex0 v ix = FlipS . tscalarS $ tindex0S (runFlipS v) (fromIndexOfS ix)
-  ssum = FlipS . tsumS . runFlipS
-  ssum0 = FlipS . tscalarS . tsum0S . runFlipS
-  sdot0 u v = FlipS $ tscalarS $ tdot0S (runFlipS u) (runFlipS v)
-  smatmul2 m1 m2 = FlipS $ tmatmul2S (runFlipS m1) (runFlipS m2)
-  sscatter t f = FlipS $ tscatterZS (runFlipS t)
-                                   (fromIndexOfS . f . toIndexOfS)
-  sscatter1 t f = FlipS $ tscatterZ1S (runFlipS t)
-                                      (fromIndexOfS . f . FlipR . tscalarR)
-  sfromList = FlipS . tfromListS . NonEmpty.map runFlipS
-  sfromList0N = FlipS . tfromList0NS . map (tunScalarS . runFlipS)
-  sfromVector = FlipS . tfromVectorS . V.map runFlipS
-  sfromVector0N = FlipS . tfromVector0NS . V.map (tunScalarS . runFlipS)
-  sunravelToList = map FlipS . tunravelToListS . runFlipS
-  sreplicate = FlipS . treplicateS . runFlipS
-  sreplicate0N = FlipS . treplicate0NS . tunScalarS . runFlipS
-  sappend u v = FlipS $ tappendS (runFlipS u) (runFlipS v)
-  sslice (_ :: Proxy i) _ = FlipS . tsliceS @i . runFlipS
-  sreverse = FlipS . treverseS . runFlipS
-  stranspose perm = FlipS . ttransposeS perm . runFlipS
-  sreshape = FlipS . treshapeS . runFlipS
-  sbuild1 f = FlipS $ tbuild1S (runFlipS . f . FlipR . tscalarR)
-  smap0N f t = FlipS $ tmap0NS (runFlipS . f . FlipS) (runFlipS t)
+  sindex v ix = RepN $ FlipS $ tindexZS (runFlipS $ unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
+  sindex0 v ix = RepN . FlipS . tscalarS $ tindex0S (runFlipS $ unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
+  ssum = RepN . FlipS . tsumS . runFlipS . unRepN
+  ssum0 = RepN . FlipS . tscalarS . tsum0S . runFlipS . unRepN
+  sdot0 u v = RepN $ FlipS $ tscalarS $ tdot0S (runFlipS $ unRepN u) (runFlipS $ unRepN v)
+  smatmul2 m1 m2 = RepN $ FlipS $ tmatmul2S (runFlipS $ unRepN m1) (runFlipS $ unRepN m2)
+  sscatter t f = RepN $ FlipS $ tscatterZS (runFlipS $ unRepN t)
+                                   (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
+  sscatter1 t f = RepN $ FlipS $ tscatterZ1S (runFlipS $ unRepN t)
+                                      (fromIndexOfS . fmap unRepN . f . RepN . FlipR . tscalarR)
+  sfromList = RepN . FlipS . tfromListS . NonEmpty.map (runFlipS . unRepN)
+  sfromList0N = RepN . FlipS . tfromList0NS . map (tunScalarS . runFlipS . unRepN)
+  sfromVector = RepN . FlipS . tfromVectorS . V.map (runFlipS . unRepN)
+  sfromVector0N = RepN . FlipS . tfromVector0NS . V.map (tunScalarS . runFlipS . unRepN)
+  sunravelToList = map (RepN . FlipS) . tunravelToListS . runFlipS . unRepN
+  sreplicate = RepN . FlipS . treplicateS . runFlipS . unRepN
+  sreplicate0N = RepN . FlipS . treplicate0NS . tunScalarS . runFlipS . unRepN
+  sappend u v = RepN $ FlipS $ tappendS (runFlipS $ unRepN u) (runFlipS $ unRepN v)
+  sslice (_ :: Proxy i) _ = RepN . FlipS . tsliceS @i . runFlipS . unRepN
+  sreverse = RepN . FlipS . treverseS . runFlipS . unRepN
+  stranspose perm = RepN . FlipS . ttransposeS perm . runFlipS . unRepN
+  sreshape = RepN . FlipS . treshapeS . runFlipS . unRepN
+  sbuild1 f = RepN $ FlipS $ tbuild1S (runFlipS . unRepN . f . RepN . FlipR . tscalarR)
+  smap0N f t = RepN $ FlipS $ tmap0NS (runFlipS . unRepN . f . RepN . FlipS) (runFlipS $ unRepN t)
   szipWith0N f t u =
-    FlipS $ tzipWith0NS (\v w -> runFlipS $ f (FlipS v) (FlipS w))
-                        (runFlipS t) (runFlipS u)
-  sgather t f = FlipS $ tgatherZS (runFlipS t)
-                                  (fromIndexOfS . f . toIndexOfS)
-  sgather1 t f = FlipS $ tgatherZ1S (runFlipS t)
-                                    (fromIndexOfS . f . FlipR . tscalarR)
-  scast = FlipS . tcastS . runFlipS
-  sfromIntegral = FlipS . tfromIntegralS . runFlipS
-  sconst = FlipS
-  sfromR :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ORArray r (Rank sh) -> OSArray r sh
-  sfromR = FlipS . flip Nested.rcastToShaped knownShS . runFlipR
+    RepN $ FlipS $ tzipWith0NS (\v w -> runFlipS $ unRepN $ f (RepN $ FlipS v) (RepN $ FlipS w))
+                        (runFlipS $ unRepN t) (runFlipS $ unRepN u)
+  sgather t f = RepN $ FlipS $ tgatherZS (runFlipS $ unRepN t)
+                                  (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
+  sgather1 t f = RepN $ FlipS $ tgatherZ1S (runFlipS $ unRepN t)
+                                  (fromIndexOfS . fmap unRepN . f . RepN . FlipR . tscalarR)
+  scast = RepN . FlipS . tcastS . runFlipS . unRepN
+  sfromIntegral = RepN . FlipS . tfromIntegralS . runFlipS . unRepN
+  sconst = RepN . FlipS
+  sfromR = RepN . FlipS . flip Nested.rcastToShaped knownShS . runFlipR . unRepN
 
   sscaleByScalar s v =
-    FlipS $ tscaleByScalarS (tunScalarS $ runFlipS s) (runFlipS v)
-  sdot1In proxy u v = FlipS $ tdot1InS proxy (runFlipS u) (runFlipS v)
+    RepN $ FlipS $ tscaleByScalarS (tunScalarS $ runFlipS $ unRepN s) (runFlipS $ unRepN v)
+  sdot1In proxy u v = RepN $ FlipS $ tdot1InS proxy (runFlipS $ unRepN u) (runFlipS $ unRepN v)
 
   sconstant = id
   sprimalPart = id
@@ -238,70 +208,60 @@ instance ShapedTensor OSArray where
   sD u _ = u
   sScale _ _ = DummyDualTarget
 
-instance ProductTensor ORArray where
-  tpair u v = (u, v)
-  tproject1 = fst
-  tproject2 = snd
-  dshape = voidFromHVector
+  tpair u v = RepN (unRepN u, unRepN v)
+  tproject1 = RepN . fst . unRepN
+  tproject2 = RepN . snd . unRepN
+  dshape = voidFromHVector . unRepN
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
-    STKR STKScalar{} SNat -> FTKR $ tshapeR $ runFlipR t
+    STKR STKScalar{} SNat -> FTKR $ tshapeR $ runFlipR $ unRepN t
     STKS STKScalar{} sh -> FTKS sh
-    STKX STKScalar{} sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX t
+    STKX STKScalar{} sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX $ unRepN t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
-      FTKProduct (tshapeFull stk1 (fst t))
-                 (tshapeFull stk2 (snd t))
-    STKUntyped -> FTKUntyped $ voidFromHVector $ unHVectorPseudoTensor t
+      FTKProduct (tshapeFull stk1 (tproject1 t))
+                 (tshapeFull stk2 (tproject2 t))
+    STKUntyped -> FTKUntyped $ voidFromHVector $ dunHVector t
     _ -> error "TODO"
   tcond _ b u v = if b then u else v
   tconstant _ t = t
   tprimalPart _ = id
-  tdualPart stk t = case stk of
-    STKScalar _ -> DummyDualTarget
-    STKR STKScalar{} _ -> DummyDualTarget
-    STKS STKScalar{} _ -> DummyDualTarget
-    STKX STKScalar{} _ -> DummyDualTarget
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      let !_t1 = tdualPart stk1 $ fst t
-          !_t2 = tdualPart stk2 $ snd t
-      in error "TODO"  -- PairG t1 t2
-    STKUntyped -> error "TODO"
-    _ -> error "TODO"
+  tdualPart _stk _t = DummyDualTarget
   tD _stk t _d = t
-  dmkHVector = id
-  dlambda _ f = unHFun f  -- the eta-expansion is needed for typing
-  dHApply f = f
-  dunHVector = id
+  dmkHVector = RepN
+  dlambda _ f x = unRepN $ unHFun f $ RepN x
+  dHApply f x = RepN $ f $ unRepN x
+  dunHVector = unRepN
   dbuild1 k f =
-    ravelHVector $ map (f . fromIntegral) [0 .. sNatValue k - 1]
+    dmkHVector $ ravelHVector $ map (dunHVector . f . fromIntegral) [0 .. sNatValue k - 1]
   -- The code for drevDt and dfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drev :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
-       -> HFunOf ORArray x (ADTensorKind x)
+       -> HFunOf RepN x (ADTensorKind x)
   drev _ftk h =
-    let rf :: Rep ORArray x -> Rep ORArray (ADTensorKind x)
-        rf !a = fst $ crevOnHVector Nothing (unHFun h) a
+    let rf :: RepORArray x -> RepORArray (ADTensorKind x)
+        rf !a = unRepN $ fst $ crevOnHVector Nothing (unHFun h) (RepN a)
     in rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
          => TensorKindFull x
          -> HFun x z
-         -> HFunOf ORArray (TKProduct (ADTensorKind z) x) (ADTensorKind x)
+         -> HFunOf RepN (TKProduct (ADTensorKind z) x) (ADTensorKind x)
   drevDt _ftk h =
-    let rf :: Rep ORArray (TKProduct (ADTensorKind z) x) -> Rep ORArray (ADTensorKind x)
-        rf !db_a = fst $ crevOnHVector (Just $ fst db_a) (unHFun h) (snd db_a)
+    let rf :: RepORArray (TKProduct (ADTensorKind z) x) -> RepORArray (ADTensorKind x)
+        rf !db_a = unRepN $ fst
+                   $ crevOnHVector (Just $ RepN $ fst db_a) (unHFun h) (RepN $ snd db_a)
     in rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z
-       -> HFunOf ORArray (TKProduct (ADTensorKind x) x) (ADTensorKind z)
+       -> HFunOf RepN (TKProduct (ADTensorKind x) x) (ADTensorKind z)
   dfwd _shs h =
-    let df :: Rep ORArray (TKProduct (ADTensorKind x) x)
-          -> Rep ORArray (ADTensorKind z)
-        df !da_a = fst $ cfwdOnHVector (snd da_a) (unHFun h) (fst da_a)
+    let df :: RepORArray (TKProduct (ADTensorKind x) x)
+          -> RepORArray (ADTensorKind z)
+        df !da_a = unRepN $ fst
+                   $ cfwdOnHVector (RepN $ snd da_a) (unHFun h) (RepN $ fst da_a)
     in df
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =
@@ -313,119 +273,171 @@ instance ProductTensor ORArray where
   dmapAccumR _ k accShs bShs eShs f acc0 es =
     oRdmapAccumR k accShs bShs eShs f acc0 es
   dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumR k accShs bShs eShs (\ !a !b -> f (a, b)) acc0 es
+    oRdmapAccumR k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
   dmapAccumL _ k accShs bShs eShs f acc0 es =
     oRdmapAccumL k accShs bShs eShs f acc0 es
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumL k accShs bShs eShs (\ !a !b -> f (a, b)) acc0 es
+    oRdmapAccumL k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
 
-type instance Rep ORArray (TKProduct x z) =
-  (Rep ORArray x, Rep ORArray z)
+instance Eq (RepORArray y) => Eq (RepN y) where
+  RepN u == RepN v = u == v
 
-instance (Show (RepN ORArray x), Show (RepN ORArray y))
-         => Show (RepProductN ORArray x y) where
-  showsPrec d (RepProductN (t1, t2)) = showsPrec d (RepN t1, RepN t2)
+instance Ord (RepORArray y) => Ord (RepN y) where
+  RepN u <= RepN v = u <= v
+
+instance Num (RepORArray y) => Num (RepN y) where
+  RepN t + RepN u = RepN $ t + u
+  RepN t - RepN u = RepN $ t - u
+  RepN t * RepN u = RepN $ t * u
+  negate (RepN t) = RepN $ negate t
+  abs (RepN t) = RepN $ abs t
+  signum (RepN t) = RepN $ signum t
+  fromInteger = RepN . fromInteger
+
+instance IntegralF (RepORArray y) => IntegralF (RepN y) where
+  quotF (RepN t) (RepN u) = RepN $ quotF t u
+  remF (RepN t) (RepN u) = RepN $ remF t u
+
+instance Fractional (RepORArray y) => Fractional (RepN y) where
+  RepN u / RepN v = RepN $ u / v
+  recip (RepN t) = RepN $ recip t
+  fromRational = RepN . fromRational
+
+instance Floating (RepORArray y) => Floating (RepN y) where
+  pi = RepN pi
+  exp (RepN t) = RepN $ exp t
+  log (RepN t) = RepN $ log t
+  sqrt (RepN t) = RepN $ sqrt t
+  (**) (RepN t) (RepN u) = RepN $ (**) t u
+  logBase (RepN t) (RepN u) = RepN $ logBase t u
+  sin (RepN t) = RepN $ sin t
+  cos (RepN t) = RepN $ cos t
+  tan (RepN t) = RepN $ tan t
+  asin (RepN t) = RepN $ asin t
+  acos (RepN t) = RepN $ acos t
+  atan (RepN t) = RepN $ atan t
+  sinh (RepN t) = RepN $ sinh t
+  cosh (RepN t) = RepN $ cosh t
+  tanh (RepN t) = RepN $ tanh t
+  asinh (RepN t) = RepN $ asinh t
+  acosh (RepN t) = RepN $ acosh t
+  atanh (RepN t) = RepN $ atanh t
+
+instance RealFloatF (RepORArray y) => RealFloatF (RepN y) where
+  atan2F (RepN t) (RepN u) = RepN $ atan2F t u
 
 ravel :: forall k y. TensorKind y
-      => SNat k -> [Rep ORArray y]
-      -> Rep ORArray (BuildTensorKind k y)
+      => SNat k -> [RepN y]
+      -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
-  STKScalar _ -> rfromList $ NonEmpty.fromList $ unRepScalar <$> t
+  STKScalar _ -> rfromList $ NonEmpty.fromList $ runRepScalar <$> t
   STKR STKScalar{} SNat -> rfromList $ NonEmpty.fromList t
   STKS STKScalar{} sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    let (lt1, lt2) = unzip t
-    in (ravel k lt1, ravel k lt2)
-  STKUntyped -> HVectorPseudoTensor $ ravelHVector $ map unHVectorPseudoTensor t
+  STKProduct @y1 @y2 stk1 stk2
+    | Dict <- lemTensorKindOfS stk1
+    , Dict <- lemTensorKindOfS stk2
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
+      let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
+      in tpair (ravel k lt1) (ravel k lt2)
+  STKUntyped -> dmkHVector $ ravelHVector $ dunHVector <$> t
   _ -> error "TODO"
 
 unravel :: forall k y. TensorKind y
-        => SNat k -> Rep ORArray (BuildTensorKind k y)
-        -> [Rep ORArray y]
+        => SNat k -> RepN (BuildTensorKind k y)
+        -> [RepN y]
 unravel k@SNat t = case stensorKind @y of
-  STKScalar _ -> map RepScalar $ runravelToList t
+  STKScalar _ -> error "unravel: impossible"
   STKR STKScalar{} SNat -> runravelToList t
   STKS STKScalar{} sh -> withKnownShS sh $ sunravelToList t
   STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
-    let lt1 = unravel k $ fst t
-        lt2 = unravel k $ snd t
-    in zip lt1 lt2
+  STKProduct @y1 @y2 stk1 stk2
+    | Dict <- lemTensorKindOfS stk1
+    , Dict <- lemTensorKindOfS stk2
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
+      let lt1 = unravel k $ tproject1 t
+          lt2 = unravel k $ tproject2 t
+      in zipWith tpair lt1 lt2
   STKUntyped ->
-    if V.null $ unHVectorPseudoTensor t
-    then replicate (sNatValue k) (HVectorPseudoTensor V.empty)
-    else map HVectorPseudoTensor $ unravelHVector $ unHVectorPseudoTensor t
+    if V.null $ dunHVector t
+    then replicate (sNatValue k) $ dmkHVector V.empty
+    else dmkHVector <$> unravelHVector (dunHVector t)
   _ -> error "TODO"
 
 oRdmapAccumR
   :: forall k accShs bShs eShs.
-     (TensorKind bShs, TensorKind eShs)
+     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
   -> TensorKindFull accShs
   -> TensorKindFull bShs
   -> TensorKindFull eShs
-  -> (Rep ORArray accShs -> Rep ORArray eShs
-      -> Rep ORArray (TKProduct accShs bShs))
-  -> Rep ORArray accShs
-  -> Rep ORArray (BuildTensorKind k eShs)
-  -> Rep ORArray (TKProduct accShs (BuildTensorKind k bShs))
-oRdmapAccumR k _ bShs _ f acc0 es = case sNatValue k of
-  0 -> (acc0, treplicate k (stensorKind @bShs) (repConstant 0 bShs))
+  -> (RepN accShs -> RepN eShs
+      -> RepN (TKProduct accShs bShs))
+  -> RepN accShs
+  -> RepN (BuildTensorKind k eShs)
+  -> RepN (TKProduct accShs (BuildTensorKind k bShs))
+oRdmapAccumR k _ bShs _ f acc0 es
+ | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (repConstant 0 bShs))
   _ ->
-    let (xout, lout) = mapAccumR f acc0 (unravel k es)
-    in (xout, ravel k lout)
+    let g a b = let res = f a b
+                in (tproject1 res, tproject2 res)
+        (xout, lout) = mapAccumR g acc0 (unravel k es)
+    in tpair xout (ravel k lout)
       -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
 
 oRdmapAccumL
   :: forall k accShs bShs eShs.
-     (TensorKind bShs, TensorKind eShs)
+     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
   -> TensorKindFull accShs
   -> TensorKindFull bShs
   -> TensorKindFull eShs
-  -> (Rep ORArray accShs -> Rep ORArray eShs
-      -> Rep ORArray (TKProduct accShs bShs))
-  -> Rep ORArray accShs
-  -> Rep ORArray (BuildTensorKind k eShs)
-  -> Rep ORArray (TKProduct accShs (BuildTensorKind k bShs))
-oRdmapAccumL k _ bShs _ f acc0 es = case sNatValue k of
-  0 -> (acc0, treplicate k (stensorKind @bShs) (repConstant 0 bShs))
+  -> (RepN accShs -> RepN eShs
+      -> RepN (TKProduct accShs bShs))
+  -> RepN accShs
+  -> RepN (BuildTensorKind k eShs)
+  -> RepN (TKProduct accShs (BuildTensorKind k bShs))
+oRdmapAccumL k _ bShs _ f acc0 es
+ | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (repConstant 0 bShs))
   _ ->
-    let (xout, lout) = mapAccumL f acc0 (unravel k es)
-    in (xout, ravel k lout)
+    let g a b = let res = f a b
+                in (tproject1 res, tproject2 res)
+        (xout, lout) = mapAccumL g acc0 (unravel k es)
+    in tpair xout (ravel k lout)
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector ORArray (ORArray r n) where
+         => AdaptableHVector RepN (RepN (TKR r n)) where
   {-# SPECIALIZE instance
       KnownNat n
-      => AdaptableHVector ORArray (ORArray Double n) #-}
-  type X (ORArray r n) = TKR r n
+      => AdaptableHVector RepN (RepN (TKR Double n)) #-}
+  type X (RepN (TKR r n)) = TKR r n
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
       Just Refl -> Just (t, Nothing)
-      _ -> Just (rzero (rshape aInit), Nothing)
+      _ -> Just (rzero $ rshape aInit, Nothing)
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector ORArray (AsHVector (ORArray r n)) where
+         => AdaptableHVector RepN (AsHVector (RepN (TKR r n))) where
   {-# SPECIALIZE instance
       KnownNat n
-      => AdaptableHVector ORArray (AsHVector (ORArray Double n)) #-}
-  type X (AsHVector (ORArray r n)) = TKUntyped
-  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicRanked . unAsHVector
+      => AdaptableHVector RepN (AsHVector (RepN (TKR Double n))) #-}
+  type X (AsHVector (RepN (TKR r n))) = TKUntyped
+  toHVectorOf = RepN . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit = fromHVectorR
 
-instance ForgetShape (ORArray r n) where
-  type NoShape (ORArray r n) = ORArray r n
+instance ForgetShape (RepN (TKR r n)) where
+  type NoShape (RepN (TKR r n)) = RepN (TKR r n)
   forgetShape = id
 
 instance (GoodScalar r, KnownShS sh)
-         => AdaptableHVector ORArray (OSArray r sh) where
-  type X (OSArray r sh) = TKS r sh
+         => AdaptableHVector RepN (RepN (TKS r sh)) where
+  type X (RepN (TKS r sh)) = TKS r sh
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
   fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
@@ -434,55 +446,52 @@ instance (GoodScalar r, KnownShS sh)
       _ -> Just (srepl 0, Nothing)
 
 instance (GoodScalar r, KnownShS sh)
-         => AdaptableHVector ORArray (AsHVector (OSArray r sh)) where
-  type X (AsHVector (OSArray r sh)) = TKUntyped
-  toHVectorOf = HVectorPseudoTensor . V.singleton . DynamicShaped . unAsHVector
+         => AdaptableHVector RepN (AsHVector (RepN (TKS r sh))) where
+  type X (AsHVector (RepN (TKS r sh))) = TKUntyped
+  toHVectorOf = RepN . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit = fromHVectorS
 
 instance GoodScalar r
-         => ForgetShape (OSArray r sh) where
-  type NoShape (OSArray r sh) = ORArray r (Rank sh)  -- key case
-  forgetShape = FlipR . Nested.stoRanked . runFlipS
+         => ForgetShape (RepN (TKS r sh)) where
+  type NoShape (RepN (TKS r sh)) = RepN (TKR r (Rank sh))  -- key case
+  forgetShape = RepN . FlipR . Nested.stoRanked . runFlipS . unRepN
 
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
-         => RandomHVector (OSArray r sh) where
-  randomVals :: forall g. RandomGen g => Double -> g -> (OSArray r sh, g)
+         => RandomHVector (RepN (TKS r sh)) where
+  randomVals :: forall g. RandomGen g => Double -> g -> (RepN (TKS r sh), g)
   randomVals range g =
     let createRandomVector :: Int -> g -> OSArray r sh
         createRandomVector n seed =
-          srepl (2 * realToFrac range)
+          unRepN (srepl (2 * realToFrac range))
           * (FlipS (Nested.sfromVector knownShS (V.fromListN n (randoms seed)))
-             - srepl 0.5)
+             - unRepN (srepl 0.5))
         (g1, g2) = split g
         arr = createRandomVector (sizeP (Proxy @sh)) g1
-    in (arr, g2)
-
-instance AdaptableHVector ORArray
-                          (HVectorPseudoTensor ORArray Float '()) where
-  type X (HVectorPseudoTensor ORArray Float '()) = TKUntyped
-  toHVectorOf = id
-  fromHVector (HVectorPseudoTensor aInit) params =
-    let (portion, rest) = V.splitAt (V.length aInit) $ unHVectorPseudoTensor params
-    in Just (HVectorPseudoTensor portion, Just $ HVectorPseudoTensor rest)
-
+    in (RepN arr, g2)
+{-
+instance AdaptableHVector RepN (HVector RepN) where
+  type X (HVector RepN) = TKUntyped
+  toHVectorOf = RepN
+  fromHVector aInit params =
+    let (portion, rest) = V.splitAt (V.length aInit) $ unRepN params
+    in Just (portion, Just $ RepN rest)
+-}
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
   :: TensorKindFull TKUntyped
-  -> HVectorPseudoTensor ORArray Float '()
-  -> Maybe (HVectorPseudoTensor ORArray Float '())
-  -> Delta ORArray TKUntyped
-  -> Rep ORArray TKUntyped #-}
+  -> RepN TKUntyped
+  -> Maybe (RepN TKUntyped)
+  -> Delta RepN TKUntyped
+  -> RepN TKUntyped #-}
 {-# SPECIALIZE evalFromnMap
-  :: EvalState ORArray -> EvalState ORArray #-}
+  :: EvalState RepN -> EvalState RepN #-}
 
-instance ( RankedTensor ranked, ShapedTensor (ShapedOf ranked)
-         , ProductTensor ranked, ShareTensor ranked
-         , RankedOf (ShapedOf ranked) ~ ranked )
-         => DualNumberValue (DynamicTensor (ADVal ranked)) where
-  type DValue (DynamicTensor (ADVal ranked)) = DynamicTensor ORArray
+instance (ADReady target, ShareTensor target)
+         => DualNumberValue (DynamicTensor (ADVal target)) where
+  type DValue (DynamicTensor (ADVal target)) = DynamicTensor RepN
   fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlipR t
-    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlipS t
+    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlipR $ unRepN t
+    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlipS $ unRepN t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2

@@ -18,7 +18,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.BackendOX (ORArray)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import HordeAd.Util.SizedList
 import MnistData
@@ -30,34 +30,34 @@ import MnistData
 -- @kh@ denotes kernel height minus one and analogously @kw@ is kernel
 -- width minus one.
 type ADCnnMnistParametersShaped
-       (shaped :: ShapedTensorType) h w kh kw c_out n_hidden r =
-  ( ( shaped r '[c_out, 1, kh + 1, kw + 1]
-    , shaped r '[c_out] )
-  , ( shaped r '[c_out, c_out, kh + 1, kw + 1]
-    , shaped r '[c_out] )
-  , ( shaped r '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ]
-    , shaped r '[n_hidden] )
-  , ( shaped r '[SizeMnistLabel, n_hidden]
-    , shaped r '[SizeMnistLabel] )
+       (target :: Target) h w kh kw c_out n_hidden r =
+  ( ( target (TKS r '[c_out, 1, kh + 1, kw + 1])
+    , target (TKS r '[c_out]) )
+  , ( target (TKS r '[c_out, c_out, kh + 1, kw + 1])
+    , target (TKS r '[c_out]) )
+  , ( target (TKS r '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ])
+    , target (TKS r '[n_hidden]) )
+  , ( target (TKS r '[SizeMnistLabel, n_hidden])
+    , target (TKS r '[SizeMnistLabel]) )
   )
 
 -- | The differentiable type of all trainable parameters of this nn.
-type ADCnnMnistParameters (ranked :: RankedTensorType) r =
-  ( ( ranked r 4
-    , ranked r 1 )
-  , ( ranked r 4
-    , ranked r 1 )
-  , ( ranked r 2
-    , ranked r 1 )
-  , ( ranked r 2
-    , ranked r 1 ) )
+type ADCnnMnistParameters (target :: Target) r =
+  ( ( target (TKR r 4)
+    , target (TKR r 1) )
+  , ( target (TKR r 4)
+    , target (TKR r 1) )
+  , ( target (TKR r 2)
+    , target (TKR r 1) )
+  , ( target (TKR r 2)
+    , target (TKR r 1) ) )
 
 convMnistLayerR
-  :: (ADReady ranked, GoodScalar r, Differentiable r)
-  => ranked r 4  -- [c_out, c_in, kh + 1, kw + 1]
-  -> ranked r 4  -- [batch_size, c_in, h, w]
-  -> ranked r 1  -- [c_out]
-  -> ranked r 4  -- [batch_size, c_out, h `Div` 2, w `Div` 2]
+  :: (ADReady target, GoodScalar r, Differentiable r)
+  => target (TKR r 4)  -- [c_out, c_in, kh + 1, kw + 1]
+  -> target (TKR r 4)  -- [batch_size, c_in, h, w]
+  -> target (TKR r 1)  -- [c_out]
+  -> target (TKR r 4)  -- [batch_size, c_out, h `Div` 2, w `Div` 2]
 convMnistLayerR ker input bias =
   let (batch_size :$: _ :$: h :$: w :$: ZSR) = rshape input
       yConv = conv2dUnpadded ker input
@@ -67,12 +67,12 @@ convMnistLayerR ker input bias =
   in maxPool2dUnpadded 2 2 yRelu
 
 convMnistTwoR
-  :: (ADReady ranked, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => Int -> Int -> Int
-  -> PrimalOf ranked r 4  -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
+  -> PrimalOf target (TKR r 4)  -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
                           -- ^ input images
-  -> ADCnnMnistParameters ranked r
-  -> ranked r 2  -- [SizeMnistLabel, batch_size]
+  -> ADCnnMnistParameters target r
+  -> target (TKR r 2)  -- [SizeMnistLabel, batch_size]
                  -- ^ classification
 convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
               ( (ker1, bias1), (ker2, bias2)
@@ -95,12 +95,12 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
      + rtr (rreplicate batch_size biasesReadout)
 
 convMnistLossFusedR
-  :: (ADReady ranked, ADReady (PrimalOf ranked), GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r, Differentiable r)
   => Int
-  -> ( PrimalOf ranked r 3  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
-     , PrimalOf ranked r 2 )  -- [batch_size, SizeMnistLabel]
-  -> ADCnnMnistParameters ranked r  -- kh kw c_out n_hidden
-  -> ranked r 0
+  -> ( PrimalOf target (TKR r 3)  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
+     , PrimalOf target (TKR r 2) )  -- [batch_size, SizeMnistLabel]
+  -> ADCnnMnistParameters target r  -- kh kw c_out n_hidden
+  -> target (TKR r 0)
 convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let input = rreshape (batch_size
                         :$: 1
@@ -115,30 +115,30 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   in rconstant (recip $ fromIntegral batch_size) * loss
 
 convMnistTestR
-  :: forall ranked r.
-     (ranked ~ ORArray, GoodScalar r, Numeric r, Differentiable r)
-  => ADCnnMnistParameters ranked r
+  :: forall target r.
+     (target ~ RepN, GoodScalar r, Numeric r, Differentiable r)
+  => ADCnnMnistParameters target r
   -> Int
   -> MnistDataBatchR r
-  -> HVector ORArray
+  -> HVector RepN
   -> r
 convMnistTestR _ 0 _ _ = 0
 convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
-  let input :: ranked r 4
+  let input :: target (TKR r 4)
       input =
         rconst $ Nested.rreshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
                                 $ Nested.rfromOrthotope SNat glyphR
-      outputR :: FlipR Nested.Ranked r 2
+      outputR :: RepN (TKR r 2)
       outputR =
-        let nn :: ADCnnMnistParameters ranked r
-               -> ranked r 2  -- [SizeMnistLabel, batch_size]
+        let nn :: ADCnnMnistParameters target r
+               -> target (TKR r 2)  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
-        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) (HVectorPseudoTensor testParams)
-      outputs = map (Nested.rtoVector . runFlipR) $ runravelToList
+        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
+      outputs = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
-      labels = map (Nested.rtoVector . runFlipR) $ runravelToList
-               $ FlipR $ Nested.rfromOrthotope SNat labelR
+      labels = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
+               $ RepN $ FlipR $ Nested.rfromOrthotope SNat labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
