@@ -20,7 +20,7 @@ on:
 jobs:
   linux:
     name: Haskell-CI - Linux - ${{ matrix.compiler }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-20.04
     timeout-minutes:
       60
     container:
@@ -56,10 +56,10 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends gnupg ca-certificates dirmngr curl git software-properties-common libtinfo5 libgsl0-dev liblapack-dev libatlas-base-dev
           mkdir -p "$HOME/.ghcup/bin"
-          curl -sL https://downloads.haskell.org/ghcup/x86_64-linux-ghcup > "$HOME/.ghcup/bin/ghcup"
+          curl -sL https://downloads.haskell.org/ghcup/0.1.30.0/x86_64-linux-ghcup-0.1.30.0 > "$HOME/.ghcup/bin/ghcup"
           chmod a+x "$HOME/.ghcup/bin/ghcup"
-          "$HOME/.ghcup/bin/ghcup" install ghc "$HCVER"
-          "$HOME/.ghcup/bin/ghcup" install cabal 3.12.1.0
+          "$HOME/.ghcup/bin/ghcup" install ghc "$HCVER" || (cat "$HOME"/.ghcup/logs/*.* && false)
+          "$HOME/.ghcup/bin/ghcup" install cabal 3.12.1.0 || (cat "$HOME"/.ghcup/logs/*.* && false)
         env:
           HCKIND: ${{ matrix.compilerKind }}
           HCNAME: ${{ matrix.compiler }}
@@ -132,7 +132,7 @@ jobs:
           chmod a+x $HOME/.cabal/bin/cabal-plan
           cabal-plan --version
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: source
       - name: checkout ox-arrays
