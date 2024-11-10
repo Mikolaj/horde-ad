@@ -64,6 +64,14 @@ type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
 type instance DualOf (AstTensor ms s) = AstTensor ms DualSpan
 type instance ShareOf (AstTensor ms s) = AstRaw s
 
+-- This can't be just HFun, because they need to be vectorized
+-- and vectorization applies such functions to the variable from build1
+-- and the variable has to be eliminated via vectorization to preserve
+-- the closed form of the function. Just applying a Haskell closure
+-- to the build1 variable and then duplicating the result of the function
+-- would not eliminate the variable and also would likely results
+-- in more costly computations. Also, that would prevent simplification
+-- of the instances, especially after applied to arguments that are terms.
 type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z  -- TODO: PrimalSpan
 
 
