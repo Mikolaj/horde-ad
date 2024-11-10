@@ -38,7 +38,6 @@ module HordeAd.Core.AstSimplify
     -- * Substitution payload and adaptors for AstVarName
   , SubstitutionPayload(..)
   , substituteAst, substitute1Ast, substituteAstIndex, substituteAstIndexS
-  , substituteAstHVector
   ) where
 
 import Prelude
@@ -3075,13 +3074,6 @@ substituteAstIndexS
   -> AstIndexS AstMethodLet sh
 substituteAstIndexS i var  ix =
   fromMaybe ix $ substitute1AstIndexS i (varNameToAstVarId var) ix
-
-substituteAstHVector
-  :: (AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 -> AstVarName s2 y -> AstTensor AstMethodLet s TKUntyped
-  -> AstTensor AstMethodLet s TKUntyped
-substituteAstHVector i var v1 =
-  fromMaybe v1 $ substitute1Ast i (varNameToAstVarId var) v1
 
 substituteAstBool
   :: AstSpan s2

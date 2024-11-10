@@ -17,16 +17,11 @@ module HordeAd.Core.TensorAst
 
 import Prelude
 
-import Data.Array.Shape qualified as Sh
 import Data.IntMap.Strict (IntMap)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
-import Data.Vector qualified as Data.NonStrict.Vector
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
-import Unsafe.Coerce (unsafeCoerce)
-
-import Data.Array.Nested (Rank)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -271,25 +266,6 @@ instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
   fromValue (HVectorPseudoTensor t) =
     AstMkHVector $ V.map fromValue t
 -}
-
--- HVector causes overlap and violation of injectivity,
--- hence Data.NonStrict.Vector. Injectivity is crucial to limit the number
--- of type applications the library user has to supply.
-instance TermValue (AstTensor AstMethodLet FullSpan TKUntyped) where
-  type Value (AstTensor AstMethodLet FullSpan TKUntyped) =
-    Data.NonStrict.Vector.Vector (DynamicTensor RepN)
-  fromValue t = AstMkHVector $ V.convert $ V.map fromValue t
-
-instance TermValue (DynamicTensor (AstTensor AstMethodLet FullSpan)) where
-  type Value (DynamicTensor (AstTensor AstMethodLet FullSpan)) =
-    DynamicTensor RepN
-  fromValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimal $ AstConst $ runFlipR $ unRepN t
-    DynamicShaped @_ @sh t ->
-      gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: Rank sh) $
-      DynamicShaped @_ @sh $ fromPrimal $ AstConstS $ runFlipS $ unRepN t
-    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor AstMethodLet s y

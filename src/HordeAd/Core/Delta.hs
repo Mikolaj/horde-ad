@@ -728,10 +728,6 @@ instance Show (NodeId target y) where
     showsPrec d n  -- less verbose, more readable
 
   -- No Eq instance to limit hacks outside this module.
-instance TensorKind y => Enum (NodeId target y) where
-  toEnum = NodeId
-  fromEnum (NodeId n) = n
-
 instance DMap.Enum1 (NodeId target) where
   type Enum1Info (NodeId target) = Some (Dict TensorKind)
   fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
@@ -742,10 +738,6 @@ data InputId :: Target -> TensorKindType -> Type where
   InputId :: forall target y. TensorKind y => Int -> InputId target y
 
 deriving instance Show (InputId target y)
-
-instance TensorKind y => Enum (InputId target y) where
-  toEnum = InputId
-  fromEnum (InputId n) = n
 
 instance DMap.Enum1 (InputId target) where
   type Enum1Info (InputId target) = Some (Dict TensorKind)

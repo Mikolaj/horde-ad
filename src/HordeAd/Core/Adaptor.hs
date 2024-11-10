@@ -18,7 +18,6 @@ import Prelude
 import Control.Exception (assert)
 import Data.Maybe (fromMaybe)
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Vector qualified as Data.NonStrict.Vector
 import Data.Vector.Generic qualified as V
 import System.Random
 
@@ -143,21 +142,6 @@ instance ForgetShape a
          => ForgetShape (Data.Vector.Vector a) where
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
   forgetShape = V.map forgetShape
-
-instance (X a ~ TKUntyped, AdaptableHVector target a, BaseTensor target)
-         => AdaptableHVector target (Data.NonStrict.Vector.Vector a) where
-  type X (Data.NonStrict.Vector.Vector a) = TKUntyped
-  toHVectorOf = dmkHVector . V.concat . map (dunHVector . toHVectorOf) . V.toList
-  fromHVector lInit source =
-    let f (!lAcc, !restAcc) !aInit =
-          case fromHVector aInit restAcc of
-            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (dmkHVector V.empty) mrest)
-              -- this snoc, if the vector is long, is very costly;
-              -- a solution might be to define Value to be a list
-            _ -> error "fromHVector: Nothing"
-        (!l, !restAll) =
-          V.foldl' f (V.empty, source) lInit
-    in Just (l, if nullRep restAll then Nothing else Just restAll)
 
 instance BaseTensor target
          => AdaptableHVector target (DynamicTensor target) where

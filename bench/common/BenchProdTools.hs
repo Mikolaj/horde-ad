@@ -142,10 +142,10 @@ _rankedVecProd = V.foldl1' (*)
 -- Eventually, we could add another Delta GADT only for scalars
 -- and use these instead of rank 0 tensors, but it's probably better
 -- to add fold on tensors instead.
-rankedVecDProd :: forall r target.
-                  (BaseTensor target, GoodScalar r)
-               => HVector target -> target (TKR r 0)
-rankedVecDProd =
+_rankedVecDProd :: forall r target.
+                   (BaseTensor target, GoodScalar r)
+                => HVector target -> target (TKR r 0)
+_rankedVecDProd =
   let f acc (DynamicRanked @r2 @n2 d) =
         gcastWith (unsafeCoerce Refl :: r2 :~: r) $
         gcastWith (unsafeCoerce Refl :: n2 :~: 0) $

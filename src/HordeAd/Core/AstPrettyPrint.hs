@@ -6,7 +6,6 @@ module HordeAd.Core.AstPrettyPrint
   ( -- * Pretty-printing of variables
     printAstVarName, printAstDynamicVarNameBrief
   , printAstDynamicVarName
-  , printAstIntVarName
     -- * Pretty-printing terms in a few useful configurations
   , printAstSimple, printAstPretty, printAstPrettyButNested
   ) where
@@ -157,10 +156,6 @@ printAstVarFromLet u cfg var =
     _ ->  -- the heuristics failed
       printAstVar cfg var
   else printAstVar cfg var
-
-printAstIntVarName :: IntMap String -> IntVarName -> String
-printAstIntVarName renames var =
-  printAstIntVar (defaulPrintConfig False renames) var ""
 
 printAstVarName :: TensorKind y
                 => IntMap String -> AstVarName s y -> String

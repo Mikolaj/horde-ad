@@ -16,7 +16,7 @@ module HordeAd.Core.TensorClass
   , HFun(..)
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
   , ingestData, sscalar, srepl, xrepl, nullRep
-  , mapDynamic, mapDynamic2
+  , mapDynamic2
     -- * The giga-constraint
   , ADReady, ADReadyNoLet
   ) where
@@ -1248,21 +1248,6 @@ nullRep t = case stensorKind @y of
   STKX{} -> False
   STKProduct{} -> False
   STKUntyped -> null $ dunHVector t
-
-mapDynamic
-  :: BaseTensor f
-  => (forall r n. (GoodScalar r, KnownNat n)
-      => f (TKR r n) -> g (TKR r n))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => f (TKS r sh) -> g (TKS r sh))
-  -> DynamicTensor f -> DynamicTensor g
-mapDynamic fr _fs (DynamicRanked t) = DynamicRanked $ fr t
-mapDynamic _fr fs (DynamicShaped t) = DynamicShaped $ fs t
-mapDynamic fr _fs (DynamicRankedDummy @r @sh _ _) =
-  withListSh (Proxy @sh) $ \sh1 ->
-    DynamicRanked @r $ fr (rzero sh1)
-mapDynamic _fr fs (DynamicShapedDummy @r @sh _ _) =
-  DynamicShaped $ fs @r @sh (srepl 0)
 
 mapDynamic2
   :: (BaseTensor f1, BaseTensor f2)

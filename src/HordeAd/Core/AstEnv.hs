@@ -9,8 +9,7 @@ module HordeAd.Core.AstEnv
   , extendEnv, extendEnvHVector
   , extendEnvD, extendEnvI
     -- * The operations for interpreting bindings
-  , interpretLambdaI, interpretLambdaIS, interpretLambdaIHVector
-  , interpretLambdaIndex, interpretLambdaIndexS
+  , interpretLambdaIHVector, interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
   , interpretLambdaHsH
     -- * Interpretation of arithmetic, boolean and relation operations
@@ -146,26 +145,6 @@ extendEnvVarsS vars !ix !env =
 
 
 -- * The operations for interpreting bindings
-
-interpretLambdaI
-  :: forall target n s r ms. BaseTensor target
-  => (AstEnv target -> AstTensor ms s (TKR r n) -> target (TKR r n))
-  -> AstEnv target -> (IntVarName, AstTensor ms s (TKR r n))
-  -> IntOf target
-  -> target (TKR r n)
-{-# INLINE interpretLambdaI #-}
-interpretLambdaI f !env (!var, !ast) =
-  \i -> f (extendEnvI var i env) ast
-
-interpretLambdaIS
-  :: forall target sh s r ms. BaseTensor target
-  => (AstEnv target -> AstTensor ms s (TKS r sh) -> target (TKS r sh))
-  -> AstEnv target -> (IntVarName, AstTensor ms s (TKS r sh))
-  -> IntOf target
-  -> target (TKS r sh)
-{-# INLINE interpretLambdaIS #-}
-interpretLambdaIS f !env (!var, ast) =
-  \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIHVector
   :: forall target s ms. BaseTensor target

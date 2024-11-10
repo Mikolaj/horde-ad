@@ -6,13 +6,10 @@
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
     shapeAstFull, shapeAst
-  , lengthAst, shapeAstHVector
-  , shapeAstHFun, domainShapeAstHFun
+  , lengthAst, shapeAstHVector, shapeAstHFun
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
-  , varInIndexS
-  , varInAstDynamic
-  , varNameInAst, varNameInAstHVector
+  , varInIndexS, varInAstDynamic, varNameInAst
     -- * Determining if a term is too small to require sharing
   , astIsSmall
     -- * Odds and ends
@@ -177,10 +174,6 @@ shapeAstHFun :: TensorKind y => AstHFun x y -> TensorKindFull y
 shapeAstHFun = \case
   AstLambda ~(_vvars, _, l) -> shapeAstFull l
 
-domainShapeAstHFun :: AstHFun x y -> TensorKindFull x
-domainShapeAstHFun = \case
-  AstLambda ~(_var, ftk, _l) -> ftk
-
 
 -- * Variable occurrence detection
 
@@ -326,10 +319,6 @@ varInAstBool var = \case
 varNameInAst :: AstSpan s2
              => AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
-
-varNameInAstHVector :: AstSpan s
-                    => AstVarName f y -> AstTensor ms s TKUntyped -> Bool
-varNameInAstHVector var = varInAst (varNameToAstVarId var)
 
 
 -- * Determining if a term is too small to require sharing

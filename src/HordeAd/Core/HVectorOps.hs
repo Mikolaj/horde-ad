@@ -5,18 +5,14 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( toRepDShare, toRepDDuplicable, fromRepD, addRepD
-  , raddDynamic, saddDynamic, sumDynamicRanked, sumDynamicShaped, addDynamic
-  , sizeHVector, shapeDynamic
-  , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
+  ( toRepDShare, toRepDDuplicable, fromRepD, addRepD, addDynamic
+  , sizeHVector, shapeDynamic, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
-  , fromDynamicR, fromDynamicS
-  , unravelHVector, ravelHVector
+  , fromDynamicR, fromDynamicS, unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
-  , mapHVectorShaped11, mapHVectorShaped
+  , mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , index1HVector, replicate1HVector
-  , repConstant, repConstant0Old, toADTensorKindShared
+  , replicate1HVector, repConstant, repConstant0Old, toADTensorKindShared
   ) where
 
 import Prelude
@@ -103,95 +99,6 @@ addRepD a b = case (a, b) of
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ V.zipWith addDynamic hv1 hv2
 
-raddDynamic :: forall target r n.
-               (BaseTensor target, GoodScalar r, KnownNat n)
-            => target (TKR r n) -> DynamicTensor target -> target (TKR r n)
-raddDynamic !r (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2)
-                                                        (Proxy @n) of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> r + t
-    _ -> error "raddDynamic: scalar mismatch"
-  _ -> error "raddDynamic: rank mismatch"
-raddDynamic r (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r + rfromS t
-    _ -> error "raddDynamic: scalar mismatch"
-  _ -> error "raddDynamic: shape mismatch"
-raddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r :: target (TKR r2 (Rank sh2))
-    _ -> error "raddDynamic: scalar mismatch"
-  _ -> error "raddDynamic: rank mismatch"
-raddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case matchingRank @sh2 @n of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r :: target (TKR r2 (Rank sh2))
-    _ -> error "raddDynamic: scalar mismatch"
-  _ -> error "raddDynamic: rank mismatch"
-
-saddDynamic :: forall target sh r.
-               (BaseTensor target, GoodScalar r, KnownShS sh)
-            => target (TKS r sh) -> DynamicTensor target -> target (TKS r sh)
-saddDynamic !r (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> r + sfromR t
-    _ -> error "saddDynamic: scalar mismatch"
-  _ -> error "saddDynamic: shape mismatch"
-saddDynamic r (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r + t
-    _ -> error "saddDynamic: scalar mismatch"
-  _ -> error "saddDynamic: shape mismatch"
-saddDynamic r (DynamicRankedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r :: target (TKS r2 sh2)
-    _ -> error "saddDynamic: scalar mismatch"
-  _ -> error "saddDynamic: shape mismatch"
-saddDynamic r (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> r :: target (TKS r2 sh2)
-    _ -> error "saddDynamic: scalar mismatch"
-  _ -> error "saddDynamic: shape mismatch"
-
-sumDynamicRanked :: BaseTensor target
-                 => [DynamicTensor target] -> DynamicTensor target
-sumDynamicRanked [] = error "sumDynamicRanked: empty list"
-sumDynamicRanked dsOrig@(d : _) =
-  let dsFiltered = filter (not . isDynamicDummy) dsOrig
-  in case (dsFiltered, d) of
-    (DynamicRanked t : ds, _) ->
-      DynamicRanked $ foldl' raddDynamic t ds
-    (DynamicShaped @_ @sh t : ds, _) ->
-      withListSh (Proxy @sh) $ \_ ->
-        DynamicRanked $ foldl' raddDynamic (rfromS t) ds
-    (_ : _, _) -> error "sumDynamicRanked: wrong filtering"
-    ([], DynamicRankedDummy @r @sh _ _) ->
-      withListSh (Proxy @sh) $ \sh1 ->
-        DynamicRanked @r (rzero sh1)
-    ([], DynamicShapedDummy @r @sh _ _) ->
-      withListSh (Proxy @sh) $ \sh1 ->
-        DynamicRanked @r (rzero sh1)
-    ([], _) -> error "sumDynamicRanked: wrong filtering"
-
-sumDynamicShaped :: BaseTensor target
-                 => [DynamicTensor target]
-                 -> DynamicTensor target
-sumDynamicShaped [] = error "sumDynamicShaped: empty list"
-sumDynamicShaped dsOrig@(d : _) =
-  let dsFiltered = filter (not . isDynamicDummy) dsOrig
-  in case (dsFiltered, d) of
-    (DynamicRanked @_ @n t : ds, _) ->
-      withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
-        gcastWith (unsafeCoerce Refl :: Rank sh :~: n) $
-        DynamicShaped $ foldl' saddDynamic (sfromR @_ @_ @sh t) ds
-    (DynamicShaped t : ds, _) ->
-      DynamicShaped $ foldl' saddDynamic t ds
-    (_ : _, _) -> error "sumDynamicShaped: wrong filtering"
-    ([], DynamicRankedDummy @r @sh _ _) ->
-      DynamicShaped @r @sh (srepl 0)
-    ([], DynamicShapedDummy @r @sh _ _) ->
-      DynamicShaped @r @sh (srepl 0)
-    ([], _) -> error "sumDynamicShaped: wrong filtering"
-
 addDynamic :: forall target.
               (BaseTensor target, CRanked target Show)
            => DynamicTensor target -> DynamicTensor target
@@ -231,12 +138,6 @@ dynamicsMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
     && shapeDynamic t == shapeDynamic @g u
     && isDynamicRanked t == isDynamicRanked @g u
 
-hVectorsMatch :: forall f g. (BaseTensor f, BaseTensor g)
-              => HVector f -> HVector g -> Bool
-hVectorsMatch v1 v2 =
-  V.length v1 == V.length v2
-  && and (V.zipWith dynamicsMatch v1 v2)
-
 voidHVectorMatches :: forall g. BaseTensor g
                    => HVector VoidTensor -> HVector g -> Bool
 voidHVectorMatches v1 v2 =
@@ -246,18 +147,6 @@ voidHVectorMatches v1 v2 =
           isJust (testEquality (typeRep @rt) (typeRep @ru))
           && shapeVoidDynamic t == shapeDynamic @g u
           && isDynamicRanked t == isDynamicRanked @g u
-  in V.length v1 == V.length v2
-     && and (V.zipWith voidDynamicsMatch v1 v2)
-
-voidHVectorsMatch :: HVector VoidTensor -> HVector VoidTensor -> Bool
-voidHVectorsMatch v1 v2 =
-  let voidDynamicsMatch :: DynamicTensor VoidTensor -> DynamicTensor VoidTensor
-                        -> Bool
-      voidDynamicsMatch t u = case (scalarDynamic t, scalarDynamic u) of
-        (DynamicScalar @ru _, DynamicScalar @rt _) ->
-          isJust (testEquality (typeRep @rt) (typeRep @ru))
-          && shapeVoidDynamic t == shapeVoidDynamic u
-          && isDynamicRanked t == isDynamicRanked u
   in V.length v1 == V.length v2
      && and (V.zipWith voidDynamicsMatch v1 v2)
 
@@ -586,56 +475,6 @@ mapShaped f (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \_ ->
     DynamicRanked $ rfromS $ f @r @sh (srepl 0)
 mapShaped f (DynamicShapedDummy @r @sh _ _) = DynamicShaped $ f @r @sh (srepl 0)
-
-mapHVectorShaped11
-  :: forall k k1 target.
-     (BaseTensor target, KnownNat k, KnownNat k1)
-  => (forall rq shq. (GoodScalar rq, KnownShS shq)
-      => target (TKS rq (k ': shq)) -> target (TKS rq (k1 ': shq)))
-  -> HVector target -> HVector target
-mapHVectorShaped11 f = V.map (mapShaped11 f)
-
-mapShaped11
-  :: forall k k1 target.
-     (BaseTensor target, KnownNat k, KnownNat k1)
-  => (forall rq shq. (GoodScalar rq, KnownShS shq)
-      => target (TKS rq (k ': shq)) -> target (TKS rq (k1 ': shq)))
-  -> DynamicTensor target -> DynamicTensor target
-mapShaped11 f (DynamicRanked @r @n2 t) =
-  withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
-    case knownShS @sh of
-      ZSS -> error "mapShaped11: rank 0"
-      (:$$) @n @shr SNat tl
-        | Dict <- sshapeKnown tl -> case sameNat (Proxy @n) (Proxy @k) of
-          Just Refl -> withListSh (Proxy @shr) $ \(_ :: IShR m) ->
-            gcastWith (unsafeCoerce Refl :: n2 :~: 1 + m) $
-            DynamicRanked $ rfromS $ f @r @shr $ sfromR t
-          Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicShaped t) = case sshape t of
-  ZSS -> error "mapShaped11: rank 0"
-  (:$$) @n SNat tl
-    | Dict <- sshapeKnown tl -> case sameNat (Proxy @n) (Proxy @k) of
-      Just Refl -> DynamicShaped $ f t
-      Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicRankedDummy @r @sh _ _) =
-  case knownShS @sh of
-    ZSS -> error "mapShaped11: rank 0"
-    (:$$) @n @shr SNat tl
-      | Dict <- sshapeKnown tl -> case sameNat (Proxy @n) (Proxy @k) of
-        Just Refl -> withListSh (Proxy @shr) $ \_ ->
-          DynamicRanked $ rfromS $ f @r @shr (srepl 0)
-        Nothing -> error "mapShaped11: wrong width"
-mapShaped11 f (DynamicShapedDummy @r @sh _ _) =
-  case knownShS @sh of
-    ZSS -> error "mapShaped11: rank 0"
-    (:$$) @n @shr SNat tl
-      | Dict <- sshapeKnown tl -> case sameNat (Proxy @n) (Proxy @k) of
-        Just Refl -> DynamicShaped $ f @r @shr (srepl 0)
-        Nothing -> error "mapShaped11: wrong width"
-
-index1HVector :: BaseTensor target
-              => HVector target -> IntOf target -> HVector target
-index1HVector = index1HVectorF rshape sshape rindex sindex
 
 replicate1HVector :: BaseTensor target
                   => SNat k -> HVector target -> HVector target

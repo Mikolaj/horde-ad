@@ -40,7 +40,6 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV -> DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
-                        $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
@@ -71,7 +70,6 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV -> DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
-                        $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1
@@ -122,7 +120,6 @@ mnistTrainBench1VTO extraPrefix chunkLength xs widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV -> DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
-                        $ V.map realToFrac
                         $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
                           - LA.scalar 0.5)
              nParams1

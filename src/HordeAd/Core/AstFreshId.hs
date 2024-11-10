@@ -5,8 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
   ( unRawHVector, rawHVector
-  , funToAstIO, funToAst, fun2ToAst, fun1ToAst, fun1ToX
-  , fun1DToAst, fun1LToAst
+  , funToAstIO, funToAst, fun1ToAst, fun1DToAst
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
@@ -16,7 +15,7 @@ module HordeAd.Core.AstFreshId
 
 import Prelude
 
-import Control.Monad (mapAndUnzipM, replicateM)
+import Control.Monad (replicateM)
 import Data.Array.Internal (valueOf)
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import Data.List.Index (imapM)
@@ -115,29 +114,6 @@ funToAst sh f = unsafePerformIO $ do
   (!var, _, !ast) <- funToAstIO sh f
   return (var, ast)
 
-fun2ToAstIO :: (TensorKind x, TensorKind y)
-            => TensorKindFull x -> TensorKindFull y
-            -> (AstVarName s x -> AstVarName s y
-                -> AstTensor ms s x -> AstTensor ms s y
-                -> AstTensor ms s z)
-            -> IO (AstTensor ms s z )
-{-# INLINE fun2ToAstIO #-}
-fun2ToAstIO shX shY f = do
-  freshIdX <- unsafeGetFreshAstVarId
-  freshIdY <- unsafeGetFreshAstVarId
-  let varNameX = mkAstVarName freshIdX
-      varNameY = mkAstVarName freshIdY
-  return $! f varNameX varNameY (AstVar shX varNameX) (AstVar shY varNameY)
-
-fun2ToAst :: (TensorKind x, TensorKind y)
-          => TensorKindFull x -> TensorKindFull y
-          -> (AstVarName s x -> AstVarName s y
-              -> AstTensor ms s x -> AstTensor ms s y
-              -> AstTensor ms s z)
-          -> AstTensor ms s z
-{-# NOINLINE fun2ToAst #-}
-fun2ToAst shX shY f = unsafePerformIO $ fun2ToAstIO shX shY f
-
 fun1ToAstIO :: TensorKind y
             => (AstVarName s y -> AstTensor ms s y)
             -> IO (AstTensor ms s y)
@@ -151,34 +127,6 @@ fun1ToAst :: TensorKind y
           -> AstTensor ms s y
 {-# NOINLINE fun1ToAst #-}
 fun1ToAst f = unsafePerformIO $ fun1ToAstIO f
-
-fun1ToXIO :: TensorKind y
-          => (AstVarName s y -> x)
-          -> IO x
-{-# INLINE fun1ToXIO #-}
-fun1ToXIO f = do
-  !freshId <- unsafeGetFreshAstVarName
-  return $! f freshId
-
-fun1ToX :: TensorKind y
-        => (AstVarName s y -> x)
-        -> x
-{-# NOINLINE fun1ToX #-}
-fun1ToX f = unsafePerformIO $ fun1ToXIO f
-
-fun1LToAstIO :: [VoidHVector]
-             -> ([[AstDynamicVarName]] -> [HVector (AstTensor ms s)] -> a)
-             -> IO a
-{-# INLINE fun1LToAstIO #-}
-fun1LToAstIO shss f = do
-  (!vars, !asts) <- mapAndUnzipM (fmap V.unzip . V.mapM dynamicToVar) shss
-  return $! f (map V.toList vars) asts
-
-fun1LToAst :: [VoidHVector]
-           -> ([[AstDynamicVarName]] -> [HVector (AstTensor ms s)] -> a)
-           -> a
-{-# NOINLINE fun1LToAst #-}
-fun1LToAst shss f = unsafePerformIO $ fun1LToAstIO shss f
 
 fun1DToAstIO :: VoidHVector
              -> ([AstDynamicVarName] -> HVector (AstTensor ms s) -> a)

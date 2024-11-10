@@ -185,18 +185,6 @@ instance ( ADReadyNoLet target, ShareTensor target
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
 
-instance ( ADReadyNoLet target, ShareTensor target
-         , ShareTensor (PrimalOf target)
-         , KnownShS sh, GoodScalar r )
-         => AdaptableHVector (ADVal target)
-                             (AsHVector (ADVal target (TKS r sh))) where
-  type X (AsHVector (ADVal target (TKS r sh))) = TKUntyped
-  toHVectorOf = dmkHVector . V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit params = case V.uncons $ tunvector params of
-    Just (dynamic, rest) ->
-      Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ dmkHVector rest)
-    Nothing -> Nothing
-
 instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS r sh)) where
   type DValue (ADVal target (TKS r sh)) = RepN (TKS r sh)   -- ! not Value(shaped)

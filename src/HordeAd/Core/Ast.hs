@@ -145,7 +145,6 @@ data AstVarName :: AstSpanType -> TensorKindType -> Type where
   AstVarName :: forall s y. TensorKind y => AstVarId -> AstVarName s y
 
 deriving instance Eq (AstVarName s y)
-deriving instance Ord (AstVarName s y)
 
 instance Show (AstVarName s y) where
   showsPrec d (AstVarName varId) =

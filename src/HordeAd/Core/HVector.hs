@@ -16,8 +16,7 @@ module HordeAd.Core.HVector
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
-  , rankDynamic, isDynamicRanked, isDynamicDummy
-  , voidFromShL, voidFromSh, voidFromShS
+  , rankDynamic, isDynamicRanked, voidFromShL, voidFromSh, voidFromShS
   , voidFromDynamicF, replicate1VoidHVector, index1HVectorF, replicate1HVectorF
   ) where
 
@@ -260,12 +259,6 @@ isDynamicRanked DynamicRanked{} = True
 isDynamicRanked DynamicShaped{} = False
 isDynamicRanked DynamicRankedDummy{} = True
 isDynamicRanked DynamicShapedDummy{} = False
-
-isDynamicDummy :: DynamicTensor target -> Bool
-isDynamicDummy DynamicRanked{} = False
-isDynamicDummy DynamicShaped{} = False
-isDynamicDummy DynamicRankedDummy{} = True
-isDynamicDummy DynamicShapedDummy{} = True
 
 voidFromShL :: forall r. GoodScalar r
             => [Int] -> DynamicTensor VoidTensor
