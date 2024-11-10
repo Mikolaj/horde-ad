@@ -362,11 +362,6 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> unshareAstTensor . unAstRaw
       _ -> error "tunshare: used not at PrimalSpan"
-  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =  -- TODO: remove
-    tlet t1 $ \ !u1 ->
-    tlet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stk u1)
-                         (toRepDDuplicable stk u2)
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rmkRepScalar = AstUnScalar
@@ -854,11 +849,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
           => AstNoVectorize s y
           -> AstRaw s y
   toShare t = toShare $ unAstNoVectorize t
-  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    tlet t1 $ \ !u1 ->
-    tlet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stk u1)
-                         (toRepDDuplicable stk u2)
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rmkRepScalar = AstNoVectorize . rmkRepScalar . unAstNoVectorize
@@ -1076,11 +1066,6 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
   toShare :: AstNoSimplify s y
           -> AstRaw s y
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
-  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    tlet t1 $ \ !u1 ->
-    tlet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stk u1)
-                         (toRepDDuplicable stk u2)
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rmkRepScalar = AstNoSimplify . AstUnScalar . unAstNoSimplify

@@ -108,7 +108,6 @@ class LetTensor (target :: Target) where
            => ShareOf target y
            -> target y
   tunshare = error "tunshare: this instance should never be used"
-  taddLet :: STensorKindType y -> target y -> target y -> target y
 
 class ShareTensor (target :: Target) where
   tshare :: forall y. (TensorKind y, BaseTensor target)

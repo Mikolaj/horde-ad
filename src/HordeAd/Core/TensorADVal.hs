@@ -118,11 +118,6 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   toShare = id
   tunshare = id
-  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    tlet t1 $ \ !u1 ->
-    tlet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stk u1)
-                         (toRepDDuplicable stk u2)
 
 instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
          => ShareTensor (ADVal target) where
@@ -702,6 +697,14 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                          q es
                          df rf acc0' es'
     in dD (tpair accFin bs) dual
+
+taddLet :: ADReady target
+        => STensorKindType y -> target y -> target y -> target y
+taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
+  tlet t1 $ \ !u1 ->
+  tlet t2 $ \ !u2 ->
+    fromRepD $ addRepD (toRepDDuplicable stk u1)
+                       (toRepDDuplicable stk u2)
 
 unADValDynamicTensor
   :: DynamicTensor (ADVal f)

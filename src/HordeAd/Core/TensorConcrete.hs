@@ -77,11 +77,6 @@ instance LetTensor RepN where
   tlet = (&)
   toShare = id
   tunshare = id
-  taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
-    tlet t1 $ \ !u1 ->
-    tlet t2 $ \ !u2 ->
-      fromRepD $ addRepD (toRepDDuplicable stk u1)
-                         (toRepDDuplicable stk u2)
 
 instance ShareTensor RepN where
   tshare = id
