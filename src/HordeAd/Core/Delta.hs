@@ -1020,9 +1020,10 @@ evalR !s !c d0 = case d0 of
           dmapAccumL (Proxy @target)
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
-                     (\dx (db_acc_e) ->
-                        unHFun rf (tpair (tpair dx (tproject1 db_acc_e))
-                                         (tproject2 db_acc_e)))
+                     (\dx db_acc_e ->
+                        tlet db_acc_e $ \ !db_acc_e1 ->
+                          unHFun rf (tpair (tpair dx (tproject1 db_acc_e1))
+                                           (tproject2 db_acc_e1)))
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
@@ -1047,9 +1048,10 @@ evalR !s !c d0 = case d0 of
           dmapAccumR (Proxy @target)
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
-                     (\dx (db_acc_e) ->
-                        unHFun rf (tpair (tpair dx (tproject1 db_acc_e))
-                                         (tproject2 db_acc_e)))
+                     (\dx db_acc_e ->
+                        tlet db_acc_e $ \ !db_acc_e1 ->
+                          unHFun rf (tpair (tpair dx (tproject1 db_acc_e1))
+                                           (tproject2 db_acc_e1)))
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
@@ -1416,9 +1418,10 @@ fwdR params s d0 = case d0 of
     in (s3, dmapAccumR (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
-                       (\dacc (de_acc_e) ->
-                          unHFun df (tpair (tpair dacc (tproject1 de_acc_e))
-                                           (tproject2 de_acc_e)))
+                       (\dacc de_acc_e ->
+                        tlet de_acc_e $ \ !de_acc_e1 ->
+                          unHFun df (tpair (tpair dacc (tproject1 de_acc_e1))
+                                           (tproject2 de_acc_e1)))
                        cacc0
                        (tpair ces (tpair q es)))
   MapAccumL @_ @_ @accShs @bShs @eShs
@@ -1440,9 +1443,10 @@ fwdR params s d0 = case d0 of
     in (s3, dmapAccumL (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
-                       (\dacc (de_acc_e) ->
-                          unHFun df (tpair (tpair dacc (tproject1 de_acc_e))
-                                           (tproject2 de_acc_e)))
+                       (\dacc de_acc_e ->
+                        tlet de_acc_e $ \ !de_acc_e1 ->
+                          unHFun df (tpair (tpair dacc (tproject1 de_acc_e1))
+                                           (tproject2 de_acc_e1)))
                        cacc0
                        (tpair ces (tpair q es)))
 

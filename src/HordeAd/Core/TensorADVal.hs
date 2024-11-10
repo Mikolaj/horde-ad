@@ -582,12 +582,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
           tlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
             in tlet dx_db $ \ !dx_db1 ->
-              let (!dx1, !db1) = (tproject1 dx_db1, tproject2 dx_db1)
-                  dx_dbRes = tpair dx1 (tproject2 db1)
-              in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                   let added = taddLet stensorKind (tproject1 daccRes_deRes)
-                                                   (tproject1 db1)
-                   in tpair added (tproject2 daccRes_deRes)
+              let (!dx, !db) = (tproject1 dx_db1, tproject2 dx_db1)
+              in tlet db $ \ !db1 ->
+                let dx_dbRes = tpair dx (tproject2 db1)
+                in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                  let added = taddLet stensorKind (tproject1 daccRes_deRes)
+                                                  (tproject1 db1)
+                  in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumRDer (Proxy @target)
                           k accShs codomainShs eShs
                           (dlambda @target (FTKProduct accShs eShs)
@@ -667,12 +668,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
           tlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
             in tlet dx_db $ \ !dx_db1 ->
-              let (!dx1, !db1) = (tproject1 dx_db1, tproject2 dx_db1)
-                  dx_dbRes = tpair dx1 (tproject2 db1)
-              in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                   let added = taddLet stensorKind (tproject1 daccRes_deRes)
-                                                   (tproject1 db1)
-                   in tpair added (tproject2 daccRes_deRes)
+              let (!dx, !db) = (tproject1 dx_db1, tproject2 dx_db1)
+              in tlet db $ \ !db1 ->
+                let dx_dbRes = tpair dx (tproject2 db1)
+                in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                  let added = taddLet stensorKind (tproject1 daccRes_deRes)
+                                                  (tproject1 db1)
+                  in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumLDer (Proxy @target)
                           k accShs codomainShs eShs
                           (dlambda @target (FTKProduct accShs eShs)
