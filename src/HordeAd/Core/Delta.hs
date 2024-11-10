@@ -1516,7 +1516,7 @@ fwdSame params s = \case
     in (s2, rfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
---  in (s2, rfromD $ dunHVector $ tshare v) V.! i)
+--  in (s2, rfromD $ tunvector v) V.! i)
 
   IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
   SumS d -> second ssum $ fwdSame params s d
@@ -1560,7 +1560,7 @@ fwdSame params s = \case
     in (s2, sfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
---  in (s2, sfromD $ dunHVector (tshare v) V.! i)
+--  in (s2, sfromD $ tunvector v V.! i)
 
   IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
   FromVectorX lsd ->

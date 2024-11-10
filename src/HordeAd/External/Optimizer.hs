@@ -32,7 +32,7 @@ sgd :: forall a z. TensorKind z
     -> (HVector RepN, RepN z)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   g :: a -> ADVal RepN TKUntyped -> ADVal RepN z
-  g a = f a . dunHVector
+  g a = f a . tunvector
   ftk = FTKUntyped $ voidFromHVector parameters0
   deltaInputs :: Delta RepN TKUntyped
   deltaInputs = generateDeltaInputs ftk
@@ -117,7 +117,7 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   g :: a -> ADVal RepN TKUntyped -> ADVal RepN z
-  g a = f a . dunHVector
+  g a = f a . tunvector
   ftk = FTKUntyped $ voidFromHVector parameters0
   deltaInputs :: Delta RepN TKUntyped
   deltaInputs = generateDeltaInputs ftk

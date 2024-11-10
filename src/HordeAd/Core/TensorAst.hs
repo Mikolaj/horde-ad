@@ -211,13 +211,21 @@ instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s), AstSp
       => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR Double n))) #-}
   type X (AsHVector (AstTensor AstMethodLet s (TKR r n))) = TKUntyped
   toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
-  fromHVector _aInit = fromHVectorR
+  fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
+    case V.uncons $ dunHVector params of
+      Just (dynamic, rest) ->
+        Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
+      Nothing -> Nothing
 
 instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstSpan s)
          => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKS r sh))) where
   type X (AsHVector (AstTensor AstMethodLet s (TKS r sh))) = TKUntyped
   toHVectorOf = dmkHVector . V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit = fromHVectorS
+  fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
+    case V.uncons $ dunHVector params of
+      Just (dynamic, rest) ->
+        Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ dmkHVector rest)
+      Nothing -> Nothing
 
 instance (GoodScalar r, KnownNat n, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKR r n)) where

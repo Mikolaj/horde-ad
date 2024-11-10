@@ -506,7 +506,7 @@ testOverleafPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rsum (rgather [50] v1 (\\[i3] -> [remF i3 28]))"
   show deltas
-    @?= "ShareG 100000003 (SumR (ShareG 100000002 (GatherR [50] (InputG (FTKR [28]) (InputId 0)) <function>)))"
+    @?= "ShareG 100000002 (SumR (ShareG 100000001 (GatherR [50] (InputG (FTKR [28]) (InputId 0)) <function>)))"
 
 foo :: RealFloatF a => (a, a, a) -> a
 foo (x, y, z) =

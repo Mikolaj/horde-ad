@@ -10,7 +10,7 @@ module HordeAd.Core.HVectorOps
   , sizeHVector, shapeDynamic
   , dynamicsMatch, hVectorsMatch, voidHVectorMatches, voidHVectorsMatch
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
-  , fromDynamicR, fromDynamicS, fromHVectorR, fromHVectorS
+  , fromDynamicR, fromDynamicS
   , unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
   , mapHVectorShaped11, mapHVectorShaped
@@ -37,7 +37,6 @@ import Data.Array.Mixed.Shape (ssxFromShape)
 import Data.Array.Nested (Rank)
 import Data.Array.Nested.Internal.Shape (shrRank)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
@@ -315,24 +314,6 @@ fromDynamicS zero = \case
       Just Refl -> zero
       _ -> error "fromDynamicS: scalar mismatch"
     _ -> error "fromDynamicS: shape mismatch"
-
-fromHVectorR :: forall r n target.
-                (BaseTensor target, GoodScalar r, KnownNat n)
-             => target TKUntyped
-             -> Maybe (AsHVector (target (TKR r n)), Maybe (target TKUntyped))
-fromHVectorR params = case V.uncons $ dunHVector params of
-  Just (dynamic, rest) ->
-    Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
-  Nothing -> Nothing
-
-fromHVectorS :: forall r sh target.
-                (BaseTensor target, GoodScalar r, KnownShS sh)
-             => target TKUntyped
-             -> Maybe (AsHVector (target (TKS r sh)), Maybe (target TKUntyped))
-fromHVectorS params = case V.uncons $ dunHVector $ params of
-  Just (dynamic, rest) ->
-    Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ dmkHVector rest)
-  Nothing -> Nothing
 
 unravelDynamic
   :: forall target. BaseTensor target

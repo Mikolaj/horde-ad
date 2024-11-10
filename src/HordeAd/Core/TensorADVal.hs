@@ -167,7 +167,10 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
                              (AsHVector (ADVal target (TKR r n))) where
   type X (AsHVector (ADVal target (TKR r n))) = TKUntyped
   toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
-  fromHVector _aInit = fromHVectorR
+  fromHVector _aInit params = case V.uncons $ tunvector params of
+    Just (dynamic, rest) ->
+      Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
+    Nothing -> Nothing
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
          => DualNumberValue (ADVal target (TKR r n)) where
@@ -194,7 +197,10 @@ instance ( ADReadyNoLet target, ShareTensor target
                              (AsHVector (ADVal target (TKS r sh))) where
   type X (AsHVector (ADVal target (TKS r sh))) = TKUntyped
   toHVectorOf = dmkHVector . V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit = fromHVectorS
+  fromHVector _aInit params = case V.uncons $ tunvector params of
+    Just (dynamic, rest) ->
+      Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ dmkHVector rest)
+    Nothing -> Nothing
 
 instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS r sh)) where
@@ -476,7 +482,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   dHApply (HFun f) = f
   dunHVector = tunvector
   dbuild1 k f =
-    dmkHVector $ ravelHVector $ map (dunHVector . f . fromIntegral) [0 .. sNatValue k - 1]
+    dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
   drev :: forall x z. (TensorKind x, TensorKind z)
        => TensorKindFull x
        -> HFun x z

@@ -221,7 +221,7 @@ instance BaseTensor RepN where
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tshapeFull stk1 (tproject1 t))
                  (tshapeFull stk2 (tproject2 t))
-    STKUntyped -> FTKUntyped $ voidFromHVector $ dunHVector t
+    STKUntyped -> FTKUntyped $ voidFromHVector $ tunvector t
     _ -> error "TODO"
   tcond _ b u v = if b then u else v
   tconstant _ t = t
@@ -233,7 +233,7 @@ instance BaseTensor RepN where
   dHApply f x = RepN $ f $ unRepN x
   dunHVector = unRepN
   dbuild1 k f =
-    dmkHVector $ ravelHVector $ map (dunHVector . f . fromIntegral) [0 .. sNatValue k - 1]
+    dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
   -- The code for drevDt and dfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drev :: forall x z. (TensorKind x, TensorKind z)
@@ -341,7 +341,7 @@ ravel k@SNat t = case stensorKind @y of
     , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
       in tpair (ravel k lt1) (ravel k lt2)
-  STKUntyped -> dmkHVector $ ravelHVector $ dunHVector <$> t
+  STKUntyped -> dmkHVector $ ravelHVector $ tunvector <$> t
   _ -> error "TODO"
 
 unravel :: forall k y. TensorKind y
@@ -361,9 +361,9 @@ unravel k@SNat t = case stensorKind @y of
           lt2 = unravel k $ tproject2 t
       in zipWith tpair lt1 lt2
   STKUntyped ->
-    if V.null $ dunHVector t
+    if V.null $ tunvector t
     then replicate (sNatValue k) $ dmkHVector V.empty
-    else dmkHVector <$> unravelHVector (dunHVector t)
+    else dmkHVector <$> unravelHVector (tunvector t)
   _ -> error "TODO"
 
 oRdmapAccumR
@@ -429,7 +429,10 @@ instance (GoodScalar r, KnownNat n)
       => AdaptableHVector RepN (AsHVector (RepN (TKR Double n))) #-}
   type X (AsHVector (RepN (TKR r n))) = TKUntyped
   toHVectorOf = RepN . V.singleton . DynamicRanked . unAsHVector
-  fromHVector _aInit = fromHVectorR
+  fromHVector _aInit params = case V.uncons $ tunvector params of
+    Just (dynamic, rest) ->
+      Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
+    Nothing -> Nothing
 
 instance ForgetShape (RepN (TKR r n)) where
   type NoShape (RepN (TKR r n)) = RepN (TKR r n)
@@ -449,7 +452,10 @@ instance (GoodScalar r, KnownShS sh)
          => AdaptableHVector RepN (AsHVector (RepN (TKS r sh))) where
   type X (AsHVector (RepN (TKS r sh))) = TKUntyped
   toHVectorOf = RepN . V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit = fromHVectorS
+  fromHVector _aInit params = case V.uncons $ tunvector params of
+    Just (dynamic, rest) ->
+      Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ dmkHVector rest)
+    Nothing -> Nothing
 
 instance GoodScalar r
          => ForgetShape (RepN (TKS r sh)) where
