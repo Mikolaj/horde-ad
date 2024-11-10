@@ -62,7 +62,6 @@ toRepDShare stk t = case stk of
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
--- See repDeepDuplicable.
 toRepDDuplicable
   :: BaseTensor target
   => STensorKindType x -> target x -> RepD target x

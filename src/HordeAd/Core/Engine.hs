@@ -292,12 +292,8 @@ crevDtMaybe
 crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . parseHVector (fromDValue vals)
-        -- repDeepDuplicable requires its argument to be deeply duplicable and
-        -- crevOnHVector satisfies that via makeADInputs
       valsH = toHVectorOf vals
   in parseHVectorAD vals $ fst $ crevOnHVector mdt g valsH
-       -- repDeepDuplicable requires its argument to be deeply duplicable and
-       -- crevOnHVector satisfies that via gradientFromDelta
 
 {-# SPECIALIZE crevOnHVector
   :: Maybe (RepN TKUntyped)
@@ -323,9 +319,6 @@ cfwd
 cfwd f vals ds =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . parseHVector (fromDValue vals)
-        -- repDeepDuplicable requires its argument to be deeply duplicable and
-        -- cfwdOnHVector satisfies that via makeADInputs
-        -- TODO: or use tlet as above?
       valsH = toHVectorOf vals
       dsH = toHVectorOf ds
   in fst $ cfwdOnHVector valsH g $ toADTensorKindShared stensorKind dsH

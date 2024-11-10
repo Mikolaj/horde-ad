@@ -402,8 +402,6 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInit :: ADRnnMnistParameters ranked r
         valsInit = forgetShape valsInitShaped
         hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
---        hVectorInit = unrepDeep @RepN @(X (ADRnnMnistParameters RepN r))
---                      $ toHVectorOf valsInit
         hVectorInit = toHVectorOf @RepN valsInit
         ftk = tshapeFull @RepN
                          (stensorKind @(X (ADRnnMnistParameters RepN r)))
