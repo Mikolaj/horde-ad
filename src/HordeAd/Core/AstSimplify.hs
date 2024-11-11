@@ -585,7 +585,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
        astRFromS $ astIndexKnobsS @p_take @p_drop knobs
                                   t (ShapedList.listToIndex $ indexToList ix)
 
-  Ast.AstHApply{} -> Ast.AstIndex v0 ix
+  Ast.AstApply{} -> Ast.AstIndex v0 ix
 
 astIndexKnobsS
   :: forall shm shn s r.
@@ -817,7 +817,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
                  :: Rank shm + Rank shn :~: Rank (shm ++ shn)) $
       astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
 
-  Ast.AstHApply{} -> Ast.AstIndexS v0 ix
+  Ast.AstApply{} -> Ast.AstIndexS v0 ix
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -1183,7 +1183,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
 
-    Ast.AstHApply{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstApply{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex AstMethodLet (1 + p) -> Bool
@@ -2180,7 +2180,7 @@ astPrimalPart t = case t of
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
 
   Ast.AstMkHVector{} -> Ast.AstPrimalPart t  -- TODO
-  Ast.AstHApply v ll -> astHApply v (astPrimalPart ll)
+  Ast.AstApply v ll -> astHApply v (astPrimalPart ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, astPrimalPart v)
   Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
@@ -2254,7 +2254,7 @@ astDualPart t = case t of
   Ast.AstSFromR v -> astSFromR $ astDualPart v
 
   Ast.AstMkHVector{} -> Ast.AstDualPart t  -- TODO
-  Ast.AstHApply v ll -> astHApply v (astDualPart ll)
+  Ast.AstApply v ll -> astHApply v (astDualPart ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, astDualPart v)
   Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
@@ -2273,7 +2273,7 @@ astHApply t u = case t of
   Ast.AstLambda ~(var, _ftk, v) ->
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astLet var u v
-      _ -> Ast.AstHApply t u
+      _ -> Ast.AstApply t u
 
 mapRankedShaped
   :: AstSpan s2
@@ -2517,7 +2517,7 @@ simplifyAst t = case t of
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
-  Ast.AstHApply v ll -> astHApply (simplifyAstHFun v)
+  Ast.AstApply v ll -> astHApply (simplifyAstHFun v)
                                   (simplifyAst ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, simplifyAst v)
@@ -2736,7 +2736,7 @@ expandAst t = case t of
   Ast.AstSFromR v -> astSFromR $ expandAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
-  Ast.AstHApply v ll -> astHApply (expandAstHFun v)
+  Ast.AstApply v ll -> astHApply (expandAstHFun v)
                                   (expandAst ll)
   Ast.AstBuildHVector1 k (var, v) ->
     Ast.AstBuildHVector1 k (var, expandAst v)
@@ -3289,7 +3289,7 @@ substitute1Ast i var v1 = case v1 of
     in if V.any isJust margs
        then Just $ Ast.AstMkHVector $ V.zipWith fromMaybe args margs
        else Nothing
-  Ast.AstHApply t ll ->
+  Ast.AstApply t ll ->
     case ( substitute1AstHFun i var t
          , substitute1Ast i var ll ) of
       (Nothing, Nothing) -> Nothing

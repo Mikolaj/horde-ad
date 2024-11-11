@@ -803,9 +803,9 @@ class ( Num (IntOf target)
      -> PrimalOf target y -> DualOf target y
      -> target y
   dmkHVector :: HVector target -> target TKUntyped
-  dlambda :: (TensorKind x, TensorKind z)
+  tlambda :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf target x z
-  dHApply :: (TensorKind x, TensorKind z)
+  tApply :: (TensorKind x, TensorKind z)
           => HFunOf target x z -> target x
           -> target z
   dunHVector :: target TKUntyped -> HVector target
@@ -848,7 +848,7 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)
   rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
-    \ !es -> dHApply (drev @target ftk $ HFun f) es
+    \ !es -> tApply (drev @target ftk $ HFun f) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n.
@@ -860,7 +860,7 @@ class ( Num (IntOf target)
          -> target (ADTensorKind x)
   rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    \ !es !dt -> dHApply (drevDt @target ftk $ HFun f)
+    \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                          (tpair dt es)
   rfwd :: forall x r n.
           (TensorKind x, GoodScalar r, KnownNat n)
@@ -871,7 +871,7 @@ class ( Num (IntOf target)
        -> target (ADTensorKind (TKR r n))
   rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    \ !es !ds -> dHApply (dfwd @target ftk $ HFun f)
+    \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                          (tpair ds es)
   srev :: forall x r sh.
           ( TensorKind x, GoodScalar r, KnownShS sh
@@ -890,7 +890,7 @@ class ( Num (IntOf target)
          -> target (ADTensorKind x)
   srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    \ !es !dt -> dHApply (drevDt @target ftk $ HFun f)
+    \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                          (tpair dt es)
   sfwd :: forall x r sh.
           (TensorKind x, GoodScalar r, KnownShS sh)
@@ -901,7 +901,7 @@ class ( Num (IntOf target)
        -> target (ADTensorKind (TKS r sh))
   sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    \ !es !ds -> dHApply (dfwd @target ftk $ HFun f)
+    \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                          (tpair ds es)
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
@@ -910,7 +910,7 @@ class ( Num (IntOf target)
   -- unless there are floats of different resolution among the elements and,
   -- e.g., one wants to compensate for that.
   --
-  -- These methods (and dlambda) producing HFunOf is analogous to dmkHVector
+  -- These methods (and tlambda) producing HFunOf is analogous to dmkHVector
   -- producing target TKUntyped instead of HVector and it's exactly what is needed as arguments
   -- of dmapAccumRDer
   drev
@@ -1073,7 +1073,7 @@ class ( Num (IntOf target)
         fl !args = tlet args $ \ !args1 ->
                      f (tproject1 args1) (tproject2 args1)
     in dmapAccumRDer proxy k accShs bShs eShs
-                     (dlambda @target shs (HFun fl))
+                     (tlambda @target shs (HFun fl))
                      (dfwd @target shs $ HFun fl)
                      (drevDt @target shs $ HFun fl)
                      acc0 es
@@ -1119,7 +1119,7 @@ class ( Num (IntOf target)
         fl !args = tlet args $ \ !args1 ->
                      f (tproject1 args1) (tproject2 args1)
     in dmapAccumLDer proxy k accShs bShs eShs
-                     (dlambda @target shs (HFun fl))
+                     (tlambda @target shs (HFun fl))
                      (dfwd @target shs $ HFun fl)
                      (drevDt @target shs $ HFun fl)
                      acc0 es

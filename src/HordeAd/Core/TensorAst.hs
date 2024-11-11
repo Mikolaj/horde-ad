@@ -444,17 +444,17 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDual t
   tD stk t d | Dict <- lemTensorKindOfS stk = astSpanD t d
   dmkHVector = AstMkHVector
-  dlambda :: forall x z. TensorKind x
+  tlambda :: forall x z. TensorKind x
           => TensorKindFull x -> HFun x z -> HFunOf (AstTensor AstMethodLet s) x z
-  dlambda shss f =
+  tlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
           unHFun f ll
     in AstLambda (var, shss, ast)
-  dHApply :: forall x z. (TensorKind x, TensorKind z)
+  tApply :: forall x z. (TensorKind x, TensorKind z)
           => HFunOf (AstTensor AstMethodLet s) x z
           -> AstTensor AstMethodLet s x
           -> AstTensor AstMethodLet s z
-  dHApply t ll = astHApply t ll
+  tApply t ll = astHApply t ll
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s
@@ -704,8 +704,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDualRaw $ unAstRaw t
   tD stk t d | Dict <- lemTensorKindOfS stk = AstRaw $ astSpanD (unAstRaw t) d
   dmkHVector = AstRaw . AstMkHVector . unRawHVector
-  dlambda = dlambda @(AstTensor AstMethodLet PrimalSpan)
-  dHApply t ll = AstRaw $ AstHApply t (unAstRaw ll)
+  tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
+  tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
   dunHVector (AstRaw (AstMkHVector l)) = rawHVector l
   dunHVector (AstRaw hVectorOf) =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodShare s
@@ -928,8 +928,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tD stk t d = AstNoVectorize $ tD stk (unAstNoVectorize t) d
   dmkHVector = AstNoVectorize . dmkHVector . unNoVectorizeHVector
-  dlambda = dlambda @(AstTensor AstMethodLet PrimalSpan)
-  dHApply t ll = AstNoVectorize $ astHApply t (unAstNoVectorize ll)
+  tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
+  tApply t ll = AstNoVectorize $ astHApply t (unAstNoVectorize ll)
   dunHVector =
     noVectorizeHVector . dunHVector . unAstNoVectorize
   dbuild1 k f =
@@ -1164,8 +1164,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tD stk t d | Dict <- lemTensorKindOfS stk =
     AstNoSimplify $ astSpanD (unAstNoSimplify t) d
   dmkHVector = AstNoSimplify . AstMkHVector . unNoSimplifyHVector
-  dlambda = dlambda @(AstTensor AstMethodLet PrimalSpan)
-  dHApply t ll = AstNoSimplify $ AstHApply t (unAstNoSimplify ll)
+  tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
+  tApply t ll = AstNoSimplify $ AstApply t (unAstNoSimplify ll)
   dunHVector (AstNoSimplify (AstMkHVector l)) = noSimplifyHVector l
   dunHVector (AstNoSimplify hVectorOf) =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s

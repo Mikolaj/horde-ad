@@ -436,7 +436,7 @@ build1V snat@SNat (var, v00) =
     Ast.AstMkHVector l -> traceRule $
       Ast.AstMkHVector
       $ V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u)) l
-    Ast.AstHApply @x @z t ll
+    Ast.AstApply @x @z t ll
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         astHApply

@@ -461,8 +461,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   dmkHVector hv =
     let (!as, !as') = V.unzip $ V.map unADValDynamicTensor hv
     in dDnotShared (dmkHVector as) (HToH as')
-  dlambda _ = id
-  dHApply (HFun f) = f
+  tlambda _ = id
+  tApply (HFun f) = f
   dunHVector = tunvector
   dbuild1 k f =
     dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
@@ -580,13 +580,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                   in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumRDer (Proxy @target)
                           k accShs codomainShs eShs
-                          (dlambda @target (FTKProduct accShs eShs)
+                          (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
-                          (dlambda @target
+                          (tlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
-                          (dlambda @target
+                          (tlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
@@ -666,13 +666,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                   in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumLDer (Proxy @target)
                           k accShs codomainShs eShs
-                          (dlambda @target (FTKProduct accShs eShs)
+                          (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
-                          (dlambda @target
+                          (tlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
-                          (dlambda @target
+                          (tlambda @target
                              (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)

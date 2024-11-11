@@ -859,16 +859,16 @@ interpretAst !env = \case
   AstXFromR _v ->  error "TODO"
 
   AstMkHVector l -> dmkHVector $ interpretAstDynamic env <$> l
-  AstHApply t ll ->
+  AstApply t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
           -- FullSpan terms
         ll2 = interpretAst env ll
           -- these are, perhaps, FullSpan terms, interpreted in the same
           -- as above so that the mixture becomes compatible; if the spans
-          -- agreed, the AstHApply would likely be simplified before
+          -- agreed, the AstApply would likely be simplified before
           -- getting interpreted
-    in dHApply t2 ll2
+    in tApply t2 ll2
   AstBuildHVector1 k (var, v) ->
     dbuild1 @target k (interpretLambdaIHVector (\env2 t2 -> interpretAst env2 t2) env (var, v))
   AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
@@ -911,7 +911,7 @@ interpretAstHFun
   => AstEnv target -> AstHFun x y -> HFunOf target x y
 interpretAstHFun _env = \case
   AstLambda ~(var, ftk, l) ->
-    dlambda @target ftk $ interpretLambdaHsH interpretAst (var, l)
+    tlambda @target ftk $ interpretLambdaHsH interpretAst (var, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
 

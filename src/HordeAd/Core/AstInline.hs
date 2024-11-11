@@ -335,10 +335,10 @@ inlineAst memo v0 = case v0 of
 
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR inlineAstDynamic memo l
-  Ast.AstHApply t ll ->
+  Ast.AstApply t ll ->
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
-    in (memo2, Ast.AstHApply t2 ll2)
+    in (memo2, Ast.AstApply t2 ll2)
   Ast.AstBuildHVector1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith
@@ -676,10 +676,10 @@ unshareAst memo = \case
 
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR unshareAstDynamic memo l
-  Ast.AstHApply t ll ->
+  Ast.AstApply t ll ->
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
-    in (memo2, Ast.AstHApply t2 ll2)
+    in (memo2, Ast.AstApply t2 ll2)
   Ast.AstBuildHVector1{} -> error "unshareAst: AstBuildHVector1"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = unshareAst memo acc0

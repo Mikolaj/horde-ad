@@ -513,14 +513,14 @@ printAstAux cfg d = \case
     then printHVectorAst cfg l
     else showParen (d > 10)
          $ showString "dmkHVector " . printHVectorAst cfg l
-  AstHApply t ll ->
+  AstApply t ll ->
     if loseRoudtrip cfg
     then showParen (d > 9)
          $ printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
     else showParen (d > 10)
-         $ showString "dHApply "
+         $ showString "tApply "
            . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
@@ -616,7 +616,7 @@ printAstHFun cfg d = \case
                 . showString " -> "
                 . printAst cfg 0 l
     else showParen (d > 0)
-         $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
+         $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
            . printAstVar cfg var
@@ -633,7 +633,7 @@ printAstHFunOneUnignore cfg d = \case
            . showString " -> "
            . printAst cfg 0 l
     else showParen (d > 0)
-         $ {- showString "dlambda $ "  -- TODO: enable for full roundtrip
+         $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
            . printAstVar cfg var

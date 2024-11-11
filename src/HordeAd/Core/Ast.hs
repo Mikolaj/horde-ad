@@ -549,7 +549,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
 
   -- There are existential variables inside DynamicTensor here.
   AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
-  AstHApply :: (TensorKind x, TensorKind z)
+  AstApply :: (TensorKind x, TensorKind z)
             => AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
   -- The operations below is why we need AstTensor ms s TKUntyped.
   -- If we kept a vector of terms instead, we'd need to let-bind in each
