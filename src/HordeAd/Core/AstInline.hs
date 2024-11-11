@@ -200,7 +200,7 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstCast v -> second Ast.AstCast $ inlineAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ inlineAst memo v
-  Ast.AstConst{} -> (memo, v0)
+  Ast.AstConcrete{} -> (memo, v0)
   Ast.AstProjectR l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectR l2 p)
@@ -272,7 +272,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAst memo v
-  Ast.AstConstS{} -> (memo, v0)
+  Ast.AstConcreteS{} -> (memo, v0)
   Ast.AstProjectS l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectS l2 p)
@@ -327,7 +327,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstCastX v -> second Ast.AstCastX $ inlineAst memo v
   Ast.AstFromIntegralX v ->
     second Ast.AstFromIntegralX $ inlineAst memo v
-  Ast.AstConstX{} -> (memo, v0)
+  Ast.AstConcreteX{} -> (memo, v0)
   Ast.AstProjectX l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectX l2 p)
@@ -538,7 +538,7 @@ unshareAst memo = \case
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
   Ast.AstCast v -> second Ast.AstCast $ unshareAst memo v
   Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ unshareAst memo v
-  Ast.AstConst t -> (memo, Ast.AstConst t)
+  Ast.AstConcrete t -> (memo, Ast.AstConcrete t)
   Ast.AstProjectR l p ->
     -- This doesn't get simplified even if l is an HVector of vars freshly
     -- created by unshareAst. However, then l is shared, so the cost
@@ -605,7 +605,7 @@ unshareAst memo = \case
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ unshareAst memo v
-  Ast.AstConstS t -> (memo, Ast.AstConstS t)
+  Ast.AstConcreteS t -> (memo, Ast.AstConcreteS t)
   Ast.AstProjectS l p ->
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
@@ -668,7 +668,7 @@ unshareAst memo = \case
   Ast.AstCastX v -> second Ast.AstCastX $ unshareAst memo v
   Ast.AstFromIntegralX v ->
     second Ast.AstFromIntegralX $ unshareAst memo v
-  Ast.AstConstX t -> (memo, Ast.AstConstX t)
+  Ast.AstConcreteX t -> (memo, Ast.AstConcreteX t)
   Ast.AstProjectX l p ->
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectX l2 p)

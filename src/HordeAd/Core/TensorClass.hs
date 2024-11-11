@@ -362,7 +362,7 @@ class ( Num (IntOf target)
         => target (TKR r1 n) -> target (TKR r2 n)
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                 => target (TKR r1 n) -> target (TKR r2 n)
-  rconst :: (GoodScalar r, KnownNat n) => Nested.Ranked n r -> target (TKR r n)
+  rconcrete :: (GoodScalar r, KnownNat n) => Nested.Ranked n r -> target (TKR r n)
   rfromS :: (GoodScalar r, KnownShS sh)
          => target (TKS r sh) -> target (TKR r (Rank sh))
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
@@ -409,7 +409,7 @@ class ( Num (IntOf target)
               -> target (TKX r (Just n ': sh))
   xreplicate :: (KnownNat n, KnownShX sh, GoodScalar r)
              => target (TKX r sh) -> target (TKX r (Just n ': sh))
-  xconst :: (GoodScalar r, KnownShX sh)
+  xconcrete :: (GoodScalar r, KnownShX sh)
          => Nested.Mixed sh r -> target (TKX r sh)
   xzero :: forall r sh. (GoodScalar r, KnownShX sh)
         => IShX sh -> target (TKX r sh)
@@ -743,7 +743,7 @@ class ( Num (IntOf target)
         => target (TKS r1 sh) -> target (TKS r2 sh)
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
                 => target (TKS r1 sh) -> target (TKS r2 sh)
-  sconst :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> target (TKS r sh)
+  sconcrete :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> target (TKS r sh)
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => target (TKR r (Rank sh)) -> target (TKS r sh)
 
@@ -1199,29 +1199,29 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 
 rscalar :: (GoodScalar r, BaseTensor target) => r -> target (TKR r 0)
-rscalar = rconst . Nested.rscalar
+rscalar = rconcrete . Nested.rscalar
 
 rrepl :: forall r n target. (GoodScalar r, KnownNat n, BaseTensor target)
       => [Int] -> r -> target (TKR r n)
-rrepl sh = rconst . Nested.rreplicateScal (fromList sh)
+rrepl sh = rconcrete . Nested.rreplicateScal (fromList sh)
 
 ringestData :: forall target r n.
               (GoodScalar r, KnownNat n, BaseTensor target)
            => [Int] -> [r] -> target (TKR r n)
-ringestData sh l = rconst $ Nested.rfromListPrimLinear (listToShape sh) l
+ringestData sh l = rconcrete $ Nested.rfromListPrimLinear (listToShape sh) l
 
 ingestData :: forall target r sh.
               (GoodScalar r, KnownShS sh, BaseTensor target)
            => [r] -> target (TKS r sh)
-ingestData l= sconst $ Nested.sfromListPrimLinear knownShS l
+ingestData l= sconcrete $ Nested.sfromListPrimLinear knownShS l
 
 sscalar :: (GoodScalar r, BaseTensor target) => r -> target (TKS r '[])
-sscalar = sconst . Nested.sscalar
+sscalar = sconcrete . Nested.sscalar
 
 srepl :: forall sh r target. (GoodScalar r, KnownShS sh, BaseTensor target)
       => r -> target (TKS r sh)
 srepl =
-  sconst . Nested.sreplicateScal knownShS
+  sconcrete . Nested.sreplicateScal knownShS
   -- TODO: the following simplifies better, because the replication is not
   -- hidden at low level:
   -- Dict <- lemKnownNatSize (knownShS @sh) =
@@ -1233,7 +1233,7 @@ xrepl :: forall sh r target.
          (GoodScalar r, KnownShX sh, BaseTensor target)
       => IShX sh -> r -> target (TKX r sh)
 xrepl sh =
-  xconst . Nested.mreplicateScal sh
+  xconcrete . Nested.mreplicateScal sh
 
 nullRep :: forall y target. (TensorKind y, BaseTensor target)
         => target y -> Bool

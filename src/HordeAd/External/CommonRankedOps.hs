@@ -61,7 +61,7 @@ rfromIndex1 :: forall n r target.
                , GoodScalar r )
             => IndexOf target n -> target (TKR r 1)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
+  Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . indexToList
 
 rint64FromIndex1 :: forall n target.
@@ -69,7 +69,7 @@ rint64FromIndex1 :: forall n target.
                     , BaseTensor target, BaseTensor (PrimalOf target) )
                  => IndexOf target n -> target (TKR Int64 1)
 rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
+  Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromPrimal . rfromList . NonEmpty.fromList . indexToList
 
 rint64ToIndex1 :: forall n target.

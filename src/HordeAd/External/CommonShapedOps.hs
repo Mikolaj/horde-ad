@@ -65,7 +65,7 @@ sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownNat (Rank sh))
             => IndexSh target sh -> target (TKS r '[Rank sh])
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
-  Just Refl -> const $ sconst $ Nested.sfromListPrimLinear knownShS []
+  Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
   _ -> sfromIntegral . sfromPrimal . sfromR . rfromList
        . NonEmpty.fromList . ShapedList.indexToList
 

@@ -355,7 +355,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
           => AstTensor ms s (TKR r1 n) -> AstTensor ms s (TKR r2 n)
   AstFromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                   => AstTensor ms PrimalSpan (TKR r1 n) -> AstTensor ms PrimalSpan (TKR r2 n)
-  AstConst :: forall n r ms. (GoodScalar r, KnownNat n)
+  AstConcrete :: forall n r ms. (GoodScalar r, KnownNat n)
            => Nested.Ranked n r -> AstTensor ms PrimalSpan (TKR r n)
   AstProjectR :: (GoodScalar r, KnownNat n)
              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKR r n)
@@ -448,7 +448,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstFromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
                    => AstTensor ms PrimalSpan (TKS r1 sh)
                    -> AstTensor ms PrimalSpan (TKS r2 sh)
-  AstConstS :: forall sh r ms. (GoodScalar r, KnownShS sh)
+  AstConcreteS :: forall sh r ms. (GoodScalar r, KnownShS sh)
             => Nested.Shaped sh r -> AstTensor ms PrimalSpan (TKS r sh)
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS r sh)
@@ -538,7 +538,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstFromIntegralX :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
                    => AstTensor ms PrimalSpan (TKX r1 sh)
                    -> AstTensor ms PrimalSpan (TKX r2 sh)
-  AstConstX :: forall sh r ms. (GoodScalar r, KnownShX sh)
+  AstConcreteX :: forall sh r ms. (GoodScalar r, KnownShX sh)
             => Nested.Mixed sh r -> AstTensor ms PrimalSpan (TKX r sh)
   AstProjectX :: (GoodScalar r, KnownShX sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKX r sh)
@@ -675,41 +675,41 @@ instance Ord (AstTensor ms s y) where
 
 instance (Num (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
          => Num (AstTensor ms s (TKR r n)) where
-  -- The normal form has AstConst, if any, as the first element of the list.
+  -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConst u : lu) + AstSumOfList (AstConst v : lv) =
-    AstSumOfList (AstConst (u + v) : lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConst v : lv) =
-    AstSumOfList (AstConst v : lv ++ lu)
+  AstSumOfList (AstConcrete u : lu) + AstSumOfList (AstConcrete v : lv) =
+    AstSumOfList (AstConcrete (u + v) : lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete v : lv) =
+    AstSumOfList (AstConcrete v : lv ++ lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
 
-  AstConst u + AstSumOfList (AstConst v : lv) =
-    AstSumOfList (AstConst (u + v) : lv)
-  u + AstSumOfList (AstConst v : lv) = AstSumOfList (AstConst v : u : lv)
+  AstConcrete u + AstSumOfList (AstConcrete v : lv) =
+    AstSumOfList (AstConcrete (u + v) : lv)
+  u + AstSumOfList (AstConcrete v : lv) = AstSumOfList (AstConcrete v : u : lv)
   u + AstSumOfList lv = AstSumOfList (u : lv)
 
-  AstSumOfList (AstConst u : lu) + AstConst v =
-    AstSumOfList (AstConst (u + v) : lu)
-  AstSumOfList (AstConst u : lu) + v = AstSumOfList (AstConst u : v : lu)
+  AstSumOfList (AstConcrete u : lu) + AstConcrete v =
+    AstSumOfList (AstConcrete (u + v) : lu)
+  AstSumOfList (AstConcrete u : lu) + v = AstSumOfList (AstConcrete u : v : lu)
   AstSumOfList lu + v = AstSumOfList (v : lu)
 
-  AstConst u + AstConst v = AstConst (u + v)
-  u + AstConst v = AstSumOfList [AstConst v, u]
+  AstConcrete u + AstConcrete v = AstConcrete (u + v)
+  u + AstConcrete v = AstSumOfList [AstConcrete v, u]
   u + v = AstSumOfList [u, v]
 
-  AstConst u - AstConst v = AstConst (u - v)  -- common in indexing
+  AstConcrete u - AstConcrete v = AstConcrete (u - v)  -- common in indexing
   u - v = AstN2 MinusOp u v
 
-  AstConst u * AstConst v = AstConst (u * v)  -- common in indexing
+  AstConcrete u * AstConcrete v = AstConcrete (u * v)  -- common in indexing
   u * v = AstN2 TimesOp u v
 
-  negate (AstConst u) = AstConst $ negate u  -- common in indexing
+  negate (AstConcrete u) = AstConcrete $ negate u  -- common in indexing
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
   signum = AstN1 SignumOp
   fromInteger :: Integer -> AstTensor ms s (TKR r n)
   fromInteger i = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> fromPrimal . AstConst . fromInteger $ i
+    Just Refl -> fromPrimal . AstConcrete . fromInteger $ i
     Nothing -> error $ "fromInteger not defined for Ast of non-zero ranks: "
                        ++ show (i, valueOf @n :: Int)
     -- it's crucial that there is no AstFromPrimal in fromInteger code
@@ -732,7 +732,7 @@ instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), AstSpa
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
          => Floating (AstTensor ms s (TKR r n)) where
-  pi = fromPrimal $ AstConst pi
+  pi = fromPrimal $ AstConcrete pi
   exp = AstR1 ExpOp
   log = AstR1 LogOp
   sqrt = AstR1 SqrtOp
@@ -760,32 +760,32 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
 
 instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
          => Num (AstTensor ms s (TKS r sh)) where
-  -- The normal form has AstConst, if any, as the first element of the list.
+  -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListS (AstConstS u : lu) + AstSumOfListS (AstConstS v : lv) =
-    AstSumOfListS (AstConstS (u + v) : lu ++ lv)
-  AstSumOfListS lu + AstSumOfListS (AstConstS v : lv) =
-    AstSumOfListS (AstConstS v : lv ++ lu)
+  AstSumOfListS (AstConcreteS u : lu) + AstSumOfListS (AstConcreteS v : lv) =
+    AstSumOfListS (AstConcreteS (u + v) : lu ++ lv)
+  AstSumOfListS lu + AstSumOfListS (AstConcreteS v : lv) =
+    AstSumOfListS (AstConcreteS v : lv ++ lu)
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
 
-  AstConstS u + AstSumOfListS (AstConstS v : lv) =
-    AstSumOfListS (AstConstS (u + v) : lv)
-  u + AstSumOfListS (AstConstS v : lv) = AstSumOfListS (AstConstS v : u : lv)
+  AstConcreteS u + AstSumOfListS (AstConcreteS v : lv) =
+    AstSumOfListS (AstConcreteS (u + v) : lv)
+  u + AstSumOfListS (AstConcreteS v : lv) = AstSumOfListS (AstConcreteS v : u : lv)
   u + AstSumOfListS lv = AstSumOfListS (u : lv)
 
-  AstSumOfListS (AstConstS u : lu) + AstConstS v =
-    AstSumOfListS (AstConstS (u + v) : lu)
-  AstSumOfListS (AstConstS u : lu) + v = AstSumOfListS (AstConstS u : v : lu)
+  AstSumOfListS (AstConcreteS u : lu) + AstConcreteS v =
+    AstSumOfListS (AstConcreteS (u + v) : lu)
+  AstSumOfListS (AstConcreteS u : lu) + v = AstSumOfListS (AstConcreteS u : v : lu)
   AstSumOfListS lu + v = AstSumOfListS (v : lu)
 
-  AstConstS u + AstConstS v = AstConstS (u + v)
-  u + AstConstS v = AstSumOfListS [AstConstS v, u]
+  AstConcreteS u + AstConcreteS v = AstConcreteS (u + v)
+  u + AstConcreteS v = AstSumOfListS [AstConcreteS v, u]
   u + v = AstSumOfListS [u, v]
 
-  AstConstS u - AstConstS v = AstConstS (u - v)  -- common in indexing
+  AstConcreteS u - AstConcreteS v = AstConcreteS (u - v)  -- common in indexing
   u - v = AstN2S MinusOp u v
 
-  AstConstS u * AstConstS v = AstConstS (u * v)  -- common in indexing
+  AstConcreteS u * AstConcreteS v = AstConcreteS (u * v)  -- common in indexing
   u * v = AstN2S TimesOp u v
 
   negate = AstN1S NegateOp
@@ -812,7 +812,7 @@ instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
          => Floating (AstTensor ms s (TKS r sh)) where
-  pi = fromPrimal $ AstConstS pi
+  pi = fromPrimal $ AstConcreteS pi
   exp = AstR1S ExpOp
   log = AstR1S LogOp
   sqrt = AstR1S SqrtOp
@@ -840,32 +840,32 @@ instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped s
 
 instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
          => Num (AstTensor ms s (TKX r sh)) where
-  -- The normal form has AstConst, if any, as the first element of the list.
+  -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListX (AstConstX u : lu) + AstSumOfListX (AstConstX v : lv) =
-    AstSumOfListX (AstConstX (u + v) : lu ++ lv)
-  AstSumOfListX lu + AstSumOfListX (AstConstX v : lv) =
-    AstSumOfListX (AstConstX v : lv ++ lu)
+  AstSumOfListX (AstConcreteX u : lu) + AstSumOfListX (AstConcreteX v : lv) =
+    AstSumOfListX (AstConcreteX (u + v) : lu ++ lv)
+  AstSumOfListX lu + AstSumOfListX (AstConcreteX v : lv) =
+    AstSumOfListX (AstConcreteX v : lv ++ lu)
   AstSumOfListX lu + AstSumOfListX lv = AstSumOfListX (lu ++ lv)
 
-  AstConstX u + AstSumOfListX (AstConstX v : lv) =
-    AstSumOfListX (AstConstX (u + v) : lv)
-  u + AstSumOfListX (AstConstX v : lv) = AstSumOfListX (AstConstX v : u : lv)
+  AstConcreteX u + AstSumOfListX (AstConcreteX v : lv) =
+    AstSumOfListX (AstConcreteX (u + v) : lv)
+  u + AstSumOfListX (AstConcreteX v : lv) = AstSumOfListX (AstConcreteX v : u : lv)
   u + AstSumOfListX lv = AstSumOfListX (u : lv)
 
-  AstSumOfListX (AstConstX u : lu) + AstConstX v =
-    AstSumOfListX (AstConstX (u + v) : lu)
-  AstSumOfListX (AstConstX u : lu) + v = AstSumOfListX (AstConstX u : v : lu)
+  AstSumOfListX (AstConcreteX u : lu) + AstConcreteX v =
+    AstSumOfListX (AstConcreteX (u + v) : lu)
+  AstSumOfListX (AstConcreteX u : lu) + v = AstSumOfListX (AstConcreteX u : v : lu)
   AstSumOfListX lu + v = AstSumOfListX (v : lu)
 
-  AstConstX u + AstConstX v = AstConstX (u + v)
-  u + AstConstX v = AstSumOfListX [AstConstX v, u]
+  AstConcreteX u + AstConcreteX v = AstConcreteX (u + v)
+  u + AstConcreteX v = AstSumOfListX [AstConcreteX v, u]
   u + v = AstSumOfListX [u, v]
 
-  AstConstX u - AstConstX v = AstConstX (u - v)  -- common in indexing
+  AstConcreteX u - AstConcreteX v = AstConcreteX (u - v)  -- common in indexing
   u - v = AstN2X MinusOp u v
 
-  AstConstX u * AstConstX v = AstConstX (u * v)  -- common in indexing
+  AstConcreteX u * AstConcreteX v = AstConcreteX (u * v)  -- common in indexing
   u * v = AstN2X TimesOp u v
 
   negate = AstN1X NegateOp
@@ -892,7 +892,7 @@ instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
          => Floating (AstTensor ms s (TKX r sh)) where
-  pi = fromPrimal $ AstConstX pi
+  pi = fromPrimal $ AstConcreteX pi
   exp = AstR1X ExpOp
   log = AstR1X LogOp
   sqrt = AstR1X SqrtOp

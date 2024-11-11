@@ -139,7 +139,7 @@ rnnMnistTestR
 rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) testParams =
   let input :: target (TKR r 3)
-      input = rconst $ Nested.rtranspose [2, 1, 0] $ Nested.rfromOrthotope SNat glyphR
+      input = rconcrete $ Nested.rtranspose [2, 1, 0] $ Nested.rfromOrthotope SNat glyphR
       outputR :: RepN (TKR r 2)
       outputR =
         let nn :: ADRnnMnistParameters target r  -- SizeMnistHeight out_width

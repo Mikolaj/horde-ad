@@ -170,7 +170,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
          => DualNumberValue (ADVal target (TKR r n)) where
   type DValue (ADVal target (TKR r n)) = RepN (TKR r n)  -- ! not Value(target)
-  fromDValue t = fromPrimalADVal $ rconst $ runFlipR $ unRepN t
+  fromDValue t = fromPrimalADVal $ rconcrete $ runFlipR $ unRepN t
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target)
@@ -188,7 +188,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS r sh)) where
   type DValue (ADVal target (TKS r sh)) = RepN (TKS r sh)   -- ! not Value(shaped)
-  fromDValue t = fromPrimalADVal $ sconst $ runFlipS $ unRepN t
+  fromDValue t = fromPrimalADVal $ sconcrete $ runFlipS $ unRepN t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance ( a ~ target (TKR r n), BaseTensor target
@@ -300,7 +300,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
           => Int -> (IntOf (ADVal target) -> ADVal target (TKR r n))
           -> ADVal target (TKR r (1 + n))
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
+    Just Refl -> rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
                    -- the only case where we can guess sh
     _ ->  error "rbuild1: shape ambiguity, no arguments"
   rbuild1 k f = rfromList $ NonEmpty.fromList
@@ -316,7 +316,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rfromIntegral (D u _) =
     let v = rfromIntegral u
     in fromPrimalADVal v
-  rconst t = fromPrimalADVal (rconst t)
+  rconcrete t = fromPrimalADVal (rconcrete t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal target (TKS r sh) -> ADVal target (TKR r (Rank sh))
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
@@ -337,7 +337,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xfromVector = fromVectorX
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
-  xconst t = fromPrimalADVal (xconst t)
+  xconcrete t = fromPrimalADVal (xconcrete t)
   xfromPrimal t = fromPrimalADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
@@ -396,7 +396,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
           => (IntOf (ADVal target) -> ADVal target (TKS r sh))
           -> ADVal target (TKS r (n ': sh))
   sbuild1 f = case valueOf @n of
-    0 -> sconst $ Nested.sfromListPrimLinear knownShS []
+    0 -> sconcrete $ Nested.sfromListPrimLinear knownShS []
     k -> sfromList $ NonEmpty.fromList
                    $ map (f . fromIntegral)
                          [0 :: Int .. k - 1]
@@ -408,7 +408,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sfromIntegral (D u _) =
     let v = sfromIntegral u
     in fromPrimalADVal v
-  sconst t = fromPrimalADVal (sconst t)
+  sconcrete t = fromPrimalADVal (sconcrete t)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => ADVal target (TKR r (Rank sh)) -> ADVal target (TKS r sh)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')

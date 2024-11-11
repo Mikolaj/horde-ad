@@ -111,22 +111,22 @@ slicezF shOut d ixBase =
 conv2d1
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2d1 = conv2d $ rconst $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
+conv2d1 = conv2d $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dA
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dA = conv2d $ rconst $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
+conv2dA = conv2d $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dB
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dB = conv2d (rconst $ runFlipR $ unRepN t16b)
+conv2dB = conv2d (rconcrete $ runFlipR $ unRepN t16b)
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon 1e-4
-    (rconst $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
+    (rconcrete $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
     (rev @_ @(TKR Double 4) conv2dB (rzero [2, 2, 2, 2]))
 
 testKonstG0Tiny1 :: Assertion
@@ -140,7 +140,7 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2d $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconst $ runFlipR $ unRepN t16b)))
+          (conv2d $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ runFlipR $ unRepN t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
@@ -166,48 +166,48 @@ testKonstG0LittleA =
 conv2d1Laborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2d1Laborious = conv2dUnpadded $ rconst $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
+conv2d1Laborious = conv2dUnpadded $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dALaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
 conv2dALaborious =
-  conv2dUnpadded $ rconst $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
+  conv2dUnpadded $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dBLaborious = conv2dUnpadded (rconst $ runFlipR $ unRepN t16b)
+conv2dBLaborious = conv2dUnpadded (rconcrete $ runFlipR $ unRepN t16b)
 
 conv2dCLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dCLaborious = flip conv2dUnpadded (rconst $ runFlipR $ unRepN t16b)
+conv2dCLaborious = flip conv2dUnpadded (rconcrete $ runFlipR $ unRepN t16b)
 
 conv2dBLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dBLaborious128b = conv2dUnpadded (rconst $ runFlipR $ unRepN t128b)
+conv2dBLaborious128b = conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128b)
 
 conv2dCLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dCLaborious128b = flip conv2dUnpadded (rconst $ runFlipR $ unRepN t128b)
+conv2dCLaborious128b = flip conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128b)
 
 conv2dBLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dBLaborious128c = conv2dUnpadded (rconst $ runFlipR $ unRepN t128c)
+conv2dBLaborious128c = conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128c)
 
 conv2dCLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dCLaborious128c = flip conv2dUnpadded (rconst $ runFlipR $ unRepN t128c)
+conv2dCLaborious128c = flip conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128c)
 
 testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
   assertEqualUpToEpsilon 1e-4
-    (rconst $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
+    (rconcrete $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
     (rev @_ @(TKR Double 4) conv2dBLaborious (rzero [2, 2, 2, 2]))
 
 testReplicate0Tiny1Laborious :: Assertion
@@ -221,7 +221,7 @@ testReplicate0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dUnpadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconst $ runFlipR $ unRepN t16b)))
+          (conv2dUnpadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ runFlipR $ unRepN t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testReplicate0TinyALaborious :: Assertion
@@ -469,13 +469,13 @@ test_disparityKonst = do
       arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
       arrDR = revDt (\aR -> costVolume 0 4 (rfromPrimal arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
-    (rconst $ Nested.rfromListPrimLinear [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
+    (rconcrete $ Nested.rfromListPrimLinear [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
     arrO
   assertEqualUpToEpsilon 1e-7
-    (rconst $ Nested.rfromListPrimLinear [1,2,4,6] [-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0])
+    (rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0])
     arrDL
   assertEqualUpToEpsilon 1e-7
-    (rconst $ Nested.rfromListPrimLinear [1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
+    (rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
    arrDR
   assertEqualUpToEpsilon' 1e-7
     (ringestData [1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
@@ -494,8 +494,8 @@ test_disparityKonst2 = do
       arrR :: (BaseTensor target, GoodScalar r, Differentiable r) => target (TKR r 4)
       arrR = ringestData [1, 2, 4, 6] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40, -0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25, -2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,0.6964466094067263,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,0.50001,0.42000000000000004,0.2801,0.78,1.1,0.50001,0.42000000000000004,0.2801,0.78]
       arrO = rreplicate0N [1, 4, 4, 6] (rscalar (1 :: Double))
-      res1 = rconst $ Nested.rfromListPrimLinear [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
-      res2 = rconst $ Nested.rfromListPrimLinear [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
+      res1 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
+      res2 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
       arrDL :: RepN (TKR Double 4)
       arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
       arrDR :: RepN (TKR Double 4)
@@ -523,16 +523,16 @@ test_disparitySmall = do
       arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
       arrDR = revDt (\aR -> costVolume 0 4 (rfromPrimal arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
-    (rconst $ Nested.rfromListPrimLinear [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
+    (rconcrete $ Nested.rfromListPrimLinear [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
     arrO
   assertEqualUpToEpsilon' 1e-7
     (ringestData [1,2,3,2] [-2.0,-1.0,-2.0,-1.0,-2.0,-1.0,2.0,1.0,-2.0,1.0,2.0,1.0])
     (rev' @Double @4 (costVolume 0 4 arrL) arrR)
   assertEqualUpToEpsilon 1e-7
-    (rconst $ Nested.rfromListPrimLinear [1,2,3,2] [5.004124145231932,3.3241241452319317,-1.0464466094067264,1.7006200572599404,3.0731698975466575,4.5496165069533845,-5.004124145231932,-1.3240841452319316,-1.0464466094067264,-0.9933132760733929,-3.0731698975466575,-4.5496165069533845])
+    (rconcrete $ Nested.rfromListPrimLinear [1,2,3,2] [5.004124145231932,3.3241241452319317,-1.0464466094067264,1.7006200572599404,3.0731698975466575,4.5496165069533845,-5.004124145231932,-1.3240841452319316,-1.0464466094067264,-0.9933132760733929,-3.0731698975466575,-4.5496165069533845])
     arrDL
   assertEqualUpToEpsilon 1e-7
-    (rconst $ Nested.rfromListPrimLinear [1,2,3,2] [-2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263])
+    (rconcrete $ Nested.rfromListPrimLinear [1,2,3,2] [-2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263])
    arrDR
   assertEqualUpToEpsilon' 1e-7
     (ringestData [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])

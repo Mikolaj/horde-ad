@@ -104,7 +104,7 @@ areAllArgsInts = \case
   AstGather{} -> False
   AstCast{} -> False
   AstFromIntegral{} -> True
-  AstConst{} -> True
+  AstConcrete{} -> True
   AstProjectR{} -> True  -- too early to tell
   AstLetHVectorIn{} -> True  -- too early to tell
   AstRFromS{} -> False
@@ -193,7 +193,7 @@ printAst cfgOld d t =
         _ ->  -- the heuristics failed
           let cfg = cfgOld {representsIntIndex = False}
           in printAstAux cfg d t
-    AstConst i ->
+    AstConcrete i ->
       case isRankedInt t of  -- TODO: really needed?
         Just Refl ->  -- the heuristics may have been correct
           shows $ Nested.runScalar i
@@ -389,11 +389,11 @@ printAstAux cfg d = \case
   AstCast v -> printPrefixOp printAst cfg d "rcast" [v]
   AstFromIntegral a ->
     printPrefixOp printAst cfg d "rfromIntegral" [a]
-  AstConst @n a ->
+  AstConcrete @n a ->
     case sameNat (Proxy @n) (Proxy @0) of
       Just Refl -> shows $ Nested.runScalar a
       _ -> showParen (d > 10)
-           $ showString "rconst "
+           $ showString "rconcrete "
              . showParen True (shows a)
   AstProjectR l p ->
     showParen (d > 10)
@@ -493,11 +493,11 @@ printAstAux cfg d = \case
   AstCastS v -> printPrefixOp printAst cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAst cfg d "sfromIntegral" [a]
-  AstConstS @sh a ->
+  AstConcreteS @sh a ->
     case sameShape @sh @'[] of
       Just Refl -> shows $ Nested.sunScalar a
       _ -> showParen (d > 10)
-           $ showString ("sconst @" ++ show (shapeT @sh) ++ " ")
+           $ showString ("sconcrete @" ++ show (shapeT @sh) ++ " ")
              . (showParen True
                 $ shows a)
   AstProjectS l p ->

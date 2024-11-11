@@ -155,7 +155,7 @@ rnnMnistTestS
 rnnMnistTestS out_width@SNat batch_size@SNat
               (glyphS, labelS) testParams =
   let -- input :: PrimalOf target (TKS r '[sizeMnistW, sizeMnistH, batch_size])
-      input = sconst $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) $ Nested.sfromOrthotope knownShS glyphS
+      input = sconcrete $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) $ Nested.sfromOrthotope knownShS glyphS
       outputS :: RepN (TKS r '[SizeMnistLabel, batch_size])
       outputS =
         let nn :: ADRnnMnistParametersShaped target h out_width r

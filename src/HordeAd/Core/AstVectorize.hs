@@ -324,8 +324,8 @@ build1V snat@SNat (var, v00) =
                        (varFresh ::: vars, astVarFresh :.: ix2)
     Ast.AstCast v -> astCast $ build1V snat (var, v)
     Ast.AstFromIntegral v -> astFromIntegral $ build1V snat (var, v)
-    Ast.AstConst{} ->
-      error "build1V: AstConst can't have free index variables"
+    Ast.AstConcrete{} ->
+      error "build1V: AstConcrete can't have free index variables"
 
     Ast.AstProjectR l p ->
       astProjectR (build1VOccurenceUnknown snat (var, l)) p
@@ -426,8 +426,8 @@ build1V snat@SNat (var, v00) =
                         (Const varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstCastS v -> astCastS $ build1V snat (var, v)
     Ast.AstFromIntegralS v -> astFromIntegralS $ build1V snat (var, v)
-    Ast.AstConstS{} ->
-      error "build1V: AstConstS can't have free index variables"
+    Ast.AstConcreteS{} ->
+      error "build1V: AstConcreteS can't have free index variables"
 
     Ast.AstProjectS l p ->
       astProjectS (build1VOccurenceUnknown snat (var, l)) p

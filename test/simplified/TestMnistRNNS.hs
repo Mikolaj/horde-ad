@@ -113,7 +113,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    -> ADVal RepN (TKS r '[])
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
-                     width batch_size (sconst $ Nested.sfromOrthotope knownShS glyphS, sconst $ Nested.sfromOrthotope knownShS labelS)
+                     width batch_size (sconcrete $ Nested.sfromOrthotope knownShS glyphS, sconcrete $ Nested.sfromOrthotope knownShS labelS)
                      (parseHVector @_ @(ADVal RepN) (fromDValue valsInit) adinputs)
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -235,8 +235,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> ADVal RepN (TKS r '[])
                  f (glyph, label) varInputs =
                    let env = extendEnv @(ADVal RepN) @_ @(XParams width r) var varInputs emptyEnv
-                       envMnist = extendEnv varGlyph (sconst $ Nested.sfromOrthotope knownShS glyph)
-                                  $ extendEnv varLabel (sconst $ Nested.sfromOrthotope knownShS label) env
+                       envMnist = extendEnv varGlyph (sconcrete $ Nested.sfromOrthotope knownShS glyph)
+                                  $ extendEnv varLabel (sconcrete $ Nested.sfromOrthotope knownShS label) env
                    in interpretAst envMnist ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -351,8 +351,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
               -> (HVector RepN, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicShaped $ sconst $ Nested.sfromOrthotope knownShS glyph
-                 labelD = DynamicShaped $ sconst $ Nested.sfromOrthotope knownShS label
+             let glyphD = DynamicShaped $ sconcrete $ Nested.sfromOrthotope knownShS glyph
+                 labelD = DynamicShaped $ sconcrete $ Nested.sfromOrthotope knownShS label
                  parametersAndInput =
                    dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
@@ -467,8 +467,8 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
                  , StateAdamDeep (XParams width r) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = sconst $ Nested.sfromOrthotope knownShS glyph
-                 labelD = sconst $ Nested.sfromOrthotope knownShS label
+             let glyphD = sconcrete $ Nested.sfromOrthotope knownShS glyph
+                 labelD = sconcrete $ Nested.sfromOrthotope knownShS label
                  parametersAndInput = tpair parameters (tpair glyphD labelD)
                  gradient =
                    tproject1 $ fst $ revEvalArtifact art parametersAndInput Nothing

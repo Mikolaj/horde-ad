@@ -84,8 +84,8 @@ afcnnMnistLoss2
   => MnistData r -> ADFcnnMnist2Parameters target r
   -> target (TKR r 0)
 afcnnMnistLoss2 (datum, target) =
-  let datum1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
-      target1 = rconst $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
+  let datum1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
+      target1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
   in afcnnMnistLoss2TensorData (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
@@ -101,7 +101,7 @@ afcnnMnistTest2 _ [] _ = 0
 afcnnMnistTest2 valsInit dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let glyph1 = rconst $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
+        let glyph1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
             nn :: ADFcnnMnist2Parameters target r
                -> target (TKR r 1)
             nn = inline afcnnMnist2 logistic softMax1 glyph1

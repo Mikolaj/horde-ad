@@ -164,9 +164,9 @@ dAdd v w = AddG v w
 intOfShape :: forall z f. (ADReadyNoLet f, TensorKind z)
            => f z -> Int -> f z
 intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
-  STKR STKScalar{} SNat -> rconst $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
-  STKS STKScalar{} sh -> withKnownShS sh $ sconst $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
-  STKX STKScalar{} sh -> withKnownShX sh $ xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
+  STKR STKScalar{} SNat -> rconcrete $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
+  STKS STKScalar{} sh -> withKnownShS sh $ sconcrete $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
+  STKX STKScalar{} sh -> withKnownShX sh $ xconcrete $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
   _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
 
 fromPrimalADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z

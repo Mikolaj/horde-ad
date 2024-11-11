@@ -154,7 +154,7 @@ convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
                valsInit (glyphS, labelS) testParams =
   let input :: target (TKS r '[batch_size, 1, h, w])
-      input = sconst $ Nested.sreshape knownShS $ Nested.sfromOrthotope knownShS glyphS
+      input = sconcrete $ Nested.sreshape knownShS $ Nested.sfromOrthotope knownShS glyphS
       outputS :: RepN (TKS r '[SizeMnistLabel, batch_size])
       outputS =
         let nn :: ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r

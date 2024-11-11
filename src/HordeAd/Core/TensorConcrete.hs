@@ -126,7 +126,7 @@ instance BaseTensor RepN where
                                        (fromIndexOfR . fmap unRepN . f . RepN . FlipR . tscalarR)
   rcast = RepN . FlipR . tcastR . runFlipR . unRepN
   rfromIntegral = RepN . FlipR . tfromIntegralR . runFlipR . unRepN
-  rconst = RepN . FlipR
+  rconcrete = RepN . FlipR
   rfromS = RepN . FlipR . Nested.stoRanked . runFlipS . unRepN
 
   rscaleByScalar s v =
@@ -143,7 +143,7 @@ instance BaseTensor RepN where
   xindex = error "TODO"
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
-  xconst = RepN . FlipX
+  xconcrete = RepN . FlipX
   xfromPrimal = id
   xprimalPart = id
   xdualPart _ = DummyDualTarget
@@ -190,7 +190,7 @@ instance BaseTensor RepN where
                                   (fromIndexOfS . fmap unRepN . f . RepN . FlipR . tscalarR)
   scast = RepN . FlipS . tcastS . runFlipS . unRepN
   sfromIntegral = RepN . FlipS . tfromIntegralS . runFlipS . unRepN
-  sconst = RepN . FlipS
+  sconcrete = RepN . FlipS
   sfromR = RepN . FlipS . flip Nested.rcastToShaped knownShS . runFlipR . unRepN
 
   sscaleByScalar s v =
@@ -492,7 +492,7 @@ instance ADReady target
          => DualNumberValue (DynamicTensor (ADVal target)) where
   type DValue (DynamicTensor (ADVal target)) = DynamicTensor RepN
   fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimalADVal $ rconst $ runFlipR $ unRepN t
-    DynamicShaped t -> DynamicShaped $ fromPrimalADVal $ sconst $ runFlipS $ unRepN t
+    DynamicRanked t -> DynamicRanked $ fromPrimalADVal $ rconcrete $ runFlipR $ unRepN t
+    DynamicShaped t -> DynamicShaped $ fromPrimalADVal $ sconcrete $ runFlipS $ unRepN t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2

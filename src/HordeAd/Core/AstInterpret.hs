@@ -254,7 +254,7 @@ interpretAst !env = \case
   -- However, this matters only for POPL AD, not JAX AD and also it matters
   -- only with no vectorization of, at least, constant (primal-only) terms.
   -- AstBuild1 k (var, AstFromPrimal v) ->
-  --   tconst
+  --   tconcrete
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstBuild1 @y2 snat@(SNat @n) (var, v) ->
@@ -509,7 +509,7 @@ interpretAst !env = \case
     in rappend t1 t2
   AstSlice i n AstIota ->
     interpretAst env
-    $ AstConst $ Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
+    $ AstConcrete $ Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
   AstSlice i n v -> rslice i n (interpretAst env v)
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
@@ -541,7 +541,7 @@ interpretAst !env = \case
   AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
   AstFromIntegral v ->
     rfromIntegral $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstConst a -> rconst a
+  AstConcrete a -> rconcrete a
   AstProjectR l p ->
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
@@ -765,7 +765,7 @@ interpretAst !env = \case
     let i = valueOf @i
         n = valueOf @n
     in interpretAst env
-       $ AstConstS $ Nested.sfromListPrimLinear Nested.knownShS
+       $ AstConcreteS $ Nested.sfromListPrimLinear Nested.knownShS
        $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
   AstReverseS v -> sreverse (interpretAst env v)
@@ -798,7 +798,7 @@ interpretAst !env = \case
   AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
   AstFromIntegralS v ->
     sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstConstS a -> sconst a
+  AstConcreteS a -> sconcrete a
   AstProjectS l p ->
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
@@ -854,7 +854,7 @@ interpretAst !env = \case
   AstGatherX _v (_vars, _ix) -> error "TODO"
   AstCastX _v ->  error "TODO"
   AstFromIntegralX _v -> error "TODO"
-  AstConstX a -> xconst a
+  AstConcreteX a -> xconcrete a
   AstProjectX _l _p -> error "TODO"
   AstXFromR _v ->  error "TODO"
 

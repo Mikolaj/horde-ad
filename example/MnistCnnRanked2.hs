@@ -126,7 +126,7 @@ convMnistTestR _ 0 _ _ = 0
 convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
   let input :: target (TKR r 4)
       input =
-        rconst $ Nested.rreshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
+        rconcrete $ Nested.rreshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
                                 $ Nested.rfromOrthotope SNat glyphR
       outputR :: RepN (TKR r 2)
       outputR =
