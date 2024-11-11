@@ -27,7 +27,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.BackendOX (RepN (..))
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 import EqEpsilon
 
@@ -37,18 +37,6 @@ import MnistRnnShaped2 qualified
 
 type XParams out_width r =
  X (ADRnnMnistParametersShaped RepN SizeMnistHeight out_width r)
-
-tshapeR
-  :: KnownNat n
-  => OR.Array n r -> IShR n
-tshapeR = listToShape . OR.shapeL
-
-tlengthR
-  :: KnownNat n
-  => OR.Array n r -> Int
-tlengthR v = case tshapeR v of
-  ZSR -> error "tlengthR: impossible pattern needlessly required"
-  k :$: _ -> k
 
 testTrees :: [TestTree]
 testTrees = [ tensorADValMnistTestsRNNSA
@@ -87,10 +75,10 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
             -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == tlengthR glyphs) $
+        assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
         withSNat miniBatchSize' $ \bs@SNat ->
-          let mnist = ( Data.Array.Convert.convert glyphs
-                      , Data.Array.Convert.convert labels )
+          let mnist = ( Nested.rcastToShaped glyphs knownShS
+                      , Nested.rcastToShaped labels knownShS )
           in MnistRnnShaped2.rnnMnistTestS
                width bs mnist (parseHVector @_ @RepN valsInit testParams)
   in testCase name $ do
@@ -113,15 +101,15 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    -> ADVal RepN (TKS r '[])
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
-                     width batch_size (sconcrete $ Nested.sfromOrthotope knownShS glyphS, sconcrete $ Nested.sfromOrthotope knownShS labelS)
+                     width batch_size (sconcrete glyphS, sconcrete labelS)
                      (parseHVector @_ @(ADVal RepN) (fromDValue valsInit) adinputs)
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
-                   ( Data.Array.Convert.convert glyphs
-                   , Data.Array.Convert.convert labels )
+                   ( Nested.stoRanked glyphs
+                   , Nested.stoRanked labels )
                  chunkDataR = packBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
@@ -199,11 +187,11 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
             -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == tlengthR glyphs) $
-        assert (miniBatchSize' == tlengthR labels) $
+        assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
+        assert (miniBatchSize' == rlength (RepN $ FlipR labels)) $
         withSNat miniBatchSize' $ \bs@SNat ->
-          let mnist = ( Data.Array.Convert.convert glyphs
-                      , Data.Array.Convert.convert labels )
+          let mnist = ( Nested.rcastToShaped glyphs knownShS
+                      , Nested.rcastToShaped labels knownShS )
           in MnistRnnShaped2.rnnMnistTestS
                width bs mnist (parseHVector @_ @RepN valsInit testParams)
   in testCase name $ do
@@ -235,16 +223,16 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    -> ADVal RepN (TKS r '[])
                  f (glyph, label) varInputs =
                    let env = extendEnv @(ADVal RepN) @_ @(XParams width r) var varInputs emptyEnv
-                       envMnist = extendEnv varGlyph (sconcrete $ Nested.sfromOrthotope knownShS glyph)
-                                  $ extendEnv varLabel (sconcrete $ Nested.sfromOrthotope knownShS label) env
+                       envMnist = extendEnv varGlyph (sconcrete glyph)
+                                  $ extendEnv varLabel (sconcrete label) env
                    in interpretAst envMnist ast
                  chunkS = map packBatch
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
-                   ( Data.Array.Convert.convert glyphs
-                   , Data.Array.Convert.convert labels )
+                   ( Nested.stoRanked glyphs
+                   , Nested.stoRanked labels )
                  chunkDataR = packBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
@@ -320,10 +308,10 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
         ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
         ftest 0 _ _ = 0
         ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == tlengthR glyphs) $
+          assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
           withSNat miniBatchSize' $ \bs@SNat ->
-            let mnist = ( Data.Array.Convert.convert glyphs
-                        , Data.Array.Convert.convert labels )
+            let mnist = ( Nested.rcastToShaped glyphs knownShS
+                        , Nested.rcastToShaped labels knownShS )
             in MnistRnnShaped2.rnnMnistTestS
                  width bs mnist
                  (unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams))
@@ -338,8 +326,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize trainData of
              d : _ -> let (dglyph, dlabel) = packBatch d
-                      in ( RepN $ FlipS $ Nested.sfromOrthotope knownShS dglyph
-                         , RepN $ FlipS $ Nested.sfromOrthotope knownShS dlabel )
+                      in ( RepN $ FlipS dglyph
+                         , RepN $ FlipS dlabel )
              [] -> error "empty train data"
            f = \ (AsHVector (pars, (glyphS, labelS))) ->
              MnistRnnShaped2.rnnMnistLossFusedS
@@ -351,8 +339,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
               -> (HVector RepN, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicShaped $ sconcrete $ Nested.sfromOrthotope knownShS glyph
-                 labelD = DynamicShaped $ sconcrete $ Nested.sfromOrthotope knownShS label
+             let glyphD = DynamicShaped $ sconcrete glyph
+                 labelD = DynamicShaped $ sconcrete label
                  parametersAndInput =
                    dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
@@ -368,8 +356,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = go chunkS (parameters, stateAdam)
                  smnistRFromS (glyphs, labels) =
-                   ( Data.Array.Convert.convert glyphs
-                   , Data.Array.Convert.convert labels )
+                   ( Nested.stoRanked glyphs
+                   , Nested.stoRanked labels )
                  chunkDataR = packBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
@@ -434,10 +422,10 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
               -> r
         ftest 0 _ _ = 0
         ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == tlengthR glyphs) $
+          assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
           withSNat miniBatchSize' $ \bs@SNat ->
-            let mnist = ( Data.Array.Convert.convert glyphs
-                        , Data.Array.Convert.convert labels )
+            let mnist = ( Nested.rcastToShaped glyphs knownShS
+                        , Nested.rcastToShaped labels knownShS )
             in MnistRnnShaped2.rnnMnistTestS
                  width bs mnist
                  (parseHVector @_ @RepN valsInit testParams)
@@ -452,8 +440,8 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize trainData of
              d : _ -> let (dglyph, dlabel) = packBatch d
-                      in ( RepN $ FlipS $ Nested.sfromOrthotope knownShS dglyph
-                         , RepN $ FlipS $ Nested.sfromOrthotope knownShS dlabel )
+                      in ( RepN $ FlipS dglyph
+                         , RepN $ FlipS dlabel )
              [] -> error "empty train data"
            f = \ (pars, (glyphS, labelS)) ->
              MnistRnnShaped2.rnnMnistLossFusedS
@@ -467,8 +455,8 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
                  , StateAdamDeep (XParams width r) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = sconcrete $ Nested.sfromOrthotope knownShS glyph
-                 labelD = sconcrete $ Nested.sfromOrthotope knownShS label
+             let glyphD = sconcrete glyph
+                 labelD = sconcrete label
                  parametersAndInput = tpair parameters (tpair glyphD labelD)
                  gradient =
                    tproject1 $ fst $ revEvalArtifact art parametersAndInput Nothing
@@ -486,8 +474,8 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = go chunkS (parameters, stateAdam)
                  smnistRFromS (glyphs, labels) =
-                   ( Data.Array.Convert.convert glyphs
-                   , Data.Array.Convert.convert labels )
+                   ( Nested.stoRanked glyphs
+                   , Nested.stoRanked labels )
                  chunkDataR = packBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2

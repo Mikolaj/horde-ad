@@ -155,7 +155,7 @@ rnnMnistTestS
 rnnMnistTestS out_width@SNat batch_size@SNat
               (glyphS, labelS) testParams =
   let -- input :: PrimalOf target (TKS r '[sizeMnistW, sizeMnistH, batch_size])
-      input = sconcrete $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) $ Nested.sfromOrthotope knownShS glyphS
+      input = sconcrete $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) glyphS
       outputS :: RepN (TKS r '[SizeMnistLabel, batch_size])
       outputS =
         let nn :: ADRnnMnistParametersShaped target h out_width r
@@ -168,7 +168,7 @@ rnnMnistTestS out_width@SNat batch_size@SNat
       outputs = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
       labels = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
-               $ RepN $ FlipS $ Nested.sfromOrthotope knownShS labelS
+               $ RepN $ FlipS labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

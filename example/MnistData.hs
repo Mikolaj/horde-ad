@@ -7,13 +7,10 @@ import Prelude
 
 import Codec.Compression.GZip (decompress)
 import Data.Array.Internal (valueOf)
-import Data.Array.Ranked qualified as ORB
-import Data.Array.RankedS qualified as OR
-import Data.Array.Shaped qualified as OSB
-import Data.Array.ShapedS qualified as OS
 import Data.ByteString.Lazy qualified as LBS
 import Data.IDX
 import Data.List (sortOn)
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
@@ -22,6 +19,8 @@ import Data.Vector.Unboxed qualified
 import GHC.TypeLits (KnownNat, Nat, type (*))
 import System.IO (IOMode (ReadMode), withBinaryFile)
 import System.Random
+
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Internal.BackendOX (RepN)
@@ -73,45 +72,53 @@ type LengthTestData = 10000 :: Nat
 type MnistData r = (Vector r, Vector r)
 
 type MnistDataS r =
-  ( OS.Array '[SizeMnistHeight, SizeMnistWidth] r
-  , OS.Array '[SizeMnistLabel] r )
+  ( Nested.Shaped '[SizeMnistHeight, SizeMnistWidth] r
+  , Nested.Shaped '[SizeMnistLabel] r )
 
 type MnistDataBatchS batch_size r =
-  ( OS.Array '[batch_size, SizeMnistHeight, SizeMnistWidth] r
-  , OS.Array '[batch_size, SizeMnistLabel] r )
+  ( Nested.Shaped '[batch_size, SizeMnistHeight, SizeMnistWidth] r
+  , Nested.Shaped '[batch_size, SizeMnistLabel] r )
 
 type MnistDataR r =
-  ( OR.Array 2 r
-  , OR.Array 1 r )
+  ( Nested.Ranked 2 r
+  , Nested.Ranked 1 r )
 
 type MnistDataBatchR r =
-  ( OR.Array 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
-  , OR.Array 2 r )  -- [batch_size, SizeMnistLabel]
+  ( Nested.Ranked 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
+  , Nested.Ranked 2 r )  -- [batch_size, SizeMnistLabel]
 
-shapeBatch :: VS.Storable r => MnistData r -> MnistDataS r
-shapeBatch (input, target) = (OS.fromVector input, OS.fromVector target)
+shapeBatch :: Nested.PrimElt r
+           => MnistData r -> MnistDataS r
+shapeBatch (input, target) =
+  (Nested.sfromVector knownShS input, Nested.sfromVector knownShS target)
 {-# SPECIALIZE shapeBatch :: MnistData Double -> MnistDataS Double #-}
 {-# SPECIALIZE shapeBatch :: MnistData Float -> MnistDataS Float #-}
 
-packBatch :: forall batch_size r. (VS.Storable r, KnownNat batch_size)
+packBatch :: forall batch_size r. (Nested.Elt r, KnownNat batch_size)
           => [MnistDataS r] -> MnistDataBatchS batch_size r
 packBatch l =
   let (inputs, targets) = unzip l
-  in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
+  in ( Nested.sfromListOuter (SNat @batch_size)
+       $ NonEmpty.fromList inputs
+     , Nested.sfromListOuter (SNat @batch_size)
+       $ NonEmpty.fromList targets )
 {-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
 {-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
 
-rankBatch :: VS.Storable r => MnistData r -> MnistDataR r
+rankBatch :: Nested.PrimElt r
+          => MnistData r -> MnistDataR r
 rankBatch (input, target) =
-  ( OR.fromVector [sizeMnistHeightInt, sizeMnistWidthInt] input
-  , OR.fromVector [sizeMnistLabelInt] target )
+  ( Nested.rfromVector
+      (sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) input
+  , Nested.rfromVector
+      (sizeMnistLabelInt :$: ZSR) target )
 
-packBatchR :: VS.Storable r
+packBatchR :: Nested.Elt r
            => [MnistDataR r] -> MnistDataBatchR r
 packBatchR l =
   let (inputs, targets) = unzip l
-  in ( OR.ravel $ ORB.fromList [length inputs] inputs
-     , OR.ravel $ ORB.fromList [length targets] targets )
+  in ( Nested.rfromListOuter $ NonEmpty.fromList inputs
+     , Nested.rfromListOuter $ NonEmpty.fromList targets )
 
 readMnistData :: forall r. (VS.Storable r, Fractional r)
               => LBS.ByteString -> LBS.ByteString -> [MnistData r]

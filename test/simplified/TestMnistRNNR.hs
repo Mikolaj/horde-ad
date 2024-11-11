@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 -- | Tests of "MnistRnnRanked2" neural networks using a few different
 -- optimization pipelines.
 --
@@ -106,7 +107,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                    -> ADVal ranked (TKR r 0)
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
-                     miniBatchSize (rconcrete $ Nested.rfromOrthotope SNat glyphR, rconcrete $ Nested.rfromOrthotope SNat labelR)
+                     miniBatchSize (rconcrete glyphR, rconcrete labelR)
                      (parseHVector @_ @(ADVal RepN) (fromDValue valsInit) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -225,8 +226,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                    -> ADVal ranked (TKR r 0)
                  f (glyph, label) varInputs =
                    let env = extendEnv @(ADVal RepN) @_ @(X (ADRnnMnistParameters RepN r)) var varInputs emptyEnv
-                       envMnist = extendEnv varGlyph (rconcrete $ Nested.rfromOrthotope SNat glyph)
-                                  $ extendEnv varLabel (rconcrete $ Nested.rfromOrthotope SNat label) env
+                       envMnist = extendEnv varGlyph (rconcrete glyph)
+                                  $ extendEnv varLabel (rconcrete label) env
                    in interpretAst envMnist ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -323,8 +324,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize testData of
              d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat dglyph
-                         , RepN $ FlipR $ Nested.rfromOrthotope SNat dlabel )
+                      in ( RepN $ FlipR dglyph
+                         , RepN $ FlipR dlabel )
              [] -> error "empty test data"
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistRnnRanked2.rnnMnistLossFusedR
@@ -335,8 +336,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
               -> (HVector RepN, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicRanked $ rconcrete $ Nested.rfromOrthotope SNat glyph
-                 labelD = DynamicRanked $ rconcrete $ Nested.rfromOrthotope SNat label
+             let glyphD = DynamicRanked $ rconcrete glyph
+                 labelD = DynamicRanked $ rconcrete label
                  parametersAndInput =
                    dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
@@ -428,8 +429,8 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize testData of
              d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat dglyph
-                         , RepN $ FlipR $ Nested.rfromOrthotope SNat dlabel )
+                      in ( RepN $ FlipR dglyph
+                         , RepN $ FlipR dlabel )
              [] -> error "empty test data"
            f :: ( ADRnnMnistParameters (AstTensor AstMethodLet FullSpan) r
                 , (AstTensor AstMethodLet FullSpan (TKR r 3), AstTensor AstMethodLet FullSpan (TKR r 2)) )
@@ -446,8 +447,8 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
                  , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = rconcrete $ Nested.rfromOrthotope SNat glyph
-                 labelD = rconcrete $ Nested.rfromOrthotope SNat label
+             let glyphD = rconcrete glyph
+                 labelD = rconcrete label
                  parametersAndInput = tpair parameters (tpair glyphD labelD)
                  gradient =
                    tproject1 $ fst $ revEvalArtifact art parametersAndInput Nothing
@@ -528,34 +529,26 @@ valsInitRNNOPP
   :: Int -> Int -> ADRnnMnistParameters RepN Double
 valsInitRNNOPP out_width sizeMnistHeightI =
   ( ( RepN $ FlipR
-      $ Nested.rfromOrthotope SNat
-      $ OR.fromList [out_width, sizeMnistHeightI]
+      $ Nested.rfromListPrimLinear [out_width, sizeMnistHeightI]
                     (map fromIntegral [0 .. out_width * sizeMnistHeightI - 1])
     , RepN $ FlipR
-      $ Nested.rfromOrthotope SNat
-      $ OR.fromList [out_width, out_width]
+      $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
     , RepN $ FlipR
-      $ Nested.rfromOrthotope SNat
-      $ OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
+      $ Nested.rfromListPrimLinear [out_width] (map fromIntegral [0 .. out_width - 1]) )
   , ( RepN $ FlipR
-      $ Nested.rfromOrthotope SNat
-      $ OR.fromList [out_width, out_width]
+      $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
     , RepN $ FlipR
-      $ Nested.rfromOrthotope SNat
-      $ OR.fromList [out_width, out_width]
+      $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
     , RepN $ FlipR
-      $ Nested.rfromOrthotope SNat
-      $ OR.fromList [out_width] (map fromIntegral [0 .. out_width - 1]) )
+      $ Nested.rfromListPrimLinear [out_width] (map fromIntegral [0 .. out_width - 1]) )
   , ( RepN $ FlipR
-       $ Nested.rfromOrthotope SNat
-     $ OR.fromList [sizeMnistLabelInt, out_width]
+       $ Nested.rfromListPrimLinear [sizeMnistLabelInt, out_width]
                     (map fromIntegral [0 .. sizeMnistLabelInt * out_width - 1])
     , RepN $ FlipR
-      $ Nested.rfromOrthotope SNat
-      $ OR.fromList [sizeMnistLabelInt]
+      $ Nested.rfromListPrimLinear [sizeMnistLabelInt]
                     (map fromIntegral [0 .. sizeMnistLabelInt - 1]) ) )
 
 testRNNOPP :: Assertion

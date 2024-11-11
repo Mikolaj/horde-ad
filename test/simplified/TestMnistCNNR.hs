@@ -92,7 +92,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                    -> ADVal ranked (TKR r 0)
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
-                     miniBatchSize (rconcrete $ Nested.rfromOrthotope SNat glyphR, rconcrete $ Nested.rfromOrthotope SNat labelR)
+                     miniBatchSize (rconcrete glyphR, rconcrete labelR)
                      (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -205,8 +205,8 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                    -> ADVal ranked (TKR r 0)
                  f (glyph, label) varInputs =
                    let env = extendEnv var (dmkHVector varInputs) emptyEnv
-                       envMnist = extendEnv varGlyph (rconcrete $ Nested.rfromOrthotope SNat glyph)
-                                  $ extendEnv varLabel (rconcrete $ Nested.rfromOrthotope SNat label) env
+                       envMnist = extendEnv varGlyph (rconcrete glyph)
+                                  $ extendEnv varLabel (rconcrete label) env
                    in interpretAst envMnist ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -301,8 +301,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize testData of
              d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat dglyph
-                         , RepN $ FlipR $ Nested.rfromOrthotope SNat dlabel )
+                      in ( RepN $ FlipR dglyph
+                         , RepN $ FlipR dlabel )
              [] -> error "empty test data"
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistCnnRanked2.convMnistLossFusedR
@@ -313,8 +313,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
               -> (HVector RepN, StateAdam)
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicRanked $ rconcrete $ Nested.rfromOrthotope SNat glyph
-                 labelD = DynamicRanked $ rconcrete $ Nested.rfromOrthotope SNat label
+             let glyphD = DynamicRanked $ rconcrete glyph
+                 labelD = DynamicRanked $ rconcrete label
                  parametersAndInput =
                    dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]

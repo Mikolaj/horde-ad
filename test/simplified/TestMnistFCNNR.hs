@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 -- | Tests of "MnistFcnnRanked1" and "MnistFcnnRanked2" neural networks
 -- using a few different optimization pipelines.
 module TestMnistFCNNR
@@ -64,7 +65,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
+          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromVector (nPV :$: ZSR)
           $ V.map realToFrac
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
@@ -75,7 +76,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      emptyR = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
+      emptyR = RepN $ FlipR $ Nested.rfromList1Prim []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
@@ -159,12 +160,12 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
+          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromVector (nPV :$: ZSR)
           $ V.map realToFrac
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
           nParams1
-      emptyR = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
+      emptyR = RepN $ FlipR $ Nested.rfromList1Prim []
       hVectorInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
@@ -271,12 +272,12 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromVector [nPV]
+          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromVector (nPV :$: ZSR)
           $ V.map realToFrac
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
           nParams1
-      emptyR = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [0] []
+      emptyR = RepN $ FlipR $ Nested.rfromList1Prim []
       hVectorInit = V.fromList params1Init
       -- This is a very ugly and probably unavoidable boilerplate:
       -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
@@ -305,10 +306,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let dataInit = case testData of
              d : _ -> let (dglyph, dlabel) = d
-                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat
-                           $ OR.fromVector [sizeMnistGlyphInt] dglyph
-                         , RepN $ FlipR $ Nested.rfromOrthotope SNat
-                           $ OR.fromVector [sizeMnistLabelInt] dlabel )
+                      in ( RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) dglyph
+                         , RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) dlabel )
              [] -> error "empty test data"
            f = \ (pars, (glyphR, labelR)) ->
              MnistFcnnRanked1.afcnnMnistLoss1TensorData
@@ -330,11 +329,9 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
-                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
-                          $ OR.fromVector [sizeMnistGlyphInt] glyph
+                          $ RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
                  labelD = DynamicRanked @r @1
-                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
-                          $ OR.fromVector [sizeMnistLabelInt] label
+                          $ RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
                  parametersAndInput =
                    dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
@@ -627,10 +624,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let dataInit = case testData of
              d : _ -> let (dglyph, dlabel) = d
-                      in ( RepN $ FlipR $ Nested.rfromOrthotope SNat
-                           $ OR.fromVector [sizeMnistGlyphInt] dglyph
-                         , RepN $ FlipR $ Nested.rfromOrthotope SNat
-                           $ OR.fromVector [sizeMnistLabelInt] dlabel )
+                      in ( RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) dglyph
+                         , RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) dlabel )
              [] -> error "empty test data"
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistFcnnRanked2.afcnnMnistLoss2TensorData
@@ -641,11 +636,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
              let glyphD = DynamicRanked @r @1
-                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
-                          $ OR.fromVector [sizeMnistGlyphInt] glyph
+                          $ RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
                  labelD = DynamicRanked @r @1
-                          $ RepN $ FlipR $ Nested.rfromOrthotope SNat
-                          $ OR.fromVector [sizeMnistLabelInt] label
+                          $ RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
                  parametersAndInput =
                    dmkHVector
                    $ V.concat [parameters, V.fromList [glyphD, labelD]]
@@ -708,12 +701,12 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
 
 valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters RepN Double
 valsInitVTOPP =
-  ( ( replicate 3 (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [1, 2, 3])
-    , RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [1, 2, 3] )
-  , ( replicate 4 (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [4] [1, 2, 3, 4])
-    , RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [4] [1, 2, 3, 4] )
-  , ( replicate 5 (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [5] [1, 2, 3, 4, 5])
-    , RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [5] [1, 2, 3, 4, 5] ) )
+  ( ( replicate 3 (RepN $ FlipR $ Nested.rfromList1Prim [1, 2, 3])
+    , RepN $ FlipR $ Nested.rfromList1Prim [1, 2, 3] )
+  , ( replicate 4 (RepN $ FlipR $ Nested.rfromList1Prim [1, 2, 3, 4])
+    , RepN $ FlipR $ Nested.rfromList1Prim [1, 2, 3, 4] )
+  , ( replicate 5 (RepN $ FlipR $ Nested.rfromList1Prim [1, 2, 3, 4, 5])
+    , RepN $ FlipR $ Nested.rfromList1Prim [1, 2, 3, 4, 5] ) )
 
 testVTOPP :: Assertion
 testVTOPP = do
@@ -759,18 +752,12 @@ testVTOPPNonLin = do
 
 valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters RepN Double
 valsInitVT2OPP =
-  ( ( RepN $ FlipR $ Nested.rfromOrthotope SNat
-      $ OR.fromList [4, 3] (concat $ replicate 4 [1, 2, 3])
-    , RepN $ FlipR $ Nested.rfromOrthotope SNat
-      $ OR.fromList [4] [1, 2, 3, 4] )
-  , ( RepN $ FlipR $ Nested.rfromOrthotope SNat
-      $ OR.fromList [5, 4] (concat $ replicate 5 [1, 2, 3, 4])
-    , RepN $ FlipR $ Nested.rfromOrthotope SNat
-      $ OR.fromList [5] [1, 2, 3, 4, 5] )
-  , ( RepN $ FlipR $ Nested.rfromOrthotope SNat
-      $ OR.fromList [2, 5] (concat $ replicate 2 [1, 2, 3, 4, 5])
-    , RepN $ FlipR $ Nested.rfromOrthotope SNat
-      $ OR.fromList [2] [1, 2] ) )
+  ( ( RepN $ FlipR $ Nested.rfromListPrimLinear [4, 3] (concat $ replicate 4 [1, 2, 3])
+    , RepN $ FlipR $ Nested.rfromListPrimLinear [4] [1, 2, 3, 4] )
+  , ( RepN $ FlipR $ Nested.rfromListPrimLinear [5, 4] (concat $ replicate 5 [1, 2, 3, 4])
+    , RepN $ FlipR $ Nested.rfromListPrimLinear [5] [1, 2, 3, 4, 5] )
+  , ( RepN $ FlipR $ Nested.rfromListPrimLinear [2, 5] (concat $ replicate 2 [1, 2, 3, 4, 5])
+    , RepN $ FlipR $ Nested.rfromListPrimLinear [2] [1, 2] ) )
 
 testVT2OPP :: Assertion
 testVT2OPP = do
@@ -804,7 +791,7 @@ testVT2OPPNonLin = do
                          (AstTensor AstMethodLet FullSpan) Float
                     -> AstTensor AstMethodLet FullSpan (TKR Float 1)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
-      fromPrimal = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
+      constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
                  in ( ( AstCast $ AstFromPrimal $ AstConcrete $ runFlipR $ unRepN a1
                       , AstCast $ AstFromPrimal $ AstConcrete $ runFlipR $ unRepN a2 )
                     , ( AstFromPrimal $ AstCast $ AstConcrete $ runFlipR $ unRepN a3
@@ -812,7 +799,7 @@ testVT2OPPNonLin = do
                     , ( AstCast $ AstFromPrimal $ AstConcrete $ runFlipR $ unRepN a5
                       , AstFromPrimal $ AstCast $ AstConcrete $ runFlipR $ unRepN a6 ) )
       (_, ast3) = funToAst (FTKR @Float $ singletonShape 0)
-                           (const $ afcnn2TnonLin fromPrimal)
+                           (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
     @?= "\\dummy -> tlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rfromPrimal 7.0))) * rfromPrimal (rconcrete (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rfromPrimal (rconcrete (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> tlet (rfromPrimal (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rfromPrimal (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rfromPrimal (rconcrete (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rfromPrimal (rcast (rconcrete (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> tlet (rfromPrimal (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rfromPrimal (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rfromPrimal (rconcrete (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rfromPrimal (rcast (rconcrete (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
 

@@ -139,7 +139,7 @@ rnnMnistTestR
 rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) testParams =
   let input :: target (TKR r 3)
-      input = rconcrete $ Nested.rtranspose [2, 1, 0] $ Nested.rfromOrthotope SNat glyphR
+      input = rconcrete $ Nested.rtranspose [2, 1, 0] glyphR
       outputR :: RepN (TKR r 2)
       outputR =
         let nn :: ADRnnMnistParameters target r  -- SizeMnistHeight out_width
@@ -149,7 +149,7 @@ rnnMnistTestR batch_size (glyphR, labelR) testParams =
       outputs = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
       labels = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
-               $ RepN $ FlipR $ Nested.rfromOrthotope SNat labelR
+               $ RepN $ FlipR labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
