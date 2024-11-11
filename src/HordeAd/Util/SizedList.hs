@@ -33,7 +33,6 @@ module HordeAd.Util.SizedList
 import Prelude
 
 import Control.Arrow (first)
-import Data.Array.Internal (valueOf)
 import Data.Foldable qualified as Foldable
 import Data.List (sort)
 import Data.Proxy (Proxy (Proxy))
@@ -56,7 +55,7 @@ import Data.Array.Nested
   )
 
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 
 -- * Sized lists and their permutations
 

@@ -11,7 +11,6 @@ import Prelude hiding (foldl')
 import Control.Arrow (second)
 import Control.DeepSeq (NFData (..))
 import Control.Exception.Assert.Sugar
-import Data.Array.Internal (valueOf)
 import Data.Foldable qualified as Foldable
 import Data.Int (Int64)
 import Data.Kind (Type)
@@ -45,16 +44,15 @@ import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS, FlipX)
+import HordeAd.Internal.OrthotopeOrphanInstances
+  (FlipR (..), FlipS, FlipX, valueOf)
 import HordeAd.Util.ShapedList (Drop, IndexS, Init, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
-
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
-
 
 type ORArray = FlipR Nested.Ranked
 

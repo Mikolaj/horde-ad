@@ -10,10 +10,8 @@ module EqEpsilon
 
 import Prelude
 
-import Data.Array.RankedS qualified as OR
 import Data.Int (Int64)
 import Data.IORef
-import Data.Vector.Storable qualified as VS
 import Foreign.C (CInt)
 import System.IO.Unsafe
 import Test.Tasty.HUnit
@@ -310,13 +308,6 @@ instance (AssertEqualUpToEpsilon a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e8  a8 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e9  a9 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e10 a10
-
-instance (VS.Storable a, AssertEqualUpToEpsilon a)
-         => AssertEqualUpToEpsilon (OR.Array n a) where
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
-    assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
-                (linearize expected)
-                (linearize actual)
 
 instance {-# OVERLAPPABLE #-}
          (Show a, HasShape a, Linearizable a b, AssertEqualUpToEpsilon b)

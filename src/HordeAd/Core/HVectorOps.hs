@@ -17,7 +17,6 @@ module HordeAd.Core.HVectorOps
 
 import Prelude
 
-import Data.Array.Internal (valueOf)
 import Data.List (foldl', transpose)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (isJust)
@@ -36,6 +35,7 @@ import Data.Array.Nested.Internal.Shape (shrRank)
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.SizedList
 
 toRepDShare

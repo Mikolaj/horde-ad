@@ -17,7 +17,6 @@ module HordeAd.Core.DualNumber
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Data.Array.Internal (valueOf)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -38,7 +37,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
+  (IntegralF (..), RealFloatF (..), valueOf)
 import HordeAd.Util.ShapedList (IndexSh, IndexShX)
 import HordeAd.Util.SizedList
 

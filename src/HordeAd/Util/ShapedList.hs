@@ -37,7 +37,6 @@ module HordeAd.Util.ShapedList
 
 import Prelude
 
-import Data.Array.Internal (valueOf)
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import GHC.Exts (IsList (..))
@@ -58,7 +57,7 @@ import Data.Array.Nested
 import Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 import HordeAd.Util.SizedList qualified as SizedList
 
 type family Take (n :: Nat) (xs :: [k]) :: [k] where

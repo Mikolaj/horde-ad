@@ -11,8 +11,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (when)
-import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
@@ -29,6 +27,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxFromShape)
 import Data.Array.Nested (Rank, type (++))
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Ast (AstTensor)
@@ -40,6 +39,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList
   (Drop, Take, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import HordeAd.Util.SizedList
@@ -413,7 +413,7 @@ build1V snat@SNat (var, v00) =
         $ astTransposeS zsuccPerm $ build1V snat (var, v)
     Ast.AstReshapeS @sh2 v -> traceRule $
       gcastWith (unsafeCoerce Refl
-                 :: Sh.Size (k ': sh) :~: Sh.Size (k ': sh2)) $
+                 :: Nested.Product (k ': sh) :~: Nested.Product (k ': sh2)) $
       astReshapeS $ build1V snat (var, v)
     Ast.AstGatherS @sh2 @p @sh3 v (vars, ix) -> traceRule $
       gcastWith (unsafeCoerce Refl

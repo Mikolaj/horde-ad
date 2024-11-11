@@ -23,7 +23,6 @@ module HordeAd.Core.HVector
 import Prelude
 
 import Control.DeepSeq (NFData (..))
-import Data.Array.Internal (valueOf)
 import Data.Kind (Constraint, Type)
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -39,7 +38,7 @@ import Data.Array.Nested (KnownShX, SMayNat (..), ShX (..), type (++))
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

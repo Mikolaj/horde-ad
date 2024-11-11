@@ -5,37 +5,31 @@
 -- tensors.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Numeric classes and instances for tensors
-    IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..), FlipX(..)
+    IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..), FlipX(..), valueOf
   ) where
 
 import Prelude
 
 import Control.DeepSeq (NFData)
-import Data.Array.Convert (Convert)
-import Data.Array.Convert qualified
-import Data.Array.Internal (valueOf)
-import Data.Array.Internal.RankedG qualified as RG
-import Data.Array.Internal.RankedS qualified as RS
-import Data.Array.Internal.ShapedG qualified as SG
-import Data.Array.Internal.ShapedS qualified as SS
-import Data.Array.RankedS qualified as OR
-import Data.Array.Shape qualified as Sh
-import Data.Array.ShapedS qualified as OS
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import Data.Vector.Storable qualified as VS
-import GHC.TypeLits (KnownNat, Nat, sameNat)
+import GHC.TypeLits (KnownNat, Nat, fromSNat, pattern SNat, sameNat)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise2)
-import Data.Array.Nested (KnownShS (..), KnownShX, MapJust, Rank, Replicate)
+import Data.Array.Nested (KnownShS (..), KnownShX, MapJust, Replicate)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
+
+-- stolen from orthotope, with obfuscation; TODO: move elsewhere
+{-# INLINE valueOf #-}
+valueOf :: forall n r. (KnownNat n, Num r) => r
+valueOf = fromInteger $ fromSNat (SNat @n)
 
 -- * Numeric classes and instances for tensors
 
@@ -277,45 +271,3 @@ deriving instance Floating (f a b) => Floating (FlipX f b a)
 deriving instance RealFloatF (f a b) => RealFloatF (FlipX f b a)
 
 deriving instance NFData (f a b) => NFData (FlipX f b a)
-
--- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (KnownNat n, VS.Storable r, Num r)
-         => Num (OR.Array n r) where
-  (+) = undefined
-  (-) = undefined
-  (*) = undefined
-  negate = OR.mapA negate
-  abs = undefined
-  signum = undefined
-  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> OR.constant [] . fromInteger
-    Nothing -> error $ "OR.fromInteger: shape unknown at rank "
-                       ++ show (valueOf @n :: Int)
-
--- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (KnownNat n, VS.Storable r, Num r)
-         => Num (FlipR OR.Array r n) where
-  (FlipR t) + (FlipR u) = FlipR $ t + u
-  (FlipR t) - (FlipR u) = FlipR $ t - u
-  (FlipR t) * (FlipR u) = FlipR $ t * u
-  negate (FlipR t) = FlipR $ negate t
-  abs (FlipR t) = FlipR $ abs t
-  signum (FlipR t) = FlipR $ signum t
-  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> FlipR . OR.scalar . fromInteger
-    Nothing -> error $ "FlipR(OR.Array).fromInteger: shape unknown at rank "
-                       ++ show (valueOf @n :: Int)
-
--- TODO: This one is for convenience in tests only. Overhaul tests and remove.
-instance (KnownNat n, VS.Storable r, Fractional r)
-         => Fractional (OR.Array n r) where
-  (/) = undefined
-  recip = undefined
-  fromRational = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> OR.constant [] . fromRational
-    Nothing -> error $ "OR.fromRational: shape unknown at rank "
-                       ++ show (valueOf @n :: Int)
-
-instance (Sh.Shape sh, Rank sh ~ n)
-         => Convert (OS.Array sh a) (OR.Array n a) where
-  convert (SS.A a@(SG.A t)) = RS.A (RG.A (SG.shapeL a) t)

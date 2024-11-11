@@ -6,7 +6,6 @@ module MnistFcnnRanked2 where
 
 import Prelude
 
-import Data.Array.RankedS qualified as OR
 import Data.Kind (Type)
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..), inline)
@@ -105,7 +104,7 @@ afcnnMnistTest2 valsInit dataList testParams =
             nn :: ADFcnnMnist2Parameters target r
                -> target (TKR r 1)
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = OR.toVector $ Nested.rtoOrthotope $ runFlipR $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
+            v = Nested.rtoVector $ runFlipR $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

@@ -23,7 +23,6 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
-import Data.Array.Internal (valueOf)
 import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -46,7 +45,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
+  (IntegralF (..), RealFloatF (..), valueOf)
 import HordeAd.Util.ShapedList
   (Drop, IndexSh, IndexShX, Init, ShapeS, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.ShapedList qualified as ShapedList

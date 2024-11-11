@@ -14,7 +14,6 @@ module HordeAd.Core.TensorADVal
 
 import Prelude hiding (foldl')
 
-import Data.Array.Internal (valueOf)
 import Data.List (foldl')
 import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -37,7 +36,8 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (RepN (..))
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances
+  (FlipR (..), FlipS (..), valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

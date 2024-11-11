@@ -44,8 +44,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (mapAndUnzipM)
-import Data.Array.Internal (valueOf)
-import Data.Array.Shape qualified as Sh
 import Data.Functor.Const
 import Data.GADT.Compare
 import Data.Int (Int64)
@@ -94,7 +92,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
-import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 import HordeAd.Util.ShapedList
   ( Drop
   , Init
@@ -652,14 +650,14 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
       gcastWith (unsafeCoerce Refl
                  :: Drop 1 shn ++ '[Last shz] :~: shd) $
       withSNat (shapeT @shn !! 0) $ \(SNat @i0shn) ->
-        gcastWith (unsafeCoerce Refl :: Sh.Index shn 0 :~: i0shn) $
+        gcastWith (unsafeCoerce Refl :: Permutation.Index 0 shn :~: i0shn) $
         gcastWith (unsafeCoerce Refl
-                   :: Sh.Index shn 0 ': Drop 1 shn :~: shn) $
+                   :: Permutation.Index 0 shn ': Drop 1 shn :~: shn) $
         gcastWith (unsafeCoerce Refl
                    :: Init (shn ++ '[Last shz]) :~: shn) $
         gcastWith (unsafeCoerce Refl
                    :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
-        Ast.AstMinIndexS @(Drop 1 shn ++ '[Last shz]) @(Sh.Index shn 0)
+        Ast.AstMinIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
         $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
   Ast.AstMaxIndexS @shz @n1 v ->
     withShapeP (drop 1 (shapeT @shn)
@@ -667,14 +665,14 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
       gcastWith (unsafeCoerce Refl
                  :: Drop 1 shn ++ '[Last shz] :~: shd) $
       withSNat (shapeT @shn !! 0) $ \(SNat @i0shn) ->
-        gcastWith (unsafeCoerce Refl :: Sh.Index shn 0 :~: i0shn) $
+        gcastWith (unsafeCoerce Refl :: Permutation.Index 0 shn :~: i0shn) $
         gcastWith (unsafeCoerce Refl
-                   :: Sh.Index shn 0 ': Drop 1 shn :~: shn) $
+                   :: Permutation.Index 0 shn ': Drop 1 shn :~: shn) $
         gcastWith (unsafeCoerce Refl
                    :: Init (shn ++ '[Last shz]) :~: shn) $
         gcastWith (unsafeCoerce Refl
                    :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
-        Ast.AstMaxIndexS @(Drop 1 shn ++ '[Last shz]) @(Sh.Index shn 0)
+        Ast.AstMaxIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
         $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs v ix
   Ast.AstIotaS | AstConcrete{} <- i1 -> case sameShape @shn @'[] of
@@ -2110,7 +2108,6 @@ astRFromS v = Ast.AstRFromS v
 astSFromR :: forall sh s r. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
           => AstTensor AstMethodLet s (TKR r (Rank sh)) -> AstTensor AstMethodLet s (TKS r sh)
 astSFromR (AstConcrete t) =
-  gcastWith (unsafeCoerce Refl :: Sh.Rank sh :~: Rank sh) $
   AstConcreteS $ Nested.rcastToShaped t Nested.knownShS
 astSFromR (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =

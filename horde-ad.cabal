@@ -174,7 +174,6 @@ library horde-ad-simplified
       , ghc-typelits-natnormalise
       , hmatrix
       , ilist
-      , orthotope >= 0.1.4.0
       , ox-arrays
       , random
       , some
@@ -209,7 +208,6 @@ library exampleLibrary
       , ghc-typelits-natnormalise
       , hmatrix
       , mnist-idx
-      , orthotope
       , ox-arrays
       , random
       , vector
@@ -237,7 +235,6 @@ library benchCommonLibrary
       , hmatrix
       , ilist
       , inspection-testing
-      , orthotope
       , ox-arrays
       , random
       , strict-containers
@@ -371,7 +368,6 @@ library testToolLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , orthotope
       , ox-arrays
       , tasty >= 1.0
       , tasty-hunit
@@ -405,7 +401,6 @@ library testCommonLibrary
       , ghc-typelits-natnormalise
       , hmatrix
       , ilist
-      , orthotope
       , ox-arrays
       , random
       , tasty >= 1.0

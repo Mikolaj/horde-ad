@@ -19,7 +19,6 @@ module HordeAd.Core.AstInterpret
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Data.Array.Internal (valueOf)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
@@ -43,6 +42,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList (Drop, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList
 

@@ -16,7 +16,6 @@ module TestMnistRNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
-import Data.Array.RankedS qualified as OR
 import Data.IntMap.Strict qualified as IM
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)

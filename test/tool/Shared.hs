@@ -6,13 +6,13 @@ module Shared
 
 import Prelude
 
-import Data.Array.RankedS qualified as OR
 import Data.Char qualified
 import Data.Foldable qualified
 import Data.Int (Int64)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Storable qualified as VS
 import Foreign.C (CInt)
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
@@ -33,10 +33,10 @@ lowercase = map Data.Char.toLower
 ----------------------------------------------------------------------------
 
 class HasShape a where
-  shapeL :: a -> OR.ShapeL
+  shapeL :: a -> [Int]
 
-instance Nested.PrimElt a => HasShape (ORArray a n) where
-  shapeL = OR.shapeL . Nested.rtoOrthotope . runFlipR
+instance (KnownNat n, Nested.PrimElt a) => HasShape (ORArray a n) where
+  shapeL = toList . Nested.rshape . runFlipR
 
 instance KnownShS sh => HasShape (OSArray a sh) where
   shapeL _ = shapeT @sh
@@ -74,9 +74,6 @@ instance (VS.Storable a, Nested.PrimElt a)
 instance Linearizable (RepORArray y) a
          => Linearizable (RepN y) a where
   linearize = linearize . unRepN
-
-instance (VS.Storable a) => Linearizable (OR.Array n a) a where
-  linearize = OR.toList
 
 instance ( forall r n. (GoodScalar r, KnownNat n)
            => Linearizable (target (TKR r n)) r

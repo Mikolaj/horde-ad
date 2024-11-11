@@ -32,7 +32,6 @@ module HordeAd.Core.Types
 import Prelude
 
 import Control.DeepSeq (NFData (..))
-import Data.Array.Internal (valueOf)
 import Data.Boolean (Boolean (..))
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
@@ -51,6 +50,7 @@ import Data.Array.Nested
   (IxS (..), KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsToList)
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 
 -- * Definitions to help express and manipulate type-level natural numbers
 

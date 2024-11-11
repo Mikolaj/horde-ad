@@ -8,7 +8,6 @@ module HordeAd.Core.TensorConcrete
 
 import Prelude hiding (foldl')
 
-import Data.Array.Internal (valueOf)
 import Data.Function ((&))
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
@@ -31,7 +30,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), FlipX (..), IntegralF (..), RealFloatF (..))
+  (FlipR (..), FlipS (..), FlipX (..), IntegralF (..), RealFloatF (..), valueOf)
 
 type instance BoolOf RepN = Bool
 

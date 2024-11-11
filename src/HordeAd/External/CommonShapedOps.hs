@@ -11,7 +11,6 @@ module HordeAd.External.CommonShapedOps
 
 import Prelude
 
-import Data.Array.Internal (valueOf)
 import Data.Int (Int64)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -27,6 +26,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList (Drop, IndexSh, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList

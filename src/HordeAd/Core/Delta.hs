@@ -51,7 +51,6 @@ import Prelude
 
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
-import Data.Array.Internal (valueOf)
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
@@ -81,6 +80,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList
   (Drop, IndexSh, IndexShX, Take, pattern (:.$), pattern ZIS)
 import HordeAd.Util.SizedList

@@ -7,7 +7,6 @@ module MnistRnnShaped2 where
 
 import Prelude hiding (foldl')
 
-import Data.Array.Internal (valueOf)
 import Data.Kind (Type)
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
@@ -23,7 +22,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
 import HordeAd.Internal.BackendOX (RepN (..))
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..), valueOf)
 import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
 

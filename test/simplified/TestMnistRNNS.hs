@@ -8,10 +8,7 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (foldM, unless)
-import Data.Array.Convert qualified
-import Data.Array.RankedS qualified as OR
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat)
 import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random

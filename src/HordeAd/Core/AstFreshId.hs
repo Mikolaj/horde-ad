@@ -16,7 +16,6 @@ module HordeAd.Core.AstFreshId
 import Prelude
 
 import Control.Monad (replicateM)
-import Data.Array.Internal (valueOf)
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import Data.List.Index (imapM)
 import Data.Proxy (Proxy (Proxy))
@@ -29,6 +28,7 @@ import Data.Array.Nested (Rank)
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

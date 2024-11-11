@@ -12,7 +12,6 @@ module HordeAd.Core.AstInline
 import Prelude
 
 import Control.Arrow (second)
-import Data.Array.Internal (valueOf)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.EnumMap.Strict qualified as EM
 import Data.Foldable qualified as Foldable
@@ -30,6 +29,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

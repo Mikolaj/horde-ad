@@ -6,7 +6,6 @@ module MnistData where
 import Prelude
 
 import Codec.Compression.GZip (decompress)
-import Data.Array.Internal (valueOf)
 import Data.ByteString.Lazy qualified as LBS
 import Data.IDX
 import Data.List (sortOn)
@@ -24,6 +23,7 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Internal.BackendOX (RepN)
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 
 type SizeMnistWidth = 28 :: Nat
 

@@ -30,7 +30,6 @@ module HordeAd.Core.Ast
 
 import Prelude hiding (foldl')
 
-import Data.Array.Internal (valueOf)
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
@@ -54,7 +53,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
+  (IntegralF (..), RealFloatF (..), valueOf)
 import HordeAd.Util.ShapedList (Drop, IndexS, Init, SizedListS, Take)
 import HordeAd.Util.SizedList
 
