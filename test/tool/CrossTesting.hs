@@ -2,25 +2,15 @@
 -- over a twenty different pipeline variants and compares the results.
 module CrossTesting
   ( rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
-  , t16, t16OR, t16b, t48, t48OR, t128, t128OR, t128b, t128c
+  , t16, t16b, t48, t128, t128b, t128c
   , rrev1, rrev2, rfwd1, srev1, sfwd1
-  , treplicateR, tfromListR, tfromList0NR, tsumR
   ) where
 
 import Prelude
 
-import Data.Array.Ranked qualified as ORB
-import Data.Array.RankedS qualified as OR
-import Data.List.NonEmpty (NonEmpty)
-import Data.List.NonEmpty qualified as NonEmpty
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import Data.Vector.Storable qualified as VS
-import GHC.TypeLits (KnownNat, sameNat, type (+))
+import GHC.TypeLits (KnownNat)
 import Test.Tasty.HUnit hiding (assert)
-
-import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -66,16 +56,14 @@ rev' :: forall r m n v a w.
         , w ~ RepN (ADTensorKind (TKR r m))
         , a ~ RepN (ADTensorKind (TKR r n)) )
      => (forall f. ADReady f => f (TKR r n) -> f (TKR r m))
-     -> FlipR OR.Array r n
+     -> RepN (TKR r n)
      -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
         , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
         , RepN (TKR r n), w, w, w )
-rev' f valsOR =
-  let vals :: RepN (TKR r n)
-      vals = RepN $ fromORArray valsOR
-      value0 = f vals
+rev' f vals =
+  let value0 = f vals
       ftk = tshapeFull stensorKind vals
       dt = Nothing
       valsFrom = fromDValue vals
@@ -212,7 +200,6 @@ rev' f valsOR =
       derivative = fwd f vals vals
       derivativeRfwd1 = rfwd1ds @RepN @r @n @m @r f vals
                         $ toADTensorKindShared stensorKind vals
-      fromORArray (FlipR t) = FlipR $ Nested.rfromOrthotope SNat t
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradientRrev1, gradient2, gradient3
@@ -461,32 +448,23 @@ assertEqualUpToEpsilonShort
               (show (simplifyInline astVectSimp))
   -}
 
-t16 :: (Fractional r, Nested.PrimElt r) => RepN (TKR r 5)
-t16 = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
+t16 :: (GoodScalar r, Fractional r) => RepN (TKR r 5)
+t16 = ringestData [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t16OR :: (VS.Storable r, Fractional r) => FlipR OR.Array r 5
-t16OR = FlipR $ OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
+t16b :: (GoodScalar r, Fractional r) => RepN (TKR r 4)
+t16b = ringestData [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
-t16b :: (Fractional r, Nested.PrimElt r) => RepN (TKR r 4)
-t16b = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
+t48 :: (GoodScalar r, Fractional r) => RepN (TKR r 7)
+t48 = ringestData [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t48 :: (Fractional r, Nested.PrimElt r) => RepN (TKR r 7)
-t48 = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
+t128 :: (GoodScalar r, Fractional r) => RepN (TKR r 10)
+t128 = ringestData [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
-t48OR :: (VS.Storable r, Fractional r) => FlipR OR.Array r 7
-t48OR = FlipR $ OR.fromList [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
+t128b :: (GoodScalar r, Fractional r) => RepN (TKR r 4)
+t128b = rreshape (4 :$: 2 :$: 4 :$: 4 :$: ZSR) t128
 
-t128 :: (Fractional r, Nested.PrimElt r) => RepN (TKR r 10)
-t128 = RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
-
-t128OR :: (VS.Storable r, Fractional r) => FlipR OR.Array r 10
-t128OR = FlipR $ OR.fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
-
-t128b :: (VS.Storable r, Fractional r) => FlipR OR.Array r 4
-t128b = FlipR $ OR.reshape [4, 2, 4, 4] $ runFlipR t128OR
-
-t128c :: (VS.Storable r, Fractional r) => FlipR OR.Array r 4
-t128c = FlipR $ OR.reshape [2, 2, 8, 4] $ runFlipR t128OR
+t128c :: (GoodScalar r, Fractional r) => RepN (TKR r 4)
+t128c = rreshape (2 :$: 2 :$: 8 :$: 4 :$: ZSR) t128
 
 rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
@@ -535,26 +513,3 @@ sfwd1 :: forall g r sh sh2 r3.
       => (forall f. ADReady f => f (TKS r sh) -> f (TKS r3 sh2)) -> g (TKS r sh)
       -> g (ADTensorKind (TKS r3 sh2))
 sfwd1 f u = sfwd f (tshapeFull stensorKind u) u (srepl @_ @(ADTensorScalar r) 1)
-
-treplicateR
-  :: forall n r. (KnownNat n, KnownNat (1 + n), VS.Storable r)
-  => Int -> OR.Array n r -> OR.Array (1 + n) r
-treplicateR 0 u = OR.fromList (0 : OR.shapeL u) []
-treplicateR s u = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> OR.constant [s] (OR.unScalar u)
-  _ -> OR.ravel $ ORB.constant [s] u
-
-tfromListR
-  :: forall n r. (KnownNat (1 + n), VS.Storable r)
-  => NonEmpty (OR.Array n r) -> OR.Array (1 + n) r
-tfromListR l = OR.ravel . ORB.fromList [NonEmpty.length l] . NonEmpty.toList $ l
-
-tfromList0NR
-  :: (KnownNat n, VS.Storable r)
-  => IShR n -> [r] -> OR.Array n r
-tfromList0NR sh = OR.fromList (shapeToList sh)
-
-tsumR
-  :: forall n r. (KnownNat (n + 1), GoodScalar r)
-  => OR.Array (n + 1) r -> OR.Array n r
-tsumR t = Nested.rtoOrthotope $ Nested.rsumOuter1 $ Nested.rfromOrthotope SNat t

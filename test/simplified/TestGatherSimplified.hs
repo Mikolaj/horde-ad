@@ -7,7 +7,6 @@ module TestGatherSimplified (testTrees) where
 
 import Prelude
 
-import Data.Array.RankedS qualified as OR
 import Data.Int (Int64)
 import GHC.Exts (IsList (..))
 import Numeric.LinearAlgebra (Numeric)
@@ -18,6 +17,7 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), IntegralF (..))
 
 import CrossTesting
@@ -88,7 +88,7 @@ testGatherNested1 =
     (ringestData [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @1 gatherNested1
-                               (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+                               (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherNestedBuild1 :: Assertion
 testGatherNestedBuild1 =
@@ -98,7 +98,7 @@ testGatherNestedBuild1 =
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
              ifF (i >. 2) (gatherNested1 t) (t ! [i])))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gather1 :: forall target r. (ADReady target, GoodScalar r)
         => target (TKR r 2) -> target (TKR r 1)
@@ -114,7 +114,7 @@ testGather1 =
     (ringestData [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @1 gather1
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherBuild1 :: Assertion
 testGatherBuild1 =
@@ -124,7 +124,7 @@ testGatherBuild1 =
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
              ifF (i >. 2) (gather1 t) (t ! [i])))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP1 :: Assertion
 testGatherSimpPP1 = do
@@ -151,7 +151,7 @@ testGatherNested02 :: Assertion
 testGatherNested02 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [4] [1.0,0.0,0.0,0.0])
-    (rev' @Double @1 gatherNested02 (FlipR $ treplicateR 4 0.1))
+    (rev' @Double @1 gatherNested02 (rreplicate 4 (rscalar 0.1)))
 
 gatherNested2 :: forall target r. (ADReady target, GoodScalar r)
               => target (TKR r 2) -> target (TKR r 2)
@@ -169,7 +169,7 @@ testGatherNested2 =
     (ringestData [7,2]
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
     (rev' @Double @2 gatherNested2
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherNestedBuild2 :: Assertion
 testGatherNestedBuild2 =
@@ -179,7 +179,7 @@ testGatherNestedBuild2 =
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
              gatherNested2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gather2 :: forall target r. (ADReady target, GoodScalar r)
         => target (TKR r 2) -> target (TKR r 2)
@@ -194,7 +194,7 @@ testGather2 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
-    (rev' @Double @2 gather2 (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+    (rev' @Double @2 gather2 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherBuild2 :: Assertion
 testGatherBuild2 =
@@ -204,7 +204,7 @@ testGatherBuild2 =
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
              gather2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP2 :: Assertion
 testGatherSimpPP2 = do
@@ -233,7 +233,7 @@ testGatherNested12 =
     (ringestData [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
     (rev' @Double @2 gatherNested12
-                               (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+                               (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherNestedBuild12 :: Assertion
 testGatherNestedBuild12 =
@@ -244,7 +244,7 @@ testGatherNestedBuild12 =
           (\t -> rindex (rbuild1 5 (\i ->
              ifF (i >. 2) (gatherNested12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gather12 :: forall target r. (ADReady target, GoodScalar r)
          => target (TKR r 2) -> target (TKR r 2)
@@ -260,7 +260,7 @@ testGather12 =
     (ringestData [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
     (rev' @Double @2 gather12
-                               (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+                               (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherBuild12 :: Assertion
 testGatherBuild12 =
@@ -271,7 +271,7 @@ testGatherBuild12 =
           (\t -> rindex (rbuild1 5 (\i ->
              ifF (i >. 2) (gather12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP12 :: Assertion
 testGatherSimpPP12 = do
@@ -299,7 +299,7 @@ testGatherReshape22 =
     (ringestData [6,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 gatherReshape22
-                               (FlipR $ treplicateR 6 $ tfromListR [0, 1]))
+                               (rreplicate 6 $ ringestData [2] [0, 1]))
 
 testGatherReshapeBuild22 :: Assertion
 testGatherReshapeBuild22 =
@@ -309,7 +309,7 @@ testGatherReshapeBuild22 =
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
              gatherReshape22 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
-          (FlipR $ treplicateR 6 $ tfromListR [0, 1]))
+          (rreplicate 6 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP22 :: Assertion
 testGatherSimpPP22 = do
@@ -345,7 +345,7 @@ testGatherSimpPP23 = do
 gatherTranspose33 :: forall target r. (ADReady target, GoodScalar r, Numeric r, RealFloat r)
                   => target (TKR r 10) -> target (TKR r 2)
 gatherTranspose33 t =
-  rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
+  rmatmul2 (rreshape [6, 8] (rconst $ runFlipR $ unRepN t48))
     (rtr
      $ rreshape @target @r @4 [16, 8]
      $ rtranspose [0, 1, 2]
@@ -376,7 +376,7 @@ testGatherTranspose33 :: Assertion
 testGatherTranspose33 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1,2,2,1,2,2,2,2,2,1] [81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002])
-    (rev' @Double @2 gatherTranspose33 t128OR)
+    (rev' @Double @2 gatherTranspose33 t128)
 
 testGatherTransposeBuild33 :: Assertion
 testGatherTransposeBuild33 =
@@ -385,7 +385,7 @@ testGatherTransposeBuild33 =
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
              gatherTranspose33 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
-          t128OR)
+          t128)
 
 testGatherTransposeBuild331 :: Assertion
 testGatherTransposeBuild331 =
@@ -394,7 +394,7 @@ testGatherTransposeBuild331 =
     (rev' @Double @3
           (\t -> rbuild1 2 (\i ->
              rtranspose [1, 0] (t * rreplicate0N [2, 3] (rfromIndex0 i))))
-          (FlipR $ OR.fromList [2, 3] [1,2,3,4,5,6]))
+          (ringestData [2, 3] [1,2,3,4,5,6]))
 
 testGatherTransposeBuild332 :: Assertion
 testGatherTransposeBuild332 =
@@ -403,7 +403,7 @@ testGatherTransposeBuild332 =
     (rev' @Double @3
           (\t -> rbuild1 2 (\i ->
              rtranspose [1, 0] (t * rreplicate0N [2, 3] (rfromIndex0 i))))
-          (FlipR $ OR.fromList [2, 3] [1,2,3,4,5,6]))
+          (ringestData [2, 3] [1,2,3,4,5,6]))
 
 testGatherTransposeBuild333 :: Assertion
 testGatherTransposeBuild333 =
@@ -412,7 +412,7 @@ testGatherTransposeBuild333 =
     (rev' @Double @2
           (\t -> rbuild1 2 (\i ->
              t * rreplicate0N [2] (rfromIndex0 i)))
-          (FlipR $ OR.fromList [2] [0,0]))
+          (ringestData [2] [0,0]))
 
 testGatherTransposeBuild334 :: Assertion
 testGatherTransposeBuild334 =
@@ -421,7 +421,7 @@ testGatherTransposeBuild334 =
     (rev' @Double @3
           (\t -> rbuild1 2 (\i ->
              t * rreplicate 2 (rreplicate 1 (rfromIntegral (rconstant i)))))
-         (FlipR $ OR.fromList [2, 1] [1,2]))
+         (ringestData [2, 1] [1,2]))
 
 testGatherTransposeBuild335 :: Assertion
 testGatherTransposeBuild335 =
@@ -430,7 +430,7 @@ testGatherTransposeBuild335 =
     (rev' @Double @3
           (\t ->
              rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @_ @Int64 (rconst $ Nested.rfromListPrimLinear (fromList [2]) [0, 1])))))
-         (FlipR $ OR.fromList [2, 1] [1,2]))
+         (ringestData [2, 1] [1,2]))
 
 testGatherTransposeBuild336 :: Assertion
 testGatherTransposeBuild336 =
@@ -439,7 +439,7 @@ testGatherTransposeBuild336 =
     (rev' @Double @3
           (\t ->
              rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromList [0, 1]))))
-         (FlipR $ OR.fromList [2, 1] [1,2]))
+         (ringestData [2, 1] [1,2]))
 
 -- These are different terms, but they should have similar lengths,
 -- because they differ only by single transpose and reshape, most probably,
@@ -453,7 +453,7 @@ testGatherSimpPP33 = do
   length (show t1) @?= 578
   length (show (simplifyInline @(TKR Float 2) t1)) @?= 578
   resetVarCounter
-  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
+  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR $ unRepN t48))
                             (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 497
@@ -469,7 +469,7 @@ testGatherSimpPP34 = do
   length (show (simplifyInline @(TKR Float 3) t1)) @?= 925
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
-              (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ Nested.rfromOrthotope SNat $ runFlipR t48OR))
+              (\t' -> rmatmul2 (rreshape [6, 8] (rconst $ runFlipR $ unRepN t48))
                                (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)
@@ -493,7 +493,7 @@ testScatterNested1 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @1 scatterNested1 (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+    (rev' @Double @1 scatterNested1 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterNestedBuild1 :: Assertion
 testScatterNestedBuild1 =
@@ -503,7 +503,7 @@ testScatterNestedBuild1 =
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
              ifF (i >. 2) (scatterNested1 t) (t ! [i])))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 scatter1 :: forall target r. (ADReady target, GoodScalar r)
          => target (TKR r 2) -> target (TKR r 1)
@@ -518,7 +518,7 @@ testScatter1 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @1 scatter1 (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+    (rev' @Double @1 scatter1 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterBuild1 :: Assertion
 testScatterBuild1 =
@@ -528,7 +528,7 @@ testScatterBuild1 =
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
              ifF (i >. 2) (scatter1 t) (t ! [i])))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP1 :: Assertion
 testScatterSimpPP1 = do
@@ -558,7 +558,7 @@ testScatterNested2 =
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatterNested2
-                               (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+                               (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterNestedBuild2 :: Assertion
 testScatterNestedBuild2 =
@@ -568,7 +568,7 @@ testScatterNestedBuild2 =
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
              scatterNested2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 scatter2 :: forall target r. (ADReady target, GoodScalar r)
         => target (TKR r 2) -> target (TKR r 2)
@@ -584,7 +584,7 @@ testScatter2 =
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatter2
-                               (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+                               (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterBuild2 :: Assertion
 testScatterBuild2 =
@@ -594,7 +594,7 @@ testScatterBuild2 =
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
              scatter2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP2 :: Assertion
 testScatterSimpPP2 = do
@@ -624,7 +624,7 @@ testScatterNested12 =
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatterNested12
-                               (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+                               (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterNestedBuild12 :: Assertion
 testScatterNestedBuild12 =
@@ -635,7 +635,7 @@ testScatterNestedBuild12 =
           (\t -> rindex (rbuild1 5 (\i ->
              ifF (i >. 2) (scatterNested12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 scatter12 :: forall target r. (ADReady target, GoodScalar r)
          => target (TKR r 2) -> target (TKR r 2)
@@ -651,7 +651,7 @@ testScatter12 =
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @2 scatter12
-                               (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+                               (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterBuild12 :: Assertion
 testScatterBuild12 =
@@ -662,7 +662,7 @@ testScatterBuild12 =
           (\t -> rindex (rbuild1 5 (\i ->
              ifF (i >. 2) (scatter12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
-          (FlipR $ treplicateR 7 $ tfromListR [0, 1]))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP12 :: Assertion
 testScatterSimpPP12 = do

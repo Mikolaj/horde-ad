@@ -8,7 +8,6 @@ module TestRevFwdFold
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Data.Array.RankedS qualified as OR
 import Data.IntMap.Strict qualified as IM
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
@@ -395,19 +394,19 @@ testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar (-0.8912073600614354) :: RepN (TKR Double 0))
-    (rev' (rrev1 sin) 1.1)
+    (rev' (rrev1 sin) (rscalar 1.1))
 
 testSin0Rrev4' :: Assertion
 testSin0Rrev4' = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.39052780643689855 :: RepN (TKR Double 0))
-    (rev' (rrev1 sin . rrev1 sin) 1.1)
+    (rev' (rrev1 sin . rrev1 sin) (rscalar 1.1))
 
 testSin0Rrev5' :: Assertion
 testSin0Rrev5' = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar (-0.4535961214255773) :: RepN (TKR Double 0))
-    (rev' (rrev1 (rrev1 sin)) 1.1)
+    (rev' (rrev1 (rrev1 sin)) (rscalar 1.1))
 
 testSin0Rfwd :: Assertion
 testSin0Rfwd = do
@@ -484,19 +483,19 @@ testSin0Rfwd3' :: Assertion
 testSin0Rfwd3' = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar (-0.8912073600614354) :: RepN (TKR Double 0))
-    (rev' (rfwd1 sin) 1.1)
+    (rev' (rfwd1 sin) (rscalar 1.1))
 
 testSin0Rfwd4' :: Assertion
 testSin0Rfwd4' = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.39052780643689855 :: RepN (TKR Double 0))
-    (rev' (rfwd1 sin . rfwd1 sin) 1.1)
+    (rev' (rfwd1 sin . rfwd1 sin) (rscalar 1.1))
 
 testSin0Rfwd5' :: Assertion
 testSin0Rfwd5' = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar (-0.4535961214255773) :: RepN (TKR Double 0))
-    (rev' (rfwd1 (rfwd1 sin)) 1.1)
+    (rev' (rfwd1 (rfwd1 sin)) (rscalar 1.1))
 
 testSin0Rrev5S :: Assertion
 testSin0Rrev5S = do
@@ -518,7 +517,7 @@ testSin0Fold0 = do
     (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
                f x0 = rfold (\x _a -> sin x)
                             x0 (rzero @f @Double (0 :$: ZSR))
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0Fold0ForComparison :: Assertion
 testSin0Fold0ForComparison = do
@@ -526,14 +525,14 @@ testSin0Fold0ForComparison = do
     (rscalar 1.0 :: RepN (TKR Double 0))
     (rev' (let f :: forall f. f (TKR Double 0) -> f (TKR Double 0)
                f = id
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0Fold1 :: Assertion
 testSin0Fold1 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773 :: RepN (TKR Double 0))
     (rev' (\x0 -> rfold (\x _a -> sin x)
-                        x0 (rrepl @Double @1 [1] 42)) 1.1)
+                        x0 (rrepl @Double @1 [1] 42)) (rscalar 1.1))
 
 testSin0FoldB1 :: Assertion
 testSin0FoldB1 = do
@@ -571,7 +570,7 @@ testSin0FoldB3 = do
     (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
                f x0 = rfold (\_x _a -> 7)
                         (rscalar 5) (rreplicate 1 x0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldB4 :: Assertion
 testSin0FoldB4 = do
@@ -580,34 +579,34 @@ testSin0FoldB4 = do
     (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
                f x0 = rfold (\_x _a -> 7)
                         x0 (rrepl @Double @1 [1] 42)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0Fold2 :: Assertion
 testSin0Fold2 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.12389721944941383 :: RepN (TKR Double 0))
     (rev' (\x0 -> rfold (\x _a -> sin x)
-                        x0 (rrepl @Double @1 [5] 42)) 1.1)
+                        x0 (rrepl @Double @1 [5] 42)) (rscalar 1.1))
 
 testSin0FoldForComparison :: Assertion
 testSin0FoldForComparison = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.12389721944941383 :: RepN (TKR Double 0))
-    (rev' (sin . sin . sin . sin . sin) 1.1)
+    (rev' (sin . sin . sin . sin . sin) (rscalar 1.1))
 
 testSin0Fold3 :: Assertion
 testSin0Fold3 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773 :: RepN (TKR Double 0))
     (rev' (\a0 -> rfold (\_x a -> sin a)
-                        84 (rreplicate 3 a0)) 1.1)
+                        84 (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold4 :: Assertion
 testSin0Fold4 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar  (-0.7053476446727861) :: RepN (TKR Double 0))
     (rev' (\a0 -> rfold (\x a -> atan2F (sin x) (sin a))
-                        (rscalar 2 * a0) (rreplicate 3 a0)) 1.1)
+                        (rscalar 2 * a0) (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold5 :: Assertion
 testSin0Fold5 = do
@@ -618,7 +617,7 @@ testSin0Fold5 = do
                                           (rsum $ sin $ rsum
                                            $ rtr $ rreplicate 7 a))
                         (rscalar 2 * a0)
-                        (rreplicate 3 (rreplicate 2 (rreplicate 5 a0)))) 1.1)
+                        (rreplicate 3 (rreplicate 2 (rreplicate 5 a0)))) (rscalar 1.1))
 
 testSin0Fold6 :: Assertion
 testSin0Fold6 = do
@@ -627,7 +626,7 @@ testSin0Fold6 = do
     (rev' (\a0 -> rfold (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
-                        (rreplicate 2 a0)) 1.1)
+                        (rreplicate 2 a0)) (rscalar 1.1))
 
 testSin0Fold7 :: Assertion
 testSin0Fold7 = do
@@ -635,7 +634,7 @@ testSin0Fold7 = do
     (rscalar 250 :: RepN (TKR Double 0))
     (rev' (\a0 -> rfold (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
-                        (rreplicate 2 a0)) 1.1)
+                        (rreplicate 2 a0)) (rscalar 1.1))
 
 testSin0Fold8 :: Assertion
 testSin0Fold8 = do
@@ -646,7 +645,7 @@ testSin0Fold8 = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (2 * a0)))
-                        (rreplicate 3 a0)) 1.1)
+                        (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold0S :: Assertion
 testSin0Fold0S = do
@@ -656,7 +655,7 @@ testSin0Fold0S = do
                f x0 = sfold @f @Double @Double @'[] @'[] @0
                             (\x _a -> sin x)
                             x0 (srepl 0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold1S :: Assertion
 testSin0Fold1S = do
@@ -669,7 +668,7 @@ testSin0Fold1S = do
                                   g x _a = sin x
                               in g)
                         x0 (srepl @'[1] 42)
-            in rfromS . f . sfromR)) 1.1)
+            in rfromS . f . sfromR)) (rscalar 1.1))
 
 testSin0Fold2S :: Assertion
 testSin0Fold2S = do
@@ -678,7 +677,7 @@ testSin0Fold2S = do
     (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
                f x0 = sfold (\x _a -> sin x)
                         x0 (srepl @'[5] @Double 42)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldForComparisonS :: Assertion
 testSin0FoldForComparisonS = do
@@ -686,7 +685,7 @@ testSin0FoldForComparisonS = do
     (rscalar 0.12389721944941383 :: RepN (TKR Double 0))
     (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
                f = sin . sin . sin . sin . sin
-          in rfromS . f . sfromR) 1.1)
+          in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold3S :: Assertion
 testSin0Fold3S = do
@@ -695,7 +694,7 @@ testSin0Fold3S = do
     (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
                f a0 = sfold (\_x a -> sin a)
                         (srepl 84) (sreplicate @f @3 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold4S :: Assertion
 testSin0Fold4S = do
@@ -704,7 +703,7 @@ testSin0Fold4S = do
     (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
                f a0 = sfold (\x a -> atan2F (sin x) (sin a))
                         (srepl 2 * a0) (sreplicate @f @3 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold5S :: Assertion
 testSin0Fold5S = do
@@ -723,7 +722,7 @@ testSin0Fold5S = do
                         (sreplicate @f @3
                                     (sreplicate @f @2
                                                 (sreplicate @f @5 a0)))
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold6S :: Assertion
 testSin0Fold6S = do
@@ -736,7 +735,7 @@ testSin0Fold6S = do
                                                       (sreplicate @_ @2 a))
                         (sreplicate @_ @2 (sreplicate @_ @1 a0))
                         (sreplicate @_ @2 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold7S :: Assertion
 testSin0Fold7S = do
@@ -747,7 +746,7 @@ testSin0Fold7S = do
                         (\x _a -> str $ sreplicate @_ @5 $ ssum (str x))
                         (sreplicate @_ @2 (sreplicate @_ @5 a0))
                         (sreplicate @_ @2 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8S :: Assertion
 testSin0Fold8S = do
@@ -761,7 +760,7 @@ testSin0Fold8S = do
                                            $ sin (ssum $ sreplicate @_ @7 a)))
                         (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
                         (sreplicate @_ @3 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8rev :: Assertion
 testSin0Fold8rev = do
@@ -963,7 +962,7 @@ testSin0Scan0 = do
     (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 1)
                f x0 = rscan (\x _a -> sin x)
                             x0 (rzero @f @Double (0 :$: ZSR))
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0Scan1 :: Assertion
 testSin0Scan1 = do
@@ -971,14 +970,14 @@ testSin0Scan1 = do
     (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR Double 5))
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rrepl @Double @1 [1] 42))
-          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+          (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan1ForComparison :: Assertion
 testSin0Scan1ForComparison = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR Double 5))
     (rev' (\x0 -> rfromList [x0, sin x0])
-          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+          (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan2 :: Assertion
 testSin0Scan2 = do
@@ -986,7 +985,7 @@ testSin0Scan2 = do
     (ringestData [1,1,1,1,1] [2.2207726343670955] :: RepN (TKR Double 5))
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rrepl @Double @1 [5] 42))
-          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+          (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan3 :: Assertion
 testSin0Scan3 = do
@@ -994,7 +993,7 @@ testSin0Scan3 = do
     (ringestData [1,1,1,1,1] [1.360788364276732] :: RepN (TKR Double 5))
     (rev' (\a0 -> rscan (\_x a -> sin a)
                         (rreplicate0N [1,1,1,1,1] 84)
-                        (rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+                        (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan4 :: Assertion
 testSin0Scan4 = do
@@ -1002,7 +1001,7 @@ testSin0Scan4 = do
     (ringestData [1,1,1,1,1] [-0.4458209450295252] :: RepN (TKR Double 5))
     (rev' (\a0 -> rscan (\x a -> atan2F (sin x) (sin a))
                         (rreplicate0N [1,1,1,1,1] 2 * a0)
-                        (rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+                        (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan5 :: Assertion
 testSin0Scan5 = do
@@ -1014,7 +1013,7 @@ testSin0Scan5 = do
                                           $ rtr $ rreplicate 7 a))
                         (rreplicate0N [1,1,1,1] 2 * a0)
                         (rreplicate 3 (rreplicate 2 (rreplicate 5 a0))))
-          (FlipR $ OR.constant [1,1,1,1] 1.1))
+          (ringestData [1,1,1,1] [1.1]))
 
 testSin0Scan6 :: Assertion
 testSin0Scan6 = do
@@ -1023,7 +1022,7 @@ testSin0Scan6 = do
     (rev' (\a0 -> rscan (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
-                        (rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
+                        (rreplicate 2 a0)) (ringestData [1,1] [1.1]))
 
 testSin0Scan7 :: Assertion
 testSin0Scan7 = do
@@ -1031,7 +1030,7 @@ testSin0Scan7 = do
     (ringestData [1,1] [310] :: RepN (TKR Double 2))
     (rev' (\a0 -> rscan (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
-                        (rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
+                        (rreplicate 2 a0)) (ringestData [1,1] [1.1]))
 
 testSin0Scan8 :: Assertion
 testSin0Scan8 = do
@@ -1042,7 +1041,7 @@ testSin0Scan8 = do
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 (rreplicate0N [1,1,1] 2 * a0)))
-                        (rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1] 1.1))
+                        (rreplicate 3 a0)) (ringestData [1,1,1] [1.1]))
 
 testSin0Scan8rev :: Assertion
 testSin0Scan8rev = do
@@ -1141,13 +1140,13 @@ testSin0Scan1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [1.1961317861865948] :: RepN (TKR Double 0))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
-                    (rconst (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) 1.1)
+                    (rconst (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1))
 
 testSin0Scan1Rev2ForComparison :: Assertion
 testSin0Scan1Rev2ForComparison = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [1.1961317861865948] :: RepN (TKR Double 0))
-    (rev' (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) 1.1)
+    (rev' (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) (rscalar 1.1))
 
 testSin0Scan1Rev3PP :: Assertion
 testSin0Scan1Rev3PP = do
@@ -1180,13 +1179,13 @@ testSin0Scan1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
     (ringestData [] [-10.076255083995068] :: RepN (TKR Double 0))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rfromList [x0 * 5, x0 * 7])) 1.1)
+                           (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1))
 
 testSin0Scan1Rev3ForComparison :: Assertion
 testSin0Scan1Rev3ForComparison = do
   assertEqualUpToEpsilon' 1e-5
     (ringestData [] [-10.076255083995068] :: RepN (TKR Double 0))
-    (rev' (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) 1.1)
+    (rev' (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) (rscalar 1.1))
 
 testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
@@ -1359,7 +1358,7 @@ testSin0ScanD0 = do
                              (V.fromList [voidFromSh @Double ZSR])
                              x0 (V.singleton $ DynamicRanked
                                  $ rzero @f @Double (0 :$: ZSR))
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0rmapAccumRD0SC :: Assertion
 testSin0rmapAccumRD0SC = do
@@ -1737,7 +1736,7 @@ testSin0rmapAccumRD0R = do
                           (dmkHVector $ V.singleton $ DynamicRanked x0)
                           (dmkHVector $ V.singleton $ DynamicRanked
                               $ rzero @f @Double (0 :$: ZSR))
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0ScanD01 :: Assertion
 testSin0ScanD01 = do
@@ -1749,7 +1748,7 @@ testSin0ScanD01 = do
                              (V.fromList [voidFromSh @Double ZSR])
                              x0 (V.singleton $ DynamicRanked
                                  $ rzero @f @Double (1 :$: ZSR))
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0rmapAccumRD01SC :: Assertion
 testSin0rmapAccumRD01SC = do
@@ -1808,7 +1807,7 @@ testSin0rmapAccumRD01SN = do
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[] (srepl 3)
                                       , DynamicShaped x0 ])
                           (dmkHVector $ V.singleton $ DynamicShaped @Double @'[1] (srepl 0))
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN2 :: Assertion
 testSin0rmapAccumRD01SN2 = do
@@ -1835,7 +1834,7 @@ testSin0rmapAccumRD01SN2 = do
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.singleton $ DynamicShaped x0)
                           (dmkHVector $ V.singleton $ DynamicShaped @Double @'[1] (srepl 0))
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN3 :: Assertion
 testSin0rmapAccumRD01SN3 = do
@@ -1863,7 +1862,7 @@ testSin0rmapAccumRD01SN3 = do
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.singleton $ DynamicShaped x0)
                           (dmkHVector $ V.singleton $ DynamicShaped @Double @'[1, 2] (srepl 0))
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN4 :: Assertion
 testSin0rmapAccumRD01SN4 = do
@@ -1900,7 +1899,7 @@ testSin0rmapAccumRD01SN4 = do
                                          , DynamicShaped @Double @'[1, 2] (srepl 0)
                                          , DynamicShaped @Double @'[1, 2] (srepl 0)
                                          , DynamicShaped @Double @'[1, 2] (srepl 0) ])
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN5 :: Assertion
 testSin0rmapAccumRD01SN5 = do
@@ -1946,7 +1945,7 @@ testSin0rmapAccumRD01SN5 = do
                                          , DynamicShaped @Double @'[1, 2] (srepl 0)
                                          , DynamicShaped @Double @'[1, 2] (srepl 0)
                                          , DynamicShaped @Double @'[1, 2] (srepl 0) ])
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN51 :: Assertion
 testSin0rmapAccumRD01SN51 = do
@@ -2000,7 +1999,7 @@ testSin0rmapAccumRD01SN51 = do
                                                (sfromIntegral (sconstant (sfromR j)))
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 3)
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 4) ]))
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN52 :: Assertion
 testSin0rmapAccumRD01SN52 = do
@@ -2046,7 +2045,7 @@ testSin0rmapAccumRD01SN52 = do
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 2)
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 3)
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 4) ])
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN53 :: Assertion
 testSin0rmapAccumRD01SN53 = do
@@ -2094,7 +2093,7 @@ testSin0rmapAccumRD01SN53 = do
                                       , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 2)
                                       , DynamicShaped @Double @'[5, 3] (sreplicate0N $ sscalar 3)
                                       , DynamicShaped @Double @'[5, 4] (sreplicate0N $ sscalar 4) ])
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531 :: Assertion
 testSin0rmapAccumRD01SN531 = do
@@ -2144,7 +2143,7 @@ testSin0rmapAccumRD01SN531 = do
                                       , DynamicShaped @Double @'[2, 3]
                                          (ingestData
                                            [0.4, -0.01, -0.3, 0.2, 0.5, 1.3]) ])
-           in rfromS . f . sfromR) (FlipR $ OR.fromList [3] [1.1, 2, 3.14]))
+           in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
 testSin0rmapAccumRD01SN531a :: Assertion
 testSin0rmapAccumRD01SN531a = do
@@ -2203,7 +2202,7 @@ testSin0rmapAccumRD01SN531a = do
                                       , DynamicShaped @Double @'[2, 3]
                                          (sfromList0N
                                            [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIntegral (sconstant (sfromR i)), sscalar 0.5, sscalar 1.3]) ])))
-           in rfromS . f . sfromR) (FlipR $ OR.fromList [3] [1.1, 2, 3.14]))
+           in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
 testSin0rmapAccumRD01SN531b0 :: Assertion
 testSin0rmapAccumRD01SN531b0 = do
@@ -2229,7 +2228,7 @@ testSin0rmapAccumRD01SN531b0 = do
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear [0] [] ])))))
                         $ \ !d -> rfromD $ dunHVector d V.! 0
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531bS :: Assertion
 testSin0rmapAccumRD01SN531bS = do
@@ -2253,7 +2252,7 @@ testSin0rmapAccumRD01SN531bS = do
                           (dmkHVector $ V.fromList [ DynamicShaped x0 ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ])))))
                         $ \ !d -> sfromD $ dunHVector d V.! 0
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531bR :: Assertion
 testSin0rmapAccumRD01SN531bR = do
@@ -2278,7 +2277,7 @@ testSin0rmapAccumRD01SN531bR = do
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear [1] [0] ])))))
                         $ \ !d -> rfromD $ dunHVector d V.! 0
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531b0PP :: Assertion
 testSin0rmapAccumRD01SN531b0PP = do
@@ -2536,7 +2535,7 @@ testSin0rmapAccumRD01SN531c = do
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
                                            [sscalar 0.4, sfromIntegral (sconstant (sfromR i))]) ])))
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531d :: Assertion
 testSin0rmapAccumRD01SN531d = do
@@ -2598,7 +2597,7 @@ _testSin0rmapAccumRD01SN531Slice = do
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList [ DynamicShaped x0 ])
                           (dmkHVector $ V.fromList [])))
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN54 :: Assertion
 testSin0rmapAccumRD01SN54 = do
@@ -2630,7 +2629,7 @@ testSin0rmapAccumRD01SN54 = do
                                       , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 2)
                                       , DynamicShaped @Double @'[5, 3] (sreplicate0N $ sscalar 3)
                                       , DynamicShaped @Double @'[5, 4] (sreplicate0N $ sscalar 4) ])
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
 _testSin0rmapAccumRD01SN55 :: Assertion
@@ -2674,7 +2673,7 @@ _testSin0rmapAccumRD01SN55 = do
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.singleton $ DynamicShaped (sreplicate @_ @3 x0))
                           (dmkHVector $ V.fromList [])
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN55acc :: Assertion
 testSin0rmapAccumRD01SN55acc = do
@@ -2727,7 +2726,7 @@ testSin0rmapAccumRD01SN55acc = do
                                       , DynamicShaped @Double @'[2, 3]
                                          (sfromList0N
                                            [sindex0 x0 [1], sscalar (-0.01), sscalar (-0.3), ssum x0, sscalar 0.5, sscalar 1.3]) ])
-           in rfromS . f . sfromR) (FlipR $ OR.fromList [3] [1.1, 2, 3.14]))
+           in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
 testSin0rmapAccumRD01SN56 :: Assertion
 testSin0rmapAccumRD01SN56 = do
@@ -2754,7 +2753,7 @@ testSin0rmapAccumRD01SN56 = do
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.singleton $ DynamicShaped x0)
                           (dmkHVector $ V.fromList [DynamicShaped @Double @'[2] (srepl 0)])
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN57 :: Assertion
 testSin0rmapAccumRD01SN57 = do
@@ -2938,7 +2937,7 @@ testSin0ScanD1 = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              (rrepl @Double @1 [1] 42)))
-          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+          (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0ScanD2 :: Assertion
 testSin0ScanD2 = do
@@ -2948,7 +2947,7 @@ testSin0ScanD2 = do
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
                              (rrepl @Double @1 [5] 42)))
-          (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+          (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0ScanD3 :: Assertion
 testSin0ScanD3 = do
@@ -2966,7 +2965,7 @@ testSin0ScanD3 = do
                             , DynamicRanked
                               (rrepl @Double @6
                                           [3, 4, 5, 6, 7, 8] 32) ]))
-                         (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+                         (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0ScanD4 :: Assertion
 testSin0ScanD4 = do
@@ -2978,7 +2977,7 @@ testSin0ScanD4 = do
                                         (1 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)])
                          (rreplicate0N [1,1,1,1,1] 2 * a0)
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 3 a0)) (FlipR $ OR.constant [1,1,1,1,1] 1.1))
+                          $ rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0ScanD5 :: Assertion
 testSin0ScanD5 = do
@@ -3000,7 +2999,7 @@ testSin0ScanD5 = do
                             , DynamicRanked
                               $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
                          ))
-          (FlipR $ OR.constant [1,1,1,1] 1.1))
+          (ringestData [1,1,1,1] [1.1]))
 
 testSin0ScanD51 :: Assertion
 testSin0ScanD51 = do
@@ -3024,7 +3023,7 @@ testSin0ScanD51 = do
                             , DynamicRanked
                               $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
                          ))
-          (FlipR $ OR.constant [1,1,1,1] 1.1))
+          (ringestData [1,1,1,1] [1.1]))
 
 testSin0ScanD51S :: Assertion
 testSin0ScanD51S = do
@@ -3057,7 +3056,7 @@ testSin0ScanD51S = do
                       , DynamicRanked $ rfromS
                         $ sreplicate @f @3 (sreplicate @f @8 (sreplicate @f @3 a0)) ]
                    )
-           in rfromS . f . sfromR) (FlipR $ OR.constant [1,1,1,1] 1.1))
+           in rfromS . f . sfromR) (ringestData [1,1,1,1] [1.1]))
 
 testSin0ScanD6 :: Assertion
 testSin0ScanD6 = do
@@ -3070,7 +3069,7 @@ testSin0ScanD6 = do
                          (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 1 a0))
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
+                          $ rreplicate 2 a0)) (ringestData [1,1] [1.1]))
 
 testSin0ScanD7 :: Assertion
 testSin0ScanD7 = do
@@ -3080,7 +3079,7 @@ testSin0ScanD7 = do
                          (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 5 a0))
                          (V.singleton $ DynamicRanked
-                          $ rreplicate 2 a0)) (FlipR $ OR.constant [1,1] 1.1))
+                          $ rreplicate 2 a0)) (ringestData [1,1] [1.1]))
 
 testSin0ScanD8 :: Assertion
 testSin0ScanD8 = do
@@ -3096,7 +3095,7 @@ testSin0ScanD8 = do
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] 2 * a0)))
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
-                       (FlipR $ OR.constant [1,1,1] 1.1))
+                       (ringestData [1,1,1] [1.1]))
 
 testSin0ScanD8MapAccum :: Assertion
 testSin0ScanD8MapAccum = do
@@ -3127,7 +3126,7 @@ testSin0ScanD8MapAccum = do
                        $ rreplicate 2 (rreplicate 5
                                       (rreplicate0N [1,1,1] 2 * a0)))
                       (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 4 a0))
-       (FlipR $ OR.constant [1,1,1] 1.1))
+       (ringestData [1,1,1] [1.1]))
 
 testSin0ScanD8rev :: Assertion
 testSin0ScanD8rev = do
@@ -3177,7 +3176,7 @@ testSin0ScanD8rev3 = do
                        (V.singleton $ DynamicRanked $ rreplicate 3 a0))
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [285.95794829475744])
-    (rev' h 1.1)
+    (rev' h (rscalar 1.1))
 
 testSin0ScanD8rev4 :: Assertion
 testSin0ScanD8rev4 = do
@@ -3199,7 +3198,7 @@ testSin0ScanD8rev4 = do
                                          (sfromR @_ @_ @'[] a0) ]))
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [285.95794829475744])
-    (rev' h 1.1)
+    (rev' h (rscalar 1.1))
 
 testSin0ScanD1RevPP :: Assertion
 testSin0ScanD1RevPP = do
@@ -3255,7 +3254,7 @@ testSin0ScanD1Rev2 = do
                 x0 (V.singleton $ DynamicShaped
                     $ sconst (Nested.sfromListPrimLinear @Double @'[2, 2] knownShS [5, 7, 3, 4])
                       !$ (k :.$ ZIS) ))
-          1.1)
+          (rscalar 1.1))
 
 testSin0ScanD1Rev3 :: Assertion
 testSin0ScanD1Rev3 = do
@@ -3266,7 +3265,7 @@ testSin0ScanD1Rev3 = do
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
-                                    (rfromList [x0 * 5, x0]))) 1.1)
+                                    (rfromList [x0 * 5, x0]))) (rscalar 1.1))
 
 testSin0ScanD1Rev3PP :: Assertion
 testSin0ScanD1Rev3PP = do
@@ -3388,7 +3387,7 @@ testSin0FoldNestedS1 = do
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
                               a (sreplicate @_ @7 x))
                             a0 (sreplicate @_ @3 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS1PP :: Assertion
 testSin0FoldNestedS1PP = do
@@ -3641,7 +3640,7 @@ testSin0FoldNestedR2Dummy7 = do
                        a2 (rreplicate 2 x2))
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
-    in f) 0.0001)
+    in f) (rscalar 0.0001))
 
 testSin0FoldNestedR2Tan :: Assertion
 testSin0FoldNestedR2Tan = do
@@ -3655,7 +3654,7 @@ testSin0FoldNestedR2Tan = do
                          a2 (rreplicate 2 x2))
                        a (rreplicate 2 x))
                     z (rreplicate 2 z)
-    in f) 0.0001)
+    in f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR1PP :: Assertion
 testSin0MapAccumNestedR1PP = do
@@ -3758,7 +3757,7 @@ testSin0MapAccumNestedR4 = do
                      a (dmkHVector $ replicate1HVector (SNat @2) $ dunHVector x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in f) 0.0001)
+    in f) (rscalar 0.0001))
 
 testSin0MapAccumNestedR5 :: Assertion
 testSin0MapAccumNestedR5 = do
@@ -3795,7 +3794,7 @@ testSin0MapAccumNestedR5 = do
                      a (dmkHVector $ replicate1HVector (SNat @2) $ dunHVector x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-    in f) 1.1)
+    in f) (rscalar 1.1))
 
 testSin0MapAccumNestedR5r :: Assertion
 testSin0MapAccumNestedR5r = do
@@ -4120,7 +4119,7 @@ testSin0FoldNestedS1FwdFwd0 = do
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
                               a (sreplicate @_ @7 x))
                             a0 (sreplicate @_ @3 a0)
-           in rfromS . sfwd1 f . sfromR) 1.1)
+           in rfromS . sfwd1 f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS1FwdFwd :: Assertion
 testSin0FoldNestedS1FwdFwd = do
@@ -4132,7 +4131,7 @@ testSin0FoldNestedS1FwdFwd = do
                                  x2 * sfwd1 (sfwd1 (\b2 -> srepl 0.7 * b2)) a2)
                               a (sreplicate @_ @7 x))
                             a0 (sreplicate @_ @3 a0)
-           in rfwd1 $ rfromS . sfwd1 f . sfromR) 1.1)
+           in rfwd1 $ rfromS . sfwd1 f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS1RevRev :: Assertion
 testSin0FoldNestedS1RevRev = do
@@ -4144,7 +4143,7 @@ testSin0FoldNestedS1RevRev = do
                                  x2 * srev1 (srev1 (\b2 -> srepl 0.7 * b2)) a2)
                               a (sreplicate @_ @7 x))
                             a0 (sreplicate @_ @3 a0)
-           in rrev1 $ rfromS . srev1 f . sfromR) 1.1)
+           in rrev1 $ rfromS . srev1 f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS2 :: Assertion
 testSin0FoldNestedS2 = do
@@ -4157,7 +4156,7 @@ testSin0FoldNestedS2 = do
                                 a2 (sreplicate @_ @4 x2))
                               a (sreplicate @_ @3 x))
                             a0 (sreplicate @_ @2 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS3 :: Assertion
 testSin0FoldNestedS3 = do
@@ -4172,7 +4171,7 @@ testSin0FoldNestedS3 = do
                                 a2 (sreplicate @_ @2 x2))
                               a (sreplicate @_ @1 x))
                             a0 (sreplicate @_ @2 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS4 :: Assertion
 testSin0FoldNestedS4 = do
@@ -4189,7 +4188,7 @@ testSin0FoldNestedS4 = do
                                 a2 (sreplicate @_ @1 x2))
                               a (sreplicate @_ @2 x))
                             a0 (sreplicate @_ @1 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS5 :: Assertion
 testSin0FoldNestedS5 = do
@@ -4209,7 +4208,7 @@ testSin0FoldNestedS5 = do
                               a (sreplicate @_ @1 x))
                             a0 (sreplicate @_ @1 a0)
 
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS5rev :: Assertion
 testSin0FoldNestedS5rev = do
@@ -4269,7 +4268,7 @@ testSin0FoldNestedSi = do
                                                    (sslice (Proxy @0)
                                                            (Proxy @1) x))))
                             (sreplicate @_ @3 $ srepl 2 * a0) (sreplicate @_ @2 a0)
-           in rfromS . f . sfromR) 1.1)
+           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedR1 :: Assertion
 testSin0FoldNestedR1 = do
@@ -4280,7 +4279,7 @@ testSin0FoldNestedR1 = do
                         rfold (\x2 a2 -> rscalar 0.7 * x2 * a2)
                               a (rreplicate 7 x))
                             a0 (rreplicate 3 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR1RevFwd :: Assertion
 testSin0FoldNestedR1RevFwd = do
@@ -4292,7 +4291,7 @@ testSin0FoldNestedR1RevFwd = do
                                  x2 * rfwd1 (rrev1 (\b2 -> rscalar 0.7 * b2)) a2)
                               a (rreplicate 4 x))
                             a0 (rreplicate 2 a0)
-           in rrev1 $ rfwd1 f) 1.1)
+           in rrev1 $ rfwd1 f) (rscalar 1.1))
 
 testSin0FoldNestedR2 :: Assertion
 testSin0FoldNestedR2 = do
@@ -4305,7 +4304,7 @@ testSin0FoldNestedR2 = do
                                 a2 (rreplicate 4 x2))
                               a (rreplicate 3 x))
                             a0 (rreplicate 2 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR2RevFwd :: Assertion
 testSin0FoldNestedR2RevFwd = do
@@ -4320,7 +4319,7 @@ testSin0FoldNestedR2RevFwd = do
                                 a2 (rreplicate 4 x2))
                               a (rreplicate 3 x))
                             a0 (rreplicate 2 a0)
-           in rfwd1 $ rrev1 $ rfwd1 f) 1.1)
+           in rfwd1 $ rrev1 $ rfwd1 f) (rscalar 1.1))
 
 testSin0FoldNestedR3 :: Assertion
 testSin0FoldNestedR3 = do
@@ -4335,7 +4334,7 @@ testSin0FoldNestedR3 = do
                                 a2 (rreplicate 2 x2))
                               a (rreplicate 1 x))
                             a0 (rreplicate 2 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR4 :: Assertion
 testSin0FoldNestedR4 = do
@@ -4352,7 +4351,7 @@ testSin0FoldNestedR4 = do
                                 a2 (rreplicate 1 x2))
                               a (rreplicate 2 x))
                             a0 (rreplicate 1 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR41 :: Assertion
 testSin0FoldNestedR41 = do
@@ -4369,7 +4368,7 @@ testSin0FoldNestedR41 = do
                                 a2 (rreplicate 1 x2))
                               a (rreplicate 1 x))
                             a0 (rreplicate 1 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR40 :: Assertion
 testSin0FoldNestedR40 = do
@@ -4386,7 +4385,7 @@ testSin0FoldNestedR40 = do
                                 a2 (rreplicate 0 x2))
                               a (rreplicate 0 x))
                             a0 (rreplicate 0 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR400 :: Assertion
 testSin0FoldNestedR400 = do
@@ -4403,7 +4402,7 @@ testSin0FoldNestedR400 = do
                                 a2 (rreplicate 0 x2))
                               a (rreplicate 0 x))
                             a0 (rreplicate 0 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedRi :: Assertion
 testSin0FoldNestedRi = do
@@ -4423,7 +4422,7 @@ testSin0FoldNestedRi = do
                                                 x1 (rreplicate 1 a1))
                                               a (rscan (-) 0 (rslice 0 1 x))))
                             (rreplicate 3 $ (rscalar 2) * a0) (rreplicate 2 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR22 :: Assertion
 testSin0FoldNestedR22 = do
@@ -4438,7 +4437,7 @@ testSin0FoldNestedR22 = do
                               (rfold (\x4 a4 -> x4 * a4) a
                                      (rreplicate 2 x)) (rreplicate 3 x))
                             a0 (rreplicate 2 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR21 :: Assertion
 testSin0FoldNestedR21 = do
@@ -4452,7 +4451,7 @@ testSin0FoldNestedR21 = do
                                 (rscan (\x4 a4 -> x4 + a4) xpa
                                        (rreplicate 2 xpa)))
                             a0 (rreplicate 2 a0)
-           in f) 1.1)
+           in f) (rscalar 1.1))
 
 testSin0FoldNestedR21PP :: Assertion
 testSin0FoldNestedR21PP = do
@@ -4539,7 +4538,7 @@ testSin0revhV4 = do
         => HVector g -> g TKUntyped
       f x =
         rrevDt @g @_ @Double @1 (rscanZip const doms 5 . dunHVector)
-               (FTKUntyped doms3) (dmkHVector x) (ringestData1 [1, 2, 3, 4])
+               (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
@@ -4579,14 +4578,14 @@ testSin0revhV6 = do
         rrevDt @g @_ @Double @1
                (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
                                         in z * z) doms 5 (dunHVector v))
-                (FTKUntyped doms3) (dmkHVector x) (ringestData1 [1, 2, 3, 4])
+                (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
         => HVector (ADVal g)
         -> ADVal g TKUntyped
       h = f
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @1 $ ringestData1 [4.0,6.0,8.0])
+    (V.singleton $ DynamicRanked @Double @1 $ ringestData [3] [4.0,6.0,8.0])
     (crev (h @RepN)
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
 
@@ -4812,7 +4811,7 @@ testSin0revhFold2S = do
   assertEqualUpToEpsilon' 1e-10
     (rreplicate 3 (rscalar (-7.313585321642452e-2)))
     (rev' (rfromS . fFoldSX . sfromR)
-          (FlipR $ treplicateR 3 1.1))
+          (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhFold3S :: Assertion
 testSin0revhFold3S = do

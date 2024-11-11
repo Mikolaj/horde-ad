@@ -7,7 +7,6 @@ module TestAdaptorSimplified
 
 import Prelude
 
-import Data.Array.RankedS qualified as OR
 import Data.Int (Int64)
 import Data.IntMap.Strict qualified as IM
 import Data.List (foldl1')
@@ -28,7 +27,7 @@ import HordeAd.Core.DeltaFreshId (resetIdCounter)
 import HordeAd.Core.TensorAst
 import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), IntegralF (..), RealFloatF (..))
+  (IntegralF (..), RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon
@@ -186,7 +185,7 @@ testZeroZ =
     (rscalar @Double 0)
     (rev' @Double @0 (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
                           f = const 3
-                      in f) 42)
+                      in f) (rscalar 42))
 
 testZeroS :: Assertion
 testZeroS =
@@ -440,7 +439,7 @@ testOverleaf :: Assertion
 testOverleaf =
   assertEqualUpToEpsilon' 1e-10
     (ringestData @_ @Double [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @0 overleaf (FlipR $ OR.fromList [28] [0 .. 27]))
+    (rev' @Double @0 overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafInt64n :: Assertion
 testOverleafInt64n =
@@ -467,13 +466,13 @@ testOverleafInt64p :: Assertion
 testOverleafInt64p =
   assertEqualUpToEpsilon' 1e-10
     (ringestData @_ @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev' @Int64 @0 overleaf (FlipR $ OR.fromList [28] [0 .. 27]))
+    (rev' @Int64 @0 overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCIntp :: Assertion
 testOverleafCIntp =
   assertEqualUpToEpsilon' 1e-10
     (ringestData @_ @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
-    (rev' @CInt @0 overleaf (FlipR $ OR.fromList [28] [0 .. 27]))
+    (rev' @CInt @0 overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCIntToFloatp :: Assertion
 testOverleafCIntToFloatp =
@@ -481,7 +480,7 @@ testOverleafCIntToFloatp =
     (ringestData @_ @Float @1 [28] (replicate 28 0.0))
     (let f :: forall f. ADReady f => f (TKR Float 1) -> f (TKR Float 0)
          f = rfromIntegral . overleaf @CInt . rfloor
-     in rev' @Float @0 f (FlipR $ OR.fromList [28] [0 .. 27]))
+     in rev' @Float @0 f (ringestData [28] [0 .. 27]))
 
 testOverleafPP :: Assertion
 testOverleafPP = do
@@ -887,7 +886,7 @@ testReluSimpler :: Assertion
 testReluSimpler = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [3, 4] [1.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,1.0,1.0])
-    (rev' @Double @2 relu (FlipR $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
+    (rev' @Double @2 relu (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
 
 testReluSimplerPP :: Assertion
 testReluSimplerPP = do
@@ -1036,7 +1035,7 @@ testReluMax :: Assertion
 testReluMax = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [3, 4] [1.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,1.0,1.0])
-    (rev' @Double @2 reluMax (FlipR $ OR.fromList [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
+    (rev' @Double @2 reluMax (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12]))
 
 testReluMaxPP :: Assertion
 testReluMaxPP = do
@@ -1354,27 +1353,27 @@ testFooBuildDt =
   assertEqualUpToEpsilon 1e-5
     (rconst $ Nested.rfromListPrimLinear [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
     (revDt @_ @(TKR Double 1)
-           fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] (rscalar 42)))
+           fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] (rscalar 42)))
 
 testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
   assertEqualUpToEpsilon 1e-5
     (rconst $ Nested.rfromListPrimLinear [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
     (cfwd @_ @(TKR Double 1)
-          fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
+          fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuildFwd :: Assertion
 testFooBuildFwd =
   assertEqualUpToEpsilon 1e-5
     (rconst $ Nested.rfromListPrimLinear [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
     (fwd @_ @(TKR Double 1)
-         fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
+         fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuild :: Assertion
 testFooBuild =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
-    (rev' @Double @1 fooBuild1 (FlipR $ OR.fromList [4] [1.1, 2.2, 3.3, 4]))
+    (rev' @Double @1 fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]))
 
 fooMap1 :: (ADReady target, GoodScalar r, Differentiable r)
         => target (TKR r 0) -> target (TKR r 1)
@@ -1386,7 +1385,7 @@ testFooMap1 :: Assertion
 testFooMap1 =
   assertEqualUpToEpsilon' 1e-3
     (rscalar 4.438131773975095e7)
-    (rev' @Double @1 fooMap1 1.1)
+    (rev' @Double @1 fooMap1 (rscalar 1.1))
 
 barAst :: (GoodScalar r, Differentiable r)
        => (AstTensor AstMethodLet PrimalSpan (TKR r 0), AstTensor AstMethodLet PrimalSpan (TKR r 0)) -> AstTensor AstMethodLet PrimalSpan (TKR r 0)
@@ -1420,7 +1419,7 @@ testFooNoGoAst =
        (rconst $ Nested.rfromListPrimLinear [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @_ @(TKR Double 1)
              f
-             (ringestData1 [1.1, 2.2, 3.3, 4, 5]))
+             (ringestData [5] [1.1, 2.2, 3.3, 4, 5]))
 
 fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
         => target (TKR r 1) -> target (TKR r 1)
@@ -1439,7 +1438,7 @@ testFooNoGo0 =
   assertEqualUpToEpsilon' 1e-6
    (ringestData [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
    (rev' @Double @1 fooNoGo
-         (FlipR $ OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
+         (ringestData [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 nestedBuildMap :: forall target r.
                   (ADReady target, GoodScalar r, Differentiable r)
@@ -1461,7 +1460,7 @@ testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 107.25984443006627)
-    (rev' @Double @1 nestedBuildMap 1.1)
+    (rev' @Double @1 nestedBuildMap (rscalar 1.1))
 
 nestedSumBuild :: (ADReady target, GoodScalar r, Differentiable r)
                => target (TKR r 1) -> target (TKR r 1)
@@ -1486,7 +1485,7 @@ testNestedSumBuild :: Assertion
 testNestedSumBuild =
   assertEqualUpToEpsilon' 1e-8
     (ringestData [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
-    (rev' @Double @1 nestedSumBuild (FlipR $ OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @Double @1 nestedSumBuild (ringestData [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 nestedBuildIndex :: forall target r. (ADReady target, GoodScalar r)
                  => target (TKR r 1) -> target (TKR r 1)
@@ -1497,7 +1496,7 @@ testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [5] [1,1,0,0,0])
-    (rev' @Double @1 nestedBuildIndex (FlipR $ OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @Double @1 nestedBuildIndex (ringestData [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
   :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
@@ -1515,13 +1514,13 @@ testBarRelu :: Assertion
 testBarRelu =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [4.5309153191767395])
-    (rev' @Double @0 barRelu (FlipR $ OR.fromList [] [1.1]))
+    (rev' @Double @0 barRelu (ringestData [] [1.1]))
 
 testBarRelu3 :: Assertion
 testBarRelu3 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
-    (rev' @Double @3 barRelu (FlipR $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+    (rev' @Double @3 barRelu (ringestData [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluMax0
   :: ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR r n)) )
@@ -1544,19 +1543,19 @@ testBarReluMax :: Assertion
 testBarReluMax =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [4.5309153191767395])
-    (rev' @Double @0 barReluMax (FlipR $ OR.fromList [] [1.1]))
+    (rev' @Double @0 barReluMax (ringestData [] [1.1]))
 
 testBarReluMax30 :: Assertion
 testBarReluMax30 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1] [4.5309153191767395])
-    (rev' @Double @1 barReluMax0 (FlipR $ OR.fromList [1] [1.1]))
+    (rev' @Double @1 barReluMax0 (ringestData [1] [1.1]))
 
 testBarReluMax31 :: Assertion
 testBarReluMax31 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
-    (rev' @Double @3 barReluMax (FlipR $ OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+    (rev' @Double @3 barReluMax (ringestData [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 testBarReluMax3CFwd :: Assertion
 testBarReluMax3CFwd =
@@ -1672,7 +1671,7 @@ testF11 :: Assertion
 testF11 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 45.0)
-    (rev' @Double @0 f1 1.1)
+    (rev' @Double @0 f1 (rscalar 1.1))
 
 f2 :: forall target r. (ADReady target, GoodScalar r)
    => target (TKR r 0) -> target (TKR r 0)
@@ -1695,7 +1694,7 @@ testF21 :: Assertion
 testF21 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 470)
-    (rev' @Double @0 f2 1.1)
+    (rev' @Double @0 f2 (rscalar 1.1))
 
 testF2CFwd :: Assertion
 testF2CFwd =
@@ -1723,7 +1722,7 @@ testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 4.0)
-    (rev' @Double @2 braidedBuilds 3.4)
+    (rev' @Double @2 braidedBuilds (rscalar 3.4))
 
 recycled :: (ADReady target, GoodScalar r, Differentiable r)
          => target (TKR r 0) -> target (TKR r 5)
@@ -1735,7 +1734,7 @@ testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilonShort 1e-6
     (rscalar 348356.9278600814)
-    (rev' @Double @5 recycled 0.0000001)
+    (rev' @Double @5 recycled (rscalar 0.0000001))
 
 concatBuild :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 concatBuild r =
@@ -1748,7 +1747,7 @@ testConcatBuild1 :: Assertion
 testConcatBuild1 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 126.0)
-    (rev' @Double @2 concatBuild 3.4)
+    (rev' @Double @2 concatBuild (rscalar 3.4))
 
 concatBuild2 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild2 r =
@@ -1759,7 +1758,7 @@ testConcatBuild2 :: Assertion
 testConcatBuild2 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 2.0)
-    (rev' @Double @1 concatBuild2 3.4)
+    (rev' @Double @1 concatBuild2 (rscalar 3.4))
 
 concatBuild3 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild3 r =
@@ -1770,7 +1769,7 @@ testConcatBuild3 :: Assertion
 testConcatBuild3 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1)
-    (rev' @Double @1 concatBuild3 3.4)
+    (rev' @Double @1 concatBuild3 (rscalar 3.4))
 
 concatBuild4 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild4 r =
@@ -1782,7 +1781,7 @@ testConcatBuild4 :: Assertion
 testConcatBuild4 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 10)
-    (rev' @Double @1 concatBuild4 3.4)
+    (rev' @Double @1 concatBuild4 (rscalar 3.4))
 
 concatBuild5 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild5 r =
@@ -1795,7 +1794,7 @@ testConcatBuild5 :: Assertion
 testConcatBuild5 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 10)
-    (rev' @Double @1 concatBuild5 3.4)
+    (rev' @Double @1 concatBuild5 (rscalar 3.4))
 
 concatBuild6 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 concatBuild6 r =
@@ -1812,7 +1811,7 @@ testConcatBuild6 :: Assertion
 testConcatBuild6 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 161)
-    (rev' @Double @2 concatBuild6 3.4)
+    (rev' @Double @2 concatBuild6 (rscalar 3.4))
 
 concatBuild7 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild7 r =
@@ -1825,7 +1824,7 @@ testConcatBuild7 :: Assertion
 testConcatBuild7 =
   assertEqualUpToEpsilon' 1e-10
     10
-    (rev' @Double @1 concatBuild7 3.4)
+    (rev' @Double @1 concatBuild7 (rscalar 3.4))
 
 -- These tests show that term rewriting changes the value
 -- of out-of-bounds indexing, e.g., of gather(replicate)
@@ -1841,7 +1840,7 @@ _testConcatBuild8 :: Assertion
 _testConcatBuild8 =
   assertEqualUpToEpsilon' 1e-10
     10
-    (rev' @Double @1 _concatBuild8 3.4)
+    (rev' @Double @1 _concatBuild8 (rscalar 3.4))
 
 _concatBuild9 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 _concatBuild9 r =
@@ -1858,7 +1857,7 @@ _testConcatBuild9 :: Assertion
 _testConcatBuild9 =
   assertEqualUpToEpsilon' 1e-10
     161
-    (rev' @Double @2 _concatBuild9 3.4)
+    (rev' @Double @2 _concatBuild9 (rscalar 3.4))
 
 concatBuild10 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 2)
 concatBuild10 r =
@@ -1875,7 +1874,7 @@ testConcatBuild10 :: Assertion
 testConcatBuild10 =
   assertEqualUpToEpsilon' 1e-10
     91
-    (rev' @Double @2 concatBuild10 3.4)
+    (rev' @Double @2 concatBuild10 (rscalar 3.4))
 
 concatBuild11 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild11 r =
@@ -1885,7 +1884,7 @@ testConcatBuild11 :: Assertion
 testConcatBuild11 =
   assertEqualUpToEpsilon' 1e-10
     0
-    (rev' @Double @1 concatBuild11 3.4)
+    (rev' @Double @1 concatBuild11 (rscalar 3.4))
 
 concatBuild12 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 0)
 concatBuild12 r =
@@ -1895,7 +1894,7 @@ testConcatBuild12 :: Assertion
 testConcatBuild12 =
   assertEqualUpToEpsilon' 1e-10
     0
-    (rev' @Double @0 concatBuild12 3.4)
+    (rev' @Double @0 concatBuild12 (rscalar 3.4))
 
 emptyArgs :: forall target r. (ADReady target, GoodScalar r) -- , Differentiable r)
           => target (TKR r 1) -> target (TKR r 1)
@@ -1925,13 +1924,13 @@ testEmptyArgs0 :: Assertion
 testEmptyArgs0 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [0] [])
-    (rev' @Double @1 emptyArgs (FlipR $ OR.fromList [0] []))
+    (rev' @Double @1 emptyArgs (ringestData [0] []))
 
 testEmptyArgs1 :: Assertion
 testEmptyArgs1 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1] [0])
-    (rev' @Double @1 emptyArgs (FlipR $ OR.fromList [1] [0.24]))
+    (rev' @Double @1 emptyArgs (ringestData [1] [0.24]))
 
 testEmptyArgs4 :: Assertion
 testEmptyArgs4 =
@@ -1939,7 +1938,7 @@ testEmptyArgs4 =
     (ringestData [1] [0])
     (rev' @Double @1
           (\t -> rbuild [2, 5, 11, 0] (const $ emptyArgs t))
-          (FlipR $ OR.fromList [1] [0.24]))
+          (ringestData [1] [0.24]))
 
 filterPositiveFail :: ADReady target
                    => target (TKR Double 1) -> target (TKR Double 1)
@@ -1958,7 +1957,7 @@ testFilterPositiveFail =
     (ringestData [5] [1.0,1.0,1.0,0.0,0.0])
     (rev' @Double @1
           filterPositiveFail
-          (FlipR $ OR.fromList [5] [0.24, 52, -0.5, 0.33, 0.1]))
+          (ringestData [5] [0.24, 52, -0.5, 0.33, 0.1]))
 
 -- Catastrophic loss of sharing prevented.
 fblowup :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
@@ -2044,41 +2043,41 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   [ testCase "blowup 7" $ do
       assertEqualUpToEpsilon' 1e-5
         (ringestData [2] [0.3333332333333467,-0.22222215555556446])
-        (rev' @Double @0 (fblowup 7) (FlipR $ OR.fromList [2] [2, 3]))
+        (rev' @Double @0 (fblowup 7) (ringestData [2] [2, 3]))
   , testCase "blowupLet 15" $ do
       assertEqualUpToEpsilon' 1e-10
         (ringestData [2] [0.3333331833333646,-0.22222212222224305])
-        (rev' @Double @0 (fblowupLet 0 15) (FlipR $ OR.fromList [2] [2, 3]))
+        (rev' @Double @0 (fblowupLet 0 15) (ringestData [2] [2, 3]))
   , testCase "blowupLet 1000" $ do
       assertEqualUpToEpsilon' 1e-10
         (ringestData [2] [0.3333233334831686,-0.22221555565544573])
-        (rev' @Double @0 (fblowupLet 0 1000) (FlipR $ OR.fromList [2] [2, 3]))
+        (rev' @Double @0 (fblowupLet 0 1000) (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
         (ringestData [2] [33.332333348316844,-22.221555565544556])
         (rev' @Double @1
               (\intputs -> rbuild1 100 (\i -> fblowupLet i 1000 intputs))
-              (FlipR $ OR.fromList [2] [2, 3]))
+              (ringestData [2] [2, 3]))
   , testCase "blowupMult 3" $ do
       assertEqualUpToEpsilon' 1e-5
         (ringestData [2] [2.999999730000007,1.9999998200000046])
-        (rev' @Double @0 (fblowupMult 3) (FlipR $ OR.fromList [2] [2, 3]))
+        (rev' @Double @0 (fblowupMult 3) (ringestData [2] [2, 3]))
   , testCase "blowupMultLet 5" $ do
       assertEqualUpToEpsilon' 1e-10
         (ringestData [2] [2.9999995500000267,1.9999997000000178])
         (rev' @Double @0 (fblowupMultLet 0 5)
-                                   (FlipR $ OR.fromList [2] [2, 3]))
+                                   (ringestData [2] [2, 3]))
   , testCase "blowupMultLet 50" $ do
       assertEqualUpToEpsilon' 1e-10
         (ringestData [2] [2.999995500001215,1.99999700000081])
         (rev' @Double @0 (fblowupMultLet 0 50)
-                                   (FlipR $ OR.fromList [2] [2, 3]))
+                                   (ringestData [2] [2, 3]))
   , testCase "blowupMultLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
         (ringestData [2] [14.9999773958889,39.9999398380561])
         (rev' @Double @1
               (\intputs -> rbuild1 100 (\i -> fblowupMultLet i 50 intputs))
-              (FlipR $ OR.fromList [2] [0.2, 0.3]))
+              (ringestData [2] [0.2, 0.3]))
   ]
 
 concatBuild33 :: (ADReady target, GoodScalar r)
@@ -2103,7 +2102,7 @@ testConcatBuild3PP2 = do
   let renames = IM.empty
       t = concatBuild33 @(AstTensor AstMethodLet FullSpan) @Double
   let (artifactRev, _) =
-        revArtifactAdapt True t (RepN $ FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [3] [0.651,0.14,0.3414])
+        revArtifactAdapt True t (ringestData [3] [0.651,0.14,0.3414])
   printArtifactSimple renames artifactRev
     @?= "\\m8 x1 -> rreshape [3] (rreplicate 3 0.0)"
   printArtifactPrimalSimple renames artifactRev

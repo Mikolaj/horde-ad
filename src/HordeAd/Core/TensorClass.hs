@@ -14,7 +14,7 @@ module HordeAd.Core.TensorClass
     -- * The tensor classes
   , LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)
-  , tunit, rfromD, sfromD, rscalar, rrepl, ringestData, ringestData1
+  , tunit, rfromD, sfromD, rscalar, rrepl, ringestData
   , ingestData, sscalar, srepl, xrepl, nullRep
   , mapDynamic2
     -- * The giga-constraint
@@ -1209,10 +1209,6 @@ ringestData :: forall target r n.
               (GoodScalar r, KnownNat n, BaseTensor target)
            => [Int] -> [r] -> target (TKR r n)
 ringestData sh l = rconst $ Nested.rfromListPrimLinear (listToShape sh) l
-
-ringestData1 :: forall target r. (GoodScalar r, BaseTensor target)
-            => [r] -> target (TKR r 1)
-ringestData1 l = rconst $ Nested.rfromList1Prim l
 
 ingestData :: forall target r sh.
               (GoodScalar r, KnownShS sh, BaseTensor target)
