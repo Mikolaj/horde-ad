@@ -1351,22 +1351,22 @@ fooBuild1 v =
 
 testFooBuildDt :: Assertion
 testFooBuildDt =
-  assertEqualUpToEpsilon1 1e-5
-    (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
+  assertEqualUpToEpsilon 1e-5
+    (rconst $ Nested.rfromListPrimLinear [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
     (revDt @_ @(TKR Double 1)
            fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] (rscalar 42)))
 
 testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
-  assertEqualUpToEpsilon1 1e-5
-    (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
+  assertEqualUpToEpsilon 1e-5
+    (rconst $ Nested.rfromListPrimLinear [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
     (cfwd @_ @(TKR Double 1)
           fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuildFwd :: Assertion
 testFooBuildFwd =
-  assertEqualUpToEpsilon1 1e-5
-    (OR.fromList [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
+  assertEqualUpToEpsilon 1e-5
+    (rconst $ Nested.rfromListPrimLinear [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
     (fwd @_ @(TKR Double 1)
          fooBuild1 (ringestData1 [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
@@ -1416,8 +1416,8 @@ testFooNoGoAst =
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (fooNoGoAst (AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon1 1e-6
-       (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
+  in assertEqualUpToEpsilon 1e-6
+       (rconst $ Nested.rfromListPrimLinear [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (crev @_ @(TKR Double 1)
              f
              (ringestData1 [1.1, 2.2, 3.3, 4, 5]))
@@ -1506,8 +1506,8 @@ barRelu x = relu $ bar (x, relu x)
 
 testBarReluDt :: Assertion
 testBarReluDt =
-  assertEqualUpToEpsilon1 1e-10
-    (OR.fromList [] [191.20462646925841])
+  assertEqualUpToEpsilon 1e-10
+    (rconst $ Nested.rfromListPrimLinear [] [191.20462646925841])
     (revDt @_ @(TKR Double 0)
            barRelu (rscalar 1.1) (rscalar 42.2))
 
@@ -1535,8 +1535,8 @@ barReluMax x = reluMax $ bar (x, reluMax x)
 
 testBarReluMaxDt :: Assertion
 testBarReluMaxDt =
-  assertEqualUpToEpsilon1 1e-10
-    (OR.fromList [] [191.20462646925841])
+  assertEqualUpToEpsilon 1e-10
+    (rconst $ Nested.rfromListPrimLinear [] [191.20462646925841])
     (revDt @_ @(TKR Double 0)
            barReluMax (rfromList0N [] [rscalar 1.1]) (rscalar 42.2))
 
@@ -1560,8 +1560,8 @@ testBarReluMax31 =
 
 testBarReluMax3CFwd :: Assertion
 testBarReluMax3CFwd =
-  assertEqualUpToEpsilon1 1e-10
-    (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+  assertEqualUpToEpsilon 1e-10
+    (rconst $ Nested.rfromListPrimLinear [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (cfwd @_ @(TKR Double 3)
           barReluMax
                      (rconst $ Nested.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
@@ -1600,8 +1600,8 @@ testBarReluMax3FwdFrom =
 
 testBarReluMax3FwdR :: Assertion
 testBarReluMax3FwdR =
-  assertEqualUpToEpsilon1 1e-10
-    (OR.fromList [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
+  assertEqualUpToEpsilon 1e-10
+    (rconst $ Nested.rfromListPrimLinear [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
     (fwd @_ @(TKR Double 3)
          barReluMax
          (ringestData [2, 1, 2] [1.1, 2, 3, 4.2])
@@ -1622,8 +1622,8 @@ testBarReluAst0 =
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (barReluAst (AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon1 1e-10
-       (OR.fromList [] [191.20462646925841])
+  in assertEqualUpToEpsilon 1e-10
+       (rconst $ Nested.rfromListPrimLinear [] [191.20462646925841])
        (crevDt @_ @(TKR Double 0)
                f (rscalar 1.1) (rscalar 42.2))
 
@@ -1635,8 +1635,8 @@ testBarReluAst1 =
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (barReluAst (AstVar (FTKR [5]) (mkAstVarName . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon1 1e-10
-       (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
+  in assertEqualUpToEpsilon 1e-10
+       (rconst $ Nested.rfromListPrimLinear [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
        (crev @_ @(TKR Double 1)
              f (rfromList0N [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
 
@@ -1654,8 +1654,8 @@ testReplicateReluAst =
                             (mkAstVarName $ intToAstVarId 100000000)
                             x emptyEnv)
                          (konstReluAst (AstVar (FTKR []) (mkAstVarName . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon1 1e-10
-       (OR.fromList [] [295.4])
+  in assertEqualUpToEpsilon 1e-10
+       (rconst $ Nested.rfromListPrimLinear [] [295.4])
        (crevDt @_ @(TKR Double 0)
                f (rscalar 1.1) (rscalar 42.2))
 
