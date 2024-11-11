@@ -1,7 +1,7 @@
 -- | Testing harness that differentiates a single objective function using
 -- over a twenty different pipeline variants and compares the results.
 module CrossTesting
-  ( rev', assertEqualUpToEpsilon', assertEqualUpToEpsilon2', assertEqualUpToEpsilonShort
+  ( rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16OR, t16b, t48, t48OR, t128, t128OR, t128b, t128c
   , rrev1, rrev2, rfwd1, srev1, sfwd1
   , treplicateR, tfromListR, tfromList0NR, tsumR
@@ -230,25 +230,6 @@ rev' f valsOR =
      , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
      , vals, cderivative, derivative, derivativeRfwd1 )
 
-assertEqualUpToEpsilon2'
-    :: ( KnownNat n, KnownNat m
-       , v ~ RepN (TKR r m)
-       , w ~ RepN (ADTensorKind (TKR r m))
-       , a ~ RepN (ADTensorKind (TKR r n))
-       , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
-       , AssertEqualUpToEpsilon (ADTensorScalar r)
-       , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
-    => Rational  -- ^ error margin (i.e., the epsilon)
-    -> RepN (TKR r n)  -- ^ expected reverse derivative value
-    -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-       , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
-       , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-       , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , RepN (TKR r n), w, w, w )
-         -- ^ actual values
-    -> Assertion
-assertEqualUpToEpsilon2' errMargin expected' actual = assertEqualUpToEpsilon' errMargin (Nested.rtoOrthotope $ runFlipR $ unRepN expected') actual
-
 assertEqualUpToEpsilon'
     :: ( KnownNat n, KnownNat m
        , v ~ RepN (TKR r m)
@@ -258,7 +239,7 @@ assertEqualUpToEpsilon'
        , AssertEqualUpToEpsilon (ADTensorScalar r)
        , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> OR.Array n r  -- ^ expected reverse derivative value
+    -> RepN (TKR r n)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
@@ -284,8 +265,7 @@ assertEqualUpToEpsilon'
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1 ) = do
-  let fromORArray t = Nested.rfromOrthotope SNat t
-      expected = toADTensorKindShared stensorKind $ RepN $ FlipR $ fromORArray expected'
+  let expected = toADTensorKindShared stensorKind expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
