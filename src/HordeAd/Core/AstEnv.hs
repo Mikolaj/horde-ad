@@ -124,7 +124,7 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target
            -> AstEnv target
-extendEnvI var !i !env = extendEnv var (rconstant i) env
+extendEnvI var !i !env = extendEnv var (rfromPrimal i) env
 
 extendEnvVars :: forall target m. BaseTensor target
               => AstVarList m -> IndexOf target m

@@ -804,17 +804,17 @@ testVT2OPPNonLin = do
                          (AstTensor AstMethodLet FullSpan) Float
                     -> AstTensor AstMethodLet FullSpan (TKR Float 1)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
-      constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstCast $ AstConstant $ AstConst $ runFlipR $ unRepN a1
-                      , AstCast $ AstConstant $ AstConst $ runFlipR $ unRepN a2 )
-                    , ( AstConstant $ AstCast $ AstConst $ runFlipR $ unRepN a3
-                      , AstConstant $ AstCast $ AstConst $ runFlipR $ unRepN a4 )
-                    , ( AstCast $ AstConstant $ AstConst $ runFlipR $ unRepN a5
-                      , AstConstant $ AstCast $ AstConst $ runFlipR $ unRepN a6 ) )
+      fromPrimal = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
+                 in ( ( AstCast $ AstFromPrimal $ AstConst $ runFlipR $ unRepN a1
+                      , AstCast $ AstFromPrimal $ AstConst $ runFlipR $ unRepN a2 )
+                    , ( AstFromPrimal $ AstCast $ AstConst $ runFlipR $ unRepN a3
+                      , AstFromPrimal $ AstCast $ AstConst $ runFlipR $ unRepN a4 )
+                    , ( AstCast $ AstFromPrimal $ AstConst $ runFlipR $ unRepN a5
+                      , AstFromPrimal $ AstCast $ AstConst $ runFlipR $ unRepN a6 ) )
       (_, ast3) = funToAst (FTKR @Float $ singletonShape 0)
-                           (const $ afcnn2TnonLin constant)
+                           (const $ afcnn2TnonLin fromPrimal)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dummy -> tlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rconstant 7.0))) * rconstant (rconst (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rconstant (rconst (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> tlet (rconstant (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rconstant (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rconstant (rconst (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rconstant (rcast (rconst (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> tlet (rconstant (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rconstant (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rconstant (rconst (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rconstant (rcast (rconst (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
+    @?= "\\dummy -> tlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rfromPrimal 7.0))) * rfromPrimal (rconst (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rfromPrimal (rconst (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> tlet (rfromPrimal (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rfromPrimal (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rfromPrimal (rconst (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rfromPrimal (rcast (rconst (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> tlet (rfromPrimal (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rfromPrimal (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rfromPrimal (rconst (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rfromPrimal (rcast (rconst (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
 
 testVT2OPPNonLin2 :: Assertion
 testVT2OPPNonLin2 = do

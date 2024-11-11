@@ -53,7 +53,7 @@ rmaximum t0 = tlet t0 $ \t ->
 rfromIndex0 :: forall r target.
                (BaseTensor target, GoodScalar r)
             => IntOf target -> target (TKR r 0)
-rfromIndex0 = rfromIntegral . rconstant
+rfromIndex0 = rfromIntegral . rfromPrimal
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n
@@ -62,7 +62,7 @@ rfromIndex1 :: forall n r target.
             => IndexOf target n -> target (TKR r 1)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rconstant . rfromList . NonEmpty.fromList . indexToList
+  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . indexToList
 
 rint64FromIndex1 :: forall n target.
                     ( KnownNat n
@@ -70,7 +70,7 @@ rint64FromIndex1 :: forall n target.
                  => IndexOf target n -> target (TKR Int64 1)
 rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconst $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rconstant . rfromList . NonEmpty.fromList . indexToList
+  _ -> rfromPrimal . rfromList . NonEmpty.fromList . indexToList
 
 rint64ToIndex1 :: forall n target.
                   ( KnownNat n
@@ -87,7 +87,7 @@ tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 scale :: forall target r n.
          (ADReady target, GoodScalar r, KnownNat n)
       => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r n)
-scale a d = rconstant @target a * d
+scale a d = rfromPrimal @target a * d
 -- This should be faster, but is slower. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
 -- scale a d = rD (a * rprimalPart d) (rScale @r a (rdualPart d))
@@ -113,7 +113,7 @@ logistic :: forall target r n.
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
       y0 = recip (rreplicate0N sh 1 + exp (- rprimalPart @target d))
-  in tlet (rconstant @target y0)  -- we don't have tletPrimal
+  in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
      $ \y1 -> let y = rprimalPart @target y1
               in rD y (rScale @target (y * (rreplicate0N sh 1 - y))
                        $ rdualPart @target d)
@@ -132,7 +132,7 @@ squaredDifference
   :: forall target n r.
      (BaseTensor target, KnownNat n, Num (PrimalOf target (TKR r n)), GoodScalar r)
   => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r n)
-squaredDifference targ res = square @target $ res - rconstant @target targ
+squaredDifference targ res = square @target $ res - rfromPrimal @target targ
 
 lossCrossEntropyV
   :: (BaseTensor target, KnownNat n, GoodScalar r, Differentiable r)
@@ -163,10 +163,10 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
               recipSum = recip sumExpU
           in rscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (rconstant @target softMaxU') $ \softMaxU ->
+  in tlet (rfromPrimal @target softMaxU') $ \softMaxU ->
     rD (negate $ log (rprimalPart @target softMaxU) `rdot0` target)
          -- TODO: avoid: log . exp
-       (rdualPart @target $ (softMaxU - rconstant @target target) `rdot0` d)
+       (rdualPart @target $ (softMaxU - rfromPrimal @target target) `rdot0` d)
          -- TODO: probably defining tDot0 would lead to a faster
          -- tDot0 (softMaxU - target) u'
 

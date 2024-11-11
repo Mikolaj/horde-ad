@@ -420,7 +420,7 @@ testGatherTransposeBuild334 =
     (ringestData [2, 1] [1,1])
     (rev' @Double @3
           (\t -> rbuild1 2 (\i ->
-             t * rreplicate 2 (rreplicate 1 (rfromIntegral (rconstant i)))))
+             t * rreplicate 2 (rreplicate 1 (rfromIntegral (rfromPrimal i)))))
          (ringestData [2, 1] [1,2]))
 
 testGatherTransposeBuild335 :: Assertion

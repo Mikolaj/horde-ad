@@ -172,28 +172,28 @@ build1V snat@SNat (var, v00) =
     Ast.AstDualPart v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         astDualPart $ build1V snat (var, v)
-    Ast.AstConstant v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+    Ast.AstFromPrimal v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
       traceRule $
-        Ast.AstConstant $ build1V snat (var, v)
+        Ast.AstFromPrimal $ build1V snat (var, v)
     Ast.AstD u u' | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
       traceRule $
         Ast.AstD (build1VOccurenceUnknown snat (var, u))
                  (build1VOccurenceUnknown snat (var, u'))
-    Ast.AstCond b (Ast.AstConstant v)
-                  (Ast.AstConstant w) -> case stensorKind @y of
+    Ast.AstCond b (Ast.AstFromPrimal v)
+                  (Ast.AstFromPrimal w) -> case stensorKind @y of
       STKScalar _ ->
-        let t = Ast.AstConstant
+        let t = Ast.AstFromPrimal
                 $ astIndexStep (astFromVector
                                 $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
                                (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
       STKR STKScalar{} SNat ->
-        let t = Ast.AstConstant
+        let t = Ast.AstFromPrimal
                 $ astIndexStep (astFromVector $ V.fromList [v, w])
                                (singletonIndex (astCond b 0 1))
         in build1V snat (var, t)
       STKS STKScalar{} sh -> withKnownShS sh $
-        let t = Ast.AstConstant
+        let t = Ast.AstFromPrimal
                 $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                       (astCond b 0 1 :.$ ZIS)
         in build1V snat (var, t)

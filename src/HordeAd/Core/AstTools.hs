@@ -52,7 +52,7 @@ shapeAstFull t = case t of
   AstVar ftk _var -> ftk
   AstPrimalPart a -> shapeAstFull a
   AstDualPart a -> shapeAstFull a
-  AstConstant a -> shapeAstFull a
+  AstFromPrimal a -> shapeAstFull a
   AstD u _ -> shapeAstFull u
   AstCond _b v _w -> shapeAstFull v
   AstReplicate snat v -> buildTensorKindFull snat (shapeAstFull v)
@@ -192,7 +192,7 @@ varInAst var = \case
   AstVar _ var2 -> var == varNameToAstVarId var2
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
-  AstConstant v -> varInAst var v
+  AstFromPrimal v -> varInAst var v
   AstD u u' -> varInAst var u || varInAst var u'
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstReplicate _ v -> varInAst var v
@@ -333,7 +333,7 @@ astIsSmall relaxed = \case
   AstVar{} -> True
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
-  AstConstant v -> astIsSmall relaxed v
+  AstFromPrimal v -> astIsSmall relaxed v
   AstReplicate _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
 

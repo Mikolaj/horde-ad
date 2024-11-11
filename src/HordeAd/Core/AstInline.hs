@@ -100,7 +100,7 @@ inlineAst memo v0 = case v0 of
     in (EM.alter f (varNameToAstVarId var) memo, v0)
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
-  Ast.AstConstant a -> second Ast.AstConstant $ inlineAst memo a
+  Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ inlineAst memo a
   Ast.AstD u u' ->
     let (memo1, t1) = inlineAst memo u
         (memo2, t2) = inlineAst memo1 u'
@@ -452,7 +452,7 @@ unshareAst memo = \case
   Ast.AstVar sh v -> (memo, Ast.AstVar sh v)
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ unshareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ unshareAst memo a
-  Ast.AstConstant a -> second Ast.AstConstant $ unshareAst memo a
+  Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ unshareAst memo a
   Ast.AstD u u' ->
     let (memo1, t1) = unshareAst memo u
         (memo2, t2) = unshareAst memo1 u'

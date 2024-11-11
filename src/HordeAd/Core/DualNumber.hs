@@ -5,7 +5,7 @@
 -- | Dual numbers and arithmetic operations on them.
 module HordeAd.Core.DualNumber
   ( -- * The main dual number type
-    ADVal, pattern D, dD, dDnotShared, constantADVal
+    ADVal, pattern D, dD, dDnotShared, fromPrimalADVal
     -- * Auxiliary definitions
   , unPairG, unPairGUnshared
   , indexPrimal, fromVector, indexPrimalS, fromVectorS, indexPrimalX, fromVectorX
@@ -169,8 +169,8 @@ intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
   STKX STKScalar{} sh -> withKnownShX sh $ xconst $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
   _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
 
-constantADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
-constantADVal a = dDnotShared a (ZeroG $ tshapeFull stensorKind a)
+fromPrimalADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
+fromPrimalADVal a = dDnotShared a (ZeroG $ tshapeFull stensorKind a)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
@@ -427,7 +427,7 @@ instance (Num (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
   signum (D v _) = dDnotShared (signum v) (ZeroG $ tshapeFull stensorKind v)
-  fromInteger = constantADVal . fromInteger
+  fromInteger = fromPrimalADVal . fromInteger
 
 instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
@@ -462,7 +462,7 @@ instance (Fractional (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
     let !v = tshare ve
         minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
-  fromRational = constantADVal . fromRational
+  fromRational = fromPrimalADVal . fromRational
 
 instance (Floating (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
@@ -478,7 +478,7 @@ instance (Floating (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
       KnownNat n
       => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  pi = constantADVal pi
+  pi = fromPrimalADVal pi
   exp (D ue u') = let !expU = tshare (exp ue)
                   in dD expU (dScale expU u')
   log (D ue u') = let !u = tshare ue
@@ -563,7 +563,7 @@ instance (RealFloat (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
   floatDigits (D u _) = floatDigits u
   floatRange (D u _) = floatRange u
   decodeFloat (D u _) = decodeFloat u
-  encodeFloat i j = constantADVal (encodeFloat i j)
+  encodeFloat i j = fromPrimalADVal (encodeFloat i j)
   isNaN (D u _) = isNaN u
   isInfinite (D u _) = isInfinite u
   isDenormalized (D u _) = isDenormalized u

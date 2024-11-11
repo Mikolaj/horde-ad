@@ -77,7 +77,7 @@ convMnistTwoR
 convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
-  let t1 = convMnistLayerR ker1 (rconstant input) bias1
+  let t1 = convMnistLayerR ker1 (rfromPrimal input) bias1
       t2 = convMnistLayerR ker2 t1 bias2
              -- [ batch_size, c_out
              -- , SizeMnistHeight `Div` 4, SizeMnistWidth `Div` 2 ]
@@ -112,7 +112,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
                              batch_size input adparameters
       targets = rtr labelR
       loss = lossSoftMaxCrossEntropyR targets result
-  in rconstant (recip $ fromIntegral batch_size) * loss
+  in rfromPrimal (recip $ fromIntegral batch_size) * loss
 
 convMnistTestR
   :: forall target r.

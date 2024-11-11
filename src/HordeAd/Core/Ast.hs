@@ -90,10 +90,10 @@ instance AstSpan PrimalSpan where
   fromPrimal = id
 
 instance AstSpan DualSpan where
-  fromPrimal t = AstDualPart $ AstConstant t  -- this is nil (not primal 0)
+  fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is nil (not primal 0)
 
 instance AstSpan FullSpan where
-  fromPrimal = AstConstant
+  fromPrimal = AstFromPrimal
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
@@ -265,7 +265,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
                 => AstTensor ms FullSpan y -> AstTensor ms PrimalSpan y
   AstDualPart :: TensorKind y
               => AstTensor ms FullSpan y -> AstTensor ms DualSpan y
-  AstConstant :: TensorKind y
+  AstFromPrimal :: TensorKind y
               => AstTensor ms PrimalSpan y -> AstTensor ms FullSpan y
   AstD :: TensorKind y
        => AstTensor ms PrimalSpan y -> AstTensor ms DualSpan y
@@ -712,7 +712,7 @@ instance (Num (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
     Just Refl -> fromPrimal . AstConst . fromInteger $ i
     Nothing -> error $ "fromInteger not defined for Ast of non-zero ranks: "
                        ++ show (i, valueOf @n :: Int)
-    -- it's crucial that there is no AstConstant in fromInteger code
+    -- it's crucial that there is no AstFromPrimal in fromInteger code
     -- so that we don't need 4 times the simplification rules
 
 -- Warning: div and mod operations are very costly (simplifying them

@@ -95,7 +95,7 @@ rnnMnistTwoS out_width@SNat
               vec1 = rnnMnistLayerS sizeMnistHeightHere
                                     out_width
                                     batch_size
-                                    s1 (sconstant x) (wX, wS, b)
+                                    s1 (sfromPrimal x) (wX, wS, b)
               vec2 = rnnMnistLayerS out_width
                                     out_width
                                     batch_size
@@ -140,7 +140,7 @@ rnnMnistLossFusedS out_width@SNat
                              xs adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in sconstant (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
+  in sfromPrimal (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
 
 rnnMnistTestS
   :: forall target h w out_width batch_size r.

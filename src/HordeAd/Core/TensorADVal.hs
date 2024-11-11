@@ -170,7 +170,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
          => DualNumberValue (ADVal target (TKR r n)) where
   type DValue (ADVal target (TKR r n)) = RepN (TKR r n)  -- ! not Value(target)
-  fromDValue t = constantADVal $ rconst $ runFlipR $ unRepN t
+  fromDValue t = fromPrimalADVal $ rconst $ runFlipR $ unRepN t
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target)
@@ -188,7 +188,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS r sh)) where
   type DValue (ADVal target (TKS r sh)) = RepN (TKS r sh)   -- ! not Value(shaped)
-  fromDValue t = constantADVal $ sconst $ runFlipS $ unRepN t
+  fromDValue t = fromPrimalADVal $ sconst $ runFlipS $ unRepN t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance ( a ~ target (TKR r n), BaseTensor target
@@ -257,13 +257,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u
-    in constantADVal v
+    in fromPrimalADVal v
   rmaxIndex (D u _) =
     let v = rmaxIndex u
-    in constantADVal v
+    in fromPrimalADVal v
   rfloor (D u _) =
     let v = rfloor u
-    in constantADVal v
+    in fromPrimalADVal v
 
   -- TODO: speed up by using tindex0R and dIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
@@ -277,7 +277,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let !v = tshare ve
     in dD (rdot0 u v) (AddG (Dot0R v u') (Dot0R u v'))
   rscatter sh (D u u') f =
-    let g x = rprimalPart <$> f (rconstant <$> x)
+    let g x = rprimalPart <$> f (rfromPrimal <$> x)
     in dD (rscatter sh u g) (ScatterR sh u' g)
 
   rfromVector = fromVector
@@ -307,7 +307,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                           $ map (f . fromIntegral) [0 .. k - 1]
                    -- element-wise (POPL) version
   rgather sh (D u u') f =
-    let g x = rprimalPart <$> f (rconstant <$> x)
+    let g x = rprimalPart <$> f (rfromPrimal <$> x)
     in dD (rgather sh u g) (GatherR sh u' g)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
@@ -315,8 +315,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rcast (D u u') = dD (rcast u) (CastR u')
   rfromIntegral (D u _) =
     let v = rfromIntegral u
-    in constantADVal v
-  rconst t = constantADVal (rconst t)
+    in fromPrimalADVal v
+  rconst t = fromPrimalADVal (rconst t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal target (TKS r sh) -> ADVal target (TKR r (Rank sh))
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
@@ -326,7 +326,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
 
-  rconstant t = constantADVal t
+  rfromPrimal t = fromPrimalADVal t
   rprimalPart (D u _) = u
   rdualPart (D _ u') = u'
   rD t d = dD t d
@@ -337,23 +337,23 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xfromVector = fromVectorX
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
-  xconst t = constantADVal (xconst t)
-  xconstant t = constantADVal t
+  xconst t = fromPrimalADVal (xconst t)
+  xfromPrimal t = fromPrimalADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
   xD t d = dD t d
 
   sminIndex (D u _) =
     let v = sminIndex u
-    in constantADVal v
+    in fromPrimalADVal v
   smaxIndex (D u _) =
     let v = smaxIndex u
-    in constantADVal v
+    in fromPrimalADVal v
   sfloor (D u _) =
     let v = sfloor u
-    in constantADVal v
+    in fromPrimalADVal v
 
-  siota = constantADVal siota
+  siota = fromPrimalADVal siota
   sindex d i = indexPrimalS d (rprimalPart <$> i)
   ssum (D u u') = dD (ssum u) (SumS u')
   ssum0 (D u u') = dD (ssum0 u) (Sum0S u')
@@ -363,7 +363,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let !v = tshare ve
     in dD (sdot0 u v) (AddG (Dot0S v u') (Dot0S u v'))
   sscatter (D u u') f =
-    let g x = rprimalPart <$> f (rconstant <$> x)
+    let g x = rprimalPart <$> f (rfromPrimal <$> x)
     in dD (sscatter u g) (ScatterS u' g)
 
   sfromVector = fromVectorS
@@ -402,13 +402,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                          [0 :: Int .. k - 1]
            -- element-wise (POPL) version
   sgather (D u u') f =
-    let g x = rprimalPart <$> f (rconstant <$> x)
+    let g x = rprimalPart <$> f (rfromPrimal <$> x)
     in dD (sgather u g) (GatherS u' g)
   scast (D u u') = dD (scast u) (CastS u')
   sfromIntegral (D u _) =
     let v = sfromIntegral u
-    in constantADVal v
-  sconst t = constantADVal (sconst t)
+    in fromPrimalADVal v
+  sconst t = fromPrimalADVal (sconst t)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => ADVal target (TKR r (Rank sh)) -> ADVal target (TKS r sh)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
@@ -419,7 +419,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromR d = SFromR d
 
-  sconstant t = constantADVal t
+  sfromPrimal t = fromPrimalADVal t
   sprimalPart (D u _) = u
   sdualPart (D _ u') = u'
   sD t d = dD t d
@@ -448,10 +448,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
           fd = mapDynamic2 (ifF b) (ifF b)
       in dmkHVector $ V.zipWith fd us vs
     _ -> error "TODO"
-  tconstant :: STensorKindType y
+  tfromPrimal :: STensorKindType y
             -> target y
             -> ADVal target y
-  tconstant stk t | Dict <- lemTensorKindOfS stk = constantADVal t
+  tfromPrimal stk t | Dict <- lemTensorKindOfS stk = fromPrimalADVal t
   tprimalPart :: STensorKindType y
               -> ADVal target y
               -> target y

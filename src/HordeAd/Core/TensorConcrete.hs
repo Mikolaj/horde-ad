@@ -133,7 +133,7 @@ instance BaseTensor RepN where
     RepN $ FlipR $ tscaleByScalarR (tunScalarR $ runFlipR $ unRepN s) (runFlipR $ unRepN v)
   rdot1In u v = RepN $ FlipR $ tdot1InR (runFlipR $ unRepN u) (runFlipR $ unRepN v)
 
-  rconstant = id
+  rfromPrimal = id
   rprimalPart = id
   rdualPart _ = DummyDualTarget
   rD u _ = u
@@ -144,7 +144,7 @@ instance BaseTensor RepN where
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
   xconst = RepN . FlipX
-  xconstant = id
+  xfromPrimal = id
   xprimalPart = id
   xdualPart _ = DummyDualTarget
   xD u _ = u
@@ -197,7 +197,7 @@ instance BaseTensor RepN where
     RepN $ FlipS $ tscaleByScalarS (tunScalarS $ runFlipS $ unRepN s) (runFlipS $ unRepN v)
   sdot1In proxy u v = RepN $ FlipS $ tdot1InS proxy (runFlipS $ unRepN u) (runFlipS $ unRepN v)
 
-  sconstant = id
+  sfromPrimal = id
   sprimalPart = id
   sdualPart _ = DummyDualTarget
   sD u _ = u
@@ -219,7 +219,7 @@ instance BaseTensor RepN where
     STKUntyped -> FTKUntyped $ voidFromHVector $ tunvector t
     _ -> error "TODO"
   tcond _ b u v = if b then u else v
-  tconstant _ t = t
+  tfromPrimal _ t = t
   tprimalPart _ = id
   tdualPart _stk _t = DummyDualTarget
   tD _stk t _d = t
@@ -492,7 +492,7 @@ instance ADReady target
          => DualNumberValue (DynamicTensor (ADVal target)) where
   type DValue (DynamicTensor (ADVal target)) = DynamicTensor RepN
   fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ constantADVal $ rconst $ runFlipR $ unRepN t
-    DynamicShaped t -> DynamicShaped $ constantADVal $ sconst $ runFlipS $ unRepN t
+    DynamicRanked t -> DynamicRanked $ fromPrimalADVal $ rconst $ runFlipR $ unRepN t
+    DynamicShaped t -> DynamicShaped $ fromPrimalADVal $ sconst $ runFlipS $ unRepN t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2

@@ -7,16 +7,16 @@ module TestGradient (testTrees) where
 
 import Prelude
 
-import qualified Data.Array.Convert
-import qualified Data.Array.ShapedS as OS
-import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, natVal, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
-import           Test.Tasty.QuickCheck
+import Data.Array.Convert qualified
+import Data.Array.ShapedS qualified as OS
+import Data.Proxy (Proxy (Proxy))
+import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, natVal, type (+))
+import Numeric.LinearAlgebra (Numeric, Vector)
+import Numeric.LinearAlgebra qualified as LA
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
+import Test.Tasty.QuickCheck
   (Arbitrary, Property, choose, forAll, property, testProperty)
 
 import HordeAd
@@ -85,9 +85,9 @@ readmeTests0 :: TestTree
 readmeTests0 = testGroup "Simple tests of tuple-based code for README"
   [ testCase "foo T Double (1.1, 2.2, 3.3)" testFoo
   , testCase "bar T Double (1.1, 2.2, 3.3)" testBar
-  , testCase "baz old to force fooConstant" testBaz
+  , testCase "baz old to force fooFromPrimal" testBaz
   , testCase "baz new to check if mere repetition breaks things" testBaz
-  , testCase "baz again to use fooConstant with renumbered terms" testBazRenumbered
+  , testCase "baz again to use fooFromPrimal with renumbered terms" testBazRenumbered
   , testCase "fooD T Double [1.1, 2.2, 3.3]" testFooD
   ]
 
@@ -136,7 +136,7 @@ testBar =
 -- handled in new computations (due to naive impurity, TH, plugins,
 -- or just following the papers that assume a single isolated run).
 -- This example requires monomorphic types and is contrived,
--- but GHC does optimize and factor out some accidentally constant
+-- but GHC does optimize and factor out some accidentally fromPrimal
 -- subterms in real examples (presumably after it monomorphizes them)
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
@@ -146,12 +146,12 @@ baz :: ( ADVal 'ADModeGradient Double
        , ADVal 'ADModeGradient Double )
     -> ADVal 'ADModeGradient Double
 baz (_x,y,z) =
-  let w = fooConstant * bar (y,y,z) * sin y
+  let w = fooFromPrimal * bar (y,y,z) * sin y
   in atan2 z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: ADVal 'ADModeGradient Double
-fooConstant = foo (7, 8, 9)
+fooFromPrimal :: ADVal 'ADModeGradient Double
+fooFromPrimal = foo (7, 8, 9)
 
 testBaz :: Assertion
 testBaz =
@@ -160,7 +160,7 @@ testBaz =
     (rev baz (1.1, 2.2, 3.3))
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
--- here @fooConstant@ is likely to clash with @z@, since it was numbered
+-- here @fooFromPrimal@ is likely to clash with @z@, since it was numbered
 -- starting from 0, too.
 -- The test fails if term numbering is reset to 0 between gradient computation
 -- runs (verified) as well as when delta-expression evaluation assumes
@@ -255,12 +255,12 @@ bar_3_75 = value (ravelFromListS . barS (SNat @3) (SNat @75))
 testBarV :: Assertion
 testBarV =
   assertEqualUpToEpsilon 1e-12
-    (OS.constant 46.2)
+    (OS.fromPrimal 46.2)
     (bar_3_75 @Double @2 @'[3, 337]
        ( 1.1
-       , OS.constant 17.3  -- TODO: create more interesting test data
-       , [ OS.constant 2.4
-         , OS.constant 3.6 ] ))
+       , OS.fromPrimal 17.3  -- TODO: create more interesting test data
+       , [ OS.fromPrimal 2.4
+         , OS.fromPrimal 3.6 ] ))
 
 bar_jvp_3_75
   :: forall r sh d.
@@ -283,16 +283,16 @@ bar_jvp_3_75 = fwd (head . barS (SNat @3) (SNat @75))
 testBarF :: Assertion
 testBarF =
   assertEqualUpToEpsilon 1e-7
-    (OS.constant 88.2)
+    (OS.fromPrimal 88.2)
     (bar_jvp_3_75 @Double @'[12, 2, 5, 2]
        ( 1.1
-       , OS.constant 17.3  -- TODO: create more interesting test data
-       , [ OS.constant 2.4
-         , OS.constant 3.6 ] )  -- input
+       , OS.fromPrimal 17.3  -- TODO: create more interesting test data
+       , [ OS.fromPrimal 2.4
+         , OS.fromPrimal 3.6 ] )  -- input
        ( 2.1
-       , OS.constant 18.3
-       , [ OS.constant 3.4
-         , OS.constant 4.6 ] ))  -- ds
+       , OS.fromPrimal 18.3
+       , [ OS.fromPrimal 3.4
+         , OS.fromPrimal 4.6 ] ))  -- ds
 
 bar_rev_3_75
   :: forall r sh d.
@@ -315,18 +315,18 @@ testBarR :: Assertion
 testBarR =
   assertEqualUpToEpsilon 1e-7
     ( 1288980.0
-    , OS.constant 0
-    , [ OS.constant 0
-      , OS.constant 0 ] )
+    , OS.fromPrimal 0
+    , [ OS.fromPrimal 0
+      , OS.fromPrimal 0 ] )
     (bar_rev_3_75 @Double @'[2, 3, 341, 1, 5]
        ( 1.1
-       , OS.constant 17.3  -- TODO: create more interesting test data
-       , [ OS.constant 2.4
-         , OS.constant 3.6 ] ))  -- input
+       , OS.fromPrimal 17.3  -- TODO: create more interesting test data
+       , [ OS.fromPrimal 2.4
+         , OS.fromPrimal 3.6 ] ))  -- input
 
 fooNoGo :: forall r d. ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)
-fooNoGo _v = constant 1
+fooNoGo _v = fromPrimal 1
 
 testFooNoGo :: Assertion
 testFooNoGo =
@@ -534,7 +534,7 @@ test_conv2d_dInp =
       arrB = 1 :: OS.Array '[5, 7, 4, 8] Double
       -- Compare the ad version against the manual derivative.
       dInp = conv2d_dInp arrK arrB
-      vjp  = revDt (conv2d (constant arrK)) arrA arrB
+      vjp  = revDt (conv2d (fromPrimal arrK)) arrA arrB
   in assertEqualUpToEpsilon 1e-7 dInp vjp
 
 test_conv2d_dKrn :: Assertion
@@ -547,7 +547,7 @@ test_conv2d_dKrn =
       arrB = 1 :: OS.Array '[5, 7, 4, 8] Double
       -- Compare the ad version against the manual derivative.
       dKrn = conv2d_dKrn arrA arrB
-      vjp  = revDt (`conv2d` constant arrA) arrK arrB
+      vjp  = revDt (`conv2d` fromPrimal arrA) arrK arrB
   in assertEqualUpToEpsilon 1e-7 dKrn vjp
 
 static_conv2d
@@ -573,10 +573,10 @@ static_conv2d SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       -- at which the gradient is taken), because maths (something about
       -- convolution being linear and so gradient the same everywhere).
       -- First, the gradient wrt the input image taken at point @arrA@.
-      vjpI = revDt (conv2d (constant arrK)) arrA arrB
+      vjpI = revDt (conv2d (fromPrimal arrK)) arrA arrB
       dInp = conv2d_dInp arrK arrB  -- manually written
       -- Second, the gradient wrt the kernels taken at point @arrK@.
-      vjpK  = revDt (`conv2d` constant arrA) arrK arrB
+      vjpK  = revDt (`conv2d` fromPrimal arrA) arrK arrB
       dKrn = conv2d_dKrn arrA arrB  -- manually written
   in abs (vjpI - dInp) <= 1e-7
      && abs (vjpK - dKrn) <= 1e-7
@@ -613,8 +613,8 @@ test_disparityKonst = do
   let arrL = (-0.2) :: OS.Array '[1, 2, 4, 6] Double
       arrR = 0.3 :: OS.Array '[1, 2, 4, 6] Double
       arrO = value (uncurry $ costVolume 0 (SNat @4)) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 SNat aL (fromPrimal arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 SNat (fromPrimal arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OS.fromList @[1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
     arrO
@@ -630,8 +630,8 @@ test_disparitySmall = do
   let arrL = OS.fromList @'[1, 2, 3, 2] [0.2 :: Double, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
       arrR = OS.fromList @'[1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = value (uncurry $ costVolume 0 (SNat @4)) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 SNat aL (fromPrimal arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 SNat (fromPrimal arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OS.fromList @[1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
     arrO

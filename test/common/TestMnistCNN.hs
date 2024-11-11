@@ -217,7 +217,7 @@ convDataMnistCNNS :: ADModeAndNum d r
 convDataMnistCNNS inputs x offset =
   let ker = at2 inputs offset
       bias = at0 inputs offset
-      yConv@(D u _) = convSame2 ker (constant x)
+      yConv@(D u _) = convSame2 ker (fromPrimal x)
       yRelu = relu $ yConv + konst2 bias (LA.size u)
   in maxPool2 2 2 yRelu
 

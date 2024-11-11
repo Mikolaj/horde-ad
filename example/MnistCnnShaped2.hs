@@ -93,7 +93,7 @@ convMnistTwoS kh@SNat kw@SNat
   let t1 = convMnistLayerS kh kw
                            h w
                            (SNat @1) c_out batch_size
-                           ker1 (sconstant input) bias1
+                           ker1 (sfromPrimal input) bias1
       t2 :: target (TKS r '[batch_size, c_out, h `Div` 4, w `Div` 4])
       t2 = convMnistLayerS kh kw
                            (SNat @(h `Div` 2)) (SNat @(w `Div` 2))
@@ -132,7 +132,7 @@ convMnistLossFusedS kh@SNat kw@SNat
                              input adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in sconstant (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
+  in sfromPrimal (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
 
 convMnistTestS
   :: forall kh kw h w c_out n_hidden batch_size target r.

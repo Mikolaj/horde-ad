@@ -99,7 +99,7 @@ interpretAstPrimal
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstD u _) -> interpretAstPrimal env u
-  AstPrimalPart (AstConstant u) -> interpretAstPrimal env u
+  AstPrimalPart (AstFromPrimal u) -> interpretAstPrimal env u
   AstCond @y2 b a1 a2 ->
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
@@ -197,7 +197,7 @@ interpretAst !env = \case
     -- be morally the dual part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
-  AstConstant @y2 a -> tconstant (stensorKind @y2) (interpretAstPrimal env a)
+  AstFromPrimal @y2 a -> tfromPrimal (stensorKind @y2) (interpretAstPrimal env a)
   AstD @y2 u u' ->
    tD (stensorKind @y2) (interpretAstPrimal env u) (interpretAstDual env u')
   AstCond @y2 b a1 a2 ->
@@ -253,7 +253,7 @@ interpretAst !env = \case
   -- not to concrete numbers (and so Primal a is not equal to a).
   -- However, this matters only for POPL AD, not JAX AD and also it matters
   -- only with no vectorization of, at least, constant (primal-only) terms.
-  -- AstBuild1 k (var, AstConstant v) ->
+  -- AstBuild1 k (var, AstFromPrimal v) ->
   --   tconst
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
@@ -310,11 +310,11 @@ interpretAst !env = \case
     _ -> error "TODO"
 
   AstMinIndex v ->
-    rminIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
+    rminIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstMaxIndex v ->
-    rmaxIndex $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
+    rmaxIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstFloor v ->
-    rfloor $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
+    rfloor $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
      instead and that's fine, because for one-element carriers,
@@ -373,7 +373,7 @@ interpretAst !env = \case
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIota (i :.: ZIR) ->
-    rfromIntegral $ rconstant $ interpretAstPrimal env i
+    rfromIntegral $ rfromPrimal $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -540,7 +540,7 @@ interpretAst !env = \case
     -- leads to a tensor of deltas
   AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
   AstFromIntegral v ->
-    rfromIntegral $ rconstant $ interpretAstPrimalRuntimeSpecialized env v
+    rfromIntegral $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstConst a -> rconst a
   AstProjectR l p ->
     let lt = interpretAst env l
@@ -596,11 +596,11 @@ interpretAst !env = \case
   AstRFromS v -> rfromS $ interpretAst env v
 
   AstMinIndexS v ->
-    sminIndex $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
+    sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
   AstMaxIndexS v ->
-    smaxIndex $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
+    smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
   AstFloorS v ->
-    sfloor $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
+    sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
   AstIotaS -> siota
 {- TODO:
   AstN2 TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
@@ -645,7 +645,7 @@ interpretAst !env = \case
     in foldl1 (+) (srepl 0 : args2)  -- backward compat vs @sum@
 -- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
-    sfromIntegral . sconstant . sfromR $ interpretAstPrimal env i
+    sfromIntegral . sfromPrimal . sfromR $ interpretAstPrimal env i
   AstIndexS @sh1 @_ @_ @r v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -797,7 +797,7 @@ interpretAst !env = \case
     -- leads to a tensor of deltas
   AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
   AstFromIntegralS v ->
-    sfromIntegral $ sconstant $ interpretAstPrimalSRuntimeSpecialized env v
+    sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
   AstConstS a -> sconst a
   AstProjectS l p ->
     let lt = interpretAst env l

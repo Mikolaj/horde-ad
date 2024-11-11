@@ -382,7 +382,7 @@ class ( Num (IntOf target)
   rdot1In t u = rsum $ rtr (t * u)
 
   -- Primal/dual things.
-  rconstant :: (GoodScalar r, KnownNat n) => PrimalOf target (TKR r n) -> target (TKR r n)
+  rfromPrimal :: (GoodScalar r, KnownNat n) => PrimalOf target (TKR r n) -> target (TKR r n)
   rprimalPart :: (GoodScalar r, KnownNat n)
               => target (TKR r n) -> PrimalOf target (TKR r n)
   rdualPart :: (GoodScalar r, KnownNat n)
@@ -414,7 +414,7 @@ class ( Num (IntOf target)
   xzero :: forall r sh. (GoodScalar r, KnownShX sh)
         => IShX sh -> target (TKX r sh)
   xzero sh = xrepl sh 0
-  xconstant :: (GoodScalar r, KnownShX sh)
+  xfromPrimal :: (GoodScalar r, KnownShX sh)
             => PrimalOf target (TKX r sh) -> target (TKX r sh)
   xprimalPart :: (GoodScalar r, KnownShX sh)
               => target (TKX r sh) -> PrimalOf target (TKX r sh)
@@ -760,7 +760,7 @@ class ( Num (IntOf target)
   sdot1In _ t u = ssum $ str (t * u)
 
   -- Primal/dual things.
-  sconstant :: (GoodScalar r, KnownShS sh)
+  sfromPrimal :: (GoodScalar r, KnownShS sh)
             => PrimalOf target (TKS r sh) -> target (TKS r sh)
   sprimalPart :: (GoodScalar r, KnownShS sh)
               => target (TKS r sh) -> PrimalOf target (TKS r sh)
@@ -790,7 +790,7 @@ class ( Num (IntOf target)
         -> BoolOf target
         -> target y -> target y
         -> target y
-  tconstant :: STensorKindType y
+  tfromPrimal :: STensorKindType y
             -> PrimalOf target y
             -> target y
   tprimalPart :: STensorKindType y
@@ -1227,7 +1227,7 @@ srepl =
   -- Dict <- lemKnownNatSize (knownShS @sh) =
   --   sreplicate0N . sscalar
   -- though we could also look at the low level in @isSmall@ and mark
-  -- replicated constants as small
+  -- replicated fromPrimals as small
 
 xrepl :: forall sh r target.
          (GoodScalar r, KnownShX sh, BaseTensor target)

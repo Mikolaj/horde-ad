@@ -281,7 +281,7 @@ astSpanPrimal _ = error "a spuriuos case for pattern match coverage"
 astSpanDual :: forall s y. (AstSpan s, TensorKind y)
             => AstTensor AstMethodLet s y -> AstTensor AstMethodLet DualSpan y
 astSpanDual t | Just Refl <- sameAstSpan @s @PrimalSpan =
-  AstDualPart $ AstConstant t  -- this is nil; likely to happen
+  AstDualPart $ AstFromPrimal t  -- this is nil; likely to happen
 astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
@@ -378,11 +378,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rconst = fromPrimal . AstConst
   rfromS = astRFromS
 
-  rconstant = fromPrimal
+  rfromPrimal = fromPrimal
   rprimalPart = astSpanPrimal
   rdualPart = astSpanDual
   rD u u' = astSpanD u u'
-  rScale s t = astDualPart $ AstConstant s * AstD (rzero (rshape s)) t
+  rScale s t = astDualPart $ AstFromPrimal s * AstD (rzero (rshape s)) t
 
   xshape t = case shapeAstFull t of
     FTKX sh -> sh
@@ -390,7 +390,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xfromVector = AstFromVectorX
   xreplicate = AstReplicate SNat
   xconst = fromPrimal . AstConstX
-  xconstant = fromPrimal
+  xfromPrimal = fromPrimal
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
   xD u u' = astSpanD u u'
@@ -427,11 +427,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sconst = fromPrimal . AstConstS
   sfromR = astSFromR
 
-  sconstant = fromPrimal
+  sfromPrimal = fromPrimal
   sprimalPart = astSpanPrimal
   sdualPart = astSpanDual
   sD u u' = astSpanD u u'
-  sScale s t = astDualPart $ AstConstant s * AstD 0 t
+  sScale s t = astDualPart $ AstFromPrimal s * AstD 0 t
 
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
@@ -439,7 +439,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   dshape = shapeAstHVector
   tshapeFull stk t | Dict <- lemTensorKindOfS stk = shapeAstFull t
   tcond stk b u v | Dict <- lemTensorKindOfS stk = AstCond b u v
-  tconstant stk t | Dict <- lemTensorKindOfS stk = fromPrimal t
+  tfromPrimal stk t | Dict <- lemTensorKindOfS stk = fromPrimal t
   tprimalPart stk t | Dict <- lemTensorKindOfS stk = astSpanPrimal t
   tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDual t
   tD stk t d | Dict <- lemTensorKindOfS stk = astSpanD t d
@@ -545,7 +545,7 @@ astSpanPrimalRaw _ = error "a spuriuos case for pattern match coverage"
 astSpanDualRaw :: forall s y. (AstSpan s, TensorKind y)
                => AstTensor AstMethodShare s y -> AstTensor AstMethodShare DualSpan y
 astSpanDualRaw t | Just Refl <- sameAstSpan @s @PrimalSpan =
-  AstDualPart $ AstConstant t  -- this is nil; likely to happen
+  AstDualPart $ AstFromPrimal t  -- this is nil; likely to happen
 astSpanDualRaw t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDualRaw t | Just Refl <- sameAstSpan @s @FullSpan = AstDualPart t
 astSpanDualRaw _ = error "a spuriuos case for pattern match coverage"
@@ -585,7 +585,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
     u | astIsSmall True u -> t
     AstShare{} -> t
     AstVar{} -> t
-    AstConstant(AstVar{}) -> t
+    AstFromPrimal(AstVar{}) -> t
     AstPrimalPart(AstVar{}) -> t
     AstDualPart(AstVar{}) -> t
     u -> AstRaw $ fun1ToAst $ \ !var -> AstShare var u
@@ -633,12 +633,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rconst = AstRaw . fromPrimal . AstConst
   rfromS = AstRaw . AstRFromS . unAstRaw
 
-  rconstant = AstRaw . fromPrimal . unAstRaw
+  rfromPrimal = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   rdualPart = astSpanDualRaw . unAstRaw
   rD u u' = AstRaw $ astSpanD (unAstRaw u) u'
   rScale s t =
-    AstDualPart $ AstConstant (unAstRaw s)
+    AstDualPart $ AstFromPrimal (unAstRaw s)
                   * AstD (unAstRaw $ rzero (rshape s)) t
 
   xshape t = case shapeAstFull $ unAstRaw t of
@@ -648,7 +648,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
   xreplicate = AstRaw . AstReplicate SNat . unAstRaw
   xconst = AstRaw . fromPrimal . AstConstX
-  xconstant = AstRaw . fromPrimal . unAstRaw
+  xfromPrimal = AstRaw . fromPrimal . unAstRaw
   xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   xdualPart = astSpanDualRaw . unAstRaw
   xD u u' = AstRaw $ astSpanD (unAstRaw u) u'
@@ -684,11 +684,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sconst = AstRaw . fromPrimal . AstConstS
   sfromR = AstRaw . AstSFromR . unAstRaw
 
-  sconstant = AstRaw . fromPrimal . unAstRaw
+  sfromPrimal = AstRaw . fromPrimal . unAstRaw
   sprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   sdualPart = astSpanDualRaw . unAstRaw
   sD u u' = AstRaw $ astSpanD (unAstRaw u) u'
-  sScale s t = AstDualPart $ AstConstant (unAstRaw s) * AstD 0 t
+  sScale s t = AstDualPart $ AstFromPrimal (unAstRaw s) * AstD 0 t
 
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
@@ -697,7 +697,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tshapeFull stk t | Dict <- lemTensorKindOfS stk = shapeAstFull $ unAstRaw t
   tcond stk b u v | Dict <- lemTensorKindOfS stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
-  tconstant stk t | Dict <- lemTensorKindOfS stk =
+  tfromPrimal stk t | Dict <- lemTensorKindOfS stk =
     AstRaw $ fromPrimal $ unAstRaw t
   tprimalPart stk t | Dict <- lemTensorKindOfS stk =
     AstRaw $ astSpanPrimalRaw $ unAstRaw t
@@ -860,7 +860,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
   rconst = AstNoVectorize . rconst
   rfromS = AstNoVectorize . rfromS . unAstNoVectorize
-  rconstant = AstNoVectorize . rconstant . unAstNoVectorize
+  rfromPrimal = AstNoVectorize . rfromPrimal . unAstNoVectorize
   rprimalPart = AstNoVectorize . rprimalPart . unAstNoVectorize
   rdualPart = rdualPart . unAstNoVectorize
   rD u u' = AstNoVectorize $ rD (unAstNoVectorize u) u'
@@ -873,7 +873,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xfromVector = AstNoVectorize . xfromVector . V.map unAstNoVectorize
   xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
   xconst = AstNoVectorize . xconst
-  xconstant = AstNoVectorize . xconstant . unAstNoVectorize
+  xfromPrimal = AstNoVectorize . xfromPrimal . unAstNoVectorize
   xprimalPart = AstNoVectorize . xprimalPart . unAstNoVectorize
   xdualPart = xdualPart . unAstNoVectorize
   xD u u' =
@@ -910,7 +910,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
   sconst = AstNoVectorize . sconst
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
-  sconstant = AstNoVectorize . sconstant . unAstNoVectorize
+  sfromPrimal = AstNoVectorize . sfromPrimal . unAstNoVectorize
   sprimalPart = AstNoVectorize . sprimalPart . unAstNoVectorize
   sdualPart = sdualPart . unAstNoVectorize
   sD u u' = AstNoVectorize $ sD @(AstTensor AstMethodLet s) (unAstNoVectorize u) u'
@@ -923,7 +923,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tshapeFull stk t | Dict <- lemTensorKindOfS stk =
     shapeAstFull $ unAstNoVectorize t
   tcond stk b u v = AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
-  tconstant stk t = AstNoVectorize $ tconstant stk $ unAstNoVectorize t
+  tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tprimalPart stk t = AstNoVectorize $ tprimalPart stk $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tD stk t d = AstNoVectorize $ tD stk (unAstNoVectorize t) d
@@ -1082,12 +1082,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                   . astSpanPrimal . unAstNoSimplify
   rconst = AstNoSimplify . fromPrimal . AstConst
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
-  rconstant = AstNoSimplify . fromPrimal . unAstNoSimplify
+  rfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   rdualPart = astSpanDual . unAstNoSimplify
   rD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
   rScale s t =
-    astDualPart $ AstConstant (unAstNoSimplify s)
+    astDualPart $ AstFromPrimal (unAstNoSimplify s)
                   * AstD (rzero (rshape s)) t
 
   xshape t = case shapeAstFull $ unAstNoSimplify t of
@@ -1097,7 +1097,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify
   xreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
   xconst = AstNoSimplify . fromPrimal . AstConstX
-  xconstant = AstNoSimplify . fromPrimal . unAstNoSimplify
+  xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   xdualPart = astSpanDual . unAstNoSimplify
   xD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
@@ -1140,13 +1140,13 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                   . astSpanPrimal . unAstNoSimplify
   sconst = AstNoSimplify . fromPrimal . AstConstS
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
-  sconstant = AstNoSimplify . fromPrimal . unAstNoSimplify
-    -- exceptionally we do simplify AstConstant to avoid long boring chains
+  sfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
+    -- exceptionally we do simplify AstFromPrimal to avoid long boring chains
   sprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   sdualPart = astSpanDual . unAstNoSimplify
   sD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
   sScale s t =
-    astDualPart $ AstConstant (unAstNoSimplify s) * AstD 0 t
+    astDualPart $ AstFromPrimal (unAstNoSimplify s) * AstD 0 t
 
   tpair t1 t2 = AstNoSimplify $ AstPair (unAstNoSimplify t1) (unAstNoSimplify t2)
   tproject1 t = AstNoSimplify $ AstProject1 $ unAstNoSimplify t
@@ -1156,7 +1156,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     shapeAstFull $ unAstNoSimplify t
   tcond stk b u v | Dict <- lemTensorKindOfS stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
-  tconstant stk t | Dict <- lemTensorKindOfS stk =
+  tfromPrimal stk t | Dict <- lemTensorKindOfS stk =
     AstNoSimplify $ fromPrimal $ unAstNoSimplify t
   tprimalPart stk t | Dict <- lemTensorKindOfS stk =
     AstNoSimplify $ astSpanPrimal $ unAstNoSimplify t

@@ -74,7 +74,7 @@ areAllArgsInts = \case
   AstVar{} -> True
   AstPrimalPart{} -> False
   AstDualPart{} -> False
-  AstConstant{} -> True  -- the argument is emphatically a primal number; fine
+  AstFromPrimal{} -> True  -- the argument is emphatically a primal number; fine
   AstD{} -> False  -- dual number
   AstCond{} -> True  -- too early to tell
   AstReplicate{} -> False
@@ -226,13 +226,13 @@ printAstAux cfg d = \case
   AstDualPart a -> case stensorKind @y of
     STKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
     _      -> printPrefixOp printAst cfg d "rdualPart" [a]
-  AstConstant a -> case stensorKind @y of
+  AstFromPrimal a -> case stensorKind @y of
     STKS{} -> if loseRoudtrip cfg
               then printAst cfg d a
-              else printPrefixOp printAst cfg d "sconstant" [a]
+              else printPrefixOp printAst cfg d "sfromPrimal" [a]
     _      -> if loseRoudtrip cfg
               then printAst cfg d a
-              else printPrefixOp printAst cfg d "rconstant" [a]
+              else printPrefixOp printAst cfg d "rfromPrimal" [a]
   AstD u u' -> case stensorKind @y of
     STKS{} -> printPrefixBinaryOp printAst printAst cfg d "sD" u u'
     _      -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'

@@ -95,7 +95,7 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
         s3 = tlet s' $ \s ->
           let s1 = rslice 0 out_width s
               s2 = rslice out_width out_width s
-              vec1 = rnnMnistLayerR s1 (rconstant x) (wX, wS, b)
+              vec1 = rnnMnistLayerR s1 (rfromPrimal x) (wX, wS, b)
               vec2 = rnnMnistLayerR s2 vec1 (wX2, wS2, b2)
           in rappend vec1 vec2
     in (rslice out_width out_width s3, s3)
@@ -127,7 +127,7 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
       result = rnnMnistZeroR batch_size xs adparameters
       targets = rtr labelR
       loss = lossSoftMaxCrossEntropyR targets result
-  in rconstant (recip $ fromIntegral batch_size) * loss
+  in rfromPrimal (recip $ fromIntegral batch_size) * loss
 
 rnnMnistTestR
   :: forall target r.

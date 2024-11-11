@@ -1991,12 +1991,12 @@ testSin0rmapAccumRD01SN51 = do
                                              - sin x1 / sreplicate @_ @3
                                                           (srepl 1 + sfromIndex0 i) ])
                            in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [ DynamicShaped $ x0 / (srepl 1 + sfromIntegral (sconstant (sfromR j)))
+                          (dmkHVector $ V.fromList [ DynamicShaped $ x0 / (srepl 1 + sfromIntegral (sfromPrimal (sfromR j)))
                                       , DynamicShaped $ sreplicate @_ @3 x0 ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 1)
                                          , DynamicShaped @Double @'[5, 3]
                                            $ sreplicate0N @_ @_ @'[5, 3]
-                                               (sfromIntegral (sconstant (sfromR j)))
+                                               (sfromIntegral (sfromPrimal (sfromR j)))
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 3)
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 4) ]))
            in rfromS . f . sfromR) (rscalar 1.1))
@@ -2193,15 +2193,15 @@ testSin0rmapAccumRD01SN531a = do
                                                  (sin x / srepl 3)) ])
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList [ DynamicShaped
-                                        $ x0 / (srepl 1 + sreplicate @_ @3 (sfromIntegral (sconstant (sfromR j))))
+                                        $ x0 / (srepl 1 + sreplicate @_ @3 (sfromIntegral (sfromPrimal (sfromR j))))
                                       , DynamicShaped
-                                        $ sreplicate @_ @6 (sfromIntegral (sconstant (sfromR i)))
+                                        $ sreplicate @_ @6 (sfromIntegral (sfromPrimal (sfromR i)))
                                           - sflatten (sappend x0 x0) ] )
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2, 1]
-                                          (sfromList [srepl (-0.1), sreshape @_ @_ @'[] @'[1] $ sfromIntegral (sconstant (sfromR j))])
+                                          (sfromList [srepl (-0.1), sreshape @_ @_ @'[] @'[1] $ sfromIntegral (sfromPrimal (sfromR j))])
                                       , DynamicShaped @Double @'[2, 3]
                                          (sfromList0N
-                                           [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIntegral (sconstant (sfromR i)), sscalar 0.5, sscalar 1.3]) ])))
+                                           [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIntegral (sfromPrimal (sfromR i)), sscalar 0.5, sscalar 1.3]) ])))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
 testSin0rmapAccumRD01SN531b0 :: Assertion
@@ -2420,7 +2420,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                            in \x y -> h (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
-                               $ sfromIntegral (sconstant (sfromR (i + j)))
+                               $ sfromIntegral (sfromPrimal (sfromR (i + j)))
                                  + sfromD (dunHVector x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear [0] [] ])))))
@@ -2454,7 +2454,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
                            in \x y -> h (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
-                               $ sfromIntegral (sconstant (sfromR (i + j)))
+                               $ sfromIntegral (sfromPrimal (sfromR (i + j)))
                                  + sfromD (dunHVector x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ])))))
                         $ \ !d -> sfromD $ dunHVector d V.! 0
@@ -2487,7 +2487,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                            in \x y -> h (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList
                              [ DynamicRanked @Double @0
-                               $ rfromIntegral (rconstant (i + j))
+                               $ rfromIntegral (rfromPrimal (i + j))
                                  + rfromD (dunHVector x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconst $ Nested.rfromListPrimLinear [1] [0] ])))))
@@ -2531,10 +2531,10 @@ testSin0rmapAccumRD01SN531c = do
                                          $ srepl 1 - sin x / srepl 3 - sfromD (a V.! 0) ])
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList [ DynamicShaped
-                                        $ x0 / (srepl 1 + sfromIntegral (sconstant (sfromR j))) ])
+                                        $ x0 / (srepl 1 + sfromIntegral (sfromPrimal (sfromR j))) ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
-                                           [sscalar 0.4, sfromIntegral (sconstant (sfromR i))]) ])))
+                                           [sscalar 0.4, sfromIntegral (sfromPrimal (sfromR i))]) ])))
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531d :: Assertion
@@ -2565,10 +2565,10 @@ testSin0rmapAccumRD01SN531d = do
                                          $ srepl 1 - sin x / srepl 3 - sfromD (a V.! 0) ])
                             in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList [ DynamicShaped
-                                        $ x0 / (1 + sfromIntegral (sconstant (sfromR j))) ])
+                                        $ x0 / (1 + sfromIntegral (sfromPrimal (sfromR j))) ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
-                                           [sscalar 0.4, sfromIntegral (sconstant (sfromR i))]) ])))
+                                           [sscalar 0.4, sfromIntegral (sfromPrimal (sfromR i))]) ])))
       in f . sfromR) (rscalar 1.1 :: RepN (TKR Double 0)))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things

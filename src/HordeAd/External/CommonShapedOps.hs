@@ -59,14 +59,14 @@ smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS r '[])
-sfromIndex0 = sfromIntegral . sconstant . sfromR
+sfromIndex0 = sfromIntegral . sfromPrimal . sfromR
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownNat (Rank sh))
             => IndexSh target sh -> target (TKS r '[Rank sh])
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconst $ Nested.sfromListPrimLinear knownShS []
-  _ -> sfromIntegral . sconstant . sfromR . rfromList
+  _ -> sfromIntegral . sfromPrimal . sfromR . rfromList
        . NonEmpty.fromList . ShapedList.indexToList
 
 sletIx :: forall r sh n target.
@@ -79,7 +79,7 @@ sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
 scaleS :: forall target r sh.
           (KnownShS sh, ADReady target, GoodScalar r)
        => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r sh)
-scaleS a d = sconstant a * d
+scaleS a d = sfromPrimal a * d
 
 reluS, reluLeakyS
   :: forall target sh r.
@@ -102,7 +102,7 @@ logisticS :: forall target r sh.
           => target (TKS r sh) -> target (TKS r sh)
 logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let y0 = recip (sprimalPart @target (srepl 1) + exp (- sprimalPart d))
-  in tlet (sconstant y0)  -- we don't have tletPrimal
+  in tlet (sfromPrimal y0)  -- we don't have tletPrimal
      $ \y1 -> let y = sprimalPart y1
               in sD y (sScale @target (y * (sprimalPart @target (srepl 1) - y)) $ sdualPart d)
 
@@ -121,7 +121,7 @@ squaredDifferenceS
      ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS r sh))
      , GoodScalar r )
   => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r sh)
-squaredDifferenceS targ res = squareS $ res - sconstant targ
+squaredDifferenceS targ res = squareS $ res - sfromPrimal targ
 
 lossCrossEntropyVS :: ( KnownShS sh, KnownNat (Nested.Product sh)
                       , BaseTensor target, GoodScalar r, Differentiable r )
@@ -153,10 +153,10 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
               recipSum = recip sumExpU
           in sscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (sconstant softMaxU') $ \softMaxU ->
+  in tlet (sfromPrimal softMaxU') $ \softMaxU ->
     sD (negate $ log (sprimalPart softMaxU) `sdot0` target)
          -- TODO: avoid: log . exp
-       (sdualPart $ (softMaxU - sconstant target) `sdot0` d)
+       (sdualPart $ (softMaxU - sfromPrimal target) `sdot0` d)
          -- TODO: probably defining sDot0 would lead to a faster
          -- sDot0 (softMaxU - target) u'
 
