@@ -2055,7 +2055,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
         (rev' @Double @0 (fblowupLet 0 1000) (FlipR $ OR.fromList [2] [2, 3]))
   , testCase "blowupLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
-        (OR.fromList [2] [33.332333348316844,-22.221555565544556])
+        (ringestData [2] [33.332333348316844,-22.221555565544556])
         (rev' @Double @1
               (\intputs -> rbuild1 100 (\i -> fblowupLet i 1000 intputs))
               (FlipR $ OR.fromList [2] [2, 3]))
@@ -2075,7 +2075,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
                                    (FlipR $ OR.fromList [2] [2, 3]))
   , testCase "blowupMultLet tbuild1" $ do
       assertEqualUpToEpsilonShort 1e-10
-        (OR.fromList [2] [14.9999773958889,39.9999398380561])
+        (ringestData [2] [14.9999773958889,39.9999398380561])
         (rev' @Double @1
               (\intputs -> rbuild1 100 (\i -> fblowupMultLet i 50 intputs))
               (FlipR $ OR.fromList [2] [0.2, 0.3]))

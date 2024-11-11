@@ -387,7 +387,7 @@ assertEqualUpToEpsilonShort
        , AssertEqualUpToEpsilon (ADTensorScalar r)
        , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> OR.Array n r  -- ^ expected reverse derivative value
+    -> RepN (TKR r n)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
@@ -413,8 +413,7 @@ assertEqualUpToEpsilonShort
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1 ) = do
-  let fromORArray t = Nested.rfromOrthotope SNat t
-      expected = toADTensorKindShared stensorKind $ RepN $ FlipR $ fromORArray expected'
+  let expected = toADTensorKindShared stensorKind expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
