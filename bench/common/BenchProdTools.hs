@@ -7,7 +7,6 @@ module BenchProdTools where
 import Prelude
 
 import Criterion.Main
-import Data.Array.RankedS qualified as OR
 import Data.List (foldl1')
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -24,11 +23,8 @@ import Unsafe.Coerce (unsafeCoerce)
 
 --import HordeAd.Core.Adaptor
 
-import Data.Array.Nested qualified as Nested
-
 import HordeAd
 import HordeAd.Internal.BackendOX (RepN (..))
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
@@ -48,20 +44,20 @@ bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProd args
 
 envProd :: r ~ Double
         => Rational
-        -> (([r], [FlipR OR.Array r 0], Data.Vector.Vector (FlipR OR.Array r 0))
+        -> (([r], [RepN (TKR r 0)], Data.Vector.Vector (RepN (TKR r 0)))
             -> Benchmark)
         -> [r]
         -> Benchmark
 envProd k f allxs =
   env (return $!
          let l = take (round k) allxs
-             list = map (FlipR . OR.scalar) l
-             vec :: Data.Vector.Vector (FlipR OR.Array Double 0)
+             list = map rscalar l
+             vec :: Data.Vector.Vector (RepN (TKR Double 0))
              vec = V.fromList list
          in (l, list, vec)) f
 
 benchProd :: r ~ Double
-          => ([r], [FlipR OR.Array r 0], Data.Vector.Vector (FlipR OR.Array r 0))
+          => (([r], [RepN (TKR r 0)], Data.Vector.Vector (RepN (TKR r 0))))
           -> [Benchmark]
 benchProd ~(_l, list, _vec) =
     [ bench "crev List" $ nf crevRankedListProd list
@@ -76,12 +72,12 @@ benchProd ~(_l, list, _vec) =
 --    , bench "crev List2Vec" $
 --        nf (map (tunScalarR . runFlip) . V.toList . crev rankedVecProd)
 --           (let list2 = map (FlipR . tscalarR) l
---                vec2 :: Data.Vector.Vector (FlipR OR.Array Double 0)
+--                vec2 :: Data.Vector.Vector (RepN (TKR Double 0))
 --                vec2 = V.fromList list2
 --            in vec2)
 {- bit-rotten
     , bench "VecD crev" $
-        let f :: DynamicTensor (FlipR OR.Array) -> FlipR OR.Array Double 0
+        let f :: DynamicTensor (FlipR OR.Array) -> RepN (TKR Double 0)
             f (DynamicRanked @r2 @n2 d) =
                  gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
                  gcastWith (unsafeCoerce Refl :: n2 :~: 0) $
@@ -98,34 +94,24 @@ rankedListProd :: (BaseTensor target, GoodScalar r)
                => [target (TKR r 0)] -> target (TKR r 0)
 rankedListProd = foldl1' (*)
 
-crevRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
-                     . crev rankedListProd
-                     . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
+crevRankedListProd :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+crevRankedListProd = crev rankedListProd
 
-revRankedListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-revRankedListProd = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
-                    . rev rankedListProd
-                    . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
+revRankedListProd :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+revRankedListProd = rev rankedListProd
 
 rankedListProdr :: (BaseTensor target, GoodScalar r)
                 => [target (TKR r 0)] -> target (TKR r 0)
 rankedListProdr = foldr1 (*)
 
-crevRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
-                      . crev rankedListProdr
-                      . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
+crevRankedListProdr :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+crevRankedListProdr = crev rankedListProdr
 
-revRankedListProdr :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-revRankedListProdr = map (FlipR . Nested.rtoOrthotope . runFlipR. unRepN)
-                     . rev rankedListProdr
-                     . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
+revRankedListProdr :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+revRankedListProdr = rev rankedListProdr
 
-crevRankedNoShareListProd :: [FlipR OR.Array Double 0] -> [FlipR OR.Array Double 0]
-crevRankedNoShareListProd = map (FlipR . Nested.rtoOrthotope . runFlipR . unRepN)
-                            . crev rankedNoShareListProd
-                            . map (RepN . FlipR . Nested.rfromOrthotope SNat . runFlipR)
+crevRankedNoShareListProd :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+crevRankedNoShareListProd = crev rankedNoShareListProd
 
 _rankedVecProd :: (BaseTensor target, GoodScalar r)
                => Data.Vector.Vector (target (TKR r 0)) -> target (TKR r 0)

@@ -53,8 +53,8 @@ testTrees = [ tensorADValMnistTests
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCase1VTA
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -77,7 +77,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
       -- not using adaptors.
       emptyR = RepN $ FlipR $ Nested.rfromList1Prim []
       hVectorInit = V.fromList params1Init
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -101,7 +101,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
@@ -148,8 +148,8 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase1VTI
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -172,7 +172,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -208,7 +208,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f (glyph, label) varInputs =
                    let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist =
@@ -260,8 +260,8 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCase1VTO
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -284,7 +284,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
       -- not using adaptors.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters ranked r
+      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
@@ -386,15 +386,15 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCase2VTA
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
+  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters target r
       valsInit =
         case someNatVal $ toInteger widthHidden of
           Just (SomeNat @widthHidden _) ->
@@ -428,7 +428,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
                      mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
@@ -473,15 +473,15 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase2VTI
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    gamma batchSize expected =
-  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
+  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters target r
       valsInit =
         case someNatVal $ toInteger widthHidden of
           Nothing -> error "impossible someNatVal error"
@@ -527,7 +527,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f (glyph, label) varInputs =
                    let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist =
@@ -581,8 +581,8 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCase2VTO
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -599,7 +599,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           :: MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                RepN widthHidden widthHidden2 r
         valsInitShaped = fst $ randomVals 1 (mkStdGen 44)
-        valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters ranked r
+        valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters target r
         valsInit =
           -- This almost works and I wouldn't need forgetShape,
           -- but there is nowhere to get aInit from.

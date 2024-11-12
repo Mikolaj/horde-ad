@@ -53,15 +53,15 @@ testTrees = [ tensorADValMnistTestsRNNA
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCaseRNNA
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
-  let valsInit :: ADRnnMnistParameters ranked r
+  let valsInit :: ADRnnMnistParameters target r
       valsInit =
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
@@ -103,7 +103,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r
                    -> ADVal RepN (X (ADRnnMnistParameters RepN r))
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
@@ -161,15 +161,15 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNI
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
-  let valsInit :: ADRnnMnistParameters ranked r
+  let valsInit :: ADRnnMnistParameters target r
       valsInit =
         case someNatVal $ toInteger width of
           Nothing -> error "impossible someNatVal error"
@@ -222,7 +222,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r
                    -> ADVal RepN (X (ADRnnMnistParameters RepN r))
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f (glyph, label) varInputs =
                    let env = extendEnv @(ADVal RepN) @_ @(X (ADRnnMnistParameters RepN r)) var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (rconcrete glyph)
@@ -282,8 +282,8 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCaseRNNO
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -297,7 +297,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
     let valsInitShaped
           :: ADRnnMnistParametersShaped RepN width r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
-        valsInit :: ADRnnMnistParameters ranked r
+        valsInit :: ADRnnMnistParameters target r
         valsInit = forgetShape valsInitShaped
         hVectorInit = dunHVector
                       $ toHVectorOf @RepN $ AsHVector valsInit
@@ -384,8 +384,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
   -> TestTree #-}
 
 mnistTestCaseRNND
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -399,7 +399,7 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
     let valsInitShaped
           :: ADRnnMnistParametersShaped RepN width r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
-        valsInit :: ADRnnMnistParameters ranked r
+        valsInit :: ADRnnMnistParameters target r
         valsInit = forgetShape valsInitShaped
         hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
         hVectorInit = toHVectorOf @RepN valsInit

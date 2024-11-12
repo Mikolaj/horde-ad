@@ -43,15 +43,15 @@ testTrees = [ tensorADValMnistTestsCNNA
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCaseCNNA
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                   miniBatchSize totalBatchSize expected =
-  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
+  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters target r
       valsInit =
         case ( someNatVal $ toInteger kh
              , someNatVal $ toInteger kw
@@ -87,7 +87,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                     -> IO (HVector RepN, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> HVector (ADVal RepN)
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
@@ -142,15 +142,15 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNI
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                   miniBatchSize totalBatchSize expected =
-  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
+  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters target r
       valsInit =
         case ( someNatVal $ toInteger kh
              , someNatVal $ toInteger kw
@@ -200,7 +200,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                     -> IO (HVector RepN, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> HVector (ADVal RepN)
-                   -> ADVal ranked (TKR r 0)
+                   -> ADVal target (TKR r 0)
                  f (glyph, label) varInputs =
                    let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist = extendEnv varGlyph (rconcrete glyph)
@@ -257,8 +257,8 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCaseCNNO
-  :: forall ranked r.
-     ( ranked ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
@@ -277,7 +277,7 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                RepN SizeMnistHeight SizeMnistWidth
                kh kw c_out n_hidden r
         valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
-        valsInit :: MnistCnnRanked2.ADCnnMnistParameters ranked r
+        valsInit :: MnistCnnRanked2.ADCnnMnistParameters target r
         valsInit = forgetShape valsInitShaped
         hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
         name = prefix ++ ": "

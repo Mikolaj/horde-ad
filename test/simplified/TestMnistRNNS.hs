@@ -44,8 +44,8 @@ testTrees = [ tensorADValMnistTestsRNNSA
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCaseRNNSA
-  :: forall shaped width batch_size r.
-     ( shaped ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target width batch_size r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -54,7 +54,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize
                    expected =
   let valsInit :: ADRnnMnistParametersShaped
-                    shaped SizeMnistHeight width r
+                    target SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit :: RepN (XParams width r)
       hVectorInit = toHVectorOf @RepN valsInit
@@ -157,8 +157,8 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNSI
-  :: forall shaped width batch_size r.
-     ( shaped ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target width batch_size r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -166,7 +166,7 @@ mnistTestCaseRNNSI
 mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize expected =
   let valsInit :: ADRnnMnistParametersShaped
-                    shaped SizeMnistHeight width r
+                    target SizeMnistHeight width r
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit :: RepN (XParams width r)
       hVectorInit = toHVectorOf @RepN valsInit
@@ -283,8 +283,8 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCaseRNNSO
-  :: forall shaped width batch_size r.
-     ( shaped ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target width batch_size r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -293,7 +293,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize
                    expected =
     let valsInit :: ADRnnMnistParametersShaped
-                      shaped SizeMnistHeight width r
+                      target SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
         hVectorInit = toHVectorOf @RepN $ AsHVector valsInit
         miniBatchSize = sNatValue batch_size
@@ -391,8 +391,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCaseRNNSD
-  :: forall shaped width batch_size r.
-     ( shaped ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall target width batch_size r.
+     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
@@ -401,7 +401,7 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize
                    expected =
     let valsInit :: ADRnnMnistParametersShaped
-                      shaped SizeMnistHeight width r
+                      target SizeMnistHeight width r
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
         hVectorInit :: RepN (XParams width r)
         hVectorInit = toHVectorOf @RepN valsInit
