@@ -302,7 +302,7 @@ testZero9S =
                  -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
                f = const (srepl 3)
            in f)
-          (rreplicate0N [0, 2, 4, 0, 1] 42))
+          (rreplicate0N [0, 2, 4, 0, 1] (rscalar 42)))
 
 testCFwdZero9S :: Assertion
 testCFwdZero9S =
@@ -312,7 +312,7 @@ testCFwdZero9S =
                  -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1])
                f = const (srepl 3)
            in f)
-          (rreplicate0N [0, 2, 4, 0, 1] 42) (rreplicate0N [0, 2, 4, 0, 1] 41))
+          (rreplicate0N [0, 2, 4, 0, 1] (rscalar 42)) (rreplicate0N [0, 2, 4, 0, 1] (rscalar 41)))
 
 testFwdZero9S :: Assertion
 testFwdZero9S =
@@ -322,7 +322,7 @@ testFwdZero9S =
                 -> AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1])
               f = const (srepl 3)
           in f)
-         (rreplicate0N [0, 2, 4, 0, 1] 42) (rreplicate0N [0, 2, 4, 0, 1] 41))
+         (rreplicate0N [0, 2, 4, 0, 1] (rscalar 42)) (rreplicate0N [0, 2, 4, 0, 1] (rscalar 41)))
 
 testZero10S :: Assertion
 testZero10S =
@@ -333,7 +333,7 @@ testZero10S =
            in f :: ( ADVal RepN (TKR Double 5)
                    , ADVal RepN (TKS Double '[0, 2, 4, 0, 1]) )
                    -> ADVal RepN (TKS Double '[0, 2, 4, 0, 1]))
-          (rreplicate0N [0, 2, 4, 0, 1] 42, srepl 21))
+          (rreplicate0N [0, 2, 4, 0, 1] (rscalar 42), srepl 21))
 
 testCFwdZero10S :: Assertion
 testCFwdZero10S =
@@ -366,17 +366,17 @@ testZero11S =
   assertEqualUpToEpsilon 1e-9
     ( rfromList0N [0, 2, 4, 0, 1] []
     , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
-    (crev (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
+    (crev (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( ADVal RepN (TKR Double 5)
                    , ADVal RepN (TKS Double '[0, 2, 4, 0, 1]) )
                    -> ADVal RepN (TKR Double 5))
-          (rreplicate0N [0, 2, 4, 0, 1] 42, srepl 21))
+          (rreplicate0N [0, 2, 4, 0, 1] (rscalar 42), srepl 21))
 
 testCFwdZero11S :: Assertion
 testCFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
-    (cfwd (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
+    (cfwd (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( ADVal RepN (TKR Double 5)
                    , ADVal RepN (TKS Double '[0, 2, 4, 0, 1]) )
                    -> ADVal RepN (TKR Double 5))
@@ -389,7 +389,7 @@ testFwdZero11S :: Assertion
 testFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
-    (fwd  (let f = const (rreplicate0N [0, 2, 4, 0, 1] 3) . snd
+    (fwd  (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( AstTensor AstMethodLet FullSpan (TKR Double 5)
                    , AstTensor AstMethodLet FullSpan (TKS Double '[0, 2, 4, 0, 1]) )
                    -> AstTensor AstMethodLet FullSpan (TKR Double 5))
@@ -855,7 +855,7 @@ testReluPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rfromPrimal (rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
+  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] (rscalar 4))
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m8 x1 -> rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m8"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -876,7 +876,7 @@ testReluPP2 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rfromPrimal (rgather [5] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rfromPrimal (rreplicate 5 7.0))"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] (rscalar 128), 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\v7 x1 -> let v8 = rgather [5] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (tproject1 v1 ! [i3] * tproject2 v1 <=. 0.0) 0 1]) * v7 in tpair (rreplicate 5 (tproject2 v1) * v8, rsum (tproject1 v1 * v8))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -900,7 +900,7 @@ testReluSimplerPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rfromPrimal (rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rprimalPart m1 ! [i4, i3] <=. 0.0) 0 1])) * m1"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
+  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] (rscalar 4))
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m8 x1 -> rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m8"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -921,7 +921,7 @@ testReluSimplerPP2 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rfromPrimal (rreplicate 5 7.0)) (\\i2 -> rfromPrimal (rgather [5] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] (rscalar 128), 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\v7 x1 -> let v8 = rgather [5] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (tproject1 v1 ! [i5] * tproject2 v1 <=. 0.0) 0 1]) * v7 in tpair (rreplicate 5 (tproject2 v1) * v8, rsum (tproject1 v1 * v8))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -940,7 +940,7 @@ testReluSimplerPP3 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rfromPrimal (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rfromPrimal (rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] (rscalar 128), 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m10 x1 -> let m11 = rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (tproject1 m1 ! [i7, i8] * tproject2 m1 <=. 0.0) 0 1]) * m10 in tpair (rreplicate 3 (rreplicate 4 (tproject2 m1)) * m11, rsum (rsum (tproject1 m1 * m11)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -969,7 +969,7 @@ testReluSimplerPP4 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rfromPrimal (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rfromPrimal (rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] (rscalar 128), 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m11 x1 -> let m12 = rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (tproject1 m1 ! [i8, i9] * tproject2 m1 <=. 0.0) 0 1]) * m11 in tpair (rreplicate 3 (rreplicate 4 (tproject2 m1)) * m12, rsum (rreshape [12] (tproject1 m1) * rreshape [12] m12))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -1049,7 +1049,7 @@ testReluMaxPP = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rfromPrimal (rreplicate 3 (rreplicate 4 0.0)), m1])) (\\[i5, i4] -> [ifF (0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] 4)
+  let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] (rscalar 4))
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\m8 x1 -> rscatter [2,3,4] m8 (\\[i9, i10] -> [ifF (0.0 >=. m1 ! [i9, i10]) 0 1, i9, i10]) ! [1]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
@@ -1070,7 +1070,7 @@ testReluMaxPP2 = do
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rgather [5] (rfromVector (fromList [rfromPrimal (rreplicate 5 0.0), v1 * rfromPrimal (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] 128, 42)
+  let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] (rscalar 128), 42)
   printArtifactPretty renames artifactRev
     @?= "\\v6 x1 -> let m9 = rscatter [2,5] v6 (\\[i7] -> [let x8 = tproject1 v1 ! [i7] in ifF (0.0 >=. x8 * tproject2 v1) 0 1, i7]) ; v10 = m9 ! [1] in tpair (rreplicate 5 (tproject2 v1) * v10, rsum (tproject1 v1 * v10))"
   printArtifactPrimalPretty renames artifactRev

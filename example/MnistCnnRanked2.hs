@@ -112,7 +112,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
                              batch_size input adparameters
       targets = rtr labelR
       loss = lossSoftMaxCrossEntropyR targets result
-  in rfromPrimal (recip $ fromIntegral batch_size) * loss
+  in rfromPrimal (recip $ rscalar $ fromIntegral batch_size) * loss
 
 convMnistTestR
   :: forall target r.

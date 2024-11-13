@@ -368,7 +368,7 @@ class ( Num (IntOf target)
   -- at any rank greater than zero.
   rzero :: (GoodScalar r, KnownNat n)
         => IShR n -> target (TKR r n)
-  rzero sh = rreplicate0N sh 0
+  rzero sh = rreplicate0N sh (rscalar 0)
 
   -- ** No serviceable parts beyond this point ** --
 

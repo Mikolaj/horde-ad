@@ -241,7 +241,7 @@ fooBuild3 :: forall target r n.
           => target (TKR r (1 + n)) -> target (TKR r (1 + n))
 fooBuild3 v =
   rbuild1 22 $ \ix ->
-    bar ( rreplicate0N (tailShape $ rshape v) 1
+    bar ( rreplicate0N (tailShape $ rshape v) (rscalar 1)
         , rindex v [minF 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
@@ -257,7 +257,7 @@ fooBuild5 v =
   let r = rsum v
       v' = rreplicate0N (tailShape $ rshape v) $ rminimum $ rflatten v
   in rbuild1 2 $ \ix ->
-       r * foo ( rreplicate0N (tailShape $ rshape v) 3
+       r * foo ( rreplicate0N (tailShape $ rshape v) (rscalar 3)
                , rscaleByScalar 5 r
                , r * v')
        + bar (r, rindex v [minF 1 (ix + 1)])  -- index not out of bounds
@@ -290,8 +290,8 @@ fooBuild1 v =
       tk = rreplicate0N (tailShape $ rshape v)
       v' = tk $ rminimum $ rflatten v
   in rbuild1 3 $ \ix ->
-       r * foo ( tk 3
-               , tk 5 * r
+       r * foo ( tk (rscalar 3)
+               , tk (rscalar 5) * r
                , r * v')
        + bar (r, rindex v [minF 1 (ix + 1)])
 

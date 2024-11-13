@@ -498,7 +498,7 @@ rfwd1 :: forall g r n m r3.
          , GoodScalar r3, KnownNat n, KnownNat m )
       => (forall f. ADReady f => f (TKR r n) -> f (TKR r3 m)) -> g (TKR r n)
       -> g (ADTensorKind (TKR r3 m))
-rfwd1 f u = rfwd1ds f u (rreplicate0N @_ @(ADTensorScalar r) (rshape u) 1)
+rfwd1 f u = rfwd1ds f u (rreplicate0N @_ @(ADTensorScalar r) (rshape u) (rscalar 1))
 
 srev1 :: forall g r sh sh2 r3.
          ( ADReady g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2

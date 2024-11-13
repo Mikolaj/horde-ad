@@ -453,7 +453,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
 {- TODO: this generalization of the above case slows down test 3nestedSumBuild1
    orders of magnitude
   Ast.AstReplicate k v ->
-    let len = AstConcrete $ fromIntegral k
+    let len = AstConcrete $ Nested.rscalar $ fromIntegral k
         zero = astReplicate0N (dropShape $ shapeAst v) 0
     in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstRel LeqOp 0 i1)
                                               (Ast.AstRel LsOp i1 len) of
@@ -524,7 +524,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
       Ast.AstIndex (astFromVector $ V.map (`astIndexRec` ix2) l)
                    (singletonIndex i1)
   Ast.AstAppend u v ->
-    let ulen = AstConcrete $ fromIntegral $ lengthAst u
+    let ulen = AstConcrete $ Nested.rscalar $ fromIntegral $ lengthAst u
         ix2 = simplifyAstInt (AstN2 MinusOp i1 ulen) :.: rest1
     in case simplifyAstBool $ Ast.AstRel LsOp i1 ulen of
       AstBoolConst b -> if b then astIndex u ix else astIndex v ix2
@@ -749,7 +749,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
       Ast.AstIndexS @'[in1] @shn (astFromVectorS $ V.map (`astIndexRec` ix2) l)
                     (ShapedList.singletonIndex i1)
   Ast.AstAppendS @_ @m u v ->
-    let ulen = AstConcrete $ fromIntegral (valueOf @m :: Int)
+    let ulen = AstConcrete $ Nested.rscalar $ fromIntegral (valueOf @m :: Int)
         ix1 = i1 :.$ rest1
         ix2 = simplifyAstInt (AstN2 MinusOp i1 ulen) :.$ rest1
     in case simplifyAstBool $ Ast.AstRel LsOp i1 ulen of
@@ -1094,7 +1094,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
             i5 = subst i4
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstAppend u v ->
-      let ulen = AstConcrete $ fromIntegral $ lengthAst u
+      let ulen = AstConcrete $ Nested.rscalar $ fromIntegral $ lengthAst u
           iu = simplifyAstInt (AstN2 MinusOp i4 ulen)
       in case simplifyAstBool $ Ast.AstRel LsOp i4 ulen of
         AstBoolConst b -> if b
@@ -2956,10 +2956,10 @@ contractAstNumOp2 :: OpCodeNum2 -> AstInt AstMethodLet -> AstInt AstMethodLet ->
 contractAstNumOp2 MinusOp u v =
   contractAstPlusOp u (contractAstNumOp1 NegateOp v)
 contractAstNumOp2 TimesOp (AstConcrete u) (AstConcrete v) = AstConcrete $ u * v
-contractAstNumOp2 TimesOp (AstConcrete 0) _v = AstConcrete 0
-contractAstNumOp2 TimesOp _u (AstConcrete 0) = AstConcrete 0
-contractAstNumOp2 TimesOp (AstConcrete 1) v = v
-contractAstNumOp2 TimesOp u (AstConcrete 1) = u
+contractAstNumOp2 TimesOp (AstConcrete i) _v | i == Nested.rscalar 0 = AstConcrete i
+contractAstNumOp2 TimesOp _u (AstConcrete i) | i == Nested.rscalar 0 = AstConcrete i
+contractAstNumOp2 TimesOp (AstConcrete i) v | i == Nested.rscalar 1 = v
+contractAstNumOp2 TimesOp u (AstConcrete i) | i == Nested.rscalar 1 = u
 {- TODO: is it worth adding AstLet with a fresh variables
    to share w and so make these rules safe? Perhaps after we decide
    a normal form (e.g., a polynomial)?
@@ -2997,8 +2997,8 @@ contractAstNumOp2 opCode u v = AstN2 opCode u v
 
 contractAstIntegralOp2 :: OpCodeIntegral2 -> AstInt AstMethodLet -> AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstIntegralOp2 QuotOp (AstConcrete u) (AstConcrete v) = AstConcrete $ quotF u v
-contractAstIntegralOp2 QuotOp (AstConcrete 0) _v = AstConcrete 0
-contractAstIntegralOp2 QuotOp u (AstConcrete 1) = u
+contractAstIntegralOp2 QuotOp (AstConcrete i) _v | i == Nested.rscalar 0 = AstConcrete i
+contractAstIntegralOp2 QuotOp u (AstConcrete i) | i == Nested.rscalar 1 = u
 contractAstIntegralOp2 QuotOp (Ast.AstI2 RemOp _u (AstConcrete v)) (AstConcrete v')
   | v' >= v && v >= 0 = 0
 contractAstIntegralOp2 QuotOp (Ast.AstI2 QuotOp u v) w =
@@ -3007,8 +3007,8 @@ contractAstIntegralOp2 QuotOp (Ast.AstN2 TimesOp (AstConcrete u) v) (AstConcrete
   | u == u' = v
 
 contractAstIntegralOp2 RemOp (AstConcrete u) (AstConcrete v) = AstConcrete $ remF u v
-contractAstIntegralOp2 RemOp (AstConcrete 0) _v = 0
-contractAstIntegralOp2 RemOp _u (AstConcrete 1) = 0
+contractAstIntegralOp2 RemOp (AstConcrete i) _v | i == Nested.rscalar 0 = AstConcrete i
+contractAstIntegralOp2 RemOp _u (AstConcrete i) | i == Nested.rscalar 1 = AstConcrete $ Nested.rscalar 0
 contractAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConcrete v)) (AstConcrete v')
   | v' >= v && v >= 0 = Ast.AstI2 RemOp u (AstConcrete v)
 contractAstIntegralOp2 RemOp (Ast.AstI2 RemOp u (AstConcrete v)) (AstConcrete v')
