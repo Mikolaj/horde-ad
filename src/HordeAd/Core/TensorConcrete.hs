@@ -101,7 +101,7 @@ instance BaseTensor RepN where
   rscatter sh t f = RepN $ FlipR $ tscatterZR sh (runFlipR $ unRepN t)
                                          (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
   rscatter1 sh t f = RepN $ FlipR $ tscatterZ1R sh (runFlipR $ unRepN t)
-                                           (fromIndexOfR . fmap unRepN . f . RepN . FlipR . tscalarR)
+                                           (fromIndexOfR . fmap unRepN . f . RepN . FlipS . tscalarS)
   rfromList = RepN . FlipR . tfromListR . NonEmpty.map (runFlipR . unRepN)
   rfromList0N sh = RepN . FlipR . tfromList0NR sh . map (tunScalarR . runFlipR . unRepN)
   rfromVector = RepN . FlipR . tfromVectorR . V.map (runFlipR . unRepN)
@@ -114,7 +114,7 @@ instance BaseTensor RepN where
   rreverse = RepN . FlipR . treverseR . runFlipR . unRepN
   rtranspose perm = RepN . FlipR . ttransposeR perm . runFlipR . unRepN
   rreshape sh = RepN . FlipR . treshapeR sh . runFlipR . unRepN
-  rbuild1 k f = RepN $ FlipR $ tbuild1R k (runFlipR . unRepN . f . RepN . FlipR . tscalarR)
+  rbuild1 k f = RepN $ FlipR $ tbuild1R k (runFlipR . unRepN . f . RepN . FlipS . tscalarS)
   rmap0N f t = RepN $ FlipR $ tmap0NR (runFlipR . unRepN . f . RepN . FlipR) (runFlipR $ unRepN t)
   rzipWith0N f t u =
     RepN $ FlipR $ tzipWith0NR (\v w -> runFlipR $ unRepN $ f (RepN $ FlipR v) (RepN $ FlipR w))
@@ -122,7 +122,7 @@ instance BaseTensor RepN where
   rgather sh t f = RepN $ FlipR $ tgatherZR sh (runFlipR $ unRepN t)
                                        (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
   rgather1 k t f = RepN $ FlipR $ tgatherZ1R k (runFlipR $ unRepN t)
-                                       (fromIndexOfR . fmap unRepN . f . RepN . FlipR . tscalarR)
+                                       (fromIndexOfR . fmap unRepN . f . RepN . FlipS . tscalarS)
   rcast = RepN . FlipR . tcastR . runFlipR . unRepN
   rfromIntegral = RepN . FlipR . tfromIntegralR . runFlipR . unRepN
   rconcrete = RepN . FlipR
@@ -165,7 +165,7 @@ instance BaseTensor RepN where
   sscatter t f = RepN $ FlipS $ tscatterZS (runFlipS $ unRepN t)
                                    (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
   sscatter1 t f = RepN $ FlipS $ tscatterZ1S (runFlipS $ unRepN t)
-                                      (fromIndexOfS . fmap unRepN . f . RepN . FlipR . tscalarR)
+                                      (fromIndexOfS . fmap unRepN . f . RepN . FlipS . tscalarS)
   sfromList = RepN . FlipS . tfromListS . NonEmpty.map (runFlipS . unRepN)
   sfromList0N = RepN . FlipS . tfromList0NS . map (tunScalarS . runFlipS . unRepN)
   sfromVector = RepN . FlipS . tfromVectorS . V.map (runFlipS . unRepN)
@@ -178,7 +178,7 @@ instance BaseTensor RepN where
   sreverse = RepN . FlipS . treverseS . runFlipS . unRepN
   stranspose perm = RepN . FlipS . ttransposeS perm . runFlipS . unRepN
   sreshape = RepN . FlipS . treshapeS . runFlipS . unRepN
-  sbuild1 f = RepN $ FlipS $ tbuild1S (runFlipS . unRepN . f . RepN . FlipR . tscalarR)
+  sbuild1 f = RepN $ FlipS $ tbuild1S (runFlipS . unRepN . f . RepN . FlipS . tscalarS)
   smap0N f t = RepN $ FlipS $ tmap0NS (runFlipS . unRepN . f . RepN . FlipS) (runFlipS $ unRepN t)
   szipWith0N f t u =
     RepN $ FlipS $ tzipWith0NS (\v w -> runFlipS $ unRepN $ f (RepN $ FlipS v) (RepN $ FlipS w))
@@ -186,7 +186,7 @@ instance BaseTensor RepN where
   sgather t f = RepN $ FlipS $ tgatherZS (runFlipS $ unRepN t)
                                   (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
   sgather1 t f = RepN $ FlipS $ tgatherZ1S (runFlipS $ unRepN t)
-                                  (fromIndexOfS . fmap unRepN . f . RepN . FlipR . tscalarR)
+                                  (fromIndexOfS . fmap unRepN . f . RepN . FlipS . tscalarS)
   scast = RepN . FlipS . tcastS . runFlipS . unRepN
   sfromIntegral = RepN . FlipS . tfromIntegralS . runFlipS . unRepN
   sconcrete = RepN . FlipS

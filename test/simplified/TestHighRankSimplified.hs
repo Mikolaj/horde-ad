@@ -160,14 +160,14 @@ fooBuild2
   => target (TKR r (1 + n)) -> target (TKR r (1 + n))
 fooBuild2 v =
   rbuild1 2 $ \ix ->
-    ifF (ix - (rprimalPart . rfloor) (rsum0 @target @r @5
+    ifF (ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
                       $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 >=. 0
-         &&* ix - (rprimalPart . rfloor) (rsum0 @target @r @5
+         &&* ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
                           $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 <=. 1)
-        (rindex v [ix - (rprimalPart . rfloor) (rsum0 @target @r @5
+        (rindex v [ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
                                 $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001])
            -- index out of bounds; also fine
-        (sqrt $ abs $ rindex v [let rr = (ix - (rprimalPart . rfloor) (rsum0 v) - 10001) `remF` 2
+        (sqrt $ abs $ rindex v [let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - 10001) `remF` 2
                                 in ifF (signum rr ==. negate (signum 2))
                                    (rr + 2)
                                    rr])
@@ -212,14 +212,14 @@ fooBuild2S
   => target (TKS r (k : sh)) -> target (TKR r (1 + Rank sh))
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix ->
-    ifF (sfromR ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+    ifF (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
-         &&* sfromR ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+         &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
-        (sindex v (ShapedList.singletonIndex (rfromS $ sfromR ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001)))
            -- index out of bounds; also fine
-        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (rfromS $ let rr = (sfromR ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
+        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
                                 in ifF (signum rr ==. negate (signum $ srepl 2))
                                    (rr + srepl 2)
                                    rr)))
@@ -332,7 +332,7 @@ fooNoGo v =
        bar ( rreplicate0N shTail (rscalar 3.14)
            , bar ( rrepl (shapeToList shTail) 3.14
                  , rindex v [ix]) )
-       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* rscalar 6 >. abs ix)
+       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* sscalar 6 >. abs ix)
                r (rreplicate0N shTail (rscalar 5) * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r0) r0 x) v)
      * rbuild1 3 (const $ rrepl (shapeToList shTail) 1)
@@ -567,11 +567,11 @@ concatBuild r =
             , rbuild1 1 (\j -> rmap0N (* rfromIndex0 (j - i)) r)
             , rbuild1 11 (\j ->
                 rmap0N (* (rfromIndex0
-                  (rscalar 125 * (j `remF` (abs (signum i + abs i) + 1))
-                   + maxF j (i `quotF` (j + 1)) * (rprimalPart . rfloor) (rsum0 r)
+                  (sscalar 125 * (j `remF` (abs (signum i + abs i) + 1))
+                   + maxF j (i `quotF` (j + 1)) * (sprimalPart . sfloor . sfromR) (rsum0 r)
                    - ifF (r <=. r &&* i <. j)
-                         (rprimalPart $ rminIndex (rflatten r))
-                         ((rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `remF` 7 :.: ZIR))))) r)
+                         (sprimalPart $ sfromR $ rminIndex (rflatten r))
+                         ((sprimalPart . sfloor . sfromR) $ rsum0 $ r ! ((i * j) `remF` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->
                 rsum $ rtr $ rreplicate (rlength r) (rslice 0 1 r)) ])
 

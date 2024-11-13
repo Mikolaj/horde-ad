@@ -373,7 +373,7 @@ interpretAst !env = \case
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIota (i :.: ZIR) ->
-    rfromIntegral $ rfromPrimal $ interpretAstPrimal env i
+    rfromIntegral . rfromPrimal . rfromS $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -523,7 +523,7 @@ interpretAst !env = \case
   AstReshape sh v -> rreshape sh (interpretAst env v)
   AstGather sh AstIota (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, fromPrimal @s $ AstFromIntegral i))
+                                    (vars, fromPrimal @s $ AstFromIntegral $ AstRFromS i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -645,7 +645,7 @@ interpretAst !env = \case
     in foldl1 (+) (srepl 0 : args2)  -- backward compat vs @sum@
 -- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
-    sfromIntegral . sfromPrimal . sfromR $ interpretAstPrimal env i
+    sfromIntegral . sfromPrimal $ interpretAstPrimal env i
   AstIndexS @sh1 @_ @_ @r v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -780,7 +780,7 @@ interpretAst !env = \case
     $ sbuild @target @r @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
-                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR i))
+                (vars, fromPrimal @s $ AstFromIntegralS i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)

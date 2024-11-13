@@ -1398,11 +1398,11 @@ fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
 fooNoGoAst v =
   let r = rsum0 v
   in rbuild1 3 (\ix ->
-       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
+       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [(ix + (sprimalPart . sfloor . sfromR) r) `minF` 2 `maxF` 0]))
        + ifF ( (&&*)
                     (rindex v (ix * 2 :.: ZIR) <=. rscalar 0)
                         -- @1 not required thanks to :.:; see below for @ and []
-                    (rscalar 6 >. abs ix) )
+                    (sscalar 6 >. abs ix) )
                  r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
      * rbuild1 3 (const (rscalar 1))
@@ -1426,9 +1426,9 @@ fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
 fooNoGo v =
   let r = rsum0 v
   in rbuild1 3 (\ix ->
-       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [(ix + (rprimalPart . rfloor) r) `minF` 2 `maxF` 0]))
+       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [(ix + (sprimalPart . sfloor . sfromR) r) `minF` 2 `maxF` 0]))
        + ifF ((&&*) (rindex @target @r @1 v [ix * 2] <=. rscalar 0)
-                    (rscalar 6 >. abs ix))
+                    (sscalar 6 >. abs ix))
                r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
      * rbuild1 3 (const (rscalar 1))

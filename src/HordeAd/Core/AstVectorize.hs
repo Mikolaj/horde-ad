@@ -162,7 +162,7 @@ build1V snat@SNat (var, v00) =
         astProject2 (build1V snat (var, t))
     Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
       case isRankedInt v0 of
-        Just Refl -> fromPrimal @s $ astSlice 0 k Ast.AstIota
+        Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->
       error "build1V: AstVar can't contain other free index variables"

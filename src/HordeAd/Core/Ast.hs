@@ -201,19 +201,19 @@ data AstArtifactFwd x z = AstArtifactFwd
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
-type AstInt ms = AstTensor ms PrimalSpan (TKR Int64 0)
+type AstInt ms = AstTensor ms PrimalSpan (TKS Int64 '[])
 
 -- TODO: type IntVarNameF = AstVarName PrimalSpan Int64
-type IntVarName = AstVarName PrimalSpan (TKR Int64 0)
+type IntVarName = AstVarName PrimalSpan (TKS Int64 '[])
 
 pattern AstIntVar :: IntVarName -> AstInt ms
-pattern AstIntVar var = AstVar (FTKR ZSR) var
+pattern AstIntVar var = AstVar (FTKS ZSS) var
 
 isRankedInt :: forall s y ms. (AstSpan s, TensorKind y)
             => AstTensor ms s y
             -> Maybe (AstTensor ms s y :~: AstInt ms)
 isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
-                     , sameTensorKind @y @(TKR Int64 0) ) of
+                     , sameTensorKind @y @(TKS Int64 '[]) ) of
                   (Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
 

@@ -27,33 +27,39 @@ import HordeAd.Util.SizedList
 rminIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
               , KnownNat n, GoodScalar r )
            => target (TKR r n) -> IndexOf target n
-rminIndexN t = fromLinearIdx (rscalar . fromIntegral) (rshape t) (rprimalPart $ rminIndex (rflatten t))
+rminIndexN t =
+  fromLinearIdx (sscalar . fromIntegral)
+    (rshape t)
+    (sprimalPart $ sfromR $ rminIndex (rflatten t))
 
 rmaxIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
               , KnownNat n, GoodScalar r )
            => target (TKR r n) -> IndexOf target n
-rmaxIndexN t = fromLinearIdx (rscalar . fromIntegral) (rshape t) (rprimalPart $ rmaxIndex (rflatten t))
+rmaxIndexN t =
+  fromLinearIdx (sscalar . fromIntegral)
+    (rshape t)
+    (sprimalPart $ sfromR $ rmaxIndex (rflatten t))
 
 rminimum :: ( BaseTensor target, BaseTensor (PrimalOf target)
             , LetTensor target, KnownNat n, GoodScalar r )
          => target (TKR r n) -> target (TKR r 0)
 -- The let is required to preserve the sharing of the argument, which is
--- used twice: in rminIndex and in tindex0.
+-- used twice: in rminIndex and in rindex0.
 rminimum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
-                                          (rprimalPart $ rminIndex (rflatten t))
+                rindex0 t $ fromLinearIdx (sscalar . fromIntegral) (rshape t)
+                                          (sprimalPart $ sfromR $ rminIndex (rflatten t))
 
 rmaximum :: ( BaseTensor target, BaseTensor (PrimalOf target)
             , LetTensor target, KnownNat n, GoodScalar r )
          => target (TKR r n) -> target (TKR r 0)
 rmaximum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (rscalar . fromIntegral) (rshape t)
-                                          (rprimalPart $ rmaxIndex (rflatten t))
+                rindex0 t $ fromLinearIdx (sscalar . fromIntegral) (rshape t)
+                                          (sprimalPart $ sfromR $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, GoodScalar r)
             => IntOf target -> target (TKR r 0)
-rfromIndex0 = rfromIntegral . rfromPrimal
+rfromIndex0 = rfromIntegral . rfromS @_ @Int64 @'[] . sfromPrimal
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n
@@ -62,8 +68,9 @@ rfromIndex1 :: forall n r target.
             => IndexOf target n -> target (TKR r 1)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . indexToList
+  _ -> rfromIntegral . rfromS @_ @_ @'[n] . sfromPrimal . sfromList . NonEmpty.fromList . indexToList
 
+{-
 rint64FromIndex1 :: forall n target.
                     ( KnownNat n
                     , BaseTensor target, BaseTensor (PrimalOf target) )
@@ -83,6 +90,7 @@ tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
           , LetTensor target )
        => IndexOf target n -> (IndexOf target n -> target (TKR r m)) -> target (TKR r m)
 tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
+-}
 
 scale :: forall target r n.
          (ADReady target, GoodScalar r, KnownNat n)
@@ -220,6 +228,7 @@ slicez
 slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
+{-
 -- TODO: this makes tests unbearably slow; does it still?
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
@@ -228,6 +237,7 @@ indexz0Let
   => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
 indexz0Let d ix0 = tletIx ix0 $ \ix ->
                      ifF (within0 @target (rshape @target d) ix) (d ! ix) 0
+-}
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.

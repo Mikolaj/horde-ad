@@ -35,17 +35,17 @@ sminIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
            => target (TKS r sh) -> IndexSh target sh
 sminIndexN t =
-  ShapedList.fromLinearIdx (rscalar . fromIntegral)
+  ShapedList.fromLinearIdx (sscalar . fromIntegral)
     (sshape t)
-    (rfromS $ sprimalPart $ sminIndex (sflatten t))
+    (sprimalPart $ sminIndex (sflatten t))
 
 smaxIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
            => target (TKS r sh) -> IndexSh target sh
 smaxIndexN t =
-  ShapedList.fromLinearIdx (rscalar . fromIntegral)
+  ShapedList.fromLinearIdx (sscalar . fromIntegral)
     (sshape t)
-    (rfromS $ sprimalPart $ smaxIndex (sflatten t))
+    (sprimalPart $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
@@ -59,22 +59,24 @@ smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS r '[])
-sfromIndex0 = sfromIntegral . sfromPrimal . sfromR
+sfromIndex0 = sfromIntegral . sfromPrimal
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownNat (Rank sh))
             => IndexSh target sh -> target (TKS r '[Rank sh])
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
-  _ -> sfromIntegral . sfromPrimal . sfromR . rfromList
+  _ -> sfromIntegral . sfromPrimal . sfromList
        . NonEmpty.fromList . ShapedList.indexToList
 
+{-
 sletIx :: forall r sh n target.
           (ADReady target, GoodScalar r, KnownShS sh, KnownNat n)
        => IndexOf target n -> (IndexOf target n -> target (TKS r sh)) -> target (TKS r sh)
 sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
                  f $ rint64ToIndex1 $ rfromS @target ixT
+-}
 
 scaleS :: forall target r sh.
           (KnownShS sh, ADReady target, GoodScalar r)
@@ -235,6 +237,7 @@ slicezS d ixBase =
                                        (ShapedList.shapedToIndex ixBase)
                                        (ShapedList.shapedToIndex ixResult))
 
+{-
 -- TODO: this makes tests unbearably slow
 --
 -- TODO: explain why the argument is not IndexSh but IndexOf (is it because
@@ -257,6 +260,7 @@ indexz0SLet d ix0 =
     ifF (within0S @shOut @target ix)
         (sindex0 d (ShapedList.listToIndex (indexToList ix)))
         (srepl 0)
+-}
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.

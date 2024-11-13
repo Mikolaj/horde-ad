@@ -20,7 +20,7 @@ import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, fromSNat)
+import GHC.TypeLits (fromSNat)
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -408,9 +408,9 @@ unshareAstTensor tShare =
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
 unshareAstScoped
-  :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-  => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s (TKR r n)
-  -> (AstBindings, AstTensor AstMethodLet s (TKR r n))
+  :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
+  => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s (TKS r sh)
+  -> (AstBindings, AstTensor AstMethodLet s (TKS r sh))
 unshareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = unshareAst memo0 v0
       memoDiff = DMap.difference memo1 memo0
@@ -464,13 +464,11 @@ unshareAst memo = \case
     in (memo3, Ast.AstCond b1 t2 t3)
   Ast.AstReplicate k v -> second (Ast.AstReplicate k) (unshareAst memo v)
   Ast.AstBuild1 @y2 snat (var, v) -> case stensorKind @y2 of
-    STKScalar _ ->
-      let (memo1, v2) = unshareAstScoped [var] memo $ Ast.AstScalar v
-      in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKR STKScalar{} SNat ->
+    STKScalar{} -> error "WIP"
+    STKR STKScalar{} SNat -> error "WIP"
+    STKS STKScalar{} sh -> withKnownShS sh $
       let (memo1, v2) = unshareAstScoped [var] memo v
       in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKS STKScalar{} sh -> withKnownShS sh $ error "WIP"
     STKX STKScalar{} sh -> withKnownShX sh $ error "WIP"
     STKProduct{} -> error "WIP"
     STKUntyped -> error "WIP"

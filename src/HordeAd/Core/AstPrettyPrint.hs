@@ -193,10 +193,10 @@ printAst cfgOld d t =
         _ ->  -- the heuristics failed
           let cfg = cfgOld {representsIntIndex = False}
           in printAstAux cfg d t
-    AstConcrete i ->
+    AstConcreteS i ->
       case isRankedInt t of  -- TODO: really needed?
         Just Refl ->  -- the heuristics may have been correct
-          shows $ Nested.runScalar i
+          shows $ Nested.sunScalar i
         _ ->  -- the heuristics failed
           let cfg = cfgOld {representsIntIndex = False}
           in printAstAux cfg d t
