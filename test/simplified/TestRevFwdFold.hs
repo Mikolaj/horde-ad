@@ -1130,7 +1130,7 @@ testSin0Scan1Rev2PPForComparison = do
   let (art, _) =
         revArtifactAdapt
                  True
-                 (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0])
+                 (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0])
                  (rscalar 1.1)
   printArtifactPretty @_ @(TKR Double 1) IM.empty (simplifyArtifact art)
     @?= "\\v3 x1 -> cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]"
@@ -1146,14 +1146,14 @@ testSin0Scan1Rev2ForComparison :: Assertion
 testSin0Scan1Rev2ForComparison = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [1.1961317861865948] :: RepN (TKR Double 0))
-    (rev' (\x0 -> rfromList [sin (sin x0 - 5) - 7, sin x0 - 5, x0]) (rscalar 1.1))
+    (rev' (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0]) (rscalar 1.1))
 
 testSin0Scan1Rev3PP :: Assertion
 testSin0Scan1Rev3PP = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
+                           (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInline a1)
     @?= "let v3 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) ; v6 = rconcrete (rfromListLinear [3] [1.0,1.0,1.0]) ; v7 = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> 0.0 (tpair (rslice 1 2 v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 v3)), v3))) in v6 ! [0] + 5.0 * tproject2 v7 ! [0] + 7.0 * tproject2 v7 ! [1] + tproject1 v7"
 
@@ -1161,7 +1161,7 @@ testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
-                 (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) (rscalar 1.1)
+                 (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInline a1)
     @?= "let v4 = rconcrete (rfromListLinear [3] [1.0,1.0,1.0]) ; x5 = v4 ! [1] ; x6 = v4 ! [0] ; x7 = cos (sin 1.1 - 1.1 * 5.0) * x6 in cos 1.1 * x7 + 5.0 * (-1.0 * x7) + 7.0 * (-1.0 * x6) + cos 1.1 * x5 + 5.0 * (-1.0 * x5) + v4 ! [2]"
 
@@ -1170,7 +1170,7 @@ testSin0ScanFwd3PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
+                           (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInline a1)
     @?= "let v4 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.0 (tpair (rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 v4)), v4)))))"
 
@@ -1179,13 +1179,13 @@ testSin0Scan1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
     (ringestData [] [-10.076255083995068] :: RepN (TKR Double 0))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rfromList [x0 * 5, x0 * 7])) (rscalar 1.1))
+                           (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1))
 
 testSin0Scan1Rev3ForComparison :: Assertion
 testSin0Scan1Rev3ForComparison = do
   assertEqualUpToEpsilon' 1e-5
     (ringestData [] [-10.076255083995068] :: RepN (TKR Double 0))
-    (rev' (\x0 -> rfromList [sin (sin x0 - x0 * 5) - x0 * 7, sin x0 - x0 * 5, x0]) (rscalar 1.1))
+    (rev' (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1))
 
 testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
@@ -1244,7 +1244,7 @@ testUnitriangular0PP = do
   let k = 1000000
       a1 = rbuild1 @(AstTensor AstMethodLet PrimalSpan) @Double @1 k
            $ \i -> rbuild1 k
-           $ \j -> ifF (i <=. j) 0 1
+           $ \j -> ifF (i <=. j) (rscalar 0) (rscalar 1)
   printAstPretty IM.empty (simplifyInline a1)
     @?= "rgather [1000000,1000000] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifF (i3 <=. i2) 0 1])"
 
@@ -3265,7 +3265,7 @@ testSin0ScanD1Rev3 = do
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
-                                    (rfromList [x0 * 5, x0]))) (rscalar 1.1))
+                                    (rfromList [x0 * rscalar 5, x0]))) (rscalar 1.1))
 
 testSin0ScanD1Rev3PP :: Assertion
 testSin0ScanD1Rev3PP = do
@@ -3276,7 +3276,7 @@ testSin0ScanD1Rev3PP = do
                            x0
                            (V.singleton $ DynamicRanked
                             $ rscan (\x a -> a * x) x0
-                                    (rfromList [x0 * 5, x0]))) (rscalar 1.1)
+                                    (rfromList [x0 * rscalar 5, x0]))) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInline a1))
     @?= 3715
 
@@ -3287,7 +3287,7 @@ testSin0ScanDFwd3PP = do
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                                 (V.fromList [voidFromSh @Double ZSR])
                                 x0 (V.singleton $ DynamicRanked
-                                    $ rfromList [x0 * 5, x0 * 7])) (rscalar 1.1)
+                                    $ rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInline a1)
     @?= "let v22 = rfromVector (fromList [1.1 * 5.0, 1.1 * 7.0]) in rappend (rreplicate 1 1.0) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.0] (tpair ([rfromVector (fromList [1.0 * 5.0, 1.0 * 7.0])], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [1.1] [v22])), [v22]))))) 0)"
 
@@ -4420,7 +4420,7 @@ testSin0FoldNestedRi = do
                                                   a2 (rscan (+) x2
                                                             (rreplicate 3 a2)))
                                                 x1 (rreplicate 1 a1))
-                                              a (rscan (-) 0 (rslice 0 1 x))))
+                                              a (rscan (-) (rscalar 0) (rslice 0 1 x))))
                             (rreplicate 3 $ (rscalar 2) * a0) (rreplicate 2 a0)
            in f) (rscalar 1.1))
 
