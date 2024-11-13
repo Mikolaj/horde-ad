@@ -42,7 +42,7 @@ import Data.Some
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat, sameNat, type (+), type (<=))
+import GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -53,7 +53,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..), valueOf)
+  (IntegralF (..), RealFloatF (..))
 import HordeAd.Util.ShapedList (Drop, IndexS, Init, SizedListS, Take)
 import HordeAd.Util.SizedList
 
@@ -672,7 +672,7 @@ instance Eq (AstTensor ms s y) where
 instance Ord (AstTensor ms s y) where
   (<=) = error "AST requires that OrdF be used instead"
 
-instance (Num (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
+instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
          => Num (AstTensor ms s (TKR r n)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -706,13 +706,8 @@ instance (Num (Nested.Ranked n r), AstSpan s, GoodScalar r, KnownNat n)
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
   signum = AstN1 SignumOp
-  fromInteger :: Integer -> AstTensor ms s (TKR r n)
-  fromInteger i = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> fromPrimal . AstConcrete . fromInteger $ i
-    Nothing -> error $ "fromInteger not defined for Ast of non-zero ranks: "
-                       ++ show (i, valueOf @n :: Int)
-    -- it's crucial that there is no AstFromPrimal in fromInteger code
-    -- so that we don't need 4 times the simplification rules
+  fromInteger i = error $ "fromInteger not defined for ranked tensors: "
+                          ++ show i
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -722,11 +717,11 @@ instance (GoodScalar r, Integral r, KnownNat n)
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
 
-instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), AstSpan s, KnownNat n)
+instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), KnownNat n)
          => Fractional (AstTensor ms s (TKR r n)) where
   u / v = AstR2 DivideOp u v
   recip = AstR1 RecipOp
-  fromRational r = error $ "fromRational not defined for Ast: "
+  fromRational r = error $ "fromRational not defined for AST: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
@@ -757,7 +752,7 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
 
-instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
+instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
          => Num (AstTensor ms s (TKS r sh)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -790,8 +785,13 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
   negate = AstN1S NegateOp
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
-  fromInteger i = error $ "fromInteger not defined for AstShaped: "
-                          ++ show i
+  fromInteger :: Integer -> AstTensor ms s (TKS r sh)
+  fromInteger i = case sameShape @sh @'[] of
+    Just Refl -> fromPrimal . AstConcreteS . fromInteger $ i
+    Nothing -> error $ "fromInteger not defined for tensors of non-empty shapes: "
+                       ++ show (i, knownShS @sh)
+    -- it's crucial that there is no AstFromPrimal in fromInteger code
+    -- so that we don't need 4 times the simplification rules
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -802,11 +802,11 @@ instance (Integral r, GoodScalar r, KnownShS sh)
   remF = AstI2S RemOp
 
 instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
-         , KnownShS sh )
+         , KnownShS sh, AstSpan s )
          => Fractional (AstTensor ms s (TKS r sh)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
-  fromRational r = error $ "fromRational not defined for AstShaped: "
+  fromRational r = error $ "fromRational not defined for AST: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
@@ -870,7 +870,7 @@ instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
   negate = AstN1X NegateOp
   abs = AstN1X AbsOp
   signum = AstN1X SignumOp
-  fromInteger i = error $ "fromInteger not defined for AstShaped: "
+  fromInteger i = error $ "fromInteger not defined for mixed tensors: "
                           ++ show i
 
 -- Warning: div and mod operations are very costly (simplifying them
@@ -886,7 +886,7 @@ instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
          => Fractional (AstTensor ms s (TKX r sh)) where
   u / v = AstR2X DivideOp u v
   recip = AstR1X RecipOp
-  fromRational r = error $ "fromRational not defined for AstShaped: "
+  fromRational r = error $ "fromRational not defined for AST: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)

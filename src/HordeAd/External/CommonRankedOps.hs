@@ -116,7 +116,7 @@ reluLeaky v0 = tlet v0 $ \v ->
 logistic :: forall target r n.
             ( BaseTensor target, LetTensor target
             , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
-            , Floating (PrimalOf target (TKR r n)), Num (PrimalOf target (TKR r 0)) )
+            , Floating (PrimalOf target (TKR r n)) )
          => target (TKR r n) -> target (TKR r n)
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d

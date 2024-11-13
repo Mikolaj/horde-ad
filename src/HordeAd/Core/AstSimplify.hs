@@ -1432,11 +1432,11 @@ astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
-astSumOfList :: (KnownNat n, GoodScalar r, AstSpan s)
+astSumOfList :: (KnownNat n, GoodScalar r)
              => [AstTensor AstMethodLet s (TKR r n)] -> AstTensor AstMethodLet s (TKR r n)
 astSumOfList = foldr1 (+)  -- @sum@ breaks and also reverse order
 
-astSumOfListS :: (GoodScalar r, KnownShS sh)
+astSumOfListS :: (GoodScalar r, KnownShS sh, AstSpan s)
               => [AstTensor AstMethodLet s (TKS r sh)] -> AstTensor AstMethodLet s (TKS r sh)
 astSumOfListS = foldr1 (+)  -- @sum@ reverses order
 
