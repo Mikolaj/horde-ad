@@ -37,19 +37,18 @@ import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import GHC.Exts (withDict)
 import GHC.TypeLits
   (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
 import Type.Reflection (TypeRep, Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (KnownShX (..), StaticShX (..))
+import Data.Array.Mixed.Shape (KnownShX (..), StaticShX (..), withKnownShX)
 import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
 import Data.Array.Nested
   (IxS (..), KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsToList)
+import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -130,12 +129,6 @@ trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
 trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
-
-withKnownShS :: forall sh r. ShS sh -> (KnownShS sh => r) -> r
-withKnownShS = withDict @(KnownShS sh)
-
-withKnownShX :: forall sh r. StaticShX sh -> (KnownShX sh => r) -> r
-withKnownShX = withDict @(KnownShX sh)
 
 
 -- * Types of types of tensors
