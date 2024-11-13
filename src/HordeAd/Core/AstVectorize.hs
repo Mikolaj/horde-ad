@@ -161,7 +161,7 @@ build1V snat@SNat (var, v00) =
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
         astProject2 (build1V snat (var, t))
     Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
-      case isRankedInt v0 of
+      case isTensorInt v0 of
         Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
         _ -> error "build1V: build variable is not an index variable"
     Ast.AstVar{} ->

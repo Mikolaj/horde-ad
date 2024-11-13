@@ -11,7 +11,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId
   , AstDynamicVarName(..), dynamicVarNameToAstVarId, voidFromVar, voidFromVars
-  , AstInt, IntVarName, pattern AstIntVar, isRankedInt
+  , AstInt, IntVarName, pattern AstIntVar, isTensorInt
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIndex, AstVarList, AstIndexS, AstVarListS, AstIndexX
@@ -209,10 +209,10 @@ type IntVarName = AstVarName PrimalSpan (TKS Int64 '[])
 pattern AstIntVar :: IntVarName -> AstInt ms
 pattern AstIntVar var = AstVar (FTKS ZSS) var
 
-isRankedInt :: forall s y ms. (AstSpan s, TensorKind y)
+isTensorInt :: forall s y ms. (AstSpan s, TensorKind y)
             => AstTensor ms s y
             -> Maybe (AstTensor ms s y :~: AstInt ms)
-isRankedInt _ = case ( sameAstSpan @s @PrimalSpan
+isTensorInt _ = case ( sameAstSpan @s @PrimalSpan
                      , sameTensorKind @y @(TKS Int64 '[]) ) of
                   (Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing

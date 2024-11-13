@@ -312,21 +312,21 @@ astNonIndexStep t = case t of
   Ast.AstFloorS{} -> t
   Ast.AstIotaS -> t
   AstN1S opCode u ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode u
       _ -> t
   AstN2S opCode u v ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstNumOp2 opCode u v
       _ -> t
   Ast.AstR1S{} -> t
   Ast.AstR2S{} -> t
   Ast.AstI2S opCode u v ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstIntegralOp2 opCode u v
       _ -> t
   AstSumOfListS args ->
-    case isRankedInt t of
+    case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp args
       _ -> t
   Ast.AstIndexS{} -> t  -- was supposed to be *non*-index
@@ -2478,21 +2478,21 @@ simplifyAst t = case t of
   Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
   Ast.AstIotaS -> t
   AstN1S opCode u ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode (simplifyAst u)
       _ -> AstN1S opCode (simplifyAst u)
   AstN2S opCode u v ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
       _ -> AstN2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S opCode u v ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
       _ -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
   AstSumOfListS args ->
-    case isRankedInt t of
+    case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
       _ -> astSumOfListS (map simplifyAst args)
   Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIndexS ix)
@@ -2689,11 +2689,11 @@ expandAst t = case t of
   Ast.AstFloorS a -> Ast.AstFloorS (expandAst a)
   Ast.AstIotaS -> t
   AstN1S opCode u ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode (expandAst u)
       _ -> AstN1S opCode (expandAst u)
   AstN2S opCode u v ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
       _ -> {- TODO: case opCode of
         TimesOp | Just Refl <- sameNat (Proxy @n) (Proxy @3) ->
@@ -2704,11 +2704,11 @@ expandAst t = case t of
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
   Ast.AstI2S opCode u v ->
-    case isRankedInt u of
+    case isTensorInt u of
       Just Refl -> contractAstIntegralOp2 opCode (expandAst u) (expandAst v)
       _ -> Ast.AstI2S opCode (expandAst u) (expandAst v)
   AstSumOfListS args ->
-    case isRankedInt t of
+    case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp (map expandAst args)
       _ -> astSumOfListS (map expandAst args)
   Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
@@ -3209,7 +3209,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1Ast i var a
   Ast.AstIotaS -> Nothing
   Ast.AstN1S opCode u ->
-    (\u2 -> case isRankedInt u2 of
+    (\u2 -> case isTensorInt u2 of
        Just Refl -> contractAstNumOp1 opCode u2
        _ -> Ast.AstN1S opCode u2)
     <$> substitute1Ast i var u
@@ -3217,7 +3217,7 @@ substitute1Ast i var v1 = case v1 of
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ case isRankedInt u of
+       then Just $ case isTensorInt u of
          Just Refl -> contractAstNumOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
          _ -> Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
@@ -3232,7 +3232,7 @@ substitute1Ast i var v1 = case v1 of
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ case isRankedInt u of
+       then Just $ case isTensorInt u of
          Just Refl ->
            contractAstIntegralOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
          _ -> Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
@@ -3240,7 +3240,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstSumOfListS args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ case isRankedInt v1 of
+       then Just $ case isTensorInt v1 of
          Just Refl -> foldr1 contractAstPlusOp $ zipWith fromMaybe args margs
          _ -> astSumOfListS $ zipWith fromMaybe args margs
        else Nothing

@@ -150,7 +150,7 @@ printAstVarFromLet
   => AstTensor ms s y -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg && areAllArgsInts u
-  then case isRankedInt u of
+  then case isTensorInt u of
     Just Refl ->  -- the heuristics may have been correct
       printAstIntVar cfg var
     _ ->  -- the heuristics failed
@@ -187,14 +187,14 @@ printAst cfgOld d t =
   if representsIntIndex cfgOld
   then case t of
     AstVar _ var ->
-      case isRankedInt t of  -- TODO: really needed?
+      case isTensorInt t of  -- TODO: really needed?
         Just Refl ->  -- the heuristics may have been correct
           printAstIntVar cfgOld var
         _ ->  -- the heuristics failed
           let cfg = cfgOld {representsIntIndex = False}
           in printAstAux cfg d t
     AstConcreteS i ->
-      case isRankedInt t of  -- TODO: really needed?
+      case isTensorInt t of  -- TODO: really needed?
         Just Refl ->  -- the heuristics may have been correct
           shows $ Nested.sunScalar i
         _ ->  -- the heuristics failed
