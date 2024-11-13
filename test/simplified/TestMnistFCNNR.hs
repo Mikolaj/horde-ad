@@ -48,8 +48,6 @@ mnistTestCase2VTA = do
   res <- foldM runBatch undefined chunks
   return ()
 
-{-# SPECIALIZE mnistTestCase2VTA :: IO () #-}
-
 mnistTestCase2VTI
   :: forall ranked r. ranked ~ Flip OR.Array
   => Int -> Double -> Int -> r -> IO ()
@@ -79,9 +77,6 @@ mnistTestCase2VTI maxBatches gamma batchSize _ = do
       chunks = take maxBatches $ chunksOf batchSize undefined
   res <- foldM runBatch undefined chunks
   return ()
-
-{-# SPECIALIZE mnistTestCase2VTI
-  :: Int -> Double -> Int -> Double -> IO () #-}
 
 mnistTestCase2VTO
   :: Int -> Int -> Double -> Int -> IO ()
@@ -129,6 +124,3 @@ mnistTestCase2VTO maxBatches widthHidden2 gamma batchSize =
     res <- foldM runBatch undefined chunks
     let !testErrorFinal = ftest undefined res
     return ()
-
-{-# SPECIALIZE mnistTestCase2VTO
-  :: Int -> Int -> Double -> Int -> IO () #-}
