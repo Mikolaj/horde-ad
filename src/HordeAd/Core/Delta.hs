@@ -1471,9 +1471,9 @@ fwdSame params s = \case
 
   IndexR d ix -> second (`rindex` ix) $ fwdSame params s d
   SumR d -> second rsum $ fwdSame params s d
-  Sum0R ZeroG{} -> (s, 0)
+  Sum0R ZeroG{} -> (s, rscalar 0)
   Sum0R d -> second rsum0 $ fwdSame params s d
-  Dot0R _ ZeroG{} -> (s, 0)
+  Dot0R _ ZeroG{} -> (s, rscalar 0)
   Dot0R v d -> second (rdot0 v) $ fwdSame params s d
   ScatterR sh d f ->
     let (s2, t) = fwdSame params s d
