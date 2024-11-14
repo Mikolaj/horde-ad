@@ -251,7 +251,7 @@ indexz0Let d ix0 = tletIx ix0 $ \ix ->
 indexz0
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
   => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
-indexz0 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) 0
+indexz0 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.

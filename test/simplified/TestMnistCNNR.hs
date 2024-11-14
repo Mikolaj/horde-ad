@@ -19,6 +19,8 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
+import Data.Array.Nested qualified as Nested
+
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
@@ -389,7 +391,7 @@ testCNNOPP = do
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @4)
                    $ AstReplicate (SNat @4)
-                       (7 :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
+                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN Double
       valsInit =
         forgetShape $ fst

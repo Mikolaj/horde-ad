@@ -560,7 +560,7 @@ testRNNOPP = do
       blackGlyph = AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
-                       (7 :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
+                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR Double 2)
@@ -575,6 +575,7 @@ testRNNOPP = do
     @?= "\\m12 x1 -> let m5 = tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0))))) ; m7 = tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0))))) ; m10 = tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject2 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 m7)) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject2 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0))))) ; m13 = rappend (rconcrete (rfromListLinear [1,1] [0.0])) (rappend (rsum (rtranspose [1,2,0] (rreplicate 1 (tproject1 (tproject2 m1))) * rtranspose [1,0] (rreplicate 1 m12))) (rreplicate 0 (rreplicate 1 0.0))) ; m14 = (rconcrete (rfromListLinear [1,1] [1.0]) - m10 * m10) * rslice 1 1 m13 ; m17 = (rconcrete (rfromListLinear [1,1] [1.0]) - m7 * m7) * rsum (rtranspose [1,2,0] (rreplicate 1 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 m14)) ; m19 = (rconcrete (rfromListLinear [1,1] [1.0]) - m5 * m5) * rslice 0 1 m13 in tpair (tpair (tpair (tpair (rsum (rtranspose [2,0,1] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0))) * rtranspose [2,1,0] (rreplicate 1 m19)) + rsum (rtranspose [2,0,1] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0))) * rtranspose [2,1,0] (rreplicate 1 m17)), rsum (rtranspose [2,0,1] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0))) * rtranspose [2,1,0] (rreplicate 1 m19)) + rsum (rtranspose [2,0,1] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0))) * rtranspose [2,1,0] (rreplicate 1 m17))), rsum (rtranspose [1,0] m19) + rsum (rtranspose [1,0] m17)), tpair (tpair (rsum (rtranspose [2,0,1] (rreplicate 1 m7) * rtranspose [2,1,0] (rreplicate 1 m14)), rsum (rtranspose [2,0,1] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0))) * rtranspose [2,1,0] (rreplicate 1 m14))), rsum (rtranspose [1,0] m14))), tpair (rsum (rtranspose [2,0,1] (rreplicate 10 m10) * rtranspose [2,1,0] (rreplicate 1 m12)), rsum (rtranspose [1,0] m12)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject2 m1))) * rtranspose [1,0] (rreplicate 10 (tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject2 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject2 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (tanh (rtranspose [1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 m1)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject1 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 7.0)))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject1 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0)))))))) + rsum (rtranspose [2,1,0] (rreplicate 1 (tproject2 (tproject1 (tproject2 (tproject1 m1))))) * rtranspose [1,0] (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0)))))))) + rtranspose [1,0] (rreplicate 1 (tproject2 (tproject2 m1)))"
+
 testRNNOPP2 :: Assertion
 testRNNOPP2 = do
   resetVarCounter
@@ -585,7 +586,7 @@ testRNNOPP2 = do
       blackGlyph = AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
-                       (7 :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
+                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR Double 2)

@@ -184,7 +184,7 @@ testZeroZ =
   assertEqualUpToEpsilon' 1e-10
     (rscalar @Double 0)
     (rev' @Double @0 (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
-                          f = const 3
+                          f = const (rscalar 3)
                       in f) (rscalar 42))
 
 testZeroS :: Assertion
@@ -286,7 +286,7 @@ testZero7S :: Assertion
 testZero7S =
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [0])
-    (rev (const 3 :: AstTensor AstMethodLet FullSpan (TKS Double '[]) -> AstTensor AstMethodLet FullSpan (TKR Double 0)) (srepl 42))
+    (rev (const (rscalar 3) :: AstTensor AstMethodLet FullSpan (TKS Double '[]) -> AstTensor AstMethodLet FullSpan (TKR Double 0)) (srepl 42))
 
 testZero8 :: Assertion
 testZero8 =
@@ -404,7 +404,7 @@ testPiecewiseLinearPP = do
   let renames = IM.empty
       fT :: AstTensor AstMethodLet FullSpan (TKR Double 0)
          -> AstTensor AstMethodLet FullSpan (TKR Double 0)
-      fT x = ifF (x >. 0) (2 * x) (5 * x)
+      fT x = ifF (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactAdapt True fT 42
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x2 x1 -> let v3 = rscatter [2] x2 (\\[] -> [ifF (x1 >. 0.0) 0 1]) in 2.0 * v3 ! [0] + 5.0 * v3 ! [1]"
@@ -417,7 +417,7 @@ testPiecewiseLinear2PP = do
   let renames = IM.empty
       fT :: AstTensor AstMethodLet FullSpan (TKR Double 0)
          -> AstTensor AstMethodLet FullSpan (TKR Double 0)
-      fT x = ifF (x >. 0) 2 5 * x
+      fT x = ifF (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
       (artifactRev, deltas) = revArtifactAdapt True fT 42
   printArtifactPretty renames artifactRev
     @?= "\\x3 x1 -> let x2 = ifF (x1 >. 0.0) 2.0 5.0 in x2 * x3"
@@ -703,7 +703,7 @@ testListSumrPP = do
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (BaseTensor target, GoodScalar r)
                 => [target (TKR r 0)] -> target (TKR r 0)
-rankedListSum2r = foldr1 (\x y -> x + 2 * y)
+rankedListSum2r = foldr1 (\x y -> x + rscalar 2 * y)
 
 testListSum2rPP :: Assertion
 testListSum2rPP = do
@@ -719,7 +719,7 @@ testListSum2rPP = do
 
 rankedListSum22r :: (BaseTensor target, GoodScalar r)
                  => [target (TKR r 0)] -> target (TKR r 0)
-rankedListSum22r = foldr1 (\x y -> 2 * x + 2 * y)
+rankedListSum22r = foldr1 (\x y -> rscalar 2 * x + rscalar 2 * y)
 
 testListSum22rPP :: Assertion
 testListSum22rPP = do
@@ -737,7 +737,7 @@ testListSum22rPP = do
 rankedListSumk22r :: ( BaseTensor target, LetTensor target
                      , GoodScalar r )
                  => [target (TKR r 0)] -> target (TKR r 0)
-rankedListSumk22r = foldr1 (\x y -> tlet 2 (\k -> k * x + k * y))
+rankedListSumk22r = foldr1 (\x y -> tlet (rscalar 2) (\k -> k * x + k * y))
 
 testListSumk22rPP :: Assertion
 testListSumk22rPP = do
@@ -753,7 +753,7 @@ testListSumk22rPP = do
 
 rankedListSum2xpyr :: (BaseTensor target, GoodScalar r)
                    => [target (TKR r 0)] -> target (TKR r 0)
-rankedListSum2xpyr = foldr1 (\x y -> 2 * (x + y))
+rankedListSum2xpyr = foldr1 (\x y -> rscalar 2 * (x + y))
 
 testListSum2xpyrPP :: Assertion
 testListSum2xpyrPP = do
@@ -769,7 +769,7 @@ testListSum2xpyrPP = do
 
 rankedListSum2xyr :: (BaseTensor target, GoodScalar r)
                   => [target (TKR r 0)] -> target (TKR r 0)
-rankedListSum2xyr = foldr1 (\x y -> 2 * (x * y))
+rankedListSum2xyr = foldr1 (\x y -> rscalar 2 * (x * y))
 
 testListSum2xyrPP :: Assertion
 testListSum2xyrPP = do
@@ -839,7 +839,7 @@ reluPrimal
      (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
   => target (TKR r n) -> target (TKR r n)
 reluPrimal v =
-  let oneIfGtZero = rmap0N (\x -> ifF (x <=. 0) (rscalar 0.0) (rscalar 1.0))
+  let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0))
                            (rprimalPart v)
   in scale oneIfGtZero v
 
@@ -861,7 +861,7 @@ testReluPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1"
   show deltas
-    @?= "ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConcrete (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConcrete (rfromListLinear [] [0.0]))) (AstConcrete (rfromListLinear [] [0])) (AstConcrete (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
+    @?= "ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConcrete (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKS []) (AstVarId 100000005),AstVar (FTKS []) (AstVarId 100000006)]) (AstConcrete (rfromListLinear [] [0.0]))) (AstConcreteS (sfromListLinear [] [0])) (AstConcreteS (sfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -871,7 +871,7 @@ testReluPP2 = do
       reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 1), AstTensor AstMethodLet FullSpan (TKR Double 0))
              -> AstTensor AstMethodLet FullSpan (TKR Double 1)
       reluT2 (t, r) = reluPrimal (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rfromPrimal (rgather [5] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (rprimalPart v1 ! [i2] * 7.0 <=. 0.0) 0 1])) * (v1 * rfromPrimal (rreplicate 5 7.0))"
@@ -906,7 +906,7 @@ testReluSimplerPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (m1 ! [i5, i6] <=. 0.0) 0 1]) * m1"
   show deltas
-    @?= "ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConcrete (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKR []) (AstVarId 100000005),AstVar (FTKR []) (AstVarId 100000006)]) (AstConcrete (rfromListLinear [] [0.0]))) (AstConcrete (rfromListLinear [] [0])) (AstConcrete (rfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
+    @?= "ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGather [3,4] (AstConcrete (rfromListLinear [2] [0.0,1.0])) ([AstVarId 100000005,AstVarId 100000006],[AstCond (AstRel LeqOp (AstIndex (AstVar (FTKR [3,4]) (AstVarId 100000001)) [AstVar (FTKS []) (AstVarId 100000005),AstVar (FTKS []) (AstVarId 100000006)]) (AstConcrete (rfromListLinear [] [0.0]))) (AstConcreteS (sfromListLinear [] [0])) (AstConcreteS (sfromListLinear [] [1]))]))}) (InputG (FTKR [3,4]) (InputId 0)))"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -916,7 +916,7 @@ testReluSimplerPP2 = do
       reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 1), AstTensor AstMethodLet FullSpan (TKR Double 0))
              -> AstTensor AstMethodLet FullSpan (TKR Double 1)
       reluT2 (t, r) = relu (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rfromPrimal (rreplicate 5 7.0)) (\\i2 -> rfromPrimal (rgather [5] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. 0.0) 0 1])) * i2)"
@@ -935,7 +935,7 @@ testReluSimplerPP3 = do
       reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 2), AstTensor AstMethodLet FullSpan (TKR Double 0))
              -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
-      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rfromPrimal (rreplicate 3 (rreplicate 4 7.0))) (\\i2 -> rfromPrimal (rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -964,7 +964,7 @@ testReluSimplerPP4 = do
       reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 2), AstTensor AstMethodLet FullSpan (TKR Double 0))
              -> AstTensor AstMethodLet FullSpan (TKR Double 2)
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
-      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAst (FTKR [3, 4]) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> tlet (v1 * rfromPrimal (rreshape [3,4] (rreplicate 12 7.0))) (\\i2 -> rfromPrimal (rgather [3,4] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. 0.0) 0 1])) * i2)"
@@ -1065,7 +1065,7 @@ testReluMaxPP2 = do
       reluT2 :: (AstTensor AstMethodLet FullSpan (TKR Double 1), AstTensor AstMethodLet FullSpan (TKR Double 0))
              -> AstTensor AstMethodLet FullSpan (TKR Double 1)
       reluT2 (t, r) = reluMax (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, 7))
+      (var3, ast3) = funToAst (FTKR [5]) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
     @?= "\\v1 -> rgather [5] (rfromVector (fromList [rfromPrimal (rreplicate 5 0.0), v1 * rfromPrimal (rreplicate 5 7.0)])) (\\[i3] -> [ifF (0.0 >=. rprimalPart v1 ! [i3] * 7.0) 0 1, i3])"
@@ -1751,7 +1751,7 @@ testConcatBuild1 =
 
 concatBuild2 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild2 r =
-  tlet (rfromList [r, 1, 2, 3, 4]) $ \a ->
+  tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
     rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5]))
 
 testConcatBuild2 :: Assertion
@@ -1762,7 +1762,7 @@ testConcatBuild2 =
 
 concatBuild3 :: (ADReady target, GoodScalar r) => target (TKR r 0) -> target (TKR r 1)
 concatBuild3 r =
-  tlet (rfromList [r, 1, 2, 3, 4]) $ \a ->
+  tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
     rbuild1 10 (\i -> ifF (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotF` maxF 1 (i - 5))]))
 
 testConcatBuild3 :: Assertion
@@ -2094,7 +2094,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAst (FTKR [3]) $ t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\v1 -> rfromPrimal (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\v1 -> rfromPrimal (rfromIntegral (rfromS (sgather (stranspose (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate 1 + siota))]))) (\\[i5, i4] -> [i5, i4, ifF (i4 >=. quotF i5 (1 + i4)) 0 1]))))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -2106,6 +2106,6 @@ testConcatBuild3PP2 = do
   printArtifactSimple renames artifactRev
     @?= "\\m8 x1 -> rreshape [3] (rreplicate 3 0.0)"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 -> rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconcrete (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconcrete (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconcrete (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
+    @?= "\\x1 -> rfromIntegral (rfromS (sgather (stranspose (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sconcrete @[2] (sfromListLinear [2] [0,0]) + siota + sreplicate 1))]))) (\\[i5, i6] -> [i5, i6, ifF (i6 >=. quotF i5 (1 + i6)) 0 1])))"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rconcrete (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (rconcrete (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (rconcrete (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
+    @?= "\\x1 -> rfromIntegral (rfromS (sgather (stranspose (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sconcrete @[2] (sfromListLinear [2] [0,0]) + siota + sreplicate 1))]))) (\\[i5, i6] -> [i5, i6, ifF (i6 >=. quotF i5 (1 + i6)) 0 1])))"

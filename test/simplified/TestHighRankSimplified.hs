@@ -258,7 +258,7 @@ fooBuild5 v =
       v' = rreplicate0N (tailShape $ rshape v) $ rminimum $ rflatten v
   in rbuild1 2 $ \ix ->
        r * foo ( rreplicate0N (tailShape $ rshape v) (rscalar 3)
-               , rscaleByScalar 5 r
+               , rscaleByScalar (rscalar 5) r
                , r * v')
        + bar (r, rindex v [minF 1 (ix + 1)])  -- index not out of bounds
 
@@ -507,13 +507,13 @@ testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 14016
-  length (show (simplifyInline @(TKR Float 10) t1)) @?= 14016
+  length (show t1) @?= 14032
+  length (show (simplifyInline @(TKR Float 10) t1)) @?= 14032
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 11008
-  length (show (simplifyInline @(TKR Float 10) t2)) @?= 14016
+  length (show t2) @?= 11024
+  length (show (simplifyInline @(TKR Float 10) t2)) @?= 14032
 
 testBarReluADVal320 :: Assertion
 testBarReluADVal320 =

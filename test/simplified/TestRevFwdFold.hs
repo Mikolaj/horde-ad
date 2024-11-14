@@ -2432,7 +2432,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "[rfromS (ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (sconcrete @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i41, i42] -> [i41, i42])) (\\[i43] -> [i43])) (\\[i44] -> [i44])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sconcrete @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconcrete (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconcrete (rfromListLinear [2] [0,1]))))] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [0] []))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [0] []))))]))))) 0)))]"
+    @?= "[rfromS (ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (sconcrete @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i41, i42] -> [i41, i42])) (\\[i43] -> [i43])) (\\[i44] -> [i44])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [sconcrete @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sconcrete @[2,2] (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [0] []))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [0] []))))]))))) 0)))]"
 
 testSin0rmapAccumRD01SN531bSPPj :: Assertion
 testSin0rmapAccumRD01SN531bSPPj = do
@@ -2464,7 +2464,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "[ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (sconcrete @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i42, i43] -> [i42, i43])) (\\[i44] -> [i44])) (\\[i45] -> [i45])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconcrete @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sfromR (rtranspose [1,0] (rreplicate 2 (rconcrete (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconcrete (rfromListLinear [2] [0,1]))))] [stranspose (sreplicate (sreplicate (sconcrete @[1] (sfromListLinear [1] [0.0]))))])), [stranspose (sreplicate (sreplicate (sconcrete @[1] (sfromListLinear [1] [0.0]))))]))))) 0))]"
+    @?= "[ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (sconcrete @[2,2] (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i42, i43] -> [i42, i43])) (\\[i44] -> [i44])) (\\[i45] -> [i45])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sconcrete @[2,2] (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate 1.1) + sfromIntegral (sconcrete @[2,2] (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))] [stranspose (sreplicate (sreplicate (sconcrete @[1] (sfromListLinear [1] [0.0]))))])), [stranspose (sreplicate (sreplicate (sconcrete @[1] (sfromListLinear [1] [0.0]))))]))))) 0))]"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -2499,7 +2499,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "[rsum (rsum (rproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [rconcrete (rfromListLinear [2,2] [1.0,1.0,1.0,1.0])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromIntegral (rtranspose [1,0] (rreplicate 2 (rconcrete (rfromListLinear [2] [0,1]))) + rreplicate 2 (rconcrete (rfromListLinear [2] [0,1]))) + rreplicate 2 (rreplicate 2 1.1)] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [1] [0.0]))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [1] [0.0]))))]))))) 0))]"
+    @?= "[rsum (rsum (rproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [rconcrete (rfromListLinear [2,2] [1.0,1.0,1.0,1.0])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromIntegral (rfromS (sconcrete @[2,2] (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))) + rreplicate 2 (rreplicate 2 1.1)] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [1] [0.0]))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (rconcrete (rfromListLinear [1] [0.0]))))]))))) 0))]"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do

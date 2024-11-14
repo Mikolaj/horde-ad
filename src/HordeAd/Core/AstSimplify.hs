@@ -3107,7 +3107,10 @@ substitute1Ast i var v1 = case v1 of
         Just Refl -> case sameTensorKind @y2 @y3 of
           Just Refl -> -- TODO: assert (shapeAst t == sh `blame` (shapeAst t, sh, t))
                        Just t
-          _ -> error "substitute1Ast: kind"
+          _ -> error $ "substitute1Ast: payload kind: "
+                       ++ show (stensorKind @y3)
+                       ++ ", kind of the variable: "
+                       ++ show (stensorKind @y2)
         _ -> error "substitute1Ast: span"
       SubstitutionPayloadHFun{} -> error "substitute1Ast: unexpected lambda"
     else Nothing

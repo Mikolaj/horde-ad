@@ -712,7 +712,7 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan)
                                                          Double
               -> AstTensor AstMethodLet FullSpan (TKR Double 1)
@@ -732,7 +732,7 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                          (AstTensor AstMethodLet FullSpan) Double
                     -> AstTensor AstMethodLet FullSpan (TKR Double 1)
@@ -763,7 +763,7 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstTensor AstMethodLet FullSpan) Double
               -> AstTensor AstMethodLet FullSpan (TKR Double 1)
@@ -785,7 +785,7 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     (7 :: AstTensor AstMethodLet FullSpan (TKR Float 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Float 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Float
                     -> AstTensor AstMethodLet FullSpan (TKR Float 1)
@@ -807,7 +807,7 @@ testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     (7 :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double
                     -> AstTensor AstMethodLet FullSpan (TKR Double 1)
