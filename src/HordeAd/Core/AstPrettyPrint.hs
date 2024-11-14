@@ -82,32 +82,32 @@ areAllArgsInts = \case
 
   AstLet{} -> True  -- too early to tell, but displays the same
   AstShare{} -> True  -- too early to tell
-  AstMinIndex{} -> False
-  AstMaxIndex{} -> False
-  AstFloor{} -> False
-  AstIota -> False
-  AstN1{} -> True  -- has to keep rank and scalar, so it's ints
-  AstN2{} -> True  -- has to keep rank and scalar
-  AstR1{} -> True  -- has to keep rank and scalar
-  AstR2{} -> True  -- has to keep rank and scalar
-  AstI2{} -> True  -- has to keep rank and scalar
-  AstSumOfList{} -> True  -- has to keep rank and scalar
-  AstIndex{} -> False  -- the index arguments are taken care of via printAstInt
-  AstSum{} -> False
-  AstScatter{} -> False
-  AstFromVector{} -> False
-  AstAppend{} -> False
-  AstSlice{} -> False
-  AstReverse{} -> False
-  AstTranspose{} -> False
-  AstReshape{} -> False
-  AstGather{} -> False
-  AstCast{} -> False
-  AstFromIntegral{} -> True
-  AstConcrete{} -> True
-  AstProjectR{} -> True  -- too early to tell
+  AstMinIndexS{} -> False
+  AstMaxIndexS{} -> False
+  AstFloorS{} -> False
+  AstIotaS -> False
+  AstN1S{} -> True  -- has to keep rank and scalar, so it's ints
+  AstN2S{} -> True  -- has to keep rank and scalar
+  AstR1S{} -> True  -- has to keep rank and scalar
+  AstR2S{} -> True  -- has to keep rank and scalar
+  AstI2S{} -> True  -- has to keep rank and scalar
+  AstSumOfListS{} -> True  -- has to keep rank and scalar
+  AstIndexS{} -> False  -- the index arguments are taken care of via printAstInt
+  AstSumS{} -> False
+  AstScatterS{} -> False
+  AstFromVectorS{} -> False
+  AstAppendS{} -> False
+  AstSliceS{} -> False
+  AstReverseS{} -> False
+  AstTransposeS{} -> False
+  AstReshapeS{} -> False
+  AstGatherS{} -> False
+  AstCastS{} -> False
+  AstFromIntegralS{} -> True
+  AstConcreteS{} -> True
+  AstProjectS{} -> True  -- too early to tell
   AstLetHVectorIn{} -> True  -- too early to tell
-  AstRFromS{} -> False
+  AstSFromR{} -> False
   _ -> False  -- shaped  -- TODO: change type to TKR to catch missing cases
 
 -- * Pretty-printing of variables
