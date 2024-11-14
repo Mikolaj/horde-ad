@@ -145,7 +145,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith atan2 x y)))  -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, KnownShS sh)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
