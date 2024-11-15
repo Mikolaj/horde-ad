@@ -383,17 +383,12 @@ library testCommonLibrary
     -- Other library packages from which modules are imported.
     build-depends:
       , horde-ad:horde-ad-simplified
-      , horde-ad:exampleLibrary
-      , horde-ad:testToolLibrary
 
       , base
       , containers
-      , hmatrix
       , ox-arrays
-      , random
       , tasty >= 1.0
       , tasty-hunit
-      , vector
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
