@@ -112,7 +112,7 @@ build1VOccurenceUnknownRefresh
 build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst  -- cheap subst, because only a renaming
-                (SubstitutionPayload @PrimalSpan astVarFresh) var v0
+                astVarFresh var v0
     in build1VOccurenceUnknown snat (varFresh, v2)
 
 intBindingRefresh
@@ -121,7 +121,7 @@ intBindingRefresh
 intBindingRefresh var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIndex  -- cheap subst, because only a renaming
-                 (SubstitutionPayload @PrimalSpan astVarFresh)
+                 astVarFresh
                  var ix
     in (varFresh, astVarFresh, ix2)
 
@@ -586,7 +586,7 @@ intBindingRefreshS
 intBindingRefreshS var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
-                 (SubstitutionPayload @PrimalSpan astVarFresh)
+                 astVarFresh
                  var ix
     in (varFresh, astVarFresh, ix2)
 
@@ -729,7 +729,7 @@ substProjRep snat@SNat var ftk2 var1 v
                    prVar
                    (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
         v2 = substituteAst
-               (SubstitutionPayload @s2 (projection astVar3 ftk2))
+               (projection astVar3 ftk2)
                var1 v
     in (var3, ftk3, v2)
 
@@ -745,7 +745,7 @@ substProjRanked k var sh1 var1 =
         Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAst
-       (SubstitutionPayload @s1 projection) var1
+       projection var1
          -- The subsitutions of projections don't break sharing,
          -- because they don't duplicate variables and the added var
          -- is eventually being eliminated instead of substituted for.
@@ -761,7 +761,7 @@ substProjShaped var var1 =
         Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) (FTKS knownShS) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
-       (SubstitutionPayload @s1 projection) var1
+       projection var1
 
 substProjDynamic :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
                  => IntVarName -> AstTensor AstMethodLet s y

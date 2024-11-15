@@ -35,8 +35,7 @@ module HordeAd.Core.AstSimplify
   , simplifyAst
     -- * The expanding (to gather expressions) bottom-up pass
   , expandAst
-    -- * Substitution payload and adaptors for AstVarName
-  , SubstitutionPayload(..)
+    -- * Substitution adaptors for AstVarName
   , substituteAst, substitute1Ast, substituteAstIndex, substituteAstIndexS
   ) where
 
@@ -47,7 +46,6 @@ import Control.Monad (mapAndUnzipM)
 import Data.Functor.Const
 import Data.GADT.Compare
 import Data.Int (Int64)
-import Data.Kind (Type)
 import Data.List (dropWhileEnd, elemIndex)
 import Data.List.Index (ifoldr)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
@@ -986,9 +984,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
               foldr (\(i2, var2) v2 ->
                        fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
-                    (zipSized ((SubstitutionPayload @PrimalSpan)
-                               <$> indexToSized ixFresh)
-                              vars4)
+                    (zipSized (indexToSized ixFresh) vars4)
             ix5 = fmap subst ix4
         in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
                     (astGatherRec sh4 u' (varsFresh, ix5))
@@ -1089,8 +1085,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
               foldr (\(i2, var2) v2 ->
                       fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
                     i
-                    (zipSized ((SubstitutionPayload @PrimalSpan)
-                               <$> indexToSized ixFresh) vars4)
+                    (zipSized (indexToSized ixFresh) vars4)
             i5 = subst i4
        in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
     Ast.AstAppend u v ->
@@ -1107,8 +1102,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                 -- This subst doesn't break sharing because it's a rename.
                 subst i =
                   foldr (uncurry substituteAstBool) i
-                        (zipSized ((SubstitutionPayload @PrimalSpan)
-                                   <$> indexToSized ixFresh) vars4)
+                        (zipSized (indexToSized ixFresh) vars4)
                 bExpr5 = subst bExpr
             in astGather sh4 (astFromVector $ V.fromList [u2, v2])
                              (varsFresh, astCond bExpr5 0 1 :.: ixFresh)
@@ -1315,8 +1309,7 @@ astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
        -> AstTensor AstMethodLet s2 z
 astLet _var _u v@Ast.AstConcrete{} = v
 astLet var u v | astIsSmall True u =
-  fromMaybe v
-  $ substitute1Ast (SubstitutionPayload u) (varNameToAstVarId var) v
+  fromMaybe v $ substitute1Ast u (varNameToAstVarId var) v
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u v@(Ast.AstVar _ var2) =
   case sameAstSpan @s @s2 of
@@ -1338,34 +1331,31 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
     _ -> v
 astLet var (Ast.AstPair u1 u2) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (SubstitutionPayload $ Ast.AstPair ast1 ast2) var v
+    substituteAst (Ast.AstPair ast1 ast2) var v
 astLet var (Ast.AstFromPrimal (Ast.AstPair u1 u2)) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (SubstitutionPayload
-                   $ Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
+    substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (SubstitutionPayload $ Ast.AstPair ast1 ast2) var v
+      substituteAst ( Ast.AstPair ast1 ast2) var v
 astLet var (Ast.AstLetHVectorIn varsN lN (Ast.AstPair u1 u2)) v =
   astLetHVectorIn varsN lN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (SubstitutionPayload $ Ast.AstPair ast1 ast2) var v
+      substituteAst (Ast.AstPair ast1 ast2) var v
 astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (SubstitutionPayload
-                     $ Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
+      substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstFromPrimal (Ast.AstLetHVectorIn
                                varsN lN (Ast.AstPair u1 u2))) v =
   astLetHVectorIn varsN lN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (SubstitutionPayload
-                     $ Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
+      substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
 astLet var u@(Ast.AstMkHVector l3) v =
   let shs = shapeAstHVector u
       f !vars !asts =
-        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+        let v2 = substituteAst (Ast.AstMkHVector asts)
                                var v
         in foldr (mapRankedShaped astLet astLet)
                  v2 (zip vars (V.toList l3))
@@ -1373,7 +1363,7 @@ astLet var u@(Ast.AstMkHVector l3) v =
 astLet var u@(Ast.AstFromPrimal (Ast.AstMkHVector l3)) v =
   let shs = shapeAstHVector u
       f !vars !asts =
-        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+        let v2 = substituteAst (Ast.AstMkHVector asts)
                                var v
             clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
         in foldr (mapRankedShaped clet clet)
@@ -1382,7 +1372,7 @@ astLet var u@(Ast.AstFromPrimal (Ast.AstMkHVector l3)) v =
 astLet var (Ast.AstLet varN uN u@(Ast.AstMkHVector l3)) v =
   let shs = shapeAstHVector u
       f !vars !asts =
-        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+        let v2 = substituteAst (Ast.AstMkHVector asts)
                                var v
         in foldr (mapRankedShaped astLet astLet)
                  v2 (zip vars (V.toList l3))
@@ -1390,7 +1380,7 @@ astLet var (Ast.AstLet varN uN u@(Ast.AstMkHVector l3)) v =
 astLet var (Ast.AstLetHVectorIn varsN lN u@(Ast.AstMkHVector l3)) v =
   let shs = shapeAstHVector u
       f !vars !asts =
-        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+        let v2 = substituteAst (Ast.AstMkHVector asts)
                                var v
         in foldr (mapRankedShaped astLet astLet)
                  v2 (zip vars (V.toList l3))
@@ -1398,7 +1388,7 @@ astLet var (Ast.AstLetHVectorIn varsN lN u@(Ast.AstMkHVector l3)) v =
 astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN u@(Ast.AstMkHVector l3))) v =
   let shs = shapeAstHVector u
       f !vars !asts =
-        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+        let v2 = substituteAst (Ast.AstMkHVector asts)
                                var v
             clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
         in foldr (mapRankedShaped clet clet)
@@ -1408,7 +1398,7 @@ astLet var (Ast.AstFromPrimal (Ast.AstLetHVectorIn
                                varsN lN u@(Ast.AstMkHVector l3))) v =
   let shs = shapeAstHVector u
       f !vars !asts =
-        let v2 = substituteAst (SubstitutionPayload $ Ast.AstMkHVector asts)
+        let v2 = substituteAst (Ast.AstMkHVector asts)
                                var v
             clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
         in foldr (mapRankedShaped clet clet)
@@ -1725,7 +1715,7 @@ astSlice i n w@(Ast.AstAppend (u :: AstTensor AstMethodLet s (TKR r (1 + k)))
 astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
   let ivar = AstIntVar var + fromIntegral i
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
-              (SubstitutionPayload @PrimalSpan ivar) var ix
+              ivar var ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 
@@ -1756,7 +1746,7 @@ astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS r (ulen : sh)))
 astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
-              (SubstitutionPayload @PrimalSpan ivar) var ix
+              ivar var ix
       vars2 = Const var ::$ vars
   in case slistKnown vars2 of
     Dict -> astGatherS @(n : sh21) @p @sh4 v (vars2, ix2)
@@ -1772,7 +1762,7 @@ astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   let ivar = fromIntegral k - AstIntVar var
       ix2 = substituteAstIndex  -- cheap subst, because ivar is tiny
-              (SubstitutionPayload @PrimalSpan ivar) var ix
+              ivar var ix
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
@@ -1786,7 +1776,7 @@ astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
-              (SubstitutionPayload @PrimalSpan ivar) var ix
+              ivar var ix
   in astGatherS v (Const var ::$ vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
@@ -3032,49 +3022,38 @@ contractAstB2 OrOp b (AstBoolConst False) = b
 contractAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 
 
--- * Substitution payload and adaptors for AstVarName
-
--- | The term to substitute for a variable. Without this variant type,
--- we'd need to duplicate the whole substitution code, one copy
--- for each of the cases.
-type role SubstitutionPayload nominal
-  -- r can't be representational due to AstRanked having it as nominal
-data SubstitutionPayload :: AstSpanType -> Type where
-  SubstitutionPayload :: forall s y. TensorKind y
-                      => AstTensor AstMethodLet s y -> SubstitutionPayload s
-  SubstitutionPayloadHFun :: forall x y. (TensorKind x, TensorKind y)
-                          => AstHFun x y -> SubstitutionPayload PrimalSpan
+-- * Substitution adaptors for AstVarName
 
 -- | We assume no variable is shared between a binding and its nested binding
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y)
-              => SubstitutionPayload s2 -> AstVarName s2 z
+substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
+              => AstTensor AstMethodLet s2 z -> AstVarName s2 z
               -> AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet s y
 substituteAst i var v1 =
   fromMaybe v1 $ substitute1Ast i (varNameToAstVarId var) v1
 
 substituteAstIndex
-  :: AstSpan s2
-  => SubstitutionPayload s2 -> AstVarName s2 (TKS r2 sh2)
+  :: (AstSpan s2, KnownShS sh2, GoodScalar r2)
+  => AstTensor AstMethodLet s2 (TKS r2 sh2) -> AstVarName s2 (TKS r2 sh2)
   -> AstIndex AstMethodLet n
   -> AstIndex AstMethodLet n
 substituteAstIndex i var ix =
   fromMaybe ix $ substitute1AstIndex i (varNameToAstVarId var) ix
 
 substituteAstIndexS
-  :: AstSpan s2
-  => SubstitutionPayload s2 -> AstVarName s2 (TKS r2 sh2)
+  :: (AstSpan s2, KnownShS sh2, GoodScalar r2)
+  => AstTensor AstMethodLet s2 (TKS r2 sh2) -> AstVarName s2 (TKS r2 sh2)
   -> AstIndexS AstMethodLet sh
   -> AstIndexS AstMethodLet sh
 substituteAstIndexS i var  ix =
   fromMaybe ix $ substitute1AstIndexS i (varNameToAstVarId var) ix
 
 substituteAstBool
-  :: AstSpan s2
-  => SubstitutionPayload s2 -> AstVarName s2 y -> AstBool AstMethodLet
+  :: (AstSpan s2, TensorKind y)
+  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstBool AstMethodLet
   -> AstBool AstMethodLet
 substituteAstBool i var v1 =
   fromMaybe v1 $ substitute1AstBool i (varNameToAstVarId var) v1
@@ -3084,11 +3063,9 @@ substituteAstBool i var v1 =
 
 -- We can't use AstVarName in place of AstVarId, because of the recursive calls,
 -- e.g. AstRFromS and AstCast, due to which, the extra type parameters would
--- need to be kept unrelated to anything else (except the existentially bound
--- parameters in SubstitutionPayload, which would need to be checked
--- at runtime).
-substitute1Ast :: forall s s2 y. (AstSpan s, AstSpan s2, TensorKind y)
-               => SubstitutionPayload s2 -> AstVarId
+-- need to be kept unrelated to anything else.
+substitute1Ast :: forall s s2 y y3. (AstSpan s, AstSpan s2, TensorKind y, TensorKind y3)
+               => AstTensor AstMethodLet s2 y3 -> AstVarId
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var v1 = case v1 of
@@ -3102,17 +3079,15 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
   Ast.AstVar @y2 _sh var2 ->
     if var == varNameToAstVarId var2
-    then case i of
-      SubstitutionPayload @_ @y3 t -> case sameAstSpan @s @s2 of
+    then case sameAstSpan @s @s2 of
         Just Refl -> case sameTensorKind @y2 @y3 of
           Just Refl -> -- TODO: assert (shapeAst t == sh `blame` (shapeAst t, sh, t))
-                       Just t
+                       Just i
           _ -> error $ "substitute1Ast: payload kind: "
                        ++ show (stensorKind @y3)
                        ++ ", kind of the variable: "
                        ++ show (stensorKind @y2)
         _ -> error "substitute1Ast: span"
-      SubstitutionPayloadHFun{} -> error "substitute1Ast: unexpected lambda"
     else Nothing
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
   Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
@@ -3331,8 +3306,8 @@ substitute1Ast i var v1 = case v1 of
   _ -> error "TODO"
 
 substitute1AstIndex
-  :: AstSpan s2
-  => SubstitutionPayload s2 -> AstVarId -> AstIndex AstMethodLet n
+  :: (AstSpan s2, TensorKind y)
+  => AstTensor AstMethodLet s2 y -> AstVarId -> AstIndex AstMethodLet n
   -> Maybe (AstIndex AstMethodLet n)
 substitute1AstIndex i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -3341,8 +3316,8 @@ substitute1AstIndex i var ix =
      else Nothing
 
 substitute1AstIndexS
-  :: AstSpan s2
-  => SubstitutionPayload s2 -> AstVarId -> AstIndexS AstMethodLet sh
+  :: (AstSpan s2, TensorKind y)
+  => AstTensor AstMethodLet s2 y -> AstVarId -> AstIndexS AstMethodLet sh
   -> Maybe (AstIndexS AstMethodLet sh)
 substitute1AstIndexS i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -3351,8 +3326,8 @@ substitute1AstIndexS i var ix =
      else Nothing
 
 substitute1AstDynamic
-  :: (AstSpan s, AstSpan s2)
-  => SubstitutionPayload s2 -> AstVarId -> AstDynamic AstMethodLet s
+  :: (AstSpan s, AstSpan s2, TensorKind y)
+  => AstTensor AstMethodLet s2 y -> AstVarId -> AstDynamic AstMethodLet s
   -> Maybe (AstDynamic AstMethodLet s)
 substitute1AstDynamic i var = \case
   DynamicRanked t ->
@@ -3363,14 +3338,14 @@ substitute1AstDynamic i var = \case
   DynamicShapedDummy{} -> Nothing
 
 substitute1AstHFun
-  :: forall s2 x y.
-     SubstitutionPayload s2 -> AstVarId -> AstHFun x y
+  :: forall s2 x y z.
+     AstTensor AstMethodLet s2 z -> AstVarId -> AstHFun x y
   -> Maybe (AstHFun x y)
 substitute1AstHFun _i _var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
 
-substitute1AstBool :: AstSpan s2
-                   => SubstitutionPayload s2 -> AstVarId -> AstBool AstMethodLet
+substitute1AstBool :: (AstSpan s2, TensorKind y)
+                   => AstTensor AstMethodLet s2 y -> AstVarId -> AstBool AstMethodLet
                    -> Maybe (AstBool AstMethodLet)
 substitute1AstBool i var = \case
   Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg

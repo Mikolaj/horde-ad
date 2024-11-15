@@ -1239,7 +1239,7 @@ prettifyArtifactRev
 prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
  STKUntyped ->
   fun1DToAst (shapeAstHVector artDerivativeRev) $ \ !vars1 !asts1 ->
-    let idom = SubstitutionPayload $ AstMkHVector asts1
+    let idom = AstMkHVector asts1
         !derivative = substituteAst
                         idom artVarDomainRev artDerivativeRev in
     let !primal = substituteAst
