@@ -53,8 +53,7 @@ testCNNOPP = do
       valsInit =
         forgetShape $ fst
         $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                         RepN 2 2  -- see sizeMnistWidthI, etc.
-                         1 1 1 1 Double)
+                         RepN Double)
                      0.4 (mkStdGen 44)
       afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
