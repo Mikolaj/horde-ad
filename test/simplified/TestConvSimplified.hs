@@ -618,7 +618,7 @@ testCNNOPP3 = do
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR Double 4)
       afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3 blackGlyph
   printAstPretty IM.empty afcnn2T
-    @?= ""
+    @?= "rreplicate 1 (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0)))"
 
 maxPool2dUnpadded3
   :: (ADReady target, GoodScalar r)
