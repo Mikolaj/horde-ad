@@ -186,17 +186,17 @@ build1V snat@SNat (var, v00) =
                 $ astIndexStep (astFromVector
                                 $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
                                (singletonIndex (astCond b 0 1))
-        in build1V snat (var, t)
+        in build1VOccurenceUnknown snat (var, t)
       STKR STKScalar{} SNat ->
         let t = Ast.AstFromPrimal
                 $ astIndexStep (astFromVector $ V.fromList [v, w])
                                (singletonIndex (astCond b 0 1))
-        in build1V snat (var, t)
+        in build1VOccurenceUnknown snat (var, t)
       STKS STKScalar{} sh -> withKnownShS sh $
         let t = Ast.AstFromPrimal
                 $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                       (astCond b 0 1 :.$ ZIS)
-        in build1V snat (var, t)
+        in build1VOccurenceUnknown snat (var, t)
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
       STKUntyped -> error "TODO"
@@ -206,15 +206,15 @@ build1V snat@SNat (var, v00) =
         let t = astIndexStep (astFromVector
                               $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
                              (singletonIndex (astCond b 0 1))
-        in build1V snat (var, t)
+        in build1VOccurenceUnknown snat (var, t)
       STKR STKScalar{} SNat ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
-        in build1V snat (var, t)
+        in build1VOccurenceUnknown snat (var, t)
       STKS STKScalar{} sh -> withKnownShS sh $
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
-        in build1V snat (var, t)
+        in build1VOccurenceUnknown snat (var, t)
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
       STKUntyped -> error "TODO"
@@ -550,7 +550,7 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
          let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
              ruleD = astGatherStep
                        (k :$: dropShape (shapeAst v1))
-                       (build1V snat (var, v1))
+                       (build1VOccurenceUnknown snat (var, v1))
                        (varFresh ::: ZR, astVarFresh :.: ix2)
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
@@ -621,7 +621,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
          gcastWith (unsafeCoerce Refl :: rankSh1Plus1 :~: 1 + Rank sh1) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
              ruleD = astGatherStepS @'[k] @(1 + Rank sh1)
-                                    (build1V (SNat @k) (var, v1))
+                                    (build1VOccurenceUnknown (SNat @k) (var, v1))
                                     (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = length $ shapeT @sh1
          in if varNameInAst var v1
