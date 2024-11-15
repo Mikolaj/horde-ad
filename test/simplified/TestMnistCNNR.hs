@@ -73,7 +73,7 @@ slicez2
   :: (ADReady target, GoodScalar r, KnownNat n)
   => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
 slicez2 shOut d ixBase =
-  rbuild shOut $ \ixResult -> indexz02 d (zipWith_Index (+) ixBase ixBase) -- ixResult)
+  rbuild shOut $ \ixResult -> indexz02 d (zipWith_Index (+) ixBase ixResult)
 
 indexz02
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
