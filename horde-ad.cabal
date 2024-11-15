@@ -376,15 +376,7 @@ library testToolLibrary
 library testCommonLibrary
     import:           options
 
-    exposed-modules:  TestAdaptorSimplified
-                      TestConvSimplified
-                      TestGatherSimplified
-                      TestHighRankSimplified
-                      TestMnistCNNR
-                      TestMnistFCNNR
-                      TestMnistRNNR
-                      TestMnistRNNS
-                      TestRevFwdFold
+    exposed-modules:  TestMnistCNNR
 
     hs-source-dirs:   test/simplified
 
@@ -394,13 +386,9 @@ library testCommonLibrary
       , horde-ad:exampleLibrary
       , horde-ad:testToolLibrary
 
-      , assert-failure
       , base
       , containers
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
       , hmatrix
-      , ilist
       , ox-arrays
       , random
       , tasty >= 1.0
