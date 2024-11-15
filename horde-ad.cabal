@@ -225,6 +225,4 @@ library testCommonLibrary
 
       , base
       , bifunctors
-      , enummapset
       , orthotope
-      , vector
