@@ -3061,8 +3061,9 @@ substituteAstBool i var v1 =
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substitute1Ast :: forall s s2 y y3. (AstSpan s, AstSpan s2, TensorKind y, TensorKind y3)
-               => AstTensor AstMethodLet s2 y3 -> AstVarName s2 y3
+substitute1Ast :: forall s s2 y z.
+                  (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
+               => AstTensor AstMethodLet s2 z -> AstVarName s2 z
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var v1 = case v1 of
@@ -3074,16 +3075,18 @@ substitute1Ast i var v1 = case v1 of
       (mu, mv) -> Just $ astPair (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
   Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
-  Ast.AstVar @y2 _sh var2 ->
+  Ast.AstVar sh var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s @s2 of
-        Just Refl -> case sameTensorKind @y2 @y3 of
-          Just Refl -> -- TODO: assert (shapeAst t == sh `blame` (shapeAst t, sh, t))
-                       Just i
-          _ -> error $ "substitute1Ast: payload kind: "
-                       ++ show (stensorKind @y3)
-                       ++ ", kind of the variable: "
-                       ++ show (stensorKind @y2)
+        Just Refl -> case sameTensorKind @y @z of
+          Just Refl ->
+            assert (shapeAstFull i == sh `blame` (shapeAstFull i, sh, i))
+            Just i
+          _ -> error $ "substitute1Ast: kind of the variable: "
+                       ++ show (stensorKind @y, sh)
+                       ++ ", payload kind: "
+                       ++ show (stensorKind @z, shapeAstFull i)
+                       ++ ", payload: " ++ show i
         _ -> error "substitute1Ast: span"
     else Nothing
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
