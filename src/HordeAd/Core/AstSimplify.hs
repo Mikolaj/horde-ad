@@ -35,8 +35,8 @@ module HordeAd.Core.AstSimplify
   , simplifyAst
     -- * The expanding (to gather expressions) bottom-up pass
   , expandAst
-    -- * Substitution adaptors for AstVarName
-  , substituteAst, substitute1Ast, substituteAstIndex, substituteAstIndexS
+    -- * Substitution wrappers
+  , substituteAst, substituteAstIndex, substituteAstIndexS
   ) where
 
 import Prelude
@@ -982,7 +982,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
         -- This subst doesn't currently break sharing, because it's a rename.
         let subst i =
               foldr (\(i2, var2) v2 ->
-                       fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
+                       substituteAst i2 var2 v2)
                     i
                     (zipSized (indexToSized ixFresh) vars4)
             ix5 = fmap subst ix4
@@ -1083,7 +1083,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
               foldr (\(i2, var2) v2 ->
-                      fromMaybe v2 $ substitute1Ast i2 (varNameToAstVarId var2) v2)
+                      substituteAst i2 var2 v2)
                     i
                     (zipSized (indexToSized ixFresh) vars4)
             i5 = subst i4
@@ -1309,7 +1309,7 @@ astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
        -> AstTensor AstMethodLet s2 z
 astLet _var _u v@Ast.AstConcrete{} = v
 astLet var u v | astIsSmall True u =
-  fromMaybe v $ substitute1Ast u (varNameToAstVarId var) v
+  substituteAst u var v
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u v@(Ast.AstVar _ var2) =
   case sameAstSpan @s @s2 of
@@ -3022,18 +3022,14 @@ contractAstB2 OrOp b (AstBoolConst False) = b
 contractAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 
 
--- * Substitution adaptors for AstVarName
+-- * Substitution wrappers
 
--- | We assume no variable is shared between a binding and its nested binding
--- and nobody substitutes into variables that are bound.
--- This keeps the substitution code simple, because we never need to compare
--- variables to any variable in the bindings.
 substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
               => AstTensor AstMethodLet s2 z -> AstVarName s2 z
               -> AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet s y
 substituteAst i var v1 =
-  fromMaybe v1 $ substitute1Ast i (varNameToAstVarId var) v1
+  fromMaybe v1 $ substitute1Ast i var v1
 
 substituteAstIndex
   :: (AstSpan s2, KnownShS sh2, GoodScalar r2)
@@ -3041,7 +3037,7 @@ substituteAstIndex
   -> AstIndex AstMethodLet n
   -> AstIndex AstMethodLet n
 substituteAstIndex i var ix =
-  fromMaybe ix $ substitute1AstIndex i (varNameToAstVarId var) ix
+  fromMaybe ix $ substitute1AstIndex i var ix
 
 substituteAstIndexS
   :: (AstSpan s2, KnownShS sh2, GoodScalar r2)
@@ -3049,23 +3045,24 @@ substituteAstIndexS
   -> AstIndexS AstMethodLet sh
   -> AstIndexS AstMethodLet sh
 substituteAstIndexS i var  ix =
-  fromMaybe ix $ substitute1AstIndexS i (varNameToAstVarId var) ix
+  fromMaybe ix $ substitute1AstIndexS i var ix
 
 substituteAstBool
   :: (AstSpan s2, TensorKind y)
   => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstBool AstMethodLet
   -> AstBool AstMethodLet
 substituteAstBool i var v1 =
-  fromMaybe v1 $ substitute1AstBool i (varNameToAstVarId var) v1
+  fromMaybe v1 $ substitute1AstBool i var v1
 
 
 -- * Substitution workers
 
--- We can't use AstVarName in place of AstVarId, because of the recursive calls,
--- e.g. AstRFromS and AstCast, due to which, the extra type parameters would
--- need to be kept unrelated to anything else.
+-- | We assume no variable is shared between a binding and its nested binding
+-- and nobody substitutes into variables that are bound.
+-- This keeps the substitution code simple, because we never need to compare
+-- variables to any variable in the bindings.
 substitute1Ast :: forall s s2 y y3. (AstSpan s, AstSpan s2, TensorKind y, TensorKind y3)
-               => AstTensor AstMethodLet s2 y3 -> AstVarId
+               => AstTensor AstMethodLet s2 y3 -> AstVarName s2 y3
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var v1 = case v1 of
@@ -3078,7 +3075,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
   Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
   Ast.AstVar @y2 _sh var2 ->
-    if var == varNameToAstVarId var2
+    if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s @s2 of
         Just Refl -> case sameTensorKind @y2 @y3 of
           Just Refl -> -- TODO: assert (shapeAst t == sh `blame` (shapeAst t, sh, t))
@@ -3307,7 +3304,7 @@ substitute1Ast i var v1 = case v1 of
 
 substitute1AstIndex
   :: (AstSpan s2, TensorKind y)
-  => AstTensor AstMethodLet s2 y -> AstVarId -> AstIndex AstMethodLet n
+  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIndex AstMethodLet n
   -> Maybe (AstIndex AstMethodLet n)
 substitute1AstIndex i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -3317,7 +3314,7 @@ substitute1AstIndex i var ix =
 
 substitute1AstIndexS
   :: (AstSpan s2, TensorKind y)
-  => AstTensor AstMethodLet s2 y -> AstVarId -> AstIndexS AstMethodLet sh
+  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIndexS AstMethodLet sh
   -> Maybe (AstIndexS AstMethodLet sh)
 substitute1AstIndexS i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -3327,7 +3324,7 @@ substitute1AstIndexS i var ix =
 
 substitute1AstDynamic
   :: (AstSpan s, AstSpan s2, TensorKind y)
-  => AstTensor AstMethodLet s2 y -> AstVarId -> AstDynamic AstMethodLet s
+  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstDynamic AstMethodLet s
   -> Maybe (AstDynamic AstMethodLet s)
 substitute1AstDynamic i var = \case
   DynamicRanked t ->
@@ -3339,13 +3336,13 @@ substitute1AstDynamic i var = \case
 
 substitute1AstHFun
   :: forall s2 x y z.
-     AstTensor AstMethodLet s2 z -> AstVarId -> AstHFun x y
+     AstTensor AstMethodLet s2 z -> AstVarName s2 z -> AstHFun x y
   -> Maybe (AstHFun x y)
 substitute1AstHFun _i _var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
 
 substitute1AstBool :: (AstSpan s2, TensorKind y)
-                   => AstTensor AstMethodLet s2 y -> AstVarId -> AstBool AstMethodLet
+                   => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstBool AstMethodLet
                    -> Maybe (AstBool AstMethodLet)
 substitute1AstBool i var = \case
   Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg
