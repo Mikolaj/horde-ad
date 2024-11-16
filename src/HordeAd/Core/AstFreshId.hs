@@ -23,7 +23,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Array.Nested (Rank)
+import Data.Array.Nested (KnownShS (..), Rank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector

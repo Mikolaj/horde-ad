@@ -18,7 +18,14 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested
-  (Rank, pattern (:$:), pattern (:.:), pattern ZIR, pattern ZSR)
+  ( KnownShS (..)
+  , Rank
+  , ShR (..)
+  , pattern (:$:)
+  , pattern (:.:)
+  , pattern ZIR
+  , pattern ZSR
+  )
 import Data.Array.Nested qualified as Nested
 
 import HordeAd

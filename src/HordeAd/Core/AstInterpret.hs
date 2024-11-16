@@ -31,7 +31,10 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
 import Data.Array.Nested
-  ( Rank
+  ( IxS (..)
+  , KnownShS (..)
+  , Rank
+  , ShR (..)
   , pattern (:$:)
   , pattern (:.$)
   , pattern (:.:)

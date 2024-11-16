@@ -19,7 +19,7 @@ import GHC.TypeLits (KnownNat, Nat, type (*))
 import System.IO (IOMode (ReadMode), withBinaryFile)
 import System.Random
 
-import Data.Array.Nested (pattern (:$:), pattern ZSR)
+import Data.Array.Nested (KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd

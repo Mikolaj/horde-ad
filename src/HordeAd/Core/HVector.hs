@@ -36,8 +36,11 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Shape (IShX, ssxFromShape)
 import Data.Array.Nested
   ( IShR
+  , KnownShS (..)
   , KnownShX
   , SMayNat (..)
+  , ShR (..)
+  , ShS (..)
   , ShX (..)
   , pattern (:$:)
   , pattern ZSR

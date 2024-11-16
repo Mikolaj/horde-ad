@@ -16,6 +16,7 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
+import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector

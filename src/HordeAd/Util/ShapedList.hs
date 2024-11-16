@@ -43,8 +43,10 @@ import Data.Array.Nested
   ( IxR
   , IxS (..)
   , IxX
-  , ListS
+  , KnownShS (..)
+  , ListS (..)
   , Rank
+  , ShS (..)
   , pattern (:.$)
   , pattern (::$)
   , pattern ZIS

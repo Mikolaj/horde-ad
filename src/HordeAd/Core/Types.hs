@@ -7,7 +7,7 @@ module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
     -- * Definitions for type-level list shapes
-  , ShS(..), KnownShS(..), withKnownShS, withKnownShX
+  , withKnownShS, withKnownShX
   , sshapeKnown, slistKnown, sixKnown, knownShR
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemKnownNatRank

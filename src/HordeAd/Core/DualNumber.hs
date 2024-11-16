@@ -26,7 +26,7 @@ import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxFromShape)
-import Data.Array.Nested (KnownShX, type (++))
+import Data.Array.Nested (KnownShS (..), KnownShX, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 

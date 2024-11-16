@@ -23,6 +23,8 @@ import Data.Maybe (fromMaybe, isJust)
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable)
 
+import Data.Array.Nested (KnownShS (..))
+
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv

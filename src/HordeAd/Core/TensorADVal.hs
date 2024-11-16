@@ -24,7 +24,8 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (Rank, pattern (:$:), pattern ZSR)
+import Data.Array.Nested
+  (KnownShS (..), Rank, ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 

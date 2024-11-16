@@ -43,6 +43,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested
   ( IShR
   , IxR (..)
+  , KnownShS (..)
   , ListR (..)
   , Rank
   , ShR (..)

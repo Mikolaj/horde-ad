@@ -72,8 +72,11 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
 import Data.Array.Nested
-  ( KnownShX
+  ( IxS (..)
+  , KnownShS (..)
+  , KnownShX
   , Rank
+  , ShR (..)
   , pattern (:$:)
   , pattern (:.$)
   , pattern ZIS

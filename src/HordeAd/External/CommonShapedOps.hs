@@ -19,7 +19,7 @@ import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (Rank)
+import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.TensorClass

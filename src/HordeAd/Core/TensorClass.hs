@@ -41,8 +41,12 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX)
 import Data.Array.Nested
   ( IShR
+  , IxS (..)
+  , KnownShS (..)
   , KnownShX (..)
   , Rank
+  , ShR (..)
+  , ShS (..)
   , pattern (:$:)
   , pattern (:.$)
   , pattern (:.:)

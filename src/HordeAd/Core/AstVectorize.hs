@@ -28,7 +28,11 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxFromShape)
 import Data.Array.Nested
   ( IShR
+  , IxS (..)
+  , KnownShS (..)
+  , ListS (..)
   , Rank
+  , ShR (..)
   , pattern (:$:)
   , pattern (:.$)
   , pattern (:.:)

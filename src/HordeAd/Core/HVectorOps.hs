@@ -29,7 +29,8 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape (ssxFromShape)
-import Data.Array.Nested (Rank, pattern (:$:), pattern ZSR)
+import Data.Array.Nested
+  (KnownShS (..), Rank, ShR (..), ShS (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.HVector

@@ -17,7 +17,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (pattern ZSR)
+import Data.Array.Nested (KnownShS (..), ShR (..), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector

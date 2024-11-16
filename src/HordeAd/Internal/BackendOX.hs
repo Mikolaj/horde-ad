@@ -36,7 +36,17 @@ import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested
-  (IShR, IxR, IxS, Rank, pattern (:$:), pattern ZSR, type (++))
+  ( IShR
+  , IxR
+  , IxS (..)
+  , KnownShS (..)
+  , Rank
+  , ShR (..)
+  , ShS (..)
+  , pattern (:$:)
+  , pattern ZSR
+  , type (++)
+  )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal

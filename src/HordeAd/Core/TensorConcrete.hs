@@ -17,7 +17,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.Random
 
-import Data.Array.Nested (Rank)
+import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor

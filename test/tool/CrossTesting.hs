@@ -12,7 +12,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested (pattern (:$:), pattern ZSR)
+import Data.Array.Nested (KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast

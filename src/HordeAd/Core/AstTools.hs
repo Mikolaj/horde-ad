@@ -28,7 +28,7 @@ import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (pattern (:$:), pattern ZSR)
+import Data.Array.Nested (KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 

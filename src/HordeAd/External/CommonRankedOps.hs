@@ -17,7 +17,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat)
 
-import Data.Array.Nested (pattern (:$:), pattern ZSR)
+import Data.Array.Nested (ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import Data.Int (Int64)

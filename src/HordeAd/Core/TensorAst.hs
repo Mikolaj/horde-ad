@@ -23,6 +23,8 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 
+import Data.Array.Nested (KnownShS (..))
+
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
