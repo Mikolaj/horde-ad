@@ -110,7 +110,6 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
-import HordeAd.Util.ShapedList (Drop, Init, Last, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

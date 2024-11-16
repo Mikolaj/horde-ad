@@ -56,7 +56,6 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
-import HordeAd.Util.ShapedList (Drop, Take)
 import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.

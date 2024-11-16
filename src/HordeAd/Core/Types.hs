@@ -12,6 +12,7 @@ module HordeAd.Core.Types
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank, lemKnownNatRank
   , Dict(..), PermC, trustMeThisIsAPermutation
+  , Take, Drop, Last, Init
     -- * Kinds of the functors that determine the structure of a tensor type
   , TensorType, RankedTensorType, ShapedTensorType, MixedTensorType, Target
   , TensorKindType (..), TKR, TKS, TKX, TKUnit
@@ -39,7 +40,15 @@ import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.TypeLits
-  (KnownNat, Nat, SNat, fromSNat, pattern SNat, type (+), withSomeSNat)
+  ( KnownNat
+  , Nat
+  , SNat
+  , fromSNat
+  , pattern SNat
+  , type (+)
+  , type (-)
+  , withSomeSNat
+  )
 import Type.Reflection (TypeRep, Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -130,6 +139,22 @@ trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
 trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
+
+type family Take (n :: Nat) (xs :: [k]) :: [k] where
+    Take 0 xs = '[]
+    Take n (x ': xs) = x ': Take (n - 1) xs
+
+type family Drop (n :: Nat) (xs :: [k]) :: [k] where
+    Drop 0 xs = xs
+    Drop n (x ': xs) = Drop (n - 1) xs
+
+type family Last (xs :: [k]) where
+  Last '[x] = x
+  Last (x ': xs) = Last xs
+
+type family Init (xs :: [k]) where
+  Init '[x] = '[]
+  Init (x ': xs) = x ': Init xs
 
 
 -- * Types of types of tensors

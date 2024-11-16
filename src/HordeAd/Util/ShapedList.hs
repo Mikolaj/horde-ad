@@ -6,8 +6,7 @@
 -- | @[Nat]@-indexed lists to be used as is for lists of tensor variables,
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
-  ( Take, Drop, Last, Init
-  , -- * Shaped lists (sized, where size is shape) and their permutations
+  ( -- * Shaped lists (sized, where size is shape) and their permutations
   -- , consShaped, unconsContShaped
     singletonSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
@@ -34,7 +33,7 @@ import Prelude
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, Nat, type (-))
+import GHC.TypeLits (KnownNat)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested
@@ -55,23 +54,6 @@ import Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 import HordeAd.Util.SizedList qualified as SizedList
-
-type family Take (n :: Nat) (xs :: [k]) :: [k] where
-    Take 0 xs = '[]
-    Take n (x ': xs) = x ': Take (n - 1) xs
-
-type family Drop (n :: Nat) (xs :: [k]) :: [k] where
-    Drop 0 xs = xs
-    Drop n (x ': xs) = Drop (n - 1) xs
-
-type family Last (xs :: [k]) where
-  Last '[x] = x
-  Last (x ': xs) = Last xs
-
-type family Init (xs :: [k]) where
-  Init '[x] = '[]
-  Init (x ': xs) = x ': Init xs
-
 
 -- * Shaped lists and their permutations
 
