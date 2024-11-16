@@ -29,6 +29,7 @@ import Data.Array.Nested.Internal.Shape (shsRank)
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -132,14 +133,25 @@ printAstVar cfg var =
       rankTensorKind STKUntyped = -1
       n = rankTensorKind (stensorKind @y)
       varId = varNameToAstVarId var
-      prefix = case n of
-        -1 -> "h"
-        0 -> "x"
-        1 -> "v"
-        2 -> "m"
-        3 -> "t"
-        4 -> "u"
-        _ -> "w"
+      prefix = case stensorKind @y of
+        STKS @_ @sh _ sh -> withKnownShS sh $
+         case n of
+          -1 -> "h"
+          0 -> "x"
+          1 -> "v"
+          2 -> "m"
+          3 -> "t @" ++ show (shapeT @sh) ++ " "
+          4 -> "u @" ++ show (shapeT @sh) ++ " "
+          _ -> "w @" ++ show (shapeT @sh) ++ " "
+        _ ->
+         case n of
+          -1 -> "h"
+          0 -> "x"
+          1 -> "v"
+          2 -> "m"
+          3 -> "t"
+          4 -> "u"
+          _ -> "w"
   in printAstVarId prefix cfg varId
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
@@ -219,7 +231,7 @@ printAstAux cfg d = \case
       . showString ")"
   AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
-  AstVar _sh var -> printAstVar cfg var
+  AstVar ftk var -> printAstVar cfg var . showString (" (" ++ show ftk ++ ")")
   AstPrimalPart a -> case stensorKind @y of
     STKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
     _      -> printPrefixOp printAst cfg d "rprimalPart" [a]
@@ -441,10 +453,10 @@ printAstAux cfg d = \case
     in showParen (d > 6)
        $ printAst cfg 7 left
          . foldr (.) id rs
-  AstIndexS v ix ->
+  AstIndexS @sh1 @sh2 v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
-      . showString " !$ "
+      . showString (" !$ @" ++ show (shapeT @sh1, shapeT @sh2) ++ " ")
       . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix)
   AstSumS v -> printPrefixOp printAst cfg d "ssum" [v]
   AstScatterS v (vars, ix) ->
@@ -479,9 +491,9 @@ printAstAux cfg d = \case
 -- TODO:    printPrefixOp printAst cfg d ("stranspose " ++ show (permToList perm)) [v]
   AstReshapeS v ->
     printPrefixOp printAst cfg d "sreshape" [v]
-  AstGatherS v (vars, ix) ->
+  AstGatherS @sh2 @p @sh v (vars, ix) ->
     showParen (d > 10)
-    $ showString "sgather "
+    $ showString ("sgather @" ++ show (shapeT @sh2, valueOf @p, shapeT @sh) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True

@@ -43,6 +43,8 @@ import HordeAd.Util.ShapedList
   (Drop, Take, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
 import HordeAd.Util.SizedList
 
+import Debug.Trace
+
 -- This abbreviation is used a lot below.
 astTr :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
       => AstTensor AstMethodLet s (TKR r (2 + n)) -> AstTensor AstMethodLet s (TKR r (2 + n))
@@ -725,9 +727,8 @@ substProjRep snat@SNat var ftk2 var1 v
                    vars
                    prVar
                    (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
-        v2 = substituteAst
-               (projection astVar3 ftk2)
-               var1 v
+        pr = projection astVar3 ftk2
+        v2 = traceShow ("p", pr, var1, v, "q", printAstSimple IM.empty pr, var1, printAstSimple IM.empty v) $ substituteAst pr var1 v
     in (var3, ftk3, v2)
 
 substProjRanked :: forall n1 r1 s1 s y.
