@@ -68,6 +68,7 @@ testTrees =
   , testCase "disparitySmall" test_disparitySmall
   , testCase "Conv2dUnpadded2PP" testConv2dUnpadded2PP
   , testCase "Conv2dUnpadded3PP" testConv2dUnpadded3PP
+  , testCase "minimizedCNNOPP3" testCNNOPP3
   ]
 
 -- The examples reproduce and transformed in this file are borrowed
@@ -605,3 +606,52 @@ testConv2dUnpadded3PP = do
     @?=  "\\u146 u147 -> let w32 = rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u147 (\\[i22, i23, i24, i25, i26, i27, i28] -> [0 + i25 + i22, i26, 0 + i27 + i23, 0 + i28 + i24])))) ; w33 = rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u146 (\\[i30, i31] -> [0 + i31 + i30])))))) in [rsum (w32 * w33)]"
   printArtifactPrimalPretty IM.empty (simplifyArtifact artifactRev)
     @?= "\\u246 u247 -> [rsum (rtranspose [4,1,0,2,3] (rreplicate 2 (rreshape [2,2,2,8] (rgather [2,2,2,1,2,2,2] u247 (\\[i22, i23, i24, i25, i26, i27, i28] -> [0 + i25 + i22, i26, 0 + i27 + i23, 0 + i28 + i24])))) * rtranspose [4,0,3,1,2] (rreplicate 2 (rreplicate 2 (rreplicate 2 (rreshape [2,8] (rgather [2,1,2,2,2] u246 (\\[i30, i31] -> [0 + i31 + i30])))))))]"
+
+testCNNOPP3 :: Assertion
+testCNNOPP3 = do
+  let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR Double 4)
+      blackGlyph = AstFromPrimal $ AstReplicate (SNat @1)
+                   $ AstReplicate (SNat @1)
+                   $ AstReplicate (SNat @2)
+                   $ AstReplicate (SNat @2)
+                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
+      afcnn2T :: AstTensor AstMethodLet FullSpan (TKR Double 4)
+      afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3 blackGlyph
+  printAstPretty IM.empty afcnn2T
+    @?= ""
+
+maxPool2dUnpadded3
+  :: (ADReady target, GoodScalar r)
+  => target (TKR r 4) -> target (TKR r 4)
+maxPool2dUnpadded3 arr =
+  rbuild [1, 1, 1, 1] $ \case
+    [_, _, iBh, iBw] ->
+      let arrt = slicez3 [1, 1, 2, 2] arr [1, 1, 2 * iBh, 2 * iBw]
+      in rmaximum3 arrt
+    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+
+conv2dUnpadded3
+  :: (ADReady target, GoodScalar r)
+  => target (TKR r 4) -> target (TKR r 4)
+conv2dUnpadded3 arrA =
+  let shB = [1, 1, 2, 2]
+  in rbuild shB $ \case
+    [iImg, _, iBh, iBw] ->
+      let arrAt = slicez3 shB arrA [iImg, 0, iBh, iBw]
+      in rindex0 arrAt [0, 0, 0, 0]
+    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+
+slicez3
+  :: (ADReady target, GoodScalar r, KnownNat n)
+  => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
+slicez3 shOut d ixBase =
+  rbuild shOut $ \_ixResult -> indexz03 d (zipWith_Index (+) ixBase ixBase) -- ixResult)
+
+indexz03
+  :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
+  => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
+indexz03 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
+
+rmaximum3 :: (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
+         => target (TKR r n) -> target (TKR r 0)
+rmaximum3 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
