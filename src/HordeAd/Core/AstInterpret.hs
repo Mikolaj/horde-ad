@@ -774,6 +774,7 @@ interpretAst !env = \case
   AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
     gcastWith (unsafeCoerce Refl :: Take (Rank sh2) sh2 :~: sh2)
     $ gcastWith (unsafeCoerce Refl :: Drop (Rank sh2) sh2 :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: Drop p sh :~: '[])
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Drop p sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
