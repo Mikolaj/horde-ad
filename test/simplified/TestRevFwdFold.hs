@@ -16,7 +16,8 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested
-  ( IxS (..)
+  ( IShR
+  , IxS (..)
   , KnownShS (..)
   , Rank
   , ShR (..)

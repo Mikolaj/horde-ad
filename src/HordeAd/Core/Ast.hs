@@ -66,6 +66,16 @@ import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
 
+-- Note that no Ast* module except AstInterpret and AstEnv
+-- depends on any Tensor* modules and vice versa except TensorAst.
+-- Syntax is separated from semantics and they meet in the interpreter
+-- and in the semantic model constructed from syntax (TensorAst).
+--
+-- TODO: maybe change the Tensor prefix to Semantics, Rep or Dom
+-- and given more modules the prefix.
+-- Maybe put them in separate components to guard the lack
+-- of dependency? But it's a heavy way of expressing this.
+
 -- * Basic type family instances
 
 type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan

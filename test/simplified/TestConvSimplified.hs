@@ -15,7 +15,7 @@ import GHC.TypeLits (KnownNat)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested (pattern (:$:), pattern ZSR)
+import Data.Array.Nested (IShR, pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd

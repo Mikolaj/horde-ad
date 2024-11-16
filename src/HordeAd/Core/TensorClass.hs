@@ -9,10 +9,8 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( -- * Re-exports
-    IShR, ShS
-    -- * The tensor classes
-  , LetTensor(..), ShareTensor(..), BaseTensor(..)
+  ( -- * The tensor classes
+    LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData
   , ingestData, sscalar, srepl, xrepl, nullRep
@@ -63,6 +61,16 @@ import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..), valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
+
+-- Note that no Ast* module except AstInterpret and AstEnv
+-- depends on any Tensor* modules and vice versa except TensorAst.
+-- Syntax is separated from semantics and they meet in the interpreter
+-- and in the semantic model constructed from syntax (TensorAst).
+--
+-- TODO: maybe change the Tensor prefix to Semantics, Rep or Dom
+-- and given more modules the prefix.
+-- Maybe put them in separate components to guard the lack
+-- of dependency? But it's a heavy way of expressing this.
 
 type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
 type TensorSupports c1 c2 f =

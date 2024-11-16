@@ -74,7 +74,8 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Types qualified as X (unsafeCoerceRefl)
 import Data.Array.Nested
-  ( IxS (..)
+  ( IShR
+  , IxS (..)
   , KnownShS (..)
   , KnownShX
   , ListS (..)
@@ -106,7 +107,6 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)

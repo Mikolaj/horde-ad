@@ -13,7 +13,7 @@ import GHC.TypeLits (KnownNat, Nat, type (+))
 import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Nested
-  (pattern (:$:), pattern (:.:), pattern ZIR, pattern ZSR)
+  (IShR, pattern (:$:), pattern (:.:), pattern ZIR, pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.TensorClass
