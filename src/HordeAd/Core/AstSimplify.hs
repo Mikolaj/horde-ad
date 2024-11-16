@@ -1913,10 +1913,17 @@ astTransposeS perm t = case perm of
     in Permutation.permFromList perm3V $ \(perm3 :: Permutation.Perm perm3) ->
       trustMeThisIsAPermutation @perm3 $
       gcastWith (unsafeCoerce Refl
-                 :: Compare (Rank perm3) (Rank sh2) :~: LT) $
-      gcastWith (unsafeCoerce Refl
-                 :: Permutation.PermutePrefix perm3 sh2 :~: Permutation.PermutePrefix perm sh) $
-      astTransposeS perm3 u
+                 :: Permutation.PermutePrefix perm3 sh2
+                    :~: Permutation.PermutePrefix perm sh) $
+      case compare (length perm3V)
+                   (Nested.Internal.Shape.shsLength (knownShS @sh2)) of
+        LT -> gcastWith (unsafeCoerce Refl
+                         :: Compare (Rank perm3) (Rank sh2) :~: LT) $
+              astTransposeS perm3 u
+        EQ -> gcastWith (unsafeCoerce Refl
+                         :: Compare (Rank perm3) (Rank sh2) :~: EQ) $
+              astTransposeS perm3 u
+        GT -> error "astTransposeS: GT"
   Ast.AstGatherS @sh2 @p @sh3 v (vars, ix)
     -- TODO: should the below be backpermute or permute?
     | length (Permutation.permToList' perm) <= length (shapeT @sh2) ->
@@ -3081,7 +3088,8 @@ substitute1Ast i var v1 = case v1 of
           Just Refl ->
             assert (shapeAstFull i == sh `blame` (shapeAstFull i, sh, i))
             Just i
-          _ -> error $ "substitute1Ast: kind of the variable: "
+          _ -> error $ "substitute1Ast: kind of the variable "
+                       ++ show var2 ++ ": "
                        ++ show (stensorKind @y, sh)
                        ++ ", payload kind: "
                        ++ show (stensorKind @z, shapeAstFull i)
