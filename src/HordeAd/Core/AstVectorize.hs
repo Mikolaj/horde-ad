@@ -27,7 +27,6 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxFromShape)
 import Data.Array.Nested (Rank, type (++))
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Ast (AstTensor)
@@ -411,9 +410,7 @@ build1V snat@SNat (var, v00) =
                    :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
         $ astTransposeS zsuccPerm $ build1V snat (var, v)
-    Ast.AstReshapeS @sh2 v -> traceRule $
-      gcastWith (unsafeCoerce Refl
-                 :: Nested.Product (k ': sh) :~: Nested.Product (k ': sh2)) $
+    Ast.AstReshapeS v ->
       astReshapeS $ build1V snat (var, v)
     Ast.AstGatherS @sh2 @p @sh3 v (vars, ix) -> traceRule $
       gcastWith (unsafeCoerce Refl
@@ -617,7 +614,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
                     :: Drop p sh
                        :~: Drop (1 + Rank sh1)
                                    (k ': sh1 ++ Drop p sh)) $
-         withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1Plus1) ->
+         withListSh (Proxy @(k ': sh1)) $ \(_ :: IShR rankSh1Plus1) ->
          gcastWith (unsafeCoerce Refl :: rankSh1Plus1 :~: 1 + Rank sh1) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
              ruleD = astGatherStepS @'[k] @(1 + Rank sh1)

@@ -1613,7 +1613,6 @@ astReplicate snat@SNat
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
 --  AstConcrete t -> AstConcrete $ treplicateR k t
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat v
-
   Ast.AstTransposeS @perm @sh1 perm v -> case stensorKind @y of
     STKS @_ @sh _ _ ->
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
@@ -1914,10 +1913,17 @@ astTransposeS perm t = case perm of
     in Permutation.permFromList perm3V $ \(perm3 :: Permutation.Perm perm3) ->
       trustMeThisIsAPermutation @perm3 $
       gcastWith (unsafeCoerce Refl
-                 :: Compare (Rank perm3) (Rank sh2) :~: LT) $
-      gcastWith (unsafeCoerce Refl
-                 :: Permutation.PermutePrefix perm3 sh2 :~: Permutation.PermutePrefix perm sh) $
-      astTransposeS perm3 u
+                 :: Permutation.PermutePrefix perm3 sh2
+                    :~: Permutation.PermutePrefix perm sh) $
+      case compare (length perm3V)
+                   (Nested.Internal.Shape.shsSize (knownShS @sh2)) of
+        LT -> gcastWith (unsafeCoerce Refl
+                         :: Compare (Rank perm3) (Rank sh2) :~: LT) $
+              astTransposeS perm3 u
+        EQ -> gcastWith (unsafeCoerce Refl
+                         :: Compare (Rank perm3) (Rank sh2) :~: EQ) $
+              astTransposeS perm3 u
+        GT -> error "astTransposeS: GT"
   Ast.AstGatherS @sh2 @p @sh3 v (vars, ix)
     -- TODO: should the below be backpermute or permute?
     | length (Permutation.permToList' perm) <= length (shapeT @sh2) ->
