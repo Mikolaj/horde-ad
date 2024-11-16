@@ -1317,6 +1317,8 @@ astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
        -> AstTensor AstMethodLet s2 z
        -> AstTensor AstMethodLet s2 z
 astLet _var _u v@Ast.AstConcrete{} = v
+astLet _var _u v@Ast.AstConcreteS{} = v
+astLet _var _u v@Ast.AstConcreteX{} = v
 astLet var u v | astIsSmall True u =
   substituteAst u var v
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
@@ -2326,6 +2328,8 @@ astLetHVectorIn
   -> AstTensor AstMethodLet s2 z
 astLetHVectorIn vars l v = case v of
   Ast.AstConcrete{} -> v
+  Ast.AstConcreteS{} -> v
+  Ast.AstConcreteX{} -> v
   Ast.AstFromPrimal v0 -> Ast.AstFromPrimal $ astLetHVectorIn vars l v0
   Ast.AstVar _ var2 ->
     case elemIndex (varNameToAstVarId var2)
