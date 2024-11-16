@@ -25,13 +25,13 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
-import HordeAd.Util.ShapedList (Drop, IndexSh, Take)
+import HordeAd.Util.ShapedList (Drop, IxSOf, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 sminIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
-           => target (TKS r sh) -> IndexSh target sh
+           => target (TKS r sh) -> IxSOf target sh
 sminIndexN t =
   ShapedList.fromLinearIdx (sscalar . fromIntegral)
     (sshape t)
@@ -39,7 +39,7 @@ sminIndexN t =
 
 smaxIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
-           => target (TKS r sh) -> IndexSh target sh
+           => target (TKS r sh) -> IxSOf target sh
 smaxIndexN t =
   ShapedList.fromLinearIdx (sscalar . fromIntegral)
     (sshape t)
@@ -61,7 +61,7 @@ sfromIndex0 = sfromIntegral . sfromPrimal
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownNat (Rank sh))
-            => IndexSh target sh -> target (TKS r '[Rank sh])
+            => IxSOf target sh -> target (TKS r '[Rank sh])
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
   _ -> sfromIntegral . sfromPrimal . sfromList
@@ -70,7 +70,7 @@ sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
 {-
 sletIx :: forall r sh n target.
           (ADReady target, GoodScalar r, KnownShS sh, KnownNat n)
-       => IndexOf target n -> (IndexOf target n -> target (TKS r sh)) -> target (TKS r sh)
+       => IxROf target n -> (IxROf target n -> target (TKS r sh)) -> target (TKS r sh)
 sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
                  f $ rint64ToIndex1 $ rfromS @target ixT
@@ -224,7 +224,7 @@ slicezS
      ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
      , KnownNat (Rank sh)
      , Rank shOut ~ Rank sh, ADReady target, GoodScalar r )
-  => target (TKS r sh) -> IndexSh target sh -> target (TKS r shOut)
+  => target (TKS r sh) -> IxSOf target sh -> target (TKS r shOut)
 slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
@@ -238,7 +238,7 @@ slicezS d ixBase =
 {-
 -- TODO: this makes tests unbearably slow
 --
--- TODO: explain why the argument is not IndexSh but IndexOf (is it because
+-- TODO: explain why the argument is not IxSOf but IxROf (is it because
 -- of the spurious verification thata index fits in?)
 --
 -- | Retrieve the element at the given index,
@@ -252,7 +252,7 @@ indexz0SLet
   :: forall shOut sh target r.
      ( KnownShS shOut, KnownNat (Rank shOut), KnownShS sh
      , ADReady target, GoodScalar r )
-  => target (TKS r sh) -> IndexOf target (Rank shOut) -> target (TKS r '[])
+  => target (TKS r sh) -> IxROf target (Rank shOut) -> target (TKS r '[])
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
     ifF (within0S @shOut @target ix)
@@ -272,7 +272,7 @@ indexz0SLet d ix0 =
 indexz0S
   :: forall shOut sh target r.
      (KnownShS shOut, KnownShS sh, ADReady target, GoodScalar r)
-  => target (TKS r sh) -> IndexOf target (Rank shOut) -> target (TKS r '[])
+  => target (TKS r sh) -> IxROf target (Rank shOut) -> target (TKS r '[])
 indexz0S d ix =
   ifF (within0S @shOut @target ix)
       (sindex0 d (ShapedList.listToIndex (indexToList ix)))
@@ -282,7 +282,7 @@ indexz0S d ix =
 -- Note that @ix@ is used twice, so should be shared outside.
 within0S
   :: forall shOut target. (KnownShS shOut, ADReady target)
-  => IndexOf target (Rank shOut)
+  => IxROf target (Rank shOut)
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
   -> BoolOf target

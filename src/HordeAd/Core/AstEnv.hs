@@ -40,7 +40,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import HordeAd.Util.ShapedList (IndexSh)
+import HordeAd.Util.ShapedList (IxSOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -127,7 +127,7 @@ extendEnvI :: BaseTensor target
 extendEnvI var !i !env = extendEnv var (sfromPrimal i) env
 
 extendEnvVars :: forall target m. BaseTensor target
-              => AstVarList m -> IndexOf target m
+              => AstVarList m -> IxROf target m
               -> AstEnv target
               -> AstEnv target
 extendEnvVars vars !ix !env =
@@ -135,7 +135,7 @@ extendEnvVars vars !ix !env =
   in foldr (uncurry extendEnvI) env assocs
 
 extendEnvVarsS :: forall target sh. BaseTensor target
-               => AstVarListS sh -> IndexSh target sh
+               => AstVarListS sh -> IxSOf target sh
                -> AstEnv target
                -> AstEnv target
 extendEnvVarsS vars !ix !env =
@@ -160,7 +160,7 @@ interpretLambdaIndex
   :: forall target s r m n ms. BaseTensor target
   => (AstEnv target -> AstTensor ms s (TKR r n) -> target (TKR r n))
   -> AstEnv target -> (AstVarList m, AstTensor ms s (TKR r n))
-  -> IndexOf target m
+  -> IxROf target m
   -> target (TKR r n)
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f !env (!vars, !ast) =
@@ -170,7 +170,7 @@ interpretLambdaIndexS
   :: forall sh sh2 target s r ms. BaseTensor target
   => (AstEnv target -> AstTensor ms s (TKS r sh) -> target (TKS r sh))
   -> AstEnv target -> (AstVarListS sh2, AstTensor ms s (TKS r sh))
-  -> IndexSh target sh2
+  -> IxSOf target sh2
   -> target (TKS r sh)
 {-# INLINE interpretLambdaIndexS #-}
 interpretLambdaIndexS f !env (!vars, !ast) =
@@ -180,8 +180,8 @@ interpretLambdaIndexToIndex
   :: forall target m n ms. BaseTensor target
   => (AstEnv target -> AstInt ms -> IntOf target)
   -> AstEnv target -> (AstVarList m, AstIndex ms n)
-  -> IndexOf target m
-  -> IndexOf target n
+  -> IxROf target m
+  -> IxROf target n
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f !env (!vars, !asts) =
   \ix -> f (extendEnvVars vars ix env) <$> asts
@@ -189,9 +189,9 @@ interpretLambdaIndexToIndex f !env (!vars, !asts) =
 interpretLambdaIndexToIndexS
   :: forall target sh sh2 ms. BaseTensor target
   => (AstEnv target -> AstInt ms -> IntOf target)
-  -> AstEnv target -> (AstVarListS sh, AstIndexS ms sh2)
-  -> IndexSh target sh
-  -> IndexSh target sh2
+  -> AstEnv target -> (AstVarListS sh, AstIxS ms sh2)
+  -> IxSOf target sh
+  -> IxSOf target sh2
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts

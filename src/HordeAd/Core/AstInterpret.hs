@@ -30,7 +30,16 @@ import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
-import Data.Array.Nested (Rank, type (++))
+import Data.Array.Nested
+  ( Rank
+  , pattern (:$:)
+  , pattern (:.$)
+  , pattern (:.:)
+  , pattern ZIR
+  , pattern ZIS
+  , pattern ZSR
+  , type (++)
+  )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
@@ -43,8 +52,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
-import HordeAd.Util.ShapedList (Drop, Take, pattern (:.$), pattern ZIS)
-import HordeAd.Util.SizedList
+import HordeAd.Util.ShapedList (Drop, Take)
 
 interpretAstPrimalRuntimeSpecialized
   :: forall target n r.

@@ -17,6 +17,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat)
 
+import Data.Array.Nested (pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import Data.Int (Int64)
@@ -26,7 +27,7 @@ import HordeAd.Util.SizedList
 
 rminIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
               , KnownNat n, GoodScalar r )
-           => target (TKR r n) -> IndexOf target n
+           => target (TKR r n) -> IxROf target n
 rminIndexN t =
   fromLinearIdx (sscalar . fromIntegral)
     (rshape t)
@@ -34,7 +35,7 @@ rminIndexN t =
 
 rmaxIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
               , KnownNat n, GoodScalar r )
-           => target (TKR r n) -> IndexOf target n
+           => target (TKR r n) -> IxROf target n
 rmaxIndexN t =
   fromLinearIdx (sscalar . fromIntegral)
     (rshape t)
@@ -65,7 +66,7 @@ rfromIndex1 :: forall n r target.
                ( KnownNat n
                , BaseTensor target, BaseTensor (PrimalOf target)
                , GoodScalar r )
-            => IndexOf target n -> target (TKR r 1)
+            => IxROf target n -> target (TKR r 1)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromIntegral . rfromS @_ @_ @'[n] . sfromPrimal . sfromList . NonEmpty.fromList . indexToList
@@ -74,7 +75,7 @@ rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
 rint64FromIndex1 :: forall n target.
                     ( KnownNat n
                     , BaseTensor target, BaseTensor (PrimalOf target) )
-                 => IndexOf target n -> target (TKR Int64 1)
+                 => IxROf target n -> target (TKR Int64 1)
 rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromPrimal . rfromList . NonEmpty.fromList . indexToList
@@ -82,13 +83,13 @@ rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
 rint64ToIndex1 :: forall n target.
                   ( KnownNat n
                   , BaseTensor target, BaseTensor (PrimalOf target) )
-               => target (TKR Int64 1) -> IndexOf target n
+               => target (TKR Int64 1) -> IxROf target n
 rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 
 tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
           , BaseTensor target, BaseTensor (PrimalOf target)
           , LetTensor target )
-       => IndexOf target n -> (IndexOf target n -> target (TKR r m)) -> target (TKR r m)
+       => IxROf target n -> (IxROf target n -> target (TKR r m)) -> target (TKR r m)
 tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 -}
 
@@ -224,7 +225,7 @@ conv2dUnpadded arrK arrA =
 --   elements are set to zero.
 slicez
   :: (ADReady target, GoodScalar r, KnownNat n)
-  => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
+  => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
 slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
@@ -234,7 +235,7 @@ slicez shOut d ixBase =
 --   returning zero for out of range indices.
 indexz0Let
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
+  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
 indexz0Let d ix0 = tletIx ix0 $ \ix ->
                      ifF (within0 @target (rshape @target d) ix) (d ! ix) 0
 -}
@@ -250,14 +251,14 @@ indexz0Let d ix0 = tletIx ix0 $ \ix ->
 -- are used).
 indexz0
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
+  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
 indexz0 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.
 within0
   :: forall target n. ADReady target
-  => IShR n -> IndexOf target n -> BoolOf target
+  => IShR n -> IxROf target n -> BoolOf target
 within0 sh ix =
   let within :: IntOf target -> IntOf target -> BoolOf target
       within i dim = 0 <=. i &&* dim >. i

@@ -26,7 +26,20 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxFromShape)
-import Data.Array.Nested (Rank, type (++))
+import Data.Array.Nested
+  ( IShR
+  , Rank
+  , pattern (:$:)
+  , pattern (:.$)
+  , pattern (:.:)
+  , pattern (::$)
+  , pattern (:::)
+  , pattern ZIR
+  , pattern ZIS
+  , pattern ZR
+  , pattern ZS
+  , type (++)
+  )
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Ast (AstTensor)
@@ -39,8 +52,7 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
-import HordeAd.Util.ShapedList
-  (Drop, Take, pattern (:.$), pattern (::$), pattern ZIS, pattern ZS)
+import HordeAd.Util.ShapedList (Drop, Take)
 import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.
@@ -578,11 +590,11 @@ astTrX :: forall n m sh s r.
 astTrX = error "TODO"
 
 intBindingRefreshS
-  :: IntVarName -> AstIndexS AstMethodLet sh -> (IntVarName, AstInt AstMethodLet, AstIndexS AstMethodLet sh)
+  :: IntVarName -> AstIxS AstMethodLet sh -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !ix2 = substituteAstIndexS  -- cheap subst, because only a renaming
+    let !ix2 = substituteAstIxS  -- cheap subst, because only a renaming
                  astVarFresh
                  var ix
     in (varFresh, astVarFresh, ix2)
@@ -591,7 +603,7 @@ build1VIndexS
   :: forall k p sh s r.
      ( GoodScalar r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
      , KnownShS (Drop p (Take p sh ++ Drop p sh)), AstSpan s )
-  => (IntVarName, AstTensor AstMethodLet s (TKS r sh), AstIndexS AstMethodLet (Take p sh))
+  => (IntVarName, AstTensor AstMethodLet s (TKS r sh), AstIxS AstMethodLet (Take p sh))
   -> AstTensor AstMethodLet s (TKS r (k ': Drop p sh))
 build1VIndexS (var, v0, ZIS) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)

@@ -404,7 +404,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astIndexStepS v ix
   ssum = astSumS
   sscatter t f = astScatterS t
-                 $ funToAstIndexS f
+                 $ funToAstIxS f
                        -- this introduces new variable names
 
   sfromVector = astFromVectorS
@@ -420,7 +420,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sbuild1 f =
     astBuild1Vectorize (SNat @n) f
   sgather t f = astGatherStepS t
-                $ funToAstIndexS f
+                $ funToAstIxS f
                       -- this introduces new variable names
   scast = astCastS
   sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
@@ -660,7 +660,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sindex v ix = AstRaw $ AstIndexS (unAstRaw v) (unAstRaw <$> ix)
   ssum = AstRaw . AstSumS . unAstRaw
   sscatter t f = AstRaw $ AstScatterS (unAstRaw t)
-                 $ funToAstIndexS (fmap unAstRaw . f . fmap AstRaw)
+                 $ funToAstIxS (fmap unAstRaw . f . fmap AstRaw)
                      -- this introduces new variable names
   sfromVector = AstRaw . AstFromVectorS . V.map unAstRaw
   sreplicate = AstRaw . AstReplicate SNat . unAstRaw
@@ -676,7 +676,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
               $ funToAstI  -- this introduces new variable names
               $ unAstRaw . f . AstRaw
   sgather t f = AstRaw $ AstGatherS (unAstRaw t)
-                $ funToAstIndexS (fmap unAstRaw . f . fmap AstRaw)
+                $ funToAstIxS (fmap unAstRaw . f . fmap AstRaw)
                     -- this introduces new variable names
   scast = AstRaw . AstCastS . unAstRaw
   sfromIntegral = AstRaw . fromPrimal . AstFromIntegralS
@@ -1113,7 +1113,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify $ AstIndexS (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   ssum = AstNoSimplify . AstSumS . unAstNoSimplify
   sscatter t f = AstNoSimplify $ AstScatterS (unAstNoSimplify t)
-                 $ funToAstIndexS
+                 $ funToAstIxS
                      (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                        -- this introduces new variable names
   sfromVector = AstNoSimplify . AstFromVectorS . V.map unAstNoSimplify
@@ -1132,7 +1132,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify
     $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
   sgather t f = AstNoSimplify $ AstGatherS (unAstNoSimplify t)
-                $ funToAstIndexS
+                $ funToAstIxS
                     (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                       -- this introduces new variable names
   scast = AstNoSimplify . AstCastS . unAstNoSimplify

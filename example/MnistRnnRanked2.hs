@@ -12,6 +12,8 @@ import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, type (+))
 import Numeric.LinearAlgebra (Numeric)
 
+import Data.Array.Nested
+  (pattern (:$:), pattern (:.:), pattern ZIR, pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.TensorClass
@@ -19,7 +21,6 @@ import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
-import HordeAd.Util.SizedList
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.

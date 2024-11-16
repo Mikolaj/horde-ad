@@ -35,7 +35,8 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (Rank, type (++))
+import Data.Array.Nested
+  (IShR, IxR, IxS, Rank, pattern (:$:), pattern ZSR, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
@@ -46,7 +47,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), FlipX, valueOf)
-import HordeAd.Util.ShapedList (Drop, IndexS, Init, Take)
+import HordeAd.Util.ShapedList (Drop, Init, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -116,13 +117,13 @@ instance TensorKind y
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
 type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.NumElt r, Num r, Show r)
 
-type IndexInt n = Index n Int64
+type IIxR64 n = IxR n Int64
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
 updateNR :: forall n m a. NumAndShow a
-         => Nested.Ranked (n + m) a -> [(IndexInt n, Nested.Ranked m a)]
+         => Nested.Ranked (n + m) a -> [(IIxR64 n, Nested.Ranked m a)]
          -> Nested.Ranked (n + m) a
 updateNR arr upd =
   let values = Nested.rtoVector arr
@@ -175,7 +176,7 @@ ixInBounds ix sh =
 
 tindexNR
   :: forall m n r. (KnownNat m, KnownNat n, NumAndShow r)
-  => Nested.Ranked (m + n) r -> IndexInt m -> Nested.Ranked n r
+  => Nested.Ranked (m + n) r -> IIxR64 m -> Nested.Ranked n r
 tindexNR v ix = let sh = Nested.rshape v
                     !_A = assert (ixInBounds (toList ix) (toList sh)
                                   `blame` (v, ix)) ()
@@ -195,7 +196,7 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
 
 tindexZR
   :: forall m n r. (KnownNat m, KnownNat n, NumAndShow r)
-  => Nested.Ranked (m + n) r -> IndexInt m -> Nested.Ranked n r
+  => Nested.Ranked (m + n) r -> IIxR64 m -> Nested.Ranked n r
 tindexZR v ix =
   let sh = Nested.rshape v
   in if ixInBounds (toList ix) (toList sh)
@@ -204,7 +205,7 @@ tindexZR v ix =
 
 tindex0R
   :: (NumAndShow r, KnownNat n)
-  => Nested.Ranked n r -> IndexInt n -> r
+  => Nested.Ranked n r -> IIxR64 n -> r
 tindex0R v ix =
   let sh = Nested.rshape v
   in if ixInBounds (toList ix) (toList sh)
@@ -274,7 +275,7 @@ tmatmul2R t u =
 tscatterZR :: forall m p n r.
               (KnownNat m, KnownNat n, NumAndShow r)
            => IShR (p + n) -> Nested.Ranked (m + n) r
-           -> (IndexInt m -> IndexInt p)
+           -> (IIxR64 m -> IIxR64 p)
            -> Nested.Ranked (p + n) r
 tscatterZR sh t f =
   let (shm, shDropP) = splitAt_Shape @m $ Nested.rshape t
@@ -295,7 +296,7 @@ tscatterZR sh t f =
 -- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
 tscatterZ1R :: NumAndShow r
-            => IShR (p + n) -> Nested.Ranked (1 + n) r -> (Int64 -> IndexInt p)
+            => IShR (p + n) -> Nested.Ranked (1 + n) r -> (Int64 -> IIxR64 p)
             -> Nested.Ranked (p + n) r
 tscatterZ1R sh t f =
   sum $ imap (\i ti ->
@@ -395,7 +396,7 @@ tzipWith0NR f =
 tgatherZR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, NumAndShow r)
           => IShR (m + n) -> Nested.Ranked (p + n) r
-          -> (IndexInt m -> IndexInt p)
+          -> (IIxR64 m -> IIxR64 p)
           -> Nested.Ranked (m + n) r
 tgatherZR sh t f =
   let shm = takeShape @m sh
@@ -405,7 +406,7 @@ tgatherZR sh t f =
   in Nested.rfromVector sh $ V.concat l
 
 tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
-           => Int -> Nested.Ranked (p + n) r -> (Int64 -> IndexInt p)
+           => Int -> Nested.Ranked (p + n) r -> (Int64 -> IIxR64 p)
            -> Nested.Ranked (1 + n) r
 tgatherZ1R k t f =
   let l = NonEmpty.map (\i -> t `tindexZR` f i)
@@ -434,23 +435,23 @@ tscaleByScalarR :: (Nested.PrimElt r, Num r)
                 => r -> Nested.Ranked n r -> Nested.Ranked n r
 tscaleByScalarR s = liftVR (V.map (* s))
 
-toIndexOfR :: IndexInt n -> Index n (OSArray Int64 '[])
+toIndexOfR :: IIxR64 n -> IxR n (OSArray Int64 '[])
 toIndexOfR ix = FlipS . tscalarS <$> ix
 
-fromIndexOfR :: Index n (OSArray Int64 '[]) -> IndexInt n
+fromIndexOfR :: IxR n (OSArray Int64 '[]) -> IIxR64 n
 fromIndexOfR ixOf = tunScalarS . runFlipS <$> ixOf
 
 
 -- * Shaped tensor operations
 
-type IndexIntSh sh = IndexS sh Int64
+type IIxS64 sh = IxS sh Int64
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
 updateNS :: forall n sh r. (NumAndShow r, KnownShS sh, KnownShS (Drop n sh))
          => Nested.Shaped sh r
-         -> [(IndexIntSh (Take n sh), Nested.Shaped (Drop n sh) r)]
+         -> [(IIxS64 (Take n sh), Nested.Shaped (Drop n sh) r)]
          -> Nested.Shaped sh r
 updateNS arr upd =
   let values = Nested.stoVector arr
@@ -527,7 +528,7 @@ liftVS f =
 
 tindexNS
   :: forall sh1 sh2 r. NumAndShow r
-  => Nested.Shaped (sh1 ++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
+  => Nested.Shaped (sh1 ++ sh2) r -> IIxS64 sh1 -> Nested.Shaped sh2 r
 tindexNS v ix = Nested.sindexPartial v (fmap fromIntegral ix)
 {- TODO
 tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
@@ -540,12 +541,12 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
                    , values })
 -}
 
--- Note that after vectorization, the index with type IndexIntSh sh1
+-- Note that after vectorization, the index with type IIxS64 sh1
 -- may not fit within the type-level shape, which we catch in the @ixInBounds@
 -- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
   :: forall sh1 sh2 r. (NumAndShow r, KnownShS sh2)
-  => Nested.Shaped (sh1 ++ sh2) r -> IndexIntSh sh1 -> Nested.Shaped sh2 r
+  => Nested.Shaped (sh1 ++ sh2) r -> IIxS64 sh1 -> Nested.Shaped sh2 r
 tindexZS v ix =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
@@ -554,7 +555,7 @@ tindexZS v ix =
 
 tindex0S
   :: NumAndShow r
-  => Nested.Shaped sh r -> IndexIntSh sh -> r
+  => Nested.Shaped sh r -> IIxS64 sh -> r
 tindex0S v ix =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
@@ -617,7 +618,7 @@ tmatmul2S t u =
 tscatterZS :: forall r sh2 p sh.
               (NumAndShow r, KnownShS sh, KnownShS sh2, KnownShS (Drop p sh))
            => Nested.Shaped (sh2 ++ Drop p sh) r
-           -> (IndexIntSh sh2 -> IndexIntSh (Take p sh))
+           -> (IIxS64 sh2 -> IIxS64 (Take p sh))
            -> Nested.Shaped sh r
 tscatterZS t f =
   let sh2 = knownShS @sh2
@@ -641,7 +642,7 @@ tscatterZS t f =
 tscatterZ1S :: forall r n2 p sh.
                (NumAndShow r, KnownShS sh, KnownShS (Drop p sh))
             => Nested.Shaped (n2 ': Drop p sh) r
-            -> (Int64 -> IndexIntSh (Take p sh))
+            -> (Int64 -> IIxS64 (Take p sh))
             -> Nested.Shaped sh r
 tscatterZ1S t f =
     sum $ imap (\i ti ->
@@ -761,7 +762,7 @@ tgatherZS :: forall sh2 p sh r.
              ( NumAndShow r, KnownShS sh2, KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
           => Nested.Shaped sh r
-          -> (IndexIntSh sh2 -> IndexIntSh (Take p sh))
+          -> (IIxS64 sh2 -> IIxS64 (Take p sh))
           -> Nested.Shaped (sh2 ++ Drop p sh) r
 tgatherZS t f =
   let sh2 = knownShS @sh2
@@ -777,7 +778,7 @@ tgatherZS t f =
 
 tgatherZ1S :: forall n2 p sh r.
               (NumAndShow r, KnownNat n2, KnownShS (Drop p sh))
-           => Nested.Shaped sh r -> (Int64 -> IndexIntSh (Take p sh))
+           => Nested.Shaped sh r -> (Int64 -> IIxS64 (Take p sh))
            -> Nested.Shaped (n2 ': Drop p sh) r
 tgatherZ1S t f =
   let l = gcastWith (unsafeCoerce Refl
@@ -810,8 +811,8 @@ tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Num r)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s = liftVS (V.map (* s))
 
-toIndexOfS :: IndexIntSh sh -> IndexS sh (OSArray Int64 '[])
+toIndexOfS :: IIxS64 sh -> IxS sh (OSArray Int64 '[])
 toIndexOfS ix = FlipS . tscalarS <$> ix
 
-fromIndexOfS :: IndexS sh (OSArray Int64 '[]) -> IndexIntSh sh
+fromIndexOfS :: IxS sh (OSArray Int64 '[]) -> IIxS64 sh
 fromIndexOfS ixOf = tunScalarS . runFlipS <$> ixOf

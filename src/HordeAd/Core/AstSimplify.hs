@@ -36,7 +36,7 @@ module HordeAd.Core.AstSimplify
     -- * The expanding (to gather expressions) bottom-up pass
   , expandAst
     -- * Substitution wrappers
-  , substituteAst, substituteAstIndex, substituteAstIndexS
+  , substituteAst, substituteAstIndex, substituteAstIxS
   ) where
 
 import Prelude
@@ -73,7 +73,21 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Types qualified as X (unsafeCoerceRefl)
-import Data.Array.Nested (KnownShX, Rank, type (++))
+import Data.Array.Nested
+  ( KnownShX
+  , Rank
+  , pattern (:$:)
+  , pattern (:.$)
+  , pattern (:.:)
+  , pattern (::$)
+  , pattern (:::)
+  , pattern ZIR
+  , pattern ZIS
+  , pattern ZR
+  , pattern ZS
+  , pattern ZSR
+  , type (++)
+  )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -91,16 +105,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
-import HordeAd.Util.ShapedList
-  ( Drop
-  , Init
-  , Last
-  , Take
-  , pattern (:.$)
-  , pattern (::$)
-  , pattern ZIS
-  , pattern ZS
-  )
+import HordeAd.Util.ShapedList (Drop, Init, Last, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -158,7 +163,7 @@ astTransposeAsGatherS perm knobs v =
         gcastWith (unsafeCoerce Refl
                    :: Permutation.PermutePrefix perm (Take p sh) :~: sh2) $
         funToVarsIxS @sh2 $ \ (!vars, !ix) ->
-          let asts :: AstIndexS AstMethodLet (Take p sh)
+          let asts :: AstIxS AstMethodLet (Take p sh)
               asts = ShapedList.permutePrefixIndex (Permutation.permToList' perm) ix
           in gcastWith (unsafeCoerce Refl
                         :: Permutation.PermutePrefix perm sh :~: sh2 ++ Drop p sh) $
@@ -220,10 +225,10 @@ astReshapeAsGatherS knobs v =
   funToVarsIxS @sh2 $ \ (!vars, !ix) ->
     let shIn = knownShS @sh
         shOut = knownShS @sh2
-        asts :: AstIndexS AstMethodLet sh
+        asts :: AstIxS AstMethodLet sh
         asts = let i :: AstInt AstMethodLet
                    i = ShapedList.toLinearIdx @sh2 @'[] (AstConcreteS . Nested.sscalar . fromIntegral) shOut ix
-               in simplifyAstIndexS $ ShapedList.fromLinearIdx (AstConcreteS . Nested.sscalar . fromIntegral) shIn i
+               in simplifyAstIxS $ ShapedList.fromLinearIdx (AstConcreteS . Nested.sscalar . fromIntegral) shIn i
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[]) $
@@ -368,7 +373,7 @@ astIndexS
   :: forall sh1 sh2 s r.
      ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
      , GoodScalar r, AstSpan s )
-  => AstTensor AstMethodLet s (TKS r (sh1 ++ sh2)) -> AstIndexS AstMethodLet sh1
+  => AstTensor AstMethodLet s (TKS r (sh1 ++ sh2)) -> AstIxS AstMethodLet sh1
   -> AstTensor AstMethodLet s (TKS r sh2)
 astIndexS = astIndexKnobsS defaultKnobs
 
@@ -376,11 +381,11 @@ astIndexStepS
   :: forall sh1 sh2 s r.
      ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
      , GoodScalar r, AstSpan s )
-  => AstTensor AstMethodLet s (TKS r (sh1 ++ sh2)) -> AstIndexS AstMethodLet sh1
+  => AstTensor AstMethodLet s (TKS r (sh1 ++ sh2)) -> AstIxS AstMethodLet sh1
   -> AstTensor AstMethodLet s (TKS r sh2)
 astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
                                     (astNonIndexStep v)
-                                    (simplifyAstIndexS ix)
+                                    (simplifyAstIxS ix)
 
 -- If knobStepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
@@ -587,16 +592,16 @@ astIndexKnobsS
   :: forall shm shn s r.
      ( KnownShS shm, KnownShS shn, KnownShS (shm ++ shn)
      , GoodScalar r, AstSpan s )
-  => SimplifyKnobs -> AstTensor AstMethodLet s (TKS r (shm ++ shn)) -> AstIndexS AstMethodLet shm
+  => SimplifyKnobs -> AstTensor AstMethodLet s (TKS r (shm ++ shn)) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS r shn)
 astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS = astIndexKnobsS knobs v ix
 astIndexKnobsS _ v0 ZIS = v0
-astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)) | Dict <- sixKnown rest1 =
+astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) | Dict <- sixKnown rest1 =
   let astIndexRec, astIndex
         :: forall shm' shn' s'.
            ( KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn')
            , AstSpan s' )
-        => AstTensor AstMethodLet s' (TKS r (shm' ++ shn')) -> AstIndexS AstMethodLet shm'
+        => AstTensor AstMethodLet s' (TKS r (shm' ++ shn')) -> AstIxS AstMethodLet shm'
         -> AstTensor AstMethodLet s' (TKS r shn')
       astIndexRec v2 ZIS = v2
       astIndexRec v2 ix2 = if knobStepOnly knobs
@@ -605,7 +610,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
       astIndex v2 ix2 = if knobStepOnly knobs
                         then astIndexKnobsS knobs
                                             (astNonIndexStep v2)
-                                            (simplifyAstIndexS ix2)
+                                            (simplifyAstIxS ix2)
                         else astIndexKnobsS knobs v2 ix2
       astGather
         :: forall shm' shn' p'.
@@ -613,13 +618,13 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
            , KnownShS (Take p' shm'), KnownShS (Drop p' shm')
            , KnownShS (shn' ++ Drop p' shm') )
        => AstTensor AstMethodLet s (TKS r shm')
-        -> (AstVarListS shn', AstIndexS AstMethodLet (Take p' shm'))
+        -> (AstVarListS shn', AstIxS AstMethodLet (Take p' shm'))
         -> AstTensor AstMethodLet s (TKS r (shn' ++ Drop p' shm'))
       astGather v2 (vars2, ix2) =
         if knobStepOnly knobs
         then astGatherKnobsS knobs
                              (astNonIndexStep v2)
-                             (vars2, simplifyAstIndexS ix2)
+                             (vars2, simplifyAstIxS ix2)
         else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS v0 ix
@@ -692,7 +697,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
     $ \ !ix2 -> Ast.AstI2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
   AstSumOfListS args ->
     shareIxS ix $ \ !ix2 -> astSumOfListS (map (`astIndexRec` ix2) args)
-  Ast.AstIndexS v (ix2 :: AstIndexS AstMethodLet sh4) ->
+  Ast.AstIndexS v (ix2 :: AstIxS AstMethodLet sh4) ->
     gcastWith (unsafeCoerce Refl
                :: (sh4 ++ shm) ++ shn :~: sh4 ++ (shm ++ shn)) $
     withShapeP (shapeT @sh4 ++ shapeT @shm) $ \(Proxy @sh41) ->
@@ -719,7 +724,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
                              ix
 -- TODO:
 --  Ast.AstScatterS @sh2 @p7 @sh7
---                  v (vars, AstIntVar var5 ::$ (ix2 :: AstIndexS p71))
+--                  v (vars, AstIntVar var5 ::$ (ix2 :: AstIxS p71))
 --    | AstIntVar var6 <- i1, var6 == var5 ->
 --        gcastWith (unsafeCoerce Refl
 --                   :: shm1 ++ shn :~: p71 ++ Drop p7 sh7) $
@@ -770,7 +775,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
       (permutePrefixList (Permutation.permToList' perm)
                          (shapeT @shm)) $ \(Proxy @shmPerm) ->
         gcastWith (unsafeCoerce Refl :: shm :~: Permutation.PermutePrefix perm shmPerm) $
-        let ix2 :: AstIndexS AstMethodLet shmPerm = unsafeCoerce $
+        let ix2 :: AstIxS AstMethodLet shmPerm = unsafeCoerce $
               Nested.Internal.Shape.ixsPermutePrefix perm ix
         in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm ++ shn) $
            astIndex @shmPerm v ix2
@@ -833,7 +838,7 @@ shareIx ix f = unsafePerformIO $ do
                                        (catMaybes bindings)
 
 shareIxS :: -- (KnownShS shn, KnownShS shm)
-            AstIndexS AstMethodLet shn -> (AstIndexS AstMethodLet shn -> AstTensor AstMethodLet s (TKS r shm))
+            AstIxS AstMethodLet shn -> (AstIxS AstMethodLet shn -> AstTensor AstMethodLet s (TKS r shm))
          -> AstTensor AstMethodLet s (TKS r shm)
 {-# NOINLINE shareIxS #-}
 shareIxS ix f = f ix  -- TODO
@@ -851,7 +856,7 @@ astGatherS
      , KnownShS (Take p sh), KnownShS (Drop p sh)
      , KnownShS (sh2 ++ Drop p sh) )
   => AstTensor AstMethodLet s (TKS r sh)
-  -> (AstVarListS sh2, AstIndexS AstMethodLet (Take p sh))
+  -> (AstVarListS sh2, AstIxS AstMethodLet (Take p sh))
   -> AstTensor AstMethodLet s (TKS r (sh2 ++ Drop p sh))
 astGatherS = astGatherKnobsS defaultKnobs
 
@@ -871,7 +876,7 @@ astGatherStepS
      , KnownShS (Take p sh), KnownShS (Drop p sh)
      , KnownShS (sh2 ++ Drop p sh) )
   => AstTensor AstMethodLet s (TKS r sh)
-  -> (AstVarListS sh2, AstIndexS AstMethodLet (Take p sh))
+  -> (AstVarListS sh2, AstIxS AstMethodLet (Take p sh))
   -> AstTensor AstMethodLet s (TKS r (sh2 ++ Drop p sh))
 -- TODO: this probably needs an extra condition similar to kN == vkN below
 --astGatherStepS v (AstVarName varId ::$ ZSS, AstIntVarS varId2 :.$ ZIS)
@@ -879,7 +884,7 @@ astGatherStepS
 astGatherStepS v (vars, ix) =
   astGatherKnobsS (defaultKnobs {knobStepOnly = True})
                   (astNonIndexStep v)
-                  (vars, simplifyAstIndexS ix)
+                  (vars, simplifyAstIxS ix)
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
 -- when newly generated variables are fresh, which is the case as long
@@ -1209,7 +1214,7 @@ astGatherKnobsS
      , KnownShS (Take p sh), KnownShS (Drop p sh)
      , KnownShS (sh2 ++ Drop p sh) )
   => SimplifyKnobs -> AstTensor AstMethodLet s (TKS r sh)
-  -> (AstVarListS sh2, AstIndexS AstMethodLet (Take p sh))
+  -> (AstVarListS sh2, AstIxS AstMethodLet (Take p sh))
   -> AstTensor AstMethodLet s (TKS r (sh2 ++ Drop p sh))
 astGatherKnobsS _ v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
 
@@ -1509,7 +1514,7 @@ astScatterS :: forall sh2 p sh s r.
                , KnownShS (Take p sh), KnownShS (Drop p sh)
                , KnownShS (sh2 ++ Drop p sh), GoodScalar r, AstSpan s )
             => AstTensor AstMethodLet s (TKS r (sh2 ++ Drop p sh))
-            -> (AstVarListS sh2, AstIndexS AstMethodLet (Take p sh))
+            -> (AstVarListS sh2, AstIxS AstMethodLet (Take p sh))
             -> AstTensor AstMethodLet s (TKS r sh)
 astScatterS v (ZS, ZIS) =
   gcastWith (unsafeCoerce Refl
@@ -1744,7 +1749,7 @@ astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS r (ulen : sh)))
         GTI -> Ast.AstSliceS @i w -- cheap iff fits in one
 astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
-      ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
+      ix2 = substituteAstIxS  -- cheap subst, because ivar is tiny
               ivar var ix
       vars2 = Const var ::$ vars
   in case slistKnown vars2 of
@@ -1774,7 +1779,7 @@ astReverseS (Ast.AstFromVectorS l) = astFromVectorS $ V.reverse l
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
-      ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
+      ix2 = substituteAstIxS  -- cheap subst, because ivar is tiny
               ivar var ix
   in astGatherS v (Const var ::$ vars, ix2)
 astReverseS v = Ast.AstReverseS v
@@ -1878,7 +1883,7 @@ astTransposeS perm t = case perm of
           gcastWith (X.unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm (Take p sh)
                         :~: shpPerm) $
-          let ix2 :: AstIndexS AstMethodLet (Take p shPerm) =
+          let ix2 :: AstIxS AstMethodLet (Take p shPerm) =
                 Nested.Internal.Shape.ixsPermutePrefix perm ix
           in gcastWith (X.unsafeCoerceRefl
                         :: Drop p shPerm :~: Drop p sh) $
@@ -1897,7 +1902,7 @@ astTransposeS perm t = case perm of
               gcastWith (unsafeCoerce Refl
                          :: Permutation.PermutePrefix perm (Take p sh)
                             :~: (Take p (Permutation.PermutePrefix perm sh))) $
-              let ix2 :: AstIndexS (Take p (Permutation.PermutePrefix perm sh)) =
+              let ix2 :: AstIxS (Take p (Permutation.PermutePrefix perm sh)) =
                     Nested.Internal.Shape.ixsPermutePrefix perm ix
               in gcastWith (unsafeCoerce Refl
                             :: Drop p (Permutation.PermutePrefix perm sh) :~: Drop p sh) $
@@ -2412,8 +2417,8 @@ simplifyAstInt = simplifyAst
 simplifyAstIndex :: AstIndex AstMethodLet n -> AstIndex AstMethodLet n
 simplifyAstIndex = fmap simplifyAstInt
 
-simplifyAstIndexS :: AstIndexS AstMethodLet sh -> AstIndexS AstMethodLet sh
-simplifyAstIndexS = fmap simplifyAstInt
+simplifyAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
+simplifyAstIxS = fmap simplifyAstInt
 
 -- | This function guarantees full simplification: every redex
 -- is visited and each combinator applied. The most exhaustive and costly
@@ -2491,10 +2496,10 @@ simplifyAst t = case t of
     case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
       _ -> astSumOfListS (map simplifyAst args)
-  Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIndexS ix)
+  Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIxS ix)
   Ast.AstSumS v -> astSumS (simplifyAst v)
   Ast.AstScatterS v (var, ix) ->
-    astScatterS (simplifyAst v) (var, simplifyAstIndexS ix)
+    astScatterS (simplifyAst v) (var, simplifyAstIxS ix)
   Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAst l)
   Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
   Ast.AstSliceS @i v -> astSliceS @i (simplifyAst v)
@@ -2502,7 +2507,7 @@ simplifyAst t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v
   Ast.AstReshapeS v -> astReshapeS $ simplifyAst v
   Ast.AstGatherS v (vars, ix) ->
-    astGatherS (simplifyAst v) (vars, simplifyAstIndexS ix)
+    astGatherS (simplifyAst v) (vars, simplifyAstIxS ix)
   Ast.AstCastS v -> astCastS $ simplifyAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   AstConcreteS{} -> t
@@ -2581,8 +2586,8 @@ expandAstInt = expandAst
 expandAstIndex :: AstIndex AstMethodLet n -> AstIndex AstMethodLet n
 expandAstIndex = fmap expandAstInt
 
-expandAstIndexS :: AstIndexS AstMethodLet sh -> AstIndexS AstMethodLet sh
-expandAstIndexS = fmap expandAstInt
+expandAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
+expandAstIxS = fmap expandAstInt
 
 expandAst
   :: forall s y. (AstSpan s, TensorKind y)
@@ -2709,10 +2714,10 @@ expandAst t = case t of
       _ -> astSumOfListS (map expandAst args)
   Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
                                        (expandAst v)
-                                       (expandAstIndexS ix)
+                                       (expandAstIxS ix)
   Ast.AstSumS v -> astSumS (expandAst v)
   Ast.AstScatterS v (var, ix) ->
-    astScatterS (expandAst v) (var, expandAstIndexS ix)
+    astScatterS (expandAst v) (var, expandAstIxS ix)
   Ast.AstFromVectorS l -> astFromVectorS (V.map expandAst l)
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS @i v -> astSliceS @i (expandAst v)
@@ -2721,7 +2726,7 @@ expandAst t = case t of
   Ast.AstReshapeS v -> astReshapeS $ expandAst v
   Ast.AstGatherS v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobExpand = True})
-                    (expandAst v) (vars, expandAstIndexS ix)
+                    (expandAst v) (vars, expandAstIxS ix)
   Ast.AstCastS v -> astCastS $ expandAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   AstConcreteS{} -> t
@@ -3045,13 +3050,13 @@ substituteAstIndex
 substituteAstIndex i var ix =
   fromMaybe ix $ substitute1AstIndex i var ix
 
-substituteAstIndexS
+substituteAstIxS
   :: (AstSpan s2, KnownShS sh2, GoodScalar r2)
   => AstTensor AstMethodLet s2 (TKS r2 sh2) -> AstVarName s2 (TKS r2 sh2)
-  -> AstIndexS AstMethodLet sh
-  -> AstIndexS AstMethodLet sh
-substituteAstIndexS i var  ix =
-  fromMaybe ix $ substitute1AstIndexS i var ix
+  -> AstIxS AstMethodLet sh
+  -> AstIxS AstMethodLet sh
+substituteAstIxS i var  ix =
+  fromMaybe ix $ substitute1AstIxS i var ix
 
 substituteAstBool
   :: (AstSpan s2, TensorKind y)
@@ -3230,12 +3235,12 @@ substitute1Ast i var v1 = case v1 of
          _ -> astSumOfListS $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstIndexS v ix ->
-    case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
+    case (substitute1Ast i var v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexS (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSumS v -> astSumS <$> substitute1Ast i var v
   Ast.AstScatterS v (vars, ix) ->
-    case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
+    case (substitute1Ast i var v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astScatterS (fromMaybe v mv)
                                       (vars, fromMaybe ix mix)
@@ -3253,7 +3258,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstTransposeS perm v -> astTransposeS perm <$> substitute1Ast i var v
   Ast.AstReshapeS v -> astReshapeS <$> substitute1Ast i var v
   Ast.AstGatherS v (vars, ix) ->
-    case (substitute1Ast i var v, substitute1AstIndexS i var ix) of
+    case (substitute1Ast i var v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astGatherS (fromMaybe v mv)
                                      (vars, fromMaybe ix mix)
@@ -3322,11 +3327,11 @@ substitute1AstIndex i var ix =
      then Just $ zipWith_Index fromMaybe ix mix
      else Nothing
 
-substitute1AstIndexS
+substitute1AstIxS
   :: (AstSpan s2, TensorKind y)
-  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIndexS AstMethodLet sh
-  -> Maybe (AstIndexS AstMethodLet sh)
-substitute1AstIndexS i var ix =
+  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIxS AstMethodLet sh
+  -> Maybe (AstIxS AstMethodLet sh)
+substitute1AstIxS i var ix =
   let mix = fmap (substitute1Ast i var) ix
   in if any isJust mix
      then Just $ ShapedList.zipWith_Index fromMaybe ix mix

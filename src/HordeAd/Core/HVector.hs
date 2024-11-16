@@ -34,7 +34,15 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape (IShX, ssxFromShape)
-import Data.Array.Nested (KnownShX, SMayNat (..), ShX (..), type (++))
+import Data.Array.Nested
+  ( IShR
+  , KnownShX
+  , SMayNat (..)
+  , ShX (..)
+  , pattern (:$:)
+  , pattern ZSR
+  , type (++)
+  )
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Types
@@ -300,11 +308,11 @@ index1HVectorF :: (forall r n. (GoodScalar r, KnownNat n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
                    => target (TKS r sh) -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-                   => target (TKR r (m + n)) -> IndexOf target m -> target (TKR r n))
+                   => target (TKR r (m + n)) -> IxROf target m -> target (TKR r n))
                -> (forall r sh1 sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
                    , KnownShS (sh1 ++ sh2) )
-                   => target (TKS r (sh1 ++ sh2)) -> ShapedList.IndexSh target sh1
+                   => target (TKS r (sh1 ++ sh2)) -> ShapedList.IxSOf target sh1
                    -> target (TKS r sh2))
                -> HVector target -> IntOf target -> HVector target
 {-# INLINE index1HVectorF #-}
@@ -316,11 +324,11 @@ index1DynamicF :: (forall r n. (GoodScalar r, KnownNat n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
                    => target (TKS r sh) -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-                   => target (TKR r (m + n)) -> IndexOf target m -> target (TKR r n))
+                   => target (TKR r (m + n)) -> IxROf target m -> target (TKR r n))
                -> (forall r sh1 sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
                    , KnownShS (sh1 ++ sh2) )
-                   => target (TKS r (sh1 ++ sh2)) -> ShapedList.IndexSh target sh1
+                   => target (TKS r (sh1 ++ sh2)) -> ShapedList.IxSOf target sh1
                    -> target (TKS r sh2))
                -> DynamicTensor target -> IntOf target -> DynamicTensor target
 {-# INLINE index1DynamicF #-}

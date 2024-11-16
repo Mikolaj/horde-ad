@@ -15,6 +15,7 @@ import GHC.TypeLits (KnownNat)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
+import Data.Array.Nested (pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
@@ -105,7 +106,7 @@ conv2d arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicezF :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
-        => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
+        => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
 slicezF shOut d ixBase =
   rbuild shOut $ \ixResult ->
     rindex @target @r @n @0 d (zipWith_Index (+) ixBase ixResult)
@@ -640,14 +641,14 @@ conv2dUnpadded2 =
 
 slicez2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
-  => target (TKR r n) -> IndexOf target n -> target (TKR r n)
+  => target (TKR r n) -> IxROf target n -> target (TKR r n)
 slicez2 d ixBase =
   rbuild [1, 1, 2, 2] $ \ixResult -> indexz02 d (zipWith_Index (+) ixBase ixResult)
 
 indexz02
   :: forall target r n.
      (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
-  => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
+  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
 indexz02 d ix = ifF (1 >. (indexToList ix !! 0)) (d ! ix) (rscalar 0)
 
 rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
@@ -690,13 +691,13 @@ conv2dUnpadded3 arrA =
 
 slicez3
   :: (ADReady target, GoodScalar r, KnownNat n)
-  => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
+  => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
 slicez3 shOut d ixBase =
   rbuild shOut $ \_ixResult -> indexz03 d (zipWith_Index (+) ixBase ixBase) -- ixResult)
 
 indexz03
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
+  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
 indexz03 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
 rmaximum3 :: (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
@@ -740,6 +741,6 @@ conv2dUnpadded4 arrA =
 
 slicez4
   :: (ADReady target, GoodScalar r, KnownNat n)
-  => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
+  => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
 slicez4 shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz03 d (zipWith_Index (+) ixBase ixResult)

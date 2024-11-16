@@ -38,7 +38,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..), valueOf)
-import HordeAd.Util.ShapedList (IndexSh, IndexShX)
+import HordeAd.Util.ShapedList (IxSOf, IxXOf)
 import HordeAd.Util.SizedList
 
 -- * The main dual number type
@@ -308,7 +308,7 @@ instance OrdF f => OrdF (ADVal f) where
 
 indexPrimal :: ( ADReadyNoLet target
                , KnownNat m, KnownNat n, GoodScalar r )
-            => ADVal target (TKR r (m + n)) -> IndexOf target m
+            => ADVal target (TKR r (m + n)) -> IxROf target m
             -> ADVal target (TKR r n)
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
@@ -343,7 +343,7 @@ instance ( ADReadyNoLet target
 indexPrimalS :: ( ADReadyNoLet target
                 , GoodScalar r, KnownShS sh1, KnownShS sh2
                 , KnownShS (sh1 ++ sh2) )
-             => ADVal target (TKS r (sh1 ++ sh2)) -> IndexSh target sh1
+             => ADVal target (TKS r (sh1 ++ sh2)) -> IxSOf target sh1
              -> ADVal target (TKS r sh2)
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
@@ -359,7 +359,7 @@ fromVectorS lu = assert (length lu == valueOf @n) $
 indexPrimalX :: ( ADReadyNoLet target
                 , GoodScalar r, KnownShX sh1, KnownShX sh2
                 , KnownShX (sh1 ++ sh2) )
-             => ADVal target (TKX r (sh1 ++ sh2)) -> IndexShX target sh1
+             => ADVal target (TKX r (sh1 ++ sh2)) -> IxXOf target sh1
              -> ADVal target (TKX r sh2)
 indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 

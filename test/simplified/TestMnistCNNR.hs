@@ -19,6 +19,7 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
+import Data.Array.Nested (pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd

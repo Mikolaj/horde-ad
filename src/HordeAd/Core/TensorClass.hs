@@ -10,7 +10,7 @@
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( -- * Re-exports
-    IShR, ShapeS
+    IShR, ShS
     -- * The tensor classes
   , LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)
@@ -39,15 +39,25 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX)
-import Data.Array.Nested (KnownShX (..), Rank, type (++))
+import Data.Array.Nested
+  ( IShR
+  , KnownShX (..)
+  , Rank
+  , pattern (:$:)
+  , pattern (:.$)
+  , pattern (:.:)
+  , pattern ZIR
+  , pattern ZIS
+  , pattern ZSR
+  , type (++)
+  )
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..), valueOf)
-import HordeAd.Util.ShapedList
-  (Drop, IndexSh, IndexShX, Init, ShapeS, Take, pattern (:.$), pattern ZIS)
+import HordeAd.Util.ShapedList (Drop, Init, IxSOf, IxXOf, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -166,11 +176,11 @@ class ( Num (IntOf target)
   -- First index is for outermost dimension; empty index means identity,
   -- index ouf of bounds produces zero (but beware of vectorization).
   rindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
-              => target (TKR r (m + n)) -> IndexOf target m -> target (TKR r n)
+              => target (TKR r (m + n)) -> IxROf target m -> target (TKR r n)
   infixl 9 !
   (!) = rindex  -- prefix form better when type applications are necessary
   rindex0 :: (GoodScalar r, KnownNat m)
-          => target (TKR r m) -> IndexOf target m -> target (TKR r 0)
+          => target (TKR r m) -> IxROf target m -> target (TKR r 0)
   rindex0 = rindex
   rsum :: (GoodScalar r, KnownNat n) => target (TKR r (1 + n)) -> target (TKR r n)
   rsum0 :: (GoodScalar r, KnownNat n) => target (TKR r n) -> target (TKR r 0)
@@ -194,11 +204,11 @@ class ( Num (IntOf target)
     _ -> error "rmatmul2: impossible pattern needlessly required"
   rscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
            => IShR (p + n) -> target (TKR r (m + n))
-           -> (IndexOf target m -> IndexOf target p)
+           -> (IxROf target m -> IxROf target p)
            -> target (TKR r (p + n))
   rscatter1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
             => IShR (p + n) -> target (TKR r (1 + n))
-            -> (IntOf target -> IndexOf target p)
+            -> (IntOf target -> IxROf target p)
             -> target (TKR r (p + n))
   rscatter1 sh v f = rscatter @target @r @1 sh v
                               (\(i :.: ZIR) -> f i)
@@ -255,10 +265,10 @@ class ( Num (IntOf target)
   rreshape :: (GoodScalar r, KnownNat n, KnownNat m)
            => IShR m -> target (TKR r n) -> target (TKR r m)
   rbuild :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-         => IShR (m + n) -> (IndexOf target m -> target (TKR r n))
+         => IShR (m + n) -> (IxROf target m -> target (TKR r n))
          -> target (TKR r (m + n))
   rbuild sh0 f0 =
-    let buildSh :: IShR m1 -> (IndexOf target m1 -> target (TKR r n))
+    let buildSh :: IShR m1 -> (IxROf target m1 -> target (TKR r n))
                 -> target (TKR r (m1 + n))
         buildSh ZSR f = f ZIR
         buildSh (k :$: sh) f | Dict <- knownShR sh =
@@ -348,11 +358,11 @@ class ( Num (IntOf target)
                                 (rindex0 x ix))
   rgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
           => IShR (m + n) -> target (TKR r (p + n))
-          -> (IndexOf target m -> IndexOf target p)
+          -> (IxROf target m -> IxROf target p)
           -> target (TKR r (m + n))
   rgather1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
            => Int -> target (TKR r (p + n))
-           -> (IntOf target -> IndexOf target p)
+           -> (IntOf target -> IxROf target p)
            -> target (TKR r (1 + n))
   rgather1 k v f = rgather @target @r @1
                            (k :$: dropShape (rshape v)) v
@@ -401,7 +411,7 @@ class ( Num (IntOf target)
   xindex :: forall r sh1 sh2.
             ( GoodScalar r, KnownShX sh1, KnownShX sh2
             , KnownShX (sh1 ++ sh2) )
-         => target (TKX r (sh1 ++ sh2)) -> IndexShX target sh1
+         => target (TKX r (sh1 ++ sh2)) -> IxXOf target sh1
          -> target (TKX r sh2)
   xfromVector :: (GoodScalar r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX r sh))
@@ -454,12 +464,12 @@ class ( Num (IntOf target)
   sindex, (!$) :: forall r sh1 sh2.
                   ( GoodScalar r, KnownShS sh1, KnownShS sh2
                   , KnownShS (sh1 ++ sh2) )
-               => target (TKS r (sh1 ++ sh2)) -> IndexSh target sh1
+               => target (TKS r (sh1 ++ sh2)) -> IxSOf target sh1
                -> target (TKS r sh2)
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
   sindex0 :: forall r sh1. (GoodScalar r, KnownShS sh1)
-          => target (TKS r sh1) -> IndexSh target sh1
+          => target (TKS r sh1) -> IxSOf target sh1
           -> target (TKS r '[])
   sindex0 = gcastWith (unsafeCoerce Refl :: sh1 ++ '[] :~: sh1)
               sindex
@@ -486,14 +496,14 @@ class ( Num (IntOf target)
        , KnownShS (Take p sh), KnownShS (Drop p sh)
        , KnownShS (sh2 ++ Drop p sh) )
     => target (TKS r (sh2 ++ Drop p sh))
-    -> (IndexSh target sh2 -> IndexSh target (Take p sh))
+    -> (IxSOf target sh2 -> IxSOf target (Take p sh))
     -> target (TKS r sh)
   sscatter1
     :: forall r n2 p sh.
        ( GoodScalar r, KnownNat n2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh) )
     => target (TKS r (n2 ': Drop p sh))
-    -> (IntOf target -> IndexSh target (Take p sh))
+    -> (IntOf target -> IxSOf target (Take p sh))
     -> target (TKS r sh)
   sscatter1 v f = sscatter @target @r @'[n2] v (\(i :.$ _) -> f i)
 
@@ -565,13 +575,13 @@ class ( Num (IntOf target)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   sbuild :: forall r m sh. (GoodScalar r, KnownShS sh, KnownShS (Take m sh))
-         => (IndexSh target (Take m sh) -> target (TKS r (Drop m sh)))
+         => (IxSOf target (Take m sh) -> target (TKS r (Drop m sh)))
          -> target (TKS r sh)
   sbuild =
     let buildSh
           :: forall sh1.
              ShS sh1 -> ShS (sh1 ++ Drop m sh)
-          -> (IndexSh target sh1 -> target (TKS r (Drop m sh)))
+          -> (IxSOf target sh1 -> target (TKS r (Drop m sh)))
           -> target (TKS r (sh1 ++ Drop m sh))
         buildSh sh1 sh1m f = case (sh1, sh1m) of
           (ZSS, _) -> f ZIS
@@ -728,14 +738,14 @@ class ( Num (IntOf target)
        , KnownShS (Take p sh), KnownShS (Drop p sh)
        , KnownShS (sh2 ++ Drop p sh) )
     => target (TKS r sh)
-    -> (IndexSh target sh2 -> IndexSh target (Take p sh))
+    -> (IxSOf target sh2 -> IxSOf target (Take p sh))
     -> target (TKS r (sh2 ++ Drop p sh))
   sgather1
     :: forall r n2 p sh.
        ( GoodScalar r, KnownNat n2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh) )
     => target (TKS r sh)
-    -> (IntOf target -> IndexSh target (Take p sh))
+    -> (IntOf target -> IxSOf target (Take p sh))
     -> target (TKS r (n2 ': Drop p sh))
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
   scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownShS sh)

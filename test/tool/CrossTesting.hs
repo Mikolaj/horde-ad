@@ -12,6 +12,8 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import Test.Tasty.HUnit hiding (assert)
 
+import Data.Array.Nested (pattern (:$:), pattern ZSR)
+
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -28,7 +30,6 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (RepN (..), tdot0R, tsum0R)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
-import HordeAd.Util.SizedList
 
 import EqEpsilon
 

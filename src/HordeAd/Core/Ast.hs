@@ -14,7 +14,7 @@ module HordeAd.Core.Ast
   , AstInt, IntVarName, pattern AstIntVar, isTensorInt
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
-  , AstIndex, AstVarList, AstIndexS, AstVarListS, AstIndexX
+  , AstIndex, AstVarList, AstIxS, AstVarListS, AstIndexX
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase, AstBindings
     -- * ASTs
@@ -47,15 +47,15 @@ import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX, IxX, ListX)
-import Data.Array.Nested (KnownShX, Rank, type (++))
+import Data.Array.Nested
+  (IShR, IxR, IxS, KnownShX, ListR, ListS, Rank, type (++))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
-import HordeAd.Util.ShapedList (Drop, IndexS, Init, SizedListS, Take)
-import HordeAd.Util.SizedList
+import HordeAd.Util.ShapedList (Drop, Init, Take)
 
 -- * Basic type family instances
 
@@ -217,13 +217,13 @@ isTensorInt _ = case ( sameAstSpan @s @PrimalSpan
                   (Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
 
-type AstIndex ms n = Index n (AstInt ms)
+type AstIndex ms n = IxR n (AstInt ms)
 
-type AstVarList n = SizedList n IntVarName
+type AstVarList n = ListR n IntVarName
 
-type AstIndexS ms sh = IndexS sh (AstInt ms)
+type AstIxS ms sh = IxS sh (AstInt ms)
 
-type AstVarListS sh = SizedListS sh (Const IntVarName)
+type AstVarListS sh = ListS sh (Const IntVarName)
 
 type AstIndexX ms sh = IxX sh (AstInt ms)
 
@@ -401,7 +401,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   -- For the main part of the ShapedTensor class:
   AstIndexS :: forall sh1 sh2 s r ms.
                (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
-            => AstTensor ms s (TKS r (sh1 ++ sh2)) -> AstIndexS ms sh1
+            => AstTensor ms s (TKS r (sh1 ++ sh2)) -> AstIxS ms sh1
             -> AstTensor ms s (TKS r sh2)
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
@@ -413,7 +413,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
                  , KnownShS (Take p sh), KnownShS (Drop p sh)
                  , KnownShS (sh2 ++ Drop p sh), GoodScalar r )
               => AstTensor ms s (TKS r (sh2 ++ Drop p sh))
-              -> (AstVarListS sh2, AstIndexS ms (Take p sh))
+              -> (AstVarListS sh2, AstIxS ms (Take p sh))
               -> AstTensor ms s (TKS r sh)
 
   AstFromVectorS :: (KnownNat n, KnownShS sh, GoodScalar r)
@@ -439,7 +439,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
                 , KnownShS (Take p sh), KnownShS (Drop p sh)
                 , KnownShS (sh2 ++ Drop p sh) )
              => AstTensor ms s (TKS r sh)
-             -> (AstVarListS sh2, AstIndexS ms (Take p sh))
+             -> (AstVarListS sh2, AstIxS ms (Take p sh))
              -> AstTensor ms s (TKS r (sh2 ++ Drop p sh))
     -- out of bounds indexing is permitted
   AstCastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)

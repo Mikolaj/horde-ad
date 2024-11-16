@@ -71,7 +71,15 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
-import Data.Array.Nested (KnownShX, Rank, type (++))
+import Data.Array.Nested
+  ( KnownShX
+  , Rank
+  , pattern (:$:)
+  , pattern (:.$)
+  , pattern ZIS
+  , pattern ZSR
+  , type (++)
+  )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
@@ -81,8 +89,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
-import HordeAd.Util.ShapedList
-  (Drop, IndexSh, IndexShX, Take, pattern (:.$), pattern ZIS)
+import HordeAd.Util.ShapedList (Drop, IxSOf, IxXOf, Take)
 import HordeAd.Util.SizedList
 
 type IMap target = DEnumMap (InputId target) (RepM target)
@@ -397,7 +404,7 @@ data Delta :: Target -> TensorKindType -> Type where
        => Delta target y -> Delta target y -> Delta target y
 
   IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
-         => Delta target (TKR r (m + n)) -> IndexOf target m
+         => Delta target (TKR r (m + n)) -> IxROf target m
          -> Delta target (TKR r n)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
@@ -409,7 +416,7 @@ data Delta :: Target -> TensorKindType -> Type where
         => target (TKR r n) -> Delta target (TKR r n) -> Delta target (TKR r 0)
   ScatterR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
            => IShR (p + n) -> Delta target (TKR r (m + n))
-           -> (IndexOf target m -> IndexOf target p)
+           -> (IxROf target m -> IxROf target p)
            -> Delta target (TKR r (p + n))
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
@@ -453,7 +460,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -- ^ Change the shape of the tensor to the given one.
   GatherR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
           => IShR (m + n) -> Delta target (TKR r (p + n))
-          -> (IndexOf target m -> IndexOf target p)
+          -> (IxROf target m -> IxROf target p)
           -> Delta target (TKR r (m + n))
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
@@ -473,7 +480,7 @@ data Delta :: Target -> TensorKindType -> Type where
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
          => Delta target (TKS r (sh1 ++ sh2))
-         -> IndexSh target sh1
+         -> IxSOf target sh1
          -> Delta target (TKS r sh2)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
@@ -489,8 +496,8 @@ data Delta :: Target -> TensorKindType -> Type where
               , KnownShS (Take p sh), KnownShS (Drop p sh)
               , KnownShS (sh2 ++ Drop p sh) )
            => Delta target (TKS r (sh2 ++ Drop p sh))
-           -> (IndexSh target sh2
-               -> IndexSh target (Take p sh))
+           -> (IxSOf target sh2
+               -> IxSOf target (Take p sh))
            -> Delta target (TKS r sh)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
@@ -546,8 +553,8 @@ data Delta :: Target -> TensorKindType -> Type where
              , KnownShS (Take p sh), KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
           => Delta target (TKS r sh)
-          -> (IndexSh target sh2
-              -> IndexSh target (Take p sh))
+          -> (IxSOf target sh2
+              -> IxSOf target (Take p sh))
           -> Delta target (TKS r (sh2 ++ Drop p sh))
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
@@ -567,7 +574,7 @@ data Delta :: Target -> TensorKindType -> Type where
 
   IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
          => Delta target (TKX r (sh1 ++ sh2))
-         -> IndexShX target sh1
+         -> IxXOf target sh1
          -> Delta target (TKX r sh2)
   FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
               => Data.Vector.Vector (Delta target (TKX r sh))

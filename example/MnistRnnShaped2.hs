@@ -18,12 +18,12 @@ import Numeric.LinearAlgebra (Numeric)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
 
+import Data.Array.Nested (pattern (:.$), pattern ZIS)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
 import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..), valueOf)
-import HordeAd.Util.ShapedList (pattern (:.$), pattern ZIS)
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.

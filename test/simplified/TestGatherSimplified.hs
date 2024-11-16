@@ -13,6 +13,8 @@ import Numeric.LinearAlgebra (Numeric)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
+import Data.Array.Nested
+  (pattern (:$:), pattern (:.:), pattern ZIR, pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd

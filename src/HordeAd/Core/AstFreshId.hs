@@ -9,7 +9,7 @@ module HordeAd.Core.AstFreshId
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
-  , funToVarsIx, funToAstIndex, funToVarsIxS, funToAstIndexS
+  , funToVarsIx, funToAstIndex, funToVarsIxS, funToAstIxS
   , resetVarCounter
   ) where
 
@@ -332,7 +332,7 @@ funToAstIndex f = unsafePerformIO . funToVarsIxIO (valueOf @m)
 
 funToVarsIxIOS
   :: forall sh a ms. KnownShS sh
-  => ((AstVarListS sh, AstIndexS ms sh) -> a) -> IO a
+  => ((AstVarListS sh, AstIxS ms sh) -> a) -> IO a
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS f = do
   let p = length $ shapeT @sh
@@ -343,13 +343,13 @@ funToVarsIxIOS f = do
 
 funToVarsIxS
   :: KnownShS sh
-  => ((AstVarListS sh, AstIndexS ms sh) -> a) -> a
+  => ((AstVarListS sh, AstIxS ms sh) -> a) -> a
 {-# NOINLINE funToVarsIxS #-}
 funToVarsIxS = unsafePerformIO . funToVarsIxIOS
 
-funToAstIndexS
+funToAstIxS
   :: KnownShS sh
-  => (AstIndexS ms sh -> AstIndexS ms sh2) -> (AstVarListS sh, AstIndexS ms sh2)
-{-# NOINLINE funToAstIndexS #-}
-funToAstIndexS f = unsafePerformIO $ funToVarsIxIOS
+  => (AstIxS ms sh -> AstIxS ms sh2) -> (AstVarListS sh, AstIxS ms sh2)
+{-# NOINLINE funToAstIxS #-}
+funToAstIxS f = unsafePerformIO $ funToVarsIxIOS
                    $ \ (!vars, !ix) -> let !x = f ix in (vars, x)
