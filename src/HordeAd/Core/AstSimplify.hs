@@ -642,7 +642,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
         -- this uses astLet, because the index integers are ranked
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
-  Ast.AstMinIndexS @shz @n1 v ->
+  Ast.AstMinIndexS @shz @n1 v -> Ast.AstIndexS v0 ix {-
     withShapeP (drop 1 (shapeT @shn)
                    ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
       gcastWith (unsafeCoerce Refl
@@ -656,8 +656,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
         gcastWith (unsafeCoerce Refl
                    :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
         Ast.AstMinIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
-        $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
-  Ast.AstMaxIndexS @shz @n1 v ->
+        $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix -}
+  Ast.AstMaxIndexS @shz @n1 v -> Ast.AstIndexS v0 ix {-
     withShapeP (drop 1 (shapeT @shn)
                    ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
       gcastWith (unsafeCoerce Refl
@@ -671,7 +671,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
         gcastWith (unsafeCoerce Refl
                    :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
         Ast.AstMaxIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
-        $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
+        $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix -}
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs v ix
   Ast.AstIotaS | AstConcreteS{} <- i1 -> case sameShape @shn @'[] of
     Just Refl -> astFromIntegralS i1
@@ -698,7 +698,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
     withShapeP (shapeT @sh4 ++ shapeT @shm) $ \(Proxy @sh41) ->
       gcastWith (unsafeCoerce Refl :: sh4 ++ shm :~: sh41) $
       astIndexS v (ShapedList.appendIndex ix2 ix)
-  Ast.AstSumS @n1 v ->
+  Ast.AstSumS @n1 v -> Ast.AstIndexS v0 ix
+  {-
     let perm3 = backpermCycle $ length (shapeT @shm) + 1
     in withShapeP (shapeT @shm
                    ++ (valueOf @n1 : shapeT @shn)) $ \(Proxy @sm1n) ->
@@ -716,7 +717,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
           trustMeThisIsAPermutation @perm3P $
           astSumS $ astIndex @shm @(n1 : shn)
                              (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
-                             ix
+                             ix -}
 -- TODO:
 --  Ast.AstScatterS @sh2 @p7 @sh7
 --                  v (vars, AstIntVar var5 ::$ (ix2 :: AstIndexS p71))
@@ -761,11 +762,11 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
     let iRev = simplifyAstInt (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :.$ rest1)
-  Ast.AstTransposeS @perm perm v
+{-  Ast.AstTransposeS @perm perm v
     | rankPerm <- Permutation.permRank perm
     , length (shapeT @shm) < sNatValue rankPerm ->
-      astIndex (astTransposeAsGatherS @perm perm knobs v) ix
-  Ast.AstTransposeS @perm @sh2 perm v ->
+      astIndex (astTransposeAsGatherS @perm perm knobs v) ix -}
+  Ast.AstTransposeS @perm @sh2 perm v -> Ast.AstIndexS v0 ix {-
     withShapeP
       (permutePrefixList (Permutation.permToList' perm)
                          (shapeT @shm)) $ \(Proxy @shmPerm) ->
@@ -773,7 +774,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIndexS AstMethodLet shm1)
         let ix2 :: AstIndexS AstMethodLet shmPerm = unsafeCoerce $
               Nested.Internal.Shape.ixsPermutePrefix perm ix
         in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm ++ shn) $
-           astIndex @shmPerm v ix2
+           astIndex @shmPerm v ix2 -}
   Ast.AstReshapeS v ->
     astIndex (astReshapeAsGatherS knobs v) ix
   Ast.AstGatherS @_ @p @sh v (ZS, ix2) ->

@@ -30,7 +30,7 @@ maxPool2dUnpadded
 maxPool2dUnpadded =
   rbuild [1, 1, 1, 1] $ \case
     [_, _, iBh, iBw] ->
-      let arrt = slicez [1, 1, 2, 2] conv2dUnpadded [1, 1, 2 * iBh, 2 * iBw]
+      let arrt = slicez conv2dUnpadded [1, 1, 2 * iBh, 2 * iBw]
       in rmaximum arrt
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
 
@@ -41,7 +41,6 @@ conv2dUnpadded =
   rbuild [1, 1, 2, 2] $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez
-                    [1, 1, 2, 2]
                     (rconcrete
                      $ Nested.rreplicateScal (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
                     [iImg, 0, iBh, iBw]
@@ -50,9 +49,9 @@ conv2dUnpadded =
 
 slicez
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
-  => IShR n -> target (TKR r n) -> IndexOf target n -> target (TKR r n)
-slicez shOut d ixBase =
-  rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
+  => target (TKR r n) -> IndexOf target n -> target (TKR r n)
+slicez d ixBase =
+  rbuild [1, 1, 2, 2] $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
 indexz0
   :: forall target r n.
