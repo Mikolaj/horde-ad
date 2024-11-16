@@ -7,11 +7,9 @@
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( Take, Drop, Last, Init
-  , IxXOf
   , -- * Shaped lists (sized, where size is shape) and their permutations
-    IxSOf
   -- , consShaped, unconsContShaped
-  , singletonSized, appendSized
+    singletonSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   -- , unsnocSized1, lastSized
   -- , initSized, zipSized
@@ -42,7 +40,6 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested
   ( IxR
   , IxS (..)
-  , IxX
   , KnownShS (..)
   , ListS (..)
   , Rank
@@ -75,16 +72,8 @@ type family Init (xs :: [k]) where
   Init '[x] = '[]
   Init (x ': xs) = x ': Init xs
 
-type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
-
 
 -- * Shaped lists and their permutations
-
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The values of this type are bounded by the shape.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
-type IxSOf (f :: Target) (sh :: [Nat]) = IxS sh (IntOf f)
 
 singletonSized :: KnownNat n => i n -> ListS '[n] i
 singletonSized i = i ::$ ZS

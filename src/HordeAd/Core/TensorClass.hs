@@ -61,7 +61,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..), valueOf)
-import HordeAd.Util.ShapedList (Drop, Init, IxSOf, IxXOf, Take)
+import HordeAd.Util.ShapedList (Drop, Init, Take)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

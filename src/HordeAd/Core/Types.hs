@@ -24,6 +24,7 @@ module HordeAd.Core.Types
     -- * Type families that tensors will belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDualTarget(..)
+  , IxROf,  IxSOf, IxXOf
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
   , IfF(..), EqF(..), OrdF(..), minF, maxF
@@ -46,7 +47,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (KnownShX (..), StaticShX (..), withKnownShX)
 import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
 import Data.Array.Nested
-  (IxS (..), KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
+  (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
@@ -384,6 +385,23 @@ type family ShareOf (f :: Target) :: Target
 type role DummyDualTarget representational
 type DummyDualTarget :: Target
 data DummyDualTarget y = DummyDualTarget
+
+-- TODO: move this comment elsewhere?
+-- | Thanks to the OverloadedLists mechanism, values of this type can be
+-- written using the normal list notation. However, such values, if not
+-- explicitly typed, do not inform the compiler about the length
+-- of the list until runtime. That means that some errors are hidden
+-- and also extra type applications may be needed to satisfy the compiler.
+-- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZIR).
+type IxROf (f :: Target) n = IxR n (IntOf f)
+
+-- TODO: ensure this is checked (runtime-checked, if necessary):
+-- | The values of this type are bounded by the shape.
+-- If the values are terms, this is relative to environment
+-- and up to evaluation.
+type IxSOf (f :: Target) (sh :: [Nat]) = IxS sh (IntOf f)
+
+type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
 
 
 -- * Generic types of booleans and related class definitions

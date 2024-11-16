@@ -4,8 +4,7 @@
 -- | @GHC.Nat@-indexed lists, tensors shapes and indexes.
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
-    IxROf
-  , singletonSized, snocSized, appendSized
+    singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , permInverse
@@ -57,15 +56,6 @@ import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 
 -- * Sized lists and their permutations
-
--- TODO: move this comment elsewhere?
--- | Thanks to the OverloadedLists mechanism, values of this type can be
--- written using the normal list notation. However, such values, if not
--- explicitly typed, do not inform the compiler about the length
--- of the list until runtime. That means that some errors are hidden
--- and also extra type applications may be needed to satisfy the compiler.
--- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZIR).
-type IxROf (f :: Target) n = IxR n (IntOf f)
 
 -- | Standard strict sized lists indexed by the GHC @Nat@ type.
 --
