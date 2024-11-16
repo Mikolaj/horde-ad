@@ -1613,7 +1613,6 @@ astReplicate snat@SNat
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
 --  AstConcrete t -> AstConcrete $ treplicateR k t
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat v
-
   Ast.AstTransposeS @perm @sh1 perm v -> case stensorKind @y of
     STKS @_ @sh _ _ ->
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)

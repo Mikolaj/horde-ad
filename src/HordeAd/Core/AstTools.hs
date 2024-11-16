@@ -122,8 +122,8 @@ shapeAstFull t = case t of
   AstReverseS{} -> FTKS knownShS
   AstTransposeS @perm @sh2 perm _v ->
     withShapeP
-      (permutePrefixList (Permutation.permToList' perm)
-                         (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
+      (backpermutePrefixList (Permutation.permToList' perm)
+                             (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
         gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
         FTKS knownShS
   AstReshapeS{} -> FTKS knownShS
