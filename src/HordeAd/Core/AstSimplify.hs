@@ -1928,7 +1928,7 @@ astTransposeS perm t = case perm of
                  :: Permutation.PermutePrefix perm3 sh2
                     :~: Permutation.PermutePrefix perm sh) $
       case compare (length perm3V)
-                   (Nested.Internal.Shape.shsSize (knownShS @sh2)) of
+                   (Nested.Internal.Shape.shsLength (knownShS @sh2)) of
         LT -> gcastWith (unsafeCoerce Refl
                          :: Compare (Rank perm3) (Rank sh2) :~: LT) $
               astTransposeS perm3 u
