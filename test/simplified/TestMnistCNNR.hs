@@ -22,43 +22,43 @@ testTrees :: [TestTree]
 testTrees = [testCase "CNNOPP" testCNNOPP]
 
 testCNNOPP :: Assertion
-testCNNOPP = printAstPretty IM.empty maxPool2dUnpadded @?= ""
+testCNNOPP = printAstPretty IM.empty maxPool2dUnpadded2 @?= ""
 
-maxPool2dUnpadded
+maxPool2dUnpadded2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
   => target (TKR r 4)
-maxPool2dUnpadded =
+maxPool2dUnpadded2 =
   rbuild [1, 1, 1, 1] $ \case
     [_, _, iBh, iBw] ->
-      let arrt = slicez conv2dUnpadded [1, 1, 2 * iBh, 2 * iBw]
-      in rmaximum arrt
+      let arrt = slicez2 conv2dUnpadded2 [1, 1, 2 * iBh, 2 * iBw]
+      in rmaximum2 arrt
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
 
-conv2dUnpadded
+conv2dUnpadded2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
   => target (TKR r 4)
-conv2dUnpadded =
+conv2dUnpadded2 =
   rbuild [1, 1, 2, 2] $ \case
     [iImg, _, iBh, iBw] ->
-      let arrAt = slicez
+      let arrAt = slicez2
                     (rconcrete
                      $ Nested.rreplicateScal (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
                     [iImg, 0, iBh, iBw]
       in rindex0 arrAt [0, 0, 0, 0]
     _ -> error "conv2dUnpadded: impossible pattern needlessly required"
 
-slicez
+slicez2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
   => target (TKR r n) -> IndexOf target n -> target (TKR r n)
-slicez d ixBase =
-  rbuild [1, 1, 2, 2] $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
+slicez2 d ixBase =
+  rbuild [1, 1, 2, 2] $ \ixResult -> indexz02 d (zipWith_Index (+) ixBase ixResult)
 
-indexz0
+indexz02
   :: forall target r n.
      (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
   => target (TKR r n) -> IndexOf target n -> target (TKR r 0)
-indexz0 d ix = ifF (1 >. (indexToList ix !! 0)) (d ! ix) (rscalar 0)
+indexz02 d ix = ifF (1 >. (indexToList ix !! 0)) (d ! ix) (rscalar 0)
 
-rmaximum :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
+rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
          => target (TKR r 4) -> target (TKR r 0)
-rmaximum t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
+rmaximum2 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
