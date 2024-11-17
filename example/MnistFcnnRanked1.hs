@@ -14,12 +14,11 @@ import GHC.Exts (IsList (..), inline)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import MnistData
 
 afcnnMnistLen1 :: Int -> Int -> [Int]
@@ -114,7 +113,7 @@ afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
                -> target (TKR r 1)
             nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
-            v = Nested.rtoVector $ runFlipR $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
+            v = Nested.rtoVector $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

@@ -5,7 +5,7 @@
 -- tensors.
 module HordeAd.Internal.OrthotopeOrphanInstances
   ( -- * Numeric classes and instances for tensors
-    IntegralF(..), RealFloatF(..), FlipR(..), FlipS(..), FlipX(..), valueOf
+    IntegralF(..), RealFloatF(..), valueOf
   ) where
 
 import Prelude
@@ -171,100 +171,3 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith atan2 x y)))  -- TODO: do better somehow
-
-type role FlipR nominal nominal nominal
-type FlipR :: forall {k}. (Nat -> k -> Type) -> k -> Nat -> Type
-newtype FlipR p a (b :: Nat) = FlipR { runFlipR :: p b a }
-
-instance (Nested.Elt r, Show r, Show (Nested.Mixed (Replicate n Nothing) r))
-         => Show (FlipR Nested.Ranked r n) where
-  showsPrec :: Int -> FlipR Nested.Ranked r n -> ShowS
-  showsPrec d (FlipR u) =
-    showString "Flip " . showParen True (showsPrec d u)
-
-instance (Eq r, KnownNat n, Eq (Nested.Mixed (Replicate n Nothing) r)) => Eq (FlipR Nested.Ranked r n) where
-  (==) :: FlipR Nested.Ranked r n -> FlipR Nested.Ranked r n -> Bool
-  FlipR u == FlipR v = u == v
-
-instance (Ord r, KnownNat n, Eq (Nested.Mixed (Replicate n Nothing) r), Ord (Nested.Mixed (Replicate n Nothing) r)) => Ord (FlipR Nested.Ranked r n) where
-  FlipR u <= FlipR v = u <= v
-
--- TODO: This is only to ensure fromInteger crashes promptly if not rank 0.
--- deriving instance Num (f a b) => Num (FlipR f b a)
-instance (Nested.NumElt r, Nested.PrimElt r, Nested.Elt r, KnownNat n, Num r)
-         => Num (FlipR Nested.Ranked r n) where
-  (FlipR t) + (FlipR u) = FlipR $ t + u
-  (FlipR t) - (FlipR u) = FlipR $ t - u
-  (FlipR t) * (FlipR u) = FlipR $ t * u
-  negate (FlipR t) = FlipR $ negate t
-  abs (FlipR t) = FlipR $ abs t
-  signum (FlipR t) = FlipR $ signum t
-  fromInteger = error "no!"
-
-deriving instance IntegralF (f a b) => IntegralF (FlipR f b a)
-
-deriving instance (Num (FlipR f b a), Fractional (f a b)) => Fractional (FlipR f b a)
-
-deriving instance (Num (FlipR f b a), Floating (f a b)) => Floating (FlipR f b a)
-
-deriving instance (Num (FlipR f b a), RealFloatF (f a b)) => RealFloatF (FlipR f b a)
-
-deriving instance NFData (f a b) => NFData (FlipR f b a)
-
-type role FlipS nominal nominal nominal
-type FlipS :: forall {k}. ([Nat] -> k -> Type) -> k -> [Nat] -> Type
-newtype FlipS p a (b :: [Nat]) = FlipS { runFlipS :: p b a }
-
-instance (Nested.Elt r, Show r, Show (Nested.Mixed (MapJust sh) r))
-         => Show (FlipS Nested.Shaped r sh) where
-  showsPrec :: Int -> FlipS Nested.Shaped r sh -> ShowS
-  showsPrec d (FlipS u) =
-    showString "FlipS " . showParen True (showsPrec d u)
-
-instance (Eq r, KnownShS sh, Eq (Nested.Mixed (MapJust sh) r)) => Eq (FlipS Nested.Shaped r sh) where
-  (==) :: FlipS Nested.Shaped r sh -> FlipS Nested.Shaped r sh -> Bool
-  FlipS u == FlipS v = u == v
-
-instance (Ord r, KnownShS sh, Eq (Nested.Mixed (MapJust sh) r), Ord (Nested.Mixed (MapJust sh) r)) => Ord (FlipS Nested.Shaped r sh) where
-  FlipS u <= FlipS v = u <= v
-
-deriving instance Num (f a b) => Num (FlipS f b a)
-
-deriving instance IntegralF (f a b) => IntegralF (FlipS f b a)
-
-deriving instance Fractional (f a b) => Fractional (FlipS f b a)
-
-deriving instance Floating (f a b) => Floating (FlipS f b a)
-
-deriving instance RealFloatF (f a b) => RealFloatF (FlipS f b a)
-
-deriving instance NFData (f a b) => NFData (FlipS f b a)
-
-type role FlipX nominal nominal nominal
-type FlipX :: forall {k}. ([Maybe Nat] -> k -> Type) -> k -> [Maybe Nat] -> Type
-newtype FlipX p a (b :: [Maybe Nat]) = FlipX { runFlipX :: p b a }
-
-instance (Nested.Elt r, Show r, Show (Nested.Mixed sh r))
-         => Show (FlipX Nested.Mixed r sh) where
-  showsPrec :: Int -> FlipX Nested.Mixed r sh -> ShowS
-  showsPrec d (FlipX u) =
-    showString "FlipX " . showParen True (showsPrec d u)
-
-instance (Eq r, KnownShX sh, Eq (Nested.Mixed sh r)) => Eq (FlipX Nested.Mixed r sh) where
-  (==) :: FlipX Nested.Mixed r sh -> FlipX Nested.Mixed r sh -> Bool
-  FlipX u == FlipX v = u == v
-
-instance (Ord r, KnownShX sh, Eq (Nested.Mixed sh r), Ord (Nested.Mixed sh r)) => Ord (FlipX Nested.Mixed r sh) where
-  FlipX u <= FlipX v = u <= v
-
-deriving instance Num (f a b) => Num (FlipX f b a)
-
-deriving instance IntegralF (f a b) => IntegralF (FlipX f b a)
-
-deriving instance Fractional (f a b) => Fractional (FlipX f b a)
-
-deriving instance Floating (f a b) => Floating (FlipX f b a)
-
-deriving instance RealFloatF (f a b) => RealFloatF (FlipX f b a)
-
-deriving instance NFData (f a b) => NFData (FlipX f b a)

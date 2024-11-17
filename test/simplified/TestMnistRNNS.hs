@@ -24,7 +24,6 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 import EqEpsilon
 
@@ -72,7 +71,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
             -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
+        assert (miniBatchSize' == rlength (RepN glyphs)) $
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Nested.rcastToShaped glyphs knownShS
                       , Nested.rcastToShaped labels knownShS )
@@ -184,8 +183,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
             -> r
       ftest 0 _ _ = 0
       ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
-        assert (miniBatchSize' == rlength (RepN $ FlipR labels)) $
+        assert (miniBatchSize' == rlength (RepN glyphs)) $
+        assert (miniBatchSize' == rlength (RepN labels)) $
         withSNat miniBatchSize' $ \bs@SNat ->
           let mnist = ( Nested.rcastToShaped glyphs knownShS
                       , Nested.rcastToShaped labels knownShS )
@@ -305,7 +304,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
         ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
         ftest 0 _ _ = 0
         ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
+          assert (miniBatchSize' == rlength (RepN glyphs)) $
           withSNat miniBatchSize' $ \bs@SNat ->
             let mnist = ( Nested.rcastToShaped glyphs knownShS
                         , Nested.rcastToShaped labels knownShS )
@@ -323,8 +322,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize trainData of
              d : _ -> let (dglyph, dlabel) = packBatch d
-                      in ( RepN $ FlipS dglyph
-                         , RepN $ FlipS dlabel )
+                      in ( RepN dglyph
+                         , RepN dlabel )
              [] -> error "empty train data"
            f = \ (AsHVector (pars, (glyphS, labelS))) ->
              MnistRnnShaped2.rnnMnistLossFusedS
@@ -419,7 +418,7 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
               -> r
         ftest 0 _ _ = 0
         ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == rlength (RepN $ FlipR glyphs)) $
+          assert (miniBatchSize' == rlength (RepN glyphs)) $
           withSNat miniBatchSize' $ \bs@SNat ->
             let mnist = ( Nested.rcastToShaped glyphs knownShS
                         , Nested.rcastToShaped labels knownShS )
@@ -437,8 +436,8 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize trainData of
              d : _ -> let (dglyph, dlabel) = packBatch d
-                      in ( RepN $ FlipS dglyph
-                         , RepN $ FlipS dlabel )
+                      in ( RepN dglyph
+                         , RepN dlabel )
              [] -> error "empty train data"
            f = \ (pars, (glyphS, labelS)) ->
              MnistRnnShaped2.rnnMnistLossFusedS

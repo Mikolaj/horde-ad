@@ -2,7 +2,7 @@
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Core.CarriersConcrete
   ( IIxR64, IIxS64
-  , ORArray, OSArray, OXArray
+  , Nested.Ranked, Nested.Shaped, Nested.Mixed
   , RepScalar(..), RepORArray, RepN(..)
   ) where
 
@@ -17,31 +17,24 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..), FlipX)
 
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
 
-type ORArray = FlipR Nested.Ranked
-
-type OSArray = FlipS Nested.Shaped
-
-type OXArray = FlipX Nested.Mixed
-
 type role RepScalar nominal
 type RepScalar :: Type -> Type
-newtype RepScalar r = RepScalar {unRepScalar :: ORArray r 0}
+newtype RepScalar r = RepScalar {unRepScalar :: Nested.Ranked 0 r}
 
-deriving instance Show (ORArray r 0) => Show (RepScalar r)
+deriving instance Show (Nested.Ranked 0 r) => Show (RepScalar r)
 
-deriving instance NFData (ORArray r 0) => NFData (RepScalar r)
+deriving instance NFData (Nested.Ranked 0 r) => NFData (RepScalar r)
 
 type family RepORArray (y :: TensorKindType) = result | result -> y where
   RepORArray (TKScalar r) = RepScalar r  -- for injectivity
-  RepORArray (TKR r n) = ORArray r n
-  RepORArray (TKS r sh) = OSArray r sh
-  RepORArray (TKX r sh) = OXArray r sh
+  RepORArray (TKR r n) = Nested.Ranked n r
+  RepORArray (TKS r sh) = Nested.Shaped sh r
+  RepORArray (TKX r sh) = Nested.Mixed sh r
   RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
   RepORArray TKUntyped = HVector RepN
 

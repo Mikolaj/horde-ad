@@ -28,7 +28,6 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.OpsAst
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
@@ -301,8 +300,8 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize testData of
              d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN $ FlipR dglyph
-                         , RepN $ FlipR dlabel )
+                      in ( RepN dglyph
+                         , RepN dlabel )
              [] -> error "empty test data"
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistCnnRanked2.convMnistLossFusedR

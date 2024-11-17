@@ -22,7 +22,6 @@ import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.OpsAst
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import CrossTesting
 import EqEpsilon
@@ -124,7 +123,7 @@ conv2dA = conv2d $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]
 conv2dB
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dB = conv2d (rconcrete $ runFlipR $ unRepN t16b)
+conv2dB = conv2d (rconcrete $ unRepN t16b)
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
@@ -143,7 +142,7 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2d $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ runFlipR $ unRepN t16b)))
+          (conv2d $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unRepN t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
@@ -180,32 +179,32 @@ conv2dALaborious =
 conv2dBLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dBLaborious = conv2dUnpadded (rconcrete $ runFlipR $ unRepN t16b)
+conv2dBLaborious = conv2dUnpadded (rconcrete $ unRepN t16b)
 
 conv2dCLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dCLaborious = flip conv2dUnpadded (rconcrete $ runFlipR $ unRepN t16b)
+conv2dCLaborious = flip conv2dUnpadded (rconcrete $ unRepN t16b)
 
 conv2dBLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dBLaborious128b = conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128b)
+conv2dBLaborious128b = conv2dUnpadded (rconcrete $ unRepN t128b)
 
 conv2dCLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dCLaborious128b = flip conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128b)
+conv2dCLaborious128b = flip conv2dUnpadded (rconcrete $ unRepN t128b)
 
 conv2dBLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dBLaborious128c = conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128c)
+conv2dBLaborious128c = conv2dUnpadded (rconcrete $ unRepN t128c)
 
 conv2dCLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR r 4) -> target (TKR r 4)
-conv2dCLaborious128c = flip conv2dUnpadded (rconcrete $ runFlipR $ unRepN t128c)
+conv2dCLaborious128c = flip conv2dUnpadded (rconcrete $ unRepN t128c)
 
 testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
@@ -224,7 +223,7 @@ testReplicate0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dUnpadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ runFlipR $ unRepN t16b)))
+          (conv2dUnpadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unRepN t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testReplicate0TinyALaborious :: Assertion
@@ -557,7 +556,7 @@ testConv2dUnpaddedPP = do
   let f :: HVector (AstGeneric AstMethodLet FullSpan) -> AAstTensor AstMethodLet FullSpan (TKR Double 4)
       f v = conv2dUnpadded (rfromD $ rankedHVector v V.! 0) (rfromD $ rankedHVector v V.! 1)
       g :: Double -> RepN (TKR Double 4)
-      g x = FlipR $ Nested.rfromOrthotope SNat $ OR.fromList [2,2,2,2] $ replicate 16 x
+      g x = Nested.rfromOrthotope SNat $ OR.fromList [2,2,2,2] $ replicate 16 x
       (artifactRev, _) =
         revArtifactAdapt
                  True

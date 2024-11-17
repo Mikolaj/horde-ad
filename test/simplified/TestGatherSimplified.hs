@@ -19,7 +19,7 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), IntegralF (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..))
 
 import CrossTesting
 
@@ -346,7 +346,7 @@ testGatherSimpPP23 = do
 gatherTranspose33 :: forall target r. (ADReady target, GoodScalar r, Numeric r, RealFloat r)
                   => target (TKR r 10) -> target (TKR r 2)
 gatherTranspose33 t =
-  rmatmul2 (rreshape [6, 8] (rconcrete $ runFlipR $ unRepN t48))
+  rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
     (rtr
      $ rreshape @target @r @4 [16, 8]
      $ rtranspose [0, 1, 2]
@@ -454,7 +454,7 @@ testGatherSimpPP33 = do
   length (show t1) @?= 581
   length (show (simplifyInline @(TKR Float 2) t1)) @?= 581
   resetVarCounter
-  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ runFlipR $ unRepN t48))
+  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                             (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 500
@@ -470,7 +470,7 @@ testGatherSimpPP34 = do
   length (show (simplifyInline @(TKR Float 3) t1)) @?= 926
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
-              (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ runFlipR $ unRepN t48))
+              (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                                (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) (mkAstVarName . intToAstVarId $ 100000000)

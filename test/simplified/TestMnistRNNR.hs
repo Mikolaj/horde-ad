@@ -35,7 +35,6 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.OpsAst
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
@@ -323,8 +322,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize testData of
              d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN $ FlipR dglyph
-                         , RepN $ FlipR dlabel )
+                      in ( RepN dglyph
+                         , RepN dlabel )
              [] -> error "empty test data"
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistRnnRanked2.rnnMnistLossFusedR
@@ -428,8 +427,8 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
        let testDataR = packBatchR testData
            dataInit = case chunksOf miniBatchSize testData of
              d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN $ FlipR dglyph
-                         , RepN $ FlipR dlabel )
+                      in ( RepN dglyph
+                         , RepN dlabel )
              [] -> error "empty test data"
            f :: ( ADRnnMnistParameters (AstTensor AstMethodLet FullSpan) r
                 , (AstTensor AstMethodLet FullSpan (TKR r 3), AstTensor AstMethodLet FullSpan (TKR r 2)) )
@@ -527,26 +526,26 @@ tensorMnistTestsPP = testGroup "PP tests for RNN MNIST tests"
 valsInitRNNOPP
   :: Int -> Int -> ADRnnMnistParameters RepN Double
 valsInitRNNOPP out_width sizeMnistHeightI =
-  ( ( RepN $ FlipR
+  ( ( RepN
       $ Nested.rfromListPrimLinear [out_width, sizeMnistHeightI]
                     (map fromIntegral [0 .. out_width * sizeMnistHeightI - 1])
-    , RepN $ FlipR
+    , RepN
       $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
-    , RepN $ FlipR
+    , RepN
       $ Nested.rfromListPrimLinear [out_width] (map fromIntegral [0 .. out_width - 1]) )
-  , ( RepN $ FlipR
+  , ( RepN
       $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
-    , RepN $ FlipR
+    , RepN
       $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
-    , RepN $ FlipR
+    , RepN
       $ Nested.rfromListPrimLinear [out_width] (map fromIntegral [0 .. out_width - 1]) )
-  , ( RepN $ FlipR
+  , ( RepN
        $ Nested.rfromListPrimLinear [sizeMnistLabelInt, out_width]
                     (map fromIntegral [0 .. sizeMnistLabelInt * out_width - 1])
-    , RepN $ FlipR
+    , RepN
       $ Nested.rfromListPrimLinear [sizeMnistLabelInt]
                     (map fromIntegral [0 .. sizeMnistLabelInt - 1]) ) )
 

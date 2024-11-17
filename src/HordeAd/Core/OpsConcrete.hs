@@ -21,9 +21,9 @@ import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.CarriersADVal
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
@@ -31,7 +31,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), FlipX (..), IntegralF (..), RealFloatF (..), valueOf)
+  (IntegralF (..), RealFloatF (..), valueOf)
 
 instance EqF RepN where
   (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
@@ -79,49 +79,49 @@ instance BaseTensor RepN where
   rmkRepScalar = RepN . RepScalar . unRepN
   runRepScalar = RepN . unRepScalar . unRepN
 
-  rshape = tshapeR . runFlipR . unRepN
-  rminIndex = RepN . FlipR . tminIndexR . runFlipR . unRepN
-  rmaxIndex = RepN . FlipR . tmaxIndexR . runFlipR . unRepN
-  rfloor = RepN . FlipR . tfloorR . runFlipR . unRepN
-  rindex v ix = RepN $ FlipR $ tindexZR (runFlipR $ unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
-  rindex0 v ix = RepN . FlipR . tscalarR $ tindex0R (runFlipR $ unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
-  rsum = RepN . FlipR . tsumR . runFlipR . unRepN
-  rsum0 = RepN . FlipR . tscalarR . tsum0R . runFlipR . unRepN
-  rdot0 u v = RepN $ FlipR $ tscalarR $ tdot0R (runFlipR $ unRepN u) (runFlipR $ unRepN v)
-  rmatmul2 m1 m2 = RepN $ FlipR $ tmatmul2R (runFlipR $ unRepN m1) (runFlipR $ unRepN m2)
-  rscatter sh t f = RepN $ FlipR $ tscatterZR sh (runFlipR $ unRepN t)
+  rshape = tshapeR . unRepN
+  rminIndex = RepN . tminIndexR . unRepN
+  rmaxIndex = RepN . tmaxIndexR . unRepN
+  rfloor = RepN . tfloorR . unRepN
+  rindex v ix = RepN $ tindexZR (unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
+  rindex0 v ix = RepN . tscalarR $ tindex0R (unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
+  rsum = RepN . tsumR . unRepN
+  rsum0 = RepN . tscalarR . tsum0R . unRepN
+  rdot0 u v = RepN $ tscalarR $ tdot0R (unRepN u) (unRepN v)
+  rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
+  rscatter sh t f = RepN $ tscatterZR sh (unRepN t)
                                          (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
-  rscatter1 sh t f = RepN $ FlipR $ tscatterZ1R sh (runFlipR $ unRepN t)
-                                           (fromIndexOfR . fmap unRepN . f . RepN . FlipS . tscalarS)
-  rfromList = RepN . FlipR . tfromListR . NonEmpty.map (runFlipR . unRepN)
-  rfromList0N sh = RepN . FlipR . tfromList0NR sh . map (tunScalarR . runFlipR . unRepN)
-  rfromVector = RepN . FlipR . tfromVectorR . V.map (runFlipR . unRepN)
-  rfromVector0N sh = RepN . FlipR . tfromVector0NR sh . V.map (tunScalarR . runFlipR . unRepN)
-  runravelToList = map (RepN . FlipR) . tunravelToListR . runFlipR . unRepN
-  rreplicate k = RepN . FlipR . treplicateR k . runFlipR . unRepN
-  rreplicate0N sh = RepN . FlipR . treplicate0NR sh . tunScalarR . runFlipR . unRepN
-  rappend u v = RepN $ FlipR $ tappendR (runFlipR $ unRepN u) (runFlipR $ unRepN v)
-  rslice i n = RepN . FlipR . tsliceR i n . runFlipR . unRepN
-  rreverse = RepN . FlipR . treverseR . runFlipR . unRepN
-  rtranspose perm = RepN . FlipR . ttransposeR perm . runFlipR . unRepN
-  rreshape sh = RepN . FlipR . treshapeR sh . runFlipR . unRepN
-  rbuild1 k f = RepN $ FlipR $ tbuild1R k (runFlipR . unRepN . f . RepN . FlipS . tscalarS)
-  rmap0N f t = RepN $ FlipR $ tmap0NR (runFlipR . unRepN . f . RepN . FlipR) (runFlipR $ unRepN t)
+  rscatter1 sh t f = RepN $ tscatterZ1R sh (unRepN t)
+                                           (fromIndexOfR . fmap unRepN . f . RepN . tscalarS)
+  rfromList = RepN . tfromListR . NonEmpty.map (unRepN)
+  rfromList0N sh = RepN . tfromList0NR sh . map (tunScalarR . unRepN)
+  rfromVector = RepN . tfromVectorR . V.map (unRepN)
+  rfromVector0N sh = RepN . tfromVector0NR sh . V.map (tunScalarR . unRepN)
+  runravelToList = map RepN . tunravelToListR . unRepN
+  rreplicate k = RepN . treplicateR k . unRepN
+  rreplicate0N sh = RepN . treplicate0NR sh . tunScalarR . unRepN
+  rappend u v = RepN $ tappendR (unRepN u) (unRepN v)
+  rslice i n = RepN . tsliceR i n . unRepN
+  rreverse = RepN . treverseR . unRepN
+  rtranspose perm = RepN . ttransposeR perm . unRepN
+  rreshape sh = RepN . treshapeR sh . unRepN
+  rbuild1 k f = RepN $ tbuild1R k (unRepN . f . RepN . tscalarS)
+  rmap0N f t = RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
   rzipWith0N f t u =
-    RepN $ FlipR $ tzipWith0NR (\v w -> runFlipR $ unRepN $ f (RepN $ FlipR v) (RepN $ FlipR w))
-                        (runFlipR $ unRepN t) (runFlipR $ unRepN u)
-  rgather sh t f = RepN $ FlipR $ tgatherZR sh (runFlipR $ unRepN t)
+    RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
+                        (unRepN t) (unRepN u)
+  rgather sh t f = RepN $ tgatherZR sh (unRepN t)
                                        (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
-  rgather1 k t f = RepN $ FlipR $ tgatherZ1R k (runFlipR $ unRepN t)
-                                       (fromIndexOfR . fmap unRepN . f . RepN . FlipS . tscalarS)
-  rcast = RepN . FlipR . tcastR . runFlipR . unRepN
-  rfromIntegral = RepN . FlipR . tfromIntegralR . runFlipR . unRepN
-  rconcrete = RepN . FlipR
-  rfromS = RepN . FlipR . Nested.stoRanked . runFlipS . unRepN
+  rgather1 k t f = RepN $ tgatherZ1R k (unRepN t)
+                                       (fromIndexOfR . fmap unRepN . f . RepN . tscalarS)
+  rcast = RepN . tcastR . unRepN
+  rfromIntegral = RepN . tfromIntegralR . unRepN
+  rconcrete = RepN
+  rfromS = RepN . Nested.stoRanked . unRepN
 
   rscaleByScalar s v =
-    RepN $ FlipR $ tscaleByScalarR (tunScalarR $ runFlipR $ unRepN s) (runFlipR $ unRepN v)
-  rdot1In u v = RepN $ FlipR $ tdot1InR (runFlipR $ unRepN u) (runFlipR $ unRepN v)
+    RepN $ tscaleByScalarR (tunScalarR $ unRepN s) (unRepN v)
+  rdot1In u v = RepN $ tdot1InR (unRepN u) (unRepN v)
 
   rfromPrimal = id
   rprimalPart = id
@@ -129,63 +129,63 @@ instance BaseTensor RepN where
   rD u _ = u
   rScale _ _ = DummyDualTarget
 
-  xshape = Nested.mshape . runFlipX . unRepN
+  xshape = Nested.mshape . unRepN
   xindex = error "TODO"
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
-  xconcrete = RepN . FlipX
+  xconcrete = RepN
   xfromPrimal = id
   xprimalPart = id
   xdualPart _ = DummyDualTarget
   xD u _ = u
 
-  sminIndex = RepN . FlipS . tminIndexS . runFlipS . unRepN
-  smaxIndex = RepN . FlipS . tmaxIndexS . runFlipS . unRepN
-  sfloor = RepN . FlipS . tfloorS . runFlipS . unRepN
+  sminIndex = RepN . tminIndexS . unRepN
+  smaxIndex = RepN . tmaxIndexS . unRepN
+  sfloor = RepN . tfloorS . unRepN
   siota :: forall n r. (GoodScalar r, KnownNat n)
         => RepN (TKS r '[n])  -- from 0 to n - 1
   siota = let n = valueOf @n :: Int
-          in RepN $ FlipS $ Nested.sfromList1 SNat
+          in RepN $ Nested.sfromList1 SNat
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
-  sindex v ix = RepN $ FlipS $ tindexZS (runFlipS $ unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
-  sindex0 v ix = RepN . FlipS . tscalarS $ tindex0S (runFlipS $ unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
-  ssum = RepN . FlipS . tsumS . runFlipS . unRepN
-  ssum0 = RepN . FlipS . tscalarS . tsum0S . runFlipS . unRepN
-  sdot0 u v = RepN $ FlipS $ tscalarS $ tdot0S (runFlipS $ unRepN u) (runFlipS $ unRepN v)
-  smatmul2 m1 m2 = RepN $ FlipS $ tmatmul2S (runFlipS $ unRepN m1) (runFlipS $ unRepN m2)
-  sscatter t f = RepN $ FlipS $ tscatterZS (runFlipS $ unRepN t)
+  sindex v ix = RepN $ tindexZS (unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
+  sindex0 v ix = RepN . tscalarS $ tindex0S (unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
+  ssum = RepN . tsumS . unRepN
+  ssum0 = RepN . tscalarS . tsum0S . unRepN
+  sdot0 u v = RepN $ tscalarS $ tdot0S (unRepN u) (unRepN v)
+  smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
+  sscatter t f = RepN $ tscatterZS (unRepN t)
                                    (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
-  sscatter1 t f = RepN $ FlipS $ tscatterZ1S (runFlipS $ unRepN t)
-                                      (fromIndexOfS . fmap unRepN . f . RepN . FlipS . tscalarS)
-  sfromList = RepN . FlipS . tfromListS . NonEmpty.map (runFlipS . unRepN)
-  sfromList0N = RepN . FlipS . tfromList0NS . map (tunScalarS . runFlipS . unRepN)
-  sfromVector = RepN . FlipS . tfromVectorS . V.map (runFlipS . unRepN)
-  sfromVector0N = RepN . FlipS . tfromVector0NS . V.map (tunScalarS . runFlipS . unRepN)
-  sunravelToList = map (RepN . FlipS) . tunravelToListS . runFlipS . unRepN
-  sreplicate = RepN . FlipS . treplicateS . runFlipS . unRepN
-  sreplicate0N = RepN . FlipS . treplicate0NS . tunScalarS . runFlipS . unRepN
-  sappend u v = RepN $ FlipS $ tappendS (runFlipS $ unRepN u) (runFlipS $ unRepN v)
-  sslice (_ :: Proxy i) _ = RepN . FlipS . tsliceS @i . runFlipS . unRepN
-  sreverse = RepN . FlipS . treverseS . runFlipS . unRepN
-  stranspose perm = RepN . FlipS . ttransposeS perm . runFlipS . unRepN
-  sreshape = RepN . FlipS . treshapeS . runFlipS . unRepN
-  sbuild1 f = RepN $ FlipS $ tbuild1S (runFlipS . unRepN . f . RepN . FlipS . tscalarS)
-  smap0N f t = RepN $ FlipS $ tmap0NS (runFlipS . unRepN . f . RepN . FlipS) (runFlipS $ unRepN t)
+  sscatter1 t f = RepN $ tscatterZ1S (unRepN t)
+                                      (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
+  sfromList = RepN . tfromListS . NonEmpty.map (unRepN)
+  sfromList0N = RepN . tfromList0NS . map (tunScalarS . unRepN)
+  sfromVector = RepN . tfromVectorS . V.map (unRepN)
+  sfromVector0N = RepN . tfromVector0NS . V.map (tunScalarS . unRepN)
+  sunravelToList = map RepN . tunravelToListS . unRepN
+  sreplicate = RepN . treplicateS . unRepN
+  sreplicate0N = RepN . treplicate0NS . tunScalarS . unRepN
+  sappend u v = RepN $ tappendS (unRepN u) (unRepN v)
+  sslice (_ :: Proxy i) _ = RepN . tsliceS @i . unRepN
+  sreverse = RepN . treverseS . unRepN
+  stranspose perm = RepN . ttransposeS perm . unRepN
+  sreshape = RepN . treshapeS . unRepN
+  sbuild1 f = RepN $ tbuild1S (unRepN . f . RepN . tscalarS)
+  smap0N f t = RepN $ tmap0NS (unRepN . f . RepN) (unRepN t)
   szipWith0N f t u =
-    RepN $ FlipS $ tzipWith0NS (\v w -> runFlipS $ unRepN $ f (RepN $ FlipS v) (RepN $ FlipS w))
-                        (runFlipS $ unRepN t) (runFlipS $ unRepN u)
-  sgather t f = RepN $ FlipS $ tgatherZS (runFlipS $ unRepN t)
+    RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
+                        (unRepN t) (unRepN u)
+  sgather t f = RepN $ tgatherZS (unRepN t)
                                   (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
-  sgather1 t f = RepN $ FlipS $ tgatherZ1S (runFlipS $ unRepN t)
-                                  (fromIndexOfS . fmap unRepN . f . RepN . FlipS . tscalarS)
-  scast = RepN . FlipS . tcastS . runFlipS . unRepN
-  sfromIntegral = RepN . FlipS . tfromIntegralS . runFlipS . unRepN
-  sconcrete = RepN . FlipS
-  sfromR = RepN . FlipS . flip Nested.rcastToShaped knownShS . runFlipR . unRepN
+  sgather1 t f = RepN $ tgatherZ1S (unRepN t)
+                                  (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
+  scast = RepN . tcastS . unRepN
+  sfromIntegral = RepN . tfromIntegralS . unRepN
+  sconcrete = RepN
+  sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
 
   sscaleByScalar s v =
-    RepN $ FlipS $ tscaleByScalarS (tunScalarS $ runFlipS $ unRepN s) (runFlipS $ unRepN v)
-  sdot1In proxy u v = RepN $ FlipS $ tdot1InS proxy (runFlipS $ unRepN u) (runFlipS $ unRepN v)
+    RepN $ tscaleByScalarS (tunScalarS $ unRepN s) (unRepN v)
+  sdot1In proxy u v = RepN $ tdot1InS proxy (unRepN u) (unRepN v)
 
   sfromPrimal = id
   sprimalPart = id
@@ -199,9 +199,9 @@ instance BaseTensor RepN where
   dshape = voidFromHVector . unRepN
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
-    STKR STKScalar{} SNat -> FTKR $ tshapeR $ runFlipR $ unRepN t
+    STKR STKScalar{} SNat -> FTKR $ tshapeR $ unRepN t
     STKS STKScalar{} sh -> FTKS sh
-    STKX STKScalar{} sh -> withKnownShX sh $ FTKX $ Nested.mshape $ runFlipX $ unRepN t
+    STKX STKScalar{} sh -> withKnownShX sh $ FTKX $ Nested.mshape $ unRepN t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tshapeFull stk1 (tproject1 t))
@@ -445,16 +445,16 @@ instance (GoodScalar r, KnownShS sh)
 instance GoodScalar r
          => ForgetShape (RepN (TKS r sh)) where
   type NoShape (RepN (TKS r sh)) = RepN (TKR r (Rank sh))  -- key case
-  forgetShape = RepN . FlipR . Nested.stoRanked . runFlipS . unRepN
+  forgetShape = RepN . Nested.stoRanked . unRepN
 
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
          => RandomHVector (RepN (TKS r sh)) where
   randomVals :: forall g. RandomGen g => Double -> g -> (RepN (TKS r sh), g)
   randomVals range g =
-    let createRandomVector :: Int -> g -> OSArray r sh
+    let createRandomVector :: Int -> g -> Nested.Shaped sh r
         createRandomVector n seed =
           unRepN (srepl (2 * realToFrac range))
-          * (FlipS (Nested.sfromVector knownShS (V.fromListN n (randoms seed)))
+          * (Nested.sfromVector knownShS (V.fromListN n (randoms seed))
              - unRepN (srepl 0.5))
         (g1, g2) = split g
         arr = createRandomVector (sizeP (Proxy @sh)) g1
@@ -482,7 +482,7 @@ instance ADReady target
          => DualNumberValue (DynamicTensor (ADVal target)) where
   type DValue (DynamicTensor (ADVal target)) = DynamicTensor RepN
   fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimalADVal $ rconcrete $ runFlipR $ unRepN t
-    DynamicShaped t -> DynamicShaped $ fromPrimalADVal $ sconcrete $ runFlipS $ unRepN t
+    DynamicRanked t -> DynamicRanked $ fromPrimalADVal $ rconcrete $ unRepN t
+    DynamicShaped t -> DynamicShaped $ fromPrimalADVal $ sconcrete $ unRepN t
     DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
     DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2

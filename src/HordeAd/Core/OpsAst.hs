@@ -45,7 +45,7 @@ import HordeAd.Core.OpsADVal (unADValRep)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
+  (IntegralF (..), RealFloatF (..))
 import HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
@@ -228,22 +228,22 @@ instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstS
 instance (GoodScalar r, KnownNat n, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKR r n)) where
   type DValue (AstTensor AstMethodLet s (TKR r n)) = RepN (TKR r n)
-  fromDValue t = fromPrimal $ AstConcrete $ runFlipR $ unRepN t
+  fromDValue t = fromPrimal $ AstConcrete $ unRepN t
 
 instance (GoodScalar r, KnownShS sh, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKS r sh)) where
   type DValue (AstTensor AstMethodLet s (TKS r sh)) = RepN (TKS r sh)
-  fromDValue t = fromPrimal $ AstConcreteS $ runFlipS $ unRepN t
+  fromDValue t = fromPrimal $ AstConcreteS $ unRepN t
 
 instance (GoodScalar r, KnownNat n)
          => TermValue (AstTensor AstMethodLet FullSpan (TKR r n)) where
   type Value (AstTensor AstMethodLet FullSpan (TKR r n)) = RepN (TKR r n)
-  fromValue t = fromPrimal $ AstConcrete $ runFlipR $ unRepN t
+  fromValue t = fromPrimal $ AstConcrete $ unRepN t
 
 instance (GoodScalar r, KnownShS sh)
          => TermValue (AstTensor AstMethodLet FullSpan (TKS r sh)) where
   type Value (AstTensor AstMethodLet FullSpan (TKS r sh)) = RepN (TKS r sh)
-  fromValue t = fromPrimal $ AstConcreteS $ runFlipS $ unRepN t
+  fromValue t = fromPrimal $ AstConcreteS $ unRepN t
 
 {- This is needed by only one test, testSin0revhFold5S, now disabled
 and this possibly breaks the cfwdOnHVector duplicability invariant in cfwd.

@@ -19,12 +19,11 @@ import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..))
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -164,10 +163,10 @@ convMnistTestS kh@SNat kw@SNat
                                c_out n_hidden batch_size
                                input
         in nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
-      outputs = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
+      outputs = map (Nested.stoVector . unRepN) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
-      labels = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
-               $ RepN $ FlipS labelS
+      labels = map (Nested.stoVector . unRepN) $ sunravelToList
+               $ RepN labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

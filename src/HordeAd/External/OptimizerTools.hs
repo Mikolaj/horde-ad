@@ -24,33 +24,32 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances
 
 updateWithGradient :: Double -> HVector RepN -> HVector RepN -> HVector RepN
 updateWithGradient gamma params gradient =
   let updateR :: DynamicTensor RepN -> DynamicTensor RepN
               -> DynamicTensor RepN
       updateR i r = case (i, r) of
-        ( DynamicRanked @r1 @n1 (RepN (FlipR i2))
-         ,DynamicRanked @r2 @n2 (RepN (FlipR r2)) ) ->
+        ( DynamicRanked @r1 @n1 (RepN i2)
+         ,DynamicRanked @r2 @n2 (RepN r2) ) ->
           ifDifferentiable @r1
             (case sameNat (Proxy @n1) (Proxy @n2) of
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
-                   DynamicRanked $ RepN $ FlipR
+                   DynamicRanked $ RepN
                    $ i2 - Nested.rreplicateScal (Nested.rshape i2)
                                                 (realToFrac gamma)
                           * r2
                  _ -> error "updateWithGradient: scalar mismatch"
                _ -> error "updateWithGradient: rank mismatch")
           i
-        ( DynamicShaped @r1 @sh1 (RepN (FlipS i2))
-         ,DynamicShaped @r2 @sh2 (RepN (FlipS r2)) ) ->
+        ( DynamicShaped @r1 @sh1 (RepN i2)
+         ,DynamicShaped @r2 @sh2 (RepN r2) ) ->
           ifDifferentiable @r1
             (case sameShape @sh1 @sh2 of
                Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
                  Just Refl ->
-                   DynamicShaped $ RepN $ FlipS
+                   DynamicShaped $ RepN
                    $ i2 - Nested.sreplicateScal (Nested.sshape i2)
                                                 (realToFrac gamma)
                           * r2
@@ -136,10 +135,10 @@ initialStateAdamDeep ftk =
 -- TODO: introduce and use dummies
 repDeepZero :: TensorKindFull y -> RepN y
 repDeepZero = \case
-  FTKScalar -> RepN $ RepScalar $ FlipR $ Nested.rreplicateScal ZSR 0
-  FTKR sh -> RepN $ FlipR $ Nested.rreplicateScal sh 0
-  FTKS sh -> RepN $ FlipS $ Nested.sreplicateScal sh 0
-  FTKX sh -> RepN $ FlipX $ Nested.mreplicateScal sh 0
+  FTKScalar -> RepN $ RepScalar $ Nested.rreplicateScal ZSR 0
+  FTKR sh -> RepN $ Nested.rreplicateScal sh 0
+  FTKS sh -> RepN $ Nested.sreplicateScal sh 0
+  FTKX sh -> RepN $ Nested.mreplicateScal sh 0
   FTKProduct ftk1 ftk2 -> RepN (unRepN $ repDeepZero ftk1, unRepN $ repDeepZero ftk2)
   FTKUntyped{} -> error "repDeepZero: FTKUntyped"
 
@@ -184,23 +183,22 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =
-                       updateR (runFlipR $ unRepScalar mA)
-                               (runFlipR $ unRepScalar vA)
-                               (runFlipR $ unRepScalar p)
-                               (runFlipR $ unRepScalar g)
+                       updateR (unRepScalar mA)
+                               (unRepScalar vA)
+                               (unRepScalar p)
+                               (unRepScalar g)
                  in RepN
-                    (( RepScalar $ FlipR mAN
-                     , RepScalar $ FlipR vAN )
-                    , RepScalar $ FlipR pN ))
+                    (( RepScalar mAN
+                     , RepScalar vAN )
+                    , RepScalar pN ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKR (STKScalar @r _) SNat ->
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
-                (let (mAN, vAN, pN) = updateR (runFlipR mA) (runFlipR vA)
-                                              (runFlipR p) (runFlipR g)
-                 in RepN ((FlipR mAN, FlipR vAN), FlipR pN))
+                (let (mAN, vAN, pN) = updateR mA vA p g
+                 in RepN ((mAN, vAN), pN))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKS (STKScalar @r _) sh -> withKnownShS sh $
@@ -208,14 +206,14 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =
-                       updateR (Nested.stoRanked (runFlipS mA))
-                               (Nested.stoRanked (runFlipS vA))
-                               (Nested.stoRanked (runFlipS p))
-                               (Nested.stoRanked (runFlipS g))
+                       updateR (Nested.stoRanked mA)
+                               (Nested.stoRanked vA)
+                               (Nested.stoRanked p)
+                               (Nested.stoRanked g)
                  in RepN
-                    ( ( FlipS $ Nested.rcastToShaped mAN knownShS
-                      , FlipS $ Nested.rcastToShaped vAN knownShS )
-                    , FlipS $ Nested.rcastToShaped pN knownShS ))
+                    ( ( Nested.rcastToShaped mAN knownShS
+                      , Nested.rcastToShaped vAN knownShS )
+                    , Nested.rcastToShaped pN knownShS ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKX (STKScalar @r _) sh -> withKnownShX sh $
@@ -223,17 +221,17 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =
-                       updateR (Nested.mtoRanked (runFlipX mA))
-                               (Nested.mtoRanked (runFlipX vA))
-                               (Nested.mtoRanked (runFlipX p))
-                               (Nested.mtoRanked (runFlipX g))
+                       updateR (Nested.mtoRanked mA)
+                               (Nested.mtoRanked vA)
+                               (Nested.mtoRanked p)
+                               (Nested.mtoRanked g)
                  in RepN
-                    ( ( FlipX $ Nested.mreshape (Nested.mshape (runFlipX mA))
-                              $ Nested.rtoMixed mAN
-                      , FlipX $ Nested.mreshape (Nested.mshape (runFlipX vA))
-                              $ Nested.rtoMixed vAN )
-                    , FlipX $ Nested.mreshape (Nested.mshape (runFlipX p))
-                              $ Nested.rtoMixed pN ))
+                    ( ( Nested.mreshape (Nested.mshape mA)
+                        $ Nested.rtoMixed mAN
+                      , Nested.mreshape (Nested.mshape vA)
+                        $ Nested.rtoMixed vAN )
+                    , Nested.mreshape (Nested.mshape p)
+                      $ Nested.rtoMixed pN ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKProduct stk1 stk2 ->
@@ -313,11 +311,11 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                 , testEquality (typeRep @r1) (typeRep @r4) ) of
              ( Just Refl, Just Refl, Just Refl
               ,Just Refl, Just Refl, Just Refl ) ->
-               let (od1, od2, od3) = updateR (runFlipR $ unRepN mA) (runFlipR $ unRepN vA)
-                                             (runFlipR $ unRepN p) (runFlipR $ unRepN g)
-               in ( DynamicRanked $ RepN $ FlipR od1
-                  , DynamicRanked $ RepN $ FlipR od2
-                  , DynamicRanked $ RepN $ FlipR od3 )
+               let (od1, od2, od3) = updateR (unRepN mA) (unRepN vA)
+                                             (unRepN p) (unRepN g)
+               in ( DynamicRanked $ RepN od1
+                  , DynamicRanked $ RepN od2
+                  , DynamicRanked $ RepN od3 )
              _ -> error "updateWithGradientAdam: type mismatch")
           (emA, evA, ep)
       updateD emA evA ep _ =

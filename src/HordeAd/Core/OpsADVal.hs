@@ -30,15 +30,14 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
-import HordeAd.Core.Delta
 import HordeAd.Core.CarriersADVal
+import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), valueOf)
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -141,9 +140,9 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
 {- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
-      (KnownNat n, ADReadyNoLet ORArray)
-      => AdaptableHVector (ADVal ORArray)
-                          (ADVal ORArray Double n) #-}
+      (KnownNat n, ADReadyNoLet Nested.Ranked)
+      => AdaptableHVector (ADVal Nested.Ranked)
+                          (ADVal Nested.Ranked Double n) #-}
   {-# SPECIALIZE instance
       (KnownNat n, ADReadyNoLet (AstRanked PrimalSpan))
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
@@ -171,7 +170,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
          => DualNumberValue (ADVal target (TKR r n)) where
   type DValue (ADVal target (TKR r n)) = RepN (TKR r n)  -- ! not Value(target)
-  fromDValue t = fromPrimalADVal $ rconcrete $ runFlipR $ unRepN t
+  fromDValue t = fromPrimalADVal $ rconcrete $ unRepN t
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target)
@@ -189,7 +188,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS r sh)) where
   type DValue (ADVal target (TKS r sh)) = RepN (TKS r sh)   -- ! not Value(shaped)
-  fromDValue t = fromPrimalADVal $ sconcrete $ runFlipS $ unRepN t
+  fromDValue t = fromPrimalADVal $ sconcrete $ unRepN t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
 instance ( a ~ target (TKR r n), BaseTensor target
@@ -197,8 +196,8 @@ instance ( a ~ target (TKR r n), BaseTensor target
          => AdaptableHVector target [a] where
 {- TODO
   {-# SPECIALIZE instance
-      AdaptableHVector ORArray (OR.Array n Double)
-      => AdaptableHVector ORArray
+      AdaptableHVector Nested.Ranked (OR.Array n Double)
+      => AdaptableHVector Nested.Ranked
                           [OR.Array n Double] #-}
 -}
 {- TODO: import loop:

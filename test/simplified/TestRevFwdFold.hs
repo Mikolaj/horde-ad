@@ -34,8 +34,7 @@ import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.OpsAst
 import HordeAd.Core.OpsConcrete ()
-import HordeAd.Internal.OrthotopeOrphanInstances
-  (FlipR (..), FlipS (..), RealFloatF (..))
+import HordeAd.Internal.OrthotopeOrphanInstances (RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon
@@ -342,7 +341,7 @@ testFooRrev3 :: Assertion
 testFooRrev3 = do
   let f (D a _) =
         let (a1, _, _) = fooRrev @(ADVal RepN) @Double
-                                 (Nested.runScalar (runFlipR $ unRepN a), 2.2, 3.3)
+                                 (Nested.runScalar (unRepN a), 2.2, 3.3)
         in a1
   assertEqualUpToEpsilon 1e-10
     (rscalar 0)
@@ -825,7 +824,7 @@ testSin0Fold8Srev2 = do
                         (sreplicate @_ @3 a0)
                  in f)
   assertEqualUpToEpsilon 1e-10
-    (RepN $ FlipS $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
+    (RepN $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
     (crev h (srepl 0.0001))
 
 testSin0Fold182Srev :: Assertion

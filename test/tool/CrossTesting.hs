@@ -31,7 +31,6 @@ import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (tdot0R, tsum0R)
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon
 
@@ -334,7 +333,7 @@ assertEqualUpToEpsilon'
   -- and a similar property stated mathematically is in Lemma 1 in
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
-                                 1e-5 (tsum0R $ runFlipR $ unRepN derivative) (tdot0R (runFlipR $ unRepN expected) (runFlipR $ unRepN $ toADTensorKindShared stensorKind vals))
+                                 1e-5 (tsum0R $ unRepN derivative) (tdot0R (unRepN expected) (unRepN $ toADTensorKindShared stensorKind vals))
   {- TODO: this most probably leaks gigabytes of strings from one test case
   -- to another in -O0 mode, leading to OOMs, so it's disabled for now.
   -- We could also try to stream the strings and compare on the fly.
@@ -440,7 +439,7 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (tsum0R $ runFlipR $ unRepN derivative) (tdot0R (runFlipR $ unRepN expected) (runFlipR $ unRepN $ toADTensorKindShared stensorKind vals))
+                                 1e-5 (tsum0R $ unRepN derivative) (tdot0R (unRepN expected) (unRepN $ toADTensorKindShared stensorKind vals))
   {- disabled, see above
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"

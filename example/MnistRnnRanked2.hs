@@ -16,11 +16,10 @@ import Data.Array.Nested
   (IShR, pattern (:$:), pattern (:.:), pattern ZIR, pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -147,10 +146,10 @@ rnnMnistTestR batch_size (glyphR, labelR) testParams =
                -> target (TKR r 2)  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size input
         in nn testParams
-      outputs = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
+      outputs = map (Nested.rtoVector . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
-      labels = map (Nested.rtoVector . runFlipR . unRepN) $ runravelToList
-               $ RepN $ FlipR labelR
+      labels = map (Nested.rtoVector . unRepN) $ runravelToList
+               $ RepN labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

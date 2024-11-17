@@ -53,7 +53,7 @@ import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..), valueOf)
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -383,11 +383,11 @@ tscaleByScalarR :: (Nested.PrimElt r, Num r)
                 => r -> Nested.Ranked n r -> Nested.Ranked n r
 tscaleByScalarR s = liftVR (V.map (* s))
 
-toIndexOfR :: IIxR64 n -> IxR n (OSArray Int64 '[])
-toIndexOfR ix = FlipS . tscalarS <$> ix
+toIndexOfR :: IIxR64 n -> IxR n (Nested.Shaped '[] Int64)
+toIndexOfR ix = tscalarS <$> ix
 
-fromIndexOfR :: IxR n (OSArray Int64 '[]) -> IIxR64 n
-fromIndexOfR ixOf = tunScalarS . runFlipS <$> ixOf
+fromIndexOfR :: IxR n (Nested.Shaped '[] Int64) -> IIxR64 n
+fromIndexOfR ixOf = tunScalarS <$> ixOf
 
 
 -- * Shaped tensor operations
@@ -757,8 +757,8 @@ tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Num r)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s = liftVS (V.map (* s))
 
-toIndexOfS :: IIxS64 sh -> IxS sh (OSArray Int64 '[])
-toIndexOfS ix = FlipS . tscalarS <$> ix
+toIndexOfS :: IIxS64 sh -> IxS sh (Nested.Shaped '[] Int64)
+toIndexOfS ix = tscalarS <$> ix
 
-fromIndexOfS :: IxS sh (OSArray Int64 '[]) -> IIxS64 sh
-fromIndexOfS ixOf = tunScalarS . runFlipS <$> ixOf
+fromIndexOfS :: IxS sh (Nested.Shaped '[] Int64) -> IIxS64 sh
+fromIndexOfS ixOf = tunScalarS <$> ixOf

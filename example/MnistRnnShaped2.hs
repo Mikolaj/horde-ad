@@ -19,11 +19,11 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested (IxS (..), KnownShS (..), pattern (:.$), pattern ZIS)
 import Data.Array.Nested qualified as Nested
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipS (..), valueOf)
+import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -164,10 +164,10 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                (SNat @h) (SNat @w)
                                input
         in nn testParams
-      outputs = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
+      outputs = map (Nested.stoVector . unRepN) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
-      labels = map (Nested.stoVector . runFlipS . unRepN) $ sunravelToList
-               $ RepN $ FlipS labelS
+      labels = map (Nested.stoVector . unRepN) $ sunravelToList
+               $ RepN labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

@@ -184,11 +184,11 @@ chunksOf n = go where
 
 {-# SPECIALIZE sgdAdam
   :: KnownNat y
-  => (MnistDataBatchR Double -> HVector (ADVal ORArray)
-      -> ADVal ORArray Double y)
+  => (MnistDataBatchR Double -> HVector (ADVal Nested.Ranked)
+      -> ADVal Nested.Ranked Double y)
   -> [MnistDataBatchR Double]
-  -> HVector ORArray
+  -> HVector Nested.Ranked
   -> StateAdam
-  -> (HVector ORArray, StateAdam) #-}
+  -> (HVector Nested.Ranked, StateAdam) #-}
 
 -}

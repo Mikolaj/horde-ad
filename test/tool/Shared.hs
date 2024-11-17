@@ -23,7 +23,6 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 import HordeAd.Util.SizedList
 
 lowercase :: String -> String
@@ -36,10 +35,10 @@ lowercase = map Data.Char.toLower
 class HasShape a where
   shapeL :: a -> [Int]
 
-instance (KnownNat n, Nested.PrimElt a) => HasShape (ORArray a n) where
-  shapeL = toList . Nested.rshape . runFlipR
+instance (KnownNat n, Nested.PrimElt a) => HasShape (Nested.Ranked n a) where
+  shapeL = toList . Nested.rshape
 
-instance KnownShS sh => HasShape (OSArray a sh) where
+instance KnownShS sh => HasShape (Nested.Shaped sh a) where
   shapeL _ = shapeT @sh
 
 instance HasShape (RepORArray y) => HasShape (RepN y) where
@@ -65,12 +64,12 @@ class Linearizable a b | a -> b where
   linearize :: a -> [b]
 
 instance (VS.Storable a, Nested.PrimElt a)
-         => Linearizable (ORArray a n) a where
-  linearize = VS.toList . Nested.rtoVector . runFlipR
+         => Linearizable (Nested.Ranked n a) a where
+  linearize = VS.toList . Nested.rtoVector
 
 instance (VS.Storable a, Nested.PrimElt a)
-         => Linearizable (OSArray a sh) a where
-  linearize = VS.toList . Nested.stoVector . runFlipS
+         => Linearizable (Nested.Shaped sh a) a where
+  linearize = VS.toList . Nested.stoVector
 
 instance Linearizable (RepORArray y) a
          => Linearizable (RepN y) a where
