@@ -53,7 +53,6 @@ import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

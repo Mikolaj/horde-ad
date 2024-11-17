@@ -23,7 +23,6 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.

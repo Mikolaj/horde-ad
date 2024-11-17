@@ -22,8 +22,6 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
 
 -- * Basic type family instances
 

@@ -23,7 +23,6 @@ import Data.Array.Nested (KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 
 type SizeMnistWidth = 28 :: Nat
 

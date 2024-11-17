@@ -54,7 +54,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 
 interpretAstPrimalRuntimeSpecialized
   :: forall target n r.

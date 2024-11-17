@@ -109,7 +109,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
-import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

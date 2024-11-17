@@ -24,8 +24,6 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
 import HordeAd.Util.ShapedList qualified as ShapedList
 
 import CrossTesting

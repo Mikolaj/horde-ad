@@ -34,7 +34,6 @@ import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.OpsAst
 import HordeAd.Core.OpsConcrete ()
-import HordeAd.Internal.OrthotopeOrphanInstances (RealFloatF (..))
 
 import CrossTesting
 import EqEpsilon

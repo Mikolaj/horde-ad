@@ -5,7 +5,7 @@
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
-    SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat
+    SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
     -- * Definitions for type-level list shapes
   , withKnownShS, withKnownShX
   , sshapeKnown, slistKnown, sixKnown, knownShR
@@ -25,10 +25,12 @@ module HordeAd.Core.Types
     -- * Type families that tensors will belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDualTarget(..)
-  , IxROf,  IxSOf, IxXOf
+  , IxROf, IxSOf, IxXOf
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..)
   , IfF(..), EqF(..), OrdF(..), minF, maxF
+    -- * Misc
+  , IntegralF(..), RealFloatF(..)
   ) where
 
 import Prelude
@@ -59,7 +61,6 @@ import Data.Array.Nested
   (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -74,6 +75,11 @@ sNatValue = fromInteger . fromSNat
 
 proxyFromSNat :: SNat n -> Proxy n
 proxyFromSNat SNat = Proxy
+
+{-# INLINE valueOf #-}
+valueOf :: forall n r. (KnownNat n, Num r) => r
+valueOf = fromInteger $ fromSNat (SNat @n)
+
 
 -- * Definitions for type-level list shapes
 
@@ -457,3 +463,16 @@ minF u v = ifF (u <=. v) u v
 maxF :: (IfF f, OrdF f, TensorKind y)
      => f y -> f y -> f y
 maxF u v = ifF (u >=. v) u v
+
+
+-- * Misc
+
+class IntegralF a where
+  quotF, remF :: a -> a -> a
+
+instance IntegralF Int64 where
+  quotF = quot
+  remF = rem
+
+class Floating a => RealFloatF a where
+  atan2F :: a -> a -> a

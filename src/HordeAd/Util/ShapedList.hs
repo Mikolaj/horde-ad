@@ -52,7 +52,6 @@ import Data.Array.Nested
 import Data.Array.Nested.Internal.Shape (listsToList, shsToList)
 
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 import HordeAd.Util.SizedList qualified as SizedList
 
 -- * Shaped lists and their permutations

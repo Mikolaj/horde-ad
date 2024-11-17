@@ -49,7 +49,6 @@ import Data.Array.Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

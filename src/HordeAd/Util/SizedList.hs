@@ -53,7 +53,6 @@ import Data.Array.Nested
   )
 
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (IntegralF (..), valueOf)
 
 -- * Sized lists and their permutations
 

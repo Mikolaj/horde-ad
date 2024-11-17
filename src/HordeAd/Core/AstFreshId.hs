@@ -29,7 +29,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

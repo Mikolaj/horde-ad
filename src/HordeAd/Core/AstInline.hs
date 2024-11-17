@@ -31,7 +31,6 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

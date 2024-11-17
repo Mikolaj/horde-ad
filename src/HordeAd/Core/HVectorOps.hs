@@ -36,7 +36,6 @@ import Data.Array.Nested.Internal.Shape (shrRank)
 import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
 import HordeAd.Util.SizedList
 
 toRepDShare

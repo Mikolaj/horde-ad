@@ -44,8 +44,6 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal (unADValRep)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.OrthotopeOrphanInstances
-  (IntegralF (..), RealFloatF (..))
 import HordeAd.Util.SizedList
 
 -- * Symbolic reverse and forward derivative computation
