@@ -32,8 +32,8 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Core.TensorAst
-import HordeAd.Core.TensorConcrete ()
+import HordeAd.Core.OpsAst
+import HordeAd.Core.OpsConcrete ()
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), RealFloatF (..))
 

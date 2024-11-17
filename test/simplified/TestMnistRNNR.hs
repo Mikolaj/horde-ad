@@ -33,7 +33,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.TensorAst
+import HordeAd.Core.OpsAst
 import HordeAd.External.OptimizerTools
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 

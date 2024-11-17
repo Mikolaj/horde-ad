@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for concrete Storable Vector-backed arrays.
-module HordeAd.Core.TensorConcrete
+module HordeAd.Core.OpsConcrete
   () where
 
 import Prelude hiding (foldl')
@@ -23,10 +23,10 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.DualNumber
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorADVal
+import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX

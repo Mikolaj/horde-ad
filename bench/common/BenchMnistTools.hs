@@ -14,8 +14,8 @@ import System.Random
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
-import HordeAd.Core.TensorAst (revProduceArtifact)
-import HordeAd.Core.TensorConcrete ()
+import HordeAd.Core.OpsAst (revProduceArtifact)
+import HordeAd.Core.OpsConcrete ()
 import HordeAd.External.OptimizerTools
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))

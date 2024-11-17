@@ -6,7 +6,7 @@
 -- vectorize any terms starting with the build constructor.
 -- The AST term instances can be used as building blocks for 'ADVal'
 -- instances defined in "TensorADVal" but may also be used standalone.
-module HordeAd.Core.TensorAst
+module HordeAd.Core.OpsAst
   ( forwardPassByInterpretation
   , revArtifactFromForwardPass
   , revProduceArtifact
@@ -36,10 +36,10 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
 import HordeAd.Core.Delta
-import HordeAd.Core.DualNumber
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorADVal (unADValRep)
+import HordeAd.Core.OpsADVal (unADValRep)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Core.CarriersConcrete

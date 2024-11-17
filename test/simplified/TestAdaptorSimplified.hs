@@ -32,7 +32,7 @@ import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
 import HordeAd.Core.DeltaFreshId (resetIdCounter)
-import HordeAd.Core.TensorAst
+import HordeAd.Core.OpsAst
 import HordeAd.Internal.OrthotopeOrphanInstances
   (IntegralF (..), RealFloatF (..))
 

@@ -21,12 +21,12 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.DualNumber
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.Engine
   (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorADVal
+import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX (tdot0R, tsum0R)

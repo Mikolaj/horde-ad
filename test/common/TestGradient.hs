@@ -367,7 +367,7 @@ adoptTests = testGroup "Tests of the port of adopt code"
 --   where the output size is the same as the input size.
 --
 -- This is a non-dual-number counterpart to
--- 'HordeAd.Core.DualNumber.conv2d', used below to test that the primal value
+-- 'HordeAd.Core.CarriersADVal.conv2d', used below to test that the primal value
 -- computed by the dual number version is correct.
 conv2dNonDualNumber
   :: forall nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw

@@ -7,7 +7,7 @@
 -- of floats or from AST terms. However, here we do not abstract over
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
-module HordeAd.Core.TensorADVal
+module HordeAd.Core.OpsADVal
   ( unADValRep
   , crevOnADInputs, crevOnHVector, cfwdOnHVector
   ) where
@@ -31,7 +31,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Delta
-import HordeAd.Core.DualNumber
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass

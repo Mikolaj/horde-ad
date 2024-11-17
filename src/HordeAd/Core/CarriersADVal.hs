@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and arithmetic operations on them.
-module HordeAd.Core.DualNumber
+module HordeAd.Core.CarriersADVal
   ( -- * The main dual number type
     ADVal, pattern D, dD, dDnotShared, fromPrimalADVal
     -- * Auxiliary definitions
@@ -132,7 +132,7 @@ dDnotShared = ADVal
 --
 -- The pattern-matching in 'shareDelta' is a crucial optimization
 -- and it could, presumably, be extended to further limit which
--- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
+-- terms get an identifier. Alternatively, 'HordeAd.Core.CarriersADVal.dD'
 -- or library definitions that use it could be made smarter.
 
 unPairG :: (TensorKind x, TensorKind y)

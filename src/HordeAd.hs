@@ -8,12 +8,12 @@ module HordeAd
   , module HordeAd.Core.AstInterpret
   , module HordeAd.Core.AstPrettyPrint
   , module HordeAd.Core.CarriersConcrete
-  , module HordeAd.Core.DualNumber
+  , module HordeAd.Core.CarriersADVal
   , module HordeAd.Core.Engine
   , module HordeAd.Core.HVector
   , module HordeAd.Core.HVectorOps
   , module HordeAd.Core.TensorClass
-  , module HordeAd.Core.TensorADVal
+  , module HordeAd.Core.OpsADVal
   , module HordeAd.Core.Types
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
@@ -28,11 +28,11 @@ import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.DualNumber
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.Engine
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorADVal
+import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps

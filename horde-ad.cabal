@@ -139,17 +139,17 @@ library horde-ad-simplified
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstTools
                       HordeAd.Core.AstVectorize
+                      HordeAd.Core.CarriersADVal
                       HordeAd.Core.CarriersConcrete
                       HordeAd.Core.Delta
                       HordeAd.Core.DeltaFreshId
-                      HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.HVector
                       HordeAd.Core.HVectorOps
-                      HordeAd.Core.TensorADVal
-                      HordeAd.Core.TensorAst
+                      HordeAd.Core.OpsADVal
+                      HordeAd.Core.OpsAst
+                      HordeAd.Core.OpsConcrete
                       HordeAd.Core.TensorClass
-                      HordeAd.Core.TensorConcrete
                       HordeAd.Core.Types
                       HordeAd.External.CommonRankedOps
                       HordeAd.External.CommonShapedOps
