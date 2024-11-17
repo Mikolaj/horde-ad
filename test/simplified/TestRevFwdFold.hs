@@ -4547,7 +4547,7 @@ testSin0revhV4 = do
       f :: forall g. (BaseTensor g)
         => HVector g -> g TKUntyped
       f x =
-        rrevDt @g @_ @Double @1 (rscanZip const doms 5 . dunHVector)
+        rrevDt @g @_ @Double @1 (rscanZip const doms (rscalar 5) . dunHVector)
                (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
@@ -4587,7 +4587,7 @@ testSin0revhV6 = do
       f x =
         rrevDt @g @_ @Double @1
                (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
-                                        in z * z) doms 5 (dunHVector v))
+                                        in z * z) doms (rscalar 5) (dunHVector v))
                 (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
@@ -4708,11 +4708,11 @@ fFoldZipRX as =
       doms = V.fromList [ voidFromSh @Double ZSR
                         , voidFromSh @Double ZSR ]
       p :: target (TKR Double 1)
-      p = rscanZip (\x y -> f x (dmkHVector y)) doms 7 as
+      p = rscanZip (\x y -> f x (dmkHVector y)) doms (rscalar 7) as
       rf :: forall f. ADReady f
          => f (TKR Double 0) -> f (TKR Double 0) -> HVector f -> f TKUntyped
       rf _x _y = rrev @f (f 42) (FTKUntyped doms) . dmkHVector  -- not exactly the rev of f
-  in fFoldZipR doms p as rf ZSR 26
+  in fFoldZipR doms p as rf ZSR (rscalar 26)
 
 testSin0revhFoldZipR :: Assertion
 testSin0revhFoldZipR = do

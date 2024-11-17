@@ -199,10 +199,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, Nested.Elt r, KnownNat n, Num r)
   negate (FlipR t) = FlipR $ negate t
   abs (FlipR t) = FlipR $ abs t
   signum (FlipR t) = FlipR $ signum t
-  fromInteger = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> FlipR . Nested.rscalar . fromInteger
-    Nothing -> error $ "FlipR(Nested.Ranked).fromInteger: shape unknown at rank "
-                       ++ show (valueOf @n :: Int)
+  fromInteger = error "no!"
 
 deriving instance IntegralF (f a b) => IntegralF (FlipR f b a)
 

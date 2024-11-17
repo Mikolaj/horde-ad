@@ -822,8 +822,8 @@ class ( Num (IntOf target)
   tlambda :: (TensorKind x, TensorKind z)
           => TensorKindFull x -> HFun x z -> HFunOf target x z
   tApply :: (TensorKind x, TensorKind z)
-          => HFunOf target x z -> target x
-          -> target z
+         => HFunOf target x z -> target x
+         -> target z
   dunHVector :: target TKUntyped -> HVector target
     -- ^ Warning: this operation easily breaks sharing.
     -- The operation can't usually be implemented to preserve
@@ -877,7 +877,7 @@ class ( Num (IntOf target)
   rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
-                         (tpair dt es)
+                        (tpair dt es)
   rfwd :: forall x r n.
           (TensorKind x, GoodScalar r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR r n))
@@ -888,7 +888,7 @@ class ( Num (IntOf target)
   rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
-                         (tpair ds es)
+                        (tpair ds es)
   srev :: forall x r sh.
           ( TensorKind x, GoodScalar r, KnownShS sh
           , ADTensorKind (TKS r sh) ~ TKS r sh )
@@ -907,7 +907,7 @@ class ( Num (IntOf target)
   srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
                , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
-                         (tpair dt es)
+                        (tpair dt es)
   sfwd :: forall x r sh.
           (TensorKind x, GoodScalar r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS r sh))
@@ -918,7 +918,7 @@ class ( Num (IntOf target)
   sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
-                         (tpair ds es)
+                        (tpair ds es)
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important
@@ -1229,7 +1229,7 @@ ringestData sh l = rconcrete $ Nested.rfromListPrimLinear (listToShape sh) l
 ingestData :: forall target r sh.
               (GoodScalar r, KnownShS sh, BaseTensor target)
            => [r] -> target (TKS r sh)
-ingestData l= sconcrete $ Nested.sfromListPrimLinear knownShS l
+ingestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
 sscalar :: (GoodScalar r, BaseTensor target) => r -> target (TKS r '[])
 sscalar = sconcrete . Nested.sscalar
