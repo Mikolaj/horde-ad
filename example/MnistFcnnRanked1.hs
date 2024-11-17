@@ -18,7 +18,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
-import HordeAd.Internal.BackendOX (RepN (..))
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 import MnistData
 

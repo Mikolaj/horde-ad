@@ -42,7 +42,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal (unADValRep)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (RepN (..))
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
 import HordeAd.Util.SizedList

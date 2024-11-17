@@ -19,7 +19,7 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendOX (RepN (..))
+import HordeAd.Core.CarriersConcrete
 
 -- These functions have their SPECIALIZE pragmas in MnistData.
 

@@ -24,7 +24,6 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), IntegralF (..), RealFloatF (..))
 import HordeAd.Util.ShapedList qualified as ShapedList

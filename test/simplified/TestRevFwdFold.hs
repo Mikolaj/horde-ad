@@ -34,7 +34,6 @@ import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorConcrete ()
-import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), RealFloatF (..))
 

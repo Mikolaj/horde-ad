@@ -20,10 +20,10 @@ import Type.Reflection (typeRep)
 import Data.Array.Nested (KnownShS (..), ShR (..), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (RepN (..), RepScalar (..))
 import HordeAd.Internal.OrthotopeOrphanInstances
 
 updateWithGradient :: Double -> HVector RepN -> HVector RepN -> HVector RepN

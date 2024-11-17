@@ -39,7 +39,7 @@ import HordeAd.Core.TensorAst
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (RepN (..))
+import HordeAd.Core.CarriersConcrete
 
 -- * Reverse derivative adaptors
 

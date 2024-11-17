@@ -24,7 +24,6 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendOX (RepN (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..), FlipS (..))
 
 import EqEpsilon

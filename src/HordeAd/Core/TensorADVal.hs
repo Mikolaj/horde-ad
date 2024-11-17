@@ -36,7 +36,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (RepN (..))
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), valueOf)
 import HordeAd.Util.ShapedList qualified as ShapedList

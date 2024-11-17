@@ -20,6 +20,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
   (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
@@ -28,7 +29,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX (RepN (..), tdot0R, tsum0R)
+import HordeAd.Internal.BackendOX (tdot0R, tsum0R)
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import EqEpsilon

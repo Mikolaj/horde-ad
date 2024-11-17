@@ -7,6 +7,7 @@ module HordeAd
   , module HordeAd.Core.AstInline
   , module HordeAd.Core.AstInterpret
   , module HordeAd.Core.AstPrettyPrint
+  , module HordeAd.Core.CarriersConcrete
   , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.HVector
@@ -26,6 +27,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstPrettyPrint
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.HVector

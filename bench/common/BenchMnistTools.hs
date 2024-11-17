@@ -17,7 +17,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.TensorAst (revProduceArtifact)
 import HordeAd.Core.TensorConcrete ()
 import HordeAd.External.OptimizerTools
-import HordeAd.Internal.BackendOX (RepN (..))
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
 import Data.Array.Nested qualified as Nested

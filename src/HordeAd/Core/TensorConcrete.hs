@@ -21,6 +21,7 @@ import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber
 import HordeAd.Core.HVector
@@ -31,8 +32,6 @@ import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), FlipX (..), IntegralF (..), RealFloatF (..), valueOf)
-
-type instance BoolOf RepN = Bool
 
 instance EqF RepN where
   (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
@@ -63,14 +62,6 @@ instance OrdF RepN where
 
 instance IfF RepN where
   ifF b v w = if b then v else w
-
-type instance HFunOf RepN x z = RepORArray x -> RepORArray z
-
-type instance PrimalOf RepN = RepN
-
-type instance DualOf RepN = DummyDualTarget
-
-type instance ShareOf RepN = RepN
 
 instance LetTensor RepN where
   tlet = (&)
