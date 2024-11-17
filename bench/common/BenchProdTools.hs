@@ -24,7 +24,6 @@ import Unsafe.Coerce (unsafeCoerce)
 --import HordeAd.Core.Adaptor
 
 import HordeAd
-import HordeAd.Core.CarriersConcrete
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
@@ -70,14 +69,14 @@ benchProd ~(_l, list, _vec) =
 -- and this costs the same, which means the initial creation of the vector
 -- has a negligible cost, so we are creating such vectors below freely
 --    , bench "crev List2Vec" $
---        nf (map (tunScalarR . runFlip) . V.toList . crev rankedVecProd)
---           (let list2 = map (FlipR . tscalarR) l
+--        nf (map tunScalarR . V.toList . crev rankedVecProd)
+--           (let list2 = map tscalarR l
 --                vec2 :: Data.Vector.Vector (RepN (TKR Double 0))
 --                vec2 = V.fromList list2
 --            in vec2)
 {- bit-rotten
     , bench "VecD crev" $
-        let f :: DynamicTensor (FlipR OR.Array) -> RepN (TKR Double 0)
+        let f :: DynamicTensor OR.Array -> RepN (TKR Double 0)
             f (DynamicRanked @r2 @n2 d) =
                  gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
                  gcastWith (unsafeCoerce Refl :: n2 :~: 0) $

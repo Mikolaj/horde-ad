@@ -17,9 +17,8 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.OpsAst (revProduceArtifact)
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.External.OptimizerTools
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Internal.OrthotopeOrphanInstances (FlipR (..))
 
+import Data.Array.Nested (pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
 import MnistData
@@ -39,11 +38,11 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromVector (nPV :$: ZSR)
+          DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
           nParams1
-      emptyR = RepN $ FlipR $ Nested.rfromList1Prim []
+      emptyR = RepN $ Nested.rfromList1Prim []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
@@ -70,11 +69,11 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromVector (nPV :$: ZSR)
+          DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
           nParams1
-      emptyR = RepN $ FlipR $ Nested.rfromList1Prim []
+      emptyR = RepN $ Nested.rfromList1Prim []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
@@ -121,11 +120,11 @@ mnistTrainBench1VTO extraPrefix chunkLength testData widthHidden widthHidden2
   let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ FlipR $ Nested.rfromVector (nPV :$: ZSR)
+          DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
           $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
             - LA.scalar 0.5)
           nParams1
-      emptyR = RepN $ FlipR $ Nested.rfromList1Prim []
+      emptyR = RepN $ Nested.rfromList1Prim []
       hVectorInit = V.fromList params1Init
       valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
       valsInit = ( (replicate widthHidden emptyR, emptyR)
@@ -137,8 +136,8 @@ mnistTrainBench1VTO extraPrefix chunkLength testData widthHidden widthHidden2
   bench name $ nfIO $ do
     let dataInit = case testData of
           d : _ -> let (dglyph, dlabel) = d
-                   in ( RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) dglyph
-                      , RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) dlabel )
+                   in ( RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) dglyph
+                      , RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) dlabel )
           [] -> error "empty test data"
         f = \ (pars, (glyphR, labelR)) ->
           MnistFcnnRanked1.afcnnMnistLoss1TensorData
@@ -160,9 +159,9 @@ mnistTrainBench1VTO extraPrefix chunkLength testData widthHidden widthHidden2
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
-                       $ RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
+                       $ RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
               labelD = DynamicRanked @r @1
-                       $ RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
+                       $ RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
               parametersAndInput =
                 dmkHVector
                 $ V.concat [parameters, V.fromList [glyphD, labelD]]
@@ -316,8 +315,8 @@ mnistTrainBench2VTO extraPrefix chunkLength testData widthHidden widthHidden2
   bench name $ nfIO $ do
     let dataInit = case testData of
           d : _ -> let (dglyph, dlabel) = d
-                   in ( RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) dglyph
-                      , RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) dlabel )
+                   in ( RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) dglyph
+                      , RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) dlabel )
           [] -> error "empty test data"
         f = \ (AsHVector (pars, (glyphR, labelR))) ->
           MnistFcnnRanked2.afcnnMnistLoss2TensorData
@@ -328,9 +327,9 @@ mnistTrainBench2VTO extraPrefix chunkLength testData widthHidden widthHidden2
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let glyphD = DynamicRanked @r @1
-                       $ RepN $ FlipR $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
+                       $ RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
               labelD = DynamicRanked @r @1
-                       $ RepN $ FlipR $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
+                       $ RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
               parametersAndInput =
                 dmkHVector
                 $ V.concat [parameters, V.fromList [glyphD, labelD]]
