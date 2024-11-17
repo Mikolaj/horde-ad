@@ -20,8 +20,9 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.CarriersADVal
+import HordeAd.Core.CarriersAst
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
   (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
 import HordeAd.Core.HVector

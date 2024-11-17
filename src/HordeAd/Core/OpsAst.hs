@@ -35,14 +35,15 @@ import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
-import HordeAd.Core.Delta
 import HordeAd.Core.CarriersADVal
+import HordeAd.Core.CarriersAst
+import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal (unADValRep)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Internal.OrthotopeOrphanInstances
   (FlipR (..), FlipS (..), IntegralF (..), RealFloatF (..))
 import HordeAd.Util.SizedList

@@ -140,6 +140,7 @@ library horde-ad-simplified
                       HordeAd.Core.AstTools
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.CarriersADVal
+                      HordeAd.Core.CarriersAst
                       HordeAd.Core.CarriersConcrete
                       HordeAd.Core.Delta
                       HordeAd.Core.DeltaFreshId

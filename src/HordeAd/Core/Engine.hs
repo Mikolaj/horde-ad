@@ -30,16 +30,17 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.AstTools
-import HordeAd.Core.Delta
 import HordeAd.Core.CarriersADVal
+import HordeAd.Core.CarriersAst
+import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsAst
-import HordeAd.Core.TensorClass
 import HordeAd.Core.OpsConcrete ()
+import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Core.CarriersConcrete
 
 -- * Reverse derivative adaptors
 

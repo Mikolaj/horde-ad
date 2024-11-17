@@ -63,14 +63,10 @@ import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 -- Note that no Ast* module except AstInterpret and AstEnv
--- depends on any Tensor* modules and vice versa except TensorAst.
+-- depends on any Tensor*, Carriers* and Ops* modules
+-- and vice versa except CarriersAst and OpsAst.
 -- Syntax is separated from semantics and they meet in the interpreter
 -- and in the semantic model constructed from syntax (TensorAst).
---
--- TODO: maybe change the Tensor prefix to Semantics, Rep or Dom
--- and given more modules the prefix.
--- Maybe put them in separate components to guard the lack
--- of dependency? But it's a heavy way of expressing this.
 
 type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
 type TensorSupports c1 c2 f =

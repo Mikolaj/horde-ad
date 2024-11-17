@@ -26,6 +26,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Data.Array.Nested (KnownShS (..), Rank)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.CarriersAst
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Internal.OrthotopeOrphanInstances (valueOf)
