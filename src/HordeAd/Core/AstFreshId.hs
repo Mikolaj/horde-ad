@@ -84,13 +84,13 @@ funToAstIO sh f = do
             !x = f (AstVar FTKScalar varName)
             dynVar = AstDynamicVarName @Nat @r @'[] freshId
         in (varName, dynVar, x)
-    FTKR @r shr ->
+    FTKR @_ @r shr ->
       return $! withShapeP (shapeToList shr) $ \(Proxy @p_sh) ->
         let varName = mkAstVarName freshId
             !x = f (AstVar sh varName)
             dynVar = AstDynamicVarName @Nat @r @p_sh freshId
         in (varName, dynVar, x)
-    FTKS @r @sh shs -> do
+    FTKS @sh @r shs -> do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
           dynVar = withKnownShS shs $ AstDynamicVarName @[Nat] @r @sh freshId

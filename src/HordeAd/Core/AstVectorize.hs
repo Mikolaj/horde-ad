@@ -733,7 +733,7 @@ substProjRep snat@SNat var ftk2 var1 v
                   projDyn (DynamicShaped @_ @sh2 t)
                           (DynamicShapedDummy @_ @sh3 _ _)
                     | Just Refl <- sameShape @sh2 @(k ': sh3) =
-                      DynamicShaped $ projection t (FTKS @_ @sh3 knownShS)
+                      DynamicShaped $ projection t (FTKS @sh3 knownShS)
                   projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
               in astLetHVectorIn
                    vars

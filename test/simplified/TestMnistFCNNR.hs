@@ -796,7 +796,7 @@ testVT2OPPNonLin = do
                       , AstFromPrimal $ AstCast $ AstConcrete $ unRepN a4 )
                     , ( AstCast $ AstFromPrimal $ AstConcrete $ unRepN a5
                       , AstFromPrimal $ AstCast $ AstConcrete $ unRepN a6 ) )
-      (_, ast3) = funToAst (FTKR @Float $ singletonShape 0)
+      (_, ast3) = funToAst (FTKR @_ @Float $ singletonShape 0)
                            (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
     @?= "\\dummy -> tlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rfromPrimal 7.0))) * rfromPrimal (rconcrete (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rfromPrimal (rconcrete (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v5 -> tlet (rfromPrimal (recip (rreplicate 4 1.0 + exp (negate (rprimalPart v5))))) (\\v6 -> rD (rprimalPart v6) (rdualPart (rfromPrimal (rprimalPart v6 * (rreplicate 4 1.0 - rprimalPart v6)) * rD (rreplicate 4 0.0) (rdualPart v5)))))))) * rfromPrimal (rconcrete (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rfromPrimal (rcast (rconcrete (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v7 -> tlet (rfromPrimal (recip (rreplicate 5 1.0 + exp (negate (rprimalPart v7))))) (\\v8 -> rD (rprimalPart v8) (rdualPart (rfromPrimal (rprimalPart v8 * (rreplicate 5 1.0 - rprimalPart v8)) * rD (rreplicate 5 0.0) (rdualPart v7))))))) * rfromPrimal (rconcrete (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rfromPrimal (rcast (rconcrete (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"

@@ -75,9 +75,9 @@ data RepD target y where
 type role TensorKindFull nominal
 data TensorKindFull y where
   FTKScalar :: GoodScalar r => TensorKindFull (TKScalar r)
-  FTKR :: GoodScalar r => IShR n -> TensorKindFull (TKR n r)
-  FTKS :: GoodScalar r => ShS sh -> TensorKindFull (TKS sh r)
-  FTKX :: GoodScalar r => IShX sh -> TensorKindFull (TKX sh r)
+  FTKR :: forall n r. GoodScalar r => IShR n -> TensorKindFull (TKR n r)
+  FTKS :: forall sh r. GoodScalar r => ShS sh -> TensorKindFull (TKS sh r)
+  FTKX :: forall sh r. GoodScalar r => IShX sh -> TensorKindFull (TKX sh r)
   FTKProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
   FTKUntyped :: VoidHVector -> TensorKindFull TKUntyped
@@ -116,24 +116,24 @@ aDTensorKind t = case t of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            FTKScalar @()
-  FTKR @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
+  FTKR @_ @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKR @() sh
-  FTKS @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
+           FTKR @_ @() sh
+  FTKS @_ @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKS @() sh
-  FTKX @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
+           FTKS @_ @() sh
+  FTKX @_ @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKX @() sh
+           FTKX @_ @() sh
   FTKProduct ftk1 ftk2 ->
     let gtk1 = aDTensorKind ftk1
         gtk2 = aDTensorKind ftk2

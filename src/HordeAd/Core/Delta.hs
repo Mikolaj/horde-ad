@@ -126,15 +126,15 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
-        FTKR @r @n sh | SNat <- shrRank sh -> case els of
+        FTKR @n @r sh | SNat <- shrRank sh -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
             case ( sameNat (Proxy @n) (Proxy @n2)
                  , testEquality (typeRep @r) (typeRep @r2) ) of
               (Just Refl, Just Refl) -> (t, rest)
               _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
                            ++ " instead of "
-                           ++ "FTKR @" ++ show (typeRep @r)
-                           ++ " @" ++ show (valueOf @n :: Int)
+                           ++ "FTKR @" ++ show (valueOf @n :: Int)
+                           ++ " @" ++ show (typeRep @r)
                            ++ " within " ++ show_iMap (iMap s2)
           Some mt@(MTKRDummy @r2 @sh2) : rest
             | Dict <- lemKnownNatRank (knownShS @sh2)
@@ -143,15 +143,15 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
-        FTKS @r @sh sh -> withKnownShS sh $ case els of
+        FTKS @sh @r sh -> withKnownShS sh $ case els of
           Some mt@(MTKS @r2 @sh2 t) : rest ->
             case ( sameShape @sh @sh2
                  , testEquality (typeRep @r) (typeRep @r2) ) of
               (Just Refl, Just Refl) -> (t, rest)
               _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
                            ++ " instead of "
-                           ++ "FTKS @" ++ show (typeRep @r)
-                           ++ " @" ++ show (shapeT @sh)
+                           ++ "FTKS @" ++ show (shapeT @sh)
+                           ++ " @" ++ show (typeRep @r)
                            ++ " within " ++ show_iMap (iMap s2)
           Some mt@(MTKSDummy @r2 @sh2) : rest
             | Just Refl <- sameShape @sh @sh2
@@ -213,11 +213,11 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
                        , Int )
       generateDSums j ftk t = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalar @r t], j + 1)
-        FTKR @r sh | SNat <- shrRank sh ->
+        FTKR @_ @r sh | SNat <- shrRank sh ->
           withShapeP (shapeToList sh) $ \(Proxy @sh) ->
             case lemKnownNatRank (knownShS @sh) of
               Dict -> ([InputId j :=> MTKR @r t], j + 1)
-        FTKS @r @sh sh -> withKnownShS sh
+        FTKS @sh @r sh -> withKnownShS sh
                           $ ([InputId j :=> MTKS @r @sh t], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
@@ -853,10 +853,10 @@ initEvalState ftk0 =
                     -> ([DSum (InputId target) (RepM target)], Int)
       generateDSums j ftk  = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)
-        FTKR @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
+        FTKR @_ @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
           case lemKnownNatRank (knownShS @sh) of
             Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
-        FTKS @r @sh sh -> withKnownShS sh
+        FTKS @sh @r sh -> withKnownShS sh
                           $ ([InputId j :=> MTKSDummy @r @sh], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 ->

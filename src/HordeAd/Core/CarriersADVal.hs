@@ -225,9 +225,9 @@ generateDeltaInputs =
           let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (Delta target)
               f (i, DynamicRankedDummy @r @sh _ _) =
                 withListSh (Proxy @sh) $ \sh ->
-                  DynamicRanked $ InputG (FTKR @r sh) (toInputId i)
+                  DynamicRanked $ InputG (FTKR @_ @r sh) (toInputId i)
               f (i, DynamicShapedDummy @r @sh _ _) =
-                DynamicShaped $ InputG (FTKS @r @sh knownShS) (toInputId i)
+                DynamicShaped $ InputG (FTKS @sh @r knownShS) (toInputId i)
               len = V.length shs
           in (HToH $ V.map f $ V.zip (V.enumFromN j len) shs, j + len)
   in fst . gen 0
