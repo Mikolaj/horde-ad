@@ -241,7 +241,7 @@ interpretAst !env = \case
         in rmatvecmul t2 t1
   AstBuild1 snat@(SNat @n) (_, v)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-      let emptyFromStk :: TensorKindFull z
+      let emptyFromStk :: FullTensorKind z
                        -> target (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
             FTKScalar -> rfromList0N (0 :$: ZSR) []
@@ -256,7 +256,7 @@ interpretAst !env = \case
                 tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
             FTKUntyped ssh -> dmkHVector $ replicate1HVector @target (SNat @0)
                               $ V.map dynamicFromVoid ssh
-      in emptyFromStk (shapeAstFull v)
+      in emptyFromStk (ftkAst v)
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).
@@ -563,7 +563,7 @@ interpretAst !env = \case
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
-                                    , shapeAstFull l
+                                    , ftkAst l
                                     , shapeVoidHVector (dshape @target lt) )) $
                    extendEnvHVector vars lw env
       in rmkRepScalar
@@ -574,7 +574,7 @@ interpretAst !env = \case
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
-                                    , shapeAstFull l
+                                    , ftkAst l
                                     , shapeVoidHVector (dshape @target lt) )) $
                    extendEnvHVector vars lw env
       in tlet @_ @TKUntyped lt
@@ -584,7 +584,7 @@ interpretAst !env = \case
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
-                                    , shapeAstFull l
+                                    , ftkAst l
                                     , shapeVoidHVector (dshape @target lt) )) $
                     extendEnvHVector vars lw env
       in tlet @_ @TKUntyped lt
@@ -596,7 +596,7 @@ interpretAst !env = \case
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
                                     , V.toList $ V.map shapeDynamic lw
-                                    , shapeAstFull l
+                                    , ftkAst l
                                     , shapeVoidHVector (dshape @target lt) )) $
                     extendEnvHVector vars lw env
       in tlet @_ @TKUntyped lt

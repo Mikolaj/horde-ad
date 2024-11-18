@@ -9,7 +9,7 @@
 -- and also to hangle multiple arguments and results of fold-like operations.
 module HordeAd.Core.HVector
   ( RepD(..)
-  , TensorKindFull(..), lemTensorKindOfF, buildTensorKindFull
+  , FullTensorKind(..), lemTensorKindOfF, buildFullTensorKind
   , aDTensorKind
   , DynamicTensor(..)
   , CRanked
@@ -72,20 +72,20 @@ data RepD target y where
   DTKUntyped :: HVector target
              -> RepD target TKUntyped
 
-type role TensorKindFull nominal
-data TensorKindFull y where
-  FTKScalar :: GoodScalar r => TensorKindFull (TKScalar r)
-  FTKR :: forall n r. GoodScalar r => IShR n -> TensorKindFull (TKR n r)
-  FTKS :: forall sh r. GoodScalar r => ShS sh -> TensorKindFull (TKS sh r)
-  FTKX :: forall sh r. GoodScalar r => IShX sh -> TensorKindFull (TKX sh r)
-  FTKProduct :: TensorKindFull y -> TensorKindFull z
-             -> TensorKindFull (TKProduct y z)
-  FTKUntyped :: VoidHVector -> TensorKindFull TKUntyped
+type role FullTensorKind nominal
+data FullTensorKind y where
+  FTKScalar :: GoodScalar r => FullTensorKind (TKScalar r)
+  FTKR :: forall n r. GoodScalar r => IShR n -> FullTensorKind (TKR n r)
+  FTKS :: forall sh r. GoodScalar r => ShS sh -> FullTensorKind (TKS sh r)
+  FTKX :: forall sh r. GoodScalar r => IShX sh -> FullTensorKind (TKX sh r)
+  FTKProduct :: FullTensorKind y -> FullTensorKind z
+             -> FullTensorKind (TKProduct y z)
+  FTKUntyped :: VoidHVector -> FullTensorKind TKUntyped
 
-deriving instance Show (TensorKindFull y)
-deriving instance Eq (TensorKindFull y)
+deriving instance Show (FullTensorKind y)
+deriving instance Eq (FullTensorKind y)
 
-lemTensorKindOfF :: TensorKindFull y -> Dict TensorKind y
+lemTensorKindOfF :: FullTensorKind y -> Dict TensorKind y
 lemTensorKindOfF = \case
   FTKScalar -> Dict
   FTKR sh | SNat <- shrRank sh -> Dict
@@ -95,20 +95,20 @@ lemTensorKindOfF = \case
                        , Dict <- lemTensorKindOfF ftk2 -> Dict
   FTKUntyped{} -> Dict
 
-buildTensorKindFull :: SNat k -> TensorKindFull y
-                    -> TensorKindFull (BuildTensorKind k y)
-buildTensorKindFull snat@SNat = \case
+buildFullTensorKind :: SNat k -> FullTensorKind y
+                    -> FullTensorKind (BuildTensorKind k y)
+buildFullTensorKind snat@SNat = \case
   FTKScalar -> FTKR $ sNatValue snat :$: ZSR
   FTKR sh -> FTKR $ sNatValue snat :$: sh
   FTKS sh -> FTKS $ snat :$$ sh
   FTKX sh -> FTKX $ SKnown snat :$% sh
   FTKProduct ftk1 ftk2 ->
-      FTKProduct (buildTensorKindFull snat ftk1)
-                 (buildTensorKindFull snat ftk2)
+      FTKProduct (buildFullTensorKind snat ftk1)
+                 (buildFullTensorKind snat ftk2)
   FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
 
-aDTensorKind :: TensorKindFull y
-             -> TensorKindFull (ADTensorKind y)
+aDTensorKind :: FullTensorKind y
+             -> FullTensorKind (ADTensorKind y)
 aDTensorKind t = case t of
   FTKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t

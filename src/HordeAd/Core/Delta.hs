@@ -101,19 +101,19 @@ type ADMap target = DEnumMap (NodeId target) (RepAD target)
 gradientFromDelta
   :: forall x z target.
      (ADReadyNoLet target, ShareTensor target, TensorKind z)
-  => TensorKindFull x
+  => FullTensorKind x
   -> target z
   -> Maybe (target (ADTensorKind z))
   -> Delta target z
   -> target (ADTensorKind x)
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = repConstant 1 $ aDTensorKind $ tshapeFull (stensorKind @z) value
+  let oneAtF = repConstant 1 $ aDTensorKind $ tftk (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
       s2 = evalFromnMap s1
       rebuildInputs :: forall ady.  -- ady ~ ADTensorKind y
-                       [Some (RepM target)] -> TensorKindFull ady
+                       [Some (RepM target)] -> FullTensorKind ady
                     -> (target ady, [Some (RepM target)])
       rebuildInputs els = \case
         FTKScalar @r -> case els of
@@ -208,7 +208,7 @@ derivativeFromDelta
   -> target (ADTensorKind z)
 derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x) =
   let -- Matches generateDeltaInputs.
-      generateDSums :: Int -> TensorKindFull y -> target y
+      generateDSums :: Int -> FullTensorKind y -> target y
                     -> ( [DSum (InputId target) (RepM target)]
                        , Int )
       generateDSums j ftk t = case ftk of
@@ -232,7 +232,7 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
           in ( zipWith dynamicTensorToRepM [j ..] $ V.toList ts
              , j + len )
       iMap = DMap.fromDistinctAscList $ fst
-             $ generateDSums 0 (tshapeFull stensorKind ds) ds
+             $ generateDSums 0 (tftk stensorKind ds) ds
       s0 = DMap.empty
       !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
   in c
@@ -397,9 +397,9 @@ data Delta :: Target -> TensorKindType -> Type where
   Project2G :: forall x z target. TensorKind x
             => Delta target (TKProduct x z) -> Delta target z
   InputG :: forall target y.
-            TensorKindFull y -> InputId target y -> Delta target y
+            FullTensorKind y -> InputId target y -> Delta target y
   ShareG :: NodeId target y -> Delta target y -> Delta target y
-  ZeroG :: TensorKindFull y -> Delta target y
+  ZeroG :: FullTensorKind y -> Delta target y
   ScaleG :: Num (target y)
          => target y -> Delta target y -> Delta target y
   AddG :: Num (target y)
@@ -589,9 +589,9 @@ data Delta :: Target -> TensorKindType -> Type where
        , TensorKind (BuildTensorKind k eShs)
        , TensorKind (BuildTensorKind k accShs) )
     => SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> target (BuildTensorKind k accShs)
     -> target (BuildTensorKind k eShs)
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
@@ -609,9 +609,9 @@ data Delta :: Target -> TensorKindType -> Type where
        , TensorKind (BuildTensorKind k eShs)
        , TensorKind (BuildTensorKind k accShs) )
     => SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> target (BuildTensorKind k accShs)
     -> target (BuildTensorKind k eShs)
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
@@ -631,7 +631,7 @@ deriving instance ( TensorKind y
                   => Show (Delta target y)
 
 shapeDeltaFull :: forall target y. TensorKind y
-               => Delta target y -> TensorKindFull y
+               => Delta target y -> FullTensorKind y
 shapeDeltaFull = \case
   ScalarG{} -> FTKR ZSR
   UnScalarG{} -> FTKScalar
@@ -702,10 +702,10 @@ shapeDeltaFull = \case
     FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta)) v
   MapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildTensorKindFull k bShs)
+      FTKProduct accShs (buildFullTensorKind k bShs)
   MapAccumL @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildTensorKindFull k bShs)
+      FTKProduct accShs (buildFullTensorKind k bShs)
 
 shapeDelta :: forall target r n.
               (GoodScalar r, KnownNat n)
@@ -846,10 +846,10 @@ newtype RepAD target y =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) are given as arguments.
 initEvalState
-  :: TensorKindFull x -> EvalState target
+  :: FullTensorKind x -> EvalState target
 initEvalState ftk0 =
   let -- Matches generateDeltaInputs.
-      generateDSums :: Int -> TensorKindFull y
+      generateDSums :: Int -> FullTensorKind y
                     -> ([DSum (InputId target) (RepM target)], Int)
       generateDSums j ftk  = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)

@@ -125,7 +125,7 @@ data StateAdamDeep y = StateAdamDeep
   , vAdamDeep :: RepN y
   }
 
-initialStateAdamDeep :: TensorKindFull y -> StateAdamDeep y
+initialStateAdamDeep :: FullTensorKind y -> StateAdamDeep y
 initialStateAdamDeep ftk =
   StateAdamDeep { tAdamDeep = 0
                 , mAdamDeep = repDeepZero ftk
@@ -133,7 +133,7 @@ initialStateAdamDeep ftk =
                 }
 
 -- TODO: introduce and use dummies
-repDeepZero :: TensorKindFull y -> RepN y
+repDeepZero :: FullTensorKind y -> RepN y
 repDeepZero = \case
   FTKScalar -> RepN $ RepScalar $ Nested.rreplicateScal ZSR 0
   FTKR sh -> RepN $ Nested.rreplicateScal sh 0

@@ -195,15 +195,15 @@ instance BaseTensor RepN where
   tproject1 = RepN . fst . unRepN
   tproject2 = RepN . snd . unRepN
   dshape = voidFromHVector . unRepN
-  tshapeFull stk t = case stk of
+  tftk stk t = case stk of
     STKScalar _ -> FTKScalar
     STKR SNat STKScalar{} -> FTKR $ tshapeR $ unRepN t
     STKS sh STKScalar{} -> FTKS sh
     STKX sh STKScalar{} -> withKnownShX sh $ FTKX $ Nested.mshape $ unRepN t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
-      FTKProduct (tshapeFull stk1 (tproject1 t))
-                 (tshapeFull stk2 (tproject2 t))
+      FTKProduct (tftk stk1 (tproject1 t))
+                 (tftk stk2 (tproject2 t))
     STKUntyped -> FTKUntyped $ voidFromHVector $ tunvector t
     _ -> error "TODO"
   tcond _ b u v = if b then u else v
@@ -220,7 +220,7 @@ instance BaseTensor RepN where
   -- The code for drevDt and dfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drev :: forall x z. (TensorKind x, TensorKind z)
-       => TensorKindFull x
+       => FullTensorKind x
        -> HFun x z
        -> HFunOf RepN x (ADTensorKind x)
   drev _ftk h =
@@ -228,7 +228,7 @@ instance BaseTensor RepN where
         rf !a = unRepN $ fst $ crevOnHVector Nothing (unHFun h) (RepN a)
     in rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
-         => TensorKindFull x
+         => FullTensorKind x
          -> HFun x z
          -> HFunOf RepN (TKProduct (ADTensorKind z) x) (ADTensorKind x)
   drevDt _ftk h =
@@ -237,7 +237,7 @@ instance BaseTensor RepN where
                    $ crevOnHVector (Just $ RepN $ fst db_a) (unHFun h) (RepN $ snd db_a)
     in rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
-       => TensorKindFull x
+       => FullTensorKind x
        -> HFun x z
        -> HFunOf RepN (TKProduct (ADTensorKind x) x) (ADTensorKind z)
   dfwd _shs h =
@@ -353,9 +353,9 @@ oRdmapAccumR
   :: forall k accShs bShs eShs.
      (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
-  -> TensorKindFull accShs
-  -> TensorKindFull bShs
-  -> TensorKindFull eShs
+  -> FullTensorKind accShs
+  -> FullTensorKind bShs
+  -> FullTensorKind eShs
   -> (RepN accShs -> RepN eShs
       -> RepN (TKProduct accShs bShs))
   -> RepN accShs
@@ -375,9 +375,9 @@ oRdmapAccumL
   :: forall k accShs bShs eShs.
      (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
-  -> TensorKindFull accShs
-  -> TensorKindFull bShs
-  -> TensorKindFull eShs
+  -> FullTensorKind accShs
+  -> FullTensorKind bShs
+  -> FullTensorKind eShs
   -> (RepN accShs -> RepN eShs
       -> RepN (TKProduct accShs bShs))
   -> RepN accShs
@@ -468,7 +468,7 @@ instance AdaptableHVector RepN (HVector RepN) where
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
-  :: TensorKindFull TKUntyped
+  :: FullTensorKind TKUntyped
   -> RepN TKUntyped
   -> Maybe (RepN TKUntyped)
   -> Delta RepN TKUntyped

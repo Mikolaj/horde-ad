@@ -108,7 +108,7 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
       g !hv = tlet hv $ \ !hvShared ->
         f $ parseHVector (fromValue vals0) hvShared
       valsH = toHVectorOf vals0
-      voidH = tshapeFull stensorKind valsH
+      voidH = tftk stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
   in parseHVectorAD vals0 $ fst $ revEvalArtifact artifact valsH mdt
 {- TODO
@@ -139,7 +139,7 @@ revArtifactAdapt hasDt f vals0 =
       g !hv = tlet hv $ \ !hvShared ->
         f $ parseHVector (fromValue vals0) hvShared
       valsH = toHVectorOf @RepN vals0
-      voidH = tshapeFull stensorKind valsH
+      voidH = tftk stensorKind valsH
   in revProduceArtifact hasDt g emptyEnv voidH
 {- TODO
 {-# SPECIALIZE revArtifactAdapt
@@ -156,7 +156,7 @@ revProduceArtifactWithoutInterpretation
   => Bool
   -> (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
-  -> TensorKindFull x
+  -> FullTensorKind x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f =
@@ -172,7 +172,7 @@ forwardPassByApplication
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
-  let deltaInputs = generateDeltaInputs $ shapeAstFull hVectorPrimal
+  let deltaInputs = generateDeltaInputs $ ftkAst hVectorPrimal
       varInputs = makeADInputs (AstRaw hVectorPrimal) deltaInputs
   in g varInputs
 
@@ -185,7 +185,7 @@ revEvalArtifact
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt
  | Dict <- lemTensorKindOfAD (stensorKind @z) =
-  let oneAtF = repConstant 1 $ aDTensorKind $ shapeAstFull artPrimalRev
+  let oneAtF = repConstant 1 $ aDTensorKind $ ftkAst artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
@@ -221,7 +221,7 @@ fwd f vals ds =
       g !hv = tlet hv $ \ !hvShared ->
         f $ parseHVector (fromValue vals) hvShared
       valsH = toHVectorOf vals
-      voidH = tshapeFull stensorKind valsH
+      voidH = tftk stensorKind valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
       dsH = toHVectorOf ds
   in fst $ fwdEvalArtifact @_ @z artifact valsH
@@ -236,8 +236,8 @@ fwdEvalArtifact
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds
  | Dict <- lemTensorKindOfAD (stensorKind @x) =
-  if aDTensorKind (tshapeFull (stensorKind @x) parameters)
-     == tshapeFull (stensorKind @(ADTensorKind x)) ds then
+  if aDTensorKind (tftk (stensorKind @x) parameters)
+     == tftk (stensorKind @(ADTensorKind x)) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env
         derivative = interpretAst envD artDerivativeFwd

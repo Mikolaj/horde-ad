@@ -69,7 +69,7 @@ unsafeGetFreshAstVarName =
   mkAstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstIO :: forall y z s s2 ms. TensorKind y
-           => TensorKindFull y
+           => FullTensorKind y
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO ( AstVarName s y
                  , AstDynamicVarName
@@ -106,7 +106,7 @@ funToAstIO sh f = do
       return (varName, undefined, x)
 
 funToAst :: TensorKind y
-         => TensorKindFull y
+         => FullTensorKind y
          -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName s y, AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
@@ -159,7 +159,7 @@ dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
         !dynE = DynamicShaped @r2 @sh2 (AstVar (FTKS knownShS) (mkAstVarName freshId))
     in (varE, dynE)
 
-funToAstRevIO :: forall x. TensorKindFull x
+funToAstRevIO :: forall x. FullTensorKind x
               -> IO ( AstVarName PrimalSpan x
                     , AstTensor AstMethodShare PrimalSpan x
                     , AstVarName FullSpan x
@@ -206,7 +206,7 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
           !va = AstMkHVector $ V.fromList asts
       return (varPrimal, vp, var, va)
 
-funToAstRev :: TensorKindFull x
+funToAstRev :: FullTensorKind x
             -> ( AstVarName PrimalSpan x
                , AstTensor AstMethodShare PrimalSpan x
                , AstVarName FullSpan x
@@ -214,7 +214,7 @@ funToAstRev :: TensorKindFull x
 {-# NOINLINE funToAstRev #-}
 funToAstRev = unsafePerformIO . funToAstRevIO
 
-funToAstFwdIO :: forall x. TensorKindFull x
+funToAstFwdIO :: forall x. FullTensorKind x
               -> IO ( AstVarName PrimalSpan (ADTensorKind x)
                     , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
                     , AstVarName PrimalSpan x
@@ -275,7 +275,7 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk
           !va = AstMkHVector $ V.fromList asts
       return (varPrimalD, vD, varPrimal, vp, var, va)
 
-funToAstFwd :: TensorKindFull x
+funToAstFwd :: FullTensorKind x
             -> ( AstVarName PrimalSpan (ADTensorKind x)
                , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
                , AstVarName PrimalSpan x

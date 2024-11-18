@@ -163,10 +163,10 @@ intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
   STKR SNat STKScalar{} -> rconcrete $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
   STKS sh STKScalar{} -> withKnownShS sh $ sconcrete $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
   STKX sh STKScalar{} -> withKnownShX sh $ xconcrete $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
-  _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
+  _ -> repConstant (fromIntegral c) (tftk stensorKind tsh)
 
 fromPrimalADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
-fromPrimalADVal a = dDnotShared a (ZeroG $ tshapeFull stensorKind a)
+fromPrimalADVal a = dDnotShared a (ZeroG $ tftk stensorKind a)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
@@ -207,9 +207,9 @@ dotParameters (HVector a0 a1) (HVector b0 b1) =
 
 generateDeltaInputs
   :: forall x target.
-     TensorKindFull x -> Delta target x
+     FullTensorKind x -> Delta target x
 generateDeltaInputs =
-  let gen :: Int -> TensorKindFull y -> (Delta target y, Int)
+  let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
       gen j ftk = case ftk of
         FTKScalar -> (InputG ftk (toInputId j), j + 1)
         FTKR sh | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
@@ -422,7 +422,7 @@ instance (Num (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
   negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v _) = dDnotShared (signum v) (ZeroG $ tshapeFull stensorKind v)
+  signum (D v _) = dDnotShared (signum v) (ZeroG $ tftk stensorKind v)
   fromInteger = fromPrimalADVal . fromInteger
 
 instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
@@ -432,8 +432,8 @@ instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
 
 instance (IntegralF (f z), TensorKind z, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
-  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((ZeroG $ tshapeFull stensorKind u))
-  remF (D u _) (D v _) = dDnotShared (remF u v) ((ZeroG $ tshapeFull stensorKind u))
+  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((ZeroG $ tftk stensorKind u))
+  remF (D u _) (D v _) = dDnotShared (remF u v) ((ZeroG $ tftk stensorKind u))
 
 instance (Fractional (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where

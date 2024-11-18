@@ -57,7 +57,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit :: RepN (XParams width r)
       hVectorInit = toHVectorOf @RepN valsInit
-      ftk = tshapeFull @RepN
+      ftk = tftk @RepN
                        (stensorKind @(XParams width r))
                        hVectorInit
       miniBatchSize = sNatValue batch_size
@@ -169,7 +169,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
       valsInit = fst $ randomVals 0.4 (mkStdGen 44)
       hVectorInit :: RepN (XParams width r)
       hVectorInit = toHVectorOf @RepN valsInit
-      ftk = tshapeFull @RepN
+      ftk = tftk @RepN
                        (stensorKind @(XParams width r))
                        hVectorInit
       miniBatchSize = sNatValue batch_size
@@ -404,7 +404,7 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
         valsInit = fst $ randomVals 0.4 (mkStdGen 44)
         hVectorInit :: RepN (XParams width r)
         hVectorInit = toHVectorOf @RepN valsInit
-        ftk = tshapeFull @RepN
+        ftk = tftk @RepN
                          (stensorKind @(XParams width r))
                          hVectorInit
         miniBatchSize = sNatValue batch_size

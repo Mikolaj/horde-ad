@@ -251,7 +251,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstProject2 :: forall x z s ms. (TensorKind x, TensorKind z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s z
   AstVar :: TensorKind y
-         => TensorKindFull y -> AstVarName s y -> AstTensor ms s y
+         => FullTensorKind y -> AstVarName s y -> AstTensor ms s y
   AstPrimalPart :: TensorKind y
                 => AstTensor ms FullSpan y -> AstTensor ms PrimalSpan y
   AstDualPart :: TensorKind y
@@ -550,9 +550,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstMapAccumRDer
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                           (TKProduct accShs eShs))
@@ -566,9 +566,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstMapAccumLDer
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                           (TKProduct accShs eShs))
@@ -587,7 +587,7 @@ type AstDynamic ms (s :: AstSpanType) = DynamicTensor (AstTensor ms s)
 type role AstHFun nominal nominal
 data AstHFun x z where
   AstLambda :: TensorKind x
-            => ~( AstVarName PrimalSpan x, TensorKindFull x
+            => ~( AstVarName PrimalSpan x, FullTensorKind x
                 , AstTensor AstMethodLet PrimalSpan z )
             -> AstHFun x z
     -- ^ The function body can't have any free variables outside those

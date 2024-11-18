@@ -57,7 +57,7 @@ crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
-  let parameters0 = tshapeFull (stensorKind @x) inputs
+  let parameters0 = tftk (stensorKind @x) inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
   in (gradient, v)
 
@@ -71,7 +71,7 @@ crevOnHVector
   -> (target (ADTensorKind x), target z)
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs
-                    $ tshapeFull (stensorKind @x) parameters
+                    $ tftk (stensorKind @x) parameters
       inputs = makeADInputs parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
@@ -97,7 +97,7 @@ cfwdOnHVector
   -> (target (ADTensorKind z), target z)
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs
-                    $ tshapeFull (stensorKind @x) parameters
+                    $ tftk (stensorKind @x) parameters
       inputs = makeADInputs parameters deltaInputs
   in cfwdOnADInputs inputs f ds
 
@@ -428,7 +428,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unPairGUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unPairGUnshared u')
   dshape (D u _) = dshape u
-  tshapeFull stk (D u _) = tshapeFull stk u
+  tftk stk (D u _) = tftk stk u
   tcond stk b u v = case stk of
     STKScalar _ -> rmkRepScalar $ ifF b (runRepScalar u) (runRepScalar v)
     STKR SNat STKScalar{} -> ifF b u v
@@ -466,7 +466,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   dbuild1 k f =
     dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
   drev :: forall x z. (TensorKind x, TensorKind z)
-       => TensorKindFull x
+       => FullTensorKind x
        -> HFun x z
        -> HFun x (ADTensorKind x)
   drev _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
@@ -481,7 +481,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (toShare aShared)
     in HFun rf
   drevDt :: forall x z. (TensorKind x, TensorKind z)
-         => TensorKindFull x
+         => FullTensorKind x
          -> HFun x z
          -> HFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
   drevDt _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
@@ -497,7 +497,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (toShare $ tproject2 db_aShared)
     in HFun rf
   dfwd :: forall x z. (TensorKind x, TensorKind z)
-       => TensorKindFull x
+       => FullTensorKind x
        -> HFun x z
        -> HFun (TKProduct (ADTensorKind x) x) (ADTensorKind z)
   dfwd _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
@@ -517,9 +517,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (ADVal target)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (ADVal target) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (ADVal target) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                         (TKProduct accShs eShs))
@@ -603,9 +603,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (ADVal target)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (ADVal target) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (ADVal target) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                         (TKProduct accShs eShs))

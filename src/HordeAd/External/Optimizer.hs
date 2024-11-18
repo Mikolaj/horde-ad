@@ -75,7 +75,7 @@ sgdAdamArgsDeep
 sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  ftk = tshapeFull stensorKind parameters0
+  ftk = tftk stensorKind parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs ftk
   go :: [a] -> RepN x -> StateAdamDeep x

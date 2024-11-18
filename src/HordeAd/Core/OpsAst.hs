@@ -59,7 +59,7 @@ forwardPassByInterpretation
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal var hVector =
-  let deltaInputs = generateDeltaInputs $ shapeAstFull hVectorPrimal
+  let deltaInputs = generateDeltaInputs $ ftkAst hVectorPrimal
       varInputs = makeADInputs (AstRaw hVectorPrimal) deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit
@@ -72,7 +72,7 @@ revArtifactFromForwardPass
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
-  -> TensorKindFull x
+  -> FullTensorKind x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass ftk
@@ -88,7 +88,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk
         unADValRep (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector in
   let (!varDt, !astDt) =
-        funToAst (aDTensorKind $ shapeAstFull $ unAstRaw primalBody) id in
+        funToAst (aDTensorKind $ ftkAst $ unAstRaw primalBody) id in
   let mdt = if hasDt
             then Just astDt
             else Nothing
@@ -104,7 +104,7 @@ revProduceArtifact
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> TensorKindFull x
+  -> FullTensorKind x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit =
@@ -116,7 +116,7 @@ fwdArtifactFromForwardPass
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
-  -> TensorKindFull x
+  -> FullTensorKind x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass ftk
@@ -138,7 +138,7 @@ fwdProduceArtifact
   => (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> TensorKindFull x
+  -> FullTensorKind x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact f envInit =
@@ -311,7 +311,7 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
-  :: TensorKindFull TKUntyped
+  :: FullTensorKind TKUntyped
   -> HVectorPseudoTensor (AstRaw PrimalSpan) Float '()
   -> Maybe (HVectorPseudoTensor (AstRaw PrimalSpan) Float '())
   -> Delta (AstRaw PrimalSpan) TKUntyped
@@ -385,7 +385,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rD u u' = astSpanD u u'
   rScale s t = astDualPart $ AstFromPrimal s * AstD (rzero (rshape s)) t
 
-  xshape t = case shapeAstFull t of
+  xshape t = case ftkAst t of
     FTKX sh -> sh
   xindex v ix = AstIndexX v ix
   xfromVector = AstFromVectorX
@@ -438,7 +438,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   dshape = shapeAstHVector
-  tshapeFull stk t | Dict <- lemTensorKindOfS stk = shapeAstFull t
+  tftk stk t | Dict <- lemTensorKindOfS stk = ftkAst t
   tcond stk b u v | Dict <- lemTensorKindOfS stk = AstCond b u v
   tfromPrimal stk t | Dict <- lemTensorKindOfS stk = fromPrimal t
   tprimalPart stk t | Dict <- lemTensorKindOfS stk = astSpanPrimal t
@@ -446,7 +446,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tD stk t d | Dict <- lemTensorKindOfS stk = astSpanD t d
   dmkHVector = AstMkHVector
   tlambda :: forall x z. TensorKind x
-          => TensorKindFull x -> HFun x z -> HFunOf (AstTensor AstMethodLet s) x z
+          => FullTensorKind x -> HFun x z -> HFunOf (AstTensor AstMethodLet s) x z
   tlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
           unHFun f ll
@@ -474,7 +474,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- The limitation of AstRaw as a newtype make it impossible
   -- to switch the tests from AstTensor to AstRaw.
   drev :: forall x z. (TensorKind x, TensorKind z)
-       => TensorKindFull x
+       => FullTensorKind x
        -> HFun x z
        -> AstHFun x (ADTensorKind x)
   drev ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x) =
@@ -493,7 +493,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ simplifyInline gradient
     in AstLambda (varP, ftkx, ast)
   drevDt :: forall x z. (TensorKind x, TensorKind z)
-         => TensorKindFull x
+         => FullTensorKind x
          -> HFun x z
          -> AstHFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
   drevDt ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
@@ -502,7 +502,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = aDTensorKind $ shapeAstFull primal
+        ftkz = aDTensorKind $ ftkAst primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDt (astProject1 astP)
@@ -510,7 +510,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ simplifyInline gradient
     in AstLambda (varP, ftk2, ast)
   dfwd :: forall x z. (TensorKind x, TensorKind z)
-       => TensorKindFull x
+       => FullTensorKind x
        -> HFun x z
        -> AstHFun (TKProduct (ADTensorKind x)  x) (ADTensorKind z)
   dfwd ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
@@ -642,7 +642,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstDualPart $ AstFromPrimal (unAstRaw s)
                   * AstD (unAstRaw $ rzero (rshape s)) t
 
-  xshape t = case shapeAstFull $ unAstRaw t of
+  xshape t = case ftkAst $ unAstRaw t of
     FTKX sh -> sh
   xindex v ix =
     AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
@@ -695,7 +695,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
   dshape = shapeAstHVector . unAstRaw
-  tshapeFull stk t | Dict <- lemTensorKindOfS stk = shapeAstFull $ unAstRaw t
+  tftk stk t | Dict <- lemTensorKindOfS stk = ftkAst $ unAstRaw t
   tcond stk b u v | Dict <- lemTensorKindOfS stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
   tfromPrimal stk t | Dict <- lemTensorKindOfS stk =
@@ -737,9 +737,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstRaw s)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                     (TKProduct accShs eShs))
@@ -759,9 +759,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstRaw s)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                     (TKProduct accShs eShs))
@@ -867,7 +867,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rD u u' = AstNoVectorize $ rD (unAstNoVectorize u) u'
   rScale s t = rScale @(AstTensor AstMethodLet PrimalSpan) (unAstNoVectorize s) t
 
-  xshape t = case shapeAstFull $ unAstNoVectorize t of
+  xshape t = case ftkAst $ unAstNoVectorize t of
     FTKX sh -> sh
   xindex v ix =
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
@@ -921,8 +921,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject1 t = AstNoVectorize $ astProject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ astProject2 $ unAstNoVectorize t
   dshape = shapeAstHVector . unAstNoVectorize
-  tshapeFull stk t | Dict <- lemTensorKindOfS stk =
-    shapeAstFull $ unAstNoVectorize t
+  tftk stk t | Dict <- lemTensorKindOfS stk =
+    ftkAst $ unAstNoVectorize t
   tcond stk b u v = AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tprimalPart stk t = AstNoVectorize $ tprimalPart stk $ unAstNoVectorize t
@@ -943,9 +943,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoVectorize s)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                             (TKProduct accShs eShs))
@@ -965,9 +965,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoVectorize s)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                             (TKProduct accShs eShs))
@@ -1011,7 +1011,7 @@ astLetFunNoSimplify
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f =
-  let sh = shapeAstFull a
+  let sh = ftkAst a
       (var, ast) = funToAst sh f
   in AstLet var a ast  -- safe, because subsitution ruled out above
 
@@ -1091,7 +1091,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     astDualPart $ AstFromPrimal (unAstNoSimplify s)
                   * AstD (rzero (rshape s)) t
 
-  xshape t = case shapeAstFull $ unAstNoSimplify t of
+  xshape t = case ftkAst $ unAstNoSimplify t of
     FTKX sh -> sh
   xindex v ix =
     AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
@@ -1153,8 +1153,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tproject1 t = AstNoSimplify $ AstProject1 $ unAstNoSimplify t
   tproject2 t = AstNoSimplify $ AstProject2 $ unAstNoSimplify t
   dshape = shapeAstHVector . unAstNoSimplify
-  tshapeFull stk t | Dict <- lemTensorKindOfS stk =
-    shapeAstFull $ unAstNoSimplify t
+  tftk stk t | Dict <- lemTensorKindOfS stk =
+    ftkAst $ unAstNoSimplify t
   tcond stk b u v | Dict <- lemTensorKindOfS stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
   tfromPrimal stk t | Dict <- lemTensorKindOfS stk =
@@ -1187,9 +1187,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoSimplify s)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                            (TKProduct accShs eShs))
@@ -1209,9 +1209,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoSimplify s)
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                            (TKProduct accShs eShs))

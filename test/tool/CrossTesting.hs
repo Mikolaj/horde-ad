@@ -66,7 +66,7 @@ rev' :: forall r m n v a w.
         , RepN (TKR n r), w, w, w )
 rev' f vals =
   let value0 = f vals
-      ftk = tshapeFull stensorKind vals
+      ftk = tftk stensorKind vals
       dt = Nothing
       valsFrom = fromDValue vals
       g :: ADVal RepN (TKR n r)
@@ -472,7 +472,7 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
-rrev1 f u = rrev f (tshapeFull stensorKind u) u
+rrev1 f u = rrev f (tftk stensorKind u) u
 
 rrev2 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
@@ -493,7 +493,7 @@ rfwd1ds :: forall g r n m r3.
         => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
         -> g (ADTensorKind (TKR n r))
         -> g (ADTensorKind (TKR m r3))
-rfwd1ds f u ds = rfwd f (tshapeFull stensorKind u) u ds
+rfwd1ds f u ds = rfwd f (tftk stensorKind u) u ds
 
 rfwd1 :: forall g r n m r3.
          ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
@@ -507,11 +507,11 @@ srev1 :: forall g r sh sh2 r3.
          , ADTensorKind (TKS sh2 r3) ~ TKS sh2 r3 )
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
-srev1 f u = srev f (tshapeFull stensorKind u) u
+srev1 f u = srev f (tftk stensorKind u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
          , GoodScalar r3, KnownShS sh, KnownShS sh2 )
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh2 r3))
-sfwd1 f u = sfwd f (tshapeFull stensorKind u) u (srepl @_ @(ADTensorScalar r) 1)
+sfwd1 f u = sfwd f (tftk stensorKind u) u (srepl @_ @(ADTensorScalar r) 1)

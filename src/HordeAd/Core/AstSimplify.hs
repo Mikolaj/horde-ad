@@ -2411,7 +2411,7 @@ astLetFun :: forall y z s s2.
           -> AstTensor AstMethodLet s2 z
 astLetFun a f | astIsSmall True a = f a  -- TODO: since astLetFun is now called recursively a lot, ensure astIsSmall is constant, at least except for a constant number of the recursive calls
 astLetFun a f =
-  let sh = shapeAstFull a
+  let sh = ftkAst a
       (var, ast) = funToAst sh f
   in astLet var a ast  -- safe, because subsitution ruled out above
 
@@ -3098,13 +3098,13 @@ substitute1Ast i var v1 = case v1 of
     then case sameAstSpan @s @s2 of
         Just Refl -> case sameTensorKind @y @z of
           Just Refl ->
-            assert (shapeAstFull i == sh `blame` (shapeAstFull i, sh, i))
+            assert (ftkAst i == sh `blame` (ftkAst i, sh, i))
             Just i
           _ -> error $ "substitute1Ast: kind of the variable "
                        ++ show var2 ++ ": "
                        ++ show (stensorKind @y, sh)
                        ++ ", payload kind: "
-                       ++ show (stensorKind @z, shapeAstFull i)
+                       ++ show (stensorKind @z, ftkAst i)
                        ++ ", payload: " ++ show i
         _ -> error "substitute1Ast: span"
     else Nothing

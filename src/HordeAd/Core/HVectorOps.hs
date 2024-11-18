@@ -482,7 +482,7 @@ replicate1HVector = replicate1HVectorF rreplicate sreplicate
 
 repConstant :: forall y target. ADReadyNoLet target
             => (forall r. GoodScalar r => r)
-            -> TensorKindFull y -> target y
+            -> FullTensorKind y -> target y
 repConstant r = \case
   FTKScalar -> rmkRepScalar $ rscalar r
   FTKR sh | SNat <- shrRank sh -> rrepl (toList sh) r
@@ -498,7 +498,7 @@ repConstant r = \case
     $ V.map dynamicFromVoid ssh
 
 repConstant0Old :: forall y target. ADReadyNoLet target
-                => TensorKindFull y -> target y
+                => FullTensorKind y -> target y
 repConstant0Old = \case
   FTKScalar -> rmkRepScalar $ rscalar 0
   FTKR sh | SNat <- shrRank sh -> rzero sh

@@ -797,8 +797,8 @@ class ( Num (IntOf target)
             => target (TKProduct x z)
             -> target z
   dshape :: target TKUntyped -> VoidHVector
-  tshapeFull :: STensorKindType y -> target y
-             -> TensorKindFull y
+  tftk :: STensorKindType y -> target y
+             -> FullTensorKind y
   tcond :: IfF target
         => STensorKindType y
         -> BoolOf target
@@ -818,7 +818,7 @@ class ( Num (IntOf target)
      -> target y
   dmkHVector :: HVector target -> target TKUntyped
   tlambda :: (TensorKind x, TensorKind z)
-          => TensorKindFull x -> HFun x z -> HFunOf target x z
+          => FullTensorKind x -> HFun x z -> HFunOf target x z
   tApply :: (TensorKind x, TensorKind z)
          => HFunOf target x z -> target x
          -> target z
@@ -858,7 +858,7 @@ class ( Num (IntOf target)
   rrev :: forall x r n.
           (TensorKind x, GoodScalar r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR n r))
-       -> TensorKindFull x
+       -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
   rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
@@ -868,7 +868,7 @@ class ( Num (IntOf target)
   rrevDt :: forall x r n.
             (TensorKind x, GoodScalar r, KnownNat n)
          => (forall f. ADReady f => f x -> f (TKR n r))
-         -> TensorKindFull x
+         -> FullTensorKind x
          -> target x
          -> target (ADTensorKind (TKR n r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
@@ -879,7 +879,7 @@ class ( Num (IntOf target)
   rfwd :: forall x r n.
           (TensorKind x, GoodScalar r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR n r))
-       -> TensorKindFull x
+       -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR n r))
@@ -891,14 +891,14 @@ class ( Num (IntOf target)
           ( TensorKind x, GoodScalar r, KnownShS sh
           , ADTensorKind (TKS sh r) ~ TKS sh r )
        => (forall f. ADReady f => f x -> f (TKS sh r))
-       -> TensorKindFull x
+       -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
   srev f ftk es = srevDt f ftk es (srepl 1)
   srevDt :: forall x r sh.
             (TensorKind x, GoodScalar r, KnownShS sh)
          => (forall f. ADReady f => f x -> f (TKS sh r))
-         -> TensorKindFull x
+         -> FullTensorKind x
          -> target x
          -> target (ADTensorKind (TKS sh r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
@@ -909,7 +909,7 @@ class ( Num (IntOf target)
   sfwd :: forall x r sh.
           (TensorKind x, GoodScalar r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS sh r))
-       -> TensorKindFull x
+       -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS sh r))
@@ -929,18 +929,18 @@ class ( Num (IntOf target)
   -- of dmapAccumRDer
   drev
     :: (TensorKind x, TensorKind z)
-    => TensorKindFull x  -- shape of a and da
+    => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target x (ADTensorKind x)  -- a |-> da
   drevDt
     :: (TensorKind x, TensorKind z)
-    => TensorKindFull x  -- shape of a and da
+    => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
                  -- [db, a] |-> da
   dfwd
     :: (TensorKind x, TensorKind z)
-    => TensorKindFull x  -- shape of a and da
+    => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
                  -- [da, a] |-> db
@@ -1070,9 +1070,9 @@ class ( Num (IntOf target)
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy target
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> (forall f. ADReady f
         => f accShs -> f eShs
         -> f (TKProduct accShs bShs))
@@ -1095,9 +1095,9 @@ class ( Num (IntOf target)
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy target
     -> SNat k
-    -> TensorKindFull accShs  -- ^ shapes of acc, the accumulator
-    -> TensorKindFull bShs -- ^ shapes of b
-    -> TensorKindFull eShs -- ^ shapes of e
+    -> FullTensorKind accShs  -- ^ shapes of acc, the accumulator
+    -> FullTensorKind bShs -- ^ shapes of b
+    -> FullTensorKind eShs -- ^ shapes of e
     -> HFunOf target (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                 (TKProduct accShs eShs))
@@ -1116,9 +1116,9 @@ class ( Num (IntOf target)
        (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy target
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> (forall f. ADReady f
         => f accShs -> f eShs
         -> f (TKProduct accShs bShs))
@@ -1141,9 +1141,9 @@ class ( Num (IntOf target)
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy target
     -> SNat k
-    -> TensorKindFull accShs
-    -> TensorKindFull bShs
-    -> TensorKindFull eShs
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
     -> HFunOf target (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                 (TKProduct accShs eShs))

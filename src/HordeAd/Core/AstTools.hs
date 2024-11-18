@@ -5,7 +5,7 @@
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
-    shapeAstFull, shapeAst
+    ftkAst, shapeAst
   , lengthAst, shapeAstHVector, shapeAstHFun
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndex
@@ -40,40 +40,40 @@ import HordeAd.Util.SizedList
 
 -- * Shape calculation
 
-shapeAstFull :: forall s y ms. TensorKind y
-             => AstTensor ms s y -> TensorKindFull y
-shapeAstFull t = case t of
+ftkAst :: forall s y ms. TensorKind y
+             => AstTensor ms s y -> FullTensorKind y
+ftkAst t = case t of
   AstScalar{} -> FTKR ZSR
   AstUnScalar{} -> FTKScalar
-  AstPair t1 t2 -> FTKProduct (shapeAstFull t1) (shapeAstFull t2)
-  AstProject1 v -> case shapeAstFull v of
+  AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
+  AstProject1 v -> case ftkAst v of
     FTKProduct ftk1 _ -> ftk1
-  AstProject2 v -> case shapeAstFull v of
+  AstProject2 v -> case ftkAst v of
     FTKProduct _ ftk2 -> ftk2
   AstVar ftk _var -> ftk
-  AstPrimalPart a -> shapeAstFull a
-  AstDualPart a -> shapeAstFull a
-  AstFromPrimal a -> shapeAstFull a
-  AstD u _ -> shapeAstFull u
-  AstCond _b v _w -> shapeAstFull v
-  AstReplicate snat v -> buildTensorKindFull snat (shapeAstFull v)
-  AstBuild1 snat (_var, v) -> buildTensorKindFull snat (shapeAstFull v)
+  AstPrimalPart a -> ftkAst a
+  AstDualPart a -> ftkAst a
+  AstFromPrimal a -> ftkAst a
+  AstD u _ -> ftkAst u
+  AstCond _b v _w -> ftkAst v
+  AstReplicate snat v -> buildFullTensorKind snat (ftkAst v)
+  AstBuild1 snat (_var, v) -> buildFullTensorKind snat (ftkAst v)
 
-  AstLet _ _ v -> shapeAstFull v
-  AstShare _ v -> shapeAstFull v
-  AstToShare v -> shapeAstFull v
+  AstLet _ _ v -> ftkAst v
+  AstShare _ v -> ftkAst v
+  AstToShare v -> ftkAst v
   AstMinIndex a -> FTKR $ initShape $ shapeAst a
   AstMaxIndex a -> FTKR $ initShape $ shapeAst a
   AstFloor a -> FTKR $ shapeAst a
   AstIota -> FTKR $ singletonShape (maxBound :: Int)  -- ought to be enough
-  AstN1 _opCode v -> shapeAstFull v
-  AstN2 _opCode v _ -> shapeAstFull v
-  AstR1 _opCode v -> shapeAstFull v
-  AstR2 _opCode v _ -> shapeAstFull v
-  AstI2 _opCode v _ -> shapeAstFull v
+  AstN1 _opCode v -> ftkAst v
+  AstN2 _opCode v _ -> ftkAst v
+  AstR1 _opCode v -> ftkAst v
+  AstR2 _opCode v _ -> ftkAst v
+  AstI2 _opCode v _ -> ftkAst v
   AstSumOfList args -> case args of
-    [] -> error "shapeAstFull: AstSumOfList with no arguments"
-    v : _ -> shapeAstFull v
+    [] -> error "ftkAst: AstSumOfList with no arguments"
+    v : _ -> ftkAst v
   AstIndex v _is -> FTKR $ dropShape $ shapeAst v
   AstSum v -> FTKR $ tailShape $ shapeAst v
   AstScatter sh _ _ -> FTKR sh
@@ -81,15 +81,15 @@ shapeAstFull t = case t of
     [] -> case stensorKind @y of
       STKR @n SNat _ -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR $ singletonShape 0
-        Nothing -> error "shapeAstFull: AstFromVector with no arguments"
+        Nothing -> error "ftkAst: AstFromVector with no arguments"
     v : _ -> FTKR $ V.length l :$: shapeAst v
   AstAppend x y -> case shapeAst x of
-    ZSR -> error "shapeAstFull: impossible pattern needlessly required"
+    ZSR -> error "ftkAst: impossible pattern needlessly required"
     xi :$: xsh -> case shapeAst y of
-      ZSR -> error "shapeAstFull: impossible pattern needlessly required"
+      ZSR -> error "ftkAst: impossible pattern needlessly required"
       yi :$: _ -> FTKR $ xi + yi :$: xsh
   AstSlice _i n v -> FTKR $ n :$: tailShape (shapeAst v)
-  AstReverse v -> shapeAstFull v
+  AstReverse v -> ftkAst v
   AstTranspose perm v ->
     FTKR $ Nested.Internal.Shape.shrPermutePrefix perm $ shapeAst v
   AstReshape sh _v -> FTKR sh
@@ -99,8 +99,8 @@ shapeAstFull t = case t of
   AstConcrete a -> FTKR $ Nested.rshape a
   AstProjectR l p -> case shapeAstHVector l V.! p of
     DynamicRankedDummy @_ @sh _ _ -> FTKR $ listToShape $ shapeT @sh
-    DynamicShapedDummy{} -> error "shapeAstFull: DynamicShapedDummy"
-  AstLetHVectorIn _ _ v -> shapeAstFull v
+    DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
+  AstLetHVectorIn _ _ v -> ftkAst v
   AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
     FTKR $ listToShape $ shapeT @sh
 
@@ -143,10 +143,10 @@ shapeAstFull t = case t of
     FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
   AstMapAccumRDer @_ @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildTensorKindFull k bShs)
+      FTKProduct accShs (buildFullTensorKind k bShs)
   AstMapAccumLDer @_ @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildTensorKindFull k bShs)
+      FTKProduct accShs (buildFullTensorKind k bShs)
 
   _ -> error "TODO"
 
@@ -157,7 +157,7 @@ shapeAstFull t = case t of
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n s r ms. (KnownNat n, GoodScalar r)
          => AstTensor ms s (TKR n r) -> IShR n
-shapeAst t = case shapeAstFull t of
+shapeAst t = case ftkAst t of
   FTKR sh -> sh
 
 -- Length of the outermost dimension.
@@ -168,12 +168,12 @@ lengthAst v1 = case shapeAst v1 of
   k :$: _ -> k
 
 shapeAstHVector :: AstTensor ms s TKUntyped -> VoidHVector
-shapeAstHVector t = case shapeAstFull t of
+shapeAstHVector t = case ftkAst t of
   FTKUntyped shs -> shs
 
-shapeAstHFun :: TensorKind y => AstHFun x y -> TensorKindFull y
+shapeAstHFun :: TensorKind y => AstHFun x y -> FullTensorKind y
 shapeAstHFun = \case
-  AstLambda ~(_vvars, _, l) -> shapeAstFull l
+  AstLambda ~(_vvars, _, l) -> ftkAst l
 
 
 -- * Variable occurrence detection

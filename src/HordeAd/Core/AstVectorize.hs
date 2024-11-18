@@ -93,10 +93,10 @@ build1Vectorize snat@SNat (var, v0)
       ++ "END of vectorization yields "
       ++ ellipsisString width (printAstSimple renames endTerm)
       ++ "\n"
-  let !_A = assert (shapeAstFull startTerm == shapeAstFull endTerm
+  let !_A = assert (ftkAst startTerm == ftkAst endTerm
                    `blame` "build1Vectorize: term shape changed"
-                   `swith`( shapeAstFull startTerm
-                          , shapeAstFull endTerm) ) ()
+                   `swith`( ftkAst startTerm
+                          , ftkAst endTerm) ) ()
   return endTerm
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
@@ -272,7 +272,7 @@ build1V snat@SNat (var, v00) =
     Ast.AstLet @y2 var1 u v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-        let ftk2 = shapeAstFull u
+        let ftk2 = ftkAst u
             (var3, _ftk3, v2) =
               substProjRep snat var ftk2 var1 v
         in astLet var3 (build1VOccurenceUnknown snat (var, u))
@@ -475,9 +475,9 @@ build1V snat@SNat (var, v00) =
       astLetFun
         (Ast.AstMapAccumRDer
            k5
-           (buildTensorKindFull snat accShs)
-           (buildTensorKindFull snat bShs)
-           (buildTensorKindFull snat eShs)
+           (buildFullTensorKind snat accShs)
+           (buildFullTensorKind snat bShs)
+           (buildFullTensorKind snat eShs)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
@@ -507,9 +507,9 @@ build1V snat@SNat (var, v00) =
       astLetFun
         (Ast.AstMapAccumLDer
            k5
-           (buildTensorKindFull snat accShs)
-           (buildTensorKindFull snat bShs)
-           (buildTensorKindFull snat eShs)
+           (buildFullTensorKind snat accShs)
+           (buildFullTensorKind snat bShs)
+           (buildFullTensorKind snat eShs)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
@@ -689,18 +689,18 @@ substProjRep
   :: forall k s s2 y2 y.
      ( AstSpan s, AstSpan s2, TensorKind y2, TensorKind y )
   => SNat k -> IntVarName
-  -> TensorKindFull y2 -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
+  -> FullTensorKind y2 -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
   -> ( AstVarName s2 (BuildTensorKind k y2)
-     , TensorKindFull (BuildTensorKind k y2)
+     , FullTensorKind (BuildTensorKind k y2)
      , AstTensor AstMethodLet s y )
 substProjRep snat@SNat var ftk2 var1 v
   | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) =
     let var3 :: AstVarName s2 (BuildTensorKind k y2)
         var3 = mkAstVarName (varNameToAstVarId var1)
-        ftk3 = buildTensorKindFull snat ftk2
+        ftk3 = buildFullTensorKind snat ftk2
         astVar3 = Ast.AstVar ftk3 var3
         projection :: AstTensor AstMethodLet s2 (BuildTensorKind k y4)
-                   -> TensorKindFull y4
+                   -> FullTensorKind y4
                    -> AstTensor AstMethodLet s2 y4
         projection prVar = \case
           FTKScalar ->
@@ -720,7 +720,7 @@ substProjRep snat@SNat var ftk2 var1 v
                   prVar2 = astProject2 prVar
               in astPair (projection prVar1 ftk41)
                          (projection prVar2 ftk42)
-          ftk@(FTKUntyped shs0) -> case buildTensorKindFull snat ftk of
+          ftk@(FTKUntyped shs0) -> case buildFullTensorKind snat ftk of
             FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
               let projDyn :: DynamicTensor (AstTensor AstMethodLet s2)
                           -> DynamicTensor VoidTensor
@@ -924,9 +924,9 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo
     modifyIORef' traceNestingLevel pred
-  let !_A = assert (shapeAstFull from == shapeAstFull to
+  let !_A = assert (ftkAst from == ftkAst to
                     `blame` "mkTraceRule: term shape changed"
-                    `swith`( shapeAstFull from, shapeAstFull to
+                    `swith`( ftkAst from, ftkAst to
                            , from, to )) ()
   return $! to
 

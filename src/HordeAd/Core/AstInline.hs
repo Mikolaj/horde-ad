@@ -476,7 +476,7 @@ unshareAst memo = \case
     _ -> error "TODO"
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
-    let astVar = Ast.AstVar (shapeAstFull v) var
+    let astVar = Ast.AstVar (ftkAst v) var
     in if var `DMap.member` memo
        then (memo, astVar)  -- TODO: memoize AstVar itself
        else let (memo1, v2) = unshareAst memo v

@@ -71,7 +71,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
       hVectorInit = toHVectorOf @RepN valsInit
-      ftk = tshapeFull @RepN
+      ftk = tftk @RepN
                        (stensorKind @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
@@ -179,7 +179,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
       hVectorInit = toHVectorOf @RepN valsInit
-      ftk = tshapeFull @RepN
+      ftk = tftk @RepN
                        (stensorKind @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
@@ -402,7 +402,7 @@ mnistTestCaseRNND prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInit = forgetShape valsInitShaped
         hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
         hVectorInit = toHVectorOf @RepN valsInit
-        ftk = tshapeFull @RepN
+        ftk = tftk @RepN
                          (stensorKind @(X (ADRnnMnistParameters RepN r)))
                          hVectorInit
         name = prefix ++ ": "
