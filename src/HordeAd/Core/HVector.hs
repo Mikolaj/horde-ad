@@ -75,9 +75,9 @@ data RepD target y where
 type role FullTensorKind nominal
 data FullTensorKind y where
   FTKScalar :: GoodScalar r => FullTensorKind (TKScalar r)
-  FTKR :: forall n r. GoodScalar r => IShR n -> FullTensorKind (TKR n r)
-  FTKS :: forall sh r. GoodScalar r => ShS sh -> FullTensorKind (TKS sh r)
-  FTKX :: forall sh r. GoodScalar r => IShX sh -> FullTensorKind (TKX sh r)
+  FTKR :: IShR n -> FullTensorKind x -> FullTensorKind (TKR2 n x)
+  FTKS :: ShS sh -> FullTensorKind x -> FullTensorKind (TKS2 sh x)
+  FTKX :: IShX sh -> FullTensorKind x -> FullTensorKind (TKX2 sh x)
   FTKProduct :: FullTensorKind y -> FullTensorKind z
              -> FullTensorKind (TKProduct y z)
   FTKUntyped :: VoidHVector -> FullTensorKind TKUntyped
@@ -88,9 +88,12 @@ deriving instance Eq (FullTensorKind y)
 lemTensorKindOfF :: FullTensorKind y -> Dict TensorKind y
 lemTensorKindOfF = \case
   FTKScalar -> Dict
-  FTKR sh | SNat <- shrRank sh -> Dict
-  FTKS sh -> withKnownShS sh Dict
-  FTKX sh -> withKnownShX (ssxFromShape sh) Dict
+  FTKR sh x | SNat <- shrRank sh -> case lemTensorKindOfF x of
+    Dict -> Dict
+  FTKS sh x -> case lemTensorKindOfF x of
+    Dict -> withKnownShS sh Dict
+  FTKX sh x -> case lemTensorKindOfF x of
+    Dict -> withKnownShX (ssxFromShape sh) Dict
   FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                        , Dict <- lemTensorKindOfF ftk2 -> Dict
   FTKUntyped{} -> Dict
@@ -98,10 +101,10 @@ lemTensorKindOfF = \case
 buildFullTensorKind :: SNat k -> FullTensorKind y
                     -> FullTensorKind (BuildTensorKind k y)
 buildFullTensorKind snat@SNat = \case
-  FTKScalar -> FTKR $ sNatValue snat :$: ZSR
-  FTKR sh -> FTKR $ sNatValue snat :$: sh
-  FTKS sh -> FTKS $ snat :$$ sh
-  FTKX sh -> FTKX $ SKnown snat :$% sh
+  FTKScalar -> FTKR (sNatValue snat :$: ZSR) FTKScalar
+  FTKR sh x -> FTKR (sNatValue snat :$: sh) x
+  FTKS sh x -> FTKS (snat :$$ sh) x
+  FTKX sh x -> FTKX (SKnown snat :$% sh) x
   FTKProduct ftk1 ftk2 ->
       FTKProduct (buildFullTensorKind snat ftk1)
                  (buildFullTensorKind snat ftk2)
@@ -116,24 +119,9 @@ aDTensorKind t = case t of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            FTKScalar @()
-  FTKR @_ @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKR @_ @() sh
-  FTKS @_ @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKS @_ @() sh
-  FTKX @_ @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKX @_ @() sh
+  FTKR sh x -> FTKR sh (aDTensorKind x)
+  FTKS sh x -> FTKS sh (aDTensorKind x)
+  FTKX sh x -> FTKX sh (aDTensorKind x)
   FTKProduct ftk1 ftk2 ->
     let gtk1 = aDTensorKind ftk1
         gtk2 = aDTensorKind ftk2

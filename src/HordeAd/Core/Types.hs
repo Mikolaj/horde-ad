@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, UndecidableInstances,
              UndecidableSuperClasses #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Some fundamental type families and types.
@@ -232,11 +233,11 @@ instance TensorKind TKUntyped where
 lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
 lemTensorKindOfS = \case
   STKScalar _ -> Dict
-  STKR SNat r -> case lemTensorKindOfS r of
+  STKR SNat x -> case lemTensorKindOfS x of
     Dict -> Dict
-  STKS sh r -> case lemTensorKindOfS r of
+  STKS sh x -> case lemTensorKindOfS x of
     Dict -> withKnownShS sh Dict
-  STKX sh r -> case lemTensorKindOfS r of
+  STKX sh x -> case lemTensorKindOfS x of
     Dict -> withKnownShX sh Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 -> Dict

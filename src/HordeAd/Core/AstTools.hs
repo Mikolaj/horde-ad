@@ -43,7 +43,7 @@ import HordeAd.Util.SizedList
 ftkAst :: forall s y ms. TensorKind y
              => AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
-  AstScalar{} -> FTKR ZSR
+  AstScalar{} -> FTKR ZSR FTKScalar
   AstUnScalar{} -> FTKScalar
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
   AstProject1 v -> case ftkAst v of
@@ -62,10 +62,10 @@ ftkAst t = case t of
   AstLet _ _ v -> ftkAst v
   AstShare _ v -> ftkAst v
   AstToShare v -> ftkAst v
-  AstMinIndex a -> FTKR $ initShape $ shapeAst a
-  AstMaxIndex a -> FTKR $ initShape $ shapeAst a
-  AstFloor a -> FTKR $ shapeAst a
-  AstIota -> FTKR $ singletonShape (maxBound :: Int)  -- ought to be enough
+  AstMinIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
+  AstMaxIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
+  AstFloor a -> FTKR (shapeAst a)  FTKScalar
+  AstIota -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
   AstN1 _opCode v -> ftkAst v
   AstN2 _opCode v _ -> ftkAst v
   AstR1 _opCode v -> ftkAst v
@@ -74,66 +74,66 @@ ftkAst t = case t of
   AstSumOfList args -> case args of
     [] -> error "ftkAst: AstSumOfList with no arguments"
     v : _ -> ftkAst v
-  AstIndex v _is -> FTKR $ dropShape $ shapeAst v
-  AstSum v -> FTKR $ tailShape $ shapeAst v
-  AstScatter sh _ _ -> FTKR sh
+  AstIndex v _is -> FTKR (dropShape $ shapeAst v) FTKScalar
+  AstSum v -> FTKR (tailShape $ shapeAst v) FTKScalar
+  AstScatter sh _ _ -> FTKR sh FTKScalar
   AstFromVector l -> case V.toList l of
     [] -> case stensorKind @y of
       STKR @n SNat _ -> case sameNat (Proxy @n) (Proxy @1) of
-        Just Refl -> FTKR $ singletonShape 0
+        Just Refl -> FTKR (0 :$: ZSR) FTKScalar
         Nothing -> error "ftkAst: AstFromVector with no arguments"
-    v : _ -> FTKR $ V.length l :$: shapeAst v
+    v : _ -> FTKR (V.length l :$: shapeAst v) FTKScalar
   AstAppend x y -> case shapeAst x of
     ZSR -> error "ftkAst: impossible pattern needlessly required"
     xi :$: xsh -> case shapeAst y of
       ZSR -> error "ftkAst: impossible pattern needlessly required"
-      yi :$: _ -> FTKR $ xi + yi :$: xsh
-  AstSlice _i n v -> FTKR $ n :$: tailShape (shapeAst v)
+      yi :$: _ -> FTKR (xi + yi :$: xsh) FTKScalar
+  AstSlice _i n v -> FTKR (n :$: tailShape (shapeAst v)) FTKScalar
   AstReverse v -> ftkAst v
   AstTranspose perm v ->
-    FTKR $ Nested.Internal.Shape.shrPermutePrefix perm $ shapeAst v
-  AstReshape sh _v -> FTKR sh
-  AstGather sh _v (_vars, _ix) -> FTKR sh
-  AstCast v -> FTKR $ shapeAst v
-  AstFromIntegral a -> FTKR $ shapeAst a
-  AstConcrete a -> FTKR $ Nested.rshape a
+    FTKR (Nested.Internal.Shape.shrPermutePrefix perm $ shapeAst v) FTKScalar
+  AstReshape sh _v -> FTKR sh FTKScalar
+  AstGather sh _v (_vars, _ix) -> FTKR sh FTKScalar
+  AstCast v -> FTKR (shapeAst v) FTKScalar
+  AstFromIntegral a -> FTKR (shapeAst a) FTKScalar
+  AstConcrete a -> FTKR (Nested.rshape a) FTKScalar
   AstProjectR l p -> case shapeAstHVector l V.! p of
-    DynamicRankedDummy @_ @sh _ _ -> FTKR $ listToShape $ shapeT @sh
+    DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
   AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
-    FTKR $ listToShape $ shapeT @sh
+    FTKR (listToShape $ shapeT @sh) FTKScalar
 
-  AstMinIndexS{} -> FTKS knownShS
-  AstMaxIndexS{} -> FTKS knownShS
-  AstFloorS{} -> FTKS knownShS
-  AstIotaS{} -> FTKS knownShS
-  AstN1S{} -> FTKS knownShS
-  AstN2S{} -> FTKS knownShS
-  AstR1S{} -> FTKS knownShS
-  AstR2S{} -> FTKS knownShS
-  AstI2S{} -> FTKS knownShS
-  AstSumOfListS{} -> FTKS knownShS
-  AstIndexS{} -> FTKS knownShS
-  AstSumS{} -> FTKS knownShS
-  AstScatterS{} -> FTKS knownShS
-  AstFromVectorS{} -> FTKS knownShS
-  AstAppendS{} -> FTKS knownShS
-  AstSliceS{} -> FTKS knownShS
-  AstReverseS{} -> FTKS knownShS
+  AstMinIndexS{} -> FTKS knownShS FTKScalar
+  AstMaxIndexS{} -> FTKS knownShS FTKScalar
+  AstFloorS{} -> FTKS knownShS FTKScalar
+  AstIotaS{} -> FTKS knownShS FTKScalar
+  AstN1S{} -> FTKS knownShS FTKScalar
+  AstN2S{} -> FTKS knownShS FTKScalar
+  AstR1S{} -> FTKS knownShS FTKScalar
+  AstR2S{} -> FTKS knownShS FTKScalar
+  AstI2S{} -> FTKS knownShS FTKScalar
+  AstSumOfListS{} -> FTKS knownShS FTKScalar
+  AstIndexS{} -> FTKS knownShS FTKScalar
+  AstSumS{} -> FTKS knownShS FTKScalar
+  AstScatterS{} -> FTKS knownShS FTKScalar
+  AstFromVectorS{} -> FTKS knownShS FTKScalar
+  AstAppendS{} -> FTKS knownShS FTKScalar
+  AstSliceS{} -> FTKS knownShS FTKScalar
+  AstReverseS{} -> FTKS knownShS FTKScalar
   AstTransposeS @perm @sh2 perm _v ->
     withShapeP
       (backpermutePrefixList (Permutation.permToList' perm)
                              (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
         gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
-        FTKS knownShS
-  AstReshapeS{} -> FTKS knownShS
-  AstGatherS{} -> FTKS knownShS
-  AstCastS{} -> FTKS knownShS
-  AstFromIntegralS{} -> FTKS knownShS
-  AstConcreteS{} -> FTKS knownShS
-  AstProjectS{} -> FTKS knownShS
-  AstSFromR{} -> FTKS knownShS
+        FTKS knownShS FTKScalar
+  AstReshapeS{} -> FTKS knownShS FTKScalar
+  AstGatherS{} -> FTKS knownShS FTKScalar
+  AstCastS{} -> FTKS knownShS FTKScalar
+  AstFromIntegralS{} -> FTKS knownShS FTKScalar
+  AstConcreteS{} -> FTKS knownShS FTKScalar
+  AstProjectS{} -> FTKS knownShS FTKScalar
+  AstSFromR{} -> FTKS knownShS FTKScalar
 
   AstMkHVector v ->
     FTKUntyped
@@ -158,7 +158,7 @@ ftkAst t = case t of
 shapeAst :: forall n s r ms. (KnownNat n, GoodScalar r)
          => AstTensor ms s (TKR n r) -> IShR n
 shapeAst t = case ftkAst t of
-  FTKR sh -> sh
+  FTKR sh _ -> sh
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, GoodScalar r) => AstTensor ms s (TKR (1 + n) r) -> Int

@@ -512,14 +512,14 @@ testReluSimpPP :: Assertion
 testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
-            $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 14032
-  length (show (simplifyInline @(TKR 10 Float) t1)) @?= 14032
+            $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
+  length (show t1) @?= 15152
+  length (show (simplifyInline @(TKR 10 Float) t1)) @?= 15152
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
-            $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 11024
-  length (show (simplifyInline @(TKR 10 Float) t2)) @?= 14032
+            $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
+  length (show t2) @?= 12144
+  length (show (simplifyInline @(TKR 10 Float) t2)) @?= 15152
 
 testBarReluADVal320 :: Assertion
 testBarReluADVal320 =

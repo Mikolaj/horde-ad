@@ -212,9 +212,9 @@ generateDeltaInputs =
   let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
       gen j ftk = case ftk of
         FTKScalar -> (InputG ftk (toInputId j), j + 1)
-        FTKR sh | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
-        FTKS sh -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
-        FTKX sh -> withKnownShX (ssxFromShape sh)
+        FTKR sh FTKScalar | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
+        FTKS sh FTKScalar -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
+        FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh)
                    $ (InputG ftk (toInputId j), j + 1)
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                              , Dict <- lemTensorKindOfF ftk2 ->
@@ -225,11 +225,12 @@ generateDeltaInputs =
           let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (Delta target)
               f (i, DynamicRankedDummy @r @sh _ _) =
                 withListSh (Proxy @sh) $ \sh ->
-                  DynamicRanked $ InputG (FTKR @_ @r sh) (toInputId i)
+                  DynamicRanked $ InputG (FTKR sh (FTKScalar @r)) (toInputId i)
               f (i, DynamicShapedDummy @r @sh _ _) =
-                DynamicShaped $ InputG (FTKS @sh @r knownShS) (toInputId i)
+                DynamicShaped $ InputG (FTKS @sh knownShS (FTKScalar @r)) (toInputId i)
               len = V.length shs
           in (HToH $ V.map f $ V.zip (V.enumFromN j len) shs, j + len)
+        _ -> error "TODO"
   in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
@@ -265,10 +266,10 @@ rFromH (HToH hv) i = case hv V.! i of
   DynamicRankedDummy @r2 @sh _ _
     | Just Refl <- matchingRank @sh @n
     , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG (FTKR $ fromList $ shapeT @sh)
+      ZeroG $ FTKR (fromList $ shapeT @sh) FTKScalar
   _ -> error "rFromH: impossible case"
 rFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
-  DynamicRankedDummy @_ @sh _ _ -> ZeroG (FTKR $ fromList $ shapeT @sh)
+  DynamicRankedDummy @_ @sh _ _ -> ZeroG $ FTKR (fromList $ shapeT @sh) FTKScalar
   DynamicShapedDummy{} -> error "rFromH: DynamicShapedDummy"
 rFromH d i = RFromH d i
 
@@ -281,11 +282,11 @@ sFromH (HToH hv) i = case hv V.! i of
   DynamicShapedDummy @r2 @sh3 _ _
     | Just Refl <- sameShape @sh @sh3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG (FTKS $ fromList $ shapeT @sh3)
+      ZeroG $ FTKS (fromList $ shapeT @sh3) FTKScalar
   _ -> error "sFromH: impossible case"
 sFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
   DynamicRankedDummy{} -> error "sFromH: DynamicRankedDummy"
-  DynamicShapedDummy @_ @sh3 _ _ -> ZeroG (FTKS $ fromList $ shapeT @sh3)
+  DynamicShapedDummy @_ @sh3 _ _ -> ZeroG $ FTKS (fromList $ shapeT @sh3) FTKScalar
 sFromH d i = SFromH d i
 
 

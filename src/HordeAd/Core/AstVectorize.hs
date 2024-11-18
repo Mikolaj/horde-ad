@@ -705,11 +705,11 @@ substProjRep snat@SNat var ftk2 var1 v
         projection prVar = \case
           FTKScalar ->
             Ast.AstUnScalar $ Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-          FTKR sh | SNat <- shrRank sh ->
+          FTKR sh FTKScalar | SNat <- shrRank sh ->
             Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-          FTKS sh -> withKnownShS sh
+          FTKS sh FTKScalar -> withKnownShS sh
                      $ Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
-          FTKX sh -> withKnownShX (ssxFromShape sh)
+          FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh)
                      $ Ast.AstIndexX prVar (Ast.AstIntVar var :.% ZIX)
           FTKProduct @z1 @z2 ftk41 ftk42
             | Dict <- lemTensorKindOfF ftk41
@@ -729,16 +729,17 @@ substProjRep snat@SNat var ftk2 var1 v
                           (DynamicRankedDummy @_ @sh3 _ _)
                     | Just Refl <- matchingRank @(k ': sh3) @n2 =
                       withListSh (Proxy @sh3) $ \sh1 ->
-                        DynamicRanked $ projection t (FTKR sh1)
+                        DynamicRanked $ projection t (FTKR sh1 FTKScalar)
                   projDyn (DynamicShaped @_ @sh2 t)
                           (DynamicShapedDummy @_ @sh3 _ _)
                     | Just Refl <- sameShape @sh2 @(k ': sh3) =
-                      DynamicShaped $ projection t (FTKS @sh3 knownShS)
+                      DynamicShaped $ projection t (FTKS @sh3 knownShS FTKScalar)
                   projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
               in astLetHVectorIn
                    vars
                    prVar
                    (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
+          _ -> error "TODO"
         v2 = substituteAst
                (projection astVar3 ftk2)
                var1 v
@@ -753,7 +754,7 @@ substProjRanked :: forall n1 r1 s1 s y.
 substProjRanked k var sh1 var1 =
   let var2 = mkAstVarName @s1 @(TKR (1 + n1) r1) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
       projection =
-        Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh1) var2)
+        Ast.AstIndex (Ast.AstVar (FTKR (k :$: sh1) FTKScalar) var2)
                      (Ast.AstIntVar var :.: ZIR)
   in substituteAst
        projection var1
@@ -769,7 +770,7 @@ substProjShaped :: forall k sh1 r1 s1 s y.
 substProjShaped var var1 =
   let var2 = mkAstVarName @s1 @(TKS (k : sh1) r1) (varNameToAstVarId var1)
       projection =
-        Ast.AstIndexS (Ast.AstVar @(TKS (k ': sh1) r1) (FTKS knownShS) var2)
+        Ast.AstIndexS (Ast.AstVar @(TKS (k ': sh1) r1) (FTKS knownShS FTKScalar) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
        projection var1

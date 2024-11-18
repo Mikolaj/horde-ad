@@ -136,11 +136,12 @@ initialStateAdamDeep ftk =
 repDeepZero :: FullTensorKind y -> RepN y
 repDeepZero = \case
   FTKScalar -> RepN $ RepScalar $ Nested.rreplicateScal ZSR 0
-  FTKR sh -> RepN $ Nested.rreplicateScal sh 0
-  FTKS sh -> RepN $ Nested.sreplicateScal sh 0
-  FTKX sh -> RepN $ Nested.mreplicateScal sh 0
+  FTKR sh FTKScalar -> RepN $ Nested.rreplicateScal sh 0
+  FTKS sh FTKScalar -> RepN $ Nested.sreplicateScal sh 0
+  FTKX sh FTKScalar -> RepN $ Nested.mreplicateScal sh 0
   FTKProduct ftk1 ftk2 -> RepN (unRepN $ repDeepZero ftk1, unRepN $ repDeepZero ftk2)
   FTKUntyped{} -> error "repDeepZero: FTKUntyped"
+  _ -> error "TODO"
 
 updateWithGradientAdamDeep
   :: TensorKind y

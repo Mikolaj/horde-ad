@@ -485,9 +485,9 @@ repConstant :: forall y target. ADReadyNoLet target
             -> FullTensorKind y -> target y
 repConstant r = \case
   FTKScalar -> rmkRepScalar $ rscalar r
-  FTKR sh | SNat <- shrRank sh -> rrepl (toList sh) r
-  FTKS sh -> withKnownShS sh $ srepl r
-  FTKX sh -> withKnownShX (ssxFromShape sh) $ xrepl sh r
+  FTKR sh FTKScalar | SNat <- shrRank sh -> rrepl (toList sh) r
+  FTKS sh FTKScalar -> withKnownShS sh $ srepl r
+  FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xrepl sh r
   FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                        , Dict <- lemTensorKindOfF ftk2 ->
     tpair (repConstant r ftk1)
@@ -496,19 +496,21 @@ repConstant r = \case
     dmkHVector
     $ mapHVectorShaped (const $ srepl @_ @_ @target r)
     $ V.map dynamicFromVoid ssh
+  _ -> error "TODO"
 
 repConstant0Old :: forall y target. ADReadyNoLet target
                 => FullTensorKind y -> target y
 repConstant0Old = \case
   FTKScalar -> rmkRepScalar $ rscalar 0
-  FTKR sh | SNat <- shrRank sh -> rzero sh
-  FTKS sh -> withKnownShS sh $ srepl 0
-  FTKX sh -> withKnownShX (ssxFromShape sh) $ xzero sh
+  FTKR sh FTKScalar | SNat <- shrRank sh -> rzero sh
+  FTKS sh FTKScalar -> withKnownShS sh $ srepl 0
+  FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xzero sh
   FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
                        , Dict <- lemTensorKindOfF ftk2 ->
     tpair (repConstant0Old ftk1)
           (repConstant0Old ftk2)
   FTKUntyped ssh -> dmkHVector $ V.map dynamicFromVoid ssh
+  _ -> error "TODO"
 
 toADTensorKindShared
   :: forall target y. (BaseTensor target, ShareTensor target)

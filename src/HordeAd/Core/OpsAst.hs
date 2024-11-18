@@ -386,7 +386,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rScale s t = astDualPart $ AstFromPrimal s * AstD (rzero (rshape s)) t
 
   xshape t = case ftkAst t of
-    FTKX sh -> sh
+    FTKX sh FTKScalar -> sh
   xindex v ix = AstIndexX v ix
   xfromVector = AstFromVectorX
   xreplicate = AstReplicate SNat
@@ -643,7 +643,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                   * AstD (unAstRaw $ rzero (rshape s)) t
 
   xshape t = case ftkAst $ unAstRaw t of
-    FTKX sh -> sh
+    FTKX sh FTKScalar -> sh
   xindex v ix =
     AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
   xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
@@ -868,7 +868,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rScale s t = rScale @(AstTensor AstMethodLet PrimalSpan) (unAstNoVectorize s) t
 
   xshape t = case ftkAst $ unAstNoVectorize t of
-    FTKX sh -> sh
+    FTKX sh FTKScalar -> sh
   xindex v ix =
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   xfromVector = AstNoVectorize . xfromVector . V.map unAstNoVectorize
@@ -1092,7 +1092,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                   * AstD (rzero (rshape s)) t
 
   xshape t = case ftkAst $ unAstNoSimplify t of
-    FTKX sh -> sh
+    FTKX sh FTKScalar -> sh
   xindex v ix =
     AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify

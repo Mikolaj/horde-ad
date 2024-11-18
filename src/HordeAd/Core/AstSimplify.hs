@@ -2337,9 +2337,10 @@ astLetHVectorIn vars l v = case v of
         STKScalar _ -> Ast.AstUnScalar $ astProjectR l i
         STKR SNat STKScalar{} -> astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astProjectS l i
-        STKX sh  STKScalar{}-> withKnownShX sh $ error "TODO"
+        STKX sh STKScalar{}-> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
+        _ -> error "TODO"
       _ -> v
   Ast.AstPrimalPart (Ast.AstVar _ var2) ->
     case elemIndex (varNameToAstVarId var2)
@@ -2351,6 +2352,7 @@ astLetHVectorIn vars l v = case v of
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
+        _ -> error "TODO"
       _ -> v
   Ast.AstDualPart (Ast.AstVar _ var2) ->
     case elemIndex (varNameToAstVarId var2)
@@ -2362,6 +2364,7 @@ astLetHVectorIn vars l v = case v of
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
+        _ -> error "TODO"
       _ -> v
   _ -> case l of
         Ast.AstMkHVector l3 ->

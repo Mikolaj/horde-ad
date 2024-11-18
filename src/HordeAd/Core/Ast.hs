@@ -199,7 +199,7 @@ type AstInt ms = AstTensor ms PrimalSpan (TKS '[] Int64)
 type IntVarName = AstVarName PrimalSpan (TKS '[] Int64)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
-pattern AstIntVar var = AstVar (FTKS ZSS) var
+pattern AstIntVar var = AstVar (FTKS ZSS FTKScalar) var
 
 isTensorInt :: forall s y ms. (AstSpan s, TensorKind y)
             => AstTensor ms s y

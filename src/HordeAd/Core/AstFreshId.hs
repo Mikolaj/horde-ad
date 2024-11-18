@@ -84,13 +84,13 @@ funToAstIO sh f = do
             !x = f (AstVar FTKScalar varName)
             dynVar = AstDynamicVarName @Nat @r @'[] freshId
         in (varName, dynVar, x)
-    FTKR @_ @r shr ->
+    FTKR shr (FTKScalar @r) ->
       return $! withShapeP (shapeToList shr) $ \(Proxy @p_sh) ->
         let varName = mkAstVarName freshId
             !x = f (AstVar sh varName)
             dynVar = AstDynamicVarName @Nat @r @p_sh freshId
         in (varName, dynVar, x)
-    FTKS @sh @r shs -> do
+    FTKS @sh shs (FTKScalar @r) -> do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
           dynVar = withKnownShS shs $ AstDynamicVarName @[Nat] @r @sh freshId
@@ -104,6 +104,7 @@ funToAstIO sh f = do
       let varName = mkAstVarName freshId
           !x = f (AstVar sh varName)
       return (varName, undefined, x)
+    _ -> error "TODO"
 
 funToAst :: TensorKind y
          => FullTensorKind y
@@ -149,14 +150,14 @@ dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
   return $! withListSh (Proxy @sh2) $ \sh4 ->
     let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
         dynE :: AstDynamic ms s
-        !dynE = DynamicRanked @r2 (AstVar (FTKR sh4) (mkAstVarName freshId))
+        !dynE = DynamicRanked @r2 (AstVar (FTKR sh4 FTKScalar) (mkAstVarName freshId))
     in (varE, dynE)
 dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
   freshId <- unsafeGetFreshAstVarId
   return $!
     let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
         dynE :: AstDynamic ms s
-        !dynE = DynamicShaped @r2 @sh2 (AstVar (FTKS knownShS) (mkAstVarName freshId))
+        !dynE = DynamicShaped @r2 @sh2 (AstVar (FTKS knownShS FTKScalar) (mkAstVarName freshId))
     in (varE, dynE)
 
 funToAstRevIO :: forall x. FullTensorKind x

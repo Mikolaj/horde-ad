@@ -126,7 +126,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
-        FTKR @n @r sh | SNat <- shrRank sh -> case els of
+        FTKR @n sh (FTKScalar @r) | SNat <- shrRank sh -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
             case ( sameNat (Proxy @n) (Proxy @n2)
                  , testEquality (typeRep @r) (typeRep @r2) ) of
@@ -143,7 +143,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
-        FTKS @sh @r sh -> withKnownShS sh $ case els of
+        FTKS @sh sh (FTKScalar @r) -> withKnownShS sh $ case els of
           Some mt@(MTKS @r2 @sh2 t) : rest ->
             case ( sameShape @sh @sh2
                  , testEquality (typeRep @r) (typeRep @r2) ) of
@@ -180,6 +180,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           in ( dmkHVector
                $ V.fromList $ map toDynamicTensor els1
              , els2 )
+        _ -> error "TODO"
       (res, remainder) = rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2)
                          $ aDTensorKind parameters0
   in assert (null remainder) res
@@ -213,11 +214,11 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
                        , Int )
       generateDSums j ftk t = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalar @r t], j + 1)
-        FTKR @_ @r sh | SNat <- shrRank sh ->
+        FTKR sh (FTKScalar @r) | SNat <- shrRank sh ->
           withShapeP (shapeToList sh) $ \(Proxy @sh) ->
             case lemKnownNatRank (knownShS @sh) of
               Dict -> ([InputId j :=> MTKR @r t], j + 1)
-        FTKS @sh @r sh -> withKnownShS sh
+        FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
                           $ ([InputId j :=> MTKS @r @sh t], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
@@ -231,6 +232,7 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
               len = V.length ts
           in ( zipWith dynamicTensorToRepM [j ..] $ V.toList ts
              , j + len )
+        _ -> error "TODO"
       iMap = DMap.fromDistinctAscList $ fst
              $ generateDSums 0 (tftk stensorKind ds) ds
       s0 = DMap.empty
@@ -633,7 +635,7 @@ deriving instance ( TensorKind y
 shapeDeltaFull :: forall target y. TensorKind y
                => Delta target y -> FullTensorKind y
 shapeDeltaFull = \case
-  ScalarG{} -> FTKR ZSR
+  ScalarG{} -> FTKR ZSR FTKScalar
   UnScalarG{} -> FTKScalar
   PairG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
   Project1G v -> case shapeDeltaFull v of
@@ -646,54 +648,54 @@ shapeDeltaFull = \case
   ScaleG _ d -> shapeDeltaFull d
   AddG d _ -> shapeDeltaFull d
 
-  IndexR d _ -> FTKR $ dropShape (shapeDelta d)
-  SumR d -> FTKR $ tailShape (shapeDelta d)
-  Sum0R{} -> FTKR ZSR
-  Dot0R{} -> FTKR ZSR
-  ScatterR sh _ _ -> FTKR sh
+  IndexR d _ -> FTKR (dropShape (shapeDelta d)) FTKScalar
+  SumR d -> FTKR (tailShape (shapeDelta d)) FTKScalar
+  Sum0R{} -> FTKR ZSR FTKScalar
+  Dot0R{} -> FTKR ZSR FTKScalar
+  ScatterR sh _ _ -> FTKR sh FTKScalar
   FromVectorR l -> case V.toList l of
     [] -> case stensorKind @y of
       STKR @n SNat _ -> case sameNat (Proxy @n) (Proxy @1) of
-        Just Refl -> FTKR $ singletonShape 0  -- the only case where we can guess sh
+        Just Refl -> FTKR (singletonShape 0) FTKScalar  -- the only case where we can guess sh
         _ -> error "shapeDeltaFull: FromVectorR with no arguments"
-    d : _ -> FTKR $ length l :$: shapeDelta d
-  ReplicateR n d -> FTKR $ n :$: shapeDelta d
+    d : _ -> FTKR (length l :$: shapeDelta d) FTKScalar
+  ReplicateR n d -> FTKR (n :$: shapeDelta d) FTKScalar
   AppendR x y -> case shapeDelta x of
     ZSR -> error "shapeDeltaFull: impossible pattern needlessly required"
     xi :$: xsh -> case shapeDelta y of
       ZSR -> error "shapeDeltaFull: impossible pattern needlessly required"
-      yi :$: _ -> FTKR $ xi + yi :$: xsh
-  SliceR _ n d -> FTKR $ n :$: tailShape (shapeDelta d)
+      yi :$: _ -> FTKR (xi + yi :$: xsh) FTKScalar
+  SliceR _ n d -> FTKR (n :$: tailShape (shapeDelta d)) FTKScalar
   ReverseR d -> shapeDeltaFull d
-  TransposeR perm d -> FTKR $ Nested.Internal.Shape.shrPermutePrefix perm (shapeDelta d)
-  ReshapeR sh _ -> FTKR sh
-  GatherR sh _ _ -> FTKR sh
-  CastR d -> FTKR $ shapeDelta d
+  TransposeR perm d -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm (shapeDelta d)) FTKScalar
+  ReshapeR sh _ -> FTKR sh FTKScalar
+  GatherR sh _ _ -> FTKR sh FTKScalar
+  CastR d -> FTKR (shapeDelta d) FTKScalar
   RFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
-    FTKR $ listToShape $ shapeT @sh
-  RFromH d i -> FTKR $ listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)
+    FTKR (listToShape $ shapeT @sh) FTKScalar
+  RFromH d i -> FTKR (listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
-  IndexS{} -> FTKS knownShS
-  SumS{} -> FTKS knownShS
-  Sum0S{} -> FTKS knownShS
-  Dot0S{} -> FTKS knownShS
-  ScatterS{} -> FTKS knownShS
-  FromVectorS{} -> FTKS knownShS
-  ReplicateS{} -> FTKS knownShS
-  AppendS{} -> FTKS knownShS
-  SliceS{} -> FTKS knownShS
-  ReverseS{} -> FTKS knownShS
+  IndexS{} -> FTKS knownShS FTKScalar
+  SumS{} -> FTKS knownShS FTKScalar
+  Sum0S{} -> FTKS knownShS FTKScalar
+  Dot0S{} -> FTKS knownShS FTKScalar
+  ScatterS{} -> FTKS knownShS FTKScalar
+  FromVectorS{} -> FTKS knownShS FTKScalar
+  ReplicateS{} -> FTKS knownShS FTKScalar
+  AppendS{} -> FTKS knownShS FTKScalar
+  SliceS{} -> FTKS knownShS FTKScalar
+  ReverseS{} -> FTKS knownShS FTKScalar
   TransposeS @perm @sh2 perm _v ->
     withShapeP
       (backpermutePrefixList (Permutation.permToList' perm)
                              (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
         gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
-        FTKS knownShS
-  ReshapeS{} -> FTKS knownShS
-  GatherS{} -> FTKS knownShS
-  CastS{} -> FTKS knownShS
-  SFromR{} -> FTKS knownShS
-  SFromH{} -> FTKS knownShS
+        FTKS knownShS FTKScalar
+  ReshapeS{} -> FTKS knownShS FTKScalar
+  GatherS{} -> FTKS knownShS FTKScalar
+  CastS{} -> FTKS knownShS FTKScalar
+  SFromR{} -> FTKS knownShS FTKScalar
+  SFromH{} -> FTKS knownShS FTKScalar
 
   IndexX{} -> error "TODO"
   FromVectorX{} -> error "TODO"
@@ -711,7 +713,7 @@ shapeDelta :: forall target r n.
               (GoodScalar r, KnownNat n)
            => Delta target (TKR n r) -> IShR n
 shapeDelta t = case shapeDeltaFull t of
-  FTKR sh -> sh
+  FTKR sh FTKScalar -> sh
 
 lengthDelta :: forall target r n.
                (GoodScalar r, KnownNat n)
@@ -853,10 +855,10 @@ initEvalState ftk0 =
                     -> ([DSum (InputId target) (RepM target)], Int)
       generateDSums j ftk  = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)
-        FTKR @_ @r sh -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
+        FTKR sh (FTKScalar @r) -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
           case lemKnownNatRank (knownShS @sh) of
             Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
-        FTKS @sh @r sh -> withKnownShS sh
+        FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
                           $ ([InputId j :=> MTKSDummy @r @sh], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 ->
@@ -868,6 +870,7 @@ initEvalState ftk0 =
           in ( zipWith fromDynamicTensor [j ..]
                $ map dynamicFromVoid $ V.toList shs
              , j + len )
+        _ -> error "TODO"
       -- Create finite maps that hold values associated with inputs
       -- and with (possibly shared) term tree nodes.
       -- The former are usually initialized with dummy values so that it's cheap
@@ -1248,12 +1251,12 @@ evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
     evalSame @(TKR (Rank sh) r)
              s3 (toADTensorKindShared (stensorKind @(TKR (Rank sh) r))
                  $ rfromD @r t)
-             (ZeroG $ FTKR sh2)
+             (ZeroG $ FTKR sh2 FTKScalar)
 evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
   evalSame @(TKS sh r)
         s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t)
-        (ZeroG $ FTKS knownShS)
+        (ZeroG $ FTKS knownShS FTKScalar)
 
 evalHVector
   :: (ADReadyNoLet target, ShareTensor target)
@@ -1354,10 +1357,10 @@ fwdDynamic params s (DynamicShaped @r @sh d) =
 fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
   withListSh (Proxy @sh) $ \sh2 ->
-    second (DynamicRanked @r) $ fwdSame params s (ZeroG $ FTKR sh2)
+    second (DynamicRanked @r) $ fwdSame params s (ZeroG $ FTKR sh2 FTKScalar)
 fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
   gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  second (DynamicShaped @r @sh) $ fwdSame params s (ZeroG $ FTKS knownShS)
+  second (DynamicShaped @r @sh) $ fwdSame params s (ZeroG $ FTKS knownShS FTKScalar)
 
 fwdHVector
   :: forall target. (ADReadyNoLet target, ShareTensor target)

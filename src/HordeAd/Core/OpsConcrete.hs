@@ -197,9 +197,9 @@ instance BaseTensor RepN where
   dshape = voidFromHVector . unRepN
   tftk stk t = case stk of
     STKScalar _ -> FTKScalar
-    STKR SNat STKScalar{} -> FTKR $ tshapeR $ unRepN t
-    STKS sh STKScalar{} -> FTKS sh
-    STKX sh STKScalar{} -> withKnownShX sh $ FTKX $ Nested.mshape $ unRepN t
+    STKR SNat STKScalar{} -> FTKR (tshapeR $ unRepN t) FTKScalar
+    STKS sh STKScalar{} -> FTKS sh FTKScalar
+    STKX _sh STKScalar{} -> FTKX (Nested.mshape $ unRepN t) FTKScalar
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tftk stk1 (tproject1 t))

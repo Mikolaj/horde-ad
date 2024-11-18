@@ -962,9 +962,9 @@ class ( Num (IntOf target)
       tproject1
         (dmapAccumL (Proxy @target)
            snat
-           (FTKR @_ @rn sh)
+           (FTKR @_ sh (FTKScalar @rn))
            (FTKUntyped V.empty)
-           (FTKR @_ @rm shm)
+           (FTKR @_ shm (FTKScalar @rm))
            (let g :: forall f. ADReady f
                   => f (TKR n rn) -> f (TKR m rm)
                   -> f (TKProduct (TKR n rn) TKUntyped)
@@ -993,9 +993,9 @@ class ( Num (IntOf target)
             tproject2
             $ dmapAccumL (Proxy @target)
                 snat
-                (FTKR @_ @rn sh)
-                (FTKR @_ @rn sh)
-                (FTKR @_ @rm shm)
+                (FTKR @_ sh (FTKScalar @rn))
+                (FTKR @_ sh (FTKScalar @rn))
+                (FTKR @_ shm (FTKScalar @rm))
                 (let g :: forall f. ADReady f
                        => f (TKR n rn) -> f (TKR m rm)
                        -> f (TKProduct (TKR n rn) (TKR n rn))
@@ -1016,9 +1016,9 @@ class ( Num (IntOf target)
     tproject1
       (dmapAccumL (Proxy @target)
          (SNat @k)
-         (FTKS @sh @rn knownShS)
+         (FTKS @sh knownShS (FTKScalar @rn))
          (FTKUntyped V.empty)
-         (FTKS @shm @rm knownShS)
+         (FTKS @shm knownShS (FTKScalar @rm))
          (let g :: forall f. ADReady f
                 => f (TKS sh rn) -> f (TKS shm rm)
                 -> f (TKProduct (TKS sh rn) TKUntyped)
@@ -1040,9 +1040,9 @@ class ( Num (IntOf target)
           tproject2
           $ dmapAccumL (Proxy @target)
              (SNat @k)
-             (FTKS @sh @rn knownShS)
-             (FTKS @sh @rn knownShS)
-             (FTKS @shm @rm knownShS)
+             (FTKS @sh knownShS (FTKScalar @rn))
+             (FTKS @sh knownShS (FTKScalar @rn))
+             (FTKS @shm knownShS (FTKScalar @rm))
              (let g :: forall f. ADReady f
                     => f (TKS sh rn) -> f (TKS shm rm)
                     -> f (TKProduct (TKS sh rn) (TKS sh rn))
