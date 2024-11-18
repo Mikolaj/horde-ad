@@ -43,9 +43,9 @@ toRepDShare
   => STensorKindType x -> target x -> RepD target x
 toRepDShare stk t = case stk of
   STKScalar _ -> DTKScalar t
-  STKR STKScalar{} SNat -> DTKR t
-  STKS STKScalar{} sh -> withKnownShS sh $ DTKS t
-  STKX STKScalar{} sh -> withKnownShX sh $ DTKX t
+  STKR SNat STKScalar{} -> DTKR t
+  STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
+  STKX sh STKScalar{} -> withKnownShX sh $ DTKX t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     let (t1, t2) = tunpair t
@@ -63,9 +63,9 @@ toRepDDuplicable
   => STensorKindType x -> target x -> RepD target x
 toRepDDuplicable stk t = case stk of
   STKScalar _ -> DTKScalar t
-  STKR STKScalar{} SNat -> DTKR t
-  STKS STKScalar{} sh -> withKnownShS sh $ DTKS t
-  STKX STKScalar{} sh -> withKnownShX sh $ DTKX t
+  STKR SNat STKScalar{} -> DTKR t
+  STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
+  STKX sh STKScalar{} -> withKnownShX sh $ DTKX t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2 ->
     DTKProduct (toRepDDuplicable stk1 (tproject1 t))
@@ -167,8 +167,8 @@ dynamicFromVoid (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 fromDynamicR :: forall r n target.
                 (GoodScalar r, KnownNat n)
-             => (IShR n -> target (TKR r n)) -> DynamicTensor target
-             -> target (TKR r n)
+             => (IShR n -> target (TKR n r)) -> DynamicTensor target
+             -> target (TKR n r)
 fromDynamicR zero = \case
   DynamicRanked @r2 @n2 t -> case sameNat (Proxy @n2) (Proxy @n) of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
@@ -187,8 +187,8 @@ fromDynamicR zero = \case
 
 fromDynamicS :: forall r sh target.
                 (GoodScalar r, KnownShS sh)
-             => target (TKS r sh) -> DynamicTensor target
-             -> target (TKS r sh)
+             => target (TKS sh r) -> DynamicTensor target
+             -> target (TKS sh r)
 fromDynamicS zero = \case
   DynamicRanked{} -> error "fromDynamicS: shaped from ranked"
   DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
@@ -225,7 +225,7 @@ unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
 unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case knownShS @sh of
   ZSS -> error "unravelDynamic: rank 0"
   (:$$) SNat tl | Dict <- sshapeKnown tl ->
-    map DynamicShaped $ sunravelToList (srepl 0 :: target (TKS rp sh))
+    map DynamicShaped $ sunravelToList (srepl 0 :: target (TKS sh rp))
 
 unravelHVector
   :: forall target. BaseTensor target
@@ -242,7 +242,7 @@ ravelDynamicRanked ld = case ld of
   d : _ -> case ( someNatVal $ toInteger (length $ shapeDynamic d)
                 , scalarDynamic d ) of
     (Just (SomeNat @p1 _), DynamicScalar @rp _) ->
-      let g :: DynamicTensor target -> target (TKR rp p1)
+      let g :: DynamicTensor target -> target (TKR p1 rp)
           g (DynamicRanked @rq @q t)
             | Just Refl <- sameNat (Proxy @q) (Proxy @p1)
             , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) = t
@@ -271,7 +271,7 @@ ravelDynamicShaped ld = case ld of
     $ \(Proxy @shp) -> case ( someNatVal $ toInteger $ length ld
                             , scalarDynamic d ) of
       (Just (SomeNat @p1 _), DynamicScalar @rp _) ->
-        let g :: DynamicTensor target -> target (TKS rp shp)
+        let g :: DynamicTensor target -> target (TKS shp rp)
             g DynamicRanked{} =
               error "ravelDynamicShaped: DynamicRanked"
             g (DynamicShaped @rq @shq t)
@@ -305,14 +305,14 @@ ravelHVector = V.fromList . map ravelDynamic
 mapHVectorRanked
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq q) -> target (TKR rq q))
+      => target (TKR q rq) -> target (TKR q rq))
   -> HVector target -> HVector target
 mapHVectorRanked f = V.map (mapRanked f)
 
 mapRanked
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq q) -> target (TKR rq q))
+      => target (TKR q rq) -> target (TKR q rq))
   -> DynamicTensor target -> DynamicTensor target
 mapRanked f (DynamicRanked t) = DynamicRanked $ f t
 mapRanked f (DynamicShaped @_ @sh t) =
@@ -335,14 +335,14 @@ mapRanked f (DynamicShapedDummy @r @sh _ _) =
 mapHVectorRanked01
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq q) -> target (TKR rq (1 + q)))
+      => target (TKR q rq) -> target (TKR (1 + q) rq))
   -> HVector target -> HVector target
 mapHVectorRanked01 f = V.map (mapRanked01 f)
 
 mapRanked01
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq q) -> target (TKR rq (1 + q)))
+      => target (TKR q rq) -> target (TKR (1 + q) rq))
   -> DynamicTensor target -> DynamicTensor target
 mapRanked01 f (DynamicRanked t) = DynamicRanked $ f t
 mapRanked01 f (DynamicShaped @_ @sh t) =
@@ -372,14 +372,14 @@ mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
 mapHVectorRanked10
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq (1 + q)) -> target (TKR rq q))
+      => target (TKR (1 + q) rq) -> target (TKR q rq))
   -> HVector target -> HVector target
 mapHVectorRanked10 f = V.map (mapRanked10 f)
 
 mapRanked10
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq (1 + q)) -> target (TKR rq q))
+      => target (TKR (1 + q) rq) -> target (TKR q rq))
   -> DynamicTensor target -> DynamicTensor target
 mapRanked10 f (DynamicRanked t) = case rshape t of
   ZSR -> error "mapRanked10: rank 0"
@@ -409,14 +409,14 @@ mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
 mapHVectorRanked11
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq (1 + q)) -> target (TKR rq (1 + q)))
+      => target (TKR (1 + q) rq) -> target (TKR (1 + q) rq))
   -> HVector target -> HVector target
 mapHVectorRanked11 f = V.map (mapRanked11 f)
 
 mapRanked11
   :: BaseTensor target
   => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR rq (1 + q)) -> target (TKR rq (1 + q)))
+      => target (TKR (1 + q) rq) -> target (TKR (1 + q) rq))
   -> DynamicTensor target -> DynamicTensor target
 mapRanked11 f (DynamicRanked t) = case rshape t of
   ZSR -> error "mapRanked11: rank 0"
@@ -455,7 +455,7 @@ mapHVectorShaped
   :: forall target.
      BaseTensor target
   => (forall rq shq. (GoodScalar rq, KnownShS shq)
-      => target (TKS rq shq) -> target (TKS rq shq))
+      => target (TKS shq rq) -> target (TKS shq rq))
   -> HVector target -> HVector target
 mapHVectorShaped f = V.map (mapShaped f)
 
@@ -463,7 +463,7 @@ mapShaped
   :: forall target.
      BaseTensor target
   => (forall rq shq. (GoodScalar rq, KnownShS shq)
-      => target (TKS rq shq) -> target (TKS rq shq))
+      => target (TKS shq rq) -> target (TKS shq rq))
   -> DynamicTensor target -> DynamicTensor target
 mapShaped f (DynamicRanked @r @n t) =
   withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
@@ -521,20 +521,20 @@ toADTensorKindShared stk t = case stk of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            rmkRepScalar $ rscalar ()
-  STKR (STKScalar @r _) SNat -> case testEquality (typeRep @r) (typeRep @Double) of
+  STKR SNat (STKScalar @r _) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            rrepl @_ @_ @target (toList $ rshape t) ()
-  STKS @_ @sh (STKScalar @r _) sh -> withKnownShS sh
+  STKS @sh sh (STKScalar @r _) -> withKnownShS sh
                       $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            srepl @sh @() @target ()
-  STKX (STKScalar @r _) sh -> withKnownShX sh
+  STKX sh (STKScalar @r _) -> withKnownShX sh
                   $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of

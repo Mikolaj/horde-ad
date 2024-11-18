@@ -174,10 +174,10 @@ chunksOf n = go where
   => Double
   -> (MnistData Double
       -> HVector (ADVal RepN)
-      -> ADVal RepN (TKR Double n))
+      -> ADVal RepN (TKR n Double))
   -> [MnistData Double]
   -> HVector RepN
-  -> (HVector RepN, RepN (TKR Double n)) #-}
+  -> (HVector RepN, RepN (TKR n Double)) #-}
 
 {- TODO: RULE left-hand side too complicated to desugar
 

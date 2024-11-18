@@ -94,7 +94,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
                    -> ADVal RepN (XParams width r)
-                   -> ADVal RepN (TKS r '[])
+                   -> ADVal RepN (TKS '[] r)
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (sconcrete glyphS, sconcrete labelS)
@@ -204,7 +204,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIO (FTKS knownShS {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-}) id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKS knownShS {-@'[batch_size, SizeMnistLabel]-}) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKS r '[])
+       let ast :: AstTensor AstMethodLet FullSpan (TKS '[] r)
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (astGlyph, astLabel)
                    (parseHVector (fromDValue valsInit) hVector)
@@ -216,7 +216,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
                    -> ADVal RepN (XParams width r)
-                   -> ADVal RepN (TKS r '[])
+                   -> ADVal RepN (TKS '[] r)
                  f (glyph, label) varInputs =
                    let env = extendEnv @(ADVal RepN) @_ @(XParams width r) var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (sconcrete glyph)

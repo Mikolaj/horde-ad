@@ -27,7 +27,7 @@ import HordeAd.Util.SizedList
 
 rminIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
               , KnownNat n, GoodScalar r )
-           => target (TKR r n) -> IxROf target n
+           => target (TKR n r) -> IxROf target n
 rminIndexN t =
   fromLinearIdx (sscalar . fromIntegral)
     (rshape t)
@@ -35,7 +35,7 @@ rminIndexN t =
 
 rmaxIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
               , KnownNat n, GoodScalar r )
-           => target (TKR r n) -> IxROf target n
+           => target (TKR n r) -> IxROf target n
 rmaxIndexN t =
   fromLinearIdx (sscalar . fromIntegral)
     (rshape t)
@@ -43,7 +43,7 @@ rmaxIndexN t =
 
 rminimum :: ( BaseTensor target, BaseTensor (PrimalOf target)
             , LetTensor target, KnownNat n, GoodScalar r )
-         => target (TKR r n) -> target (TKR r 0)
+         => target (TKR n r) -> target (TKR 0 r)
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in rindex0.
 rminimum t0 = tlet t0 $ \t ->
@@ -52,21 +52,21 @@ rminimum t0 = tlet t0 $ \t ->
 
 rmaximum :: ( BaseTensor target, BaseTensor (PrimalOf target)
             , LetTensor target, KnownNat n, GoodScalar r )
-         => target (TKR r n) -> target (TKR r 0)
+         => target (TKR n r) -> target (TKR 0 r)
 rmaximum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (sscalar . fromIntegral) (rshape t)
                                           (sprimalPart $ sfromR $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, GoodScalar r)
-            => IntOf target -> target (TKR r 0)
+            => IntOf target -> target (TKR 0 r)
 rfromIndex0 = rfromIntegral . rfromS @_ @Int64 @'[] . sfromPrimal
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n
                , BaseTensor target, BaseTensor (PrimalOf target)
                , GoodScalar r )
-            => IxROf target n -> target (TKR r 1)
+            => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromIntegral . rfromS @_ @_ @'[n] . sfromPrimal . sfromList . NonEmpty.fromList . indexToList
@@ -89,13 +89,13 @@ rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
           , BaseTensor target, BaseTensor (PrimalOf target)
           , LetTensor target )
-       => IxROf target n -> (IxROf target n -> target (TKR r m)) -> target (TKR r m)
+       => IxROf target n -> (IxROf target n -> target (TKR m r)) -> target (TKR m r)
 tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 -}
 
 scale :: forall target r n.
          (ADReady target, GoodScalar r, KnownNat n)
-      => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r n)
+      => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
 scale a d = rfromPrimal @target a * d
 -- This should be faster, but is slower. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
@@ -104,7 +104,7 @@ scale a d = rfromPrimal @target a * d
 relu, reluLeaky
   :: forall target n r.
      (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
-  => target (TKR r n) -> target (TKR r n)
+  => target (TKR n r) -> target (TKR n r)
 relu v0 = tlet v0 $ \v ->
   let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
   in oneIfGtZero * v
@@ -117,8 +117,8 @@ reluLeaky v0 = tlet v0 $ \v ->
 logistic :: forall target r n.
             ( BaseTensor target, LetTensor target
             , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
-            , Floating (PrimalOf target (TKR r n)) )
-         => target (TKR r n) -> target (TKR r n)
+            , Floating (PrimalOf target (TKR n r)) )
+         => target (TKR n r) -> target (TKR n r)
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
       y0 = recip (rreplicate0N sh (rscalar 1) + exp (- rprimalPart @target d))
@@ -130,22 +130,22 @@ logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 square :: forall target r n.
-          ( BaseTensor target, KnownNat n, Num (PrimalOf target (TKR r n))
+          ( BaseTensor target, KnownNat n, Num (PrimalOf target (TKR n r))
           , GoodScalar r )
-       => target (TKR r n) -> target (TKR r n)
+       => target (TKR n r) -> target (TKR n r)
 square d = let u = rprimalPart @target d
                u' = rdualPart @target d
            in rD (u * u) (rScale @target (2 * u) u')
 
 squaredDifference
   :: forall target n r.
-     (BaseTensor target, KnownNat n, Num (PrimalOf target (TKR r n)), GoodScalar r)
-  => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r n)
+     (BaseTensor target, KnownNat n, Num (PrimalOf target (TKR n r)), GoodScalar r)
+  => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
 squaredDifference targ res = square @target $ res - rfromPrimal @target targ
 
 lossCrossEntropyV
   :: (BaseTensor target, KnownNat n, GoodScalar r, Differentiable r)
-  => target (TKR r n) -> target (TKR r n) -> target (TKR r 0)
+  => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
 lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
@@ -157,7 +157,7 @@ lossSoftMaxCrossEntropyR
      , BaseTensor (PrimalOf (PrimalOf target))
      , LetTensor target, LetTensor (PrimalOf target)
      , KnownNat n, GoodScalar r, Differentiable r )
-  => PrimalOf target (TKR r n) -> target (TKR r n) -> target (TKR r 0)
+  => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
@@ -182,14 +182,14 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
 -- No padding; remaining areas ignored.
 maxPool1 :: ( BaseTensor target, BaseTensor (PrimalOf target)
             , LetTensor target, GoodScalar r )
-         => Int -> Int -> target (TKR r 1) -> target (TKR r 1)
+         => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rlength v - ksize]]
   in rfromList $ NonEmpty.fromList $ map rmaximum slices
 
 softMax1 :: ( BaseTensor target, LetTensor target
             , KnownNat n, GoodScalar r, Differentiable r )
-         => target (TKR r n) -> target (TKR r n)
+         => target (TKR n r) -> target (TKR n r)
 softMax1 d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
@@ -204,7 +204,7 @@ softMax1 d =
 -- would be necessary even without vectorization.
 conv2dUnpadded
   :: (ADReady target, GoodScalar r)
-  => target (TKR r 4) -> target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dUnpadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
@@ -225,7 +225,7 @@ conv2dUnpadded arrK arrA =
 --   elements are set to zero.
 slicez
   :: (ADReady target, GoodScalar r, KnownNat n)
-  => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
+  => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
@@ -235,7 +235,7 @@ slicez shOut d ixBase =
 --   returning zero for out of range indices.
 indexz0Let
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
+  => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
 indexz0Let d ix0 = tletIx ix0 $ \ix ->
                      ifF (within0 @target (rshape @target d) ix) (d ! ix) 0
 -}
@@ -251,7 +251,7 @@ indexz0Let d ix0 = tletIx ix0 $ \ix ->
 -- are used).
 indexz0
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
+  => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
 indexz0 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
 -- | Given an index and shape, check if the index is fully within the shape.
@@ -267,7 +267,7 @@ within0 sh ix =
 
 maxPool2dUnpadded
   :: (ADReady target, GoodScalar r)
-  => Int -> Int -> target (TKR r 4) -> target (TKR r 4)
+  => Int -> Int -> target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = rshape arr
       shOut = [batch_size, channels, h `div` stride, w `div` stride]

@@ -27,42 +27,42 @@ import MnistData
 type ADRnnMnistParametersShaped (target :: Target) width r =
   ( LayerWeigthsRNNShaped target SizeMnistHeight width r
   , LayerWeigthsRNNShaped target width width r
-  , ( target (TKS r '[SizeMnistLabel, width])
-    , target (TKS r '[SizeMnistLabel]) ) )
+  , ( target (TKS '[SizeMnistLabel, width] r)
+    , target (TKS '[SizeMnistLabel] r) ) )
 
 type LayerWeigthsRNNShaped :: Target -> Nat -> Nat -> Type -> Type
 type LayerWeigthsRNNShaped target in_width out_width r =
-  ( target (TKS r '[out_width, in_width])   -- input weight
-  , target (TKS r '[out_width, out_width])  -- state weight
-  , target (TKS r '[out_width] ))           -- bias
+  ( target (TKS '[out_width, in_width] r)   -- input weight
+  , target (TKS '[out_width, out_width] r)  -- state weight
+  , target (TKS '[out_width] r) )           -- bias
 
 -- | The differentiable type of all trainable parameters of this nn.
 type ADRnnMnistParameters target r =
   ( LayerWeigthsRNN target r
   , LayerWeigthsRNN target r
-  , ( target (TKR r 2)
-    , target (TKR r 1) ) )
+  , ( target (TKR 2 r)
+    , target (TKR 1 r) ) )
 
 type LayerWeigthsRNN (target :: Target) r =
-  ( target (TKR r 2)
-  , target (TKR r 2)
-  , target (TKR r 1) )
+  ( target (TKR 2 r)
+  , target (TKR 2 r)
+  , target (TKR 1 r) )
 
 zeroStateR
   :: (BaseTensor target, GoodScalar r, KnownNat n)
-  => IShR n -> (target (TKR r n)  -- state
+  => IShR n -> (target (TKR n r)  -- state
                     -> a)
   -> a
 zeroStateR sh f = f (rzero sh)
 
 unrollLastR :: forall target state c w r n.
                (BaseTensor target, GoodScalar r, KnownNat n, KnownNat (1 + n))
-            => (state -> target (TKR r n) -> w -> (c, state))
-            -> (state -> target (TKR r (1 + n)) -> w -> (c, state))
+            => (state -> target (TKR n r) -> w -> (c, state))
+            -> (state -> target (TKR (1 + n) r) -> w -> (c, state))
 unrollLastR f s0 xs w =
-  let g :: (c, state) -> target (TKR r n) -> (c, state)
+  let g :: (c, state) -> target (TKR n r) -> (c, state)
       g (_, !s) x = f s x w
-      projections :: [target (TKR r n)]
+      projections :: [target (TKR n r)]
       projections = case rshape xs of
         len :$: _ -> map (\i -> rindex xs (fromIntegral i :.: ZIR)) [0 .. len - 1]
         ZSR -> error "impossible pattern needlessly required"
@@ -70,10 +70,10 @@ unrollLastR f s0 xs w =
 
 rnnMnistLayerR
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
-  => target (TKR r 2)  -- in state, [out_width, batch_size]
-  -> target (TKR r 2)  -- input, [in_width, batch_size]
+  => target (TKR 2 r)  -- in state, [out_width, batch_size]
+  -> target (TKR 2 r)  -- input, [in_width, batch_size]
   -> LayerWeigthsRNN target r  -- in_width out_width
-  -> target (TKR r 2)  -- output state, [out_width, batch_size]
+  -> target (TKR 2 r)  -- output state, [out_width, batch_size]
 rnnMnistLayerR s x (wX, wS, b) = case rshape s of
   _out_width :$: batch_size :$: ZSR ->
     let y = wX `rmatmul2` x + wS `rmatmul2` s
@@ -83,12 +83,12 @@ rnnMnistLayerR s x (wX, wS, b) = case rshape s of
 
 rnnMnistTwoR
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
-  => target (TKR r 2)  -- initial state, [2 * out_width, batch_size]
-  -> PrimalOf target (TKR r 2)  -- [sizeMnistHeight, batch_size]
+  => target (TKR 2 r)  -- initial state, [2 * out_width, batch_size]
+  -> PrimalOf target (TKR 2 r)  -- [sizeMnistHeight, batch_size]
   -> ( LayerWeigthsRNN target r  -- sizeMnistHeight out_width
      , LayerWeigthsRNN target r )  -- out_width out_width
-  -> ( target (TKR r 2)  -- [out_width, batch_size]
-     , target (TKR r 2) )  -- final state, [2 * out_width, batch_size]
+  -> ( target (TKR 2 r)  -- [out_width, batch_size]
+     , target (TKR 2 r) )  -- final state, [2 * out_width, batch_size]
 rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
   out_width_x_2 :$: _batch_size :$: ZSR ->
     let out_width = out_width_x_2 `div` 2
@@ -104,9 +104,9 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
 rnnMnistZeroR
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => Int
-  -> PrimalOf target (TKR r 3)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
+  -> PrimalOf target (TKR 3 r)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
   -> ADRnnMnistParameters target r  -- sizeMnistHeight out_width
-  -> target (TKR r 2)  -- [SizeMnistLabel, batch_size]
+  -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
 rnnMnistZeroR batch_size xs
               ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case rshape b of
   out_width :$: ZSR ->
@@ -119,9 +119,9 @@ rnnMnistZeroR batch_size xs
 rnnMnistLossFusedR
   :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r, Differentiable r)
   => Int
-  -> (PrimalOf target (TKR r 3), PrimalOf target (TKR r 2))  -- batch_size
+  -> (PrimalOf target (TKR 3 r), PrimalOf target (TKR 2 r))  -- batch_size
   -> ADRnnMnistParameters target r  -- SizeMnistHeight out_width
-  -> target (TKR r 0)
+  -> target (TKR 0 r)
 rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   let xs = rtranspose [2, 1, 0] glyphR
       result = rnnMnistZeroR batch_size xs adparameters
@@ -138,12 +138,12 @@ rnnMnistTestR
   -> r
 rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) testParams =
-  let input :: target (TKR r 3)
+  let input :: target (TKR 3 r)
       input = rconcrete $ Nested.rtranspose [2, 1, 0] glyphR
-      outputR :: RepN (TKR r 2)
+      outputR :: RepN (TKR 2 r)
       outputR =
         let nn :: ADRnnMnistParameters target r  -- SizeMnistHeight out_width
-               -> target (TKR r 2)  -- [SizeMnistLabel, batch_size]
+               -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR batch_size input
         in nn testParams
       outputs = map (Nested.rtoVector . unRepN) $ runravelToList

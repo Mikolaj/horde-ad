@@ -76,14 +76,14 @@ instance Linearizable (RepORArray y) a
   linearize = linearize . unRepN
 
 instance ( forall r n. (GoodScalar r, KnownNat n)
-           => Linearizable (target (TKR r n)) r
+           => Linearizable (target (TKR n r)) r
          , forall r sh. (GoodScalar r, KnownShS sh)
-           => Linearizable (target (TKS r sh)) r )
+           => Linearizable (target (TKS sh r)) r )
          => Linearizable (DynamicTensor target) Double where
   linearize (DynamicRanked @r2 @n2 t) =
-    map toDouble $ linearize @(target (TKR r2 n2)) @r2 t
+    map toDouble $ linearize @(target (TKR n2 r2)) @r2 t
   linearize (DynamicShaped @r2 @sh2 t) =
-    map toDouble $ linearize @(target (TKS r2 sh2)) @r2 t
+    map toDouble $ linearize @(target (TKS sh2 r2)) @r2 t
   linearize (DynamicRankedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
   linearize (DynamicShapedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
 

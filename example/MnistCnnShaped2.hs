@@ -34,14 +34,14 @@ import MnistData
 -- width minus one.
 type ADCnnMnistParametersShaped
        (target :: Target) h w kh kw c_out n_hidden r =
-  ( ( target (TKS r '[c_out, 1, kh + 1, kw + 1])
-    , target (TKS r '[c_out]) )
-  , ( target (TKS r '[c_out, c_out, kh + 1, kw + 1])
-    , target (TKS r '[c_out]) )
-  , ( target (TKS r '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ])
-    , target (TKS r '[n_hidden]) )
-  , ( target (TKS r '[SizeMnistLabel, n_hidden])
-    , target (TKS r '[SizeMnistLabel]) )
+  ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)
+    , target (TKS '[c_out] r) )
+  , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)
+    , target (TKS '[c_out] r) )
+  , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
+    , target (TKS '[n_hidden] r) )
+  , ( target (TKS '[SizeMnistLabel, n_hidden] r)
+    , target (TKS '[SizeMnistLabel] r) )
   )
 
 convMnistLayerS
@@ -54,10 +54,10 @@ convMnistLayerS
   -> SNat h -> SNat w
   -> SNat c_in -> SNat c_out
   -> SNat batch_size
-  -> target (TKS r '[c_out, c_in, kh + 1, kw + 1])
-  -> target (TKS r '[batch_size, c_in, h, w])
-  -> target (TKS r '[c_out])
-  -> target (TKS r '[batch_size, c_out, h `Div` 2, w `Div` 2])
+  -> target (TKS '[c_out, c_in, kh + 1, kw + 1] r)
+  -> target (TKS '[batch_size, c_in, h, w] r)
+  -> target (TKS '[c_out] r)
+  -> target (TKS '[batch_size, c_out, h `Div` 2, w `Div` 2] r)
 convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
                 ker input bias =
   let yConv = conv2dUnpaddedS ker input
@@ -79,9 +79,9 @@ convMnistTwoS
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- value parameters (@SNat@ below) denoting basic dimensions
-  -> PrimalOf target (TKS r '[batch_size, 1, h, w])  -- ^ input images
+  -> PrimalOf target (TKS '[batch_size, 1, h, w] r)  -- ^ input images
   -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
-  -> target (TKS r '[SizeMnistLabel, batch_size])  -- ^ classification
+  -> target (TKS '[SizeMnistLabel, batch_size] r)  -- ^ classification
 convMnistTwoS kh@SNat kw@SNat
               h@SNat w@SNat
               c_out@SNat _n_hidden@SNat batch_size@SNat
@@ -94,12 +94,12 @@ convMnistTwoS kh@SNat kw@SNat
                            h w
                            (SNat @1) c_out batch_size
                            ker1 (sfromPrimal input) bias1
-      t2 :: target (TKS r '[batch_size, c_out, h `Div` 4, w `Div` 4])
+      t2 :: target (TKS '[batch_size, c_out, h `Div` 4, w `Div` 4] r)
       t2 = convMnistLayerS kh kw
                            (SNat @(h `Div` 2)) (SNat @(w `Div` 2))
                            c_out c_out batch_size
                            ker2 t1 bias2
-      m1 :: target (TKS r '[batch_size, c_out * (h `Div` 4) * (w `Div` 4)])
+      m1 :: target (TKS '[batch_size, c_out * (h `Div` 4) * (w `Div` 4)] r)
       m1 = sreshape t2
       m2 = str m1
       denseLayer = weightsDense `smatmul2` m2
@@ -118,14 +118,14 @@ convMnistLossFusedS
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
-  -> ( PrimalOf target (TKS r '[batch_size, h, w])
-     , PrimalOf target (TKS r '[batch_size, SizeMnistLabel]) )
+  -> ( PrimalOf target (TKS '[batch_size, h, w] r)
+     , PrimalOf target (TKS '[batch_size, SizeMnistLabel] r) )
   -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
-  -> target (TKS r '[])
+  -> target (TKS '[] r)
 convMnistLossFusedS kh@SNat kw@SNat
                     c_out@SNat n_hidden@SNat batch_size@SNat
                     (glyphS, labelS) adparameters =
-  let input :: PrimalOf target (TKS r '[batch_size, 1, h, w])
+  let input :: PrimalOf target (TKS '[batch_size, 1, h, w] r)
       input = sreshape glyphS
       result = convMnistTwoS kh kw (SNat @h) (SNat @w)
                              c_out n_hidden batch_size
@@ -153,12 +153,12 @@ convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
 convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
                valsInit (glyphS, labelS) testParams =
-  let input :: target (TKS r '[batch_size, 1, h, w])
+  let input :: target (TKS '[batch_size, 1, h, w] r)
       input = sconcrete $ Nested.sreshape knownShS glyphS
-      outputS :: RepN (TKS r '[SizeMnistLabel, batch_size])
+      outputS :: RepN (TKS '[SizeMnistLabel, batch_size] r)
       outputS =
         let nn :: ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
-               -> target (TKS r '[SizeMnistLabel, batch_size])
+               -> target (TKS '[SizeMnistLabel, batch_size] r)
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input

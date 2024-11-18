@@ -31,30 +31,30 @@ type ADRnnMnistParametersShaped
        (target :: Target) sizeMnistHeight width r =
   ( LayerWeigthsRNNShaped target sizeMnistHeight width r
   , LayerWeigthsRNNShaped target width width r
-  , ( target (TKS r '[SizeMnistLabel, width])
-    , target (TKS r '[SizeMnistLabel]) ) )
+  , ( target (TKS '[SizeMnistLabel, width] r)
+    , target (TKS '[SizeMnistLabel] r) ) )
 
 type LayerWeigthsRNNShaped :: Target -> Nat -> Nat -> Type -> Type
 type LayerWeigthsRNNShaped target in_width out_width r =
-  ( target (TKS r '[out_width, in_width])   -- input weight
-  , target (TKS r '[out_width, out_width])  -- state weight
-  , target (TKS r '[out_width]) )           -- bias
+  ( target (TKS '[out_width, in_width] r)   -- input weight
+  , target (TKS '[out_width, out_width] r)  -- state weight
+  , target (TKS '[out_width] r) )           -- bias
 
 zeroStateS
   :: (BaseTensor target, KnownShS sh, GoodScalar r)
-  => (target (TKS r sh)  -- state
+  => (target (TKS sh r)  -- state
       -> a)
   -> a
 zeroStateS f = f (srepl 0)
 
 unrollLastS :: forall target state c w r n sh.
                (BaseTensor target, KnownNat n, KnownShS sh, GoodScalar r)
-            => (state -> target (TKS r sh) -> w -> (c, state))
-            -> (state -> target (TKS r (n ': sh)) -> w -> (c, state))
+            => (state -> target (TKS sh r) -> w -> (c, state))
+            -> (state -> target (TKS (n ': sh) r) -> w -> (c, state))
 unrollLastS f s0 xs w =
-  let g :: (c, state) -> target (TKS r sh) -> (c, state)
+  let g :: (c, state) -> target (TKS sh r) -> (c, state)
       g (_, !s) x = f s x w
-      projections :: [target (TKS r sh)]
+      projections :: [target (TKS sh r)]
       projections = map (\i -> sindex xs (fromIntegral i :.$ ZIS))
                         [0 .. (valueOf @n :: Int)- 1]
   in foldl' g (undefined, s0) projections
@@ -64,10 +64,10 @@ rnnMnistLayerS
   => SNat in_width -> SNat out_width -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- value parameters (@SNat@ below) denoting basic dimensions
-  -> target (TKS r '[out_width, batch_size])  -- state
-  -> target (TKS r '[in_width, batch_size])  -- input
+  -> target (TKS '[out_width, batch_size] r)  -- state
+  -> target (TKS '[in_width, batch_size] r)  -- input
   -> LayerWeigthsRNNShaped target in_width out_width r
-  -> target (TKS r '[out_width, batch_size])  -- output state
+  -> target (TKS '[out_width, batch_size] r)  -- output state
 rnnMnistLayerS SNat SNat SNat
                s x (wX, wS, b) =
     let y = wX `smatmul2` x + wS `smatmul2` s
@@ -77,12 +77,12 @@ rnnMnistLayerS SNat SNat SNat
 rnnMnistTwoS
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => SNat out_width -> SNat batch_size -> SNat sizeMnistH
-  -> target (TKS r '[2 * out_width, batch_size])  -- initial state
-  -> PrimalOf target (TKS r '[sizeMnistH, batch_size])
+  -> target (TKS '[2 * out_width, batch_size] r)  -- initial state
+  -> PrimalOf target (TKS '[sizeMnistH, batch_size] r)
   -> ( LayerWeigthsRNNShaped target sizeMnistH out_width r
      , LayerWeigthsRNNShaped target out_width out_width r )
-  -> ( target (TKS r '[out_width, batch_size])
-     , target (TKS r '[2 * out_width, batch_size]) )  -- final state
+  -> ( target (TKS '[out_width, batch_size] r)
+     , target (TKS '[2 * out_width, batch_size] r) )  -- final state
 rnnMnistTwoS out_width@SNat
              batch_size@SNat
              sizeMnistHeightHere@SNat
@@ -106,9 +106,9 @@ rnnMnistZeroS
   => SNat out_width
   -> SNat batch_size
   -> SNat sizeMnistH -> SNat sizeMnistW
-  -> PrimalOf target (TKS r '[sizeMnistW, sizeMnistH, batch_size])
+  -> PrimalOf target (TKS '[sizeMnistW, sizeMnistH, batch_size] r)
   -> ADRnnMnistParametersShaped target sizeMnistH out_width r
-  -> target (TKS r '[SizeMnistLabel, batch_size])
+  -> target (TKS '[SizeMnistLabel, batch_size] r)
 rnnMnistZeroS out_width@SNat
               batch_size@SNat
               sizeMnistHeightHere@SNat _sizeMnistWidthHere@SNat
@@ -124,10 +124,10 @@ rnnMnistLossFusedS
      , ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r)
   => SNat out_width
   -> SNat batch_size
-  -> ( PrimalOf target (TKS r '[batch_size, h, w])
-     , PrimalOf target (TKS r '[batch_size, SizeMnistLabel]) )
+  -> ( PrimalOf target (TKS '[batch_size, h, w] r)
+     , PrimalOf target (TKS '[batch_size, SizeMnistLabel] r) )
   -> ADRnnMnistParametersShaped target h out_width r
-  -> target (TKS r '[])
+  -> target (TKS '[] r)
 rnnMnistLossFusedS out_width@SNat
                    batch_size@SNat
                    (glyphS, labelS) adparameters =
@@ -152,12 +152,12 @@ rnnMnistTestS
   -> r
 rnnMnistTestS out_width@SNat batch_size@SNat
               (glyphS, labelS) testParams =
-  let -- input :: PrimalOf target (TKS r '[sizeMnistW, sizeMnistH, batch_size])
+  let -- input :: PrimalOf target (TKS '[sizeMnistW, sizeMnistH, batch_size] r)
       input = sconcrete $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) glyphS
-      outputS :: RepN (TKS r '[SizeMnistLabel, batch_size])
+      outputS :: RepN (TKS '[SizeMnistLabel, batch_size] r)
       outputS =
         let nn :: ADRnnMnistParametersShaped target h out_width r
-               -> target (TKS r '[SizeMnistLabel, batch_size])
+               -> target (TKS '[SizeMnistLabel, batch_size] r)
             nn = rnnMnistZeroS out_width
                                batch_size
                                (SNat @h) (SNat @w)

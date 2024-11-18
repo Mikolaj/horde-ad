@@ -160,9 +160,9 @@ dAdd v w = AddG v w
 intOfShape :: forall z f. (ADReadyNoLet f, TensorKind z)
            => f z -> Int -> f z
 intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
-  STKR STKScalar{} SNat -> rconcrete $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
-  STKS STKScalar{} sh -> withKnownShS sh $ sconcrete $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
-  STKX STKScalar{} sh -> withKnownShX sh $ xconcrete $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
+  STKR SNat STKScalar{} -> rconcrete $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
+  STKS sh STKScalar{} -> withKnownShS sh $ sconcrete $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
+  STKX sh STKScalar{} -> withKnownShX sh $ xconcrete $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
   _ -> repConstant (fromIntegral c) (tshapeFull stensorKind tsh)
 
 fromPrimalADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
@@ -257,7 +257,7 @@ ahhToHVector h hNotShared' =
   in V.imap selectDual h
 
 rFromH :: forall r n target. (GoodScalar r, KnownNat n)
-       => Delta target TKUntyped -> Int -> Delta target (TKR r n)
+       => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 rFromH (HToH hv) i = case hv V.! i of
   DynamicRanked @r2 @n2 d
     | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
@@ -273,7 +273,7 @@ rFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
 rFromH d i = RFromH d i
 
 sFromH :: forall r sh target. (GoodScalar r, KnownShS sh)
-       => Delta target TKUntyped -> Int -> Delta target (TKS r sh)
+       => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 sFromH (HToH hv) i = case hv V.! i of
   DynamicShaped @r2 @sh2 d
     | Just Refl <- sameShape @sh @sh2
@@ -305,14 +305,14 @@ instance OrdF f => OrdF (ADVal f) where
 
 indexPrimal :: ( ADReadyNoLet target
                , KnownNat m, KnownNat n, GoodScalar r )
-            => ADVal target (TKR r (m + n)) -> IxROf target m
-            -> ADVal target (TKR r n)
+            => ADVal target (TKR (m + n) r) -> IxROf target m
+            -> ADVal target (TKR n r)
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
 fromVector :: ( ADReadyNoLet target
               , KnownNat n, GoodScalar r )
-           => Data.Vector.Vector (ADVal target (TKR r n))
-           -> ADVal target (TKR r (1 + n))
+           => Data.Vector.Vector (ADVal target (TKR n r))
+           -> ADVal target (TKR (1 + n) r)
 fromVector lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (rfromVector $ V.map (\(D u _) -> u) lu)
@@ -324,14 +324,14 @@ instance ( ADReadyNoLet target
   ifF :: forall y. TensorKind y
       => BoolOf target -> ADVal target y -> ADVal target y -> ADVal target y
   ifF !b !v !w = case stensorKind @y of  -- bangs for the proper order of sharing stamps
-    STKR STKScalar{} SNat ->
+    STKR SNat STKScalar{} ->
       indexPrimal (fromVector $ V.fromList [v, w])
                   (fromList [ifF b 0 1])
-    STKS STKScalar{} sh -> withKnownShS sh $
+    STKS sh STKScalar{} -> withKnownShS sh $
       indexPrimalS @_ @_ @'[2]
                    (fromVectorS $ V.fromList [v, w])
                    (fromList [ifF b 0 1])
-    STKX STKScalar{} sh -> withKnownShX sh $
+    STKX sh STKScalar{} -> withKnownShX sh $
       indexPrimalX @_ @_ @'[Just 2]
                    (fromVectorX $ V.fromList [v, w])
                    (fromList [ifF b 0 1])
@@ -340,15 +340,15 @@ instance ( ADReadyNoLet target
 indexPrimalS :: ( ADReadyNoLet target
                 , GoodScalar r, KnownShS sh1, KnownShS sh2
                 , KnownShS (sh1 ++ sh2) )
-             => ADVal target (TKS r (sh1 ++ sh2)) -> IxSOf target sh1
-             -> ADVal target (TKS r sh2)
+             => ADVal target (TKS (sh1 ++ sh2) r) -> IxSOf target sh1
+             -> ADVal target (TKS sh2 r)
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh target r.
                ( ADReadyNoLet target
                , KnownNat n, KnownShS sh, GoodScalar r )
-            => Data.Vector.Vector (ADVal target (TKS r sh))
-            -> ADVal target (TKS r (n ': sh))
+            => Data.Vector.Vector (ADVal target (TKS sh r))
+            -> ADVal target (TKS (n ': sh) r)
 fromVectorS lu = assert (length lu == valueOf @n) $
   dD (sfromVector $ V.map (\(D u _) -> u) lu)
      (FromVectorS $ V.map (\(D _ u') -> u') lu)
@@ -356,15 +356,15 @@ fromVectorS lu = assert (length lu == valueOf @n) $
 indexPrimalX :: ( ADReadyNoLet target
                 , GoodScalar r, KnownShX sh1, KnownShX sh2
                 , KnownShX (sh1 ++ sh2) )
-             => ADVal target (TKX r (sh1 ++ sh2)) -> IxXOf target sh1
-             -> ADVal target (TKX r sh2)
+             => ADVal target (TKX (sh1 ++ sh2) r) -> IxXOf target sh1
+             -> ADVal target (TKX sh2 r)
 indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 
 fromVectorX :: forall n sh target r.
                ( ADReadyNoLet target
                , KnownNat n, KnownShX sh, GoodScalar r )
-            => Data.Vector.Vector (ADVal target (TKX r sh))
-            -> ADVal target (TKX r (Just n ': sh))
+            => Data.Vector.Vector (ADVal target (TKX sh r))
+            -> ADVal target (TKX (Just n ': sh) r)
 fromVectorX lu = assert (length lu == valueOf @n) $
   dD (xfromVector $ V.map (\(D u _) -> u) lu)
      (FromVectorX $ V.map (\(D _ u') -> u') lu)

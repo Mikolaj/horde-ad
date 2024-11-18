@@ -27,22 +27,22 @@ type ADFcnnMnist2ParametersShaped (target :: Target)
                                   (widthHidden :: Nat)
                                   (widthHidden2 :: Nat)
                                   (r :: Type) =
-  ( ( target (TKS r '[widthHidden, SizeMnistGlyph])
-    , target (TKS r '[widthHidden]) )
-  , ( target (TKS Float '[widthHidden2, widthHidden])
-    , target (TKS r '[widthHidden2]) )
-  , ( target (TKS r '[SizeMnistLabel, widthHidden2])
-    , target (TKS r '[SizeMnistLabel]) )
+  ( ( target (TKS '[widthHidden, SizeMnistGlyph] r)
+    , target (TKS '[widthHidden] r) )
+  , ( target (TKS '[widthHidden2, widthHidden] Float)
+    , target (TKS '[widthHidden2] r) )
+  , ( target (TKS '[SizeMnistLabel, widthHidden2] r)
+    , target (TKS '[SizeMnistLabel] r) )
   )
 
 -- | The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist2Parameters (target :: Target) r =
-  ( ( target (TKR r 2)
-    , target (TKR r 1) )
-  , ( target (TKR Float 2)
-    , target (TKR r 1) )
-  , ( target (TKR r 2)
-    , target (TKR r 1) )
+  ( ( target (TKR 2 r)
+    , target (TKR 1 r) )
+  , ( target (TKR 2 Float)
+    , target (TKR 1 r) )
+  , ( target (TKR 2 r)
+    , target (TKR 1 r) )
   )
 
 -- | Fully connected neural network for the MNIST digit classification task.
@@ -53,11 +53,11 @@ type ADFcnnMnist2Parameters (target :: Target) r =
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
 afcnnMnist2 :: (ADReady target, GoodScalar r, Differentiable r)
-            => (target (TKR r 1) -> target (TKR r 1))
-            -> (target (TKR r 1) -> target (TKR r 1))
-            -> target (TKR r 1)
+            => (target (TKR 1 r) -> target (TKR 1 r))
+            -> (target (TKR 1 r) -> target (TKR 1 r))
+            -> target (TKR 1 r)
             -> ADFcnnMnist2Parameters target r
-            -> target (TKR r 1)
+            -> target (TKR 1 r)
 afcnnMnist2 factivationHidden factivationOutput
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let hiddenLayer1 = rmatvecmul hidden datum + bias
@@ -71,8 +71,8 @@ afcnnMnist2 factivationHidden factivationOutput
 -- and composed with the appropriate loss function.
 afcnnMnistLoss2TensorData
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => (target (TKR r 1), target (TKR r 1)) -> ADFcnnMnist2Parameters target r
-  -> target (TKR r 0)
+  => (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist2Parameters target r
+  -> target (TKR 0 r)
 afcnnMnistLoss2TensorData (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
   in lossCrossEntropyV target result
@@ -80,7 +80,7 @@ afcnnMnistLoss2TensorData (datum, target) adparams =
 afcnnMnistLoss2
   :: (ADReady target, GoodScalar r, Differentiable r)
   => MnistData r -> ADFcnnMnist2Parameters target r
-  -> target (TKR r 0)
+  -> target (TKR 0 r)
 afcnnMnistLoss2 (datum, target) =
   let datum1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
       target1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
@@ -101,7 +101,7 @@ afcnnMnistTest2 valsInit dataList testParams =
       matchesLabels (glyph, label) =
         let glyph1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
             nn :: ADFcnnMnist2Parameters target r
-               -> target (TKR r 1)
+               -> target (TKR 1 r)
             nn = inline afcnnMnist2 logistic softMax1 glyph1
             v = Nested.rtoVector $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
         in V.maxIndex v == V.maxIndex label

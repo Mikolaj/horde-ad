@@ -88,7 +88,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                     -> IO (HVector RepN, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR r 0)
+                   -> ADVal target (TKR 0 r)
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
@@ -191,7 +191,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
            id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ miniBatchSize :$: sizeMnistLabelInt :$: ZSR) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKR r 0)
+       let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
                    (unAsHVector
@@ -201,7 +201,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                     -> IO (HVector RepN, StateAdam)
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR r 0)
+                   -> ADVal target (TKR 0 r)
                  f (glyph, label) varInputs =
                    let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist = extendEnv varGlyph (rconcrete glyph)
@@ -385,12 +385,12 @@ testCNNOPP = do
       batch_size = 1
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
-      blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR Double 4)
+      blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR 4 Double)
       blackGlyph = AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @4)
                    $ AstReplicate (SNat @4)
-                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
+                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN Double
       valsInit =
         forgetShape $ fst
@@ -400,7 +400,7 @@ testCNNOPP = do
                      0.4 (mkStdGen 44)
       afcnn2T :: MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
-              -> AstTensor AstMethodLet FullSpan (TKR Double 2)
+              -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       afcnn2T = MnistCnnRanked2.convMnistTwoR sizeMnistHeightI sizeMnistWidthI
                                               batch_size blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInit

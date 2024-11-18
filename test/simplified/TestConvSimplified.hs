@@ -84,7 +84,7 @@ testTrees =
 --   where the output size is the same as the input size.
 conv2d
   :: (ADReady target, GoodScalar r)
-  => target (TKR r 4) -> target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2d arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
@@ -104,7 +104,7 @@ conv2d arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicezF :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
-        => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
+        => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicezF shOut d ixBase =
   rbuild shOut $ \ixResult ->
     rindex @target @r @n @0 d (zipWith_Index (+) ixBase ixResult)
@@ -112,24 +112,24 @@ slicezF shOut d ixBase =
 
 conv2d1
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2d1 = conv2d $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dA
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dA = conv2d $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dB
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dB = conv2d (rconcrete $ unRepN t16b)
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon 1e-4
     (rconcrete $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @_ @(TKR Double 4) conv2dB (rzero [2, 2, 2, 2]))
+    (rev @_ @(TKR 4 Double) conv2dB (rzero [2, 2, 2, 2]))
 
 testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
@@ -167,50 +167,50 @@ testKonstG0LittleA =
 
 conv2d1Laborious
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2d1Laborious = conv2dUnpadded $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dALaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dALaborious =
   conv2dUnpadded $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBLaborious = conv2dUnpadded (rconcrete $ unRepN t16b)
 
 conv2dCLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCLaborious = flip conv2dUnpadded (rconcrete $ unRepN t16b)
 
 conv2dBLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBLaborious128b = conv2dUnpadded (rconcrete $ unRepN t128b)
 
 conv2dCLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCLaborious128b = flip conv2dUnpadded (rconcrete $ unRepN t128b)
 
 conv2dBLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBLaborious128c = conv2dUnpadded (rconcrete $ unRepN t128c)
 
 conv2dCLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCLaborious128c = flip conv2dUnpadded (rconcrete $ unRepN t128c)
 
 testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
   assertEqualUpToEpsilon 1e-4
     (rconcrete $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @_ @(TKR Double 4) conv2dBLaborious (rzero [2, 2, 2, 2]))
+    (rev @_ @(TKR 4 Double) conv2dBLaborious (rzero [2, 2, 2, 2]))
 
 testReplicate0Tiny1Laborious :: Assertion
 testReplicate0Tiny1Laborious =
@@ -449,7 +449,7 @@ testKonstNotBigCLaborious128cb =
 --
 costVolume
   :: forall r target. (ADReady target, GoodScalar r)
-  => Int -> Int -> target (TKR r 4) -> target (TKR r 4) -> target (TKR r 4)
+  => Int -> Int -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 costVolume iStart nCount arrL arrR =
   let [nImgs, nChas, nRows, nCols] = rshape arrL
       shO = [nImgs, nCount, nRows, nCols]
@@ -463,9 +463,9 @@ costVolume iStart nCount arrL arrR =
 
 test_disparityKonst :: Assertion
 test_disparityKonst = do
-  let arrL :: ADReady target => target (TKR Double 4)
+  let arrL :: ADReady target => target (TKR 4 Double)
       arrL = rreplicate0N [1, 2, 4, 6] (rscalar (-0.2))
-      arrR :: ADReady target => target (TKR Double 4)
+      arrR :: ADReady target => target (TKR 4 Double)
       arrR = rreplicate0N [1, 2, 4, 6] (rscalar 0.3)
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
@@ -491,16 +491,16 @@ test_disparityKonst = do
 
 test_disparityKonst2 :: Assertion
 test_disparityKonst2 = do
-  let arrL :: (BaseTensor target, GoodScalar r, Differentiable r) => target (TKR r 4)
+  let arrL :: (BaseTensor target, GoodScalar r, Differentiable r) => target (TKR 4 r)
       arrL = ringestData [1, 2, 4, 6] [0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0, 1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263]
-      arrR :: (BaseTensor target, GoodScalar r, Differentiable r) => target (TKR r 4)
+      arrR :: (BaseTensor target, GoodScalar r, Differentiable r) => target (TKR 4 r)
       arrR = ringestData [1, 2, 4, 6] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40, -0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25, -2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,0.6964466094067263,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,0.50001,0.42000000000000004,0.2801,0.78,1.1,0.50001,0.42000000000000004,0.2801,0.78]
       arrO = rreplicate0N [1, 4, 4, 6] (rscalar (1 :: Double))
       res1 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
       res2 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
-      arrDL :: RepN (TKR Double 4)
+      arrDL :: RepN (TKR 4 Double)
       arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
-      arrDR :: RepN (TKR Double 4)
+      arrDR :: RepN (TKR 4 Double)
       arrDR = revDt (costVolume 0 4 (rfromPrimal arrL)) arrR arrO
   assertEqualUpToEpsilon 1e-7
     res1
@@ -517,9 +517,9 @@ test_disparityKonst2 = do
 
 test_disparitySmall :: Assertion
 test_disparitySmall = do
-  let arrL :: ADReady target => target (TKR Double 4)
+  let arrL :: ADReady target => target (TKR 4 Double)
       arrL = ringestData [1, 2, 3, 2] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
-      arrR :: ADReady target => target (TKR Double 4)
+      arrR :: ADReady target => target (TKR 4 Double)
       arrR = ringestData [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
@@ -553,9 +553,9 @@ test_disparitySmall = do
 testConv2dUnpaddedPP :: Assertion
 testConv2dUnpaddedPP = do
   resetVarCounter
-  let f :: HVector (AstGeneric AstMethodLet FullSpan) -> AAstTensor AstMethodLet FullSpan (TKR Double 4)
+  let f :: HVector (AstGeneric AstMethodLet FullSpan) -> AAstTensor AstMethodLet FullSpan (TKR 4 Double)
       f v = conv2dUnpadded (rfromD $ rankedHVector v V.! 0) (rfromD $ rankedHVector v V.! 1)
-      g :: Double -> RepN (TKR Double 4)
+      g :: Double -> RepN (TKR 4 Double)
       g x = Nested.rfromOrthotope SNat $ OR.fromList [2,2,2,2] $ replicate 16 x
       (artifactRev, _) =
         revArtifactAdapt
@@ -616,7 +616,7 @@ testCNNOPP2 = do
 
 maxPool2dUnpadded2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
-  => target (TKR r 4)
+  => target (TKR 4 r)
 maxPool2dUnpadded2 =
   rbuild [1, 1, 1, 1] $ \case
     [_, _, iBh, iBw] ->
@@ -626,7 +626,7 @@ maxPool2dUnpadded2 =
 
 conv2dUnpadded2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
-  => target (TKR r 4)
+  => target (TKR 4 r)
 conv2dUnpadded2 =
   rbuild [1, 1, 2, 2] $ \case
     [iImg, _, iBh, iBw] ->
@@ -639,36 +639,36 @@ conv2dUnpadded2 =
 
 slicez2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
-  => target (TKR r n) -> IxROf target n -> target (TKR r n)
+  => target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez2 d ixBase =
   rbuild [1, 1, 2, 2] $ \ixResult -> indexz02 d (zipWith_Index (+) ixBase ixResult)
 
 indexz02
   :: forall target r n.
      (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
-  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
+  => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
 indexz02 d ix = ifF (1 >. (indexToList ix !! 0)) (d ! ix) (rscalar 0)
 
 rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
-         => target (TKR r 4) -> target (TKR r 0)
+         => target (TKR 4 r) -> target (TKR 0 r)
 rmaximum2 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
 
 testCNNOPP3 :: Assertion
 testCNNOPP3 = do
-  let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR Double 4)
+  let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       blackGlyph = AstFromPrimal $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
-                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
-      afcnn2T :: AstTensor AstMethodLet FullSpan (TKR Double 4)
+                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+      afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3 blackGlyph
   printAstPretty IM.empty afcnn2T
     @?= "rreplicate 1 (rreplicate 1 (rreplicate 1 (rreplicate 1 0.0)))"
 
 maxPool2dUnpadded3
   :: (ADReady target, GoodScalar r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded3 arr =
   rbuild [1, 1, 1, 1] $ \case
     [_, _, iBh, iBw] ->
@@ -678,7 +678,7 @@ maxPool2dUnpadded3 arr =
 
 conv2dUnpadded3
   :: (ADReady target, GoodScalar r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dUnpadded3 arrA =
   let shB = [1, 1, 2, 2]
   in rbuild shB $ \case
@@ -689,36 +689,36 @@ conv2dUnpadded3 arrA =
 
 slicez3
   :: (ADReady target, GoodScalar r, KnownNat n)
-  => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
+  => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez3 shOut d ixBase =
   rbuild shOut $ \_ixResult -> indexz03 d (zipWith_Index (+) ixBase ixBase) -- ixResult)
 
 indexz03
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR r n) -> IxROf target n -> target (TKR r 0)
+  => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
 indexz03 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
 rmaximum3 :: (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
-         => target (TKR r n) -> target (TKR r 0)
+         => target (TKR n r) -> target (TKR 0 r)
 rmaximum3 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
 
 testCNNOPP4 :: Assertion
 testCNNOPP4 = do
   resetVarCounter
-  let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR Double 4)
+  let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       blackGlyph = AstFromPrimal $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
-                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR Double 0))
-      afcnn2T :: AstTensor AstMethodLet FullSpan (TKR Double 4)
+                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+      afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded4 $ conv2dUnpadded4 blackGlyph
   printAstPretty IM.empty afcnn2T
     @?= "rreplicate 1 (rreplicate 1 (let w41 = rgather [1,1,1,1,2,2] (rfromVector (fromList [let w21 = stranspose (sreplicate (sreplicate (sreplicate (sreplicate (sreplicate 1 + siota))))) ; w20 = stranspose (sreplicate (sreplicate (sreplicate (stranspose (sreplicate (sreplicate 2 * siota)) + sreplicate siota)))) ; w12 = stranspose (sreplicate (sreplicate (sreplicate (stranspose (sreplicate (sreplicate 2 * siota)) + sreplicate siota)))) in rgather [1,1,1,1,2,2] (rconcrete (rfromListLinear [2] [7.0,0.0])) (\\[i54, i47, i36, i31, i30, i25] -> [ifF ((0 <=. w21 !$ [i54, i47, i36, i30, i25] &&* 1 >. w21 !$ [i54, i47, i36, i30, i25]) &&* ((0 <=. w20 !$ [i54, i47, i36, i30, i25] &&* 2 >. w20 !$ [i54, i47, i36, i30, i25]) &&* (0 <=. w12 !$ [i54, i47, i36, i30, i25] &&* 2 >. w12 !$ [i54, i47, i36, i30, i25]))) 0 1]), rreplicate 1 (rreplicate 1 (rreplicate 1 (rgather [1,2,2] (rreplicate 2 (rreplicate 2 0.0)) (\\[i31, i26, i22] -> [i26, i22]))))])) (\\[i50, i43, i35, i32, i33, i34] -> [ifF ((0 <=. 1 + i35 &&* 1 >. 1 + i35) &&* ((0 <=. 1 + i32 &&* 1 >. 1 + i32) &&* ((0 <=. 2 * i50 + i33 &&* 2 >. 2 * i50 + i33) &&* (0 <=. 2 * i43 + i34 &&* 2 >. 2 * i43 + i34)))) 0 1, i50, i43, i35, i32, i33, i34]) in rgather [1,1] w41 (\\[i49, i42] -> [i49, i42, 0, 0, 0, 0])))"
 
 maxPool2dUnpadded4
   :: (ADReady target, GoodScalar r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded4 arr =
   rbuild [1, 1, 1, 1] $ \case
     [_, _, iBh, iBw] ->
@@ -728,7 +728,7 @@ maxPool2dUnpadded4 arr =
 
 conv2dUnpadded4
   :: (ADReady target, GoodScalar r)
-  => target (TKR r 4) -> target (TKR r 4)
+  => target (TKR 4 r) -> target (TKR 4 r)
 conv2dUnpadded4 arrA =
   let shB = [1, 1, 2, 2]
   in rbuild shB $ \case
@@ -739,6 +739,6 @@ conv2dUnpadded4 arrA =
 
 slicez4
   :: (ADReady target, GoodScalar r, KnownNat n)
-  => IShR n -> target (TKR r n) -> IxROf target n -> target (TKR r n)
+  => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez4 shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz03 d (zipWith_Index (+) ixBase ixResult)

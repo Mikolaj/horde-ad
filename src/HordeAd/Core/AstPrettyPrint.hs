@@ -123,9 +123,9 @@ printAstVar :: forall s y. TensorKind y => PrintConfig -> AstVarName s y -> Show
 printAstVar cfg var =
   let rankTensorKind :: STensorKindType x -> Int
       rankTensorKind (STKScalar _) = 0
-      rankTensorKind (STKR _ snat) = fromIntegral $ fromSNat snat
-      rankTensorKind (STKS _ sh) = fromIntegral $ fromSNat $ shsRank sh
-      rankTensorKind (STKX _ sh) =
+      rankTensorKind (STKR snat _) = fromIntegral $ fromSNat snat
+      rankTensorKind (STKS sh _) = fromIntegral $ fromSNat $ shsRank sh
+      rankTensorKind (STKX sh _) =
         fromIntegral $ fromSNat $ X.shxRank $ fromJust $ X.ssxToShX' sh
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
@@ -164,7 +164,7 @@ printAstVarName renames var =
 
 printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarNameBrief renames (AstDynamicVarName @_ @r @sh varId) =
-  printAstVarName renames (mkAstVarName @_ @(TKS r sh) varId)
+  printAstVarName renames (mkAstVarName @_ @(TKS sh r) varId)
 
 printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
 printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =

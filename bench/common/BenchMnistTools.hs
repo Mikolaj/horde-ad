@@ -49,7 +49,7 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
       f :: MnistData r -> HVector (ADVal RepN)
-        -> ADVal target (TKR r 0)
+        -> ADVal target (TKR 0 r)
       f mnist adinputs =
         MnistFcnnRanked1.afcnnMnistLoss1
           widthHidden widthHidden2
@@ -224,7 +224,7 @@ mnistTrainBench2VTA extraPrefix chunkLength testData widthHidden widthHidden2
           Nothing -> error "valsInit: impossible someNatVal error"
       hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       f :: MnistData r -> HVector (ADVal RepN)
-        -> ADVal target (TKR r 0)
+        -> ADVal target (TKR 0 r)
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
           mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))

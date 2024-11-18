@@ -35,9 +35,9 @@ instance EqF RepN where
   (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
   RepN u ==. RepN v = case stensorKind @y of
     STKScalar _ -> unRepScalar u == unRepScalar v
-    STKR STKScalar{} SNat -> u == v
-    STKS STKScalar{} sh -> withKnownShS sh $ u == v
-    STKX STKScalar{} sh -> withKnownShX sh $ u == v
+    STKR SNat STKScalar{} -> u == v
+    STKS sh STKScalar{} -> withKnownShS sh $ u == v
+    STKX sh STKScalar{} -> withKnownShX sh $ u == v
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       RepN (fst u) ==. RepN (fst v) && RepN (snd u) ==. RepN (snd v)
@@ -48,9 +48,9 @@ instance OrdF RepN where
   (<.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
   RepN u <. RepN v = case stensorKind @y of
     STKScalar _ -> unRepScalar u < unRepScalar v
-    STKR STKScalar{} SNat -> u < v
-    STKS STKScalar{} sh -> withKnownShS sh $ u < v
-    STKX STKScalar{} sh -> withKnownShX sh $ u < v
+    STKR SNat STKScalar{} -> u < v
+    STKS sh STKScalar{} -> withKnownShS sh $ u < v
+    STKX sh STKScalar{} -> withKnownShX sh $ u < v
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       RepN (fst u) <. RepN (fst v) && RepN (snd u) <. RepN (snd v)
@@ -141,7 +141,7 @@ instance BaseTensor RepN where
   smaxIndex = RepN . tmaxIndexS . unRepN
   sfloor = RepN . tfloorS . unRepN
   siota :: forall n r. (GoodScalar r, KnownNat n)
-        => RepN (TKS r '[n])  -- from 0 to n - 1
+        => RepN (TKS '[n] r)  -- from 0 to n - 1
   siota = let n = valueOf @n :: Int
           in RepN $ Nested.sfromList1 SNat
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
@@ -197,9 +197,9 @@ instance BaseTensor RepN where
   dshape = voidFromHVector . unRepN
   tshapeFull stk t = case stk of
     STKScalar _ -> FTKScalar
-    STKR STKScalar{} SNat -> FTKR $ tshapeR $ unRepN t
-    STKS STKScalar{} sh -> FTKS sh
-    STKX STKScalar{} sh -> withKnownShX sh $ FTKX $ Nested.mshape $ unRepN t
+    STKR SNat STKScalar{} -> FTKR $ tshapeR $ unRepN t
+    STKS sh STKScalar{} -> FTKS sh
+    STKX sh STKScalar{} -> withKnownShX sh $ FTKX $ Nested.mshape $ unRepN t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       FTKProduct (tshapeFull stk1 (tproject1 t))
@@ -314,9 +314,9 @@ ravel :: forall k y. TensorKind y
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
   STKScalar _ -> rfromList $ NonEmpty.fromList $ runRepScalar <$> t
-  STKR STKScalar{} SNat -> rfromList $ NonEmpty.fromList t
-  STKS STKScalar{} sh -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
-  STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
+  STKR SNat STKScalar{} -> rfromList $ NonEmpty.fromList t
+  STKS sh STKScalar{} -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
+  STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfS stk1
     , Dict <- lemTensorKindOfS stk2
@@ -332,9 +332,9 @@ unravel :: forall k y. TensorKind y
         -> [RepN y]
 unravel k@SNat t = case stensorKind @y of
   STKScalar _ -> error "unravel: impossible"
-  STKR STKScalar{} SNat -> runravelToList t
-  STKS STKScalar{} sh -> withKnownShS sh $ sunravelToList t
-  STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
+  STKR SNat STKScalar{} -> runravelToList t
+  STKS sh STKScalar{} -> withKnownShS sh $ sunravelToList t
+  STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfS stk1
     , Dict <- lemTensorKindOfS stk2
@@ -393,47 +393,47 @@ oRdmapAccumL k _ bShs _ f acc0 es
     in tpair xout (ravel k lout)
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector RepN (RepN (TKR r n)) where
+         => AdaptableHVector RepN (RepN (TKR n r)) where
   {-# SPECIALIZE instance
       KnownNat n
-      => AdaptableHVector RepN (RepN (TKR Double n)) #-}
-  type X (RepN (TKR r n)) = TKR r n
+      => AdaptableHVector RepN (RepN (TKR n Double)) #-}
+  type X (RepN (TKR n r)) = TKR n r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
+  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
+    case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero $ rshape aInit, Nothing)
 
 instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector RepN (AsHVector (RepN (TKR r n))) where
+         => AdaptableHVector RepN (AsHVector (RepN (TKR n r))) where
   {-# SPECIALIZE instance
       KnownNat n
-      => AdaptableHVector RepN (AsHVector (RepN (TKR Double n))) #-}
-  type X (AsHVector (RepN (TKR r n))) = TKUntyped
+      => AdaptableHVector RepN (AsHVector (RepN (TKR n Double))) #-}
+  type X (AsHVector (RepN (TKR n r))) = TKUntyped
   toHVectorOf = RepN . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
       Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
     Nothing -> Nothing
 
-instance ForgetShape (RepN (TKR r n)) where
-  type NoShape (RepN (TKR r n)) = RepN (TKR r n)
+instance ForgetShape (RepN (TKR n r)) where
+  type NoShape (RepN (TKR n r)) = RepN (TKR n r)
   forgetShape = id
 
 instance (GoodScalar r, KnownShS sh)
-         => AdaptableHVector RepN (RepN (TKS r sh)) where
-  type X (RepN (TKS r sh)) = TKS r sh
+         => AdaptableHVector RepN (RepN (TKS sh r)) where
+  type X (RepN (TKS sh r)) = TKS sh r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
+  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
+    case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
 
 instance (GoodScalar r, KnownShS sh)
-         => AdaptableHVector RepN (AsHVector (RepN (TKS r sh))) where
-  type X (AsHVector (RepN (TKS r sh))) = TKUntyped
+         => AdaptableHVector RepN (AsHVector (RepN (TKS sh r))) where
+  type X (AsHVector (RepN (TKS sh r))) = TKUntyped
   toHVectorOf = RepN . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
@@ -441,13 +441,13 @@ instance (GoodScalar r, KnownShS sh)
     Nothing -> Nothing
 
 instance GoodScalar r
-         => ForgetShape (RepN (TKS r sh)) where
-  type NoShape (RepN (TKS r sh)) = RepN (TKR r (Rank sh))  -- key case
+         => ForgetShape (RepN (TKS sh r)) where
+  type NoShape (RepN (TKS sh r)) = RepN (TKR (Rank sh) r)  -- key case
   forgetShape = RepN . Nested.stoRanked . unRepN
 
 instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
-         => RandomHVector (RepN (TKS r sh)) where
-  randomVals :: forall g. RandomGen g => Double -> g -> (RepN (TKS r sh), g)
+         => RandomHVector (RepN (TKS sh r)) where
+  randomVals :: forall g. RandomGen g => Double -> g -> (RepN (TKS sh r), g)
   randomVals range g =
     let createRandomVector :: Int -> g -> Nested.Shaped sh r
         createRandomVector n seed =

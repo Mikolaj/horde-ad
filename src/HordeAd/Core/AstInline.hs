@@ -410,8 +410,8 @@ unshareAstTensor tShare =
 -- the gather/scatter/build variables corresponding to the index.
 unshareAstScoped
   :: forall sh s r. (GoodScalar r, KnownShS sh, AstSpan s)
-  => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s (TKS r sh)
-  -> (AstBindings, AstTensor AstMethodLet s (TKS r sh))
+  => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s (TKS sh r)
+  -> (AstBindings, AstTensor AstMethodLet s (TKS sh r))
 unshareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = unshareAst memo0 v0
       memoDiff = DMap.difference memo1 memo0
@@ -466,11 +466,11 @@ unshareAst memo = \case
   Ast.AstReplicate k v -> second (Ast.AstReplicate k) (unshareAst memo v)
   Ast.AstBuild1 @y2 snat (var, v) -> case stensorKind @y2 of
     STKScalar{} -> error "WIP"
-    STKR STKScalar{} SNat -> error "WIP"
-    STKS STKScalar{} sh -> withKnownShS sh $
+    STKR SNat STKScalar{} -> error "WIP"
+    STKS sh STKScalar{} -> withKnownShS sh $
       let (memo1, v2) = unshareAstScoped [var] memo v
       in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKX STKScalar{} sh -> withKnownShX sh $ error "WIP"
+    STKX sh STKScalar{} -> withKnownShX sh $ error "WIP"
     STKProduct{} -> error "WIP"
     STKUntyped -> error "WIP"
     _ -> error "TODO"

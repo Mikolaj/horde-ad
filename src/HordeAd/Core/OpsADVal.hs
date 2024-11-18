@@ -135,7 +135,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
          , ShareTensor target, ShareTensor (PrimalOf target) )
          => AdaptableHVector (ADVal target)
-                             (ADVal target (TKR r n)) where
+                             (ADVal target (TKR n r)) where
 {- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
@@ -147,19 +147,19 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
       => AdaptableHVector (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  type X (ADVal target (TKR r n)) = TKR r n
+  type X (ADVal target (TKR n r)) = TKR n r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
+  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
+    case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero (rshape aInit), Nothing)
 
 instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
          , ShareTensor target, ShareTensor (PrimalOf target) )
          => AdaptableHVector (ADVal target)
-                             (AsHVector (ADVal target (TKR r n))) where
-  type X (AsHVector (ADVal target (TKR r n))) = TKUntyped
+                             (AsHVector (ADVal target (TKR n r))) where
+  type X (AsHVector (ADVal target (TKR n r))) = TKUntyped
   toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
@@ -167,30 +167,30 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
     Nothing -> Nothing
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
-         => DualNumberValue (ADVal target (TKR r n)) where
-  type DValue (ADVal target (TKR r n)) = RepN (TKR r n)  -- ! not Value(target)
+         => DualNumberValue (ADVal target (TKR n r)) where
+  type DValue (ADVal target (TKR n r)) = RepN (TKR n r)  -- ! not Value(target)
   fromDValue t = fromPrimalADVal $ rconcrete $ unRepN t
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target)
          , KnownShS sh, GoodScalar r )
          => AdaptableHVector (ADVal target)
-                             (ADVal target (TKS r sh)) where
-  type X (ADVal target (TKS r sh)) = TKS r sh
+                             (ADVal target (TKS sh r)) where
+  type X (ADVal target (TKS sh r)) = TKS sh r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
+  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
+    case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
 
 instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
-         => DualNumberValue (ADVal target (TKS r sh)) where
-  type DValue (ADVal target (TKS r sh)) = RepN (TKS r sh)   -- ! not Value(shaped)
+         => DualNumberValue (ADVal target (TKS sh r)) where
+  type DValue (ADVal target (TKS sh r)) = RepN (TKS sh r)   -- ! not Value(shaped)
   fromDValue t = fromPrimalADVal $ sconcrete $ unRepN t
 
 -- This is temporarily moved from Adaptor in order to specialize manually
-instance ( a ~ target (TKR r n), BaseTensor target
+instance ( a ~ target (TKR n r), BaseTensor target
          , GoodScalar r, KnownNat n, AdaptableHVector target a )
          => AdaptableHVector target [a] where
 {- TODO
@@ -291,13 +291,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rreverse (D u u') = dD (rreverse u) (ReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (TransposeR perm u')
   rreshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
-           => IShR m -> ADVal target (TKR r n) -> ADVal target (TKR r m)
+           => IShR m -> ADVal target (TKR n r) -> ADVal target (TKR m r)
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
   rbuild1 :: forall r n. (GoodScalar r, KnownNat n)
-          => Int -> (IntOf (ADVal target) -> ADVal target (TKR r n))
-          -> ADVal target (TKR r (1 + n))
+          => Int -> (IntOf (ADVal target) -> ADVal target (TKR n r))
+          -> ADVal target (TKR (1 + n) r)
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
                    -- the only case where we can guess sh
@@ -317,11 +317,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   rconcrete t = fromPrimalADVal (rconcrete t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ADVal target (TKS r sh) -> ADVal target (TKR r (Rank sh))
+         => ADVal target (TKS sh r) -> ADVal target (TKR (Rank sh) r)
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
    where
     dRFromS :: (GoodScalar r2, KnownShS sh2)
-            => Delta target (TKS r2 sh2) -> Delta target (TKR r2 (Rank sh2))
+            => Delta target (TKS sh2 r2) -> Delta target (TKR (Rank sh2) r2)
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
 
@@ -380,20 +380,20 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
                 , Rank perm <= Rank sh, GoodScalar r )
-             => Permutation.Perm perm -> ADVal target (TKS r sh)
-             -> ADVal target (TKS r (Permutation.PermutePrefix perm sh))
+             => Permutation.Perm perm -> ADVal target (TKS sh r)
+             -> ADVal target (TKS (Permutation.PermutePrefix perm sh) r)
   stranspose perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
     dD (stranspose perm u) (TransposeS @_ @_ @_ @target perm u')
   sreshape :: forall sh sh2 r.
               ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2)
-           => ADVal target (TKS r sh) -> ADVal target (TKS r sh2)
+           => ADVal target (TKS sh r) -> ADVal target (TKS sh2 r)
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (ADVal target) -> ADVal target (TKS r sh))
-          -> ADVal target (TKS r (n ': sh))
+          => (IntOf (ADVal target) -> ADVal target (TKS sh r))
+          -> ADVal target (TKS (n ': sh) r)
   sbuild1 f = case valueOf @n of
     0 -> sconcrete $ Nested.sfromListPrimLinear knownShS []
     k -> sfromList $ NonEmpty.fromList
@@ -409,7 +409,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   sconcrete t = fromPrimalADVal (sconcrete t)
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-         => ADVal target (TKR r (Rank sh)) -> ADVal target (TKS r sh)
+         => ADVal target (TKR (Rank sh) r) -> ADVal target (TKS sh r)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
     dSFromR (RFromS @sh1 d) =
@@ -431,9 +431,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tshapeFull stk (D u _) = tshapeFull stk u
   tcond stk b u v = case stk of
     STKScalar _ -> rmkRepScalar $ ifF b (runRepScalar u) (runRepScalar v)
-    STKR STKScalar{} SNat -> ifF b u v
-    STKS STKScalar{} sh -> withKnownShS sh $ ifF b u v
-    STKX STKScalar{} sh -> withKnownShX sh $ ifF b u v
+    STKR SNat STKScalar{} -> ifF b u v
+    STKS sh STKScalar{} -> withKnownShS sh $ ifF b u v
+    STKX sh STKScalar{} -> withKnownShX sh $ ifF b u v
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       let (u1, u2) = tunpair u

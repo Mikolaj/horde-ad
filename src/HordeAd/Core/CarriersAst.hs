@@ -50,7 +50,7 @@ instance Ord (AstTensor ms s y) where
   (<=) = error "AST requires that OrdF be used instead"
 
 instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
-         => Num (AstTensor ms s (TKR r n)) where
+         => Num (AstTensor ms s (TKR n r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
   AstSumOfList (AstConcrete u : lu) + AstSumOfList (AstConcrete v : lv) =
@@ -90,19 +90,19 @@ instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
 instance (GoodScalar r, Integral r, KnownNat n)
-         => IntegralF (AstTensor ms s (TKR r n)) where
+         => IntegralF (AstTensor ms s (TKR n r)) where
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
 
 instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), KnownNat n)
-         => Fractional (AstTensor ms s (TKR r n)) where
+         => Fractional (AstTensor ms s (TKR n r)) where
   u / v = AstR2 DivideOp u v
   recip = AstR1 RecipOp
   fromRational r = error $ "fromRational not defined for AST: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => Floating (AstTensor ms s (TKR r n)) where
+         => Floating (AstTensor ms s (TKR n r)) where
   pi = fromPrimal $ AstConcrete pi
   exp = AstR1 ExpOp
   log = AstR1 LogOp
@@ -123,14 +123,14 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
   atanh = AstR1 AtanhOp
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
-         => RealFloatF (AstTensor ms s (TKR r n)) where
+         => RealFloatF (AstTensor ms s (TKR n r)) where
   atan2F = AstR2 Atan2Op
 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
 
 instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
-         => Num (AstTensor ms s (TKS r sh)) where
+         => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
   AstSumOfListS (AstConcreteS u : lu) + AstSumOfListS (AstConcreteS v : lv) =
@@ -162,7 +162,7 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
   negate = AstN1S NegateOp
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
-  fromInteger :: Integer -> AstTensor ms s (TKS r sh)
+  fromInteger :: Integer -> AstTensor ms s (TKS sh r)
   fromInteger i = case sameShape @sh @'[] of
     Just Refl -> fromPrimal . AstConcreteS . fromInteger $ i
     Nothing -> error $ "fromInteger not defined for tensors of non-empty shapes: "
@@ -174,20 +174,20 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
 instance (Integral r, GoodScalar r, KnownShS sh)
-         => IntegralF (AstTensor ms s (TKS r sh)) where
+         => IntegralF (AstTensor ms s (TKS sh r)) where
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
 instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
          , KnownShS sh, AstSpan s )
-         => Fractional (AstTensor ms s (TKS r sh)) where
+         => Fractional (AstTensor ms s (TKS sh r)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational r = error $ "fromRational not defined for AST: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
-         => Floating (AstTensor ms s (TKS r sh)) where
+         => Floating (AstTensor ms s (TKS sh r)) where
   pi = fromPrimal $ AstConcreteS pi
   exp = AstR1S ExpOp
   log = AstR1S LogOp
@@ -208,14 +208,14 @@ instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped s
   atanh = AstR1S AtanhOp
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
-         => RealFloatF (AstTensor ms s (TKS r sh)) where
+         => RealFloatF (AstTensor ms s (TKS sh r)) where
   atan2F = AstR2S Atan2Op
 
 
 -- mixed
 
 instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
-         => Num (AstTensor ms s (TKX r sh)) where
+         => Num (AstTensor ms s (TKX sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
   AstSumOfListX (AstConcreteX u : lu) + AstSumOfListX (AstConcreteX v : lv) =
@@ -254,20 +254,20 @@ instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
 instance (Integral r, GoodScalar r, KnownShX sh)
-         => IntegralF (AstTensor ms s (TKX r sh)) where
+         => IntegralF (AstTensor ms s (TKX sh r)) where
   quotF = AstI2X QuotOp
   remF = AstI2X RemOp
 
 instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
          , KnownShX sh )
-         => Fractional (AstTensor ms s (TKX r sh)) where
+         => Fractional (AstTensor ms s (TKX sh r)) where
   u / v = AstR2X DivideOp u v
   recip = AstR1X RecipOp
   fromRational r = error $ "fromRational not defined for AST: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
-         => Floating (AstTensor ms s (TKX r sh)) where
+         => Floating (AstTensor ms s (TKX sh r)) where
   pi = fromPrimal $ AstConcreteX pi
   exp = AstR1X ExpOp
   log = AstR1X LogOp
@@ -288,7 +288,7 @@ instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh
   atanh = AstR1X AtanhOp
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
-         => RealFloatF (AstTensor ms s (TKX r sh)) where
+         => RealFloatF (AstTensor ms s (TKX sh r)) where
   atan2F = AstR2X Atan2Op
 
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation

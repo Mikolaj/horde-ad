@@ -91,7 +91,7 @@ testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-3
     (ringestData [2,2,1, 2,2] [-4.6947093,1.5697206,-1.6332961,0.34882763,1.5697206,-1.0,-0.9784988,-0.9158946,6.6326222,3.6699238,7.85237,-2.9069107,17.976654,0.3914159,32.98194,19.807974], ringestData [2,2,1, 2,2] [6.943779,-1.436789,33.67549,0.22397964,-1.436789,-1.0,-0.975235,-0.90365005,147.06645,-73.022705,-9.238474,-10.042692,-980.2843,-7.900571,-14.451739,436.9084], ringestData [2,2,1, 2,2] [-4.8945336,2.067469,-1.7196897,1.3341143,2.067469,1.0,0.99846554,0.99536234,6.6943173,3.7482092,7.977362,-3.1475093,18.000969,0.48736274,33.01224,19.845064])
-    (rev @_ @(TKR Float 5) foo (t16, t16, t16))
+    (rev @_ @(TKR 5 Float) foo (t16, t16, t16))
 
 bar :: forall a. RealFloatF a => (a, a) -> a
 bar (x, y) =
@@ -108,19 +108,19 @@ _testBar :: Assertion
 _testBar =
   assertEqualUpToEpsilon 1e-5
     (ringestData [3, 1, 2, 2, 1, 2, 2] [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1917,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596], ringestData [3, 1, 2, 2, 1, 2, 2] [-5728.761,24965.113,32825.074,-63505.957,-42592.203,145994.89,-500082.5,-202480.05,-5728.761,24965.113,32825.074,-63505.957,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601007,-98.97708,2.1931143,-1.9601007,1.8243167,-4.0434446,-1.5266151,2020.9731,-538.06036,-84.28139,62.963818,-34987.0,-9.917454,135.3003,17741.996,-1.9601007,-1.9601007,-1.9601007,-1.9601007,-1.5266151,-1.5266151,-1.5266151,-1.5266151,-4029.1775,-1.5266151,-1.5266151,-1.5266151,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
-    (crev (bar @(ADVal RepN (TKR Float 7))) (t48, t48))
+    (crev (bar @(ADVal RepN (TKR 7 Float))) (t48, t48))
 
 -- Numerically unstable ATM.
 _testBarS :: Assertion
 _testBarS =
   assertEqualUpToEpsilon 1e-5
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[3, 1, 2, 2, 1, 2, 2] knownShS [304.13867,914.9335,823.0187,1464.4688,5264.3306,1790.0055,1535.4309,3541.6572,304.13867,914.9335,823.0187,1464.4688,6632.4355,6047.113,1535.4309,1346.6815,45.92141,6.4903135,5.5406737,1.4242969,6.4903135,1.1458766,4.6446533,2.3550234,88.783676,27.467598,125.27507,18.177452,647.1915,0.3878851,2177.6152,786.1792,6.4903135,6.4903135,6.4903135,6.4903135,2.3550234,2.3550234,2.3550234,2.3550234,21.783596,2.3550234,2.3550234,2.3550234,21.783596,21.783596,21.783596,21.783596], sconcrete $ Nested.sfromListPrimLinear @_ @'[3, 1, 2, 2, 1, 2, 2] knownShS [-5728.7617,24965.113,32825.07,-63505.953,-42592.203,145994.88,-500082.5,-202480.06,-5728.7617,24965.113,32825.07,-63505.953,49494.473,-2446.7632,-500082.5,-125885.58,-43.092484,-1.9601002,-98.97709,2.1931143,-1.9601002,1.8243169,-4.0434446,-1.5266153,2020.9731,-538.0603,-84.28137,62.963814,-34986.996,-9.917454,135.30023,17741.998,-1.9601002,-1.9601002,-1.9601002,-1.9601002,-1.5266153,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-1.5266153,-1.5266153,-1.5266153,-4029.1775,-4029.1775,-4029.1775,-4029.1775])
-    (crev (barF @(ADVal RepN (TKS Float '[3, 1, 2, 2, 1, 2, 2]))) (sfromR t48, sfromR t48))
+    (crev (barF @(ADVal RepN (TKS '[3, 1, 2, 2, 1, 2, 2] Float))) (sfromR t48, sfromR t48))
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r n. (RealFloatF (ADVal RepN (TKR r n)))
-     => [ADVal RepN (TKR r n)] -> ADVal RepN (TKR r n)
+fooD :: forall r n. (RealFloatF (ADVal RepN (TKR n r)))
+     => [ADVal RepN (TKR n r)] -> ADVal RepN (TKR n r)
 fooD [x, y, z] =
   let w = x * sin y
   in atan2F z w + z * w
@@ -135,7 +135,7 @@ testFooD =
                , t128 ])
 
 fooBuild0 :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-          => target (TKR r (1 + n)) -> target (TKR r (1 + n))
+          => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild0 v =
   let r = rsum v
   in rbuild1 2 $ const r
@@ -148,7 +148,7 @@ testFooBuild0 =
 
 fooBuildOut
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR r (1 + n)) -> target (TKR r (1 + n))
+  => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuildOut v =
   rbuild1 2 $ \ix -> ifF (ix ==. 0)
                          (rindex v [ix + 1])  -- index out of bounds; guarded
@@ -162,8 +162,8 @@ testFooBuildOut =
 
 fooBuild2
   :: forall target r n.
-     (ADReady target, GoodScalar r, KnownNat n, Floating (target (TKR r n)), RealFloat r)
-  => target (TKR r (1 + n)) -> target (TKR r (1 + n))
+     (ADReady target, GoodScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
+  => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild2 v =
   rbuild1 2 $ \ix ->
     ifF (ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
@@ -180,15 +180,15 @@ fooBuild2 v =
 
 fooBuild2L
   :: forall target r n.
-     (ADReady target, GoodScalar r, KnownNat n, Floating (target (TKR r n)), RealFloat r)
-  => [target (TKR r (1 + n))] -> target (TKR r (1 + n))
+     (ADReady target, GoodScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
+  => [target (TKR (1 + n) r)] -> target (TKR (1 + n) r)
 fooBuild2L = foldr1 (+) . map fooBuild2
 
 testFooBuild91 :: Assertion
 testFooBuild91 =
   assertEqualUpToEpsilon 1e-8
     (map (ringestData [2]) [[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299]])
-    (crev @_ @(TKR Double 1)
+    (crev @_ @(TKR 1 Double)
           fooBuild2L
        (map (ringestData [2]) [[0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9]]))
 
@@ -196,7 +196,7 @@ testFooBuild92 :: Assertion
 testFooBuild92 =
   assertEqualUpToEpsilon 1e-8
     (map (ringestData [2]) [[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299],[1.5811388300841895,1.118033988749895],[1.118033988749895,0.9128709291752769],[0.9128709291752769,0.7905694150420948],[0.7905694150420948,0.7071067811865475],[0.7071067811865475,0.6454972243679028],[0.6454972243679028,0.5976143046671968],[0.5976143046671968,0.5590169943749475],[0.5590169943749475,0.5270462766947299],[0.5270462766947299,1.5811388300841895],[1.5811388300841895,0.5270462766947299]])
-    (rev @_ @(TKR Double 1)
+    (rev @_ @(TKR 1 Double)
        fooBuild2L
        (map (ringestData [2]) [[0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], [0.9, 0.1], [0.1, 0.9]]))
 
@@ -214,8 +214,8 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh target r.
-     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS r sh)), RealFloat r, KnownShS sh, KnownNat (Nested.Product (k : sh)))
-  => target (TKS r (k : sh)) -> target (TKR r (1 + Rank sh))
+     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh, KnownNat (Nested.Product (k : sh)))
+  => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix ->
     ifF (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
@@ -243,8 +243,8 @@ testFooBuild25S =
     (rev' @Double @5 (fooBuild2S @2 @[2, 1, 2, 2] . sfromR) t16)
 
 fooBuild3 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR r n)) )
-          => target (TKR r (1 + n)) -> target (TKR r (1 + n))
+             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR n r)) )
+          => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild3 v =
   rbuild1 22 $ \ix ->
     bar ( rreplicate0N (tailShape $ rshape v) (rscalar 1)
@@ -257,8 +257,8 @@ testFooBuild3 =
     (rev' @Double @5 fooBuild3 t16)
 
 fooBuild5 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR r n)) )
-          => target (TKR r (1 + n)) -> target (TKR r (1 + n))
+             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR n r)) )
+          => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild5 v =
   let r = rsum v
       v' = rreplicate0N (tailShape $ rshape v) $ rminimum $ rflatten v
@@ -272,14 +272,14 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [1.1033568028244503e7,74274.22833989389,-5323238.2765011545,253074.03394016018,4.14744804041263e7,242643.98750578283,-1.922371592087736e7,2.730274503834733e7,1.135709425204681e7,6924.195066252549,-5345004.080027547,255679.51406100337,3.8870981856703006e7,241810.92121468345,-1.9380955730171032e7,2.877024321777493e7])
-    (revDt @_ @(TKR Double 5)
+    (revDt @_ @(TKR 5 Double)
            fooBuild5 t16 (rreplicate0N [2, 2, 1, 2, 2] (rscalar 42)))
 
 testFooBuildDt2 :: Assertion
 testFooBuildDt2 =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [2.206713605648901e7,148548.45667978778,-1.0646476553002307e7,506148.0678803204,8.294896080825263e7,485287.9750115657,-3.844743184175473e7,5.460549007669466e7,2.271418850409362e7,13848.390132505112,-1.0690008160055092e7,511359.0281220066,7.774196371340603e7,483621.8424293669,-3.876191146034207e7,5.754048643554987e7])
-    (revDt @_ @(TKProduct (TKR Double 5) (TKR Double 5))
+    (revDt @_ @(TKProduct (TKR 5 Double) (TKR 5 Double))
            (\x -> let y = fooBuild5 x in tpair y y) t16 (let dt = rreplicate0N [2, 2, 1, 2, 2] (rscalar 42) in tpair dt dt))
 
 testFooBuild5 :: Assertion
@@ -289,8 +289,8 @@ testFooBuild5 =
     (rev' @Double @7 fooBuild5 t48)
 
 fooBuild1 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR r n)) )
-          => target (TKR r (1 + n)) -> target (TKR r (1 + n))
+             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR n r)) )
+          => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild1 v =
   let r = rsum v
       tk = rreplicate0N (tailShape $ rshape v)
@@ -308,7 +308,7 @@ testFooBuild1 =
     (rev' @Double @5 fooBuild1 t16)
 
 fooMap1 :: (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
-        => IShR (1 + n) -> target (TKR r 0) -> target (TKR r (1 + n))
+        => IShR (1 + n) -> target (TKR 0 r) -> target (TKR (1 + n) r)
 fooMap1 sh r =
   let v = fooBuild1 $ rreplicate0N sh (r * r)
   in rmap0N (\x -> x * r + (rscalar 5)) v
@@ -329,7 +329,7 @@ testFooMap1 =
 
 fooNoGo :: forall target r n.
            ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
-        => target (TKR r (1 + n)) -> target (TKR r (1 + n))
+        => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooNoGo v =
   let r = rsum v
       r0 = rsum0 v
@@ -358,9 +358,9 @@ testFooNoGo10 =
 
 nestedBuildMap :: forall target n r.
                   (ADReady target, GoodScalar r, n <= 6, KnownNat n, Differentiable r)
-               => target (TKR r 0) -> target (TKR r (1 + n))
+               => target (TKR 0 r) -> target (TKR (1 + n) r)
 nestedBuildMap r =
-  let w x = rreplicate0N [4] x :: target (TKR r 1)
+  let w x = rreplicate0N [4] x :: target (TKR 1 r)
       v' = rreplicate0N (177 :$: ZSR) r
       nestedMap x = rmap0N (x /) (w x)
       variableLengthBuild iy = rbuild1 7 (\ix ->
@@ -385,7 +385,7 @@ testNestedBuildMap10 :: Assertion
 testNestedBuildMap10 =
   assertEqualUpToEpsilon 1e-8
     (map rscalar [109.62086996459126,106.70290239773645,103.05843225947055,98.11825678264942,67.8014491889543,22.67321290758882,-163.40832575807545,376.4240286600336,-1996.9068313949347,249.28292226561257, 109.62086996459126,106.70290239773645,103.05843225947055,98.11825678264942,67.8014491889543,22.67321290758882,-163.40832575807545,376.4240286600336,-1996.9068313949347,249.28292226561257, 109.62086996459126,106.70290239773645,103.05843225947055,98.11825678264942,67.8014491889543,22.67321290758882,-163.40832575807545,376.4240286600336,-1996.9068313949347,249.28292226561257])
-    (map (crev @_ @(TKR Double 1)
+    (map (crev @_ @(TKR 1 Double)
                nestedBuildMap)
          (map (RepN . Nested.rscalar) $ [0.1, 0.2 .. 1] ++ [0.1, 0.2 .. 1] ++ [0.1, 0.2 .. 1]))
 
@@ -393,7 +393,7 @@ testNestedBuildMap11 :: Assertion
 testNestedBuildMap11 =
   assertEqualUpToEpsilon 1e-8
     (map rscalar [109.62086996459126,106.70290239773645,103.05843225947055,98.11825678264942,67.8014491889543,22.67321290758882,-163.40832575807545,376.4240286600336,-1996.9068313949347,249.28292226561257, 109.62086996459126,106.70290239773645,103.05843225947055,98.11825678264942,67.8014491889543,22.67321290758882,-163.40832575807545,376.4240286600336,-1996.9068313949347,249.28292226561257, 109.62086996459126,106.70290239773645,103.05843225947055,98.11825678264942,67.8014491889543,22.67321290758882,-163.40832575807545,376.4240286600336,-1996.9068313949347,249.28292226561257])
-    (map (rev @_ @(TKR Double 1) nestedBuildMap)
+    (map (rev @_ @(TKR 1 Double) nestedBuildMap)
          (map (RepN . Nested.rscalar) $ [0.1, 0.2 .. 1] ++ [0.1, 0.2 .. 1] ++ [0.1, 0.2 .. 1]))
 
 testNestedBuildMap7 :: Assertion
@@ -407,7 +407,7 @@ testNestedBuildMap7 =
 nestedSumBuild
   :: forall target n r.
      (ADReady target, GoodScalar r, n <= 4, KnownNat n, Differentiable r)
-  => target (TKR r n) -> target (TKR r (2 + n))
+  => target (TKR n r) -> target (TKR (2 + n) r)
 nestedSumBuild v =
   rbuild1 13 $ \ix1 -> rbuild1 4 $ \ix2 ->
     ifF (ix2 >. ix1)
@@ -430,7 +430,7 @@ testNestedSumBuild5 =
     (rev' @Double @5 nestedSumBuild (rsum (rsum t16)))
 
 nestedSumBuildB :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
-                => target (TKR r (1 + n)) -> target (TKR r 3)
+                => target (TKR (1 + n) r) -> target (TKR 3 r)
 nestedSumBuildB v =
   rbuild @target @r @2 [13, 4, 2] $ \case
     [ix, ix2] ->
@@ -454,7 +454,7 @@ testNestedSumBuildB =
     (rev' @Double @3 nestedSumBuildB (rsum $ rsum $ rtranspose [1, 4, 2, 0, 3] t48))
 
 nestedBuildIndex :: forall target r. (ADReady target, GoodScalar r)
-                 => target (TKR r 5) -> target (TKR r 3)
+                 => target (TKR 5 r) -> target (TKR 3 r)
 nestedBuildIndex v =
   rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `remF` 2 :.: ix2 :.: 0 :.: ZIR)) [ix3]) (ix2 :.: ZIR)
 
@@ -466,7 +466,7 @@ testNestedBuildIndex =
 
 barRelu
   :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
-  => target (TKR r n) -> target (TKR r n)
+  => target (TKR n r) -> target (TKR n r)
 barRelu x = let t = rreplicate0N (rshape x) (rscalar 0.001) * x
             in relu $ bar (t, relu t)
 
@@ -474,7 +474,7 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon 1e-6
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [1.2916050471365906e-2,1.2469757606504572e-2,1.3064120086501589e-2,1.2320300700062944e-2,0.0,1.217049789428711e-2,1.2185494267265312e-2,0.0,1.4105363649830907e-2,1.3506236503127638e-2,1.3359213691150671e-2,0.0,1.7066665416485535e-2,1.2618022646204737e-2,0.0,1.595161947206668e-2])
-    (revDt @_ @(TKR Double 5)
+    (revDt @_ @(TKR 5 Double)
            barRelu t16 (rreplicate0N [ 2 , 2 , 1 , 2 , 2 ] (rscalar 42.2)))
 
 testBarReluADValDt2 :: Assertion
@@ -482,9 +482,9 @@ testBarReluADValDt2 =
   assertEqualUpToEpsilon 1e-6
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [84.42583210117625,84.42493951543845,84.4261282404092,84.42464060162287,84.4,84.42434099465609,84.4243709887547,84.4,84.42821072755468,84.42701247325044,84.42671842762383,84.4,84.43413333114152,84.42523604552053,84.4,84.43190323923253])
     (revDt @_ @(TKProduct
-                  (TKR Double 4)
-                  (TKProduct (TKR Float 5)
-                             (TKS Double [2,2,1,2,2])))
+                  (TKR 4 Double)
+                  (TKProduct (TKR 5 Float)
+                             (TKS [2,2,1,2,2] Double)))
            (\x -> tpair (rsum x) (tpair (rcast $ barRelu x) (sfromR $ barRelu x))) t16
                   (let dt = rreplicate0N [ 2 , 2 , 1 , 2 , 2 ] (rscalar 42.2)
                    in (tpair (rsum dt) (tpair (rcast dt) (sfromR dt)))))
@@ -504,7 +504,7 @@ testBarReluADVal3 =
 
 barRelu10xSlower
   :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
-  => target (TKR r n) -> target (TKR r n)
+  => target (TKR n r) -> target (TKR n r)
 barRelu10xSlower x = let t = rmap0N (* rscalar 0.001) x
                      in relu $ bar (t, relu t)
 
@@ -514,12 +514,12 @@ testReluSimpPP = do
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 14032
-  length (show (simplifyInline @(TKR Float 10) t1)) @?= 14032
+  length (show (simplifyInline @(TKR 10 Float) t1)) @?= 14032
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1]) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 11024
-  length (show (simplifyInline @(TKR Float 10) t2)) @?= 14032
+  length (show (simplifyInline @(TKR 10 Float) t2)) @?= 14032
 
 testBarReluADVal320 :: Assertion
 testBarReluADVal320 =
@@ -529,7 +529,7 @@ testBarReluADVal320 =
           (rmap0N (* (rscalar 0.001)) t128))
 
 braidedBuilds :: forall target n r. (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
-              => target (TKR r (1 + n)) -> target (TKR r 2)
+              => target (TKR (1 + n) r) -> target (TKR 2 r)
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
     rbuild1 4 (\ix2 -> rindex (rfromList
@@ -548,7 +548,7 @@ testBraidedBuilds1 =
     (rev' @Double @2 braidedBuilds t16)
 
 recycled :: (ADReady target, GoodScalar r, KnownNat n)
-         => target (TKR r n) -> target (TKR r 7)
+         => target (TKR n r) -> target (TKR 7 r)
 recycled r =
   rbuild1 2 $ \_ -> rbuild1 4 $ \_ -> rbuild1 2 $ \_ -> rbuild1 3 $ \_ ->
     nestedSumBuildB (rreplicate 4 r)
@@ -566,7 +566,7 @@ testRecycled1 =
     (rev' @Double @7 (recycled @_ @_ @3) (rreplicate0N [5, 4, 2] (rscalar 0.0002)))
 
 concatBuild :: (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
-            => target (TKR r (1 + n)) -> target (TKR r (3 + n))
+            => target (TKR (1 + n) r) -> target (TKR (3 + n) r)
 concatBuild r =
   rbuild1 7 (\i ->
     rconcat [ rbuild1 5 (const r)
@@ -595,7 +595,7 @@ testConcatBuild1 =
     (rev' @Double @9 (concatBuild . rmap0N (* rscalar 1e-7)) t48)
 
 concatBuild2 :: (ADReady target, GoodScalar r, KnownNat n)
-             => target (TKR r (1 + n)) -> target (TKR r (3 + n))
+             => target (TKR (1 + n) r) -> target (TKR (3 + n) r)
 concatBuild2 r =
   rbuild1 5 (\i ->
     rbuild1 2 (\j -> rmap0N (* rfromIndex0 (maxF j (i `quotF` (j + 1)))) r))
@@ -613,7 +613,7 @@ testConcatBuild22 =
     (rev' @Double @9 concatBuild2 t48)
 
 concatBuild3 :: (ADReady target, GoodScalar r)
-             => target (TKR r 1) -> target (TKR r 2)
+             => target (TKR 1 r) -> target (TKR 2 r)
 concatBuild3 _r =
   rbuild1 5 (\i ->
     rbuild1 2 (\j -> rfromIndex0 (maxF j (i `quotF` (j + 1)))))

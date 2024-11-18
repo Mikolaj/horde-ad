@@ -29,7 +29,7 @@ import HordeAd.Util.SizedList
 
 sminIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
-           => target (TKS r sh) -> IxSOf target sh
+           => target (TKS sh r) -> IxSOf target sh
 sminIndexN t =
   ShapedList.fromLinearIdx (sscalar . fromIntegral)
     (sshape t)
@@ -37,7 +37,7 @@ sminIndexN t =
 
 smaxIndexN :: ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
-           => target (TKS r sh) -> IxSOf target sh
+           => target (TKS sh r) -> IxSOf target sh
 smaxIndexN t =
   ShapedList.fromLinearIdx (sscalar . fromIntegral)
     (sshape t)
@@ -45,21 +45,21 @@ smaxIndexN t =
 
 sminimum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-         => target (TKS r sh) -> target (TKS r '[])
+         => target (TKS sh r) -> target (TKS '[] r)
 sminimum t = sindex0 t (sminIndexN t)
 
 smaximum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-         => target (TKS r sh) -> target (TKS r '[])
+         => target (TKS sh r) -> target (TKS '[] r)
 smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
-            => IntOf target -> target (TKS r '[])
+            => IntOf target -> target (TKS '[] r)
 sfromIndex0 = sfromIntegral . sfromPrimal
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownNat (Rank sh))
-            => IxSOf target sh -> target (TKS r '[Rank sh])
+            => IxSOf target sh -> target (TKS '[Rank sh] r)
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
   _ -> sfromIntegral . sfromPrimal . sfromList
@@ -68,7 +68,7 @@ sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
 {-
 sletIx :: forall r sh n target.
           (ADReady target, GoodScalar r, KnownShS sh, KnownNat n)
-       => IxROf target n -> (IxROf target n -> target (TKS r sh)) -> target (TKS r sh)
+       => IxROf target n -> (IxROf target n -> target (TKS sh r)) -> target (TKS sh r)
 sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
                  f $ rint64ToIndex1 $ rfromS @target ixT
@@ -76,14 +76,14 @@ sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
 
 scaleS :: forall target r sh.
           (KnownShS sh, ADReady target, GoodScalar r)
-       => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r sh)
+       => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS sh r)
 scaleS a d = sfromPrimal a * d
 
 reluS, reluLeakyS
   :: forall target sh r.
      ( KnownShS sh, KnownNat (Rank sh), ADReady target, GoodScalar r
      , Differentiable r )
-  => target (TKS r sh) -> target (TKS r sh)
+  => target (TKS sh r) -> target (TKS sh r)
 reluS v0 = tlet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
   in oneIfGtZero * v
@@ -96,8 +96,8 @@ reluLeakyS v0 = tlet v0 $ \v ->
 logisticS :: forall target r sh.
              ( BaseTensor target, LetTensor target
              , KnownShS sh, GoodScalar r
-             , Floating (PrimalOf target (TKS r sh)) )
-          => target (TKS r sh) -> target (TKS r sh)
+             , Floating (PrimalOf target (TKS sh r)) )
+          => target (TKS sh r) -> target (TKS sh r)
 logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let y0 = recip (sprimalPart @target (srepl 1) + exp (- sprimalPart d))
   in tlet (sfromPrimal y0)  -- we don't have tletPrimal
@@ -107,25 +107,25 @@ logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 squareS :: forall target r sh.
-           ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS r sh))
+           ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS sh r))
            , GoodScalar r )
-       => target (TKS r sh) -> target (TKS r sh)
+       => target (TKS sh r) -> target (TKS sh r)
 squareS d = let u = sprimalPart d
                 u' = sdualPart d
             in sD (u * u) (sScale @target (2 * u) u')
 
 squaredDifferenceS
   :: forall target sh r.
-     ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS r sh))
+     ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS sh r))
      , GoodScalar r )
-  => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r sh)
+  => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS sh r)
 squaredDifferenceS targ res = squareS $ res - sfromPrimal targ
 
 lossCrossEntropyVS :: ( KnownShS sh, KnownNat (Nested.Product sh)
                       , BaseTensor target, GoodScalar r, Differentiable r )
-                   => target (TKS r sh)
-                   -> target (TKS r sh)
-                   -> target (TKS r '[])
+                   => target (TKS sh r)
+                   -> target (TKS sh r)
+                   -> target (TKS '[] r)
 lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
@@ -136,7 +136,7 @@ lossSoftMaxCrossEntropyS
      ( ADReady target, ADReady (PrimalOf target)
      , GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh)
      , Differentiable r )
-  => PrimalOf target (TKS r sh) -> target (TKS r sh) -> target (TKS r '[])
+  => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
 lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
@@ -162,7 +162,7 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
 maxPool1S :: forall ksize stride m target r.
              ( ADReady target, GoodScalar r
              , KnownNat ksize, KnownNat stride, KnownNat m )
-          => target (TKS r '[m]) -> target (TKS r '[m])
+          => target (TKS '[m] r) -> target (TKS '[m] r)
 maxPool1S v =
   let l = [0, valueOf @stride .. slength v - valueOf @ksize]
       maxOfSlice i =
@@ -178,7 +178,7 @@ maxPool1S v =
 softMax1S :: ( KnownShS sh, KnownNat (Nested.Product sh)
              , BaseTensor target, LetTensor target
              , GoodScalar r, Differentiable r )
-          => target (TKS r sh) -> target (TKS r sh)
+          => target (TKS sh r) -> target (TKS sh r)
 softMax1S d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
@@ -201,9 +201,9 @@ conv2dUnpaddedS
      , shB ~ '[nImgs, nCoutK, nAh, nAw]
      , shK1 ~ '[1, nCinpA, nKh, nKw]
      )
-  => target (TKS r '[nCoutK, nCinpK, nKh, nKw])
-  -> target (TKS r '[nImgs, nCinpA, nAh, nAw])
-  -> target (TKS r shB)
+  => target (TKS '[nCoutK, nCinpK, nKh, nKw] r)
+  -> target (TKS '[nImgs, nCinpA, nAh, nAw] r)
+  -> target (TKS shB r)
 conv2dUnpaddedS arrK arrA =
   sbuild @target @r @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
@@ -222,7 +222,7 @@ slicezS
      ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
      , KnownNat (Rank sh)
      , Rank shOut ~ Rank sh, ADReady target, GoodScalar r )
-  => target (TKS r sh) -> IxSOf target sh -> target (TKS r shOut)
+  => target (TKS sh r) -> IxSOf target sh -> target (TKS shOut r)
 slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
@@ -250,7 +250,7 @@ indexz0SLet
   :: forall shOut sh target r.
      ( KnownShS shOut, KnownNat (Rank shOut), KnownShS sh
      , ADReady target, GoodScalar r )
-  => target (TKS r sh) -> IxROf target (Rank shOut) -> target (TKS r '[])
+  => target (TKS sh r) -> IxROf target (Rank shOut) -> target (TKS '[] r)
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
     ifF (within0S @shOut @target ix)
@@ -270,7 +270,7 @@ indexz0SLet d ix0 =
 indexz0S
   :: forall shOut sh target r.
      (KnownShS shOut, KnownShS sh, ADReady target, GoodScalar r)
-  => target (TKS r sh) -> IxROf target (Rank shOut) -> target (TKS r '[])
+  => target (TKS sh r) -> IxROf target (Rank shOut) -> target (TKS '[] r)
 indexz0S d ix =
   ifF (within0S @shOut @target ix)
       (sindex0 d (ShapedList.listToIndex (indexToList ix)))
@@ -300,8 +300,8 @@ maxPool2dUnpaddedS
      , shOut ~ '[batch_size, channels, h `Div` stride, w `Div` stride]
      , shK1 ~ '[1, 1, ksize, ksize]
      )
-  => target (TKS r '[batch_size, channels, h, w])
-  -> target (TKS r shOut)
+  => target (TKS '[batch_size, channels, h, w] r)
+  -> target (TKS shOut r)
 maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
   in sbuild @target @r @(Rank shOut) $ \case

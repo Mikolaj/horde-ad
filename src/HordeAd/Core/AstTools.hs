@@ -79,7 +79,7 @@ shapeAstFull t = case t of
   AstScatter sh _ _ -> FTKR sh
   AstFromVector l -> case V.toList l of
     [] -> case stensorKind @y of
-      STKR @_ @n _ SNat -> case sameNat (Proxy @n) (Proxy @1) of
+      STKR @n SNat _ -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR $ singletonShape 0
         Nothing -> error "shapeAstFull: AstFromVector with no arguments"
     v : _ -> FTKR $ V.length l :$: shapeAst v
@@ -156,12 +156,12 @@ shapeAstFull t = case t of
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n s r ms. (KnownNat n, GoodScalar r)
-         => AstTensor ms s (TKR r n) -> IShR n
+         => AstTensor ms s (TKR n r) -> IShR n
 shapeAst t = case shapeAstFull t of
   FTKR sh -> sh
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, GoodScalar r) => AstTensor ms s (TKR r (1 + n)) -> Int
+lengthAst :: (KnownNat n, GoodScalar r) => AstTensor ms s (TKR (1 + n) r) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
   ZSR -> error "lengthAst: impossible pattern needlessly required"

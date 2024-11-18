@@ -59,7 +59,7 @@ interpretAstPrimalRuntimeSpecialized
   :: forall target n r.
      (KnownNat n, ADReady target, Typeable r)
   => AstEnv target
-  -> AstTensor AstMethodLet PrimalSpan (TKR r n) -> PrimalOf target (TKR r n)
+  -> AstTensor AstMethodLet PrimalSpan (TKR n r) -> PrimalOf target (TKR n r)
 interpretAstPrimalRuntimeSpecialized !env t =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -69,29 +69,29 @@ interpretAstPrimalRuntimeSpecialized !env t =
   -- TODO: revisit using TypeRepOf to pattern match
   -- instead of nesting conditionals
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimal @target @(TKR Double n) env t
+    Just Refl -> interpretAstPrimal @target @(TKR n Double) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimal @target @(TKR Float n) env t
+      Just Refl -> interpretAstPrimal @target @(TKR n Float) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimal @target @(TKR Int64 n) env t
+        Just Refl -> interpretAstPrimal @target @(TKR n Int64) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimal @target @(TKR CInt n) env t
+          Just Refl -> interpretAstPrimal @target @(TKR n CInt) env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 interpretAstPrimalSRuntimeSpecialized
   :: forall target sh r.
      (KnownShS sh, ADReady target, Typeable r)
   => AstEnv target
-  -> AstTensor AstMethodLet PrimalSpan (TKS r sh) -> PrimalOf target (TKS r sh)
+  -> AstTensor AstMethodLet PrimalSpan (TKS sh r) -> PrimalOf target (TKS sh r)
 interpretAstPrimalSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimal @target @(TKS Double sh) env t
+    Just Refl -> interpretAstPrimal @target @(TKS sh Double) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimal @target @(TKS Float sh) env t
+      Just Refl -> interpretAstPrimal @target @(TKS sh Float) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimal @target @(TKS Int64 sh) env t
+        Just Refl -> interpretAstPrimal @target @(TKS sh Int64) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimal @target @(TKS CInt sh) env t
+          Just Refl -> interpretAstPrimal @target @(TKS sh CInt) env t
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
@@ -130,32 +130,32 @@ interpretAstRuntimeSpecialized
   :: forall target n s r.
      (ADReady target, Typeable r, AstSpan s)
   => AstEnv target
-  -> AstTensor AstMethodLet s (TKR r n) -> target (TKR r n)
+  -> AstTensor AstMethodLet s (TKR n r) -> target (TKR n r)
 interpretAstRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @target @s @(TKR Double n) env t
+    Just Refl -> interpretAst @target @s @(TKR n Double) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @target @s @(TKR Float n) env t
+      Just Refl -> interpretAst @target @s @(TKR n Float) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @target @s @(TKR Int64 n) env t
+        Just Refl -> interpretAst @target @s @(TKR n Int64) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @target @s @(TKR CInt n) env t
+          Just Refl -> interpretAst @target @s @(TKR n CInt) env t
           _ -> error "an unexpected underlying scalar type"
 
 interpretAstSRuntimeSpecialized
   :: forall target sh s r.
      (ADReady target, Typeable r, AstSpan s)
   => AstEnv target
-  -> AstTensor AstMethodLet s (TKS r sh) -> target (TKS r sh)
+  -> AstTensor AstMethodLet s (TKS sh r) -> target (TKS sh r)
 interpretAstSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @target @s @(TKS Double sh) env t
+    Just Refl -> interpretAst @target @s @(TKS sh Double) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @target @s @(TKS Float sh) env t
+      Just Refl -> interpretAst @target @s @(TKS sh Float) env t
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @target @s @(TKS Int64 sh) env t
+        Just Refl -> interpretAst @target @s @(TKS sh Int64) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @target @s @(TKS CInt sh) env t
+          Just Refl -> interpretAst @target @s @(TKS sh CInt) env t
           _ -> error "an unexpected underlying scalar type"
 
 interpretAst
@@ -220,7 +220,7 @@ interpretAst !env = \case
             snat (var, AstSum (AstN2 TimesOp t (AstIndex
                                                 u (AstIntVar var2 :.: ZIR))))
     | Just Refl <- case stensorKind @y2 of
-        STKR @_ @n _ _ -> sameNat (Proxy @n) (Proxy @0)
+        STKR @n _ _ -> sameNat (Proxy @n) (Proxy @0)
     , var == var2, sNatValue snat == lengthAst u ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
@@ -233,7 +233,7 @@ interpretAst !env = \case
                                          (AstIndex
                                             u (AstIntVar var2 :.: ZIR)))))
     | Just Refl <- case stensorKind @y2 of
-        STKR @_ @n _ _ -> sameNat (Proxy @n) (Proxy @0)
+        STKR @n _ _ -> sameNat (Proxy @n) (Proxy @0)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
     , var == var2, sNatValue snat == lengthAst u ->
         let t1 = interpretAst env t
@@ -274,9 +274,9 @@ interpretAst !env = \case
                 -> target (BuildTensorKind n z)
         replStk stk g = case stk of
           STKScalar _ -> rbuild1 (sNatValue snat) (runRepScalar . g)
-          STKR STKScalar{} SNat -> rbuild1 (sNatValue snat) g
-          STKS STKScalar{} sh -> withKnownShS sh $ sbuild1 g
-          STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
+          STKR SNat STKScalar{} -> rbuild1 (sNatValue snat) g
+          STKS sh STKScalar{} -> withKnownShS sh $ sbuild1 g
+          STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfS stk1
             , Dict <- lemTensorKindOfS stk2
@@ -296,15 +296,15 @@ interpretAst !env = \case
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    STKR STKScalar{} _ ->
+    STKR _ STKScalar{} ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    STKS STKScalar{} _ ->
+    STKS _ STKScalar{} ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    STKX STKScalar{} _ ->
+    STKX _ STKScalar{} ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
@@ -523,7 +523,7 @@ interpretAst !env = \case
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
   AstReshape sh v@(AstReplicate @y2 _ s) -> case stensorKind @y2 of
-    STKR @_ @m _ _  | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
+    STKR @m _ _  | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
       let t1 = interpretAst env s
       in rreplicate0N sh t1
     _ -> rreshape sh (interpretAst env v)
@@ -569,7 +569,7 @@ interpretAst !env = \case
       in rmkRepScalar
          $ tlet @_ @TKUntyped lt
              (\lw -> runRepScalar $ interpretAst (env2 (dunHVector lw)) v)
-    STKR STKScalar{} SNat ->
+    STKR SNat STKScalar{} ->
       let lt = interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
@@ -579,7 +579,7 @@ interpretAst !env = \case
                    extendEnvHVector vars lw env
       in tlet @_ @TKUntyped lt
            (\lw -> interpretAst (env2 (dunHVector lw)) v)
-    STKS STKScalar{} sh -> withKnownShS sh $
+    STKS sh STKScalar{} -> withKnownShS sh $
       let lt = interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
                             `blame` ( shapeVoidHVector (voidFromVars vars)
@@ -589,7 +589,7 @@ interpretAst !env = \case
                     extendEnvHVector vars lw env
       in tlet @_ @TKUntyped lt
            (\lw -> interpretAst (env2 (dunHVector lw)) v)
-    STKX STKScalar{} sh -> withKnownShX sh $ error "TODO"
+    STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
     STKProduct{} -> error "TODO"
     STKUntyped ->
       let lt = interpretAst env l
@@ -936,15 +936,15 @@ interpretAstBool !env = \case
   AstBoolConst a -> if a then true else false
   AstRel @y3 opCodeRel arg1 arg2 ->
     case stensorKind @y3 of
-      STKR STKScalar{} SNat ->
+      STKR SNat STKScalar{} ->
         let r1 = interpretAstPrimalRuntimeSpecialized env arg1
             r2 = interpretAstPrimalRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      STKS STKScalar{} sh -> withKnownShS sh $
+      STKS sh STKScalar{} -> withKnownShS sh $
         let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
             r2 = interpretAstPrimalSRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      STKX STKScalar{} sh -> withKnownShX sh $
+      STKX sh STKScalar{} -> withKnownShX sh $
         let r1 = interpretAstPrimal env arg1
             r2 = interpretAstPrimal env arg2
         in interpretAstRelOp opCodeRel r1 r2

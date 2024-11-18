@@ -100,7 +100,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR r 0)
+                   -> ADVal target (TKR 0 r)
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
@@ -196,7 +196,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKR r 0)
+       let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
                    (unAsHVector
@@ -207,7 +207,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR r 0)
+                   -> ADVal target (TKR 0 r)
                  f (glyph, label) varInputs =
                    let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist =
@@ -427,7 +427,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR r 0)
+                   -> ADVal target (TKR 0 r)
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
                      mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
@@ -515,7 +515,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
          funToAstIO (FTKR $ singletonShape sizeMnistGlyphInt) id
        (varLabel, _, astLabel) <-
          funToAstIO (FTKR $ singletonShape sizeMnistLabelInt) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKR r 0)
+       let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (astGlyph, astLabel)
                    (unAsHVector
@@ -526,7 +526,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
              let f :: MnistData r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR r 0)
+                   -> ADVal target (TKR 0 r)
                  f (glyph, label) varInputs =
                    let env = extendEnv var (dmkHVector varInputs) emptyEnv
                        envMnist =
@@ -711,10 +711,10 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan)
                                                          Double
-              -> AstTensor AstMethodLet FullSpan (TKR Double 1)
+              -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2T = MnistFcnnRanked1.afcnnMnist1 id id 3 4 blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVTOPP
   printArtifactPretty renames artifactRev
@@ -731,10 +731,10 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                          (AstTensor AstMethodLet FullSpan) Double
-                    -> AstTensor AstMethodLet FullSpan (TKR Double 1)
+                    -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2TnonLin =
         MnistFcnnRanked1.afcnnMnist1 logistic softMax1 3 4 blackGlyph
       (artifactRevnonLin, _) =
@@ -762,10 +762,10 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstTensor AstMethodLet FullSpan) Double
-              -> AstTensor AstMethodLet FullSpan (TKR Double 1)
+              -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
       (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVT2OPP
   printArtifactPretty renames artifactRev
@@ -784,10 +784,10 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Float 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Float))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Float
-                    -> AstTensor AstMethodLet FullSpan (TKR Float 1)
+                    -> AstTensor AstMethodLet FullSpan (TKR 1 Float)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
                  in ( ( AstCast $ AstFromPrimal $ AstConcrete $ unRepN a1
@@ -806,10 +806,10 @@ testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR Double 0))
+                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double
-                    -> AstTensor AstMethodLet FullSpan (TKR Double 1)
+                    -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
   let (artifactRevnonLin, _) =
         revArtifactAdapt True afcnn2TnonLin valsInitVT2OPP

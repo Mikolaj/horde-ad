@@ -29,21 +29,21 @@ afcnnMnistLen1 widthHidden widthHidden2 =
 
 -- | The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist1Parameters (target :: Target) r =
-  ( ( [target (TKR r 1)]  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
-    , target (TKR r 1) )  -- ^ length @widthHidden@
-  , ( [target (TKR r 1)]  -- ^ @widthHidden2@ copies, length @widthHidden@
-    , target (TKR r 1) )  -- ^ length @widthHidden2@
-  , ( [target (TKR r 1)]  -- ^ @sizeMnistLabelInt@ copies, length @widthHidden2@
-    , target (TKR r 1) )  -- ^ length @sizeMnistLabelInt@
+  ( ( [target (TKR 1 r)]  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
+    , target (TKR 1 r) )  -- ^ length @widthHidden@
+  , ( [target (TKR 1 r)]  -- ^ @widthHidden2@ copies, length @widthHidden@
+    , target (TKR 1 r) )  -- ^ length @widthHidden2@
+  , ( [target (TKR 1 r)]  -- ^ @sizeMnistLabelInt@ copies, length @widthHidden2@
+    , target (TKR 1 r) )  -- ^ length @sizeMnistLabelInt@
   )
 
 listMatmul1
   :: forall target r.
      (BaseTensor target, LetTensor target, GoodScalar r)
-  => target (TKR r 1) -> [target (TKR r 1)]
-  -> target (TKR r 1)
+  => target (TKR 1 r) -> [target (TKR 1 r)]
+  -> target (TKR 1 r)
 listMatmul1 x0 weights = tlet x0 $ \x ->
-  let f :: target (TKR r 1) -> target (TKR r 0)
+  let f :: target (TKR 1 r) -> target (TKR 0 r)
       f v = v `rdot0` x
   in rfromList $ NonEmpty.fromList $ map f weights
 
@@ -55,12 +55,12 @@ listMatmul1 x0 weights = tlet x0 $ \x ->
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
 afcnnMnist1 :: (ADReady target, GoodScalar r)
-            => (target (TKR r 1) -> target (TKR r 1))
-            -> (target (TKR r 1) -> target (TKR r 1))
+            => (target (TKR 1 r) -> target (TKR 1 r))
+            -> (target (TKR 1 r) -> target (TKR 1 r))
             -> Int -> Int
-            -> target (TKR r 1)
+            -> target (TKR 1 r)
             -> ADFcnnMnist1Parameters target r
-            -> target (TKR r 1)
+            -> target (TKR 1 r)
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let !_A = assert (sizeMnistGlyphInt == rlength datum
@@ -78,8 +78,8 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1TensorData
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => Int -> Int -> (target (TKR r 1), target (TKR r 1)) -> ADFcnnMnist1Parameters target r
-  -> target (TKR r 0)
+  => Int -> Int -> (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist1Parameters target r
+  -> target (TKR 0 r)
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMax1
                                   widthHidden widthHidden2 datum adparams
@@ -88,7 +88,7 @@ afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
 afcnnMnistLoss1
   :: (ADReady target, GoodScalar r, Differentiable r)
   => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters target r
-  -> target (TKR r 0)
+  -> target (TKR 0 r)
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
   let datum1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
       target1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
@@ -110,7 +110,7 @@ afcnnMnistTest1 valsInit widthHidden widthHidden2 dataList testParams =
       matchesLabels (glyph, label) =
         let glyph1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
             nn :: ADFcnnMnist1Parameters target r
-               -> target (TKR r 1)
+               -> target (TKR 1 r)
             nn = inline afcnnMnist1 logistic softMax1
                                     widthHidden widthHidden2 glyph1
             v = Nested.rtoVector $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)

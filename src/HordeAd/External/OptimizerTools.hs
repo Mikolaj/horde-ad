@@ -98,9 +98,9 @@ defaultArgsAdam = ArgsAdam
 type family Triplify y where
   Triplify (TKScalar r) =
     TKProduct (TKProduct (TKScalar r) (TKScalar r)) (TKScalar r)
-  Triplify (TKR r n) = TKProduct (TKProduct (TKR r n) (TKR r n)) (TKR r n)
-  Triplify (TKS r sh) = TKProduct (TKProduct (TKS r sh) (TKS r sh)) (TKS r sh)
-  Triplify (TKX r sh) = TKProduct (TKProduct (TKX r sh) (TKX r sh)) (TKX r sh)
+  Triplify (TKR n r) = TKProduct (TKProduct (TKR n r) (TKR n r)) (TKR n r)
+  Triplify (TKS sh r) = TKProduct (TKProduct (TKS sh r) (TKS sh r)) (TKS sh r)
+  Triplify (TKX sh r) = TKProduct (TKProduct (TKX sh r) (TKX sh r)) (TKX sh r)
   Triplify (TKProduct x z) = TKProduct (Triplify x) (Triplify z)
   Triplify TKUntyped = TKUntyped  -- this it not tripled
 
@@ -109,9 +109,9 @@ unzip3Rep
   -> (RepN y, RepN y, RepN y)
 unzip3Rep stk (RepN t) = case stk of
   STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
-  STKR STKScalar{} _ -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
-  STKS STKScalar{} _ -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
-  STKX STKScalar{} _ -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
+  STKR _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
+  STKS _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
+  STKX _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
   STKProduct stk1 stk2 -> let (a1, b1, c1) = unzip3Rep stk1 $ RepN $ fst t
                               (a2, b2, c2) = unzip3Rep stk2 $ RepN $ snd t
                           in (RepN (unRepN a1, unRepN a2), RepN (unRepN b1, unRepN b2), RepN (unRepN c1, unRepN c2))
@@ -193,7 +193,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                     , RepScalar pN ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKR (STKScalar @r _) SNat ->
+        STKR SNat (STKScalar @r _) ->
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -201,7 +201,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                  in RepN ((mAN, vAN), pN))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKS (STKScalar @r _) sh -> withKnownShS sh $
+        STKS sh (STKScalar @r _) -> withKnownShS sh $
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -216,7 +216,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                     , Nested.rcastToShaped pN knownShS ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKX (STKScalar @r _) sh -> withKnownShX sh $
+        STKX sh (STKScalar @r _) -> withKnownShX sh $
           case sameTensorKind @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r

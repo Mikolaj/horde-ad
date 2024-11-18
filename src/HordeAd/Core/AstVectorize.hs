@@ -59,7 +59,7 @@ import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.
 astTr :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-      => AstTensor AstMethodLet s (TKR r (2 + n)) -> AstTensor AstMethodLet s (TKR r (2 + n))
+      => AstTensor AstMethodLet s (TKR (2 + n) r) -> AstTensor AstMethodLet s (TKR (2 + n) r)
 astTr = astTranspose [1, 0]
 
 -- | The application @build1Vectorize k (var, v)@ vectorizes
@@ -200,12 +200,12 @@ build1V snat@SNat (var, v00) =
                                 $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
                                (singletonIndex (astCond b 0 1))
         in build1VOccurenceUnknown snat (var, t)
-      STKR STKScalar{} SNat ->
+      STKR SNat STKScalar{} ->
         let t = Ast.AstFromPrimal
                 $ astIndexStep (astFromVector $ V.fromList [v, w])
                                (singletonIndex (astCond b 0 1))
         in build1VOccurenceUnknown snat (var, t)
-      STKS STKScalar{} sh -> withKnownShS sh $
+      STKS sh STKScalar{} -> withKnownShS sh $
         let t = Ast.AstFromPrimal
                 $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                       (astCond b 0 1 :.$ ZIS)
@@ -220,11 +220,11 @@ build1V snat@SNat (var, v00) =
                               $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
                              (singletonIndex (astCond b 0 1))
         in build1VOccurenceUnknown snat (var, t)
-      STKR STKScalar{} SNat ->
+      STKR SNat STKScalar{} ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
         in build1VOccurenceUnknown snat (var, t)
-      STKS STKScalar{} sh -> withKnownShS sh $
+      STKS sh  STKScalar{}-> withKnownShS sh $
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
         in build1VOccurenceUnknown snat (var, t)
@@ -240,9 +240,9 @@ build1V snat@SNat (var, v00) =
                                                   (BuildTensorKind k2 z))
           repl2Stk stk u = case stk of
             STKScalar _ -> astTr $ astReplicate snat2 u
-            STKR STKScalar{} SNat -> astTr $ astReplicate snat2 u
-            STKS STKScalar{} sh -> withKnownShS sh $ astTrS $ astReplicate snat2 u
-            STKX STKScalar{} sh -> withKnownShX sh $ astTrX $ astReplicate snat2 u
+            STKR SNat STKScalar{} -> astTr $ astReplicate snat2 u
+            STKS sh STKScalar{} -> withKnownShS sh $ astTrS $ astReplicate snat2 u
+            STKX sh STKScalar{} -> withKnownShX sh $ astTrX $ astReplicate snat2 u
             STKProduct @z1 @z2 stk1 stk2
               | Dict <- lemTensorKindOfBuild snat stk1
               , Dict <- lemTensorKindOfBuild snat2 stk1
@@ -383,7 +383,7 @@ build1V snat@SNat (var, v00) =
       astSumOfListS $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndexS @sh1 v ix -> traceRule $ case stensorKind @y of
-     STKS @_ @sh _ _ ->
+     STKS @sh _ _ ->
       gcastWith (unsafeCoerce Refl
                  :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
@@ -414,7 +414,7 @@ build1V snat@SNat (var, v00) =
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1V snat (var, v)
     Ast.AstTransposeS @perm @sh1 perm v -> traceRule $ case stensorKind @y of
-     STKS @_ @sh _ _ ->
+     STKS @sh _ _ ->
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
           zsuccPerm = Permutation.permShift1 perm
       in
@@ -545,8 +545,8 @@ build1V snat@SNat (var, v00) =
 build1VIndex
   :: forall m n s r k.
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => SNat k -> (IntVarName, AstTensor AstMethodLet s (TKR r (m + n)), AstIndex AstMethodLet m)
-  -> AstTensor AstMethodLet s (TKR r (1 + n))
+  => SNat k -> (IntVarName, AstTensor AstMethodLet s (TKR (m + n) r), AstIndex AstMethodLet m)
+  -> AstTensor AstMethodLet s (TKR (1 + n) r)
 build1VIndex snat@SNat (var, v0, ZIR) = build1VOccurenceUnknown snat (var, v0)
 build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
   let k = sNatValue snat
@@ -584,11 +584,11 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 -- This abbreviation is used a lot below.
 astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r, AstSpan s)
-       => AstTensor AstMethodLet s (TKS r (n ': m ': sh)) -> AstTensor AstMethodLet s (TKS r (m ': n ': sh))
+       => AstTensor AstMethodLet s (TKS (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS (m ': n ': sh) r)
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
 astTrX :: forall n m sh s r.
 --          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)
-        AstTensor AstMethodLet s (TKX r (Just n ': Just m ': sh)) -> AstTensor AstMethodLet s (TKX r (Just m ': Just n ': sh))
+        AstTensor AstMethodLet s (TKX (Just n ': Just m ': sh) r) -> AstTensor AstMethodLet s (TKX (Just m ': Just n ': sh) r)
 astTrX = error "TODO"
 
 intBindingRefreshS
@@ -605,8 +605,8 @@ build1VIndexS
   :: forall k p sh s r.
      ( GoodScalar r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
      , KnownShS (Drop p (Take p sh ++ Drop p sh)), AstSpan s )
-  => (IntVarName, AstTensor AstMethodLet s (TKS r sh), AstIxS AstMethodLet (Take p sh))
-  -> AstTensor AstMethodLet s (TKS r (k ': Drop p sh))
+  => (IntVarName, AstTensor AstMethodLet s (TKS sh r), AstIxS AstMethodLet (Take p sh))
+  -> AstTensor AstMethodLet s (TKS (k ': Drop p sh) r)
 build1VIndexS (var, v0, ZIS) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
     -- otherwise sh would need to be empty, but then Take gets stuck
@@ -748,10 +748,10 @@ substProjRanked :: forall n1 r1 s1 s y.
                    ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1
                    , TensorKind y )
                 => Int -> IntVarName -> IShR n1
-                -> AstVarName s1 (TKR r1 n1)
+                -> AstVarName s1 (TKR n1 r1)
                 -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 substProjRanked k var sh1 var1 =
-  let var2 = mkAstVarName @s1 @(TKR r1 (1 + n1)) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+  let var2 = mkAstVarName @s1 @(TKR (1 + n1) r1) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
       projection =
         Ast.AstIndex (Ast.AstVar (FTKR $ k :$: sh1) var2)
                      (Ast.AstIntVar var :.: ZIR)
@@ -764,12 +764,12 @@ substProjRanked k var sh1 var1 =
 substProjShaped :: forall k sh1 r1 s1 s y.
                    ( KnownNat k, KnownShS sh1, GoodScalar r1
                    , AstSpan s, AstSpan s1, TensorKind y )
-                => IntVarName -> AstVarName s1 (TKS r1 sh1)
+                => IntVarName -> AstVarName s1 (TKS sh1 r1)
                 -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 substProjShaped var var1 =
-  let var2 = mkAstVarName @s1 @(TKS r1 (k : sh1)) (varNameToAstVarId var1)
+  let var2 = mkAstVarName @s1 @(TKS (k : sh1) r1) (varNameToAstVarId var1)
       projection =
-        Ast.AstIndexS (Ast.AstVar @(TKS r1 (k ': sh1)) (FTKS knownShS) var2)
+        Ast.AstIndexS (Ast.AstVar @(TKS (k ': sh1) r1) (FTKS knownShS) var2)
                       (Ast.AstIntVar var :.$ ZIS)
   in substituteAst
        projection var1
@@ -812,11 +812,11 @@ astTrDynamic t@(DynamicShaped @_ @sh u) =
        withListSh (Proxy @sh) $ \_ ->
          case cmpNat (Proxy @2) (Proxy @(Rank sh)) of
            EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
-             (w :: AstTensor AstMethodLet s4 (TKS r4 sh4)) ->
+             (w :: AstTensor AstMethodLet s4 (TKS sh4 r4)) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
                DynamicShaped w
            LTI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
-             (w :: AstTensor AstMethodLet s4 (TKS r4 sh4)) ->
+             (w :: AstTensor AstMethodLet s4 (TKS sh4 r4)) ->
                gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
                DynamicShaped w
            _ -> t
@@ -849,9 +849,9 @@ astTrGeneral
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrGeneral stk t = case stk of
   STKScalar _ -> astTr t
-  STKR STKScalar{} SNat -> astTr t
-  STKS STKScalar{} sh -> withKnownShS sh $ astTrS t
-  STKX STKScalar{} sh -> withKnownShX sh $ astTrX t
+  STKR SNat STKScalar{} -> astTr t
+  STKS sh STKScalar{} -> withKnownShS sh $ astTrS t
+  STKX sh STKScalar{} -> withKnownShX sh $ astTrX t
   STKProduct @z1 @z2 stk1 stk2
     | Dict <- lemTensorKindOfBuild (SNat @k1) stk
     , Dict <- lemTensorKindOfBuild (SNat @k1) stk1

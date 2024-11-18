@@ -39,9 +39,9 @@ deriving instance NFData (Nested.Ranked 0 r) => NFData (RepScalar r)
 
 type family RepORArray (y :: TensorKindType) = result | result -> y where
   RepORArray (TKScalar r) = RepScalar r  -- for injectivity
-  RepORArray (TKR r n) = Nested.Ranked n r
-  RepORArray (TKS r sh) = Nested.Shaped sh r
-  RepORArray (TKX r sh) = Nested.Mixed sh r
+  RepORArray (TKR n r) = Nested.Ranked n r
+  RepORArray (TKS sh r) = Nested.Shaped sh r
+  RepORArray (TKX sh r) = Nested.Mixed sh r
   RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
   RepORArray TKUntyped = HVector RepN
 
@@ -56,9 +56,9 @@ instance TensorKind y
          => Show (RepN y) where
   showsPrec d (RepN t) = case stensorKind @y of
     STKScalar _ -> showsPrec d t
-    STKR STKScalar{} SNat -> showsPrec d t
-    STKS STKScalar{} sh -> withKnownShS sh $ showsPrec d t
-    STKX STKScalar{} sh -> withKnownShX sh $ showsPrec d t
+    STKR SNat STKScalar{} -> showsPrec d t
+    STKS sh STKScalar{} -> withKnownShS sh $ showsPrec d t
+    STKX sh STKScalar{} -> withKnownShX sh $ showsPrec d t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       showsPrec d (RepN $ fst t, RepN $ snd t)
@@ -69,9 +69,9 @@ instance TensorKind y
          => NFData (RepN y) where
   rnf (RepN t) = case stensorKind @y of
     STKScalar _ -> rnf t
-    STKR STKScalar{} SNat -> rnf t
-    STKS STKScalar{} sh -> withKnownShS sh $ rnf t
-    STKX STKScalar{} sh -> withKnownShX sh $ rnf t
+    STKR SNat STKScalar{} -> rnf t
+    STKS sh STKScalar{} -> withKnownShS sh $ rnf t
+    STKX sh STKScalar{} -> withKnownShX sh $ rnf t
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->
       rnf (RepN $ fst t, RepN $ snd t)

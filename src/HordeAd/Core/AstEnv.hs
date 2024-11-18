@@ -96,23 +96,23 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- matchingRank @sh @n3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnv @_ @_ @(TKR r n3) (mkAstVarName varId) u env
+      extendEnv @_ @_ @(TKR n3 r) (mkAstVarName varId) u env
   DynamicShaped @r3 @sh3 u
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnv @_ @_ @(TKS r sh) (mkAstVarName varId) u env
+      extendEnv @_ @_ @(TKS sh r) (mkAstVarName varId) u env
   DynamicRankedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
       withListSh (Proxy @sh) $ \sh4 ->
-        extendEnv @target @_ @(TKR r (Rank sh)) (mkAstVarName varId) (rzero sh4) env
+        extendEnv @target @_ @(TKR (Rank sh) r) (mkAstVarName varId) (rzero sh4) env
   DynamicShapedDummy @r3 @sh3 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh
     , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnv @target @_ @(TKS r sh) (mkAstVarName varId) (srepl 0) env
+      extendEnv @target @_ @(TKS sh r) (mkAstVarName varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
                ( vd, typeRep @ty, typeRep @r, shapeT @sh
@@ -155,20 +155,20 @@ interpretLambdaIHVector f !env (!var, !ast) =
 
 interpretLambdaIndex
   :: forall target s r m n ms. BaseTensor target
-  => (AstEnv target -> AstTensor ms s (TKR r n) -> target (TKR r n))
-  -> AstEnv target -> (AstVarList m, AstTensor ms s (TKR r n))
+  => (AstEnv target -> AstTensor ms s (TKR n r) -> target (TKR n r))
+  -> AstEnv target -> (AstVarList m, AstTensor ms s (TKR n r))
   -> IxROf target m
-  -> target (TKR r n)
+  -> target (TKR n r)
 {-# INLINE interpretLambdaIndex #-}
 interpretLambdaIndex f !env (!vars, !ast) =
   \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
   :: forall sh sh2 target s r ms. BaseTensor target
-  => (AstEnv target -> AstTensor ms s (TKS r sh) -> target (TKS r sh))
-  -> AstEnv target -> (AstVarListS sh2, AstTensor ms s (TKS r sh))
+  => (AstEnv target -> AstTensor ms s (TKS sh r) -> target (TKS sh r))
+  -> AstEnv target -> (AstVarListS sh2, AstTensor ms s (TKS sh r))
   -> IxSOf target sh2
-  -> target (TKS r sh)
+  -> target (TKS sh r)
 {-# INLINE interpretLambdaIndexS #-}
 interpretLambdaIndexS f !env (!vars, !ast) =
   \ix -> f (extendEnvVarsS vars ix env) ast

@@ -178,34 +178,34 @@ instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
 
 
 instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s))
-         => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR r n)) where
+         => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n r)) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
-      => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR Double n)) #-}
-  type X (AstTensor AstMethodLet s (TKR r n)) = TKR r n
+      => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n Double)) #-}
+  type X (AstTensor AstMethodLet s (TKR n r)) = TKR n r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR r n)) =
-    case sameTensorKind @(TKR r n) @(ADTensorKind (TKR r n)) of
+  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
+    case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero (rshape aInit), Nothing)
 
 instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s))
-         => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKS r sh)) where
-  type X (AstTensor AstMethodLet s (TKS r sh)) = TKS r sh
+         => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKS sh r)) where
+  type X (AstTensor AstMethodLet s (TKS sh r)) = TKS sh r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS r sh)) =
-    case sameTensorKind @(TKS r sh) @(ADTensorKind (TKS r sh)) of
+  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
+    case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
 
 instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s), AstSpan s)
-         => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR r n))) where
+         => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR n r))) where
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
-      => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR Double n))) #-}
-  type X (AsHVector (AstTensor AstMethodLet s (TKR r n))) = TKUntyped
+      => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR n Double))) #-}
+  type X (AsHVector (AstTensor AstMethodLet s (TKR n r))) = TKUntyped
   toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
   fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
     case V.uncons $ dunHVector params of
@@ -214,8 +214,8 @@ instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s), AstSp
       Nothing -> Nothing
 
 instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstSpan s)
-         => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKS r sh))) where
-  type X (AsHVector (AstTensor AstMethodLet s (TKS r sh))) = TKUntyped
+         => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKS sh r))) where
+  type X (AsHVector (AstTensor AstMethodLet s (TKS sh r))) = TKUntyped
   toHVectorOf = dmkHVector . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
     case V.uncons $ dunHVector params of
@@ -224,23 +224,23 @@ instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstS
       Nothing -> Nothing
 
 instance (GoodScalar r, KnownNat n, AstSpan s)
-         => DualNumberValue (AstTensor AstMethodLet s (TKR r n)) where
-  type DValue (AstTensor AstMethodLet s (TKR r n)) = RepN (TKR r n)
+         => DualNumberValue (AstTensor AstMethodLet s (TKR n r)) where
+  type DValue (AstTensor AstMethodLet s (TKR n r)) = RepN (TKR n r)
   fromDValue t = fromPrimal $ AstConcrete $ unRepN t
 
 instance (GoodScalar r, KnownShS sh, AstSpan s)
-         => DualNumberValue (AstTensor AstMethodLet s (TKS r sh)) where
-  type DValue (AstTensor AstMethodLet s (TKS r sh)) = RepN (TKS r sh)
+         => DualNumberValue (AstTensor AstMethodLet s (TKS sh r)) where
+  type DValue (AstTensor AstMethodLet s (TKS sh r)) = RepN (TKS sh r)
   fromDValue t = fromPrimal $ AstConcreteS $ unRepN t
 
 instance (GoodScalar r, KnownNat n)
-         => TermValue (AstTensor AstMethodLet FullSpan (TKR r n)) where
-  type Value (AstTensor AstMethodLet FullSpan (TKR r n)) = RepN (TKR r n)
+         => TermValue (AstTensor AstMethodLet FullSpan (TKR n r)) where
+  type Value (AstTensor AstMethodLet FullSpan (TKR n r)) = RepN (TKR n r)
   fromValue t = fromPrimal $ AstConcrete $ unRepN t
 
 instance (GoodScalar r, KnownShS sh)
-         => TermValue (AstTensor AstMethodLet FullSpan (TKS r sh)) where
-  type Value (AstTensor AstMethodLet FullSpan (TKS r sh)) = RepN (TKS r sh)
+         => TermValue (AstTensor AstMethodLet FullSpan (TKS sh r)) where
+  type Value (AstTensor AstMethodLet FullSpan (TKS sh r)) = RepN (TKS sh r)
   fromValue t = fromPrimal $ AstConcreteS $ unRepN t
 
 {- This is needed by only one test, testSin0revhFold5S, now disabled
@@ -416,8 +416,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   stranspose perm = astTransposeS perm
   sreshape = astReshapeS
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstTensor AstMethodLet s) -> AstTensor AstMethodLet s (TKS r sh))
-          -> AstTensor AstMethodLet s (TKS r (n ': sh))
+          => (IntOf (AstTensor AstMethodLet s) -> AstTensor AstMethodLet s (TKS sh r))
+          -> AstTensor AstMethodLet s (TKS (n ': sh) r)
   sbuild1 f =
     astBuild1Vectorize (SNat @n) f
   sgather t f = astGatherStepS t
@@ -671,8 +671,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   stranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   sreshape = AstRaw . AstReshapeS . unAstRaw
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstRaw s) -> AstRaw s (TKS r sh))
-          -> AstRaw s (TKS r (n ': sh))
+          => (IntOf (AstRaw s) -> AstRaw s (TKS sh r))
+          -> AstRaw s (TKS (n ': sh) r)
   sbuild1 f = AstRaw $ AstBuild1 (SNat @n)
               $ funToAstI  -- this introduces new variable names
               $ unAstRaw . f . AstRaw
@@ -900,8 +900,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize . stranspose perm . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstNoVectorize s) -> AstNoVectorize s (TKS r sh))
-          -> AstNoVectorize s (TKS r (n ': sh))
+          => (IntOf (AstNoVectorize s) -> AstNoVectorize s (TKS sh r))
+          -> AstNoVectorize s (TKS (n ': sh) r)
   sbuild1 f = AstNoVectorize $ AstBuild1 (SNat @n)
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorize . f . AstNoVectorize
@@ -1127,8 +1127,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify . AstTransposeS perm . unAstNoSimplify
   sreshape = AstNoSimplify . AstReshapeS . unAstNoSimplify
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstNoSimplify s) -> AstNoSimplify s (TKS r sh))
-          -> AstNoSimplify s (TKS r (n ': sh))
+          => (IntOf (AstNoSimplify s) -> AstNoSimplify s (TKS sh r))
+          -> AstNoSimplify s (TKS (n ': sh) r)
   sbuild1 f =
     AstNoSimplify
     $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
@@ -1248,10 +1248,10 @@ prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
     in (artVarDtRev, vars1, derivative, primal)
  stk ->
    let dynvar = case stk of
-         STKR (STKScalar @r _) SNat ->
+         STKR SNat (STKScalar @r _) ->
            AstDynamicVarName @Nat @r @'[]  -- TODO: ftk
                              (varNameToAstVarId artVarDomainRev)
-         STKS @_ @sh (STKScalar @r _) sh -> withKnownShS sh $
+         STKS @sh sh (STKScalar @r _)-> withKnownShS sh $
            AstDynamicVarName @Nat @r @sh
                              (varNameToAstVarId artVarDomainRev)
          _ -> AstDynamicVarName @Nat @Double @'[]  -- TODO: product?

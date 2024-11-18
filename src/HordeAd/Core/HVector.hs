@@ -58,28 +58,26 @@ data RepD target y where
             => target (TKScalar r)
             -> RepD target (TKScalar r)
   DTKR :: (GoodScalar r, KnownNat n)
-       => target (TKR r n)
-       -> RepD target (TKR r n)
+       => target (TKR n r)
+       -> RepD target (TKR n r)
   DTKS :: (GoodScalar r, KnownShS sh)
-       => target (TKS r sh)
-       -> RepD target (TKS r sh)
+       => target (TKS sh r)
+       -> RepD target (TKS sh r)
   DTKX :: (GoodScalar r, KnownShX sh)
-       => target (TKX r sh)
-       -> RepD target (TKX r sh)
+       => target (TKX sh r)
+       -> RepD target (TKX sh r)
   DTKProduct :: forall x z target. (TensorKind x, TensorKind z)
              => RepD target x -> RepD target z
              -> RepD target (TKProduct x z)
   DTKUntyped :: HVector target
              -> RepD target TKUntyped
 
--- TODO: the constraints should not be necessary if we instead add ShS singleton
--- to FTKS
 type role TensorKindFull nominal
 data TensorKindFull y where
   FTKScalar :: GoodScalar r => TensorKindFull (TKScalar r)
-  FTKR :: GoodScalar r => IShR n -> TensorKindFull (TKR r n)
-  FTKS :: GoodScalar r => ShS sh -> TensorKindFull (TKS r sh)
-  FTKX :: GoodScalar r => IShX sh -> TensorKindFull (TKX r sh)
+  FTKR :: GoodScalar r => IShR n -> TensorKindFull (TKR n r)
+  FTKS :: GoodScalar r => ShS sh -> TensorKindFull (TKS sh r)
+  FTKX :: GoodScalar r => IShX sh -> TensorKindFull (TKX sh r)
   FTKProduct :: TensorKindFull y -> TensorKindFull z
              -> TensorKindFull (TKProduct y z)
   FTKUntyped :: VoidHVector -> TensorKindFull TKUntyped
@@ -118,24 +116,24 @@ aDTensorKind t = case t of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
            FTKScalar @()
-  FTKR @r shr -> case testEquality (typeRep @r) (typeRep @Double) of
+  FTKR @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKR @() shr
-  FTKS @r shs -> case testEquality (typeRep @r) (typeRep @Double) of
+           FTKR @() sh
+  FTKS @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKS @() shs
-  FTKX @r shx -> case testEquality (typeRep @r) (typeRep @Double) of
+           FTKS @() sh
+  FTKX @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKX @() shx
+           FTKX @() sh
   FTKProduct ftk1 ftk2 ->
     let gtk1 = aDTensorKind ftk1
         gtk2 = aDTensorKind ftk2
@@ -154,9 +152,9 @@ aDTensorKind t = case t of
 type role DynamicTensor nominal
 data DynamicTensor (target :: Target) where
   DynamicRanked :: (GoodScalar r, KnownNat n)
-                => target (TKR r n) -> DynamicTensor target
+                => target (TKR n r) -> DynamicTensor target
   DynamicShaped :: (GoodScalar r, KnownShS sh)
-                => target (TKS r sh) -> DynamicTensor target
+                => target (TKS sh r) -> DynamicTensor target
   DynamicRankedDummy :: (GoodScalar r, KnownShS sh)
                      => Proxy r -> Proxy sh -> DynamicTensor target
   DynamicShapedDummy :: (GoodScalar r, KnownShS sh)
@@ -249,7 +247,7 @@ shapeVoidDynamic  = shapeDynamicF absurdTensor
 shapeVoidHVector :: VoidHVector -> [[Int]]
 shapeVoidHVector = V.toList . V.map shapeVoidDynamic
 
-shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => target (TKR r n) -> [Int])
+shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => target (TKR n r) -> [Int])
               -> DynamicTensor target -> [Int]
 {-# INLINE shapeDynamicF #-}
 shapeDynamicF f (DynamicRanked t) = f t
@@ -284,7 +282,7 @@ voidFromShS = DynamicShapedDummy @r @sh Proxy Proxy
 
 voidFromDynamicF
   :: forall target.
-     (forall r n. (GoodScalar r, KnownNat n) => target (TKR r n) -> [Int])
+     (forall r n. (GoodScalar r, KnownNat n) => target (TKR n r) -> [Int])
   -> DynamicTensor target -> DynamicTensor VoidTensor
 {-# INLINE voidFromDynamicF #-}
 voidFromDynamicF f (DynamicRanked @r2 t) =
@@ -306,32 +304,32 @@ replicate1VoidTensor (SNat @k) u = case u of
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
 
 index1HVectorF :: (forall r n. (GoodScalar r, KnownNat n)
-                   => target (TKR r n) -> IShR n)
+                   => target (TKR n r) -> IShR n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
-                   => target (TKS r sh) -> ShS sh)
+                   => target (TKS sh r) -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-                   => target (TKR r (m + n)) -> IxROf target m -> target (TKR r n))
-               -> (forall r sh1 sh2.
+                   => target (TKR (m + n) r) -> IxROf target m -> target (TKR n r))
+               -> (forall sh1 r sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
                    , KnownShS (sh1 ++ sh2) )
-                   => target (TKS r (sh1 ++ sh2)) -> IxSOf target sh1
-                   -> target (TKS r sh2))
+                   => target (TKS (sh1 ++ sh2) r) -> IxSOf target sh1
+                   -> target (TKS sh2 r))
                -> HVector target -> IntOf target -> HVector target
 {-# INLINE index1HVectorF #-}
 index1HVectorF rshape sshape rindex sindex u i =
   V.map (flip (index1DynamicF rshape sshape rindex sindex) i) u
 
 index1DynamicF :: (forall r n. (GoodScalar r, KnownNat n)
-                   => target (TKR r n) -> IShR n)
+                   => target (TKR n r) -> IShR n)
                -> (forall sh r. (GoodScalar r, KnownShS sh)
-                   => target (TKS r sh) -> ShS sh)
+                   => target (TKS sh r) -> ShS sh)
                -> (forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-                   => target (TKR r (m + n)) -> IxROf target m -> target (TKR r n))
-               -> (forall r sh1 sh2.
+                   => target (TKR (m + n) r) -> IxROf target m -> target (TKR n r))
+               -> (forall sh1 r sh2.
                    ( GoodScalar r, KnownShS sh1, KnownShS sh2
                    , KnownShS (sh1 ++ sh2) )
-                   => target (TKS r (sh1 ++ sh2)) -> IxSOf target sh1
-                   -> target (TKS r sh2))
+                   => target (TKS (sh1 ++ sh2) r) -> IxSOf target sh1
+                   -> target (TKS sh2 r))
                -> DynamicTensor target -> IntOf target -> DynamicTensor target
 {-# INLINE index1DynamicF #-}
 index1DynamicF rshape sshape rindex sindex u i = case u of
@@ -352,18 +350,18 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
                          DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVectorF :: (forall r n. (GoodScalar r, KnownNat n)
-                       => Int -> target (TKR r n) -> target (TKR r (1 + n)))
+                       => Int -> target (TKR n r) -> target (TKR (1 + n) r))
                    -> (forall n sh r. (KnownNat n, KnownShS sh, GoodScalar r)
-                       => target (TKS r sh) -> target (TKS r (n ': sh)))
+                       => target (TKS sh r) -> target (TKS (n ': sh) r))
                    -> SNat k -> HVector target -> HVector target
 {-# INLINE replicate1HVectorF #-}
 replicate1HVectorF rreplicate sreplicate k =
   V.map (replicate1DynamicF rreplicate sreplicate k)
 
 replicate1DynamicF :: (forall r n. (GoodScalar r, KnownNat n)
-                       => Int -> target (TKR r n) -> target (TKR r (1 + n)))
+                       => Int -> target (TKR n r) -> target (TKR (1 + n) r))
                    -> (forall n sh r. (KnownNat n, KnownShS sh, GoodScalar r)
-                       => target (TKS r sh) -> target (TKS r (n ': sh)))
+                       => target (TKS sh r) -> target (TKS (n ': sh) r))
                    -> SNat k -> DynamicTensor target -> DynamicTensor target
 {-# INLINE replicate1DynamicF #-}
 replicate1DynamicF rreplicate sreplicate k@(SNat @k) u = case u of

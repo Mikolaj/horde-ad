@@ -39,43 +39,43 @@ crevDtMaybeBoth
      ( f ~ RepN, X advals ~ X (DValue advals), TensorKind (X advals)
      , GoodScalar r, KnownNat y
      , AdaptableHVector (ADVal RepN) advals
-     , AdaptableHVector (ADVal RepN) (ADVal f (TKR r y))
+     , AdaptableHVector (ADVal RepN) (ADVal f (TKR y r))
      , AdaptableHVector RepN (DValue advals)
      , DualNumberValue advals )
-  => Maybe (f (ADTensorKind (TKR r y)))
-  -> (advals -> ADVal f (TKR r y)) -> DValue advals
-  -> (f (ADTensorKind (X advals)), f (TKR r y))
+  => Maybe (f (ADTensorKind (TKR y r)))
+  -> (advals -> ADVal f (TKR y r)) -> DValue advals
+  -> (f (ADTensorKind (X advals)), f (TKR y r))
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth mdt f vals =
-  let g :: ADVal RepN (X advals) -> ADVal RepN (TKR r y)
+  let g :: ADVal RepN (X advals) -> ADVal RepN (TKR y r)
       g = toHVectorOf . f . parseHVector (fromDValue vals)
       valsH = toHVectorOf vals
   in crevOnHVector mdt g valsH
 
 rev' :: forall r m n v a w.
         ( KnownNat n, KnownNat m, GoodScalar r
-        , v ~ RepN (TKR r m)
-        , w ~ RepN (ADTensorKind (TKR r m))
-        , a ~ RepN (ADTensorKind (TKR r n)) )
-     => (forall f. ADReady f => f (TKR r n) -> f (TKR r m))
-     -> RepN (TKR r n)
+        , v ~ RepN (TKR m r)
+        , w ~ RepN (ADTensorKind (TKR m r))
+        , a ~ RepN (ADTensorKind (TKR n r)) )
+     => (forall f. ADReady f => f (TKR n r) -> f (TKR m r))
+     -> RepN (TKR n r)
      -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-        , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
+        , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-        , RepN (TKR r n), w, w, w )
+        , RepN (TKR n r), w, w, w )
 rev' f vals =
   let value0 = f vals
       ftk = tshapeFull stensorKind vals
       dt = Nothing
       valsFrom = fromDValue vals
-      g :: ADVal RepN (TKR r n)
-        -> ADVal RepN (TKR r m)
+      g :: ADVal RepN (TKR n r)
+        -> ADVal RepN (TKR m r)
       g inputs = f $ parseHVector valsFrom inputs
       (gradient1, value1) = crevDtMaybeBoth dt g vals
       gradientRrev1 = rrev1 @RepN @r @n @m f vals
-      g9 :: ADVal (AstRaw PrimalSpan) (TKR r n)
-         -> ADVal (AstRaw PrimalSpan) (TKR r m)
+      g9 :: ADVal (AstRaw PrimalSpan) (TKR n r)
+         -> ADVal (AstRaw PrimalSpan) (TKR m r)
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
                   $ parseHVector (fromDValue vals) inputs
       artifactsGradAst9 =
@@ -83,26 +83,26 @@ rev' f vals =
                 False g9 ftk
       (gradient9, value9) = revEvalArtifact7 artifactsGradAst9
       revEvalArtifact7
-        :: AstArtifactRev (TKR r n) (TKR r m)
-        -> (RepN (ADTensorKind (TKR r n)), RepN (TKR r m))
+        :: AstArtifactRev (TKR n r) (TKR m r)
+        -> (RepN (ADTensorKind (TKR n r)), RepN (TKR m r))
       revEvalArtifact7 a1 = revEvalArtifact a1 vals Nothing
       hGeneral
         :: (ADReady fgen, ADReady f1)
-        => (f1 (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR r n) -> f1 (TKR r n))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
-        -> fgen (TKR r n)
-        -> fgen (TKR r m)
+        => (f1 (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR n r) -> f1 (TKR n r))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+        -> fgen (TKR n r)
+        -> fgen (TKR m r)
       hGeneral fx1 fx2 gx inputs =
         let (var, ast) = funToAst (FTKR $ rshape vals) (fx1 . f . fx2)
             env = extendEnv var inputs emptyEnv
         in interpretAst env (gx ast)
       h :: ADReady f1
-        => (f1 (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR r n) -> f1 (TKR r n))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
-        -> ADVal RepN (TKR r n)
-        -> ADVal RepN (TKR r m)
+        => (f1 (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR n r) -> f1 (TKR n r))
+        -> (AstTensor AstMethodLet PrimalSpan (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+        -> ADVal RepN (TKR n r)
+        -> ADVal RepN (TKR m r)
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal RepN) fx1 fx2 gx
                  (parseHVector valsFrom inputs)
@@ -141,11 +141,11 @@ rev' f vals =
         $ funToAst (FTKR $ rshape vals) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
-           => (f1 (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
-           -> (AstTensor AstMethodLet PrimalSpan (TKR r n) -> f1 (TKR r n))
-           -> (AstTensor AstMethodLet PrimalSpan (TKR r m) -> AstTensor AstMethodLet PrimalSpan (TKR r m))
-           -> ADVal (AstRaw PrimalSpan) (TKR r n)
-           -> ADVal (AstRaw PrimalSpan) (TKR r m)
+           => (f1 (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+           -> (AstTensor AstMethodLet PrimalSpan (TKR n r) -> f1 (TKR n r))
+           -> (AstTensor AstMethodLet PrimalSpan (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+           -> ADVal (AstRaw PrimalSpan) (TKR n r)
+           -> ADVal (AstRaw PrimalSpan) (TKR m r)
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRaw PrimalSpan))
                    fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
@@ -221,19 +221,19 @@ rev' f vals =
 
 assertEqualUpToEpsilon'
     :: ( KnownNat n, KnownNat m
-       , v ~ RepN (TKR r m)
-       , w ~ RepN (ADTensorKind (TKR r m))
-       , a ~ RepN (ADTensorKind (TKR r n))
+       , v ~ RepN (TKR m r)
+       , w ~ RepN (ADTensorKind (TKR m r))
+       , a ~ RepN (ADTensorKind (TKR n r))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon (ADTensorScalar r)
        , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> RepN (TKR r n)  -- ^ expected reverse derivative value
+    -> RepN (TKR n r)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-       , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
+       , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , RepN (TKR r n), w, w, w )
+       , RepN (TKR n r), w, w, w )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -349,19 +349,19 @@ assertEqualUpToEpsilon'
 
 assertEqualUpToEpsilonShort
     :: ( KnownNat n, KnownNat m
-       , v ~ RepN (TKR r m)
-       , w ~ RepN (ADTensorKind (TKR r m))
-       , a ~ RepN (ADTensorKind (TKR r n))
+       , v ~ RepN (TKR m r)
+       , w ~ RepN (ADTensorKind (TKR m r))
+       , a ~ RepN (ADTensorKind (TKR n r))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon (ADTensorScalar r)
        , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
-    => Rational  -- ^ error margin (i.e., the epsilon)
-    -> RepN (TKR r n)  -- ^ expected reverse derivative value
+    => Rational  -- ^ errom rargin (i.e., the epsilon)
+    -> RepN (TKR n r)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-       , AstTensor AstMethodLet PrimalSpan (TKR r m), AstTensor AstMethodLet PrimalSpan (TKR r m)
+       , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , RepN (TKR r n), w, w, w )
+       , RepN (TKR n r), w, w, w )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -450,36 +450,36 @@ assertEqualUpToEpsilonShort
               (show (simplifyInline astVectSimp))
   -}
 
-t16 :: (GoodScalar r, Fractional r) => RepN (TKR r 5)
+t16 :: (GoodScalar r, Fractional r) => RepN (TKR 5 r)
 t16 = ringestData [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t16b :: (GoodScalar r, Fractional r) => RepN (TKR r 4)
+t16b :: (GoodScalar r, Fractional r) => RepN (TKR 4 r)
 t16b = ringestData [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
-t48 :: (GoodScalar r, Fractional r) => RepN (TKR r 7)
+t48 :: (GoodScalar r, Fractional r) => RepN (TKR 7 r)
 t48 = ringestData [3, 1, 2, 2, 1, 2, 2] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t128 :: (GoodScalar r, Fractional r) => RepN (TKR r 10)
+t128 :: (GoodScalar r, Fractional r) => RepN (TKR 10 r)
 t128 = ringestData [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
-t128b :: (GoodScalar r, Fractional r) => RepN (TKR r 4)
+t128b :: (GoodScalar r, Fractional r) => RepN (TKR 4 r)
 t128b = rreshape (4 :$: 2 :$: 4 :$: 4 :$: ZSR) t128
 
-t128c :: (GoodScalar r, Fractional r) => RepN (TKR r 4)
+t128c :: (GoodScalar r, Fractional r) => RepN (TKR 4 r)
 t128c = rreshape (2 :$: 2 :$: 8 :$: 4 :$: ZSR) t128
 
 rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-      => (forall f. ADReady f => f (TKR r n) -> f (TKR r3 m)) -> g (TKR r n)
-      -> g (ADTensorKind (TKR r n))
+      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
+      -> g (ADTensorKind (TKR n r))
 rrev1 f u = rrev f (tshapeFull stensorKind u) u
 
 rrev2 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-      => (forall f. ADReady f => f (TKR r n) -> f (TKR r3 m)) -> g (TKR r n)
-      -> g (TKR r n)
+      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
+      -> g (TKR n r)
 rrev2 f u =
-  let fHVector :: forall f. ADReady f => f TKUntyped -> f (TKR r3 m)
+  let fHVector :: forall f. ADReady f => f TKUntyped -> f (TKR m r3)
       fHVector v = f (rfromD $ dunHVector v V.! 0)
       sh = rshape u
       zero = voidFromSh @r @n sh
@@ -490,28 +490,28 @@ rrev2 f u =
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-        => (forall f. ADReady f => f (TKR r n) -> f (TKR r3 m)) -> g (TKR r n)
-        -> g (ADTensorKind (TKR r n))
-        -> g (ADTensorKind (TKR r3 m))
+        => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
+        -> g (ADTensorKind (TKR n r))
+        -> g (ADTensorKind (TKR m r3))
 rfwd1ds f u ds = rfwd f (tshapeFull stensorKind u) u ds
 
 rfwd1 :: forall g r n m r3.
          ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
          , GoodScalar r3, KnownNat n, KnownNat m )
-      => (forall f. ADReady f => f (TKR r n) -> f (TKR r3 m)) -> g (TKR r n)
-      -> g (ADTensorKind (TKR r3 m))
+      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
+      -> g (ADTensorKind (TKR m r3))
 rfwd1 f u = rfwd1ds f u (rreplicate0N @_ @(ADTensorScalar r) (rshape u) (rscalar 1))
 
 srev1 :: forall g r sh sh2 r3.
          ( ADReady g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2
-         , ADTensorKind (TKS r3 sh2) ~ TKS r3 sh2 )
-      => (forall f. ADReady f => f (TKS r sh) -> f (TKS r3 sh2)) -> g (TKS r sh)
-      -> g (ADTensorKind (TKS r sh))
+         , ADTensorKind (TKS sh2 r3) ~ TKS sh2 r3 )
+      => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
+      -> g (ADTensorKind (TKS sh r))
 srev1 f u = srev f (tshapeFull stensorKind u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
          , GoodScalar r3, KnownShS sh, KnownShS sh2 )
-      => (forall f. ADReady f => f (TKS r sh) -> f (TKS r3 sh2)) -> g (TKS r sh)
-      -> g (ADTensorKind (TKS r3 sh2))
+      => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
+      -> g (ADTensorKind (TKS sh2 r3))
 sfwd1 f u = sfwd f (tshapeFull stensorKind u) u (srepl @_ @(ADTensorScalar r) 1)

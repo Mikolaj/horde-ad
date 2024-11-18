@@ -295,9 +295,9 @@ foo (x, y, z) =
   in atan2F z w + z * w
 
 fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
-        => (a, a, a) -> (g (TKR a 0), g (TKR a 0), g (TKR a 0))
+        => (a, a, a) -> (g (TKR 0 a), g (TKR 0 a), g (TKR 0 a))
 fooRrev (x, y, z) =
-  let fHVector :: forall f. ADReady f => f TKUntyped -> f (TKR a 0)
+  let fHVector :: forall f. ADReady f => f TKUntyped -> f (TKR 0 a)
       fHVector v = foo (rfromD $ dunHVector v V.! 0, rfromD $ dunHVector v V.! 1, rfromD $ dunHVector v V.! 2)
       sh = []
       zero = voidFromSh @a @0 sh
@@ -401,19 +401,19 @@ testSin0RrevPP5 = do
 testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.8912073600614354) :: RepN (TKR Double 0))
+    (rscalar (-0.8912073600614354) :: RepN (TKR 0 Double))
     (rev' (rrev1 sin) (rscalar 1.1))
 
 testSin0Rrev4' :: Assertion
 testSin0Rrev4' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.39052780643689855 :: RepN (TKR Double 0))
+    (rscalar 0.39052780643689855 :: RepN (TKR 0 Double))
     (rev' (rrev1 sin . rrev1 sin) (rscalar 1.1))
 
 testSin0Rrev5' :: Assertion
 testSin0Rrev5' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.4535961214255773) :: RepN (TKR Double 0))
+    (rscalar (-0.4535961214255773) :: RepN (TKR 0 Double))
     (rev' (rrev1 (rrev1 sin)) (rscalar 1.1))
 
 testSin0Rfwd :: Assertion
@@ -490,19 +490,19 @@ testSin0RfwdPP5 = do
 testSin0Rfwd3' :: Assertion
 testSin0Rfwd3' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.8912073600614354) :: RepN (TKR Double 0))
+    (rscalar (-0.8912073600614354) :: RepN (TKR 0 Double))
     (rev' (rfwd1 sin) (rscalar 1.1))
 
 testSin0Rfwd4' :: Assertion
 testSin0Rfwd4' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.39052780643689855 :: RepN (TKR Double 0))
+    (rscalar 0.39052780643689855 :: RepN (TKR 0 Double))
     (rev' (rfwd1 sin . rfwd1 sin) (rscalar 1.1))
 
 testSin0Rfwd5' :: Assertion
 testSin0Rfwd5' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.4535961214255773) :: RepN (TKR Double 0))
+    (rscalar (-0.4535961214255773) :: RepN (TKR 0 Double))
     (rev' (rfwd1 (rfwd1 sin)) (rscalar 1.1))
 
 testSin0Rrev5S :: Assertion
@@ -521,8 +521,8 @@ testSin0RrevPP5S = do
 testSin0Fold0 :: Assertion
 testSin0Fold0 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\x _a -> sin x)
                             x0 (rzero @f @Double (0 :$: ZSR))
            in f) (rscalar 1.1))
@@ -530,23 +530,23 @@ testSin0Fold0 = do
 testSin0Fold0ForComparison :: Assertion
 testSin0Fold0ForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. f (TKR 0 Double) -> f (TKR 0 Double)
                f = id
            in f) (rscalar 1.1))
 
 testSin0Fold1 :: Assertion
 testSin0Fold1 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR Double 0))
+    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
     (rev' (\x0 -> rfold (\x _a -> sin x)
                         x0 (rrepl @Double @1 [1] 42)) (rscalar 1.1))
 
 testSin0FoldB1 :: Assertion
 testSin0FoldB1 = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar 0 :: RepN (TKR Double 0))
-    (rrev1 (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 0 :: RepN (TKR 0 Double))
+    (rrev1 (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                 f x0 = rfold (\_x _a -> rscalar 7)
                          (rscalar 5) (rreplicate 1 x0)
             in f) (rscalar 1.1))
@@ -555,7 +555,7 @@ testSin0FoldB1PP :: Assertion
 testSin0FoldB1PP = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan)
-             (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+             (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                   f x0 = rfold (\_x _a -> rscalar 7)
                            (rscalar 5) (rreplicate 1 x0)
               in f) (rscalar 1.1)
@@ -565,8 +565,8 @@ testSin0FoldB1PP = do
 testSin0FoldB2 :: Assertion
 testSin0FoldB2 = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar 0 :: RepN (TKR Double 0))
-    (rev (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 0 :: RepN (TKR 0 Double))
+    (rev (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
               f x0 = rfold (\_x _a -> rscalar 7)
                        (rscalar 5) (rreplicate 1 x0)
           in f) (rscalar 1.1))
@@ -574,8 +574,8 @@ testSin0FoldB2 = do
 testSin0FoldB3 :: Assertion
 testSin0FoldB3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 0 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\_x _a -> rscalar 7)
                         (rscalar 5) (rreplicate 1 x0)
            in f) (rscalar 1.1))
@@ -583,8 +583,8 @@ testSin0FoldB3 = do
 testSin0FoldB4 :: Assertion
 testSin0FoldB4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 0 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\_x _a -> rscalar 7)
                         x0 (rrepl @Double @1 [1] 42)
            in f) (rscalar 1.1))
@@ -592,34 +592,34 @@ testSin0FoldB4 = do
 testSin0Fold2 :: Assertion
 testSin0Fold2 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR Double 0))
+    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
     (rev' (\x0 -> rfold (\x _a -> sin x)
                         x0 (rrepl @Double @1 [5] 42)) (rscalar 1.1))
 
 testSin0FoldForComparison :: Assertion
 testSin0FoldForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR Double 0))
+    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
     (rev' (sin . sin . sin . sin . sin) (rscalar 1.1))
 
 testSin0Fold3 :: Assertion
 testSin0Fold3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR Double 0))
+    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
     (rev' (\a0 -> rfold (\_x a -> sin a)
                         (rscalar 84) (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold4 :: Assertion
 testSin0Fold4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar  (-0.7053476446727861) :: RepN (TKR Double 0))
+    (rscalar  (-0.7053476446727861) :: RepN (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> atan2F (sin x) (sin a))
                         (rscalar 2 * a0) (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold5 :: Assertion
 testSin0Fold5 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2992412552109085 :: RepN (TKR Double 0))
+    (rscalar 1.2992412552109085 :: RepN (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> rsum
                                  $ atan2F (sin $ rreplicate 5 x)
                                           (rsum $ sin $ rsum
@@ -630,7 +630,7 @@ testSin0Fold5 = do
 testSin0Fold6 :: Assertion
 testSin0Fold6 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 6 :: RepN (TKR Double 0))
+    (rscalar 6 :: RepN (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
@@ -639,7 +639,7 @@ testSin0Fold6 = do
 testSin0Fold7 :: Assertion
 testSin0Fold7 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 250 :: RepN (TKR Double 0))
+    (rscalar 250 :: RepN (TKR 0 Double))
     (rev' (\a0 -> rfold (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
                         (rreplicate 2 a0)) (rscalar 1.1))
@@ -647,7 +647,7 @@ testSin0Fold7 = do
 testSin0Fold8 :: Assertion
 testSin0Fold8 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR Double 0))
+    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -658,8 +658,8 @@ testSin0Fold8 = do
 testSin0Fold0S :: Assertion
 testSin0Fold0S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = sfold @f @Double @Double @'[] @'[] @0
                             (\x _a -> sin x)
                             x0 (srepl 0)
@@ -668,11 +668,11 @@ testSin0Fold0S = do
 testSin0Fold1S :: Assertion
 testSin0Fold1S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR Double 0))
-    (rev' ((let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
+    (rev' ((let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                 f x0 = sfold (let g :: forall f2. ADReady f2
-                                   => f2 (TKS Double '[]) -> f2 (TKS Double '[])
-                                   -> f2 (TKS Double '[])
+                                   => f2 (TKS '[] Double) -> f2 (TKS '[] Double)
+                                   -> f2 (TKS '[] Double)
                                   g x _a = sin x
                               in g)
                         x0 (srepl @'[1] 42)
@@ -681,8 +681,8 @@ testSin0Fold1S = do
 testSin0Fold2S :: Assertion
 testSin0Fold2S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = sfold (\x _a -> sin x)
                         x0 (srepl @'[5] @Double 42)
            in rfromS . f . sfromR) (rscalar 1.1))
@@ -690,16 +690,16 @@ testSin0Fold2S = do
 testSin0FoldForComparisonS :: Assertion
 testSin0FoldForComparisonS = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f = sin . sin . sin . sin . sin
           in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold3S :: Assertion
 testSin0Fold3S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\_x a -> sin a)
                         (srepl 84) (sreplicate @f @3 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
@@ -707,8 +707,8 @@ testSin0Fold3S = do
 testSin0Fold4S :: Assertion
 testSin0Fold4S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar  (-0.7053476446727861) :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar  (-0.7053476446727861) :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a -> atan2F (sin x) (sin a))
                         (srepl 2 * a0) (sreplicate @f @3 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
@@ -716,11 +716,11 @@ testSin0Fold4S = do
 testSin0Fold5S :: Assertion
 testSin0Fold5S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2992412552109085 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 1.2992412552109085 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (let g :: forall f2. ADReady f2
-                                   => f2 (TKS Double '[]) -> f2 (TKS Double '[2, 5])
-                                   -> f2 (TKS Double '[])
+                                   => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
+                                   -> f2 (TKS '[] Double)
                                  g x a = ssum
                                    $ atan2F (sin $ sreplicate @f2 @5 x)
                                             (ssum $ sin $ ssum
@@ -735,8 +735,8 @@ testSin0Fold5S = do
 testSin0Fold6S :: Assertion
 testSin0Fold6S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 6 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2, 1])
+    (rscalar 6 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 1] Double)
                f a0 = sfold @f @Double @Double @'[2, 1] @'[] @2
                         (\x a -> str
                                  $ str x + sreplicate @_ @1
@@ -748,8 +748,8 @@ testSin0Fold6S = do
 testSin0Fold7S :: Assertion
 testSin0Fold7S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 250 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2, 5])
+    (rscalar 250 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                f a0 = sfold @f @Double @Double @'[2, 5] @'[] @2
                         (\x _a -> str $ sreplicate @_ @5 $ ssum (str x))
                         (sreplicate @_ @2 (sreplicate @_ @5 a0))
@@ -759,8 +759,8 @@ testSin0Fold7S = do
 testSin0Fold8S :: Assertion
 testSin0Fold8S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2, 5])
+    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
@@ -773,7 +773,7 @@ testSin0Fold8S = do
 testSin0Fold8rev :: Assertion
 testSin0Fold8rev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR Double 0))
+    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
     (rrev1 @RepN @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
@@ -798,8 +798,8 @@ testSin0Fold8rev2 = do
 testSin0Fold8Srev :: Assertion
 testSin0Fold8Srev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR Double 0))
-    (rrev1 (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2, 5])
+    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
+    (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
@@ -813,7 +813,7 @@ testSin0Fold8Srev2 :: Assertion
 testSin0Fold8Srev2 = do
   let h = srev1 @(ADVal RepN)
                 (let f :: forall f. ADReady f
-                       => f (TKS Double '[]) -> f (TKS Double '[2, 5])
+                       => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                      f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
@@ -829,8 +829,8 @@ testSin0Fold8Srev2 = do
 testSin0Fold182Srev :: Assertion
 testSin0Fold182Srev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-0.4409160296923509) :: RepN (TKR Double 0))
-    (rrev1 (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[5])
+    (rscalar (-0.4409160296923509) :: RepN (TKR 0 Double))
+    (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
                 f a0 = sfold @f @Double @Double @'[5] @'[] @1
                         (\_x a -> atan2F (sreplicate @_ @5 a)
                                          (sreplicate @_ @5
@@ -843,7 +843,7 @@ testSin0Fold182SrevPP :: Assertion
 testSin0Fold182SrevPP = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan)
-           (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[5])
+           (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
                 f a0 = sfold @f @Double @Double @'[5] @'[] @1
                         (\_x a -> atan2F (sreplicate @_ @5 a)
                                          (sreplicate @_ @5
@@ -857,8 +857,8 @@ testSin0Fold182SrevPP = do
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-2.4026418024701366) :: RepN (TKR Double 0))
-    (rrev1 (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2, 5])
+    (rscalar (-2.4026418024701366) :: RepN (TKR 0 Double))
+    (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @f @Double @Double @'[2, 5] @'[] @2
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
@@ -898,7 +898,7 @@ testSin0Fold8Sfwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 (-0.2200311410593445)))
     (rfwd1 @RepN
-           (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2, 5])
+           (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
@@ -912,7 +912,7 @@ testSin0Fold8Sfwd2 :: Assertion
 testSin0Fold8Sfwd2 = do
   let h = rfwd1 @(ADVal RepN)
                 (let f :: forall f. ADReady f
-                       => f (TKS Double '[]) -> f (TKS Double '[2, 5])
+                       => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                      f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
@@ -929,10 +929,10 @@ testSin0Fold5Sfwd :: Assertion
 testSin0Fold5Sfwd = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 1.4291653807319993)
-    (cfwd (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (cfwd (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (let g :: forall f2. ADReady f2
-                                   => f2 (TKS Double '[]) -> f2 (TKS Double '[2, 5])
-                                   -> f2 (TKS Double '[])
+                                   => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
+                                   -> f2 (TKS '[] Double)
                                  g x a = ssum
                                    $ atan2F (sin $ sreplicate @f2 @5 x)
                                             (ssum $ sin $ ssum
@@ -948,10 +948,10 @@ testSin0Fold5Sfwds :: Assertion
 testSin0Fold5Sfwds = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1.4291653807319993)
-    (cfwd (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (cfwd (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (let g :: forall f2. ADReady f2
-                                   => f2 (TKS Double '[]) -> f2 (TKS Double '[2, 5])
-                                   -> f2 (TKS Double '[])
+                                   => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
+                                   -> f2 (TKS '[] Double)
                                  g x a = ssum
                                    $ atan2F (sin $ sreplicate @f2 @5 x)
                                             (ssum $ sin $ ssum
@@ -967,7 +967,7 @@ testSin0Scan0 :: Assertion
 testSin0Scan0 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1)
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 1)
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
                f x0 = rscan (\x _a -> sin x)
                             x0 (rzero @f @Double (0 :$: ZSR))
            in f) (rscalar 1.1))
@@ -975,7 +975,7 @@ testSin0Scan0 = do
 testSin0Scan1 :: Assertion
 testSin0Scan1 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR 5 Double))
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rrepl @Double @1 [1] 42))
           (ringestData [1,1,1,1,1] [1.1]))
@@ -983,14 +983,14 @@ testSin0Scan1 = do
 testSin0Scan1ForComparison :: Assertion
 testSin0Scan1ForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR 5 Double))
     (rev' (\x0 -> rfromList [x0, sin x0])
           (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan2 :: Assertion
 testSin0Scan2 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [2.2207726343670955] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [2.2207726343670955] :: RepN (TKR 5 Double))
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rrepl @Double @1 [5] 42))
           (ringestData [1,1,1,1,1] [1.1]))
@@ -998,7 +998,7 @@ testSin0Scan2 = do
 testSin0Scan3 :: Assertion
 testSin0Scan3 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.360788364276732] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [1.360788364276732] :: RepN (TKR 5 Double))
     (rev' (\a0 -> rscan (\_x a -> sin a)
                         (rreplicate0N [1,1,1,1,1] (rscalar 84))
                         (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
@@ -1006,7 +1006,7 @@ testSin0Scan3 = do
 testSin0Scan4 :: Assertion
 testSin0Scan4 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [-0.4458209450295252] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [-0.4458209450295252] :: RepN (TKR 5 Double))
     (rev' (\a0 -> rscan (\x a -> atan2F (sin x) (sin a))
                         (rreplicate0N [1,1,1,1,1] (rscalar 2) * a0)
                         (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
@@ -1014,7 +1014,7 @@ testSin0Scan4 = do
 testSin0Scan5 :: Assertion
 testSin0Scan5 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1] [4.126141830000979] :: RepN (TKR Double 4))
+    (ringestData [1,1,1,1] [4.126141830000979] :: RepN (TKR 4 Double))
     (rev' (\a0 -> rscan (\x a -> rsum
                                  $ atan2F (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
@@ -1026,7 +1026,7 @@ testSin0Scan5 = do
 testSin0Scan6 :: Assertion
 testSin0Scan6 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1] [12] :: RepN (TKR Double 2))
+    (ringestData [1,1] [12] :: RepN (TKR 2 Double))
     (rev' (\a0 -> rscan (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
@@ -1035,7 +1035,7 @@ testSin0Scan6 = do
 testSin0Scan7 :: Assertion
 testSin0Scan7 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1] [310] :: RepN (TKR Double 2))
+    (ringestData [1,1] [310] :: RepN (TKR 2 Double))
     (rev' (\a0 -> rscan (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
                         (rreplicate 2 a0)) (ringestData [1,1] [1.1]))
@@ -1043,7 +1043,7 @@ testSin0Scan7 = do
 testSin0Scan8 :: Assertion
 testSin0Scan8 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR Double 3))
+    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR 3 Double))
     (rev' (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1140,20 +1140,20 @@ testSin0Scan1Rev2PPForComparison = do
                  True
                  (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0])
                  (rscalar 1.1)
-  printArtifactPretty @_ @(TKR Double 1) IM.empty (simplifyArtifact art)
+  printArtifactPretty @_ @(TKR 1 Double) IM.empty (simplifyArtifact art)
     @?= "\\v3 x1 -> cos x1 * (cos (sin x1 - 5.0) * v3 ! [0]) + cos x1 * v3 ! [1] + v3 ! [2]"
 
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [] [1.1961317861865948] :: RepN (TKR Double 0))
+    (ringestData [] [1.1961317861865948] :: RepN (TKR 0 Double))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
                     (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1))
 
 testSin0Scan1Rev2ForComparison :: Assertion
 testSin0Scan1Rev2ForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [] [1.1961317861865948] :: RepN (TKR Double 0))
+    (ringestData [] [1.1961317861865948] :: RepN (TKR 0 Double))
     (rev' (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0]) (rscalar 1.1))
 
 testSin0Scan1Rev3PP :: Assertion
@@ -1185,14 +1185,14 @@ testSin0ScanFwd3PP = do
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
-    (ringestData [] [-10.076255083995068] :: RepN (TKR Double 0))
+    (ringestData [] [-10.076255083995068] :: RepN (TKR 0 Double))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1))
 
 testSin0Scan1Rev3ForComparison :: Assertion
 testSin0Scan1Rev3ForComparison = do
   assertEqualUpToEpsilon' 1e-5
-    (ringestData [] [-10.076255083995068] :: RepN (TKR Double 0))
+    (ringestData [] [-10.076255083995068] :: RepN (TKR 0 Double))
     (rev' (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1))
 
 testSin0Scan0fwd :: Assertion
@@ -1200,7 +1200,7 @@ testSin0Scan0fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [1] [1.0])
     (rfwd1 @RepN @Double @0 @1
-    (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 1)
+    (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
          f x0 = rscan (\x _a -> sin x)
                       x0 (rzero @f @Double (0 :$: ZSR))
      in f) (rscalar 1.1))
@@ -1257,7 +1257,7 @@ testUnitriangular0PP = do
     @?= "rgather [1000000,1000000] (rconcrete (rfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifF (i3 <=. i2) 0 1])"
 
 unitriangular1 :: (KnownNat k, GoodScalar rk, ADReady target)
-               => Int -> IShR k -> target (TKR rk (2 + k))
+               => Int -> IShR k -> target (TKR (2 + k) rk)
 unitriangular1 k sh =
   rbuild1 k $ \i ->
     rbuild1 k $ \j ->
@@ -1273,7 +1273,7 @@ testUnitriangular1PP = do
     @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i5, i6] -> [ifF (i5 <=. i6) 0 1, i5, i6])"
 
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady target)
-               => Int -> IShR k -> target (TKR rk (2 + k))
+               => Int -> IShR k -> target (TKR (2 + k) rk)
 unitriangular2 k sh =
   rgather @_ @_ @_ @_ @1 (k :$: k :$: sh)
           (rfromList [ rreplicate0N sh (rscalar 0)
@@ -1290,11 +1290,11 @@ testUnitriangular2PP = do
     @?= "rgather [1000000,1000000,200,300,600] (rfromVector (fromList [rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 0.0)))), rreplicate 1000000 (rreplicate 1000000 (rreplicate 200 (rreplicate 300 (rreplicate 600 1.0))))])) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4])"
 
 rscanZip :: forall rn n target. (GoodScalar rn, KnownNat n, ADReady target)
-         => (forall f. ADReady f => f (TKR rn n) -> HVector f -> f (TKR rn n))
+         => (forall f. ADReady f => f (TKR n rn) -> HVector f -> f (TKR n rn))
          -> VoidHVector  -- shapes of the HVector above, not below
-         -> target (TKR rn n)
+         -> target (TKR n rn)
          -> HVector target  -- one rank higher than above
-         -> target (TKR rn (1 + n))
+         -> target (TKR (1 + n) rn)
 rscanZip f eShs acc0 es =
   let width = case V.unsnoc es of
         Nothing -> error "rscanZip: can't determine argument width"
@@ -1329,11 +1329,11 @@ sscanZip :: forall rn sh k target.
             ( GoodScalar rn, KnownShS sh, KnownNat k
             , ADReady target )
        => (forall f. ADReady f
-           => f (TKS rn sh) -> HVector f -> f (TKS rn sh))
+           => f (TKS sh rn) -> HVector f -> f (TKS sh rn))
        -> VoidHVector
-       -> target (TKS rn sh)
+       -> target (TKS sh rn)
        -> HVector target
-       -> target (TKS rn (1 + k ': sh))
+       -> target (TKS (1 + k ': sh) rn)
 sscanZip f eShs acc0 es =
   tlet @_ @TKUntyped (
     (productToVectorOf $ dmapAccumL Proxy
@@ -1361,7 +1361,7 @@ testSin0ScanD0 :: Assertion
 testSin0ScanD0 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1)
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 1)
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
                f x0 = rscanZip (\x _a -> sin x)
                              (V.fromList [voidFromSh @Double ZSR])
                              x0 (V.singleton $ DynamicRanked
@@ -1372,7 +1372,7 @@ testSin0rmapAccumRD0SC :: Assertion
 testSin0rmapAccumRD0SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (crev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
@@ -1399,7 +1399,7 @@ testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
@@ -1426,7 +1426,7 @@ testSin0rmapAccumRD00SC :: Assertion
 testSin0rmapAccumRD00SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (crev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
@@ -1453,7 +1453,7 @@ testSin0rmapAccumRD00S0 :: Assertion
 testSin0rmapAccumRD00S0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
@@ -1481,7 +1481,7 @@ _testSin0rmapAccumRD00S :: Assertion
 _testSin0rmapAccumRD00S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
               f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
@@ -1509,7 +1509,7 @@ _testSin0rmapAccumRD00S7 :: Assertion
 _testSin0rmapAccumRD00S7 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[7])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Double)
               f x0 = (sfromD . (V.! 1))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
@@ -1536,7 +1536,7 @@ testSin0rmapAccumRD00SCacc0 :: Assertion
 testSin0rmapAccumRD00SCacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f _x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
                           (FTKUntyped $ V.fromList [])
@@ -1557,7 +1557,7 @@ testSin0rmapAccumRD00SCacc :: Assertion
 testSin0rmapAccumRD00SCacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
                           (FTKUntyped $ V.fromList [])
@@ -1579,7 +1579,7 @@ testSin0rmapAccumRD00Sacc0 :: Assertion
 testSin0rmapAccumRD00Sacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
               f _x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
                           (FTKUntyped $ V.fromList [])
@@ -1600,7 +1600,7 @@ testSin0rmapAccumRD00Sacc :: Assertion
 testSin0rmapAccumRD00Sacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
               f x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
                           (FTKUntyped $ V.fromList [])
@@ -1622,7 +1622,7 @@ testSin0rmapAccumRD00SCall0 :: Assertion
 testSin0rmapAccumRD00SCall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f _x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
                           (FTKUntyped $ V.fromList [])
@@ -1642,7 +1642,7 @@ testSin0rmapAccumRD00SCall :: Assertion
 testSin0rmapAccumRD00SCall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f _x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
                           (FTKUntyped $ V.fromList [])
@@ -1662,7 +1662,7 @@ testSin0rmapAccumRD00Sall0 :: Assertion
 testSin0rmapAccumRD00Sall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
               f _x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
                           (FTKUntyped $ V.fromList [])
@@ -1682,7 +1682,7 @@ testSin0rmapAccumRD00Sall :: Assertion
 testSin0rmapAccumRD00Sall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
               f _x0 = tlet @_ @TKUntyped (
                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
                           (FTKUntyped $ V.fromList [])
@@ -1702,7 +1702,7 @@ testSin0rmapAccumRD0RC :: Assertion
 testSin0rmapAccumRD0RC = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 1)
-    (crev (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (crev (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = (rfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
@@ -1726,7 +1726,7 @@ testSin0rmapAccumRD0R :: Assertion
 testSin0rmapAccumRD0R = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1)
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = (rfromD . (V.! 0))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
@@ -1750,7 +1750,7 @@ testSin0ScanD01 :: Assertion
 testSin0ScanD01 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773)
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = flip rindex0 [1]
                       $ rscanZip (\x _a -> sin x)
                              (V.fromList [voidFromSh @Double ZSR])
@@ -1762,8 +1762,8 @@ testSin0rmapAccumRD01SC :: Assertion
 testSin0rmapAccumRD01SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0.4535961214255773)
-    (crev (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
-               f x0 = flip (sindex0 @_ @_ @'[1]) [0] $ (sfromD . (V.! 2))
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
+               f x0 = flip (sindex0 @_ @'[1]) [0] $ (sfromD . (V.! 2))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @1)
                           (FTKUntyped $ V.fromList [ voidFromShS @Double @'[]
@@ -1791,7 +1791,7 @@ testSin0rmapAccumRD01SN :: Assertion
 testSin0rmapAccumRD01SN = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @1)
@@ -1821,7 +1821,7 @@ testSin0rmapAccumRD01SN2 :: Assertion
 testSin0rmapAccumRD01SN2 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[1])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[1] Double)
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @1)
@@ -1848,7 +1848,7 @@ testSin0rmapAccumRD01SN3 :: Assertion
 testSin0rmapAccumRD01SN3 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[1, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[1, 3] Double)
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @1)
@@ -1876,7 +1876,7 @@ testSin0rmapAccumRD01SN4 :: Assertion
 testSin0rmapAccumRD01SN4 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[1, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[1, 3] Double)
                f x0 = (sfromD . (V.! 2))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @1)
@@ -1913,7 +1913,7 @@ testSin0rmapAccumRD01SN5 :: Assertion
 testSin0rmapAccumRD01SN5 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[1, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[1, 3] Double)
                f x0 = (sfromD . (V.! 2))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @1)
@@ -1940,7 +1940,7 @@ testSin0rmapAccumRD01SN5 = do
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[2]
+                                             (sindex0 @_ @'[2]
                                                        (sfromD (a V.! 2)) [1]
                                               / sin x / srepl 3)
                                        , DynamicShaped
@@ -1959,7 +1959,7 @@ testSin0rmapAccumRD01SN51 :: Assertion
 testSin0rmapAccumRD01SN51 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar (-69.90586521651421))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = (\res -> ssum @_ @_ @6 (sfromD (res V.! 0))
                                + ssum0 @_ @_ @'[6, 5, 4, 3]
                                    (sfromD (res V.! 2)))
@@ -1988,7 +1988,7 @@ testSin0rmapAccumRD01SN51 = do
                                                (sfromD (a V.! 3))
                                        , DynamicShaped
                                          $ sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[2]
+                                             (sindex0 @_ @'[2]
                                                        (sfromD (a V.! 2)) [1]
                                               / sin x / srepl 3) ])
                                             (dmkHVector
@@ -2013,7 +2013,7 @@ testSin0rmapAccumRD01SN52 :: Assertion
 testSin0rmapAccumRD01SN52 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1.2207726343670955)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[5, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5, 3] Double)
                f x0 = (sfromD . (V.! 2))
                       $ dunHVector
                       $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @5)
@@ -2040,7 +2040,7 @@ testSin0rmapAccumRD01SN52 = do
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[2]
+                                             (sindex0 @_ @'[2]
                                                        (sfromD (a V.! 2)) [1]
                                               / sin x / srepl 3)
                                        , DynamicShaped
@@ -2059,7 +2059,7 @@ testSin0rmapAccumRD01SN53 :: Assertion
 testSin0rmapAccumRD01SN53 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 6.529656272211302)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[5, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5, 3] Double)
                f x0 = (\res -> sreplicate @_ @5 (sfromD (res V.! 0))
                                * sfromD (res V.! 1)
                                + sfromD (res V.! 2))
@@ -2085,7 +2085,7 @@ testSin0rmapAccumRD01SN53 = do
                                     $ V.fromList
                                        [ DynamicShaped
                                          $ sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[4]
+                                             (sindex0 @_ @'[4]
                                                        (sfromD (a V.! 3)) [1]
                                               - smaxIndex
                                                   @_ @Double @Double @'[] @3
@@ -2108,7 +2108,7 @@ testSin0rmapAccumRD01SN531 = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [3]
        [-0.4284609293514655,0.2047077016162759,0.9242422110631052])
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[3]) -> f (TKS Double '[2, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[3] Double) -> f (TKS '[2, 3] Double)
                f x0 = (\res -> srepl 2 - sreplicate @_ @2 (sfromD (res V.! 0))
                                - sfromD (res V.! 2))
                       $ dunHVector
@@ -2139,7 +2139,7 @@ testSin0rmapAccumRD01SN531 = do
                                              (ssum @_ @_ @1 (sfromD (a V.! 0)))
                                            - sin x / srepl 3
                                            - sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[3]
+                                             (sindex0 @_ @'[3]
                                                        (sfromD (a V.! 1)) [1]
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
@@ -2159,7 +2159,7 @@ testSin0rmapAccumRD01SN531a = do
     (ringestData [3]
        [1.8478609886246988,-22.194216099801963,-40.72162125038692])
     (rev' (let f :: forall f. ADReady f
-                 => f (TKS Double '[3]) -> f (TKS Double '[2, 2, 2, 3])
+                 => f (TKS '[3] Double) -> f (TKS '[2, 2, 2, 3] Double)
                f x0 = (\res -> srepl 2 - sreplicate @_ @2 (sfromD (res V.! 0))
                                - sfromD (res V.! 2))
                       $ dunHVector
@@ -2194,7 +2194,7 @@ testSin0rmapAccumRD01SN531a = do
                                              (ssum @_ @_ @1 (sfromD (a V.! 0)))
                                            - sin x / srepl 3
                                            - sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[3]
+                                             (sindex0 @_ @'[3]
                                                        (sfromD (a V.! 1)) [1]
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
@@ -2217,7 +2217,7 @@ testSin0rmapAccumRD01SN531b0 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 4)
     (rev' (let f :: forall f. ADReady f
-                 => f (TKR Double 0) -> f (TKR Double 2)
+                 => f (TKR 0 Double) -> f (TKR 2 Double)
                f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2243,7 +2243,7 @@ testSin0rmapAccumRD01SN531bS = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 4)
     (rev' (let f :: forall f. ADReady f
-                 => f (TKS Double '[]) -> f(TKS  Double '[2, 2])
+                 => f (TKS '[] Double) -> f(TKS  '[2, 2] Double)
                f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2267,7 +2267,7 @@ testSin0rmapAccumRD01SN531bR = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 4)
     (rev' (let f :: forall f. ADReady f
-                 => f (TKR Double 0) -> f (TKR Double 2)
+                 => f (TKR 0 Double) -> f (TKR 2 Double)
                f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2291,7 +2291,7 @@ testSin0rmapAccumRD01SN531b0PP :: Assertion
 testSin0rmapAccumRD01SN531b0PP = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKR Double 2)
+        => f TKUntyped -> f (TKR 2 Double)
       f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2323,7 +2323,7 @@ testSin0rmapAccumRD01SN531bSPP :: Assertion
 testSin0rmapAccumRD01SN531bSPP = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKS Double '[2, 2])
+        => f TKUntyped -> f (TKS '[2, 2] Double)
       f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2352,7 +2352,7 @@ testSin0rmapAccumRD01SN531bSPPFull :: Assertion
 testSin0rmapAccumRD01SN531bSPPFull = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKS Double '[2, 2])
+        => f TKUntyped -> f (TKS '[2, 2] Double)
       f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2381,7 +2381,7 @@ testSin0rmapAccumRD01SN531bRPP :: Assertion
 testSin0rmapAccumRD01SN531bRPP = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKR Double 2)
+        => f TKUntyped -> f (TKR 2 Double)
       f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \_i ->
                        (dbuild1 @f (SNat @2) $ \_j ->
@@ -2412,7 +2412,7 @@ testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKR Double 2)
+        => f TKUntyped -> f (TKR 2 Double)
       f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \i ->
                        (dbuild1 @f (SNat @2) $ \j ->
@@ -2446,7 +2446,7 @@ testSin0rmapAccumRD01SN531bSPPj :: Assertion
 testSin0rmapAccumRD01SN531bSPPj = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKS Double '[2, 2])
+        => f TKUntyped -> f (TKS '[2, 2] Double)
       f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \i ->
                        (dbuild1 @f (SNat @2) $ \j ->
@@ -2478,7 +2478,7 @@ testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
   resetVarCounter
   let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKR Double 2)
+        => f TKUntyped -> f (TKR 2 Double)
       f x0 = tlet @_ @TKUntyped (
                        (dbuild1 @f (SNat @2) $ \i ->
                        (dbuild1 @f (SNat @2) $ \j ->
@@ -2514,7 +2514,7 @@ testSin0rmapAccumRD01SN531c = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar (-1.8866871148429984))
     (rev' (let f :: forall f. ADReady f
-                 => f (TKS Double '[]) -> f (TKS Double '[2, 2, 2])
+                 => f (TKS '[] Double) -> f (TKS '[2, 2, 2] Double)
                f x0 = (\res -> srepl 2 - sreplicate @_ @2 (sfromD (res V.! 0))
                                - sfromD (res V.! 1))
                       $ dunHVector
@@ -2550,7 +2550,7 @@ testSin0rmapAccumRD01SN531d = do
   assertEqualUpToEpsilon 1e-10
     V.empty
     ((let f :: forall f. ADReady f
-            => f (TKS Double '[]) -> HVector f
+            => f (TKS '[] Double) -> HVector f
           f x0 = dunHVector
                       $ dbuild1 @f (SNat @2) $ \i ->
                        (dbuild1 @f (SNat @0) $ \j ->
@@ -2577,7 +2577,7 @@ testSin0rmapAccumRD01SN531d = do
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
                                            [sscalar 0.4, sfromIntegral (sfromPrimal i)]) ])))
-      in f . sfromR) (rscalar 1.1 :: RepN (TKR Double 0)))
+      in f . sfromR) (rscalar 1.1 :: RepN (TKR 0 Double)))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
 _testSin0rmapAccumRD01SN531Slice :: Assertion
@@ -2585,7 +2585,7 @@ _testSin0rmapAccumRD01SN531Slice = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 4)
     (rev' (let f :: forall f. ADReady f
-                 => f (TKS Double '[]) -> f (TKS Double '[2, 2])
+                 => f (TKS '[] Double) -> f (TKS '[2, 2] Double)
                f x0 = (sfromD . (V.! 0))
                       $ dunHVector
                       $ dbuild1 @f (SNat @2) $ \_i ->
@@ -2611,7 +2611,7 @@ testSin0rmapAccumRD01SN54 :: Assertion
 testSin0rmapAccumRD01SN54 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1.538239371140263)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[5, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5, 3] Double)
                f x0 = (\res -> sreplicate @_ @5 (sfromD (res V.! 0)))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @5)
@@ -2644,7 +2644,7 @@ _testSin0rmapAccumRD01SN55 :: Assertion
 _testSin0rmapAccumRD01SN55 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 6.529656272211302)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[5, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5, 3] Double)
                f x0 = (\res -> sreplicate @_ @5 (sfromD (res V.! 0))
                                * sfromD (res V.! 1)
                                + sfromD (res V.! 2))
@@ -2668,7 +2668,7 @@ _testSin0rmapAccumRD01SN55 = do
                                    $ V.fromList
                                        [ DynamicShaped
                                          $ sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[4]
+                                             (sindex0 @_ @'[4]
                                                        (sfromD (a V.! 0)) [1]
                                               - smaxIndex
                                                   @_ @Double @Double @'[] @3
@@ -2687,7 +2687,7 @@ testSin0rmapAccumRD01SN55acc :: Assertion
 testSin0rmapAccumRD01SN55acc = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [3] [-21.0,-42.0,-21.0])
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[3]) -> f (TKS Double '[2, 3])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[3] Double) -> f (TKS '[2, 3] Double)
                f x0 = (\res -> srepl 2 - str (sreplicate @_ @3
                                          $ ssum @_ @_ @7
                                          $ str (sfromD (res V.! 1)))
@@ -2722,7 +2722,7 @@ testSin0rmapAccumRD01SN55acc = do
                                              (ssum @_ @_ @1 (sfromD (a V.! 0)))
                                            - sin x / sreplicate0N (sscalar 3)
                                            - sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[3]
+                                             (sindex0 @_ @'[3]
                                                        (sfromD (a V.! 1)) [1]
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
@@ -2740,7 +2740,7 @@ testSin0rmapAccumRD01SN56 :: Assertion
 testSin0rmapAccumRD01SN56 = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0.4535961214255773)
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2])
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2] Double)
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @2)
@@ -2767,7 +2767,7 @@ testSin0rmapAccumRD01SN57 :: Assertion
 testSin0rmapAccumRD01SN57 = do
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[2] knownShS [0.4989557335681351,1.1])
-    (cfwd (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[2])
+    (cfwd (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2] Double)
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @2)
@@ -2793,7 +2793,7 @@ testSin0rmapAccumRD01SN58 :: Assertion
 testSin0rmapAccumRD01SN58 = do
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[5] knownShS [0,0,0,0,1.1])
-    (cfwd (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[5])
+    (cfwd (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @5)
@@ -2819,7 +2819,7 @@ testSin0rmapAccumRD01SN59 :: Assertion
 testSin0rmapAccumRD01SN59 = do
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[1] knownShS [1.1])
-    (cfwd (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[1])
+    (cfwd (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[1] Double)
                f x0 = (sfromD . (V.! 1))
                       $ dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @1)
@@ -2846,7 +2846,7 @@ testSin0rmapAccumRD01SN6 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0.4535961214255773)
     (crev @_ @TKUntyped
-          (let f :: forall f. ADReady f => f (TKS Double '[]) -> HVector f
+          (let f :: forall f. ADReady f => f (TKS '[] Double) -> HVector f
                f x0 = dunHVector $ productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @1)
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
@@ -2873,7 +2873,7 @@ testSin0rmapAccumRD01SN6 = do
                                     $ V.fromList
                                        [ DynamicShaped
                                          $ sreplicate @_ @3
-                                             (sindex0 @_ @_ @'[2]
+                                             (sindex0 @_ @'[2]
                                                       (sfromD (a V.! 2)) [1]
                                               / sin x / srepl 3)
                                        , DynamicShaped
@@ -2894,7 +2894,7 @@ testSin0rmapAccumRD01SN7 = do
     (srepl 0.4535961214255773)
     (crev @_ @TKUntyped
           (let f :: forall f. ADReady f
-                 => f (TKS Double '[]) -> f TKUntyped
+                 => f (TKS '[] Double) -> f TKUntyped
                f x0 = productToVectorOf
                       $ dmapAccumR (Proxy @f) (SNat @1)
                           (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
@@ -2922,7 +2922,7 @@ testSin0rmapAccumRD01SN7 = do
                                        [ DynamicShaped
                                          $ sreplicate @_ @3
                                              (sin x / srepl 6
-                                              + sindex0 @_ @_ @'[2]
+                                              + sindex0 @_ @'[2]
                                                         (sfromD (a V.! 2)) [1]
                                                 / sin x / srepl 3)
                                        , DynamicShaped
@@ -2940,7 +2940,7 @@ testSin0rmapAccumRD01SN7 = do
 testSin0ScanD1 :: Assertion
 testSin0ScanD1 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR 5 Double))
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
@@ -2950,7 +2950,7 @@ testSin0ScanD1 = do
 testSin0ScanD2 :: Assertion
 testSin0ScanD2 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [2.2207726343670955] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [2.2207726343670955] :: RepN (TKR 5 Double))
     (rev' (\x0 -> rscanZip (\x _a -> sin x)
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
@@ -2960,7 +2960,7 @@ testSin0ScanD2 = do
 testSin0ScanD3 :: Assertion
 testSin0ScanD3 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.360788364276732] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [1.360788364276732] :: RepN (TKR 5 Double))
     (rev' (\a0 -> rscanZip (\_x a ->
                             sin $ rfromD @Double @5
                                     (a V.! 0))
@@ -2978,7 +2978,7 @@ testSin0ScanD3 = do
 testSin0ScanD4 :: Assertion
 testSin0ScanD4 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [-0.4458209450295252] :: RepN (TKR Double 5))
+    (ringestData [1,1,1,1,1] [-0.4458209450295252] :: RepN (TKR 5 Double))
     (rev' (\a0 -> rscanZip (\x a -> atan2F (sin x)
                                         (sin $ rfromD (a V.! 0)))
                          (V.fromList [voidFromSh @Double
@@ -2990,7 +2990,7 @@ testSin0ScanD4 = do
 testSin0ScanD5 :: Assertion
 testSin0ScanD5 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1] [4.126141830000979] :: RepN (TKR Double 4))
+    (ringestData [1,1,1,1] [4.126141830000979] :: RepN (TKR 4 Double))
     (rev' (\a0 -> rscanZip (\x a -> rsum
                                  $ atan2F (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
@@ -3012,7 +3012,7 @@ testSin0ScanD5 = do
 testSin0ScanD51 :: Assertion
 testSin0ScanD51 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1] [319.68688158967257] :: RepN (TKR Double 4))
+    (ringestData [1,1,1,1] [319.68688158967257] :: RepN (TKR 4 Double))
     (rev' (\a0 -> rscanZip (\x a -> rsum
                                  $ atan2F (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
@@ -3036,14 +3036,14 @@ testSin0ScanD51 = do
 testSin0ScanD51S :: Assertion
 testSin0ScanD51S = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1] [319.68688158967257] :: RepN (TKR Double 4))
+    (ringestData [1,1,1,1] [319.68688158967257] :: RepN (TKR 4 Double))
     (rev' (let f :: forall f. ADReady f
-                 => f (TKS Double '[1,1,1,1]) -> f (TKS Double '[4,1,1,1,1])
+                 => f (TKS '[1,1,1,1] Double) -> f (TKS '[4,1,1,1,1] Double)
                f a0 =
                  sscanZip
                    (let g :: forall f2. ADReady f2
-                          => f2 (TKS Double '[1,1,1,1]) -> HVector f2
-                          -> f2 (TKS Double '[1,1,1,1])
+                          => f2 (TKS '[1,1,1,1] Double) -> HVector f2
+                          -> f2 (TKS '[1,1,1,1] Double)
                         g x a =
                           ssum
                           $ atan2F (sin $ sreplicate @f2 @5 x)
@@ -3069,7 +3069,7 @@ testSin0ScanD51S = do
 testSin0ScanD6 :: Assertion
 testSin0ScanD6 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1] [12] :: RepN (TKR Double 2))
+    (ringestData [1,1] [12] :: RepN (TKR 2 Double))
     (rev' (\a0 -> rscanZip (\x a -> rtr
                                  $ rtr x + rreplicate 1
                                              (rreplicate 2
@@ -3082,7 +3082,7 @@ testSin0ScanD6 = do
 testSin0ScanD7 :: Assertion
 testSin0ScanD7 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1] [310] :: RepN (TKR Double 2))
+    (ringestData [1,1] [310] :: RepN (TKR 2 Double))
     (rev' (\a0 -> rscanZip (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                          (V.fromList [voidFromSh @Double (1 :$: 1 :$: ZSR)])
                          (rreplicate 2 (rreplicate 5 a0))
@@ -3092,7 +3092,7 @@ testSin0ScanD7 = do
 testSin0ScanD8 :: Assertion
 testSin0ScanD8 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR Double 3))
+    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR 3 Double))
     (rev' (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -3108,7 +3108,7 @@ testSin0ScanD8 = do
 testSin0ScanD8MapAccum :: Assertion
 testSin0ScanD8MapAccum = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR Double 3))
+    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR 3 Double))
     (rev'
        (\a0 -> (rfromD @_ @6 . (V.! 1))
                $ dunHVector $ productToVectorOf
@@ -3170,7 +3170,7 @@ testSin0ScanD8rev2 = do
 
 testSin0ScanD8rev3 :: Assertion
 testSin0ScanD8rev3 = do
-  let h :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let h :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       h = rrev1 @f @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
@@ -3188,7 +3188,7 @@ testSin0ScanD8rev3 = do
 
 testSin0ScanD8rev4 :: Assertion
 testSin0ScanD8rev4 = do
-  let h :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let h :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       h = rrev1 @f @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
@@ -3255,7 +3255,7 @@ testSin0ScanDFwd2PP = do
 testSin0ScanD1Rev2 :: Assertion
 testSin0ScanD1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [] [2.417297824578748] :: RepN (TKR Double 0))
+    (ringestData [] [2.417297824578748] :: RepN (TKR 0 Double))
     (rev' (\x0 -> rbuild1 2 $ \k ->
        rscanZip (\x a -> sin x - rfromD (a V.! 0))
                 (V.fromList [voidFromShS @Double @'[]])
@@ -3267,7 +3267,7 @@ testSin0ScanD1Rev2 = do
 testSin0ScanD1Rev3 :: Assertion
 testSin0ScanD1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
-    (ringestData [] [47.150000000000006] :: RepN (TKR Double 0))
+    (ringestData [] [47.150000000000006] :: RepN (TKR 0 Double))
     (rev' (\x0 -> rscanZip (\x a -> x + rfromD (a V.! 0))
                            (V.fromList [voidFromSh @Double ZSR])
                            x0
@@ -3304,7 +3304,7 @@ testSin0ScanD0fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [1] [1.0])
     (rfwd1 @RepN @Double @0 @1
-    (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 1)
+    (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
          f x0 = rscanZip (\x _a -> sin x)
                        (V.fromList [voidFromSh @Double ZSR])
                        x0 (V.singleton $ DynamicRanked
@@ -3389,8 +3389,8 @@ testSin0ScanD8fwd2 = do
 testSin0FoldNestedS1 :: Assertion
 testSin0FoldNestedS1 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
                               a (sreplicate @_ @7 x))
@@ -3400,7 +3400,7 @@ testSin0FoldNestedS1 = do
 testSin0FoldNestedS1PP :: Assertion
 testSin0FoldNestedS1PP = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+  let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
       f z = sfold (\x a ->
                sfold (\x2 a2 -> x2 + tan a2)
                      a (sreplicate @_ @22 x))
@@ -3417,7 +3417,7 @@ testSin0FoldNestedS1PP = do
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 22 x))
@@ -3435,7 +3435,7 @@ testSin0FoldNestedR1PP = do
 testSin0FoldNestedR1SimpPP :: Assertion
 testSin0FoldNestedR1SimpPP = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 22 x))
@@ -3454,7 +3454,7 @@ testSin0FoldNestedR1SimpPP = do
 testSin0FoldNestedR1SimpNestedPP :: Assertion
 testSin0FoldNestedR1SimpNestedPP = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 22 x))
@@ -3473,7 +3473,7 @@ testSin0FoldNestedR1SimpNestedPP = do
 testSin0FoldNestedR0LengthPPs :: Assertion
 testSin0FoldNestedR0LengthPPs = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a -> x + tan a)
                   z (rreplicate 2 z)
       g :: forall g. BaseTensor g
@@ -3491,7 +3491,7 @@ testSin0FoldNestedR0LengthPPs = do
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 -> x2 + tan a2)
                      a (rreplicate 2 x))
@@ -3511,7 +3511,7 @@ testSin0FoldNestedR1LengthPPs = do
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\x3 a3 -> x3 + tan a3)
@@ -3533,7 +3533,7 @@ testSin0FoldNestedR2LengthPPs = do
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\x3 a3 ->
@@ -3558,7 +3558,7 @@ testSin0FoldNestedR3LengthPPs = do
 _testSin0FoldNestedR4LengthPPs :: Assertion
 _testSin0FoldNestedR4LengthPPs = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\x3 a3 ->
@@ -3584,7 +3584,7 @@ _testSin0FoldNestedR4LengthPPs = do
 _testSin0FoldNestedR5LengthPPs :: Assertion
 _testSin0FoldNestedR5LengthPPs = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\x3 a3 ->
@@ -3612,7 +3612,7 @@ _testSin0FoldNestedR5LengthPPs = do
 testSin0FoldNestedR2LengthPPsDummy7 :: Assertion
 testSin0FoldNestedR2LengthPPsDummy7 = do
   resetVarCounter
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\_x3 _a3 -> rscalar 7)
@@ -3637,9 +3637,9 @@ testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
  resetVarCounter
  assertEqualUpToEpsilon' 1e-10
-  (rscalar 0 :: RepN (TKR Double 0))
+  (rscalar 0 :: RepN (TKR 0 Double))
   (rev'
-   (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+   (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
         f z = rfold (\x a ->
                rfold (\x2 a2 ->
                  rfold (\_x3 _a3 -> rscalar 7)
@@ -3653,9 +3653,9 @@ testSin0FoldNestedR2Dummy7 = do
 testSin0FoldNestedR2Tan :: Assertion
 testSin0FoldNestedR2Tan = do
  assertEqualUpToEpsilon' 1e-10
-  (rscalar 25.000016360009603 :: RepN (TKR Double 0))
+  (rscalar 25.000016360009603 :: RepN (TKR 0 Double))
   (rev'
-   (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+   (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
         f z = rfold (\x a ->
                  rfold (\x2 a2 ->
                    rfold (\x3 a3 -> x3 + tan a3)
@@ -3670,7 +3670,7 @@ testSin0MapAccumNestedR1PP = do
   let sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3701,7 +3701,7 @@ testSin0MapAccumNestedR3LengthPP = do
   let sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3736,13 +3736,13 @@ testSin0MapAccumNestedR3LengthPP = do
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
  assertEqualUpToEpsilon' 1e-10
-  (rscalar 1.0410225027528066 :: RepN (TKR Double 0))
+  (rscalar 1.0410225027528066 :: RepN (TKR 0 Double))
   (rev'
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3770,13 +3770,13 @@ testSin0MapAccumNestedR4 = do
 testSin0MapAccumNestedR5 :: Assertion
 testSin0MapAccumNestedR5 = do
  assertEqualUpToEpsilon' 1e-10
-  (rscalar 6.308416949436515e-16 :: RepN (TKR Double 0))
+  (rscalar 6.308416949436515e-16 :: RepN (TKR 0 Double))
   (rev'
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3807,13 +3807,13 @@ testSin0MapAccumNestedR5 = do
 testSin0MapAccumNestedR5r :: Assertion
 testSin0MapAccumNestedR5r = do
  assertEqualUpToEpsilon 1e-10
-  (rscalar 1.0837278549794862 :: RepN (TKR Double 0))
+  (rscalar 1.0837278549794862 :: RepN (TKR 0 Double))
   (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3844,13 +3844,13 @@ testSin0MapAccumNestedR5r = do
 testSin0MapAccumNestedR10r :: Assertion
 testSin0MapAccumNestedR10r = do
  assertEqualUpToEpsilon 1e-10
-  (rscalar 1.379370673816781 :: RepN (TKR Double 0))
+  (rscalar 1.379370673816781 :: RepN (TKR 0 Double))
   (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3897,13 +3897,13 @@ testSin0MapAccumNestedR10r = do
 testSin0MapAccumNestedR10f :: Assertion
 testSin0MapAccumNestedR10f = do
  assertEqualUpToEpsilon 1e-10
-  (rscalar 1.379370673816781e-4 :: RepN (TKR Double 0))
+  (rscalar 1.379370673816781e-4 :: RepN (TKR 0 Double))
   (fwd
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3950,14 +3950,14 @@ testSin0MapAccumNestedR10f = do
 testSin0MapAccumNestedR10fN :: Assertion
 testSin0MapAccumNestedR10fN = do
  assertEqualUpToEpsilon 1e-10
-  (tpair (srepl 1.379370673816781e-4 :: RepN (TKS Float '[1]))
-         (rscalar 1.379370673816781e-4 :: RepN (TKR Double 0)))
+  (tpair (srepl 1.379370673816781e-4 :: RepN (TKS '[1] Float))
+         (rscalar 1.379370673816781e-4 :: RepN (TKR 0 Double)))
   (fwd
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      g :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       g z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -3999,21 +3999,21 @@ testSin0MapAccumNestedR10fN = do
                      a (dmkHVector $ replicate1HVector (SNat @2) $ dunHVector x))
                    (dmkHVector $ V.singleton $ DynamicRanked z)
                    (dmkHVector $ V.singleton $ DynamicRanked $ rreplicate 2 z)
-      f :: forall f. ADReady f => f (TKR Double 0)
-        -> f (TKProduct (TKS Float '[1]) (TKR Double 0))
+      f :: forall f. ADReady f => f (TKR 0 Double)
+        -> f (TKProduct (TKS '[1] Float) (TKR 0 Double))
       f x = tpair (sfromList [scast $ sfromR $ g x]) (g x + rscalar 0.2)
     in f) (rscalar 0.0001) (rscalar 0.0001))
 
 testSin0MapAccumNestedR10rf :: Assertion
 testSin0MapAccumNestedR10rf = do
  assertEqualUpToEpsilon 1e-10
-  (rscalar 1.2264611684496617e-2 :: RepN (TKR Double 0))
+  (rscalar 1.2264611684496617e-2 :: RepN (TKR 0 Double))
   (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -4060,13 +4060,13 @@ testSin0MapAccumNestedR10rf = do
 testSin0MapAccumNestedR10rr :: Assertion
 testSin0MapAccumNestedR10rr = do
  assertEqualUpToEpsilon 1e-10
-  (rscalar 1.2264611684496617e-2 :: RepN (TKR Double 0))
+  (rscalar 1.2264611684496617e-2 :: RepN (TKR 0 Double))
   (rev
    (let
       sh1 = voidFromSh @Double ZSR
       shs1 = FTKUntyped $ V.singleton sh1
       she = FTKUntyped V.empty
-      f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+      f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       f z = rfromD $ (V.! 0) $ dunHVector
             $ productToVectorOf $ dmapAccumL (Proxy @f) (SNat @2) shs1 she shs1
                    (\x a ->
@@ -4121,8 +4121,8 @@ productToVectorOf p = tlet @_ @_ @TKUntyped (tproject1 p) $ \p1 ->
 testSin0FoldNestedS1FwdFwd0 :: Assertion
 testSin0FoldNestedS1FwdFwd0 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
                               a (sreplicate @_ @7 x))
@@ -4132,8 +4132,8 @@ testSin0FoldNestedS1FwdFwd0 = do
 testSin0FoldNestedS1FwdFwd :: Assertion
 testSin0FoldNestedS1FwdFwd = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                                  x2 * sfwd1 (sfwd1 (\b2 -> srepl 0.7 * b2)) a2)
@@ -4144,8 +4144,8 @@ testSin0FoldNestedS1FwdFwd = do
 testSin0FoldNestedS1RevRev :: Assertion
 testSin0FoldNestedS1RevRev = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                                  x2 * srev1 (srev1 (\b2 -> srepl 0.7 * b2)) a2)
@@ -4156,8 +4156,8 @@ testSin0FoldNestedS1RevRev = do
 testSin0FoldNestedS2 :: Assertion
 testSin0FoldNestedS2 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 -> srepl 0.7 * x3 * a3)
@@ -4169,8 +4169,8 @@ testSin0FoldNestedS2 = do
 testSin0FoldNestedS3 :: Assertion
 testSin0FoldNestedS3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 7.320500000000004e-4 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 7.320500000000004e-4 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 ->
@@ -4184,8 +4184,8 @@ testSin0FoldNestedS3 = do
 testSin0FoldNestedS4 :: Assertion
 testSin0FoldNestedS4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2400927000000009e-5 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 1.2400927000000009e-5 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 ->
@@ -4201,8 +4201,8 @@ testSin0FoldNestedS4 = do
 testSin0FoldNestedS5 :: Assertion
 testSin0FoldNestedS5 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.22000000000000003 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+    (rscalar 0.22000000000000003 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 ->
@@ -4220,7 +4220,7 @@ testSin0FoldNestedS5 = do
 
 testSin0FoldNestedS5rev :: Assertion
 testSin0FoldNestedS5rev = do
-  let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+  let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
       f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 ->
@@ -4239,7 +4239,7 @@ testSin0FoldNestedS5rev = do
 
 testSin0FoldNestedS5fwd :: Assertion
 testSin0FoldNestedS5fwd = do
-  let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[])
+  let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
       f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 ->
@@ -4259,8 +4259,8 @@ testSin0FoldNestedS5fwd = do
 testSin0FoldNestedSi :: Assertion
 testSin0FoldNestedSi = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar  (-0.20775612781643243) :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKS Double '[]) -> f (TKS Double '[3])
+    (rscalar  (-0.20775612781643243) :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[3] Double)
                f a0 = sfold (\x a -> atan2F
                                        (sscan (+) (ssum x)
                                           (sscan (*) (srepl 2)
@@ -4281,8 +4281,8 @@ testSin0FoldNestedSi = do
 testSin0FoldNestedR1 :: Assertion
 testSin0FoldNestedR1 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 -> rscalar 0.7 * x2 * a2)
                               a (rreplicate 7 x))
@@ -4292,8 +4292,8 @@ testSin0FoldNestedR1 = do
 testSin0FoldNestedR1RevFwd :: Assertion
 testSin0FoldNestedR1RevFwd = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                                  x2 * rfwd1 (rrev1 (\b2 -> rscalar 0.7 * b2)) a2)
@@ -4304,8 +4304,8 @@ testSin0FoldNestedR1RevFwd = do
 testSin0FoldNestedR2 :: Assertion
 testSin0FoldNestedR2 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 -> rscalar 0.7 * x3 * a3)
@@ -4317,8 +4317,8 @@ testSin0FoldNestedR2 = do
 testSin0FoldNestedR2RevFwd :: Assertion
 testSin0FoldNestedR2RevFwd = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
@@ -4332,8 +4332,8 @@ testSin0FoldNestedR2RevFwd = do
 testSin0FoldNestedR3 :: Assertion
 testSin0FoldNestedR3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 7.320500000000004e-4 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 7.320500000000004e-4 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
@@ -4347,8 +4347,8 @@ testSin0FoldNestedR3 = do
 testSin0FoldNestedR4 :: Assertion
 testSin0FoldNestedR4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2400927000000009e-5 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 1.2400927000000009e-5 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
@@ -4364,8 +4364,8 @@ testSin0FoldNestedR4 = do
 testSin0FoldNestedR41 :: Assertion
 testSin0FoldNestedR41 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.22000000000000003 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 0.22000000000000003 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
@@ -4381,8 +4381,8 @@ testSin0FoldNestedR41 = do
 testSin0FoldNestedR40 :: Assertion
 testSin0FoldNestedR40 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
@@ -4398,8 +4398,8 @@ testSin0FoldNestedR40 = do
 testSin0FoldNestedR400 :: Assertion
 testSin0FoldNestedR400 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
@@ -4415,8 +4415,8 @@ testSin0FoldNestedR400 = do
 testSin0FoldNestedRi :: Assertion
 testSin0FoldNestedRi = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.20775612781643243) :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 1)
+    (rscalar (-0.20775612781643243) :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
                f a0 = rfold (\x a -> atan2F
                                        (rscan (+) (rsum x)
                                           (rscan (*) (rscalar 2)
@@ -4435,8 +4435,8 @@ testSin0FoldNestedRi = do
 testSin0FoldNestedR22 :: Assertion
 testSin0FoldNestedR22 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.877421010384167e-5 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 2.877421010384167e-5 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 -> rscalar 0.44 * x3 * a3)
@@ -4450,8 +4450,8 @@ testSin0FoldNestedR22 = do
 testSin0FoldNestedR21 :: Assertion
 testSin0FoldNestedR21 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 7.667553331540788e-3 :: RepN (TKR Double 0))
-    (rev' (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+    (rscalar 7.667553331540788e-3 :: RepN (TKR 0 Double))
+    (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a -> tlet (x + a) $ \xpa ->
                           rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
                                 (rfold (\x4 a4 -> x4 * a4) xpa
@@ -4466,7 +4466,7 @@ testSin0FoldNestedR21PP = do
   resetVarCounter
   let a1 =
         rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0
-          (let f :: forall f. ADReady f => f (TKR Double 0) -> f (TKR Double 0)
+          (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a -> tlet (x + a) $ \xpa ->
                           rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
                                 (rfold (\x4 a4 -> x4 * a4) xpa
@@ -4639,13 +4639,13 @@ fFoldZipR
   :: forall n r target.
      (KnownNat n, GoodScalar r, ADReady target)
   => VoidHVector
-  -> target (TKR r (1 + n))
+  -> target (TKR (1 + n) r)
   -> HVector target
   -> (forall f. ADReady f
-      => f (TKR r n) -> f (TKR r n) -> HVector f
+      => f (TKR n r) -> f (TKR n r) -> HVector f
       -> f TKUntyped)
   -> IShR n
-  -> target (TKR r n)
+  -> target (TKR n r)
   -> target TKUntyped
 fFoldZipR domsOD p as rf shn cShared =
   let width = case V.unsnoc as of
@@ -4658,17 +4658,17 @@ fFoldZipR domsOD p as rf shn cShared =
       odShn = voidFromSh @r shn
       domsF = V.cons odShn domsOD
       domsToPair :: forall f. ADReady f
-                 => HVector f -> (f (TKR r n), HVector f)
+                 => HVector f -> (f (TKR n r), HVector f)
       domsToPair doms = (rfromD $ doms V.! 0, V.tail doms)
       domsTo3 :: ADReady f
-              => HVector f -> (f (TKR r n), f (TKR r n), HVector f)
+              => HVector f -> (f (TKR n r), f (TKR n r), HVector f)
       domsTo3 doms = ( rfromD $ doms V.! 0
                      , rfromD $ doms V.! 1
                      , V.drop 2 doms )
       lp = rreverse $ rslice 0 width p
       las :: HVector target
       las = mapHVectorRanked11 rreverse as
-      crsr :: target (TKR r (1 + n))
+      crsr :: target (TKR (1 + n) r)
       crsr =
         rscanZip
           (\cr doms ->
@@ -4679,7 +4679,7 @@ fFoldZipR domsOD p as rf shn cShared =
           cShared
           (V.cons (DynamicRanked lp) las)
       crs = rreverse crsr
-      rg :: target (TKR r (1 + n)) -> target (TKR r (1 + n))
+      rg :: target (TKR (1 + n) r) -> target (TKR (1 + n) r)
          -> HVector target
          -> target TKUntyped
       rg cr2 x2 a2 = withSNat width $ \k ->
@@ -4701,14 +4701,14 @@ fFoldZipRX :: forall target. ADReady target
   => HVector target
   -> target TKUntyped
 fFoldZipRX as =
-  let f :: forall f. ADReady f => f (TKR Double 0) -> f TKUntyped -> f (TKR Double 0)
+  let f :: forall f. ADReady f => f (TKR 0 Double) -> f TKUntyped -> f (TKR 0 Double)
       f _t v = sin (rfromD (dunHVector v V.! 1)) * rfromD (dunHVector v V.! 1)
       doms = V.fromList [ voidFromSh @Double ZSR
                         , voidFromSh @Double ZSR ]
-      p :: target (TKR Double 1)
+      p :: target (TKR 1 Double)
       p = rscanZip (\x y -> f x (dmkHVector y)) doms (rscalar 7) as
       rf :: forall f. ADReady f
-         => f (TKR Double 0) -> f (TKR Double 0) -> HVector f -> f TKUntyped
+         => f (TKR 0 Double) -> f (TKR 0 Double) -> HVector f -> f TKUntyped
       rf _x _y = rrev @f (f 42) (FTKUntyped doms) . dmkHVector  -- not exactly the rev of f
   in fFoldZipR doms p as rf ZSR (rscalar 26)
 
@@ -4747,18 +4747,18 @@ fFoldS
   :: forall m k rm shm r sh target.
      ( KnownNat k, GoodScalar rm, KnownShS shm, GoodScalar r, KnownShS sh
      , ADReady target, KnownNat m, Rank shm ~ m)
-  => target (TKS r (1 + k ': sh))
-  -> target (TKS rm (k ': shm))
+  => target (TKS (1 + k ': sh) r)
+  -> target (TKS (k ': shm) rm)
   -> (forall f. ADReady f
-      => f (TKS r sh) -> f (TKS r sh) -> f (TKS rm shm) -> f TKUntyped)
-  -> target (TKS r sh)
-  -> target (TKS rm (k ': shm))
+      => f (TKS sh r) -> f (TKS sh r) -> f (TKS shm rm) -> f TKUntyped)
+  -> target (TKS sh r)
+  -> target (TKS (k ': shm) rm)
 fFoldS p as rf cShared =
   let domsF = V.fromList [voidFromShS @r @sh, voidFromShS @rm @shm]
       domsToPair :: ADReady f
-                 => HVector f -> (f (TKS r sh), f (TKS rm shm))
+                 => HVector f -> (f (TKS sh r), f (TKS shm rm))
       domsToPair doms = (sfromD $ doms V.! 0, sfromD $ doms V.! 1)
-      crsr :: target (TKS r (1 + k ': sh))
+      crsr :: target (TKS (1 + k ': sh) r)
       crsr =
         sscanZip (\cr doms ->
                     let (x, a) = domsToPair doms
@@ -4773,9 +4773,9 @@ fFoldS p as rf cShared =
                              (Proxy @0) (Proxy @k) p
                   , DynamicRanked $ rfromS $ sreverse as ])
       crs = sreverse crsr
-      rg :: target (TKS r (k ': sh)) -> target (TKS r (k ': sh))
-         -> target (TKS rm (k ': shm))
-         -> target (TKS rm (k ': shm))
+      rg :: target (TKS (k ': sh) r) -> target (TKS (k ': sh) r)
+         -> target (TKS (k ': shm) rm)
+         -> target (TKS (k ': shm) rm)
       rg = szipWith31 (\cr x a ->
                          tlet @_ @TKUntyped ((rf cr x a)) $ \ !rfRes ->
                            snd $ domsToPair (dunHVector (rfRes)))
@@ -4788,17 +4788,17 @@ fFoldS p as rf cShared =
 
 fFoldSX
   :: forall target. ADReady target
-  => target (TKS Double '[3]) -> target (TKS Double '[3])
+  => target (TKS '[3] Double) -> target (TKS '[3] Double)
 fFoldSX as =
   let f :: forall f. ADReady f
-        => f (TKS Double '[]) -> f (TKS Double '[]) -> f (TKS Double '[])
+        => f (TKS '[] Double) -> f (TKS '[] Double) -> f (TKS '[] Double)
       f _t v = sin v * v
       doms = V.fromList [ voidFromShS @Double @'[]
                         , voidFromShS @Double @'[] ]
-      p :: target (TKS Double '[4])
+      p :: target (TKS '[4] Double)
       p = sscan f (srepl 7) as
       rf :: forall f. ADReady f
-         => f (TKS Double '[]) -> f (TKS Double '[]) -> f (TKS Double '[])
+         => f (TKS '[] Double) -> f (TKS '[] Double) -> f (TKS '[] Double)
          -> f TKUntyped
       rf _x _y z = srev @f (\v -> f (sscalar 42) (sfromD (dunHVector v V.! 1)))
                         (FTKUntyped doms)

@@ -263,8 +263,8 @@ repToM
   -> RepM target x
 repToM stk t = case stk of
   STKScalar _ -> MTKScalar t
-  STKR STKScalar{} SNat -> MTKR t
-  STKS STKScalar{} sh -> withKnownShS sh $ MTKS t
+  STKR SNat STKScalar{} -> MTKR t
+  STKS sh STKScalar{} -> withKnownShS sh $ MTKS t
   STKX{} -> error "repToM"
   STKProduct{} -> error "repToM"
   STKUntyped{} -> error "repToM"
@@ -296,17 +296,17 @@ data RepM target y where
             => target (TKScalar r)
             -> RepM target (TKScalar r)
   MTKR :: (GoodScalar r, KnownNat n)
-       => target (TKR r n)
-       -> RepM target (TKR r n)
+       => target (TKR n r)
+       -> RepM target (TKR n r)
   MTKS :: (GoodScalar r, KnownShS sh)
-       => target (TKS r sh)
-       -> RepM target (TKS r sh)
+       => target (TKS sh r)
+       -> RepM target (TKS sh r)
   MTKScalarDummy :: GoodScalar r
                  => RepM target (TKScalar r)
   MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => RepM target (TKR r (Rank sh))
+            => RepM target (TKR (Rank sh) r)
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
-             => RepM target (TKS r sh)
+             => RepM target (TKS sh r)
 
 deriving instance ( CRanked target Show
                   , Show (target TKUntyped)
@@ -386,9 +386,9 @@ deriving instance ( CRanked target Show
 type role Delta nominal nominal
 data Delta :: Target -> TensorKindType -> Type where
   ScalarG :: GoodScalar r
-          => Delta target (TKScalar r) -> Delta target (TKR r 0)
+          => Delta target (TKScalar r) -> Delta target (TKR 0 r)
   UnScalarG :: GoodScalar r
-            => Delta target (TKR r 0) -> Delta target (TKScalar r)
+            => Delta target (TKR 0 r) -> Delta target (TKScalar r)
   PairG :: (TensorKind y, TensorKind z)
          => Delta target y -> Delta target z
          -> Delta target (TKProduct y z)
@@ -406,20 +406,20 @@ data Delta :: Target -> TensorKindType -> Type where
        => Delta target y -> Delta target y -> Delta target y
 
   IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
-         => Delta target (TKR r (m + n)) -> IxROf target m
-         -> Delta target (TKR r n)
+         => Delta target (TKR (m + n) r) -> IxROf target m
+         -> Delta target (TKR n r)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
   SumR :: (GoodScalar r, KnownNat n)
-       => Delta target (TKR r (1 + n)) -> Delta target (TKR r n)
+       => Delta target (TKR (1 + n) r) -> Delta target (TKR n r)
   Sum0R :: (GoodScalar r, KnownNat n)
-        => Delta target (TKR r n) -> Delta target (TKR r 0)
+        => Delta target (TKR n r) -> Delta target (TKR 0 r)
   Dot0R :: (KnownNat n, GoodScalar r)
-        => target (TKR r n) -> Delta target (TKR r n) -> Delta target (TKR r 0)
+        => target (TKR n r) -> Delta target (TKR n r) -> Delta target (TKR 0 r)
   ScatterR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
-           => IShR (p + n) -> Delta target (TKR r (m + n))
+           => IShR (p + n) -> Delta target (TKR (m + n) r)
            -> (IxROf target m -> IxROf target p)
-           -> Delta target (TKR r (p + n))
+           -> Delta target (TKR (p + n) r)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -431,39 +431,39 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Scatter1; fix.
 
   FromVectorR :: (KnownNat n, GoodScalar r)
-              => Data.Vector.Vector (Delta target (TKR r n))
-              -> Delta target (TKR r (1 + n))
+              => Data.Vector.Vector (Delta target (TKR n r))
+              -> Delta target (TKR (1 + n) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateR :: (GoodScalar r, KnownNat n)
-             => Int -> Delta target (TKR r n)
-             -> Delta target (TKR r (1 + n))
+             => Int -> Delta target (TKR n r)
+             -> Delta target (TKR (1 + n) r)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendR :: (GoodScalar r, KnownNat n)
-          => Delta target (TKR r (1 + n))
-          -> Delta target (TKR r (1 + n))
-          -> Delta target (TKR r (1 + n))
+          => Delta target (TKR (1 + n) r)
+          -> Delta target (TKR (1 + n) r)
+          -> Delta target (TKR (1 + n) r)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
   SliceR :: (GoodScalar r, KnownNat n)
-         => Int -> Int -> Delta target (TKR r (1 + n))
-         -> Delta target (TKR r (1 + n))
+         => Int -> Int -> Delta target (TKR (1 + n) r)
+         -> Delta target (TKR (1 + n) r)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
   ReverseR :: (GoodScalar r, KnownNat n)
-           => Delta target (TKR r (1 + n)) -> Delta target (TKR r (1 + n))
+           => Delta target (TKR (1 + n) r) -> Delta target (TKR (1 + n) r)
     -- ^ Reverse elements of the outermost dimension.
   TransposeR :: (GoodScalar r, KnownNat n)
-             => Permutation.PermR -> Delta target (TKR r n)
-             -> Delta target (TKR r n)
+             => Permutation.PermR -> Delta target (TKR n r)
+             -> Delta target (TKR n r)
     -- ^ Transpose according to the permutation.
   ReshapeR :: (GoodScalar r, KnownNat n, KnownNat m)
-           => IShR m -> Delta target (TKR r n)
-           -> Delta target (TKR r m)
+           => IShR m -> Delta target (TKR n r)
+           -> Delta target (TKR m r)
     -- ^ Change the shape of the tensor to the given one.
   GatherR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
-          => IShR (m + n) -> Delta target (TKR r (p + n))
+          => IShR (m + n) -> Delta target (TKR (p + n) r)
           -> (IxROf target m -> IxROf target p)
-          -> Delta target (TKR r (m + n))
+          -> Delta target (TKR (m + n) r)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -473,34 +473,34 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownNat n)
-        => Delta target (TKR r1 n) -> Delta target (TKR r2 n)
+        => Delta target (TKR n r1) -> Delta target (TKR n r2)
   RFromS :: forall sh r target. (GoodScalar r, KnownShS sh)
-         => Delta target (TKS r sh)
-         -> Delta target (TKR r (Rank sh))
+         => Delta target (TKS sh r)
+         -> Delta target (TKR (Rank sh) r)
   RFromH :: (GoodScalar r, KnownNat n)
-         => Delta target TKUntyped -> Int -> Delta target (TKR r n)
+         => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
-         => Delta target (TKS r (sh1 ++ sh2))
+         => Delta target (TKS (sh1 ++ sh2) r)
          -> IxSOf target sh1
-         -> Delta target (TKS r sh2)
+         -> Delta target (TKS sh2 r)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
-       => Delta target (TKS r (n ': sh)) -> Delta target (TKS r sh)
+       => Delta target (TKS (n ': sh) r) -> Delta target (TKS sh r)
   Sum0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-        => Delta target (TKS r sh) -> Delta target (TKS r '[])
+        => Delta target (TKS sh r) -> Delta target (TKS '[] r)
   Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-        => target (TKS r sh) -> Delta target (TKS r sh)
-        -> Delta target (TKS r '[])
+        => target (TKS sh r) -> Delta target (TKS sh r)
+        -> Delta target (TKS '[] r)
   ScatterS :: forall target r sh2 p sh.
               ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
               , KnownShS (Take p sh), KnownShS (Drop p sh)
               , KnownShS (sh2 ++ Drop p sh) )
-           => Delta target (TKS r (sh2 ++ Drop p sh))
+           => Delta target (TKS (sh2 ++ Drop p sh) r)
            -> (IxSOf target sh2
                -> IxSOf target (Take p sh))
-           -> Delta target (TKS r sh)
+           -> Delta target (TKS sh r)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -512,52 +512,52 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Scatter1; fix.
 
   FromVectorS :: (GoodScalar r, KnownShS sh, KnownNat n)
-              => Data.Vector.Vector (Delta target (TKS r sh))
-              -> Delta target (TKS r (n ': sh))
+              => Data.Vector.Vector (Delta target (TKS sh r))
+              -> Delta target (TKS (n ': sh) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateS :: forall target r n sh.
                 (GoodScalar r, KnownShS sh, KnownNat n)
-             => Delta target (TKS r sh) -> Delta target (TKS r (n ': sh))
+             => Delta target (TKS sh r) -> Delta target (TKS (n ': sh) r)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall target r m n sh.
              (GoodScalar r, KnownNat m, KnownNat n, KnownShS sh)
-          => Delta target (TKS r (m ': sh))
-          -> Delta target (TKS r (n ': sh))
-          -> Delta target (TKS r ((m + n) ': sh))
+          => Delta target (TKS (m ': sh) r)
+          -> Delta target (TKS (n ': sh) r)
+          -> Delta target (TKS ((m + n) ': sh) r)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   SliceS :: forall target i n k r sh.
             (GoodScalar r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
-         => Delta target (TKS r (i + n + k ': sh))
-         -> Delta target (TKS r (n ': sh))
+         => Delta target (TKS (i + n + k ': sh) r)
+         -> Delta target (TKS (n ': sh) r)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
   ReverseS :: (GoodScalar r, KnownShS sh, KnownNat n)
-           => Delta target (TKS r (n ': sh))
-           -> Delta target (TKS r (n ': sh))
+           => Delta target (TKS (n ': sh) r)
+           -> Delta target (TKS (n ': sh) r)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall perm sh r target.
                 (GoodScalar r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
              => Permutation.Perm perm
-             -> Delta target (TKS r sh)
-             -> Delta target (TKS r (Permutation.PermutePrefix perm sh))
+             -> Delta target (TKS sh r)
+             -> Delta target (TKS (Permutation.PermutePrefix perm sh) r)
     -- ^ Transpose according to the permutation.
   ReshapeS :: ( GoodScalar r, KnownShS sh, KnownShS sh2
               , Nested.Product sh
                 ~ Nested.Product sh2 )
-           => Delta target (TKS r sh)
-           -> Delta target (TKS r sh2)
+           => Delta target (TKS sh r)
+           -> Delta target (TKS sh2 r)
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall target r sh2 p sh.
              ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
              , KnownShS (Take p sh), KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
-          => Delta target (TKS r sh)
+          => Delta target (TKS sh r)
           -> (IxSOf target sh2
               -> IxSOf target (Take p sh))
-          -> Delta target (TKS r (sh2 ++ Drop p sh))
+          -> Delta target (TKS (sh2 ++ Drop p sh) r)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -567,20 +567,20 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and the result of such indexing is zero.
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
-        => Delta target (TKS r1 sh) -> Delta target (TKS r2 sh)
+        => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
   SFromR :: forall sh r target. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-         => Delta target (TKR r (Rank sh))
-         -> Delta target (TKS r sh)
+         => Delta target (TKR (Rank sh) r)
+         -> Delta target (TKS sh r)
   SFromH :: (GoodScalar r, KnownShS sh)
-         => Delta target TKUntyped -> Int -> Delta target (TKS r sh)
+         => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 
   IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
-         => Delta target (TKX r (sh1 ++ sh2))
+         => Delta target (TKX (sh1 ++ sh2) r)
          -> IxXOf target sh1
-         -> Delta target (TKX r sh2)
+         -> Delta target (TKX sh2 r)
   FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
-              => Data.Vector.Vector (Delta target (TKX r sh))
-              -> Delta target (TKX r (Just n ': sh))
+              => Data.Vector.Vector (Delta target (TKX sh r))
+              -> Delta target (TKX (Just n ': sh) r)
 
   HToH :: HVector (Delta target) -> Delta target TKUntyped
   MapAccumR
@@ -653,7 +653,7 @@ shapeDeltaFull = \case
   ScatterR sh _ _ -> FTKR sh
   FromVectorR l -> case V.toList l of
     [] -> case stensorKind @y of
-      STKR @_ @n _ SNat -> case sameNat (Proxy @n) (Proxy @1) of
+      STKR @n SNat _ -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR $ singletonShape 0  -- the only case where we can guess sh
         _ -> error "shapeDeltaFull: FromVectorR with no arguments"
     d : _ -> FTKR $ length l :$: shapeDelta d
@@ -709,13 +709,13 @@ shapeDeltaFull = \case
 
 shapeDelta :: forall target r n.
               (GoodScalar r, KnownNat n)
-           => Delta target (TKR r n) -> IShR n
+           => Delta target (TKR n r) -> IShR n
 shapeDelta t = case shapeDeltaFull t of
   FTKR sh -> sh
 
 lengthDelta :: forall target r n.
                (GoodScalar r, KnownNat n)
-            => Delta target (TKR r (1 + n)) -> Int
+            => Delta target (TKR (1 + n) r) -> Int
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"
   k :$: _ -> k
@@ -904,8 +904,8 @@ initEvalState ftk0 =
 evalRRuntimeSpecialized
   :: forall n r target.
      (GoodScalar r, KnownNat n, ADReadyNoLet target, ShareTensor target)
-  => EvalState target -> target (ADTensorKind (TKR r n))
-  -> Delta target (TKR r n)
+  => EvalState target -> target (ADTensorKind (TKR n r))
+  -> Delta target (TKR n r)
   -> EvalState target
 evalRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
@@ -915,22 +915,22 @@ evalRRuntimeSpecialized !s !c =
   -- If the scalar type is not on the list, performance suffers greatly.
   -- TODO: can I pattern match on (typeRep @r) instead?
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalSame @(TKR Double n) s c
+    Just Refl -> evalSame @(TKR n Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalSame @(TKR Float n) s c
+      Just Refl -> evalSame @(TKR n Float) s c
       _ -> const s
 
 evalSRuntimeSpecialized
   :: forall sh r target.
      (GoodScalar r, KnownShS sh, ADReadyNoLet target, ShareTensor target)
-  => EvalState target -> target (ADTensorKind (TKS r sh))
-  -> Delta target (TKS r sh)
+  => EvalState target -> target (ADTensorKind (TKS sh r))
+  -> Delta target (TKS sh r)
   -> EvalState target
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalSame @(TKS Double sh) s c
+    Just Refl -> evalSame @(TKS sh Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalSame @(TKS Float sh) s c
+      Just Refl -> evalSame @(TKS sh Float) s c
       _ -> const s
 
 evalR
@@ -1112,7 +1112,7 @@ evalSame !s !c = \case
     evalSame s (rgather (shapeDelta d) c f) d
   FromVectorR @n1 @r ld ->
     let cShared = tshare c
-        cxs :: [target (TKR r n1)]
+        cxs :: [target (TKR n1 r)]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
@@ -1141,7 +1141,7 @@ evalSame !s !c = \case
   GatherR _sh d f ->
     evalSame s (rscatter (shapeDelta d) c f) d
   CastR @r1 @_ @n d ->
-    evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR r1 n))
+    evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
                                $ rcast c) d
   RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
   RFromS @sh d | Dict <- lemKnownNatRank (knownShS @sh) ->
@@ -1202,7 +1202,7 @@ evalSame !s !c = \case
   GatherS d f ->
     evalSame s (sscatter c f) d
   CastS @r1 @_ @sh d ->
-    evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS r1 sh))
+    evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
                                $ scast c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
@@ -1219,7 +1219,7 @@ evalSame !s !c = \case
   IndexX{} -> error "TODO"
   FromVectorX @r @sh ld ->
     let cShared = tshare c
-        f :: EvalState target -> Int -> Delta target (TKX r sh)
+        f :: EvalState target -> Int -> Delta target (TKX sh r)
              -> EvalState target
         f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
     in V.ifoldl' f s ld
@@ -1235,24 +1235,24 @@ evalDynamic
   -> (DynamicTensor target, DynamicTensor (Delta target))
   -> EvalState target
 evalDynamic !s3 (t, DynamicRanked @r @n d2) =
-  gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  gcastWith (unsafeCoerce Refl :: TKR n r :~: ADTensorKind (TKR n r)) $
     -- this is a noble lie to maintain no ADTensorKind under HVector
     -- and at the same time re-use the new eval function also for HVector
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKR r n)) $ rfromD t) d2
+  evalSame s3 (toADTensorKindShared (stensorKind @(TKR n r)) $ rfromD t) d2
 evalDynamic s3 (t, DynamicShaped @r @sh d2) =
-  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t) d2
+  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
+  evalSame s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t) d2
 evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
+  gcastWith (unsafeCoerce Refl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
   withListSh (Proxy @sh) $ \sh2 ->
-    evalSame @(TKR r (Rank sh))
-             s3 (toADTensorKindShared (stensorKind @(TKR r (Rank sh)))
+    evalSame @(TKR (Rank sh) r)
+             s3 (toADTensorKindShared (stensorKind @(TKR (Rank sh) r))
                  $ rfromD @r t)
              (ZeroG $ FTKR sh2)
 evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
-  evalSame @(TKS r sh)
-        s3 (toADTensorKindShared (stensorKind @(TKS r sh)) $ sfromD t)
+  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
+  evalSame @(TKS sh r)
+        s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t)
         (ZeroG $ FTKS knownShS)
 
 evalHVector
@@ -1276,13 +1276,13 @@ evalFromnMap s@EvalState{nMap, dMap} =
             STKScalar _ -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
-            STKR @_ @n (STKScalar @r _) SNat -> case DMap.lookup n dMap of
+            STKR @n SNat (STKScalar @r _) -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalRRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
-            STKS @_ @sh (STKScalar @r _) sh -> withKnownShS sh $ case DMap.lookup n dMap  of
+            STKS @sh sh (STKScalar @r _) -> withKnownShS sh $ case DMap.lookup n dMap  of
               Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
               Nothing -> errorMissing
-            STKX (STKScalar _) sh -> withKnownShX sh $ case DMap.lookup n dMap of
+            STKX sh (STKScalar _) -> withKnownShX sh $ case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
             STKProduct{} -> case DMap.lookup n dMap of
@@ -1346,17 +1346,17 @@ fwdDynamic
   => IMap target -> ADMap target -> DynamicTensor (Delta target)
   -> (ADMap target, DynamicTensor target)
 fwdDynamic params s (DynamicRanked @r @n d) =
-  gcastWith (unsafeCoerce Refl :: TKR r n :~: ADTensorKind (TKR r n)) $
+  gcastWith (unsafeCoerce Refl :: TKR n r :~: ADTensorKind (TKR n r)) $
   second DynamicRanked $ fwdSame params s d
 fwdDynamic params s (DynamicShaped @r @sh d) =
-  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
   second DynamicShaped $ fwdSame params s d
 fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKR r (Rank sh) :~: ADTensorKind (TKR r (Rank sh))) $
+  gcastWith (unsafeCoerce Refl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
   withListSh (Proxy @sh) $ \sh2 ->
     second (DynamicRanked @r) $ fwdSame params s (ZeroG $ FTKR sh2)
 fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKS r sh :~: ADTensorKind (TKS r sh)) $
+  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
   second (DynamicShaped @r @sh) $ fwdSame params s (ZeroG $ FTKS knownShS)
 
 fwdHVector
@@ -1505,8 +1505,8 @@ fwdSame params s = \case
     let (s2, t) = fwdSame params s d
     in (s2, rgather sh t f)
   d0@(CastR @r1 @_ @n d)
-    | Dict <- lemTensorKindOfAD (stensorKind @(TKR r1 n)) ->
-      case sameTensorKind @(TKR r1 n) @(ADTensorKind (TKR r1 n)) of
+    | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r1)) ->
+      case sameTensorKind @(TKR n r1) @(ADTensorKind (TKR n r1)) of
         Just Refl -> second rcast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
   RFromS (SFromR d) ->
@@ -1547,8 +1547,8 @@ fwdSame params s = \case
     let (s2, t) = fwdSame params s d
     in (s2, sgather t f)
   d0@(CastS @r1 @_ @sh d)
-    | Dict <- lemTensorKindOfAD (stensorKind @(TKS r1 sh)) ->
-      case sameTensorKind @(TKS r1 sh) @(ADTensorKind (TKS r1 sh)) of
+    | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r1)) ->
+      case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
         Just Refl -> second scast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
   SFromR @sh (RFromS @sh2 d) ->

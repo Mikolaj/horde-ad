@@ -43,7 +43,7 @@ bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProd args
 
 envProd :: r ~ Double
         => Rational
-        -> (([r], [RepN (TKR r 0)], Data.Vector.Vector (RepN (TKR r 0)))
+        -> (([r], [RepN (TKR 0 r)], Data.Vector.Vector (RepN (TKR 0 r)))
             -> Benchmark)
         -> [r]
         -> Benchmark
@@ -51,12 +51,12 @@ envProd k f allxs =
   env (return $!
          let l = take (round k) allxs
              list = map rscalar l
-             vec :: Data.Vector.Vector (RepN (TKR Double 0))
+             vec :: Data.Vector.Vector (RepN (TKR 0 Double))
              vec = V.fromList list
          in (l, list, vec)) f
 
 benchProd :: r ~ Double
-          => (([r], [RepN (TKR r 0)], Data.Vector.Vector (RepN (TKR r 0))))
+          => (([r], [RepN (TKR 0 r)], Data.Vector.Vector (RepN (TKR 0 r))))
           -> [Benchmark]
 benchProd ~(_l, list, _vec) =
     [ bench "crev List" $ nf crevRankedListProd list
@@ -71,12 +71,12 @@ benchProd ~(_l, list, _vec) =
 --    , bench "crev List2Vec" $
 --        nf (map tunScalarR . V.toList . crev rankedVecProd)
 --           (let list2 = map tscalarR l
---                vec2 :: Data.Vector.Vector (RepN (TKR Double 0))
+--                vec2 :: Data.Vector.Vector (RepN (TKR 0 Double))
 --                vec2 = V.fromList list2
 --            in vec2)
 {- bit-rotten
     , bench "VecD crev" $
-        let f :: DynamicTensor OR.Array -> RepN (TKR Double 0)
+        let f :: DynamicTensor OR.Array -> RepN (TKR 0 Double)
             f (DynamicRanked @r2 @n2 d) =
                  gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
                  gcastWith (unsafeCoerce Refl :: n2 :~: 0) $
@@ -90,30 +90,30 @@ benchProd ~(_l, list, _vec) =
     ]
 
 rankedListProd :: (BaseTensor target, GoodScalar r)
-               => [target (TKR r 0)] -> target (TKR r 0)
+               => [target (TKR 0 r)] -> target (TKR 0 r)
 rankedListProd = foldl1' (*)
 
-crevRankedListProd :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+crevRankedListProd :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
 crevRankedListProd = crev rankedListProd
 
-revRankedListProd :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+revRankedListProd :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
 revRankedListProd = rev rankedListProd
 
 rankedListProdr :: (BaseTensor target, GoodScalar r)
-                => [target (TKR r 0)] -> target (TKR r 0)
+                => [target (TKR 0 r)] -> target (TKR 0 r)
 rankedListProdr = foldr1 (*)
 
-crevRankedListProdr :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+crevRankedListProdr :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
 crevRankedListProdr = crev rankedListProdr
 
-revRankedListProdr :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+revRankedListProdr :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
 revRankedListProdr = rev rankedListProdr
 
-crevRankedNoShareListProd :: [RepN (TKR Double 0)] -> [RepN (TKR Double 0)]
+crevRankedNoShareListProd :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
 crevRankedNoShareListProd = crev rankedNoShareListProd
 
 _rankedVecProd :: (BaseTensor target, GoodScalar r)
-               => Data.Vector.Vector (target (TKR r 0)) -> target (TKR r 0)
+               => Data.Vector.Vector (target (TKR 0 r)) -> target (TKR 0 r)
 _rankedVecProd = V.foldl1' (*)
 
 -- This one saves on running the adaptor and on comparing the scalar
@@ -129,7 +129,7 @@ _rankedVecProd = V.foldl1' (*)
 -- to add fold on tensors instead.
 _rankedVecDProd :: forall r target.
                    (BaseTensor target, GoodScalar r)
-                => HVector target -> target (TKR r 0)
+                => HVector target -> target (TKR 0 r)
 _rankedVecDProd =
   let f acc (DynamicRanked @r2 @n2 d) =
         gcastWith (unsafeCoerce Refl :: r2 :~: r) $
@@ -139,13 +139,13 @@ _rankedVecDProd =
   in V.foldl' f 0
 
 rankedNoShareListProd :: GoodScalar r
-                      => [ADVal RepN (TKR r 0)]
-                      -> ADVal RepN (TKR r 0)
+                      => [ADVal RepN (TKR 0 r)]
+                      -> ADVal RepN (TKR 0 r)
 rankedNoShareListProd = foldl1' multNotShared
 
 _rankedNoShareVecProd :: GoodScalar r
-                      => Data.Vector.Vector (ADVal RepN (TKR r 0))
-                      -> ADVal RepN (TKR r 0)
+                      => Data.Vector.Vector (ADVal RepN (TKR 0 r))
+                      -> ADVal RepN (TKR 0 r)
 _rankedNoShareVecProd = V.foldl1' multNotShared
 
 
