@@ -64,7 +64,7 @@ import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
 import Data.Array.Nested
   (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Mixed as Nested
+import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -361,10 +361,10 @@ instance Num Z0 where
   fromInteger _ = Z0
 
 instance Nested.PrimElt Z0
-newtype instance Mixed sh Z0 = M_NilZ0 (Mixed sh (Primitive Z0)) deriving (Eq, Generic) deriving (Show) via (ShowViaPrimitive sh Z0)  -- no content, orthotope optimises this (via Vector)
+newtype instance Nested.Internal.Mixed.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed.Mixed sh (Nested.Internal.Mixed.Primitive Z0)) deriving (Eq, Generic) deriving (Show) via (Nested.Internal.Mixed.ShowViaPrimitive sh Z0)  -- no content, orthotope optimises this (via Vector)
 deriving instance Ord (Nested.Mixed sh Z0)
 instance NFData (Nested.Mixed sh Z0)
-newtype instance Nested.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
+newtype instance Nested.Internal.Mixed.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
 deriving via Nested.Primitive Z0 instance Nested.Elt Z0
 deriving via Nested.Primitive Z0 instance Nested.KnownElt Z0
 
