@@ -117,8 +117,8 @@ aDTensorKind t = case t of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           FTKScalar @()
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           FTKScalar @Z0
   FTKR sh x -> FTKR sh (aDTensorKind x)
   FTKS sh x -> FTKS sh (aDTensorKind x)
   FTKX sh x -> FTKX sh (aDTensorKind x)

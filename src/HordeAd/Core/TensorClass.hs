@@ -1157,7 +1157,7 @@ class ( Num (IntOf target)
 
 tunit :: BaseTensor target
       => target TKUnit
-tunit = rmkRepScalar $ rscalar ()
+tunit = rmkRepScalar $ rscalar Z0
 
 rfromD :: forall r n target.
           (BaseTensor target, GoodScalar r, KnownNat n)

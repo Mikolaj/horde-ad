@@ -175,6 +175,7 @@ library horde-ad-simplified
       , ghc-typelits-natnormalise
       , hmatrix
       , ilist
+      , orthotope
       , ox-arrays
       , random
       , some

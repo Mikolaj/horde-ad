@@ -50,7 +50,7 @@ instance BaseTensor target => HasShape (DynamicTensor target) where
   shapeL (DynamicRankedDummy @_ @sh _ _) = shapeT @sh
   shapeL (DynamicShapedDummy @_ @sh _ _) = shapeT @sh
 
-instance HasShape () where
+instance HasShape Z0 where
   shapeL _ = [0]
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
@@ -87,7 +87,7 @@ instance ( forall r n. (GoodScalar r, KnownNat n)
   linearize (DynamicRankedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
   linearize (DynamicShapedDummy @_ @sh _ _) = replicate (sizeT @sh) 0
 
-instance Linearizable () () where
+instance Linearizable Z0 Z0 where
   linearize _ = []
 
 toDouble :: forall r. Typeable r => r -> Double

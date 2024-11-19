@@ -521,28 +521,28 @@ toADTensorKindShared stk t = case stk of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           rmkRepScalar $ rscalar ()
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           rmkRepScalar $ rscalar Z0
   STKR SNat (STKScalar @r _) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           rrepl @_ @_ @target (toList $ rshape t) ()
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           rrepl @_ @_ @target (toList $ rshape t) Z0
   STKS @sh sh (STKScalar @r _) -> withKnownShS sh
                       $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           srepl @sh @() @target ()
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           srepl @sh @Z0 @target Z0
   STKX sh (STKScalar @r _) -> withKnownShX sh
                   $ case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           xrepl @_ @_ @target (xshape t) ()
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           xrepl @_ @_ @target (xshape t) Z0
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                        , Dict <- lemTensorKindOfS stk2
                        , Dict <- lemTensorKindOfAD stk1

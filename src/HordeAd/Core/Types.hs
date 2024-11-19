@@ -1,6 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, ImpredicativeTypes, UndecidableInstances,
-             UndecidableSuperClasses #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
+             UndecidableInstances, UndecidableSuperClasses #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Some fundamental type families and types.
@@ -22,7 +21,7 @@ module HordeAd.Core.Types
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
   , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
-  , ADTensorKind, ADTensorScalar, lemTensorKindOfAD, lemBuildOfAD
+  , ADTensorKind, ADTensorScalar, Z0(..), lemTensorKindOfAD, lemBuildOfAD
     -- * Type families that tensors will belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDualTarget(..)
@@ -37,11 +36,15 @@ module HordeAd.Core.Types
 import Prelude
 
 import Control.DeepSeq (NFData (..))
+import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Storable qualified as V
+import Foreign.Storable (Storable (..))
+import GHC.Generics (Generic)
 import GHC.TypeLits
   ( KnownNat
   , Nat
@@ -55,12 +58,14 @@ import GHC.TypeLits
 import Type.Reflection (TypeRep, Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (KnownShX (..), StaticShX (..), withKnownShX)
 import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
 import Data.Array.Nested
   (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Mixed as Nested
 import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -194,7 +199,7 @@ type TKR n r = TKR2 n (TKScalar r)
 type TKS sh r = TKS2 sh (TKScalar r)
 type TKX sh r = TKX2 sh (TKScalar r)
 
-type TKUnit = TKScalar ()
+type TKUnit = TKScalar Z0
 
 type role STensorKindType nominal
 data STensorKindType y where
@@ -342,17 +347,50 @@ type family ADTensorKind tk where
 type family ADTensorScalar r where
   ADTensorScalar Double = Double
   ADTensorScalar Float = Float
-  ADTensorScalar t = ()
+  ADTensorScalar t = Z0
 
-instance Num () where
-  () + () = ()
-  () * () = ()
-  negate () = ()
-  abs () = ()
-  signum () = ()
-  fromInteger _ = ()
+data Z0 = Z0
+ deriving (Eq, Ord, Show)
 
-instance Nested.NumElt () where  -- TODO?
+instance NFData Z0 where
+  rnf Z0 = ()
+
+instance Storable Z0 where
+  sizeOf _ = 0
+  alignment _ = 1
+  peek _ = return Z0
+  poke _ _ = return ()
+
+instance Num Z0 where
+  Z0 + Z0 = Z0
+  Z0 * Z0 = Z0
+  negate Z0 = Z0
+  abs Z0 = Z0
+  signum Z0 = Z0
+  fromInteger _ = Z0
+
+instance Nested.PrimElt Z0
+newtype instance Mixed sh Z0 = M_NilZ0 (Mixed sh (Primitive Z0)) deriving (Eq, Generic) deriving (Show) via (ShowViaPrimitive sh Z0)  -- no content, orthotope optimises this (via Vector)
+deriving instance Ord (Nested.Mixed sh Z0)
+instance NFData (Nested.Mixed sh Z0)
+newtype instance Nested.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
+deriving via Nested.Primitive Z0 instance Nested.Elt Z0
+deriving via Nested.Primitive Z0 instance Nested.KnownElt Z0
+
+instance NumElt Z0 where
+  numEltAdd _ arr1 _arr2 = arr1
+  numEltSub _ arr1 _arr2 = arr1
+  numEltMul _ arr1 _arr2 = arr1
+  numEltNeg _ arr1 = arr1
+  numEltAbs _ arr1 = arr1
+  numEltSignum _ arr = arr
+  numEltSum1Inner _ arr = RS.index arr 0
+  numEltProduct1Inner _ arr = RS.index arr 0
+  numEltSumFull _ _arr = Z0
+  numEltProductFull _ _arr = Z0
+  numEltMinIndex snat _arr = replicate (sNatValue snat) 0
+  numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
+  numEltDotprodInner _ arr1 _arr2 = RS.index arr1 0
 
 lemTensorKindOfAD :: forall y.
                      STensorKindType y
@@ -362,8 +400,8 @@ lemTensorKindOfAD = \case
     Just Refl -> Dict
     _ -> case testEquality rep (typeRep @Float) of
       Just Refl -> Dict
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: ()) $
-           Dict @TensorKind @(TKScalar ())
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           Dict @TensorKind @(TKScalar Z0)
   STKR SNat rs -> case lemTensorKindOfAD rs of
     Dict -> Dict
   STKS sh rs -> withKnownShS sh $ case lemTensorKindOfAD rs of
