@@ -14,8 +14,7 @@ module HordeAd.Core.Types
   , Dict(..), PermC, trustMeThisIsAPermutation
   , Take, Drop, Last, Init
     -- * Kinds of the functors that determine the structure of a tensor type
-  , TensorType, RankedTensorType, ShapedTensorType, MixedTensorType, Target
-  , TensorKindType (..), TKR, TKS, TKX, TKUnit
+  , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
   , STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind, sameTK
   , BuildTensorKind, lemTensorKindOfBuild
@@ -170,14 +169,6 @@ type family Init (xs :: [k]) where
 
 
 -- * Types of types of tensors
-
-type TensorType ty = Type -> ty -> Type
-
-type RankedTensorType = TensorType Nat
-
-type ShapedTensorType = TensorType [Nat]
-
-type MixedTensorType = TensorType [Maybe Nat]
 
 type Target = TensorKindType -> Type
 
