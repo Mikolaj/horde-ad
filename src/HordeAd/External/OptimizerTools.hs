@@ -17,7 +17,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (KnownShS (..), ShR (..), pattern ZSR)
+import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
@@ -135,7 +135,7 @@ initialStateAdamDeep ftk =
 -- TODO: introduce and use dummies
 repDeepZero :: FullTensorKind y -> RepN y
 repDeepZero = \case
-  FTKScalar -> RepN $ RepScalar $ Nested.rreplicateScal ZSR 0
+  FTKScalar -> RepN $ RepScalar 0
   FTKR sh FTKScalar -> RepN $ Nested.rreplicateScal sh 0
   FTKS sh FTKScalar -> RepN $ Nested.sreplicateScal sh 0
   FTKX sh FTKScalar -> RepN $ Nested.mreplicateScal sh 0
@@ -184,14 +184,14 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =
-                       updateR (unRepScalar mA)
-                               (unRepScalar vA)
-                               (unRepScalar p)
-                               (unRepScalar g)
+                       updateR (Nested.rscalar $ unRepScalar mA)
+                               (Nested.rscalar $ unRepScalar vA)
+                               (Nested.rscalar $ unRepScalar p)
+                               (Nested.rscalar $ unRepScalar g)
                  in RepN
-                    (( RepScalar mAN
-                     , RepScalar vAN )
-                    , RepScalar pN ))
+                    (( RepScalar $ Nested.runScalar mAN
+                     , RepScalar $ Nested.runScalar vAN )
+                    , RepScalar $ Nested.runScalar pN ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKR SNat (STKScalar @r _) ->

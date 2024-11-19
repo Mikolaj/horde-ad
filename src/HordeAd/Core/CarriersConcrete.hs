@@ -31,11 +31,8 @@ import HordeAd.Core.Types
 
 type role RepScalar nominal
 type RepScalar :: Type -> Type
-newtype RepScalar r = RepScalar {unRepScalar :: Nested.Ranked 0 r}
-
-deriving instance Show (Nested.Ranked 0 r) => Show (RepScalar r)
-
-deriving instance NFData (Nested.Ranked 0 r) => NFData (RepScalar r)
+newtype RepScalar r = RepScalar {unRepScalar :: r}
+ deriving (Eq, Ord, Show, NFData)
 
 type family RepORArray (y :: TensorKindType) = result | result -> y where
   RepORArray (TKScalar r) = RepScalar r  -- for injectivity

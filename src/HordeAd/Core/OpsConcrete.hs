@@ -74,8 +74,8 @@ instance ShareTensor RepN where
                                            (toRepDShare stk t2)
 
 instance BaseTensor RepN where
-  rmkRepScalar = RepN . RepScalar . unRepN
-  runRepScalar = RepN . unRepScalar . unRepN
+  rmkRepScalar = RepN . RepScalar . Nested.runScalar . unRepN
+  runRepScalar = RepN . Nested.rscalar . unRepScalar . unRepN
 
   rshape = tshapeR . unRepN
   rminIndex = RepN . tminIndexR . unRepN
