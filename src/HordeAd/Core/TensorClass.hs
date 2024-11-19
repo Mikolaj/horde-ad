@@ -1368,6 +1368,16 @@ type ADReadyClasses target =
   , EqF target
   , OrdF target
   , BaseTensor target
-  , CRanked target Show
+  , AllTargetShow target
   , Show (target TKUntyped)
   )
+
+-- This is illegal:
+-- type AllTargetShow target = forall y. TensorKind y => Show (target y)
+
+type AllTargetShow :: Target -> Constraint
+class (forall y. TensorKind y => Show (target y))
+      => AllTargetShow target where
+instance
+      (forall y. TensorKind y => Show (target y))
+      => AllTargetShow target where

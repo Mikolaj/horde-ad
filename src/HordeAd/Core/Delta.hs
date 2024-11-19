@@ -310,7 +310,7 @@ data RepM target y where
   MTKSDummy  :: (GoodScalar r, KnownShS sh)
              => RepM target (TKS sh r)
 
-deriving instance ( CRanked target Show
+deriving instance ( (forall y7. TensorKind y7 => Show (target y7))
                   , Show (target TKUntyped)
                   , TensorKind y )
                   => Show (RepM target y)
@@ -629,7 +629,7 @@ data Delta :: Target -> TensorKindType -> Type where
 deriving instance ( TensorKind y
                   , Show (target TKUntyped)
                   , Show (IntOf target)
-                  , CRanked target Show )
+                  , (forall y7. TensorKind y7 => Show (target y7)) )
                   => Show (Delta target y)
 
 shapeDeltaFull :: forall target y. TensorKind y

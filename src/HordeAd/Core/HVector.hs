@@ -12,7 +12,6 @@ module HordeAd.Core.HVector
   , FullTensorKind(..), lemTensorKindOfF, buildFullTensorKind
   , aDTensorKind
   , DynamicTensor(..)
-  , CRanked
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
   , scalarDynamic, shapeVoidDynamic, shapeVoidHVector, shapeDynamicF
@@ -23,7 +22,6 @@ module HordeAd.Core.HVector
 import Prelude
 
 import Control.DeepSeq (NFData (..))
-import Data.Kind (Constraint, Type)
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
@@ -160,22 +158,15 @@ dynamicsMatchVoid t u = case (scalarDynamic t, scalarDynamic u) of
     && isDynamicRanked t == isDynamicRanked u
 
 deriving instance
-  CRanked target Show
+  (forall y. TensorKind y => Show (target y))
   => Show (DynamicTensor target)
 
-instance CRanked target NFData
+instance (forall y. TensorKind y => NFData (target y))
          => NFData (DynamicTensor target) where
   rnf (DynamicRanked x) = rnf x
   rnf (DynamicShaped x) = rnf x
   rnf (DynamicRankedDummy{}) = ()
   rnf (DynamicShapedDummy{}) = ()
-
-type CRanked :: Target -> (Type -> Constraint) -> Constraint
-class (forall y20. TensorKind y20 => c (target y20))
-      => CRanked target c where
-instance
-      (forall y20. TensorKind y20 => c (target y20))
-      => CRanked target c where
 
 -- | This is a heterogeneous vector, used as represenation of tuples
 -- of tensors that need to have the same Haskell type regardless

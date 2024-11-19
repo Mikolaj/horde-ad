@@ -1,3 +1,4 @@
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | A class containing array operations, with some extra algebraic operations
@@ -100,7 +101,7 @@ addRepD a b = case (a, b) of
     DTKUntyped $ V.zipWith addDynamic hv1 hv2
 
 addDynamic :: forall target.
-              (BaseTensor target, CRanked target Show)
+              (BaseTensor target, (forall y. TensorKind y => Show (target y)))
            => DynamicTensor target -> DynamicTensor target
            -> DynamicTensor target
 addDynamic (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
