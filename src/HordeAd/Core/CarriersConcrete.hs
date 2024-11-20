@@ -30,9 +30,9 @@ import HordeAd.Core.Types
 
 type family RepORArray (y :: TensorKindType) where
   RepORArray (TKScalar r) = r
-  RepORArray (TKR n r) = Nested.Ranked n r
-  RepORArray (TKS sh r) = Nested.Shaped sh r
-  RepORArray (TKX sh r) = Nested.Mixed sh r
+  RepORArray (TKR2 n x) = Nested.Ranked n (RepORArray x)
+  RepORArray (TKS2 sh x) = Nested.Shaped sh (RepORArray x)
+  RepORArray (TKX2 sh x) = Nested.Mixed sh (RepORArray x)
   RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
   RepORArray TKUntyped = HVector RepN
 
@@ -47,9 +47,21 @@ instance TensorKind y
          => Show (RepN y) where
   showsPrec d (RepN t) = case stensorKind @y of
     STKScalar _ -> showsPrec d t
-    STKR SNat STKScalar{} -> showsPrec d t
-    STKS sh STKScalar{} -> withKnownShS sh $ showsPrec d t
-    STKX sh STKScalar{} -> withKnownShX sh $ showsPrec d t
+    STKR _ STKScalar{} -> showsPrec d t
+    STKR _ (STKR _ STKScalar{}) -> showsPrec d t
+    STKR _ (STKS _ STKScalar{}) -> showsPrec d t
+    STKR _ (STKX _ STKScalar{}) -> showsPrec d t
+    STKR _ (STKProduct (STKR _ STKScalar{}) (STKR _ STKScalar{})) -> showsPrec d t
+    STKS _ STKScalar{} -> showsPrec d t
+    STKS _ (STKR _ STKScalar{}) -> showsPrec d t
+    STKS _ (STKS _ STKScalar{}) -> showsPrec d t
+    STKS _ (STKX _ STKScalar{}) -> showsPrec d t
+    STKS _ (STKProduct (STKS _ STKScalar{}) (STKS _ STKScalar{})) -> showsPrec d t
+    STKX _ STKScalar{} -> showsPrec d t
+    STKX _ (STKR _ STKScalar{}) -> showsPrec d t
+    STKX _ (STKS _ STKScalar{}) -> showsPrec d t
+    STKX _ (STKX _ STKScalar{}) -> showsPrec d t
+    STKX _ (STKProduct (STKX _ STKScalar{}) (STKX _ STKScalar{})) -> showsPrec d t
     STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
                                  , Dict <- lemTensorKindOfS stk2 ->
       showsPrec d (RepN @y1 $ fst t, RepN @y2 $ snd t)
@@ -60,9 +72,21 @@ instance TensorKind y
          => NFData (RepN y) where
   rnf (RepN t) = case stensorKind @y of
     STKScalar _ -> rnf t
-    STKR SNat STKScalar{} -> rnf t
-    STKS sh STKScalar{} -> withKnownShS sh $ rnf t
-    STKX sh STKScalar{} -> withKnownShX sh $ rnf t
+    STKR _ STKScalar{} -> rnf t
+--    STKR _ (STKR _ STKScalar{}) -> rnf t
+--    STKR _ (STKS _ STKScalar{}) -> rnf t
+    STKR _ (STKX _ STKScalar{}) -> rnf t
+--    STKR _ (STKProduct (STKR _ STKScalar{}) (STKR _ STKScalar{})) -> rnf t
+    STKS _ STKScalar{} -> rnf t
+--    STKS _ (STKR _ STKScalar{}) -> rnf t
+--    STKS _ (STKS _ STKScalar{}) -> rnf t
+    STKS _ (STKX _ STKScalar{}) -> rnf t
+--    STKS _ (STKProduct (STKS _ STKScalar{}) (STKS _ STKScalar{})) -> rnf t
+    STKX _ STKScalar{} -> rnf t
+--    STKX _ (STKR _ STKScalar{}) -> rnf t
+--    STKX _ (STKS _ STKScalar{}) -> rnf t
+    STKX _ (STKX _ STKScalar{}) -> rnf t
+    STKX _ (STKProduct (STKX _ STKScalar{}) (STKX _ STKScalar{})) -> rnf t
     STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
                                  , Dict <- lemTensorKindOfS stk2 ->
       rnf (RepN @y1 $ fst t, RepN @y2 $ snd t)
