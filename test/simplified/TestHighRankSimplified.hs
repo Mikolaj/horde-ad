@@ -43,6 +43,8 @@ testTrees =
   , testCase "3fooBuild25" testFooBuild25
   , testCase "3fooBuild21S" testFooBuild21S
   , testCase "3fooBuild25S" testFooBuild25S
+  , testCase "3fooBuildNest21S" testFooBuildNest21S
+  , testCase "3fooBuildNest25S" testFooBuildNest25S
   , testCase "3fooBuild3" testFooBuild3
   , testCase "3fooBuildDt" testFooBuildDt
   , testCase "3fooBuildDt2" testFooBuildDt2
@@ -241,6 +243,35 @@ testFooBuild25S =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2,2,1,2,2] [0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5,-0.35355339059327373,500.0,1.5811388300841895,-1.118033988749895,0.1381447409988844,0.16666666666666666,0.17677669529663687,-0.25,8.574929257125441e-2,0.288948802391873,-8.703882797784893e-2,9.805806756909202e-2])
     (rev' @Double @5 (fooBuild2S @2 @[2, 1, 2, 2] . sfromR) t16)
+
+fooBuildNest2S
+  :: forall k sh target r.
+     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh, KnownNat (Nested.Product (k : sh)))
+  => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
+fooBuildNest2S v = rfromS $
+  sbuild1 @_ @_ @2 $ \ix ->
+    ifF (ix - (sunNest @_ @'[] @'[] . tprimalPart stensorKind . snest knownShS . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
+         &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
+-- TODO:        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ treplicate (SNat @5) stensorKind $ snest (knownShS @[12,11])
+        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ tproject2 $ tfromPrimal stensorKind $ tpair tunit (tprimalPart stensorKind $ snest (knownShS @[5,12,11])
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v))) - srepl 10001)))
+           -- index out of bounds; also fine
+-- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))
+        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (rr)) ==. negate (signum $ srepl 2)) (sprimalPart (rr) + srepl 2) (sprimalPart (rr)))))
+
+testFooBuildNest21S :: Assertion
+testFooBuildNest21S =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [2] [0.2886751345948129,0.35355339059327373])
+    (rev' @Double @1 (fooBuildNest2S @2 @'[] . sfromR) (ringestData [2] [3.0,2.0]))
+
+testFooBuildNest25S :: Assertion
+testFooBuildNest25S =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [2,2,1,2,2] [0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5,-0.35355339059327373,500.0,1.5811388300841895,-1.118033988749895,0.1381447409988844,0.16666666666666666,0.17677669529663687,-0.25,8.574929257125441e-2,0.288948802391873,-8.703882797784893e-2,9.805806756909202e-2])
+    (rev' @Double @5 (fooBuildNest2S @2 @[2, 1, 2, 2] . sfromR) t16)
 
 fooBuild3 :: forall target r n.
              ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR n r)) )

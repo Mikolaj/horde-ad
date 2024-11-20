@@ -99,6 +99,7 @@ class LetTensor (target :: Target) where
     STKScalar _ -> rreplicate (sNatValue snat) $ runRepScalar u
     STKR SNat STKScalar{} -> rreplicate (sNatValue snat) u
     STKS sh STKScalar{} -> withKnownShS sh $ sreplicate u
+-- TODO:    STKS sh (STKS _ STKScalar{}) -> withKnownShS sh $ sreplicate u
     STKX sh STKScalar{} -> withKnownShX sh $ xreplicate u
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfS stk1
@@ -803,8 +804,7 @@ class ( Num (IntOf target)
             => target (TKProduct x z)
             -> target z
   dshape :: target TKUntyped -> VoidHVector
-  tftk :: STensorKindType y -> target y
-             -> FullTensorKind y
+  tftk :: STensorKindType y -> target y -> FullTensorKind y
   tcond :: IfF target
         => STensorKindType y
         -> BoolOf target

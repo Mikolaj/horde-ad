@@ -203,6 +203,7 @@ instance BaseTensor RepN where
     STKScalar _ -> FTKScalar
     STKR SNat STKScalar{} -> FTKR (tshapeR $ unRepN t) FTKScalar
     STKS sh STKScalar{} -> FTKS sh FTKScalar
+    STKS sh1 (STKS sh2 STKScalar{}) -> FTKS sh1 (FTKS sh2 FTKScalar)
     STKX _sh STKScalar{} -> FTKX (Nested.mshape $ unRepN t) FTKScalar
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
                          , Dict <- lemTensorKindOfS stk2 ->

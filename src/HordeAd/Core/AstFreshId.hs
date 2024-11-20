@@ -95,6 +95,11 @@ funToAstIO sh f = do
           !x = f (AstVar sh varName)
           dynVar = withKnownShS shs $ AstDynamicVarName @[Nat] @r @sh freshId
       return (varName, dynVar, x)
+    FTKS _ (FTKS _ FTKScalar) -> do
+      let varName = mkAstVarName freshId
+          !x = f (AstVar sh varName)
+          dynVar = undefined
+      return (varName, dynVar, x)
     FTKX{} -> error "TODO"
     FTKProduct{} -> do
       let varName = mkAstVarName freshId
