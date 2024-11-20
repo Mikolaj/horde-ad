@@ -34,7 +34,7 @@ import HordeAd.Internal.BackendOX
 instance EqF RepN where
   (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
   RepN u ==. RepN v = case stensorKind @y of
-    STKScalar _ -> unRepScalar u == unRepScalar v
+    STKScalar _ -> u == v
     STKR SNat STKScalar{} -> u == v
     STKS sh STKScalar{} -> withKnownShS sh $ u == v
     STKX sh STKScalar{} -> withKnownShX sh $ u == v
@@ -48,7 +48,7 @@ instance EqF RepN where
 instance OrdF RepN where
   (<.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
   RepN u <. RepN v = case stensorKind @y of
-    STKScalar _ -> unRepScalar u < unRepScalar v
+    STKScalar _ -> u < v
     STKR SNat STKScalar{} -> u < v
     STKS sh STKScalar{} -> withKnownShS sh $ u < v
     STKX sh STKScalar{} -> withKnownShX sh $ u < v
@@ -76,8 +76,8 @@ instance ShareTensor RepN where
                                            (toRepDShare stk t2)
 
 instance BaseTensor RepN where
-  rmkRepScalar = RepN . RepScalar . Nested.runScalar . unRepN
-  runRepScalar = RepN . Nested.rscalar . unRepScalar . unRepN
+  rmkRepScalar = RepN . Nested.runScalar . unRepN
+  runRepScalar = RepN . Nested.rscalar . unRepN
 
   rshape = tshapeR . unRepN
   rminIndex = RepN . tminIndexR . unRepN

@@ -4,14 +4,13 @@
 module HordeAd.Core.CarriersConcrete
   ( IIxR64, IIxS64
   , Nested.Ranked, Nested.Shaped, Nested.Mixed
-  , RepScalar(..), RepORArray, RepN(..)
+  , RepORArray, RepN(..)
   ) where
 
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
 import Data.Int (Int64)
-import Data.Kind (Type)
 import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
@@ -29,13 +28,8 @@ import HordeAd.Core.Types
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
 
-type role RepScalar nominal
-type RepScalar :: Type -> Type
-newtype RepScalar r = RepScalar {unRepScalar :: r}
- deriving (Eq, Ord, Show, NFData)
-
 type family RepORArray (y :: TensorKindType) where
-  RepORArray (TKScalar r) = RepScalar r  -- for injectivity
+  RepORArray (TKScalar r) = r
   RepORArray (TKR n r) = Nested.Ranked n r
   RepORArray (TKS sh r) = Nested.Shaped sh r
   RepORArray (TKX sh r) = Nested.Mixed sh r
