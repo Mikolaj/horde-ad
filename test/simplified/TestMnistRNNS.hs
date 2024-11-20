@@ -325,6 +325,14 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                       in ( RepN dglyph
                          , RepN dlabel )
              [] -> error "empty train data"
+           f :: (AsHVector
+                  ( ADRnnMnistParametersShaped (AstTensor AstMethodLet FullSpan)
+                      SizeMnistHeight width r
+                  , ( AstTensor AstMethodLet FullSpan
+                        (TKS '[batch_size, SizeMnistHeight, SizeMnistWidth] r)
+                    , AstTensor AstMethodLet FullSpan
+                        (TKS '[batch_size, SizeMnistLabel] r) ) ))
+             -> AstTensor AstMethodLet FullSpan (TKS '[] r)
            f = \ (AsHVector (pars, (glyphS, labelS))) ->
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
@@ -439,6 +447,13 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
                       in ( RepN dglyph
                          , RepN dlabel )
              [] -> error "empty train data"
+           f :: ( ADRnnMnistParametersShaped (AstTensor AstMethodLet FullSpan)
+                    SizeMnistHeight width r
+                , ( AstTensor AstMethodLet FullSpan
+                      (TKS '[batch_size, SizeMnistHeight, SizeMnistWidth] r)
+                  , AstTensor AstMethodLet FullSpan
+                      (TKS '[batch_size, SizeMnistLabel] r) ) )
+             -> AstTensor AstMethodLet FullSpan (TKS '[] r)
            f = \ (pars, (glyphS, labelS)) ->
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars

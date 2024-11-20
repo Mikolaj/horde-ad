@@ -34,7 +34,7 @@ type RepScalar :: Type -> Type
 newtype RepScalar r = RepScalar {unRepScalar :: r}
  deriving (Eq, Ord, Show, NFData)
 
-type family RepORArray (y :: TensorKindType) = result | result -> y where
+type family RepORArray (y :: TensorKindType) where
   RepORArray (TKScalar r) = RepScalar r  -- for injectivity
   RepORArray (TKR n r) = Nested.Ranked n r
   RepORArray (TKS sh r) = Nested.Shaped sh r
@@ -56,9 +56,9 @@ instance TensorKind y
     STKR SNat STKScalar{} -> showsPrec d t
     STKS sh STKScalar{} -> withKnownShS sh $ showsPrec d t
     STKX sh STKScalar{} -> withKnownShX sh $ showsPrec d t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      showsPrec d (RepN $ fst t, RepN $ snd t)
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                                 , Dict <- lemTensorKindOfS stk2 ->
+      showsPrec d (RepN @y1 $ fst t, RepN @y2 $ snd t)
     STKUntyped -> showsPrec d t
     _ -> error "TODO"
 
@@ -69,9 +69,9 @@ instance TensorKind y
     STKR SNat STKScalar{} -> rnf t
     STKS sh STKScalar{} -> withKnownShS sh $ rnf t
     STKX sh STKScalar{} -> withKnownShX sh $ rnf t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      rnf (RepN $ fst t, RepN $ snd t)
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                                 , Dict <- lemTensorKindOfS stk2 ->
+      rnf (RepN @y1 $ fst t, RepN @y2 $ snd t)
     STKUntyped -> rnf t
     _ -> error "TODO"
 

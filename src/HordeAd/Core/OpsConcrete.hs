@@ -38,9 +38,10 @@ instance EqF RepN where
     STKR SNat STKScalar{} -> u == v
     STKS sh STKScalar{} -> withKnownShS sh $ u == v
     STKX sh STKScalar{} -> withKnownShX sh $ u == v
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      RepN (fst u) ==. RepN (fst v) && RepN (snd u) ==. RepN (snd v)
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                                 , Dict <- lemTensorKindOfS stk2 ->
+      RepN @y1 (fst u) ==. RepN  @y1(fst v)
+      && RepN @y2 (snd u) ==. RepN @y2 (snd v)
     STKUntyped -> error "TODO"
     _ -> error "TODO"
 
@@ -51,9 +52,10 @@ instance OrdF RepN where
     STKR SNat STKScalar{} -> u < v
     STKS sh STKScalar{} -> withKnownShS sh $ u < v
     STKX sh STKScalar{} -> withKnownShX sh $ u < v
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
-      RepN (fst u) <. RepN (fst v) && RepN (snd u) <. RepN (snd v)
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
+                                 , Dict <- lemTensorKindOfS stk2 ->
+      RepN @y1 (fst u) <. RepN @y1 (fst v)
+      && RepN @y2 (snd u) <. RepN @y2 (snd v)
         -- lexicographic ordering  -- TODO: is this standard and the same as for <=. ? as for || ?
     STKUntyped -> error "TODO"
     _ -> error "TODO"

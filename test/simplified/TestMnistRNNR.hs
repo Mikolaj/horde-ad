@@ -325,6 +325,13 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                       in ( RepN dglyph
                          , RepN dlabel )
              [] -> error "empty test data"
+           f :: (AsHVector
+                  ( ADRnnMnistParameters (AstTensor AstMethodLet FullSpan) r
+                  , ( AstTensor AstMethodLet FullSpan
+                        (TKR 3 r)
+                    , AstTensor AstMethodLet FullSpan
+                        (TKR 2 r) ) ))
+             -> AstTensor AstMethodLet FullSpan (TKR 0 r)
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistRnnRanked2.rnnMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars

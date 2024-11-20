@@ -338,7 +338,8 @@ testFooRrevPP2 = do
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
-  let f (D a _) =
+  let f :: ADVal RepN (TKR 0 Double) -> ADVal RepN (TKR 0 Double)
+      f (D a _) =
         let (a1, _, _) = fooRrev @(ADVal RepN) @Double
                                  (Nested.runScalar (unRepN a), 2.2, 3.3)
         in a1

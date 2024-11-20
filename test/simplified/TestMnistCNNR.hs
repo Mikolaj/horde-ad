@@ -303,6 +303,13 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                       in ( RepN dglyph
                          , RepN dlabel )
              [] -> error "empty test data"
+           f :: (AsHVector
+                  ( MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan) r
+                  , ( AstTensor AstMethodLet FullSpan
+                        (TKR 3 r)
+                    , AstTensor AstMethodLet FullSpan
+                        (TKR 2 r) ) ))
+             -> AstTensor AstMethodLet FullSpan (TKR 0 r)
            f = \ (AsHVector (pars, (glyphR, labelR))) ->
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
