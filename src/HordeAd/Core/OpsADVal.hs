@@ -408,6 +408,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let v = sfromIntegral u
     in fromPrimalADVal v
   sconcrete t = fromPrimalADVal (sconcrete t)
+  snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    dD (snest sh u) (NestS u')
+  sunNest (D u u') = dD (sunNest u) (UnNestS u')
   sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => ADVal target (TKR (Rank sh) r) -> ADVal target (TKS sh r)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')

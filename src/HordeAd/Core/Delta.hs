@@ -570,6 +570,12 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
+  NestS :: (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+        => Delta target (TKS (sh1 ++ sh2) r)
+        -> Delta target (TKS2 sh1 (TKS sh2 r))
+  UnNestS :: (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+          => Delta target (TKS2 sh1 (TKS sh2 r))
+          -> Delta target (TKS (sh1 ++ sh2) r)
   SFromR :: forall sh r target. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => Delta target (TKR (Rank sh) r)
          -> Delta target (TKS sh r)
@@ -694,6 +700,8 @@ shapeDeltaFull = \case
   ReshapeS{} -> FTKS knownShS FTKScalar
   GatherS{} -> FTKS knownShS FTKScalar
   CastS{} -> FTKS knownShS FTKScalar
+  NestS{} -> FTKS knownShS (FTKS knownShS FTKScalar)
+  UnNestS{} -> FTKS knownShS FTKScalar
   SFromR{} -> FTKS knownShS FTKScalar
   SFromH{} -> FTKS knownShS FTKScalar
 
@@ -1207,6 +1215,10 @@ evalSame !s !c = \case
   CastS @r1 @_ @sh d ->
     evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
                                $ scast c) d
+  NestS d ->
+    evalSame s (sunNest c) d
+  UnNestS d ->
+    evalSame s (snest knownShS c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> evalSame s c d
@@ -1554,6 +1566,8 @@ fwdSame params s = \case
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
         Just Refl -> second scast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+  NestS d -> second (snest knownShS) $ fwdSame params s d
+  UnNestS d -> second sunNest $ fwdSame params s d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> fwdSame params s d
