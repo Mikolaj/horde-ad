@@ -133,6 +133,8 @@ ftkAst t = case t of
   AstFromIntegralS{} -> FTKS knownShS FTKScalar
   AstConcreteS{} -> FTKS knownShS FTKScalar
   AstProjectS{} -> FTKS knownShS FTKScalar
+  AstNestS{} -> FTKS knownShS (FTKS knownShS FTKScalar)
+  AstUnNestS{} -> FTKS knownShS FTKScalar
   AstSFromR{} -> FTKS knownShS FTKScalar
 
   AstMkHVector v ->
@@ -253,6 +255,8 @@ varInAst var = \case
   AstFromIntegralS a -> varInAst var a
   AstConcreteS{} -> False
   AstProjectS l _p -> varInAst var l  -- conservative
+  AstNestS v -> varInAst var v
+  AstUnNestS v -> varInAst var v
   AstSFromR v -> varInAst var v
 
   AstMinIndexX a -> varInAst var a

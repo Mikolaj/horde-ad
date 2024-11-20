@@ -181,9 +181,9 @@ instance BaseTensor RepN where
   scast = RepN . tcastS . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
   sconcrete = RepN
-  sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
   snest shs t = RepN $ Nested.snest shs $ unRepN t
   sunNest t = RepN $ Nested.sunNest $ unRepN t
+  sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
 
   sscaleByScalar s v =
     RepN $ tscaleByScalarS (tunScalarS $ unRepN s) (unRepN v)

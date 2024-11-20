@@ -443,6 +443,14 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
             => Nested.Shaped sh r -> AstTensor ms PrimalSpan (TKS sh r)
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
+  AstNestS :: forall r sh1 sh2 ms s.
+              (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+           => AstTensor ms s (TKS (sh1 ++ sh2) r)
+           -> AstTensor ms s (TKS2 sh1 (TKS sh2 r))
+  AstUnNestS :: forall r sh1 sh2 ms s.
+                (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+             => AstTensor ms s (TKS2 sh1 (TKS sh2 r))
+             -> AstTensor ms s (TKS (sh1 ++ sh2) r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
             => AstTensor ms s (TKR (Rank sh) r) -> AstTensor ms s (TKS sh r)
 

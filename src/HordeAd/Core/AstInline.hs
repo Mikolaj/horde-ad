@@ -277,6 +277,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstProjectS l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectS l2 p)
+  Ast.AstNestS v -> second Ast.AstNestS $ inlineAst memo v
+  Ast.AstUnNestS v -> second Ast.AstUnNestS $ inlineAst memo v
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
 
   Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ inlineAst memo a
@@ -608,6 +610,8 @@ unshareAst memo = \case
   Ast.AstProjectS l p ->
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
+  Ast.AstNestS v -> second Ast.AstNestS $ unshareAst memo v
+  Ast.AstUnNestS v -> second Ast.AstUnNestS $ unshareAst memo v
   Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
 
   Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ unshareAst memo a

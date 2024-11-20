@@ -506,6 +506,8 @@ printAstAux cfg d = \case
       . printAst cfg 11 l
       . showString " "
       . shows p
+  AstNestS v -> printPrefixOp printAst cfg d "snest" [v]
+  AstUnNestS v -> printPrefixOp printAst cfg d "sunNest" [v]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
 
   AstMkHVector l ->

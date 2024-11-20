@@ -28,7 +28,8 @@ module HordeAd.Core.AstSimplify
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
   , astCast, astCastS, astFromIntegral, astFromIntegralS
-  , astProject1, astProject2, astProjectR, astProjectS, astRFromS, astSFromR
+  , astProject1, astProject2, astProjectR, astProjectS, astNestS, astUnNestS
+  , astRFromS, astSFromR
   , astPrimalPart, astDualPart
   , astLetHVectorIn, astHApply, astLetFun
     -- * The simplifying bottom-up pass
@@ -355,6 +356,8 @@ astNonIndexStep t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS v
   AstConcreteS{} -> t
   Ast.AstProjectS l p -> astProjectS l p
+  Ast.AstNestS v -> astNestS v
+  Ast.AstUnNestS v -> astUnNestS v
   Ast.AstSFromR v -> astSFromR v
   _ -> t  -- TODO
 
@@ -814,6 +817,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
+-- TODO: generalize AstIndexS?  Ast.AstNestS v -> astNestS (astIndexRec v ix)
+-- TODO: hard:  Ast.AstUnNestS v -> astUnNestS (astIndexRec v ix)
+  Ast.AstUnNestS _ -> Ast.AstIndexS v0 ix
   Ast.AstSFromR t ->
     withListSh (Proxy @shn) $ \_ ->
     withListSh (Proxy @shm) $ \_ ->
@@ -2098,6 +2104,32 @@ astProjectS l p = case l of
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectS v1 p) (astProjectS v2 p)
   _ -> Ast.AstProjectS l p
 
+astNestS
+  :: forall r sh1 sh2 ms s.
+     (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+  => AstTensor ms s (TKS (sh1 ++ sh2) r)
+  -> AstTensor ms s (TKS2 sh1 (TKS sh2 r))
+astNestS t = case t of
+  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+    astLet var u2 (astNestS d2)
+  Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astNestS u
+  Ast.AstCond b v1 v2 -> Ast.AstCond b (astNestS v1) (astNestS v2)  -- TODO: ??
+-- TODO: when sh agrees:  Ast.AstUnNestS u -> u
+  _ -> Ast.AstNestS t
+
+astUnNestS
+  :: forall r sh1 sh2 ms s.
+     (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+  => AstTensor ms s (TKS2 sh1 (TKS sh2 r))
+  -> AstTensor ms s (TKS (sh1 ++ sh2) r)
+astUnNestS t = case t of
+  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+    astLet var u2 (astUnNestS d2)
+  Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astUnNestS u
+  Ast.AstCond b v1 v2 -> Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
+  Ast.AstNestS u -> u
+  _ -> Ast.AstUnNestS t
+
 astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
           => AstTensor AstMethodLet s (TKS sh r) -> AstTensor AstMethodLet s (TKR (Rank sh) r)
 astRFromS (AstConcreteS t) =
@@ -2180,6 +2212,8 @@ astPrimalPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstProjectS l p -> astProjectS (astPrimalPart l) p
+  Ast.AstNestS v -> astNestS $ astPrimalPart v
+  Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
 
   Ast.AstMkHVector{} -> Ast.AstPrimalPart t  -- TODO
@@ -2254,6 +2288,8 @@ astDualPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstProjectS l p -> astProjectS (astDualPart l) p
+  Ast.AstNestS v -> astNestS $ astDualPart v
+  Ast.AstUnNestS v -> astUnNestS $ astDualPart v
   Ast.AstSFromR v -> astSFromR $ astDualPart v
 
   Ast.AstMkHVector{} -> Ast.AstDualPart t  -- TODO
@@ -2522,6 +2558,8 @@ simplifyAst t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   AstConcreteS{} -> t
   Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
+  Ast.AstNestS v -> astNestS $ simplifyAst v
+  Ast.AstUnNestS v -> astUnNestS $ simplifyAst v
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
@@ -2741,6 +2779,8 @@ expandAst t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   AstConcreteS{} -> t
   Ast.AstProjectS l p -> astProjectS (expandAst l) p
+  Ast.AstNestS v -> astNestS $ expandAst v
+  Ast.AstUnNestS v -> astUnNestS $ expandAst v
   Ast.AstSFromR v -> astSFromR $ expandAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
@@ -3279,6 +3319,8 @@ substitute1Ast i var v1 = case v1 of
     case substitute1Ast i var l of
       Nothing -> Nothing
       ml -> Just $ astProjectS (fromMaybe l ml) p
+  Ast.AstNestS v -> astNestS <$> substitute1Ast i var v
+  Ast.AstUnNestS v -> astUnNestS <$> substitute1Ast i var v
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
 
   Ast.AstMkHVector args ->

@@ -24,6 +24,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 
 import Data.Array.Nested (IShR, KnownShS (..))
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -426,6 +427,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   scast = astCastS
   sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
   sconcrete = fromPrimal . AstConcreteS
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh = astNestS
+  sunNest = astUnNestS
   sfromR = astSFromR
 
   sfromPrimal = fromPrimal
@@ -683,6 +686,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sfromIntegral = AstRaw . fromPrimal . AstFromIntegralS
                   . astSpanPrimalRaw . unAstRaw
   sconcrete = AstRaw . fromPrimal . AstConcreteS
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    AstRaw . AstNestS . unAstRaw
+  sunNest = AstRaw . AstUnNestS . unAstRaw
   sfromR = AstRaw . AstSFromR . unAstRaw
 
   sfromPrimal = AstRaw . fromPrimal . unAstRaw
@@ -910,6 +916,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   scast = AstNoVectorize . scast . unAstNoVectorize
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
   sconcrete = AstNoVectorize . sconcrete
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    AstNoVectorize . astNestS . unAstNoVectorize
+  sunNest = AstNoVectorize . astUnNestS . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromPrimal = AstNoVectorize . sfromPrimal . unAstNoVectorize
   sprimalPart = AstNoVectorize . sprimalPart . unAstNoVectorize
@@ -1140,6 +1149,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   sfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralS
                   . astSpanPrimal . unAstNoSimplify
   sconcrete = AstNoSimplify . fromPrimal . AstConcreteS
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    AstNoSimplify . AstNestS . unAstNoSimplify
+  sunNest = AstNoSimplify . AstUnNestS . unAstNoSimplify
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
   sfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
     -- exceptionally we do simplify AstFromPrimal to avoid long boring chains

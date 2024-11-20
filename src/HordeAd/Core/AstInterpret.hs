@@ -814,6 +814,8 @@ interpretAst !env = \case
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
          (\lw -> sfromD $ dunHVector lw V.! p)
+  AstNestS v -> snest knownShS $ interpretAst env v
+  AstUnNestS v -> sunNest $ interpretAst env v
   AstSFromR v -> sfromR $ interpretAst env v
 
   AstMinIndexX _v -> error "TODO"

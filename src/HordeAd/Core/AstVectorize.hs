@@ -442,6 +442,8 @@ build1V snat@SNat (var, v00) =
 
     Ast.AstProjectS l p ->
       astProjectS (build1VOccurenceUnknown snat (var, l)) p
+    Ast.AstNestS v -> astNestS $ build1V snat (var, v)
+    Ast.AstUnNestS v -> astUnNestS $ build1V snat (var, v)
     Ast.AstSFromR v -> astSFromR $ build1V snat (var, v)
 
     Ast.AstMkHVector l -> traceRule $

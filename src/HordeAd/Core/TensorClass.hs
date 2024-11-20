@@ -758,12 +758,14 @@ class ( Num (IntOf target)
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
                 => target (TKS sh r1) -> target (TKS sh r2)
   sconcrete :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> target (TKS sh r)
+  snest :: forall sh1 sh2 r.
+           (GoodScalar r, KnownShS sh2, KnownShS (sh1 ++ sh2))
+        => ShS sh1 -> target (TKS (sh1 ++ sh2) r) -> target (TKS2 sh1 (TKS sh2 r))
+  sunNest :: forall sh1 sh2 r.
+             (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+          => target (TKS2 sh1 (TKS sh2 r)) -> target (TKS (sh1 ++ sh2) r)
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => target (TKR (Rank sh) r) -> target (TKS sh r)
-  snest :: forall sh sh' r. GoodScalar r
-        => ShS sh -> target (TKS (sh ++ sh') r) -> target (TKS2 sh (TKS sh' r))
-  sunNest :: forall sh sh' r. GoodScalar r
-          => target (TKS2 sh (TKS sh' r)) -> target (TKS (sh ++ sh') r)
 
   -- ** No serviceable parts beyond this point ** --
 
