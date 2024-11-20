@@ -267,7 +267,7 @@ sameTK y1 y2 = case (y1, y2) of
     _ -> Nothing
 
 type family BuildTensorKind k tk where
-  BuildTensorKind k (TKScalar r) = TKR2 1 (TKScalar r)
+  BuildTensorKind k (TKScalar r) = TKR2 1 (TKScalar r)  -- TODO: or make it stuck?
   BuildTensorKind k (TKR2 n r) = TKR2 (1 + n) r
   BuildTensorKind k (TKS2 sh r) = TKS2 (k : sh) r
   BuildTensorKind k (TKX2 sh r) = TKX2 (Just k : sh) r
@@ -279,11 +279,11 @@ lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
 lemTensorKindOfBuild snat@SNat = \case
   STKScalar _ -> Dict
-  STKR SNat rs -> case lemTensorKindOfS rs of
+  STKR SNat x -> case lemTensorKindOfS x of
     Dict -> Dict
-  STKS sh rs -> case lemTensorKindOfS rs of
+  STKS sh x -> case lemTensorKindOfS x of
     Dict -> withKnownShS sh Dict
-  STKX sh rs -> case lemTensorKindOfS rs of
+  STKX sh x -> case lemTensorKindOfS x of
     Dict -> withKnownShX sh Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
@@ -372,8 +372,8 @@ instance NumElt Z0 where
   numEltAdd _ arr1 _arr2 = arr1
   numEltSub _ arr1 _arr2 = arr1
   numEltMul _ arr1 _arr2 = arr1
-  numEltNeg _ arr1 = arr1
-  numEltAbs _ arr1 = arr1
+  numEltNeg _ arr = arr
+  numEltAbs _ arr = arr
   numEltSignum _ arr = arr
   numEltSum1Inner _ arr = RS.index arr 0
   numEltProduct1Inner _ arr = RS.index arr 0
