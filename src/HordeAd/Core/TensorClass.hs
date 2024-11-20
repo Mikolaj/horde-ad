@@ -760,6 +760,10 @@ class ( Num (IntOf target)
   sconcrete :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> target (TKS sh r)
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => target (TKR (Rank sh) r) -> target (TKS sh r)
+  snest :: forall sh sh' r. GoodScalar r
+        => ShS sh -> target (TKS (sh ++ sh') r) -> target (TKS2 sh (TKS sh' r))
+  sunNest :: forall sh sh' r. GoodScalar r
+          => target (TKS2 sh (TKS sh' r)) -> target (TKS (sh ++ sh') r)
 
   -- ** No serviceable parts beyond this point ** --
 
