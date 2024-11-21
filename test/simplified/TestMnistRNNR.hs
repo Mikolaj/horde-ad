@@ -203,11 +203,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, _, var, hVector) <- funToAstRevIO ftk
        let testDataR = packBatchR testData
-       (varGlyph, _, astGlyph) <-
+       (varGlyph, astGlyph) <-
          funToAstIO
            (FTKR (miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) FTKScalar)
            id
-       (varLabel, _, astLabel) <-
+       (varLabel, astLabel) <-
          funToAstIO (FTKR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistRnnRanked2.rnnMnistLossFusedR

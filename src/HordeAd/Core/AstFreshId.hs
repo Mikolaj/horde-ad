@@ -71,44 +71,38 @@ unsafeGetFreshAstVarName =
 funToAstIO :: forall y z s s2 ms. TensorKind y
            => FullTensorKind y
            -> (AstTensor ms s y -> AstTensor ms s2 z)
-           -> IO ( AstVarName s y
-                 , AstDynamicVarName
-                 , AstTensor ms s2 z )
+           -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
-funToAstIO sh f = do
+funToAstIO ftk f = do
   freshId <- unsafeGetFreshAstVarId
-  case sh of
+  case ftk of
     FTKScalar @r ->
       return $!
         let varName = mkAstVarName freshId
             !x = f (AstVar FTKScalar varName)
-            dynVar = AstDynamicVarName @Nat @r @'[] freshId
-        in (varName, dynVar, x)
+        in (varName, x)
     FTKR shr (FTKScalar @r) ->
       return $! withShapeP (shapeToList shr) $ \(Proxy @p_sh) ->
         let varName = mkAstVarName freshId
-            !x = f (AstVar sh varName)
-            dynVar = AstDynamicVarName @Nat @r @p_sh freshId
-        in (varName, dynVar, x)
-    FTKS @sh shs (FTKScalar @r) -> do
+            !x = f (AstVar ftk varName)
+        in (varName, x)
+    FTKS @sh _shs (FTKScalar @r) -> do
       let varName = mkAstVarName freshId
-          !x = f (AstVar sh varName)
-          dynVar = withKnownShS shs $ AstDynamicVarName @[Nat] @r @sh freshId
-      return (varName, dynVar, x)
+          !x = f (AstVar ftk varName)
+      return (varName, x)
     FTKS _ (FTKS _ FTKScalar) -> do
       let varName = mkAstVarName freshId
-          !x = f (AstVar sh varName)
-          dynVar = undefined
-      return (varName, dynVar, x)
+          !x = f (AstVar ftk varName)
+      return (varName, x)
     FTKX{} -> error "TODO"
     FTKProduct{} -> do
       let varName = mkAstVarName freshId
-          !x = f (AstVar sh varName)
-      return (varName, undefined, x)
+          !x = f (AstVar ftk varName)
+      return (varName, x)
     FTKUntyped{} -> do
       let varName = mkAstVarName freshId
-          !x = f (AstVar sh varName)
-      return (varName, undefined, x)
+          !x = f (AstVar ftk varName)
+      return (varName, x)
     _ -> error "TODO"
 
 funToAst :: TensorKind y
@@ -116,9 +110,7 @@ funToAst :: TensorKind y
          -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName s y, AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
-funToAst sh f = unsafePerformIO $ do
-  (!var, _, !ast) <- funToAstIO sh f
-  return (var, ast)
+funToAst ftk f = unsafePerformIO $ funToAstIO ftk f
 
 fun1ToAstIO :: TensorKind y
             => (AstVarName s y -> AstTensor ms s y)

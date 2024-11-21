@@ -192,9 +192,9 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped (voidFromHVector hVectorInit)
-       (varGlyph, _, astGlyph) <-
+       (varGlyph, astGlyph) <-
          funToAstIO (FTKR (singletonShape sizeMnistGlyphInt) FTKScalar) id
-       (varLabel, _, astLabel) <-
+       (varLabel, astLabel) <-
          funToAstIO (FTKR (singletonShape sizeMnistLabelInt) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
@@ -511,9 +511,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
-       (varGlyph, _, astGlyph) <-
+       (varGlyph, astGlyph) <-
          funToAstIO (FTKR (singletonShape sizeMnistGlyphInt) FTKScalar) id
-       (varLabel, _, astLabel) <-
+       (varLabel, astLabel) <-
          funToAstIO (FTKR (singletonShape sizeMnistLabelInt) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData

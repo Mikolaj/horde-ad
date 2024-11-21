@@ -185,11 +185,11 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
        (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        let testDataR = packBatchR testData
-       (varGlyph, _, astGlyph) <-
+       (varGlyph, astGlyph) <-
          funToAstIO
            (FTKR (miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) FTKScalar)
            id
-       (varLabel, _, astLabel) <-
+       (varLabel, astLabel) <-
          funToAstIO (FTKR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistCnnRanked2.convMnistLossFusedR

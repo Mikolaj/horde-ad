@@ -200,9 +200,9 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, _, var, hVector) <- funToAstRevIO ftk
        let testDataR = packBatchR testData
-       (varGlyph, _, astGlyph) <-
+       (varGlyph, astGlyph) <-
          funToAstIO (FTKS knownShS FTKScalar {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-}) id
-       (varLabel, _, astLabel) <-
+       (varLabel, astLabel) <-
          funToAstIO (FTKS knownShS FTKScalar {-@'[batch_size, SizeMnistLabel]-}) id
        let ast :: AstTensor AstMethodLet FullSpan (TKS '[] r)
            ast = MnistRnnShaped2.rnnMnistLossFusedS
