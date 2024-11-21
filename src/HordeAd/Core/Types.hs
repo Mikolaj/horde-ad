@@ -174,7 +174,7 @@ type Target = TensorKindType -> Type
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r
-  , NFData r, Nested.PrimElt r, Nested.Elt r, Nested.NumElt r
+  , NFData r, Nested.PrimElt r, Nested.KnownElt r, Nested.NumElt r
   , forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r)
   , forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
 
