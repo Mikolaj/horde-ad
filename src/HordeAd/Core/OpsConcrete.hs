@@ -93,13 +93,13 @@ instance BaseTensor RepN where
                                          (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
   rscatter1 sh t f = RepN $ tscatterZ1R sh (unRepN t)
                                            (fromIndexOfR . fmap unRepN . f . RepN . tscalarS)
-  rfromList = RepN . tfromListR . NonEmpty.map (unRepN)
-  rfromList0N sh = RepN . tfromList0NR sh . map (tunScalarR . unRepN)
-  rfromVector = RepN . tfromVectorR . V.map (unRepN)
-  rfromVector0N sh = RepN . tfromVector0NR sh . V.map (tunScalarR . unRepN)
+  rfromList = RepN . tfromListR . NonEmpty.map unRepN
+  rfromList0N sh = RepN . tfromList0NR sh . map unRepN
+  rfromVector = RepN . tfromVectorR . V.map unRepN
+  rfromVector0N sh = RepN . tfromVector0NR sh . V.map unRepN
   runravelToList = map RepN . tunravelToListR . unRepN
   rreplicate k = RepN . treplicateR k . unRepN
-  rreplicate0N sh = RepN . treplicate0NR sh . tunScalarR . unRepN
+  rreplicate0N sh = RepN . treplicate0NR sh . unRepN
   rappend u v = RepN $ tappendR (unRepN u) (unRepN v)
   rslice i n = RepN . tsliceR i n . unRepN
   rreverse = RepN . treverseR . unRepN
@@ -109,7 +109,7 @@ instance BaseTensor RepN where
   rmap0N f t = RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
   rzipWith0N f t u =
     RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
-                        (unRepN t) (unRepN u)
+                       (unRepN t) (unRepN u)
   rgather sh t f = RepN $ tgatherZR sh (unRepN t)
                                        (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
   rgather1 k t f = RepN $ tgatherZ1R k (unRepN t)
@@ -157,13 +157,13 @@ instance BaseTensor RepN where
                                    (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
   sscatter1 t f = RepN $ tscatterZ1S (unRepN t)
                                       (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
-  sfromList = RepN . tfromListS . NonEmpty.map (unRepN)
-  sfromList0N = RepN . tfromList0NS . map (tunScalarS . unRepN)
-  sfromVector = RepN . tfromVectorS . V.map (unRepN)
-  sfromVector0N = RepN . tfromVector0NS . V.map (tunScalarS . unRepN)
+  sfromList = RepN . tfromListS . NonEmpty.map unRepN
+  sfromList0N = RepN . tfromList0NS . map unRepN
+  sfromVector = RepN . tfromVectorS . V.map unRepN
+  sfromVector0N = RepN . tfromVector0NS . V.map unRepN
   sunravelToList = map RepN . tunravelToListS . unRepN
   sreplicate = RepN . treplicateS . unRepN
-  sreplicate0N = RepN . treplicate0NS . tunScalarS . unRepN
+  sreplicate0N = RepN . treplicate0NS . unRepN
   sappend u v = RepN $ tappendS (unRepN u) (unRepN v)
   sslice (_ :: Proxy i) _ = RepN . tsliceS @i . unRepN
   sreverse = RepN . treverseS . unRepN
@@ -175,9 +175,9 @@ instance BaseTensor RepN where
     RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
                         (unRepN t) (unRepN u)
   sgather t f = RepN $ tgatherZS (unRepN t)
-                                  (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
+                                 (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
   sgather1 t f = RepN $ tgatherZ1S (unRepN t)
-                                  (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
+                                   (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
   scast = RepN . tcastS . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
   sconcrete = RepN

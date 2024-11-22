@@ -17,7 +17,7 @@ import Data.List.Index (imap)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict qualified as M
-import Data.Proxy (Proxy)
+import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
@@ -25,13 +25,15 @@ import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import GHC.Exts (IsList (..))
 import GHC.IsList qualified as IsList
-import GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (+), type (<=))
+import GHC.TypeLits
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
+import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested
   ( IShR
@@ -64,7 +66,7 @@ import HordeAd.Util.SizedList
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.NumElt r, Num r, Show r)
+type NumAndShow r = (Nested.Elt r, Nested.PrimElt r, Nested.KnownElt r, Nested.NumElt r, Num r, Show r)
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
@@ -234,7 +236,7 @@ tscatterZR sh t f =
            else id
       ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (treplicate0NR sh 0)
+  in updateNR (treplicate0NR sh (Nested.rscalar 0))
      $ map (second $ Nested.rfromVector shDropP)
      $ M.assocs ivs
 
@@ -249,8 +251,8 @@ tscatterZ1R sh t f =
   sum $ imap (\i ti ->
                  let ix2 = f $ fromIntegral i
                  in if ixInBounds (indexToList ix2) (shapeToList sh)
-                    then updateNR (treplicate0NR sh 0) [(ix2, ti)]
-                    else treplicate0NR sh 0)
+                    then updateNR (treplicate0NR sh (Nested.rscalar 0)) [(ix2, ti)]
+                    else treplicate0NR sh (Nested.rscalar 0))
       $ tunravelToListR t
 
 tfromListR
@@ -258,11 +260,13 @@ tfromListR
   => NonEmpty (Nested.Ranked n r) -> Nested.Ranked (1 + n) r
 tfromListR = Nested.rfromListOuter  -- TODO: make this strict
 
+-- TODO: make this strict
 tfromList0NR
   :: NumAndShow r
-  => IShR n -> [r] -> Nested.Ranked n r
-tfromList0NR = Nested.rfromListPrimLinear
-  -- TODO: make this strict
+  => IShR n -> [Nested.Ranked 0 r] -> Nested.Ranked n r
+tfromList0NR sh l = case NonEmpty.nonEmpty l of
+  Nothing -> Nested.rreshape sh Nested.remptyArray
+  Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
 tfromVectorR
   :: forall n r. NumAndShow r
@@ -271,7 +275,7 @@ tfromVectorR = tfromListR . NonEmpty.fromList . V.toList
 
 tfromVector0NR
   :: NumAndShow r
-  => IShR n -> Data.Vector.Vector r -> Nested.Ranked n r
+  => IShR n -> Data.Vector.Vector (Nested.Ranked 0 r) -> Nested.Ranked n r
 tfromVector0NR sh = tfromList0NR sh . V.toList
 
 treplicateR
@@ -281,8 +285,8 @@ treplicateR n = Nested.rreplicate (n :$: ZSR)
 
 treplicate0NR
   :: NumAndShow r
-  => IShR n -> r -> Nested.Ranked n r
-treplicate0NR = Nested.rreplicateScal
+  => IShR n -> Nested.Ranked 0 r -> Nested.Ranked n r
+treplicate0NR sh = Nested.rreplicate sh
 
 tappendR
   :: NumAndShow r
@@ -608,11 +612,16 @@ tfromListX
    NonEmpty (Nested.Mixed sh r) -> Nested.Mixed (Just n ': sh) r
 tfromListX = error "TODO"
 
+-- TODO: make this strict
 tfromList0NS
-  :: forall r sh. (NumAndShow r, KnownShS sh)
-  => [r] -> Nested.Shaped sh r
-tfromList0NS = Nested.sfromListPrimLinear knownShS
-  -- TODO: make this strict
+  :: forall r sh. (NumAndShow r, KnownShS sh, KnownNat (Nested.Product sh))
+  => [Nested.Shaped '[] r] -> Nested.Shaped sh r
+tfromList0NS l = case NonEmpty.nonEmpty l of
+  Nothing -> case sameNat (Proxy @(Nested.Product sh)) (Proxy @0) of
+    Just Refl -> Nested.sreshape (knownShS @sh)
+                 $ Nested.semptyArray (knownShS @sh)
+    Nothing -> error "tfromList0NS: empty list, but not shape"
+  Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
 
 tfromVectorS
   :: forall n sh r. (NumAndShow r, KnownNat n)
@@ -625,8 +634,8 @@ tfromVectorX
 tfromVectorX = tfromListX . NonEmpty.fromList . V.toList
 
 tfromVector0NS
-  :: forall r sh. (NumAndShow r, KnownShS sh)
-  => Data.Vector.Vector r -> Nested.Shaped sh r
+  :: forall r sh. (NumAndShow r, KnownShS sh, KnownNat (Nested.Product sh))
+  => Data.Vector.Vector (Nested.Shaped '[] r) -> Nested.Shaped sh r
 tfromVector0NS = tfromList0NS . V.toList
 
 treplicateS
@@ -636,8 +645,8 @@ treplicateS = Nested.sreplicate (SNat @n :$$ ZSS)
 
 treplicate0NS
   :: forall r sh. (NumAndShow r, KnownShS sh)
-  => r -> Nested.Shaped sh r
-treplicate0NS = Nested.sreplicateScal knownShS
+  => Nested.Shaped '[] r -> Nested.Shaped sh r
+treplicate0NS | Refl <- lemAppNil @sh = Nested.sreplicate (knownShS @sh)
 
 tappendS
   :: forall r m n sh. NumAndShow r
