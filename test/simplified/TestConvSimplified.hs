@@ -21,6 +21,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.DeltaFreshId (resetIdCounter)
 import HordeAd.Core.OpsAst
 
 import CrossTesting
@@ -70,6 +71,8 @@ testTrees =
   , testCase "minimizedCNNOPP2" testCNNOPP2
   , testCase "minimizedCNNOPP3" testCNNOPP3
   , testCase "minimizedCNNOPP4" testCNNOPP4
+  , testCase "ConvTomsSlice" testTomsSlice
+  , testCase "ConvTomsSlicePP" testTomsSlicePP
   ]
 
 -- The examples reproduce and transformed in this file are borrowed
@@ -742,3 +745,37 @@ slicez4
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez4 shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz03 d (zipWith_Index (+) ixBase ixResult)
+
+codeTomsSlice :: ADReady target
+              => target (TKR 2 Double) -> target (TKR 0 Double)
+codeTomsSlice a =
+  let (n, m) = case rshape a of
+        [n', m'] -> (n', m')
+        _ -> error "codeTomsSlice"
+      a1 = rbuild @_ @_ @2 @0 [n,m-1] (\[i',j'] -> rindex0 a [i',j'])
+      a2 = rbuild [n,m-1] (\[i',j'] -> rindex0 a [i',j' + 1])
+  in rsum0 @_ @_ @2 $ rbuild [n,m] $ \[i, _j] ->
+       rfromIntegral (rfromS $ sfromPrimal i) * rsum0 (a1 * a2)
+
+testTomsSlice :: Assertion
+testTomsSlice = do
+  assertEqualUpToEpsilon' 1e-5
+    (ringestData [32,4] [63686.39999999999,137292.80000000002,121222.4,79558.40000000002,192646.40000000005,223971.0617601984,228556.80000000005,116846.33088019838,63686.39999999999,137292.80000000002,127174.4,79558.40000000002,192646.40000000005,158499.06176019844,202566.40000000005,51374.330880198424,11904.0,5952.0,7936.0,1984.0,116846.33088019838,385292.8000000001,227740.66176039676,192646.40000000005,116846.33088019838,228556.80000000005,174580.73088019836,35910.399999999994,79558.40000000002,127372.79999999997,143244.80000000002,63686.39999999999,105152.0,186683.13088000007,105151.98016,107124.73088000003,-396.79999999999995,26188.8,17459.2,25990.399999999998,-7936.0,73408.0,-1995.2691200000017,57536.0,51584.0,-660672.0,55552.0,3968.0,3968.0,3571.2,3571.2,-396.79999999999995,-396.79999999999995,49203.79519999998,49203.79519999998,49600.59519999998,49600.59519999998,49203.79519999998,49203.79519999998,-396.79999999999995,-396.79999999999995,49203.79519999998,49203.79519999998,49600.59519999998,49600.59519999998,129158.9952,65472.59519999998,79558.40000000002,-5952.0,73198.33087999995,51175.930880000036,51374.33087999995,51187.20000000001,1984.0000000000146,67059.20000000001,79558.40000000002,-5952.0,73198.33087999995,51175.930880000036,51374.33087999995,51187.20000000001,-21823.99999999993,108921.6,16070.400000000005,79558.40000000002,127372.79999999997,159116.80000000005,63686.39999999999,107124.73088000003,771974.4,218019.0617601984,192646.40000000005,170414.3308801984,385292.8000000001,340828.6617603968,192646.40000000005,57734.399999999994,99596.79999999999,137292.80000000002,63686.39999999999,79558.40000000002,127372.79999999997,159116.80000000005,63686.39999999999,107124.73088000003,236294.40000000005,271587.0617601984,192646.40000000005,45422.33088019842,385292.8000000001,162268.6617603968,192646.40000000005,57734.399999999994,99596.79999999999,137292.80000000002,63686.39999999999,79558.40000000002,127372.79999999997,159116.80000000005,63686.39999999999,107124.73088000003,369222.4,220003.0617601984,192646.40000000005,104942.33088019838,385292.8000000001,215836.66176039676,192646.40000000005])
+    (rev' codeTomsSlice (rreshape [32, 4] t128))
+
+testTomsSlicePP :: Assertion
+testTomsSlicePP = do
+  resetVarCounter >> resetIdCounter
+  let renames = IM.empty
+      f = codeTomsSlice
+      (artifactRev, delta) = revArtifactAdapt True f (rreshape [32, 4] t128)
+  printArtifactPretty renames artifactRev
+    @?= "\\x18 x1 -> let v14 = rreshape [96] (rgather [32,3] m1 (\\[i10, i11] -> [i10, i11])) ; v15 = rreshape [96] (rgather [32,3] m1 (\\[i12, i13] -> [i12, 1 + i13])) ; v16 = rfromIntegral (rfromS siota) ; x19 = rsum (v16 * rsum (rreshape [4,32] (rreplicate 128 x18))) in rscatter [32,4] (rreshape [32,3] (v15 * rreshape [96] (rreplicate 96 x19))) (\\[i22, i23] -> [i22, i23]) + rscatter [32,4] (rreshape [32,3] (v14 * rreshape [96] (rreplicate 96 x19))) (\\[i20, i21] -> [i20, 1 + i21])"
+  printArtifactPretty renames (simplifyArtifact artifactRev)
+    @?= "\\x18 x1 -> let x19 = rsum (rfromIntegral (rfromS siota) * (rreplicate 32 x18 * rreplicate 32 4.0)) in rscatter [32,4] (rgather [32,3] m1 (\\[i12, i13] -> [i12, 1 + i13]) * rreplicate 32 (rreplicate 3 x19)) (\\[i22, i23] -> [i22, i23]) + rscatter [32,4] (rgather [32,3] m1 (\\[i10, i11] -> [i10, i11]) * rreplicate 32 (rreplicate 3 x19)) (\\[i20, i21] -> [i20, 1 + i21])"
+  printArtifactPrimalPretty renames artifactRev
+    @?= "\\x1 -> let v14 = rreshape [96] (rgather [32,3] m1 (\\[i10, i11] -> [i10, i11])) ; v15 = rreshape [96] (rgather [32,3] m1 (\\[i12, i13] -> [i12, 1 + i13])) ; v16 = rfromIntegral (rfromS siota) ; v17 = rreplicate 32 (rsum (rreshape [96] (v14 * v15))) in rsum (rreshape [128] (rreplicate 4 (v16 * v17)))"
+  printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
+    @?= "\\x1 -> rsum (rgather [128] (rfromIntegral (rfromS siota) * rreplicate 32 (rsum (rgather [96] m1 (\\[i40] -> [remF (quotF i40 3) 32, remF i40 3]) * rgather [96] m1 (\\[i41] -> [remF (quotF i41 3) 32, 1 + remF i41 3])))) (\\[i39] -> [remF i39 32]))"
+  show delta
+    @?= "ShareG 100000011 (Sum0R (ShareG 100000010 (ReplicateR 4 (ShareG 100000009 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000016) (AstFromIntegral (AstRFromS AstIotaS))}) (ShareG 100000008 (ReplicateR 32 (ShareG 100000007 (AddG (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000015) (AstReshape [96] (AstGather [32,3] (AstVar (FTKR [32,4] FTKScalar) (AstVarId 100000001)) ([AstVarId 100000012,AstVarId 100000013],[AstVar (FTKS [] FTKScalar) (AstVarId 100000012),AstSumOfListS [AstConcreteS (sfromListLinear [] [1]),AstVar (FTKS [] FTKScalar) (AstVarId 100000013)]])))}) (ShareG 100000002 (ReshapeR [96] (ShareG 100000001 (GatherR [32,3] (InputG (FTKR [32,4] FTKScalar) (InputId 0)) <function>))))) (Dot0R (AstRaw {unAstRaw = AstShare (AstVarId 100000014) (AstReshape [96] (AstGather [32,3] (AstVar (FTKR [32,4] FTKScalar) (AstVarId 100000001)) ([AstVarId 100000010,AstVarId 100000011],[AstVar (FTKS [] FTKScalar) (AstVarId 100000010),AstVar (FTKS [] FTKScalar) (AstVarId 100000011)])))}) (ShareG 100000006 (ReshapeR [96] (ShareG 100000005 (GatherR [32,3] (InputG (FTKR [32,4] FTKScalar) (InputId 0)) <function>))))))))))))))"
