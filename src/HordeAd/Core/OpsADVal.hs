@@ -16,6 +16,7 @@ import Prelude hiding (foldl')
 
 import Data.List (foldl')
 import Data.List.Index (imap)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
@@ -24,8 +25,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested
-  (IShR, KnownShS (..), Rank, ShR (..), pattern (:$:), pattern ZSR)
+import Data.Array.Nested (IShR, KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -299,12 +299,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
           => Int -> (IntOf (ADVal target) -> ADVal target (TKR n r))
           -> ADVal target (TKR (1 + n) r)
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
+    Just Refl -> rconcrete Nested.remptyArray
                    -- the only case where we can guess sh
-    _ ->  error "rbuild1: shape ambiguity, no arguments"
-  rbuild1 k f = rfromList $ NonEmpty.fromList
-                          $ map (f . fromIntegral) [0 .. k - 1]
-                   -- element-wise (POPL) version
+    Nothing ->  error "rbuild1: shape ambiguity"
+  rbuild1 k f = rfromList $ NonEmpty.map (f . fromIntegral)
+                          $ (0 :: Int) :| [1 .. k - 1]
+    -- element-wise (POPL) version
   rgather sh (D u u') f =
     let g x = sprimalPart <$> f (sfromPrimal <$> x)
     in dD (rgather sh u g) (GatherR sh u' g)
@@ -394,12 +394,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
           => (IntOf (ADVal target) -> ADVal target (TKS sh r))
           -> ADVal target (TKS (n ': sh) r)
-  sbuild1 f = case valueOf @n of
-    0 -> sconcrete $ Nested.sfromListPrimLinear knownShS []
-    k -> sfromList $ NonEmpty.fromList
-                   $ map (f . fromIntegral)
-                         [0 :: Int .. k - 1]
-           -- element-wise (POPL) version
+  sbuild1 f = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> sconcrete $ Nested.semptyArray (knownShS @sh)
+    Nothing -> sfromList $ NonEmpty.map (f . fromIntegral)
+                         $ (0 :: Int) :| [1 .. valueOf @n - 1]
+      -- element-wise (POPL) version
   sgather (D u u') f =
     let g x = sprimalPart <$> f (sfromPrimal <$> x)
     in dD (sgather u g) (GatherS u' g)

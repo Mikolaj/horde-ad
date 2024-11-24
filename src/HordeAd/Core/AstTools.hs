@@ -41,7 +41,7 @@ import HordeAd.Util.SizedList
 -- * Shape calculation
 
 ftkAst :: forall s y ms. TensorKind y
-             => AstTensor ms s y -> FullTensorKind y
+       => AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
   AstScalar{} -> FTKR ZSR FTKScalar
   AstUnScalar{} -> FTKScalar
@@ -157,13 +157,14 @@ ftkAst t = case t of
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: forall n s r ms. (KnownNat n, GoodScalar r)
-         => AstTensor ms s (TKR n r) -> IShR n
+shapeAst :: forall n s x ms. (KnownNat n, TensorKind x)
+         => AstTensor ms s (TKR2 n x) -> IShR n
 shapeAst t = case ftkAst t of
   FTKR sh _ -> sh
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, GoodScalar r) => AstTensor ms s (TKR (1 + n) r) -> Int
+lengthAst :: (KnownNat n, TensorKind x)
+          => AstTensor ms s (TKR2 (1 + n) x) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
   ZSR -> error "lengthAst: impossible pattern needlessly required"

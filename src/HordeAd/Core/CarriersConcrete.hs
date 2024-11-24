@@ -3,7 +3,6 @@
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Core.CarriersConcrete
   ( IIxR64, IIxS64
-  , Nested.Ranked, Nested.Shaped, Nested.Mixed
   , RepORArray, RepN(..)
   ) where
 
