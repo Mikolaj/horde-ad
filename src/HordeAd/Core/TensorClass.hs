@@ -157,12 +157,12 @@ class ( Num (IntOf target)
   runRepScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
 
   -- Integer codomain
-  rshape :: (GoodScalar r, KnownNat n) => target (TKR n r) -> IShR n
+  rshape :: GoodScalar r => target (TKR n r) -> IShR n
   rrank :: forall r n. (GoodScalar r, KnownNat n) => target (TKR n r) -> Int
   rrank _ = valueOf @n
-  rsize :: (GoodScalar r, KnownNat n) => target (TKR n r) -> Int
+  rsize :: GoodScalar r => target (TKR n r) -> Int
   rsize = sizeShape . rshape
-  rlength :: (GoodScalar r, KnownNat n) => target (TKR (1 + n) r) -> Int
+  rlength :: GoodScalar r => target (TKR (1 + n) r) -> Int
   rlength v = case rshape v of
     ZSR -> error "rlength: impossible pattern needlessly required"
     k :$: _ -> k

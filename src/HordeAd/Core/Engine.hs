@@ -163,8 +163,8 @@ revProduceArtifactWithoutInterpretation hasDt f =
   revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f)
 
 forwardPassByApplication
-  :: forall x z. TensorKind x
-  => (ADVal (AstRaw PrimalSpan) x
+  :: forall x z.
+     (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
   -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x

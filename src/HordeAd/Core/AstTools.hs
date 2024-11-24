@@ -24,7 +24,7 @@ import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, sameNat, type (+))
+import GHC.TypeLits (sameNat, type (+))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -40,8 +40,7 @@ import HordeAd.Util.SizedList
 
 -- * Shape calculation
 
-ftkAst :: forall s y ms. TensorKind y
-       => AstTensor ms s y -> FullTensorKind y
+ftkAst :: forall s y ms. AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
   AstScalar{} -> FTKR ZSR FTKScalar
   AstUnScalar{} -> FTKScalar
@@ -157,14 +156,12 @@ ftkAst t = case t of
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: forall n s x ms. (KnownNat n, TensorKind x)
-         => AstTensor ms s (TKR2 n x) -> IShR n
+shapeAst :: forall n s x ms. AstTensor ms s (TKR2 n x) -> IShR n
 shapeAst t = case ftkAst t of
   FTKR sh _ -> sh
 
 -- Length of the outermost dimension.
-lengthAst :: (KnownNat n, TensorKind x)
-          => AstTensor ms s (TKR2 (1 + n) x) -> Int
+lengthAst :: forall n s x ms. AstTensor ms s (TKR2 (1 + n) x) -> Int
 {-# INLINE lengthAst #-}
 lengthAst v1 = case shapeAst v1 of
   ZSR -> error "lengthAst: impossible pattern needlessly required"
@@ -174,7 +171,7 @@ shapeAstHVector :: AstTensor ms s TKUntyped -> VoidHVector
 shapeAstHVector t = case ftkAst t of
   FTKUntyped shs -> shs
 
-shapeAstHFun :: TensorKind y => AstHFun x y -> FullTensorKind y
+shapeAstHFun :: AstHFun x y -> FullTensorKind y
 shapeAstHFun = \case
   AstLambda ~(_vvars, _, l) -> ftkAst l
 
@@ -185,8 +182,7 @@ shapeAstHFun = \case
 -- and nobody asks about occurrences of variables that are bound.
 -- This keeps the occurrence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
-varInAst :: AstSpan s
-         => AstVarId -> AstTensor ms s y -> Bool
+varInAst :: AstVarId -> AstTensor ms s y -> Bool
 varInAst var = \case
   AstScalar t -> varInAst var t
   AstUnScalar t -> varInAst var t
@@ -303,8 +299,7 @@ varInIndexS var = any (varInAst var)
 varInIndexX :: AstVarId -> AstIndexX ms sh -> Bool
 varInIndexX var = any (varInAst var)
 
-varInAstDynamic :: AstSpan s
-                => AstVarId -> AstDynamic ms s -> Bool
+varInAstDynamic :: AstVarId -> AstDynamic ms s -> Bool
 varInAstDynamic var = \case
   DynamicRanked t -> varInAst var t
   DynamicShaped t -> varInAst var t
@@ -322,8 +317,7 @@ varInAstBool var = \case
   AstBoolConst{} -> False
   AstRel _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
-varNameInAst :: AstSpan s2
-             => AstVarName f y -> AstTensor ms s2 y2 -> Bool
+varNameInAst :: AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
 
 

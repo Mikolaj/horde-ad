@@ -84,7 +84,7 @@ updateNR arr upd =
   in Nested.rfromVector sh (foldl' f values upd)
 
 tshapeR
-  :: NumAndShow r
+  :: Nested.Elt r
   => Nested.Ranked n r -> IShR n
 tshapeR = Nested.rshape
 
