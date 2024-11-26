@@ -338,9 +338,15 @@ printAstAux cfg d = \case
       . printAst cfg 11 v
   AstToShare v -> printAstAux cfg d v  -- ignored
   AstConcrete FTKScalar a -> shows a
-  AstConcrete (FTKR ZSR FTKScalar) a -> shows $ Nested.runScalar $ unRepN a
-  AstConcrete (FTKS ZSS FTKScalar) a -> shows $ Nested.sunScalar $ unRepN a
-  AstConcrete (FTKX ZSX FTKScalar) a -> shows $ Nested.munScalar $ unRepN a
+  AstConcrete (FTKR ZSR FTKScalar) a -> showParen (d > 10)
+                                        $ showString "rscalar "
+                                          . shows (Nested.runScalar $ unRepN a)
+  AstConcrete (FTKS ZSS FTKScalar) a -> showParen (d > 10)
+                                        $ showString "sscalar "
+                                          . shows (Nested.sunScalar $ unRepN a)
+  AstConcrete (FTKX ZSX FTKScalar) a -> showParen (d > 10)
+                                        $ showString "xscalar "
+                                          . shows (Nested.munScalar $ unRepN a)
   AstConcrete ftk a -> showParen (d > 10)
                        $ showString ("tconcrete (" ++ show ftk ++ ") ")
                          . (showParen True

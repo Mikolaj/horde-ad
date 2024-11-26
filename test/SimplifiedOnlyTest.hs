@@ -34,14 +34,14 @@ tests :: TestTree
 tests =
   testGroup "Tests for simplified horde-ad"
     [ testGroup "Short_tests"
-        (TestGatherSimplified.testTrees
-         ++ TestHighRankSimplified.testTrees
+        (TestAdaptorSimplified.testTrees
          ++ TestConvSimplified.testTrees
-         ++ TestAdaptorSimplified.testTrees
+         ++ TestGatherSimplified.testTrees
+         ++ TestHighRankSimplified.testTrees
          ++ TestRevFwdFold.testTrees)
     , testGroup "Neural_network_tests"
-        (TestMnistFCNNR.testTrees
-         ++ TestMnistCNNR.testTrees
+        (TestMnistCNNR.testTrees
+         ++ TestMnistFCNNR.testTrees
          ++ TestMnistRNNR.testTrees
          ++ TestMnistRNNS.testTrees)
     ]
