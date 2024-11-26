@@ -50,6 +50,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
@@ -518,8 +519,9 @@ interpretAst !env = \case
         t2 = interpretAst env y
     in rappend t1 t2
   AstSlice i n AstIota ->
-    interpretAst env
-    $ AstConcrete $ Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
+    let u = Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
+    in interpretAst env
+       $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
   AstSlice i n v -> rslice i n (interpretAst env v)
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
@@ -551,7 +553,7 @@ interpretAst !env = \case
   AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
   AstFromIntegral v ->
     rfromIntegral $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstConcrete a -> rconcrete a
+  AstConcrete _ a -> undefined  -- TODO tconcrete a
   AstProjectR l p ->
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
@@ -775,7 +777,8 @@ interpretAst !env = \case
     let i = valueOf @i
         n = valueOf @n
     in interpretAst env
-       $ AstConcreteS $ Nested.sfromListPrimLinear Nested.knownShS
+       $ AstConcrete (FTKS knownShS FTKScalar)
+       $ RepN $ Nested.sfromListPrimLinear Nested.knownShS
        $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
   AstReverseS v -> sreverse (interpretAst env v)
@@ -809,7 +812,6 @@ interpretAst !env = \case
   AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
   AstFromIntegralS v ->
     sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstConcreteS a -> sconcrete a
   AstProjectS l p ->
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
@@ -867,7 +869,6 @@ interpretAst !env = \case
   AstGatherX _v (_vars, _ix) -> error "TODO"
   AstCastX _v ->  error "TODO"
   AstFromIntegralX _v -> error "TODO"
-  AstConcreteX a -> xconcrete a
   AstProjectX _l _p -> error "TODO"
   AstXFromR _v ->  error "TODO"
 

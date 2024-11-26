@@ -16,17 +16,18 @@ import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
 import Data.Maybe (fromJust)
-import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (fromSNat, sameNat)
+import GHC.TypeLits (fromSNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Nested (ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsRank)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
@@ -79,9 +80,10 @@ areAllArgsInts = \case
   AstCond{} -> True  -- too early to tell
   AstReplicate{} -> False
   AstBuild1{} -> False
-
   AstLet{} -> True  -- too early to tell, but displays the same
   AstShare{} -> True  -- too early to tell
+  AstConcrete{} -> True
+
   AstMinIndexS{} -> False
   AstMaxIndexS{} -> False
   AstFloorS{} -> False
@@ -104,7 +106,6 @@ areAllArgsInts = \case
   AstGatherS{} -> False
   AstCastS{} -> False
   AstFromIntegralS{} -> True
-  AstConcreteS{} -> True
   AstProjectS{} -> True  -- too early to tell
   AstLetHVectorIn{} -> True  -- too early to tell
   AstSFromR{} -> False
@@ -187,16 +188,16 @@ printAst cfgOld d t =
   if representsIntIndex cfgOld
   then case t of
     AstVar _ var ->
-      case isTensorInt t of  -- TODO: really needed?
+      case isTensorInt t of  -- TODO: really needed? use ftk instead of t?
         Just Refl ->  -- the heuristics may have been correct
           printAstIntVar cfgOld var
         _ ->  -- the heuristics failed
           let cfg = cfgOld {representsIntIndex = False}
           in printAstAux cfg d t
-    AstConcreteS i ->
+    AstConcrete _ i ->
       case isTensorInt t of  -- TODO: really needed?
         Just Refl ->  -- the heuristics may have been correct
-          shows $ Nested.sunScalar i
+          shows $ Nested.sunScalar $ unRepN i
         _ ->  -- the heuristics failed
           let cfg = cfgOld {representsIntIndex = False}
           in printAstAux cfg d t
@@ -336,6 +337,14 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 v
   AstToShare v -> printAstAux cfg d v  -- ignored
+  AstConcrete FTKScalar a -> shows a
+  AstConcrete (FTKR ZSR FTKScalar) a -> shows $ Nested.runScalar $ unRepN a
+  AstConcrete (FTKS ZSS FTKScalar) a -> shows $ Nested.sunScalar $ unRepN a
+  AstConcrete (FTKX ZSX FTKScalar) a -> shows $ Nested.munScalar $ unRepN a
+  AstConcrete ftk a -> showParen (d > 10)
+                       $ showString ("tconcrete (" ++ show ftk ++ ") ")
+                         . (showParen True
+                            $ shows a)
 
   AstMinIndex a ->
     printPrefixOp printAst cfg d "rminIndex" [a]
@@ -389,12 +398,6 @@ printAstAux cfg d = \case
   AstCast v -> printPrefixOp printAst cfg d "rcast" [v]
   AstFromIntegral a ->
     printPrefixOp printAst cfg d "rfromIntegral" [a]
-  AstConcrete @n a ->
-    case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl -> shows $ Nested.runScalar a
-      _ -> showParen (d > 10)
-           $ showString "rconcrete "
-             . showParen True (shows a)
   AstProjectR l p ->
     showParen (d > 10)
     $ showString "rproject "  -- fake, no such surface syntax
@@ -493,13 +496,6 @@ printAstAux cfg d = \case
   AstCastS v -> printPrefixOp printAst cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAst cfg d "sfromIntegral" [a]
-  AstConcreteS @sh a ->
-    case sameShape @sh @'[] of
-      Just Refl -> shows $ Nested.sunScalar a
-      _ -> showParen (d > 10)
-           $ showString ("sconcrete @" ++ show (shapeT @sh) ++ " ")
-             . (showParen True
-                $ shows a)
   AstProjectS l p ->
     showParen (d > 10)
     $ showString "sproject "  -- fake, no such surface syntax

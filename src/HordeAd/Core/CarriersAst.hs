@@ -21,6 +21,9 @@ import Data.Array.Nested (KnownShS (..), KnownShX)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Ast
+import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.HVector
+import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.Types
 
 -- * Basic type family instances
@@ -53,33 +56,35 @@ instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
          => Num (AstTensor ms s (TKR n r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcrete u : lu) + AstSumOfList (AstConcrete v : lv) =
-    AstSumOfList (AstConcrete (u + v) : lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete v : lv) =
-    AstSumOfList (AstConcrete v : lv ++ lu)
+  AstSumOfList (AstConcrete ftk u : lu) + AstSumOfList (AstConcrete _ v : lv) =
+    AstSumOfList (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete ftk v : lv) =
+    AstSumOfList (AstConcrete ftk v : lv ++ lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
 
-  AstConcrete u + AstSumOfList (AstConcrete v : lv) =
-    AstSumOfList (AstConcrete (u + v) : lv)
-  u + AstSumOfList (AstConcrete v : lv) = AstSumOfList (AstConcrete v : u : lv)
+  AstConcrete ftk u + AstSumOfList (AstConcrete _ v : lv) =
+    AstSumOfList (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfList (AstConcrete ftk v : lv) = AstSumOfList (AstConcrete ftk v : u : lv)
   u + AstSumOfList lv = AstSumOfList (u : lv)
 
-  AstSumOfList (AstConcrete u : lu) + AstConcrete v =
-    AstSumOfList (AstConcrete (u + v) : lu)
-  AstSumOfList (AstConcrete u : lu) + v = AstSumOfList (AstConcrete u : v : lu)
+  AstSumOfList (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfList (AstConcrete ftk (u + v) : lu)
+  AstSumOfList (AstConcrete ftk u : lu) + v = AstSumOfList (AstConcrete ftk u : v : lu)
   AstSumOfList lu + v = AstSumOfList (v : lu)
 
-  AstConcrete u + AstConcrete v = AstConcrete (u + v)
-  u + AstConcrete v = AstSumOfList [AstConcrete v, u]
+  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
+  u + AstConcrete ftk v = AstSumOfList [AstConcrete ftk v, u]
   u + v = AstSumOfList [u, v]
 
-  AstConcrete u - AstConcrete v = AstConcrete (u - v)  -- common in indexing
+  AstConcrete ftk u - AstConcrete _ v =
+    AstConcrete ftk (u - v)  -- common in indexing
   u - v = AstN2 MinusOp u v
 
-  AstConcrete u * AstConcrete v = AstConcrete (u * v)  -- common in indexing
+  AstConcrete ftk u * AstConcrete _ v =
+    AstConcrete ftk (u * v)  -- common in indexing
   u * v = AstN2 TimesOp u v
 
-  negate (AstConcrete u) = AstConcrete $ negate u  -- common in indexing
+  negate (AstConcrete ftk u) = AstConcrete ftk $ negate u  -- common in indexing
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
   signum = AstN1 SignumOp
@@ -103,7 +108,7 @@ instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), KnownN
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
          => Floating (AstTensor ms s (TKR n r)) where
-  pi = fromPrimal $ AstConcrete pi
+  pi = error "pi not defined for ranked tensors"
   exp = AstR1 ExpOp
   log = AstR1 LogOp
   sqrt = AstR1 SqrtOp
@@ -133,30 +138,34 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
          => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListS (AstConcreteS u : lu) + AstSumOfListS (AstConcreteS v : lv) =
-    AstSumOfListS (AstConcreteS (u + v) : lu ++ lv)
-  AstSumOfListS lu + AstSumOfListS (AstConcreteS v : lv) =
-    AstSumOfListS (AstConcreteS v : lv ++ lu)
+  AstSumOfListS (AstConcrete ftk u : lu) + AstSumOfListS (AstConcrete _ v : lv) =
+    AstSumOfListS (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfListS lu + AstSumOfListS (AstConcrete ftk v : lv) =
+    AstSumOfListS (AstConcrete ftk v : lv ++ lu)
   AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
 
-  AstConcreteS u + AstSumOfListS (AstConcreteS v : lv) =
-    AstSumOfListS (AstConcreteS (u + v) : lv)
-  u + AstSumOfListS (AstConcreteS v : lv) = AstSumOfListS (AstConcreteS v : u : lv)
+  AstConcrete ftk u + AstSumOfListS (AstConcrete _ v : lv) =
+    AstSumOfListS (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfListS (AstConcrete ftk v : lv) =
+    AstSumOfListS (AstConcrete ftk v : u : lv)
   u + AstSumOfListS lv = AstSumOfListS (u : lv)
 
-  AstSumOfListS (AstConcreteS u : lu) + AstConcreteS v =
-    AstSumOfListS (AstConcreteS (u + v) : lu)
-  AstSumOfListS (AstConcreteS u : lu) + v = AstSumOfListS (AstConcreteS u : v : lu)
+  AstSumOfListS (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfListS (AstConcrete ftk (u + v) : lu)
+  AstSumOfListS (AstConcrete ftk u : lu) + v =
+    AstSumOfListS (AstConcrete ftk u : v : lu)
   AstSumOfListS lu + v = AstSumOfListS (v : lu)
 
-  AstConcreteS u + AstConcreteS v = AstConcreteS (u + v)
-  u + AstConcreteS v = AstSumOfListS [AstConcreteS v, u]
+  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
+  u + AstConcrete ftk v = AstSumOfListS [AstConcrete ftk v, u]
   u + v = AstSumOfListS [u, v]
 
-  AstConcreteS u - AstConcreteS v = AstConcreteS (u - v)  -- common in indexing
+  AstConcrete ftk u - AstConcrete _ v =
+    AstConcrete ftk (u - v)  -- common in indexing
   u - v = AstN2S MinusOp u v
 
-  AstConcreteS u * AstConcreteS v = AstConcreteS (u * v)  -- common in indexing
+  AstConcrete ftk u * AstConcrete _ v =
+    AstConcrete ftk (u * v)  -- common in indexing
   u * v = AstN2S TimesOp u v
 
   negate = AstN1S NegateOp
@@ -164,7 +173,8 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
   signum = AstN1S SignumOp
   fromInteger :: Integer -> AstTensor ms s (TKS sh r)
   fromInteger i = case sameShape @sh @'[] of
-    Just Refl -> fromPrimal . AstConcreteS . fromInteger $ i
+    Just Refl ->
+      fromPrimal . AstConcrete (FTKS knownShS FTKScalar) . fromInteger $ i
     Nothing -> error $ "fromInteger not defined for tensors of non-empty shapes: "
                        ++ show (i, knownShS @sh)
     -- it's crucial that there is no AstFromPrimal in fromInteger code
@@ -188,7 +198,7 @@ instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
-  pi = fromPrimal $ AstConcreteS pi
+  pi = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) (RepN pi)
   exp = AstR1S ExpOp
   log = AstR1S LogOp
   sqrt = AstR1S SqrtOp
@@ -218,30 +228,32 @@ instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
          => Num (AstTensor ms s (TKX sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListX (AstConcreteX u : lu) + AstSumOfListX (AstConcreteX v : lv) =
-    AstSumOfListX (AstConcreteX (u + v) : lu ++ lv)
-  AstSumOfListX lu + AstSumOfListX (AstConcreteX v : lv) =
-    AstSumOfListX (AstConcreteX v : lv ++ lu)
+  AstSumOfListX (AstConcrete ftk u : lu) + AstSumOfListX (AstConcrete _ v : lv) =
+    AstSumOfListX (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfListX lu + AstSumOfListX (AstConcrete ftk v : lv) =
+    AstSumOfListX (AstConcrete ftk v : lv ++ lu)
   AstSumOfListX lu + AstSumOfListX lv = AstSumOfListX (lu ++ lv)
 
-  AstConcreteX u + AstSumOfListX (AstConcreteX v : lv) =
-    AstSumOfListX (AstConcreteX (u + v) : lv)
-  u + AstSumOfListX (AstConcreteX v : lv) = AstSumOfListX (AstConcreteX v : u : lv)
+  AstConcrete ftk u + AstSumOfListX (AstConcrete _ v : lv) =
+    AstSumOfListX (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfListX (AstConcrete ftk v : lv) = AstSumOfListX (AstConcrete ftk v : u : lv)
   u + AstSumOfListX lv = AstSumOfListX (u : lv)
 
-  AstSumOfListX (AstConcreteX u : lu) + AstConcreteX v =
-    AstSumOfListX (AstConcreteX (u + v) : lu)
-  AstSumOfListX (AstConcreteX u : lu) + v = AstSumOfListX (AstConcreteX u : v : lu)
+  AstSumOfListX (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfListX (AstConcrete ftk (u + v) : lu)
+  AstSumOfListX (AstConcrete ftk u : lu) + v = AstSumOfListX (AstConcrete ftk u : v : lu)
   AstSumOfListX lu + v = AstSumOfListX (v : lu)
 
-  AstConcreteX u + AstConcreteX v = AstConcreteX (u + v)
-  u + AstConcreteX v = AstSumOfListX [AstConcreteX v, u]
+  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
+  u + AstConcrete ftk v = AstSumOfListX [AstConcrete ftk v, u]
   u + v = AstSumOfListX [u, v]
 
-  AstConcreteX u - AstConcreteX v = AstConcreteX (u - v)  -- common in indexing
+  AstConcrete ftk u - AstConcrete _ v =
+    AstConcrete ftk (u - v)  -- common in indexing
   u - v = AstN2X MinusOp u v
 
-  AstConcreteX u * AstConcreteX v = AstConcreteX (u * v)  -- common in indexing
+  AstConcrete ftk u * AstConcrete _ v =
+    AstConcrete ftk (u * v)  -- common in indexing
   u * v = AstN2X TimesOp u v
 
   negate = AstN1X NegateOp
@@ -268,7 +280,7 @@ instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
-  pi = fromPrimal $ AstConcreteX pi
+  pi = error "pi not defined for mixed tensors"
   exp = AstR1X ExpOp
   log = AstR1X LogOp
   sqrt = AstR1X SqrtOp

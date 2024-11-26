@@ -57,6 +57,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 
@@ -277,6 +278,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
            -> AstTensor AstMethodShare s y
   AstToShare :: AstTensor AstMethodLet s y
              -> AstTensor AstMethodShare s y
+  AstConcrete :: TensorKind y
+              => FullTensorKind y -> RepN y -> AstTensor ms PrimalSpan y
 
   -- Here starts the ranked part.
   -- The r variable is often existential here, so a proper specialization needs
@@ -346,8 +349,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
           => AstTensor ms s (TKR n r1) -> AstTensor ms s (TKR n r2)
   AstFromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                   => AstTensor ms PrimalSpan (TKR n r1) -> AstTensor ms PrimalSpan (TKR n r2)
-  AstConcrete :: forall n r ms. (GoodScalar r, KnownNat n)
-           => Nested.Ranked n r -> AstTensor ms PrimalSpan (TKR n r)
   AstProjectR :: (GoodScalar r, KnownNat n)
              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKR n r)
   AstLetHVectorIn :: forall s s2 z. (AstSpan s, TensorKind z)
@@ -439,8 +440,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstFromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
                    => AstTensor ms PrimalSpan (TKS sh r1)
                    -> AstTensor ms PrimalSpan (TKS sh r2)
-  AstConcreteS :: forall sh r ms. (GoodScalar r, KnownShS sh)
-            => Nested.Shaped sh r -> AstTensor ms PrimalSpan (TKS sh r)
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
   AstNestS :: forall r sh1 sh2 ms s.
@@ -537,8 +536,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstFromIntegralX :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
                    => AstTensor ms PrimalSpan (TKX sh r1)
                    -> AstTensor ms PrimalSpan (TKX sh r2)
-  AstConcreteX :: forall sh r ms. (GoodScalar r, KnownShX sh)
-            => Nested.Mixed sh r -> AstTensor ms PrimalSpan (TKX sh r)
   AstProjectX :: (GoodScalar r, KnownShX sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKX sh r)
   AstXFromR :: (KnownShX sh, KnownNat (Rank sh), GoodScalar r)

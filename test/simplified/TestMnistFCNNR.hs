@@ -711,7 +711,7 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
+                     ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan)
                                                          Double
               -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
@@ -731,7 +731,7 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
+                     ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                          (AstTensor AstMethodLet FullSpan) Double
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
@@ -762,7 +762,7 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
+                     ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstTensor AstMethodLet FullSpan) Double
               -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
@@ -784,18 +784,18 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Float))
+                     ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Float))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Float
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Float)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstCast $ AstFromPrimal $ AstConcrete $ unRepN a1
-                      , AstCast $ AstFromPrimal $ AstConcrete $ unRepN a2 )
-                    , ( AstFromPrimal $ AstCast $ AstConcrete $ unRepN a3
-                      , AstFromPrimal $ AstCast $ AstConcrete $ unRepN a4 )
-                    , ( AstCast $ AstFromPrimal $ AstConcrete $ unRepN a5
-                      , AstFromPrimal $ AstCast $ AstConcrete $ unRepN a6 ) )
+                 in ( ( AstCast $ AstFromPrimal $ AstConcrete (FTKR [2] FTKScalar) a1
+                      , AstCast $ AstFromPrimal $ AstConcrete (FTKR [1] FTKScalar) a2 )
+                    , ( AstFromPrimal $ AstCast $ AstConcrete (FTKR [2] FTKScalar) a3
+                      , AstFromPrimal $ AstCast $ AstConcrete (FTKR [1] FTKScalar) a4 )
+                    , ( AstCast $ AstFromPrimal $ AstConcrete (FTKR [2] FTKScalar) a5
+                      , AstFromPrimal $ AstCast $ AstConcrete (FTKR [1] FTKScalar) a6 ) )
       (_, ast3) = funToAst (FTKR (singletonShape 0) (FTKScalar @Float))
                            (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
@@ -806,7 +806,7 @@ testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = AstReplicate (SNat @3)
-                     ((fromPrimal . AstConcrete) (Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
+                     ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Double)

@@ -566,7 +566,7 @@ testRNNOPP = do
       blackGlyph = AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @1)
-                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+                       (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
@@ -592,7 +592,7 @@ testRNNOPP2 = do
       blackGlyph = AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
                    $ AstReplicate (SNat @2)
-                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+                       (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)

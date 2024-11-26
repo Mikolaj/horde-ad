@@ -397,7 +397,7 @@ testCNNOPP = do
                    $ AstReplicate (SNat @1)
                    $ AstReplicate (SNat @4)
                    $ AstReplicate (SNat @4)
-                       (AstConcrete (Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+                       (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN Double
       valsInit =
         forgetShape $ fst

@@ -28,10 +28,12 @@ import GHC.TypeLits (sameNat, type (+))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape (shxSize)
 import Data.Array.Nested
   (IShR, KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
-import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shrSize, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+
 
 import HordeAd.Core.Ast
 import HordeAd.Core.HVector
@@ -57,10 +59,11 @@ ftkAst t = case t of
   AstCond _b v _w -> ftkAst v
   AstReplicate snat v -> buildFullTensorKind snat (ftkAst v)
   AstBuild1 snat (_var, v) -> buildFullTensorKind snat (ftkAst v)
-
   AstLet _ _ v -> ftkAst v
   AstShare _ v -> ftkAst v
   AstToShare v -> ftkAst v
+  AstConcrete ftk _ -> ftk
+
   AstMinIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
   AstMaxIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
   AstFloor a -> FTKR (shapeAst a)  FTKScalar
@@ -95,7 +98,6 @@ ftkAst t = case t of
   AstGather sh _v (_vars, _ix) -> FTKR sh FTKScalar
   AstCast v -> FTKR (shapeAst v) FTKScalar
   AstFromIntegral a -> FTKR (shapeAst a) FTKScalar
-  AstConcrete a -> FTKR (Nested.rshape a) FTKScalar
   AstProjectR l p -> case shapeAstHVector l V.! p of
     DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
@@ -130,7 +132,6 @@ ftkAst t = case t of
   AstGatherS{} -> FTKS knownShS FTKScalar
   AstCastS{} -> FTKS knownShS FTKScalar
   AstFromIntegralS{} -> FTKS knownShS FTKScalar
-  AstConcreteS{} -> FTKS knownShS FTKScalar
   AstProjectS{} -> FTKS knownShS FTKScalar
   AstNestS{} -> FTKS knownShS (FTKS knownShS FTKScalar)
   AstUnNestS{} -> FTKS knownShS FTKScalar
@@ -197,10 +198,11 @@ varInAst var = \case
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstReplicate _ v -> varInAst var v
   AstBuild1 _ (_var2, v) -> varInAst var v
-
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
   AstToShare v -> varInAst var v
+  AstConcrete{} -> False
+
   AstMinIndex a -> varInAst var a
   AstMaxIndex a -> varInAst var a
   AstFloor a -> varInAst var a
@@ -223,7 +225,6 @@ varInAst var = \case
   AstGather _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
-  AstConcrete{} -> False
   AstProjectR l _p -> varInAst var l  -- conservative
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
   AstRFromS v -> varInAst var v
@@ -250,7 +251,6 @@ varInAst var = \case
   AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAst var v
   AstCastS t -> varInAst var t
   AstFromIntegralS a -> varInAst var a
-  AstConcreteS{} -> False
   AstProjectS l _p -> varInAst var l  -- conservative
   AstNestS v -> varInAst var v
   AstUnNestS v -> varInAst var v
@@ -278,7 +278,6 @@ varInAst var = \case
   AstGatherX v (_vars, ix) -> varInIndexX var ix || varInAst var v
   AstCastX t -> varInAst var t
   AstFromIntegralX a -> varInAst var a
-  AstConcreteX{} -> False
   AstProjectX l _p -> varInAst var l  -- conservative
   AstXFromR v -> varInAst var v
 
@@ -336,6 +335,11 @@ astIsSmall relaxed = \case
   AstFromPrimal v -> astIsSmall relaxed v
   AstReplicate _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
+  AstConcrete FTKScalar _ -> True
+  AstConcrete (FTKR sh FTKScalar) _ -> shrSize sh <= 1
+  AstConcrete (FTKS sh FTKScalar) _ -> shsSize sh <= 1
+  AstConcrete (FTKX sh FTKScalar) _ -> shxSize sh <= 1
+  AstConcrete{} -> False
 
   AstIota -> True
   AstFromVector v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
@@ -343,7 +347,6 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
-  AstConcrete c -> Nested.rsize c <= 1
   AstProjectR t _ -> astIsSmall relaxed t
   AstRFromS v -> astIsSmall relaxed v
 
@@ -353,8 +356,6 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTransposeS _perm v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
-  AstConcreteS c ->
-    Nested.ssize c <= 1
   AstProjectS t _ -> astIsSmall relaxed t
   AstSFromR v -> astIsSmall relaxed v
 

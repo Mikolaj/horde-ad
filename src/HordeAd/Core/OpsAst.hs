@@ -24,6 +24,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 
 import Data.Array.Nested (IShR, KnownShS (..))
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
@@ -43,6 +44,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal (unADValRep)
+import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
@@ -156,27 +158,26 @@ instance IfF (AstTensor AstMethodLet s) where
   ifF cond a b = astCond cond a b
 
 instance AstSpan s => EqF (AstTensor AstMethodLet s) where
-  AstConcrete u ==. AstConcrete v = AstBoolConst $ u == v
+  AstConcrete _ u ==. AstConcrete _ v = AstBoolConst $ u ==. v
     -- common in indexing
   v ==. u = AstRel EqOp (astSpanPrimal v) (astSpanPrimal u)
-  AstConcrete u /=. AstConcrete v = AstBoolConst $ u /= v
+  AstConcrete _ u /=. AstConcrete _ v = AstBoolConst $ u /=. v
     -- common in indexing
   v /=. u = AstRel NeqOp (astSpanPrimal v) (astSpanPrimal u)
 
 instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
-  AstConcrete u <. AstConcrete v = AstBoolConst $ u < v
+  AstConcrete _ u <. AstConcrete _ v = AstBoolConst $ u <. v
     -- common in indexing
   v <. u = AstRel LsOp (astSpanPrimal v) (astSpanPrimal u)
-  AstConcrete u <=. AstConcrete v = AstBoolConst $ u <= v
+  AstConcrete _ u <=. AstConcrete _ v = AstBoolConst $ u <=. v
     -- common in indexing
   v <=. u = AstRel LeqOp (astSpanPrimal v) (astSpanPrimal u)
-  AstConcrete u >. AstConcrete v = AstBoolConst $ u > v
+  AstConcrete _ u >. AstConcrete _ v = AstBoolConst $ u >. v
     -- common in indexing
   v >. u = AstRel GtOp (astSpanPrimal v) (astSpanPrimal u)
-  AstConcrete u >=. AstConcrete v = AstBoolConst $ u >= v
+  AstConcrete _ u >=. AstConcrete _ v = AstBoolConst $ u >=. v
     -- common in indexing
   v >=. u = AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u)
-
 
 instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s))
          => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n r)) where
@@ -227,22 +228,22 @@ instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstS
 instance (GoodScalar r, KnownNat n, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKR n r)) where
   type DValue (AstTensor AstMethodLet s (TKR n r)) = RepN (TKR n r)
-  fromDValue t = fromPrimal $ AstConcrete $ unRepN t
+  fromDValue t = fromPrimal $ AstConcrete (FTKR (rshape t) FTKScalar) t
 
 instance (GoodScalar r, KnownShS sh, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKS sh r)) where
   type DValue (AstTensor AstMethodLet s (TKS sh r)) = RepN (TKS sh r)
-  fromDValue t = fromPrimal $ AstConcreteS $ unRepN t
+  fromDValue t = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) t
 
 instance (GoodScalar r, KnownNat n)
          => TermValue (AstTensor AstMethodLet FullSpan (TKR n r)) where
   type Value (AstTensor AstMethodLet FullSpan (TKR n r)) = RepN (TKR n r)
-  fromValue t = fromPrimal $ AstConcrete $ unRepN t
+  fromValue t = fromPrimal $ AstConcrete (FTKR (rshape t) FTKScalar) t
 
 instance (GoodScalar r, KnownShS sh)
          => TermValue (AstTensor AstMethodLet FullSpan (TKS sh r)) where
   type Value (AstTensor AstMethodLet FullSpan (TKS sh r)) = RepN (TKS sh r)
-  fromValue t = fromPrimal $ AstConcreteS $ unRepN t
+  fromValue t = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) t
 
 {- This is needed by only one test, testSin0revhFold5S, now disabled
 and this possibly breaks the cfwdOnHVector duplicability invariant in cfwd.
@@ -377,7 +378,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rcast = astCast
   rfromIntegral =
     fromPrimal . astFromIntegral . astSpanPrimal
-  rconcrete = fromPrimal . AstConcrete
+  rconcrete a = fromPrimal $ AstConcrete (FTKR (Nested.rshape a) FTKScalar) $ RepN a
   rfromS = astRFromS
 
   rfromPrimal = fromPrimal
@@ -391,7 +392,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xindex v ix = AstIndexX v ix
   xfromVector = AstFromVectorX
   xreplicate = AstReplicate SNat
-  xconcrete = fromPrimal . AstConcreteX
+  xconcrete a = fromPrimal $  AstConcrete (FTKX (Nested.mshape a) FTKScalar) $ RepN a
   xfromPrimal = fromPrimal
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
@@ -426,7 +427,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                       -- this introduces new variable names
   scast = astCastS
   sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
-  sconcrete = fromPrimal . AstConcreteS
+  sconcrete a = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) $ RepN a
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh = astNestS
   sunNest = astUnNestS
   sfromR = astSFromR
@@ -634,7 +635,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rcast = AstRaw . AstCast . unAstRaw
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegral . astSpanPrimalRaw . unAstRaw
-  rconcrete = AstRaw . fromPrimal . AstConcrete
+  rconcrete a = AstRaw $ fromPrimal $ AstConcrete (FTKR (Nested.rshape a) FTKScalar) $ RepN a
   rfromS = AstRaw . AstRFromS . unAstRaw
 
   rfromPrimal = AstRaw . fromPrimal . unAstRaw
@@ -651,7 +652,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
   xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
   xreplicate = AstRaw . AstReplicate SNat . unAstRaw
-  xconcrete = AstRaw . fromPrimal . AstConcreteX
+  xconcrete a = AstRaw $ fromPrimal $  AstConcrete (FTKX (Nested.mshape a) FTKScalar) $ RepN a
   xfromPrimal = AstRaw . fromPrimal . unAstRaw
   xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   xdualPart = astSpanDualRaw . unAstRaw
@@ -685,7 +686,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   scast = AstRaw . AstCastS . unAstRaw
   sfromIntegral = AstRaw . fromPrimal . AstFromIntegralS
                   . astSpanPrimalRaw . unAstRaw
-  sconcrete = AstRaw . fromPrimal . AstConcreteS
+  sconcrete a = AstRaw $ fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) $ RepN a
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     AstRaw . AstNestS . unAstRaw
   sunNest = AstRaw . AstUnNestS . unAstRaw
@@ -1090,7 +1091,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rcast = AstNoSimplify . AstCast . unAstNoSimplify
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
-  rconcrete = AstNoSimplify . fromPrimal . AstConcrete
+  rconcrete a = AstNoSimplify $ fromPrimal $ AstConcrete (FTKR (Nested.rshape a) FTKScalar) $ RepN a
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
   rfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
@@ -1106,7 +1107,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify
   xreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
-  xconcrete = AstNoSimplify . fromPrimal . AstConcreteX
+  xconcrete a = AstNoSimplify $ fromPrimal $  AstConcrete (FTKX (Nested.mshape a) FTKScalar) $ RepN a
   xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   xdualPart = astSpanDual . unAstNoSimplify
@@ -1148,7 +1149,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   scast = AstNoSimplify . AstCastS . unAstNoSimplify
   sfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralS
                   . astSpanPrimal . unAstNoSimplify
-  sconcrete = AstNoSimplify . fromPrimal . AstConcreteS
+  sconcrete a = AstNoSimplify $ fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) $ RepN a
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     AstNoSimplify . AstNestS . unAstNoSimplify
   sunNest = AstNoSimplify . AstUnNestS . unAstNoSimplify
