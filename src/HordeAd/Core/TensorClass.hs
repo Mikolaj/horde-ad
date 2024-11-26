@@ -55,6 +55,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
@@ -822,6 +823,7 @@ class ( Num (IntOf target)
   tD :: STensorKindType y
      -> PrimalOf target y -> DualOf target y
      -> target y
+  tconcrete :: FullTensorKind y -> RepN y -> target y
   dmkHVector :: HVector target -> target TKUntyped
   tlambda :: (TensorKind x, TensorKind z)
           => FullTensorKind x -> HFun x z -> HFunOf target x z

@@ -459,6 +459,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'
   tD stk t d | Dict <- lemTensorKindOfS stk = dD t d
+  tconcrete ftk t | Dict <- lemTensorKindOfF ftk =
+    fromPrimalADVal $ tconcrete ftk t
   dmkHVector hv =
     let (!as, !as') = V.unzip $ V.map unADValDynamicTensor hv
     in dDnotShared (dmkHVector as) (HToH as')

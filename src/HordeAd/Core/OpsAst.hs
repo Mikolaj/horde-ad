@@ -448,6 +448,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tprimalPart stk t | Dict <- lemTensorKindOfS stk = astSpanPrimal t
   tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDual t
   tD stk t d | Dict <- lemTensorKindOfS stk = astSpanD t d
+  tconcrete ftk a | Dict <- lemTensorKindOfF ftk =
+    fromPrimal $ AstConcrete ftk a
   dmkHVector = AstMkHVector
   tlambda :: forall x z. TensorKind x
           => FullTensorKind x -> HFun x z -> HFunOf (AstTensor AstMethodLet s) x z
@@ -711,6 +713,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ astSpanPrimalRaw $ unAstRaw t
   tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDualRaw $ unAstRaw t
   tD stk t d | Dict <- lemTensorKindOfS stk = AstRaw $ astSpanD (unAstRaw t) d
+  tconcrete ftk a | Dict <- lemTensorKindOfF ftk =
+    AstRaw $ fromPrimal $ AstConcrete ftk a
   dmkHVector = AstRaw . AstMkHVector . unRawHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
@@ -938,6 +942,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tprimalPart stk t = AstNoVectorize $ tprimalPart stk $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tD stk t d = AstNoVectorize $ tD stk (unAstNoVectorize t) d
+  tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
   dmkHVector = AstNoVectorize . dmkHVector . unNoVectorizeHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoVectorize $ astHApply t (unAstNoVectorize ll)
@@ -1177,6 +1182,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDual $ unAstNoSimplify t
   tD stk t d | Dict <- lemTensorKindOfS stk =
     AstNoSimplify $ astSpanD (unAstNoSimplify t) d
+  tconcrete ftk a | Dict <- lemTensorKindOfF ftk =
+    AstNoSimplify $ fromPrimal $ AstConcrete ftk a
   dmkHVector = AstNoSimplify . AstMkHVector . unNoSimplifyHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoSimplify $ AstApply t (unAstNoSimplify ll)

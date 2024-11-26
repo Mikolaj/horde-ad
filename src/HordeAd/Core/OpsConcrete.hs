@@ -216,6 +216,7 @@ instance BaseTensor RepN where
   tprimalPart _ = id
   tdualPart _stk _t = DummyDualTarget
   tD _stk t _d = t
+  tconcrete _ = id
   dmkHVector = RepN
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tApply f x = RepN $ f $ unRepN x

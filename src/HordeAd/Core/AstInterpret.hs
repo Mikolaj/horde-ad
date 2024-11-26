@@ -553,7 +553,7 @@ interpretAst !env = \case
   AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
   AstFromIntegral v ->
     rfromIntegral $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstConcrete _ a -> undefined  -- TODO tconcrete a
+  AstConcrete ftk a -> tconcrete ftk a
   AstProjectR l p ->
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
