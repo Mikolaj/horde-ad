@@ -267,7 +267,6 @@ sameTK y1 y2 = case (y1, y2) of
     _ -> Nothing
 
 type family BuildTensorKind k tk where
-  BuildTensorKind k (TKScalar r) = TKR2 1 (TKScalar r)  -- TODO: or make it stuck?
   BuildTensorKind k (TKR2 n r) = TKR2 (1 + n) r
   BuildTensorKind k (TKS2 sh r) = TKS2 (k : sh) r
   BuildTensorKind k (TKX2 sh r) = TKX2 (Just k : sh) r
@@ -278,7 +277,8 @@ type family BuildTensorKind k tk where
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
 lemTensorKindOfBuild snat@SNat = \case
-  STKScalar _ -> Dict
+  STKScalar{} ->
+    error "lemTensorKindOfBuild: type family BuildTensorKind stuck at TKScalar"
   STKR SNat x -> case lemTensorKindOfS x of
     Dict -> Dict
   STKS sh x -> case lemTensorKindOfS x of

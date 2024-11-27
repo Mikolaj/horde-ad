@@ -449,18 +449,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
-    STKScalar _ ->
-      let i :: Int
-          i = fromIntegral $ Nested.sunScalar it
-      in gcastWith (unsafeCoerce Refl :: n :~: 0) $
-         if 0 <= i && i < sNatValue k
-         then astIndex (Ast.AstScalar v) rest1
-         else astReplicate0N ZSR 0
     STKR SNat _ ->
       let i = fromIntegral $ Nested.sunScalar it
       in if 0 <= i && i < sNatValue k
          then astIndex v rest1
          else astReplicate0N (dropShape $ shapeAst v) 0
+    _ -> error "astIndexKnobs: type family BuildTensorKind stuck at TKScalar"
 {- TODO: this generalization of the above case slows down test 3nestedSumBuild1
    orders of magnitude
   Ast.AstReplicate k v ->
@@ -471,13 +465,11 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   Ast.AstReplicate @y2 _k v -> case stensorKind @y2 of
-    STKScalar{} -> gcastWith (unsafeCoerce Refl :: n :~: 0) $
-                   astIndex (Ast.AstScalar v) rest1
     STKR{} -> astIndex v rest1
+    _ -> error "astIndexKnobs: type family BuildTensorKind stuck at TKScalar"
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
-    STKScalar{} -> gcastWith (unsafeCoerce Refl :: n :~: 0) $
-                   astIndex (astLet var2 i1 (Ast.AstScalar v)) rest1
     STKR{} -> astIndex (astLet var2 i1 v) rest1
+    _ -> error "astIndexKnobs: type family BuildTensorKind stuck at TKScalar"
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
   Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexKnobsR knobs v ix
@@ -650,12 +642,14 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
     shareIxS ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 _snat v -> case stensorKind @y2 of
     STKS sh _ -> withKnownShS sh $ astIndex v rest1
+    _ -> error "astIndexKnobsS: type family BuildTensorKind stuck at TKScalar"
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
     STKS sh _ -> withKnownShS sh $
       withListSh (Proxy @(shm1 ++ shn)) $ \_ ->
         astIndex (astSFromR @(shm1 ++ shn) $ astLet var2 i1 $ astRFromS v)
                  rest1
         -- this uses astLet, because the index integers are ranked
+    _ -> error "astIndexKnobsS: type family BuildTensorKind stuck at TKScalar"
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
   Ast.AstMinIndexS @shz @n1 v ->
@@ -1012,21 +1006,15 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
     Ast.AstReplicate @y2 snat v | AstConcrete _ it <- i4 -> case stensorKind @y2 of
-      STKScalar{} ->
-        let i = fromIntegral $ Nested.sunScalar $ unRepN it
-        in if 0 <= i && i < sNatValue snat
-           then gcastWith (unsafeCoerce Refl :: n' :~: 0) $
-                     astGather sh4 (Ast.AstScalar v) (vars4, rest4)
-           else astReplicate0N sh4 0
       STKR{} ->
         let i = fromIntegral $ Nested.sunScalar $ unRepN $ it
         in if 0 <= i && i < sNatValue snat
            then astGather sh4 v (vars4, rest4)
            else astReplicate0N sh4 0
+      _ -> error "astGatherCase: type family BuildTensorKind stuck at TKScalar"
     Ast.AstReplicate @y2 _ v -> case stensorKind @y2 of
-      STKScalar{} -> gcastWith (unsafeCoerce Refl :: n' :~: 0) $
-                     astGather @m' @0 @0 sh4 (Ast.AstScalar v) (vars4, ZIR)
       STKR{} -> astGather sh4 v (vars4, rest4)
+      _ -> error "astGatherCase: type family BuildTensorKind stuck at TKScalar"
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
 
@@ -1461,9 +1449,8 @@ astSum t0 = case shapeAst t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum v)
     -- this is problematic, because it keeps huge tensors alive for longer
     Ast.AstReplicate @y2 k v -> case stensorKind @y2 of
-      STKScalar{} ->
-        Ast.AstScalar v * astReplicate0N ZSR (fromInteger $ fromSNat k)
       STKR{} -> v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
+      _ -> error "astSum: type family BuildTensorKind stuck at TKScalar"
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
     Ast.AstFromVector l -> astSumOfList $ V.toList l
     Ast.AstSlice _i 0 v -> astReplicate0N (tailShape $ shapeAst v) 0
@@ -1484,6 +1471,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
     -- Ast.AstLet var u v -> astLet var u (astSumS v)
     Ast.AstReplicate @y2 k v -> case stensorKind @y2 of
       STKS{} -> v * astReplicate0NS (fromInteger $ fromSNat k)
+      _ -> error "astSumS: type family BuildTensorKind stuck at TKScalar"
     Ast.AstScatterS @sh2 @p v (vars, _ :.$ ix) | Dict <- sixKnown ix ->
       case cmpNat (Proxy @1) (Proxy @p) of
         LTI ->
@@ -1725,8 +1713,8 @@ astSlice i n (AstConcrete (FTKR (_ :$: sh) FTKScalar) t) =
 astSlice i n (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
 astSlice _i n (Ast.AstReplicate @y2 _ v) = case stensorKind @y2 of
-  STKScalar{} -> withSNat n $ \snat -> astReplicate snat (Ast.AstScalar v)
   STKR{} -> withSNat n $ \snat -> astReplicate snat v
+  _ -> error "astSlice: type family BuildTensorKind stuck at TKScalar"
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
 astSlice i n w@(Ast.AstAppend (u :: AstTensor AstMethodLet s (TKR (1 + k) r))
                               (v :: AstTensor AstMethodLet s (TKR (1 + k) r))) =
@@ -1759,6 +1747,7 @@ astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
 astSliceS (Ast.AstReplicate @y2 _ v) = case stensorKind @y2 of
   STKS{} -> astReplicate (SNat @n) v
+  _ -> error "astSliceS: type family BuildTensorKind stuck at TKScalar"
 astSliceS (Ast.AstFromVectorS l) =
   astFromVectorS $ V.take (valueOf @n) (V.drop (valueOf @i) l)
 astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS (ulen : sh) r))
@@ -1988,8 +1977,8 @@ astReshape shOut = \case
   Ast.AstReplicate @y2 (SNat @k) x
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       case stensorKind @y2 of
-        STKScalar{} -> astReshape shOut (Ast.AstScalar x)
         STKR{} -> astReshape shOut x
+        _ -> error "astReshape: type family BuildTensorKind stuck at TKScalar"
   Ast.AstLet var u v -> astLet var u (astReshape shOut v)
   AstN1 opCode u | not (isVar u) -> AstN1 opCode (astReshape shOut u)
   AstN2 opCode u v | not (isVar u && isVar v) ->
@@ -2017,6 +2006,7 @@ astReshapeS = \case
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       case stensorKind @y2 of
         STKS sh _ -> withKnownShS sh $ astReshapeS x
+        _ -> error "astReshapeS: type family BuildTensorKind stuck at TKScalar"
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 v)
   AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
   AstN2S opCode u v | not (isVar u && isVar v) ->

@@ -156,10 +156,6 @@ build1V snat@SNat (var, v00) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstScalar t ->
-      build1V snat (var, t)
-    Ast.AstUnScalar t ->
-      build1V snat (var, t)
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
@@ -194,12 +190,6 @@ build1V snat@SNat (var, v00) =
                  (build1VOccurenceUnknown snat (var, u'))
     Ast.AstCond b (Ast.AstFromPrimal v)
                   (Ast.AstFromPrimal w) -> case stensorKind @y of
-      STKScalar _ ->
-        let t = Ast.AstFromPrimal
-                $ astIndexStep (astFromVector
-                                $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
-                               (singletonIndex (astCond b 0 1))
-        in build1VOccurenceUnknown snat (var, t)
       STKR SNat STKScalar{} ->
         let t = Ast.AstFromPrimal
                 $ astIndexStep (astFromVector $ V.fromList [v, w])
@@ -215,11 +205,6 @@ build1V snat@SNat (var, v00) =
       STKUntyped -> error "TODO"
       _ -> error "TODO"
     Ast.AstCond b v w -> case stensorKind @y of
-      STKScalar _ ->
-        let t = astIndexStep (astFromVector
-                              $ V.fromList [Ast.AstScalar v, Ast.AstScalar w])
-                             (singletonIndex (astCond b 0 1))
-        in build1VOccurenceUnknown snat (var, t)
       STKR SNat STKScalar{} ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
@@ -239,7 +224,6 @@ build1V snat@SNat (var, v00) =
                    -> AstTensor AstMethodLet s (BuildTensorKind k
                                                   (BuildTensorKind k2 z))
           repl2Stk stk u = case stk of
-            STKScalar _ -> astTr $ astReplicate snat2 u
             STKR SNat STKScalar{} -> astTr $ astReplicate snat2 u
             STKS sh STKScalar{} -> withKnownShS sh $ astTrS $ astReplicate snat2 u
             STKX sh STKScalar{} -> withKnownShX sh $ astTrX $ astReplicate snat2 u
@@ -703,8 +687,6 @@ substProjRep snat@SNat var ftk2 var1 v
                    -> FullTensorKind y4
                    -> AstTensor AstMethodLet s2 y4
         projection prVar = \case
-          FTKScalar ->
-            Ast.AstUnScalar $ Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
           FTKR sh FTKScalar | SNat <- shrRank sh ->
             Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
           FTKS sh FTKScalar -> withKnownShS sh
@@ -849,7 +831,6 @@ astTrGeneral
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrGeneral stk t = case stk of
-  STKScalar _ -> astTr t
   STKR SNat STKScalar{} -> astTr t
   STKS sh STKScalar{} -> withKnownShS sh $ astTrS t
   STKX sh STKScalar{} -> withKnownShX sh $ astTrX t

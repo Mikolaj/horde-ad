@@ -99,7 +99,8 @@ lemTensorKindOfF = \case
 buildFullTensorKind :: SNat k -> FullTensorKind y
                     -> FullTensorKind (BuildTensorKind k y)
 buildFullTensorKind snat@SNat = \case
-  FTKScalar -> FTKR (sNatValue snat :$: ZSR) FTKScalar
+  FTKScalar ->
+    error "buildFullTensorKind: type family BuildTensorKind stuck at TKScalar"
   FTKR sh x -> FTKR (sNatValue snat :$: sh) x
   FTKS sh x -> FTKS (snat :$$ sh) x
   FTKX sh x -> FTKX (SKnown snat :$% sh) x

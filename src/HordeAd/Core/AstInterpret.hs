@@ -245,7 +245,6 @@ interpretAst !env = \case
       let emptyFromStk :: FullTensorKind z
                        -> target (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
-            FTKScalar -> rfromList0N (0 :$: ZSR) []
             FTKR sh FTKScalar | SNat <- shrRank sh -> rfromList0N (0 :$: sh) []
             FTKS sh FTKScalar -> withKnownShS sh $ sfromList0N []
             FTKX{} -> error "TODO"
@@ -275,7 +274,6 @@ interpretAst !env = \case
                 -> (IntOf target -> target z)
                 -> target (BuildTensorKind n z)
         replStk stk g = case stk of
-          STKScalar _ -> rbuild1 (sNatValue snat) (runRepScalar . g)
           STKR SNat STKScalar{} -> rbuild1 (sNatValue snat) g
           STKS sh STKScalar{} -> withKnownShS sh $ sbuild1 g
           STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -468,6 +466,7 @@ interpretAst !env = \case
 --            ttr
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
           _ -> rsum $ interpretAst env v
+       _ -> error "interpretAst: type family BuildTensorKind stuck at TKScalar"
   AstSum @n (AstN2 TimesOp t u)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t

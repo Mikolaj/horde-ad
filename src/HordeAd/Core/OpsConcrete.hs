@@ -316,7 +316,6 @@ ravel :: forall k y. TensorKind y
       => SNat k -> [RepN y]
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
-  STKScalar _ -> rfromList $ NonEmpty.fromList $ runRepScalar <$> t
   STKR SNat STKScalar{} -> rfromList $ NonEmpty.fromList t
   STKS sh STKScalar{} -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -334,7 +333,6 @@ unravel :: forall k y. TensorKind y
         => SNat k -> RepN (BuildTensorKind k y)
         -> [RepN y]
 unravel k@SNat t = case stensorKind @y of
-  STKScalar _ -> error "unravel: impossible"
   STKR SNat STKScalar{} -> runravelToList t
   STKS sh STKScalar{} -> withKnownShS sh $ sunravelToList t
   STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
