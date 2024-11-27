@@ -294,7 +294,25 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
            => AstTensor ms PrimalSpan (TKR n r) -> AstTensor ms PrimalSpan (TKR n r2)
   AstIota :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
 
-  -- For the numeric classes:
+  -- For the numeric classes for scalars:
+  AstN1 :: GoodScalar r
+        => OpCodeNum1 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
+  AstN2 :: GoodScalar r
+        => OpCodeNum2 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
+        -> AstTensor ms s (TKScalar r)
+  AstR1 :: (RealFloatF r, GoodScalar r)
+        => OpCode1 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
+  AstR2 :: (RealFloatF r, GoodScalar r)
+        => OpCode2 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
+        -> AstTensor ms s (TKScalar r)
+  AstI2 :: (IntegralF r, GoodScalar r)
+        => OpCodeIntegral2 -> AstTensor ms s (TKScalar r)
+        -> AstTensor ms s (TKScalar r)
+        -> AstTensor ms s (TKScalar r)
+  AstSumOfList :: GoodScalar r
+               => [AstTensor ms s (TKScalar r)] -> AstTensor ms s (TKScalar r)
+
+  -- For the numeric classes for ranked arrays:
   AstN1R :: (GoodScalar r, KnownNat n)
          => OpCodeNum1 -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR n r)
   AstN2R :: (GoodScalar r, KnownNat n)

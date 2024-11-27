@@ -21,7 +21,7 @@ module HordeAd.Core.AstSimplify
   , astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
-  , astPair, astLet, astCond, astSumOfList, astSumOfListS
+  , astPair, astLet, astCond, astSumOfList, astSumOfListR, astSumOfListS
   , astSum, astSumS, astScatter, astScatterS
   , astFromVector, astFromVectorS, astFromVectorX
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
@@ -102,7 +102,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
-  , AstTensor (AstConcrete, AstN1R, AstN1S, AstN2R, AstN2S, AstSumOfListR, AstSumOfListS)
+  , AstTensor (AstConcrete, AstN1, AstN1R, AstN1S, AstN2, AstN2R, AstN2S, AstSumOfList, AstSumOfListR, AstSumOfListS)
   )
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -293,12 +293,18 @@ astNonIndexStep t = case t of
   Ast.AstMaxIndex{} -> t
   Ast.AstFloor{} -> t
   Ast.AstIota -> t
+  AstN1{} -> t
+  AstN2{} -> t
+  Ast.AstR1{} -> t
+  Ast.AstR2{} -> t
+  Ast.AstI2{} -> t
+  AstSumOfList l -> astSumOfList l
   AstN1R{} -> t
   AstN2R{} -> t
   Ast.AstR1R{} -> t
   Ast.AstR2R{} -> t
   Ast.AstI2R{} -> t
-  AstSumOfListR l -> astSumOfList l
+  AstSumOfListR l -> astSumOfListR l
   Ast.AstIndex{} -> t  -- was supposed to be *non*-index
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
@@ -493,7 +499,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
     shareIx ix
     $ \ !ix2 -> Ast.AstI2R opCode (astIndexRec u ix2) (astIndexRec v ix2)
   AstSumOfListR args ->
-    shareIx ix $ \ !ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
+    shareIx ix $ \ !ix2 -> astSumOfListR (map (`astIndexRec` ix2) args)
   Ast.AstIndex v ix2 ->
     astIndex v (appendIndex ix2 ix)
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
@@ -1432,12 +1438,19 @@ astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
-astSumOfList :: (KnownNat n, GoodScalar r)
-             => [AstTensor AstMethodLet s (TKR n r)] -> AstTensor AstMethodLet s (TKR n r)
+astSumOfList :: GoodScalar r
+             => [AstTensor AstMethodLet s (TKScalar r)]
+             -> AstTensor AstMethodLet s (TKScalar r)
 astSumOfList = foldr1 (+)  -- @sum@ breaks and also reverse order
 
+astSumOfListR :: (KnownNat n, GoodScalar r)
+              => [AstTensor AstMethodLet s (TKR n r)]
+              -> AstTensor AstMethodLet s (TKR n r)
+astSumOfListR = foldr1 (+)  -- @sum@ breaks and also reverse order
+
 astSumOfListS :: (GoodScalar r, KnownShS sh, AstSpan s)
-              => [AstTensor AstMethodLet s (TKS sh r)] -> AstTensor AstMethodLet s (TKS sh r)
+              => [AstTensor AstMethodLet s (TKS sh r)]
+              -> AstTensor AstMethodLet s (TKS sh r)
 astSumOfListS = foldr1 (+)  -- @sum@ reverses order
 
 astSum :: (KnownNat n, GoodScalar r, AstSpan s)
@@ -1452,7 +1465,7 @@ astSum t0 = case shapeAst t0 of
       STKR{} -> v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
       _ -> error "astSum: type family BuildTensorKind stuck at TKScalar"
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
-    Ast.AstFromVector l -> astSumOfList $ V.toList l
+    Ast.AstFromVector l -> astSumOfListR $ V.toList l
     Ast.AstSlice _i 0 v -> astReplicate0N (tailShape $ shapeAst v) 0
     Ast.AstSlice i 1 v -> astIndexR v (fromIntegral i :.: ZIR)
     Ast.AstReverse v -> astSum v
@@ -2176,12 +2189,18 @@ astPrimalPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
 
+  AstN1 opCode u -> AstN1 opCode (astPrimalPart u)
+  AstN2 opCode u v -> AstN2 opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (astPrimalPart u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (astPrimalPart u) (astPrimalPart v)
+  AstSumOfList args -> astSumOfList (map astPrimalPart args)
   AstN1R opCode u -> AstN1R opCode (astPrimalPart u)
   AstN2R opCode u v -> AstN2R opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (astPrimalPart u)
   Ast.AstR2R opCode u v -> Ast.AstR2R opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (astPrimalPart u) (astPrimalPart v)
-  AstSumOfListR args -> astSumOfList (map astPrimalPart args)
+  AstSumOfListR args -> astSumOfListR (map astPrimalPart args)
   Ast.AstIndex v ix -> astIndexR (astPrimalPart v) ix
   Ast.AstSum v -> astSum (astPrimalPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astPrimalPart v) (var, ix)
@@ -2254,12 +2273,18 @@ astDualPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstLet var u v -> astLet var u (astDualPart v)
 
+  AstN1{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
+  AstN2{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
+  Ast.AstR1{} -> Ast.AstDualPart t
+  Ast.AstR2{} -> Ast.AstDualPart t
+  Ast.AstI2{} -> Ast.AstDualPart t
+  AstSumOfList args -> astSumOfList (map astDualPart args)
   AstN1R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   AstN2R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   Ast.AstR1R{} -> Ast.AstDualPart t
   Ast.AstR2R{} -> Ast.AstDualPart t
   Ast.AstI2R{} -> Ast.AstDualPart t
-  AstSumOfListR args -> astSumOfList (map astDualPart args)
+  AstSumOfListR args -> astSumOfListR (map astDualPart args)
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
   Ast.AstSum v -> astSum (astDualPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astDualPart v) (var, ix)
@@ -2497,12 +2522,18 @@ simplifyAst t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAst a)
   Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
   Ast.AstIota -> t
+  AstN1 opCode u -> AstN1 opCode (simplifyAst u)
+  AstN2 opCode u v -> AstN2 opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (simplifyAst u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (simplifyAst u) (simplifyAst v)
+  AstSumOfList args -> astSumOfList (map simplifyAst args)
   AstN1R opCode u -> AstN1R opCode (simplifyAst u)
   AstN2R opCode u v -> AstN2R opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (simplifyAst u)
   Ast.AstR2R opCode u v -> Ast.AstR2R opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (simplifyAst u) (simplifyAst v)
-  AstSumOfListR args -> astSumOfList (map simplifyAst args)
+  AstSumOfListR args -> astSumOfListR (map simplifyAst args)
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIndex ix)
   Ast.AstSum v -> astSum (simplifyAst v)
   Ast.AstScatter sh v (var, ix) ->
@@ -2664,12 +2695,18 @@ expandAst t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (expandAst a)
   Ast.AstFloor a -> Ast.AstFloor (expandAst a)
   Ast.AstIota -> t
+  AstN1 opCode u -> AstN1 opCode (expandAst u)
+  AstN2 opCode u v -> AstN2 opCode (expandAst u) (expandAst v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (expandAst u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (expandAst u) (expandAst v)
+  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (expandAst u) (expandAst v)
+  AstSumOfList args -> astSumOfList (map expandAst args)
   AstN1R opCode u -> AstN1R opCode (expandAst u)
   AstN2R opCode u v -> AstN2R opCode (expandAst u) (expandAst v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (expandAst u)
   Ast.AstR2R opCode u v -> Ast.AstR2R opCode (expandAst u) (expandAst v)
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (expandAst u) (expandAst v)
-  AstSumOfListR args -> astSumOfList (map expandAst args)
+  AstSumOfListR args -> astSumOfListR (map expandAst args)
   Ast.AstIndex v ix -> astIndexKnobsR (defaultKnobs {knobExpand = True})
                                       (expandAst v)
                                       (expandAstIndex ix)
@@ -3178,6 +3215,31 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
   Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
   Ast.AstIota -> Nothing
+  Ast.AstN1 opCode u -> Ast.AstN1 opCode  <$> substitute1Ast i var u
+  Ast.AstN2 opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstN2 opCode (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode <$> substitute1Ast i var u
+  Ast.AstR2 opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstR2 opCode (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstI2 opCode u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstI2 opCode (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstSumOfList args ->
+    let margs = map (substitute1Ast i var) args
+    in if any isJust margs
+       then Just $ astSumOfList $ zipWith fromMaybe args margs
+       else Nothing
   Ast.AstN1R opCode u -> Ast.AstN1R opCode  <$> substitute1Ast i var u
   Ast.AstN2R opCode u v ->
     let mu = substitute1Ast i var u
@@ -3201,7 +3263,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstSumOfListR args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ astSumOfList $ zipWith fromMaybe args margs
+       then Just $ astSumOfListR $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstIndex v ix ->
     case (substitute1Ast i var v, substitute1AstIndex i var ix) of

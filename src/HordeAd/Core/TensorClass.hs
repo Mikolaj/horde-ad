@@ -69,6 +69,11 @@ import HordeAd.Util.SizedList
 
 type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
 type TensorSupports c1 c2 f =
+  forall r. GoodScalar r
+            => c1 r => c2 (f (TKScalar r))
+
+type TensorSupportsR :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
+type TensorSupportsR c1 c2 f =
   forall r n. (GoodScalar r, KnownNat n)
               => c1 r => c2 (f (TKR n r))
 
@@ -142,9 +147,13 @@ class ShareTensor (target :: Target) where
 class ( Num (IntOf target)
       , IntegralF (IntOf target)
       , TensorSupports Num Num target
-      , TensorSupports RealFloatAndFloatElt Floating target
-      , TensorSupports RealFloatAndFloatElt RealFloatF target
-      , TensorSupports Integral IntegralF target
+      , TensorSupports RealFloatF Floating target
+      , TensorSupports RealFloatF RealFloatF target
+      , TensorSupports IntegralF IntegralF target
+      , TensorSupportsR Num Num target
+      , TensorSupportsR RealFloatAndFloatElt Floating target
+      , TensorSupportsR RealFloatAndFloatElt RealFloatF target
+      , TensorSupportsR Integral IntegralF target
       , TensorSupportsS Num Num target
       , TensorSupportsS RealFloatAndFloatElt Floating target
       , TensorSupportsS RealFloatAndFloatElt RealFloatF target

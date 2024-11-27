@@ -359,6 +359,17 @@ printAstAux cfg d = \case
   AstFloor a ->
     printPrefixOp printAst cfg d "rfloor" [a]
   AstIota -> showString "riota"
+  AstN1 opCode u -> printAstN1R printAst cfg d opCode u
+  AstN2 opCode u v -> printAstN2R printAst cfg d opCode u v
+  AstR1 opCode u -> printAstR1R printAst cfg d opCode u
+  AstR2 opCode u v -> printAstR2R printAst cfg d opCode u v
+  AstI2 opCode u v -> printAstI2R printAst cfg d opCode u v
+  AstSumOfList [] -> error "printAst: empty AstSumOfList"
+  AstSumOfList (left : args) ->
+    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
+    in showParen (d > 6)
+       $ printAst cfg 7 left
+         . foldr (.) id rs
   AstN1R opCode u -> printAstN1R printAst cfg d opCode u
   AstN2R opCode u v -> printAstN2R printAst cfg d opCode u v
   AstR1R opCode u -> printAstR1R printAst cfg d opCode u

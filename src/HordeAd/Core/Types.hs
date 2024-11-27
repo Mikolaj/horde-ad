@@ -42,6 +42,7 @@ import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
+import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
 import GHC.Generics (Generic)
 import GHC.TypeLits
@@ -504,5 +505,24 @@ instance IntegralF Int64 where
   quotF = quot
   remF = rem
 
+instance IntegralF CInt where
+  quotF = quot
+  remF = rem
+
 class Floating a => RealFloatF a where
   atan2F :: a -> a -> a
+
+instance RealFloatF Float where
+  atan2F = atan2
+
+instance RealFloatF Double where
+  atan2F = atan2
+
+{- TODO: these would be better, but everything then overlaps with everything:
+instance {-# OVERLAPPABLE #-} Integral r => IntegralF r where
+  quotF = quot
+  remF = rem
+
+instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatF r where
+  atan2F = atan2
+-}

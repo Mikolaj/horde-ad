@@ -235,7 +235,7 @@ instance ( BaseTensor target
   fromHVector (AsHVector lInit) source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector (AsHVector aInit) restAcc of
-            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe (dmkHVector V.empty) mrest)
+            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe (dmkHVector @target V.empty) mrest)
             _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l

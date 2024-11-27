@@ -286,7 +286,7 @@ build1V snat@SNat (var, v00) =
       Ast.AstI2R opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
     Ast.AstSumOfListR args -> traceRule $
-      astSumOfList $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
+      astSumOfListR $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndex v ix -> traceRule $
       build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@

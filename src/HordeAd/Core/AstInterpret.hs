@@ -325,6 +325,27 @@ interpretAst !env = \case
   AstFloor v ->
     rfloor $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstIota -> error "interpretAst: bare AstIota, most likely a bug"
+  AstN1 opCode u ->
+    let u2 = interpretAst env u
+    in interpretAstN1 opCode u2
+  AstN2 opCode u v ->
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
+    in interpretAstN2 opCode u2 v2
+  AstR1 opCode u ->
+    let u2 = interpretAst env u
+    in interpretAstR1 opCode u2
+  AstR2 opCode u v ->
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
+    in interpretAstR2 opCode u2 v2
+  AstI2 opCode u v ->
+    let u2 = interpretAst env u
+        v2 = interpretAst env v
+    in interpretAstI2F opCode u2 v2
+  AstSumOfList args ->
+    let args2 = interpretAst env <$> args
+    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
      instead and that's fine, because for one-element carriers,
      reshape and replicate are very cheap. OTOH, this was introducing

@@ -42,8 +42,6 @@ type instance ShareOf (AstTensor ms s) = AstRaw s
 -- of the instances, especially after applied to arguments that are terms.
 type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z  -- TODO: PrimalSpan
 
--- * Unlawful numeric instances of ranked AST; they are lawful modulo evaluation
-
 -- These are, unfortunately, required by some numeric instances.
 instance Eq (AstTensor ms s y) where
   (==) = error "AST requires that EqF be used instead"
@@ -51,6 +49,91 @@ instance Eq (AstTensor ms s y) where
 
 instance Ord (AstTensor ms s y) where
   (<=) = error "AST requires that OrdF be used instead"
+
+
+-- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
+
+instance GoodScalar r
+         => Num (AstTensor ms s (TKScalar r)) where
+  -- The normal form has AstConcrete, if any, as the first element of the list.
+  -- All lists fully flattened and length >= 2.
+  AstSumOfList (AstConcrete ftk u : lu) + AstSumOfList (AstConcrete _ v : lv) =
+    AstSumOfList (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete ftk v : lv) =
+    AstSumOfList (AstConcrete ftk v : lv ++ lu)
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
+
+  AstConcrete ftk u + AstSumOfList (AstConcrete _ v : lv) =
+    AstSumOfList (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfList (AstConcrete ftk v : lv) = AstSumOfList (AstConcrete ftk v : u : lv)
+  u + AstSumOfList lv = AstSumOfList (u : lv)
+
+  AstSumOfList (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfList (AstConcrete ftk (u + v) : lu)
+  AstSumOfList (AstConcrete ftk u : lu) + v = AstSumOfList (AstConcrete ftk u : v : lu)
+  AstSumOfList lu + v = AstSumOfList (v : lu)
+
+  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
+  u + AstConcrete ftk v = AstSumOfList [AstConcrete ftk v, u]
+  u + v = AstSumOfList [u, v]
+
+  AstConcrete ftk u - AstConcrete _ v =
+    AstConcrete ftk (u - v)  -- common in indexing
+  u - v = AstN2 MinusOp u v
+
+  AstConcrete ftk u * AstConcrete _ v =
+    AstConcrete ftk (u * v)  -- common in indexing
+  u * v = AstN2 TimesOp u v
+
+  negate (AstConcrete ftk u) = AstConcrete ftk $ negate u  -- common in indexing
+  negate u = AstN1 NegateOp u
+  abs = AstN1 AbsOp
+  signum = AstN1 SignumOp
+  fromInteger i = error $ "fromInteger not defined for ranked tensors: "
+                          ++ show i
+
+-- Warning: div and mod operations are very costly (simplifying them
+-- requires constructing conditionals, etc). If this error is removed,
+-- they are going to work, but slowly.
+instance (GoodScalar r, IntegralF r)
+         => IntegralF (AstTensor ms s (TKScalar r)) where
+  quotF = AstI2 QuotOp
+  remF = AstI2 RemOp
+
+instance (GoodScalar r, RealFloatF r)
+         => Fractional (AstTensor ms s (TKScalar r)) where
+  u / v = AstR2 DivideOp u v
+  recip = AstR1 RecipOp
+  fromRational r = error $ "fromRational not defined for AST: "
+                           ++ show r
+
+instance (GoodScalar r, RealFloatF r, AstSpan s)
+         => Floating (AstTensor ms s (TKScalar r)) where
+  pi = error "pi not defined for ranked tensors"
+  exp = AstR1 ExpOp
+  log = AstR1 LogOp
+  sqrt = AstR1 SqrtOp
+  (**) = AstR2 PowerOp
+  logBase = AstR2 LogBaseOp
+  sin = AstR1 SinOp
+  cos = AstR1 CosOp
+  tan = AstR1 TanOp
+  asin = AstR1 AsinOp
+  acos = AstR1 AcosOp
+  atan = AstR1 AtanOp
+  sinh = AstR1 SinhOp
+  cosh = AstR1 CoshOp
+  tanh = AstR1 TanhOp
+  asinh = AstR1 AsinhOp
+  acosh = AstR1 AcoshOp
+  atanh = AstR1 AtanhOp
+
+instance (GoodScalar r, RealFloatF r, AstSpan s)
+         => RealFloatF (AstTensor ms s (TKScalar r)) where
+  atan2F = AstR2 Atan2Op
+
+
+-- * Unlawful numeric instances for ranked AST; they are lawful modulo evaluation
 
 instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
          => Num (AstTensor ms s (TKR n r)) where
@@ -132,7 +215,7 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
   atan2F = AstR2R Atan2Op
 
 
--- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation
+-- * Unlawful numeric instances for shaped AST; they are lawful modulo evaluation
 
 instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
          => Num (AstTensor ms s (TKS sh r)) where

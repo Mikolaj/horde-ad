@@ -116,14 +116,15 @@ instance ForgetShape a
   type NoShape [a] = [NoShape a]
   forgetShape = map forgetShape
 
-instance (X a ~ TKUntyped, AdaptableHVector target a, BaseTensor target)
+instance forall a target.
+         (X a ~ TKUntyped, AdaptableHVector target a, BaseTensor target)
          => AdaptableHVector target (Data.Vector.Vector a) where
   type X (Data.Vector.Vector a) = TKUntyped
   toHVectorOf = dmkHVector . V.concatMap (dunHVector . toHVectorOf)
   fromHVector lInit source =
     let f (!lAcc, !restAcc) !aInit =
           case fromHVector aInit restAcc of
-            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (dmkHVector V.empty) mrest)
+            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (dmkHVector @target V.empty) mrest)
               -- this snoc, if the vector is long, is very costly;
               -- a solution might be to define Value to be a list
             _ -> error "fromHVector (Data.Vector.Vector a)"
