@@ -315,7 +315,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rfromIntegral (D u _) =
     let v = rfromIntegral u
     in fromPrimalADVal v
-  rconcrete t = fromPrimalADVal (rconcrete t)
   rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
          => ADVal target (TKS sh r) -> ADVal target (TKR (Rank sh) r)
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
@@ -336,7 +335,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xfromVector = fromVectorX
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
-  xconcrete t = fromPrimalADVal (xconcrete t)
   xfromPrimal t = fromPrimalADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
@@ -406,7 +404,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sfromIntegral (D u _) =
     let v = sfromIntegral u
     in fromPrimalADVal v
-  sconcrete t = fromPrimalADVal (sconcrete t)
   snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     dD (snest sh u) (NestS u')
   sunNest (D u u') = dD (sunNest u) (UnNestS u')

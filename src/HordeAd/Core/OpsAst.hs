@@ -378,7 +378,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rcast = astCast
   rfromIntegral =
     fromPrimal . astFromIntegral . astSpanPrimal
-  rconcrete a = fromPrimal $ AstConcrete (FTKR (Nested.rshape a) FTKScalar) $ RepN a
   rfromS = astRFromS
 
   rfromPrimal = fromPrimal
@@ -392,7 +391,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xindex v ix = AstIndexX v ix
   xfromVector = AstFromVectorX
   xreplicate = AstReplicate SNat
-  xconcrete a = fromPrimal $  AstConcrete (FTKX (Nested.mshape a) FTKScalar) $ RepN a
   xfromPrimal = fromPrimal
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
@@ -427,7 +425,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                       -- this introduces new variable names
   scast = astCastS
   sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
-  sconcrete a = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) $ RepN a
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh = astNestS
   sunNest = astUnNestS
   sfromR = astSFromR
@@ -637,7 +634,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rcast = AstRaw . AstCast . unAstRaw
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegral . astSpanPrimalRaw . unAstRaw
-  rconcrete a = AstRaw $ fromPrimal $ AstConcrete (FTKR (Nested.rshape a) FTKScalar) $ RepN a
   rfromS = AstRaw . AstRFromS . unAstRaw
 
   rfromPrimal = AstRaw . fromPrimal . unAstRaw
@@ -654,7 +650,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
   xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
   xreplicate = AstRaw . AstReplicate SNat . unAstRaw
-  xconcrete a = AstRaw $ fromPrimal $  AstConcrete (FTKX (Nested.mshape a) FTKScalar) $ RepN a
   xfromPrimal = AstRaw . fromPrimal . unAstRaw
   xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   xdualPart = astSpanDualRaw . unAstRaw
@@ -688,7 +683,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   scast = AstRaw . AstCastS . unAstRaw
   sfromIntegral = AstRaw . fromPrimal . AstFromIntegralS
                   . astSpanPrimalRaw . unAstRaw
-  sconcrete a = AstRaw $ fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) $ RepN a
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     AstRaw . AstNestS . unAstRaw
   sunNest = AstRaw . AstUnNestS . unAstRaw
@@ -870,7 +864,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                     $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   rcast = AstNoVectorize . rcast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
-  rconcrete = AstNoVectorize . rconcrete
   rfromS = AstNoVectorize . rfromS . unAstNoVectorize
   rfromPrimal = AstNoVectorize . rfromPrimal . unAstNoVectorize
   rprimalPart = AstNoVectorize . rprimalPart . unAstNoVectorize
@@ -884,7 +877,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   xfromVector = AstNoVectorize . xfromVector . V.map unAstNoVectorize
   xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
-  xconcrete = AstNoVectorize . xconcrete
   xfromPrimal = AstNoVectorize . xfromPrimal . unAstNoVectorize
   xprimalPart = AstNoVectorize . xprimalPart . unAstNoVectorize
   xdualPart = xdualPart . unAstNoVectorize
@@ -920,7 +912,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                 $ fmap (unAstNoVectorize) . f . fmap AstNoVectorize
   scast = AstNoVectorize . scast . unAstNoVectorize
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
-  sconcrete = AstNoVectorize . sconcrete
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     AstNoVectorize . astNestS . unAstNoVectorize
   sunNest = AstNoVectorize . astUnNestS . unAstNoVectorize
@@ -1096,7 +1087,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rcast = AstNoSimplify . AstCast . unAstNoSimplify
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
-  rconcrete a = AstNoSimplify $ fromPrimal $ AstConcrete (FTKR (Nested.rshape a) FTKScalar) $ RepN a
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
   rfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
@@ -1112,7 +1102,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify
   xreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
-  xconcrete a = AstNoSimplify $ fromPrimal $  AstConcrete (FTKX (Nested.mshape a) FTKScalar) $ RepN a
   xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   xdualPart = astSpanDual . unAstNoSimplify
@@ -1154,7 +1143,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   scast = AstNoSimplify . AstCastS . unAstNoSimplify
   sfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralS
                   . astSpanPrimal . unAstNoSimplify
-  sconcrete a = AstNoSimplify $ fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) $ RepN a
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     AstNoSimplify . AstNestS . unAstNoSimplify
   sunNest = AstNoSimplify . AstUnNestS . unAstNoSimplify

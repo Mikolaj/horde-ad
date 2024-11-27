@@ -116,7 +116,6 @@ instance BaseTensor RepN where
                                        (fromIndexOfR . fmap unRepN . f . RepN . tscalarS)
   rcast = RepN . tcastR . unRepN
   rfromIntegral = RepN . tfromIntegralR . unRepN
-  rconcrete = RepN
   rfromS = RepN . Nested.stoRanked . unRepN
 
   rscaleByScalar s v =
@@ -133,7 +132,6 @@ instance BaseTensor RepN where
   xindex = error "TODO"
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
-  xconcrete = RepN
   xfromPrimal = id
   xprimalPart = id
   xdualPart _ = DummyDualTarget
@@ -180,7 +178,6 @@ instance BaseTensor RepN where
                                    (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
   scast = RepN . tcastS . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
-  sconcrete = RepN
   snest shs t = RepN $ Nested.snest shs $ unRepN t
   sunNest t = RepN $ Nested.sunNest $ unRepN t
   sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
