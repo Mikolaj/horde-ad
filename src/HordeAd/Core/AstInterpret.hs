@@ -218,7 +218,7 @@ interpretAst !env = \case
     treplicate snat (stensorKind @y2) (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
   AstBuild1 @y2
-            snat (var, AstSum (AstN2 TimesOp t (AstIndex
+            snat (var, AstSum (AstN2R TimesOp t (AstIndex
                                                 u (AstIntVar var2 :.: ZIR))))
     | Just Refl <- case stensorKind @y2 of
         STKR @n _ _ -> sameNat (Proxy @n) (Proxy @0)
@@ -229,7 +229,7 @@ interpretAst !env = \case
   AstBuild1 @y2
             snat (var, AstSum
                          (AstReshape @p
-                            _sh (AstN2 TimesOp
+                            _sh (AstN2R TimesOp
                                          t
                                          (AstIndex
                                             u (AstIntVar var2 :.: ZIR)))))
@@ -330,55 +330,55 @@ interpretAst !env = \case
      reshape and replicate are very cheap. OTOH, this was introducing
      ScalarR(UnScalar0 ...) into delta expressions by firing
      in an early phase.
-  AstN2 TimesOp [v, AstReshape _ (AstReplicate @m _ s)]
+  AstN2R TimesOp [v, AstReshape _ (AstReplicate @m _ s)]
    -- TODO: also handle nested AstReplicate to prevent executing them
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let t1 = interpretAst env v
             t2 = interpretAst env s
         in tscaleByScalar0 t2 t1
-  AstN2 TimesOp [v, AstReplicate @m _ s]
+  AstN2R TimesOp [v, AstReplicate @m _ s]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
         let t1 = interpretAst env v
             t2 = interpretAst env s
         in tscaleByScalar0 t2 t1
   -}
-  AstN2 TimesOp v (AstLet var u (AstReshape sh (AstReplicate (SNat @m) s)))
+  AstN2R TimesOp v (AstLet var u (AstReshape sh (AstReplicate (SNat @m) s)))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         -- The varNameInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
         interpretAst env
-          (AstLet var u (AstN2 TimesOp v (AstReshape sh
+          (AstLet var u (AstN2R TimesOp v (AstReshape sh
                                             (AstReplicate (SNat @m) s))))
-  AstN2 TimesOp v (AstReshape sh (AstLet var u (AstReplicate (SNat @m) s)))
+  AstN2R TimesOp v (AstReshape sh (AstLet var u (AstReplicate (SNat @m) s)))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         interpretAst env
-          (AstLet var u (AstN2 TimesOp v (AstReshape sh
+          (AstLet var u (AstN2R TimesOp v (AstReshape sh
                                             (AstReplicate (SNat @m) s))))
-  AstN2 TimesOp v (AstLet var u (AstReplicate (SNat @m) s))
+  AstN2R TimesOp v (AstLet var u (AstReplicate (SNat @m) s))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
         interpretAst env
-          (AstLet var u (AstN2 TimesOp v (AstReplicate (SNat @m) s)))
-  AstN1 opCode u ->
+          (AstLet var u (AstN2R TimesOp v (AstReplicate (SNat @m) s)))
+  AstN1R opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
-  AstN2 opCode u v ->
+  AstN2R opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstN2 opCode u2 v2
-  AstR1 opCode u ->
+  AstR1R opCode u ->
     let u2 = interpretAst env u
     in interpretAstR1 opCode u2
-  AstR2 opCode u v ->
+  AstR2R opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstR2 opCode u2 v2
-  AstI2 opCode u v ->
+  AstI2R opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstSumOfList args ->
+  AstSumOfListR args ->
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIota (i :.: ZIR) ->
@@ -391,26 +391,26 @@ interpretAst !env = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
-  AstSum (AstN2 TimesOp (AstLet vart vt (AstTranspose tperm t))
+  AstSum (AstN2R TimesOp (AstLet vart vt (AstTranspose tperm t))
                         (AstTranspose uperm u)) ->
     interpretAst env
       (AstLet vart vt
-         (AstSum (AstN2 TimesOp (AstTranspose tperm t)
+         (AstSum (AstN2R TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u))))
-  AstSum (AstN2 TimesOp (AstTranspose tperm t)
+  AstSum (AstN2R TimesOp (AstTranspose tperm t)
                         (AstLet varu vu (AstTranspose uperm u))) ->
     interpretAst env
       (AstLet varu vu
-         (AstSum (AstN2 TimesOp (AstTranspose tperm t)
+         (AstSum (AstN2R TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u))))
-  AstSum (AstN2 TimesOp (AstLet vart vt (AstTranspose tperm t))
+  AstSum (AstN2R TimesOp (AstLet vart vt (AstTranspose tperm t))
                         (AstLet varu vu (AstTranspose uperm u))) ->
     interpretAst env
       (AstLet vart vt (AstLet varu vu
-         (AstSum (AstN2 TimesOp (AstTranspose tperm t)
+         (AstSum (AstN2R TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u)))))
   AstSum @n @r
-         v@(AstN2 TimesOp (AstTranspose tperm (AstReplicate @yt _tk t))
+         v@(AstN2R TimesOp (AstTranspose tperm (AstReplicate @yt _tk t))
                           (AstTranspose uperm (AstReplicate @yu _uk u)))
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
       case (stensorKind @yt, stensorKind @yu) of
@@ -467,18 +467,18 @@ interpretAst !env = \case
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
           _ -> rsum $ interpretAst env v
        _ -> error "interpretAst: type family BuildTensorKind stuck at TKScalar"
-  AstSum @n (AstN2 TimesOp t u)
+  AstSum @n (AstN2R TimesOp t u)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot0 t1 t2
           -- TODO: do as a term rewrite using an extended set of terms?
-  AstSum @n (AstReshape _sh (AstN2 TimesOp t u))
+  AstSum @n (AstReshape _sh (AstN2R TimesOp t u))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot0 t1 t2
-  AstSum @n (AstTranspose [1, 0] (AstN2 TimesOp t u))  -- TODO: generalize
+  AstSum @n (AstTranspose [1, 0] (AstN2R TimesOp t u))  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
@@ -614,24 +614,24 @@ interpretAst !env = \case
     sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
   AstIotaS -> siota
 {- TODO:
-  AstN2 TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
+  AstN2R TimesOp [v, AstLet var u (AstReshape sh (AstReplicate @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varInAst var v) ->
         -- The varInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
         interpretAst env
-          (AstLet var u (AstN2 TimesOp [v, AstReshape sh
+          (AstLet var u (AstN2R TimesOp [v, AstReshape sh
                                              (AstReplicate @m k s)]))
-  AstN2 TimesOp [v, AstReshape sh (AstLet var u (AstReplicate @m k s))]
+  AstN2R TimesOp [v, AstReshape sh (AstLet var u (AstReplicate @m k s))]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varInAst var v) ->
         interpretAst env
-          (AstLet var u (AstN2 TimesOp [v, AstReshape sh
+          (AstLet var u (AstN2R TimesOp [v, AstReshape sh
                                              (AstReplicate @m k s)]))
-  AstN2 TimesOp [v, AstLet var u (AstReplicate @m k s)]
+  AstN2R TimesOp [v, AstLet var u (AstReplicate @m k s)]
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varInAst var v) ->
         interpretAst env
-          (AstLet var u (AstN2 TimesOp [v, AstReplicate @m k s]))
+          (AstLet var u (AstN2R TimesOp [v, AstReplicate @m k s]))
 -}
   AstN1S opCode u ->
     let u2 = interpretAst env u
@@ -666,25 +666,25 @@ interpretAst !env = \case
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
 {- TODO:
-  AstSum (AstN2 TimesOp [ AstLet vart vt (AstTranspose tperm t)
+  AstSum (AstN2R TimesOp [ AstLet vart vt (AstTranspose tperm t)
                         , AstTranspose uperm u ]) ->
     interpretAst env
       (AstLet vart vt
-         (AstSum (AstN2 TimesOp [ AstTranspose tperm t
+         (AstSum (AstN2R TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ])))
-  AstSum (AstN2 TimesOp [ AstTranspose tperm t
+  AstSum (AstN2R TimesOp [ AstTranspose tperm t
                         , AstLet varu vu (AstTranspose uperm u) ]) ->
     interpretAst env
       (AstLet varu vu
-         (AstSum (AstN2 TimesOp [ AstTranspose tperm t
+         (AstSum (AstN2R TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ])))
-  AstSum (AstN2 TimesOp [ AstLet vart vt (AstTranspose tperm t)
+  AstSum (AstN2R TimesOp [ AstLet vart vt (AstTranspose tperm t)
                         , AstLet varu vu (AstTranspose uperm u) ]) ->
     interpretAst env
       (AstLet vart vt (AstLet varu vu
-         (AstSum (AstN2 TimesOp [ AstTranspose tperm t
+         (AstSum (AstN2R TimesOp [ AstTranspose tperm t
                                 , AstTranspose uperm u ]))))
-  AstSum v@(AstN2 TimesOp [ AstTranspose tperm (AstReplicate _tk t)
+  AstSum v@(AstN2R TimesOp [ AstTranspose tperm (AstReplicate _tk t)
                           , AstTranspose uperm (AstReplicate _uk u) ])
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
         let interpretMatmul2 t1 u1 =
@@ -713,18 +713,18 @@ interpretAst !env = \case
             ttr
             $ interpretMatmul2 u t
           _ -> rsum $ interpretAst env v
-  AstSum (AstN2 TimesOp [t, u])
+  AstSum (AstN2R TimesOp [t, u])
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot0 t1 t2
           -- TODO: do as a term rewrite using an extended set of terms?
-  AstSum (AstReshape _sh (AstN2 TimesOp [t, u]))
+  AstSum (AstReshape _sh (AstN2R TimesOp [t, u]))
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rdot0 t1 t2
-  AstSum (AstTranspose [1, 0] (AstN2 TimesOp [t, u]))  -- TODO: generalize
+  AstSum (AstTranspose [1, 0] (AstN2R TimesOp [t, u]))  -- TODO: generalize
     | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
         let t1 = interpretAst env t
             t2 = interpretAst env u

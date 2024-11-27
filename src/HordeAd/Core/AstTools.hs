@@ -68,13 +68,13 @@ ftkAst t = case t of
   AstMaxIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
   AstFloor a -> FTKR (shapeAst a)  FTKScalar
   AstIota -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
-  AstN1 _opCode v -> ftkAst v
-  AstN2 _opCode v _ -> ftkAst v
-  AstR1 _opCode v -> ftkAst v
-  AstR2 _opCode v _ -> ftkAst v
-  AstI2 _opCode v _ -> ftkAst v
-  AstSumOfList args -> case args of
-    [] -> error "ftkAst: AstSumOfList with no arguments"
+  AstN1R _opCode v -> ftkAst v
+  AstN2R _opCode v _ -> ftkAst v
+  AstR1R _opCode v -> ftkAst v
+  AstR2R _opCode v _ -> ftkAst v
+  AstI2R _opCode v _ -> ftkAst v
+  AstSumOfListR args -> case args of
+    [] -> error "ftkAst: AstSumOfListR with no arguments"
     v : _ -> ftkAst v
   AstIndex v _is -> FTKR (dropShape $ shapeAst v) FTKScalar
   AstSum v -> FTKR (tailShape $ shapeAst v) FTKScalar
@@ -207,12 +207,12 @@ varInAst var = \case
   AstMaxIndex a -> varInAst var a
   AstFloor a -> varInAst var a
   AstIota -> False
-  AstN1 _ t -> varInAst var t
-  AstN2 _ t u -> varInAst var t || varInAst var u
-  AstR1 _ t -> varInAst var t
-  AstR2 _ t u -> varInAst var t || varInAst var u
-  AstI2 _ t u -> varInAst var t || varInAst var u
-  AstSumOfList l -> any (varInAst var) l
+  AstN1R _ t -> varInAst var t
+  AstN2R _ t u -> varInAst var t || varInAst var u
+  AstR1R _ t -> varInAst var t
+  AstR2R _ t u -> varInAst var t || varInAst var u
+  AstI2R _ t u -> varInAst var t || varInAst var u
+  AstSumOfListR l -> any (varInAst var) l
   AstIndex v ix -> varInAst var v || varInIndex var ix
   AstSum v -> varInAst var v
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v

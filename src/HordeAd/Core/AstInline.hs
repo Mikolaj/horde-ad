@@ -148,27 +148,27 @@ inlineAst memo v0 = case v0 of
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ inlineAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
   Ast.AstIota -> (memo, v0)
-  Ast.AstN1 opCode u ->
+  Ast.AstN1R opCode u ->
     let (memo2, u2) = inlineAst memo u
-    in (memo2, Ast.AstN1 opCode u2)
-  Ast.AstN2 opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstN2 opCode u2 v3)
-  Ast.AstR1 opCode u ->
-    let (memo2, u2) = inlineAst memo u
-    in (memo2, Ast.AstR1 opCode u2)
-  Ast.AstR2 opCode u v ->
+    in (memo2, Ast.AstN1R opCode u2)
+  Ast.AstN2R opCode u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstR2 opCode u2 v3)
-  Ast.AstI2 opCode u v ->
+    in (memo3, Ast.AstN2R opCode u2 v3)
+  Ast.AstR1R opCode u ->
+    let (memo2, u2) = inlineAst memo u
+    in (memo2, Ast.AstR1R opCode u2)
+  Ast.AstR2R opCode u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstI2 opCode u2 v3)
-  Ast.AstSumOfList args ->
+    in (memo3, Ast.AstR2R opCode u2 v3)
+  Ast.AstI2R opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstI2R opCode u2 v3)
+  Ast.AstSumOfListR args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
-    in (memo2, Ast.AstSumOfList args2)
+    in (memo2, Ast.AstSumOfListR args2)
   Ast.AstIndex v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1 (indexToList ix)
@@ -487,27 +487,27 @@ unshareAst memo = \case
   Ast.AstMaxIndex a -> second Ast.AstMaxIndex $ unshareAst memo a
   Ast.AstFloor a -> second Ast.AstFloor $ unshareAst memo a
   Ast.AstIota -> (memo, Ast.AstIota)
-  Ast.AstN1 opCode u ->
+  Ast.AstN1R opCode u ->
     let (memo2, u2) = unshareAst memo u
-    in (memo2, Ast.AstN1 opCode u2)
-  Ast.AstN2 opCode u v ->
-    let (memo2, u2) = unshareAst memo u
-        (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstN2 opCode u2 v3)
-  Ast.AstR1 opCode u ->
-    let (memo2, u2) = unshareAst memo u
-    in (memo2, Ast.AstR1 opCode u2)
-  Ast.AstR2 opCode u v ->
+    in (memo2, Ast.AstN1R opCode u2)
+  Ast.AstN2R opCode u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstR2 opCode u2 v3)
-  Ast.AstI2 opCode u v ->
+    in (memo3, Ast.AstN2R opCode u2 v3)
+  Ast.AstR1R opCode u ->
+    let (memo2, u2) = unshareAst memo u
+    in (memo2, Ast.AstR1R opCode u2)
+  Ast.AstR2R opCode u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstI2 opCode u2 v3)
-  Ast.AstSumOfList args ->
+    in (memo3, Ast.AstR2R opCode u2 v3)
+  Ast.AstI2R opCode u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstI2R opCode u2 v3)
+  Ast.AstSumOfListR args ->
     let (memo2, args2) = mapAccumR unshareAst memo args
-    in (memo2, Ast.AstSumOfList args2)
+    in (memo2, Ast.AstSumOfListR args2)
   Ast.AstIndex v ix ->
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (indexToList ix)

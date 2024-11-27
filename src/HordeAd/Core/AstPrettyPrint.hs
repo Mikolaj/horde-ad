@@ -359,13 +359,13 @@ printAstAux cfg d = \case
   AstFloor a ->
     printPrefixOp printAst cfg d "rfloor" [a]
   AstIota -> showString "riota"
-  AstN1 opCode u -> printAstN1 printAst cfg d opCode u
-  AstN2 opCode u v -> printAstN2 printAst cfg d opCode u v
-  AstR1 opCode u -> printAstR1 printAst cfg d opCode u
-  AstR2 opCode u v -> printAstR2 printAst cfg d opCode u v
-  AstI2 opCode u v -> printAstI2 printAst cfg d opCode u v
-  AstSumOfList [] -> error "printAst: empty AstSumOfList"
-  AstSumOfList (left : args) ->
+  AstN1R opCode u -> printAstN1R printAst cfg d opCode u
+  AstN2R opCode u v -> printAstN2R printAst cfg d opCode u v
+  AstR1R opCode u -> printAstR1R printAst cfg d opCode u
+  AstR2R opCode u v -> printAstR2R printAst cfg d opCode u v
+  AstI2R opCode u v -> printAstI2R printAst cfg d opCode u v
+  AstSumOfListR [] -> error "printAst: empty AstSumOfList"
+  AstSumOfListR (left : args) ->
     let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
     in showParen (d > 6)
        $ printAst cfg 7 left
@@ -439,11 +439,11 @@ printAstAux cfg d = \case
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
   AstFloorS a ->  printPrefixOp printAst cfg d "sfloor" [a]
   AstIotaS -> showString "siota"
-  AstN1S opCode u -> printAstN1 printAst cfg d opCode u
-  AstN2S opCode u v -> printAstN2 printAst cfg d opCode u v
-  AstR1S opCode u -> printAstR1 printAst cfg d opCode u
-  AstR2S opCode u v -> printAstR2 printAst cfg d opCode u v
-  AstI2S opCode u v -> printAstI2 printAst cfg d opCode u v
+  AstN1S opCode u -> printAstN1R printAst cfg d opCode u
+  AstN2S opCode u v -> printAstN2R printAst cfg d opCode u v
+  AstR1S opCode u -> printAstR1R printAst cfg d opCode u
+  AstR2S opCode u v -> printAstR2R printAst cfg d opCode u v
+  AstI2S opCode u v -> printAstI2R printAst cfg d opCode u v
   AstSumOfListS [] -> error "printAst: empty AstSumOfList"
   AstSumOfListS (left : args) ->
     let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
@@ -651,22 +651,22 @@ printAstBool cfg d = \case
   AstBoolConst b -> showString $ if b then "true" else "false"
   AstRel opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
 
-printAstN1 :: (PrintConfig -> Int -> a -> ShowS)
+printAstN1R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS
-printAstN1 pr cfg d opCode u = case opCode of
+printAstN1R pr cfg d opCode u = case opCode of
   NegateOp -> printPrefixOp pr cfg d "negate" [u]
   AbsOp -> printPrefixOp pr cfg d "abs" [u]
   SignumOp -> printPrefixOp pr cfg d "signum" [u]
 
-printAstN2 :: (PrintConfig -> Int -> a -> ShowS)
+printAstN2R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum2 -> a -> a -> ShowS
-printAstN2 pr cfg d opCode u v = case opCode of
+printAstN2R pr cfg d opCode u v = case opCode of
   MinusOp -> printBinaryOp pr cfg d u (6, " - ") v
   TimesOp -> printBinaryOp pr cfg d u (7, " * ") v
 
-printAstR1 :: (PrintConfig -> Int -> a -> ShowS)
+printAstR1R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCode1 -> a -> ShowS
-printAstR1 pr cfg d opCode u = case opCode of
+printAstR1R pr cfg d opCode u = case opCode of
   RecipOp -> printPrefixOp pr cfg d "recip" [u]
   ExpOp -> printPrefixOp pr cfg d "exp" [u]
   LogOp -> printPrefixOp pr cfg d "log" [u]
@@ -684,17 +684,17 @@ printAstR1 pr cfg d opCode u = case opCode of
   AcoshOp -> printPrefixOp pr cfg d "acosh" [u]
   AtanhOp -> printPrefixOp pr cfg d "atanh" [u]
 
-printAstR2 :: (PrintConfig -> Int -> a -> ShowS)
+printAstR2R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCode2 -> a -> a -> ShowS
-printAstR2 pr cfg d opCode u v = case opCode of
+printAstR2R pr cfg d opCode u v = case opCode of
   DivideOp -> printBinaryOp pr cfg d u (7, " / ") v
   PowerOp -> printBinaryOp pr cfg d u (8, " ** ") v
   LogBaseOp -> printPrefixOp pr cfg d "logBase" [u, v]
   Atan2Op -> printPrefixOp pr cfg d "atan2F" [u, v]
 
-printAstI2 :: (PrintConfig -> Int -> a -> ShowS)
+printAstI2R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeIntegral2 -> a -> a -> ShowS
-printAstI2 pr cfg d opCode u v = case opCode of
+printAstI2R pr cfg d opCode u v = case opCode of
   QuotOp -> printPrefixOp pr cfg d "quotF" [u, v]
   RemOp -> printPrefixOp pr cfg d "remF" [u, v]
 

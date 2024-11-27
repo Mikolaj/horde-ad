@@ -9,6 +9,7 @@ import Prelude
 
 import Data.Int (Int64)
 import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat)
 import Numeric.LinearAlgebra (Numeric)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
@@ -70,6 +71,9 @@ testTrees =
   , testCase "scatter12" testScatter12
   , testCase "scatterBuild12" testScatterBuild12
   , testCase "scatterSimpPP12" testScatterSimpPP12
+
+  , testCase "shmatterBarReluADVal320" testBarReluADVal320
+  , testCase "shmatterReluSimpPP" testReluSimpPP
   ]
 
 gatherNested1 :: forall target r. (ADReady target, GoodScalar r)
@@ -330,15 +334,15 @@ testGatherSimpPP23 = do
               gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 217
-  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 695
+  length (show t1) @?= 218
+  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 696
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 217
-  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 695
+  length (show t2) @?= 218
+  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 696
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -450,14 +454,14 @@ testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 614
-  length (show (simplifyInline @(TKR 2 Float) t1)) @?= 614
+  length (show t1) @?= 615
+  length (show (simplifyInline @(TKR 2 Float) t1)) @?= 615
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                             (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 533
-  length (show (simplifyInline @(TKR 2 Float) t2)) @?= 533
+  length (show t2) @?= 534
+  length (show (simplifyInline @(TKR 2 Float) t2)) @?= 534
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -465,16 +469,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 959
-  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 959
+  length (show t1) @?= 961
+  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 961
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                                (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 712
-  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 712
+  length (show t2) @?= 714
+  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 714
 
 -- scatters instead of gathers
 
@@ -674,3 +678,45 @@ testScatterSimpPP12 = do
   length (show t2) @?= 915
   length (show (simplifyInline @(TKR 2 Float) t1)) @?= 1398
   length (show (simplifyInline @(TKR 2 Float) t2)) @?= 915
+
+foo :: RealFloatF a => (a,a,a) -> a
+foo (x,y,z) =
+  let w = x * sin y
+  in atan2F z w + z * w
+
+bar :: forall a. RealFloatF a => (a, a) -> a
+bar (x, y) =
+  let w = foo (x, y, x) * sin y
+  in atan2F x w + y * w
+
+barRelu
+  :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+  => target (TKR n r) -> target (TKR n r)
+barRelu x = let t = rreplicate0N (rshape x) (rscalar 0.001) * x
+            in relu $ bar (t, relu t)
+
+barRelu10xSlower
+  :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+  => target (TKR n r) -> target (TKR n r)
+barRelu10xSlower x = let t = rmap0N (* rscalar 0.001) x
+                     in relu $ bar (t, relu t)
+
+testBarReluADVal320 :: Assertion
+testBarReluADVal320 =
+  assertEqualUpToEpsilonShort 1e-10
+    (ringestData [1,2,2,1,2,2,2,2,2,1] [2.885038541771792e-4,2.885145151321922e-4,2.8854294397024206e-4,2.885034988157713e-4,2.885923176600045e-4,2.887454843457817e-4,2.886097295122454e-4,2.8846476339094805e-4,2.885038541771792e-4,2.885145151321922e-4,2.8854294397024206e-4,2.8851415976532735e-4,2.885923176600045e-4,2.887454843457817e-4,2.8849246223035154e-4,2.884182085399516e-4,2.884075468755327e-4,2.8842176240868867e-4,2.8840399312321096e-4,0.0,2.887454843457817e-4,2.886097295122454e-4,2.887454843457817e-4,2.88599069218435e-4,2.887454843457817e-4,2.886097295122454e-4,2.8846476339094805e-4,2.885038541771792e-4,2.885145151321922e-4,2.8854294397024206e-4,2.885145151321922e-4,2.885145151321922e-4,2.8854294397024206e-4,2.8858878438222746e-4,2.885923176600045e-4,0.0,2.884007943794131e-4,0.0,2.884469945274759e-4,2.8843242392031246e-4,2.884288700806792e-4,0.0,2.885034988157713e-4,2.884110805753153e-4,0.0,2.8849283778617973e-4,2.884075468755327e-4,2.884075468755327e-4,2.884075468755327e-4,2.884075468755327e-4,0.0,0.0,0.0,0.0,2.884892851579934e-4,2.884892851579934e-4,2.884892851579934e-4,2.884892851579934e-4,0.0,0.0,0.0,0.0,2.884892851579934e-4,2.884892851579934e-4,2.884892851579934e-4,2.884892851579934e-4,2.8854294397024206e-4,2.884288700806792e-4,2.884395315486472e-4,0.0,2.8849246223035154e-4,2.8850276789489724e-4,0.0,2.8849212704517413e-4,2.8854294397024206e-4,2.884288700806792e-4,2.884395315486472e-4,0.0,2.8849246223035154e-4,2.8850276789489724e-4,0.0,2.8849212704517413e-4,2.8842922547482884e-4,2.885038541771792e-4,2.885145151321922e-4,2.8854294397024206e-4,2.885145151321922e-4,2.8854294397024206e-4,2.894378297730782e-4,2.885923176600045e-4,2.887454843457817e-4,2.88599069218435e-4,2.887454843457817e-4,2.887056688523444e-4,2.887454843457817e-4,2.887056688523444e-4,2.8846476339094805e-4,2.885038541771792e-4,2.885145151321922e-4,2.8854294397024206e-4,2.885145151321922e-4,2.8854294397024206e-4,2.885145151321922e-4,2.8854294397024206e-4,2.884786229769816e-4,2.885923176600045e-4,2.887454843457817e-4,2.886950092188272e-4,2.887454843457817e-4,2.884818011261814e-4,2.887454843457817e-4,2.886097295122454e-4,2.8846476339094805e-4,2.885038541771792e-4,2.885145151321922e-4,2.8854294397024206e-4,2.885145151321922e-4,2.8854294397024206e-4,2.885145151321922e-4,2.8854294397024206e-4,2.887167039107226e-4,2.885923176600045e-4,2.887454843457817e-4,2.8860262265516213e-4,2.887454843457817e-4,2.885884088500461e-4,2.887454843457817e-4,2.88599069218435e-4])
+    (rev' @Double @10 barRelu10xSlower
+          (rmap0N (* (rscalar 0.001)) t128))
+
+testReluSimpPP :: Assertion
+testReluSimpPP = do
+  resetVarCounter
+  let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
+            $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
+  length (show t1) @?= 16149
+  length (show (simplifyInline @(TKR 10 Float) t1)) @?= 16149
+  resetVarCounter
+  let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
+            $ AstVar (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
+  length (show t2) @?= 13141
+  length (show (simplifyInline @(TKR 10 Float) t2)) @?= 16149

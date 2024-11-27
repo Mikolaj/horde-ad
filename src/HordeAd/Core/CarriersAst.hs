@@ -56,38 +56,38 @@ instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
          => Num (AstTensor ms s (TKR n r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcrete ftk u : lu) + AstSumOfList (AstConcrete _ v : lv) =
-    AstSumOfList (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete ftk v : lv) =
-    AstSumOfList (AstConcrete ftk v : lv ++ lu)
-  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
+  AstSumOfListR (AstConcrete ftk u : lu) + AstSumOfListR (AstConcrete _ v : lv) =
+    AstSumOfListR (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfListR lu + AstSumOfListR (AstConcrete ftk v : lv) =
+    AstSumOfListR (AstConcrete ftk v : lv ++ lu)
+  AstSumOfListR lu + AstSumOfListR lv = AstSumOfListR (lu ++ lv)
 
-  AstConcrete ftk u + AstSumOfList (AstConcrete _ v : lv) =
-    AstSumOfList (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfList (AstConcrete ftk v : lv) = AstSumOfList (AstConcrete ftk v : u : lv)
-  u + AstSumOfList lv = AstSumOfList (u : lv)
+  AstConcrete ftk u + AstSumOfListR (AstConcrete _ v : lv) =
+    AstSumOfListR (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfListR (AstConcrete ftk v : lv) = AstSumOfListR (AstConcrete ftk v : u : lv)
+  u + AstSumOfListR lv = AstSumOfListR (u : lv)
 
-  AstSumOfList (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfList (AstConcrete ftk (u + v) : lu)
-  AstSumOfList (AstConcrete ftk u : lu) + v = AstSumOfList (AstConcrete ftk u : v : lu)
-  AstSumOfList lu + v = AstSumOfList (v : lu)
+  AstSumOfListR (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfListR (AstConcrete ftk (u + v) : lu)
+  AstSumOfListR (AstConcrete ftk u : lu) + v = AstSumOfListR (AstConcrete ftk u : v : lu)
+  AstSumOfListR lu + v = AstSumOfListR (v : lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList [AstConcrete ftk v, u]
-  u + v = AstSumOfList [u, v]
+  u + AstConcrete ftk v = AstSumOfListR [AstConcrete ftk v, u]
+  u + v = AstSumOfListR [u, v]
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing
-  u - v = AstN2 MinusOp u v
+  u - v = AstN2R MinusOp u v
 
   AstConcrete ftk u * AstConcrete _ v =
     AstConcrete ftk (u * v)  -- common in indexing
-  u * v = AstN2 TimesOp u v
+  u * v = AstN2R TimesOp u v
 
   negate (AstConcrete ftk u) = AstConcrete ftk $ negate u  -- common in indexing
-  negate u = AstN1 NegateOp u
-  abs = AstN1 AbsOp
-  signum = AstN1 SignumOp
+  negate u = AstN1R NegateOp u
+  abs = AstN1R AbsOp
+  signum = AstN1R SignumOp
   fromInteger i = error $ "fromInteger not defined for ranked tensors: "
                           ++ show i
 
@@ -96,40 +96,40 @@ instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
 -- they are going to work, but slowly.
 instance (GoodScalar r, Integral r, KnownNat n)
          => IntegralF (AstTensor ms s (TKR n r)) where
-  quotF = AstI2 QuotOp
-  remF = AstI2 RemOp
+  quotF = AstI2R QuotOp
+  remF = AstI2R RemOp
 
 instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), KnownNat n)
          => Fractional (AstTensor ms s (TKR n r)) where
-  u / v = AstR2 DivideOp u v
-  recip = AstR1 RecipOp
+  u / v = AstR2R DivideOp u v
+  recip = AstR1R RecipOp
   fromRational r = error $ "fromRational not defined for AST: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi not defined for ranked tensors"
-  exp = AstR1 ExpOp
-  log = AstR1 LogOp
-  sqrt = AstR1 SqrtOp
-  (**) = AstR2 PowerOp
-  logBase = AstR2 LogBaseOp
-  sin = AstR1 SinOp
-  cos = AstR1 CosOp
-  tan = AstR1 TanOp
-  asin = AstR1 AsinOp
-  acos = AstR1 AcosOp
-  atan = AstR1 AtanOp
-  sinh = AstR1 SinhOp
-  cosh = AstR1 CoshOp
-  tanh = AstR1 TanhOp
-  asinh = AstR1 AsinhOp
-  acosh = AstR1 AcoshOp
-  atanh = AstR1 AtanhOp
+  exp = AstR1R ExpOp
+  log = AstR1R LogOp
+  sqrt = AstR1R SqrtOp
+  (**) = AstR2R PowerOp
+  logBase = AstR2R LogBaseOp
+  sin = AstR1R SinOp
+  cos = AstR1R CosOp
+  tan = AstR1R TanOp
+  asin = AstR1R AsinOp
+  acos = AstR1R AcosOp
+  atan = AstR1R AtanOp
+  sinh = AstR1R SinhOp
+  cosh = AstR1R CoshOp
+  tanh = AstR1R TanhOp
+  asinh = AstR1R AsinhOp
+  acosh = AstR1R AcoshOp
+  atanh = AstR1R AtanhOp
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
          => RealFloatF (AstTensor ms s (TKR n r)) where
-  atan2F = AstR2 Atan2Op
+  atan2F = AstR2R Atan2Op
 
 
 -- * Unlawful numeric instances of shaped AST; they are lawful modulo evaluation

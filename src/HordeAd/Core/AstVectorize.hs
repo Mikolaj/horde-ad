@@ -269,23 +269,23 @@ build1V snat@SNat (var, v00) =
     Ast.AstIota ->
       error "build1V: AstIota can't have free index variables"
 
-    Ast.AstN1 opCode u -> traceRule $
-      Ast.AstN1 opCode (build1VOccurenceUnknown snat (var, u))
-    Ast.AstN2 opCode u v -> traceRule $
-      Ast.AstN2 opCode (build1VOccurenceUnknown snat (var, u))
+    Ast.AstN1R opCode u -> traceRule $
+      Ast.AstN1R opCode (build1VOccurenceUnknown snat (var, u))
+    Ast.AstN2R opCode u v -> traceRule $
+      Ast.AstN2R opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
-    Ast.AstR1 opCode u -> traceRule $
-      Ast.AstR1 opCode (build1VOccurenceUnknown snat (var, u))
-    Ast.AstR2 opCode u v -> traceRule $
-      Ast.AstR2 opCode (build1VOccurenceUnknown snat (var, u))
+    Ast.AstR1R opCode u -> traceRule $
+      Ast.AstR1R opCode (build1VOccurenceUnknown snat (var, u))
+    Ast.AstR2R opCode u v -> traceRule $
+      Ast.AstR2R opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstI2 opCode u v -> traceRule $
-      Ast.AstI2 opCode (build1VOccurenceUnknown snat (var, u))
+    Ast.AstI2R opCode u v -> traceRule $
+      Ast.AstI2R opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstSumOfList args -> traceRule $
+    Ast.AstSumOfListR args -> traceRule $
       astSumOfList $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndex v ix -> traceRule $

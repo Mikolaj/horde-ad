@@ -102,7 +102,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
-  , AstTensor (AstConcrete, AstN1, AstN1S, AstN2, AstN2S, AstSumOfList, AstSumOfListS)
+  , AstTensor (AstConcrete, AstN1R, AstN1S, AstN2R, AstN2S, AstSumOfListR, AstSumOfListS)
   )
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -293,12 +293,12 @@ astNonIndexStep t = case t of
   Ast.AstMaxIndex{} -> t
   Ast.AstFloor{} -> t
   Ast.AstIota -> t
-  AstN1{} -> t
-  AstN2{} -> t
-  Ast.AstR1{} -> t
-  Ast.AstR2{} -> t
-  Ast.AstI2{} -> t
-  AstSumOfList l -> astSumOfList l
+  AstN1R{} -> t
+  AstN2R{} -> t
+  Ast.AstR1R{} -> t
+  Ast.AstR2R{} -> t
+  Ast.AstI2R{} -> t
+  AstSumOfListR l -> astSumOfList l
   Ast.AstIndex{} -> t  -- was supposed to be *non*-index
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
@@ -479,20 +479,20 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
     Just Refl -> astFromIntegral $ astRFromS i1
     _ -> error "astIndexKnobsR: rank not 0"
   Ast.AstIota -> Ast.AstIndex v0 ix
-  AstN1 opCode u ->
-    shareIx ix $ \ !ix2 -> AstN1 opCode (astIndexRec u ix2)
-  AstN2 opCode u v ->
-    shareIx ix $ \ !ix2 -> AstN2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  Ast.AstR1 opCode u ->
+  AstN1R opCode u ->
+    shareIx ix $ \ !ix2 -> AstN1R opCode (astIndexRec u ix2)
+  AstN2R opCode u v ->
+    shareIx ix $ \ !ix2 -> AstN2R opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstR1R opCode u ->
     shareIx ix
-    $ \ !ix2 -> Ast.AstR1 opCode (astIndexRec u ix2)
-  Ast.AstR2 opCode u v ->
+    $ \ !ix2 -> Ast.AstR1R opCode (astIndexRec u ix2)
+  Ast.AstR2R opCode u v ->
     shareIx ix
-    $ \ !ix2 -> Ast.AstR2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  Ast.AstI2 opCode u v ->
+    $ \ !ix2 -> Ast.AstR2R opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  Ast.AstI2R opCode u v ->
     shareIx ix
-    $ \ !ix2 -> Ast.AstI2 opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  AstSumOfList args ->
+    $ \ !ix2 -> Ast.AstI2R opCode (astIndexRec u ix2) (astIndexRec v ix2)
+  AstSumOfListR args ->
     shareIx ix $ \ !ix2 -> astSumOfList (map (`astIndexRec` ix2) args)
   Ast.AstIndex v ix2 ->
     astIndex v (appendIndex ix2 ix)
@@ -1036,19 +1036,19 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
-    AstN1 opCode v | not (isVar v) ->
-      AstN1 opCode (astGatherRec sh4 v (vars4, ix4))
-    AstN1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    AstN2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-      -- Going inside AstN2 usually makes the term more expensive to interpret
+    AstN1R opCode v | not (isVar v) ->
+      AstN1R opCode (astGatherRec sh4 v (vars4, ix4))
+    AstN1R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    AstN2R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+      -- Going inside AstN2R usually makes the term more expensive to interpret
       -- and reverting this transformation requires comparing two arguments,
       -- so it's not practical.
-    Ast.AstR1 opCode v | not (isVar v) ->
-      Ast.AstR1 opCode (astGatherRec sh4 v (vars4, ix4))
-    Ast.AstR1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstR2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstI2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
-    AstSumOfList{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstR1R opCode v | not (isVar v) ->
+      Ast.AstR1R opCode (astGatherRec sh4 v (vars4, ix4))
+    Ast.AstR1R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstR2R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstI2R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    AstSumOfListR{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstIndex v2 ix2 -> case (v2, ix2) of
       (Ast.AstFromVector{}, i2 :.: ZIR) -> astGather sh4 v2 (vars4, i2 :.: ix4)
       _ ->  -- AstVar, AstConcrete
@@ -1807,12 +1807,12 @@ astTranspose :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
 astTranspose perm = \case
   t | null perm -> t
   Ast.AstLet var u v -> astLet var u (astTranspose perm v)
-  AstN1 opCode u | not (isVar u) -> AstN1 opCode (astTranspose perm u)
-  AstN2 opCode u v | not (isVar u && isVar v) ->
-    AstN2 opCode (astTranspose perm u) (astTranspose perm v)
-  Ast.AstR1 opCode u | not (isVar u) -> Ast.AstR1 opCode (astTranspose perm u)
-  Ast.AstR2 opCode u v | not (isVar u && isVar v) ->
-    Ast.AstR2 opCode (astTranspose perm u) (astTranspose perm v)
+  AstN1R opCode u | not (isVar u) -> AstN1R opCode (astTranspose perm u)
+  AstN2R opCode u v | not (isVar u && isVar v) ->
+    AstN2R opCode (astTranspose perm u) (astTranspose perm v)
+  Ast.AstR1R opCode u | not (isVar u) -> Ast.AstR1R opCode (astTranspose perm u)
+  Ast.AstR2R opCode u v | not (isVar u && isVar v) ->
+    Ast.AstR2R opCode (astTranspose perm u) (astTranspose perm v)
   Ast.AstSum v -> astSum $ astTranspose (0 : map succ perm) v
   Ast.AstScatter @_ @_ @p sh v (vars, ix) | length perm <= valueOf @p ->
     -- TODO: should the below be backpermute or permute?
@@ -1980,12 +1980,12 @@ astReshape shOut = \case
         STKR{} -> astReshape shOut x
         _ -> error "astReshape: type family BuildTensorKind stuck at TKScalar"
   Ast.AstLet var u v -> astLet var u (astReshape shOut v)
-  AstN1 opCode u | not (isVar u) -> AstN1 opCode (astReshape shOut u)
-  AstN2 opCode u v | not (isVar u && isVar v) ->
-    AstN2 opCode (astReshape shOut u) (astReshape shOut v)
-  Ast.AstR1 opCode u | not (isVar u) -> Ast.AstR1 opCode (astReshape shOut u)
-  Ast.AstR2 opCode u v | not (isVar u && isVar v) ->
-    Ast.AstR2 opCode (astReshape shOut u) (astReshape shOut v)
+  AstN1R opCode u | not (isVar u) -> AstN1R opCode (astReshape shOut u)
+  AstN2R opCode u v | not (isVar u && isVar v) ->
+    AstN2R opCode (astReshape shOut u) (astReshape shOut v)
+  Ast.AstR1R opCode u | not (isVar u) -> Ast.AstR1R opCode (astReshape shOut u)
+  Ast.AstR2R opCode u v | not (isVar u && isVar v) ->
+    Ast.AstR2R opCode (astReshape shOut u) (astReshape shOut v)
   Ast.AstFromVector l | [x] <- V.toList l -> astReshape shOut x
   Ast.AstReshape _ v -> astReshape shOut v
   AstConcrete _ t -> AstConcrete (FTKR shOut FTKScalar) $ RepN $ Nested.rreshape shOut (unRepN t)
@@ -2176,12 +2176,12 @@ astPrimalPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
 
-  AstN1 opCode u -> AstN1 opCode (astPrimalPart u)
-  AstN2 opCode u v -> AstN2 opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstR1 opCode u -> Ast.AstR1 opCode (astPrimalPart u)
-  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (astPrimalPart u) (astPrimalPart v)
-  AstSumOfList args -> astSumOfList (map astPrimalPart args)
+  AstN1R opCode u -> AstN1R opCode (astPrimalPart u)
+  AstN2R opCode u v -> AstN2R opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstR1R opCode u -> Ast.AstR1R opCode (astPrimalPart u)
+  Ast.AstR2R opCode u v -> Ast.AstR2R opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2R opCode u v -> Ast.AstI2R opCode (astPrimalPart u) (astPrimalPart v)
+  AstSumOfListR args -> astSumOfList (map astPrimalPart args)
   Ast.AstIndex v ix -> astIndexR (astPrimalPart v) ix
   Ast.AstSum v -> astSum (astPrimalPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astPrimalPart v) (var, ix)
@@ -2254,12 +2254,12 @@ astDualPart t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstLet var u v -> astLet var u (astDualPart v)
 
-  AstN1{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
-  AstN2{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
-  Ast.AstR1{} -> Ast.AstDualPart t
-  Ast.AstR2{} -> Ast.AstDualPart t
-  Ast.AstI2{} -> Ast.AstDualPart t
-  AstSumOfList args -> astSumOfList (map astDualPart args)
+  AstN1R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
+  AstN2R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
+  Ast.AstR1R{} -> Ast.AstDualPart t
+  Ast.AstR2R{} -> Ast.AstDualPart t
+  Ast.AstI2R{} -> Ast.AstDualPart t
+  AstSumOfListR args -> astSumOfList (map astDualPart args)
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
   Ast.AstSum v -> astSum (astDualPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astDualPart v) (var, ix)
@@ -2497,12 +2497,12 @@ simplifyAst t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAst a)
   Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
   Ast.AstIota -> t
-  AstN1 opCode u -> AstN1 opCode (simplifyAst u)
-  AstN2 opCode u v -> AstN2 opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstR1 opCode u -> Ast.AstR1 opCode (simplifyAst u)
-  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (simplifyAst u) (simplifyAst v)
-  AstSumOfList args -> astSumOfList (map simplifyAst args)
+  AstN1R opCode u -> AstN1R opCode (simplifyAst u)
+  AstN2R opCode u v -> AstN2R opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstR1R opCode u -> Ast.AstR1R opCode (simplifyAst u)
+  Ast.AstR2R opCode u v -> Ast.AstR2R opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2R opCode u v -> Ast.AstI2R opCode (simplifyAst u) (simplifyAst v)
+  AstSumOfListR args -> astSumOfList (map simplifyAst args)
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIndex ix)
   Ast.AstSum v -> astSum (simplifyAst v)
   Ast.AstScatter sh v (var, ix) ->
@@ -2664,12 +2664,12 @@ expandAst t = case t of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex (expandAst a)
   Ast.AstFloor a -> Ast.AstFloor (expandAst a)
   Ast.AstIota -> t
-  AstN1 opCode u -> AstN1 opCode (expandAst u)
-  AstN2 opCode u v -> AstN2 opCode (expandAst u) (expandAst v)
-  Ast.AstR1 opCode u -> Ast.AstR1 opCode (expandAst u)
-  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (expandAst u) (expandAst v)
-  Ast.AstI2 opCode u v -> Ast.AstI2 opCode (expandAst u) (expandAst v)
-  AstSumOfList args -> astSumOfList (map expandAst args)
+  AstN1R opCode u -> AstN1R opCode (expandAst u)
+  AstN2R opCode u v -> AstN2R opCode (expandAst u) (expandAst v)
+  Ast.AstR1R opCode u -> Ast.AstR1R opCode (expandAst u)
+  Ast.AstR2R opCode u v -> Ast.AstR2R opCode (expandAst u) (expandAst v)
+  Ast.AstI2R opCode u v -> Ast.AstI2R opCode (expandAst u) (expandAst v)
+  AstSumOfListR args -> astSumOfList (map expandAst args)
   Ast.AstIndex v ix -> astIndexKnobsR (defaultKnobs {knobExpand = True})
                                       (expandAst v)
                                       (expandAstIndex ix)
@@ -2695,11 +2695,11 @@ expandAst t = case t of
       -- to transposes of replicates (not only to replicates). Or maybe
       -- we should extend orthotope to any gather schemes, not only
       -- the simple ones.
-    AstN1 _ w | isVar w -> t  -- normal form
-    AstN2 _ x y | isVar x && isVar y -> t  -- normal form
-    Ast.AstR1 _ w | isVar w -> t  -- normal form
-    Ast.AstR2 _ x y | isVar x && isVar y -> t  -- normal form
-    AstSumOfList{} -> t  -- normal form
+    AstN1R _ w | isVar w -> t  -- normal form
+    AstN2R _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1R _ w | isVar w -> t  -- normal form
+    Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
+    AstSumOfListR{} -> t  -- normal form
     Ast.AstScatter @_ @_ @p _ _ _ | length perm > valueOf @p -> t  -- nf
     _ ->  -- not nf, let's express all as a gather
       astTransposeAsGather (defaultKnobs {knobExpand = True})
@@ -2714,11 +2714,11 @@ expandAst t = case t of
     Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
     Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
     Ast.AstProjectR Ast.AstVar{} _ -> t  -- normal form
-    AstN1 _ w | isVar w -> t  -- normal form
-    AstN2 _ x y | isVar x && isVar y -> t  -- normal form
-    Ast.AstR1 _ w | isVar w -> t  -- normal form
-    Ast.AstR2 _ x y | isVar x && isVar y -> t  -- normal form
-    AstSumOfList{} -> t  -- normal form
+    AstN1R _ w | isVar w -> t  -- normal form
+    AstN2R _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1R _ w | isVar w -> t  -- normal form
+    Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
+    AstSumOfListR{} -> t  -- normal form
     Ast.AstScatter{} -> t  -- normal form
     _ ->  -- not nf, let's express all as a gather
       astReshapeAsGather (defaultKnobs {knobExpand = True})
@@ -2748,7 +2748,7 @@ expandAst t = case t of
       Just Refl -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
       _ -> {- TODO: case opCode of
         TimesOp | Just Refl <- sameNat (Proxy @n) (Proxy @3) ->
-          AstN2 opCode (simplifyAst u) (simplifyAst v)
+          AstN2R opCode (simplifyAst u) (simplifyAst v)
             -- TODO: a workaround for interpretMatmul2 not yet generalized
             -- to gathers (and moved from AstInterpret here, ideally)
         _ -> -} AstN2S opCode (expandAst u) (expandAst v)
@@ -3178,27 +3178,27 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
   Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
   Ast.AstIota -> Nothing
-  Ast.AstN1 opCode u -> Ast.AstN1 opCode  <$> substitute1Ast i var u
-  Ast.AstN2 opCode u v ->
+  Ast.AstN1R opCode u -> Ast.AstN1R opCode  <$> substitute1Ast i var u
+  Ast.AstN2R opCode u v ->
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstN2 opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ Ast.AstN2R opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstR1 opCode u -> Ast.AstR1 opCode <$> substitute1Ast i var u
-  Ast.AstR2 opCode u v ->
+  Ast.AstR1R opCode u -> Ast.AstR1R opCode <$> substitute1Ast i var u
+  Ast.AstR2R opCode u v ->
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstR2 opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ Ast.AstR2R opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstI2 opCode u v ->
+  Ast.AstI2R opCode u v ->
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstI2 opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ Ast.AstI2R opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstSumOfList args ->
+  Ast.AstSumOfListR args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
        then Just $ astSumOfList $ zipWith fromMaybe args margs
