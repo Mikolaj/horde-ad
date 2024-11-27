@@ -28,7 +28,6 @@ import HordeAd.Core.Types
 
 -- * Basic type family instances
 
-type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
 type instance DualOf (AstTensor ms s) = AstTensor ms DualSpan
 type instance ShareOf (AstTensor ms s) = AstRaw s
 
