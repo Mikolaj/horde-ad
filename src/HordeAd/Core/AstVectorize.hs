@@ -105,9 +105,14 @@ build1Vectorize snat@SNat (var, v0)
 build1VOccurenceUnknown
   :: forall k y s. (AstSpan s, TensorKind y)
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y) -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1VOccurenceUnknown snat@SNat (var, v0)
+build1VOccurenceUnknown snat@SNat (var, v00)
   | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
-    let traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 snat (var, v0)) v0 1
+    let v0 = astNonIndexStep v00
+          -- Almost surely the term will be transformed, so it can just
+          -- as well we one-step simplified first (many steps if redexes
+          -- get uncovered and so the simplification requires only constant
+          -- look-ahead, but has a guaranteed net benefit).
+        traceRule = mkTraceRule "build1VOcc" (Ast.AstBuild1 snat (var, v0)) v0 1
     in if varNameInAst var v0
        then build1V snat (var, v0)
        else traceRule $
@@ -141,17 +146,15 @@ intBindingRefresh var ix =
 -- | The application @build1V k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's known that
 -- @var@ occurs in @v@.
+--
+-- We can't simplify the argument term here, because it may eliminate
+-- the index variable. We simplify only in 'build1VOccurenceUnknown'.
 build1V
   :: forall k s y. (AstSpan s, TensorKind y)
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1V snat@SNat (var, v00) =
+build1V snat@SNat (var, v0) =
   let k = sNatValue snat
-      v0 = astNonIndexStep v00
-        -- Almost surely the term will be transformed, so it can just
-        -- as well we one-step simplified first (many steps if redexes
-        -- get uncovered and so the simplification requires only constant
-        -- look-ahead, but has a guaranteed net benefit).
       bv = Ast.AstBuild1 snat (var, v0)
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
