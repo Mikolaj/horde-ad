@@ -1270,7 +1270,8 @@ printArtifactSimple
   => IntMap String
   -> AstArtifactRev x z
   -> String
-printArtifactSimple renames art | Dict <- lemTensorKindOfAD (stensorKind @z) =
+printArtifactSimple renames art | Dict <- lemTensorKindOfAD (stensorKind @x)
+                                , Dict <- lemTensorKindOfAD (stensorKind @z) =
   let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
   let !varsPP = printAstVarName renames varDt
                 : map (printAstDynamicVarNameBrief renames) vars1
@@ -1282,7 +1283,8 @@ printArtifactPretty
   => IntMap String
   -> AstArtifactRev x z
   -> String
-printArtifactPretty renames art | Dict <- lemTensorKindOfAD (stensorKind @z) =
+printArtifactPretty renames art | Dict <- lemTensorKindOfAD (stensorKind @x)
+                                , Dict <- lemTensorKindOfAD (stensorKind @z) =
   let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
   let varsPP = printAstVarName renames varDt
                : map (printAstDynamicVarNameBrief renames) vars1

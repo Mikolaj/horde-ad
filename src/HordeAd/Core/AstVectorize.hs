@@ -881,7 +881,7 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
-mkTraceRule :: forall y z s. AstSpan s
+mkTraceRule :: forall y z s. (TensorKind y, TensorKind z, AstSpan s)
             => String -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s z -> Int
             -> AstTensor AstMethodLet s y
             -> AstTensor AstMethodLet s y

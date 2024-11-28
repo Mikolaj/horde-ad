@@ -64,52 +64,6 @@ defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas renames =
       representsIntIndex = False
   in PrintConfig {..}
 
-areAllArgsInts :: AstTensor ms s y -> Bool
-areAllArgsInts = \case
-  -- A heuristics for whether all the arguments are still Int64 rank 0 tensors
-  -- morally representing integer indexes. This mostly just rules out
-  -- rank > 0, but also a likely float, as in the argument of AstFloor,
-  -- or a likely dual number. There is an anavoidable ambiguity
-  -- and so also aribtrary choices in resolving it.
-  AstPair{} -> False
-  AstVar{} -> True
-  AstPrimalPart{} -> False
-  AstDualPart{} -> False
-  AstFromPrimal{} -> True  -- the argument is emphatically a primal number; fine
-  AstD{} -> False  -- dual number
-  AstCond{} -> True  -- too early to tell
-  AstReplicate{} -> False
-  AstBuild1{} -> False
-  AstLet{} -> True  -- too early to tell, but displays the same
-  AstShare{} -> True  -- too early to tell
-  AstConcrete{} -> True
-
-  AstMinIndexS{} -> False
-  AstMaxIndexS{} -> False
-  AstFloorS{} -> False
-  AstIotaS -> False
-  AstN1S{} -> True  -- has to keep rank and scalar, so it's ints
-  AstN2S{} -> True  -- has to keep rank and scalar
-  AstR1S{} -> True  -- has to keep rank and scalar
-  AstR2S{} -> True  -- has to keep rank and scalar
-  AstI2S{} -> True  -- has to keep rank and scalar
-  AstSumOfListS{} -> True  -- has to keep rank and scalar
-  AstIndexS{} -> False  -- the index arguments are taken care of via printAstInt
-  AstSumS{} -> False
-  AstScatterS{} -> False
-  AstFromVectorS{} -> False
-  AstAppendS{} -> False
-  AstSliceS{} -> False
-  AstReverseS{} -> False
-  AstTransposeS{} -> False
-  AstReshapeS{} -> False
-  AstGatherS{} -> False
-  AstCastS{} -> False
-  AstFromIntegralS{} -> True
-  AstProjectS{} -> True  -- too early to tell
-  AstLetHVectorIn{} -> True  -- too early to tell
-  AstSFromR{} -> False
-  _ -> False  -- shaped  -- TODO: change type to TKR to catch missing cases
 
 -- * Pretty-printing of variables
 
@@ -150,12 +104,10 @@ printAstVarFromLet
   :: forall s y ms. (AstSpan s, TensorKind y)
   => AstTensor ms s y -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarFromLet u cfg var =
-  if representsIntIndex cfg && areAllArgsInts u
+  if representsIntIndex cfg
   then case isTensorInt u of
-    Just Refl ->  -- the heuristics may have been correct
-      printAstIntVar cfg var
-    _ ->  -- the heuristics failed
-      printAstVar cfg var
+    Just Refl -> printAstIntVar cfg var
+    _ -> printAstVar cfg var
   else printAstVar cfg var
 
 printAstVarName :: TensorKind y
@@ -182,33 +134,21 @@ printAstInt cfgOld d t =
   let cfg = cfgOld {representsIntIndex = True}
   in printAst cfg d t
 
-printAst :: forall s y ms. AstSpan s
+printAst :: forall s y ms. (TensorKind y, AstSpan s)
          => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
-  then case t of
-    AstVar _ var ->
-      case isTensorInt t of  -- TODO: really needed? use ftk instead of t?
-        Just Refl ->  -- the heuristics may have been correct
-          printAstIntVar cfgOld var
-        _ ->  -- the heuristics failed
-          let cfg = cfgOld {representsIntIndex = False}
-          in printAstAux cfg d t
-    AstConcrete _ i ->
-      case isTensorInt t of  -- TODO: really needed?
-        Just Refl ->  -- the heuristics may have been correct
-          shows $ Nested.sunScalar $ unRepN i
-        _ ->  -- the heuristics failed
-          let cfg = cfgOld {representsIntIndex = False}
-          in printAstAux cfg d t
-    _ -> if areAllArgsInts t
-         then printAstAux cfgOld d t
-         else let cfg = cfgOld {representsIntIndex = False}
-              in printAstAux cfg d t
+  then case isTensorInt t of
+    Just Refl -> case t of
+      AstVar _ var -> printAstIntVar cfgOld var
+      AstConcrete _ i -> shows $ Nested.sunScalar $ unRepN i
+      _ -> printAstAux cfgOld d t
+    _ -> let cfg = cfgOld {representsIntIndex = False}
+         in printAstAux cfg d t
   else printAstAux cfgOld d t
 
 -- Precedences used are as in Haskell.
-printAstAux :: forall s y ms. AstSpan s
+printAstAux :: forall s y ms. (TensorKind y, AstSpan s)
             => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
   AstPair t1 t2 ->
@@ -549,7 +489,11 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-  AstMapAccumRDer k _accShs _bShs _eShs f df rf acc0 es ->
+  AstMapAccumRDer @accShs @bShs @eShs k _accShs _bShs _eShs f df rf acc0 es
+   | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "
       . showParen True (shows k)
@@ -563,7 +507,11 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  AstMapAccumLDer k _accShs _bShs _eShs f df rf acc0 es ->
+  AstMapAccumLDer @accShs @bShs @eShs k _accShs _bShs _eShs f df rf acc0 es
+   | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
       . showParen True (shows k)
@@ -619,7 +567,8 @@ printHVectorAst cfg l =
       $ showString "fromList "
         . showListWith (printAstDynamic cfg 0) (V.toList l)
 
-printAstHFun :: PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFun :: TensorKind y
+             => PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFun cfg d = \case
   AstLambda (var, _, l) ->
     if loseRoudtrip cfg
@@ -638,7 +587,8 @@ printAstHFun cfg d = \case
            . showString " -> "
            . printAst cfg 0 l
 
-printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFunOneUnignore :: TensorKind y
+                        => PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
   AstLambda (var, _, l) ->
     if loseRoudtrip cfg
@@ -761,15 +711,15 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstSimple :: AstSpan s
+printAstSimple :: (TensorKind y, AstSpan s)
                => IntMap String -> AstTensor ms s y -> String
 printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPretty :: AstSpan s
+printAstPretty :: (TensorKind y, AstSpan s)
                => IntMap String -> AstTensor ms s y -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
-printAstPrettyButNested :: AstSpan s
+printAstPrettyButNested :: (TensorKind y, AstSpan s)
                         => IntMap String -> AstTensor ms s y -> String
 printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
