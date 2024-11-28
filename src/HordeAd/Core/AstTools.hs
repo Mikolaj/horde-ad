@@ -213,18 +213,18 @@ varInAst var = \case
   AstMaxIndex a -> varInAst var a
   AstFloor a -> varInAst var a
   AstIota -> False
-  AstN1R _ t -> varInAst var t
-  AstN2R _ t u -> varInAst var t || varInAst var u
-  AstR1R _ t -> varInAst var t
-  AstR2R _ t u -> varInAst var t || varInAst var u
-  AstI2R _ t u -> varInAst var t || varInAst var u
-  AstSumOfListR l -> any (varInAst var) l
   AstN1 _ t -> varInAst var t
   AstN2 _ t u -> varInAst var t || varInAst var u
   AstR1 _ t -> varInAst var t
   AstR2 _ t u -> varInAst var t || varInAst var u
   AstI2 _ t u -> varInAst var t || varInAst var u
   AstSumOfList l -> any (varInAst var) l
+  AstN1R _ t -> varInAst var t
+  AstN2R _ t u -> varInAst var t || varInAst var u
+  AstR1R _ t -> varInAst var t
+  AstR2R _ t u -> varInAst var t || varInAst var u
+  AstI2R _ t u -> varInAst var t || varInAst var u
+  AstSumOfListR l -> any (varInAst var) l
   AstIndex v ix -> varInAst var v || varInIndex var ix
   AstSum v -> varInAst var v
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
@@ -237,7 +237,7 @@ varInAst var = \case
   AstGather _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
-  AstProjectR l _p -> varInAst var l  -- conservative
+  AstProjectR l _p -> varInAst var l
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
   AstRFromS v -> varInAst var v
 
@@ -263,7 +263,7 @@ varInAst var = \case
   AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAst var v
   AstCastS t -> varInAst var t
   AstFromIntegralS a -> varInAst var a
-  AstProjectS l _p -> varInAst var l  -- conservative
+  AstProjectS l _p -> varInAst var l
   AstNestS v -> varInAst var v
   AstUnNestS v -> varInAst var v
   AstSFromR v -> varInAst var v
@@ -290,7 +290,7 @@ varInAst var = \case
   AstGatherX v (_vars, ix) -> varInIndexX var ix || varInAst var v
   AstCastX t -> varInAst var t
   AstFromIntegralX a -> varInAst var a
-  AstProjectX l _p -> varInAst var l  -- conservative
+  AstProjectX l _p -> varInAst var l
   AstXFromR v -> varInAst var v
 
   AstMkHVector l -> any (varInAstDynamic var) l

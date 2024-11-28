@@ -161,16 +161,16 @@ build1V snat@SNat (var, v0) =
   in case v0 of
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         astPair (build1VOccurenceUnknown snat (var, t1))
                  (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 @_ @z t
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         astProject1 (build1V snat (var, t))
     Ast.AstProject2 @x t
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         astProject2 (build1V snat (var, t))
     Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
       case isTensorInt v0 of
@@ -192,7 +192,7 @@ build1V snat@SNat (var, v0) =
         Ast.AstD (build1VOccurenceUnknown snat (var, u))
                  (build1VOccurenceUnknown snat (var, u'))
     Ast.AstCond b (Ast.AstFromPrimal v)
-                  (Ast.AstFromPrimal w) -> case stensorKind @y of
+                  (Ast.AstFromPrimal w) -> traceRule $ case stensorKind @y of
       STKR SNat STKScalar{} ->
         let t = Ast.AstFromPrimal
                 $ astIndexStep (astFromVector $ V.fromList [v, w])
@@ -207,7 +207,7 @@ build1V snat@SNat (var, v0) =
       STKProduct{} -> error "TODO"
       STKUntyped -> error "TODO"
       _ -> error "TODO"
-    Ast.AstCond b v w -> case stensorKind @y of
+    Ast.AstCond b v w -> traceRule $ case stensorKind @y of
       STKR SNat STKScalar{} ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
@@ -258,7 +258,7 @@ build1V snat@SNat (var, v0) =
     Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
     Ast.AstLet @y2 var1 u v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         let ftk2 = ftkAst u
             (var3, _ftk3, v2) =
               substProjRep snat var ftk2 var1 v
@@ -266,14 +266,17 @@ build1V snat@SNat (var, v0) =
                        (build1VOccurenceUnknownRefresh snat (var, v2))
              -- ensures no duplicated bindings, see below
 
-    Ast.AstMinIndex v -> Ast.AstMinIndex $ build1V snat (var, v)
-    Ast.AstMaxIndex v -> Ast.AstMaxIndex $ build1V snat (var, v)
-    Ast.AstFloor v -> Ast.AstFloor $ build1V snat (var, v)
+    Ast.AstMinIndex v -> traceRule $
+     Ast.AstMinIndex $ build1V snat (var, v)
+    Ast.AstMaxIndex v -> traceRule $
+     Ast.AstMaxIndex $ build1V snat (var, v)
+    Ast.AstFloor v -> traceRule $
+     Ast.AstFloor $ build1V snat (var, v)
     Ast.AstIota ->
       error "build1V: AstIota can't have free index variables"
 
     Ast.AstN1R opCode u -> traceRule $
-      Ast.AstN1R opCode (build1VOccurenceUnknown snat (var, u))
+      Ast.AstN1R opCode (build1V snat (var, u))
     Ast.AstN2R opCode u v -> traceRule $
       Ast.AstN2R opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
@@ -281,7 +284,7 @@ build1V snat@SNat (var, v0) =
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
     Ast.AstR1R opCode u -> traceRule $
-      Ast.AstR1R opCode (build1VOccurenceUnknown snat (var, u))
+      Ast.AstR1R opCode (build1V snat (var, u))
     Ast.AstR2R opCode u v -> traceRule $
       Ast.AstR2R opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
@@ -322,15 +325,17 @@ build1V snat@SNat (var, v0) =
       in astGatherStep (k :$: sh)
                        (build1VOccurenceUnknown snat (var, v))
                        (varFresh ::: vars, astVarFresh :.: ix2)
-    Ast.AstCast v -> astCast $ build1V snat (var, v)
-    Ast.AstFromIntegral v -> astFromIntegral $ build1V snat (var, v)
+    Ast.AstCast v -> traceRule $
+      astCast $ build1V snat (var, v)
+    Ast.AstFromIntegral v -> traceRule $
+      astFromIntegral $ build1V snat (var, v)
     Ast.AstConcrete{} ->
       error "build1V: AstConcrete can't have free index variables"
 
-    Ast.AstProjectR l p ->
-      astProjectR (build1VOccurenceUnknown snat (var, l)) p
+    Ast.AstProjectR l p -> traceRule $
+      astProjectR (build1V snat (var, l)) p
     Ast.AstLetHVectorIn @_ @_ @z vars1 l v
-     | Dict <- lemTensorKindOfBuild snat (stensorKind @z) ->
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
       -- Here substitution traverses @v@ term tree @length vars@ times.
       --
       -- We lose the type information surrounding var1 twice: first,
@@ -341,17 +346,20 @@ build1V snat@SNat (var, v0) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstRFromS @sh1 v ->
+    Ast.AstRFromS @sh1 v -> traceRule $
       astRFromS @(k ': sh1) $ build1V snat (var, v)
 
-    Ast.AstMinIndexS v -> Ast.AstMinIndexS $ build1V snat (var, v)
-    Ast.AstMaxIndexS v -> Ast.AstMaxIndexS $ build1V snat (var, v)
-    Ast.AstFloorS v -> Ast.AstFloorS $ build1V snat (var, v)
+    Ast.AstMinIndexS v -> traceRule $
+      Ast.AstMinIndexS $ build1V snat (var, v)
+    Ast.AstMaxIndexS v -> traceRule $
+      Ast.AstMaxIndexS $ build1V snat (var, v)
+    Ast.AstFloorS v -> traceRule $
+      Ast.AstFloorS $ build1V snat (var, v)
     Ast.AstIotaS ->
       error "build1V: AstIotaS can't have free index variables"
 
     Ast.AstN1S opCode u -> traceRule $
-      Ast.AstN1S opCode (build1VOccurenceUnknown snat (var, u))
+      Ast.AstN1S opCode (build1V snat (var, u))
     Ast.AstN2S opCode u v -> traceRule $
       Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
@@ -359,7 +367,7 @@ build1V snat@SNat (var, v0) =
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
     Ast.AstR1S opCode u -> traceRule $
-      Ast.AstR1S opCode (build1VOccurenceUnknown snat (var, u))
+      Ast.AstR1S opCode (build1V snat (var, u))
     Ast.AstR2S opCode u v -> traceRule $
       Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
@@ -422,14 +430,15 @@ build1V snat@SNat (var, v0) =
       in astGatherStepS @(k ': sh2) @(1 + p)
                         (build1VOccurenceUnknown snat (var, v))
                         (Const varFresh ::$ vars, astVarFresh :.$ ix2)
-    Ast.AstCastS v -> astCastS $ build1V snat (var, v)
-    Ast.AstFromIntegralS v -> astFromIntegralS $ build1V snat (var, v)
+    Ast.AstCastS v -> traceRule $
+      astCastS $ build1V snat (var, v)
+    Ast.AstFromIntegralS v -> traceRule $
+      astFromIntegralS $ build1V snat (var, v)
 
-    Ast.AstProjectS l p ->
-      astProjectS (build1VOccurenceUnknown snat (var, l)) p
-    Ast.AstNestS v -> astNestS $ build1V snat (var, v)
-    Ast.AstUnNestS v -> astUnNestS $ build1V snat (var, v)
-    Ast.AstSFromR v -> astSFromR $ build1V snat (var, v)
+    Ast.AstProjectS l p -> traceRule $ astProjectS (build1V snat (var, l)) p
+    Ast.AstNestS v -> traceRule $ astNestS $ build1V snat (var, v)
+    Ast.AstUnNestS v -> traceRule $ astUnNestS $ build1V snat (var, v)
+    Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
 
     Ast.AstMkHVector l -> traceRule $
       Ast.AstMkHVector
@@ -506,7 +515,7 @@ build1V snat@SNat (var, v0) =
         (\x1bs1 -> astPair (astProject1 x1bs1)
                             (astTrGeneral @k5 @k
                                           (stensorKind @bShs) (astProject2 x1bs1)))
-    _ -> error "TODO"
+    _ -> error $ "TODO: " ++ show v0
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
 -- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
