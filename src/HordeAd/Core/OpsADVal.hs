@@ -23,6 +23,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested (IShR, KnownShS (..), Rank)
@@ -267,7 +268,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   -- TODO: speed up by using tindex0R and dIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
-  rindex d i = indexPrimal d (sprimalPart <$> i)
+  rindex d i = indexPrimal d (tprimalPart (STKScalar typeRep) <$> i)
   rsum (D u u') = dD (rsum u) (SumR u')
   rsum0 (D u u') = dD (rsum0 u) (Sum0R u')
   rdot0 (D ue u') (D ve v') =
@@ -276,7 +277,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let !v = tshare ve
     in dD (rdot0 u v) (AddG (Dot0R v u') (Dot0R u v'))
   rscatter sh (D u u') f =
-    let g x = sprimalPart <$> f (sfromPrimal <$> x)
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (rscatter sh u g) (ScatterR sh u' g)
 
   rfromVector = fromVector
@@ -306,7 +308,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                           $ (0 :: Int) :| [1 .. k - 1]
     -- element-wise (POPL) version
   rgather sh (D u u') f =
-    let g x = sprimalPart <$> f (sfromPrimal <$> x)
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (rgather sh u g) (GatherR sh u' g)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
@@ -331,7 +334,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rScale k = ScaleG k
 
   xshape (D u _) = xshape u
-  xindex d i = indexPrimalX d (sprimalPart <$> i)
+  xindex d i = indexPrimalX d (tprimalPart (STKScalar typeRep) <$> i)
   xfromVector = fromVectorX
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
@@ -351,7 +354,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
 
   siota = fromPrimalADVal siota
-  sindex d i = indexPrimalS d (sprimalPart <$> i)
+  sindex d i = indexPrimalS d (tprimalPart (STKScalar typeRep) <$> i)
   ssum (D u u') = dD (ssum u) (SumS u')
   ssum0 (D u u') = dD (ssum0 u) (Sum0S u')
   sdot0 (D ue u') (D ve v') =
@@ -360,7 +363,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let !v = tshare ve
     in dD (sdot0 u v) (AddG (Dot0S v u') (Dot0S u v'))
   sscatter (D u u') f =
-    let g x = sprimalPart <$> f (sfromPrimal <$> x)
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (sscatter u g) (ScatterS u' g)
 
   sfromVector = fromVectorS
@@ -398,7 +402,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                          $ (0 :: Int) :| [1 .. valueOf @n - 1]
       -- element-wise (POPL) version
   sgather (D u u') f =
-    let g x = sprimalPart <$> f (sfromPrimal <$> x)
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (sgather u g) (GatherS u' g)
   scast (D u u') = dD (scast u) (CastS u')
   sfromIntegral (D u _) =

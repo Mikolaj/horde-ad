@@ -159,6 +159,20 @@ build1V snat@SNat (var, v0) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
+    Ast.AstScalar v2@(Ast.AstVar _ var2)  -- TODO: make compositional
+      | varNameToAstVarId var2 == varNameToAstVarId var -> traceRule $
+        case isTensorInt v2 of
+          Just Refl ->
+            fromPrimal @s $ Ast.AstSlice 0 (sNatValue snat) $ Ast.AstIota
+          _ -> error "build1V: build variable is not an index variable"
+    Ast.AstScalar{} -> case astNonIndexStep v0 of
+      Ast.AstScalar{} ->  -- let's hope this doesn't oscillate
+        error $ "build1V: AstScalar: building over scalars is undefined: "
+                ++ show v0
+      v1 -> build1VOccurenceUnknown snat (var, v1)  -- last ditch effort
+    Ast.AstUnScalar{} ->
+      error $ "build1V: AstUnScalar: building over scalars is undefined: "
+              ++ show v0
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
@@ -172,12 +186,10 @@ build1V snat@SNat (var, v0) =
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         astProject2 (build1V snat (var, t))
-    Ast.AstVar _ var2 | varNameToAstVarId var2 == varNameToAstVarId var ->
-      case isTensorInt v0 of
-        Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
-        _ -> error "build1V: build variable is not an index variable"
-    Ast.AstVar{} ->
-      error "build1V: AstVar can't contain other free index variables"
+    Ast.AstVar _ var2 ->
+      if varNameToAstVarId var2 == varNameToAstVarId var
+      then error "build1V: AstVar: building over scalars is undefined"
+      else error "build1V: AstVar can't contain other free variables"
     Ast.AstPrimalPart v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         astPrimalPart $ build1V snat (var, v)
@@ -733,7 +745,7 @@ substProjRep snat@SNat var ftk2 var1 v
                    vars
                    prVar
                    (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
-          _ -> error "TODO"
+          _ -> error $ "TODO: " ++ show prVar
         v2 = substituteAst
                (projection astVar3 ftk2)
                var1 v

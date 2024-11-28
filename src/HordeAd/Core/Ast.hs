@@ -52,7 +52,6 @@ import Data.Array.Nested
   , ListR
   , ListS (..)
   , Rank
-  , ShS (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -197,19 +196,19 @@ type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
 type AstInt ms = IntOf (AstTensor ms FullSpan)
--- ~ AstTensor ms PrimalSpan (TKS '[] Int64)
+-- ~ AstTensor ms PrimalSpan (TKScalar Int64)
 
 -- TODO: type IntVarNameF = AstVarName PrimalSpan Int64
-type IntVarName = AstVarName PrimalSpan (TKS '[] Int64)
+type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
-pattern AstIntVar var = AstVar (FTKS ZSS FTKScalar) var
+pattern AstIntVar var = AstVar FTKScalar var
 
 isTensorInt :: forall s y ms. (AstSpan s, TensorKind y)
             => AstTensor ms s y
             -> Maybe (AstTensor ms s y :~: AstInt ms)
 isTensorInt _ = case ( sameAstSpan @s @PrimalSpan
-                     , sameTensorKind @y @(TKS '[] Int64) ) of
+                     , sameTensorKind @y @(TKScalar Int64) ) of
                   (Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
 

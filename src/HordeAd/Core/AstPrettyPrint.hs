@@ -141,7 +141,7 @@ printAst cfgOld d t =
   then case isTensorInt t of
     Just Refl -> case t of
       AstVar _ var -> printAstIntVar cfgOld var
-      AstConcrete _ i -> shows $ Nested.sunScalar $ unRepN i
+      AstConcrete _ i -> shows $ unRepN i
       _ -> printAstAux cfgOld d t
     _ -> let cfg = cfgOld {representsIntIndex = False}
          in printAstAux cfg d t
@@ -151,6 +151,8 @@ printAst cfgOld d t =
 printAstAux :: forall s y ms. (TensorKind y, AstSpan s)
             => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
+  AstScalar t -> printAstAux cfg d t  -- TODO
+  AstUnScalar t -> printAstAux cfg d t  -- TODO
   AstPair t1 t2 ->
     showParen (d > 10)
     $ showString "tpair ("  -- TODO

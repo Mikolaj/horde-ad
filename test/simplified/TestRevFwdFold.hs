@@ -2001,12 +2001,12 @@ testSin0rmapAccumRD01SN51 = do
                                              - sin x1 / sreplicate @_ @3
                                                           (srepl 1 + sfromIndex0 i) ])
                            in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [ DynamicShaped $ x0 / (srepl 1 + sfromIntegral (sfromPrimal j))
+                          (dmkHVector $ V.fromList [ DynamicShaped $ x0 / (srepl 1 + sfromIndex0 j)
                                       , DynamicShaped $ sreplicate @_ @3 x0 ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 1)
                                          , DynamicShaped @Double @'[5, 3]
                                            $ sreplicate0N @_ @_ @'[5, 3]
-                                               (sfromIntegral (sfromPrimal j))
+                                               (sfromIndex0 j)
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 3)
                                          , DynamicShaped @Double @'[5, 2] (sreplicate0N $ sscalar 4) ]))
            in rfromS . f . sfromR) (rscalar 1.1))
@@ -2203,15 +2203,15 @@ testSin0rmapAccumRD01SN531a = do
                                                  (sin x / srepl 3)) ])
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList [ DynamicShaped
-                                        $ x0 / (srepl 1 + sreplicate @_ @3 (sfromIntegral (sfromPrimal j)))
+                                        $ x0 / (srepl 1 + sreplicate @_ @3 (sfromIndex0 j))
                                       , DynamicShaped
-                                        $ sreplicate @_ @6 (sfromIntegral (sfromPrimal i))
+                                        $ sreplicate @_ @6 (sfromIndex0 i)
                                           - sflatten (sappend x0 x0) ] )
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2, 1]
-                                          (sfromList [srepl (-0.1), sreshape @_ @_ @'[] @'[1] $ sfromIntegral (sfromPrimal j)])
+                                          (sfromList [srepl (-0.1), sreshape @_ @_ @'[] @'[1] $ sfromIndex0 j])
                                       , DynamicShaped @Double @'[2, 3]
                                          (sfromList0N
-                                           [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIntegral (sfromPrimal i), sscalar 0.5, sscalar 1.3]) ])))
+                                           [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIndex0 i, sscalar 0.5, sscalar 1.3]) ])))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
 testSin0rmapAccumRD01SN531b0 :: Assertion
@@ -2430,7 +2430,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
                            in \x y -> h (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
-                               $ sfromIntegral (sfromPrimal (i + j))
+                               $ sfromIndex0 (i + j)
                                  + sfromD (dunHVector x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconcrete $ Nested.rfromListPrimLinear [0] [] ])))))
@@ -2442,7 +2442,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "[rfromS (ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i41, i42] -> [i41, i42])) (\\[i43] -> [i43])) (\\[i44] -> [i44])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [0] FTKScalar) (rfromListLinear [0] []))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [0] FTKScalar) (rfromListLinear [0] []))))]))))) 0)))]"
+    @?= "[rfromS (ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @0) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i41, i42] -> [i41, i42])) (\\[i43] -> [i43])) (\\[i44] -> [i44])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> [tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate (sscalar 1.1)) + sfromR (rfromIntegral (rtranspose [1,0] (rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]))) + rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]))))] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [0] FTKScalar) (rfromListLinear [0] []))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [0] FTKScalar) (rfromListLinear [0] []))))]))))) 0)))]"
 
 testSin0rmapAccumRD01SN531bSPPj :: Assertion
 testSin0rmapAccumRD01SN531bSPPj = do
@@ -2464,7 +2464,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
                            in \x y -> h (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList
                              [ DynamicShaped @Double @'[]
-                               $ sfromIntegral (sfromPrimal (i + j))
+                               $ sfromIndex0 (i + j)
                                  + sfromD (dunHVector x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[1] (srepl 0) ])))))
                         $ \ !d -> sfromD $ dunHVector d V.! 0
@@ -2474,7 +2474,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "[ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i42, i43] -> [i42, i43])) (\\[i44] -> [i44])) (\\[i45] -> [i45])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))] [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))])), [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))]))))) 0))]"
+    @?= "[ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i42, i43] -> [i42, i43])) (\\[i44] -> [i44])) (\\[i45] -> [i45])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate (sscalar 1.1)) + sfromR (rfromIntegral (rtranspose [1,0] (rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]))) + rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]))))] [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))])), [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))]))))) 0))]"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -2497,7 +2497,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                            in \x y -> h (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList
                              [ DynamicRanked @Double @0
-                               $ rfromIntegral (rfromS $ sfromPrimal (i + j))
+                               $ rfromIndex0 (i + j)
                                  + rfromD (dunHVector x0 V.! 0) ])
                           (dmkHVector $ V.fromList [ DynamicRanked @Double @1
                                         $ rconcrete $ Nested.rfromListPrimLinear [1] [0] ])))))
@@ -2509,7 +2509,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "[rsum (rsum (rproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [tconcrete (FTKR [2,2] FTKScalar) (rfromListLinear [2,2] [1.0,1.0,1.0,1.0])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromIntegral (rfromS (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))) + rreplicate 2 (rreplicate 2 (rscalar 1.1))] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [1] FTKScalar) (rfromListLinear [1] [0.0]))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [1] FTKScalar) (rfromListLinear [1] [0.0]))))]))))) 0))]"
+    @?= "[rsum (rsum (rproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [tconcrete (FTKR [2,2] FTKScalar) (rfromListLinear [2,2] [1.0,1.0,1.0,1.0])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromIntegral (rtranspose [1,0] (rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]))) + rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]))) + rreplicate 2 (rreplicate 2 (rscalar 1.1))] [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [1] FTKScalar) (rfromListLinear [1] [0.0]))))])), [rtranspose [2,0,1] (rreplicate 2 (rreplicate 2 (tconcrete (FTKR [1] FTKScalar) (rfromListLinear [1] [0.0]))))]))))) 0))]"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do
@@ -2541,10 +2541,10 @@ testSin0rmapAccumRD01SN531c = do
                                          $ srepl 1 - sin x / srepl 3 - sfromD (a V.! 0) ])
                            in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList [ DynamicShaped
-                                        $ x0 / (srepl 1 + sfromIntegral (sfromPrimal j)) ])
+                                        $ x0 / (srepl 1 + sfromIndex0 j) ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
-                                           [sscalar 0.4, sfromIntegral (sfromPrimal i)]) ])))
+                                           [sscalar 0.4, sfromIndex0 i]) ])))
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531d :: Assertion
@@ -2575,10 +2575,10 @@ testSin0rmapAccumRD01SN531d = do
                                          $ srepl 1 - sin x / srepl 3 - sfromD (a V.! 0) ])
                             in \x y -> g (dunHVector x) (dunHVector y))
                           (dmkHVector $ V.fromList [ DynamicShaped
-                                        $ x0 / (1 + sfromIntegral (sfromPrimal j)) ])
+                                        $ x0 / (1 + sfromIndex0 j) ])
                           (dmkHVector $ V.fromList [ DynamicShaped @Double @'[2]
                                          (sfromList0N
-                                           [sscalar 0.4, sfromIntegral (sfromPrimal i)]) ])))
+                                           [sscalar 0.4, sfromIndex0 i]) ])))
       in f . sfromR) (rscalar 1.1 :: RepN (TKR 0 Double)))
 
 -- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things

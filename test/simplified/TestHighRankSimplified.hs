@@ -6,6 +6,7 @@ module TestHighRankSimplified (testTrees) where
 
 import Prelude
 
+import Data.Int (Int64)
 import GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
@@ -71,6 +72,8 @@ testTrees =
   , testCase "3recycled1" testRecycled1
   , testCase "3concatBuild0" testConcatBuild0
   , testCase "3concatBuild1" testConcatBuild1
+  , testCase "3concatBuild0m" testConcatBuild0m
+  , testCase "3concatBuild1m" testConcatBuild1m
   , testCase "3concatBuild2" testConcatBuild2
   , testCase "3concatBuild22" testConcatBuild22
   , testCase "3concatBuild3" testConcatBuild3
@@ -164,18 +167,20 @@ fooBuild2
      (ADReady target, GoodScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
   => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild2 v =
-  rbuild1 2 $ \ix ->
+  rbuild1 2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
+                          ix = sfromR $ runRepScalar ix' in
     ifF (ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
                       $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 >=. 0
          &&* ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
                           $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 <=. 1)
-        (rindex v [ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
+        (rindex v [rmkRepScalar $ rfromS $ ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
                                 $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001])
            -- index out of bounds; also fine
-        (sqrt $ abs $ rindex v [let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - 10001) `remF` 2
-                                in ifF (signum rr ==. negate (signum 2))
-                                   (rr + 2)
-                                   rr])
+        (sqrt $ abs $ rindex v [rmkRepScalar $ rfromS
+                                $ let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - 10001) `remF` 2
+                                  in ifF (signum rr ==. negate (signum 2))
+                                     (rr + 2)
+                                     rr])
 
 fooBuild2L
   :: forall target r n.
@@ -216,15 +221,16 @@ fooBuild2S
      (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh, KnownNat (Nested.Product (k : sh)))
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
-  sbuild1 @_ @_ @2 $ \ix ->
+  sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
+                                 ix = sfromR $ runRepScalar ix' in
     ifF (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
-        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+        (sindex v (ShapedList.singletonIndex (rmkRepScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001)))
            -- index out of bounds; also fine
-        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
+        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (rmkRepScalar $ rfromS $ let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
                                 in ifF (signum rr ==. negate (signum $ srepl 2))
                                    (rr + srepl 2)
                                    rr)))
@@ -246,17 +252,18 @@ fooBuildNest2S
      (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh, KnownNat (Nested.Product (k : sh)))
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuildNest2S v = rfromS $
-  sbuild1 @_ @_ @2 $ \ix ->
+  sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
+                                 ix = sfromR $ runRepScalar ix' in
     ifF (ix - (sunNest @_ @'[] @'[] . tprimalPart stensorKind . snest knownShS . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
 -- TODO:        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ treplicate (SNat @5) stensorKind $ snest (knownShS @[12,11])
-        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ tproject2 $ tfromPrimal stensorKind $ tpair tunit (tprimalPart stensorKind $ snest (knownShS @[5,12,11])
+        (sindex v (ShapedList.singletonIndex (rmkRepScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ tproject2 $ tfromPrimal stensorKind $ tpair tunit (tprimalPart stensorKind $ snest (knownShS @[5,12,11])
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v))) - srepl 10001)))
            -- index out of bounds; also fine
 -- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))
-        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (rr)) ==. negate (signum $ srepl 2)) (sprimalPart (rr) + srepl 2) (sprimalPart (rr)))))
+        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (rmkRepScalar $ rfromS $ ifF (signum (sprimalPart rr) ==. negate (signum $ srepl 2)) (sprimalPart rr + srepl 2) (sprimalPart rr))))
 
 testFooBuildNest21S :: Assertion
 testFooBuildNest21S =
@@ -366,7 +373,7 @@ fooNoGo v =
        bar ( rreplicate0N shTail (rscalar 3.14)
            , bar ( rrepl (shapeToList shTail) 3.14
                  , rindex v [ix]) )
-       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* sscalar 6 >. abs ix)
+       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* 6 >. abs ix)
                r (rreplicate0N shTail (rscalar 5) * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r0) r0 x) v)
      * rbuild1 3 (const $ rrepl (shapeToList shTail) 1)
@@ -567,7 +574,8 @@ testRecycled1 =
     (ringestData [5, 4, 2] [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @Double @7 (recycled @_ @_ @3) (rreplicate0N [5, 4, 2] (rscalar 0.0002)))
 
-concatBuild :: (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+concatBuild :: forall target r n.
+               (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
             => target (TKR (1 + n) r) -> target (TKR (3 + n) r)
 concatBuild r =
   rbuild1 7 (\i ->
@@ -575,11 +583,11 @@ concatBuild r =
             , rbuild1 1 (\j -> rmap0N (* rfromIndex0 (j - i)) r)
             , rbuild1 11 (\j ->
                 rmap0N (* (rfromIndex0
-                  (sscalar 125 * (j `remF` (abs (signum i + abs i) + 1))
-                   + maxF j (i `quotF` (j + 1)) * (sprimalPart . sfloor . sfromR) (rsum0 r)
+                  (rmkRepScalar (rprimalPart @target (rscalar 125)) * (j `remF` (abs (signum i + abs i) + 1))
+                   + maxF j (i `quotF` (j + 1)) * (rmkRepScalar . rprimalPart . rfloor) (rsum0 r)
                    - ifF (r <=. r &&* i <. j)
-                         (sprimalPart $ sfromR $ rminIndex (rflatten r))
-                         ((sprimalPart . sfloor . sfromR) $ rsum0 $ r ! ((i * j) `remF` 7 :.: ZIR))))) r)
+                         (rmkRepScalar $ rprimalPart $ rminIndex (rflatten r))
+                         ((rmkRepScalar . rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `remF` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->
                 rsum $ rtr $ rreplicate (rlength r) (rslice 0 1 r)) ])
 
@@ -595,6 +603,27 @@ testConcatBuild1 =
   assertEqualUpToEpsilonShort 1e-10
     (ringestData [3,1,2,2,1,2,2] [1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4816999999999999e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3,1.4544e-3])
     (rev' @Double @9 (concatBuild . rmap0N (* rscalar 1e-7)) t48)
+
+concatBuildm :: forall target r n.
+                (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+             => target (TKR (1 + n) r) -> target (TKR (2 + n) r)
+concatBuildm r =
+  rbuild1 7 (\i ->
+    rmap0N (* (rfromIndex0
+      (((rmkRepScalar . rprimalPart . rfloor) $ rsum0 $ r ! (i :.: ZIR)) ))) r)
+
+testConcatBuild0m :: Assertion
+testConcatBuild0m =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7] [-1.0,-1.0,-1.0,-1.0,-1.0,-1.0,-1.0])
+    (rev' @Double @2 concatBuildm
+       (ringestData [7] [0.651,0.14,0.3414,-0.14,0.0014,0.0020014,0.9999]))
+
+testConcatBuild1m :: Assertion
+testConcatBuild1m =
+  assertEqualUpToEpsilonShort 1e-10
+    (ringestData [3,1,2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @Double @8 (concatBuildm . rmap0N (* rscalar 1e-7)) t48)
 
 concatBuild2 :: (ADReady target, GoodScalar r, KnownNat n)
              => target (TKR (1 + n) r) -> target (TKR (3 + n) r)

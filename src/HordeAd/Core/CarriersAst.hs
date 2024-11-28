@@ -52,7 +52,7 @@ instance Ord (AstTensor ms s y) where
 
 -- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
 
-instance GoodScalar r
+instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -88,8 +88,7 @@ instance GoodScalar r
   negate u = AstN1 NegateOp u
   abs = AstN1 AbsOp
   signum = AstN1 SignumOp
-  fromInteger i = error $ "fromInteger not defined for ranked tensors: "
-                          ++ show i
+  fromInteger i = fromPrimal . AstConcrete FTKScalar . fromInteger $ i
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -99,12 +98,11 @@ instance (GoodScalar r, IntegralF r)
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
 
-instance (GoodScalar r, RealFloatF r)
+instance (GoodScalar r, RealFloatF r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   u / v = AstR2 DivideOp u v
   recip = AstR1 RecipOp
-  fromRational r = error $ "fromRational not defined for AST: "
-                           ++ show r
+  fromRational r = fromPrimal . AstConcrete FTKScalar . fromRational $ r
 
 instance (GoodScalar r, RealFloatF r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where

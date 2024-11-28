@@ -403,7 +403,7 @@ interpretAst !env = \case
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIota (i :.: ZIR) ->
-    rfromIntegral . rfromPrimal . rfromS $ interpretAstPrimal env i
+    rfromIntegral . rfromPrimal . runRepScalar $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -555,7 +555,7 @@ interpretAst !env = \case
   AstReshape sh v -> rreshape sh (interpretAst env v)
   AstGather sh AstIota (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, fromPrimal @s $ AstFromIntegral $ AstRFromS i))
+                                    (vars, fromPrimal @s $ AstFromIntegral $ AstScalar i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -677,7 +677,7 @@ interpretAst !env = \case
     in foldl1 (+) (srepl 0 : args2)  -- backward compat vs @sum@
 -- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
-    sfromIntegral . sfromPrimal $ interpretAstPrimal env i
+    sfromIntegral . sfromPrimal . sfromR . runRepScalar $ interpretAstPrimal env i
   AstIndexS @sh1 @_ @_ @r v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -814,7 +814,7 @@ interpretAst !env = \case
     $ sbuild @target @r @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
-                (vars, fromPrimal @s $ AstFromIntegralS i))
+                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR $ AstScalar i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
@@ -960,6 +960,10 @@ interpretAstBool !env = \case
   AstBoolConst a -> if a then true else false
   AstRel @y3 opCodeRel arg1 arg2 ->
     case stensorKind @y3 of
+      STKScalar{} ->
+        let r1 = interpretAstPrimal env arg1
+            r2 = interpretAstPrimal env arg2
+        in interpretAstRelOp opCodeRel r1 r2
       STKR SNat STKScalar{} ->
         let r1 = interpretAstPrimalRuntimeSpecialized env arg1
             r2 = interpretAstPrimalRuntimeSpecialized env arg2

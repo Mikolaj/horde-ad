@@ -426,7 +426,7 @@ lemBuildOfAD snat@SNat = \case
 -- If used as size or shape, it would give more expressiveness,
 -- but would lead to irregular tensors, especially after vectorization,
 -- and would prevent statically known shapes.
-type IntOf (f :: Target) = PrimalOf f (TKS '[] Int64)
+type IntOf (f :: Target) = PrimalOf f (TKScalar Int64)
 
 -- | The type family is defined in order to give a special instance
 -- for AST that preservs sharing and, even more importantly, keeps

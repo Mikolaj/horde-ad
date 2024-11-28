@@ -17,6 +17,7 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
+import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (KnownShS (..), Rank)
@@ -27,21 +28,25 @@ import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
-sminIndexN :: ( ADReady target, GoodScalar r
+sminIndexN :: forall target sh r.
+              ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
            => target (TKS sh r) -> IxSOf target sh
 sminIndexN t =
-  ShapedList.fromLinearIdx (sscalar . fromIntegral)
+  ShapedList.fromLinearIdx
+    (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
     (sshape t)
-    (sprimalPart $ sminIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rfromS $ sminIndex (sflatten t))
 
-smaxIndexN :: ( ADReady target, GoodScalar r
+smaxIndexN :: forall target sh r.
+              ( ADReady target, GoodScalar r
               , KnownShS sh, KnownNat (Nested.Product sh) )
            => target (TKS sh r) -> IxSOf target sh
 smaxIndexN t =
-  ShapedList.fromLinearIdx (sscalar . fromIntegral)
+  ShapedList.fromLinearIdx
+    (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
     (sshape t)
-    (sprimalPart $ smaxIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rfromS $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
@@ -55,15 +60,15 @@ smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS '[] r)
-sfromIndex0 = sfromIntegral . sfromPrimal
+sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . runRepScalar
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownNat (Rank sh))
             => IxSOf target sh -> target (TKS '[Rank sh] r)
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
-  _ -> sfromIntegral . sfromPrimal . sfromList
-       . NonEmpty.fromList . ShapedList.indexToList
+  _ -> sfromR . rfromIntegral . rfromPrimal . rfromList
+       . NonEmpty.fromList . map runRepScalar . ShapedList.indexToList
 
 {-
 sletIx :: forall r sh n target.

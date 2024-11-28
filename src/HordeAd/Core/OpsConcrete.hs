@@ -83,16 +83,16 @@ instance BaseTensor RepN where
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
   rfloor = RepN . tfloorR . unRepN
-  rindex v ix = RepN $ tindexZR (unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
-  rindex0 v ix = RepN . tscalarR $ tindex0R (unRepN v) (fromIndexOfR $ fmap unRepN $ ix)
+  rindex v ix = RepN $ tindexZR (unRepN v) (fmap unRepN $ ix)
+  rindex0 v ix = RepN . tscalarR $ tindex0R (unRepN v) (fmap unRepN $ ix)
   rsum = RepN . tsumR . unRepN
   rsum0 = RepN . tscalarR . tsum0R . unRepN
   rdot0 u v = RepN $ tscalarR $ tdot0R (unRepN u) (unRepN v)
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   rscatter sh t f = RepN $ tscatterZR sh (unRepN t)
-                                         (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
+                                         (fmap unRepN . f . fmap RepN)
   rscatter1 sh t f = RepN $ tscatterZ1R sh (unRepN t)
-                                           (fromIndexOfR . fmap unRepN . f . RepN . tscalarS)
+                                           (fmap unRepN . f . RepN)
   rfromList = RepN . tfromListR . NonEmpty.map unRepN
   rfromList0N sh = RepN . tfromList0NR sh . map unRepN
   rfromVector = RepN . tfromVectorR . V.map unRepN
@@ -105,15 +105,15 @@ instance BaseTensor RepN where
   rreverse = RepN . treverseR . unRepN
   rtranspose perm = RepN . ttransposeR perm . unRepN
   rreshape sh = RepN . treshapeR sh . unRepN
-  rbuild1 k f = RepN $ tbuild1R k (unRepN . f . RepN . tscalarS)
+  rbuild1 k f = RepN $ tbuild1R k (unRepN . f . RepN)
   rmap0N f t = RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
   rzipWith0N f t u =
     RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
                        (unRepN t) (unRepN u)
   rgather sh t f = RepN $ tgatherZR sh (unRepN t)
-                                       (fromIndexOfR . fmap unRepN . f . fmap RepN . toIndexOfR)
+                                       (fmap unRepN . f . fmap RepN)
   rgather1 k t f = RepN $ tgatherZ1R k (unRepN t)
-                                       (fromIndexOfR . fmap unRepN . f . RepN . tscalarS)
+                                       (fmap unRepN . f . RepN)
   rcast = RepN . tcastR . unRepN
   rfromIntegral = RepN . tfromIntegralR . unRepN
   rfromS = RepN . Nested.stoRanked . unRepN
@@ -145,16 +145,16 @@ instance BaseTensor RepN where
   siota = let n = valueOf @n :: Int
           in RepN $ Nested.sfromList1 SNat
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
-  sindex v ix = RepN $ tindexZS (unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
-  sindex0 v ix = RepN . tscalarS $ tindex0S (unRepN v) (fromIndexOfS $ fmap unRepN $ ix)
+  sindex v ix = RepN $ tindexZS (unRepN v) (fmap unRepN $ ix)
+  sindex0 v ix = RepN . tscalarS $ tindex0S (unRepN v) (fmap unRepN $ ix)
   ssum = RepN . tsumS . unRepN
   ssum0 = RepN . tscalarS . tsum0S . unRepN
   sdot0 u v = RepN $ tscalarS $ tdot0S (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   sscatter t f = RepN $ tscatterZS (unRepN t)
-                                   (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
+                                   (fmap unRepN . f . fmap RepN)
   sscatter1 t f = RepN $ tscatterZ1S (unRepN t)
-                                      (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
+                                      (fmap unRepN . f . RepN)
   sfromList = RepN . tfromListS . NonEmpty.map unRepN
   sfromList0N = RepN . tfromList0NS . map unRepN
   sfromVector = RepN . tfromVectorS . V.map unRepN
@@ -167,15 +167,15 @@ instance BaseTensor RepN where
   sreverse = RepN . treverseS . unRepN
   stranspose perm = RepN . ttransposeS perm . unRepN
   sreshape = RepN . treshapeS . unRepN
-  sbuild1 f = RepN $ tbuild1S (unRepN . f . RepN . tscalarS)
+  sbuild1 f = RepN $ tbuild1S (unRepN . f . RepN)
   smap0N f t = RepN $ tmap0NS (unRepN . f . RepN) (unRepN t)
   szipWith0N f t u =
     RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
                         (unRepN t) (unRepN u)
   sgather t f = RepN $ tgatherZS (unRepN t)
-                                 (fromIndexOfS . fmap unRepN . f . fmap RepN . toIndexOfS)
+                                 (fmap unRepN . f . fmap RepN)
   sgather1 t f = RepN $ tgatherZ1S (unRepN t)
-                                   (fromIndexOfS . fmap unRepN . f . RepN . tscalarS)
+                                   (fmap unRepN . f . RepN)
   scast = RepN . tcastS . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
   snest shs t = RepN $ Nested.snest shs $ unRepN t

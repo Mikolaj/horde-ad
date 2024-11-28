@@ -16,51 +16,53 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat)
+import Type.Reflection (typeRep)
 
 import Data.Array.Nested (IShR, ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
-import Data.Int (Int64)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
-rminIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
-              , KnownNat n, GoodScalar r )
+rminIndexN :: forall target n r.
+              (BaseTensor target, KnownNat n, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rminIndexN t =
-  fromLinearIdx (sscalar . fromIntegral)
-    (rshape t)
-    (sprimalPart $ sfromR $ rminIndex (rflatten t))
+  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+                (rshape t)
+                (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rminIndex (rflatten t))
 
-rmaxIndexN :: ( BaseTensor target, BaseTensor (PrimalOf target)
-              , KnownNat n, GoodScalar r )
+rmaxIndexN :: forall target n r.
+              (BaseTensor target, KnownNat n, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rmaxIndexN t =
-  fromLinearIdx (sscalar . fromIntegral)
-    (rshape t)
-    (sprimalPart $ sfromR $ rmaxIndex (rflatten t))
+  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+                (rshape t)
+                (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rmaxIndex (rflatten t))
 
-rminimum :: ( BaseTensor target, BaseTensor (PrimalOf target)
-            , LetTensor target, KnownNat n, GoodScalar r )
+rminimum :: forall target n r.
+            (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR 0 r)
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in rindex0.
 rminimum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (sscalar . fromIntegral) (rshape t)
-                                          (sprimalPart $ sfromR $ rminIndex (rflatten t))
+                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+                                          (rshape t)
+                                          (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rminIndex (rflatten t))
 
-rmaximum :: ( BaseTensor target, BaseTensor (PrimalOf target)
-            , LetTensor target, KnownNat n, GoodScalar r )
+rmaximum :: forall target n r.
+            (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (sscalar . fromIntegral) (rshape t)
-                                          (sprimalPart $ sfromR $ rmaxIndex (rflatten t))
+                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+                                          (rshape t)
+                                          (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, GoodScalar r)
             => IntOf target -> target (TKR 0 r)
-rfromIndex0 = rfromIntegral . rfromS @_ @Int64 @'[] . sfromPrimal
+rfromIndex0 = rfromIntegral . runRepScalar . tfromPrimal (STKScalar typeRep)
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n
@@ -69,7 +71,7 @@ rfromIndex1 :: forall n r target.
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rfromS @_ @_ @'[n] . sfromPrimal . sfromList . NonEmpty.fromList . indexToList
+  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map runRepScalar . indexToList
 
 {-
 rint64FromIndex1 :: forall n target.
@@ -154,7 +156,6 @@ lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 lossSoftMaxCrossEntropyR
   :: forall target n r.
      ( BaseTensor target, BaseTensor (PrimalOf target)
-     , BaseTensor (PrimalOf (PrimalOf target))
      , LetTensor target, LetTensor (PrimalOf target)
      , KnownNat n, GoodScalar r, Differentiable r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
@@ -180,8 +181,7 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
          -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1 :: ( BaseTensor target, BaseTensor (PrimalOf target)
-            , LetTensor target, GoodScalar r )
+maxPool1 :: (BaseTensor target, LetTensor target, GoodScalar r)
          => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rlength v - ksize]]

@@ -37,8 +37,6 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested
   ( IShR
-  , IxR
-  , IxS (..)
   , KnownShS (..)
   , Rank
   , ShR (..)
@@ -385,12 +383,6 @@ tunScalarR = Nested.runScalar
 tscaleByScalarR :: (Nested.PrimElt r, Num r)
                 => r -> Nested.Ranked n r -> Nested.Ranked n r
 tscaleByScalarR s = liftVR (V.map (* s))
-
-toIndexOfR :: IIxR64 n -> IxR n (Nested.Shaped '[] Int64)
-toIndexOfR ix = tscalarS <$> ix
-
-fromIndexOfR :: IxR n (Nested.Shaped '[] Int64) -> IIxR64 n
-fromIndexOfR ixOf = tunScalarS <$> ixOf
 
 
 -- * Shaped tensor operations
@@ -764,9 +756,3 @@ tunScalarS = Nested.sunScalar
 tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Num r)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s = liftVS (V.map (* s))
-
-toIndexOfS :: IIxS64 sh -> IxS sh (Nested.Shaped '[] Int64)
-toIndexOfS ix = tscalarS <$> ix
-
-fromIndexOfS :: IxS sh (Nested.Shaped '[] Int64) -> IIxS64 sh
-fromIndexOfS ixOf = tunScalarS <$> ixOf
