@@ -2535,6 +2535,9 @@ astFromScalar :: (GoodScalar r, AstSpan s)
               => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
 astFromScalar t = case t of
   Ast.AstToScalar u -> u
+  Ast.AstCond b a2 a3 -> Ast.AstCond b (astFromScalar a2) (astFromScalar a3)
+  AstConcrete FTKScalar (RepN v) ->
+    AstConcrete (FTKS ZSS FTKScalar) $ RepN $ Nested.sscalar v
   AstN1 opCode u -> AstN1S opCode (astFromScalar u)
   AstN2 opCode u v -> AstN2S opCode (astFromScalar u) (astFromScalar v)
 -- TODO:  Ast.AstR1 opCode u -> Ast.AstR1S opCode (astFromScalar u)
@@ -2542,7 +2545,7 @@ astFromScalar t = case t of
   Ast.AstI2 opCode u v | Just Refl <- isTensorInt t ->
     Ast.AstI2S opCode (astFromScalar u) (astFromScalar v)
   AstSumOfList args -> AstSumOfListS $ map astFromScalar args
-  Ast.AstCond b a2 a3 -> Ast.AstCond b (astFromScalar a2) (astFromScalar a3)
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astFromScalar v
   _ -> Ast.AstFromScalar t
 
 -- * The simplifying bottom-up pass
