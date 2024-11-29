@@ -273,8 +273,8 @@ astNonIndexStep
   :: (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 astNonIndexStep t = case t of
-  Ast.AstScalar u -> astScalar $ astNonIndexStep u
-  Ast.AstUnScalar u -> Ast.AstUnScalar $ astNonIndexStep u
+  Ast.AstFromScalar u -> astFromScalar $ astNonIndexStep u
+  Ast.AstToScalar u -> Ast.AstToScalar $ astNonIndexStep u
   Ast.AstPair t1 t2 -> astPair (astNonIndexStep t1) (astNonIndexStep t2)
   Ast.AstProject1 u -> astProject1 u
   Ast.AstProject2 u -> astProject2 u
@@ -443,7 +443,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
                             (vars2, simplifyAstIndex ix2)
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
-  Ast.AstScalar{} -> Ast.AstIndex v0 ix
+  Ast.AstFromScalar{} -> Ast.AstIndex v0 ix
   Ast.AstProject1{} -> Ast.AstIndex v0 ix
   Ast.AstProject2{} -> Ast.AstIndex v0 ix
   Ast.AstVar{} -> Ast.AstIndex v0 ix
@@ -983,7 +983,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex AstMethodLet p1')) ) = case v4 of
-    Ast.AstScalar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstFromScalar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProject1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -1037,7 +1037,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
 {- TODO: is this beneficial?
     AstGather sh AstIota (vars, i :.: ZIR) ->
       rbuild sh (interpretLambdaIndex interpretAst env
-                                      (vars, fromPrimal @s $ AstFromIntegral $ AstScalar i))
+                                      (vars, fromPrimal @s $ AstFromIntegral $ AstFromScalar i))
 -}
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
@@ -1237,7 +1237,7 @@ astGatherKnobsS _ v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
     $ sbuild @target @r @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
-                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR $ AstScalar i))
+                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR $ AstFromScalar i))
 -}
 
 {-
@@ -2196,8 +2196,8 @@ astPrimalPart :: TensorKind y
               => AstTensor AstMethodLet FullSpan y
               -> AstTensor AstMethodLet PrimalSpan y
 astPrimalPart t = case t of
-  Ast.AstScalar u -> astScalar $ astPrimalPart u
-  Ast.AstUnScalar u -> Ast.AstUnScalar $ astPrimalPart u
+  Ast.AstFromScalar u -> astFromScalar $ astPrimalPart u
+  Ast.AstToScalar u -> Ast.AstToScalar $ astPrimalPart u
   Ast.AstPair t1 t2 -> astPair (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
@@ -2280,8 +2280,8 @@ astDualPart :: TensorKind y
             => AstTensor AstMethodLet FullSpan y
             -> AstTensor AstMethodLet DualSpan y
 astDualPart t = case t of
-  Ast.AstScalar u -> astScalar $ astDualPart u
-  Ast.AstUnScalar u -> Ast.AstUnScalar $ astDualPart u
+  Ast.AstFromScalar u -> astFromScalar $ astDualPart u
+  Ast.AstToScalar u -> Ast.AstToScalar $ astDualPart u
   Ast.AstPair t1 t2 -> astPair (astDualPart t1) (astDualPart t2)
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
@@ -2418,7 +2418,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
                    (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
-        STKScalar _ -> Ast.AstUnScalar $ astProjectR l i
+        STKScalar _ -> Ast.AstToScalar $ astProjectR l i
         STKR SNat STKScalar{} -> astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astProjectS l i
         STKX sh STKScalar{}-> withKnownShX sh $ error "TODO"
@@ -2430,7 +2430,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar _ -> Ast.AstUnScalar $ astPrimalPart $ astProjectR l i
+        STKScalar _ -> Ast.AstToScalar $ astPrimalPart $ astProjectR l i
         STKR SNat STKScalar{} -> astPrimalPart $ astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astPrimalPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -2442,7 +2442,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar _ -> Ast.AstUnScalar $ astDualPart $ astProjectR l i
+        STKScalar _ -> Ast.AstToScalar $ astDualPart $ astProjectR l i
         STKR SNat STKScalar{} -> astDualPart $ astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astDualPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -2502,19 +2502,19 @@ astLetFun a f =
       (var, ast) = funToAst sh f
   in astLet var a ast  -- safe, because subsitution ruled out above
 
-astScalar :: (GoodScalar r, AstSpan s)
+astFromScalar :: (GoodScalar r, AstSpan s)
           => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKR 0 r)
-astScalar t = case t of
-  Ast.AstUnScalar u -> u
-  AstN1 opCode u -> AstN1R opCode (astScalar u)
-  AstN2 opCode u v -> AstN2R opCode (astScalar u) (astScalar v)
--- TODO:  Ast.AstR1 opCode u -> Ast.AstR1R opCode (astScalar u)
--- TODO:  Ast.AstR2 opCode u v -> Ast.AstR2R opCode (astScalar u) (astScalar v)
+astFromScalar t = case t of
+  Ast.AstToScalar u -> u
+  AstN1 opCode u -> AstN1R opCode (astFromScalar u)
+  AstN2 opCode u v -> AstN2R opCode (astFromScalar u) (astFromScalar v)
+-- TODO:  Ast.AstR1 opCode u -> Ast.AstR1R opCode (astFromScalar u)
+-- TODO:  Ast.AstR2 opCode u v -> Ast.AstR2R opCode (astFromScalar u) (astFromScalar v)
   Ast.AstI2 opCode u v | Just Refl <- isTensorInt t ->
-    Ast.AstI2R opCode (astScalar u) (astScalar v)
-  AstSumOfList args -> AstSumOfListR $ map astScalar args
-  Ast.AstCond b a2 a3 -> Ast.AstCond b (astScalar a2) (astScalar a3)
-  _ -> Ast.AstScalar t
+    Ast.AstI2R opCode (astFromScalar u) (astFromScalar v)
+  AstSumOfList args -> AstSumOfListR $ map astFromScalar args
+  Ast.AstCond b a2 a3 -> Ast.AstCond b (astFromScalar a2) (astFromScalar a3)
+  _ -> Ast.AstFromScalar t
 
 -- * The simplifying bottom-up pass
 
@@ -2534,8 +2534,8 @@ simplifyAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 simplifyAst t = case t of
-  Ast.AstScalar u -> astScalar $ simplifyAst u
-  Ast.AstUnScalar u -> Ast.AstUnScalar $ simplifyAst u
+  Ast.AstFromScalar u -> astFromScalar $ simplifyAst u
+  Ast.AstToScalar u -> Ast.AstToScalar $ simplifyAst u
   Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
@@ -2707,8 +2707,8 @@ expandAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 expandAst t = case t of
-  Ast.AstScalar u -> astScalar $ expandAst u
-  Ast.AstUnScalar u -> Ast.AstUnScalar $ expandAst u
+  Ast.AstFromScalar u -> astFromScalar $ expandAst u
+  Ast.AstToScalar u -> Ast.AstToScalar $ expandAst u
   Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
@@ -3197,8 +3197,8 @@ substitute1Ast :: forall s s2 y z.
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var v1 = case v1 of
-  Ast.AstScalar u -> astScalar <$> substitute1Ast i var u
-  Ast.AstUnScalar u -> Ast.AstUnScalar <$> substitute1Ast i var u
+  Ast.AstFromScalar u -> astFromScalar <$> substitute1Ast i var u
+  Ast.AstToScalar u -> Ast.AstToScalar <$> substitute1Ast i var u
   Ast.AstPair u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
       (Nothing, Nothing) -> Nothing

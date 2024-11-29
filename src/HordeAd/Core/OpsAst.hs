@@ -342,8 +342,8 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
       _ -> error "tunshare: used not at PrimalSpan"
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
-  rmkRepScalar = AstUnScalar
-  runRepScalar = AstScalar
+  rmkRepScalar = AstToScalar
+  runRepScalar = AstFromScalar
 
   rshape = shapeAst
   rminIndex = fromPrimal . AstMinIndex
@@ -601,8 +601,8 @@ instance AstSpan s => ShareTensor (AstRaw s) where
                        (toRepDShare stk t2)
 
 instance AstSpan s => BaseTensor (AstRaw s) where
-  rmkRepScalar = AstRaw . AstUnScalar . unAstRaw
-  runRepScalar = AstRaw . AstScalar . unAstRaw
+  rmkRepScalar = AstRaw . AstToScalar . unAstRaw
+  runRepScalar = AstRaw . AstFromScalar . unAstRaw
 
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimalRaw . unAstRaw
@@ -1049,8 +1049,8 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
-  rmkRepScalar = AstNoSimplify . AstUnScalar . unAstNoSimplify
-  runRepScalar = AstNoSimplify . AstScalar . unAstNoSimplify
+  rmkRepScalar = AstNoSimplify . AstToScalar . unAstNoSimplify
+  runRepScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
 
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex

@@ -242,13 +242,13 @@ type role AstTensor nominal nominal nominal
   -- r has to be nominal, because type class arguments always are
 data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type where
   -- Here starts the general part.
-  AstScalar :: GoodScalar r
-            => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKR 0 r)
-  AstUnScalar :: GoodScalar r
+  AstFromScalar :: GoodScalar r
+                => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKR 0 r)
+  AstToScalar :: GoodScalar r
               => AstTensor ms s (TKR 0 r) -> AstTensor ms s (TKScalar r)
   AstPair :: (TensorKind y, TensorKind z)
-           => AstTensor ms s y -> AstTensor ms s z
-           -> AstTensor ms s (TKProduct y z)
+          => AstTensor ms s y -> AstTensor ms s z
+          -> AstTensor ms s (TKProduct y z)
   AstProject1 :: forall x z s ms. (TensorKind x, TensorKind z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s x
   AstProject2 :: forall x z s ms. (TensorKind x, TensorKind z)
@@ -260,7 +260,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
   AstDualPart :: TensorKind y
               => AstTensor ms FullSpan y -> AstTensor ms DualSpan y
   AstFromPrimal :: TensorKind y
-              => AstTensor ms PrimalSpan y -> AstTensor ms FullSpan y
+                => AstTensor ms PrimalSpan y -> AstTensor ms FullSpan y
   AstD :: TensorKind y
        => AstTensor ms PrimalSpan y -> AstTensor ms DualSpan y
        -> AstTensor ms FullSpan y

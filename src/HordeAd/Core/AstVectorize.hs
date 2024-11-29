@@ -159,20 +159,20 @@ build1V snat@SNat (var, v0) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstScalar v2@(Ast.AstVar _ var2)  -- TODO: make compositional
+    Ast.AstFromScalar v2@(Ast.AstVar _ var2)  -- TODO: make compositional
       | varNameToAstVarId var2 == varNameToAstVarId var -> traceRule $
         case isTensorInt v2 of
           Just Refl -> fromPrimal @s $ Ast.AstRFromS $ Ast.AstIotaS @k
             -- results in smaller terms than AstSlice(AstIota), because
             -- not turned into a concrete array so early
           _ -> error "build1V: build variable is not an index variable"
-    Ast.AstScalar{} -> case astNonIndexStep v0 of
-      Ast.AstScalar{} ->  -- let's hope this doesn't oscillate
-        error $ "build1V: AstScalar: building over scalars is undefined: "
+    Ast.AstFromScalar{} -> case astNonIndexStep v0 of
+      Ast.AstFromScalar{} ->  -- let's hope this doesn't oscillate
+        error $ "build1V: AstFromScalar: building over scalars is undefined: "
                 ++ show v0
       v1 -> build1VOccurenceUnknown snat (var, v1)  -- last ditch effort
-    Ast.AstUnScalar{} ->
-      error $ "build1V: AstUnScalar: building over scalars is undefined: "
+    Ast.AstToScalar{} ->
+      error $ "build1V: AstToScalar: building over scalars is undefined: "
               ++ show v0
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)

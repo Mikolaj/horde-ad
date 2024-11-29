@@ -387,9 +387,9 @@ deriving instance ( (forall y7. TensorKind y7 => Show (target y7))
 
 type role Delta nominal nominal
 data Delta :: Target -> TensorKindType -> Type where
-  ScalarG :: GoodScalar r
-          => Delta target (TKScalar r) -> Delta target (TKR 0 r)
-  UnScalarG :: GoodScalar r
+  FromScalarG :: GoodScalar r
+              => Delta target (TKScalar r) -> Delta target (TKR 0 r)
+  ToScalarG :: GoodScalar r
             => Delta target (TKR 0 r) -> Delta target (TKScalar r)
   PairG :: (TensorKind y, TensorKind z)
          => Delta target y -> Delta target z
@@ -641,8 +641,8 @@ deriving instance ( TensorKind y
 shapeDeltaFull :: forall target y. TensorKind y
                => Delta target y -> FullTensorKind y
 shapeDeltaFull = \case
-  ScalarG{} -> FTKR ZSR FTKScalar
-  UnScalarG{} -> FTKScalar
+  FromScalarG{} -> FTKR ZSR FTKScalar
+  ToScalarG{} -> FTKScalar
   PairG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
   Project1G v -> case shapeDeltaFull v of
     FTKProduct ftk1 _ -> ftk1
@@ -1088,8 +1088,8 @@ evalSame !s !c = \case
   -- (and the InputG constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
-  ScalarG d -> evalSame s (rmkRepScalar c) d
-  UnScalarG d -> evalSame s (runRepScalar c) d
+  FromScalarG d -> evalSame s (rmkRepScalar c) d
+  ToScalarG d -> evalSame s (runRepScalar c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1481,9 +1481,9 @@ fwdSame
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 fwdSame params s = \case
-  ScalarG d -> let (s2, t) = fwdSame params s d
-               in (s2, runRepScalar t)
-  UnScalarG d -> let (s2, t) = fwdSame params s d
+  FromScalarG d -> let (s2, t) = fwdSame params s d
+                   in (s2, runRepScalar t)
+  ToScalarG d -> let (s2, t) = fwdSame params s d
                  in (s2, rmkRepScalar t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
