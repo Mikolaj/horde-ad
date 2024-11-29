@@ -1404,7 +1404,7 @@ fooNoGoAst v =
   let r = rsum0 v
   in rbuild1 3 (\ix' -> let ix :: AstTensor AstMethodLet PrimalSpan (TKS '[] Int64)
                             ix = sfromR $ runRepScalar ix' in
-       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [rmkRepScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` 2 `maxF` 0]))
+       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [rmkRepScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
        + ifF ( (&&*)
                     (rindex v (ix' * 2 :.: ZIR) <=. rscalar 0)
                         -- @1 not required thanks to :.:; see below for @ and []
@@ -1433,7 +1433,7 @@ fooNoGo v =
   let r = rsum0 v
   in rbuild1 3 (\ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                             ix = sfromR $ runRepScalar ix' in
-       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [rmkRepScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` 2 `maxF` 0]))
+       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [rmkRepScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
        + ifF ((&&*) (rindex @target @r @1 v [ix' * 2] <=. rscalar 0)
                     (sscalar 6 >. abs ix))
                r (rscalar 5 * r))
@@ -2101,7 +2101,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAst (FTKR [3] FTKScalar) $ t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\v1 -> rfromPrimal (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rslice 0 2 riota), quotF (rtranspose [1,0] (rreplicate 2 (rslice 0 5 riota))) (rreplicate 5 (rreplicate 2 1 + rslice 0 2 riota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\v1 -> rfromPrimal (rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rfromS siota), quotF (rtranspose [1,0] (rreplicate 2 (rfromS siota))) (rreplicate 5 (rreplicate 2 1 + rfromS siota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -2113,6 +2113,6 @@ testConcatBuild3PP2 = do
   printArtifactSimple renames artifactRev
     @?= "\\m8 x1 -> rreshape [3] (rreplicate 3 (rscalar 0.0))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 -> rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (tconcrete (FTKR [5] FTKScalar) (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
+    @?= "\\x1 -> rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rfromS siota), quotF (rtranspose [1,0] (rreplicate 2 (rfromS siota))) (rreplicate 5 (rreplicate 2 1 + rfromS siota))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1])), quotF (rtranspose [1,0] (rreplicate 2 (tconcrete (FTKR [5] FTKScalar) (rfromListLinear [5] [0,1,2,3,4])))) (rreplicate 5 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0,1]) + rreplicate 2 1))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
+    @?= "\\x1 -> rfromIntegral (rgather [5,2] (rfromVector (fromList [rreplicate 5 (rfromS siota), quotF (rtranspose [1,0] (rreplicate 2 (rfromS siota))) (rreplicate 5 (rreplicate 2 1 + rfromS siota))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"

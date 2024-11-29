@@ -1459,7 +1459,7 @@ astSumOfListR :: (KnownNat n, GoodScalar r)
               -> AstTensor AstMethodLet s (TKR n r)
 astSumOfListR = foldr1 (+)  -- @sum@ breaks and also reverse order
 
-astSumOfListS :: (GoodScalar r, KnownShS sh, AstSpan s)
+astSumOfListS :: (GoodScalar r, KnownShS sh)
               => [AstTensor AstMethodLet s (TKS sh r)]
               -> AstTensor AstMethodLet s (TKS sh r)
 astSumOfListS = foldr1 (+)  -- @sum@ reverses order

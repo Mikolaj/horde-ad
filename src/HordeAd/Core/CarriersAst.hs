@@ -14,7 +14,6 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
-import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat)
 
 import Data.Array.Nested (KnownShS (..), KnownShX)
@@ -183,7 +182,7 @@ instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), KnownN
          => Fractional (AstTensor ms s (TKR n r)) where
   u / v = AstR2R DivideOp u v
   recip = AstR1R RecipOp
-  fromRational r = error $ "fromRational not defined for AST: "
+  fromRational r = error $ "fromRational not defined for ranked tensors: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
@@ -214,7 +213,7 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
 
 -- * Unlawful numeric instances for shaped AST; they are lawful modulo evaluation
 
-instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
+instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
          => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -251,14 +250,8 @@ instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh, AstSpan s)
   negate = AstN1S NegateOp
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
-  fromInteger :: Integer -> AstTensor ms s (TKS sh r)
-  fromInteger i = case sameShape @sh @'[] of
-    Just Refl ->
-      fromPrimal . AstConcrete (FTKS knownShS FTKScalar) . fromInteger $ i
-    Nothing -> error $ "fromInteger not defined for tensors of non-empty shapes: "
-                       ++ show (i, knownShS @sh)
-    -- it's crucial that there is no AstFromPrimal in fromInteger code
-    -- so that we don't need 4 times the simplification rules
+  fromInteger i = error $ "fromInteger not defined for shaped tensors: "
+                          ++ show i
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -269,11 +262,11 @@ instance (Integral r, GoodScalar r, KnownShS sh)
   remF = AstI2S RemOp
 
 instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
-         , KnownShS sh, AstSpan s )
+         , KnownShS sh )
          => Fractional (AstTensor ms s (TKS sh r)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
-  fromRational r = error $ "fromRational not defined for AST: "
+  fromRational r = error $ "fromRational not defined for shaped tensors: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
@@ -355,7 +348,7 @@ instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
          => Fractional (AstTensor ms s (TKX sh r)) where
   u / v = AstR2X DivideOp u v
   recip = AstR1X RecipOp
-  fromRational r = error $ "fromRational not defined for AST: "
+  fromRational r = error $ "fromRational not defined for mixed tensors: "
                            ++ show r
 
 instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)

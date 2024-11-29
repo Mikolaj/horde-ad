@@ -170,16 +170,16 @@ fooBuild2 v =
   rbuild1 2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                           ix = sfromR $ runRepScalar ix' in
     ifF (ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
-                      $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 >=. 0
+                      $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 >=. sscalar 0
          &&* ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
-                          $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001 <=. 1)
+                          $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 <=. sscalar 1)
         (rindex v [rmkRepScalar $ rfromS $ ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @r @5
-                                $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - 10001])
+                                $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001])
            -- index out of bounds; also fine
         (sqrt $ abs $ rindex v [rmkRepScalar $ rfromS
-                                $ let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - 10001) `remF` 2
-                                  in ifF (signum rr ==. negate (signum 2))
-                                     (rr + 2)
+                                $ let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - sscalar 10001) `remF` sscalar 2
+                                  in ifF (signum rr ==. negate (signum $ sscalar 2))
+                                     (rr + sscalar 2)
                                      rr])
 
 fooBuild2L
