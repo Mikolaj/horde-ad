@@ -831,6 +831,8 @@ interpretAst !env = \case
   AstNestS v -> snest knownShS $ interpretAst env v
   AstUnNestS v -> sunNest $ interpretAst env v
   AstSFromR v -> sfromR $ interpretAst env v
+  AstSFromX v -> sfromX $ interpretAst env v
+  AstXFromS v -> xfromS $ interpretAst env v
 
   AstMinIndexX _v -> error "TODO"
   AstMaxIndexX _v -> error "TODO"

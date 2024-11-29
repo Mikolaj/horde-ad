@@ -29,7 +29,7 @@ module HordeAd.Core.AstSimplify
   , astTranspose, astTransposeS, astReshape, astReshapeS
   , astCast, astCastS, astFromIntegral, astFromIntegralS
   , astProject1, astProject2, astProjectR, astProjectS, astNestS, astUnNestS
-  , astRFromS, astSFromR
+  , astRFromS, astSFromR, astSFromX, astXFromS
   , astPrimalPart, astDualPart
   , astLetHVectorIn, astHApply, astLetFun
     -- * The simplifying bottom-up pass
@@ -78,7 +78,7 @@ import Data.Array.Nested
   ( IShR
   , IxS (..)
   , KnownShS (..)
-  , KnownShX
+  , KnownShX (..)
   , ListS (..)
   , Rank
   , SMayNat (..)
@@ -94,7 +94,6 @@ import Data.Array.Nested
   , pattern ZIS
   , pattern ZR
   , pattern ZS
-  , pattern ZSR
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -367,6 +366,8 @@ astNonIndexStep t = case t of
   Ast.AstNestS v -> astNestS v
   Ast.AstUnNestS v -> astUnNestS v
   Ast.AstSFromR v -> astSFromR v
+  Ast.AstSFromX v -> astSFromX v
+  Ast.AstXFromS v -> astXFromS v
   _ -> t  -- TODO
 
 astIndexR
@@ -828,6 +829,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
       gcastWith (unsafeCoerce Refl
                  :: Rank shm + Rank shn :~: Rank (shm ++ shn)) $
       astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
+  Ast.AstSFromX _t -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndexS v0 ix
 
@@ -2190,6 +2192,31 @@ astSFromR (Ast.AstRFromS @sh1 v) =
     _ -> error "astSFromR: different ranks in SFromR(RFromS)"
 astSFromR v = Ast.AstSFromR v
 
+astSFromX :: forall sh sh' s r.
+             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownShX (Nested.MapJust sh), GoodScalar r)
+          => AstTensor AstMethodLet s (TKX sh' r)
+          -> AstTensor AstMethodLet s (TKS sh r)
+astSFromX (AstConcrete _ t) =
+  AstConcrete (FTKS knownShS FTKScalar)
+  $ RepN $ Nested.mcastToShaped (unRepN t) Nested.knownShS
+astSFromX (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX v
+astSFromX (Ast.AstXFromS @sh1 v) =
+  case sameShape @sh1 @sh of
+    Just Refl -> v
+    _ -> error "astSFromR: different shapes in SFromX(XFromS)"
+astSFromX v = Ast.AstSFromX v
+
+astXFromS :: forall sh sh' s r.
+             (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
+          => AstTensor AstMethodLet s (TKS sh r)
+          -> AstTensor AstMethodLet s (TKX sh' r)
+astXFromS (AstConcrete _ t) =
+  let u = Nested.stoMixed (unRepN t)
+  in AstConcrete (FTKX (Nested.mshape u) FTKScalar) (RepN u)
+astXFromS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astXFromS v
+-- impossible, shapes may differ: astXFromS (Ast.AstSFromX v) = v
+astXFromS v = Ast.AstXFromS v
+
 astPrimalPart :: TensorKind y
               => AstTensor AstMethodLet FullSpan y
               -> AstTensor AstMethodLet PrimalSpan y
@@ -2257,6 +2284,8 @@ astPrimalPart t = case t of
   Ast.AstNestS v -> astNestS $ astPrimalPart v
   Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
+  Ast.AstSFromX v -> astSFromX $ astPrimalPart v
+  Ast.AstXFromS v -> astXFromS $ astPrimalPart v
 
   Ast.AstMkHVector{} -> Ast.AstPrimalPart t  -- TODO
   Ast.AstApply v ll -> astHApply v (astPrimalPart ll)
@@ -2339,6 +2368,8 @@ astDualPart t = case t of
   Ast.AstNestS v -> astNestS $ astDualPart v
   Ast.AstUnNestS v -> astUnNestS $ astDualPart v
   Ast.AstSFromR v -> astSFromR $ astDualPart v
+  Ast.AstSFromX v -> astSFromX $ astDualPart v
+  Ast.AstXFromS v -> astXFromS $ astDualPart v
 
   Ast.AstMkHVector{} -> Ast.AstDualPart t  -- TODO
   Ast.AstApply v ll -> astHApply v (astDualPart ll)
@@ -2480,7 +2511,7 @@ astLetHVectorIn vars l v = case v of
                          -> AstTensor AstMethodLet s2 z
                    mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
                      | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-                     , Dict <- lemKnownNatRank (knownShS @sh3) =
+                     , Dict <- lemKnownNatRankS (knownShS @sh3) =
                        astLet (mkAstVarName @s @(TKR (Rank sh3) r3) varId)
                               (astProjectR l i)
                      | otherwise =
@@ -2625,6 +2656,8 @@ simplifyAst t = case t of
   Ast.AstNestS v -> astNestS $ simplifyAst v
   Ast.AstUnNestS v -> astUnNestS $ simplifyAst v
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
+  Ast.AstSFromX v -> astSFromX $ simplifyAst v
+  Ast.AstXFromS v -> astXFromS $ simplifyAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
   Ast.AstApply v ll -> astHApply (simplifyAstHFun v)
@@ -2851,6 +2884,8 @@ expandAst t = case t of
   Ast.AstNestS v -> astNestS $ expandAst v
   Ast.AstUnNestS v -> astUnNestS $ expandAst v
   Ast.AstSFromR v -> astSFromR $ expandAst v
+  Ast.AstSFromX v -> astSFromX $ expandAst v
+  Ast.AstXFromS v -> astXFromS $ expandAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
   Ast.AstApply v ll -> astHApply (expandAstHFun v)
@@ -3413,6 +3448,8 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstNestS v -> astNestS <$> substitute1Ast i var v
   Ast.AstUnNestS v -> astUnNestS <$> substitute1Ast i var v
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
+  Ast.AstSFromX v -> astSFromX <$> substitute1Ast i var v
+  Ast.AstXFromS v -> astXFromS <$> substitute1Ast i var v
 
   Ast.AstMkHVector args ->
     let margs = V.map (substitute1AstDynamic i var) args

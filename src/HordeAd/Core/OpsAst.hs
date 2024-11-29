@@ -342,11 +342,6 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
       _ -> error "tunshare: used not at PrimalSpan"
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
-  rtoScalar = AstToScalar . AstSFromR
-  rfromScalar = AstRFromS . AstFromScalar
-  stoScalar = AstToScalar
-  sfromScalar = AstFromScalar
-
   rshape = shapeAst
   rminIndex = fromPrimal . AstMinIndex
               . astSpanPrimal
@@ -379,6 +374,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rcast = astCast
   rfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
   rfromS = astRFromS
+  rtoScalar = AstToScalar . AstSFromR
+  rfromScalar = AstRFromS . AstFromScalar
 
   rfromPrimal = fromPrimal
   rprimalPart = astSpanPrimal
@@ -391,6 +388,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xindex v ix = AstIndexX v ix
   xfromVector = AstFromVectorX
   xreplicate = AstReplicate SNat
+  xtoScalar = AstToScalar . AstSFromX
+  xfromScalar = AstXFromS . AstFromScalar
   xfromPrimal = fromPrimal
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
@@ -428,6 +427,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh = astNestS
   sunNest = astUnNestS
   sfromR = astSFromR
+  sfromX = astSFromX
+  xfromS = astXFromS
+  stoScalar = AstToScalar
+  sfromScalar = AstFromScalar
 
   sfromPrimal = fromPrimal
   sprimalPart = astSpanPrimal
@@ -603,11 +606,6 @@ instance AstSpan s => ShareTensor (AstRaw s) where
                        (toRepDShare stk t2)
 
 instance AstSpan s => BaseTensor (AstRaw s) where
-  rtoScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
-  rfromScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
-  stoScalar = AstRaw . AstToScalar . unAstRaw
-  sfromScalar = AstRaw . AstFromScalar . unAstRaw
-
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimalRaw . unAstRaw
   rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimalRaw . unAstRaw
@@ -637,6 +635,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegral . astSpanPrimalRaw . unAstRaw
   rfromS = AstRaw . AstRFromS . unAstRaw
+  rtoScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
+  rfromScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
 
   rfromPrimal = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
@@ -652,6 +652,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
   xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
   xreplicate = AstRaw . AstReplicate SNat . unAstRaw
+  xtoScalar = AstRaw . AstToScalar . AstSFromX . unAstRaw
+  xfromScalar = AstRaw . AstXFromS . AstFromScalar . unAstRaw
   xfromPrimal = AstRaw . fromPrimal . unAstRaw
   xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   xdualPart = astSpanDualRaw . unAstRaw
@@ -689,6 +691,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw . AstNestS . unAstRaw
   sunNest = AstRaw . AstUnNestS . unAstRaw
   sfromR = AstRaw . AstSFromR . unAstRaw
+  sfromX = AstRaw . AstSFromX . unAstRaw
+  xfromS = AstRaw . AstXFromS . unAstRaw
+  stoScalar = AstRaw . AstToScalar . unAstRaw
+  sfromScalar = AstRaw . AstFromScalar . unAstRaw
 
   sfromPrimal = AstRaw . fromPrimal . unAstRaw
   sprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
@@ -835,11 +841,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
   toShare t = toShare $ unAstNoVectorize t
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
-  rtoScalar = AstNoVectorize . rtoScalar . unAstNoVectorize
-  rfromScalar = AstNoVectorize . rfromScalar . unAstNoVectorize
-  stoScalar = AstNoVectorize . stoScalar . unAstNoVectorize
-  sfromScalar = AstNoVectorize . sfromScalar . unAstNoVectorize
-
   rshape = rshape . unAstNoVectorize
   rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
   rmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
@@ -869,6 +870,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rcast = AstNoVectorize . rcast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
   rfromS = AstNoVectorize . rfromS . unAstNoVectorize
+  rtoScalar = AstNoVectorize . rtoScalar . unAstNoVectorize
+  rfromScalar = AstNoVectorize . rfromScalar . unAstNoVectorize
+
   rfromPrimal = AstNoVectorize . rfromPrimal . unAstNoVectorize
   rprimalPart = AstNoVectorize . rprimalPart . unAstNoVectorize
   rdualPart = rdualPart . unAstNoVectorize
@@ -881,6 +885,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   xfromVector = AstNoVectorize . xfromVector . V.map unAstNoVectorize
   xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
+  xtoScalar = AstNoVectorize . xtoScalar . unAstNoVectorize
+  xfromScalar = AstNoVectorize . xfromScalar . unAstNoVectorize
   xfromPrimal = AstNoVectorize . xfromPrimal . unAstNoVectorize
   xprimalPart = AstNoVectorize . xprimalPart . unAstNoVectorize
   xdualPart = xdualPart . unAstNoVectorize
@@ -920,6 +926,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize . astNestS . unAstNoVectorize
   sunNest = AstNoVectorize . astUnNestS . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
+  sfromX = AstNoVectorize . sfromX . unAstNoVectorize
+  xfromS = AstNoVectorize . xfromS  . unAstNoVectorize
+  stoScalar = AstNoVectorize . stoScalar . unAstNoVectorize
+  sfromScalar = AstNoVectorize . sfromScalar . unAstNoVectorize
+
   sfromPrimal = AstNoVectorize . sfromPrimal . unAstNoVectorize
   sprimalPart = AstNoVectorize . sprimalPart . unAstNoVectorize
   sdualPart = sdualPart . unAstNoVectorize
@@ -1055,11 +1066,6 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
-  rtoScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify
-  rfromScalar = AstNoSimplify . AstRFromS . AstFromScalar . unAstNoSimplify
-  stoScalar = AstNoSimplify . AstToScalar . unAstNoSimplify
-  sfromScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
-
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
               . astSpanPrimal . unAstNoSimplify
@@ -1094,6 +1100,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
+  rtoScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify
+  rfromScalar = AstNoSimplify . AstRFromS . AstFromScalar . unAstNoSimplify
+
   rfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   rdualPart = astSpanDual . unAstNoSimplify
@@ -1108,6 +1117,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify
   xreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
+  xtoScalar = AstNoSimplify . AstToScalar . AstSFromX . unAstNoSimplify
+  xfromScalar = AstNoSimplify . AstXFromS . AstFromScalar . unAstNoSimplify
   xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   xdualPart = astSpanDual . unAstNoSimplify
@@ -1153,6 +1164,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify . AstNestS . unAstNoSimplify
   sunNest = AstNoSimplify . AstUnNestS . unAstNoSimplify
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
+  sfromX = AstNoSimplify . AstSFromX . unAstNoSimplify
+  xfromS = AstNoSimplify . AstXFromS . unAstNoSimplify
+  stoScalar = AstNoSimplify . AstToScalar . unAstNoSimplify
+  sfromScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
+
   sfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
     -- exceptionally we do simplify AstFromPrimal to avoid long boring chains
   sprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify

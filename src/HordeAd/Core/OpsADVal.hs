@@ -26,7 +26,7 @@ import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (IShR, KnownShS (..), Rank)
+import Data.Array.Nested (IShR, KnownShS (..), KnownShX, Rank)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -251,11 +251,6 @@ instance ( BaseTensor target
 -- in tests. None others are used anywhere.
 instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
          => BaseTensor (ADVal target) where
-  rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
-  rfromScalar (D t d) = dDnotShared (rfromScalar t) (RFromS $ FromScalarG d)
-  stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
-  sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)
-
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u
@@ -328,6 +323,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
             => Delta target (TKS sh2 r2) -> Delta target (TKR (Rank sh2) r2)
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
+  rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
+  rfromScalar (D t d) = dDnotShared (rfromScalar t) (RFromS $ FromScalarG d)
 
   rfromPrimal t = fromPrimalADVal t
   rprimalPart (D u _) = u
@@ -340,6 +337,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xfromVector = fromVectorX
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
+  xtoScalar (D t d) = dDnotShared (xtoScalar t) (ToScalarG $ SFromX d)
+  xfromScalar (D t d) = dDnotShared (xfromScalar t) (XFromS $ FromScalarG d)
   xfromPrimal t = fromPrimalADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
@@ -423,6 +422,23 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromR d = SFromR d
+  sfromX :: forall r sh sh'.
+            ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
+            , KnownShX (Nested.MapJust sh), GoodScalar r )
+         => ADVal target (TKX sh' r) -> ADVal target (TKS sh r)
+  sfromX (D u u') = dDnotShared (sfromX u) (dSFromX u')
+   where
+    dSFromX (XFromS @sh1 d) =
+      case sameShape @sh1 @sh of
+        Just Refl -> d
+        _ -> error "sfromR: different shapes in SFromR(RFromS)"
+    dSFromX d = SFromX d
+  xfromS :: forall r sh sh'.
+            (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
+         => ADVal target (TKS sh r) -> ADVal target (TKX sh' r)
+  xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
+  stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
+  sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)
 
   sfromPrimal t = fromPrimalADVal t
   sprimalPart (D u _) = u

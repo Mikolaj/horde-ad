@@ -164,11 +164,6 @@ class ( Num (IntOf target)
       , TensorSupportsX Integral IntegralF target )
       => BaseTensor (target :: Target) where
 
-  rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
-  rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
-  stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
-  sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
-
   -- Integer codomain
   rshape :: GoodScalar r => target (TKR n r) -> IShR n
   rrank :: forall r n. (GoodScalar r, KnownNat n) => target (TKR n r) -> Int
@@ -394,6 +389,8 @@ class ( Num (IntOf target)
   rconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
   rfromS :: (GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKR (Rank sh) r)
+  rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
+  rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
   -- at any rank greater than zero.
   rzero :: (GoodScalar r, KnownNat n)
@@ -441,6 +438,8 @@ class ( Num (IntOf target)
   xconcrete :: (GoodScalar r, KnownShX sh)
             => Nested.Mixed sh r -> target (TKX sh r)
   xconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
+  xtoScalar :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
+  xfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
   xzero :: forall r sh. (GoodScalar r, KnownShX sh)
         => IShX sh -> target (TKX sh r)
   xzero sh = xrepl sh 0
@@ -783,6 +782,13 @@ class ( Num (IntOf target)
           => target (TKS2 sh1 (TKS sh2 r)) -> target (TKS (sh1 ++ sh2) r)
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => target (TKR (Rank sh) r) -> target (TKS sh r)
+  sfromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
+            , KnownShX (Nested.MapJust sh), GoodScalar r )
+         => target (TKX sh' r) -> target (TKS sh r)
+  xfromS :: (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
+         => target (TKS sh r) -> target (TKX sh' r)
+  stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
+  sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
 
   -- ** No serviceable parts beyond this point ** --
 

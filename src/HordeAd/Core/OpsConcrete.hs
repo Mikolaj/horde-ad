@@ -76,11 +76,6 @@ instance ShareTensor RepN where
                                            (toRepDShare stk t2)
 
 instance BaseTensor RepN where
-  rtoScalar = RepN . Nested.runScalar . unRepN
-  rfromScalar = RepN . Nested.rscalar . unRepN
-  stoScalar = RepN . Nested.sunScalar . unRepN
-  sfromScalar = RepN . Nested.sscalar . unRepN
-
   rshape = tshapeR . unRepN
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
@@ -119,6 +114,8 @@ instance BaseTensor RepN where
   rcast = RepN . tcastR . unRepN
   rfromIntegral = RepN . tfromIntegralR . unRepN
   rfromS = RepN . Nested.stoRanked . unRepN
+  rtoScalar = RepN . Nested.runScalar . unRepN
+  rfromScalar = RepN . Nested.rscalar . unRepN
 
   rscaleByScalar s v =
     RepN $ tscaleByScalarR (tunScalarR $ unRepN s) (unRepN v)
@@ -134,6 +131,8 @@ instance BaseTensor RepN where
   xindex = error "TODO"
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
+  xtoScalar = RepN . Nested.munScalar . unRepN
+  xfromScalar = RepN . Nested.mscalar . unRepN
   xfromPrimal = id
   xprimalPart = id
   xdualPart _ = DummyDualTarget
@@ -183,6 +182,10 @@ instance BaseTensor RepN where
   snest shs t = RepN $ Nested.snest shs $ unRepN t
   sunNest t = RepN $ Nested.sunNest $ unRepN t
   sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
+  sfromX = RepN . flip Nested.mcastToShaped knownShS . unRepN
+  xfromS = RepN . Nested.stoMixed. unRepN
+  stoScalar = RepN . Nested.sunScalar . unRepN
+  sfromScalar = RepN . Nested.sscalar . unRepN
 
   sscaleByScalar s v =
     RepN $ tscaleByScalarS (tunScalarS $ unRepN s) (unRepN v)

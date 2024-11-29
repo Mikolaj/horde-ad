@@ -474,6 +474,8 @@ build1V snat@SNat (var, v0) =
     Ast.AstNestS v -> traceRule $ astNestS $ build1V snat (var, v)
     Ast.AstUnNestS v -> traceRule $ astUnNestS $ build1V snat (var, v)
     Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
+    Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
+    Ast.AstXFromS v -> traceRule $ astXFromS $ build1V snat (var, v)
 
     Ast.AstMkHVector l -> traceRule $
       Ast.AstMkHVector

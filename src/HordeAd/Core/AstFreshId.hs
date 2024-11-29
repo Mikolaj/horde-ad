@@ -189,7 +189,7 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfF ftk = do
             -> IO ( AstDynamic AstMethodShare PrimalSpan
                   , AstDynamic AstMethodLet FullSpan )
           f i (DynamicRankedDummy @r @sh _ _)
-            | Dict <- lemKnownNatRank (knownShS @sh) = do
+            | Dict <- lemKnownNatRankS (knownShS @sh) = do
               return
                 ( DynamicRanked @r @(Rank sh)
                                 (AstProjectR astVarPrimal i)
@@ -253,7 +253,7 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfF ftk
                   , AstDynamic AstMethodShare PrimalSpan
                   , AstDynamic AstMethodLet FullSpan )
           f i (DynamicRankedDummy @r @sh _ _)
-            | Dict <- lemKnownNatRank (knownShS @sh) = do
+            | Dict <- lemKnownNatRankS (knownShS @sh) = do
               return
                 ( DynamicRanked @r @(Rank sh)
                                 (AstProjectR astVarPrimalD i)

@@ -70,12 +70,12 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, shxEqual)
 import Data.Array.Nested
   ( IShR
   , IxS (..)
   , KnownShS (..)
-  , KnownShX
+  , KnownShX (..)
   , Rank
   , ShR (..)
   , ShS (..)
@@ -136,7 +136,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                            ++ " @" ++ show (typeRep @r)
                            ++ " within " ++ show_iMap (iMap s2)
           Some mt@(MTKRDummy @r2 @sh2) : rest
-            | Dict <- lemKnownNatRank (knownShS @sh2)
+            | Dict <- lemKnownNatRankS (knownShS @sh2)
             , Just Refl <- sameNat (Proxy @n) (Proxy @(Rank sh2))
             , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
               (evalRepM mt, rest)
@@ -215,7 +215,7 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
         FTKScalar @r -> ([InputId j :=> MTKScalar @r t], j + 1)
         FTKR sh (FTKScalar @r) | SNat <- shrRank sh ->
           withShapeP (shapeToList sh) $ \(Proxy @sh) ->
-            case lemKnownNatRank (knownShS @sh) of
+            case lemKnownNatRankS (knownShS @sh) of
               Dict -> ([InputId j :=> MTKR @r t], j + 1)
         FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
                           $ ([InputId j :=> MTKS @r @sh t], j + 1)
@@ -478,7 +478,7 @@ data Delta :: Target -> TensorKindType -> Type where
   RFromS :: forall sh r target. (GoodScalar r, KnownShS sh)
          => Delta target (TKS sh r)
          -> Delta target (TKR (Rank sh) r)
-  RFromH :: (GoodScalar r, KnownNat n)
+  RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
   IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
@@ -575,10 +575,19 @@ data Delta :: Target -> TensorKindType -> Type where
   UnNestS :: (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
           => Delta target (TKS2 sh1 (TKS sh2 r))
           -> Delta target (TKS (sh1 ++ sh2) r)
-  SFromR :: forall sh r target. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
+  SFromR :: forall sh r target. (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
          => Delta target (TKR (Rank sh) r)
          -> Delta target (TKS sh r)
-  SFromH :: (GoodScalar r, KnownShS sh)
+  SFromX :: forall sh sh' r target.
+            ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
+            , KnownShX (Nested.MapJust sh), GoodScalar r )
+         => Delta target (TKX sh' r)
+         -> Delta target (TKS sh r)
+  XFromS :: forall sh sh' r target.
+            (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
+         => Delta target (TKS sh r)
+         -> Delta target (TKX sh' r)
+  SFromH :: (KnownShS sh, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 
   IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
@@ -676,7 +685,7 @@ shapeDeltaFull = \case
   ReshapeR sh _ -> FTKR sh FTKScalar
   GatherR sh _ _ -> FTKR sh FTKScalar
   CastR d -> FTKR (shapeDelta d) FTKScalar
-  RFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+  RFromS @sh _ | Dict <- lemKnownNatRankS (knownShS @sh) ->
     FTKR (listToShape $ shapeT @sh) FTKScalar
   RFromH d i -> FTKR (listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
@@ -702,6 +711,8 @@ shapeDeltaFull = \case
   NestS{} -> FTKS knownShS (FTKS knownShS FTKScalar)
   UnNestS{} -> FTKS knownShS FTKScalar
   SFromR{} -> FTKS knownShS FTKScalar
+  SFromX{} -> FTKS knownShS FTKScalar
+  XFromS{} -> error "TODO"
   SFromH{} -> FTKS knownShS FTKScalar
 
   IndexX{} -> error "TODO"
@@ -863,7 +874,7 @@ initEvalState ftk0 =
       generateDSums j ftk  = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)
         FTKR sh (FTKScalar @r) -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
-          case lemKnownNatRank (knownShS @sh) of
+          case lemKnownNatRankS (knownShS @sh) of
             Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
         FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
                           $ ([InputId j :=> MTKSDummy @r @sh], j + 1)
@@ -894,7 +905,7 @@ initEvalState ftk0 =
       fromDynamicTensor n b = case b of
         DynamicRanked{} -> error "fromDynamicTensor: impossible case"
         DynamicShaped{} -> error "fromDynamicTensor: impossible case"
-        DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+        DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRankS (knownShS @sh) ->
           InputId n :=> MTKRDummy @r @sh
         DynamicShapedDummy @r @sh _ _ ->
           InputId n :=> MTKSDummy @r @sh
@@ -1154,7 +1165,7 @@ evalSame !s !c = \case
     evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
                                $ rcast c) d
   RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
-  RFromS @sh d | Dict <- lemKnownNatRank (knownShS @sh) ->
+  RFromS @sh d | Dict <- lemKnownNatRankS (knownShS @sh) ->
     evalSame s (sfromR c) d
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
@@ -1224,6 +1235,18 @@ evalSame !s !c = \case
       _ -> error "evalSame: different shapes in SFromR(RFromS)"
   SFromR d ->
     evalSame s (rfromS c) d
+  SFromX @sh (XFromS @sh2 d) ->
+    case sameShape @sh @sh2 of
+      Just Refl -> evalSame s c d
+      _ -> error "evalSame: different shapes in SFromX(XFromS)"
+  SFromX d -> case shapeDeltaFull d of
+    FTKX sh' FTKScalar -> case shxEqual (xshape (xfromS c)) sh' of
+      Just Refl -> evalSame s (xfromS c) d
+      Nothing -> error "evalSame: wrong shapes in SFromX"
+-- impossible, shapes may differ: XFromS (SFromX d) -> evalSame s c d
+  XFromS @sh d ->
+    gcastWith (unsafeCoerce Refl :: Rank sh :~: Rank (Nested.MapJust sh)) $
+    evalSame s (sfromX c) d
   SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
@@ -1575,6 +1598,12 @@ fwdSame params s = \case
       Just Refl -> fwdSame params s d
       _ -> error "fwdSame: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdSame params s d
+  XFromS d -> second xfromS $ fwdSame params s d
+  SFromX @sh (XFromS @sh2 d) ->
+    case sameShape @sh @sh2 of
+      Just Refl -> fwdSame params s d
+      _ -> error "fwdSame: different shapes in SFromX(XFromS)"
+  SFromX d -> second sfromX $ fwdSame params s d
   SFromH d i ->
     let (s2, v) = fwdSame params s d
     in (s2, sfromD $ dunHVector v V.! i)

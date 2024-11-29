@@ -464,6 +464,8 @@ printAstAux cfg d = \case
   AstNestS v -> printPrefixOp printAst cfg d "snest" [v]
   AstUnNestS v -> printPrefixOp printAst cfg d "sunNest" [v]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
+  AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
+  AstXFromS v -> printPrefixOp printAst cfg d "xfromS" [v]
 
   AstMkHVector l ->
     if loseRoudtrip cfg

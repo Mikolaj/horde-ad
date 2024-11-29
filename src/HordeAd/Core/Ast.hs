@@ -472,6 +472,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type wh
              -> AstTensor ms s (TKS (sh1 ++ sh2) r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
             => AstTensor ms s (TKR (Rank sh) r) -> AstTensor ms s (TKS sh r)
+  AstSFromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
+               , KnownShX (Nested.MapJust sh), GoodScalar r )
+            => AstTensor ms s (TKX sh' r) -> AstTensor ms s (TKS sh r)
+  AstXFromS :: (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
+            => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKX sh' r)
 
   -- Here starts the mixed part.
   AstMinIndexX :: ( KnownShX sh, KnownNat n, GoodScalar r, GoodScalar r2

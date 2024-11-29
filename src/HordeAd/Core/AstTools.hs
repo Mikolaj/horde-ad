@@ -108,7 +108,7 @@ ftkAst t = case t of
     DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
-  AstRFromS @sh _ | Dict <- lemKnownNatRank (knownShS @sh) ->
+  AstRFromS @sh _ | Dict <- lemKnownNatRankS (knownShS @sh) ->
     FTKR (listToShape $ shapeT @sh) FTKScalar
 
   AstMinIndexS{} -> FTKS knownShS FTKScalar
@@ -142,6 +142,8 @@ ftkAst t = case t of
   AstNestS{} -> FTKS knownShS (FTKS knownShS FTKScalar)
   AstUnNestS{} -> FTKS knownShS FTKScalar
   AstSFromR{} -> FTKS knownShS FTKScalar
+  AstSFromX{} -> FTKS knownShS FTKScalar
+  AstXFromS{} -> error "TODO"
 
   AstMkHVector v ->
     FTKUntyped
@@ -267,6 +269,8 @@ varInAst var = \case
   AstNestS v -> varInAst var v
   AstUnNestS v -> varInAst var v
   AstSFromR v -> varInAst var v
+  AstSFromX v -> varInAst var v
+  AstXFromS v -> varInAst var v
 
   AstMinIndexX a -> varInAst var a
   AstMaxIndexX a -> varInAst var a
@@ -370,6 +374,8 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstProjectS t _ -> astIsSmall relaxed t
   AstSFromR v -> astIsSmall relaxed v
+  AstSFromX v -> astIsSmall relaxed v
+  AstXFromS v -> astIsSmall relaxed v
 
   AstMkHVector v | V.length v == 1 -> case v V.! 0 of
     DynamicRanked t -> astIsSmall relaxed t
