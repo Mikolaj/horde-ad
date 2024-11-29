@@ -375,8 +375,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                    $ funToAstIndex f
                          -- this introduces new variable names
   rcast = astCast
-  rfromIntegral =
-    fromPrimal . astFromIntegral . astSpanPrimal
+  rfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
   rfromS = astRFromS
 
   rfromPrimal = fromPrimal
@@ -680,8 +679,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 $ funToAstIxS (fmap unAstRaw . f . fmap AstRaw)
                     -- this introduces new variable names
   scast = AstRaw . AstCastS . unAstRaw
-  sfromIntegral = AstRaw . fromPrimal . AstFromIntegralS
-                  . astSpanPrimalRaw . unAstRaw
+  sfromIntegral =
+    AstRaw . fromPrimal . AstFromIntegralS . astSpanPrimalRaw . unAstRaw
   snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     AstRaw . AstNestS . unAstRaw
   sunNest = AstRaw . AstUnNestS . unAstRaw

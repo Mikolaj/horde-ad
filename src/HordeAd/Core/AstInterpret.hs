@@ -792,13 +792,6 @@ interpretAst !env = \case
     let t1 = interpretAst env x
         t2 = interpretAst env y
     in sappend t1 t2
-  AstSliceS @i @n AstIotaS ->
-    let i = valueOf @i
-        n = valueOf @n
-    in interpretAst env
-       $ AstConcrete (FTKS knownShS FTKScalar)
-       $ RepN $ Nested.sfromListPrimLinear Nested.knownShS
-       $ map fromIntegral [i :: Int .. i + n - 1]
   AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
   AstReverseS v -> sreverse (interpretAst env v)
   AstTransposeS perm v -> stranspose perm $ interpretAst env v

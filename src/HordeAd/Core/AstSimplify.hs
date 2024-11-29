@@ -481,6 +481,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
   Ast.AstIota | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> astFromIntegral $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
+-- TODO:  AstIndex AstIota (i :.: ZIR) ->
+--    rfromIntegral . rfromPrimal . runRepScalar $ interpretAstPrimal env i
   Ast.AstIota -> Ast.AstIndex v0 ix
   AstN1R opCode u ->
     shareIx ix $ \ !ix2 -> AstN1R opCode (astIndexRec u ix2)
@@ -685,6 +687,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstIotaS | AstConcrete _ (RepN i) <- i1 -> case sameShape @shn @'[] of
     Just Refl -> astFromIntegralS $ AstConcrete (FTKS knownShS FTKScalar) $ RepN $ Nested.sscalar i
     _ -> error "astIndexKnobsS: shape not []"
+-- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
+--    sfromIntegral . sfromPrimal . sfromR . runRepScalar $ interpretAstPrimal env i
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
   AstN1S opCode u ->
     shareIxS ix $ \ !ix2 -> AstN1S opCode (astIndexRec u ix2)
@@ -1028,8 +1032,13 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       Ast.AstFloor
       $ astGatherKnobsR knobs sh4 v (vars4, ix4)
     Ast.AstIota | AstConcrete _ (RepN i) <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
-      Just Refl -> astReplicate0NT sh4 $ astFromIntegral $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
+      Just Refl -> astFromIntegral $ astReplicate0NT sh4 $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
+{- TODO: is this beneficial?
+    AstGather sh AstIota (vars, i :.: ZIR) ->
+      rbuild sh (interpretLambdaIndex interpretAst env
+                                      (vars, fromPrimal @s $ AstFromIntegral $ AstScalar i))
+-}
     Ast.AstIota ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     AstN1R opCode v | not (isVar v) ->
@@ -1217,6 +1226,19 @@ astGatherKnobsS
   -> (AstVarListS sh2, AstIxS AstMethodLet (Take p sh))
   -> AstTensor AstMethodLet s (TKS (sh2 ++ Drop p sh) r)
 astGatherKnobsS _ v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
+{- TODO: is this beneficial?
+  AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
+    gcastWith (unsafeCoerce Refl :: Take (Rank sh2) sh2 :~: sh2)
+    $ gcastWith (unsafeCoerce Refl :: Drop (Rank sh2) sh2 :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: Drop p sh :~: '[])
+    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Drop p sh)
+        -- transitivity of type equality doesn't work, by design,
+        -- so this direct cast is needed instead of more basic laws
+    $ sbuild @target @r @(Rank sh2)
+             (interpretLambdaIndexS
+                interpretAst env
+                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR $ AstScalar i))
+-}
 
 {-
 -- TODO: To apply this to astGatherR. we'd need to take the last variable
@@ -1733,6 +1755,12 @@ astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
               ivar var ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
+{- TODO: is this beneficial?
+  AstSlice i n AstIota ->
+    let u = Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
+    in interpretAst env
+       $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
+-}
 
 astSliceS :: forall i n k sh s r.
              ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, GoodScalar r
@@ -1767,6 +1795,15 @@ astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
   in case slistKnown vars2 of
     Dict -> astGatherS @(n : sh21) @p @sh4 v (vars2, ix2)
 astSliceS v = Ast.AstSliceS @i v
+{- TODO: is this beneficial? for i==0 and for i/=0?
+  AstSliceS @i @n AstIotaS ->
+    let i = valueOf @i
+        n = valueOf @n
+    in interpretAst env
+       $ AstConcrete (FTKS knownShS FTKScalar)
+       $ RepN $ Nested.sfromListPrimLinear Nested.knownShS
+       $ map fromIntegral [i :: Int .. i + n - 1]
+-}
 
 astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
            => AstTensor AstMethodLet s (TKR (1 + n) r) -> AstTensor AstMethodLet s (TKR (1 + n) r)
