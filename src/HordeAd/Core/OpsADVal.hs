@@ -433,8 +433,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromX d = SFromX d
-  xfromS :: forall r sh sh'.
-            (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
+  xfromS :: (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
          => ADVal target (TKS sh r) -> ADVal target (TKX sh' r)
   xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
   stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)

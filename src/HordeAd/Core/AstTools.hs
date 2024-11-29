@@ -64,16 +64,17 @@ ftkAst t = case t of
   AstToShare v -> ftkAst v
   AstConcrete ftk _ -> ftk
 
-  AstMinIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
-  AstMaxIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
-  AstFloor a -> FTKR (shapeAst a)  FTKScalar
-  AstIota -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
   AstN1{} -> FTKScalar
   AstN2{} -> FTKScalar
   AstR1{} -> FTKScalar
   AstR2{} -> FTKScalar
   AstI2{} -> FTKScalar
   AstSumOfList{} -> FTKScalar
+
+  AstMinIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
+  AstMaxIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
+  AstFloor a -> FTKR (shapeAst a)  FTKScalar
+  AstIota -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
   AstN1R _opCode v -> ftkAst v
   AstN2R _opCode v _ -> ftkAst v
   AstR1R _opCode v -> ftkAst v
