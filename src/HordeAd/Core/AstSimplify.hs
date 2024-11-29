@@ -339,24 +339,12 @@ astNonIndexStep t = case t of
   Ast.AstMaxIndexS{} -> t
   Ast.AstFloorS{} -> t
   Ast.AstIotaS -> t
-  AstN1S opCode u ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp1 opCode u
-      _ -> t
-  AstN2S opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp2 opCode u v
-      _ -> t
+  AstN1S{} -> t
+  AstN2S{} -> t
   Ast.AstR1S{} -> t
   Ast.AstR2S{} -> t
-  Ast.AstI2S opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstIntegralOp2 opCode u v
-      _ -> t
-  AstSumOfListS args ->
-    case isTensorInt t of
-      Just Refl -> foldr1 contractAstPlusOp args
-      _ -> t
+  Ast.AstI2S{} -> t
+  AstSumOfListS l -> astSumOfListS l
   Ast.AstIndexS{} -> t  -- was supposed to be *non*-index
   Ast.AstSumS v -> astSumS v
   Ast.AstScatterS v (vars, ix) -> astScatterS v (vars, ix)
@@ -2591,24 +2579,12 @@ simplifyAst t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
   Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
   Ast.AstIotaS -> t
-  AstN1S opCode u ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp1 opCode (simplifyAst u)
-      _ -> AstN1S opCode (simplifyAst u)
-  AstN2S opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
-      _ -> AstN2S opCode (simplifyAst u) (simplifyAst v)
+  AstN1S opCode u -> AstN1S opCode (simplifyAst u)
+  AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2S opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
-      _ -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
-  AstSumOfListS args ->
-    case isTensorInt t of
-      Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
-      _ -> astSumOfListS (map simplifyAst args)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
+  AstSumOfListS args -> astSumOfListS (map simplifyAst args)
   Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIxS ix)
   Ast.AstSumS v -> astSumS (simplifyAst v)
   Ast.AstScatterS v (var, ix) ->
@@ -2826,29 +2802,12 @@ expandAst t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
   Ast.AstFloorS a -> Ast.AstFloorS (expandAst a)
   Ast.AstIotaS -> t
-  AstN1S opCode u ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp1 opCode (expandAst u)
-      _ -> AstN1S opCode (expandAst u)
-  AstN2S opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
-      _ -> {- TODO: case opCode of
-        TimesOp | Just Refl <- sameNat (Proxy @n) (Proxy @3) ->
-          AstN2R opCode (simplifyAst u) (simplifyAst v)
-            -- TODO: a workaround for interpretMatmul2 not yet generalized
-            -- to gathers (and moved from AstInterpret here, ideally)
-        _ -> -} AstN2S opCode (expandAst u) (expandAst v)
+  AstN1S opCode u -> AstN1S opCode (expandAst u)
+  AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
-  Ast.AstI2S opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstIntegralOp2 opCode (expandAst u) (expandAst v)
-      _ -> Ast.AstI2S opCode (expandAst u) (expandAst v)
-  AstSumOfListS args ->
-    case isTensorInt t of
-      Just Refl -> foldr1 contractAstPlusOp (map expandAst args)
-      _ -> astSumOfListS (map expandAst args)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
+  AstSumOfListS args -> astSumOfListS (map expandAst args)
   Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
                                        (expandAst v)
                                        (expandAstIxS ix)
@@ -3370,18 +3329,12 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1Ast i var a
   Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1Ast i var a
   Ast.AstIotaS -> Nothing
-  Ast.AstN1S opCode u ->
-    (\u2 -> case isTensorInt u2 of
-       Just Refl -> contractAstNumOp1 opCode u2
-       _ -> Ast.AstN1S opCode u2)
-    <$> substitute1Ast i var u
+  Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1Ast i var u
   Ast.AstN2S opCode u v ->
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ case isTensorInt u of
-         Just Refl -> contractAstNumOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
-         _ -> Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> substitute1Ast i var u
   Ast.AstR2S opCode u v ->
@@ -3394,17 +3347,12 @@ substitute1Ast i var v1 = case v1 of
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ case isTensorInt u of
-         Just Refl ->
-           contractAstIntegralOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
-         _ -> Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstSumOfListS args ->
     let margs = map (substitute1Ast i var) args
     in if any isJust margs
-       then Just $ case isTensorInt v1 of
-         Just Refl -> foldr1 contractAstPlusOp $ zipWith fromMaybe args margs
-         _ -> astSumOfListS $ zipWith fromMaybe args margs
+       then Just $ astSumOfListS $ zipWith fromMaybe args margs
        else Nothing
   Ast.AstIndexS v ix ->
     case (substitute1Ast i var v, substitute1AstIxS i var ix) of
