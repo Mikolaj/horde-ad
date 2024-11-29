@@ -186,9 +186,11 @@ build1V snat@SNat (var, v0) =
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         astProject2 (build1V snat (var, t))
-    Ast.AstVar _ var2 ->
+    Ast.AstVar _ var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
-      then error "build1V: AstVar: building over scalars is undefined"
+      then case isTensorInt v0 of
+        Just Refl -> 0  -- TODO: ???
+        _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstPrimalPart v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
@@ -239,6 +241,7 @@ build1V snat@SNat (var, v0) =
                    -> AstTensor AstMethodLet s (BuildTensorKind k
                                                   (BuildTensorKind k2 z))
           repl2Stk stk u = case stk of
+            STKScalar{} -> u
             STKR SNat STKScalar{} -> astTr $ astReplicate snat2 u
             STKS sh STKScalar{} -> withKnownShS sh $ astTrS $ astReplicate snat2 u
             STKX sh STKScalar{} -> withKnownShX sh $ astTrX $ astReplicate snat2 u
@@ -287,11 +290,30 @@ build1V snat@SNat (var, v0) =
     Ast.AstIota ->
       error "build1V: AstIota can't have free index variables"
 
+    Ast.AstN1 opCode u -> traceRule $
+      Ast.AstN1 opCode (build1V snat (var, u))
+    Ast.AstN2 opCode u v -> traceRule $
+      Ast.AstN2 opCode (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknown snat (var, v))
+        -- we permit duplicated bindings, because they can't easily
+        -- be substituted into one another unlike. e.g., inside a let,
+        -- which may get inlined
+    Ast.AstR1 opCode u -> traceRule $
+      Ast.AstR1 opCode (build1V snat (var, u))
+    Ast.AstR2 opCode u v -> traceRule $
+      Ast.AstR2 opCode (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknown snat (var, v))
+    Ast.AstI2 opCode u v -> traceRule $
+      Ast.AstI2 opCode (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknown snat (var, v))
+    Ast.AstSumOfList args -> traceRule $
+      astSumOfList $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
+
     Ast.AstN1R opCode u -> traceRule $
       Ast.AstN1R opCode (build1V snat (var, u))
     Ast.AstN2R opCode u v -> traceRule $
       Ast.AstN2R opCode (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknown snat (var, v))
+                        (build1VOccurenceUnknown snat (var, v))
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
@@ -299,10 +321,10 @@ build1V snat@SNat (var, v0) =
       Ast.AstR1R opCode (build1V snat (var, u))
     Ast.AstR2R opCode u v -> traceRule $
       Ast.AstR2R opCode (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknown snat (var, v))
+                        (build1VOccurenceUnknown snat (var, v))
     Ast.AstI2R opCode u v -> traceRule $
       Ast.AstI2R opCode (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknown snat (var, v))
+                        (build1VOccurenceUnknown snat (var, v))
     Ast.AstSumOfListR args -> traceRule $
       astSumOfListR $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
@@ -711,6 +733,7 @@ substProjRep snat@SNat var ftk2 var1 v
                    -> FullTensorKind y4
                    -> AstTensor AstMethodLet s2 y4
         projection prVar = \case
+          FTKScalar -> prVar
           FTKR sh FTKScalar | SNat <- shrRank sh ->
             Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
           FTKS sh FTKScalar -> withKnownShS sh

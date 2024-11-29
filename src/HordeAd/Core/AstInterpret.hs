@@ -419,20 +419,20 @@ interpretAst !env = \case
          (AstSum (AstN2R TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u))))
   AstSum (AstN2R TimesOp (AstTranspose tperm t)
-                        (AstLet varu vu (AstTranspose uperm u))) ->
+                         (AstLet varu vu (AstTranspose uperm u))) ->
     interpretAst env
       (AstLet varu vu
          (AstSum (AstN2R TimesOp (AstTranspose tperm t)
                                 (AstTranspose uperm u))))
   AstSum (AstN2R TimesOp (AstLet vart vt (AstTranspose tperm t))
-                        (AstLet varu vu (AstTranspose uperm u))) ->
+                         (AstLet varu vu (AstTranspose uperm u))) ->
     interpretAst env
       (AstLet vart vt (AstLet varu vu
          (AstSum (AstN2R TimesOp (AstTranspose tperm t)
-                                (AstTranspose uperm u)))))
+                                 (AstTranspose uperm u)))))
   AstSum @n @r
          v@(AstN2R TimesOp (AstTranspose tperm (AstReplicate @yt _tk t))
-                          (AstTranspose uperm (AstReplicate @yu _uk u)))
+                           (AstTranspose uperm (AstReplicate @yu _uk u)))
     | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
       case (stensorKind @yt, stensorKind @yu) of
        (STKR{}, STKR{}) ->
@@ -487,7 +487,6 @@ interpretAst !env = \case
 --            ttr
 --            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
           _ -> rsum $ interpretAst env v
-       _ -> error "interpretAst: type family BuildTensorKind stuck at TKScalar"
   AstSum @n (AstN2R TimesOp t u)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         let t1 = interpretAst env t

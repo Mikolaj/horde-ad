@@ -102,8 +102,8 @@ class LetTensor (target :: Target) where
              -> target z
              -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
-    STKScalar{} ->
-      error "treplicate: type family BuildTensorKind stuck at TKScalar"
+    STKScalar{} -> u
+-- TODO?      error "treplicate: type family BuildTensorKind stuck at TKScalar"
     STKR SNat STKScalar{} -> rreplicate (sNatValue snat) u
     STKS sh STKScalar{} -> withKnownShS sh $ sreplicate u
 -- TODO:    STKS sh (STKS _ STKScalar{}) -> withKnownShS sh $ sreplicate u
