@@ -44,7 +44,7 @@ import HordeAd.Util.SizedList
 
 ftkAst :: forall s y ms. AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
-  AstFromScalar{} -> FTKR ZSR FTKScalar
+  AstFromScalar{} -> FTKS knownShS FTKScalar
   AstToScalar{} -> FTKScalar
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
   AstProject1 v -> case ftkAst v of

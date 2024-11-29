@@ -443,7 +443,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
                             (vars2, simplifyAstIndex ix2)
        else astGatherKnobsR knobs sh2 v2 (vars2, ix2)
  in case v0 of
-  Ast.AstFromScalar{} -> Ast.AstIndex v0 ix
   Ast.AstProject1{} -> Ast.AstIndex v0 ix
   Ast.AstProject2{} -> Ast.AstIndex v0 ix
   Ast.AstVar{} -> Ast.AstIndex v0 ix
@@ -983,7 +982,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIndex AstMethodLet p1')) ) = case v4 of
-    Ast.AstFromScalar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProject1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -1237,7 +1235,7 @@ astGatherKnobsS _ v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
     $ sbuild @target @r @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
-                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR $ AstFromScalar i))
+                (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i))
 -}
 
 {-
@@ -2418,7 +2416,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
                    (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
-        STKScalar _ -> Ast.AstToScalar $ astProjectR l i
+        STKScalar _ -> Ast.AstToScalar $ astProjectS l i
         STKR SNat STKScalar{} -> astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astProjectS l i
         STKX sh STKScalar{}-> withKnownShX sh $ error "TODO"
@@ -2430,7 +2428,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar _ -> Ast.AstToScalar $ astPrimalPart $ astProjectR l i
+        STKScalar _ -> Ast.AstToScalar $ astPrimalPart $ astProjectS l i
         STKR SNat STKScalar{} -> astPrimalPart $ astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astPrimalPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -2442,7 +2440,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar _ -> Ast.AstToScalar $ astDualPart $ astProjectR l i
+        STKScalar _ -> Ast.AstToScalar $ astDualPart $ astProjectS l i
         STKR SNat STKScalar{} -> astDualPart $ astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astDualPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -2503,16 +2501,16 @@ astLetFun a f =
   in astLet var a ast  -- safe, because subsitution ruled out above
 
 astFromScalar :: (GoodScalar r, AstSpan s)
-          => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKR 0 r)
+              => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
 astFromScalar t = case t of
   Ast.AstToScalar u -> u
-  AstN1 opCode u -> AstN1R opCode (astFromScalar u)
-  AstN2 opCode u v -> AstN2R opCode (astFromScalar u) (astFromScalar v)
--- TODO:  Ast.AstR1 opCode u -> Ast.AstR1R opCode (astFromScalar u)
--- TODO:  Ast.AstR2 opCode u v -> Ast.AstR2R opCode (astFromScalar u) (astFromScalar v)
+  AstN1 opCode u -> AstN1S opCode (astFromScalar u)
+  AstN2 opCode u v -> AstN2S opCode (astFromScalar u) (astFromScalar v)
+-- TODO:  Ast.AstR1 opCode u -> Ast.AstR1S opCode (astFromScalar u)
+-- TODO:  Ast.AstR2 opCode u v -> Ast.AstR2S opCode (astFromScalar u) (astFromScalar v)
   Ast.AstI2 opCode u v | Just Refl <- isTensorInt t ->
-    Ast.AstI2R opCode (astFromScalar u) (astFromScalar v)
-  AstSumOfList args -> AstSumOfListR $ map astFromScalar args
+    Ast.AstI2S opCode (astFromScalar u) (astFromScalar v)
+  AstSumOfList args -> AstSumOfListS $ map astFromScalar args
   Ast.AstCond b a2 a3 -> Ast.AstCond b (astFromScalar a2) (astFromScalar a3)
   _ -> Ast.AstFromScalar t
 

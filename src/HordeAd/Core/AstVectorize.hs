@@ -162,7 +162,7 @@ build1V snat@SNat (var, v0) =
     Ast.AstFromScalar v2@(Ast.AstVar _ var2)  -- TODO: make compositional
       | varNameToAstVarId var2 == varNameToAstVarId var -> traceRule $
         case isTensorInt v2 of
-          Just Refl -> fromPrimal @s $ Ast.AstRFromS $ Ast.AstIotaS @k
+          Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
             -- results in smaller terms than AstSlice(AstIota), because
             -- not turned into a concrete array so early
           _ -> error "build1V: build variable is not an index variable"

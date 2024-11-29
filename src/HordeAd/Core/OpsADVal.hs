@@ -251,8 +251,10 @@ instance ( BaseTensor target
 -- in tests. None others are used anywhere.
 instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
          => BaseTensor (ADVal target) where
-  rmkRepScalar (D t d) = dDnotShared (rmkRepScalar t) (ToScalarG d)
-  runRepScalar (D t d) = dDnotShared (runRepScalar t) (FromScalarG d)
+  rmkRepScalar (D t d) = dDnotShared (rmkRepScalar t) (ToScalarG $ SFromR d)
+  runRepScalar (D t d) = dDnotShared (runRepScalar t) (RFromS $ FromScalarG d)
+  smkRepScalar (D t d) = dDnotShared (smkRepScalar t) (ToScalarG d)
+  sunRepScalar (D t d) = dDnotShared (sunRepScalar t) (FromScalarG d)
 
   rshape (D u _) = rshape u
   rminIndex (D u _) =

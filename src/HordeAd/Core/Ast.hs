@@ -243,9 +243,9 @@ type role AstTensor nominal nominal nominal
 data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType -> Type where
   -- Here starts the general part.
   AstFromScalar :: GoodScalar r
-                => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKR 0 r)
+                => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
   AstToScalar :: GoodScalar r
-              => AstTensor ms s (TKR 0 r) -> AstTensor ms s (TKScalar r)
+              => AstTensor ms s (TKS '[] r) -> AstTensor ms s (TKScalar r)
   AstPair :: (TensorKind y, TensorKind z)
           => AstTensor ms s y -> AstTensor ms s z
           -> AstTensor ms s (TKProduct y z)

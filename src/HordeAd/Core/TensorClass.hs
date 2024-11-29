@@ -166,6 +166,8 @@ class ( Num (IntOf target)
 
   rmkRepScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   runRepScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
+  smkRepScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
+  sunRepScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
 
   -- Integer codomain
   rshape :: GoodScalar r => target (TKR n r) -> IShR n

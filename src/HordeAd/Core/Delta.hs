@@ -78,10 +78,9 @@ import Data.Array.Nested
   , KnownShX
   , Rank
   , ShR (..)
-  , pattern (:$:)
+  , ShS (..)
   , pattern (:.$)
   , pattern ZIS
-  , pattern ZSR
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -388,9 +387,9 @@ deriving instance ( (forall y7. TensorKind y7 => Show (target y7))
 type role Delta nominal nominal
 data Delta :: Target -> TensorKindType -> Type where
   FromScalarG :: GoodScalar r
-              => Delta target (TKScalar r) -> Delta target (TKR 0 r)
+              => Delta target (TKScalar r) -> Delta target (TKS '[] r)
   ToScalarG :: GoodScalar r
-            => Delta target (TKR 0 r) -> Delta target (TKScalar r)
+            => Delta target (TKS '[] r) -> Delta target (TKScalar r)
   PairG :: (TensorKind y, TensorKind z)
          => Delta target y -> Delta target z
          -> Delta target (TKProduct y z)
@@ -641,7 +640,7 @@ deriving instance ( TensorKind y
 shapeDeltaFull :: forall target y. TensorKind y
                => Delta target y -> FullTensorKind y
 shapeDeltaFull = \case
-  FromScalarG{} -> FTKR ZSR FTKScalar
+  FromScalarG{} -> FTKS ZSS FTKScalar
   ToScalarG{} -> FTKScalar
   PairG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
   Project1G v -> case shapeDeltaFull v of
@@ -1088,8 +1087,8 @@ evalSame !s !c = \case
   -- (and the InputG constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
-  FromScalarG d -> evalSame s (rmkRepScalar c) d
-  ToScalarG d -> evalSame s (runRepScalar c) d
+  FromScalarG d -> evalSame s (smkRepScalar c) d
+  ToScalarG d -> evalSame s (sunRepScalar c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1482,9 +1481,9 @@ fwdSame
   -> (ADMap target, target (ADTensorKind y))
 fwdSame params s = \case
   FromScalarG d -> let (s2, t) = fwdSame params s d
-                   in (s2, runRepScalar t)
+                   in (s2, sunRepScalar t)
   ToScalarG d -> let (s2, t) = fwdSame params s d
-                 in (s2, rmkRepScalar t)
+                 in (s2, smkRepScalar t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)

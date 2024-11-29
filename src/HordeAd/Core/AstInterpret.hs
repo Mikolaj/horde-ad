@@ -164,8 +164,8 @@ interpretAst
   => AstEnv target
   -> AstTensor AstMethodLet s y -> target y
 interpretAst !env = \case
-  AstFromScalar t -> runRepScalar $ interpretAst env t
-  AstToScalar t -> rmkRepScalar $ interpretAst env t
+  AstFromScalar t -> sunRepScalar $ interpretAst env t
+  AstToScalar t -> smkRepScalar $ interpretAst env t
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
@@ -554,7 +554,7 @@ interpretAst !env = \case
   AstReshape sh v -> rreshape sh (interpretAst env v)
   AstGather sh AstIota (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, fromPrimal @s $ AstFromIntegral $ AstFromScalar i))
+                                    (vars, fromPrimal @s $ AstFromIntegral $ AstRFromS $ AstFromScalar i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -806,7 +806,7 @@ interpretAst !env = \case
     $ sbuild @target @r @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
-                (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromR $ AstFromScalar i))
+                (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i))
   AstGatherS v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
