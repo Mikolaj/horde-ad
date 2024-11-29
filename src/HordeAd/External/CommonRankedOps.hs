@@ -29,17 +29,17 @@ rminIndexN :: forall target n r.
               (BaseTensor target, KnownNat n, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rminIndexN t =
-  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
                 (rshape t)
-                (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rminIndex (rflatten t))
+                (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rminIndex (rflatten t))
 
 rmaxIndexN :: forall target n r.
               (BaseTensor target, KnownNat n, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rmaxIndexN t =
-  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
                 (rshape t)
-                (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rmaxIndex (rflatten t))
+                (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rmaxIndex (rflatten t))
 
 rminimum :: forall target n r.
             (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
@@ -47,22 +47,22 @@ rminimum :: forall target n r.
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in rindex0.
 rminimum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
                                           (rshape t)
-                                          (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rminIndex (rflatten t))
+                                          (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rminIndex (rflatten t))
 
 rmaximum :: forall target n r.
             (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
                                           (rshape t)
-                                          (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rmaxIndex (rflatten t))
+                                          (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, GoodScalar r)
             => IntOf target -> target (TKR 0 r)
-rfromIndex0 = rfromIntegral . runRepScalar . tfromPrimal (STKScalar typeRep)
+rfromIndex0 = rfromIntegral . rfromScalar . tfromPrimal (STKScalar typeRep)
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n
@@ -71,7 +71,7 @@ rfromIndex1 :: forall n r target.
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map runRepScalar . indexToList
+  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map rfromScalar . indexToList
 
 {-
 rint64FromIndex1 :: forall n target.

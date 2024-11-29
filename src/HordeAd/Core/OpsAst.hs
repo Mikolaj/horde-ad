@@ -342,10 +342,10 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
       _ -> error "tunshare: used not at PrimalSpan"
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
-  rmkRepScalar = AstToScalar . AstSFromR
-  runRepScalar = AstRFromS . AstFromScalar
-  smkRepScalar = AstToScalar
-  sunRepScalar = AstFromScalar
+  rtoScalar = AstToScalar . AstSFromR
+  rfromScalar = AstRFromS . AstFromScalar
+  stoScalar = AstToScalar
+  sfromScalar = AstFromScalar
 
   rshape = shapeAst
   rminIndex = fromPrimal . AstMinIndex
@@ -603,10 +603,10 @@ instance AstSpan s => ShareTensor (AstRaw s) where
                        (toRepDShare stk t2)
 
 instance AstSpan s => BaseTensor (AstRaw s) where
-  rmkRepScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
-  runRepScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
-  smkRepScalar = AstRaw . AstToScalar . unAstRaw
-  sunRepScalar = AstRaw . AstFromScalar . unAstRaw
+  rtoScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
+  rfromScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
+  stoScalar = AstRaw . AstToScalar . unAstRaw
+  sfromScalar = AstRaw . AstFromScalar . unAstRaw
 
   rshape = shapeAst . unAstRaw
   rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimalRaw . unAstRaw
@@ -835,10 +835,10 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
   toShare t = toShare $ unAstNoVectorize t
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
-  rmkRepScalar = AstNoVectorize . rmkRepScalar . unAstNoVectorize
-  runRepScalar = AstNoVectorize . runRepScalar . unAstNoVectorize
-  smkRepScalar = AstNoVectorize . smkRepScalar . unAstNoVectorize
-  sunRepScalar = AstNoVectorize . sunRepScalar . unAstNoVectorize
+  rtoScalar = AstNoVectorize . rtoScalar . unAstNoVectorize
+  rfromScalar = AstNoVectorize . rfromScalar . unAstNoVectorize
+  stoScalar = AstNoVectorize . stoScalar . unAstNoVectorize
+  sfromScalar = AstNoVectorize . sfromScalar . unAstNoVectorize
 
   rshape = rshape . unAstNoVectorize
   rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
@@ -1055,10 +1055,10 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
-  rmkRepScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify
-  runRepScalar = AstNoSimplify . AstRFromS . AstFromScalar . unAstNoSimplify
-  smkRepScalar = AstNoSimplify . AstToScalar . unAstNoSimplify
-  sunRepScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
+  rtoScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify
+  rfromScalar = AstNoSimplify . AstRFromS . AstFromScalar . unAstNoSimplify
+  stoScalar = AstNoSimplify . AstToScalar . unAstNoSimplify
+  sfromScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
 
   rshape = shapeAst . unAstNoSimplify
   rminIndex = AstNoSimplify . fromPrimal . AstMinIndex

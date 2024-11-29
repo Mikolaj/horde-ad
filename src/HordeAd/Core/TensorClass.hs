@@ -164,10 +164,10 @@ class ( Num (IntOf target)
       , TensorSupportsX Integral IntegralF target )
       => BaseTensor (target :: Target) where
 
-  rmkRepScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
-  runRepScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
-  smkRepScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
-  sunRepScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
+  rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
+  rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
+  stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
+  sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
 
   -- Integer codomain
   rshape :: GoodScalar r => target (TKR n r) -> IShR n
@@ -1180,7 +1180,7 @@ class ( Num (IntOf target)
 
 tunit :: BaseTensor target
       => target TKUnit
-tunit = rmkRepScalar $ rscalar Z0
+tunit = rtoScalar $ rscalar Z0
 
 rfromD :: forall r n target.
           (BaseTensor target, GoodScalar r, KnownNat n)

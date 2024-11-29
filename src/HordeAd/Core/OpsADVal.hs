@@ -251,10 +251,10 @@ instance ( BaseTensor target
 -- in tests. None others are used anywhere.
 instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
          => BaseTensor (ADVal target) where
-  rmkRepScalar (D t d) = dDnotShared (rmkRepScalar t) (ToScalarG $ SFromR d)
-  runRepScalar (D t d) = dDnotShared (runRepScalar t) (RFromS $ FromScalarG d)
-  smkRepScalar (D t d) = dDnotShared (smkRepScalar t) (ToScalarG d)
-  sunRepScalar (D t d) = dDnotShared (sunRepScalar t) (FromScalarG d)
+  rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
+  rfromScalar (D t d) = dDnotShared (rfromScalar t) (RFromS $ FromScalarG d)
+  stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
+  sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)
 
   rshape (D u _) = rshape u
   rminIndex (D u _) =
@@ -436,7 +436,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   dshape (D u _) = dshape u
   tftk stk (D u _) = tftk stk u
   tcond stk b u v = case stk of
-    STKScalar _ -> rmkRepScalar $ ifF b (runRepScalar u) (runRepScalar v)
+    STKScalar _ -> rtoScalar $ ifF b (rfromScalar u) (rfromScalar v)
     STKR SNat STKScalar{} -> ifF b u v
     STKS sh STKScalar{} -> withKnownShS sh $ ifF b u v
     STKX sh STKScalar{} -> withKnownShX sh $ ifF b u v

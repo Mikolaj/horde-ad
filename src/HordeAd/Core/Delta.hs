@@ -168,7 +168,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           let toDynamicTensor :: Some (RepM target)
                               -> DynamicTensor target
               toDynamicTensor (Some b) = case b of
-                MTKScalar @r t -> DynamicRanked @r @0 $ runRepScalar t
+                MTKScalar @r t -> DynamicRanked @r @0 $ rfromScalar t
                 MTKR @r @n t -> DynamicRanked @r @n t
                 MTKS @r @sh t -> DynamicShaped @r @sh t
                 MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
@@ -244,7 +244,7 @@ evalRepM = \case
   MTKScalar t -> t
   MTKR t -> t
   MTKS t -> t
-  MTKScalarDummy -> rmkRepScalar $ rscalar 0
+  MTKScalarDummy -> rtoScalar $ rscalar 0
   MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
   MTKSDummy -> srepl 0
 
@@ -278,7 +278,7 @@ addRepM ::
   -> RepM target y
 addRepM a b = case (a, b) of
   (MTKScalar ta, MTKScalar tb) ->
-    MTKScalar $ rmkRepScalar $ runRepScalar ta + runRepScalar tb
+    MTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
   (MTKR ta, MTKR tb) -> MTKR $ ta + tb
   (MTKScalarDummy, _) -> b
   (_, MTKScalarDummy) -> a
@@ -1087,8 +1087,8 @@ evalSame !s !c = \case
   -- (and the InputG constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
-  FromScalarG d -> evalSame s (smkRepScalar c) d
-  ToScalarG d -> evalSame s (sunRepScalar c) d
+  FromScalarG d -> evalSame s (stoScalar c) d
+  ToScalarG d -> evalSame s (sfromScalar c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1481,9 +1481,9 @@ fwdSame
   -> (ADMap target, target (ADTensorKind y))
 fwdSame params s = \case
   FromScalarG d -> let (s2, t) = fwdSame params s d
-                   in (s2, sunRepScalar t)
+                   in (s2, sfromScalar t)
   ToScalarG d -> let (s2, t) = fwdSame params s d
-                 in (s2, smkRepScalar t)
+                 in (s2, stoScalar t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)

@@ -91,7 +91,7 @@ addRepD ::
   -> RepD target y
 addRepD a b = case (a, b) of
   (DTKScalar ta, DTKScalar tb) ->
-    DTKScalar $ rmkRepScalar $ runRepScalar ta + runRepScalar tb
+    DTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
   (DTKR ta, DTKR tb) -> DTKR $ ta + tb
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKX ta, DTKX tb) -> DTKX $ ta + tb
@@ -485,7 +485,7 @@ repConstant :: forall y target. ADReadyNoLet target
             => (forall r. GoodScalar r => r)
             -> FullTensorKind y -> target y
 repConstant r = \case
-  FTKScalar -> rmkRepScalar $ rscalar r
+  FTKScalar -> rtoScalar $ rscalar r
   FTKR sh FTKScalar | SNat <- shrRank sh -> rrepl (toList sh) r
   FTKS sh FTKScalar -> withKnownShS sh $ srepl r
   FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xrepl sh r
@@ -502,7 +502,7 @@ repConstant r = \case
 repConstant0Old :: forall y target. ADReadyNoLet target
                 => FullTensorKind y -> target y
 repConstant0Old = \case
-  FTKScalar -> rmkRepScalar $ rscalar 0
+  FTKScalar -> rtoScalar $ rscalar 0
   FTKR sh FTKScalar | SNat <- shrRank sh -> rzero sh
   FTKS sh FTKScalar -> withKnownShS sh $ srepl 0
   FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xzero sh
@@ -523,7 +523,7 @@ toADTensorKindShared stk t = case stk of
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
-           rmkRepScalar $ rscalar Z0
+           rtoScalar $ rscalar Z0
   STKR SNat (STKScalar @r _) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of

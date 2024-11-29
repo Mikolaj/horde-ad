@@ -34,9 +34,9 @@ sminIndexN :: forall target sh r.
            => target (TKS sh r) -> IxSOf target sh
 sminIndexN t =
   ShapedList.fromLinearIdx
-    (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+    (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rfromS $ sminIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rfromS $ sminIndex (sflatten t))
 
 smaxIndexN :: forall target sh r.
               ( ADReady target, GoodScalar r
@@ -44,9 +44,9 @@ smaxIndexN :: forall target sh r.
            => target (TKS sh r) -> IxSOf target sh
 smaxIndexN t =
   ShapedList.fromLinearIdx
-    (tprimalPart @target (STKScalar typeRep) . rmkRepScalar . rscalar . fromIntegral)
+    (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ rmkRepScalar $ rfromS $ smaxIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rfromS $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
@@ -60,7 +60,7 @@ smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS '[] r)
-sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . runRepScalar
+sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . rfromScalar
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownNat (Rank sh))
@@ -68,7 +68,7 @@ sfromIndex1 :: forall r sh target.
 sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
   Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
   _ -> sfromR . rfromIntegral . rfromPrimal . rfromList
-       . NonEmpty.fromList . map runRepScalar . ShapedList.indexToList
+       . NonEmpty.fromList . map rfromScalar . ShapedList.indexToList
 
 {-
 sletIx :: forall r sh n target.

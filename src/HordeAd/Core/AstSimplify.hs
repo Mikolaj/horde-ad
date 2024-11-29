@@ -481,7 +481,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
     Just Refl -> astFromIntegral $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
 -- TODO:  AstIndex AstIota (i :.: ZIR) ->
---    rfromIntegral . rfromPrimal . runRepScalar $ interpretAstPrimal env i
+--    rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
   Ast.AstIota -> Ast.AstIndex v0 ix
   AstN1R opCode u ->
     shareIx ix $ \ !ix2 -> AstN1R opCode (astIndexRec u ix2)
@@ -687,7 +687,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
     Just Refl -> astFromIntegralS $ AstConcrete (FTKS knownShS FTKScalar) $ RepN $ Nested.sscalar i
     _ -> error "astIndexKnobsS: shape not []"
 -- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
---    sfromIntegral . sfromPrimal . sfromR . runRepScalar $ interpretAstPrimal env i
+--    sfromIntegral . sfromPrimal . sfromR . rfromScalar $ interpretAstPrimal env i
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
   AstN1S opCode u ->
     shareIxS ix $ \ !ix2 -> AstN1S opCode (astIndexRec u ix2)

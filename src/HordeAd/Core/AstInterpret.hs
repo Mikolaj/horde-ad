@@ -164,8 +164,8 @@ interpretAst
   => AstEnv target
   -> AstTensor AstMethodLet s y -> target y
 interpretAst !env = \case
-  AstFromScalar t -> sunRepScalar $ interpretAst env t
-  AstToScalar t -> smkRepScalar $ interpretAst env t
+  AstFromScalar t -> sfromScalar $ interpretAst env t
+  AstToScalar t -> stoScalar $ interpretAst env t
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
@@ -403,7 +403,7 @@ interpretAst !env = \case
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIota (i :.: ZIR) ->
-    rfromIntegral . rfromPrimal . runRepScalar $ interpretAstPrimal env i
+    rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -588,9 +588,9 @@ interpretAst !env = \case
                                     , ftkAst l
                                     , shapeVoidHVector (dshape @target lt) )) $
                    extendEnvHVector vars lw env
-      in rmkRepScalar
+      in rtoScalar
          $ tlet @_ @TKUntyped lt
-             (\lw -> runRepScalar $ interpretAst (env2 (dunHVector lw)) v)
+             (\lw -> rfromScalar $ interpretAst (env2 (dunHVector lw)) v)
     STKR SNat STKScalar{} ->
       let lt = interpretAst env l
           env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
@@ -676,7 +676,7 @@ interpretAst !env = \case
     in foldl1 (+) (srepl 0 : args2)  -- backward compat vs @sum@
 -- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
-    sfromIntegral . sfromPrimal . sfromR . runRepScalar $ interpretAstPrimal env i
+    sfromIntegral . sfromPrimal . sfromR . rfromScalar $ interpretAstPrimal env i
   AstIndexS @sh1 @_ @_ @r v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix

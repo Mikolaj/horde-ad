@@ -1403,8 +1403,8 @@ fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
 fooNoGoAst v =
   let r = rsum0 v
   in rbuild1 3 (\ix' -> let ix :: AstTensor AstMethodLet PrimalSpan (TKS '[] Int64)
-                            ix = sfromR $ runRepScalar ix' in
-       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [rmkRepScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
+                            ix = sfromR $ rfromScalar ix' in
+       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [rtoScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
        + ifF ( (&&*)
                     (rindex v (ix' * 2 :.: ZIR) <=. rscalar 0)
                         -- @1 not required thanks to :.:; see below for @ and []
@@ -1432,8 +1432,8 @@ fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
 fooNoGo v =
   let r = rsum0 v
   in rbuild1 3 (\ix' -> let ix :: PrimalOf target (TKS '[] Int64)
-                            ix = sfromR $ runRepScalar ix' in
-       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [rmkRepScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
+                            ix = sfromR $ rfromScalar ix' in
+       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [rtoScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
        + ifF ((&&*) (rindex @target @r @1 v [ix' * 2] <=. rscalar 0)
                     (sscalar 6 >. abs ix))
                r (rscalar 5 * r))
