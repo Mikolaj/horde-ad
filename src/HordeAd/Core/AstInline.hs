@@ -167,6 +167,9 @@ inlineAst memo v0 = case v0 of
   Ast.AstSumOfList args ->
     let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstSumOfList args2)
+  Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
+  Ast.AstCast a -> second Ast.AstCast $ inlineAst memo a
+  Ast.AstFromIntegral a -> second Ast.AstFromIntegral $ inlineAst memo a
   Ast.AstN1R opCode u ->
     let (memo2, u2) = inlineAst memo u
     in (memo2, Ast.AstN1R opCode u2)
@@ -524,6 +527,9 @@ unshareAst memo = \case
   Ast.AstSumOfList args ->
     let (memo2, args2) = mapAccumR unshareAst memo args
     in (memo2, Ast.AstSumOfList args2)
+  Ast.AstFloor a -> second Ast.AstFloor $ unshareAst memo a
+  Ast.AstCast v -> second Ast.AstCast $ unshareAst memo v
+  Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ unshareAst memo v
   Ast.AstN1R opCode u ->
     let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstN1R opCode u2)

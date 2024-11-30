@@ -386,6 +386,8 @@ deriving instance ( (forall y7. TensorKind y7 => Show (target y7))
 
 type role Delta nominal nominal
 data Delta :: Target -> TensorKindType -> Type where
+  Cast :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
+       => Delta target (TKScalar r1) -> Delta target (TKScalar r2)
   FromScalarG :: GoodScalar r
               => Delta target (TKScalar r) -> Delta target (TKS '[] r)
   ToScalarG :: GoodScalar r
@@ -649,6 +651,7 @@ deriving instance ( TensorKind y
 shapeDeltaFull :: forall target y. TensorKind y
                => Delta target y -> FullTensorKind y
 shapeDeltaFull = \case
+  Cast{} -> FTKScalar
   FromScalarG{} -> FTKS ZSS FTKScalar
   ToScalarG{} -> FTKScalar
   PairG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
@@ -1098,6 +1101,9 @@ evalSame !s !c = \case
   -- (and the InputG constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
+  Cast @r1 d ->
+    evalR s (toADTensorKindShared (stensorKind @(TKScalar r1))
+             $ kcast c) d
   FromScalarG d -> evalSame s (stoScalar c) d
   ToScalarG d -> evalSame s (sfromScalar c) d
   InputG _ftk i ->
@@ -1503,6 +1509,11 @@ fwdSame
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 fwdSame params s = \case
+  d0@(Cast @r1 d)
+    | Dict <- lemTensorKindOfAD (stensorKind @(TKScalar r1)) ->
+      case sameTensorKind @(TKScalar r1) @(ADTensorKind (TKScalar r1)) of
+        Just Refl -> second kcast $ fwdSame params s d
+        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
   FromScalarG d -> let (s2, t) = fwdSame params s d
                    in (s2, sfromScalar t)
   ToScalarG d -> let (s2, t) = fwdSame params s d

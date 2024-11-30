@@ -816,6 +816,15 @@ class ( Num (IntOf target)
          => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
          -> DualOf target (TKS sh r)
 
+  -- Scalar ops
+  kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+         => target (TKScalar r) -> target (TKScalar r2)
+  kcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
+        => target (TKScalar r1) -> target (TKScalar r2)
+  kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+                => target (TKScalar r1) -> target (TKScalar r2)
+
+  -- Misc
   tpair :: (TensorKind x, TensorKind z)
          => target x -> target z
          -> target (TKProduct x z)
@@ -833,8 +842,8 @@ class ( Num (IntOf target)
         -> target y -> target y
         -> target y
   tfromPrimal :: STensorKindType y
-            -> PrimalOf target y
-            -> target y
+              -> PrimalOf target y
+              -> target y
   tprimalPart :: STensorKindType y
               -> target y
               -> PrimalOf target y

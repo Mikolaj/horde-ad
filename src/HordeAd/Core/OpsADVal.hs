@@ -445,6 +445,14 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sD t d = dD t d
   sScale k = ScaleG k
 
+  kfloor (D u _) =
+    let v = kfloor u
+    in fromPrimalADVal v
+  kcast (D u u') = dD (kcast u) (Cast u')
+  kfromIntegral (D u _) =
+    let v = kfromIntegral u
+    in fromPrimalADVal v
+
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (PairG u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unPairGUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unPairGUnshared u')

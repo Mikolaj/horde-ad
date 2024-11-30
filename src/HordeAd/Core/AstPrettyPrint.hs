@@ -312,6 +312,12 @@ printAstAux cfg d = \case
     in showParen (d > 6)
        $ printAst cfg 7 left
          . foldr (.) id rs
+  AstFloor v ->
+    printPrefixOp printAst cfg d "kfloor" [v]
+  AstCast v ->
+    printPrefixOp printAst cfg d "kcast" [v]
+  AstFromIntegral v ->
+    printPrefixOp printAst cfg d "kfromIntegral" [v]
   AstN1R opCode u -> printAstN1R printAst cfg d opCode u
   AstN2R opCode u v -> printAstN2R printAst cfg d opCode u v
   AstR1R opCode u -> printAstR1R printAst cfg d opCode u

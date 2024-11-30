@@ -309,6 +309,12 @@ build1V snat@SNat (var, v0) =
                        (build1VOccurenceUnknown snat (var, v))
     Ast.AstSumOfList args -> traceRule $
       astSumOfList $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
+    Ast.AstFloor v -> traceRule $
+     Ast.AstFloor $ build1V snat (var, v)
+    Ast.AstCast v -> traceRule $
+      astCast $ build1V snat (var, v)
+    Ast.AstFromIntegral v -> traceRule $
+      astFromIntegral $ build1V snat (var, v)
 
     Ast.AstN1R opCode u -> traceRule $
       Ast.AstN1R opCode (build1V snat (var, u))
@@ -361,9 +367,9 @@ build1V snat@SNat (var, v0) =
                        (build1VOccurenceUnknown snat (var, v))
                        (varFresh ::: vars, astVarFresh :.: ix2)
     Ast.AstCastR v -> traceRule $
-      astCast $ build1V snat (var, v)
+      astCastR $ build1V snat (var, v)
     Ast.AstFromIntegralR v -> traceRule $
-      astFromIntegral $ build1V snat (var, v)
+      astFromIntegralR $ build1V snat (var, v)
     Ast.AstConcrete{} ->
       error "build1V: AstConcrete can't have free index variables"
 

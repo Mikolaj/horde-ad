@@ -27,7 +27,8 @@ module HordeAd.Core.AstSimplify
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
-  , astCast, astCastS, astFromIntegral, astFromIntegralS
+  , astCast, astCastR, astCastS
+  , astFromIntegral, astFromIntegralR, astFromIntegralS
   , astProject1, astProject2, astProjectR, astProjectS, astNestS, astUnNestS
   , astRFromS, astSFromR, astSFromX, astXFromS
   , astPrimalPart, astDualPart
@@ -310,6 +311,9 @@ astNonIndexStep t = case t of
     case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp args
       _ -> t
+  Ast.AstFloor{} -> t
+  Ast.AstCast v -> astCast v
+  Ast.AstFromIntegral v -> astFromIntegral v
   AstN1R{} -> t
   AstN2R{} -> t
   Ast.AstR1R{} -> t
@@ -328,8 +332,8 @@ astNonIndexStep t = case t of
   Ast.AstGather _ v0 (ZR, ix) -> Ast.AstIndex v0 ix
   Ast.AstGather sh v0 (_, ZIR) -> astReplicateN sh v0
   Ast.AstGather{} -> t  -- this is "index" enough
-  Ast.AstCastR v -> astCast v
-  Ast.AstFromIntegralR v -> astFromIntegral v
+  Ast.AstCastR v -> astCastR v
+  Ast.AstFromIntegralR v -> astFromIntegralR v
   Ast.AstProjectR l p -> astProjectR l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
   Ast.AstRFromS v -> astRFromS v
@@ -479,7 +483,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
   Ast.AstMaxIndexR v -> Ast.AstMaxIndexR $ astIndexKnobsR knobs v ix
   Ast.AstFloorR v -> Ast.AstFloorR $ astIndexKnobsR knobs v ix
   Ast.AstIotaR | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> astFromIntegral $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
+    Just Refl -> astFromIntegralR $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
 -- TODO:  AstIndex AstIotaR (i :.: ZIR) ->
 --    rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
@@ -559,8 +563,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
     in astLet var2 i1 $ astIndex w rest1
   Ast.AstGather{} ->
     error "astIndex: AstGather: impossible pattern needlessly required"
-  Ast.AstCastR t -> astCast $ astIndexKnobsR knobs t ix
-  Ast.AstFromIntegralR v -> astFromIntegral $ astIndexKnobsR knobs v ix
+  Ast.AstCastR t -> astCastR $ astIndexKnobsR knobs t ix
+  Ast.AstFromIntegralR v -> astFromIntegralR $ astIndexKnobsR knobs v ix
   AstConcrete _ t ->
     let unConst :: AstInt AstMethodLet -> Maybe [Int64]
                 -> Maybe [Int64]
@@ -1032,7 +1036,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       Ast.AstFloorR
       $ astGatherKnobsR knobs sh4 v (vars4, ix4)
     Ast.AstIotaR | AstConcrete _ (RepN i) <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
-      Just Refl -> astFromIntegral $ astReplicate0NT sh4 $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
+      Just Refl -> astFromIntegralR $ astReplicate0NT sh4 $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
 {- TODO: is this beneficial?
     AstGather sh AstIotaR (vars, i :.: ZIR) ->
@@ -1167,8 +1171,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
-    Ast.AstCastR v -> astCast $ astGather sh4 v (vars4, ix4)
-    Ast.AstFromIntegralR v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
+    Ast.AstCastR v -> astCastR $ astGather sh4 v (vars4, ix4)
+    Ast.AstFromIntegralR v -> astFromIntegralR $ astGather sh4 v (vars4, ix4)
     AstConcrete{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProjectR{} ->  -- TODO, but most likely reduced before it gets here
@@ -2057,13 +2061,21 @@ astReshapeS = \case
          Just Refl -> v
          _ -> Ast.AstReshapeS v
 
-astCast :: (KnownNat n, GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
-        => AstTensor AstMethodLet s (TKR n r1) -> AstTensor AstMethodLet s (TKR n r2)
-astCast (AstConcrete (FTKR sh FTKScalar) t) = AstConcrete (FTKR sh FTKScalar) $ RepN $ tcastR (unRepN t)
+astCast :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
+        => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
+astCast (AstConcrete FTKScalar t) = AstConcrete FTKScalar $ RepN $ realToFrac (unRepN t)
 astCast (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCast v
-astCast (Ast.AstCastR v) = astCast v
-astCast (Ast.AstFromIntegralR v) = astFromIntegral v
-astCast v = Ast.AstCastR v
+astCast (Ast.AstCast v) = astCast v
+astCast (Ast.AstFromIntegral v) = astFromIntegral v
+astCast v = Ast.AstCast v
+
+astCastR :: (KnownNat n, GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
+        => AstTensor AstMethodLet s (TKR n r1) -> AstTensor AstMethodLet s (TKR n r2)
+astCastR (AstConcrete (FTKR sh FTKScalar) t) = AstConcrete (FTKR sh FTKScalar) $ RepN $ tcastR (unRepN t)
+astCastR (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastR v
+astCastR (Ast.AstCastR v) = astCastR v
+astCastR (Ast.AstFromIntegralR v) = astFromIntegralR v
+astCastR v = Ast.AstCastR v
 
 astCastS :: ( KnownShS sh, GoodScalar r1, GoodScalar r2, RealFrac r1
             , RealFrac r2 )
@@ -2074,12 +2086,19 @@ astCastS (Ast.AstCastS v) = astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astCastS v = Ast.AstCastS v
 
-astFromIntegral :: (KnownNat n, GoodScalar r1, GoodScalar r2, Integral r1)
+astFromIntegral :: (GoodScalar r1, GoodScalar r2, Integral r1)
+                => AstTensor ms PrimalSpan (TKScalar r1)
+                -> AstTensor ms PrimalSpan (TKScalar r2)
+astFromIntegral (AstConcrete FTKScalar t) = AstConcrete FTKScalar $ RepN $ fromIntegral (unRepN t)
+astFromIntegral (Ast.AstFromIntegral v) = astFromIntegral v
+astFromIntegral v = Ast.AstFromIntegral v
+
+astFromIntegralR :: (KnownNat n, GoodScalar r1, GoodScalar r2, Integral r1)
                 => AstTensor AstMethodLet PrimalSpan (TKR n r1)
                 -> AstTensor AstMethodLet PrimalSpan (TKR n r2)
-astFromIntegral (AstConcrete (FTKR sh FTKScalar) t) = AstConcrete (FTKR sh FTKScalar) $ RepN $ tfromIntegralR (unRepN t)
-astFromIntegral (Ast.AstFromIntegralR v) = astFromIntegral v
-astFromIntegral v = Ast.AstFromIntegralR v
+astFromIntegralR (AstConcrete (FTKR sh FTKScalar) t) = AstConcrete (FTKR sh FTKScalar) $ RepN $ tfromIntegralR (unRepN t)
+astFromIntegralR (Ast.AstFromIntegralR v) = astFromIntegralR v
+astFromIntegralR v = Ast.AstFromIntegralR v
 
 astFromIntegralS :: (KnownShS sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
@@ -2240,6 +2259,7 @@ astPrimalPart t = case t of
   Ast.AstR2 opCode u v -> Ast.AstR2 opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2 opCode u v -> Ast.AstI2 opCode (astPrimalPart u) (astPrimalPart v)
   AstSumOfList args -> astSumOfList (map astPrimalPart args)
+  Ast.AstCast v -> astCast $ astPrimalPart v
   AstN1R opCode u -> AstN1R opCode (astPrimalPart u)
   AstN2R opCode u v -> AstN2R opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (astPrimalPart u)
@@ -2256,7 +2276,7 @@ astPrimalPart t = case t of
   Ast.AstTranspose perm v -> astTranspose perm (astPrimalPart v)
   Ast.AstReshape sh v -> astReshape sh (astPrimalPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
-  Ast.AstCastR v -> astCast $ astPrimalPart v
+  Ast.AstCastR v -> astCastR $ astPrimalPart v
   Ast.AstProjectR l p -> astProjectR (astPrimalPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
@@ -2324,6 +2344,7 @@ astDualPart t = case t of
   Ast.AstR2{} -> Ast.AstDualPart t
   Ast.AstI2{} -> Ast.AstDualPart t
   AstSumOfList args -> astSumOfList (map astDualPart args)
+  Ast.AstCast v -> astCast $ astDualPart v
   AstN1R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   AstN2R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   Ast.AstR1R{} -> Ast.AstDualPart t
@@ -2340,7 +2361,7 @@ astDualPart t = case t of
   Ast.AstTranspose perm v -> astTranspose perm (astDualPart v)
   Ast.AstReshape sh v -> astReshape sh (astDualPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
-  Ast.AstCastR v -> astCast $ astDualPart v
+  Ast.AstCastR v -> astCastR $ astDualPart v
   Ast.AstProjectR l p -> astProjectR (astDualPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
@@ -2601,6 +2622,9 @@ simplifyAst t = case t of
     case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
       _ -> astSumOfList (map simplifyAst args)
+  Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
+  Ast.AstCast v -> astCast $ simplifyAst v
+  Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   AstN1R opCode u -> AstN1R opCode (simplifyAst u)
   AstN2R opCode u v -> AstN2R opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (simplifyAst u)
@@ -2620,8 +2644,8 @@ simplifyAst t = case t of
   Ast.AstReshape sh v -> astReshape sh (simplifyAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (simplifyAst v) (vars, simplifyAstIndex ix)
-  Ast.AstCastR v -> astCast $ simplifyAst v
-  Ast.AstFromIntegralR v -> astFromIntegral $ simplifyAst v
+  Ast.AstCastR v -> astCastR $ simplifyAst v
+  Ast.AstFromIntegralR v -> astFromIntegralR $ simplifyAst v
   Ast.AstProjectR l p -> astProjectR (simplifyAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
@@ -2779,6 +2803,9 @@ expandAst t = case t of
     case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp (map expandAst args)
       _ -> astSumOfList (map expandAst args)
+  Ast.AstFloor a -> Ast.AstFloor (expandAst a)
+  Ast.AstCast v -> astCast $ expandAst v
+  Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
   AstN1R opCode u -> AstN1R opCode (expandAst u)
   AstN2R opCode u v -> AstN2R opCode (expandAst u) (expandAst v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (expandAst u)
@@ -2843,8 +2870,8 @@ expandAst t = case t of
   Ast.AstGather sh v (vars, ix) ->
     astGatherKnobsR (defaultKnobs {knobExpand = True})
                     sh (expandAst v) (vars, expandAstIndex ix)
-  Ast.AstCastR v -> astCast $ expandAst v
-  Ast.AstFromIntegralR v -> astFromIntegral $ expandAst v
+  Ast.AstCastR v -> astCastR $ expandAst v
+  Ast.AstFromIntegralR v -> astFromIntegralR $ expandAst v
   Ast.AstProjectR l p -> astProjectR (expandAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (expandAst l) (expandAst v)
@@ -3310,6 +3337,9 @@ substitute1Ast i var v1 = case v1 of
          Just Refl -> foldr1 contractAstPlusOp $ zipWith fromMaybe args margs
          _ -> astSumOfList $ zipWith fromMaybe args margs
        else Nothing
+  Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
+  Ast.AstCast v -> astCast <$> substitute1Ast i var v
+  Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
   Ast.AstN1R opCode u -> Ast.AstN1R opCode  <$> substitute1Ast i var u
   Ast.AstN2R opCode u v ->
     let mu = substitute1Ast i var u
@@ -3363,8 +3393,8 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astGatherR sh (fromMaybe v mv)
                                         (vars, fromMaybe ix mix)
-  Ast.AstCastR v -> astCast <$> substitute1Ast i var v
-  Ast.AstFromIntegralR v -> astFromIntegral <$> substitute1Ast i var v
+  Ast.AstCastR v -> astCastR <$> substitute1Ast i var v
+  Ast.AstFromIntegralR v -> astFromIntegralR <$> substitute1Ast i var v
   Ast.AstConcrete{} -> Nothing
   Ast.AstProjectR l p ->
     case substitute1Ast i var l of

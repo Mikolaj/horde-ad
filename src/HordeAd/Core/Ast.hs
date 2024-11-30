@@ -303,6 +303,14 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
         -> AstTensor ms s (TKScalar r)
   AstSumOfList :: GoodScalar r
                => [AstTensor ms s (TKScalar r)] -> AstTensor ms s (TKScalar r)
+  AstFloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+           => AstTensor ms PrimalSpan (TKScalar r)
+           -> AstTensor ms PrimalSpan (TKScalar r2)
+  AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
+          => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
+  AstFromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+                  => AstTensor ms PrimalSpan (TKScalar r1)
+                  -> AstTensor ms PrimalSpan (TKScalar r2)
 
   -- Here starts the ranked part.
   AstN1R :: (GoodScalar r, KnownNat n)

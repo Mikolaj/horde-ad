@@ -197,6 +197,10 @@ instance BaseTensor RepN where
   sD u _ = u
   sScale _ _ = DummyDualTarget
 
+  kfloor = RepN . floor . unRepN
+  kcast = RepN . realToFrac . unRepN
+  kfromIntegral = RepN . fromIntegral . unRepN
+
   tpair u v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN
   tproject2 = RepN . snd . unRepN

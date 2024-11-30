@@ -326,6 +326,11 @@ interpretAst !env = \case
   AstSumOfList args ->
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
+  AstFloor v ->
+    kfloor $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
+  AstCast v -> kcast $ interpretAst env v
+  AstFromIntegral v ->
+    kfromIntegral $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
   {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
      instead and that's fine, because for one-element carriers,
      reshape and replicate are very cheap. OTOH, this was introducing

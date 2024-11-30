@@ -371,8 +371,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rgather sh t f = astGatherStep sh t
                    $ funToAstIndex f
                          -- this introduces new variable names
-  rcast = astCast
-  rfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
+  rcast = astCastR
+  rfromIntegral = fromPrimal . astFromIntegralR . astSpanPrimal
   rfromS = astRFromS
   rtoScalar = AstToScalar . AstSFromR
   rfromScalar = AstRFromS . AstFromScalar
@@ -437,6 +437,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sdualPart = astSpanDual
   sD u u' = astSpanD u u'
   sScale s t = astDualPart $ AstFromPrimal s * AstD 0 t
+
+  kfloor = fromPrimal . AstFloor . astSpanPrimal
+  kcast = astCast
+  kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
 
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
@@ -702,6 +706,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sD u u' = AstRaw $ astSpanD (unAstRaw u) u'
   sScale s t = AstDualPart $ AstFromPrimal (unAstRaw s) * AstD 0 t
 
+  kfloor = AstRaw . fromPrimal . AstFloor . astSpanPrimalRaw . unAstRaw
+  kcast = AstRaw . AstCast . unAstRaw
+  kfromIntegral = AstRaw . fromPrimal . AstFromIntegral
+                  . astSpanPrimalRaw . unAstRaw
+
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
@@ -936,6 +945,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sdualPart = sdualPart . unAstNoVectorize
   sD u u' = AstNoVectorize $ sD @(AstTensor AstMethodLet s) (unAstNoVectorize u) u'
   sScale s t = sScale @(AstTensor AstMethodLet PrimalSpan) (unAstNoVectorize s) t
+
+  kfloor = AstNoVectorize . kfloor . unAstNoVectorize
+  kcast = AstNoVectorize . kcast . unAstNoVectorize
+  kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
 
   tpair t1 t2 = AstNoVectorize $ astPair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ astProject1 $ unAstNoVectorize t
@@ -1176,6 +1189,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   sD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
   sScale s t =
     astDualPart $ AstFromPrimal (unAstNoSimplify s) * AstD 0 t
+
+  kfloor = AstNoSimplify . fromPrimal . AstFloor
+           . astSpanPrimal . unAstNoSimplify
+  kcast = AstNoSimplify . AstCast . unAstNoSimplify
+  kfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
+                  . astSpanPrimal . unAstNoSimplify
 
   tpair t1 t2 = AstNoSimplify $ AstPair (unAstNoSimplify t1) (unAstNoSimplify t2)
   tproject1 t = AstNoSimplify $ AstProject1 $ unAstNoSimplify t

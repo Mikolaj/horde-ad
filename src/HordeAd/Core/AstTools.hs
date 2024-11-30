@@ -70,10 +70,13 @@ ftkAst t = case t of
   AstR2{} -> FTKScalar
   AstI2{} -> FTKScalar
   AstSumOfList{} -> FTKScalar
+  AstFloor{} -> FTKScalar
+  AstCast{} -> FTKScalar
+  AstFromIntegral{} -> FTKScalar
 
   AstMinIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
   AstMaxIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
-  AstFloorR a -> FTKR (shapeAst a)  FTKScalar
+  AstFloorR a -> FTKR (shapeAst a) FTKScalar
   AstIotaR -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
   AstN1R _opCode v -> ftkAst v
   AstN2R _opCode v _ -> ftkAst v
@@ -219,6 +222,9 @@ varInAst var = \case
   AstR1 _ t -> varInAst var t
   AstR2 _ t u -> varInAst var t || varInAst var u
   AstI2 _ t u -> varInAst var t || varInAst var u
+  AstFloor a -> varInAst var a
+  AstCast t -> varInAst var t
+  AstFromIntegral t -> varInAst var t
   AstSumOfList l -> any (varInAst var) l
   AstN1R _ t -> varInAst var t
   AstN2R _ t u -> varInAst var t || varInAst var u
