@@ -14,7 +14,7 @@ module HordeAd.Core.Ast
   , AstInt, IntVarName, pattern AstIntVar, isTensorInt
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
-  , AstIndex, AstVarList, AstIxS, AstVarListS, AstIndexX
+  , AstIxR, AstVarList, AstIxS, AstVarListS, AstIndexX
     -- * AstBindingsCase and AstBindings
   , AstBindingsCase, AstBindings
     -- * ASTs
@@ -212,7 +212,7 @@ isTensorInt _ = case ( sameAstSpan @s @PrimalSpan
                   (Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
 
-type AstIndex ms n = IxR n (AstInt ms)
+type AstIxR ms n = IxR n (AstInt ms)
 
 type AstVarList n = ListR n IntVarName
 
@@ -222,7 +222,7 @@ type AstVarListS sh = ListS sh (Const IntVarName)
 
 type AstIndexX ms sh = IxX sh (AstInt ms)
 
-type AstVarListX sh = ListX sh (Const IntVarName)
+type AstIxX sh = ListX sh (Const IntVarName)
 
 
 -- * AstBindingsCase and AstBindings
@@ -348,7 +348,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstIotaR :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
 
   AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, GoodScalar r)
-           => AstTensor ms s (TKR (m + n) r) -> AstIndex ms m
+           => AstTensor ms s (TKR (m + n) r) -> AstIxR ms m
            -> AstTensor ms s (TKR n r)
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
@@ -358,7 +358,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstScatter :: forall m n p r s ms.
                 (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
              => IShR (p + n)
-             -> AstTensor ms s (TKR (m + n) r) -> (AstVarList m, AstIndex ms p)
+             -> AstTensor ms s (TKR (m + n) r) -> (AstVarList m, AstIxR ms p)
              -> AstTensor ms s (TKR (p + n) r)
   AstFromVector :: (KnownNat n, GoodScalar r)
                 => Data.Vector.Vector (AstTensor ms s (TKR n r))
@@ -379,7 +379,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstGather :: forall m n p r s ms.
                (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
             => IShR (m + n)
-            -> AstTensor ms s (TKR (p + n) r) -> (AstVarList m, AstIndex ms p)
+            -> AstTensor ms s (TKR (p + n) r) -> (AstVarList m, AstIxR ms p)
             -> AstTensor ms s (TKR (m + n) r)
     -- out of bounds indexing is permitted
   AstProjectR :: (GoodScalar r, KnownNat n)
@@ -552,7 +552,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                  , KnownShX (Take p sh), KnownShX (Drop p sh)
                  , KnownShX (sh2 ++ Drop p sh), GoodScalar r )
               => AstTensor ms s (TKX (sh2 ++ Drop p sh) r)
-              -> (AstVarListX sh2, AstIndexX ms (Take p sh))
+              -> (AstIxX sh2, AstIndexX ms (Take p sh))
               -> AstTensor ms s (TKX sh r)
 
   AstFromVectorX :: (KnownNat n, KnownShX sh, GoodScalar r)
@@ -582,7 +582,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                 , KnownShX (Take p sh), KnownShX (Drop p sh)
                 , KnownShX (sh2 ++ Drop p sh) )
              => AstTensor ms s (TKX sh r)
-             -> (AstVarListX sh2, AstIndexX ms (Take p sh))
+             -> (AstIxX sh2, AstIndexX ms (Take p sh))
              -> AstTensor ms s (TKX (sh2 ++ Drop p sh) r)
     -- out of bounds indexing is permitted
   AstProjectX :: (GoodScalar r, KnownShX sh)

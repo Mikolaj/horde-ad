@@ -134,11 +134,11 @@ build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
     in build1VOccurenceUnknown snat (varFresh, v2)
 
 intBindingRefresh
-  :: IntVarName -> AstIndex AstMethodLet n -> (IntVarName, AstInt AstMethodLet, AstIndex AstMethodLet n)
+  :: IntVarName -> AstIxR AstMethodLet n -> (IntVarName, AstInt AstMethodLet, AstIxR AstMethodLet n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !ix2 = substituteAstIndex  -- cheap subst, because only a renaming
+    let !ix2 = substituteAstIxR  -- cheap subst, because only a renaming
                  astVarFresh
                  var ix
     in (varFresh, astVarFresh, ix2)
@@ -582,7 +582,7 @@ build1V snat@SNat (var, v0) =
 build1VIndex
   :: forall m n s r k.
      (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => SNat k -> (IntVarName, AstTensor AstMethodLet s (TKR (m + n) r), AstIndex AstMethodLet m)
+  => SNat k -> (IntVarName, AstTensor AstMethodLet s (TKR (m + n) r), AstIxR AstMethodLet m)
   -> AstTensor AstMethodLet s (TKR (1 + n) r)
 build1VIndex snat@SNat (var, v0, ZIR) = build1VOccurenceUnknown snat (var, v0)
 build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =

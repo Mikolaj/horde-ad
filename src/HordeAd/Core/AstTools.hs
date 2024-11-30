@@ -309,7 +309,7 @@ varInAst var = \case
   AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
 
-varInIndex :: AstVarId -> AstIndex ms n -> Bool
+varInIndex :: AstVarId -> AstIxR ms n -> Bool
 varInIndex var = any (varInAst var)
 
 varInIndexS :: AstVarId -> AstIxS ms sh -> Bool

@@ -9,7 +9,7 @@ module HordeAd.Core.AstFreshId
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
-  , funToVarsIx, funToAstIndex, funToVarsIxS, funToAstIxS
+  , funToVarsIx, funToAstIxR, funToVarsIxS, funToAstIxS
   , resetVarCounter
   ) where
 
@@ -307,7 +307,7 @@ funToAstIntVar = unsafePerformIO . funToAstIntVarIO
 
 funToVarsIxIO
   :: KnownNat m
-  => Int -> ((AstVarList m, AstIndex ms m) -> a) -> IO a
+  => Int -> ((AstVarList m, AstIxR ms m) -> a) -> IO a
 {-# INLINE funToVarsIxIO #-}
 funToVarsIxIO m f = do
   varList <- replicateM m unsafeGetFreshAstVarName
@@ -317,15 +317,15 @@ funToVarsIxIO m f = do
 
 funToVarsIx
   :: KnownNat m
-  => Int -> ((AstVarList m, AstIndex ms m) -> a) -> a
+  => Int -> ((AstVarList m, AstIxR ms m) -> a) -> a
 {-# NOINLINE funToVarsIx #-}
 funToVarsIx m = unsafePerformIO . funToVarsIxIO m
 
-funToAstIndex
+funToAstIxR
   :: forall m p ms. KnownNat m
-  => (AstIndex ms m -> AstIndex ms p) -> (AstVarList m, AstIndex ms p)
-{-# NOINLINE funToAstIndex #-}
-funToAstIndex f = unsafePerformIO . funToVarsIxIO (valueOf @m)
+  => (AstIxR ms m -> AstIxR ms p) -> (AstVarList m, AstIxR ms p)
+{-# NOINLINE funToAstIxR #-}
+funToAstIxR f = unsafePerformIO . funToVarsIxIO (valueOf @m)
                   $ \ (!vars, !ix) -> let !x = f ix in (vars, x)
 
 funToVarsIxIOS

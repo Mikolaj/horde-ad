@@ -176,7 +176,7 @@ interpretLambdaIndexS f !env (!vars, !ast) =
 interpretLambdaIndexToIndex
   :: forall target m n ms. BaseTensor target
   => (AstEnv target -> AstInt ms -> IntOf target)
-  -> AstEnv target -> (AstVarList m, AstIndex ms n)
+  -> AstEnv target -> (AstVarList m, AstIxR ms n)
   -> IxROf target m
   -> IxROf target n
 {-# INLINE interpretLambdaIndexToIndex #-}
