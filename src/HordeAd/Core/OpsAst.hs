@@ -343,14 +343,14 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rshape = shapeAst
-  rminIndex = fromPrimal . AstMinIndex
+  rminIndex = fromPrimal . AstMinIndexR
               . astSpanPrimal
-  rmaxIndex = fromPrimal . AstMaxIndex
+  rmaxIndex = fromPrimal . AstMaxIndexR
               . astSpanPrimal
-  rfloor = fromPrimal . AstFloor
+  rfloor = fromPrimal . AstFloorR
            . astSpanPrimal
 
-  riota = fromPrimal $ AstIota
+  riota = fromPrimal $ AstIotaR
   rindex v ix = astIndexStep v ix
   rsum = astSum
   rscatter sh t f = astScatter sh t
@@ -607,10 +607,10 @@ instance AstSpan s => ShareTensor (AstRaw s) where
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
-  rminIndex = AstRaw . fromPrimal . AstMinIndex . astSpanPrimalRaw . unAstRaw
-  rmaxIndex = AstRaw . fromPrimal . AstMaxIndex . astSpanPrimalRaw . unAstRaw
-  rfloor = AstRaw . fromPrimal . AstFloor . astSpanPrimalRaw . unAstRaw
-  riota = AstRaw . fromPrimal $ AstIota
+  rminIndex = AstRaw . fromPrimal . AstMinIndexR . astSpanPrimalRaw . unAstRaw
+  rmaxIndex = AstRaw . fromPrimal . AstMaxIndexR . astSpanPrimalRaw . unAstRaw
+  rfloor = AstRaw . fromPrimal . AstFloorR . astSpanPrimalRaw . unAstRaw
+  riota = AstRaw . fromPrimal $ AstIotaR
   rindex v ix = AstRaw $ AstIndex (unAstRaw v) (unAstRaw <$> ix)
   rsum = AstRaw . AstSum . unAstRaw
   rscatter sh t f = AstRaw $ AstScatter sh (unAstRaw t)
@@ -631,9 +631,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rgather sh t f = AstRaw $ AstGather sh (unAstRaw t)
                    $ funToAstIndex (fmap unAstRaw . f . fmap AstRaw)
                        -- this introduces new variable names
-  rcast = AstRaw . AstCast . unAstRaw
+  rcast = AstRaw . AstCastR . unAstRaw
   rfromIntegral =
-    AstRaw . fromPrimal . AstFromIntegral . astSpanPrimalRaw . unAstRaw
+    AstRaw . fromPrimal . AstFromIntegralR . astSpanPrimalRaw . unAstRaw
   rfromS = AstRaw . AstRFromS . unAstRaw
   rtoScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
   rfromScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
@@ -1067,13 +1067,13 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify
-  rminIndex = AstNoSimplify . fromPrimal . AstMinIndex
+  rminIndex = AstNoSimplify . fromPrimal . AstMinIndexR
               . astSpanPrimal . unAstNoSimplify
-  rmaxIndex = AstNoSimplify . fromPrimal . AstMaxIndex
+  rmaxIndex = AstNoSimplify . fromPrimal . AstMaxIndexR
               . astSpanPrimal . unAstNoSimplify
-  rfloor = AstNoSimplify . fromPrimal . AstFloor
+  rfloor = AstNoSimplify . fromPrimal . AstFloorR
            . astSpanPrimal . unAstNoSimplify
-  riota = AstNoSimplify . fromPrimal $ AstIota
+  riota = AstNoSimplify . fromPrimal $ AstIotaR
   rindex v ix =
     AstNoSimplify $ AstIndex (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   rsum = AstNoSimplify . AstSum . unAstNoSimplify
@@ -1096,8 +1096,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                    $ funToAstIndex
                        (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                          -- this introduces new variable names
-  rcast = AstNoSimplify . AstCast . unAstNoSimplify
-  rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
+  rcast = AstNoSimplify . AstCastR . unAstNoSimplify
+  rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralR
                   . astSpanPrimal . unAstNoSimplify
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
   rtoScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify

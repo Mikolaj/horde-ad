@@ -282,14 +282,14 @@ build1V snat@SNat (var, v0) =
                        (build1VOccurenceUnknownRefresh snat (var, v2))
              -- ensures no duplicated bindings, see below
 
-    Ast.AstMinIndex v -> traceRule $
-     Ast.AstMinIndex $ build1V snat (var, v)
-    Ast.AstMaxIndex v -> traceRule $
-     Ast.AstMaxIndex $ build1V snat (var, v)
-    Ast.AstFloor v -> traceRule $
-     Ast.AstFloor $ build1V snat (var, v)
-    Ast.AstIota ->
-      error "build1V: AstIota can't have free index variables"
+    Ast.AstMinIndexR v -> traceRule $
+     Ast.AstMinIndexR $ build1V snat (var, v)
+    Ast.AstMaxIndexR v -> traceRule $
+     Ast.AstMaxIndexR $ build1V snat (var, v)
+    Ast.AstFloorR v -> traceRule $
+     Ast.AstFloorR $ build1V snat (var, v)
+    Ast.AstIotaR ->
+      error "build1V: AstIotaR can't have free index variables"
 
     Ast.AstN1 opCode u -> traceRule $
       Ast.AstN1 opCode (build1V snat (var, u))
@@ -360,9 +360,9 @@ build1V snat@SNat (var, v0) =
       in astGatherStep (k :$: sh)
                        (build1VOccurenceUnknown snat (var, v))
                        (varFresh ::: vars, astVarFresh :.: ix2)
-    Ast.AstCast v -> traceRule $
+    Ast.AstCastR v -> traceRule $
       astCast $ build1V snat (var, v)
-    Ast.AstFromIntegral v -> traceRule $
+    Ast.AstFromIntegralR v -> traceRule $
       astFromIntegral $ build1V snat (var, v)
     Ast.AstConcrete{} ->
       error "build1V: AstConcrete can't have free index variables"

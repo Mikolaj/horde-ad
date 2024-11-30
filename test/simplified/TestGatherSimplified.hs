@@ -334,15 +334,15 @@ testGatherSimpPP23 = do
               gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 218
-  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 529
+  length (show t1) @?= 219
+  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 530
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 218
-  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 529
+  length (show t2) @?= 219
+  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 530
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -469,16 +469,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 961
-  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 961
+  length (show t1) @?= 962
+  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 962
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                                (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 714
-  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 714
+  length (show t2) @?= 715
+  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 715
 
 -- scatters instead of gathers
 

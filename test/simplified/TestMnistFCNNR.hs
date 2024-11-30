@@ -788,12 +788,12 @@ testVT2OPPNonLin = do
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Float)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant = let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-                 in ( ( AstCast $ AstFromPrimal $ AstConcrete (FTKR [4, 3] FTKScalar) a1
-                      , AstCast $ AstFromPrimal $ AstConcrete (FTKR [4] FTKScalar) a2 )
-                    , ( AstFromPrimal $ AstCast $ AstConcrete (FTKR [5, 4] FTKScalar) a3
-                      , AstFromPrimal $ AstCast $ AstConcrete (FTKR [5] FTKScalar) a4 )
-                    , ( AstCast $ AstFromPrimal $ AstConcrete (FTKR [2, 5] FTKScalar) a5
-                      , AstFromPrimal $ AstCast $ AstConcrete (FTKR [2] FTKScalar) a6 ) )
+                 in ( ( AstCastR $ AstFromPrimal $ AstConcrete (FTKR [4, 3] FTKScalar) a1
+                      , AstCastR $ AstFromPrimal $ AstConcrete (FTKR [4] FTKScalar) a2 )
+                    , ( AstFromPrimal $ AstCastR $ AstConcrete (FTKR [5, 4] FTKScalar) a3
+                      , AstFromPrimal $ AstCastR $ AstConcrete (FTKR [5] FTKScalar) a4 )
+                    , ( AstCastR $ AstFromPrimal $ AstConcrete (FTKR [2, 5] FTKScalar) a5
+                      , AstFromPrimal $ AstCastR $ AstConcrete (FTKR [2] FTKScalar) a6 ) )
       (_, ast3) = funToAst (FTKR (singletonShape 0) (FTKScalar @Float))
                            (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3

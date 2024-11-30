@@ -288,10 +288,10 @@ astNonIndexStep t = case t of
   Ast.AstLet var u v -> astLet var u v
   AstConcrete{} -> t
 
-  Ast.AstMinIndex{} -> t
-  Ast.AstMaxIndex{} -> t
-  Ast.AstFloor{} -> t
-  Ast.AstIota -> t
+  Ast.AstMinIndexR{} -> t
+  Ast.AstMaxIndexR{} -> t
+  Ast.AstFloorR{} -> t
+  Ast.AstIotaR -> t
   AstN1 opCode u ->
     case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode u
@@ -328,8 +328,8 @@ astNonIndexStep t = case t of
   Ast.AstGather _ v0 (ZR, ix) -> Ast.AstIndex v0 ix
   Ast.AstGather sh v0 (_, ZIR) -> astReplicateN sh v0
   Ast.AstGather{} -> t  -- this is "index" enough
-  Ast.AstCast v -> astCast v
-  Ast.AstFromIntegral v -> astFromIntegral v
+  Ast.AstCastR v -> astCast v
+  Ast.AstFromIntegralR v -> astFromIntegral v
   Ast.AstProjectR l p -> astProjectR l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
   Ast.AstRFromS v -> astRFromS v
@@ -475,15 +475,15 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
     STKR{} -> astIndex (astLet var2 i1 v) rest1
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
-  Ast.AstMinIndex v -> Ast.AstMinIndex $ astIndexKnobsR knobs v ix
-  Ast.AstMaxIndex v -> Ast.AstMaxIndex $ astIndexKnobsR knobs v ix
-  Ast.AstFloor v -> Ast.AstFloor $ astIndexKnobsR knobs v ix
-  Ast.AstIota | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
+  Ast.AstMinIndexR v -> Ast.AstMinIndexR $ astIndexKnobsR knobs v ix
+  Ast.AstMaxIndexR v -> Ast.AstMaxIndexR $ astIndexKnobsR knobs v ix
+  Ast.AstFloorR v -> Ast.AstFloorR $ astIndexKnobsR knobs v ix
+  Ast.AstIotaR | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> astFromIntegral $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
--- TODO:  AstIndex AstIota (i :.: ZIR) ->
+-- TODO:  AstIndex AstIotaR (i :.: ZIR) ->
 --    rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
-  Ast.AstIota -> Ast.AstIndex v0 ix
+  Ast.AstIotaR -> Ast.AstIndex v0 ix
   AstN1R opCode u ->
     shareIx ix $ \ !ix2 -> AstN1R opCode (astIndexRec u ix2)
   AstN2R opCode u v ->
@@ -559,8 +559,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIndex AstMethodLet m1)) =
     in astLet var2 i1 $ astIndex w rest1
   Ast.AstGather{} ->
     error "astIndex: AstGather: impossible pattern needlessly required"
-  Ast.AstCast t -> astCast $ astIndexKnobsR knobs t ix
-  Ast.AstFromIntegral v -> astFromIntegral $ astIndexKnobsR knobs v ix
+  Ast.AstCastR t -> astCast $ astIndexKnobsR knobs t ix
+  Ast.AstFromIntegralR v -> astFromIntegral $ astIndexKnobsR knobs v ix
   AstConcrete _ t ->
     let unConst :: AstInt AstMethodLet -> Maybe [Int64]
                 -> Maybe [Int64]
@@ -1018,28 +1018,28 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
 
-    Ast.AstMinIndex v ->
-      Ast.AstMinIndex
+    Ast.AstMinIndexR v ->
+      Ast.AstMinIndexR
       $ astGatherKnobsR knobs
           (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
-    Ast.AstMaxIndex v ->
-      Ast.AstMaxIndex
+    Ast.AstMaxIndexR v ->
+      Ast.AstMaxIndexR
       $ astGatherKnobsR knobs
           (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
-    Ast.AstFloor v ->
-      Ast.AstFloor
+    Ast.AstFloorR v ->
+      Ast.AstFloorR
       $ astGatherKnobsR knobs sh4 v (vars4, ix4)
-    Ast.AstIota | AstConcrete _ (RepN i) <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
+    Ast.AstIotaR | AstConcrete _ (RepN i) <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astFromIntegral $ astReplicate0NT sh4 $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
 {- TODO: is this beneficial?
-    AstGather sh AstIota (vars, i :.: ZIR) ->
+    AstGather sh AstIotaR (vars, i :.: ZIR) ->
       rbuild sh (interpretLambdaIndex interpretAst env
-                                      (vars, fromPrimal @s $ AstFromIntegral $ AstFromScalar i))
+                                      (vars, fromPrimal @s $ AstFromIntegralR $ AstFromScalar i))
 -}
-    Ast.AstIota ->  -- probably nothing can be simplified; a normal form
+    Ast.AstIotaR ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     AstN1R opCode v | not (isVar v) ->
       AstN1R opCode (astGatherRec sh4 v (vars4, ix4))
@@ -1167,8 +1167,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
-    Ast.AstCast v -> astCast $ astGather sh4 v (vars4, ix4)
-    Ast.AstFromIntegral v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
+    Ast.AstCastR v -> astCast $ astGather sh4 v (vars4, ix4)
+    Ast.AstFromIntegralR v -> astFromIntegral $ astGather sh4 v (vars4, ix4)
     AstConcrete{} ->  -- free variables possible, so can't compute the tensor
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstProjectR{} ->  -- TODO, but most likely reduced before it gets here
@@ -1756,7 +1756,7 @@ astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
 {- TODO: is this beneficial?
-  AstSlice i n AstIota ->
+  AstSlice i n AstIotaR ->
     let u = Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
     in interpretAst env
        $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
@@ -2061,9 +2061,9 @@ astCast :: (KnownNat n, GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
         => AstTensor AstMethodLet s (TKR n r1) -> AstTensor AstMethodLet s (TKR n r2)
 astCast (AstConcrete (FTKR sh FTKScalar) t) = AstConcrete (FTKR sh FTKScalar) $ RepN $ tcastR (unRepN t)
 astCast (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCast v
-astCast (Ast.AstCast v) = astCast v
-astCast (Ast.AstFromIntegral v) = astFromIntegral v
-astCast v = Ast.AstCast v
+astCast (Ast.AstCastR v) = astCast v
+astCast (Ast.AstFromIntegralR v) = astFromIntegral v
+astCast v = Ast.AstCastR v
 
 astCastS :: ( KnownShS sh, GoodScalar r1, GoodScalar r2, RealFrac r1
             , RealFrac r2 )
@@ -2078,8 +2078,8 @@ astFromIntegral :: (KnownNat n, GoodScalar r1, GoodScalar r2, Integral r1)
                 => AstTensor AstMethodLet PrimalSpan (TKR n r1)
                 -> AstTensor AstMethodLet PrimalSpan (TKR n r2)
 astFromIntegral (AstConcrete (FTKR sh FTKScalar) t) = AstConcrete (FTKR sh FTKScalar) $ RepN $ tfromIntegralR (unRepN t)
-astFromIntegral (Ast.AstFromIntegral v) = astFromIntegral v
-astFromIntegral v = Ast.AstFromIntegral v
+astFromIntegral (Ast.AstFromIntegralR v) = astFromIntegral v
+astFromIntegral v = Ast.AstFromIntegralR v
 
 astFromIntegralS :: (KnownShS sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
@@ -2256,7 +2256,7 @@ astPrimalPart t = case t of
   Ast.AstTranspose perm v -> astTranspose perm (astPrimalPart v)
   Ast.AstReshape sh v -> astReshape sh (astPrimalPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astPrimalPart v) (vars, ix)
-  Ast.AstCast v -> astCast $ astPrimalPart v
+  Ast.AstCastR v -> astCast $ astPrimalPart v
   Ast.AstProjectR l p -> astProjectR (astPrimalPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
@@ -2340,7 +2340,7 @@ astDualPart t = case t of
   Ast.AstTranspose perm v -> astTranspose perm (astDualPart v)
   Ast.AstReshape sh v -> astReshape sh (astDualPart v)
   Ast.AstGather sh v (vars, ix) -> astGatherR sh (astDualPart v) (vars, ix)
-  Ast.AstCast v -> astCast $ astDualPart v
+  Ast.AstCastR v -> astCast $ astDualPart v
   Ast.AstProjectR l p -> astProjectR (astDualPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
@@ -2579,10 +2579,10 @@ simplifyAst t = case t of
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   AstConcrete{} -> t
 
-  Ast.AstMinIndex a -> Ast.AstMinIndex (simplifyAst a)
-  Ast.AstMaxIndex a -> Ast.AstMaxIndex (simplifyAst a)
-  Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
-  Ast.AstIota -> t
+  Ast.AstMinIndexR a -> Ast.AstMinIndexR (simplifyAst a)
+  Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (simplifyAst a)
+  Ast.AstFloorR a -> Ast.AstFloorR (simplifyAst a)
+  Ast.AstIotaR -> t
   AstN1 opCode u ->
     case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode (simplifyAst u)
@@ -2620,8 +2620,8 @@ simplifyAst t = case t of
   Ast.AstReshape sh v -> astReshape sh (simplifyAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (simplifyAst v) (vars, simplifyAstIndex ix)
-  Ast.AstCast v -> astCast $ simplifyAst v
-  Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
+  Ast.AstCastR v -> astCast $ simplifyAst v
+  Ast.AstFromIntegralR v -> astFromIntegral $ simplifyAst v
   Ast.AstProjectR l p -> astProjectR (simplifyAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
@@ -2752,10 +2752,10 @@ expandAst t = case t of
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   AstConcrete{} -> t
 
-  Ast.AstMinIndex a -> Ast.AstMinIndex (expandAst a)
-  Ast.AstMaxIndex a -> Ast.AstMaxIndex (expandAst a)
-  Ast.AstFloor a -> Ast.AstFloor (expandAst a)
-  Ast.AstIota -> t
+  Ast.AstMinIndexR a -> Ast.AstMinIndexR (expandAst a)
+  Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (expandAst a)
+  Ast.AstFloorR a -> Ast.AstFloorR (expandAst a)
+  Ast.AstIotaR -> t
   AstN1 opCode u ->
     case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode (expandAst u)
@@ -2843,8 +2843,8 @@ expandAst t = case t of
   Ast.AstGather sh v (vars, ix) ->
     astGatherKnobsR (defaultKnobs {knobExpand = True})
                     sh (expandAst v) (vars, expandAstIndex ix)
-  Ast.AstCast v -> astCast $ expandAst v
-  Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
+  Ast.AstCastR v -> astCast $ expandAst v
+  Ast.AstFromIntegralR v -> astFromIntegral $ expandAst v
   Ast.AstProjectR l p -> astProjectR (expandAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (expandAst l) (expandAst v)
@@ -3270,10 +3270,10 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
 
-  Ast.AstMinIndex a -> Ast.AstMinIndex <$> substitute1Ast i var a
-  Ast.AstMaxIndex a -> Ast.AstMaxIndex <$> substitute1Ast i var a
-  Ast.AstFloor a -> Ast.AstFloor <$> substitute1Ast i var a
-  Ast.AstIota -> Nothing
+  Ast.AstMinIndexR a -> Ast.AstMinIndexR <$> substitute1Ast i var a
+  Ast.AstMaxIndexR a -> Ast.AstMaxIndexR <$> substitute1Ast i var a
+  Ast.AstFloorR a -> Ast.AstFloorR <$> substitute1Ast i var a
+  Ast.AstIotaR -> Nothing
   Ast.AstN1 opCode u ->
     (\u2 -> case isTensorInt u2 of
        Just Refl -> contractAstNumOp1 opCode u2
@@ -3363,8 +3363,8 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astGatherR sh (fromMaybe v mv)
                                         (vars, fromMaybe ix mix)
-  Ast.AstCast v -> astCast <$> substitute1Ast i var v
-  Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
+  Ast.AstCastR v -> astCast <$> substitute1Ast i var v
+  Ast.AstFromIntegralR v -> astFromIntegral <$> substitute1Ast i var v
   Ast.AstConcrete{} -> Nothing
   Ast.AstProjectR l p ->
     case substitute1Ast i var l of

@@ -321,22 +321,23 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
          -> AstTensor ms s (TKR n r)
   AstSumOfListR :: (GoodScalar r, KnownNat n)
                 => [AstTensor ms s (TKR n r)] -> AstTensor ms s (TKR n r)
-  AstMinIndex :: (GoodScalar r, KnownNat n, GoodScalar r2)
+  AstMinIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
               => AstTensor ms PrimalSpan (TKR (1 + n) r)
               -> AstTensor ms PrimalSpan (TKR n r2)
-  AstMaxIndex :: (GoodScalar r, KnownNat n, GoodScalar r2)
+  AstMaxIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
               => AstTensor ms PrimalSpan (TKR (1 + n) r)
               -> AstTensor ms PrimalSpan (TKR n r2)
-  AstFloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
+  AstFloorR :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+               , KnownNat n )
            => AstTensor ms PrimalSpan (TKR n r)
            -> AstTensor ms PrimalSpan (TKR n r2)
-  AstCast :: ( GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2
+  AstCastR :: ( GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2
              , KnownNat n )
           => AstTensor ms s (TKR n r1) -> AstTensor ms s (TKR n r2)
-  AstFromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
+  AstFromIntegralR :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
                   => AstTensor ms PrimalSpan (TKR n r1)
                   -> AstTensor ms PrimalSpan (TKR n r2)
-  AstIota :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
+  AstIotaR :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
 
   AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, GoodScalar r)
            => AstTensor ms s (TKR (m + n) r) -> AstIndex ms m

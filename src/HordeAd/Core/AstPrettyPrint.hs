@@ -294,13 +294,13 @@ printAstAux cfg d = \case
                          . (showParen True
                             $ shows a)
 
-  AstMinIndex a ->
+  AstMinIndexR a ->
     printPrefixOp printAst cfg d "rminIndex" [a]
-  AstMaxIndex a ->
+  AstMaxIndexR a ->
     printPrefixOp printAst cfg d "rmaxIndex" [a]
-  AstFloor a ->
+  AstFloorR a ->
     printPrefixOp printAst cfg d "rfloor" [a]
-  AstIota -> showString "riota"
+  AstIotaR -> showString "riota"
   AstN1 opCode u -> printAstN1R printAst cfg d opCode u
   AstN2 opCode u v -> printAstN2R printAst cfg d opCode u v
   AstR1 opCode u -> printAstR1R printAst cfg d opCode u
@@ -354,8 +354,8 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d ("rtranspose " ++ show perm) [v]
   AstReshape sh v ->
     printPrefixOp printAst cfg d ("rreshape " ++ show sh) [v]
-  AstCast v -> printPrefixOp printAst cfg d "rcast" [v]
-  AstFromIntegral a ->
+  AstCastR v -> printPrefixOp printAst cfg d "rcast" [v]
+  AstFromIntegralR a ->
     printPrefixOp printAst cfg d "rfromIntegral" [a]
   AstProjectR l p ->
     showParen (d > 10)

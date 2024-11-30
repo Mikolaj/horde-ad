@@ -298,13 +298,13 @@ interpretAst !env = \case
       in tlet t (\w -> interpretAst (env2 w) v)
     _ -> error "TODO"
 
-  AstMinIndex v ->
+  AstMinIndexR v ->
     rminIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstMaxIndex v ->
+  AstMaxIndexR v ->
     rmaxIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstFloor v ->
+  AstFloorR v ->
     rfloor $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstIota -> error "interpretAst: bare AstIota, most likely a bug"
+  AstIotaR -> error "interpretAst: bare AstIota, most likely a bug"
   AstN1 opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
@@ -382,7 +382,7 @@ interpretAst !env = \case
   AstSumOfListR args ->
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
-  AstIndex AstIota (i :.: ZIR) ->
+  AstIndex AstIotaR (i :.: ZIR) ->
     rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
@@ -517,7 +517,7 @@ interpretAst !env = \case
     let t1 = interpretAst env x
         t2 = interpretAst env y
     in rappend t1 t2
-  AstSlice i n AstIota ->
+  AstSlice i n AstIotaR ->
     let u = Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
     in interpretAst env
        $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
@@ -532,9 +532,9 @@ interpretAst !env = \case
   AstReshape sh (AstLet var v (AstReplicate k t)) ->
     interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
   AstReshape sh v -> rreshape sh (interpretAst env v)
-  AstGather sh AstIota (vars, i :.: ZIR) ->
+  AstGather sh AstIotaR (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, fromPrimal @s $ AstFromIntegral $ AstRFromS $ AstFromScalar i))
+                                    (vars, fromPrimal @s $ AstFromIntegralR $ AstRFromS $ AstFromScalar i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -549,8 +549,8 @@ interpretAst !env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstCast v -> rcast $ interpretAstRuntimeSpecialized env v
-  AstFromIntegral v ->
+  AstCastR v -> rcast $ interpretAstRuntimeSpecialized env v
+  AstFromIntegralR v ->
     rfromIntegral $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstConcrete ftk a -> tconcrete ftk a
   AstProjectR l p ->

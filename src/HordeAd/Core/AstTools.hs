@@ -71,10 +71,10 @@ ftkAst t = case t of
   AstI2{} -> FTKScalar
   AstSumOfList{} -> FTKScalar
 
-  AstMinIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
-  AstMaxIndex a -> FTKR (initShape $ shapeAst a) FTKScalar
-  AstFloor a -> FTKR (shapeAst a)  FTKScalar
-  AstIota -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
+  AstMinIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
+  AstMaxIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
+  AstFloorR a -> FTKR (shapeAst a)  FTKScalar
+  AstIotaR -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
   AstN1R _opCode v -> ftkAst v
   AstN2R _opCode v _ -> ftkAst v
   AstR1R _opCode v -> ftkAst v
@@ -103,8 +103,8 @@ ftkAst t = case t of
     FTKR (Nested.Internal.Shape.shrPermutePrefix perm $ shapeAst v) FTKScalar
   AstReshape sh _v -> FTKR sh FTKScalar
   AstGather sh _v (_vars, _ix) -> FTKR sh FTKScalar
-  AstCast v -> FTKR (shapeAst v) FTKScalar
-  AstFromIntegral a -> FTKR (shapeAst a) FTKScalar
+  AstCastR v -> FTKR (shapeAst v) FTKScalar
+  AstFromIntegralR a -> FTKR (shapeAst a) FTKScalar
   AstProjectR l p -> case shapeAstHVector l V.! p of
     DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
@@ -210,10 +210,10 @@ varInAst var = \case
   AstToShare v -> varInAst var v
   AstConcrete{} -> False
 
-  AstMinIndex a -> varInAst var a
-  AstMaxIndex a -> varInAst var a
-  AstFloor a -> varInAst var a
-  AstIota -> False
+  AstMinIndexR a -> varInAst var a
+  AstMaxIndexR a -> varInAst var a
+  AstFloorR a -> varInAst var a
+  AstIotaR -> False
   AstN1 _ t -> varInAst var t
   AstN2 _ t u -> varInAst var t || varInAst var u
   AstR1 _ t -> varInAst var t
@@ -236,8 +236,8 @@ varInAst var = \case
   AstTranspose _ v -> varInAst var v
   AstReshape _ v -> varInAst var v
   AstGather _ v (_vars, ix) -> varInIndex var ix || varInAst var v
-  AstCast t -> varInAst var t
-  AstFromIntegral t -> varInAst var t
+  AstCastR t -> varInAst var t
+  AstFromIntegralR t -> varInAst var t
   AstProjectR l _p -> varInAst var l
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
   AstRFromS v -> varInAst var v
@@ -355,7 +355,7 @@ astIsSmall relaxed = \case
   AstConcrete (FTKX sh FTKScalar) _ -> shxSize sh <= 1
   AstConcrete{} -> False
 
-  AstIota -> True
+  AstIotaR -> True
   AstFromVector v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
   AstSlice _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
