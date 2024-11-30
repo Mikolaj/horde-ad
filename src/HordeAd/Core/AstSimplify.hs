@@ -652,8 +652,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
     STKS sh _ -> withKnownShS sh $
       withListSh (Proxy @(shm1 ++ shn)) $ \_ ->
-        astIndex (astSFromR @(shm1 ++ shn) $ astLet var2 i1 $ astRFromS v)
-                 rest1
+        astIndex (astLet var2 i1 v) rest1
         -- this uses astLet, because the index integers are ranked
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
@@ -806,7 +805,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
         gcastWith (unsafeCoerce Refl :: shm1 ++ shn :~: sh1n) $
         let w :: AstTensor AstMethodLet s (TKS (shm1 ++ shn) r)
             w = astGather v (vars, ix2)
-        in astSFromR $ astLet var2 i1 $ astRFromS $ astIndexS @shm1 @shn w rest1
+        in astLet var2 i1 $ astIndexS @shm1 @shn w rest1
       -- this uses astLet, because the index integers are ranked
   Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs t ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs v ix
@@ -2222,7 +2221,7 @@ astSFromX (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX v
 astSFromX (Ast.AstXFromS @sh1 v) =
   case sameShape @sh1 @sh of
     Just Refl -> v
-    _ -> error "astSFromR: different shapes in SFromX(XFromS)"
+    _ -> error "astSFromX: different shapes in SFromX(XFromS)"
 astSFromX v = Ast.AstSFromX v
 
 astXFromS :: forall sh sh' s r.
