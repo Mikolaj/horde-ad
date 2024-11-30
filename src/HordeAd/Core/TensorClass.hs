@@ -856,9 +856,31 @@ class ( Num (IntOf target)
     -- The operation can't usually be implemented to preserve
     -- sharing, because it's type signature doesn't fit the let
     -- and share operations available.
-  dbuild1 :: SNat k
-          -> (IntOf target -> target TKUntyped)  -- sh_i
+  dbuild1 :: SNat k -> (IntOf target -> target TKUntyped)  -- sh_i
           -> target TKUntyped  -- k ': sh_i
+  tbuild1 :: forall k y. TensorKind y
+          => SNat k -> (IntOf target -> target y)
+          -> target (BuildTensorKind k y)
+  tbuild1 snat@SNat f =
+    let replStk :: STensorKindType z -> (IntOf target -> target z)
+                -> target (BuildTensorKind k z)
+        replStk stk g = case stk of
+          STKR SNat STKScalar{} -> rbuild1 (sNatValue snat) g
+          STKS sh STKScalar{} -> withKnownShS sh $ sbuild1 g
+          STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
+          STKProduct @z1 @z2 stk1 stk2
+            | Dict <- lemTensorKindOfS stk1
+            , Dict <- lemTensorKindOfS stk2
+            , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+              let f1 i = tproject1 $ g i
+                  f2 i = tproject2 $ g i
+                    -- TODO: looks expensive, but hard to do better,
+                    -- so let's hope g is full of variables
+              in tpair (replStk stk1 f1) (replStk stk2 f2)
+          STKUntyped -> dbuild1 @target snat g
+          _ -> error "TODO"
+    in replStk (stensorKind @y) f
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important

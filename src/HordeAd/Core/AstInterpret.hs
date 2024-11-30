@@ -267,29 +267,9 @@ interpretAst !env = \case
   --   tconcrete
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  AstBuild1 @y2 snat@(SNat @n) (var, v) ->
+  AstBuild1 @y2 snat (var, v) ->
     let f i = interpretAst (extendEnvI var i env) v
-        replStk :: forall z.
-                   STensorKindType z
-                -> (IntOf target -> target z)
-                -> target (BuildTensorKind n z)
-        replStk stk g = case stk of
-          STKR SNat STKScalar{} -> rbuild1 (sNatValue snat) g
-          STKS sh STKScalar{} -> withKnownShS sh $ sbuild1 g
-          STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
-          STKProduct @z1 @z2 stk1 stk2
-            | Dict <- lemTensorKindOfS stk1
-            , Dict <- lemTensorKindOfS stk2
-            , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
-              let f1 i = tproject1 $ g i
-                  f2 i = tproject2 $ g i
-                    -- TODO: looks expensive, but hard to do better,
-                    -- so let's hope g is full of variables
-              in tpair (replStk stk1 f1) (replStk stk2 f2)
-          STKUntyped -> dbuild1 @target snat g
-          _ -> error "TODO"
-    in replStk (stensorKind @y2) f
+    in tbuild1 snat f
   AstLet @y2 var u v -> case stensorKind @y2 of
     STKScalar{} ->
       -- We assume there are no nested lets with the same variable.
