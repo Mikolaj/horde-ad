@@ -2289,8 +2289,6 @@ astPrimalPart t = case t of
 
   Ast.AstMkHVector{} -> Ast.AstPrimalPart t  -- TODO
   Ast.AstApply v ll -> astHApply v (astPrimalPart ll)
-  Ast.AstBuildHVector1 k (var, v) ->
-    Ast.AstBuildHVector1 k (var, astPrimalPart v)
   Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs f df rf
@@ -2373,8 +2371,6 @@ astDualPart t = case t of
 
   Ast.AstMkHVector{} -> Ast.AstDualPart t  -- TODO
   Ast.AstApply v ll -> astHApply v (astDualPart ll)
-  Ast.AstBuildHVector1 k (var, v) ->
-    Ast.AstBuildHVector1 k (var, astDualPart v)
   Ast.AstMapAccumRDer @_ @_ @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs f df rf
@@ -2665,8 +2661,6 @@ simplifyAst t = case t of
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
   Ast.AstApply v ll -> astHApply (simplifyAstHFun v)
                                   (simplifyAst ll)
-  Ast.AstBuildHVector1 k (var, v) ->
-    Ast.AstBuildHVector1 k (var, simplifyAst v)
   Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfAD (stensorKind @accShs)
@@ -2893,8 +2887,6 @@ expandAst t = case t of
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
   Ast.AstApply v ll -> astHApply (expandAstHFun v)
                                   (expandAst ll)
-  Ast.AstBuildHVector1 k (var, v) ->
-    Ast.AstBuildHVector1 k (var, expandAst v)
   Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfAD (stensorKind @accShs)
@@ -3464,8 +3456,6 @@ substitute1Ast i var v1 = case v1 of
          , substitute1Ast i var ll ) of
       (Nothing, Nothing) -> Nothing
       (mt, mll) -> Just $ astHApply (fromMaybe t mt) (fromMaybe ll mll)
-  Ast.AstBuildHVector1 k (var2, v) ->
-    Ast.AstBuildHVector1 k . (var2,) <$> substitute1Ast i var v
   Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfAD (stensorKind @accShs)

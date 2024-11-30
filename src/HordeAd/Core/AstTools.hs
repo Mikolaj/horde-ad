@@ -150,8 +150,6 @@ ftkAst t = case t of
     FTKUntyped
     $ V.map (voidFromDynamicF (shapeToList . shapeAst)) v
   AstApply v _ll -> shapeAstHFun v
-  AstBuildHVector1 k (_, v) ->
-    FTKUntyped $ replicate1VoidHVector k $ shapeAstHVector v
   AstMapAccumRDer @_ @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFullTensorKind k bShs)
@@ -300,7 +298,6 @@ varInAst var = \case
 
   AstMkHVector l -> any (varInAstDynamic var) l
   AstApply t ll -> varInAstHFun var t || varInAst var ll
-  AstBuildHVector1 _ (_var2, v) -> varInAst var v
   AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
   AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->

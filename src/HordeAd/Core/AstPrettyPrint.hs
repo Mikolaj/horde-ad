@@ -483,16 +483,6 @@ printAstAux cfg d = \case
            . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
-  AstBuildHVector1 k (var, v) ->
-    showParen (d > 10)
-    $ showString "dbuild1 "
-      . showParen True (shows k)
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAst cfg 0 v)
   AstMapAccumRDer @accShs @bShs @eShs k _accShs _bShs _eShs f df rf acc0 es
    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfAD (stensorKind @accShs)

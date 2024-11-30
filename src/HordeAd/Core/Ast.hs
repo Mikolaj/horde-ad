@@ -583,11 +583,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
 
   -- Here starts the misc part.
   AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
-  -- The operations below is why we need AstTensor ms s TKUntyped (or products).
-  -- If we kept a vector of terms instead, we'd need to let-bind in each
-  -- of the terms separately, duplicating the let-bound term.
-  AstBuildHVector1 :: SNat k -> (IntVarName, AstTensor ms s TKUntyped)
-                   -> AstTensor ms s TKUntyped
   AstMapAccumRDer
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k

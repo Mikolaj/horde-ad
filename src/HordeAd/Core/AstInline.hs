@@ -361,11 +361,6 @@ inlineAst memo v0 = case v0 of
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
-  Ast.AstBuildHVector1 k (var, v) ->
-    let (memoV0, v2) = inlineAst EM.empty v
-        memo1 = EM.unionWith
-                  (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
-    in (memo1, Ast.AstBuildHVector1 k (var, v2))
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
@@ -723,7 +718,6 @@ unshareAst memo = \case
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
-  Ast.AstBuildHVector1{} -> error "unshareAst: AstBuildHVector1"  -- not hard to add
   Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es

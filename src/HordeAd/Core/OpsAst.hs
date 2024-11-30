@@ -730,7 +730,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
-  dbuild1 k f = AstRaw $ AstBuildHVector1 k $ funToAstI (unAstRaw . f . AstRaw)
+  dbuild1 k f = AstRaw $ AstBuild1 k $ funToAstI (unAstRaw . f . AstRaw)
   -- TODO: (still) relevant?
   -- In this instance, these two ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
@@ -955,7 +955,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   dunHVector =
     noVectorizeHVector . dunHVector . unAstNoVectorize
   dbuild1 k f =
-    AstNoVectorize . AstBuildHVector1 k $ funToAstI (unAstNoVectorize . f . AstNoVectorize)
+    AstNoVectorize . AstBuild1 k $ funToAstI (unAstNoVectorize . f . AstNoVectorize)
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)

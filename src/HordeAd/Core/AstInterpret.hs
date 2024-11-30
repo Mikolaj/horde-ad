@@ -877,8 +877,6 @@ interpretAst !env = \case
           -- agreed, the AstApply would likely be simplified before
           -- getting interpreted
     in tApply t2 ll2
-  AstBuildHVector1 k (var, v) ->
-    dbuild1 @target k (interpretLambdaIHVector (\env2 t2 -> interpretAst env2 t2) env (var, v))
   AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
     | Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (stensorKind @bShs)

@@ -486,8 +486,6 @@ build1V snat@SNat (var, v0) =
         astHApply
           (build1VHFun snat (var, t))
           (build1VOccurenceUnknown snat (var, ll))
-    Ast.AstBuildHVector1{} -> traceRule $
-      error "build1V: impossible case of AstBuildHVector1"
     Ast.AstMapAccumRDer @accShs @bShs @eShs @k5
                         k5@SNat accShs bShs eShs f df rf acc0 es
      | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
