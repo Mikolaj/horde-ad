@@ -4685,15 +4685,16 @@ fFoldZipR domsOD p as rf shn cShared =
          -> HVector target
          -> target TKUntyped
       rg cr2 x2 a2 = withSNat width $ \k ->
-        dzipWith1 k
-                  (\doms ->
+        dbuild1 k
+                  ((\doms ->
                      let (cr, x, a) = domsTo3 doms
                      in tlet @_ @TKUntyped @TKUntyped
                                ((rf cr x a))
                                $ \ !rfRes ->
                                    dmkHVector $ snd $ domsToPair (dunHVector (rfRes)))
-                  (V.cons (DynamicRanked cr2)
-                   $ V.cons (DynamicRanked x2) a2)
+                   . index1HVectorF rshape sshape rindex sindex
+                       (V.cons (DynamicRanked cr2)
+                        $ V.cons (DynamicRanked x2) a2))
       cas = rg (rslice 1 width crs)
                (rslice 0 width p)
                as

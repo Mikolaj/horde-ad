@@ -859,15 +859,6 @@ class ( Num (IntOf target)
   dbuild1 :: SNat k
           -> (IntOf target -> target TKUntyped)  -- sh_i
           -> target TKUntyped  -- k ': sh_i
-  dzipWith1 :: SNat k
-            -> (HVector target -> target TKUntyped)
-                 -- ^ both hVectors can have arbitrary tensors in them
-            -> HVector target -> target TKUntyped
-                 -- ^ each hVector has the same tensor shapes and scalar types
-                 -- as its corresponding hVector above, except for the extra
-                 -- outermost dimension k
-  dzipWith1 k f u =
-    dbuild1 @target k (f . index1HVectorF rshape sshape rindex sindex u)
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important
