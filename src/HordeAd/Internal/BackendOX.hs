@@ -123,7 +123,7 @@ ixInBounds ix sh =
   and $ zipWith (\i dim -> 0 <= i && i < fromIntegral dim) ix sh
 
 tindexNR
-  :: forall m n r. (KnownNat m, KnownNat n, NumAndShow r)
+  :: forall m n r. (KnownNat m, KnownNat n, Nested.KnownElt r, Show r)
   => Nested.Ranked (m + n) r -> IIxR64 m -> Nested.Ranked n r
 tindexNR v ix = let sh = Nested.rshape v
                     !_A = assert (ixInBounds (toList ix) (toList sh)
@@ -143,7 +143,7 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
 -}
 
 tindexZR
-  :: forall m n r. (KnownNat m, KnownNat n, NumAndShow r)
+  :: forall m n r. (KnownNat m, KnownNat n, Nested.KnownElt r, Default r, Show r)
   => Nested.Ranked (m + n) r -> IIxR64 m -> Nested.Ranked n r
 tindexZR v ix =
   let sh = Nested.rshape v
@@ -152,7 +152,7 @@ tindexZR v ix =
      else Nested.rreplicate (dropShape @m sh) (Nested.rscalar def)
 
 tindex0R
-  :: (NumAndShow r, KnownNat n)
+  :: (KnownNat n, Nested.KnownElt r, Default r)
   => Nested.Ranked n r -> IIxR64 n -> r
 tindex0R v ix =
   let sh = Nested.rshape v
@@ -469,7 +469,7 @@ liftVS f =
        (`Mixed.Internal.Arith.liftVEltwise1` f))
 
 tindexNS
-  :: forall sh1 sh2 r. NumAndShow r
+  :: forall sh1 sh2 r. Nested.KnownElt r
   => Nested.Shaped (sh1 ++ sh2) r -> IIxS64 sh1 -> Nested.Shaped sh2 r
 tindexNS v ix = Nested.sindexPartial v (fmap fromIntegral ix)
 {- TODO
@@ -487,7 +487,7 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- may not fit within the type-level shape, which we catch in the @ixInBounds@
 -- and return 0, so it's fine. Similarly in gather and scatter.
 tindexZS
-  :: forall sh1 sh2 r. (NumAndShow r, KnownShS sh2)
+  :: forall sh1 sh2 r. (KnownShS sh2, Nested.KnownElt r, Default r)
   => Nested.Shaped (sh1 ++ sh2) r -> IIxS64 sh1 -> Nested.Shaped sh2 r
 tindexZS v ix | Refl <- lemAppNil @sh2 =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
@@ -496,7 +496,7 @@ tindexZS v ix | Refl <- lemAppNil @sh2 =
      else Nested.sreplicate (knownShS @sh2) (Nested.sscalar def)
 
 tindex0S
-  :: NumAndShow r
+  :: (Nested.KnownElt r, Default r)
   => Nested.Shaped sh r -> IIxS64 sh -> r
 tindex0S v ix =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
