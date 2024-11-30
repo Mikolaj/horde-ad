@@ -168,6 +168,7 @@ library horde-ad-simplified
       , Boolean
       , containers
       , deepseq
+      , data-default
       , dependent-enummap
       , dependent-sum
       , enummapset

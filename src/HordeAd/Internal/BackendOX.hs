@@ -10,6 +10,7 @@ import Prelude hiding (foldl')
 
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
+import Data.Default
 import Data.Foldable qualified as Foldable
 import Data.Int (Int64)
 import Data.List (foldl')
@@ -64,7 +65,7 @@ import HordeAd.Util.SizedList
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Elt r, Nested.KnownElt r, Nested.NumElt r, Num r, Show r)
+type NumAndShow r = (Nested.Elt r, Nested.KnownElt r, Nested.NumElt r, Num r, Show r, Default r)
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
@@ -148,7 +149,7 @@ tindexZR v ix =
   let sh = Nested.rshape v
   in if ixInBounds (toList ix) (toList sh)
      then tindexNR v ix
-     else Nested.rreplicate (dropShape @m sh) (Nested.rscalar 0)
+     else Nested.rreplicate (dropShape @m sh) (Nested.rscalar def)
 
 tindex0R
   :: (NumAndShow r, KnownNat n)
@@ -157,7 +158,7 @@ tindex0R v ix =
   let sh = Nested.rshape v
   in if ixInBounds (toList ix) (toList sh)
      then Nested.rindex v (fmap fromIntegral ix)
-     else 0
+     else def
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -250,7 +251,7 @@ tscatterZ1R sh t f =
                  let ix2 = f $ fromIntegral i
                  in if ixInBounds (indexToList ix2) (shapeToList sh)
                     then updateNR (treplicate0NR sh (Nested.rscalar 0)) [(ix2, ti)]
-                    else treplicate0NR sh (Nested.rscalar 0))
+                    else treplicate0NR sh (Nested.rscalar def))
       $ tunravelToListR t
 
 tfromListR
@@ -492,7 +493,7 @@ tindexZS v ix | Refl <- lemAppNil @sh2 =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then tindexNS v ix
-     else Nested.sreplicate (knownShS @sh2) (Nested.sscalar 0)
+     else Nested.sreplicate (knownShS @sh2) (Nested.sscalar def)
 
 tindex0S
   :: NumAndShow r
@@ -501,7 +502,7 @@ tindex0S v ix =
   let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
   in if ixInBounds (ShapedList.indexToList ix) sh
      then Nested.sindex v (fmap fromIntegral ix)
-     else 0
+     else def
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
 tindex0S (SS.A (SG.A OI.T{..})) ix =
@@ -591,7 +592,7 @@ tscatterZ1S t f =
                    in if ixInBounds (ShapedList.indexToList ix2)
                                     (shapeT @sh)
                       then updateNS (Nested.sreplicateScal knownShS 0) [(ix2, ti)]
-                      else Nested.sreplicateScal knownShS 0)
+                      else Nested.sreplicateScal knownShS def)
         $ tunravelToListS t
 
 tfromListS

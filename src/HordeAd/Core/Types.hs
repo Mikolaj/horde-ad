@@ -37,6 +37,7 @@ import Prelude
 import Control.DeepSeq (NFData (..))
 import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
+import Data.Default
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (Proxy))
@@ -174,7 +175,7 @@ type family Init (xs :: [k]) where
 type Target = TensorKindType -> Type
 
 type GoodScalarConstraint r =
-  ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r
+  ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r, Default r
   , NFData r, Nested.PrimElt r, Nested.KnownElt r, Nested.NumElt r
   , forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r)
   , forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
@@ -362,6 +363,9 @@ instance Num Z0 where
   abs Z0 = Z0
   signum Z0 = Z0
   fromInteger _ = Z0
+
+instance Default Z0 where
+  def = Z0
 
 instance Nested.PrimElt Z0
 newtype instance Nested.Internal.Mixed.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed.Mixed sh (Nested.Internal.Mixed.Primitive Z0)) deriving (Eq, Generic) deriving (Show) via (Nested.Internal.Mixed.ShowViaPrimitive sh Z0)  -- no content, orthotope optimises this (via Vector)
