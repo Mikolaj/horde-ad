@@ -574,12 +574,12 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
-  NestS :: (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
-        => Delta target (TKS (sh1 ++ sh2) r)
-        -> Delta target (TKS2 sh1 (TKS sh2 r))
-  UnNestS :: (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
-          => Delta target (TKS2 sh1 (TKS sh2 r))
-          -> Delta target (TKS (sh1 ++ sh2) r)
+  NestS :: (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+        => Delta target (TKS2 (sh1 ++ sh2) r)
+        -> Delta target (TKS2 sh1 (TKS2 sh2 r))
+  UnNestS :: (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+          => Delta target (TKS2 sh1 (TKS2 sh2 r))
+          -> Delta target (TKS2 (sh1 ++ sh2) r)
   SFromR :: forall sh r target. (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
          => Delta target (TKR (Rank sh) r)
          -> Delta target (TKS sh r)
@@ -715,8 +715,10 @@ shapeDeltaFull = \case
   ReshapeS{} -> FTKS knownShS FTKScalar
   GatherS{} -> FTKS knownShS FTKScalar
   CastS{} -> FTKS knownShS FTKScalar
-  NestS{} -> FTKS knownShS (FTKS knownShS FTKScalar)
-  UnNestS{} -> FTKS knownShS FTKScalar
+  NestS d -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
+  UnNestS d  -> case shapeDeltaFull d of
+    FTKS _ (FTKS _ x) -> FTKS knownShS x
   SFromR{} -> FTKS knownShS FTKScalar
   SFromX{} -> FTKS knownShS FTKScalar
   XFromS{} -> error "TODO"

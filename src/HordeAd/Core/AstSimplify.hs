@@ -609,11 +609,12 @@ astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS = astIndexKnobsS knobs v ix
 astIndexKnobsS _ v0 ZIS = v0
 astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) | Dict <- sixKnown rest1 =
   let astIndexRec, astIndex
-        :: forall shm' shn' s'.
-           ( KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn')
+        :: forall shm' shn' s' r'.
+           ( TensorKind2 r', KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn')
            , AstSpan s' )
-        => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r) -> AstIxS AstMethodLet shm'
-        -> AstTensor AstMethodLet s' (TKS2 shn' r)
+        => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
+        -> AstIxS AstMethodLet shm'
+        -> AstTensor AstMethodLet s' (TKS2 shn' r')
       astIndexRec v2 ZIS = v2
       astIndexRec v2 ix2 = if knobStepOnly knobs
                            then Ast.AstIndexS v2 ix2
@@ -824,8 +825,11 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
-  Ast.AstNestS _ -> Ast.AstIndexS v0 ix
--- TODO: why no work? maybe AstNestS needs to be even more general?   Ast.AstNestS v -> astNestS (astIndexRec v ix)
+  Ast.AstNestS @_ @_ @sh2 v ->
+    withKnownShS (Nested.Internal.Shape.shsAppend (knownShS @shn) (knownShS @sh2)) $
+    gcastWith (unsafeCoerce Refl
+               :: (shm ++ shn) ++ sh2 :~: shm ++ (shn ++ sh2)) $
+    astNestS (astIndexRec v ix)
 -- TODO: hard:  Ast.AstUnNestS v -> astUnNestS (astIndexRec v ix)
   Ast.AstUnNestS _ -> Ast.AstIndexS v0 ix
   Ast.AstSFromR t ->
@@ -2159,9 +2163,9 @@ astProjectS l p = case l of
 
 astNestS
   :: forall r sh1 sh2 ms s.
-     (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
-  => AstTensor ms s (TKS (sh1 ++ sh2) r)
-  -> AstTensor ms s (TKS2 sh1 (TKS sh2 r))
+     (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+  => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
+  -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
 astNestS t = case t of
   Ast.AstLet var u2 d2 ->  -- TODO: good idea?
     astLet var u2 (astNestS d2)
@@ -2172,9 +2176,9 @@ astNestS t = case t of
 
 astUnNestS
   :: forall r sh1 sh2 ms s.
-     (GoodScalar r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
-  => AstTensor ms s (TKS2 sh1 (TKS sh2 r))
-  -> AstTensor ms s (TKS (sh1 ++ sh2) r)
+     (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+  => AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
+  -> AstTensor ms s (TKS2 (sh1 ++ sh2) r)
 astUnNestS t = case t of
   Ast.AstLet var u2 d2 ->  -- TODO: good idea?
     astLet var u2 (astUnNestS d2)

@@ -144,8 +144,10 @@ ftkAst t = case t of
   AstCastS{} -> FTKS knownShS FTKScalar
   AstFromIntegralS{} -> FTKS knownShS FTKScalar
   AstProjectS{} -> FTKS knownShS FTKScalar
-  AstNestS{} -> FTKS knownShS (FTKS knownShS FTKScalar)
-  AstUnNestS{} -> FTKS knownShS FTKScalar
+  AstNestS v -> case ftkAst v of
+    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
+  AstUnNestS v -> case ftkAst v of
+    FTKS _ (FTKS _ x) -> FTKS knownShS x
   AstSFromR{} -> FTKS knownShS FTKScalar
   AstSFromX{} -> FTKS knownShS FTKScalar
   AstXFromS{} -> error "TODO"
