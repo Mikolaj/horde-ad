@@ -88,6 +88,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
@@ -485,10 +486,10 @@ data Delta :: Target -> TensorKindType -> Type where
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
-  IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
-         => Delta target (TKS (sh1 ++ sh2) r)
+  IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), TensorKind2 r)
+         => Delta target (TKS2 (sh1 ++ sh2) r)
          -> IxSOf target sh1
-         -> Delta target (TKS sh2 r)
+         -> Delta target (TKS2 sh2 r)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
@@ -694,7 +695,8 @@ shapeDeltaFull = \case
     FTKR (listToShape $ shapeT @sh) FTKScalar
   RFromH d i -> FTKR (listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
-  IndexS{} -> FTKS knownShS FTKScalar
+  IndexS d _ix -> case shapeDeltaFull d of
+    FTKS _sh1sh2 ftkr -> FTKS knownShS ftkr
   SumS{} -> FTKS knownShS FTKScalar
   Sum0S{} -> FTKS knownShS FTKScalar
   Dot0S{} -> FTKS knownShS FTKScalar
@@ -1188,7 +1190,8 @@ evalSame !s !c = \case
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
-  IndexS @sh1 @sh d ix ->
+  IndexS @sh1 @sh @r d ix -> case stensorKind @r of
+   STKScalar{} ->
     gcastWith (unsafeCoerce Refl
                :: Drop (Rank (sh1 ++ sh)) (sh1 ++ sh) :~: '[]) $
     gcastWith (unsafeCoerce Refl
@@ -1204,6 +1207,7 @@ evalSame !s !c = \case
     in evalSame s (sbuild @_ @_ @(Rank (sh1 ++ sh)) f) d
     -- equivalent: evalSame s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
     -- equivalent: evalSame s (updateNR (replicate0NR sh 0) [(ix, c)]) d
+   _ -> error "TODO: sbuild needs to be generalized, too"
   SumS d ->
     evalSame s (sreplicate c) d
   Sum0S d ->

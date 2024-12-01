@@ -392,17 +392,17 @@ astIndexStep v ix = astIndexKnobsR (defaultKnobs {knobStepOnly = True})
 astIndexS
   :: forall sh1 sh2 s r.
      ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-     , GoodScalar r, AstSpan s )
-  => AstTensor AstMethodLet s (TKS (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
-  -> AstTensor AstMethodLet s (TKS sh2 r)
+     , TensorKind2 r, AstSpan s )
+  => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
+  -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astIndexS = astIndexKnobsS defaultKnobs
 
 astIndexStepS
   :: forall sh1 sh2 s r.
      ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-     , GoodScalar r, AstSpan s )
-  => AstTensor AstMethodLet s (TKS (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
-  -> AstTensor AstMethodLet s (TKS sh2 r)
+     , TensorKind2 r, AstSpan s )
+  => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
+  -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
                                     (astNonIndexStep v)
                                     (simplifyAstIxS ix)
@@ -602,9 +602,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
 astIndexKnobsS
   :: forall shm shn s r.
      ( KnownShS shm, KnownShS shn, KnownShS (shm ++ shn)
-     , GoodScalar r, AstSpan s )
-  => SimplifyKnobs -> AstTensor AstMethodLet s (TKS (shm ++ shn) r) -> AstIxS AstMethodLet shm
-  -> AstTensor AstMethodLet s (TKS shn r)
+     , TensorKind2 r, AstSpan s )
+  => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
+  -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS = astIndexKnobsS knobs v ix
 astIndexKnobsS _ v0 ZIS = v0
 astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) | Dict <- sixKnown rest1 =
@@ -612,8 +612,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
         :: forall shm' shn' s'.
            ( KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn')
            , AstSpan s' )
-        => AstTensor AstMethodLet s' (TKS (shm' ++ shn') r) -> AstIxS AstMethodLet shm'
-        -> AstTensor AstMethodLet s' (TKS shn' r)
+        => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r) -> AstIxS AstMethodLet shm'
+        -> AstTensor AstMethodLet s' (TKS2 shn' r)
       astIndexRec v2 ZIS = v2
       astIndexRec v2 ix2 = if knobStepOnly knobs
                            then Ast.AstIndexS v2 ix2
@@ -624,13 +624,13 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
                                             (simplifyAstIxS ix2)
                         else astIndexKnobsS knobs v2 ix2
       astGather
-        :: forall shm' shn' p'.
-           ( KnownShS shm', KnownShS shn', KnownNat p'
+        :: forall shm' shn' p' r'.
+           ( GoodScalar r', KnownShS shm', KnownShS shn', KnownNat p'
            , KnownShS (Take p' shm'), KnownShS (Drop p' shm')
            , KnownShS (shn' ++ Drop p' shm') )
-       => AstTensor AstMethodLet s (TKS shm' r)
+       => AstTensor AstMethodLet s (TKS shm' r')
         -> (AstVarListS shn', AstIxS AstMethodLet (Take p' shm'))
-        -> AstTensor AstMethodLet s (TKS (shn' ++ Drop p' shm') r)
+        -> AstTensor AstMethodLet s (TKS (shn' ++ Drop p' shm') r')
       astGather v2 (vars2, ix2) =
         if knobStepOnly knobs
         then astGatherKnobsS knobs
@@ -804,19 +804,19 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
     withListSh (Proxy @shn) $ \_ ->
       withShapeP (shapeT @shm1 ++ shapeT @shn) $ \(Proxy @sh1n) ->
         gcastWith (unsafeCoerce Refl :: shm1 ++ shn :~: sh1n) $
-        let w :: AstTensor AstMethodLet s (TKS (shm1 ++ shn) r)
+        let w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
             w = astGather v (vars, ix2)
         in astLet var2 i1 $ astIndexS @shm1 @shn w rest1
       -- this uses astLet, because the index integers are ranked
   Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs t ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs v ix
-  AstConcrete _ t ->
+  AstConcrete (FTKS _ x) t ->
     let unConst :: AstInt AstMethodLet -> Maybe [Int64]
                 -> Maybe [Int64]
         unConst (AstConcrete _ (RepN i)) (Just l) = Just $ i : l
         unConst _ _ = Nothing
     in case foldr unConst (Just []) ix of
-      Just ixInt -> AstConcrete (FTKS knownShS FTKScalar)
+      Just ixInt -> AstConcrete (FTKS knownShS x)
                     $ RepN $ tindexZS (unRepN t)
                     $ ShapedList.listToIndex @shm ixInt
         -- TODO: we'd need mapM for Index to keep this rank-typed
@@ -824,7 +824,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
--- TODO: generalize AstIndexS?  Ast.AstNestS v -> astNestS (astIndexRec v ix)
+  Ast.AstNestS _ -> Ast.AstIndexS v0 ix
+-- TODO: why no work? maybe AstNestS needs to be even more general?   Ast.AstNestS v -> astNestS (astIndexRec v ix)
 -- TODO: hard:  Ast.AstUnNestS v -> astUnNestS (astIndexRec v ix)
   Ast.AstUnNestS _ -> Ast.AstIndexS v0 ix
   Ast.AstSFromR t ->

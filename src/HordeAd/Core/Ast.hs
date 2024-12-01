@@ -433,10 +433,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstIotaS :: forall n r ms. (GoodScalar r, KnownNat n)
            => AstTensor ms PrimalSpan (TKS '[n] r)
 
-  AstIndexS :: forall sh1 sh2 s r ms.
-               (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), GoodScalar r)
-            => AstTensor ms s (TKS (sh1 ++ sh2) r) -> AstIxS ms sh1
-            -> AstTensor ms s (TKS sh2 r)
+  AstIndexS :: forall sh1 sh2 s x ms.
+               ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
+               , TensorKind2 x )
+            => AstTensor ms s (TKS2 (sh1 ++ sh2) x) -> AstIxS ms sh1
+            -> AstTensor ms s (TKS2 sh2 x)
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value

@@ -2,13 +2,15 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Core.CarriersConcrete
-  ( IIxR64, IIxS64
+  ( TensorKind2
+  , IIxR64, IIxS64
   , RepORArray, RepN(..)
   ) where
 
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
+import Data.Default
 import Data.Int (Int64)
 import Data.Vector.Generic qualified as V
 
@@ -26,6 +28,8 @@ import HordeAd.Core.Types
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
+
+type TensorKind2 y = (TensorKind y, Default (RepORArray y), Nested.KnownElt (RepORArray y))
 
 type family RepORArray (y :: TensorKindType) where
   RepORArray (TKScalar r) = r

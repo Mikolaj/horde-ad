@@ -482,15 +482,15 @@ class ( Num (IntOf target)
   -- an operation, often a tensor reduction. A number suffix in the name
   -- indicates the rank of the codomain, if bounded.
   sindex, (!$) :: forall r sh1 sh2.
-                  ( GoodScalar r, KnownShS sh1, KnownShS sh2
+                  ( TensorKind2 r, KnownShS sh1, KnownShS sh2
                   , KnownShS (sh1 ++ sh2) )
-               => target (TKS (sh1 ++ sh2) r) -> IxSOf target sh1
-               -> target (TKS sh2 r)
+               => target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
+               -> target (TKS2 sh2 r)
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
-  sindex0 :: forall sh1 r. (GoodScalar r, KnownShS sh1)
-          => target (TKS sh1 r) -> IxSOf target sh1
-          -> target (TKS '[] r)
+  sindex0 :: forall sh1 r. (TensorKind2 r, KnownShS sh1)
+          => target (TKS2 sh1 r) -> IxSOf target sh1
+          -> target (TKS2 '[] r)
   sindex0 = gcastWith (unsafeCoerce Refl :: sh1 ++ '[] :~: sh1)
               sindex
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)

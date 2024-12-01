@@ -30,6 +30,7 @@ import Data.Array.Nested (KnownShS (..), KnownShX, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
 import HordeAd.Core.HVector
@@ -339,10 +340,10 @@ instance ( ADReadyNoLet target
     _ -> error "TODO"
 
 indexPrimalS :: ( ADReadyNoLet target
-                , GoodScalar r, KnownShS sh1, KnownShS sh2
+                , TensorKind2 r, KnownShS sh1, KnownShS sh2
                 , KnownShS (sh1 ++ sh2) )
-             => ADVal target (TKS (sh1 ++ sh2) r) -> IxSOf target sh1
-             -> ADVal target (TKS sh2 r)
+             => ADVal target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
+             -> ADVal target (TKS2 sh2 r)
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh target r.

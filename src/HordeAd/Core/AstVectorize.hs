@@ -421,7 +421,7 @@ build1V snat@SNat (var, v0) =
       astSumOfListS $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndexS @sh1 v ix -> traceRule $ case stensorKind @y of
-     STKS @sh _ _ ->
+     STKS @sh _ STKScalar{} ->
       gcastWith (unsafeCoerce Refl
                  :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
@@ -429,6 +429,7 @@ build1V snat@SNat (var, v0) =
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
       gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
       build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
+     _ -> error "TODO"
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1V snat (var, v)
     Ast.AstScatterS @sh2 @p @sh3 v (vars, ix) -> traceRule $

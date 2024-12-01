@@ -125,7 +125,8 @@ ftkAst t = case t of
   AstR2S{} -> FTKS knownShS FTKScalar
   AstI2S{} -> FTKS knownShS FTKScalar
   AstSumOfListS{} -> FTKS knownShS FTKScalar
-  AstIndexS{} -> FTKS knownShS FTKScalar
+  AstIndexS v _ix -> case ftkAst v of
+    FTKS _sh1sh2 x -> FTKS knownShS x
   AstSumS{} -> FTKS knownShS FTKScalar
   AstScatterS{} -> FTKS knownShS FTKScalar
   AstFromVectorS{} -> FTKS knownShS FTKScalar
