@@ -4478,7 +4478,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInline a1))
-    @?= 44564
+    @?= 44596
 
 testSin0revhV :: Assertion
 testSin0revhV = do

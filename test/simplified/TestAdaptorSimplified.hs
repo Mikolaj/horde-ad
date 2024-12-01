@@ -412,7 +412,7 @@ testPiecewiseLinearPP = do
       fT x = ifF (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactAdapt True fT (rscalar 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x2 x1 -> let v3 = rscatter [2] x2 (\\[] -> [ifF (x1 >. rscalar 0.0) 0 1]) in rscalar 2.0 * v3 ! [0] + rscalar 5.0 * v3 ! [1]"
+    @?= "\\x2 x1 -> let v4 = rbuild1 SNat @2 (\\i3 -> ifF (ifF (x1 >. rscalar 0.0) 0 1 ==. x3) x2 (rscalar 0.0)) in rscalar 2.0 * v4 ! [0] + rscalar 5.0 * v4 ! [1]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromVector (fromList [rscalar 2.0 * x1, rscalar 5.0 * x1]) ! [ifF (x1 >. rscalar 0.0) 0 1]"
 
@@ -2029,7 +2029,7 @@ fblowupPP = do
       fblowupT = fblowup @(AstTensor AstMethodLet FullSpan) @Double 1
   let (artifactRev, _) = revArtifactAdapt True fblowupT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
-    @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x2 -> tlet (v1 ! [1]) (\\x3 -> tlet (v1 ! [0]) (\\x4 -> tlet (v1 ! [1]) (\\x5 -> tlet (rscalar 0.499999985 * x7) (\\x8 -> rscatter [4] (recip x3 * x8) (\\[] -> [0]) + rscatter [4] ((negate x2 / (x3 * x3)) * x8) (\\[] -> [1]) + rscatter [4] (recip x5 * x8) (\\[] -> [0]) + rscatter [4] ((negate x4 / (x5 * x5)) * x8) (\\[] -> [1]))))))"
+    @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x2 -> tlet (v1 ! [1]) (\\x3 -> tlet (v1 ! [0]) (\\x4 -> tlet (v1 ! [1]) (\\x5 -> tlet (rscalar 0.499999985 * x7) (\\x8 -> rbuild1 SNat @4 (\\i12 -> ifF (true &&* 0 ==. x12) ((recip x3 * x8) ! []) (rscalar 0.0)) + rbuild1 SNat @4 (\\i11 -> ifF (true &&* 1 ==. x11) (((negate x2 / (x3 * x3)) * x8) ! []) (rscalar 0.0)) + rbuild1 SNat @4 (\\i10 -> ifF (true &&* 0 ==. x10) ((recip x5 * x8) ! []) (rscalar 0.0)) + rbuild1 SNat @4 (\\i9 -> ifF (true &&* 1 ==. x9) (((negate x4 / (x5 * x5)) * x8) ! []) (rscalar 0.0)))))))"
   printArtifactPrimalSimple renames artifactRev
     @?= "\\x1 -> tlet (v1 ! [0]) (\\x2 -> tlet (v1 ! [1]) (\\x3 -> tlet (v1 ! [0]) (\\x4 -> tlet (v1 ! [1]) (\\x5 -> tlet ((x2 / x3 + x4 / x5) - rscalar 0.0) (\\x6 -> rscalar 0.499999985 * x6 - rscalar 0.0)))))"
 
@@ -2040,7 +2040,7 @@ fblowupLetPP = do
       fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 1
   let (artifactRev, _) = revArtifactAdapt True fblowupLetT (rreplicate0N [4] (rscalar 4))
   printArtifactSimple renames artifactRev
-    @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x3 -> tlet (v1 ! [1]) (\\x4 -> tlet (rscalar 0.499999985 * x7) (\\x8 -> tlet (x8 + x8) (\\x9 -> rscatter [4] (recip x4 * x9) (\\[] -> [0]) + rscatter [4] ((negate x3 / (x4 * x4)) * x9) (\\[] -> [1])))))"
+    @?= "\\x7 x1 -> tlet (v1 ! [0]) (\\x3 -> tlet (v1 ! [1]) (\\x4 -> tlet (rscalar 0.499999985 * x7) (\\x8 -> tlet (x8 + x8) (\\x9 -> rbuild1 SNat @4 (\\i11 -> ifF (true &&* 0 ==. x11) ((recip x4 * x9) ! []) (rscalar 0.0)) + rbuild1 SNat @4 (\\i10 -> ifF (true &&* 1 ==. x10) (((negate x3 / (x4 * x4)) * x9) ! []) (rscalar 0.0))))))"
   printArtifactPrimalSimple renames artifactRev
     @?= "\\x1 -> tlet (v1 ! [0]) (\\x3 -> tlet (v1 ! [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet ((x5 + x5) - rscalar 0.0) (\\x6 -> rscalar 0.499999985 * x6 - rscalar 0.0))))"
 

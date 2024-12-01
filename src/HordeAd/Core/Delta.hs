@@ -63,6 +63,7 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
@@ -91,6 +92,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.ShapedList (dropIxS)
 import HordeAd.Util.SizedList
 
 type IMap target = DEnumMap (InputId target) (RepM target)
@@ -1125,8 +1127,13 @@ evalSame !s !c = \case
               in evalSame (evalSame s cShared d) cShared e
 
   IndexR d ix ->
-    evalSame s (rscatter @target @_ @0
-                         (shapeDelta d) c (const ix)) d
+    let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                     $ zip (toList ix) (toList ix2))
+                    (rindex0 c (dropIndex ix2))
+                    (rscalar 0)
+    in evalSame s (rbuild (shapeDelta d) f) d
+    -- equivalent: evalSame s (rscatter @target @_ @0
+    --                                  (shapeDelta d) c (const ix)) d
     -- equivalent: evalSame s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
   SumR d ->
     evalSame s (rreplicate (lengthDelta d) c) d
@@ -1183,12 +1190,19 @@ evalSame !s !c = \case
 
   IndexS @sh1 @sh d ix ->
     gcastWith (unsafeCoerce Refl
-               :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
+               :: Drop (Rank (sh1 ++ sh)) (sh1 ++ sh) :~: '[]) $
     gcastWith (unsafeCoerce Refl
-               :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
+               :: Take (Rank (sh1 ++ sh)) (sh1 ++ sh) :~: (sh1 ++ sh)) $
+    gcastWith (unsafeCoerce Refl
+               :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
     withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
     gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
-    evalSame s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
+    let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                     $ zip (toList ix) (toList ix2))
+                    (sindex0 c (dropIxS @(Rank sh1) ix2))
+                    (sscalar 0)
+    in evalSame s (sbuild @_ @_ @(Rank (sh1 ++ sh)) f) d
+    -- equivalent: evalSame s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
     -- equivalent: evalSame s (updateNR (replicate0NR sh 0) [(ix, c)]) d
   SumS d ->
     evalSame s (sreplicate c) d

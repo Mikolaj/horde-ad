@@ -9,7 +9,7 @@ module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
   -- , consShaped, unconsContShaped
     singletonSized, appendSized
-  , headSized, tailSized, takeSized, dropSized, splitAt_Sized
+  , headSized, tailSized, takeSized, dropSized, splitAt_Sized, dropIxS
   -- , unsnocSized1, lastSized
   -- , initSized, zipSized
   , zipWith_Sized, reverseSized
@@ -75,7 +75,7 @@ takeSized :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
 takeSized ix = listToSized $ take (valueOf @len) $ sizedToList ix
 
 dropSized :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
-          => ListS sh (Const i) -> ListS  (Drop len sh) (Const i)
+          => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
 dropSized ix = listToSized $ drop (valueOf @len) $ sizedToList ix
 
 splitAt_Sized
@@ -83,6 +83,10 @@ splitAt_Sized
   => ListS sh (Const i)
   -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
 splitAt_Sized ix = (takeSized ix, dropSized ix)
+
+dropIxS :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
+        => IxS sh i -> IxS (Drop len sh) i
+dropIxS (IxS ix) = IxS $ dropSized ix
 
 {-
 unsnocSized1 :: ListS (n ': sh) i -> (ListS sh i, i)

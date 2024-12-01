@@ -271,7 +271,9 @@ build1V snat@SNat (var, v0) =
                          snat2 asts)
             _ -> error "TODO"
      in repl2Stk (stensorKind @y2) (build1V snat (var, v))
-    Ast.AstBuild1{} -> error "build1V: impossible case of AstBuild1"
+    Ast.AstBuild1 snat2 (var2, v2) ->
+      build1VOccurenceUnknown snat (var, build1VOccurenceUnknown snat2 (var2, v2))
+        -- happens only when testing and mixing different pipelines
     Ast.AstLet @y2 var1 u v
       | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
@@ -522,8 +524,8 @@ build1V snat@SNat (var, v0) =
            (astTrGeneral @k @k5 (stensorKind @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
-                            (astTrGeneral @k5 @k
-                                          (stensorKind @bShs) (astProject2 x1bs1)))
+                           (astTrGeneral @k5 @k
+                                         (stensorKind @bShs) (astProject2 x1bs1)))
     Ast.AstMapAccumLDer @accShs @bShs @eShs @k5
                         k5@SNat accShs bShs eShs f df rf acc0 es
      | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
@@ -554,8 +556,8 @@ build1V snat@SNat (var, v0) =
            (astTrGeneral @k @k5 (stensorKind @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
-                            (astTrGeneral @k5 @k
-                                          (stensorKind @bShs) (astProject2 x1bs1)))
+                           (astTrGeneral @k5 @k
+                                         (stensorKind @bShs) (astProject2 x1bs1)))
     _ -> error $ "TODO: " ++ show v0
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes

@@ -428,9 +428,9 @@ unshareAstTensor tShare =
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
 unshareAstScoped
-  :: forall s r. (GoodScalar r, AstSpan s)
-  => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s (TKScalar r)
-  -> (AstBindings, AstTensor AstMethodLet s (TKScalar r))
+  :: forall z s. (TensorKind z, AstSpan s)
+  => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s z
+  -> (AstBindings, AstTensor AstMethodLet s z)
 unshareAstScoped vars0 memo0 v0 =
   let (memo1, v1) = unshareAst memo0 v0
       memoDiff = DMap.difference memo1 memo0
@@ -483,16 +483,9 @@ unshareAst memo = \case
         (memo3, t3) = unshareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
   Ast.AstReplicate k v -> second (Ast.AstReplicate k) (unshareAst memo v)
-  Ast.AstBuild1 @y2 snat (var, v) -> case stensorKind @y2 of
-    STKScalar{} ->
-      let (memo1, v2) = unshareAstScoped [var] memo v
-      in (memo1, Ast.AstBuild1 snat (var, v2))
-    STKR SNat STKScalar{} -> error "WIP"
-    STKS sh STKScalar{} -> withKnownShS sh $ error "WIP"
-    STKX sh STKScalar{} -> withKnownShX sh $ error "WIP"
-    STKProduct{} -> error "WIP"
-    STKUntyped -> error "WIP"
-    _ -> error "TODO"
+  Ast.AstBuild1 snat (var, v) ->
+    let (memo1, v2) = unshareAstScoped [var] memo v
+    in (memo1, Ast.AstBuild1 snat (var, v2))
   Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     let astVar = Ast.AstVar (ftkAst v) var
@@ -557,7 +550,7 @@ unshareAst memo = \case
     in (memo2, Ast.AstIndex v2 (listToIndex ix2))
   Ast.AstSum v -> second Ast.AstSum (unshareAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
-    let (memo1, ix2) = mapAccumR (unshareAstScoped $ sizedToList vars)
+    let (memo1, ix2) = mapAccumR (unshareAstScoped $ toList vars)
                                  memo (indexToList ix)
         (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
@@ -574,7 +567,7 @@ unshareAst memo = \case
     second (Ast.AstTranspose perm) $ unshareAst memo v
   Ast.AstReshape sh v -> second (Ast.AstReshape sh) (unshareAst memo v)
   Ast.AstGather sh v (vars, ix) ->
-    let (memo1, ix2) = mapAccumR (unshareAstScoped $ sizedToList vars)
+    let (memo1, ix2) = mapAccumR (unshareAstScoped $ toList vars)
                                  memo (indexToList ix)
         (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
@@ -622,7 +615,7 @@ unshareAst memo = \case
   Ast.AstSumS v -> second Ast.AstSumS (unshareAst memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
-          mapAccumR (unshareAstScoped $ ShapedList.sizedToList vars)
+          mapAccumR (unshareAstScoped $ toList vars)
                     memo (ShapedList.indexToList ix)
         (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
@@ -640,7 +633,7 @@ unshareAst memo = \case
   Ast.AstReshapeS v -> second Ast.AstReshapeS (unshareAst memo v)
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
-          mapAccumR (unshareAstScoped $ ShapedList.sizedToList vars)
+          mapAccumR (unshareAstScoped $ toList vars)
                     memo (ShapedList.indexToList ix)
         (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
