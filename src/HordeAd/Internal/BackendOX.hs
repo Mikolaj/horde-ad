@@ -200,7 +200,8 @@ tdot1InR
   => Nested.Ranked (n + 1) r -> Nested.Ranked (n + 1) r -> Nested.Ranked n r
 tdot1InR = Nested.rdot1Inner
 
-tunravelToListR :: NumAndShow r => Nested.Ranked (1 + n) r -> [Nested.Ranked n r]
+tunravelToListR :: Nested.KnownElt r
+                => Nested.Ranked (1 + n) r -> [Nested.Ranked n r]
 tunravelToListR = Nested.rtoListOuter
 
 tmatmul2R
@@ -262,25 +263,25 @@ tscatterZ1R sh t f =
       $ tunravelToListR t
 
 tfromListR
-  :: forall n r. NumAndShow r
+  :: forall n r. Nested.KnownElt r
   => NonEmpty (Nested.Ranked n r) -> Nested.Ranked (1 + n) r
 tfromListR = Nested.rfromListOuter  -- TODO: make this strict
 
 -- TODO: make this strict
 tfromList0NR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => IShR n -> [Nested.Ranked 0 r] -> Nested.Ranked n r
 tfromList0NR sh l = case NonEmpty.nonEmpty l of
   Nothing -> Nested.rreshape sh Nested.remptyArray
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
 tfromVectorR
-  :: forall n r. NumAndShow r
+  :: forall n r. Nested.KnownElt r
   => Data.Vector.Vector (Nested.Ranked n r) -> Nested.Ranked (1 + n) r
 tfromVectorR = tfromListR . NonEmpty.fromList . V.toList
 
 tfromVector0NR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => IShR n -> Data.Vector.Vector (Nested.Ranked 0 r) -> Nested.Ranked n r
 tfromVector0NR sh = tfromList0NR sh . V.toList
 
@@ -550,7 +551,7 @@ tdot1InS
   -> Nested.Shaped sh r
 tdot1InS = Nested.sdot1Inner
 
-tunravelToListS :: forall r n sh. NumAndShow r
+tunravelToListS :: forall r n sh. Nested.KnownElt r
                 => Nested.Shaped (n ': sh) r -> [Nested.Shaped sh r]
 tunravelToListS = Nested.stoListOuter
 
@@ -611,7 +612,7 @@ tscatterZ1S t f =
         $ tunravelToListS t
 
 tfromListS
-  :: forall n sh r. (NumAndShow r, KnownNat n)
+  :: forall n sh r. (Nested.KnownElt r, KnownNat n)
   => NonEmpty (Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tfromListS = Nested.sfromListOuter SNat  -- TODO: make this strict
 
@@ -622,7 +623,7 @@ tfromListX = error "TODO"
 
 -- TODO: make this strict
 tfromList0NS
-  :: forall r sh. (NumAndShow r, KnownShS sh, KnownNat (Nested.Product sh))
+  :: forall r sh. (Nested.KnownElt r, KnownShS sh, KnownNat (Nested.Product sh))
   => [Nested.Shaped '[] r] -> Nested.Shaped sh r
 tfromList0NS l = case NonEmpty.nonEmpty l of
   Nothing -> case sameNat (Proxy @(Nested.Product sh)) (Proxy @0) of
@@ -632,7 +633,7 @@ tfromList0NS l = case NonEmpty.nonEmpty l of
   Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
 
 tfromVectorS
-  :: forall n sh r. (NumAndShow r, KnownNat n)
+  :: forall n sh r. (Nested.KnownElt r, KnownNat n)
   => Data.Vector.Vector (Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tfromVectorS = tfromListS . NonEmpty.fromList . V.toList
 
@@ -642,7 +643,7 @@ tfromVectorX
 tfromVectorX = tfromListX . NonEmpty.fromList . V.toList
 
 tfromVector0NS
-  :: forall r sh. (NumAndShow r, KnownShS sh, KnownNat (Nested.Product sh))
+  :: forall r sh. (Nested.KnownElt r, KnownShS sh, KnownNat (Nested.Product sh))
   => Data.Vector.Vector (Nested.Shaped '[] r) -> Nested.Shaped sh r
 tfromVector0NS = tfromList0NS . V.toList
 

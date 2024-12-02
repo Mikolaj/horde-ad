@@ -253,26 +253,27 @@ class ( Num (IntOf target)
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined).
-  rfromList :: (GoodScalar r, KnownNat n)
-            => NonEmpty (target (TKR n r)) -> target (TKR (1 + n) r)
+  rfromList :: (TensorKind2 r, KnownNat n)
+            => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
-  rfromList0N :: (GoodScalar r, KnownNat n)
-              => IShR n -> [target (TKR 0 r)] -> target (TKR n r)
+  rfromList0N :: (TensorKind2 r, KnownNat n)
+              => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
   rfromList0N sh = rfromVector0N sh . V.fromList
   -- This is morally non-empty strict vectors:
-  rfromVector :: (GoodScalar r, KnownNat n)
-              => Data.Vector.Vector (target (TKR n r)) -> target (TKR (1 + n) r)
-  rfromVector0N :: (GoodScalar r, KnownNat n)
-                => IShR n -> Data.Vector.Vector (target (TKR 0 r)) -> target (TKR n r)
+  rfromVector :: (TensorKind2 r, KnownNat n)
+              => Data.Vector.Vector (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
+  rfromVector0N :: (TensorKind2 r, KnownNat n)
+                => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
+                -> target (TKR2 n r)
   rfromVector0N sh = rreshape sh . rfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  runravelToList :: forall r n. (GoodScalar r, KnownNat n)
-                 => target (TKR (1 + n) r) -> [target (TKR n r)]
+  runravelToList :: forall r n. (TensorKind2 r, KnownNat n)
+                 => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
   runravelToList t =
-    let f :: Int -> target (TKR n r)
+    let f :: Int -> target (TKR2 n r)
         f i = rindex t (singletonIndex $ fromIntegral i)
     in map f [0 .. rlength t - 1]
   rreplicate :: (GoodScalar r, KnownNat n)
@@ -485,16 +486,16 @@ class ( Num (IntOf target)
      -> target (TKX sh r)
 
   -- Integer codomain
-  sshape :: forall sh r. (GoodScalar r, KnownShS sh)
-         => target (TKS sh r) -> ShS sh
+  sshape :: forall sh r. (TensorKind2 r, KnownShS sh)
+         => target (TKS2 sh r) -> ShS sh
   sshape _ = knownShS @sh
-  srank :: forall sh r. (GoodScalar r, KnownNat (Rank sh))
-        => target (TKS sh r) -> Int
+  srank :: forall sh r. (TensorKind2 r, KnownNat (Rank sh))
+        => target (TKS2 sh r) -> Int
   srank _ = valueOf @(Rank sh)
-  ssize :: forall sh r. (GoodScalar r, KnownShS sh) => target (TKS sh r) -> Int
+  ssize :: forall sh r. (TensorKind2 r, KnownShS sh) => target (TKS2 sh r) -> Int
   ssize _ = sizeT @sh
-  slength :: forall r n sh. (GoodScalar r, KnownNat n)
-          => target (TKS (n ': sh) r) -> Int
+  slength :: forall r n sh. (TensorKind2 r, KnownNat n)
+          => target (TKS2 (n ': sh) r) -> Int
   slength _ = valueOf @n
   sminIndex :: ( GoodScalar r, GoodScalar r2, KnownShS sh, KnownNat n
                , KnownShS (Init (n ': sh)) )  -- partial
@@ -583,29 +584,30 @@ class ( Num (IntOf target)
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined).
-  sfromList :: (GoodScalar r, KnownNat n, KnownShS sh)
-            => NonEmpty (target (TKS sh r)) -> target (TKS (n ': sh) r)
+  sfromList :: (TensorKind2 r, KnownNat n, KnownShS sh)
+            => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
   sfromList0N :: forall r sh.
-                 (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-              => [target (TKS '[] r)] -> target (TKS sh r)
+                 (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))
+              => [target (TKS2 '[] r)] -> target (TKS2 sh r)
   sfromList0N = sfromVector0N . V.fromList
   -- This is morally non-empty strict vectors:
-  sfromVector :: (GoodScalar r, KnownNat n, KnownShS sh)
-              => Data.Vector.Vector (target (TKS sh r)) -> target (TKS (n ': sh) r)
+  sfromVector :: (TensorKind2 r, KnownNat n, KnownShS sh)
+              => Data.Vector.Vector (target (TKS2 sh r))
+              -> target (TKS2 (n ': sh) r)
   sfromVector0N :: forall r sh.
-                   (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-                => Data.Vector.Vector (target (TKS '[] r))
-                -> target (TKS sh r)
+                   (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))
+                => Data.Vector.Vector (target (TKS2 '[] r))
+                -> target (TKS2 sh r)
   sfromVector0N =
-    sreshape @target @(TKScalar r) @'[Nested.Product sh] @sh . sfromVector
+    sreshape @target @r @'[Nested.Product sh] @sh . sfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  sunravelToList :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-                 => target (TKS (n ': sh) r) -> [target (TKS sh r)]
+  sunravelToList :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+                 => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
   sunravelToList t =
-    let f :: Int -> target (TKS sh r)
+    let f :: Int -> target (TKS2 sh r)
         f i = sindex t (ShapedList.singletonIndex $ fromIntegral i)
     in map f [0 .. slength t - 1]
   sreplicate :: (KnownNat n, KnownShS sh, GoodScalar r)

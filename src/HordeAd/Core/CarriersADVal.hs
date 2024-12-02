@@ -311,10 +311,9 @@ indexPrimal :: ( ADReadyNoLet target
             -> ADVal target (TKR2 n r)
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
-fromVector :: ( ADReadyNoLet target
-              , KnownNat n, GoodScalar r )
-           => Data.Vector.Vector (ADVal target (TKR n r))
-           -> ADVal target (TKR (1 + n) r)
+fromVector :: (ADReadyNoLet target, KnownNat n, TensorKind2 r)
+           => Data.Vector.Vector (ADVal target (TKR2 n r))
+           -> ADVal target (TKR2 (1 + n) r)
 fromVector lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (rfromVector $ V.map (\(D u _) -> u) lu)
@@ -347,10 +346,9 @@ indexPrimalS :: ( ADReadyNoLet target
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh target r.
-               ( ADReadyNoLet target
-               , KnownNat n, KnownShS sh, GoodScalar r )
-            => Data.Vector.Vector (ADVal target (TKS sh r))
-            -> ADVal target (TKS (n ': sh) r)
+               (ADReadyNoLet target, KnownNat n, KnownShS sh, TensorKind2 r)
+            => Data.Vector.Vector (ADVal target (TKS2 sh r))
+            -> ADVal target (TKS2 (n ': sh) r)
 fromVectorS lu = assert (length lu == valueOf @n) $
   dD (sfromVector $ V.map (\(D u _) -> u) lu)
      (FromVectorS $ V.map (\(D _ u') -> u') lu)

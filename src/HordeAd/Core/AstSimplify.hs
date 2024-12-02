@@ -464,12 +464,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
-    STKR SNat STKScalar{} ->  -- TODO: why not leave the check to astIndex?
+    STKR SNat STKScalar{} ->
       let i = fromIntegral it
       in if 0 <= i && i < sNatValue k
          then astIndex v rest1
          else astReplicate0N (dropShape $ shapeAst v) 0
-    STKR{} -> astIndex v rest1
+    STKR{} -> astIndex v rest1  -- TODO: document it's not 0 when out of bounds
 {- TODO: this generalization of the above case slows down test 3nestedSumBuild1
    orders of magnitude
   Ast.AstReplicate k v ->
@@ -530,11 +530,14 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatter{} ->  -- normal form
     Ast.AstIndex v0 ix
-  Ast.AstFromVector l | AstConcrete _ (RepN it) <- i1 ->
-    let i = fromIntegral it
-    in if 0 <= i && i < length l
-       then astIndex (l V.! i) rest1
-       else astReplicate0N (dropShape $ shapeAst v0) 0
+  Ast.AstFromVector @_ @y2 l | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
+    STKScalar{} ->
+      let i = fromIntegral it
+      in if 0 <= i && i < length l
+         then astIndex (l V.! i) rest1
+         else astReplicate0N (dropShape $ shapeAst v0) 0
+    _ -> astIndex (l V.! fromIntegral it) rest1
+      -- TODO: document it's not 0 when out of bounds
   Ast.AstFromVector{} | ZIR <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
@@ -659,7 +662,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 _snat v -> case stensorKind @y2 of
-    STKS sh _ -> withKnownShS sh $ astIndex v rest1
+    STKS sh _ -> withKnownShS sh $ astIndex v rest1  -- TODO: out of bounds?
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
     STKS sh _ -> withKnownShS sh $
       withListSh (Proxy @(shm1 ++ shn)) $ \_ ->
@@ -762,11 +765,15 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatterS{} ->  -- normal form
     Ast.AstIndexS v0 ix
-  Ast.AstFromVectorS l | AstConcrete _ (RepN it) <- i1 ->
-    let i = fromIntegral it
-    in if 0 <= i && i < length l
-       then astIndex (l V.! i) rest1
-       else astReplicate0NS 0
+  Ast.AstFromVectorS @_ @_ @y2 l
+   | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
+    STKScalar{} ->
+      let i = fromIntegral it
+      in if 0 <= i && i < length l
+         then astIndex (l V.! i) rest1
+         else astReplicate0NS 0
+    _ -> astIndex (l V.! fromIntegral it) rest1
+      -- TODO: document it's not 0 when out of bounds
   Ast.AstFromVectorS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
@@ -1578,20 +1585,23 @@ astScatterS (Ast.AstFromPrimal v) (vars, ix) =
   Ast.AstFromPrimal $ astScatterS v (vars, ix)
 astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
 
-astFromVector :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
-              => Data.Vector.Vector (AstTensor AstMethodLet s (TKR n r))
-              -> AstTensor AstMethodLet s (TKR (1 + n) r)
+astFromVector :: forall s r n. (KnownNat n, TensorKind2 r, AstSpan s)
+              => Data.Vector.Vector (AstTensor AstMethodLet s (TKR2 n r))
+              -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
 astFromVector v | V.length v == 1 = astReplicate (SNat @1) (v V.! 0)
 astFromVector l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstTensor AstMethodLet PrimalSpan (TKR n r) -> Maybe (Nested.Ranked n r)
-      unConst (AstConcrete _ (RepN t)) = Just t
+  let unConst :: AstTensor AstMethodLet PrimalSpan (TKR2 n r)
+              -> Maybe (FullTensorKind r, Nested.Ranked n (RepORArray r))
+      unConst (AstConcrete (FTKR _ x) (RepN t)) = Just (x, t)
       unConst _ = Nothing
   in case V.mapM unConst l of
-    Just  l3 | V.length l3 >= 1 ->
-      AstConcrete (FTKR (V.length l :$: Nested.rshape (l3 V.! 0)) FTKScalar) $ RepN $ tfromVectorR l3
+    Just l4 | Just ((x, _), _) <- V.uncons l4 ->
+      let l3 = V.map snd l4
+      in AstConcrete (FTKR (V.length l :$: Nested.rshape (l3 V.! 0)) x) $ RepN $ tfromVectorR l3
     _ -> Ast.AstFromVector l
 astFromVector l | Just Refl <- sameAstSpan @s @FullSpan =
-  let unFromPrimal :: AstTensor AstMethodLet FullSpan (TKR n r) -> Maybe (AstTensor AstMethodLet PrimalSpan (TKR n r))
+  let unFromPrimal :: AstTensor AstMethodLet FullSpan (TKR2 n r)
+                   -> Maybe (AstTensor AstMethodLet PrimalSpan (TKR2 n r))
       unFromPrimal (Ast.AstFromPrimal t) = Just t
       unFromPrimal _ = Nothing
   in case V.mapM unFromPrimal l of
@@ -1601,20 +1611,23 @@ astFromVector l | Just Refl <- sameAstSpan @s @FullSpan =
 astFromVector l = Ast.AstFromVector l
 
 astFromVectorS :: forall s r n sh.
-                  (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
-               => Data.Vector.Vector (AstTensor AstMethodLet s (TKS sh r))
-               -> AstTensor AstMethodLet s (TKS (n ': sh) r)
+                  (KnownNat n, KnownShS sh, TensorKind2 r, AstSpan s)
+               => Data.Vector.Vector (AstTensor AstMethodLet s (TKS2 sh r))
+               -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astFromVectorS v | V.length v == 1 = astReplicate SNat (v V.! 0)
 astFromVectorS l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstTensor AstMethodLet PrimalSpan (TKS sh r) -> Maybe (Nested.Shaped sh r)
-      unConst (AstConcrete _ (RepN t)) = Just t
+  let unConst :: AstTensor AstMethodLet PrimalSpan (TKS2 sh r)
+              -> Maybe (FullTensorKind r, Nested.Shaped sh (RepORArray r))
+      unConst (AstConcrete (FTKS _ x) (RepN t)) = Just (x, t)
       unConst _ = Nothing
   in case V.mapM unConst l of
-    Just l3 -> AstConcrete (FTKS knownShS FTKScalar) $ RepN $ tfromVectorS l3
-    Nothing -> Ast.AstFromVectorS l
+    Just l4 | Just ((x, _), _) <- V.uncons l4 ->
+      let l3 = V.map snd l4
+      in AstConcrete (FTKS knownShS x) $ RepN $ tfromVectorS l3
+    _ -> Ast.AstFromVectorS l
 astFromVectorS l | Just Refl <- sameAstSpan @s @FullSpan =
-  let unFromPrimal :: AstTensor AstMethodLet FullSpan (TKS sh r)
-                 -> Maybe (AstTensor AstMethodLet PrimalSpan (TKS sh r))
+  let unFromPrimal :: AstTensor AstMethodLet FullSpan (TKS2 sh r)
+                   -> Maybe (AstTensor AstMethodLet PrimalSpan (TKS2 sh r))
       unFromPrimal (Ast.AstFromPrimal t) = Just t
       unFromPrimal _ = Nothing
   in case V.mapM unFromPrimal l of

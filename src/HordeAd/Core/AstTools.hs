@@ -92,10 +92,12 @@ ftkAst t = case t of
   AstScatter sh _ _ -> FTKR sh FTKScalar
   AstFromVector l -> case V.toList l of
     [] -> case stensorKind @y of
-      STKR @n SNat _ -> case sameNat (Proxy @n) (Proxy @1) of
+      STKR @n SNat STKScalar{} -> case sameNat (Proxy @n) (Proxy @1) of
         Just Refl -> FTKR (0 :$: ZSR) FTKScalar
         Nothing -> error "ftkAst: AstFromVector with no arguments"
-    v : _ -> FTKR (V.length l :$: shapeAst v) FTKScalar
+      _ -> error "ftkAst: AstFromVector with no arguments"
+    v : _ -> case ftkAst v of
+      FTKR sh x -> FTKR (V.length l :$: sh) x
   AstAppend x y -> case shapeAst x of
     ZSR -> error "ftkAst: impossible pattern needlessly required"
     xi :$: xsh -> case shapeAst y of
@@ -131,7 +133,13 @@ ftkAst t = case t of
     FTKS _sh1sh2 x -> FTKS knownShS x
   AstSumS{} -> FTKS knownShS FTKScalar
   AstScatterS{} -> FTKS knownShS FTKScalar
-  AstFromVectorS{} -> FTKS knownShS FTKScalar
+  AstFromVectorS l -> case V.toList l of
+    [] -> case stensorKind @y of
+      STKS _ STKScalar{} -> FTKS knownShS FTKScalar
+        -- the only case where we can guess the x
+      _ -> error "ftkAst: AstFromVectorS with no arguments"
+    d : _ -> case ftkAst d of
+      FTKS _ x -> FTKS knownShS x
   AstAppendS{} -> FTKS knownShS FTKScalar
   AstSliceS{} -> FTKS knownShS FTKScalar
   AstReverseS v -> ftkAst v

@@ -165,7 +165,7 @@ convMnistTestS kh@SNat kw@SNat
         in nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
       outputs = map (Nested.stoVector . unRepN) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
-      labels = map (Nested.stoVector . unRepN) $ sunravelToList
+      labels = map (Nested.stoVector . unRepN) $ sunravelToList @_ @(TKScalar r)
                $ RepN labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1

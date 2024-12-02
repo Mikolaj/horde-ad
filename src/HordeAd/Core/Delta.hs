@@ -434,9 +434,9 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorR :: (KnownNat n, GoodScalar r)
-              => Data.Vector.Vector (Delta target (TKR n r))
-              -> Delta target (TKR (1 + n) r)
+  FromVectorR :: (KnownNat n, TensorKind2 r)
+              => Data.Vector.Vector (Delta target (TKR2 n r))
+              -> Delta target (TKR2 (1 + n) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateR :: (GoodScalar r, KnownNat n)
              => Int -> Delta target (TKR n r)
@@ -515,9 +515,9 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorS :: (GoodScalar r, KnownShS sh, KnownNat n)
-              => Data.Vector.Vector (Delta target (TKS sh r))
-              -> Delta target (TKS (n ': sh) r)
+  FromVectorS :: (TensorKind2 r, KnownShS sh, KnownNat n)
+              => Data.Vector.Vector (Delta target (TKS2 sh r))
+              -> Delta target (TKS2 (n ': sh) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateS :: forall target r n sh.
                 (GoodScalar r, KnownShS sh, KnownNat n)
@@ -674,10 +674,13 @@ shapeDeltaFull = \case
   ScatterR sh _ _ -> FTKR sh FTKScalar
   FromVectorR l -> case V.toList l of
     [] -> case stensorKind @y of
-      STKR @n SNat _ -> case sameNat (Proxy @n) (Proxy @1) of
-        Just Refl -> FTKR (singletonShape 0) FTKScalar  -- the only case where we can guess sh
+      STKR @n SNat STKScalar{} -> case sameNat (Proxy @n) (Proxy @1) of
+        Just Refl -> FTKR (singletonShape 0) FTKScalar
+          -- the only case where we can guess the shape and x
         _ -> error "shapeDeltaFull: FromVectorR with no arguments"
-    d : _ -> FTKR (length l :$: shapeDelta d) FTKScalar
+      _ -> error "shapeDeltaFull: FromVectorR with no arguments"
+    d : _ -> case shapeDeltaFull d of
+      FTKR sh x -> FTKR (length l :$: sh) x
   ReplicateR n d -> FTKR (n :$: shapeDelta d) FTKScalar
   AppendR x y -> case shapeDelta x of
     ZSR -> error "shapeDeltaFull: impossible pattern needlessly required"
@@ -702,7 +705,13 @@ shapeDeltaFull = \case
   Sum0S{} -> FTKS knownShS FTKScalar
   Dot0S{} -> FTKS knownShS FTKScalar
   ScatterS{} -> FTKS knownShS FTKScalar
-  FromVectorS{} -> FTKS knownShS FTKScalar
+  FromVectorS l -> case V.toList l of
+    [] -> case stensorKind @y of
+      STKS _ STKScalar{} -> FTKS knownShS FTKScalar
+        -- the only case where we can guess the x
+      _ -> error "shapeDeltaFull: FromVectorS with no arguments"
+    d : _ -> case shapeDeltaFull d of
+      FTKS _ x -> FTKS knownShS x
   ReplicateS{} -> FTKS knownShS FTKScalar
   AppendS{} -> FTKS knownShS FTKScalar
   SliceS{} -> FTKS knownShS FTKScalar
@@ -1145,7 +1154,7 @@ evalSame !s !c = \case
     evalSame s (rgather (shapeDelta d) c f) d
   FromVectorR @n1 @r ld ->
     let cShared = tshare c
-        cxs :: [target (TKR n1 r)]
+        cxs :: [target (TKR2 n1 r)]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
