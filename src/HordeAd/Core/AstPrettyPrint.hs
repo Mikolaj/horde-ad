@@ -208,6 +208,11 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
+  AstGather _ v (ZR, ix) ->
+    showParen (d > 9)
+    $ printAst cfg 10 v
+      . showString " ! "
+      . showListWith (printAstInt cfg 0) (toList ix)
   AstGather sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("rgather " ++ show sh ++ " ")
@@ -432,6 +437,11 @@ printAstAux cfg d = \case
 -- TODO:    printPrefixOp printAst cfg d ("stranspose " ++ show (permToList perm)) [v]
   AstReshapeS v ->
     printPrefixOp printAst cfg d "sreshape" [v]
+  AstGatherS v (ZS, ix) ->
+    showParen (d > 9)
+    $ printAst cfg 10 v
+      . showString " !$ "
+      . showListWith (printAstInt cfg 0) (toList ix)
   AstGatherS v (vars, ix) ->
     showParen (d > 10)
     $ showString "sgather "
