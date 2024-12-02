@@ -188,18 +188,19 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 a2
   AstReplicate @y2 snat v -> case stensorKind @y2 of
-    STKScalar{} -> printPrefixOp printAst cfg d
-                                 ("rreplicate " ++ show (sNatValue snat)) [v]
+    STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]
-    STKX{} -> printPrefixOp printAst cfg d "xreplicate" [v]
-    STKProduct{} -> error "WIP"
-    STKUntyped -> error "WIP"
-  AstBuild1 @y2 k (var, v) -> case stensorKind @y2 of
-   STKScalar{} ->
+    STKX{} -> printPrefixOp printAst cfg d
+                            ("xreplicate " ++ show (sNatValue snat)) [v]
+    STKProduct{} -> printPrefixOp printAst cfg d
+                                  ("treplicate " ++ show (sNatValue snat)) [v]
+    STKUntyped -> printPrefixOp printAst cfg d
+                                ("treplicate " ++ show (sNatValue snat)) [v]
+  AstBuild1 @y2 k (var, v) ->
     showParen (d > 10)
-    $ showString "rbuild1 "
+    $ showString "tbuild1 "
       . shows k
       . showString " "
       . (showParen True
@@ -207,34 +208,6 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-   STKR{} ->
-    showParen (d > 10)
-    $ showString "rbuild1 "
-      . shows k
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAst cfg 0 v)
-   STKS{} ->
-    showParen (d > 10)
-    $ showString "sbuild1 "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAst cfg 0 v)
-   STKX{} ->
-    showParen (d > 10)
-    $ showString "xbuild1 "
-      . (showParen True
-         $ showString "\\"
-           . printAstIntVar cfg var
-           . showString " -> "
-           . printAst cfg 0 v)
-   STKProduct{} -> error "WIP"
-   STKUntyped -> error "WIP"
   AstGather sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("rgather " ++ show sh ++ " ")
