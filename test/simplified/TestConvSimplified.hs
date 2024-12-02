@@ -615,7 +615,7 @@ testCNNOPP2 :: Assertion
 testCNNOPP2 = do
   resetVarCounter
   printAstPretty IM.empty maxPool2dUnpadded2
-    @?= "rreplicate 1 (rreplicate 1 (let w38 = rtranspose [1,2,3,0] (rreplicate 1 (rgather [1,1,1,2,2] (rfromVector (fromList [rtranspose [1,2,0] (rreplicate 1 (let x27 = rreplicate 1 2 * 0 in rtranspose [0,2,1] (rreplicate 1 (rreplicate 2 (let x28 = rreplicate 1 2 * 0 in rreplicate 1 (rreplicate 2 (rfromVector (fromList [tconcrete (FTKR [1,1,2,2] FTKScalar) (rfromListLinear [1,1,2,2] [1.0,1.0,1.0,1.0]) ! [rreplicate 1 (rreplicate 1 1), 0, i27, i28], rscalar 0.0]) ! [ifF (1 >. rreplicate 1 (rreplicate 1 1)) 0 1]))))))), rreplicate 1 (rreplicate 1 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rscalar 0.0)))))])) (\\[i46, i40, i36] -> [ifF (1 >. 1 + i36) 0 1, i46, i40, i36]))) in rgather [1,1] w38 (\\[i45, i39] -> [i45, i39, 0, 0, 0, 0])))"
+    @?= "rreplicate 1 (rreplicate 1 (let w38 = rtranspose [1,2,3,0] (rreplicate 1 (rgather [1,1,1,2,2] (rfromVector (fromList [rtranspose [1,2,0] (rreplicate 1 (let x27 = 2 * 0 in rtranspose [0,2,1] (rreplicate 1 (rreplicate 2 (let x28 = 2 * 0 in rreplicate 1 (rreplicate 2 (rfromVector (fromList [tconcrete (FTKR [1,1,2,2] FTKScalar) (rfromListLinear [1,1,2,2] [1.0,1.0,1.0,1.0]) ! [1, 0, i27, i28], rscalar 0.0]) ! [ifF (1 >. 1) 0 1]))))))), rreplicate 1 (rreplicate 1 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rscalar 0.0)))))])) (\\[i46, i40, i36] -> [ifF (1 >. 1 + i36) 0 1, i46, i40, i36]))) in rgather [1,1] w38 (\\[i45, i39] -> [i45, i39, 0, 0, 0, 0])))"
 
 maxPool2dUnpadded2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
@@ -717,7 +717,9 @@ testCNNOPP4 = do
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded4 $ conv2dUnpadded4 blackGlyph
   printAstPretty IM.empty afcnn2T
-    @?= "rreplicate 1 (rreplicate 1 (let w36 = rgather [1,1,1,1,2,2] (rfromVector (fromList [rtranspose [2,3,0,1] (rreplicate 1 (rreplicate 1 (let x20 = rreplicate 1 2 * 0 in rtranspose [0,2,1] (rreplicate 1 (rreplicate 2 (let x12 = rreplicate 1 2 * 0 in rreplicate 1 (rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [7.0,0.0]) ! [ifF ((0 <=. rreplicate 1 (rreplicate 1 1) &&* 1 >. rreplicate 1 (rreplicate 1 1)) &&* ((0 <=. i20 &&* 2 >. i20) &&* (0 <=. i12 &&* 2 >. i12))) 0 1])))))))), rreplicate 1 (rreplicate 1 (rreplicate 1 (rgather [1,2,2] (rreplicate 2 (rreplicate 2 (rscalar 0.0))) (\\[i29, i26, i22] -> [i26, i22]))))])) (\\[i44, i38, i33, i30, i31, i32] -> [ifF ((0 <=. 1 + i33 &&* 1 >. 1 + i33) &&* ((0 <=. 1 + i30 &&* 1 >. 1 + i30) &&* ((0 <=. 2 * i44 + i31 &&* 2 >. 2 * i44 + i31) &&* (0 <=. 2 * i38 + i32 &&* 2 >. 2 * i38 + i32)))) 0 1, i44, i38, i33, i30, i31, i32]) in rgather [1,1] w36 (\\[i43, i37] -> [i43, i37, 0, 0, 0, 0])))"
+    @?= "rreplicate 1 (rreplicate 1 (let w36 = rgather [1,1,1,1,2,2] (rfromVector (fromList [rtranspose [2,3,0,1] (rreplicate 1 (rreplicate 1 (let x20 = 2 * 0 in rtranspose [0,2,1] (rreplicate 1 (rreplicate 2 (let x12 = 2 * 0 in rreplicate 1 (rreplicate 2 (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [7.0,0.0]) ! [ifF ((0 <=. 1 &&* 1 >. 1) &&* ((0 <=. i20 &&* 2 >. i20) &&* (0 <=. i12 &&* 2 >. i12))) 0 1])))))))), rreplicate 1 (rreplicate 1 (rreplicate 1 (rgather [1,2,2] (rreplicate 2 (rreplicate 2 (rscalar 0.0))) (\\[i29, i26, i22] -> [i26, i22]))))])) (\\[i44, i38, i33, i30, i31, i32] -> [ifF ((0 <=. 1 + i33 &&* 1 >. 1 + i33) &&* ((0 <=. 1 + i30 &&* 1 >. 1 + i30) &&* ((0 <=. 2 * i44 + i31 &&* 2 >. 2 * i44 + i31) &&* (0 <=. 2 * i38 + i32 &&* 2 >. 2 * i38 + i32)))) 0 1, i44, i38, i33, i30, i31, i32]) in rgather [1,1] w36 (\\[i43, i37] -> [i43, i37, 0, 0, 0, 0])))"
+  printAstPretty IM.empty (simplifyInline afcnn2T)
+    @?= "rreplicate 1 (rreplicate 1 (rreplicate 1 (rreplicate 1 (rscalar 0.0))))"
 
 maxPool2dUnpadded4
   :: (ADReady target, GoodScalar r)

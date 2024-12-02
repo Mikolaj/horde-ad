@@ -31,16 +31,13 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
 import Data.Array.Nested
-  ( IxS (..)
+  ( IxR (..)
+  , IxS (..)
   , KnownShS (..)
+  , ListR (..)
+  , ListS (..)
   , Rank
   , ShR (..)
-  , pattern (:$:)
-  , pattern (:.$)
-  , pattern (:.:)
-  , pattern ZIR
-  , pattern ZIS
-  , pattern ZSR
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -55,6 +52,7 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
+import HordeAd.Util.SizedList
 
 interpretAstPrimalRuntimeSpecialized
   :: forall target n r.
@@ -511,6 +509,8 @@ interpretAst !env = \case
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
+  AstScatter sh v (ZR, ix) ->
+    roneHot (takeShape sh) (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstScatter sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
@@ -537,6 +537,8 @@ interpretAst !env = \case
   AstReshape sh (AstLet var v (AstReplicate k t)) ->
     interpretAst env (AstLet var v (AstReshape sh (AstReplicate k t)))
   AstReshape sh v -> rreshape sh (interpretAst env v)
+  AstGather _ v (ZR, ix) ->
+    rindex (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstGather sh AstIotaR (vars, i :.: ZIR) ->
     rbuild sh (interpretLambdaIndex interpretAst env
                                     (vars, fromPrimal @s $ AstFromIntegralR $ AstRFromS $ AstFromScalar i))
@@ -758,6 +760,9 @@ interpretAst !env = \case
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
+  AstScatterS @_ @p @sh v (ZS, ix) ->
+    gcastWith (unsafeCoerce Refl :: Take p sh ++ Drop p sh :~: sh)
+    soneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstScatterS v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
@@ -781,6 +786,9 @@ interpretAst !env = \case
   AstReverseS v -> sreverse (interpretAst env v)
   AstTransposeS perm v -> stranspose perm $ interpretAst env v
   AstReshapeS v -> sreshape (interpretAst env v)
+  AstGatherS @_ @p @sh v (ZS, ix) ->
+    gcastWith (unsafeCoerce Refl :: Take p sh ++ Drop p sh :~: sh)
+    sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
     gcastWith (unsafeCoerce Refl :: Take (Rank sh2) sh2 :~: sh2)
     $ gcastWith (unsafeCoerce Refl :: Drop (Rank sh2) sh2 :~: '[])
