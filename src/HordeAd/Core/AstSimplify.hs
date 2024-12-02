@@ -377,14 +377,16 @@ astNonIndexStep t = case t of
 
 astIndexR
   :: forall m n s r.
-     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => AstTensor AstMethodLet s (TKR (m + n) r) -> AstIxR AstMethodLet m -> AstTensor AstMethodLet s (TKR n r)
+     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+  => AstTensor AstMethodLet s (TKR2 (m + n) r) -> AstIxR AstMethodLet m
+  -> AstTensor AstMethodLet s (TKR2 n r)
 astIndexR = astIndexKnobsR defaultKnobs
 
 astIndexStep
   :: forall m n s r.
-     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => AstTensor AstMethodLet s (TKR (m + n) r) -> AstIxR AstMethodLet m -> AstTensor AstMethodLet s (TKR n r)
+     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+  => AstTensor AstMethodLet s (TKR2 (m + n) r) -> AstIxR AstMethodLet m
+  -> AstTensor AstMethodLet s (TKR2 n r)
 astIndexStep v ix = astIndexKnobsR (defaultKnobs {knobStepOnly = True})
                                    (astNonIndexStep v)
                                    (simplifyAstIxR ix)
@@ -417,16 +419,18 @@ astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
 -- either from full recursive simplification or from astIndexStep.
 astIndexKnobsR
   :: forall m n s r.
-     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => SimplifyKnobs -> AstTensor AstMethodLet s (TKR (m + n) r) -> AstIxR AstMethodLet m
-  -> AstTensor AstMethodLet s (TKR n r)
+     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+  => SimplifyKnobs -> AstTensor AstMethodLet s (TKR2 (m + n) r)
+  -> AstIxR AstMethodLet m
+  -> AstTensor AstMethodLet s (TKR2 n r)
 astIndexKnobsR knobs (Ast.AstIndex v ix) ZIR =
   astIndexKnobsR knobs v ix  -- no non-indexing constructor yet revealed
 astIndexKnobsR _ v0 ZIR = v0
 astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
  let astIndexRec, astIndex
        :: forall m' n' s'. (KnownNat m', KnownNat n', AstSpan s')
-       => AstTensor AstMethodLet s' (TKR (m' + n') r) -> AstIxR AstMethodLet m' -> AstTensor AstMethodLet s' (TKR n' r)
+       => AstTensor AstMethodLet s' (TKR2 (m' + n') r) -> AstIxR AstMethodLet m'
+       -> AstTensor AstMethodLet s' (TKR2 n' r)
      astIndexRec v2 ZIR = v2
      astIndexRec v2 ix2 = if knobStepOnly knobs
                           then Ast.AstIndex v2 ix2
@@ -437,11 +441,11 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
                                            (simplifyAstIxR ix2)
                        else astIndexKnobsR knobs v2 ix2
      astGather
-       :: forall m' n' p'.
-          (KnownNat m', KnownNat p', KnownNat n')
-       => IShR (m' + n') -> AstTensor AstMethodLet s (TKR (p' + n') r)
+       :: forall m' n' p' r'.
+          (GoodScalar r', KnownNat m', KnownNat p', KnownNat n')
+       => IShR (m' + n') -> AstTensor AstMethodLet s (TKR (p' + n') r')
        -> (AstVarList m', AstIxR AstMethodLet p')
-       -> AstTensor AstMethodLet s (TKR (m' + n') r)
+       -> AstTensor AstMethodLet s (TKR (m' + n') r')
      astGather sh2 v2 (vars2, ix2) =
        if knobStepOnly knobs
        then astGatherKnobsR knobs
@@ -460,11 +464,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
-    STKR SNat _ ->
+    STKR SNat STKScalar{} ->  -- TODO: why not leave the check to astIndex?
       let i = fromIntegral it
       in if 0 <= i && i < sNatValue k
          then astIndex v rest1
          else astReplicate0N (dropShape $ shapeAst v) 0
+    STKR{} -> astIndex v rest1
 {- TODO: this generalization of the above case slows down test 3nestedSumBuild1
    orders of magnitude
   Ast.AstReplicate k v ->
@@ -558,7 +563,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     astIndex (astReshapeAsGather knobs sh v) ix
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather @_ @n7 (_ :$: sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
-    let w :: AstTensor AstMethodLet s (TKR (m1 + n) r)
+    let w :: AstTensor AstMethodLet s (TKR2 (m1 + n) r)
         w = gcastWith (unsafeCoerce Refl :: m1 + n :~: m71 + n7) $
             astGather sh' v (vars, ix2)
     in astLet var2 i1 $ astIndex w rest1
@@ -566,7 +571,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     error "astIndex: AstGather: impossible pattern needlessly required"
   Ast.AstCastR t -> astCastR $ astIndexKnobsR knobs t ix
   Ast.AstFromIntegralR v -> astFromIntegralR $ astIndexKnobsR knobs v ix
-  AstConcrete _ t ->
+  AstConcrete (FTKR _ x) t ->
     let unConst :: AstInt AstMethodLet -> Maybe [Int64]
                 -> Maybe [Int64]
         unConst (AstConcrete _ (RepN i)) (Just l) = Just $ i : l
@@ -574,7 +579,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     in case foldr unConst (Just []) ix of
       Just ixInt ->
         let u = tindexZR (unRepN t) $ listToIndex ixInt
-        in AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
+        in AstConcrete (FTKR (Nested.rshape u) x) $ RepN u
           -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstProjectR{} -> Ast.AstIndex v0 ix

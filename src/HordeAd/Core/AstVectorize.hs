@@ -337,8 +337,10 @@ build1V snat@SNat (var, v0) =
     Ast.AstSumOfListR args -> traceRule $
       astSumOfListR $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
-    Ast.AstIndex v ix -> traceRule $
-      build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
+    Ast.AstIndex v ix -> traceRule $ case stensorKind @y of
+      STKR _ STKScalar{} ->
+        build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
+      _ -> error "TODO"
     Ast.AstSum v -> traceRule $
       astSum $ astTr $ build1V snat (var, v)
     Ast.AstScatter sh v (vars, ix) -> traceRule $

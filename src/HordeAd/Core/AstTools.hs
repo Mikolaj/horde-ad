@@ -86,7 +86,8 @@ ftkAst t = case t of
   AstSumOfListR args -> case args of
     [] -> error "ftkAst: AstSumOfListR with no arguments"
     v : _ -> ftkAst v
-  AstIndex v _is -> FTKR (dropShape $ shapeAst v) FTKScalar
+  AstIndex v _ -> case ftkAst v of
+    FTKR sh x -> FTKR (dropShape sh) x
   AstSum v -> FTKR (tailShape $ shapeAst v) FTKScalar
   AstScatter sh _ _ -> FTKR sh FTKScalar
   AstFromVector l -> case V.toList l of

@@ -306,9 +306,9 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ >=. D v _ = u >=. v
 
 indexPrimal :: ( ADReadyNoLet target
-               , KnownNat m, KnownNat n, GoodScalar r )
-            => ADVal target (TKR (m + n) r) -> IxROf target m
-            -> ADVal target (TKR n r)
+               , KnownNat m, KnownNat n, TensorKind2 r )
+            => ADVal target (TKR2 (m + n) r) -> IxROf target m
+            -> ADVal target (TKR2 n r)
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
 fromVector :: ( ADReadyNoLet target

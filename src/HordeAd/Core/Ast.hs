@@ -347,9 +347,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                   -> AstTensor ms PrimalSpan (TKR n r2)
   AstIotaR :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
 
-  AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, GoodScalar r)
-           => AstTensor ms s (TKR (m + n) r) -> AstIxR ms m
-           -> AstTensor ms s (TKR n r)
+  AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, TensorKind2 r)
+           => AstTensor ms s (TKR2 (m + n) r) -> AstIxR ms m
+           -> AstTensor ms s (TKR2 n r)
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value

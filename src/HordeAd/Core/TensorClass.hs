@@ -192,30 +192,33 @@ class ( Num (IntOf target)
 
   -- First index is for outermost dimension; empty index means identity,
   -- index ouf of bounds produces zero (but beware of vectorization).
-  rindex, (!) :: (GoodScalar r, KnownNat m, KnownNat n)
-              => target (TKR (m + n) r) -> IxROf target m -> target (TKR n r)
+  rindex, (!) :: (TensorKind2 r, KnownNat m, KnownNat n)
+              => target (TKR2 (m + n) r) -> IxROf target m -> target (TKR2 n r)
   infixl 9 !
   (!) = rindex  -- prefix form better when type applications are necessary
-  rindex0 :: (GoodScalar r, KnownNat m)
-          => target (TKR m r) -> IxROf target m -> target (TKR 0 r)
+  rindex0 :: (TensorKind2 r, KnownNat m)
+          => target (TKR2 m r) -> IxROf target m -> target (TKR2 0 r)
   rindex0 = rindex
   roneHot :: forall r m n.
-             ( GoodScalar r, KnownNat m, KnownNat n
+             ( TensorKind2 r, KnownNat m, KnownNat n
              , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
              , EqF (PrimalOf target) )
-          => IShR m -> target (TKR n r) -> IxROf target m -> target (TKR (m + n) r)
-  roneHot sh v ix = case STKScalar (typeRep @r) of
-    STKScalar{} | True && not False ->
+          => IShR m -> target (TKR2 n r) -> IxROf target m
+          -> target (TKR2 (m + n) r)
+  roneHot sh v ix = case stensorKind @r of
+    STKScalar{} ->
       rscatter @_ @_ @0
                (Nested.Internal.Shape.shrAppend sh (rshape v)) v (const ix)
-    _ -> let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+    _ -> undefined {- TODO: re-add when rbuild generalized:
+         let x = case tftk (STKR (SNat @n) (stensorKind @r)) v of
+               FTKR _ x' -> x'
+             f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                           $ zip (toList ix) (toList ix2))
                          (rindex0 v (dropIndex ix2))
-                         (rscalar 0)
+                         (tconcrete (FTKR ZSR x) 0)
          in rbuild (Nested.Internal.Shape.shrAppend sh (rshape v)) f
-           -- TODO: rbuild needs to be generalized to really generalize toneHot
-           -- TODO: if this is used, maybe express this as the gather that
-           -- would come out of vectorization, making sure it simplifies well
+           -- TODO: if this is used often, maybe express this as the gather that
+           -- would come out of vectorization, making sure it simplifies well -}
   rsum :: (GoodScalar r, KnownNat n) => target (TKR (1 + n) r) -> target (TKR n r)
   rsum0 :: (GoodScalar r, KnownNat n) => target (TKR n r) -> target (TKR 0 r)
   rsum0 = rsum . rflatten

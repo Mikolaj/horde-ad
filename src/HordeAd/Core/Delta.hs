@@ -409,9 +409,9 @@ data Delta :: Target -> TensorKindType -> Type where
   AddG :: Num (target y)
        => Delta target y -> Delta target y -> Delta target y
 
-  IndexR :: (GoodScalar r, KnownNat n, KnownNat m)
-         => Delta target (TKR (m + n) r) -> IxROf target m
-         -> Delta target (TKR n r)
+  IndexR :: (TensorKind2 r, KnownNat n, KnownNat m)
+         => Delta target (TKR2 (m + n) r) -> IxROf target m
+         -> Delta target (TKR2 n r)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
   SumR :: (GoodScalar r, KnownNat n)
@@ -666,7 +666,8 @@ shapeDeltaFull = \case
   ScaleG _ d -> shapeDeltaFull d
   AddG d _ -> shapeDeltaFull d
 
-  IndexR d _ -> FTKR (dropShape (shapeDelta d)) FTKScalar
+  IndexR d _ -> case shapeDeltaFull d of
+    FTKR sh x -> FTKR (dropShape sh) x
   SumR d -> FTKR (tailShape (shapeDelta d)) FTKScalar
   Sum0R{} -> FTKR ZSR FTKScalar
   Dot0R{} -> FTKR ZSR FTKScalar
@@ -694,7 +695,7 @@ shapeDeltaFull = \case
   RFromH d i -> FTKR (listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
   IndexS d _ix -> case shapeDeltaFull d of
-    FTKS _sh1sh2 ftkr -> FTKS knownShS ftkr
+    FTKS _ x -> FTKS knownShS x
   SumS{} -> FTKS knownShS FTKScalar
   Sum0S{} -> FTKS knownShS FTKScalar
   Dot0S{} -> FTKS knownShS FTKScalar
@@ -736,10 +737,10 @@ shapeDeltaFull = \case
       FTKProduct accShs (buildFullTensorKind k bShs)
 
 shapeDelta :: forall target r n.
-              (GoodScalar r, KnownNat n)
-           => Delta target (TKR n r) -> IShR n
+              (TensorKind2 r, KnownNat n)
+           => Delta target (TKR2 n r) -> IShR n
 shapeDelta t = case shapeDeltaFull t of
-  FTKR sh FTKScalar -> sh
+  FTKR sh _ -> sh
 
 lengthDelta :: forall target r n.
                (GoodScalar r, KnownNat n)

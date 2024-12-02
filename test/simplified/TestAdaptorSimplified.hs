@@ -1434,7 +1434,7 @@ fooNoGo v =
   in rbuild1 3 (\ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                             ix = sfromR $ rfromScalar ix' in
        bar (rscalar 3.14, bar (rscalar 3.14, rindex v [rtoScalar $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
-       + ifF ((&&*) (rindex @target @r @1 v [ix' * 2] <=. rscalar 0)
+       + ifF ((&&*) (rindex @target @(TKScalar r) @1 v [ix' * 2] <=. rscalar 0)
                     (sscalar 6 >. abs ix))
                r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
