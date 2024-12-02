@@ -792,8 +792,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
               Nested.Internal.Shape.ixsPermutePrefix perm ix
         in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm ++ shn) $
            astIndex @shmPerm v ix2
-  Ast.AstReshapeS v ->
-    astIndex (astReshapeAsGatherS knobs v) ix
+  Ast.AstReshapeS v -> case stensorKind @r of
+    STKScalar{} ->
+      astIndex (astReshapeAsGatherS knobs v) ix
+    _ -> Ast.AstIndexS v0 ix
   Ast.AstGatherS @_ @p @sh v (ZS, ix2) ->
     withShapeP (shapeT @(Take p sh) ++ shapeT @shm)
     $ \(Proxy @sh1n) ->
@@ -2038,8 +2040,8 @@ astReshape shOut = \case
 
 astReshapeS :: forall sh sh2 r s.
                ( KnownShS sh, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2
-               , GoodScalar r, AstSpan s )
-            => AstTensor AstMethodLet s (TKS sh r) -> AstTensor AstMethodLet s (TKS sh2 r)
+               , TensorKind2 r, AstSpan s )
+            => AstTensor AstMethodLet s (TKS2 sh r) -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astReshapeS = \case
   Ast.AstReplicate @y2 (SNat @k) x
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
@@ -2056,7 +2058,8 @@ astReshapeS = \case
   Ast.AstFromVectorS @n l | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
     astReshapeS $ l V.! 0
   Ast.AstReshapeS v -> astReshapeS @_ @sh2 v
-  AstConcrete _ t -> AstConcrete (FTKS knownShS FTKScalar) $ RepN $ treshapeS (unRepN t)
+  AstConcrete (FTKS _ x) t -> AstConcrete (FTKS knownShS x)
+                              $ RepN $ treshapeS (unRepN t)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS v
   v -> case sameShape @sh @sh2 of
          Just Refl -> v
@@ -2868,6 +2871,15 @@ expandAst t = case t of
                          sh
                          (expandAst v)
         -- this is expensive but the only way to guarantee full simplification
+{- TODO:
+    _ -> case stensorKind @x of
+      STKScalar{} ->  -- not nf, let's express all as a gather
+        astReshapeAsGather (defaultKnobs {knobExpand = True})
+                           sh
+                           (expandAst v)
+          -- this is expensive but the only way to guarantee full simplification
+      _ -> t  -- or not
+-}
   Ast.AstGather sh v (vars, ix) ->
     astGatherKnobsR (defaultKnobs {knobExpand = True})
                     sh (expandAst v) (vars, expandAstIxR ix)

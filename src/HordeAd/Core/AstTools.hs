@@ -139,7 +139,8 @@ ftkAst t = case t of
                              (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
         gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
         FTKS knownShS FTKScalar
-  AstReshapeS{} -> FTKS knownShS FTKScalar
+  AstReshapeS v -> case ftkAst v of
+    FTKS _ x -> FTKS knownShS x
   AstGatherS{} -> FTKS knownShS FTKScalar
   AstCastS{} -> FTKS knownShS FTKScalar
   AstFromIntegralS{} -> FTKS knownShS FTKScalar

@@ -592,7 +592,8 @@ class ( Num (IntOf target)
                    (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
                 => Data.Vector.Vector (target (TKS '[] r))
                 -> target (TKS sh r)
-  sfromVector0N = sreshape @target @r @'[Nested.Product sh] @sh . sfromVector
+  sfromVector0N =
+    sreshape @target @(TKScalar r) @'[Nested.Product sh] @sh . sfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
@@ -607,7 +608,7 @@ class ( Num (IntOf target)
   sreplicate0N :: forall r sh.
                   (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
                => target (TKS '[] r) -> target (TKS sh r)
-  sreplicate0N = sreshape @target @r @'[Nested.Product sh] @sh
+  sreplicate0N = sreshape @target @(TKScalar r) @'[Nested.Product sh] @sh
                  . sreplicate @target @(Nested.Product sh)
   sappend :: (GoodScalar r, KnownNat m, KnownNat n, KnownShS sh)
           => target (TKS (m ': sh) r) -> target (TKS (n ': sh) r)
@@ -634,12 +635,12 @@ class ( Num (IntOf target)
                 , Rank perm <= Rank sh, GoodScalar r )
              => Permutation.Perm perm -> target (TKS sh r)
              -> target (TKS (Permutation.PermutePrefix perm sh) r)
-  sflatten :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-           => target (TKS sh r) -> target (TKS '[Nested.Product sh] r)
+  sflatten :: (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))
+           => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
   sflatten = sreshape
-  sreshape :: ( GoodScalar r, KnownShS sh, KnownShS sh2
+  sreshape :: ( TensorKind2 r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2 )
-           => target (TKS sh r) -> target (TKS sh2 r)
+           => target (TKS2 sh r) -> target (TKS2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   sbuild :: forall r m sh. (GoodScalar r, KnownShS sh, KnownShS (Take m sh))

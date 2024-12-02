@@ -548,11 +548,11 @@ data Delta :: Target -> TensorKindType -> Type where
              -> Delta target (TKS sh r)
              -> Delta target (TKS (Permutation.PermutePrefix perm sh) r)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: ( GoodScalar r, KnownShS sh, KnownShS sh2
+  ReshapeS :: ( TensorKind2 r, KnownShS sh, KnownShS sh2
               , Nested.Product sh
                 ~ Nested.Product sh2 )
-           => Delta target (TKS sh r)
-           -> Delta target (TKS sh2 r)
+           => Delta target (TKS2 sh r)
+           -> Delta target (TKS2 sh2 r)
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall target r sh2 p sh.
              ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
@@ -710,7 +710,8 @@ shapeDeltaFull = \case
                              (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
         gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
         FTKS knownShS FTKScalar
-  ReshapeS{} -> FTKS knownShS FTKScalar
+  ReshapeS d -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS knownShS x
   GatherS{} -> FTKS knownShS FTKScalar
   CastS{} -> FTKS knownShS FTKScalar
   NestS d -> case shapeDeltaFull d of

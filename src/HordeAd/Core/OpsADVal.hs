@@ -388,9 +388,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   stranspose perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
     dD (stranspose perm u) (TransposeS @_ @_ @_ @target perm u')
   sreshape :: forall sh sh2 r.
-              ( GoodScalar r, KnownShS sh, KnownShS sh2
+              ( TensorKind2 r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2)
-           => ADVal target (TKS sh r) -> ADVal target (TKS sh2 r)
+           => ADVal target (TKS2 sh r) -> ADVal target (TKS2 sh2 r)
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
