@@ -196,6 +196,8 @@ class ( Num (IntOf target)
   rindex0 :: (GoodScalar r, KnownNat m)
           => target (TKR m r) -> IxROf target m -> target (TKR 0 r)
   rindex0 = rindex
+  roneHot :: (GoodScalar r, KnownNat m, KnownNat n)
+          => IShR m -> target (TKR n r) -> IxROf target m -> target (TKR (m + n) r)
   rsum :: (GoodScalar r, KnownNat n) => target (TKR (1 + n) r) -> target (TKR n r)
   rsum0 :: (GoodScalar r, KnownNat n) => target (TKR n r) -> target (TKR 0 r)
   rsum0 = rsum . rflatten
@@ -430,6 +432,11 @@ class ( Num (IntOf target)
             , KnownShX (sh1 ++ sh2) )
          => target (TKX (sh1 ++ sh2) r) -> IxXOf target sh1
          -> target (TKX sh2 r)
+  xoneHot :: forall r sh1 sh2.
+             ( GoodScalar r, KnownShX sh1, KnownShX sh2
+             , KnownShX (sh1 ++ sh2) )
+          => IShX sh1 -> target (TKX sh2 r) -> IxXOf target sh1
+          -> target (TKX (sh1 ++ sh2) r)
   xfromVector :: (GoodScalar r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX sh r))
               -> target (TKX (Just n ': sh) r)
@@ -493,6 +500,11 @@ class ( Num (IntOf target)
           -> target (TKS2 '[] r)
   sindex0 = gcastWith (unsafeCoerce Refl :: sh1 ++ '[] :~: sh1)
               sindex
+  soneHot  :: forall r sh1 sh2.
+              ( TensorKind2 r, KnownShS sh1, KnownShS sh2
+              , KnownShS (sh1 ++ sh2) )
+           => target (TKS2 sh2 r) -> IxSOf target sh1
+           -> target (TKS2 (sh1 ++ sh2) r)
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
        => target (TKS (n ': sh) r) -> target (TKS sh r)
   ssum0 :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))

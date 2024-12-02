@@ -17,7 +17,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.Random
 
-import Data.Array.Nested (KnownShS (..), Rank)
+import Data.Array.Nested (KnownShS (..), Rank, type (++))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
@@ -82,6 +82,7 @@ instance BaseTensor RepN where
   rfloor = RepN . tfloorR . unRepN
   rindex v ix = RepN $ tindexZR (unRepN v) (fmap unRepN $ ix)
   rindex0 v ix = RepN . tscalarR $ tindex0R (unRepN v) (fmap unRepN $ ix)
+  roneHot sh v ix = RepN $ toneHotR sh (unRepN v) (fmap unRepN $ ix)
   rsum = RepN . tsumR . unRepN
   rsum0 = RepN . tscalarR . tsum0R . unRepN
   rdot0 u v = RepN $ tscalarR $ tdot0R (unRepN u) (unRepN v)
@@ -129,6 +130,7 @@ instance BaseTensor RepN where
 
   xshape = Nested.mshape . unRepN
   xindex = error "TODO"
+  xoneHot = error "TODO"
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
   xtoScalar = RepN . Nested.munScalar . unRepN
@@ -148,6 +150,14 @@ instance BaseTensor RepN where
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
   sindex v ix = RepN $ tindexZS (unRepN v) (fmap unRepN $ ix)
   sindex0 v ix = RepN . tscalarS $ tindex0S (unRepN v) (fmap unRepN $ ix)
+  soneHot  :: forall r sh1 sh2.
+              ( TensorKind2 r, KnownShS sh2
+              , KnownShS (sh1 ++ sh2) )
+           => RepN (TKS2 sh2 r) -> IxSOf RepN sh1
+           -> RepN (TKS2 (sh1 ++ sh2) r)
+  soneHot v ix = case stensorKind @r of
+    STKScalar{} -> RepN $ toneHotS (unRepN v) (fmap unRepN $ ix)
+    _ -> error "TODO"
   ssum = RepN . tsumS . unRepN
   ssum0 = RepN . tscalarS . tsum0S . unRepN
   sdot0 u v = RepN $ tscalarS $ tdot0S (unRepN u) (unRepN v)

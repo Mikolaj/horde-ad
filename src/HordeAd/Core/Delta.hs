@@ -63,7 +63,6 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
@@ -93,7 +92,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (dropIxS)
 import HordeAd.Util.SizedList
 
 type IMap target = DEnumMap (InputId target) (RepM target)
@@ -416,6 +414,9 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKR n r)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
+  OneHotR :: (GoodScalar r, KnownNat n, KnownNat m)
+          => IShR m -> Delta target (TKR n r) -> IxROf target m
+          -> Delta target (TKR (m + n) r)
   SumR :: (GoodScalar r, KnownNat n)
        => Delta target (TKR (1 + n) r) -> Delta target (TKR n r)
   Sum0R :: (GoodScalar r, KnownNat n)
@@ -492,6 +493,10 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKS2 sh2 r)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
+  OneHotS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), TensorKind2 r)
+          => Delta target (TKS2 sh2  r)
+          -> IxSOf target sh1
+          -> Delta target (TKS2 (sh1 ++ sh2)r)
   SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
        => Delta target (TKS (n ': sh) r) -> Delta target (TKS sh r)
   Sum0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
@@ -669,6 +674,8 @@ shapeDeltaFull = \case
   AddG d _ -> shapeDeltaFull d
 
   IndexR d _ -> FTKR (dropShape (shapeDelta d)) FTKScalar
+  OneHotR sh d _ ->
+    FTKR (Nested.Internal.Shape.shrAppend sh (shapeDelta d)) FTKScalar
   SumR d -> FTKR (tailShape (shapeDelta d)) FTKScalar
   Sum0R{} -> FTKR ZSR FTKScalar
   Dot0R{} -> FTKR ZSR FTKScalar
@@ -697,6 +704,8 @@ shapeDeltaFull = \case
 
   IndexS d _ix -> case shapeDeltaFull d of
     FTKS _sh1sh2 ftkr -> FTKS knownShS ftkr
+  OneHotS d _ -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS knownShS x
   SumS{} -> FTKS knownShS FTKScalar
   Sum0S{} -> FTKS knownShS FTKScalar
   Dot0S{} -> FTKS knownShS FTKScalar
@@ -1131,14 +1140,9 @@ evalSame !s !c = \case
               in evalSame (evalSame s cShared d) cShared e
 
   IndexR d ix ->
-    let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                     $ zip (toList ix) (toList ix2))
-                    (rindex0 c (dropIndex ix2))
-                    (rscalar 0)
-    in evalSame s (rbuild (shapeDelta d) f) d
-    -- equivalent: evalSame s (rscatter @target @_ @0
-    --                                  (shapeDelta d) c (const ix)) d
-    -- equivalent: evalSame s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
+    evalSame s (roneHot (dropShape $ shapeDelta d) c ix) d
+  OneHotR _sh d ix ->
+    evalSame s (rindex c ix) d
   SumR d ->
     evalSame s (rreplicate (lengthDelta d) c) d
   Sum0R d ->
@@ -1202,14 +1206,10 @@ evalSame !s !c = \case
                :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
     withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
     gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
-    let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                     $ zip (toList ix) (toList ix2))
-                    (sindex0 c (dropIxS @(Rank sh1) ix2))
-                    (sscalar 0)
-    in evalSame s (sbuild @_ @_ @(Rank (sh1 ++ sh)) f) d
-    -- equivalent: evalSame s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
-    -- equivalent: evalSame s (updateNR (replicate0NR sh 0) [(ix, c)]) d
+    evalSame s (soneHot c ix) d
    _ -> error "TODO: sbuild needs to be generalized, too"
+  OneHotS d ix ->
+    evalSame s (sindex c ix) d
   SumS d ->
     evalSame s (sreplicate c) d
   Sum0S d ->
@@ -1550,6 +1550,7 @@ fwdSame params s = \case
               in (s3, t + u)
 
   IndexR d ix -> second (`rindex` ix) $ fwdSame params s d
+  OneHotR sh d ix -> second (\v -> roneHot sh v ix) $ fwdSame params s d
   SumR d -> second rsum $ fwdSame params s d
   Sum0R ZeroG{} -> (s, rscalar 0)
   Sum0R d -> second rsum0 $ fwdSame params s d
@@ -1591,6 +1592,7 @@ fwdSame params s = \case
 --  in (s2, rfromD $ tunvector v) V.! i)
 
   IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
+  OneHotS d ix -> second (\v -> soneHot v ix) $ fwdSame params s d
   SumS d -> second ssum $ fwdSame params s d
   Sum0S ZeroG{} -> (s, srepl 0)
   Sum0S d -> second ssum0 $ fwdSame params s d

@@ -334,6 +334,12 @@ printAstAux cfg d = \case
     $ printAst cfg 10 v
       . showString " ! "
       . showListWith (printAstInt cfg 0) (indexToList ix)
+  AstOneHot sh v ix ->
+    showParen (d > 9)
+    $ showString ("roneHot " ++ show sh ++ " ")
+      . printAst cfg 11 v
+      . showString " "
+      . showListWith (printAstInt cfg 0) (indexToList ix)
   AstSum v -> printPrefixOp printAst cfg d "rsum" [v]
   AstScatter sh v (vars, ix) ->
     showParen (d > 10)
@@ -414,6 +420,12 @@ printAstAux cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix)
+  AstOneHotS v ix ->
+    showParen (d > 9)
+    $ showString "soneHot "
+      . printAst cfg 11 v
+      . showString " "
+      . showListWith (printAstInt cfg 0) (indexToList ix)
   AstSumS v -> printPrefixOp printAst cfg d "ssum" [v]
   AstScatterS v (vars, ix) ->
     showParen (d > 10)

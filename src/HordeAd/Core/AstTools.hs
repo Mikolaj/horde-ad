@@ -87,6 +87,8 @@ ftkAst t = case t of
     [] -> error "ftkAst: AstSumOfListR with no arguments"
     v : _ -> ftkAst v
   AstIndex v _is -> FTKR (dropShape $ shapeAst v) FTKScalar
+  AstOneHot sh v _ ->
+    FTKR (Nested.Internal.Shape.shrAppend sh (shapeAst v)) FTKScalar
   AstSum v -> FTKR (tailShape $ shapeAst v) FTKScalar
   AstScatter sh _ _ -> FTKR sh FTKScalar
   AstFromVector l -> case V.toList l of
@@ -127,6 +129,8 @@ ftkAst t = case t of
   AstSumOfListS{} -> FTKS knownShS FTKScalar
   AstIndexS v _ix -> case ftkAst v of
     FTKS _sh1sh2 x -> FTKS knownShS x
+  OneHotS v _ -> case ftkAst v of
+    FTKS _ x -> FTKS knownShS x
   AstSumS{} -> FTKS knownShS FTKScalar
   AstScatterS{} -> FTKS knownShS FTKScalar
   AstFromVectorS{} -> FTKS knownShS FTKScalar
@@ -236,6 +240,7 @@ varInAst var = \case
   AstI2R _ t u -> varInAst var t || varInAst var u
   AstSumOfListR l -> any (varInAst var) l
   AstIndex v ix -> varInAst var v || varInIndex var ix
+  AstOneHot _ v ix -> varInAst var v || varInIndex var ix
   AstSum v -> varInAst var v
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstFromVector vl -> any (varInAst var) $ V.toList vl
@@ -263,6 +268,7 @@ varInAst var = \case
   AstSumOfListS l -> any (varInAst var) l
   AstIndexS v ix -> varInAst var v || varInIndexS var ix
   AstSumS v -> varInAst var v
+  AstOneHotS ix -> varInAst var v || varInIndex var ix
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
   AstFromVectorS vl -> any (varInAst var) $ V.toList vl
   AstAppendS v u -> varInAst var v || varInAst var u

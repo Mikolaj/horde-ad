@@ -339,6 +339,12 @@ build1V snat@SNat (var, v0) =
 
     Ast.AstIndex v ix -> traceRule $
       build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
+    Ast.AstOneHot sh v ix -> traceRule $
+      wrong! this is scatter! :(
+      let (_varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
+      in Ast.AstOneHot (k :$: sh)
+                       (build1VOccurenceUnknown snat (var, v))
+                       (astVarFresh :.: ix2)
     Ast.AstSum v -> traceRule $
       astSum $ astTr $ build1V snat (var, v)
     Ast.AstScatter sh v (vars, ix) -> traceRule $

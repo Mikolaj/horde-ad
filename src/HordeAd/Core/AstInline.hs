@@ -195,6 +195,10 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1 (indexToList ix)
     in (memo2, Ast.AstIndex v2 (listToIndex ix2))
+  Ast.AstOneHot sh v ix ->
+    let (memo1, v2) = inlineAst memo v
+        (memo2, ix2) = mapAccumR inlineAst memo1 (indexToList ix)
+    in (memo2, Ast.AstOneHot sh v2 (listToIndex ix2))
   Ast.AstSum v -> second Ast.AstSum (inlineAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
@@ -264,6 +268,11 @@ inlineAst memo v0 = case v0 of
         (memo2, ix2) = mapAccumR inlineAst memo1
                                  (ShapedList.indexToList ix)
     in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
+  Ast.AstOneHotS @sh1 v ix ->
+    let (memo1, v2) = inlineAst memo v
+        (memo2, ix2) = mapAccumR inlineAst memo1
+                                 (ShapedList.indexToList ix)
+    in (memo2, Ast.AstOneHotS @sh1 v2 (ShapedList.listToIndex ix2))
   Ast.AstSumS v -> second Ast.AstSumS (inlineAst memo v)
   Ast.AstScatterS @sh2 @p @sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
@@ -548,6 +557,10 @@ unshareAst memo = \case
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (indexToList ix)
     in (memo2, Ast.AstIndex v2 (listToIndex ix2))
+  Ast.AstOneHot sh v ix ->
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumR unshareAst memo1 (indexToList ix)
+    in (memo2, Ast.AstOneHot sh v2 (listToIndex ix2))
   Ast.AstSum v -> second Ast.AstSum (unshareAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, ix2) = mapAccumR (unshareAstScoped $ toList vars)
@@ -612,6 +625,10 @@ unshareAst memo = \case
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (ShapedList.indexToList ix)
     in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
+  Ast.AstOneHotS @sh1 v ix ->
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumR unshareAst memo1 (ShapedList.indexToList ix)
+    in (memo2, Ast.AstOneHotS @sh1 v2 (ShapedList.listToIndex ix2))
   Ast.AstSumS v -> second Ast.AstSumS (unshareAst memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =

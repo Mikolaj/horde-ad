@@ -393,6 +393,10 @@ interpretAst !env = \case
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
     in rindex v2 ix3
+  AstOneHot sh v ix ->
+    let v2 = interpretAst env v
+        ix3 = interpretAstPrimal env <$> ix
+    in roneHot sh v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
@@ -670,6 +674,10 @@ interpretAst !env = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
+  AstOneHotS @sh1 @_ @_ @r v ix ->
+    let v2 = interpretAst env v
+        ix3 = interpretAstPrimal env <$> ix
+    in soneHot @target @r @sh1 v2 ix3
 {- TODO:
   AstSum (AstN2R TimesOp [ AstLet vart vt (AstTranspose tperm t)
                         , AstTranspose uperm u ]) ->

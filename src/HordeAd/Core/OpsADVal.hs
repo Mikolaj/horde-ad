@@ -266,6 +266,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
   rindex d i = indexPrimal d (tprimalPart (STKScalar typeRep) <$> i)
+  roneHot sh (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (roneHot sh u ix) (OneHotR sh u' ix)
   rsum (D u u') = dD (rsum u) (SumR u')
   rsum0 (D u u') = dD (rsum0 u) (Sum0R u')
   rdot0 (D ue u') (D ve v') =
@@ -334,6 +337,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   xshape (D u _) = xshape u
   xindex d i = indexPrimalX d (tprimalPart (STKScalar typeRep) <$> i)
+  xoneHot = error "TODO"
   xfromVector = fromVectorX
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
@@ -356,6 +360,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   siota = fromPrimalADVal siota
   sindex d i = indexPrimalS d (tprimalPart (STKScalar typeRep) <$> i)
+  soneHot (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (soneHot u ix) (OneHotS u' ix)
   ssum (D u u') = dD (ssum u) (SumS u')
   ssum0 (D u u') = dD (ssum0 u) (Sum0S u')
   sdot0 (D ue u') (D ve v') =

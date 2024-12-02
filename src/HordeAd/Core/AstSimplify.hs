@@ -322,6 +322,7 @@ astNonIndexStep t = case t of
   Ast.AstI2R{} -> t
   AstSumOfListR l -> astSumOfListR l
   Ast.AstIndex{} -> t  -- was supposed to be *non*-index
+  Ast.AstOneHot{} -> t
   Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
   Ast.AstFromVector l -> astFromVector l
@@ -350,6 +351,7 @@ astNonIndexStep t = case t of
   Ast.AstI2S{} -> t
   AstSumOfListS l -> astSumOfListS l
   Ast.AstIndexS{} -> t  -- was supposed to be *non*-index
+  Ast.AstOneHotS{} -> t
   Ast.AstSumS v -> astSumS v
   Ast.AstScatterS v (vars, ix) -> astScatterS v (vars, ix)
   Ast.AstFromVectorS l -> astFromVectorS l
@@ -506,6 +508,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     shareIx ix $ \ !ix2 -> astSumOfListR (map (`astIndexRec` ix2) args)
   Ast.AstIndex v ix2 ->
     astIndex v (appendIndex ix2 ix)
+  Ast.AstOneHot{} -> Ast.AstIndex v0 ix  -- TODO
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = backpermCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
@@ -716,6 +719,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
     withShapeP (shapeT @sh4 ++ shapeT @shm) $ \(Proxy @sh41) ->
       gcastWith (unsafeCoerce Refl :: sh4 ++ shm :~: sh41) $
       astIndexS v (ShapedList.appendIndex ix2 ix)
+  Ast.AstOneHotS{} -> Ast.AstIndexS v0 ix  -- TODO
   Ast.AstSumS @n1 v ->
     let perm3 = backpermCycle $ length (shapeT @shm) + 1
     in withShapeP (shapeT @shm
@@ -1063,6 +1067,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       (Ast.AstFromVector{}, i2 :.: ZIR) -> astGather sh4 v2 (vars4, i2 :.: ix4)
       _ ->  -- AstVar, AstConcrete
         Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstOneHot{} -> Ast.AstGather sh4 v4 (vars4, ix4)  -- TODO
     Ast.AstSum v ->
       let perm3 = backpermCycle $ valueOf @p' + 1
           perm4 = permCycle $ valueOf @m' + 1
@@ -2268,6 +2273,7 @@ astPrimalPart t = case t of
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (astPrimalPart u) (astPrimalPart v)
   AstSumOfListR args -> astSumOfListR (map astPrimalPart args)
   Ast.AstIndex v ix -> astIndexR (astPrimalPart v) ix
+  Ast.AstOneHot sh v ix -> Ast.AstOneHot sh (astPrimalPart v) ix
   Ast.AstSum v -> astSum (astPrimalPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astPrimalPart v) (var, ix)
   Ast.AstFromVector l -> astFromVector (V.map astPrimalPart l)
@@ -2291,6 +2297,7 @@ astPrimalPart t = case t of
                                              (astPrimalPart v)
   AstSumOfListS args -> astSumOfListS (map astPrimalPart args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPart v) ix
+  Ast.AstOneHotS v ix -> Ast.AstOneHotS (astPrimalPart v) ix
   Ast.AstSumS v -> astSumS (astPrimalPart v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astPrimalPart v) (var, ix)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astPrimalPart l)
@@ -2353,6 +2360,7 @@ astDualPart t = case t of
   Ast.AstI2R{} -> Ast.AstDualPart t
   AstSumOfListR args -> astSumOfListR (map astDualPart args)
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
+  Ast.AstOneHot sh v ix -> Ast.AstOneHot sh (astDualPart v) ix
   Ast.AstSum v -> astSum (astDualPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astDualPart v) (var, ix)
   Ast.AstFromVector l -> astFromVector (V.map astDualPart l)
@@ -2374,6 +2382,7 @@ astDualPart t = case t of
   Ast.AstI2S{} -> Ast.AstDualPart t
   AstSumOfListS args -> astSumOfListS (map astDualPart args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPart v) ix
+  Ast.AstOneHotS v ix -> Ast.AstOneHotS (astDualPart v) ix
   Ast.AstSumS v -> astSumS (astDualPart v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astDualPart v) (var, ix)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astDualPart l)
@@ -2633,6 +2642,7 @@ simplifyAst t = case t of
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (simplifyAst u) (simplifyAst v)
   AstSumOfListR args -> astSumOfListR (map simplifyAst args)
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIxR ix)
+  Ast.AstOneHot sh v ix -> Ast.AstOneHot sh (simplifyAst v) (simplifyAstIxR ix)
   Ast.AstSum v -> astSum (simplifyAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (simplifyAst v) (var, simplifyAstIxR ix)
@@ -2663,6 +2673,7 @@ simplifyAst t = case t of
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
   AstSumOfListS args -> astSumOfListS (map simplifyAst args)
   Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIxS ix)
+  Ast.AstOneHotS v ix -> Ast.AstOneHotS (simplifyAst v) (simplifyAstIxR ix)
   Ast.AstSumS v -> astSumS (simplifyAst v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (simplifyAst v) (var, simplifyAstIxS ix)
@@ -2816,6 +2827,7 @@ expandAst t = case t of
   Ast.AstIndex v ix -> astIndexKnobsR (defaultKnobs {knobExpand = True})
                                       (expandAst v)
                                       (expandAstIxR ix)
+  Ast.AstOneHot sh v ix -> Ast.AstOneHot sh (expandAst v) (expandAstIxR ix)
   Ast.AstSum v -> astSum (expandAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (expandAst v) (var, expandAstIxR ix)
@@ -2891,6 +2903,7 @@ expandAst t = case t of
   Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
                                        (expandAst v)
                                        (expandAstIxS ix)
+  Ast.AstOneHotS v ix -> Ast.AstOneHotS (expandAst v) (expandAstIxR ix)
   Ast.AstSumS v -> astSumS (expandAst v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (expandAst v) (var, expandAstIxS ix)
@@ -3370,6 +3383,10 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var v, substitute1AstIxR i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexR (fromMaybe v mv) (fromMaybe ix mix)
+  Ast.AstOneHot sh v ix ->
+    case (substitute1Ast i var v, substitute1AstIxR i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ Ast.AstOneHot sh (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSum v -> astSum <$> substitute1Ast i var v
   Ast.AstScatter sh v (vars, ix) ->
     case (substitute1Ast i var v, substitute1AstIxR i var ix) of
@@ -3441,6 +3458,10 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexS (fromMaybe v mv) (fromMaybe ix mix)
+  Ast.AstOneHotS v ix ->
+    case (substitute1Ast i var v, substitute1AstIxR i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ Ast.AstOneHotS (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSumS v -> astSumS <$> substitute1Ast i var v
   Ast.AstScatterS v (vars, ix) ->
     case (substitute1Ast i var v, substitute1AstIxS i var ix) of
