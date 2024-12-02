@@ -123,6 +123,7 @@ testTrees =
   , testCase "4S0Scan8" testSin0Scan8
   , testCase "4S0Scan8rev" testSin0Scan8rev
   , testCase "4S0Scan8rev2" testSin0Scan8rev2
+  , testCase "4S0Scan8Srev2" testSin0Scan8Srev2
   , testCase "4S0Scan1RevPP1" testSin0Scan1RevPP1
   , testCase "4S0Scan1RevPPForComparison" testSin0Scan1RevPPForComparison
   , testCase "4S0ScanFwdPP" testSin0ScanFwdPP
@@ -1068,14 +1069,27 @@ testSin0Scan8rev2 :: Assertion
 testSin0Scan8rev2 = do
   let h = rrev1 @(ADVal RepN) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
-                                 $ atan2F (rsum (rtr $ sin x))
-                                         (rreplicate 2
-                                          $ sin (rsum $ rreplicate 7 a)))
+                               $ atan2F (rsum (rtr $ sin x))
+                                        (rreplicate 2
+                                         $ sin (rsum $ rreplicate 7 a)))
                         (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.9579482947575])
     (crev h (rscalar 1.1))
+
+testSin0Scan8Srev2 :: Assertion
+testSin0Scan8Srev2 = do
+  let h = srev1 @(ADVal RepN) @Double @'[]
+        (\a0 -> sscan (\x a -> str $ sreplicate @_ @5
+                               $ atan2F (ssum (str $ sin x))
+                                        (sreplicate @_ @2
+                                         $ sin (ssum $ sreplicate @_ @7 a)))
+                        (sreplicate @_ @2 (sreplicate @_ @5 ((sscalar 2) * a0)))
+                        (sreplicate @_ @3 a0))
+  assertEqualUpToEpsilon 1e-10
+    (sconcrete $ Nested.sfromListPrimLinear [] [285.9579482947575])
+    (crev h (sscalar 1.1))
 
 testSin0Scan1RevPP1 :: Assertion
 testSin0Scan1RevPP1 = do
@@ -4478,7 +4492,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInline a1))
-    @?= 44596
+    @?= 44553
 
 testSin0revhV :: Assertion
 testSin0revhV = do

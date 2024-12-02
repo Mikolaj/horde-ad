@@ -18,11 +18,12 @@ import Data.List (intersperse)
 import Data.Maybe (fromJust)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Nested (ShR (..), ShS (..), ShX (..))
+import Data.Array.Nested (ListR (..), ListS (..), ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsRank)
 
@@ -30,7 +31,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 -- * Pretty-printing setup and checks
@@ -243,9 +243,9 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (sizedToList vars)
+                          (toList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (indexToList ix))
+           . showListWith (printAstInt cfg 0) (toList ix))
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
@@ -333,8 +333,14 @@ printAstAux cfg d = \case
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " ! "
-      . showListWith (printAstInt cfg 0) (indexToList ix)
+      . showListWith (printAstInt cfg 0) (toList ix)
   AstSum v -> printPrefixOp printAst cfg d "rsum" [v]
+  AstScatter @m sh v (ZR, ix) ->
+    showParen (d > 9)
+    $ showString ("roneHot " ++ show (takeShape @m sh) ++ " ")
+      . printAst cfg 11 v
+      . showString " "
+      . showListWith (printAstInt cfg 0) (toList ix)
   AstScatter sh v (vars, ix) ->
     showParen (d > 10)
     $ showString ("rscatter " ++ show sh ++ " ")
@@ -343,9 +349,9 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (sizedToList vars)
+                          (toList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (indexToList ix))
+           . showListWith (printAstInt cfg 0) (toList ix))
   AstFromVector l ->
     showParen (d > 10)
     $ showString "rfromVector "
@@ -413,8 +419,14 @@ printAstAux cfg d = \case
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix)
+      . showListWith (printAstInt cfg 0) (toList ix)
   AstSumS v -> printPrefixOp printAst cfg d "ssum" [v]
+  AstScatterS v (ZS, ix) ->
+    showParen (d > 9)
+    $ showString "soneHot "
+      . printAst cfg 11 v
+      . showString " "
+      . showListWith (printAstInt cfg 0) (toList ix)
   AstScatterS v (vars, ix) ->
     showParen (d > 10)
     $ showString "sscatter "
@@ -423,9 +435,9 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (ShapedList.sizedToList vars)
+                          (toList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix))
+           . showListWith (printAstInt cfg 0) (toList ix))
   AstFromVectorS l ->
     showParen (d > 10)
     $ showString "sfromVector "
@@ -455,9 +467,9 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (ShapedList.sizedToList vars)
+                          (toList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (ShapedList.indexToList ix))
+           . showListWith (printAstInt cfg 0) (toList ix))
   AstCastS v -> printPrefixOp printAst cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAst cfg d "sfromIntegral" [a]

@@ -22,6 +22,7 @@ module HordeAd.Core.TensorClass
 import Prelude
 
 import Data.Kind (Constraint, Type)
+import Data.List (foldl')
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -35,6 +36,7 @@ import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX)
 import Data.Array.Nested
@@ -54,6 +56,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
@@ -196,6 +199,23 @@ class ( Num (IntOf target)
   rindex0 :: (GoodScalar r, KnownNat m)
           => target (TKR m r) -> IxROf target m -> target (TKR 0 r)
   rindex0 = rindex
+  roneHot :: forall r m n.
+             ( GoodScalar r, KnownNat m, KnownNat n
+             , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
+             , EqF (PrimalOf target) )
+          => IShR m -> target (TKR n r) -> IxROf target m -> target (TKR (m + n) r)
+  roneHot sh v ix = case STKScalar (typeRep @r) of
+    STKScalar{} | True && not False ->
+      rscatter @_ @_ @0
+               (Nested.Internal.Shape.shrAppend sh (rshape v)) v (const ix)
+    _ -> let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                          $ zip (toList ix) (toList ix2))
+                         (rindex0 v (dropIndex ix2))
+                         (rscalar 0)
+         in rbuild (Nested.Internal.Shape.shrAppend sh (rshape v)) f
+           -- TODO: rbuild needs to be generalized to really generalize toneHot
+           -- TODO: if this is used, maybe express this as the gather that
+           -- would come out of vectorization, making sure it simplifies well
   rsum :: (GoodScalar r, KnownNat n) => target (TKR (1 + n) r) -> target (TKR n r)
   rsum0 :: (GoodScalar r, KnownNat n) => target (TKR n r) -> target (TKR 0 r)
   rsum0 = rsum . rflatten
@@ -430,6 +450,12 @@ class ( Num (IntOf target)
             , KnownShX (sh1 ++ sh2) )
          => target (TKX (sh1 ++ sh2) r) -> IxXOf target sh1
          -> target (TKX sh2 r)
+  xoneHot :: forall r sh1 sh2.
+             ( GoodScalar r, KnownShX sh1, KnownShX sh2
+             , KnownShX (sh1 ++ sh2) )
+          => IShX sh1 -> target (TKX sh2 r) -> IxXOf target sh1
+          -> target (TKX (sh1 ++ sh2) r)
+  xoneHot = error "TODO"
   xfromVector :: (GoodScalar r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX sh r))
               -> target (TKX (Just n ': sh) r)
@@ -491,8 +517,30 @@ class ( Num (IntOf target)
   sindex0 :: forall sh1 r. (TensorKind2 r, KnownShS sh1)
           => target (TKS2 sh1 r) -> IxSOf target sh1
           -> target (TKS2 '[] r)
-  sindex0 = gcastWith (unsafeCoerce Refl :: sh1 ++ '[] :~: sh1)
-              sindex
+  sindex0 | Refl <- lemAppNil @sh1 = sindex
+  soneHot :: forall r sh1 sh2.
+             ( TensorKind2 r, KnownShS sh1, KnownShS sh2
+             , KnownShS (sh1 ++ sh2) )
+          => target (TKS2 sh2 r) -> IxSOf target sh1
+          -> target (TKS2 (sh1 ++ sh2) r)
+  soneHot v ix = case stensorKind @r of
+    STKScalar{} | Dict <- lemKnownNatRankS (knownShS @sh1) ->
+      gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+      gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+      sscatter @_ @_ @'[] @(Rank sh1) v (const ix)
+    _ -> error "TODO: sbuild needs to be generalized, too"
+{-
+      gcastWith (unsafeCoerce Refl
+                 :: Drop (Rank (sh1 ++ sh)) (sh1 ++ sh) :~: '[]) $
+      gcastWith (unsafeCoerce Refl
+                 :: Take (Rank (sh1 ++ sh)) (sh1 ++ sh) :~: (sh1 ++ sh)) $
+      withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
+      gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
+      let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                       $ zip (toList ix) (toList ix2))
+                      (sindex0 c (dropIxS @(Rank sh1) ix2))
+                      (sscalar 0)
+      in sbuild @_ @_ @(Rank (sh1 ++ sh)) f -}
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
        => target (TKS (n ': sh) r) -> target (TKS sh r)
   ssum0 :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))

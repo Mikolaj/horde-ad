@@ -165,6 +165,13 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
                                         strides))
 -}
 
+toneHotR
+  :: forall m n r. (KnownNat n, Nested.KnownElt r,     Nested.PrimElt r, Nested.NumElt r, Num r, Show r, Default r)
+  => IShR m -> Nested.Ranked n r -> IIxR64 m -> Nested.Ranked (m + n) r
+toneHotR sh v ix =
+  tscatterZR @0 (Nested.Internal.Shape.shrAppend sh (Nested.rshape v))
+             v (const ix)
+
 -- | Sum the outermost dimension.
 tsumR
   :: forall n r. (Nested.PrimElt r, NumAndShow r)
@@ -512,6 +519,14 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
     -- to avoid linearizing @values@, we do everything in unsized way
 -}
 
+toneHotS
+  :: forall sh1 sh2 r. (Nested.KnownElt r,    Nested.PrimElt r, Nested.NumElt r, Num r, Show r, Default r, KnownShS sh2, KnownShS (sh1 ++ sh2))
+  => Nested.Shaped sh2 r -> IIxS64 sh1 -> Nested.Shaped (sh1 ++ sh2) r
+toneHotS v ix =
+  gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+  gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+  tscatterZS @_ @'[] @(Rank sh1) v (const ix)
+
 -- | Sum the outermost dimension.
 tsumS
   :: forall n sh r. (Nested.PrimElt r, NumAndShow r)
@@ -558,7 +573,7 @@ tmatmul2S t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              (Nested.PrimElt r, NumAndShow r, KnownShS sh, KnownShS sh2, KnownShS (Drop p sh))
+              (Nested.PrimElt r, NumAndShow r, KnownShS sh2, KnownShS sh, KnownShS (Drop p sh))
            => Nested.Shaped (sh2 ++ Drop p sh) r
            -> (IIxS64 sh2 -> IIxS64 (Take p sh))
            -> Nested.Shaped sh r

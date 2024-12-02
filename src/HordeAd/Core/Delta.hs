@@ -63,7 +63,6 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
@@ -93,7 +92,6 @@ import HordeAd.Core.HVector
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (dropIxS)
 import HordeAd.Util.SizedList
 
 type IMap target = DEnumMap (InputId target) (RepM target)
@@ -1130,15 +1128,7 @@ evalSame !s !c = \case
   AddG d e -> let cShared = tshare c
               in evalSame (evalSame s cShared d) cShared e
 
-  IndexR d ix ->
-    let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                     $ zip (toList ix) (toList ix2))
-                    (rindex0 c (dropIndex ix2))
-                    (rscalar 0)
-    in evalSame s (rbuild (shapeDelta d) f) d
-    -- equivalent: evalSame s (rscatter @target @_ @0
-    --                                  (shapeDelta d) c (const ix)) d
-    -- equivalent: evalSame s (updateNR (treplicate0NR sh 0) [(ix, c)]) d
+  IndexR d ix -> evalSame s (roneHot (takeShape $ shapeDelta d) c ix) d
   SumR d ->
     evalSame s (rreplicate (lengthDelta d) c) d
   Sum0R d ->
@@ -1192,24 +1182,7 @@ evalSame !s !c = \case
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
-  IndexS @sh1 @sh @r d ix -> case stensorKind @r of
-   STKScalar{} ->
-    gcastWith (unsafeCoerce Refl
-               :: Drop (Rank (sh1 ++ sh)) (sh1 ++ sh) :~: '[]) $
-    gcastWith (unsafeCoerce Refl
-               :: Take (Rank (sh1 ++ sh)) (sh1 ++ sh) :~: (sh1 ++ sh)) $
-    gcastWith (unsafeCoerce Refl
-               :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
-    withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-    gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
-    let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                     $ zip (toList ix) (toList ix2))
-                    (sindex0 c (dropIxS @(Rank sh1) ix2))
-                    (sscalar 0)
-    in evalSame s (sbuild @_ @_ @(Rank (sh1 ++ sh)) f) d
-    -- equivalent: evalSame s (sscatter @_ @_ @'[] @(Rank sh1) c (const ix)) d
-    -- equivalent: evalSame s (updateNR (replicate0NR sh 0) [(ix, c)]) d
-   _ -> error "TODO: sbuild needs to be generalized, too"
+  IndexS d ix -> evalSame s (soneHot c ix) d
   SumS d ->
     evalSame s (sreplicate c) d
   Sum0S d ->
