@@ -374,8 +374,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstTranspose :: (KnownNat n, GoodScalar r)
                => Permutation.PermR -> AstTensor ms s (TKR n r)
                -> AstTensor ms s (TKR n r)
-  AstReshape :: (KnownNat n, KnownNat m, GoodScalar r)
-             => IShR m -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR m r)
+  AstReshape :: (KnownNat n, KnownNat m, TensorKind2 r)
+             => IShR m -> AstTensor ms s (TKR2 n r) -> AstTensor ms s (TKR2 m r)
   AstGather :: forall m n p r s ms.
                (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
             => IShR (m + n)

@@ -460,9 +460,9 @@ data Delta :: Target -> TensorKindType -> Type where
              => Permutation.PermR -> Delta target (TKR n r)
              -> Delta target (TKR n r)
     -- ^ Transpose according to the permutation.
-  ReshapeR :: (GoodScalar r, KnownNat n, KnownNat m)
-           => IShR m -> Delta target (TKR n r)
-           -> Delta target (TKR m r)
+  ReshapeR :: (TensorKind2 r, KnownNat n, KnownNat m)
+           => IShR m -> Delta target (TKR2 n r)
+           -> Delta target (TKR2 m r)
     -- ^ Change the shape of the tensor to the given one.
   GatherR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
           => IShR (m + n) -> Delta target (TKR (p + n) r)
@@ -687,7 +687,8 @@ shapeDeltaFull = \case
   SliceR _ n d -> FTKR (n :$: tailShape (shapeDelta d)) FTKScalar
   ReverseR d -> shapeDeltaFull d
   TransposeR perm d -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm (shapeDelta d)) FTKScalar
-  ReshapeR sh _ -> FTKR sh FTKScalar
+  ReshapeR sh d -> case shapeDeltaFull d of
+    FTKR _ x -> FTKR sh x
   GatherR sh _ _ -> FTKR sh FTKScalar
   CastR d -> FTKR (shapeDelta d) FTKScalar
   RFromS @sh _ | Dict <- lemKnownNatRankS (knownShS @sh) ->
@@ -743,8 +744,8 @@ shapeDelta t = case shapeDeltaFull t of
   FTKR sh _ -> sh
 
 lengthDelta :: forall target r n.
-               (GoodScalar r, KnownNat n)
-            => Delta target (TKR (1 + n) r) -> Int
+               (TensorKind2 r, KnownNat n)
+            => Delta target (TKR2 (1 + n) r) -> Int
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"
   k :$: _ -> k

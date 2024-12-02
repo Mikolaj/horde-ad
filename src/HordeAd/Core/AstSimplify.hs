@@ -559,8 +559,10 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     astIndex v (Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix)
   Ast.AstTranspose perm v ->
     astIndex (astTransposeAsGather knobs perm v) ix
-  Ast.AstReshape sh v ->
-    astIndex (astReshapeAsGather knobs sh v) ix
+  Ast.AstReshape sh v -> case stensorKind @r of
+    STKScalar{} ->
+      astIndex (astReshapeAsGather knobs sh v) ix
+    _ -> Ast.AstIndex v0 ix
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather @_ @n7 (_ :$: sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstTensor AstMethodLet s (TKR2 (m1 + n) r)
@@ -1146,10 +1148,10 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       if knobExpand knobs
       then astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)
       else Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstReshape sh v ->
-      if knobExpand knobs
-      then astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
-      else Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstReshape sh v -> case STKScalar (typeRep @r) of  -- TODO
+      STKScalar{} | knobExpand knobs ->
+        astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
+      _ -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
@@ -2018,8 +2020,8 @@ astTransposeS perm t = case perm of
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
-astReshape :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
-           => IShR m -> AstTensor AstMethodLet s (TKR p r) -> AstTensor AstMethodLet s (TKR m r)
+astReshape :: forall p m s r. (KnownNat p, KnownNat m, TensorKind2 r, AstSpan s)
+           => IShR m -> AstTensor AstMethodLet s (TKR2 p r) -> AstTensor AstMethodLet s (TKR2 m r)
 astReshape shOut = \case
   Ast.AstReplicate @y2 (SNat @k) x
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
@@ -2034,7 +2036,8 @@ astReshape shOut = \case
     Ast.AstR2R opCode (astReshape shOut u) (astReshape shOut v)
   Ast.AstFromVector l | [x] <- V.toList l -> astReshape shOut x
   Ast.AstReshape _ v -> astReshape shOut v
-  AstConcrete _ t -> AstConcrete (FTKR shOut FTKScalar) $ RepN $ Nested.rreshape shOut (unRepN t)
+  AstConcrete (FTKR _ x) t -> AstConcrete (FTKR shOut x)
+                              $ RepN $ Nested.rreshape shOut (unRepN t)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshape shOut v
   v -> let shIn = shapeAst v
        in case sameNat (Proxy @p) (Proxy @m) of
@@ -2857,7 +2860,7 @@ expandAst t = case t of
                            (normalizePermutation perm)
                            (expandAst v)
         -- this is expensive but the only way to guarantee full simplification
-  Ast.AstReshape sh v -> case v of
+  Ast.AstReshape @_ @_ @x sh v -> case v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
@@ -2871,12 +2874,6 @@ expandAst t = case t of
     Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
     AstSumOfListR{} -> t  -- normal form
     Ast.AstScatter{} -> t  -- normal form
-    _ ->  -- not nf, let's express all as a gather
-      astReshapeAsGather (defaultKnobs {knobExpand = True})
-                         sh
-                         (expandAst v)
-        -- this is expensive but the only way to guarantee full simplification
-{- TODO:
     _ -> case stensorKind @x of
       STKScalar{} ->  -- not nf, let's express all as a gather
         astReshapeAsGather (defaultKnobs {knobExpand = True})
@@ -2884,7 +2881,6 @@ expandAst t = case t of
                            (expandAst v)
           -- this is expensive but the only way to guarantee full simplification
       _ -> t  -- or not
--}
   Ast.AstGather sh v (vars, ix) ->
     astGatherKnobsR (defaultKnobs {knobExpand = True})
                     sh (expandAst v) (vars, expandAstIxR ix)

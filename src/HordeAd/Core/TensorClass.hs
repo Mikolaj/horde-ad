@@ -168,12 +168,12 @@ class ( Num (IntOf target)
       => BaseTensor (target :: Target) where
 
   -- Integer codomain
-  rshape :: GoodScalar r => target (TKR n r) -> IShR n
-  rrank :: forall r n. (GoodScalar r, KnownNat n) => target (TKR n r) -> Int
+  rshape :: TensorKind2 r => target (TKR2 n r) -> IShR n
+  rrank :: forall r n. (TensorKind2 r, KnownNat n) => target (TKR2 n r) -> Int
   rrank _ = valueOf @n
-  rsize :: GoodScalar r => target (TKR n r) -> Int
+  rsize :: TensorKind2 r => target (TKR2 n r) -> Int
   rsize = sizeShape . rshape
-  rlength :: GoodScalar r => target (TKR (1 + n) r) -> Int
+  rlength :: TensorKind2 r => target (TKR2 (1 + n) r) -> Int
   rlength v = case rshape v of
     ZSR -> error "rlength: impossible pattern needlessly required"
     k :$: _ -> k
@@ -297,10 +297,10 @@ class ( Num (IntOf target)
   rtr = rtranspose [1, 0]
   rtranspose :: (GoodScalar r, KnownNat n)
              => Permutation.PermR -> target (TKR n r) -> target (TKR n r)
-  rflatten :: (GoodScalar r, KnownNat n) => target (TKR n r) -> target (TKR 1 r)
+  rflatten :: (TensorKind2 r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (flattenShape $ rshape u) u
-  rreshape :: (GoodScalar r, KnownNat n, KnownNat m)
-           => IShR m -> target (TKR n r) -> target (TKR m r)
+  rreshape :: (TensorKind2 r, KnownNat n, KnownNat m)
+           => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
   rbuild :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
          => IShR (m + n) -> (IxROf target m -> target (TKR n r))
          -> target (TKR (m + n) r)

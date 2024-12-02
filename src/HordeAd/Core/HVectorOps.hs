@@ -121,7 +121,7 @@ addDynamic t@DynamicShaped{} DynamicShapedDummy{} = t
 addDynamic t u = error $ "addDynamic: wrong arguments: " ++ show (t, u)
 
 sizeHVector :: forall target. BaseTensor target => HVector target -> Int
-sizeHVector = let f (DynamicRanked @r t) = rsize @target @r t
+sizeHVector = let f (DynamicRanked @r t) = rsize @target @(TKScalar r) t
                   f (DynamicShaped @_ @sh _) = sizeT @sh
                   f (DynamicRankedDummy _ proxy_sh) = sizeP proxy_sh
                   f (DynamicShapedDummy _ proxy_sh) = sizeP proxy_sh

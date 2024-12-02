@@ -105,7 +105,8 @@ ftkAst t = case t of
   AstReverse v -> ftkAst v
   AstTranspose perm v ->
     FTKR (Nested.Internal.Shape.shrPermutePrefix perm $ shapeAst v) FTKScalar
-  AstReshape sh _v -> FTKR sh FTKScalar
+  AstReshape sh v -> case ftkAst v of
+    FTKR _ x -> FTKR sh x
   AstGather sh _v (_vars, _ix) -> FTKR sh FTKScalar
   AstCastR v -> FTKR (shapeAst v) FTKScalar
   AstFromIntegralR a -> FTKR (shapeAst a) FTKScalar

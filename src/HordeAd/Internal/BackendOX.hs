@@ -316,7 +316,7 @@ ttransposeR
 ttransposeR = Nested.rtranspose
 
 treshapeR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => IShR m -> Nested.Ranked n r -> Nested.Ranked m r
 treshapeR = Nested.rreshape
 

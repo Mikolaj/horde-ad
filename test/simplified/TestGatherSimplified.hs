@@ -291,10 +291,10 @@ testGatherSimpPP12 = do
 gatherReshape22 :: forall target r. (ADReady target, GoodScalar r)
                 => target (TKR 2 r) -> target (TKR 2 r)
 gatherReshape22 t =
-  rreshape @target @r @6 [2, 6]
+  rreshape @target @_ @6 [2, 6]
   $ rreshape [3, 1, 2, 1, 1, 2]
-  $ rreshape @target @r @4 (1 :$: 12 :$: 1 :$: ZSR)
-  $ rreshape @target @r @3 [3, 1, 1, 4]
+  $ rreshape @target @_ @4 (1 :$: 12 :$: 1 :$: ZSR)
+  $ rreshape @target @_ @3 [3, 1, 1, 4]
   $ rreshape [2, 2, 3] t
 
 testGatherReshape22 :: Assertion
@@ -322,7 +322,7 @@ testGatherSimpPP22 = do
   length (show t1) @?= 69
   length (show (simplifyInline @(TKR 2 Float) t1)) @?= 69
   resetVarCounter
-  let !t2 = rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @2 @2 [2, 6]
+  let !t2 = rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @2 @2 [2, 6]
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 69
   length (show (simplifyInline @(TKR 2 Float) t2)) @?= 69
@@ -338,7 +338,7 @@ testGatherSimpPP23 = do
   length (show (simplifyInline @(TKR 3 Float) t1)) @?= 530
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
-              rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @2 @2 [2, 6]
+              rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 219
@@ -351,7 +351,7 @@ gatherTranspose33 :: forall target r. (ADReady target, GoodScalar r, Numeric r, 
 gatherTranspose33 t =
   rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
     (rtr
-     $ rreshape @target @r @4 [16, 8]
+     $ rreshape @target @_ @4 [16, 8]
      $ rtranspose [0, 1, 2]
      $ rtranspose [2, 0, 1]
      $ rtranspose [1, 2, 0]
@@ -458,7 +458,7 @@ testGatherSimpPP33 = do
   length (show (simplifyInline @(TKR 2 Float) t1)) @?= 615
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
-                            (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t))
+                            (rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @10 [8, 16] t))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 534
   length (show (simplifyInline @(TKR 2 Float) t2)) @?= 534
@@ -474,7 +474,7 @@ testGatherSimpPP34 = do
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
-                               (rreshape @(AstTensor AstMethodLet PrimalSpan) @Float @10 [8, 16] t'))
+                               (rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 715

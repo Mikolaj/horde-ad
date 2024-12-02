@@ -289,8 +289,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rslice i n (D u u') = dD (rslice i n u) (SliceR i n u')
   rreverse (D u u') = dD (rreverse u) (ReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (TransposeR perm u')
-  rreshape :: forall n m r. (GoodScalar r, KnownNat n, KnownNat m)
-           => IShR m -> ADVal target (TKR n r) -> ADVal target (TKR m r)
+  rreshape :: forall n m r. (TensorKind2 r, KnownNat n, KnownNat m)
+           => IShR m -> ADVal target (TKR2 n r) -> ADVal target (TKR2 m r)
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')

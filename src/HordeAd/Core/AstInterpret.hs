@@ -530,7 +530,7 @@ interpretAst !env = \case
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
   AstReshape sh v@(AstReplicate @y2 _ s) -> case stensorKind @y2 of
-    STKR @m _ _  | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
+    STKR @m _ STKScalar{} | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
       let t1 = interpretAst env s
       in rreplicate0N sh t1
     _ -> rreshape sh (interpretAst env v)

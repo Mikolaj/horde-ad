@@ -1908,12 +1908,12 @@ emptyArgs :: forall target r. (ADReady target, GoodScalar r) -- , Differentiable
 emptyArgs _t =
   emptyTensor
 --  - rfromList0N (rshape @target @r emptyTensor) []
-  - rreshape @target @r @1 [0] emptyTensor
+  - rreshape @target @_ @1 [0] emptyTensor
 --  - rgather1 0 emptyTensor (:.: ZIR)
 --  - rsum (rgather1 0 emptyTensor (const ZIR))
 --  - rsum (rgather @target @r @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
 --  - rsum (rgather @target @r @2 @0 @1 [0, 0] emptyTensor (const [0]))
-  - rsum (rreshape @target @r @1 [0, 0] emptyTensor)
+  - rsum (rreshape @target @_ @1 [0, 0] emptyTensor)
 --  - rindex (rfromList0N (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
 --  - rindex (rfromList0N (0 :$: rshape @target @r emptyTensor) []) (42 :.: ZIR)
 --  - rsum (rfromList0N (0 :$: rshape @target @r emptyTensor) [])
