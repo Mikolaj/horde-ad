@@ -29,7 +29,9 @@ import HordeAd.Core.Types
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
 
-type TensorKind2 y = (TensorKind y, Default (RepORArray y), Nested.KnownElt (RepORArray y), Show (RepORArray y))
+type TensorKind2 y =
+  ( TensorKind y, Default (RepORArray y), Nested.KnownElt (RepORArray y)
+  , Show (RepORArray y), Num (RepORArray (ADTensorKind y)) )
 
 type family RepORArray (y :: TensorKindType) where
   RepORArray (TKScalar r) = r

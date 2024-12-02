@@ -414,9 +414,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sreverse = astReverseS
   stranspose perm = astTransposeS perm
   sreshape = astReshapeS
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstTensor AstMethodLet s) -> AstTensor AstMethodLet s (TKS sh r))
-          -> AstTensor AstMethodLet s (TKS (n ': sh) r)
+  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+          => (IntOf (AstTensor AstMethodLet s)
+              -> AstTensor AstMethodLet s (TKS2 sh r))
+          -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
   sbuild1 f =
     astBuild1Vectorize (SNat @n) f
   sgather t f = astGatherStepS t
@@ -679,9 +680,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sreverse = AstRaw . AstReverseS . unAstRaw
   stranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   sreshape = AstRaw . AstReshapeS . unAstRaw
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstRaw s) -> AstRaw s (TKS sh r))
-          -> AstRaw s (TKS (n ': sh) r)
+  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+          => (IntOf (AstRaw s) -> AstRaw s (TKS2 sh r))
+          -> AstRaw s (TKS2 (n ': sh) r)
   sbuild1 f = AstRaw $ AstBuild1 (SNat @n)
               $ funToAstI  -- this introduces new variable names
               $ unAstRaw . f . AstRaw
@@ -921,9 +922,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   stranspose perm =
     AstNoVectorize . stranspose perm . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstNoVectorize s) -> AstNoVectorize s (TKS sh r))
-          -> AstNoVectorize s (TKS (n ': sh) r)
+  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+          => (IntOf (AstNoVectorize s) -> AstNoVectorize s (TKS2 sh r))
+          -> AstNoVectorize s (TKS2 (n ': sh) r)
   sbuild1 f = AstNoVectorize $ AstBuild1 (SNat @n)
                 $ funToAstI  -- this introduces new variable names
                 $ unAstNoVectorize . f . AstNoVectorize
@@ -1160,9 +1161,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   stranspose perm =
     AstNoSimplify . AstTransposeS perm . unAstNoSimplify
   sreshape = AstNoSimplify . AstReshapeS . unAstNoSimplify
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (AstNoSimplify s) -> AstNoSimplify s (TKS sh r))
-          -> AstNoSimplify s (TKS (n ': sh) r)
+  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+          => (IntOf (AstNoSimplify s) -> AstNoSimplify s (TKS2 sh r))
+          -> AstNoSimplify s (TKS2 (n ': sh) r)
   sbuild1 f =
     AstNoSimplify
     $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)

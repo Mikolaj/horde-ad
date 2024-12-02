@@ -12,10 +12,11 @@ import Data.Function ((&))
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.Random
+import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
@@ -105,10 +106,24 @@ instance BaseTensor RepN where
   rtranspose perm = RepN . ttransposeR perm . unRepN
   rreshape sh = RepN . treshapeR sh . unRepN
   rbuild1 k f = RepN $ tbuild1R k (unRepN . f . RepN)
-  rmap0N f t = RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
-  rzipWith0N f t u =
-    RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
-                       (unRepN t) (unRepN u)
+  rmap0N :: forall r r1 n target.
+            (target ~ RepN, TensorKind2 r, TensorKind2 r1, KnownNat n)
+         => (target (TKR2 0 r1) -> target (TKR2 0 r)) -> target (TKR2 n r1)
+         -> target (TKR2 n r)
+  rmap0N f t = case (stensorKind @r1, stensorKind @r) of
+    (STKScalar{}, STKScalar{}) -> RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
+    _ ->  -- TODO: how to call the default implementation?
+      rbuild (rshape t) (f . rindex0 t)
+  rzipWith0N :: forall r1 r2 r n target.
+                (target ~ RepN, TensorKind2 r1, TensorKind2 r2, TensorKind2 r, KnownNat n)
+             => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r))
+             -> target (TKR2 n r1) -> target (TKR2 n r2) -> target (TKR2 n r)
+  rzipWith0N f t u = case (stensorKind @r1, stensorKind @r2, stensorKind @r) of
+    (STKScalar{}, STKScalar{}, STKScalar{}) ->
+      RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
+                         (unRepN t) (unRepN u)
+    _ ->  -- TODO: how to call the default implementation?
+      rbuild (rshape u) (\ix -> f (rindex0 t ix) (rindex0 u ix))
   rgather sh t f = RepN $ tgatherZR sh (unRepN t)
                                        (fmap unRepN . f . fmap RepN)
   rgather1 k t f = RepN $ tgatherZ1R k (unRepN t)
@@ -182,10 +197,30 @@ instance BaseTensor RepN where
   stranspose perm = RepN . ttransposeS perm . unRepN
   sreshape = RepN . treshapeS . unRepN
   sbuild1 f = RepN $ tbuild1S (unRepN . f . RepN)
-  smap0N f t = RepN $ tmap0NS (unRepN . f . RepN) (unRepN t)
-  szipWith0N f t u =
-    RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
-                        (unRepN t) (unRepN u)
+  smap0N :: forall r1 r sh target.
+            (target ~ RepN, TensorKind2 r1, TensorKind2 r, KnownShS sh)
+         => (target (TKS2 '[] r1) -> target (TKS2 '[] r)) -> target (TKS2 sh r1)
+         -> target (TKS2 sh r)
+  smap0N f v = case (stensorKind @r1, stensorKind @r) of
+    (STKScalar{}, STKScalar{}) ->
+      RepN $ tmap0NS (unRepN . f . RepN) (unRepN v)
+    _ ->  -- TODO: how to call the default implementation?
+      gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
+      $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+      $ sbuild @target @r @(Rank sh) (f . sindex0 v)
+  szipWith0N :: forall r1 r2 r sh target.
+                ( target ~ RepN, TensorKind2 r1, TensorKind2 r2, TensorKind2 r
+                , KnownShS sh )
+             => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r))
+             -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r)
+  szipWith0N f t u = case (stensorKind @r1, stensorKind @r2, stensorKind @r) of
+    (STKScalar{}, STKScalar{}, STKScalar{}) ->
+      RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
+                         (unRepN t) (unRepN u)
+    _ ->  -- TODO: how to call the default implementation?
+      gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
+      $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+      $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
   sgather t f = RepN $ tgatherZS (unRepN t)
                                  (fmap unRepN . f . fmap RepN)
   sgather1 t f = RepN $ tgatherZ1S (unRepN t)

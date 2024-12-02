@@ -86,8 +86,7 @@ scaleS a d = sfromPrimal a * d
 
 reluS, reluLeakyS
   :: forall target sh r.
-     ( KnownShS sh, KnownNat (Rank sh), ADReady target, GoodScalar r
-     , Differentiable r )
+     (KnownShS sh, ADReady target, GoodScalar r, Differentiable r)
   => target (TKS sh r) -> target (TKS sh r)
 reluS v0 = tlet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
@@ -210,7 +209,7 @@ conv2dUnpaddedS
   -> target (TKS '[nImgs, nCinpA, nAh, nAw] r)
   -> target (TKS shB r)
 conv2dUnpaddedS arrK arrA =
-  sbuild @target @r @(Rank shB) $ \case
+  sbuild @target @(TKScalar r) @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK [iCout, 0, 0, 0]
@@ -232,7 +231,7 @@ slicezS d ixBase =
   gcastWith (unsafeCoerce Refl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
   gcastWith (unsafeCoerce Refl :: Drop (Rank sh) shOut :~: '[]) $
-  sbuild @target @r @(Rank shOut)
+  sbuild @target @(TKScalar r) @(Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)
                                        (ShapedList.shapedToIndex ixBase)
@@ -309,7 +308,7 @@ maxPool2dUnpaddedS
   -> target (TKS shOut r)
 maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
-  in sbuild @target @r @(Rank shOut) $ \case
+  in sbuild @target @(TKScalar r) @(Rank shOut) $ \case
     [iImg, iChan, iBh, iBw] ->
       let arrt = slicezS @shK1
                          arr [ iImg, iChan

@@ -796,7 +796,7 @@ interpretAst !env = \case
     $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Drop p sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
-    $ sbuild @target @r @(Rank sh2)
+    $ sbuild @target @(TKScalar r) @(Rank sh2)
              (interpretLambdaIndexS
                 interpretAst env
                 (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i))

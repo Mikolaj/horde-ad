@@ -484,7 +484,7 @@ data Delta :: Target -> TensorKindType -> Type where
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
-  IndexS :: (KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), TensorKind2 r)
+  IndexS :: (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
          => Delta target (TKS2 (sh1 ++ sh2) r)
          -> IxSOf target sh1
          -> Delta target (TKS2 sh2 r)

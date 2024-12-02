@@ -1266,7 +1266,7 @@ testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
   resetVarCounter
   let k = 1000000
-      a1 = rbuild1 @(AstTensor AstMethodLet PrimalSpan) @Double @1 k
+      a1 = rbuild1 @(AstTensor AstMethodLet PrimalSpan) @(TKScalar Double) @1 k
            $ \i -> rbuild1 k
            $ \j -> ifF (i <=. j) (rscalar 0) (rscalar 1)
   printAstPretty IM.empty (simplifyInline a1)

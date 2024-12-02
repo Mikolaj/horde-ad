@@ -467,7 +467,7 @@ testNestedSumBuild5 =
 nestedSumBuildB :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
                 => target (TKR (1 + n) r) -> target (TKR 3 r)
 nestedSumBuildB v =
-  rbuild @target @r @2 [13, 4, 2] $ \case
+  rbuild @target @(TKScalar r) @2 [13, 4, 2] $ \case
     [ix, ix2] ->
       flip rindex [ix2]
         (rfromList

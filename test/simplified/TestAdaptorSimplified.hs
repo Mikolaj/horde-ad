@@ -19,7 +19,6 @@ import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested
   ( KnownShS (..)
-  , Rank
   , ShR (..)
   , pattern (:$:)
   , pattern (:.:)
@@ -438,7 +437,7 @@ testPiecewiseLinear2PP = do
 overleaf :: forall r target. (BaseTensor target, GoodScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
 overleaf v = let wrap i = i `remF` fromIntegral (rlength v)
-             in rsum (rbuild @target @r @1 [50] (\[i] -> rindex v [wrap i]))
+             in rsum (rbuild @target @(TKScalar r) @1 [50] (\[i] -> rindex v [wrap i]))
 
 testOverleaf :: Assertion
 testOverleaf =
@@ -1573,13 +1572,12 @@ testBarReluMax3CFwd =
                      (rconcrete $ Nested.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
                      (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
-reluMaxS :: forall target sh r.
-            (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Rank sh))
+reluMaxS :: forall target sh r. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS sh r)
 reluMaxS = smap0N (maxF (srepl 0))
 
 barReluMaxS
-  :: ( ADReady target, GoodScalar r, KnownShS sh, KnownNat (Rank sh)
+  :: ( ADReady target, GoodScalar r, KnownShS sh
      , RealFloatF (target (TKS sh r)) )
   => target (TKS sh r) -> target (TKS sh r)
 barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)

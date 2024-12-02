@@ -322,7 +322,7 @@ treshapeR
 treshapeR = Nested.rreshape
 
 tbuild1R
-  :: forall n r. NumAndShow r
+  :: forall n r. Nested.KnownElt r
   => Int -> (Int64 -> Nested.Ranked n r) -> Nested.Ranked (1 + n) r
 tbuild1R k f =
   Nested.rfromListOuter
@@ -691,7 +691,7 @@ treshapeS
 treshapeS = Nested.sreshape knownShS
 
 tbuild1S
-  :: forall n sh r. (KnownNat n, NumAndShow r)
+  :: forall n sh r. (KnownNat n, Nested.KnownElt r)
   => (Int64 -> Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tbuild1S f =
   let k = valueOf @n

@@ -294,13 +294,14 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
-  rbuild1 :: forall r n. (GoodScalar r, KnownNat n)
-          => Int -> (IntOf (ADVal target) -> ADVal target (TKR n r))
-          -> ADVal target (TKR (1 + n) r)
+  rbuild1 :: forall r n. (TensorKind2 r, KnownNat n)
+          => Int -> (IntOf (ADVal target) -> ADVal target (TKR2 n r))
+          -> ADVal target (TKR2 (1 + n) r)
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> rconcrete Nested.remptyArray
-                   -- the only case where we can guess sh
-    Nothing ->  error "rbuild1: shape ambiguity"
+    Just Refl -> case stensorKind @r of
+      STKScalar{} -> rconcrete Nested.remptyArray
+      _ -> error "rbuild1: empty nested array"
+    Nothing -> error "rbuild1: shape ambiguity"
   rbuild1 k f = rfromList $ NonEmpty.map (f . fromIntegral)
                           $ (0 :: Int) :| [1 .. k - 1]
     -- element-wise (POPL) version
@@ -394,11 +395,14 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
-  sbuild1 :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-          => (IntOf (ADVal target) -> ADVal target (TKS sh r))
-          -> ADVal target (TKS (n ': sh) r)
+  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+          => (IntOf (ADVal target) -> ADVal target (TKS2 sh r))
+          -> ADVal target (TKS2 (n ': sh) r)
   sbuild1 f = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> sconcrete $ Nested.semptyArray (knownShS @sh)
+    Just Refl -> case stensorKind @r of
+      STKScalar{} ->
+        sconcrete $ Nested.semptyArray (knownShS @sh)
+      _ -> error "sbuild1: empty nested array"
     Nothing -> sfromList $ NonEmpty.map (f . fromIntegral)
                          $ (0 :: Int) :| [1 .. valueOf @n - 1]
       -- element-wise (POPL) version
