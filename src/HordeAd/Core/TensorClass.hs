@@ -292,11 +292,13 @@ class ( Num (IntOf target)
   runcons v = case rshape v of
                 ZSR -> Nothing
                 len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
-  rreverse :: (GoodScalar r, KnownNat n) => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
-  rtr :: (GoodScalar r, KnownNat n) => target (TKR (2 + n) r) -> target (TKR (2 + n) r)
+  rreverse :: (TensorKind2 r, KnownNat n)
+           => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
+  rtr :: (TensorKind2 r, KnownNat n)
+      => target (TKR2 (2 + n) r) -> target (TKR2 (2 + n) r)
   rtr = rtranspose [1, 0]
-  rtranspose :: (GoodScalar r, KnownNat n)
-             => Permutation.PermR -> target (TKR n r) -> target (TKR n r)
+  rtranspose :: (TensorKind2 r, KnownNat n)
+             => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
   rflatten :: (TensorKind2 r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (flattenShape $ rshape u) u
   rreshape :: (TensorKind2 r, KnownNat n, KnownNat m)
@@ -627,17 +629,17 @@ class ( Num (IntOf target)
     LTI -> Just ( v !$ (0 :.$ ZIS)
                 , sslice @target @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
-  sreverse :: (GoodScalar r, KnownNat n, KnownShS sh)
-           => target (TKS (n ': sh) r) -> target (TKS (n ': sh) r)
-  str :: ( GoodScalar r, KnownNat n, KnownNat m, KnownShS sh
+  sreverse :: (TensorKind2 r, KnownNat n, KnownShS sh)
+           => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
+  str :: ( TensorKind2 r, KnownNat n, KnownNat m, KnownShS sh
          , KnownNat (Rank sh) )
-      => target (TKS (n ': m ': sh) r) -> target (TKS (m ': n ': sh) r)
+      => target (TKS2 (n ': m ': sh) r) -> target (TKS2 (m ': n ': sh) r)
   str = stranspose (Permutation.makePerm @'[1, 0])
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
-                , Rank perm <= Rank sh, GoodScalar r )
-             => Permutation.Perm perm -> target (TKS sh r)
-             -> target (TKS (Permutation.PermutePrefix perm sh) r)
+                , Rank perm <= Rank sh, TensorKind2 r )
+             => Permutation.Perm perm -> target (TKS2 sh r)
+             -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
   sflatten :: (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
   sflatten = sreshape

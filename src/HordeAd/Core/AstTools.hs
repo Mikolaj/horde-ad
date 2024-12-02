@@ -103,8 +103,8 @@ ftkAst t = case t of
       yi :$: _ -> FTKR (xi + yi :$: xsh) FTKScalar
   AstSlice _i n v -> FTKR (n :$: tailShape (shapeAst v)) FTKScalar
   AstReverse v -> ftkAst v
-  AstTranspose perm v ->
-    FTKR (Nested.Internal.Shape.shrPermutePrefix perm $ shapeAst v) FTKScalar
+  AstTranspose perm v -> case ftkAst v of
+    FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
   AstReshape sh v -> case ftkAst v of
     FTKR _ x -> FTKR sh x
   AstGather sh _v (_vars, _ix) -> FTKR sh FTKScalar
@@ -134,13 +134,14 @@ ftkAst t = case t of
   AstFromVectorS{} -> FTKS knownShS FTKScalar
   AstAppendS{} -> FTKS knownShS FTKScalar
   AstSliceS{} -> FTKS knownShS FTKScalar
-  AstReverseS{} -> FTKS knownShS FTKScalar
-  AstTransposeS @perm @sh2 perm _v ->
-    withShapeP
-      (backpermutePrefixList (Permutation.permToList' perm)
-                             (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
-        FTKS knownShS FTKScalar
+  AstReverseS v -> ftkAst v
+  AstTransposeS @perm @sh2 perm v -> case ftkAst v of
+    FTKS _ x ->
+      withShapeP
+        (backpermutePrefixList (Permutation.permToList' perm)
+                               (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
+          gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
+          FTKS knownShS x
   AstReshapeS v -> case ftkAst v of
     FTKS _ x -> FTKS knownShS x
   AstGatherS{} -> FTKS knownShS FTKScalar

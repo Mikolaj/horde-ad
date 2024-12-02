@@ -453,12 +453,12 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKR (1 + n) r)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
-  ReverseR :: (GoodScalar r, KnownNat n)
-           => Delta target (TKR (1 + n) r) -> Delta target (TKR (1 + n) r)
+  ReverseR :: (TensorKind2 r, KnownNat n)
+           => Delta target (TKR2 (1 + n) r) -> Delta target (TKR2 (1 + n) r)
     -- ^ Reverse elements of the outermost dimension.
-  TransposeR :: (GoodScalar r, KnownNat n)
-             => Permutation.PermR -> Delta target (TKR n r)
-             -> Delta target (TKR n r)
+  TransposeR :: (TensorKind2 r, KnownNat n)
+             => Permutation.PermR -> Delta target (TKR2 n r)
+             -> Delta target (TKR2 n r)
     -- ^ Transpose according to the permutation.
   ReshapeR :: (TensorKind2 r, KnownNat n, KnownNat m)
            => IShR m -> Delta target (TKR2 n r)
@@ -538,15 +538,15 @@ data Delta :: Target -> TensorKindType -> Type where
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
-  ReverseS :: (GoodScalar r, KnownShS sh, KnownNat n)
-           => Delta target (TKS (n ': sh) r)
-           -> Delta target (TKS (n ': sh) r)
+  ReverseS :: (TensorKind2 r, KnownShS sh, KnownNat n)
+           => Delta target (TKS2 (n ': sh) r)
+           -> Delta target (TKS2 (n ': sh) r)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall perm sh r target.
-                (GoodScalar r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
+                (TensorKind2 r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
              => Permutation.Perm perm
-             -> Delta target (TKS sh r)
-             -> Delta target (TKS (Permutation.PermutePrefix perm sh) r)
+             -> Delta target (TKS2 sh r)
+             -> Delta target (TKS2 (Permutation.PermutePrefix perm sh) r)
     -- ^ Transpose according to the permutation.
   ReshapeS :: ( TensorKind2 r, KnownShS sh, KnownShS sh2
               , Nested.Product sh
@@ -686,7 +686,8 @@ shapeDeltaFull = \case
       yi :$: _ -> FTKR (xi + yi :$: xsh) FTKScalar
   SliceR _ n d -> FTKR (n :$: tailShape (shapeDelta d)) FTKScalar
   ReverseR d -> shapeDeltaFull d
-  TransposeR perm d -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm (shapeDelta d)) FTKScalar
+  TransposeR perm d -> case shapeDeltaFull d of
+    FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
   ReshapeR sh d -> case shapeDeltaFull d of
     FTKR _ x -> FTKR sh x
   GatherR sh _ _ -> FTKR sh FTKScalar
@@ -705,13 +706,14 @@ shapeDeltaFull = \case
   ReplicateS{} -> FTKS knownShS FTKScalar
   AppendS{} -> FTKS knownShS FTKScalar
   SliceS{} -> FTKS knownShS FTKScalar
-  ReverseS{} -> FTKS knownShS FTKScalar
-  TransposeS @perm @sh2 perm _v ->
-    withShapeP
-      (backpermutePrefixList (Permutation.permToList' perm)
-                             (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-        gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
-        FTKS knownShS FTKScalar
+  ReverseS d -> shapeDeltaFull d
+  TransposeS @perm @sh2 perm d -> case shapeDeltaFull d of
+    FTKS _ x ->
+      withShapeP
+        (backpermutePrefixList (Permutation.permToList' perm)
+                               (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
+          gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
+          FTKS knownShS x
   ReshapeS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
   GatherS{} -> FTKS knownShS FTKScalar

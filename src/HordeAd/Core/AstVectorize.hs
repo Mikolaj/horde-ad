@@ -53,13 +53,14 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVector
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.
-astTr :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-      => AstTensor AstMethodLet s (TKR (2 + n) r) -> AstTensor AstMethodLet s (TKR (2 + n) r)
+astTr :: forall n s r. (KnownNat n, TensorKind2 r, AstSpan s)
+      => AstTensor AstMethodLet s (TKR2 (2 + n) r) -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
 astTr = astTranspose [1, 0]
 
 -- | The application @build1Vectorize k (var, v)@ vectorizes
@@ -625,8 +626,8 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 --
 -- This abbreviation is used a lot below.
 astTrS :: forall n m sh s r.
-          (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r, AstSpan s)
-       => AstTensor AstMethodLet s (TKS (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS (m ': n ': sh) r)
+          (KnownNat n, KnownNat m, KnownShS sh, TensorKind2 r, AstSpan s)
+       => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
 astTrX :: forall n m sh s r.
 --          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)

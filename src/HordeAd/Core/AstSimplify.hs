@@ -557,8 +557,10 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     in astIndex v (iRev :.: rest1)
   Ast.AstTranspose perm v | valueOf @m >= length perm ->
     astIndex v (Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix)
-  Ast.AstTranspose perm v ->
-    astIndex (astTransposeAsGather knobs perm v) ix
+  Ast.AstTranspose perm v -> case stensorKind @r of
+    STKScalar{} ->
+      astIndex (astTransposeAsGather knobs perm v) ix
+    _ -> Ast.AstIndex v0 ix
   Ast.AstReshape sh v -> case stensorKind @r of
     STKScalar{} ->
       astIndex (astReshapeAsGather knobs sh v) ix
@@ -788,8 +790,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
     in astIndex v (iRev :.$ rest1)
   Ast.AstTransposeS @perm perm v
     | rankPerm <- Permutation.permRank perm
-    , length (shapeT @shm) < sNatValue rankPerm ->
-      astIndex (astTransposeAsGatherS @perm perm knobs v) ix
+    , length (shapeT @shm) < sNatValue rankPerm -> case stensorKind @r of
+      STKScalar{} ->
+        astIndex (astTransposeAsGatherS @perm perm knobs v) ix
+      _ -> Ast.AstIndexS v0 ix
   Ast.AstTransposeS @perm @sh2 perm v ->
     withShapeP
       (permutePrefixList (Permutation.permToList' perm)
@@ -1819,8 +1823,9 @@ astSliceS v = Ast.AstSliceS @i v
        $ map fromIntegral [i :: Int .. i + n - 1]
 -}
 
-astReverse :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-           => AstTensor AstMethodLet s (TKR (1 + n) r) -> AstTensor AstMethodLet s (TKR (1 + n) r)
+astReverse :: forall n s r. (KnownNat n, TensorKind2 r, AstSpan s)
+           => AstTensor AstMethodLet s (TKR2 (1 + n) r)
+           -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
 astReverse (AstConcrete ftk t) = AstConcrete ftk $ RepN $ treverseR (unRepN t)
 astReverse (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverse v
 astReverse (Ast.AstReplicate k v) = astReplicate k v
@@ -1833,8 +1838,9 @@ astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
-astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
-            => AstTensor AstMethodLet s (TKS (n ': sh) r) -> AstTensor AstMethodLet s (TKS (n ': sh) r)
+astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, TensorKind2 r, AstSpan s)
+            => AstTensor AstMethodLet s (TKS2 (n ': sh) r)
+            -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (AstConcrete ftk t) = AstConcrete ftk $ RepN $ treverseS (unRepN t)
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
 astReverseS (Ast.AstReplicate k v) = astReplicate k v
@@ -1850,9 +1856,9 @@ astReverseS v = Ast.AstReverseS v
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
-astTranspose :: forall n s r. (GoodScalar r, KnownNat n, AstSpan s)
-             => Permutation.PermR -> AstTensor AstMethodLet s (TKR n r)
-             -> AstTensor AstMethodLet s (TKR n r)
+astTranspose :: forall n s r. (TensorKind2 r, KnownNat n, AstSpan s)
+             => Permutation.PermR -> AstTensor AstMethodLet s (TKR2 n r)
+             -> AstTensor AstMethodLet s (TKR2 n r)
 astTranspose perm = \case
   t | null perm -> t
   Ast.AstLet var u v -> astLet var u (astTranspose perm v)
@@ -1888,9 +1894,9 @@ astTranspose perm = \case
 
 astTransposeS :: forall perm sh s r.
                  ( PermC perm, KnownShS sh, Rank perm <= Rank sh
-                 , GoodScalar r, AstSpan s )
-              => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS sh r)
-              -> AstTensor AstMethodLet s (TKS (Permutation.PermutePrefix perm sh) r)
+                 , TensorKind2 r, AstSpan s )
+              => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
+              -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 astTransposeS perm t = case perm of
  Permutation.PNil -> t
  _ -> case t of
@@ -2834,7 +2840,7 @@ expandAst t = case t of
   Ast.AstAppend x y -> astAppend (expandAst x) (expandAst y)
   Ast.AstSlice i k v -> astSlice i k (expandAst v)
   Ast.AstReverse v -> astReverse (expandAst v)
-  Ast.AstTranspose perm v -> case v of
+  Ast.AstTranspose @_ @x perm v -> case v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
@@ -2855,11 +2861,13 @@ expandAst t = case t of
     Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
     AstSumOfListR{} -> t  -- normal form
     Ast.AstScatter @_ @_ @p _ _ _ | length perm > valueOf @p -> t  -- nf
-    _ ->  -- not nf, let's express all as a gather
-      astTransposeAsGather (defaultKnobs {knobExpand = True})
-                           (normalizePermutation perm)
-                           (expandAst v)
-        -- this is expensive but the only way to guarantee full simplification
+    _ -> case stensorKind @x of
+      STKScalar{} ->  -- not nf, let's express all as a gather
+        astTransposeAsGather (defaultKnobs {knobExpand = True})
+                             (normalizePermutation perm)
+                             (expandAst v)
+          -- this is expensive but the only way to guarantee full simplification
+      _ -> t  -- or not
   Ast.AstReshape @_ @_ @x sh v -> case v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form

@@ -306,12 +306,12 @@ tsliceR
 tsliceR = Nested.rslice
 
 treverseR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
 treverseR = Nested.rrev1
 
 ttransposeR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => Permutation.PermR -> Nested.Ranked n r -> Nested.Ranked n r
 ttransposeR = Nested.rtranspose
 
@@ -667,14 +667,14 @@ tsliceS
 tsliceS = Nested.sslice (SNat @i) SNat
 
 treverseS
-  :: forall n sh r. NumAndShow r
+  :: forall n sh r. Nested.KnownElt r
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (n ': sh) r
 treverseS = Nested.srev1
 
 -- TODO: remove the conversion and overhaul the whole codebase
 ttransposeS
   :: forall perm r sh.
-     (NumAndShow r, PermC perm, Rank perm <= Rank sh )
+     (Nested.KnownElt r, PermC perm, Rank perm <= Rank sh )
   => Permutation.Perm perm -> Nested.Shaped sh r
   -> Nested.Shaped (Permutation.PermutePrefix perm sh) r
 ttransposeS perm =
