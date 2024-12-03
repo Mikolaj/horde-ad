@@ -10,16 +10,15 @@ module HordeAd.External.Optimizer
 
 import Prelude
 
-import HordeAd.Core.Delta
 import HordeAd.Core.CarriersADVal
-import HordeAd.Core.TensorKind
+import HordeAd.Core.Delta
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
-import HordeAd.Core.TensorClass
 import HordeAd.Core.OpsConcrete ()
+import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
-import HordeAd.Core.CarriersConcrete
 
 -- These functions have their SPECIALIZE pragmas in MnistData.
 

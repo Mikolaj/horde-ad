@@ -2,15 +2,12 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Core.CarriersConcrete
-  ( TensorKind2
-  , IIxR64, IIxS64
-  , RepORArray, RepN(..)
+  ( IIxR64, IIxS64, RepN(..)
   ) where
 
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
-import Data.Default
 import Data.Int (Int64)
 import Data.Vector.Generic qualified as V
 
@@ -28,25 +25,6 @@ import HordeAd.Core.Types
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
-
-type TensorKind2 y =
-  ( TensorKind y, Default (RepORArray y), Nested.KnownElt (RepORArray y)
-  , Show (RepORArray y), Num (RepORArray (ADTensorKind y)) )
-
-type family RepORArray (y :: TensorKindType) where
-  RepORArray (TKScalar r) = r
-  RepORArray (TKR2 n x) = Nested.Ranked n (RepORArray x)
-  RepORArray (TKS2 sh x) = Nested.Shaped sh (RepORArray x)
-  RepORArray (TKX2 sh x) = Nested.Mixed sh (RepORArray x)
-  RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
-  RepORArray TKUntyped = HVector RepN
-
--- Needed because `RepORArray` can't be partially applied.
--- This type also lets us work around the woes with defining Show
--- for the Rep type family. It gives us a concrete thing
--- to attach a Show instance to.
-type role RepN nominal
-newtype RepN y = RepN {unRepN :: RepORArray y}
 
 instance TensorKind y
          => Show (RepN y) where

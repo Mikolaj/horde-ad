@@ -2,11 +2,7 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | The product (heterogeneous list) object for tensors.
---
--- This is used as a representation of the domains of objective functions
--- that become the codomains of the reverse derivative functions
--- and also to hangle multiple arguments and results of fold-like operations.
+-- | Various singletons for tensors and their associated constraints and lemmas.
 module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
@@ -14,6 +10,9 @@ module HordeAd.Core.TensorKind
   , lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), lemTensorKindOfF, buildFullTensorKind
   , aDTensorKind
+    -- * Type family RepORArray
+  , RepORArray, TensorKind2
+  , RepN(..)  -- only temporarily here
     -- * Misc
   , RepD(..)
   , DynamicTensor(..)
@@ -31,6 +30,7 @@ import Prelude
 
 import Control.DeepSeq (NFData (..))
 import Data.Boolean (Boolean (..))
+import Data.Default
 import Data.Kind (Type)
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -55,6 +55,7 @@ import Data.Array.Nested
   , pattern ZSR
   , type (++)
   )
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Types
@@ -246,6 +247,30 @@ aDTensorKind t = case t of
     in case (lemTensorKindOfF gtk1, lemTensorKindOfF gtk2) of
       (Dict, Dict) -> FTKProduct gtk1 gtk2
   FTKUntyped{} -> t
+
+
+-- * Type family RepORArray
+
+type TensorKind2 y =
+  ( TensorKind y, Default (RepORArray y), Nested.KnownElt (RepORArray y)
+  , Show (RepORArray y), Num (RepORArray (ADTensorKind y)) )
+
+type family RepORArray (y :: TensorKindType) where
+  RepORArray (TKScalar r) = r
+  RepORArray (TKR2 n x) = Nested.Ranked n (RepORArray x)
+  RepORArray (TKS2 sh x) = Nested.Shaped sh (RepORArray x)
+  RepORArray (TKX2 sh x) = Nested.Mixed sh (RepORArray x)
+  RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
+  RepORArray TKUntyped = HVector RepN
+
+-- TODO: move back to HordeAd.Core.CarriersConcrete as soon as TKUntyped is gone
+--
+-- Needed because `RepORArray` can't be partially applied.
+-- This type also lets us work around the woes with defining Show
+-- for the Rep type family. It gives us a concrete thing
+-- to attach a Show instance to.
+type role RepN nominal
+newtype RepN y = RepN {unRepN :: RepORArray y}
 
 
 -- * Misc

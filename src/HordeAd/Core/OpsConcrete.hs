@@ -23,12 +23,12 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal
-import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.CarriersConcrete ()
 import HordeAd.Core.Delta
-import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 
