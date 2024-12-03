@@ -57,7 +57,7 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- Note that no Ast* module except AstInterpret and AstEnv

@@ -54,7 +54,7 @@ import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 

@@ -26,7 +26,7 @@ import System.Random
 -- import HordeAd.Core.Ast
 -- import           GHC.TypeLits (KnownNat)
 
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 

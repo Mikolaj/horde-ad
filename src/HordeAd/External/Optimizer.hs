@@ -12,7 +12,7 @@ import Prelude
 
 import HordeAd.Core.Delta
 import HordeAd.Core.CarriersADVal
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass

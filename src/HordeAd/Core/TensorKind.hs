@@ -7,7 +7,7 @@
 -- This is used as a representation of the domains of objective functions
 -- that become the codomains of the reverse derivative functions
 -- and also to hangle multiple arguments and results of fold-like operations.
-module HordeAd.Core.HVector
+module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
   , lemTensorKindOfS, sameTensorKind, sameTK, lemTensorKindOfBuild

@@ -34,7 +34,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types

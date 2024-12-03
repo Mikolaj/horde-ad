@@ -27,7 +27,7 @@ import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList

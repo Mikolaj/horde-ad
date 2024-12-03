@@ -34,7 +34,7 @@ import Data.Array.Nested
   (IShR, KnownShS (..), Rank, ShR (..), ShS (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested.Internal.Shape (shrRank)
 
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList

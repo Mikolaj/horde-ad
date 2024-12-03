@@ -11,7 +11,7 @@ module HordeAd
   , module HordeAd.Core.CarriersAst
   , module HordeAd.Core.CarriersConcrete
   , module HordeAd.Core.Engine
-  , module HordeAd.Core.HVector
+  , module HordeAd.Core.TensorKind
   , module HordeAd.Core.HVectorOps
   , module HordeAd.Core.OpsADVal
   , module HordeAd.Core.TensorClass
@@ -32,7 +32,7 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass

@@ -22,7 +22,7 @@ import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- TODO: check what the following did in tsum0R and if worth emulating

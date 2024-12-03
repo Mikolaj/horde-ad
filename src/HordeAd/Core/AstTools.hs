@@ -36,7 +36,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 
 import HordeAd.Core.Ast
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 

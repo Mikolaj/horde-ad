@@ -20,8 +20,7 @@ import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
-import HordeAd.Core.HVector
-import HordeAd.Core.Types
+import HordeAd.Core.TensorKind
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}

@@ -27,7 +27,7 @@ import Data.Array.Nested (KnownShS (..), Rank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersAst
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList

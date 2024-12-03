@@ -110,7 +110,7 @@ import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX

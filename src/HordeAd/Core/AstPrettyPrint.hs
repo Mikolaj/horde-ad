@@ -29,7 +29,7 @@ import Data.Array.Nested.Internal.Shape (shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVector
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
