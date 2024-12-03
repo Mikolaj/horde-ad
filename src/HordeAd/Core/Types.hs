@@ -15,19 +15,13 @@ module HordeAd.Core.Types
   , Take, Drop, Last, Init
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
-  , STensorKindType(..), TensorKind(..)
-  , lemTensorKindOfS, sameTensorKind, sameTK
-  , BuildTensorKind, lemTensorKindOfBuild
-    -- * Some fundamental constraints
+    -- * Some fundamental constraints and types
   , GoodScalar, Differentiable, IfDifferentiable(..)
-  , ADTensorKind, ADTensorScalar, Z0(..), lemTensorKindOfAD, lemBuildOfAD
+  , BuildTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
     -- * Type families that tensors will belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDualTarget(..)
   , IxROf, IxSOf, IxXOf
-    -- * Generic types of booleans and related class definitions
-  , BoolOf, Boolean(..)
-  , IfF(..), EqF(..), OrdF(..), minF, maxF
     -- * Misc
   , IntegralF(..), RealFloatF(..)
   ) where
@@ -36,12 +30,11 @@ import Prelude
 
 import Control.DeepSeq (NFData (..))
 import Data.Array.Internal.RankedS qualified as RS
-import Data.Boolean (Boolean (..))
 import Data.Default
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -56,13 +49,13 @@ import GHC.TypeLits
   , type (-)
   , withSomeSNat
   )
-import Type.Reflection (TypeRep, Typeable, typeRep)
+import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (KnownShX (..), StaticShX (..), withKnownShX)
-import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
+import Data.Array.Mixed.Shape (withKnownShX)
+import Data.Array.Mixed.Types (Dict (..))
 import Data.Array.Nested
   (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
@@ -195,105 +188,6 @@ type TKX sh r = TKX2 sh (TKScalar r)
 
 type TKUnit = TKScalar Z0
 
-type role STensorKindType nominal
-data STensorKindType y where
-  STKScalar :: GoodScalar r
-            => TypeRep r -> STensorKindType (TKScalar r)
-  STKR :: SNat n -> STensorKindType x -> STensorKindType (TKR2 n x)
-  STKS :: ShS sh -> STensorKindType x -> STensorKindType (TKS2 sh x)
-  STKX :: StaticShX sh -> STensorKindType x -> STensorKindType (TKX2 sh x)
-  STKProduct :: STensorKindType y -> STensorKindType z
-             -> STensorKindType (TKProduct y z)
-  STKUntyped :: STensorKindType TKUntyped
-
-deriving instance Show (STensorKindType y)
-
-class TensorKind (y :: TensorKindType) where
-  stensorKind :: STensorKindType y
-
-instance GoodScalar r => TensorKind (TKScalar r) where
-  stensorKind = STKScalar typeRep
-
-instance (TensorKind x, KnownNat n) => TensorKind (TKR2 n x) where
-  stensorKind = STKR SNat stensorKind
-
-instance (TensorKind x, KnownShS sh) => TensorKind (TKS2 sh x) where
-  stensorKind = STKS knownShS stensorKind
-
-instance (TensorKind x, KnownShX sh) => TensorKind (TKX2 sh x) where
-  stensorKind = STKX knownShX stensorKind
-
-instance (TensorKind y, TensorKind z) => TensorKind (TKProduct y z) where
-  stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
-
-instance TensorKind TKUntyped where
-  stensorKind = STKUntyped
-
-lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
-lemTensorKindOfS = \case
-  STKScalar _ -> Dict
-  STKR SNat x -> case lemTensorKindOfS x of
-    Dict -> Dict
-  STKS sh x -> case lemTensorKindOfS x of
-    Dict -> withKnownShS sh Dict
-  STKX sh x -> case lemTensorKindOfS x of
-    Dict -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 -> Dict
-  STKUntyped -> Dict
-
-sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
-sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
-
-sameTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
-sameTK y1 y2 = case (y1, y2) of
-    (STKScalar r1, STKScalar r2) ->
-      case testEquality r1 r2 of
-        Just Refl -> Just Refl
-        Nothing -> Nothing
-    (STKR snat1 r1, STKR snat2 r2) ->
-      case (sameTK r1 r2, testEquality snat1 snat2) of
-        (Just Refl, Just Refl) -> Just Refl
-        _ -> Nothing
-    (STKS shs1 r1, STKS shs2 r2) ->
-      case (sameTK r1 r2, testEquality shs1 shs2) of
-        (Just Refl, Just Refl) -> Just Refl
-        _ -> Nothing
-    (STKX shs1 r1, STKX shs2 r2) ->
-      case (sameTK r1 r2, testEquality shs1 shs2) of
-        (Just Refl, Just Refl) -> Just Refl
-        _ -> Nothing
-    (STKProduct x1 z1, STKProduct x2 z2) -> case (sameTK x1 x2, sameTK z1 z2) of
-      (Just Refl, Just Refl) -> Just Refl
-      _ -> Nothing
-    (STKUntyped, STKUntyped) -> Just Refl
-    _ -> Nothing
-
-type family BuildTensorKind k tk where
-  BuildTensorKind k (TKScalar r) = TKScalar r  -- TODO: say why on Earth
-  BuildTensorKind k (TKR2 n r) = TKR2 (1 + n) r
-  BuildTensorKind k (TKS2 sh r) = TKS2 (k : sh) r
-  BuildTensorKind k (TKX2 sh r) = TKX2 (Just k : sh) r
-  BuildTensorKind k (TKProduct y z) =
-    TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
-  BuildTensorKind k TKUntyped = TKUntyped
-
-lemTensorKindOfBuild :: SNat k -> STensorKindType y
-                     -> Dict TensorKind (BuildTensorKind k y)
-lemTensorKindOfBuild snat@SNat = \case
-  STKScalar{} -> Dict
--- TODO?  STKScalar{} ->
---    error "lemTensorKindOfBuild: type family BuildTensorKind stuck at TKScalar"
-  STKR SNat x -> case lemTensorKindOfS x of
-    Dict -> Dict
-  STKS sh x -> case lemTensorKindOfS x of
-    Dict -> withKnownShS sh Dict
-  STKX sh x -> case lemTensorKindOfS x of
-    Dict -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
-                       , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
-  STKUntyped -> Dict
-
 
 -- * Some fundamental constraints
 
@@ -322,6 +216,15 @@ instance IfDifferentiable Double where
   ifDifferentiable ra _ = ra
 instance IfDifferentiable Float where
   ifDifferentiable ra _ = ra
+
+type family BuildTensorKind k tk where
+  BuildTensorKind k (TKScalar r) = TKScalar r  -- TODO: say why on Earth
+  BuildTensorKind k (TKR2 n r) = TKR2 (1 + n) r
+  BuildTensorKind k (TKS2 sh r) = TKS2 (k : sh) r
+  BuildTensorKind k (TKX2 sh r) = TKX2 (Just k : sh) r
+  BuildTensorKind k (TKProduct y z) =
+    TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
+  BuildTensorKind k TKUntyped = TKUntyped
 
 type family ADTensorKind tk where
   ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)
@@ -384,41 +287,6 @@ instance NumElt Z0 where
   numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
   numEltDotprodInner _ arr1 _arr2 = RS.index arr1 0
 
-lemTensorKindOfAD :: forall y.
-                     STensorKindType y
-                  -> Dict TensorKind (ADTensorKind y)
-lemTensorKindOfAD = \case
-  STKScalar @r rep -> case testEquality rep (typeRep @Double) of
-    Just Refl -> Dict
-    _ -> case testEquality rep (typeRep @Float) of
-      Just Refl -> Dict
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
-           Dict @TensorKind @(TKScalar Z0)
-  STKR SNat rs -> case lemTensorKindOfAD rs of
-    Dict -> Dict
-  STKS sh rs -> withKnownShS sh $ case lemTensorKindOfAD rs of
-    Dict -> Dict
-  STKX sh rs -> withKnownShX sh $ case lemTensorKindOfAD rs of
-    Dict -> Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
-                       , Dict <- lemTensorKindOfAD stk2 -> Dict
-  STKUntyped -> Dict
-
-lemBuildOfAD :: forall k y.
-                SNat k -> STensorKindType y
-             -> Maybe (BuildTensorKind k (ADTensorKind y)
-                       :~: ADTensorKind (BuildTensorKind k y))
-lemBuildOfAD snat@SNat = \case
-  STKScalar{} -> Just unsafeCoerceRefl
-  STKR{} -> Just unsafeCoerceRefl
-  STKS{} -> Just unsafeCoerceRefl
-  STKX{} -> Just unsafeCoerceRefl
-  STKProduct stk1 stk2 ->
-    case (lemBuildOfAD snat stk1, lemBuildOfAD snat stk2) of
-      (Just Refl, Just Refl) -> Just Refl
-      _ -> Nothing
-  STKUntyped -> Just Refl
-
 
 -- * Type families that tensors will belong to
 
@@ -464,36 +332,6 @@ type IxROf (f :: Target) n = IxR n (IntOf f)
 type IxSOf (f :: Target) (sh :: [Nat]) = IxS sh (IntOf f)
 
 type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
-
-
--- * Generic types of booleans and related class definitions
-
-type family BoolOf (t :: Target) :: Type
-
-class Boolean (BoolOf f) => IfF (f :: Target) where
-  ifF :: TensorKind y => BoolOf f -> f y -> f y -> f y
-
-infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: Target) where
-  -- The existential variables here are handled in instances, e.g., via AstRel.
-  (==.), (/=.) :: TensorKind y => f y -> f y -> BoolOf f
-  u /=. v = notB (u ==. v)
-
-infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: Target) where
-  -- The existential variables here are handled in instances, e.g., via AstRel.
-  (<.), (<=.), (>.), (>=.) :: TensorKind y => f y -> f y -> BoolOf f
-  u >. v = v <. u
-  u >=. v = notB (u <. v)
-  u <=. v = v >=. u
-
-minF :: (IfF f, OrdF f, TensorKind y)
-     => f y -> f y -> f y
-minF u v = ifF (u <=. v) u v
-
-maxF :: (IfF f, OrdF f, TensorKind y)
-     => f y -> f y -> f y
-maxF u v = ifF (u >=. v) u v
 
 
 -- * Misc
