@@ -90,7 +90,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk
         unADValRep (stensorKind @z)
         $ forwardPass hVectorPrimal var hVector in
   let (!varDt, !astDt) =
-        funToAst (aDTensorKind $ ftkAst $ unAstRaw primalBody) id in
+        funToAst (aDFTK $ ftkAst $ unAstRaw primalBody) id in
   let mdt = if hasDt
             then Just astDt
             else Nothing
@@ -447,13 +447,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   dshape = shapeAstHVector
-  tftk stk t | Dict <- lemTensorKindOfS stk = ftkAst t
-  tcond stk b u v | Dict <- lemTensorKindOfS stk = AstCond b u v
-  tfromPrimal stk t | Dict <- lemTensorKindOfS stk = fromPrimal t
-  tprimalPart stk t | Dict <- lemTensorKindOfS stk = astSpanPrimal t
-  tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDual t
-  tD stk t d | Dict <- lemTensorKindOfS stk = astSpanD t d
-  tconcrete ftk a | Dict <- lemTensorKindOfF ftk =
+  tftk stk t | Dict <- lemTensorKindOfSTK stk = ftkAst t
+  tcond stk b u v | Dict <- lemTensorKindOfSTK stk = AstCond b u v
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimal t
+  tprimalPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanPrimal t
+  tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDual t
+  tD stk t d | Dict <- lemTensorKindOfSTK stk = astSpanD t d
+  tconcrete ftk a | Dict <- lemTensorKindOfFTK ftk =
     fromPrimal $ AstConcrete ftk a
   dmkHVector = AstMkHVector
   tlambda :: forall x z. TensorKind x
@@ -513,7 +513,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = aDTensorKind $ ftkAst primal
+        ftkz = aDFTK $ ftkAst primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDt (astProject1 astP)
@@ -530,7 +530,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactFwd varDs var derivative _primal, _delta) =
           fwdProduceArtifact (unHFun f) emptyEnv ftkx
-        ftk2 = FTKProduct (aDTensorKind ftkx) ftkx
+        ftk2 = FTKProduct (aDFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDs (astProject1 astP)
           $ astLet var (astProject2 astP)
@@ -716,16 +716,16 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
   dshape = shapeAstHVector . unAstRaw
-  tftk stk t | Dict <- lemTensorKindOfS stk = ftkAst $ unAstRaw t
-  tcond stk b u v | Dict <- lemTensorKindOfS stk =
+  tftk stk t | Dict <- lemTensorKindOfSTK stk = ftkAst $ unAstRaw t
+  tcond stk b u v | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
-  tfromPrimal stk t | Dict <- lemTensorKindOfS stk =
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ fromPrimal $ unAstRaw t
-  tprimalPart stk t | Dict <- lemTensorKindOfS stk =
+  tprimalPart stk t | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ astSpanPrimalRaw $ unAstRaw t
-  tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDualRaw $ unAstRaw t
-  tD stk t d | Dict <- lemTensorKindOfS stk = AstRaw $ astSpanD (unAstRaw t) d
-  tconcrete ftk a | Dict <- lemTensorKindOfF ftk =
+  tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDualRaw $ unAstRaw t
+  tD stk t d | Dict <- lemTensorKindOfSTK stk = AstRaw $ astSpanD (unAstRaw t) d
+  tconcrete ftk a | Dict <- lemTensorKindOfFTK ftk =
     AstRaw $ fromPrimal $ AstConcrete ftk a
   dmkHVector = AstRaw . AstMkHVector . unRawHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
@@ -955,7 +955,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject1 t = AstNoVectorize $ astProject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ astProject2 $ unAstNoVectorize t
   dshape = shapeAstHVector . unAstNoVectorize
-  tftk stk t | Dict <- lemTensorKindOfS stk =
+  tftk stk t | Dict <- lemTensorKindOfSTK stk =
     ftkAst $ unAstNoVectorize t
   tcond stk b u v = AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
@@ -1201,18 +1201,18 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tproject1 t = AstNoSimplify $ AstProject1 $ unAstNoSimplify t
   tproject2 t = AstNoSimplify $ AstProject2 $ unAstNoSimplify t
   dshape = shapeAstHVector . unAstNoSimplify
-  tftk stk t | Dict <- lemTensorKindOfS stk =
+  tftk stk t | Dict <- lemTensorKindOfSTK stk =
     ftkAst $ unAstNoSimplify t
-  tcond stk b u v | Dict <- lemTensorKindOfS stk =
+  tcond stk b u v | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
-  tfromPrimal stk t | Dict <- lemTensorKindOfS stk =
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ fromPrimal $ unAstNoSimplify t
-  tprimalPart stk t | Dict <- lemTensorKindOfS stk =
+  tprimalPart stk t | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ astSpanPrimal $ unAstNoSimplify t
-  tdualPart stk t | Dict <- lemTensorKindOfS stk = astSpanDual $ unAstNoSimplify t
-  tD stk t d | Dict <- lemTensorKindOfS stk =
+  tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDual $ unAstNoSimplify t
+  tD stk t d | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ astSpanD (unAstNoSimplify t) d
-  tconcrete ftk a | Dict <- lemTensorKindOfF ftk =
+  tconcrete ftk a | Dict <- lemTensorKindOfFTK ftk =
     AstNoSimplify $ fromPrimal $ AstConcrete ftk a
   dmkHVector = AstNoSimplify . AstMkHVector . unNoSimplifyHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)

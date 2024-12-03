@@ -57,8 +57,8 @@ ftkAst t = case t of
   AstFromPrimal a -> ftkAst a
   AstD u _ -> ftkAst u
   AstCond _b v _w -> ftkAst v
-  AstReplicate snat v -> buildFullTensorKind snat (ftkAst v)
-  AstBuild1 snat (_var, v) -> buildFullTensorKind snat (ftkAst v)
+  AstReplicate snat v -> buildFTK snat (ftkAst v)
+  AstBuild1 snat (_var, v) -> buildFTK snat (ftkAst v)
   AstLet _ _ v -> ftkAst v
   AstShare _ v -> ftkAst v
   AstToShare v -> ftkAst v
@@ -170,10 +170,10 @@ ftkAst t = case t of
   AstApply v _ll -> shapeAstHFun v
   AstMapAccumRDer @_ @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildFullTensorKind k bShs)
+      FTKProduct accShs (buildFTK k bShs)
   AstMapAccumLDer @_ @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildFullTensorKind k bShs)
+      FTKProduct accShs (buildFTK k bShs)
 
   _ -> error "TODO"
 

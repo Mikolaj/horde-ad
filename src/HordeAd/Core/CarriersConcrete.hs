@@ -45,8 +45,8 @@ instance TensorKind y
     STKX _ (STKS _ STKScalar{}) -> showsPrec d t
     STKX _ (STKX _ STKScalar{}) -> showsPrec d t
     STKX _ (STKProduct (STKX _ STKScalar{}) (STKX _ STKScalar{})) -> showsPrec d t
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                                 , Dict <- lemTensorKindOfS stk2 ->
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                                 , Dict <- lemTensorKindOfSTK stk2 ->
       showsPrec d (RepN @y1 $ fst t, RepN @y2 $ snd t)
     STKUntyped -> showsPrec d t
     _ -> error "TODO"
@@ -70,8 +70,8 @@ instance TensorKind y
 --    STKX _ (STKS _ STKScalar{}) -> rnf t
     STKX _ (STKX _ STKScalar{}) -> rnf t
     STKX _ (STKProduct (STKX _ STKScalar{}) (STKX _ STKScalar{})) -> rnf t
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                                 , Dict <- lemTensorKindOfS stk2 ->
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                                 , Dict <- lemTensorKindOfSTK stk2 ->
       rnf (RepN @y1 $ fst t, RepN @y2 $ snd t)
     STKUntyped -> rnf t
     _ -> error "TODO"

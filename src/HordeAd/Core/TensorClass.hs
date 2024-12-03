@@ -113,8 +113,8 @@ class LetTensor (target :: Target) where
 -- TODO:    STKS sh (STKS _ STKScalar{}) -> withKnownShS sh $ sreplicate u
     STKX sh STKScalar{} -> withKnownShX sh $ xreplicate u
     STKProduct @z1 @z2 stk1 stk2
-      | Dict <- lemTensorKindOfS stk1
-      , Dict <- lemTensorKindOfS stk2
+      | Dict <- lemTensorKindOfSTK stk1
+      , Dict <- lemTensorKindOfSTK stk2
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
         tlet u $ \ !u1 ->
@@ -942,8 +942,8 @@ class ( Num (IntOf target)
           STKS sh STKScalar{} -> withKnownShS sh $ sbuild1 g
           STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
           STKProduct @z1 @z2 stk1 stk2
-            | Dict <- lemTensorKindOfS stk1
-            , Dict <- lemTensorKindOfS stk2
+            | Dict <- lemTensorKindOfSTK stk1
+            , Dict <- lemTensorKindOfSTK stk2
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
               let f1 i = tproject1 $ g i

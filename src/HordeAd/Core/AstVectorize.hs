@@ -517,9 +517,9 @@ build1V snat@SNat (var, v0) =
       astLetFun
         (Ast.AstMapAccumRDer
            k5
-           (buildFullTensorKind snat accShs)
-           (buildFullTensorKind snat bShs)
-           (buildFullTensorKind snat eShs)
+           (buildFTK snat accShs)
+           (buildFTK snat bShs)
+           (buildFTK snat eShs)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
@@ -549,9 +549,9 @@ build1V snat@SNat (var, v0) =
       astLetFun
         (Ast.AstMapAccumLDer
            k5
-           (buildFullTensorKind snat accShs)
-           (buildFullTensorKind snat bShs)
-           (buildFullTensorKind snat eShs)
+           (buildFTK snat accShs)
+           (buildFTK snat bShs)
+           (buildFTK snat eShs)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
@@ -739,7 +739,7 @@ substProjRep snat@SNat var ftk2 var1 v
   | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) =
     let var3 :: AstVarName s2 (BuildTensorKind k y2)
         var3 = mkAstVarName (varNameToAstVarId var1)
-        ftk3 = buildFullTensorKind snat ftk2
+        ftk3 = buildFTK snat ftk2
         astVar3 = Ast.AstVar ftk3 var3
         projection :: AstTensor AstMethodLet s2 (BuildTensorKind k y4)
                    -> FullTensorKind y4
@@ -753,15 +753,15 @@ substProjRep snat@SNat var ftk2 var1 v
           FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh)
                      $ Ast.AstIndexX prVar (Ast.AstIntVar var :.% ZIX)
           FTKProduct @z1 @z2 ftk41 ftk42
-            | Dict <- lemTensorKindOfF ftk41
-            , Dict <- lemTensorKindOfF ftk42
+            | Dict <- lemTensorKindOfFTK ftk41
+            , Dict <- lemTensorKindOfFTK ftk42
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
             , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
               let prVar1 = astProject1 prVar
                   prVar2 = astProject2 prVar
               in astPair (projection prVar1 ftk41)
                          (projection prVar2 ftk42)
-          ftk@(FTKUntyped shs0) -> case buildFullTensorKind snat ftk of
+          ftk@(FTKUntyped shs0) -> case buildFTK snat ftk of
             FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
               let projDyn :: DynamicTensor (AstTensor AstMethodLet s2)
                           -> DynamicTensor VoidTensor

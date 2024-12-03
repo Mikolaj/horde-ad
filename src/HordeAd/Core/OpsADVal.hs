@@ -467,8 +467,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     STKR SNat STKScalar{} -> ifF b u v
     STKS sh STKScalar{} -> withKnownShS sh $ ifF b u v
     STKX sh STKScalar{} -> withKnownShX sh $ ifF b u v
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                         , Dict <- lemTensorKindOfSTK stk2 ->
       let (u1, u2) = tunpair u
           (v1, v2) = tunpair v
           !t1 = tcond stk1 b u1 v1
@@ -483,14 +483,14 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tfromPrimal :: STensorKindType y
             -> target y
             -> ADVal target y
-  tfromPrimal stk t | Dict <- lemTensorKindOfS stk = fromPrimalADVal t
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
   tprimalPart :: STensorKindType y
               -> ADVal target y
               -> target y
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'
-  tD stk t d | Dict <- lemTensorKindOfS stk = dD t d
-  tconcrete ftk t | Dict <- lemTensorKindOfF ftk =
+  tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
+  tconcrete ftk t | Dict <- lemTensorKindOfFTK ftk =
     fromPrimalADVal $ tconcrete ftk t
   dmkHVector hv =
     let (!as, !as') = V.unzip $ V.map unADValDynamicTensor hv
@@ -617,11 +617,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                           (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
                           (tlambda @target
-                             (FTKProduct (aDTensorKind (FTKProduct accShs eShs))
+                             (FTKProduct (aDFTK (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
                           (tlambda @target
-                             (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
+                             (FTKProduct (aDFTK (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
                           acc0 es
@@ -703,11 +703,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                           (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
                           (tlambda @target
-                             (FTKProduct (aDTensorKind (FTKProduct accShs eShs))
+                             (FTKProduct (aDFTK (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
                           (tlambda @target
-                             (FTKProduct (aDTensorKind (FTKProduct accShs codomainShs))
+                             (FTKProduct (aDFTK (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
                           acc0 es
@@ -722,7 +722,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
 taddLet :: ADReady target
         => STensorKindType y -> target y -> target y -> target y
-taddLet stk t1 t2 | Dict <- lemTensorKindOfS stk =
+taddLet stk t1 t2 | Dict <- lemTensorKindOfSTK stk =
   tlet t1 $ \ !u1 ->
   tlet t2 $ \ !u2 ->
     fromRepD $ addRepD (toRepDDuplicable stk u1)

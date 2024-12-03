@@ -6,10 +6,10 @@
 module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
-  , lemTensorKindOfS, sameTensorKind, sameTK, lemTensorKindOfBuild
+  , lemTensorKindOfSTK, sameTensorKind, sameSTK, lemTensorKindOfBuild
   , lemTensorKindOfAD, lemTensorKind1OfAD, lemBuildOfAD
-  , FullTensorKind(..), lemTensorKindOfF, buildFullTensorKind
-  , aDTensorKind, aDTensorKind1
+  , FullTensorKind(..), lemTensorKindOfFTK, buildFTK
+  , aDFTK, aDFTK1
     -- * Type family RepORArray
   , RepORArray, TensorKind2
   , RepN(..)  -- only temporarily here
@@ -105,55 +105,55 @@ instance (TensorKind y, TensorKind z)
 instance TensorKind TKUntyped where
   stensorKind = STKUntyped
 
-lemTensorKindOfS :: STensorKindType y -> Dict TensorKind y
-lemTensorKindOfS = \case
+lemTensorKindOfSTK :: STensorKindType y -> Dict TensorKind y
+lemTensorKindOfSTK = \case
   STKScalar _ -> Dict
-  STKR SNat x -> case lemTensorKindOfS x of
+  STKR SNat x -> case lemTensorKindOfSTK x of
     Dict -> Dict
-  STKS sh x -> case lemTensorKindOfS x of
+  STKS sh x -> case lemTensorKindOfSTK x of
     Dict -> withKnownShS sh Dict
-  STKX sh x -> case lemTensorKindOfS x of
+  STKX sh x -> case lemTensorKindOfSTK x of
     Dict -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 -> Dict
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfSTK stk2 -> Dict
   STKUntyped -> Dict
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
-sameTensorKind = sameTK (stensorKind @y1) (stensorKind @y2)
+sameTensorKind = sameSTK (stensorKind @y1) (stensorKind @y2)
 
-sameTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
-sameTK y1 y2 = case (y1, y2) of
-    (STKScalar r1, STKScalar r2) ->
-      case testEquality r1 r2 of
-        Just Refl -> Just Refl
-        Nothing -> Nothing
-    (STKR snat1 r1, STKR snat2 r2) ->
-      case (sameTK r1 r2, testEquality snat1 snat2) of
-        (Just Refl, Just Refl) -> Just Refl
-        _ -> Nothing
-    (STKS shs1 r1, STKS shs2 r2) ->
-      case (sameTK r1 r2, testEquality shs1 shs2) of
-        (Just Refl, Just Refl) -> Just Refl
-        _ -> Nothing
-    (STKX shs1 r1, STKX shs2 r2) ->
-      case (sameTK r1 r2, testEquality shs1 shs2) of
-        (Just Refl, Just Refl) -> Just Refl
-        _ -> Nothing
-    (STKProduct x1 z1, STKProduct x2 z2) -> case (sameTK x1 x2, sameTK z1 z2) of
+sameSTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
+sameSTK y1 y2 = case (y1, y2) of
+  (STKScalar r1, STKScalar r2) ->
+    case testEquality r1 r2 of
+      Just Refl -> Just Refl
+      Nothing -> Nothing
+  (STKR snat1 r1, STKR snat2 r2) ->
+    case (sameSTK r1 r2, testEquality snat1 snat2) of
       (Just Refl, Just Refl) -> Just Refl
       _ -> Nothing
-    (STKUntyped, STKUntyped) -> Just Refl
+  (STKS shs1 r1, STKS shs2 r2) ->
+    case (sameSTK r1 r2, testEquality shs1 shs2) of
+      (Just Refl, Just Refl) -> Just Refl
+      _ -> Nothing
+  (STKX shs1 r1, STKX shs2 r2) ->
+    case (sameSTK r1 r2, testEquality shs1 shs2) of
+      (Just Refl, Just Refl) -> Just Refl
+      _ -> Nothing
+  (STKProduct x1 z1, STKProduct x2 z2) -> case (sameSTK x1 x2, sameSTK z1 z2) of
+    (Just Refl, Just Refl) -> Just Refl
     _ -> Nothing
+  (STKUntyped, STKUntyped) -> Just Refl
+  _ -> Nothing
 
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
 lemTensorKindOfBuild snat@SNat = \case
   STKScalar{} -> Dict
-  STKR SNat x -> case lemTensorKindOfS x of
+  STKR SNat x -> case lemTensorKindOfSTK x of
     Dict -> Dict
-  STKS sh x -> case lemTensorKindOfS x of
+  STKS sh x -> case lemTensorKindOfSTK x of
     Dict -> withKnownShS sh Dict
-  STKX sh x -> case lemTensorKindOfS x of
+  STKX sh x -> case lemTensorKindOfSTK x of
     Dict -> withKnownShX sh Dict
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
@@ -218,53 +218,53 @@ data FullTensorKind y where
 deriving instance Show (FullTensorKind y)
 deriving instance Eq (FullTensorKind y)
 
-lemTensorKindOfF :: FullTensorKind y -> Dict TensorKind y
-lemTensorKindOfF = \case
+lemTensorKindOfFTK :: FullTensorKind y -> Dict TensorKind y
+lemTensorKindOfFTK = \case
   FTKScalar -> Dict
-  FTKR sh x | SNat <- shrRank sh -> case lemTensorKindOfF x of
+  FTKR sh x | SNat <- shrRank sh -> case lemTensorKindOfFTK x of
     Dict -> Dict
-  FTKS sh x -> case lemTensorKindOfF x of
+  FTKS sh x -> case lemTensorKindOfFTK x of
     Dict -> withKnownShS sh Dict
-  FTKX sh x -> case lemTensorKindOfF x of
+  FTKX sh x -> case lemTensorKindOfFTK x of
     Dict -> withKnownShX (ssxFromShape sh) Dict
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
-                       , Dict <- lemTensorKindOfF ftk2 -> Dict
+  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
+                       , Dict <- lemTensorKindOfFTK ftk2 -> Dict
   FTKUntyped{} -> Dict
 
-buildFullTensorKind :: SNat k -> FullTensorKind y
-                    -> FullTensorKind (BuildTensorKind k y)
-buildFullTensorKind snat@SNat = \case
+buildFTK :: SNat k -> FullTensorKind y
+         -> FullTensorKind (BuildTensorKind k y)
+buildFTK snat@SNat = \case
   FTKScalar -> FTKScalar
   FTKR sh x -> FTKR (sNatValue snat :$: sh) x
   FTKS sh x -> FTKS (snat :$$ sh) x
   FTKX sh x -> FTKX (SKnown snat :$% sh) x
   FTKProduct ftk1 ftk2 ->
-      FTKProduct (buildFullTensorKind snat ftk1)
-                 (buildFullTensorKind snat ftk2)
+      FTKProduct (buildFTK snat ftk1)
+                 (buildFTK snat ftk2)
   FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
 
-aDTensorKind :: FullTensorKind y
-             -> FullTensorKind (ADTensorKind y)
-aDTensorKind = fst . aDTensorKind1
+aDFTK :: FullTensorKind y
+      -> FullTensorKind (ADTensorKind y)
+aDFTK = fst . aDFTK1
 
-aDTensorKind1 :: FullTensorKind y
-                 -> ( FullTensorKind (ADTensorKind y)
-                    , Dict Nested.Elt (RepORArray (ADTensorKind y)) )
-aDTensorKind1 t = case t of
+aDFTK1 :: FullTensorKind y
+       -> ( FullTensorKind (ADTensorKind y)
+          , Dict Nested.Elt (RepORArray (ADTensorKind y)) )
+aDFTK1 t = case t of
   FTKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> (t, Dict)
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> (t, Dict)
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
            (FTKScalar @Z0, Dict)
-  FTKR sh x -> case aDTensorKind1 x of
+  FTKR sh x -> case aDFTK1 x of
     (ftk, Dict) -> (FTKR sh ftk, Dict)
-  FTKS sh x -> case aDTensorKind1 x of
+  FTKS sh x -> case aDFTK1 x of
     (ftk, Dict) -> (FTKS sh ftk, Dict)
-  FTKX sh x -> case aDTensorKind1 x of
+  FTKX sh x -> case aDFTK1 x of
     (ftk, Dict) -> (FTKX sh ftk, Dict)
-  FTKProduct ftk1 ftk2 -> case aDTensorKind1 ftk1 of
-    (gtk1, Dict) -> case aDTensorKind1 ftk2 of
+  FTKProduct ftk1 ftk2 -> case aDFTK1 ftk1 of
+    (gtk1, Dict) -> case aDFTK1 ftk2 of
       (gtk2, Dict) -> (FTKProduct gtk1 gtk2, Dict)
   FTKUntyped{} ->
     (t, unsafeCoerce (Dict @Nested.Elt @Double))  -- never nested in arrays

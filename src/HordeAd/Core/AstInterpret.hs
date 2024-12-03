@@ -247,8 +247,8 @@ interpretAst !env = \case
             FTKS sh FTKScalar -> withKnownShS sh $ sfromList0N []
             FTKX{} -> error "TODO"
             FTKProduct @z1 @z2 ftk1 ftk2
-              | Dict <- lemTensorKindOfF ftk1
-              , Dict <- lemTensorKindOfF ftk2
+              | Dict <- lemTensorKindOfFTK ftk1
+              , Dict <- lemTensorKindOfFTK ftk2
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
               , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
                 tpair (emptyFromStk ftk1) (emptyFromStk ftk2)

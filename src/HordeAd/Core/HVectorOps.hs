@@ -47,8 +47,8 @@ toRepDShare stk t = case stk of
   STKR SNat STKScalar{} -> DTKR t
   STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
   STKX sh STKScalar{} -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfSTK stk2 ->
     let (t1, t2) = tunpair t
     in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
   STKUntyped{} -> DTKUntyped $ tunvector t
@@ -67,8 +67,8 @@ toRepDDuplicable stk t = case stk of
   STKR SNat STKScalar{} -> DTKR t
   STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
   STKX sh STKScalar{} -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfSTK stk2 ->
     DTKProduct (toRepDDuplicable stk1 (tproject1 t))
                (toRepDDuplicable stk2 (tproject2 t))
   STKUntyped{} -> DTKUntyped $ dunHVector t
@@ -489,8 +489,8 @@ repConstant r = \case
   FTKR sh FTKScalar | SNat <- shrRank sh -> rrepl (toList sh) r
   FTKS sh FTKScalar -> withKnownShS sh $ srepl r
   FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xrepl sh r
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
-                       , Dict <- lemTensorKindOfF ftk2 ->
+  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
+                       , Dict <- lemTensorKindOfFTK ftk2 ->
     tpair (repConstant r ftk1)
           (repConstant r ftk2)
   FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
@@ -506,8 +506,8 @@ repConstant0Old = \case
   FTKR sh FTKScalar | SNat <- shrRank sh -> rzero sh
   FTKS sh FTKScalar -> withKnownShS sh $ srepl 0
   FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xzero sh
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
-                       , Dict <- lemTensorKindOfF ftk2 ->
+  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
+                       , Dict <- lemTensorKindOfFTK ftk2 ->
     tpair (repConstant0Old ftk1)
           (repConstant0Old ftk2)
   FTKUntyped ssh -> dmkHVector $ V.map dynamicFromVoid ssh
@@ -544,8 +544,8 @@ toADTensorKindShared stk t = case stk of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
            xrepl @_ @_ @target (xshape t) Z0
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                       , Dict <- lemTensorKindOfS stk2
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfSTK stk2
                        , Dict <- lemTensorKindOfAD stk1
                        , Dict <- lemTensorKindOfAD stk2 ->
     let (t1, t2) = tunpair t

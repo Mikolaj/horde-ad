@@ -39,8 +39,8 @@ instance EqF RepN where
     STKR SNat STKScalar{} -> u == v
     STKS sh STKScalar{} -> withKnownShS sh $ u == v
     STKX sh STKScalar{} -> withKnownShX sh $ u == v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                                 , Dict <- lemTensorKindOfS stk2 ->
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                                 , Dict <- lemTensorKindOfSTK stk2 ->
       RepN @y1 (fst u) ==. RepN  @y1(fst v)
       && RepN @y2 (snd u) ==. RepN @y2 (snd v)
     STKUntyped -> error "TODO"
@@ -53,8 +53,8 @@ instance OrdF RepN where
     STKR SNat STKScalar{} -> u < v
     STKS sh STKScalar{} -> withKnownShS sh $ u < v
     STKX sh STKScalar{} -> withKnownShX sh $ u < v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                                 , Dict <- lemTensorKindOfS stk2 ->
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                                 , Dict <- lemTensorKindOfSTK stk2 ->
       RepN @y1 (fst u) <. RepN @y1 (fst v)
       && RepN @y2 (snd u) <. RepN @y2 (snd v)
         -- lexicographic ordering  -- TODO: is this standard and the same as for <=. ? as for || ?
@@ -259,8 +259,8 @@ instance BaseTensor RepN where
     STKS sh STKScalar{} -> FTKS sh FTKScalar
     STKS sh1 (STKS sh2 STKScalar{}) -> FTKS sh1 (FTKS sh2 FTKScalar)
     STKX _sh STKScalar{} -> FTKX (Nested.mshape $ unRepN t) FTKScalar
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfS stk1
-                         , Dict <- lemTensorKindOfS stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                         , Dict <- lemTensorKindOfSTK stk2 ->
       FTKProduct (tftk stk1 (tproject1 t))
                  (tftk stk2 (tproject2 t))
     STKUntyped -> FTKUntyped $ voidFromHVector $ tunvector t
@@ -377,8 +377,8 @@ ravel k@SNat t = case stensorKind @y of
   STKS sh STKScalar{} -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
   STKProduct @y1 @y2 stk1 stk2
-    | Dict <- lemTensorKindOfS stk1
-    , Dict <- lemTensorKindOfS stk2
+    | Dict <- lemTensorKindOfSTK stk1
+    , Dict <- lemTensorKindOfSTK stk2
     , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
     , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
@@ -394,8 +394,8 @@ unravel k@SNat t = case stensorKind @y of
   STKS sh STKScalar{} -> withKnownShS sh $ sunravelToList t
   STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
   STKProduct @y1 @y2 stk1 stk2
-    | Dict <- lemTensorKindOfS stk1
-    , Dict <- lemTensorKindOfS stk2
+    | Dict <- lemTensorKindOfSTK stk1
+    , Dict <- lemTensorKindOfSTK stk2
     , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
     , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let lt1 = unravel k $ tproject1 t

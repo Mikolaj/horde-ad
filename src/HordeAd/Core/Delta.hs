@@ -106,7 +106,7 @@ gradientFromDelta
   -> Delta target z
   -> target (ADTensorKind x)
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = repConstant 1 $ aDTensorKind $ tftk (stensorKind @z) value
+  let oneAtF = repConstant 1 $ aDFTK $ tftk (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
@@ -159,8 +159,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
         FTKX{} -> error "TODO"
-        FTKProduct @y1 @y2 ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
-                                     , Dict <- lemTensorKindOfF ftk2 ->
+        FTKProduct @y1 @y2 ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
+                                     , Dict <- lemTensorKindOfFTK ftk2 ->
             let (t1, rest1) = rebuildInputs @y1 els ftk1
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
             in (tpair t1 t2, rest2)
@@ -181,7 +181,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
              , els2 )
         _ -> error "TODO"
       (res, remainder) = rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2)
-                         $ aDTensorKind parameters0
+                         $ aDFTK parameters0
   in assert (null remainder) res
 
 showsPrec_iMap
@@ -220,8 +220,8 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
         FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
                           $ ([InputId j :=> MTKS @r @sh t], j + 1)
         FTKX{} -> error "TODO"
-        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfF ftk1
-                             , Dict <- lemTensorKindOfF ftk2 ->
+        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
+                             , Dict <- lemTensorKindOfFTK ftk2 ->
           let (t1, t2) = tunpair t
               (ds1, j1) = generateDSums j ftk1 t1
               (ds2, j2) = generateDSums j1 ftk2 t2
@@ -742,10 +742,10 @@ shapeDeltaFull = \case
     FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta)) v
   MapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildFullTensorKind k bShs)
+      FTKProduct accShs (buildFTK k bShs)
   MapAccumL @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildFullTensorKind k bShs)
+      FTKProduct accShs (buildFTK k bShs)
 
 shapeDelta :: forall target r n.
               (TensorKind2 r, KnownNat n)
@@ -930,7 +930,7 @@ initEvalState ftk0 =
         DynamicShapedDummy @r @sh _ _ ->
           InputId n :=> MTKSDummy @r @sh
       iMap = DMap.fromDistinctAscList $ fst $ generateDSums 0
-             $ aDTensorKind ftk0
+             $ aDFTK ftk0
       dMap = DMap.empty
       nMap = DMap.empty
   in EvalState {..}
@@ -990,7 +990,7 @@ evalR !s !c d0 = case d0 of
                     , Dict <- lemTensorKindOfAD (stensorKind @z) ->
     case shapeDeltaFull d of
       FTKProduct _ ftk2 ->
-        let zero = repConstant 0 $ aDTensorKind ftk2
+        let zero = repConstant 0 $ aDFTK ftk2
         in evalR s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
@@ -998,7 +998,7 @@ evalR !s !c d0 = case d0 of
                  , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     case shapeDeltaFull d of
       FTKProduct ftk1 _ ->
-        let zero = repConstant 0 $ aDTensorKind ftk1
+        let zero = repConstant 0 $ aDFTK ftk1
         in evalR s (tpair zero c) d
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     -- In this context, by construction, @d@ is the dual component
@@ -1054,9 +1054,9 @@ evalR !s !c d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
+    let accShsAD = aDFTK accShs
+        bShsAD = aDFTK bShs
+        eShsAD = aDFTK eShs
         (c0, crest) = tunpair c
         dacc_des =
           dmapAccumL (Proxy @target)
@@ -1082,9 +1082,9 @@ evalR !s !c d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
+    let accShsAD = aDFTK accShs
+        bShsAD = aDFTK bShs
+        eShsAD = aDFTK eShs
         (c0, crest) = tunpair c
         dacc_des =
           dmapAccumR (Proxy @target)
@@ -1463,9 +1463,9 @@ fwdR params s d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
+    let accShsAD = aDFTK accShs
+        bShsAD = aDFTK bShs
+        eShsAD = aDFTK eShs
         (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
     in (s3, dmapAccumR (Proxy @target)
@@ -1488,9 +1488,9 @@ fwdR params s d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDTensorKind accShs
-        bShsAD = aDTensorKind bShs
-        eShsAD = aDTensorKind eShs
+    let accShsAD = aDFTK accShs
+        bShsAD = aDFTK bShs
+        eShsAD = aDFTK eShs
         (s2, cacc0) = fwdR params s acc0'
         (s3, ces) = fwdR params s2 es'
     in (s3, dmapAccumL (Proxy @target)
@@ -1506,7 +1506,7 @@ fwdR params s d0 = case d0 of
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
         Just Refl -> fwdSame params s d0
-        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
 
 fwdSame
   :: forall target y.
@@ -1519,7 +1519,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKScalar r1)) ->
       case sameTensorKind @(TKScalar r1) @(ADTensorKind (TKScalar r1)) of
         Just Refl -> second kcast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
   FromScalarG d -> let (s2, t) = fwdSame params s d
                    in (s2, sfromScalar t)
   ToScalarG d -> let (s2, t) = fwdSame params s d
@@ -1529,7 +1529,7 @@ fwdSame params s = \case
       Just dtk -> (s, evalRepM dtk)
       Nothing -> error "fwdSame: missing input"
   -- See the comment about these three in evalSame.
-  ZeroG ftk -> (s, repConstant0Old $ aDTensorKind ftk)  -- TODO: not repConstant only for backward compatibility with test results
+  ZeroG ftk -> (s, repConstant0Old $ aDFTK ftk)  -- TODO: not repConstant only for backward compatibility with test results
   ScaleG k d -> second (* k) $ fwdSame params s d
   AddG d e -> let (s2, t) = fwdSame params s d
                   (s3, u) = fwdSame params s2 e
@@ -1565,7 +1565,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r1)) ->
       case sameTensorKind @(TKR n r1) @(ADTensorKind (TKR n r1)) of
         Just Refl -> second rcast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
   RFromS (SFromR d) ->
     fwdSame params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ fwdSame params s d
@@ -1607,7 +1607,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r1)) ->
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
         Just Refl -> second scast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDTensorKind $ shapeDeltaFull d0)
+        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
   NestS d -> second (snest knownShS) $ fwdSame params s d
   UnNestS d -> second sunNest $ fwdSame params s d
   SFromR @sh (RFromS @sh2 d) ->
