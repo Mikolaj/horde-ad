@@ -19,7 +19,7 @@ module HordeAd.Core.Types
   , lemTensorKindOfS, sameTensorKind, sameTK
   , BuildTensorKind, lemTensorKindOfBuild
     -- * Some fundamental constraints
-  , GoodScalar, HasSingletonDict, Differentiable, IfDifferentiable(..)
+  , GoodScalar, Differentiable, IfDifferentiable(..)
   , ADTensorKind, ADTensorScalar, Z0(..), lemTensorKindOfAD, lemBuildOfAD
     -- * Type families that tensors will belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
@@ -39,7 +39,7 @@ import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
 import Data.Default
 import Data.Int (Int64)
-import Data.Kind (Constraint, Type)
+import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
@@ -302,13 +302,6 @@ lemTensorKindOfBuild snat@SNat = \case
 -- As a side effect, this avoids ImpredicativeTypes.
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
-
-type HasSingletonDict :: ty -> Constraint
-type family HasSingletonDict (y :: ty) where
-  HasSingletonDict '() = ()
-  HasSingletonDict n = KnownNat n
-  HasSingletonDict sh = KnownShS sh
-  HasSingletonDict sh = KnownShX sh
 
 type Differentiable r =
   (RealFloat r, Nested.FloatElt r)
