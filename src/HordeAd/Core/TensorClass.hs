@@ -61,6 +61,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Internal.BackendOX
 import HordeAd.Util.ShapedList (dropIxS)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
@@ -210,12 +211,10 @@ class ( Num (IntOf target)
     STKScalar{} ->
       rscatter @_ @_ @0
                (Nested.Internal.Shape.shrAppend sh (rshape v)) v (const ix)
-    _ -> let x = case tftk (STKR (SNat @n) (stensorKind @r)) v of
-               FTKR _ x' -> x'
-             f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+    _ -> let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                           $ zip (toList ix) (toList ix2))
                          (rindex0 v (dropIndex ix2))
-                         (tconcrete (FTKR ZSR x) $ RepN $ Nested.rscalar 0)
+                         (rscalar 0)
          in rbuild (Nested.Internal.Shape.shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
            -- would come out of vectorization, making sure it simplifies well
@@ -547,12 +546,10 @@ class ( Num (IntOf target)
                  :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
       gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
-         let x = case tftk (STKS knownShS (stensorKind @r)) v of
-               FTKS _ x' -> x'
-             f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+         let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                        $ zip (toList ix) (toList ix2))
                       (sindex0 v (dropIxS @(Rank sh1) ix2))
-                      (tconcrete (FTKS ZSS x) $ RepN $ Nested.sscalar 0)
+                      (sscalar 0)
       in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
        => target (TKS (n ': sh) r) -> target (TKS sh r)
@@ -1327,8 +1324,10 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
     _ -> error "sfromD: scalar mismatch"
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 
-rscalar :: (GoodScalar r, BaseTensor target) => r -> target (TKR 0 r)
-rscalar = rconcrete . Nested.rscalar
+rscalar :: forall r target. (TensorKind2 r, BaseTensor target)
+        => RepORArray r -> target (TKR2 0 r)
+rscalar r = let a = Nested.rscalar r
+            in tconcrete (tftkG (STKR (SNat @0) (stensorKind @r)) a) (RepN a)
 
 rrepl :: forall r n target. (GoodScalar r, KnownNat n, BaseTensor target)
       => [Int] -> r -> target (TKR n r)
@@ -1344,8 +1343,10 @@ ingestData :: forall target r sh.
            => [r] -> target (TKS sh r)
 ingestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
-sscalar :: (GoodScalar r, BaseTensor target) => r -> target (TKS '[] r)
-sscalar = sconcrete . Nested.sscalar
+sscalar :: forall r target. (TensorKind2 r, BaseTensor target)
+        => RepORArray r -> target (TKS2 '[] r)
+sscalar r = let a = Nested.sscalar r
+            in tconcrete (tftkG (STKS ZSS (stensorKind @r)) a) (RepN a)
 
 srepl :: forall sh r target. (GoodScalar r, KnownShS sh, BaseTensor target)
       => r -> target (TKS sh r)

@@ -186,7 +186,7 @@ testTrees =
 testZeroZ :: Assertion
 testZeroZ =
   assertEqualUpToEpsilon' 1e-10
-    (rscalar @Double 0)
+    (rscalar 0)
     (rev' @Double @0 (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                           f = const (rscalar 3)
                       in f) (rscalar 42))
