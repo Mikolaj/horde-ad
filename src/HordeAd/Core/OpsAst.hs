@@ -40,11 +40,11 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal (unADValRep)
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
@@ -447,7 +447,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   dshape = shapeAstHVector
-  tftk stk t | Dict <- lemTensorKindOfSTK stk = ftkAst t
+  tftk _stk = ftkAst
   tcond stk b u v | Dict <- lemTensorKindOfSTK stk = AstCond b u v
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimal t
   tprimalPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanPrimal t
@@ -716,7 +716,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
   dshape = shapeAstHVector . unAstRaw
-  tftk stk t | Dict <- lemTensorKindOfSTK stk = ftkAst $ unAstRaw t
+  tftk _stk = ftkAst . unAstRaw
   tcond stk b u v | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
@@ -955,8 +955,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject1 t = AstNoVectorize $ astProject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ astProject2 $ unAstNoVectorize t
   dshape = shapeAstHVector . unAstNoVectorize
-  tftk stk t | Dict <- lemTensorKindOfSTK stk =
-    ftkAst $ unAstNoVectorize t
+  tftk _stk = ftkAst . unAstNoVectorize
   tcond stk b u v = AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tprimalPart stk t = AstNoVectorize $ tprimalPart stk $ unAstNoVectorize t
@@ -1201,8 +1200,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tproject1 t = AstNoSimplify $ AstProject1 $ unAstNoSimplify t
   tproject2 t = AstNoSimplify $ AstProject2 $ unAstNoSimplify t
   dshape = shapeAstHVector . unAstNoSimplify
-  tftk stk t | Dict <- lemTensorKindOfSTK stk =
-    ftkAst $ unAstNoSimplify t
+  tftk _stk = ftkAst . unAstNoSimplify
   tcond stk b u v | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
