@@ -1450,7 +1450,7 @@ instance Show (HFun x y) where
   show _ = "<lambda>"
 
 
--- * The giga-constraint
+-- * The mega-constraint
 
 type ADReady target =
   ( ADReadyNoLet target
@@ -1485,7 +1485,6 @@ type ADReadyClasses target =
   , OrdF target
   , BaseTensor target
   , AllTargetShow target
-  , Show (target TKUntyped)
   )
 
 -- This is illegal:
