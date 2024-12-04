@@ -11,7 +11,7 @@ module HordeAd.Core.TensorKind
   , FullTensorKind(..), lemTensorKindOfFTK, buildFTK
   , aDFTK, aDFTK1
     -- * Type family RepORArray
-  , RepORArray, TensorKind2
+  , RepORArray, GoodTK, TensorKind2
   , RepN(..)  -- only temporarily here
     -- * Misc
   , RepD(..)
@@ -272,10 +272,6 @@ aDFTK1 t = case t of
 
 -- * Type family RepORArray
 
-type TensorKind2 y =
-  ( TensorKind y, Default (RepORArray y), Nested.KnownElt (RepORArray y)
-  , Show (RepORArray y), Num (RepORArray (ADTensorKind y)) )
-
 type family RepORArray (y :: TensorKindType) where
   RepORArray (TKScalar r) = r
   RepORArray (TKR2 n x) = Nested.Ranked n (RepORArray x)
@@ -292,6 +288,16 @@ type family RepORArray (y :: TensorKindType) where
 -- to attach a Show instance to.
 type role RepN nominal
 newtype RepN y = RepN {unRepN :: RepORArray y}
+
+type GoodTKConstraint y =
+  ( Default (RepORArray y), Show (RepORArray y), Nested.KnownElt (RepORArray y)
+  , Num (RepORArray (ADTensorKind y)) )
+
+-- A class so that the constraint can be represented by a single Dict.
+class GoodTKConstraint y => GoodTK y
+instance GoodTKConstraint y => GoodTK y
+
+type TensorKind2 y = (TensorKind y, GoodTK y)
 
 
 -- * Misc

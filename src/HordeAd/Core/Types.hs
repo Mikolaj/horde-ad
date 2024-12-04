@@ -194,6 +194,7 @@ type TKUnit = TKScalar Z0
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect, strangely.
 -- As a side effect, this avoids ImpredicativeTypes.
+-- Also, the constraint can be represented by a single Dict.
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
