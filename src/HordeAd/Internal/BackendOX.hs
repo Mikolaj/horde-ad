@@ -67,12 +67,12 @@ import HordeAd.Util.SizedList
 
 -- We often debug around here, so let's add Show and obfuscate it
 -- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.Elt r, Nested.KnownElt r, Nested.NumElt r, Num r, Show r, Default r)
+type NumAndShow r = (Nested.KnownElt r, Nested.NumElt r, Num r, Show r, Default r)
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNR :: forall n m a. (Nested.PrimElt a, NumAndShow a)
+updateNR :: forall n m a. Nested.PrimElt a
          => Nested.Ranked (n + m) a -> [(IIxR64 n, Nested.Ranked m a)]
          -> Nested.Ranked (n + m) a
 updateNR arr upd =
@@ -207,7 +207,7 @@ tunravelToListR :: Nested.KnownElt r
 tunravelToListR = Nested.rtoListOuter
 
 tmatmul2R
-  :: (Nested.PrimElt r, NumAndShow r, Numeric r)
+  :: (Nested.PrimElt r, Numeric r)
   => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 2 r
 tmatmul2R t u =
   let t2 = Nested.rtoVector t
@@ -288,23 +288,23 @@ tfromVector0NR
 tfromVector0NR sh = tfromList0NR sh . V.toList
 
 treplicateR
-  :: forall n r. NumAndShow r
+  :: forall n r. Nested.KnownElt r
   => Int -> Nested.Ranked n r -> Nested.Ranked (1 + n) r
 treplicateR n = Nested.rreplicate (n :$: ZSR)
 
 treplicate0NR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => IShR n -> Nested.Ranked 0 r -> Nested.Ranked n r
 treplicate0NR sh = Nested.rreplicate sh
 
 tappendR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
   -> Nested.Ranked (1 + n) r
 tappendR = Nested.rappend
 
 tsliceR
-  :: NumAndShow r
+  :: Nested.KnownElt r
   => Int -> Int -> Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
 tsliceR = Nested.rslice
 
@@ -650,22 +650,22 @@ tfromVector0NS
 tfromVector0NS = tfromList0NS . V.toList
 
 treplicateS
-  :: forall n sh r. (NumAndShow r, KnownNat n)
+  :: forall n sh r. (Nested.KnownElt r, KnownNat n)
   => Nested.Shaped sh r -> Nested.Shaped (n ': sh) r
 treplicateS = Nested.sreplicate (SNat @n :$$ ZSS)
 
 treplicate0NS
-  :: forall r sh. (NumAndShow r, KnownShS sh)
+  :: forall r sh. (Nested.KnownElt r, KnownShS sh)
   => Nested.Shaped '[] r -> Nested.Shaped sh r
 treplicate0NS | Refl <- lemAppNil @sh = Nested.sreplicate (knownShS @sh)
 
 tappendS
-  :: forall r m n sh. NumAndShow r
+  :: forall r m n sh. Nested.KnownElt r
   => Nested.Shaped (m ': sh) r -> Nested.Shaped (n ': sh) r -> Nested.Shaped ((m + n) ': sh) r
 tappendS = Nested.sappend
 
 tsliceS
-  :: forall i n k sh r. (NumAndShow r, KnownNat i, KnownNat n)
+  :: forall i n k sh r. (Nested.KnownElt r, KnownNat i, KnownNat n)
   => Nested.Shaped (i + n + k ': sh) r -> Nested.Shaped (n ': sh) r
 tsliceS = Nested.sslice (SNat @i) SNat
 
