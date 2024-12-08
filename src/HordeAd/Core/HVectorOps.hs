@@ -6,7 +6,8 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( toRepDShare, toRepDDuplicable, fromRepD, addRepD, addDynamic
+  ( RepD(..)
+  , toRepDShare, toRepDDuplicable, fromRepD, addRepD, addDynamic
   , sizeHVector, shapeDynamic, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromDynamicR, fromDynamicS, unravelHVector, ravelHVector
@@ -29,15 +30,35 @@ import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape (ssxFromShape)
+import Data.Array.Mixed.Shape (KnownShX (..), ssxFromShape)
 import Data.Array.Nested
   (IShR, KnownShS (..), Rank, ShR (..), ShS (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested.Internal.Shape (shrRank)
 
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
+
+type role RepD nominal nominal
+data RepD target y where
+  DTKScalar :: GoodScalar r
+            => target (TKScalar r)
+            -> RepD target (TKScalar r)
+  DTKR :: (GoodScalar r, KnownNat n)
+       => target (TKR n r)
+       -> RepD target (TKR n r)
+  DTKS :: (GoodScalar r, KnownShS sh)
+       => target (TKS sh r)
+       -> RepD target (TKS sh r)
+  DTKX :: (GoodScalar r, KnownShX sh)
+       => target (TKX sh r)
+       -> RepD target (TKX sh r)
+  DTKProduct :: forall x z target. (TensorKind x, TensorKind z)
+             => RepD target x -> RepD target z
+             -> RepD target (TKProduct x z)
+  DTKUntyped :: HVector target
+             -> RepD target TKUntyped
 
 toRepDShare
   :: ShareTensor target

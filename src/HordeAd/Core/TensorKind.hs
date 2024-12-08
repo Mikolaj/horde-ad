@@ -14,7 +14,6 @@ module HordeAd.Core.TensorKind
   , RepORArray, GoodTK, TensorKind2
   , RepN(..)  -- only temporarily here
     -- * Misc
-  , RepD(..)
   , DynamicTensor(..)
   , HVector
   , VoidTensor, absurdTensor, VoidHVector, DynamicScalar(..)
@@ -301,26 +300,6 @@ type TensorKind2 y = (TensorKind y, GoodTK y)
 
 
 -- * Misc
-
-type role RepD nominal nominal
-data RepD target y where
-  DTKScalar :: GoodScalar r
-            => target (TKScalar r)
-            -> RepD target (TKScalar r)
-  DTKR :: (GoodScalar r, KnownNat n)
-       => target (TKR n r)
-       -> RepD target (TKR n r)
-  DTKS :: (GoodScalar r, KnownShS sh)
-       => target (TKS sh r)
-       -> RepD target (TKS sh r)
-  DTKX :: (GoodScalar r, KnownShX sh)
-       => target (TKX sh r)
-       -> RepD target (TKX sh r)
-  DTKProduct :: forall x z target. (TensorKind x, TensorKind z)
-             => RepD target x -> RepD target z
-             -> RepD target (TKProduct x z)
-  DTKUntyped :: HVector target
-             -> RepD target TKUntyped
 
 -- For thousands of tensor parameters, orthotope's dynamic tensors
 -- are faster than the datatype below and the special dummy values are faster

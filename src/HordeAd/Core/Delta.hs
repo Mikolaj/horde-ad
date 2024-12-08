@@ -1031,9 +1031,12 @@ evalR !s !c d0 = case d0 of
     -- For @Input@ terms, the eventual lists of cotangents end up
     -- in the cells of the gradient vectors that are the final
     -- result of the evaluation.
-    assert (case d of
+    assert (case d of  -- shouold match shareDelta
               ZeroG{} -> False
-              ShareG{} -> False  -- wasteful and nonsensical
+              PairG{} -> False
+              HToH{} -> False
+              InputG{} -> False
+              ShareG{} -> False
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
