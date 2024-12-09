@@ -175,17 +175,17 @@ build1V snat@SNat (var, v0) =
       error $ "build1V: AstToScalar: building over scalars is undefined: "
               ++ show v0
     Ast.AstPair @x @z t1 t2
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+      | (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @x)
+      , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z) -> traceRule $
         astPair (build1VOccurenceUnknown snat (var, t1))
                  (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 @_ @z t
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @z)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
+      | (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z)
+      , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @y) -> traceRule $
         astProject1 (build1V snat (var, t))
     Ast.AstProject2 @x t
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
+      | (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @x)
+      , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @y) -> traceRule $
         astProject2 (build1V snat (var, t))
     Ast.AstVar _ var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
@@ -247,14 +247,14 @@ build1V snat@SNat (var, v0) =
             STKS sh STKScalar{} -> withKnownShS sh $ astTrS $ astReplicate snat2 u
             STKX sh STKScalar{} -> withKnownShX sh $ astTrX $ astReplicate snat2 u
             STKProduct @z1 @z2 stk1 stk2
-              | Dict <- lemTensorKindOfBuild snat stk1
+              | (Dict, Dict) <- lemTensorKind1OfBuild snat stk1
               , Dict <- lemTensorKindOfBuild snat2 stk1
-              , Dict <- lemTensorKindOfBuild
-                          snat (stensorKind @(BuildTensorKind k2 z1))
-              , Dict <- lemTensorKindOfBuild snat stk2
+              , (Dict, Dict) <- lemTensorKind1OfBuild
+                                  snat (stensorKind @(BuildTensorKind k2 z1))
+              , (Dict, Dict) <- lemTensorKind1OfBuild snat stk2
               , Dict <- lemTensorKindOfBuild snat2 stk2
-              , Dict <- lemTensorKindOfBuild
-                          snat (stensorKind @(BuildTensorKind k2 z2)) ->
+              , (Dict, Dict) <- lemTensorKind1OfBuild
+                                  snat (stensorKind @(BuildTensorKind k2 z2)) ->
                 astLetFun u $ \ !uShared ->
                   let (u1, u2) = (astProject1 uShared, astProject2 uShared)
                   in astPair (repl2Stk stk1 u1) (repl2Stk stk2 u2)
@@ -499,18 +499,18 @@ build1V snat@SNat (var, v0) =
           (build1VOccurenceUnknown snat (var, ll))
     Ast.AstMapAccumRDer @accShs @bShs @eShs @k5
                         k5@SNat accShs bShs eShs f df rf acc0 es
-     | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
-     , Dict <- lemTensorKindOfBuild snat (stensorKind @eShs)
+     | (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @accShs)
+     , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @eShs)
      , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @eShs)
-     , Dict <- lemTensorKindOfBuild snat (stensorKind @bShs)
+     , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @bShs)
      , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @bShs)
-     , Dict <- lemTensorKindOfBuild
-                 snat (stensorKind @(BuildTensorKind k5 bShs))
-     , Dict <- lemTensorKindOfBuild
-                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
-     , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-     , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+     , (Dict, Dict) <- lemTensorKind1OfBuild
+                         snat (stensorKind @(BuildTensorKind k5 bShs))
+     , (Dict, Dict) <- lemTensorKind1OfBuild
+                         (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
+     , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+     , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+     , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs)
      , Just Refl <- lemBuildOfAD snat (stensorKind @accShs)
      , Just Refl <- lemBuildOfAD snat (stensorKind @bShs)
      , Just Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
@@ -531,18 +531,18 @@ build1V snat@SNat (var, v0) =
                                          (stensorKind @bShs) (astProject2 x1bs1)))
     Ast.AstMapAccumLDer @accShs @bShs @eShs @k5
                         k5@SNat accShs bShs eShs f df rf acc0 es
-     | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
-     , Dict <- lemTensorKindOfBuild snat (stensorKind @eShs)
+     | (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @accShs)
+     , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @eShs)
      , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @eShs)
-     , Dict <- lemTensorKindOfBuild snat (stensorKind @bShs)
+     , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @bShs)
      , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @bShs)
-     , Dict <- lemTensorKindOfBuild
-                 snat (stensorKind @(BuildTensorKind k5 bShs))
-     , Dict <- lemTensorKindOfBuild
-                 (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
-     , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-     , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+     , (Dict, Dict) <- lemTensorKind1OfBuild
+                         snat (stensorKind @(BuildTensorKind k5 bShs))
+     , (Dict, Dict) <- lemTensorKind1OfBuild
+                         (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
+     , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+     , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+     , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs)
      , Just Refl <- lemBuildOfAD snat (stensorKind @accShs)
      , Just Refl <- lemBuildOfAD snat (stensorKind @bShs)
      , Just Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
@@ -755,8 +755,8 @@ substProjRep snat@SNat var ftk2 var1 v
           FTKProduct @z1 @z2 ftk41 ftk42
             | Dict <- lemTensorKindOfFTK ftk41
             , Dict <- lemTensorKindOfFTK ftk42
-            , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+            , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z1)
+            , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z2) ->
               let prVar1 = astProject1 prVar
                   prVar2 = astProject2 prVar
               in astPair (projection prVar1 ftk41)
@@ -897,16 +897,16 @@ astTrGeneral stk t = case stk of
     | Dict <- lemTensorKindOfBuild (SNat @k1) stk
     , Dict <- lemTensorKindOfBuild (SNat @k1) stk1
     , Dict <- lemTensorKindOfBuild (SNat @k2) stk1
-    , Dict <- lemTensorKindOfBuild
-                (SNat @k1) (stensorKind @(BuildTensorKind k2 z1))
-    , Dict <- lemTensorKindOfBuild
-                (SNat @k2) (stensorKind @(BuildTensorKind k1 z1))
+    , (Dict, Dict) <- lemTensorKind1OfBuild
+                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z1))
+    , (Dict, Dict) <- lemTensorKind1OfBuild
+                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z1))
     , Dict <- lemTensorKindOfBuild (SNat @k1) stk2
     , Dict <- lemTensorKindOfBuild (SNat @k2) stk2
-    , Dict <- lemTensorKindOfBuild
-                (SNat @k1) (stensorKind @(BuildTensorKind k2 z2))
-    , Dict <- lemTensorKindOfBuild
-                (SNat @k2) (stensorKind @(BuildTensorKind k1 z2)) ->
+    , (Dict, Dict) <- lemTensorKind1OfBuild
+                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z2))
+    , (Dict, Dict) <- lemTensorKind1OfBuild
+                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z2)) ->
       astLetFun t $ \ !tShared ->
         let (u1, u2) = (astProject1 tShared, astProject2 tShared)
         in astPair (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)

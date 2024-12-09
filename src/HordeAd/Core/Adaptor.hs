@@ -26,8 +26,8 @@ import System.Random
 -- import HordeAd.Core.Ast
 -- import           GHC.TypeLits (KnownNat)
 
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * Adaptor classes
@@ -156,8 +156,8 @@ instance BaseTensor target
     Nothing -> Nothing
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b)) )
+         , AdaptableHVector target a, TensorKind1 (X a), TensorKind1 (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind1 (X b), TensorKind1 (ADTensorKind (X b)) )
          => AdaptableHVector target (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
   toHVectorOf (a, b) =
@@ -202,9 +202,9 @@ instance ( RandomHVector a
     in ((v1, v2), g2)
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c)) )
+         , AdaptableHVector target a, TensorKind1 (X a), TensorKind1 (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind1 (X b), TensorKind1 (ADTensorKind (X b))
+         , AdaptableHVector target c, TensorKind1 (X c), TensorKind1 (ADTensorKind (X c)) )
          => AdaptableHVector target (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
   toHVectorOf (a, b, c) =
@@ -259,10 +259,10 @@ instance ( RandomHVector a
     in ((v1, v2, v3), g3)
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
-         , AdaptableHVector target d, TensorKind (X d), TensorKind (ADTensorKind (X d)) )
+         , AdaptableHVector target a, TensorKind1 (X a), TensorKind1 (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind1 (X b), TensorKind1 (ADTensorKind (X b))
+         , AdaptableHVector target c, TensorKind1 (X c), TensorKind1 (ADTensorKind (X c))
+         , AdaptableHVector target d, TensorKind1 (X d), TensorKind1 (ADTensorKind (X d)) )
          => AdaptableHVector target (a, b, c, d) where
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
@@ -331,11 +331,11 @@ instance ( RandomHVector a
     in ((v1, v2, v3, v4), g4)
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
-         , AdaptableHVector target d, TensorKind (X d), TensorKind (ADTensorKind (X d))
-         , AdaptableHVector target e, TensorKind (X e), TensorKind (ADTensorKind (X e)) )
+         , AdaptableHVector target a, TensorKind1 (X a), TensorKind1 (ADTensorKind (X a))
+         , AdaptableHVector target b, TensorKind1 (X b), TensorKind1 (ADTensorKind (X b))
+         , AdaptableHVector target c, TensorKind1 (X c), TensorKind1 (ADTensorKind (X c))
+         , AdaptableHVector target d, TensorKind1 (X d), TensorKind1 (ADTensorKind (X d))
+         , AdaptableHVector target e, TensorKind1 (X e), TensorKind1 (ADTensorKind (X e)) )
          => AdaptableHVector target (a, b, c, d, e) where
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))

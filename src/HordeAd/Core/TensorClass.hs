@@ -116,8 +116,8 @@ class LetTensor (target :: Target) where
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+      , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z1)
+      , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z2) ->
         tlet u $ \ !u1 ->
           tpair (treplicate snat stk1 (tproject1 u1))
                 (treplicate snat stk2 (tproject2 u1))
@@ -139,7 +139,7 @@ class LetTensor (target :: Target) where
 class ShareTensor (target :: Target) where
   tshare :: forall y. (TensorKind y, BaseTensor target)
          => target y -> target y
-  tunpair :: (TensorKind x, TensorKind z)
+  tunpair :: (TensorKind1 x, TensorKind1 z)
           => target (TKProduct x z) -> (target x, target z)
   tunvector :: target TKUntyped -> HVector target
   taddShare :: STensorKindType y -> target y -> target y -> target y
@@ -883,13 +883,13 @@ class ( Num (IntOf target)
                 => target (TKScalar r1) -> target (TKScalar r2)
 
   -- Misc
-  tpair :: (TensorKind x, TensorKind z)
+  tpair :: (TensorKind1 x, TensorKind1 z)
          => target x -> target z
          -> target (TKProduct x z)
-  tproject1 :: (TensorKind x, TensorKind z)
+  tproject1 :: (TensorKind1 x, TensorKind1 z)
             => target (TKProduct x z)
             -> target x
-  tproject2 :: (TensorKind x, TensorKind z)
+  tproject2 :: (TensorKind1 x, TensorKind1 z)
             => target (TKProduct x z)
             -> target z
   dshape :: target TKUntyped -> VoidHVector
@@ -938,8 +938,8 @@ class ( Num (IntOf target)
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfSTK stk1
             , Dict <- lemTensorKindOfSTK stk2
-            , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-            , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+            , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z1)
+            , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z2) ->
               let f1 i = tproject1 $ g i
                   f2 i = tproject2 $ g i
                     -- TODO: looks expensive, but hard to do better,
@@ -975,7 +975,7 @@ class ( Num (IntOf target)
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n.
-            (TensorKind x, GoodScalar r, KnownNat n)
+            (TensorKind1 x, GoodScalar r, KnownNat n)
          => (forall f. ADReady f => f x -> f (TKR n r))
          -> FullTensorKind x
          -> target x
@@ -986,18 +986,18 @@ class ( Num (IntOf target)
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   rfwd :: forall x r n.
-          (TensorKind x, GoodScalar r, KnownNat n)
+          (TensorKind1 x, GoodScalar r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR n r))
-  rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+  rfwd f ftk | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
   srev :: forall x r sh.
-          ( TensorKind x, GoodScalar r, KnownShS sh
+          ( TensorKind1 x, GoodScalar r, KnownShS sh
           , ADTensorKind (TKS sh r) ~ TKS sh r )
        => (forall f. ADReady f => f x -> f (TKS sh r))
        -> FullTensorKind x
@@ -1005,7 +1005,7 @@ class ( Num (IntOf target)
        -> target (ADTensorKind x)
   srev f ftk es = srevDt f ftk es (srepl 1)
   srevDt :: forall x r sh.
-            (TensorKind x, GoodScalar r, KnownShS sh)
+            (TensorKind1 x, GoodScalar r, KnownShS sh)
          => (forall f. ADReady f => f x -> f (TKS sh r))
          -> FullTensorKind x
          -> target x
@@ -1016,13 +1016,13 @@ class ( Num (IntOf target)
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   sfwd :: forall x r sh.
-          (TensorKind x, GoodScalar r, KnownShS sh)
+          (TensorKind1 x, GoodScalar r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS sh r))
-  sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
+  sfwd f ftk | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
@@ -1042,13 +1042,13 @@ class ( Num (IntOf target)
     -> HFun x z  -- a |-> b
     -> HFunOf target x (ADTensorKind x)  -- a |-> da
   drevDt
-    :: (TensorKind x, TensorKind z)
+    :: (TensorKind1 x, TensorKind z)
     => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
                  -- [db, a] |-> da
   dfwd
-    :: (TensorKind x, TensorKind z)
+    :: (TensorKind1 x, TensorKind z)
     => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
@@ -1172,7 +1172,7 @@ class ( Num (IntOf target)
   -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumLDer f df rf ...)
   dmapAccumR
     :: forall k accShs bShs eShs.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs
@@ -1197,7 +1197,7 @@ class ( Num (IntOf target)
                      (drevDt @target shs $ HFun fl)
                      acc0 es
   dmapAccumRDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    :: (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs  -- ^ shapes of acc, the accumulator
@@ -1218,7 +1218,7 @@ class ( Num (IntOf target)
   -- | A strict left mapAccum.
   dmapAccumL
     :: forall k accShs bShs eShs.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs
@@ -1243,7 +1243,7 @@ class ( Num (IntOf target)
                      (drevDt @target shs $ HFun fl)
                      acc0 es
   dmapAccumLDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    :: (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs

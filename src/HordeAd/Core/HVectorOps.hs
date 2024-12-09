@@ -54,7 +54,7 @@ data RepD target y where
   DTKX :: (GoodScalar r, KnownShX sh)
        => target (TKX sh r)
        -> RepD target (TKX sh r)
-  DTKProduct :: forall x z target. (TensorKind x, TensorKind z)
+  DTKProduct :: forall x z target. (TensorKind1 x, TensorKind1 z)
              => RepD target x -> RepD target z
              -> RepD target (TKProduct x z)
   DTKUntyped :: HVector target
@@ -567,8 +567,8 @@ toADTensorKindShared stk t = case stk of
            xrepl @_ @_ @target (xshape t) Z0
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                        , Dict <- lemTensorKindOfSTK stk2
-                       , Dict <- lemTensorKindOfAD stk1
-                       , Dict <- lemTensorKindOfAD stk2 ->
+                       , (Dict, Dict) <- lemTensorKind1OfAD stk1
+                       , (Dict, Dict) <- lemTensorKind1OfAD stk2 ->
     let (t1, t2) = tunpair t
     in tpair (toADTensorKindShared stk1 t1) (toADTensorKindShared stk2 t2)
   STKUntyped -> t

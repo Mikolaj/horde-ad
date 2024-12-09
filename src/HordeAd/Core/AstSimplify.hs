@@ -110,8 +110,8 @@ import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
 import HordeAd.Util.ShapedList qualified as ShapedList
@@ -1343,7 +1343,7 @@ astSliceLax i k v =
 
 -- * The simplifying combinators, one for each AST constructor
 
-astPair :: (TensorKind x, TensorKind y)
+astPair :: (TensorKind1 x, TensorKind1 y)
          => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s (TKProduct x y)
 -- TODO, but maybe not the best idea?:
@@ -2139,7 +2139,7 @@ astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
 astProject1
-  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
+  :: forall x z s. (TensorKind1 x, TensorKind1 z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
   Ast.AstPair x _z -> x
@@ -2151,7 +2151,7 @@ astProject1 u = case u of
   _ -> Ast.AstProject1 u
 
 astProject2
-  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
+  :: forall x z s. (TensorKind1 x, TensorKind1 z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s z
 astProject2 u = case u of
   Ast.AstPair _x z -> z
@@ -2718,9 +2718,9 @@ simplifyAst t = case t of
                                   (simplifyAst ll)
   Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs
                           (simplifyAstHFun f)
                           (simplifyAstHFun df)
@@ -2729,9 +2729,9 @@ simplifyAst t = case t of
                           (simplifyAst es)
   Ast.AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
       Ast.AstMapAccumLDer k accShs bShs eShs
                           (simplifyAstHFun f)
                           (simplifyAstHFun df)
@@ -2951,9 +2951,9 @@ expandAst t = case t of
                                   (expandAst ll)
   Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs
                           (expandAstHFun f)
                           (expandAstHFun df)
@@ -2962,9 +2962,9 @@ expandAst t = case t of
                           (expandAst es)
   Ast.AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
       Ast.AstMapAccumLDer k accShs bShs eShs
                           (expandAstHFun f)
                           (expandAstHFun df)

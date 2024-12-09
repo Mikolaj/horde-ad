@@ -503,12 +503,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astLet var astP
           $ simplifyInline gradient
     in AstLambda (varP, ftkx, ast)
-  drevDt :: forall x z. (TensorKind x, TensorKind z)
+  drevDt :: forall x z. (TensorKind1 x, TensorKind z)
          => FullTensorKind x
          -> HFun x z
          -> AstHFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
   drevDt ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
-                , Dict <- lemTensorKindOfAD (stensorKind @z) =
+                , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
@@ -520,11 +520,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet var (astProject2 astP)
           $ simplifyInline gradient
     in AstLambda (varP, ftk2, ast)
-  dfwd :: forall x z. (TensorKind x, TensorKind z)
+  dfwd :: forall x z. (TensorKind1 x, TensorKind z)
        => FullTensorKind x
        -> HFun x z
        -> AstHFun (TKProduct (ADTensorKind x)  x) (ADTensorKind z)
-  dfwd ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
+  dfwd ftkx f | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x)
               , Dict <- lemTensorKindOfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -756,7 +756,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
   dmapAccumRDer
     :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy (AstRaw s)
     -> SNat k
     -> FullTensorKind accShs
@@ -778,7 +778,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       AstRaw $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
   dmapAccumLDer
     :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy (AstRaw s)
     -> SNat k
     -> FullTensorKind accShs
@@ -973,7 +973,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
   dmapAccumRDer
     :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy (AstNoVectorize s)
     -> SNat k
     -> FullTensorKind accShs
@@ -995,7 +995,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
       AstNoVectorize $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoVectorize acc0) (unAstNoVectorize es)
   dmapAccumLDer
     :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy (AstNoVectorize s)
     -> SNat k
     -> FullTensorKind accShs
@@ -1231,7 +1231,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
   dmapAccumRDer
     :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy (AstNoSimplify s)
     -> SNat k
     -> FullTensorKind accShs
@@ -1253,7 +1253,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
       AstNoSimplify $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
   dmapAccumLDer
     :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => Proxy (AstNoSimplify s)
     -> SNat k
     -> FullTensorKind accShs

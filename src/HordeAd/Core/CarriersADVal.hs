@@ -133,14 +133,14 @@ dDnotShared = ADVal
 -- terms get an identifier. Alternatively, 'HordeAd.Core.CarriersADVal.dD'
 -- or library definitions that use it could be made smarter.
 
-unPairG :: (TensorKind x, TensorKind y)
+unPairG :: (TensorKind1 x, TensorKind1 y)
         => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unPairG (PairG a b) = (a, b)
 unPairG (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
 unPairG d = let dShared = shareDelta d  -- TODO: more cases
             in (Project1G dShared, Project2G dShared)
 
-unPairGUnshared :: (TensorKind x, TensorKind y)
+unPairGUnshared :: (TensorKind1 x, TensorKind1 y)
                 => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unPairGUnshared (PairG a b) = (a, b)
 unPairGUnshared (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)

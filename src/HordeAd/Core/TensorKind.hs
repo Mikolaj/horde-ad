@@ -6,12 +6,13 @@
 module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
-  , lemTensorKindOfSTK, sameTensorKind, sameSTK, lemTensorKindOfBuild
+  , lemTensorKindOfSTK, sameTensorKind, sameSTK
+  , lemTensorKindOfBuild, lemTensorKind1OfBuild
   , lemTensorKindOfAD, lemTensorKind1OfAD, lemBuildOfAD
   , FullTensorKind(..), lemTensorKindOfFTK, buildFTK
   , aDFTK, aDFTK1
     -- * Type family RepORArray
-  , RepORArray, GoodTK, TensorKind2
+  , RepORArray, GoodTK, TensorKind1, TensorKind2
   , RepN(..)  -- only temporarily here
     -- * Misc
   , DynamicTensor(..)
@@ -73,7 +74,8 @@ data STensorKindType y where
           => ShS sh -> STensorKindType x -> STensorKindType (TKS2 sh x)
   STKX :: forall sh x. Nested.Elt (RepORArray x)
           => StaticShX sh -> STensorKindType x -> STensorKindType (TKX2 sh x)
-  STKProduct :: STensorKindType y -> STensorKindType z
+  STKProduct :: (Nested.Elt (RepORArray y), Nested.Elt (RepORArray z))
+             => STensorKindType y -> STensorKindType z
              -> STensorKindType (TKProduct y z)
   STKUntyped :: STensorKindType TKUntyped
 
@@ -97,7 +99,8 @@ instance (TensorKind x, Nested.Elt (RepORArray x), KnownShX sh)
          => TensorKind (TKX2 sh x) where
   stensorKind = STKX knownShX stensorKind
 
-instance (TensorKind y, TensorKind z)
+instance ( TensorKind y, TensorKind z
+         , Nested.Elt (RepORArray y), Nested.Elt (RepORArray z) )
          => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
@@ -146,17 +149,24 @@ sameSTK y1 y2 = case (y1, y2) of
 
 lemTensorKindOfBuild :: SNat k -> STensorKindType y
                      -> Dict TensorKind (BuildTensorKind k y)
-lemTensorKindOfBuild snat@SNat = \case
-  STKScalar{} -> Dict
+lemTensorKindOfBuild snat = fst . lemTensorKind1OfBuild snat
+
+lemTensorKind1OfBuild :: SNat k -> STensorKindType y
+                      -> ( Dict TensorKind (BuildTensorKind k y)
+                         , Dict Nested.Elt (RepORArray (BuildTensorKind k y)) )
+lemTensorKind1OfBuild snat@SNat = \case
+  STKScalar{} -> (Dict, Dict)
   STKR SNat x -> case lemTensorKindOfSTK x of
-    Dict -> Dict
+    Dict -> (Dict, Dict)
   STKS sh x -> case lemTensorKindOfSTK x of
-    Dict -> withKnownShS sh Dict
+    Dict -> withKnownShS sh (Dict, Dict)
   STKX sh x -> case lemTensorKindOfSTK x of
-    Dict -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
-                       , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
-  STKUntyped -> Dict
+    Dict -> withKnownShX sh (Dict, Dict)
+  STKProduct stk1 stk2 | (Dict, Dict) <- lemTensorKind1OfBuild snat stk1
+                       , (Dict, Dict) <- lemTensorKind1OfBuild snat stk2 ->
+    (Dict, Dict)
+  STKUntyped ->
+    (Dict, unsafeCoerce (Dict @Nested.Elt @Double))  -- never nested in arrays
 
 lemTensorKindOfAD :: forall y.
                      STensorKindType y
@@ -210,7 +220,8 @@ data FullTensorKind y where
           => ShS sh -> FullTensorKind x -> FullTensorKind (TKS2 sh x)
   FTKX :: forall sh x. Nested.Elt (RepORArray x)
           => IShX sh -> FullTensorKind x -> FullTensorKind (TKX2 sh x)
-  FTKProduct :: FullTensorKind y -> FullTensorKind z
+  FTKProduct :: (Nested.Elt (RepORArray y), Nested.Elt (RepORArray z))
+             => FullTensorKind y -> FullTensorKind z
              -> FullTensorKind (TKProduct y z)
   FTKUntyped :: VoidHVector -> FullTensorKind TKUntyped
 
@@ -232,15 +243,22 @@ lemTensorKindOfFTK = \case
 
 buildFTK :: SNat k -> FullTensorKind y
          -> FullTensorKind (BuildTensorKind k y)
-buildFTK snat@SNat = \case
-  FTKScalar -> FTKScalar
-  FTKR sh x -> FTKR (sNatValue snat :$: sh) x
-  FTKS sh x -> FTKS (snat :$$ sh) x
-  FTKX sh x -> FTKX (SKnown snat :$% sh) x
-  FTKProduct ftk1 ftk2 ->
-      FTKProduct (buildFTK snat ftk1)
-                 (buildFTK snat ftk2)
-  FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
+buildFTK snat = fst . buildFTK1 snat
+
+buildFTK1 :: SNat k -> FullTensorKind y
+          -> ( FullTensorKind (BuildTensorKind k y)
+             , Dict Nested.Elt (RepORArray (BuildTensorKind k y)) )
+buildFTK1 snat@SNat = \case
+  FTKScalar -> (FTKScalar, Dict)
+  FTKR sh x -> (FTKR (sNatValue snat :$: sh) x, Dict)
+  FTKS sh x -> (FTKS (snat :$$ sh) x, Dict)
+  FTKX sh x -> (FTKX (SKnown snat :$% sh) x, Dict)
+  FTKProduct ftk1 ftk2 -> case buildFTK1 snat ftk1 of
+    (gtk1, Dict) -> case buildFTK1 snat ftk2 of
+      (gtk2, Dict) -> (FTKProduct gtk1 gtk2, Dict)
+  FTKUntyped shs ->
+    ( FTKUntyped $ replicate1VoidHVector snat shs
+    , unsafeCoerce (Dict @Nested.Elt @Double) )  -- never nested in arrays
 
 aDFTK :: FullTensorKind y
       -> FullTensorKind (ADTensorKind y)
@@ -297,6 +315,8 @@ class GoodTKConstraint y => GoodTK y
 instance GoodTKConstraint y => GoodTK y
 
 type TensorKind2 y = (TensorKind y, GoodTK y)
+
+type TensorKind1 y = (TensorKind y, Nested.Elt (RepORArray y))
 
 
 -- * Misc
@@ -364,6 +384,8 @@ type HVector (target :: Target) =
     -- the two, preserving sharing whenever possible. The only reason
     -- this exists is to express and preserve sharing, which is
     -- not possible with `HVector AstHVector` alone.
+
+instance Nested.Elt (HVector RepN) where  -- dummy
 
 type role VoidTensor nominal
 data VoidTensor :: Target

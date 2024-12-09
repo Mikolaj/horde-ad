@@ -486,9 +486,9 @@ printAstAux cfg d = \case
            . printAst cfg 11 ll
   AstMapAccumRDer @accShs @bShs @eShs k _accShs _bShs _eShs f df rf acc0 es
    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "
       . showParen True (shows k)
@@ -504,9 +504,9 @@ printAstAux cfg d = \case
       . printAst cfg 11 es
   AstMapAccumLDer @accShs @bShs @eShs k _accShs _bShs _eShs f df rf acc0 es
    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
+   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
+   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
       . showParen True (shows k)

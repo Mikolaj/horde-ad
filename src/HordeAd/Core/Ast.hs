@@ -243,12 +243,12 @@ type role AstTensor nominal nominal nominal
 data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                -> Type where
   -- Here starts the general part.
-  AstPair :: (TensorKind y, TensorKind z)
+  AstPair :: (TensorKind1 y, TensorKind1 z)
           => AstTensor ms s y -> AstTensor ms s z
           -> AstTensor ms s (TKProduct y z)
-  AstProject1 :: forall x z s ms. (TensorKind x, TensorKind z)
+  AstProject1 :: forall x z s ms. (TensorKind1 x, TensorKind1 z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s x
-  AstProject2 :: forall x z s ms. (TensorKind x, TensorKind z)
+  AstProject2 :: forall x z s ms. (TensorKind1 x, TensorKind1 z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s z
   AstApply :: (TensorKind x, TensorKind z)
             => AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
@@ -594,7 +594,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   -- Here starts the misc part.
   AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
   AstMapAccumRDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    :: (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => SNat k
     -> FullTensorKind accShs
     -> FullTensorKind bShs
@@ -610,7 +610,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
   AstMapAccumLDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    :: (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
     => SNat k
     -> FullTensorKind accShs
     -> FullTensorKind bShs
