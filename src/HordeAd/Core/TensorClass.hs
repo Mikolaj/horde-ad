@@ -1072,14 +1072,12 @@ class ( Num (IntOf target)
         (dmapAccumL (Proxy @target)
            snat
            (FTKR @_ sh (FTKScalar @rn))
-           (FTKUntyped V.empty)
+           (FTKScalar @Z0)
            (FTKR @_ shm (FTKScalar @rm))
            (let g :: forall f. ADReady f
                   => f (TKR n rn) -> f (TKR m rm)
-                  -> f (TKProduct (TKR n rn) TKUntyped)
-                g !acc !e =
-                  tpair (f acc e)
-                         (dmkHVector V.empty)
+                  -> f (TKProduct (TKR n rn) TKUnit)
+                g !acc !e = tpair (f acc e) tunit
             in g)
            acc0
            es)
@@ -1126,14 +1124,12 @@ class ( Num (IntOf target)
       (dmapAccumL (Proxy @target)
          (SNat @k)
          (FTKS @sh knownShS (FTKScalar @rn))
-         (FTKUntyped V.empty)
+         (FTKScalar @Z0)
          (FTKS @shm knownShS (FTKScalar @rm))
          (let g :: forall f. ADReady f
                 => f (TKS sh rn) -> f (TKS shm rm)
-                -> f (TKProduct (TKS sh rn) TKUntyped)
-              g !acc !e =
-                tpair (f acc e)
-                       (dmkHVector V.empty)
+                -> f (TKProduct (TKS sh rn) TKUnit)
+              g !acc !e = tpair (f acc e) tunit
           in g)
          acc0
          es)

@@ -48,9 +48,9 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
@@ -139,7 +139,9 @@ interpretAstRuntimeSpecialized !env t =
         Just Refl -> interpretAst @target @s @(TKR n Int64) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAst @target @s @(TKR n CInt) env t
-          _ -> error "an unexpected underlying scalar type"
+          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
+            Just Refl -> interpretAst @target @s @(TKR n Z0) env t
+            _ -> error "an unexpected underlying scalar type"
 
 interpretAstSRuntimeSpecialized
   :: forall target sh s r.
@@ -155,7 +157,9 @@ interpretAstSRuntimeSpecialized !env t =
         Just Refl -> interpretAst @target @s @(TKS sh Int64) env t
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl -> interpretAst @target @s @(TKS sh CInt) env t
-          _ -> error "an unexpected underlying scalar type"
+          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
+            Just Refl -> interpretAst @target @s @(TKS sh Z0) env t
+            _ -> error "an unexpected underlying scalar type"
 
 interpretAst
   :: forall target s y. (ADReady target, AstSpan s)

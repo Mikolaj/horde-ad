@@ -12,10 +12,11 @@ import Data.Function ((&))
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import System.Random
+import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (KnownShS (..), Rank)
@@ -362,6 +363,7 @@ ravel :: forall k y. TensorKind y
       => SNat k -> [RepN y]
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
+  STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) -> RepN Z0
   STKR SNat STKScalar{} -> rfromList $ NonEmpty.fromList t
   STKS sh STKScalar{} -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -379,6 +381,8 @@ unravel :: forall k y. TensorKind y
         => SNat k -> RepN (BuildTensorKind k y)
         -> [RepN y]
 unravel k@SNat t = case stensorKind @y of
+  STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) ->
+    replicate (sNatValue k) (RepN Z0)
   STKR SNat STKScalar{} -> runravelToList t
   STKS sh STKScalar{} -> withKnownShS sh $ sunravelToList t
   STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
