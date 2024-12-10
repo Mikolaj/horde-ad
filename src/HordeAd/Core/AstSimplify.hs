@@ -845,11 +845,11 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
-  Ast.AstNestS @_ @_ @sh2 v ->
+{- TODO:  Ast.AstNestS @_ @_ @sh2 v ->
     withKnownShS (Nested.Internal.Shape.shsAppend (knownShS @shn) (knownShS @sh2)) $
     gcastWith (unsafeCoerce Refl
                :: (shm ++ shn) ++ sh2 :~: shm ++ (shn ++ sh2)) $
-    astNestS (astIndexRec v ix)
+    astNestS (astIndexRec v ix) -}
 -- TODO: hard:  Ast.AstUnNestS v -> astUnNestS (astIndexRec v ix)
   Ast.AstUnNestS _ -> Ast.AstIndexS v0 ix
   Ast.AstSFromR t ->
@@ -2193,7 +2193,7 @@ astProjectS l p = case l of
 
 astNestS
   :: forall r sh1 sh2 ms s.
-     (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+     (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
   => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
   -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
 astNestS t = case t of
@@ -2206,7 +2206,7 @@ astNestS t = case t of
 
 astUnNestS
   :: forall r sh1 sh2 ms s.
-     (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+     (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
   => AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
   -> AstTensor ms s (TKS2 (sh1 ++ sh2) r)
 astUnNestS t = case t of

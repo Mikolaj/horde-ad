@@ -832,11 +832,11 @@ class ( Num (IntOf target)
   sconcrete :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> target (TKS sh r)
   sconcrete a = tconcrete (FTKS (Nested.sshape a) FTKScalar) (RepN a)
   snest :: forall sh1 sh2 r.
-           (TensorKind2 r, KnownShS sh2, KnownShS (sh1 ++ sh2))
+           (TensorKind1 r, KnownShS sh2, KnownShS (sh1 ++ sh2))
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) r)
         -> target (TKS2 sh1 (TKS2 sh2 r))
   sunNest :: forall sh1 sh2 r.
-             (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+             (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
           => target (TKS2 sh1 (TKS2 sh2 r)) -> target (TKS2 (sh1 ++ sh2) r)
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => target (TKR (Rank sh) r) -> target (TKS sh r)

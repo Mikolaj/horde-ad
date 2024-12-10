@@ -571,10 +571,10 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
-  NestS :: (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+  NestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
         => Delta target (TKS2 (sh1 ++ sh2) r)
         -> Delta target (TKS2 sh1 (TKS2 sh2 r))
-  UnNestS :: (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+  UnNestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
           => Delta target (TKS2 sh1 (TKS2 sh2 r))
           -> Delta target (TKS2 (sh1 ++ sh2) r)
   SFromR :: forall sh r target. (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
