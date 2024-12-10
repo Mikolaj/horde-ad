@@ -38,7 +38,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX)
+import Data.Array.Mixed.Shape (IShX, StaticShX (..))
 import Data.Array.Nested
   ( IShR
   , IxS (..)
@@ -411,6 +411,19 @@ class ( Num (IntOf target)
                 => target (TKR n r1) -> target (TKR n r2)
   rconcrete :: (GoodScalar r, KnownNat n) => Nested.Ranked n r -> target (TKR n r)
   rconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
+  rnest :: forall n m r.
+           (TensorKind1 r, KnownNat m)
+        => SNat n -> target (TKR2 (n + m) r)
+        -> target (TKR2 n (TKR2 m r))
+  runNest :: forall n m r.
+             (TensorKind1 r, KnownNat n, KnownNat m)
+          => target (TKR2 n (TKR2 m r)) -> target (TKR2 (n + m) r)
+  rzip :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+       => target (TKProduct (TKR2 n y) (TKR2 n z))
+       -> target (TKR2 n (TKProduct y z))
+  runzip :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+         => target (TKR2 n (TKProduct y z))
+         -> target (TKProduct (TKR2 n y) (TKR2 n z))
   rfromS :: (GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKR (Rank sh) r)
   rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
@@ -468,6 +481,19 @@ class ( Num (IntOf target)
   xconcrete :: (GoodScalar r, KnownShX sh)
             => Nested.Mixed sh r -> target (TKX sh r)
   xconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
+  xnest :: forall sh1 sh2 r.
+           (TensorKind1 r, KnownShX sh2, KnownShX (sh1 ++ sh2))
+        => StaticShX sh1 -> target (TKX2 (sh1 ++ sh2) r)
+        -> target (TKX2 sh1 (TKX2 sh2 r))
+  xunNest :: forall sh1 sh2 r.
+             (TensorKind1 r, KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2))
+          => target (TKX2 sh1 (TKX2 sh2 r)) -> target (TKX2 (sh1 ++ sh2) r)
+  xzip :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+       => target (TKProduct (TKX2 sh y) (TKX2 sh z))
+       -> target (TKX2 sh (TKProduct y z))
+  xunzip :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+         => target (TKX2 sh (TKProduct y z))
+         -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
   xtoScalar :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
   xfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
   xzero :: forall r sh. (GoodScalar r, KnownShX sh)
