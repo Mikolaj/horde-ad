@@ -6,7 +6,7 @@
 module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
-  , lemTensorKindOfSTK, sameTensorKind, sameSTK
+  , lemTensorKindOfSTK, lemTensorKind1OfSTK, sameTensorKind, sameSTK
   , lemTensorKindOfBuild, lemTensorKind1OfBuild
   , lemTensorKindOfAD, lemTensorKind1OfAD, lemBuildOfAD
   , FullTensorKind(..), lemTensorKindOfFTK, buildFTK
@@ -108,17 +108,23 @@ instance TensorKind TKUntyped where
   stensorKind = STKUntyped
 
 lemTensorKindOfSTK :: STensorKindType y -> Dict TensorKind y
-lemTensorKindOfSTK = \case
-  STKScalar _ -> Dict
-  STKR SNat x -> case lemTensorKindOfSTK x of
-    Dict -> Dict
-  STKS sh x -> case lemTensorKindOfSTK x of
-    Dict -> withKnownShS sh Dict
-  STKX sh x -> case lemTensorKindOfSTK x of
-    Dict -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                       , Dict <- lemTensorKindOfSTK stk2 -> Dict
-  STKUntyped -> Dict
+lemTensorKindOfSTK = fst . lemTensorKind1OfSTK
+
+lemTensorKind1OfSTK :: STensorKindType y
+                    -> ( Dict TensorKind y
+                       , Dict Nested.Elt (RepORArray y) )
+lemTensorKind1OfSTK = \case
+  STKScalar _ -> (Dict, Dict)
+  STKR SNat x -> case lemTensorKind1OfSTK x of
+    (Dict, Dict) -> (Dict, Dict)
+  STKS sh x -> case lemTensorKind1OfSTK x of
+    (Dict, Dict) -> withKnownShS sh (Dict, Dict)
+  STKX sh x -> case lemTensorKind1OfSTK x of
+    (Dict, Dict) -> withKnownShX sh (Dict, Dict)
+  STKProduct stk1 stk2 | (Dict, Dict) <- lemTensorKind1OfSTK stk1
+                       , (Dict, Dict) <- lemTensorKind1OfSTK stk2 -> (Dict, Dict)
+  STKUntyped ->
+    (Dict, unsafeCoerce (Dict @Nested.Elt @Double))  -- never nested in arrays
 
 sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2) => Maybe (y1 :~: y2)
 sameTensorKind = sameSTK (stensorKind @y1) (stensorKind @y2)
@@ -307,7 +313,8 @@ type role RepN nominal
 newtype RepN y = RepN {unRepN :: RepORArray y}
 
 type GoodTKConstraint y =
-  ( Default (RepORArray y), Show (RepORArray y), Nested.KnownElt (RepORArray y)
+  ( Default (RepORArray y)  -- TODO: remove
+  , Show (RepORArray y), Nested.KnownElt (RepORArray y)
   , Num (RepORArray (ADTensorKind y)) )
 
 -- A class so that the constraint can be represented by a single Dict.

@@ -838,6 +838,12 @@ class ( Num (IntOf target)
   sunNest :: forall sh1 sh2 r.
              (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
           => target (TKS2 sh1 (TKS2 sh2 r)) -> target (TKS2 (sh1 ++ sh2) r)
+  szip :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+       => target (TKProduct (TKS2 sh y) (TKS2 sh z))
+       -> target (TKS2 sh (TKProduct y z))
+  sunzip :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+         => target (TKS2 sh (TKProduct y z))
+         -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
   sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
          => target (TKR (Rank sh) r) -> target (TKS sh r)
   sfromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'

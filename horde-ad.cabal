@@ -84,7 +84,8 @@ common options
     default-extensions: TypeAbstractions
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
                       DerivingStrategies, DeriveAnyClass, TupleSections,
-                      UndecidableInstances, AllowAmbiguousTypes
+                      UndecidableInstances, AllowAmbiguousTypes,
+                      QuantifiedConstraints
   ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
   if impl(ghc >= 9.2)

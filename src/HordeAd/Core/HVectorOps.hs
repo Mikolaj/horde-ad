@@ -1,4 +1,4 @@
-{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | A class containing array operations, with some extra algebraic operations
@@ -6,7 +6,8 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( RepD(..)
+  ( addShare
+  , RepD(..)
   , toRepDShare, toRepDDuplicable, fromRepD, addRepD, addDynamic
   , sizeHVector, shapeDynamic, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
@@ -30,10 +31,21 @@ import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape (KnownShX (..), ssxFromShape)
+import Data.Array.Mixed.Shape
+  (KnownShX (..), ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
-  (IShR, KnownShS (..), Rank, ShR (..), ShS (..), pattern (:$:), pattern ZSR)
-import Data.Array.Nested.Internal.Shape (shrRank)
+  ( IShR
+  , KnownShS (..)
+  , MapJust
+  , Rank
+  , Replicate
+  , ShR (..)
+  , ShS (..)
+  , pattern (:$:)
+  , pattern ZSR
+  , type (++)
+  )
+import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank, shsAppend)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -120,6 +132,168 @@ addRepD a b = case (a, b) of
     DTKProduct (addRepD ta1 tb1) (addRepD ta2 tb2)
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ V.zipWith addDynamic hv1 hv2
+
+
+-- * Winding
+
+type family UnWind tk where
+  UnWind (TKScalar r) =
+    TKScalar r
+  UnWind (TKR2 n (TKScalar r)) =
+    TKR2 n (TKScalar r)
+  UnWind (TKR2 n (TKR2 m x)) =
+    UnWind (TKR2 (n + m) x)
+  UnWind (TKR2 n (TKS2 sh x)) =
+    UnWind (TKX2 (Replicate n Nothing ++ MapJust sh) x)
+  UnWind (TKR2 n (TKX2 sh x)) =
+    UnWind (TKX2 (Replicate n Nothing ++ sh) x)
+  UnWind (TKR2 n (TKProduct y z)) =
+    TKProduct (UnWind (TKR2 n y)) (UnWind (TKR2 n z))
+  UnWind (TKS2 sh (TKScalar r)) =
+    TKS2 sh (TKScalar r)
+  UnWind (TKS2 sh (TKR2 m x)) =
+    UnWind (TKX2 (MapJust sh ++ Replicate m Nothing) x)
+  UnWind (TKS2 sh (TKS2 sh2 x)) =
+    UnWind (TKS2 (sh ++ sh2) x)
+  UnWind (TKS2 sh (TKX2 sh2 x)) =
+    UnWind (TKX2 (MapJust sh ++ sh2) x)
+  UnWind (TKS2 sh (TKProduct y z)) =
+    TKProduct (UnWind (TKS2 sh y)) (UnWind (TKS2 sh z))
+  UnWind (TKX2 sh (TKScalar r)) =
+    TKX2 sh (TKScalar r)
+  UnWind (TKX2 sh (TKR2 m x)) =
+    UnWind (TKX2 (sh ++ Replicate m Nothing) x)
+  UnWind (TKX2 sh (TKS2 sh2 x)) =
+    UnWind (TKX2 (sh ++ MapJust sh2) x)
+  UnWind (TKX2 sh (TKX2 sh2 x)) =
+    UnWind (TKX2 (sh ++ sh2) x)
+  UnWind (TKX2 sh (TKProduct y z)) =
+    TKProduct (UnWind (TKX2 sh y)) (UnWind (TKX2 sh z))
+  UnWind (TKProduct y z) =
+    TKProduct (UnWind y) (UnWind z)
+  UnWind TKUntyped =
+    TKUntyped
+
+unWindSTK :: STensorKindType y -> STensorKindType (UnWind y)
+unWindSTK = \case
+  stk@STKScalar{} -> stk
+  stk@(STKR _ STKScalar{}) -> stk
+  STKR (SNat @n) (STKR (SNat @m) stk2) ->
+    unWindSTK $ STKR (SNat @(n + m)) stk2
+  STKR n (STKS sh stk2) ->
+    unWindSTK
+    $ STKX (ssxReplicate n `ssxAppend` ssxFromShape (shCvtSX sh)) stk2
+  STKR n (STKX sh stk2) ->
+    unWindSTK $ STKX (ssxReplicate n `ssxAppend` sh) stk2
+  STKR n (STKProduct y z) ->
+    unWindSTK $ STKProduct (STKR n y) (STKR n z)
+  stk@(STKS _ STKScalar{}) -> stk
+  STKS sh (STKR m stk2) ->
+    unWindSTK
+    $ STKX (ssxFromShape (shCvtSX sh) `ssxAppend` ssxReplicate m) stk2
+  STKS sh (STKS sh2 stk2) ->
+    unWindSTK $ STKS (shsAppend sh sh2) stk2
+  STKS sh (STKX sh2 stk2) ->
+    unWindSTK $ STKX (ssxFromShape (shCvtSX sh) `ssxAppend` sh2) stk2
+  STKS sh (STKProduct y z) ->
+    unWindSTK $ STKProduct (STKS sh y) (STKS sh z)
+  stk@(STKX _ STKScalar{}) -> stk
+  STKX sh (STKR m stk2) ->
+    unWindSTK $ STKX (sh `ssxAppend` ssxReplicate m) stk2
+  STKX sh (STKS sh2 stk2) ->
+    unWindSTK $ STKX (sh `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2
+  STKX sh (STKX sh2 stk2) ->
+    unWindSTK $ STKX (sh `ssxAppend` sh2) stk2
+  STKX sh (STKProduct y z) ->
+    unWindSTK $ STKProduct (STKX sh y) (STKX sh z)
+  STKProduct y z | (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK y)
+                 , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK z) ->
+    STKProduct (unWindSTK y) (unWindSTK z)
+  stk@STKUntyped -> stk
+  STKR _ STKUntyped -> error "unWindSTK: STKUntyped can't be nested in arrays"
+  STKS _ STKUntyped -> error "unWindSTK: STKUntyped can't be nested in arrays"
+  STKX _ STKUntyped -> error "unWindSTK: STKUntyped can't be nested in arrays"
+
+-- Alternatively the codomain could be RepD, which clearly indicates
+-- what the normal form of UnWind is.
+unWindShare :: (BaseTensor target, ShareTensor target)
+            => STensorKindType y -> target y -> target (UnWind y)
+unWindShare stk t = case stk of
+  STKScalar{} -> t
+  STKR _ STKScalar{} -> t
+  STKS _ STKScalar{} -> t
+  STKS sh (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh $ withKnownShS sh2 $ withKnownShS (shsAppend sh sh2)
+    $ unWindShare (STKS (shsAppend sh sh2) stk2) (sunNest t)
+  STKS sh (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
+                                 , Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh
+    $ unWindShare (STKProduct (STKS sh stk1) (STKS sh stk2)) (sunzip t)
+  STKX _ STKScalar{} -> t
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfSTK stk2
+                       , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
+                       , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
+    let (t1, t2) = tunpair t
+    in tpair (unWindShare stk1 t1) (unWindShare stk2 t2)
+  STKUntyped -> t
+  _ -> error "TODO"
+
+windShare :: (BaseTensor target, ShareTensor target)
+          => STensorKindType y -> target (UnWind y) -> target y
+windShare stk t = case stk of
+  STKScalar{} -> t
+  STKR _ STKScalar{} -> t
+  STKS _ STKScalar{} -> t
+  STKS sh (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh2 $ withKnownShS (shsAppend sh sh2)
+    $ snest sh $ windShare (STKS (shsAppend sh sh2) stk2) t
+  STKS sh (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
+                                 , Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh
+    $ szip $ windShare (STKProduct (STKS sh stk1) (STKS sh stk2)) t
+  STKX _ STKScalar{} -> t
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfSTK stk2
+                       , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
+                       , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
+    let (t1, t2) = tunpair t
+    in tpair (windShare stk1 t1) (windShare stk2 t2)
+  STKUntyped -> t
+  _ -> error "TODO"
+
+addWindShare ::
+  (ADReadyNoLet target, ShareTensor target)
+  => STensorKindType y
+  -> target y -> target y -> target y
+addWindShare stk a b = case stk of
+  STKScalar{} -> a + b
+  STKR SNat STKScalar{} -> a + b
+  STKS sh STKScalar{} -> withKnownShS sh $ a + b
+  STKX sh STKScalar{} -> withKnownShX sh $ a + b
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfSTK stk2 ->
+    let (a1, a2) = tunpair a
+        (b1, b2) = tunpair b
+    in tpair (addWindShare stk1 a1 b1) (addWindShare stk2 a2 b2)
+  STKUntyped ->
+    let va = tunvector a
+        vb = tunvector b
+    in dmkHVector $ V.zipWith addDynamic va vb
+  _ -> error "addWindShare: impossible normal form of UnWind"
+
+addShare ::
+  (ADReadyNoLet target, ShareTensor target)
+  => STensorKindType y
+  -> target y -> target y -> target y
+addShare stk a b =
+  let stk2 = unWindSTK stk
+      a2 = unWindShare stk a
+      b2 = unWindShare stk b
+  in windShare stk $ addWindShare stk2 a2 b2
+
+
+-- * Dynamic
 
 addDynamic :: forall target.
               (BaseTensor target, (forall y. TensorKind y => Show (target y)))
