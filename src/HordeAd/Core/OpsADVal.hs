@@ -316,12 +316,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rfromIntegral (D u _) =
     let v = rfromIntegral u
     in fromPrimalADVal v
-  rfromS :: forall r sh. (GoodScalar r, KnownShS sh)
-         => ADVal target (TKS sh r) -> ADVal target (TKR (Rank sh) r)
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
    where
-    dRFromS :: (GoodScalar r2, KnownShS sh2)
-            => Delta target (TKS sh2 r2) -> Delta target (TKR (Rank sh2) r2)
+    dRFromS :: (TensorKind1 r2, KnownShS sh2)
+            => Delta target (TKS2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
   rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
@@ -417,8 +415,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     dD (snest sh u) (NestS u')
   sunNest (D u u') = dD (sunNest u) (UnNestS u')
-  sfromR :: forall r sh. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-         => ADVal target (TKR (Rank sh) r) -> ADVal target (TKS sh r)
+  sfromR :: forall r sh. (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
+         => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKS2 sh r)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
     dSFromR (RFromS @sh1 d) =
@@ -428,8 +426,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     dSFromR d = SFromR d
   sfromX :: forall r sh sh'.
             ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
-            , KnownShX (Nested.MapJust sh), GoodScalar r )
-         => ADVal target (TKX sh' r) -> ADVal target (TKS sh r)
+            , KnownShX (Nested.MapJust sh), TensorKind1 r )
+         => ADVal target (TKX2 sh' r) -> ADVal target (TKS2 sh r)
   sfromX (D u u') = dDnotShared (sfromX u) (dSFromX u')
    where
     dSFromX (XFromS @sh1 d) =
@@ -437,8 +435,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromX d = SFromX d
-  xfromS :: (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
-         => ADVal target (TKS sh r) -> ADVal target (TKX sh' r)
   xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
   stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
   sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)

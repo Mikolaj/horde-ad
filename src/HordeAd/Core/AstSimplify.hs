@@ -2217,13 +2217,14 @@ astUnNestS t = case t of
   Ast.AstNestS u -> u
   _ -> Ast.AstUnNestS t
 
-astRFromS :: forall sh s r. (GoodScalar r, KnownShS sh)
-          => AstTensor AstMethodLet s (TKS sh r) -> AstTensor AstMethodLet s (TKR (Rank sh) r)
-astRFromS (AstConcrete _ t) =
-  withListSh (Proxy @sh) $ \(_ :: IShR p) ->
-  gcastWith (unsafeCoerce Refl :: Rank sh :~: p) $
-  let u = Nested.stoRanked (unRepN t)
-  in AstConcrete (FTKR (Nested.rshape u) FTKScalar) (RepN u)
+astRFromS :: forall sh s r. (TensorKind1 r, KnownShS sh)
+          => AstTensor AstMethodLet s (TKS2 sh r) -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
+astRFromS (AstConcrete ftk t) = case ftk of
+  FTKS _ x ->
+    withListSh (Proxy @sh) $ \(_ :: IShR p) ->
+    gcastWith (unsafeCoerce Refl :: Rank sh :~: p) $
+    let u = Nested.stoRanked (unRepN t)
+    in AstConcrete (FTKR (Nested.rshape u) x) (RepN u)
 astRFromS (Ast.AstFromPrimal v) =
   withListSh (Proxy @sh) $ \(_ :: IShR p) ->
   gcastWith (unsafeCoerce Refl :: Rank sh :~: p) $
@@ -2231,10 +2232,12 @@ astRFromS (Ast.AstFromPrimal v) =
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
-astSFromR :: forall sh s r. (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-          => AstTensor AstMethodLet s (TKR (Rank sh) r) -> AstTensor AstMethodLet s (TKS sh r)
-astSFromR (AstConcrete _ t) =
-  AstConcrete (FTKS knownShS FTKScalar) $ RepN $ Nested.rcastToShaped (unRepN t) Nested.knownShS
+astSFromR :: forall sh s r. (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
+          => AstTensor AstMethodLet s (TKR2 (Rank sh) r) -> AstTensor AstMethodLet s (TKS2 sh r)
+astSFromR (AstConcrete ftk t) = case ftk of
+  FTKR _ x ->
+    AstConcrete (FTKS knownShS x) $ RepN
+    $ Nested.rcastToShaped (unRepN t) Nested.knownShS
 astSFromR (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromR v
 astSFromR (Ast.AstRFromS @sh1 v) =
   case sameShape @sh1 @sh of
@@ -2243,12 +2246,13 @@ astSFromR (Ast.AstRFromS @sh1 v) =
 astSFromR v = Ast.AstSFromR v
 
 astSFromX :: forall sh sh' s r.
-             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownShX (Nested.MapJust sh), GoodScalar r)
-          => AstTensor AstMethodLet s (TKX sh' r)
-          -> AstTensor AstMethodLet s (TKS sh r)
-astSFromX (AstConcrete _ t) =
-  AstConcrete (FTKS knownShS FTKScalar)
-  $ RepN $ Nested.mcastToShaped (unRepN t) Nested.knownShS
+             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownShX (Nested.MapJust sh), TensorKind1 r)
+          => AstTensor AstMethodLet s (TKX2 sh' r)
+          -> AstTensor AstMethodLet s (TKS2 sh r)
+astSFromX (AstConcrete ftk t) = case ftk of
+  FTKX _ x ->
+    AstConcrete (FTKS knownShS x)
+    $ RepN $ Nested.mcastToShaped (unRepN t) Nested.knownShS
 astSFromX (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX v
 astSFromX (Ast.AstXFromS @sh1 v) =
   case sameShape @sh1 @sh of
@@ -2257,12 +2261,13 @@ astSFromX (Ast.AstXFromS @sh1 v) =
 astSFromX v = Ast.AstSFromX v
 
 astXFromS :: forall sh sh' s r.
-             (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
-          => AstTensor AstMethodLet s (TKS sh r)
-          -> AstTensor AstMethodLet s (TKX sh' r)
-astXFromS (AstConcrete _ t) =
-  let u = Nested.stoMixed (unRepN t)
-  in AstConcrete (FTKX (Nested.mshape u) FTKScalar) (RepN u)
+             (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, TensorKind1 r)
+          => AstTensor AstMethodLet s (TKS2 sh r)
+          -> AstTensor AstMethodLet s (TKX2 sh' r)
+astXFromS (AstConcrete ftk t) = case ftk of
+  FTKS _ x ->
+    let u = Nested.stoMixed (unRepN t)
+    in AstConcrete (FTKX (Nested.mshape u) x) (RepN u)
 astXFromS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astXFromS v
 -- impossible, shapes may differ: astXFromS (Ast.AstSFromX v) = v
 astXFromS v = Ast.AstXFromS v
@@ -2470,7 +2475,7 @@ mapRankedShaped fRanked fShaped
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
-          fRanked (mkAstVarName varId) (astRFromS @sh3 @_ @r3 (astReplicate0NS 0)) acc
+          fRanked (mkAstVarName varId) (astRFromS @sh3 @_ @(TKScalar r3) (astReplicate0NS 0)) acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4

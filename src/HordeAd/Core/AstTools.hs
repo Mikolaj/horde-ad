@@ -31,7 +31,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (shxSize)
 import Data.Array.Nested
   (IShR, KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
-import Data.Array.Nested.Internal.Shape (shrSize, shsSize)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shrSize, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 
@@ -116,8 +116,9 @@ ftkAst t = case t of
     DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
-  AstRFromS @sh _ | Dict <- lemKnownNatRankS (knownShS @sh) ->
-    FTKR (listToShape $ shapeT @sh) FTKScalar
+  AstRFromS @sh v
+   | Dict <- lemKnownNatRankS (knownShS @sh) -> case ftkAst v of
+    FTKS _ x -> FTKR (listToShape $ shapeT @sh) x
 
   AstMinIndexS{} -> FTKS knownShS FTKScalar
   AstMaxIndexS{} -> FTKS knownShS FTKScalar
@@ -160,9 +161,12 @@ ftkAst t = case t of
     FTKS _ x -> FTKS knownShS (FTKS knownShS x)
   AstUnNestS v -> case ftkAst v of
     FTKS _ (FTKS _ x) -> FTKS knownShS x
-  AstSFromR{} -> FTKS knownShS FTKScalar
-  AstSFromX{} -> FTKS knownShS FTKScalar
-  AstXFromS{} -> error "TODO"
+  AstSFromR v -> case ftkAst v of
+    FTKR _ x -> FTKS knownShS x
+  AstSFromX v -> case ftkAst v of
+    FTKX _ x -> FTKS knownShS x
+  AstXFromS @sh v -> case ftkAst v of
+    FTKS _ x -> FTKX (shCvtSX (knownShS @sh)) x
 
   AstMkHVector v ->
     FTKUntyped

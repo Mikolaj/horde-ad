@@ -70,12 +70,12 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, shxEqual)
+import Data.Array.Mixed.Shape
+  (KnownShX (..), pattern (:.%), pattern ZIX, shxEqual)
 import Data.Array.Nested
   ( IShR
   , IxS (..)
   , KnownShS (..)
-  , KnownShX (..)
   , Rank
   , ShR (..)
   , ShS (..)
@@ -84,7 +84,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shrRank)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -477,9 +477,9 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownNat n)
         => Delta target (TKR n r1) -> Delta target (TKR n r2)
-  RFromS :: forall sh r target. (GoodScalar r, KnownShS sh)
-         => Delta target (TKS sh r)
-         -> Delta target (TKR (Rank sh) r)
+  RFromS :: forall sh r target. (TensorKind1 r, KnownShS sh)
+         => Delta target (TKS2 sh r)
+         -> Delta target (TKR2 (Rank sh) r)
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
@@ -577,18 +577,18 @@ data Delta :: Target -> TensorKindType -> Type where
   UnNestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
           => Delta target (TKS2 sh1 (TKS2 sh2 r))
           -> Delta target (TKS2 (sh1 ++ sh2) r)
-  SFromR :: forall sh r target. (KnownShS sh, KnownNat (Rank sh), GoodScalar r)
-         => Delta target (TKR (Rank sh) r)
-         -> Delta target (TKS sh r)
+  SFromR :: forall sh r target. (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)
+         => Delta target (TKR2 (Rank sh) r)
+         -> Delta target (TKS2 sh r)
   SFromX :: forall sh sh' r target.
             ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
-            , KnownShX (Nested.MapJust sh), GoodScalar r )
-         => Delta target (TKX sh' r)
-         -> Delta target (TKS sh r)
+            , KnownShX (Nested.MapJust sh), TensorKind1 r )
+         => Delta target (TKX2 sh' r)
+         -> Delta target (TKS2 sh r)
   XFromS :: forall sh sh' r target.
-            (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
-         => Delta target (TKS sh r)
-         -> Delta target (TKX sh' r)
+            (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, TensorKind1 r)
+         => Delta target (TKS2 sh r)
+         -> Delta target (TKX2 sh' r)
   SFromH :: (KnownShS sh, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 
@@ -694,8 +694,9 @@ shapeDeltaFull = \case
     FTKR _ x -> FTKR sh x
   GatherR sh _ _ -> FTKR sh FTKScalar
   CastR d -> FTKR (shapeDelta d) FTKScalar
-  RFromS @sh _ | Dict <- lemKnownNatRankS (knownShS @sh) ->
-    FTKR (listToShape $ shapeT @sh) FTKScalar
+  RFromS @sh d
+   | Dict <- lemKnownNatRankS (knownShS @sh) -> case shapeDeltaFull d of
+    FTKS _ x -> FTKR (listToShape $ shapeT @sh) x
   RFromH d i -> FTKR (listToShape $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
   IndexS d _ix -> case shapeDeltaFull d of
@@ -730,9 +731,12 @@ shapeDeltaFull = \case
     FTKS _ x -> FTKS knownShS (FTKS knownShS x)
   UnNestS d  -> case shapeDeltaFull d of
     FTKS _ (FTKS _ x) -> FTKS knownShS x
-  SFromR{} -> FTKS knownShS FTKScalar
-  SFromX{} -> FTKS knownShS FTKScalar
-  XFromS{} -> error "TODO"
+  SFromR d -> case shapeDeltaFull d of
+    FTKR _ x -> FTKS knownShS x
+  SFromX d -> case shapeDeltaFull d of
+    FTKX _ x -> FTKS knownShS x
+  XFromS @sh d -> case shapeDeltaFull d of
+    FTKS _ x -> FTKX (shCvtSX (knownShS @sh)) x
   SFromH{} -> FTKS knownShS FTKScalar
 
   IndexX{} -> error "TODO"
@@ -1259,7 +1263,7 @@ evalSame !s !c = \case
       Just Refl -> evalSame s c d
       _ -> error "evalSame: different shapes in SFromX(XFromS)"
   SFromX d -> case shapeDeltaFull d of
-    FTKX sh' FTKScalar -> case shxEqual (xshape (xfromS c)) sh' of
+    FTKX sh' _ -> case shxEqual (xshape (xfromS c)) sh' of
       Just Refl -> evalSame s (xfromS c) d
       Nothing -> error "evalSame: wrong shapes in SFromX"
 -- impossible, shapes may differ: XFromS (SFromX d) -> evalSame s c d

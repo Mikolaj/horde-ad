@@ -424,8 +424,8 @@ class ( Num (IntOf target)
   runzip :: (TensorKind1 y, TensorKind1 z, KnownNat n)
          => target (TKR2 n (TKProduct y z))
          -> target (TKProduct (TKR2 n y) (TKR2 n z))
-  rfromS :: (GoodScalar r, KnownShS sh)
-         => target (TKS sh r) -> target (TKR (Rank sh) r)
+  rfromS :: (TensorKind1 r, KnownShS sh)
+         => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
@@ -461,7 +461,7 @@ class ( Num (IntOf target)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
-  xshape :: (GoodScalar r, KnownShX sh) => target (TKX sh r) -> IShX sh
+  xshape :: (TensorKind1 r, KnownShX sh) => target (TKX2 sh r) -> IShX sh
   xindex :: forall r sh1 sh2.
             ( GoodScalar r, KnownShX sh1, KnownShX sh2
             , KnownShX (sh1 ++ sh2) )
@@ -870,13 +870,13 @@ class ( Num (IntOf target)
   sunzip :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
          => target (TKS2 sh (TKProduct y z))
          -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
-  sfromR :: (GoodScalar r, KnownShS sh, KnownNat (Rank sh))
-         => target (TKR (Rank sh) r) -> target (TKS sh r)
+  sfromR :: (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
+         => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
   sfromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
-            , KnownShX (Nested.MapJust sh), GoodScalar r )
-         => target (TKX sh' r) -> target (TKS sh r)
-  xfromS :: (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, GoodScalar r)
-         => target (TKS sh r) -> target (TKX sh' r)
+            , KnownShX (Nested.MapJust sh), TensorKind1 r )
+         => target (TKX2 sh' r) -> target (TKS2 sh r)
+  xfromS :: (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, TensorKind1 r)
+         => target (TKS2 sh r) -> target (TKX2 sh' r)
   stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
   sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
 
