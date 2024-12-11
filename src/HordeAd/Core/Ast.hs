@@ -390,6 +390,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                   -> AstTensor AstMethodLet s2 z
   AstRFromS :: (KnownShS sh, TensorKind1 r)
             => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
+  AstRFromX :: (KnownShX sh, TensorKind1 r)
+            => AstTensor ms s (TKX2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
 
   -- Here starts the shaped part.
   AstFromScalar :: GoodScalar r
@@ -495,11 +497,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
   AstSFromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
-               , KnownShX (Nested.MapJust sh), TensorKind1 r )
-            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
-  AstXFromS :: ( KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh
                , TensorKind1 r )
-            => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKX2 sh' r)
+            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 
   -- Here starts the mixed part.
   AstN1X :: (GoodScalar r, KnownShX sh)
@@ -590,6 +589,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKX sh r)
   AstXFromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind1 r)
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKX2 sh r)
+  AstXFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+            => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKX2 sh' r)
 
   -- Here starts the misc part.
   AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped

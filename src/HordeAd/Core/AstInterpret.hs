@@ -616,6 +616,7 @@ interpretAst !env = \case
            (\lw -> interpretAst (env2 (dunHVector lw)) v)
     _ -> error "TODO"
   AstRFromS v -> rfromS $ interpretAst env v
+  AstRFromX v -> rfromX $ interpretAst env v
 
   AstMinIndexS v ->
     sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
@@ -829,7 +830,6 @@ interpretAst !env = \case
   AstUnNestS v -> sunNest $ interpretAst env v
   AstSFromR v -> sfromR $ interpretAst env v
   AstSFromX v -> sfromX $ interpretAst env v
-  AstXFromS v -> xfromS $ interpretAst env v
 
   AstMinIndexX _v -> error "TODO"
   AstMaxIndexX _v -> error "TODO"
@@ -881,7 +881,8 @@ interpretAst !env = \case
   AstCastX _v ->  error "TODO"
   AstFromIntegralX _v -> error "TODO"
   AstProjectX _l _p -> error "TODO"
-  AstXFromR _v ->  error "TODO"
+  AstXFromR v -> xfromR $ interpretAst env v
+  AstXFromS v -> xfromS $ interpretAst env v
 
   AstMkHVector l -> dmkHVector $ interpretAstDynamic env <$> l
   AstApply t ll ->

@@ -30,7 +30,7 @@ module HordeAd.Core.AstSimplify
   , astCast, astCastR, astCastS
   , astFromIntegral, astFromIntegralR, astFromIntegralS
   , astProject1, astProject2, astProjectR, astProjectS, astNestS, astUnNestS
-  , astRFromS, astSFromR, astSFromX, astXFromS
+  , astRFromS, astRFromX, astSFromR, astSFromX, astXFromR, astXFromS
   , astPrimalPart, astDualPart
   , astLetHVectorIn, astHApply, astLetFun
     -- * The simplifying bottom-up pass
@@ -338,6 +338,7 @@ astNonIndexStep t = case t of
   Ast.AstProjectR l p -> astProjectR l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
   Ast.AstRFromS v -> astRFromS v
+  Ast.AstRFromX v -> astRFromX v
 
   Ast.AstMinIndexS{} -> t
   Ast.AstMaxIndexS{} -> t
@@ -372,6 +373,7 @@ astNonIndexStep t = case t of
   Ast.AstUnNestS v -> astUnNestS v
   Ast.AstSFromR v -> astSFromR v
   Ast.AstSFromX v -> astSFromX v
+  Ast.AstXFromR v -> astXFromR v
   Ast.AstXFromS v -> astXFromS v
   _ -> t  -- TODO
 
@@ -608,6 +610,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
        gcastWith (unsafeCoerce Refl :: Rank p_drop :~: n) $
        astRFromS $ astIndexKnobsS @p_take @p_drop knobs
                                   t (ShapedList.listToIndex $ indexToList ix)
+  Ast.AstRFromX{} -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndex v0 ix
 
@@ -845,7 +848,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
-{- TODO:  Ast.AstNestS @_ @_ @sh2 v ->
+  Ast.AstNestS{} -> Ast.AstIndexS v0 ix
+{- TODO:
+  Ast.AstNestS @_ @_ @sh2 v ->
     withKnownShS (Nested.Internal.Shape.shsAppend (knownShS @shn) (knownShS @sh2)) $
     gcastWith (unsafeCoerce Refl
                :: (shm ++ shn) ++ sh2 :~: shm ++ (shn ++ sh2)) $
@@ -1213,6 +1218,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
          astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
+    Ast.AstRFromX{} -> error "TODO"
 
     Ast.AstApply{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
@@ -2218,22 +2224,36 @@ astUnNestS t = case t of
   _ -> Ast.AstUnNestS t
 
 astRFromS :: forall sh s r. (TensorKind1 r, KnownShS sh)
-          => AstTensor AstMethodLet s (TKS2 sh r) -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
-astRFromS (AstConcrete ftk t) = case ftk of
+          => AstTensor AstMethodLet s (TKS2 sh r)
+          -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
+astRFromS (AstConcrete ftk t)
+ | Dict <- lemKnownNatRankS (knownShS @sh) = case ftk of
   FTKS _ x ->
-    withListSh (Proxy @sh) $ \(_ :: IShR p) ->
-    gcastWith (unsafeCoerce Refl :: Rank sh :~: p) $
     let u = Nested.stoRanked (unRepN t)
     in AstConcrete (FTKR (Nested.rshape u) x) (RepN u)
-astRFromS (Ast.AstFromPrimal v) =
-  withListSh (Proxy @sh) $ \(_ :: IShR p) ->
-  gcastWith (unsafeCoerce Refl :: Rank sh :~: p) $
+astRFromS (Ast.AstFromPrimal v)
+ | Dict <- lemKnownNatRankS (knownShS @sh) =
   Ast.AstFromPrimal $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
+astRFromX :: forall sh s r. (TensorKind1 r, KnownShX sh)
+          => AstTensor AstMethodLet s (TKX2 sh r)
+          -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
+astRFromX (AstConcrete ftk t)
+ | Dict <- lemKnownNatRankX (knownShX @sh) = case ftk of
+  FTKX _ x ->
+    let u = Nested.mtoRanked (unRepN t)
+    in AstConcrete (FTKR (Nested.rshape u) x) (RepN u)
+astRFromX (Ast.AstFromPrimal v)
+ | Dict <- lemKnownNatRankX (knownShX @sh) =
+  Ast.AstFromPrimal $ astRFromX v
+astRFromX (Ast.AstXFromR v) = v  -- no information lost, so no checks
+astRFromX v = Ast.AstRFromX v
+
 astSFromR :: forall sh s r. (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
-          => AstTensor AstMethodLet s (TKR2 (Rank sh) r) -> AstTensor AstMethodLet s (TKS2 sh r)
+          => AstTensor AstMethodLet s (TKR2 (Rank sh) r)
+          -> AstTensor AstMethodLet s (TKS2 sh r)
 astSFromR (AstConcrete ftk t) = case ftk of
   FTKR _ x ->
     AstConcrete (FTKS knownShS x) $ RepN
@@ -2246,7 +2266,7 @@ astSFromR (Ast.AstRFromS @sh1 v) =
 astSFromR v = Ast.AstSFromR v
 
 astSFromX :: forall sh sh' s r.
-             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownShX (Nested.MapJust sh), TensorKind1 r)
+             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
           => AstTensor AstMethodLet s (TKX2 sh' r)
           -> AstTensor AstMethodLet s (TKS2 sh r)
 astSFromX (AstConcrete ftk t) = case ftk of
@@ -2260,13 +2280,24 @@ astSFromX (Ast.AstXFromS @sh1 v) =
     _ -> error "astSFromX: different shapes in SFromX(XFromS)"
 astSFromX v = Ast.AstSFromX v
 
+astXFromR :: forall sh s r.
+             (KnownShX sh, KnownNat (Rank sh), TensorKind1 r)
+          => AstTensor AstMethodLet s (TKR2 (Rank sh) r)
+          -> AstTensor AstMethodLet s (TKX2 sh r)
+astXFromR (AstConcrete ftk t) = case ftk of
+  FTKR _ x ->
+    let u = Nested.rcastToMixed (knownShX @sh) (unRepN t)
+    in AstConcrete (FTKX (Nested.mshape u) x) (RepN u)
+astXFromR (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astXFromR v
+astXFromR v = Ast.AstXFromR v
+
 astXFromS :: forall sh sh' s r.
-             (KnownShS sh, KnownShX sh', sh' ~ Nested.MapJust sh, TensorKind1 r)
+             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
           => AstTensor AstMethodLet s (TKS2 sh r)
           -> AstTensor AstMethodLet s (TKX2 sh' r)
 astXFromS (AstConcrete ftk t) = case ftk of
   FTKS _ x ->
-    let u = Nested.stoMixed (unRepN t)
+    let u = Nested.scastToMixed (knownShX @sh') (unRepN t)
     in AstConcrete (FTKX (Nested.mshape u) x) (RepN u)
 astXFromS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astXFromS v
 -- impossible, shapes may differ: astXFromS (Ast.AstSFromX v) = v
@@ -2316,6 +2347,7 @@ astPrimalPart t = case t of
   Ast.AstProjectR l p -> astProjectR (astPrimalPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
+  Ast.AstRFromX v -> astRFromX $ astPrimalPart v
 
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
   AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
@@ -2341,6 +2373,7 @@ astPrimalPart t = case t of
   Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   Ast.AstSFromX v -> astSFromX $ astPrimalPart v
+  Ast.AstXFromR v -> astXFromR $ astPrimalPart v
   Ast.AstXFromS v -> astXFromS $ astPrimalPart v
 
   Ast.AstMkHVector{} -> Ast.AstPrimalPart t  -- TODO
@@ -2401,6 +2434,7 @@ astDualPart t = case t of
   Ast.AstProjectR l p -> astProjectR (astDualPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstRFromS v -> astRFromS $ astDualPart v
+  Ast.AstRFromX v -> astRFromX $ astDualPart v
 
   AstN1S{} -> Ast.AstDualPart t
   AstN2S{} -> Ast.AstDualPart t
@@ -2424,6 +2458,7 @@ astDualPart t = case t of
   Ast.AstUnNestS v -> astUnNestS $ astDualPart v
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   Ast.AstSFromX v -> astSFromX $ astDualPart v
+  Ast.AstXFromR v -> astXFromR $ astDualPart v
   Ast.AstXFromS v -> astXFromS $ astDualPart v
 
   Ast.AstMkHVector{} -> Ast.AstDualPart t  -- TODO
@@ -2686,6 +2721,7 @@ simplifyAst t = case t of
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
+  Ast.AstRFromX v -> astRFromX $ simplifyAst v
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
@@ -2716,6 +2752,7 @@ simplifyAst t = case t of
   Ast.AstUnNestS v -> astUnNestS $ simplifyAst v
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
   Ast.AstSFromX v -> astSFromX $ simplifyAst v
+  Ast.AstXFromR v -> astXFromR $ simplifyAst v
   Ast.AstXFromS v -> astXFromS $ simplifyAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
@@ -2916,6 +2953,7 @@ expandAst t = case t of
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (expandAst l) (expandAst v)
   Ast.AstRFromS v -> astRFromS $ expandAst v
+  Ast.AstRFromX v -> astRFromX $ expandAst v
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
@@ -2949,6 +2987,7 @@ expandAst t = case t of
   Ast.AstUnNestS v -> astUnNestS $ expandAst v
   Ast.AstSFromR v -> astSFromR $ expandAst v
   Ast.AstSFromX v -> astSFromX $ expandAst v
+  Ast.AstXFromR v -> astXFromR $ expandAst v
   Ast.AstXFromS v -> astXFromS $ expandAst v
 
   Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
@@ -3446,6 +3485,7 @@ substitute1Ast i var v1 = case v1 of
       (ml, mv) ->
         Just $ astLetHVectorIn vars (fromMaybe l ml) (fromMaybe v mv)
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
+  Ast.AstRFromX v -> astRFromX <$> substitute1Ast i var v
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1Ast i var a
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1Ast i var a
@@ -3514,6 +3554,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstUnNestS v -> astUnNestS <$> substitute1Ast i var v
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstSFromX v -> astSFromX <$> substitute1Ast i var v
+  Ast.AstXFromR v -> astXFromR <$> substitute1Ast i var v
   Ast.AstXFromS v -> astXFromS <$> substitute1Ast i var v
 
   Ast.AstMkHVector args ->

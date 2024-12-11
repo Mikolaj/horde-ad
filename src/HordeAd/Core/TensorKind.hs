@@ -221,11 +221,11 @@ type role FullTensorKind nominal
 data FullTensorKind y where
   FTKScalar :: GoodScalar r => FullTensorKind (TKScalar r)
   FTKR :: forall n x. Nested.Elt (RepORArray x)
-          => IShR n -> FullTensorKind x -> FullTensorKind (TKR2 n x)
+       => IShR n -> FullTensorKind x -> FullTensorKind (TKR2 n x)
   FTKS :: forall sh x. Nested.Elt (RepORArray x)
-          => ShS sh -> FullTensorKind x -> FullTensorKind (TKS2 sh x)
+       => ShS sh -> FullTensorKind x -> FullTensorKind (TKS2 sh x)
   FTKX :: forall sh x. Nested.Elt (RepORArray x)
-          => IShX sh -> FullTensorKind x -> FullTensorKind (TKX2 sh x)
+       => IShX sh -> FullTensorKind x -> FullTensorKind (TKX2 sh x)
   FTKProduct :: (Nested.Elt (RepORArray y), Nested.Elt (RepORArray z))
              => FullTensorKind y -> FullTensorKind z
              -> FullTensorKind (TKProduct y z)

@@ -233,6 +233,7 @@ inlineAst memo v0 = case v0 of
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
+  Ast.AstRFromX v -> second Ast.AstRFromX $ inlineAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
@@ -582,6 +583,7 @@ unshareAst memo = \case
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectR l2 p)
   Ast.AstRFromS v -> second Ast.AstRFromS $ unshareAst memo v
+  Ast.AstRFromX v -> second Ast.AstRFromX $ unshareAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a

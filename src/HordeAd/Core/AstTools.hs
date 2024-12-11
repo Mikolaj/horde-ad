@@ -24,16 +24,16 @@ import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (sameNat, type (+))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (shxSize)
+import Data.Array.Mixed.Shape (KnownShX (..), shxSize)
 import Data.Array.Nested
   (IShR, KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
-import Data.Array.Nested.Internal.Shape (shCvtSX, shrSize, shsSize)
+import Data.Array.Nested.Internal.Shape (shrSize, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
-
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
@@ -118,7 +118,10 @@ ftkAst t = case t of
   AstLetHVectorIn _ _ v -> ftkAst v
   AstRFromS @sh v
    | Dict <- lemKnownNatRankS (knownShS @sh) -> case ftkAst v of
-    FTKS _ x -> FTKR (listToShape $ shapeT @sh) x
+    FTKS _ x -> FTKR (fromList $ shapeT @sh) x
+  AstRFromX @sh v
+   | Dict <- lemKnownNatRankX (knownShX @sh) -> case ftkAst v of
+    FTKX shx x -> FTKR (fromList $ toList shx) x
 
   AstMinIndexS{} -> FTKS knownShS FTKScalar
   AstMaxIndexS{} -> FTKS knownShS FTKScalar
@@ -165,8 +168,11 @@ ftkAst t = case t of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
     FTKX _ x -> FTKS knownShS x
-  AstXFromS @sh v -> case ftkAst v of
-    FTKS _ x -> FTKX (shCvtSX (knownShS @sh)) x
+  AstXFromR @sh v
+   | Dict <- lemKnownNatRankX (knownShX @sh) -> case ftkAst v of
+    FTKR shr x -> FTKX (fromList $ toList shr) x
+  AstXFromS v -> case ftkAst v of
+    FTKS sh x -> FTKX (fromList $ toList sh) x
 
   AstMkHVector v ->
     FTKUntyped
@@ -268,6 +274,7 @@ varInAst var = \case
   AstProjectR l _p -> varInAst var l
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
   AstRFromS v -> varInAst var v
+  AstRFromX v -> varInAst var v
 
   AstMinIndexS a -> varInAst var a
   AstMaxIndexS a -> varInAst var a
@@ -296,7 +303,6 @@ varInAst var = \case
   AstUnNestS v -> varInAst var v
   AstSFromR v -> varInAst var v
   AstSFromX v -> varInAst var v
-  AstXFromS v -> varInAst var v
 
   AstMinIndexX a -> varInAst var a
   AstMaxIndexX a -> varInAst var a
@@ -322,6 +328,7 @@ varInAst var = \case
   AstFromIntegralX a -> varInAst var a
   AstProjectX l _p -> varInAst var l
   AstXFromR v -> varInAst var v
+  AstXFromS v -> varInAst var v
 
   AstMkHVector l -> any (varInAstDynamic var) l
   AstApply t ll -> varInAstHFun var t || varInAst var ll
@@ -390,6 +397,7 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstProjectR t _ -> astIsSmall relaxed t
   AstRFromS v -> astIsSmall relaxed v
+  AstRFromX v -> astIsSmall relaxed v
 
   AstIotaS -> True
   AstFromVectorS v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
@@ -400,6 +408,7 @@ astIsSmall relaxed = \case
   AstProjectS t _ -> astIsSmall relaxed t
   AstSFromR v -> astIsSmall relaxed v
   AstSFromX v -> astIsSmall relaxed v
+  AstXFromR v -> astIsSmall relaxed v
   AstXFromS v -> astIsSmall relaxed v
 
   AstMkHVector v | V.length v == 1 -> case v V.! 0 of

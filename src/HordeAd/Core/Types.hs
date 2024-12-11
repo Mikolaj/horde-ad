@@ -10,7 +10,7 @@ module HordeAd.Core.Types
   , withKnownShS, withKnownShX
   , sshapeKnown, slistKnown, sixKnown, knownShR
   , shapeT, shapeP, sizeT, sizeP
-  , withShapeP, sameShape, matchingRank, lemKnownNatRankS
+  , withShapeP, sameShape, matchingRank, lemKnownNatRankS, lemKnownNatRankX
   , Dict(..), PermC, trustMeThisIsAPermutation
   , Take, Drop, Last, Init
     -- * Kinds of the functors that determine the structure of a tensor type
@@ -57,7 +57,16 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Mixed.Types (Dict (..))
 import Data.Array.Nested
-  (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
+  ( IxR
+  , IxS (..)
+  , IxX
+  , KnownShS (..)
+  , ListS (..)
+  , Rank
+  , ShR (..)
+  , ShS (..)
+  , StaticShX (..)
+  )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)
@@ -135,6 +144,10 @@ matchingRank =
 lemKnownNatRankS :: ShS sh -> Dict KnownNat (Rank sh)
 lemKnownNatRankS ZSS = Dict
 lemKnownNatRankS (_ :$$ sh) | Dict <- lemKnownNatRankS sh = Dict
+
+lemKnownNatRankX :: StaticShX sh -> Dict KnownNat (Rank sh)
+lemKnownNatRankX ZKX = Dict
+lemKnownNatRankX (_ :!% sh) | Dict <- lemKnownNatRankX sh = Dict
 
 class Permutation.IsPermutation is => PermC is
 instance Permutation.IsPermutation is => PermC is

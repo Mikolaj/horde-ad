@@ -19,7 +19,7 @@ import System.Random
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (KnownShS (..), Rank)
+import Data.Array.Nested (KnownShS (..), KnownShX (..), Rank)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
@@ -157,6 +157,13 @@ instance BaseTensor RepN where
   xprimalPart = id
   xdualPart _ = DummyDualTarget
   xD u _ = u
+  xfromR :: forall sh r. (KnownShX sh, TensorKind1 r)
+         => RepN (TKR2 (Rank sh) r) -> RepN (TKX2 sh r)
+  xfromR = RepN . Nested.rcastToMixed (knownShX @sh) . unRepN
+  xfromS :: forall sh sh' r.
+            (KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+         => RepN (TKS2 sh r) -> RepN (TKX2 sh' r)
+  xfromS = RepN . Nested.scastToMixed (knownShX @sh') . unRepN
 
   sminIndex = RepN . tminIndexS . unRepN
   smaxIndex = RepN . tmaxIndexS . unRepN
@@ -232,7 +239,6 @@ instance BaseTensor RepN where
   sunNest t = RepN $ Nested.sunNest $ unRepN t
   sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
   sfromX = RepN . flip Nested.mcastToShaped knownShS . unRepN
-  xfromS = RepN . Nested.stoMixed. unRepN
   stoScalar = RepN . Nested.sunScalar . unRepN
   sfromScalar = RepN . Nested.sscalar . unRepN
 
