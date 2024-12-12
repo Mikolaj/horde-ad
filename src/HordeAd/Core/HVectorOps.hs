@@ -27,7 +27,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import GHC.TypeLits (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -226,13 +226,27 @@ unWindShare stk t = case stk of
   STKR SNat STKScalar{} -> DTKR t
   STKR (SNat @n) (STKR (SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
     unWindShare (STKR (SNat @(n + m)) stk2) (runNest t)
+  STKR n@(SNat @n) (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    gcastWith (unsafeCoerce Refl
+               :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    withKnownShX sh2 $ withKnownShX (ssxReplicate n)
+    $ withKnownShX (ssxReplicate n `ssxAppend` sh2)
+    $ unWindShare (STKX (ssxReplicate n `ssxAppend` sh2) stk2)
+                  (xunNest $ xfromR @_ @(Replicate n (Nothing @Nat)) t)
   STKR n@SNat (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
-                                , Dict <- lemTensorKindOfSTK stk2 ->
+                                     , Dict <- lemTensorKindOfSTK stk2 ->
     unWindShare (STKProduct (STKR n stk1) (STKR n stk2)) (runzip t)
   STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
   STKS sh (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
     withKnownShS sh $ withKnownShS sh2 $ withKnownShS (shsAppend sh sh2)
     $ unWindShare (STKS (shsAppend sh sh2) stk2) (sunNest t)
+  STKS @sh sh (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh) :~: Rank sh) $
+    withKnownShX sh2 $ withKnownShS sh
+    $ withKnownShX (ssxFromShape (shCvtSX sh))
+    $ withKnownShX (ssxFromShape (shCvtSX sh) `ssxAppend` sh2)
+    $ unWindShare (STKX (ssxFromShape (shCvtSX sh) `ssxAppend` sh2) stk2)
+                  (xunNest $ xfromS @_ @_ @(MapJust sh) t)
   STKS sh (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
                                  , Dict <- lemTensorKindOfSTK stk2 ->
     withKnownShS sh
