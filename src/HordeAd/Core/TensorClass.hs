@@ -31,20 +31,31 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
-  (KnownNat, OrderingI (..), cmpNat, sameNat, type (+), type (-), type (<=))
+  ( KnownNat
+  , Nat
+  , OrderingI (..)
+  , cmpNat
+  , sameNat
+  , type (+)
+  , type (-)
+  , type (<=)
+  )
 import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX, StaticShX (..))
+import Data.Array.Mixed.Shape
+  (IShX, StaticShX (..), ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IShR
   , IxS (..)
   , KnownShS (..)
   , KnownShX (..)
+  , MapJust
   , Rank
+  , Replicate
   , ShR (..)
   , ShS (..)
   , pattern (:$:)
@@ -56,6 +67,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
@@ -411,23 +423,12 @@ class ( Num (IntOf target)
                 => target (TKR n r1) -> target (TKR n r2)
   rconcrete :: (GoodScalar r, KnownNat n) => Nested.Ranked n r -> target (TKR n r)
   rconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
-  rnest :: forall n m r.
-           (TensorKind1 r, KnownNat m)
-        => SNat n -> target (TKR2 (n + m) r)
-        -> target (TKR2 n (TKR2 m r))
-  runNest :: forall n m r.
-             (TensorKind1 r, KnownNat n, KnownNat m)
-          => target (TKR2 n (TKR2 m r)) -> target (TKR2 (n + m) r)
   rzip :: (TensorKind1 y, TensorKind1 z, KnownNat n)
        => target (TKProduct (TKR2 n y) (TKR2 n z))
        -> target (TKR2 n (TKProduct y z))
   runzip :: (TensorKind1 y, TensorKind1 z, KnownNat n)
          => target (TKR2 n (TKProduct y z))
          -> target (TKProduct (TKR2 n y) (TKR2 n z))
-  rfromS :: (TensorKind1 r, KnownShS sh)
-         => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
-  rfromX :: (TensorKind1 r, KnownShX sh)
-         => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
   rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
@@ -483,13 +484,6 @@ class ( Num (IntOf target)
   xconcrete :: (GoodScalar r, KnownShX sh)
             => Nested.Mixed sh r -> target (TKX sh r)
   xconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
-  xnest :: forall sh1 sh2 r.
-           (TensorKind1 r, KnownShX sh2, KnownShX (sh1 ++ sh2))
-        => StaticShX sh1 -> target (TKX2 (sh1 ++ sh2) r)
-        -> target (TKX2 sh1 (TKX2 sh2 r))
-  xunNest :: forall sh1 sh2 r.
-             (TensorKind1 r, KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2))
-          => target (TKX2 sh1 (TKX2 sh2 r)) -> target (TKX2 (sh1 ++ sh2) r)
   xzip :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
        => target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> target (TKX2 sh (TKProduct y z))
@@ -510,11 +504,6 @@ class ( Num (IntOf target)
   xD :: (GoodScalar r, KnownShX sh)
      => PrimalOf target (TKX sh r)-> DualOf target (TKX sh r)
      -> target (TKX sh r)
-  xfromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind1 r)
-         => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
-  xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
-         => target (TKS2 sh r) -> target (TKX2 sh' r)
-
   -- Integer codomain
   sshape :: forall sh r. (TensorKind2 r, KnownShS sh)
          => target (TKS2 sh r) -> ShS sh
@@ -863,23 +852,12 @@ class ( Num (IntOf target)
                 => target (TKS sh r1) -> target (TKS sh r2)
   sconcrete :: (GoodScalar r, KnownShS sh) => Nested.Shaped sh r -> target (TKS sh r)
   sconcrete a = tconcrete (FTKS (Nested.sshape a) FTKScalar) (RepN a)
-  snest :: forall sh1 sh2 r.
-           (TensorKind1 r, KnownShS sh2, KnownShS (sh1 ++ sh2))
-        => ShS sh1 -> target (TKS2 (sh1 ++ sh2) r)
-        -> target (TKS2 sh1 (TKS2 sh2 r))
-  sunNest :: forall sh1 sh2 r.
-             (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
-          => target (TKS2 sh1 (TKS2 sh2 r)) -> target (TKS2 (sh1 ++ sh2) r)
   szip :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
        => target (TKProduct (TKS2 sh y) (TKS2 sh z))
        -> target (TKS2 sh (TKProduct y z))
   sunzip :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
          => target (TKS2 sh (TKProduct y z))
          -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
-  sfromR :: (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
-         => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
-  sfromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r )
-         => target (TKX2 sh' r) -> target (TKS2 sh r)
   stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
   sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
 
@@ -916,6 +894,103 @@ class ( Num (IntOf target)
         => target (TKScalar r1) -> target (TKScalar r2)
   kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                 => target (TKScalar r1) -> target (TKScalar r2)
+
+  -- Ops that involved more than one variant of arrays
+  rfromS :: (TensorKind1 r, KnownShS sh)
+         => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
+  rfromX :: (TensorKind1 r, KnownShX sh)
+         => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
+  sfromR :: (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
+         => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
+  sfromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r )
+         => target (TKX2 sh' r) -> target (TKS2 sh r)
+  xfromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind1 r)
+         => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
+  xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+         => target (TKS2 sh r) -> target (TKX2 sh' r)
+
+  rnest :: forall n m x.
+           (TensorKind1 x, KnownNat m)
+        => SNat n -> target (TKR2 (n + m) x)
+        -> target (TKR2 n (TKR2 m x))
+  snest :: forall sh1 sh2 x.
+           (TensorKind1 x, KnownShS sh2, KnownShS (sh1 ++ sh2))
+        => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
+        -> target (TKS2 sh1 (TKS2 sh2 x))
+  xnest :: forall sh1 sh2 x.
+           (TensorKind1 x, KnownShX sh2, KnownShX (sh1 ++ sh2))
+        => StaticShX sh1 -> target (TKX2 (sh1 ++ sh2) x)
+        -> target (TKX2 sh1 (TKX2 sh2 x))
+
+  runNest :: forall n m x.
+             (TensorKind1 x, KnownNat n, KnownNat m)
+          => target (TKR2 n (TKR2 m x)) -> target (TKR2 (n + m) x)
+  runNest =
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)
+                                          ++ Replicate m Nothing) :~: n + m) $
+    withKnownShX (ssxReplicate (SNat @n)) $
+    withKnownShX (ssxReplicate (SNat @n) `ssxAppend` ssxReplicate (SNat @m)) $
+    rfromX . xunNestR . xfromR @_ @(Replicate n Nothing)
+  runNestS :: forall n sh2 x.
+              (TensorKind1 x, KnownNat n, KnownShS sh2)
+           => target (TKR2 n (TKS2 sh2 x))
+           -> target (TKX2 (Replicate n Nothing ++ MapJust sh2) x)
+  runNestS =
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    withKnownShX (ssxReplicate (SNat @n)) $
+    xunNestS . xfromR @_ @(Replicate n Nothing)
+  runNestX :: forall n sh2 x.
+              (TensorKind1 x, KnownNat n, KnownShX sh2)
+           => target (TKR2 n (TKX2 sh2 x))
+           -> target (TKX2 (Replicate n Nothing ++ sh2) x)
+  runNestX =
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    withKnownShX (ssxReplicate (SNat @n)) $
+    withKnownShX (ssxReplicate (SNat @n) `ssxAppend` knownShX @sh2) $
+    xunNest . xfromR @_ @(Replicate n Nothing)
+  sunNestR :: forall sh1 m x.
+              (TensorKind1 x, KnownShS sh1, KnownNat m)
+           => target (TKS2 sh1 (TKR2 m x))
+           -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
+  sunNestR =
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
+    xunNestR . xfromS @_ @_ @(MapJust sh1)
+  sunNest :: forall sh1 sh2 x.
+             (TensorKind1 x, KnownShS sh1, KnownShS sh2)
+          => target (TKS2 sh1 (TKS2 sh2 x)) -> target (TKS2 (sh1 ++ sh2) x)
+  sunNest =
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerce Refl
+               :: Rank (MapJust sh1 ++ MapJust sh2) :~: Rank (sh1 ++ sh2)) $
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
+    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    sfromX . xunNestS . xfromS @_ @_ @(MapJust sh1)
+  sunNestX :: forall sh1 sh2 x.
+              (TensorKind1 x, KnownShS sh1, KnownShX sh2)
+           => target (TKS2 sh1 (TKX2 sh2 x))
+           -> target (TKX2 (MapJust sh1 ++ sh2) x)
+  sunNestX =
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
+    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))
+                  `ssxAppend` knownShX @sh2) $
+    xunNest . xfromS @_ @_ @(MapJust sh1)
+  -- These three are primitives; the others are defined from them.
+  xunNestR :: forall sh1 m x.
+              (TensorKind1 x, KnownShX sh1, KnownNat m)
+           => target (TKX2 sh1 (TKR2 m x))
+           -> target (TKX2 (sh1 ++ Replicate m Nothing) x)
+  xunNestS :: forall sh1 sh2 x.
+              (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+           => target (TKX2 sh1 (TKS2 sh2 x))
+           -> target (TKX2 (sh1 ++ MapJust sh2) x)
+  xunNest :: forall sh1 sh2 x.
+             (TensorKind1 x, KnownShX sh1, KnownShX sh2)
+          => target (TKX2 sh1 (TKX2 sh2 x)) -> target (TKX2 (sh1 ++ sh2) x)
 
   -- Misc
   tpair :: (TensorKind1 x, TensorKind1 z)

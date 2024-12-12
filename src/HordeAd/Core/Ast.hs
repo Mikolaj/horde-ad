@@ -490,8 +490,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
            -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
   AstUnNestS :: forall r sh1 sh2 ms s.
-                ( TensorKind1 r, KnownShS sh1, KnownShS sh2
-                , KnownShS (sh1 ++ sh2) )
+                (TensorKind1 r, KnownShS sh1, KnownShS sh2)
              => AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
              -> AstTensor ms s (TKS2 (sh1 ++ sh2) r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)

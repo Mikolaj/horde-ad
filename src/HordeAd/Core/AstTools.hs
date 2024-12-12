@@ -32,7 +32,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (KnownShX (..), shxSize)
 import Data.Array.Nested
   (IShR, KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
-import Data.Array.Nested.Internal.Shape (shrSize, shsSize)
+import Data.Array.Nested.Internal.Shape (shrSize, shsAppend, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -162,8 +162,8 @@ ftkAst t = case t of
   AstProjectS{} -> FTKS knownShS FTKScalar
   AstNestS v -> case ftkAst v of
     FTKS _ x -> FTKS knownShS (FTKS knownShS x)
-  AstUnNestS v -> case ftkAst v of
-    FTKS _ (FTKS _ x) -> FTKS knownShS x
+  AstUnNestS @_ @sh1 @sh2 v -> case ftkAst v of
+    FTKS _ (FTKS _ x) -> FTKS (knownShS @sh1 `shsAppend` knownShS @sh2) x
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of

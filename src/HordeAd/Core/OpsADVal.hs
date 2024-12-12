@@ -26,8 +26,9 @@ import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (IShR, KnownShS (..), KnownShX (..), Rank)
+import Data.Array.Nested (IShR, KnownShS (..), KnownShX (..), Rank, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
@@ -425,7 +426,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
     dD (snest sh u) (NestS u')
-  sunNest (D u u') = dD (sunNest u) (UnNestS u')
+  sunNest :: forall sh1 sh2 x.
+             (TensorKind1 x, KnownShS sh1, KnownShS sh2)
+          => ADVal target (TKS2 sh1 (TKS2 sh2 x))
+          -> ADVal target (TKS2 (sh1 ++ sh2) x)
+  sunNest (D u u') =
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    dD (sunNest u) (UnNestS u')
   sfromR :: forall r sh. (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
          => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKS2 sh r)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')

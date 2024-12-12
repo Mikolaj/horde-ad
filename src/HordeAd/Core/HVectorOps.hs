@@ -147,30 +147,30 @@ type family UnWind tk where
     TKR2 n (TKScalar r)
   UnWind (TKR2 n (TKR2 m x)) =
     UnWind (TKR2 (n + m) x)
-  UnWind (TKR2 n (TKS2 sh x)) =
-    UnWind (TKX2 (Replicate n Nothing ++ MapJust sh) x)
-  UnWind (TKR2 n (TKX2 sh x)) =
-    UnWind (TKX2 (Replicate n Nothing ++ sh) x)
+  UnWind (TKR2 n (TKS2 sh2 x)) =
+    UnWind (TKX2 (Replicate n Nothing ++ MapJust sh2) x)
+  UnWind (TKR2 n (TKX2 sh2 x)) =
+    UnWind (TKX2 (Replicate n Nothing ++ sh2) x)
   UnWind (TKR2 n (TKProduct y z)) =
     TKProduct (UnWind (TKR2 n y)) (UnWind (TKR2 n z))
   UnWind (TKS2 sh (TKScalar r)) =
     TKS2 sh (TKScalar r)
-  UnWind (TKS2 sh (TKR2 m x)) =
-    UnWind (TKR2 (Rank sh + m) x)
-  UnWind (TKS2 sh (TKS2 sh2 x)) =
-    UnWind (TKS2 (sh ++ sh2) x)
-  UnWind (TKS2 sh (TKX2 sh2 x)) =
-    UnWind (TKX2 (MapJust sh ++ sh2) x)
+  UnWind (TKS2 sh1 (TKR2 m x)) =
+    UnWind (TKR2 (Rank sh1 + m) x)
+  UnWind (TKS2 sh1 (TKS2 sh2 x)) =
+    UnWind (TKS2 (sh1 ++ sh2) x)
+  UnWind (TKS2 sh1 (TKX2 sh2 x)) =
+    UnWind (TKX2 (MapJust sh1 ++ sh2) x)
   UnWind (TKS2 sh (TKProduct y z)) =
     TKProduct (UnWind (TKS2 sh y)) (UnWind (TKS2 sh z))
   UnWind (TKX2 sh (TKScalar r)) =
     TKX2 sh (TKScalar r)
-  UnWind (TKX2 sh (TKR2 m x)) =
-    UnWind (TKR2 (Rank sh + m) x)
-  UnWind (TKX2 sh (TKS2 sh2 x)) =
-    UnWind (TKX2 (sh ++ MapJust sh2) x)
-  UnWind (TKX2 sh (TKX2 sh2 x)) =
-    UnWind (TKX2 (sh ++ sh2) x)
+  UnWind (TKX2 sh1 (TKR2 m x)) =
+    UnWind (TKR2 (Rank sh1 + m) x)
+  UnWind (TKX2 sh1 (TKS2 sh2 x)) =
+    UnWind (TKX2 (sh1 ++ MapJust sh2) x)
+  UnWind (TKX2 sh1 (TKX2 sh2 x)) =
+    UnWind (TKX2 (sh1 ++ sh2) x)
   UnWind (TKX2 sh (TKProduct y z)) =
     TKProduct (UnWind (TKX2 sh y)) (UnWind (TKX2 sh z))
   UnWind (TKProduct y z) =

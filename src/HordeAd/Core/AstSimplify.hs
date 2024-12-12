@@ -99,6 +99,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -2206,20 +2207,26 @@ astNestS t = case t of
   Ast.AstLet var u2 d2 ->  -- TODO: good idea?
     astLet var u2 (astNestS d2)
   Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astNestS u
-  Ast.AstCond b v1 v2 -> Ast.AstCond b (astNestS v1) (astNestS v2)  -- TODO: ??
+  Ast.AstCond b v1 v2 ->
+    Ast.AstCond b (astNestS v1) (astNestS v2)  -- TODO: ??
 -- TODO: when sh agrees:  Ast.AstUnNestS u -> u
   _ -> Ast.AstNestS t
 
 astUnNestS
   :: forall r sh1 sh2 ms s.
-     (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+     (TensorKind1 r, KnownShS sh1, KnownShS sh2, AstSpan s)
   => AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
   -> AstTensor ms s (TKS2 (sh1 ++ sh2) r)
 astUnNestS t = case t of
   Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     astLet var u2 (astUnNestS d2)
-  Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astUnNestS u
-  Ast.AstCond b v1 v2 -> Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
+  Ast.AstFromPrimal u ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstFromPrimal $ astUnNestS u
+  Ast.AstCond b v1 v2 ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
   Ast.AstNestS u -> u
   _ -> Ast.AstUnNestS t
 
