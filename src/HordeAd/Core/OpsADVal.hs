@@ -26,7 +26,8 @@ import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (IShR, KnownShS (..), KnownShX (..), Rank, type (++))
+import Data.Array.Nested
+  (IShR, KnownShS (..), KnownShX (..), Rank, ShS, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
@@ -424,7 +425,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sfromIntegral (D u _) =
     let v = sfromIntegral u
     in fromPrimalADVal v
+  snest :: forall sh1 sh2 x.
+           (TensorKind1 x, KnownShS sh2)
+        => ShS sh1 -> ADVal target (TKS2 (sh1 ++ sh2) x)
+        -> ADVal target (TKS2 sh1 (TKS2 sh2 x))
   snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    withKnownShS (sh `shsAppend` knownShS @sh2) $
     dD (snest sh u) (NestS u')
   sunNest :: forall sh1 sh2 x.
              (TensorKind1 x, KnownShS sh1, KnownShS sh2)

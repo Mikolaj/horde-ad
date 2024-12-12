@@ -85,7 +85,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shrRank)
+import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -576,9 +576,10 @@ data Delta :: Target -> TensorKindType -> Type where
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
   NestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+              -- the constraint about ++ is needed for deriving Show
         => Delta target (TKS2 (sh1 ++ sh2) r)
         -> Delta target (TKS2 sh1 (TKS2 sh2 r))
-  UnNestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+  UnNestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2)
           => Delta target (TKS2 sh1 (TKS2 sh2 r))
           -> Delta target (TKS2 (sh1 ++ sh2) r)
   SFromR :: forall sh r target.
@@ -738,8 +739,8 @@ shapeDeltaFull = \case
   CastS{} -> FTKS knownShS FTKScalar
   NestS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS (FTKS knownShS x)
-  UnNestS d  -> case shapeDeltaFull d of
-    FTKS _ (FTKS _ x) -> FTKS knownShS x
+  UnNestS @_ @sh1 @sh2 d -> case shapeDeltaFull d of
+    FTKS _ (FTKS _ x) -> FTKS (knownShS @sh1 `shsAppend` knownShS @sh2) x
   SFromR d -> case shapeDeltaFull d of
     FTKR _ x -> FTKS knownShS x
   SFromX d -> case shapeDeltaFull d of
@@ -1637,7 +1638,8 @@ fwdSame params s = \case
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
         Just Refl -> second scast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
-  NestS d -> second (snest knownShS) $ fwdSame params s d
+  NestS d ->
+    second (snest knownShS) $ fwdSame params s d
   UnNestS d -> second sunNest $ fwdSame params s d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of

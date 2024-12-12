@@ -44,7 +44,7 @@ import Data.Array.Nested
   , pattern ZS
   , type (++)
   )
-import Data.Array.Nested.Internal.Shape (shrRank)
+import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -482,7 +482,9 @@ build1V snat@SNat (var, v0) =
       astFromIntegralS $ build1V snat (var, v)
 
     Ast.AstProjectS l p -> traceRule $ astProjectS (build1V snat (var, l)) p
-    Ast.AstNestS v -> traceRule $ astNestS $ build1V snat (var, v)
+    Ast.AstNestS @_ @sh1 @sh2 v -> traceRule $
+      withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+      astNestS $ build1V snat (var, v)
     Ast.AstUnNestS v -> traceRule $ astUnNestS $ build1V snat (var, v)
     Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
     Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)

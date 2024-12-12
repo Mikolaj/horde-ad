@@ -23,9 +23,10 @@ import GHC.TypeLits (fromSNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape qualified as X
-import Data.Array.Nested (ListR (..), ListS (..), ShR (..), ShS (..), ShX (..))
+import Data.Array.Nested
+  (KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsRank)
+import Data.Array.Nested.Internal.Shape (shsAppend, shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
@@ -462,7 +463,9 @@ printAstAux cfg d = \case
       . printAst cfg 11 l
       . showString " "
       . shows p
-  AstNestS v -> printPrefixOp printAst cfg d "snest" [v]
+  AstNestS @_ @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    printPrefixOp printAst cfg d "snest" [v]
   AstUnNestS v -> printPrefixOp printAst cfg d "sunNest" [v]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]

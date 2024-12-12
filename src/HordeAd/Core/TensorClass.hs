@@ -914,11 +914,11 @@ class ( Num (IntOf target)
         => SNat n -> target (TKR2 (n + m) x)
         -> target (TKR2 n (TKR2 m x))
   snest :: forall sh1 sh2 x.
-           (TensorKind1 x, KnownShS sh2, KnownShS (sh1 ++ sh2))
+           (TensorKind1 x, KnownShS sh2)
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
         -> target (TKS2 sh1 (TKS2 sh2 x))
   xnest :: forall sh1 sh2 x.
-           (TensorKind1 x, KnownShX sh2, KnownShX (sh1 ++ sh2))
+           (TensorKind1 x, KnownShX sh2)
         => StaticShX sh1 -> target (TKX2 (sh1 ++ sh2) x)
         -> target (TKX2 sh1 (TKX2 sh2 x))
 

@@ -486,7 +486,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
   AstNestS :: forall r sh1 sh2 ms s.
-              (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+              (TensorKind1 r, KnownShS sh1, KnownShS sh2)
            => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
            -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
   AstUnNestS :: forall r sh1 sh2 ms s.

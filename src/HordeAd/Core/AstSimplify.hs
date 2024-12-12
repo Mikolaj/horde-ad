@@ -2200,7 +2200,7 @@ astProjectS l p = case l of
 
 astNestS
   :: forall r sh1 sh2 ms s.
-     (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2), AstSpan s)
+     (TensorKind1 r, KnownShS sh1, KnownShS sh2, AstSpan s)
   => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
   -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
 astNestS t = case t of
@@ -2376,7 +2376,9 @@ astPrimalPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstProjectS l p -> astProjectS (astPrimalPart l) p
-  Ast.AstNestS v -> astNestS $ astPrimalPart v
+  Ast.AstNestS @_ @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ astPrimalPart v
   Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   Ast.AstSFromX v -> astSFromX $ astPrimalPart v
@@ -2461,7 +2463,9 @@ astDualPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstProjectS l p -> astProjectS (astDualPart l) p
-  Ast.AstNestS v -> astNestS $ astDualPart v
+  Ast.AstNestS @_ @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ astDualPart v
   Ast.AstUnNestS v -> astUnNestS $ astDualPart v
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   Ast.AstSFromX v -> astSFromX $ astDualPart v
@@ -2755,7 +2759,9 @@ simplifyAst t = case t of
   Ast.AstCastS v -> astCastS $ simplifyAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
-  Ast.AstNestS v -> astNestS $ simplifyAst v
+  Ast.AstNestS @_ @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ simplifyAst v
   Ast.AstUnNestS v -> astUnNestS $ simplifyAst v
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
   Ast.AstSFromX v -> astSFromX $ simplifyAst v
@@ -2990,7 +2996,9 @@ expandAst t = case t of
   Ast.AstCastS v -> astCastS $ expandAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   Ast.AstProjectS l p -> astProjectS (expandAst l) p
-  Ast.AstNestS v -> astNestS $ expandAst v
+  Ast.AstNestS @_ @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ expandAst v
   Ast.AstUnNestS v -> astUnNestS $ expandAst v
   Ast.AstSFromR v -> astSFromR $ expandAst v
   Ast.AstSFromX v -> astSFromX $ expandAst v
@@ -3557,7 +3565,9 @@ substitute1Ast i var v1 = case v1 of
     case substitute1Ast i var l of
       Nothing -> Nothing
       ml -> Just $ astProjectS (fromMaybe l ml) p
-  Ast.AstNestS v -> astNestS <$> substitute1Ast i var v
+  Ast.AstNestS @_ @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS <$> substitute1Ast i var v
   Ast.AstUnNestS v -> astUnNestS <$> substitute1Ast i var v
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstSFromX v -> astSFromX <$> substitute1Ast i var v
