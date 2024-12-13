@@ -490,6 +490,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
+  tunpairDup (AstPair t1 t2) = (t1, t2)
+  tunpairDup t = (tproject1 t, tproject2 t)
   dbuild1 k f = astBuild1Vectorize k f
   -- TODO: (still) relevant?
   -- In this instance, these three ops are only used for some rare tests that
@@ -1010,6 +1012,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoVectorize $ astHApply t (unAstNoVectorize ll)
   dunHVector = noVectorizeHVector . dunHVector . unAstNoVectorize
+  tunpairDup (AstNoVectorize (AstPair t1 t2)) =
+    (AstNoVectorize t1, AstNoVectorize t2)
+  tunpairDup t = (tproject1 t, tproject2 t)
   dbuild1 k f =
     AstNoVectorize . AstBuild1 k $ funToAstI (unAstNoVectorize . f . AstNoVectorize)
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
@@ -1281,6 +1286,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in noSimplifyHVector $ V.imap f $ shapeAstHVector hVectorOf
+  tunpairDup (AstNoSimplify (AstPair t1 t2)) =
+    (AstNoSimplify t1, AstNoSimplify t2)
+  tunpairDup t = (tproject1 t, tproject2 t)
   dbuild1 k f = AstNoSimplify $ astBuild1Vectorize
                     k (unAstNoSimplify . f . AstNoSimplify)
   drev = drev @(AstTensor AstMethodLet PrimalSpan)

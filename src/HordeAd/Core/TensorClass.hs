@@ -1099,6 +1099,11 @@ class ( Num (IntOf target)
     -- The operation can't usually be implemented to preserve
     -- sharing, because it's type signature doesn't fit the let
     -- and share operations available.
+  tunpairDup :: (TensorKind1 x, TensorKind1 z)
+             => target (TKProduct x z) -> (target x, target z)
+  default tunpairDup :: (ShareTensor target, TensorKind1 x, TensorKind1 z)
+                     => target (TKProduct x z) -> (target x, target z)
+  tunpairDup = tunpair
   dbuild1 :: SNat k -> (IntOf target -> target TKUntyped)  -- sh_i
           -> target TKUntyped  -- k ': sh_i
   tbuild1 :: forall k y. TensorKind y
