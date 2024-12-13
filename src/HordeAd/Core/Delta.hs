@@ -1390,28 +1390,16 @@ evalFromnMap s@EvalState{nMap, dMap} =
           errorMissing :: a
           errorMissing = error $ "evalFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
-            STKScalar _ -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalR s2 c d
-              Nothing -> errorMissing
             STKR @n SNat (STKScalar @r _) -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalRRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
-            STKS @sh sh (STKScalar @r _) -> withKnownShS sh $ case DMap.lookup n dMap of
-              Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
-              Nothing -> errorMissing
-            STKS sh (STKS _ (STKScalar _)) -> withKnownShS sh $ case DMap.lookup n dMap of
+            STKS @sh sh (STKScalar @r _) ->
+              withKnownShS sh $ case DMap.lookup n dMap of
+                Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
+                Nothing -> errorMissing
+            _ -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalR s2 c d
               Nothing -> errorMissing
-            STKX sh (STKScalar _) -> withKnownShX sh $ case DMap.lookup n dMap of
-              Just (RepAD c) -> evalR s2 c d
-              Nothing -> errorMissing
-            STKProduct{} -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalR s2 c d
-              Nothing -> errorMissing
-            STKUntyped -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalR s2 c d
-              Nothing -> errorMissing
-            _ -> error "TODO"
       in evalFromnMap s3
     Nothing -> s  -- loop ends
 

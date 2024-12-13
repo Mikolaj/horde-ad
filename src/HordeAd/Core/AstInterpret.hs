@@ -274,11 +274,7 @@ interpretAst !env = \case
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat f
   AstLet @y2 var u v -> case stensorKind @y2 of
-    STKScalar{} ->
-      -- We assume there are no nested lets with the same variable.
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
+    -- We assume there are no nested lets with the same variable.
     STKR _ STKScalar{} ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
@@ -287,19 +283,10 @@ interpretAst !env = \case
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    STKX _ STKScalar{} ->
+    _ ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    STKProduct{} ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    STKUntyped{} ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    _ -> error "TODO"
 
   AstMinIndexR v ->
     rminIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
