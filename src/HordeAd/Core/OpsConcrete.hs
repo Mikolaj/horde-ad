@@ -317,7 +317,6 @@ instance BaseTensor RepN where
   dmkHVector = RepN
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tApply f x = RepN $ f $ unRepN x
-  dunHVector = unRepN
   dbuild1 k f =
     dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
   -- The code for drevDt and dfwd in this instance is similar as for the

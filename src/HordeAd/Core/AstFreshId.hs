@@ -4,7 +4,7 @@
 -- the impurity, though some functions are in IO and they are used
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
-  ( unRawHVector, rawHVector
+  ( unRawHVector
   , funToAstIO, funToAst, fun1ToAst, fun1DToAst
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
@@ -36,14 +36,6 @@ unRawHVector :: HVector (AstRaw s) -> HVector (AstTensor AstMethodShare s)
 unRawHVector =
   let f (DynamicRanked (AstRaw t)) = DynamicRanked t
       f (DynamicShaped (AstRaw t)) = DynamicShaped t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
-rawHVector :: HVector (AstTensor AstMethodShare s) -> HVector (AstRaw s)
-rawHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstRaw t
-      f (DynamicShaped t) = DynamicShaped $ AstRaw t
       f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f

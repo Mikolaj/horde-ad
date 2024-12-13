@@ -149,7 +149,7 @@ class LetTensor (target :: Target) where
   tunshare = error "tunshare: this instance should never be used"
 
 class ShareTensor (target :: Target) where
-  tshare :: forall y. (TensorKind y, BaseTensor target)
+  tshare :: forall y. TensorKind y
          => target y -> target y
   tunpair :: (TensorKind1 x, TensorKind1 z)
           => target (TKProduct x z) -> (target x, target z)
@@ -1093,6 +1093,8 @@ class ( Num (IntOf target)
          => HFunOf target x z -> target x
          -> target z
   dunHVector :: target TKUntyped -> HVector target
+  default dunHVector :: ShareTensor target => target TKUntyped -> HVector target
+  dunHVector = tunvector
     -- ^ Warning: this operation easily breaks sharing.
     -- The operation can't usually be implemented to preserve
     -- sharing, because it's type signature doesn't fit the let

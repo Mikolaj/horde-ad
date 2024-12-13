@@ -618,7 +618,25 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
   tunvector (AstRaw (AstMkHVector l)) = rawHVector l
-  tunvector t = dunHVector $ tshare t
+  tunvector t = dunHVectorRaw $ tshare t
+   where
+    dunHVectorRaw (AstRaw hVectorOf) =
+      let f :: Int -> DynamicTensor VoidTensor -> DynamicTensor (AstRaw s)
+          f i = \case
+            DynamicRankedDummy @r @sh _ _ ->
+              withListSh (Proxy @sh) $ \(_ :: IShR n) ->
+                DynamicRanked @r @n $ AstRaw $ AstProjectR hVectorOf i
+            DynamicShapedDummy @r @sh _ _ ->
+              DynamicShaped @r @sh $ AstRaw $ AstProjectS hVectorOf i
+      in V.imap f $ shapeAstHVector hVectorOf
+
+rawHVector :: HVector (AstTensor AstMethodShare s) -> HVector (AstRaw s)
+rawHVector =
+  let f (DynamicRanked t) = DynamicRanked $ AstRaw t
+      f (DynamicShaped t) = DynamicShaped $ AstRaw t
+      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
+      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
+  in V.map f
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
@@ -753,16 +771,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   dmkHVector = AstRaw . AstMkHVector . unRawHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
-  dunHVector (AstRaw (AstMkHVector l)) = rawHVector l
-  dunHVector (AstRaw hVectorOf) =
-    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodShare s
-        f i = \case
-          DynamicRankedDummy @r @sh _ _ ->
-            withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstProjectR hVectorOf i
-          DynamicShapedDummy @r @sh _ _ ->
-            DynamicShaped @r @sh $ AstProjectS hVectorOf i
-    in rawHVector $ V.imap f $ shapeAstHVector hVectorOf
   dbuild1 k f = AstRaw $ AstBuild1 k $ funToAstI (unAstRaw . f . AstRaw)
   -- TODO: (still) relevant?
   -- In this instance, these two ops are only used for some rare tests that
@@ -1001,8 +1009,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   dmkHVector = AstNoVectorize . dmkHVector . unNoVectorizeHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoVectorize $ astHApply t (unAstNoVectorize ll)
-  dunHVector =
-    noVectorizeHVector . dunHVector . unAstNoVectorize
+  dunHVector = noVectorizeHVector . dunHVector . unAstNoVectorize
   dbuild1 k f =
     AstNoVectorize . AstBuild1 k $ funToAstI (unAstNoVectorize . f . AstNoVectorize)
   drev = drev @(AstTensor AstMethodLet PrimalSpan)

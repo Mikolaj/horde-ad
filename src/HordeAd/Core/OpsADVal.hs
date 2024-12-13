@@ -122,7 +122,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   toShare = id
   tunshare = id
 
-instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
+instance (ADReadyNoLet target, ShareTensor target)
          => ShareTensor (ADVal target) where
   tshare = id
   tunpair (D u u') = let (u1, u2) = tunpair u
@@ -549,7 +549,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in dDnotShared (dmkHVector as) (HToH as')
   tlambda _ = id
   tApply (HFun f) = f
-  dunHVector = tunvector
   dbuild1 k f =
     dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
   drev :: forall x z. (TensorKind x, TensorKind z)
