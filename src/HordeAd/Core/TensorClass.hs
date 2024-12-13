@@ -895,7 +895,7 @@ class ( Num (IntOf target)
   kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                 => target (TKScalar r1) -> target (TKScalar r2)
 
-  -- Ops that involved more than one variant of arrays
+  -- Ops that involve more than one variant of arrays
   rfromS :: (TensorKind1 r, KnownShS sh)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   rfromX :: (TensorKind1 r, KnownShX sh)
@@ -917,6 +917,14 @@ class ( Num (IntOf target)
            (TensorKind1 x, KnownShS sh2)
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
         -> target (TKS2 sh1 (TKS2 sh2 x))
+  xnestR :: forall sh1 m x.
+            (TensorKind1 x, KnownShX sh1, KnownNat m)
+         => StaticShX sh1 -> target (TKX2 (sh1 ++ Replicate m Nothing) x)
+         -> target (TKX2 sh1 (TKR2 m x))
+  xnestS :: forall sh1 sh2 x.
+            (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+         => StaticShX sh1 -> target (TKX2 (sh1 ++ MapJust sh2) x)
+         -> target (TKX2 sh1 (TKS2 sh2 x))
   xnest :: forall sh1 sh2 x.
            (TensorKind1 x, KnownShX sh2)
         => StaticShX sh1 -> target (TKX2 (sh1 ++ sh2) x)

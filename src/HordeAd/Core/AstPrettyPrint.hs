@@ -377,7 +377,6 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
 
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
@@ -463,13 +462,21 @@ printAstAux cfg d = \case
       . printAst cfg 11 l
       . showString " "
       . shows p
+
+  AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
+  AstRFromX v -> printPrefixOp printAst cfg d "rfromX" [v]
+  AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
+  AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
+  AstXFromR v -> printPrefixOp printAst cfg d "xfromR" [v]
+  AstXFromS v -> printPrefixOp printAst cfg d "xfromS" [v]
+
   AstNestS @_ @sh1 @sh2 v ->
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     printPrefixOp printAst cfg d "snest" [v]
-  AstUnNestS v -> printPrefixOp printAst cfg d "sunNest" [v]
-  AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
-  AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
-  AstXFromS v -> printPrefixOp printAst cfg d "xfromS" [v]
+
+  AstXUnNestR v -> printPrefixOp printAst cfg d "xunNestR" [v]
+  AstXUnNestS v -> printPrefixOp printAst cfg d "xunNestS" [v]
+  AstXUnNest v -> printPrefixOp printAst cfg d "xunNest" [v]
 
   AstMkHVector l ->
     if loseRoudtrip cfg

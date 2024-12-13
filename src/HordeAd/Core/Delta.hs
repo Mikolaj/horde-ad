@@ -71,13 +71,15 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, shxAppend)
 import Data.Array.Nested
   ( IShR
   , IxS (..)
   , KnownShS (..)
   , KnownShX (..)
+  , MapJust
   , Rank
+  , Replicate
   , ShR (..)
   , ShS (..)
   , pattern (:.$)
@@ -85,7 +87,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtRX, shCvtSX, shrRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -478,12 +480,6 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownNat n)
         => Delta target (TKR n r1) -> Delta target (TKR n r2)
-  RFromS :: forall sh r target. (TensorKind1 r, KnownShS sh)
-         => Delta target (TKS2 sh r)
-         -> Delta target (TKR2 (Rank sh) r)
-  RFromX :: forall sh r target. (TensorKind1 r, KnownShX sh)
-         => Delta target (TKX2 sh r)
-         -> Delta target (TKR2 (Rank sh) r)
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
@@ -575,21 +571,6 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
-  NestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
-              -- the constraint about ++ is needed for deriving Show
-        => Delta target (TKS2 (sh1 ++ sh2) r)
-        -> Delta target (TKS2 sh1 (TKS2 sh2 r))
-  UnNestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2)
-          => Delta target (TKS2 sh1 (TKS2 sh2 r))
-          -> Delta target (TKS2 (sh1 ++ sh2) r)
-  SFromR :: forall sh r target.
-            (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)
-         => Delta target (TKR2 (Rank sh) r)
-         -> Delta target (TKS2 sh r)
-  SFromX :: forall sh sh' r target.
-            (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
-         => Delta target (TKX2 sh' r)
-         -> Delta target (TKS2 sh r)
   SFromH :: (KnownShS sh, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 
@@ -600,12 +581,41 @@ data Delta :: Target -> TensorKindType -> Type where
   FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
               => Data.Vector.Vector (Delta target (TKX sh r))
               -> Delta target (TKX (Just n ': sh) r)
+
+  RFromS :: forall sh r target. (TensorKind1 r, KnownShS sh)
+         => Delta target (TKS2 sh r)
+         -> Delta target (TKR2 (Rank sh) r)
+  RFromX :: forall sh r target. (TensorKind1 r, KnownShX sh)
+         => Delta target (TKX2 sh r)
+         -> Delta target (TKR2 (Rank sh) r)
+  SFromR :: forall sh r target.
+            (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)
+         => Delta target (TKR2 (Rank sh) r)
+         -> Delta target (TKS2 sh r)
+  SFromX :: forall sh sh' r target.
+            (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+         => Delta target (TKX2 sh' r)
+         -> Delta target (TKS2 sh r)
   XFromR :: (KnownShX sh, TensorKind1 r, KnownNat (Rank sh))
          => Delta target (TKR2 (Rank sh) r)
          -> Delta target (TKX2 sh r)
   XFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
          => Delta target (TKS2 sh r)
          -> Delta target (TKX2 sh' r)
+
+  NestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+              -- the constraint about ++ is needed for deriving Show
+        => Delta target (TKS2 (sh1 ++ sh2) r)
+        -> Delta target (TKS2 sh1 (TKS2 sh2 r))
+  XUnNestR :: (TensorKind1 x, KnownShX sh1, KnownNat m)
+           => Delta target (TKX2 sh1 (TKR2 m x))
+           -> Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
+  XUnNestS :: (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+           => Delta target (TKX2 sh1 (TKS2 sh2 x))
+           -> Delta target (TKX2 (sh1 ++ MapJust sh2) x)
+  XUnNest :: (TensorKind1 x, KnownShX sh1, KnownShX sh2)
+          => Delta target (TKX2 sh1 (TKX2 sh2 x))
+          -> Delta target (TKX2 (sh1 ++ sh2) x)
 
   HToH :: HVector (Delta target) -> Delta target TKUntyped
   MapAccumR
@@ -701,12 +711,6 @@ shapeDeltaFull = \case
     FTKR _ x -> FTKR sh x
   GatherR sh _ _ -> FTKR sh FTKScalar
   CastR d -> FTKR (shapeDelta d) FTKScalar
-  RFromS @sh d
-   | Dict <- lemKnownNatRankS (knownShS @sh) -> case shapeDeltaFull d of
-    FTKS _ x -> FTKR (fromList $ shapeT @sh) x
-  RFromX @sh d
-   | Dict <- lemKnownNatRankX (knownShX @sh) -> case shapeDeltaFull d of
-    FTKX shx x -> FTKR (fromList $ toList shx) x
   RFromH d i -> FTKR (fromList $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
   IndexS d _ix -> case shapeDeltaFull d of
@@ -737,10 +741,17 @@ shapeDeltaFull = \case
     FTKS _ x -> FTKS knownShS x
   GatherS{} -> FTKS knownShS FTKScalar
   CastS{} -> FTKS knownShS FTKScalar
-  NestS d -> case shapeDeltaFull d of
-    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
-  UnNestS @_ @sh1 @sh2 d -> case shapeDeltaFull d of
-    FTKS _ (FTKS _ x) -> FTKS (knownShS @sh1 `shsAppend` knownShS @sh2) x
+  SFromH{} -> FTKS knownShS FTKScalar
+
+  IndexX{} -> error "TODO"
+  FromVectorX{} -> error "TODO"
+
+  RFromS @sh d
+   | Dict <- lemKnownNatRankS (knownShS @sh) -> case shapeDeltaFull d of
+    FTKS _ x -> FTKR (fromList $ shapeT @sh) x
+  RFromX @sh d
+   | Dict <- lemKnownNatRankX (knownShX @sh) -> case shapeDeltaFull d of
+    FTKX shx x -> FTKR (fromList $ toList shx) x
   SFromR d -> case shapeDeltaFull d of
     FTKR _ x -> FTKS knownShS x
   SFromX d -> case shapeDeltaFull d of
@@ -750,10 +761,15 @@ shapeDeltaFull = \case
     FTKR shr x -> FTKX (fromList $ toList shr) x
   XFromS d -> case shapeDeltaFull d of
     FTKS sh x -> FTKX (fromList $ toList sh) x
-  SFromH{} -> FTKS knownShS FTKScalar
 
-  IndexX{} -> error "TODO"
-  FromVectorX{} -> error "TODO"
+  NestS d -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
+  XUnNestR d -> case shapeDeltaFull d of
+    FTKX sh1 (FTKR sh2 x) -> FTKX (sh1 `shxAppend` shCvtRX sh2) x
+  XUnNestS d -> case shapeDeltaFull d of
+    FTKX sh1 (FTKS sh2 x) -> FTKX (sh1 `shxAppend` shCvtSX sh2) x
+  XUnNest d -> case shapeDeltaFull d of
+    FTKX sh1 (FTKX sh2 x) -> FTKX (sh1 `shxAppend` sh2) x
 
   HToH v ->
     FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta)) v
@@ -1208,11 +1224,6 @@ evalSame !s !c = \case
   CastR @r1 @_ @n d ->
     evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
                                $ rcast c) d
-  RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
-  RFromS @sh d | Dict <- lemKnownNatRankS (knownShS @sh) ->
-    evalSame s (sfromR c) d
-  RFromX @sh d | Dict <- lemKnownNatRankX (knownShX @sh) ->
-    evalSame s (xfromR c) d
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
@@ -1263,10 +1274,17 @@ evalSame !s !c = \case
   CastS @r1 @_ @sh d ->
     evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
                                $ scast c) d
-  NestS d ->
-    evalSame s (sunNest c) d
-  UnNestS d ->
-    evalSame s (snest knownShS c) d
+  SFromH d i ->
+    let cs = V.map dynamicFromVoid $ shapeDeltaH d
+        ci = DynamicShaped c
+    in assert (dynamicsMatch (cs V.! i) ci) $
+       evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
+
+  RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
+  RFromS @sh d | Dict <- lemKnownNatRankS (knownShS @sh) ->
+    evalSame s (sfromR c) d
+  RFromX @sh d | Dict <- lemKnownNatRankX (knownShX @sh) ->
+    evalSame s (xfromR c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> evalSame s c d
@@ -1284,11 +1302,15 @@ evalSame !s !c = \case
     evalSame s (rfromX c) d
   XFromS @sh d ->
     evalSame s (sfromX c) d
-  SFromH d i ->
-    let cs = V.map dynamicFromVoid $ shapeDeltaH d
-        ci = DynamicShaped c
-    in assert (dynamicsMatch (cs V.! i) ci) $
-       evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
+
+  NestS d ->
+    evalSame s (sunNest c) d
+  XUnNestR d ->
+    evalSame s (xnestR knownShX c) d
+  XUnNestS d ->
+    evalSame s (xnestS knownShX c) d
+  XUnNest d ->
+    evalSame s (xnest knownShX c) d
 
   IndexX{} -> error "TODO"
   FromVectorX @r @sh ld ->
@@ -1595,10 +1617,6 @@ fwdSame params s = \case
       case sameTensorKind @(TKR n r1) @(ADTensorKind (TKR n r1)) of
         Just Refl -> second rcast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
-  RFromS (SFromR d) ->
-    fwdSame params s d  -- no information lost, so no checks
-  RFromS d -> second rfromS $ fwdSame params s d
-  RFromX d -> second rfromX $ fwdSame params s d
   RFromH d i ->
     let (s2, v) = fwdSame params s d
     in (s2, rfromD $ dunHVector v V.! i)
@@ -1638,9 +1656,17 @@ fwdSame params s = \case
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
         Just Refl -> second scast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
-  NestS d ->
-    second (snest knownShS) $ fwdSame params s d
-  UnNestS d -> second sunNest $ fwdSame params s d
+  SFromH d i ->
+    let (s2, v) = fwdSame params s d
+    in (s2, sfromD $ dunHVector v V.! i)
+-- Not needed, because we take only the i-th component of the vector,
+-- so v is not copied.
+--  in (s2, sfromD $ tunvector v V.! i)
+
+  RFromS (SFromR d) ->
+    fwdSame params s d  -- no information lost, so no checks
+  RFromS d -> second rfromS $ fwdSame params s d
+  RFromX d -> second rfromX $ fwdSame params s d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> fwdSame params s d
@@ -1654,12 +1680,12 @@ fwdSame params s = \case
       Just Refl -> fwdSame params s d
       _ -> error "fwdSame: different shapes in SFromX(XFromS)"
   SFromX d -> second sfromX $ fwdSame params s d
-  SFromH d i ->
-    let (s2, v) = fwdSame params s d
-    in (s2, sfromD $ dunHVector v V.! i)
--- Not needed, because we take only the i-th component of the vector,
--- so v is not copied.
---  in (s2, sfromD $ tunvector v V.! i)
+
+  NestS d ->
+    second (snest knownShS) $ fwdSame params s d
+  XUnNestR d -> second xunNestR $ fwdSame params s d
+  XUnNestS d -> second xunNestS $ fwdSame params s d
+  XUnNest d -> second xunNest $ fwdSame params s d
 
   IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
   FromVectorX lsd ->

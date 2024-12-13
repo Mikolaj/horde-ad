@@ -391,8 +391,6 @@ build1V snat@SNat (var, v0) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstRFromS @sh1 v -> traceRule $
-      astRFromS @(k ': sh1) $ build1V snat (var, v)
 
     Ast.AstMinIndexS v -> traceRule $
       Ast.AstMinIndexS $ build1V snat (var, v)
@@ -480,15 +478,23 @@ build1V snat@SNat (var, v0) =
       astCastS $ build1V snat (var, v)
     Ast.AstFromIntegralS v -> traceRule $
       astFromIntegralS $ build1V snat (var, v)
-
     Ast.AstProjectS l p -> traceRule $ astProjectS (build1V snat (var, l)) p
+
+    Ast.AstRFromS @sh1 v -> traceRule $
+      astRFromS @(k ': sh1) $ build1V snat (var, v)
+    Ast.AstRFromX @sh1 v -> traceRule $
+      astRFromX @(Just k ': sh1) $ build1V snat (var, v)
+    Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
+    Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
+    Ast.AstXFromR v -> traceRule $ astXFromR $ build1V snat (var, v)
+    Ast.AstXFromS v -> traceRule $ astXFromS $ build1V snat (var, v)
+
     Ast.AstNestS @_ @sh1 @sh2 v -> traceRule $
       withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
       astNestS $ build1V snat (var, v)
-    Ast.AstUnNestS v -> traceRule $ astUnNestS $ build1V snat (var, v)
-    Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
-    Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
-    Ast.AstXFromS v -> traceRule $ astXFromS $ build1V snat (var, v)
+    Ast.AstXUnNestR v -> traceRule $ astXUnNestR $ build1V snat (var, v)
+    Ast.AstXUnNestS v -> traceRule $ astXUnNestS $ build1V snat (var, v)
+    Ast.AstXUnNest v -> traceRule $ astXUnNest $ build1V snat (var, v)
 
     Ast.AstMkHVector l -> traceRule $
       Ast.AstMkHVector

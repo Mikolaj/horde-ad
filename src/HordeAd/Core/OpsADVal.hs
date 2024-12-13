@@ -26,10 +26,11 @@ import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
-  (IShR, KnownShS (..), KnownShX (..), Rank, ShS, type (++))
+  (IShR, KnownShS (..), KnownShX (..), MapJust, Rank, Replicate, ShS, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
@@ -318,18 +319,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rfromIntegral (D u _) =
     let v = rfromIntegral u
     in fromPrimalADVal v
-  rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
-   where
-    dRFromS :: (TensorKind1 r2, KnownShS sh2)
-            => Delta target (TKS2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
-    dRFromS (SFromR d) = d  -- no information lost, so no checks
-    dRFromS d = RFromS d
-  rfromX (D u u') = dDnotShared (rfromX u) (dRFromX u')
-   where
-    dRFromX :: (TensorKind1 r2, KnownShX sh2)
-            => Delta target (TKX2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
-    dRFromX (XFromR d) = d  -- no information lost, so no checks
-    dRFromX d = RFromX d
   rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
   rfromScalar (D t d) = dDnotShared (rfromScalar t) (RFromS $ FromScalarG d)
 
@@ -350,11 +339,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
   xD t d = dD t d
-  xfromR :: forall sh r. (KnownShX sh, TensorKind1 r)
-         => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKX2 sh r)
-  xfromR (D u u') | Dict <- lemKnownNatRankX (knownShX @sh) =
-    dDnotShared (xfromR u) (XFromR u')
-  xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
 
   sminIndex (D u _) =
     let v = sminIndex u
@@ -425,20 +409,35 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sfromIntegral (D u _) =
     let v = sfromIntegral u
     in fromPrimalADVal v
-  snest :: forall sh1 sh2 x.
-           (TensorKind1 x, KnownShS sh2)
-        => ShS sh1 -> ADVal target (TKS2 (sh1 ++ sh2) x)
-        -> ADVal target (TKS2 sh1 (TKS2 sh2 x))
-  snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    withKnownShS (sh `shsAppend` knownShS @sh2) $
-    dD (snest sh u) (NestS u')
-  sunNest :: forall sh1 sh2 x.
-             (TensorKind1 x, KnownShS sh1, KnownShS sh2)
-          => ADVal target (TKS2 sh1 (TKS2 sh2 x))
-          -> ADVal target (TKS2 (sh1 ++ sh2) x)
-  sunNest (D u u') =
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    dD (sunNest u) (UnNestS u')
+  stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
+  sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)
+
+  sfromPrimal t = fromPrimalADVal t
+  sprimalPart (D u _) = u
+  sdualPart (D _ u') = u'
+  sD t d = dD t d
+  sScale k = ScaleG k
+
+  kfloor (D u _) =
+    let v = kfloor u
+    in fromPrimalADVal v
+  kcast (D u u') = dD (kcast u) (Cast u')
+  kfromIntegral (D u _) =
+    let v = kfromIntegral u
+    in fromPrimalADVal v
+
+  rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
+   where
+    dRFromS :: (TensorKind1 r2, KnownShS sh2)
+            => Delta target (TKS2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
+    dRFromS (SFromR d) = d  -- no information lost, so no checks
+    dRFromS d = RFromS d
+  rfromX (D u u') = dDnotShared (rfromX u) (dRFromX u')
+   where
+    dRFromX :: (TensorKind1 r2, KnownShX sh2)
+            => Delta target (TKX2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
+    dRFromX (XFromR d) = d  -- no information lost, so no checks
+    dRFromX d = RFromX d
   sfromR :: forall r sh. (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
          => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKS2 sh r)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
@@ -458,22 +457,41 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromX d = SFromX d
-  stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
-  sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)
+  xfromR :: forall sh r. (KnownShX sh, TensorKind1 r)
+         => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKX2 sh r)
+  xfromR (D u u') | Dict <- lemKnownNatRankX (knownShX @sh) =
+    dDnotShared (xfromR u) (XFromR u')
+  xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
 
-  sfromPrimal t = fromPrimalADVal t
-  sprimalPart (D u _) = u
-  sdualPart (D _ u') = u'
-  sD t d = dD t d
-  sScale k = ScaleG k
-
-  kfloor (D u _) =
-    let v = kfloor u
-    in fromPrimalADVal v
-  kcast (D u u') = dD (kcast u) (Cast u')
-  kfromIntegral (D u _) =
-    let v = kfromIntegral u
-    in fromPrimalADVal v
+  snest :: forall sh1 sh2 x.
+           (TensorKind1 x, KnownShS sh2)
+        => ShS sh1 -> ADVal target (TKS2 (sh1 ++ sh2) x)
+        -> ADVal target (TKS2 sh1 (TKS2 sh2 x))
+  snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    withKnownShS (sh `shsAppend` knownShS @sh2) $
+    dD (snest sh u) (NestS u')
+  xunNestR :: forall sh1 m x.
+              (TensorKind1 x, KnownShX sh1, KnownNat m)
+           => ADVal target (TKX2 sh1 (TKR2 m x))
+           -> ADVal target (TKX2 (sh1 ++ Replicate m Nothing) x)
+  xunNestR (D u u') =
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    dD (xunNestR u) (XUnNestR u')
+  xunNestS :: forall sh1 sh2 x.
+              (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+           => ADVal target (TKX2 sh1 (TKS2 sh2 x))
+           -> ADVal target (TKX2 (sh1 ++ MapJust sh2) x)
+  xunNestS (D u u') =
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    dD (xunNestS u) (XUnNestS u')
+  xunNest :: forall sh1 sh2 x.
+             (TensorKind1 x, KnownShX sh1, KnownShX sh2)
+          => ADVal target (TKX2 sh1 (TKX2 sh2 x))
+          -> ADVal target (TKX2 (sh1 ++ sh2) x)
+  xunNest (D u u') =
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    dD (xunNest u) (XUnNest u')
 
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (PairG u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unPairGUnshared u')

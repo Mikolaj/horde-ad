@@ -615,8 +615,6 @@ interpretAst !env = \case
       in tlet @_ @TKUntyped lt
            (\lw -> interpretAst (env2 (dunHVector lw)) v)
     _ -> error "TODO"
-  AstRFromS v -> rfromS $ interpretAst env v
-  AstRFromX v -> rfromX $ interpretAst env v
 
   AstMinIndexS v ->
     sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
@@ -826,10 +824,6 @@ interpretAst !env = \case
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
          (\lw -> sfromD $ dunHVector lw V.! p)
-  AstNestS v -> snest knownShS $ interpretAst env v
-  AstUnNestS v -> sunNest $ interpretAst env v
-  AstSFromR v -> sfromR $ interpretAst env v
-  AstSFromX v -> sfromX $ interpretAst env v
 
   AstMinIndexX _v -> error "TODO"
   AstMaxIndexX _v -> error "TODO"
@@ -881,8 +875,18 @@ interpretAst !env = \case
   AstCastX _v ->  error "TODO"
   AstFromIntegralX _v -> error "TODO"
   AstProjectX _l _p -> error "TODO"
+
+  AstRFromS v -> rfromS $ interpretAst env v
+  AstRFromX v -> rfromX $ interpretAst env v
+  AstSFromR v -> sfromR $ interpretAst env v
+  AstSFromX v -> sfromX $ interpretAst env v
   AstXFromR v -> xfromR $ interpretAst env v
   AstXFromS v -> xfromS $ interpretAst env v
+
+  AstNestS v -> snest knownShS $ interpretAst env v
+  AstXUnNestR v -> xunNestR $ interpretAst env v
+  AstXUnNestS v -> xunNestS $ interpretAst env v
+  AstXUnNest v -> xunNest $ interpretAst env v
 
   AstMkHVector l -> dmkHVector $ interpretAstDynamic env <$> l
   AstApply t ll ->

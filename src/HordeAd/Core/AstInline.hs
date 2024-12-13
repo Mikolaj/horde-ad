@@ -232,8 +232,6 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAst memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
-  Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
-  Ast.AstRFromX v -> second Ast.AstRFromX $ inlineAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
@@ -299,11 +297,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstProjectS l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectS l2 p)
-  Ast.AstNestS v -> second Ast.AstNestS $ inlineAst memo v
-  Ast.AstUnNestS v -> second Ast.AstUnNestS $ inlineAst memo v
-  Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
-  Ast.AstSFromX v -> second Ast.AstSFromX $ inlineAst memo v
-  Ast.AstXFromS v -> second Ast.AstXFromS $ inlineAst memo v
 
   Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ inlineAst memo a
   Ast.AstMaxIndexX a -> second Ast.AstMaxIndexX $ inlineAst memo a
@@ -357,7 +350,18 @@ inlineAst memo v0 = case v0 of
   Ast.AstProjectX l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectX l2 p)
+
+  Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
+  Ast.AstRFromX v -> second Ast.AstRFromX $ inlineAst memo v
+  Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
+  Ast.AstSFromX v -> second Ast.AstSFromX $ inlineAst memo v
   Ast.AstXFromR v -> second Ast.AstXFromR $ inlineAst memo v
+  Ast.AstXFromS v -> second Ast.AstXFromS $ inlineAst memo v
+
+  Ast.AstNestS v -> second Ast.AstNestS $ inlineAst memo v
+  Ast.AstXUnNestR v -> second Ast.AstXUnNestR $ inlineAst memo v
+  Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ inlineAst memo v
+  Ast.AstXUnNest v -> second Ast.AstXUnNest $ inlineAst memo v
 
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR inlineAstDynamic memo l
@@ -582,8 +586,6 @@ unshareAst memo = \case
     -- higher than if simplified.
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectR l2 p)
-  Ast.AstRFromS v -> second Ast.AstRFromS $ unshareAst memo v
-  Ast.AstRFromX v -> second Ast.AstRFromX $ unshareAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a
@@ -645,11 +647,6 @@ unshareAst memo = \case
   Ast.AstProjectS l p ->
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
-  Ast.AstNestS v -> second Ast.AstNestS $ unshareAst memo v
-  Ast.AstUnNestS v -> second Ast.AstUnNestS $ unshareAst memo v
-  Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
-  Ast.AstSFromX v -> second Ast.AstSFromX $ unshareAst memo v
-  Ast.AstXFromS v -> second Ast.AstXFromS $ unshareAst memo v
 
   Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ unshareAst memo a
   Ast.AstMaxIndexX a -> second Ast.AstMaxIndexX $ unshareAst memo a
@@ -711,7 +708,18 @@ unshareAst memo = \case
   Ast.AstProjectX l p ->
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectX l2 p)
+
+  Ast.AstRFromS v -> second Ast.AstRFromS $ unshareAst memo v
+  Ast.AstRFromX v -> second Ast.AstRFromX $ unshareAst memo v
+  Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
+  Ast.AstSFromX v -> second Ast.AstSFromX $ unshareAst memo v
   Ast.AstXFromR v -> second Ast.AstXFromR $ unshareAst memo v
+  Ast.AstXFromS v -> second Ast.AstXFromS $ unshareAst memo v
+
+  Ast.AstNestS v -> second Ast.AstNestS $ unshareAst memo v
+  Ast.AstXUnNestR v -> second Ast.AstXUnNestR $ unshareAst memo v
+  Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ unshareAst memo v
+  Ast.AstXUnNest v -> second Ast.AstXUnNest $ unshareAst memo v
 
   Ast.AstMkHVector l ->
     second Ast.AstMkHVector $ mapAccumR unshareAstDynamic memo l

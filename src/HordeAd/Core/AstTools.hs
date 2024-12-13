@@ -29,10 +29,10 @@ import GHC.TypeLits (sameNat, type (+))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (KnownShX (..), shxSize)
+import Data.Array.Mixed.Shape (KnownShX (..), shxAppend, shxSize)
 import Data.Array.Nested
   (IShR, KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
-import Data.Array.Nested.Internal.Shape (shrSize, shsAppend, shsSize)
+import Data.Array.Nested.Internal.Shape (shCvtRX, shCvtSX, shrSize, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -116,12 +116,6 @@ ftkAst t = case t of
     DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
-  AstRFromS @sh v
-   | Dict <- lemKnownNatRankS (knownShS @sh) -> case ftkAst v of
-    FTKS _ x -> FTKR (fromList $ shapeT @sh) x
-  AstRFromX @sh v
-   | Dict <- lemKnownNatRankX (knownShX @sh) -> case ftkAst v of
-    FTKX shx x -> FTKR (fromList $ toList shx) x
 
   AstMinIndexS{} -> FTKS knownShS FTKScalar
   AstMaxIndexS{} -> FTKS knownShS FTKScalar
@@ -160,10 +154,13 @@ ftkAst t = case t of
   AstCastS{} -> FTKS knownShS FTKScalar
   AstFromIntegralS{} -> FTKS knownShS FTKScalar
   AstProjectS{} -> FTKS knownShS FTKScalar
-  AstNestS v -> case ftkAst v of
-    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
-  AstUnNestS @_ @sh1 @sh2 v -> case ftkAst v of
-    FTKS _ (FTKS _ x) -> FTKS (knownShS @sh1 `shsAppend` knownShS @sh2) x
+
+  AstRFromS @sh v
+   | Dict <- lemKnownNatRankS (knownShS @sh) -> case ftkAst v of
+    FTKS _ x -> FTKR (fromList $ shapeT @sh) x
+  AstRFromX @sh v
+   | Dict <- lemKnownNatRankX (knownShX @sh) -> case ftkAst v of
+    FTKX shx x -> FTKR (fromList $ toList shx) x
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
@@ -173,6 +170,19 @@ ftkAst t = case t of
     FTKR shr x -> FTKX (fromList $ toList shr) x
   AstXFromS v -> case ftkAst v of
     FTKS sh x -> FTKX (fromList $ toList sh) x
+
+  AstNestS v -> case ftkAst v of
+    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
+
+  AstXUnNestR @_ @_ @m v -> case ftkAst v of
+    FTKX sh1 (FTKR sh2 x) ->
+      FTKX (sh1 `shxAppend` shCvtRX sh2) x
+  AstXUnNestS v -> case ftkAst v of
+    FTKX sh1 (FTKS sh2 x) ->
+      FTKX (sh1 `shxAppend` shCvtSX sh2) x
+  AstXUnNest v -> case ftkAst v of
+    FTKX sh1 (FTKX sh2 x) ->
+      FTKX (sh1 `shxAppend` sh2) x
 
   AstMkHVector v ->
     FTKUntyped
@@ -273,8 +283,6 @@ varInAst var = \case
   AstFromIntegralR t -> varInAst var t
   AstProjectR l _p -> varInAst var l
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
-  AstRFromS v -> varInAst var v
-  AstRFromX v -> varInAst var v
 
   AstMinIndexS a -> varInAst var a
   AstMaxIndexS a -> varInAst var a
@@ -299,10 +307,6 @@ varInAst var = \case
   AstCastS t -> varInAst var t
   AstFromIntegralS a -> varInAst var a
   AstProjectS l _p -> varInAst var l
-  AstNestS v -> varInAst var v
-  AstUnNestS v -> varInAst var v
-  AstSFromR v -> varInAst var v
-  AstSFromX v -> varInAst var v
 
   AstMinIndexX a -> varInAst var a
   AstMaxIndexX a -> varInAst var a
@@ -327,8 +331,19 @@ varInAst var = \case
   AstCastX t -> varInAst var t
   AstFromIntegralX a -> varInAst var a
   AstProjectX l _p -> varInAst var l
+
+  AstRFromS v -> varInAst var v
+  AstRFromX v -> varInAst var v
+  AstSFromR v -> varInAst var v
+  AstSFromX v -> varInAst var v
   AstXFromR v -> varInAst var v
   AstXFromS v -> varInAst var v
+
+  AstNestS v -> varInAst var v
+
+  AstXUnNestR v -> varInAst var v
+  AstXUnNestS v -> varInAst var v
+  AstXUnNest v -> varInAst var v
 
   AstMkHVector l -> any (varInAstDynamic var) l
   AstApply t ll -> varInAstHFun var t || varInAst var ll

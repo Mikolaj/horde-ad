@@ -373,8 +373,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                          -- this introduces new variable names
   rcast = astCastR
   rfromIntegral = fromPrimal . astFromIntegralR . astSpanPrimal
-  rfromS = astRFromS
-  rfromX = astRFromX
   rtoScalar = AstToScalar . AstSFromR
   rfromScalar = AstRFromS . AstFromScalar
 
@@ -395,8 +393,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
   xD u u' = astSpanD u u'
-  xfromR = astXFromR
-  xfromS = astXFromS
 
   sminIndex = fromPrimal . AstMinIndexS . astSpanPrimal
   smaxIndex = fromPrimal . AstMaxIndexS . astSpanPrimal
@@ -428,10 +424,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                       -- this introduces new variable names
   scast = astCastS
   sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh = astNestS
-  sunNest = astUnNestS
-  sfromR = astSFromR
-  sfromX = astSFromX
   stoScalar = AstToScalar
   sfromScalar = AstFromScalar
 
@@ -444,6 +436,18 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kfloor = fromPrimal . AstFloor . astSpanPrimal
   kcast = astCast
   kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
+
+  rfromS = astRFromS
+  rfromX = astRFromX
+  sfromR = astSFromR
+  sfromX = astSFromX
+  xfromR = astXFromR
+  xfromS = astXFromS
+
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh = astNestS
+  xunNestR = astXUnNestR
+  xunNestS = astXUnNestS
+  xunNest = astXUnNest
 
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
@@ -640,8 +644,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rcast = AstRaw . AstCastR . unAstRaw
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralR . astSpanPrimalRaw . unAstRaw
-  rfromS = AstRaw . AstRFromS . unAstRaw
-  rfromX = AstRaw . AstRFromX . unAstRaw
   rtoScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
   rfromScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
 
@@ -665,8 +667,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   xdualPart = astSpanDualRaw . unAstRaw
   xD u u' = AstRaw $ astSpanD (unAstRaw u) u'
-  xfromR = AstRaw . AstXFromR . unAstRaw
-  xfromS = AstRaw . AstXFromS . unAstRaw
 
   sminIndex = AstRaw . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRaw
   smaxIndex = AstRaw . fromPrimal . AstMaxIndexS . astSpanPrimalRaw . unAstRaw
@@ -696,11 +696,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   scast = AstRaw . AstCastS . unAstRaw
   sfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . astSpanPrimalRaw . unAstRaw
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    AstRaw . AstNestS . unAstRaw
-  sunNest = AstRaw . AstUnNestS . unAstRaw
-  sfromR = AstRaw . AstSFromR . unAstRaw
-  sfromX = AstRaw . AstSFromX . unAstRaw
   stoScalar = AstRaw . AstToScalar . unAstRaw
   sfromScalar = AstRaw . AstFromScalar . unAstRaw
 
@@ -714,6 +709,19 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   kcast = AstRaw . AstCast . unAstRaw
   kfromIntegral = AstRaw . fromPrimal . AstFromIntegral
                   . astSpanPrimalRaw . unAstRaw
+
+  rfromS = AstRaw . AstRFromS . unAstRaw
+  rfromX = AstRaw . AstRFromX . unAstRaw
+  sfromR = AstRaw . AstSFromR . unAstRaw
+  sfromX = AstRaw . AstSFromX . unAstRaw
+  xfromR = AstRaw . AstXFromR . unAstRaw
+  xfromS = AstRaw . AstXFromS . unAstRaw
+
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    AstRaw . AstNestS . unAstRaw
+  xunNestR = AstRaw . AstXUnNestR . unAstRaw
+  xunNestS = AstRaw . AstXUnNestS . unAstRaw
+  xunNest = AstRaw . AstXUnNest . unAstRaw
 
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
@@ -882,8 +890,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                     $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   rcast = AstNoVectorize . rcast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
-  rfromS = AstNoVectorize . rfromS . unAstNoVectorize
-  rfromX = AstNoVectorize . rfromX . unAstNoVectorize
   rtoScalar = AstNoVectorize . rtoScalar . unAstNoVectorize
   rfromScalar = AstNoVectorize . rfromScalar . unAstNoVectorize
 
@@ -906,8 +912,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xdualPart = xdualPart . unAstNoVectorize
   xD u u' =
     AstNoVectorize $ xD (unAstNoVectorize u) u'
-  xfromR = AstNoVectorize . xfromR  . unAstNoVectorize
-  xfromS = AstNoVectorize . xfromS  . unAstNoVectorize
 
   sminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
   smaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
@@ -938,11 +942,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                 $ fmap (unAstNoVectorize) . f . fmap AstNoVectorize
   scast = AstNoVectorize . scast . unAstNoVectorize
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    AstNoVectorize . astNestS . unAstNoVectorize
-  sunNest = AstNoVectorize . astUnNestS . unAstNoVectorize
-  sfromR = AstNoVectorize . sfromR . unAstNoVectorize
-  sfromX = AstNoVectorize . sfromX . unAstNoVectorize
   stoScalar = AstNoVectorize . stoScalar . unAstNoVectorize
   sfromScalar = AstNoVectorize . sfromScalar . unAstNoVectorize
 
@@ -955,6 +954,19 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   kfloor = AstNoVectorize . kfloor . unAstNoVectorize
   kcast = AstNoVectorize . kcast . unAstNoVectorize
   kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
+
+  rfromS = AstNoVectorize . rfromS . unAstNoVectorize
+  rfromX = AstNoVectorize . rfromX . unAstNoVectorize
+  sfromR = AstNoVectorize . sfromR . unAstNoVectorize
+  sfromX = AstNoVectorize . sfromX . unAstNoVectorize
+  xfromR = AstNoVectorize . xfromR  . unAstNoVectorize
+  xfromS = AstNoVectorize . xfromS  . unAstNoVectorize
+
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    AstNoVectorize . astNestS . unAstNoVectorize
+  xunNestR = AstNoVectorize . astXUnNestR . unAstNoVectorize
+  xunNestS = AstNoVectorize . astXUnNestS . unAstNoVectorize
+  xunNest = AstNoVectorize . astXUnNest . unAstNoVectorize
 
   tpair t1 t2 = AstNoVectorize $ astPair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ astProject1 $ unAstNoVectorize t
@@ -1117,8 +1129,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rcast = AstNoSimplify . AstCastR . unAstNoSimplify
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralR
                   . astSpanPrimal . unAstNoSimplify
-  rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
-  rfromX = AstNoSimplify . AstRFromX . unAstNoSimplify
   rtoScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify
   rfromScalar = AstNoSimplify . AstRFromS . AstFromScalar . unAstNoSimplify
 
@@ -1142,8 +1152,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   xdualPart = astSpanDual . unAstNoSimplify
   xD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
-  xfromR = AstNoSimplify . AstXFromR . unAstNoSimplify
-  xfromS = AstNoSimplify . AstXFromS . unAstNoSimplify
 
   sminIndex = AstNoSimplify . fromPrimal . AstMinIndexS
               . astSpanPrimal . unAstNoSimplify
@@ -1181,11 +1189,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   scast = AstNoSimplify . AstCastS . unAstNoSimplify
   sfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralS
                   . astSpanPrimal . unAstNoSimplify
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    AstNoSimplify . AstNestS . unAstNoSimplify
-  sunNest = AstNoSimplify . AstUnNestS . unAstNoSimplify
-  sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
-  sfromX = AstNoSimplify . AstSFromX . unAstNoSimplify
   stoScalar = AstNoSimplify . AstToScalar . unAstNoSimplify
   sfromScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
 
@@ -1202,6 +1205,19 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   kcast = AstNoSimplify . AstCast . unAstNoSimplify
   kfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
+
+  rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
+  rfromX = AstNoSimplify . AstRFromX . unAstNoSimplify
+  sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
+  sfromX = AstNoSimplify . AstSFromX . unAstNoSimplify
+  xfromR = AstNoSimplify . AstXFromR . unAstNoSimplify
+  xfromS = AstNoSimplify . AstXFromS . unAstNoSimplify
+
+  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
+    AstNoSimplify . AstNestS . unAstNoSimplify
+  xunNestR = AstNoSimplify . AstXUnNestR . unAstNoSimplify
+  xunNestS = AstNoSimplify . AstXUnNestS . unAstNoSimplify
+  xunNest = AstNoSimplify . AstXUnNest . unAstNoSimplify
 
   tpair t1 t2 = AstNoSimplify $ AstPair (unAstNoSimplify t1) (unAstNoSimplify t2)
   tproject1 t = AstNoSimplify $ AstProject1 $ unAstNoSimplify t

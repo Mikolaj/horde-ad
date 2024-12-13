@@ -51,7 +51,9 @@ import Data.Array.Nested
   , KnownShX
   , ListR
   , ListS (..)
+  , MapJust
   , Rank
+  , Replicate
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -388,10 +390,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
                   -> AstTensor AstMethodLet s2 z
                   -> AstTensor AstMethodLet s2 z
-  AstRFromS :: (KnownShS sh, TensorKind1 r)
-            => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
-  AstRFromX :: (KnownShX sh, TensorKind1 r)
-            => AstTensor ms s (TKX2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
 
   -- Here starts the shaped part.
   AstFromScalar :: GoodScalar r
@@ -485,19 +483,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -- out of bounds indexing is permitted
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
-  AstNestS :: forall r sh1 sh2 ms s.
-              (TensorKind1 r, KnownShS sh1, KnownShS sh2)
-           => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
-           -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
-  AstUnNestS :: forall r sh1 sh2 ms s.
-                (TensorKind1 r, KnownShS sh1, KnownShS sh2)
-             => AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
-             -> AstTensor ms s (TKS2 (sh1 ++ sh2) r)
-  AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)
-            => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
-  AstSFromX :: ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh'
-               , TensorKind1 r )
-            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 
   -- Here starts the mixed part.
   AstN1X :: (GoodScalar r, KnownShX sh)
@@ -586,10 +571,38 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -- out of bounds indexing is permitted
   AstProjectX :: (GoodScalar r, KnownShX sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKX sh r)
+
+  -- Ops that involve more than one variant of arrays
+  AstRFromS :: (KnownShS sh, TensorKind1 r)
+            => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
+  AstRFromX :: (KnownShX sh, TensorKind1 r)
+            => AstTensor ms s (TKX2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
+  AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)
+            => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
+  AstSFromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
   AstXFromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind1 r)
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKX2 sh r)
   AstXFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
             => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKX2 sh' r)
+
+  AstNestS :: forall r sh1 sh2 ms s.
+              (TensorKind1 r, KnownShS sh1, KnownShS sh2)
+           => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
+           -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
+
+  AstXUnNestR :: forall sh1 m x ms s.
+                 (TensorKind1 x, KnownShX sh1, KnownNat m)
+              => AstTensor ms s (TKX2 sh1 (TKR2 m x))
+              -> AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
+  AstXUnNestS :: forall sh1 sh2 x ms s.
+                 (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+              => AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
+              -> AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
+  AstXUnNest :: forall sh1 sh2 x ms s.
+                (TensorKind1 x, KnownShX sh1, KnownShX sh2)
+             => AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
+             -> AstTensor ms s (TKX2 (sh1 ++ sh2) x)
 
   -- Here starts the misc part.
   AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped

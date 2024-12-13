@@ -19,7 +19,8 @@ import System.Random
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (KnownShS (..), KnownShX (..), Rank)
+import Data.Array.Nested
+  (KnownShS (..), KnownShX (..), MapJust, Rank, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
@@ -131,7 +132,6 @@ instance BaseTensor RepN where
                                        (fmap unRepN . f . RepN)
   rcast = RepN . tcastR . unRepN
   rfromIntegral = RepN . tfromIntegralR . unRepN
-  rfromS = RepN . Nested.stoRanked . unRepN
   rtoScalar = RepN . Nested.runScalar . unRepN
   rfromScalar = RepN . Nested.rscalar . unRepN
 
@@ -157,13 +157,6 @@ instance BaseTensor RepN where
   xprimalPart = id
   xdualPart _ = DummyDualTarget
   xD u _ = u
-  xfromR :: forall sh r. (KnownShX sh, TensorKind1 r)
-         => RepN (TKR2 (Rank sh) r) -> RepN (TKX2 sh r)
-  xfromR = RepN . Nested.rcastToMixed (knownShX @sh) . unRepN
-  xfromS :: forall sh sh' r.
-            (KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
-         => RepN (TKS2 sh r) -> RepN (TKX2 sh' r)
-  xfromS = RepN . Nested.scastToMixed (knownShX @sh') . unRepN
 
   sminIndex = RepN . tminIndexS . unRepN
   smaxIndex = RepN . tmaxIndexS . unRepN
@@ -235,10 +228,6 @@ instance BaseTensor RepN where
                                    (fmap unRepN . f . RepN)
   scast = RepN . tcastS . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
-  snest shs t = RepN $ Nested.snest shs $ unRepN t
-  sunNest t = RepN $ Nested.sunNest $ unRepN t
-  sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
-  sfromX = RepN . flip Nested.mcastToShaped knownShS . unRepN
   stoScalar = RepN . Nested.sunScalar . unRepN
   sfromScalar = RepN . Nested.sscalar . unRepN
 
@@ -255,6 +244,40 @@ instance BaseTensor RepN where
   kfloor = RepN . floor . unRepN
   kcast = RepN . realToFrac . unRepN
   kfromIntegral = RepN . fromIntegral . unRepN
+
+  rfromS = RepN . Nested.stoRanked . unRepN
+  rfromX = RepN . Nested.mtoRanked . unRepN
+  sfromR = RepN . flip Nested.rcastToShaped knownShS . unRepN
+  sfromX = RepN . flip Nested.mcastToShaped knownShS . unRepN
+  xfromR :: forall sh r. (KnownShX sh, TensorKind1 r)
+         => RepN (TKR2 (Rank sh) r) -> RepN (TKX2 sh r)
+  xfromR = RepN . Nested.rcastToMixed (knownShX @sh) . unRepN
+  xfromS :: forall sh sh' r.
+            (KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+         => RepN (TKS2 sh r) -> RepN (TKX2 sh' r)
+  xfromS = RepN . Nested.scastToMixed (knownShX @sh') . unRepN
+
+  snest shs t = RepN $ Nested.snest shs $ unRepN t
+
+  xunNestR :: forall sh1 m x.
+              RepN (TKX2 sh1 (TKR2 m x))
+           -> RepN (TKX2 (sh1 ++ Replicate m Nothing) x)
+  xunNestR t =
+    RepN $ Nested.munNest
+    $ (unsafeCoerce :: Nested.Mixed sh1 (Nested.Ranked m (RepORArray x))
+                    -> Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing)
+                                                      (RepORArray x)))
+    $ unRepN t
+  xunNestS :: forall sh1 sh2 x.
+              RepN (TKX2 sh1 (TKS2 sh2 x))
+           -> RepN (TKX2 (sh1 ++ MapJust sh2) x)
+  xunNestS t =
+    RepN $ Nested.munNest
+    $ (unsafeCoerce :: Nested.Mixed sh1 (Nested.Shaped m (RepORArray x))
+                    -> Nested.Mixed sh1 (Nested.Mixed (MapJust sh2)
+                                                      (RepORArray x)))
+    $ unRepN t
+  xunNest t = RepN $ Nested.munNest $ unRepN t
 
   tpair u v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN
