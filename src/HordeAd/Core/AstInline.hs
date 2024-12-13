@@ -358,7 +358,9 @@ inlineAst memo v0 = case v0 of
   Ast.AstXFromR v -> second Ast.AstXFromR $ inlineAst memo v
   Ast.AstXFromS v -> second Ast.AstXFromS $ inlineAst memo v
 
-  Ast.AstNestS v -> second Ast.AstNestS $ inlineAst memo v
+  Ast.AstXNestR v -> second Ast.AstXNestR $ inlineAst memo v
+  Ast.AstXNestS v -> second Ast.AstXNestS $ inlineAst memo v
+  Ast.AstXNest v -> second Ast.AstXNest $ inlineAst memo v
   Ast.AstXUnNestR v -> second Ast.AstXUnNestR $ inlineAst memo v
   Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ inlineAst memo v
   Ast.AstXUnNest v -> second Ast.AstXUnNest $ inlineAst memo v
@@ -716,7 +718,9 @@ unshareAst memo = \case
   Ast.AstXFromR v -> second Ast.AstXFromR $ unshareAst memo v
   Ast.AstXFromS v -> second Ast.AstXFromS $ unshareAst memo v
 
-  Ast.AstNestS v -> second Ast.AstNestS $ unshareAst memo v
+  Ast.AstXNestR v -> second Ast.AstXNestR $ unshareAst memo v
+  Ast.AstXNestS v -> second Ast.AstXNestS $ unshareAst memo v
+  Ast.AstXNest v -> second Ast.AstXNest $ unshareAst memo v
   Ast.AstXUnNestR v -> second Ast.AstXUnNestR $ unshareAst memo v
   Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ unshareAst memo v
   Ast.AstXUnNest v -> second Ast.AstXUnNest $ unshareAst memo v

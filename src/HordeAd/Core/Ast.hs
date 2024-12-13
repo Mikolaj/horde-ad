@@ -586,10 +586,18 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstXFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
             => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKX2 sh' r)
 
-  AstNestS :: forall r sh1 sh2 ms s.
-              (TensorKind1 r, KnownShS sh1, KnownShS sh2)
-           => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
-           -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
+  AstXNestR :: forall sh1 m x ms s.
+               (TensorKind1 x, KnownShX sh1, KnownNat m)
+            => AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
+            -> AstTensor ms s (TKX2 sh1 (TKR2 m x))
+  AstXNestS :: forall sh1 sh2 x ms s.
+               (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+            => AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
+            -> AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
+  AstXNest :: forall sh1 sh2 x ms s.
+              (TensorKind1 x, KnownShX sh1, KnownShX sh2)
+           => AstTensor ms s (TKX2 (sh1 ++ sh2) x)
+           -> AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
 
   AstXUnNestR :: forall sh1 m x ms s.
                  (TensorKind1 x, KnownShX sh1, KnownNat m)

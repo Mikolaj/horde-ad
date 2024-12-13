@@ -22,11 +22,19 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 import Type.Reflection (typeRep)
 
+import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested
-  (KnownShS (..), ListR (..), ListS (..), ShR (..), ShS (..), ShX (..))
+  ( KnownShS (..)
+  , KnownShX (..)
+  , ListR (..)
+  , ListS (..)
+  , ShR (..)
+  , ShS (..)
+  , ShX (..)
+  )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsAppend, shsRank)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
@@ -470,9 +478,16 @@ printAstAux cfg d = \case
   AstXFromR v -> printPrefixOp printAst cfg d "xfromR" [v]
   AstXFromS v -> printPrefixOp printAst cfg d "xfromS" [v]
 
-  AstNestS @_ @sh1 @sh2 v ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    printPrefixOp printAst cfg d "snest" [v]
+  AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    printPrefixOp printAst cfg d "xnestR" [v]
+  AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    printPrefixOp printAst cfg d "xnestS" [v]
+  AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    printPrefixOp printAst cfg d "xnest" [v]
 
   AstXUnNestR v -> printPrefixOp printAst cfg d "xunNestR" [v]
   AstXUnNestS v -> printPrefixOp printAst cfg d "xunNestS" [v]

@@ -71,7 +71,8 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, shxAppend)
+import Data.Array.Mixed.Shape
+  (pattern (:.%), pattern ZIX, shxAppend, shxDropSSX, shxTakeSSX)
 import Data.Array.Nested
   ( IShR
   , IxS (..)
@@ -87,7 +88,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtRX, shCvtSX, shrRank)
+import Data.Array.Nested.Internal.Shape (shCvtRX, shCvtSX, shCvtXR', shrRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -603,10 +604,18 @@ data Delta :: Target -> TensorKindType -> Type where
          => Delta target (TKS2 sh r)
          -> Delta target (TKX2 sh' r)
 
-  NestS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
-              -- the constraint about ++ is needed for deriving Show
-        => Delta target (TKS2 (sh1 ++ sh2) r)
-        -> Delta target (TKS2 sh1 (TKS2 sh2 r))
+  -- The constraints about ++ in these three are needed for deriving Show.
+  XNestR :: ( TensorKind1 x, KnownShX sh1, KnownNat m
+            , KnownShX (sh1 ++ Replicate m Nothing) )
+         => Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
+         -> Delta target (TKX2 sh1 (TKR2 m x))
+  XNestS :: ( TensorKind1 x, KnownShX sh1, KnownShS sh2
+            , KnownShX (sh1 ++ MapJust sh2) )
+         => Delta target (TKX2 (sh1 ++ MapJust sh2) x)
+         -> Delta target (TKX2 sh1 (TKS2 sh2 x))
+  XNest :: (TensorKind1 x, KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2))
+        => Delta target (TKX2 (sh1 ++ sh2) x)
+        -> Delta target (TKX2 sh1 (TKX2 sh2 x))
   XUnNestR :: (TensorKind1 x, KnownShX sh1, KnownNat m)
            => Delta target (TKX2 sh1 (TKR2 m x))
            -> Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
@@ -762,8 +771,16 @@ shapeDeltaFull = \case
   XFromS d -> case shapeDeltaFull d of
     FTKS sh x -> FTKX (fromList $ toList sh) x
 
-  NestS d -> case shapeDeltaFull d of
-    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
+  XNestR  @_ @sh1 @m d -> case shapeDeltaFull d of
+    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))
+                                  sh (knownShX @sh1))
+                      (FTKR (shCvtXR' (shxDropSSX sh (knownShX @sh1))) x)
+  XNestS @_ @sh1 @sh2 d -> case shapeDeltaFull d of
+    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh (knownShX @sh1))
+                                  (FTKS knownShS x)
+  XNest @_ @sh1 @sh2 d -> case shapeDeltaFull d of
+    FTKX sh x -> FTKX (shxTakeSSX (Proxy @sh2) sh (knownShX @sh1))
+                      (FTKX (shxDropSSX sh (knownShX @sh1)) x)
   XUnNestR d -> case shapeDeltaFull d of
     FTKX sh1 (FTKR sh2 x) -> FTKX (sh1 `shxAppend` shCvtRX sh2) x
   XUnNestS d -> case shapeDeltaFull d of
@@ -1303,8 +1320,12 @@ evalSame !s !c = \case
   XFromS @sh d ->
     evalSame s (sfromX c) d
 
-  NestS d ->
-    evalSame s (sunNest c) d
+  XNestR @_ @sh1 @m d ->
+    evalSame s (xunNestR c) d
+  XNestS @_ @sh1 @sh2 d ->
+    evalSame s (xunNestS c) d
+  XNest @_ @sh1 @sh2 d ->
+    evalSame s (xunNest c) d
   XUnNestR d ->
     evalSame s (xnestR knownShX c) d
   XUnNestS d ->
@@ -1681,8 +1702,9 @@ fwdSame params s = \case
       _ -> error "fwdSame: different shapes in SFromX(XFromS)"
   SFromX d -> second sfromX $ fwdSame params s d
 
-  NestS d ->
-    second (snest knownShS) $ fwdSame params s d
+  XNestR @_ @sh1 @m d -> second (xnestR knownShX) $ fwdSame params s d
+  XNestS @_ @sh1 @sh2 d -> second (xnestS knownShX) $ fwdSame params s d
+  XNest @_ @sh1 @sh2 d -> second (xnest knownShX) $ fwdSame params s d
   XUnNestR d -> second xunNestR $ fwdSame params s d
   XUnNestS d -> second xunNestS $ fwdSame params s d
   XUnNest d -> second xunNest $ fwdSame params s d

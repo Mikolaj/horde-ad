@@ -29,10 +29,19 @@ import GHC.TypeLits (sameNat, type (+))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (KnownShX (..), shxAppend, shxSize)
+import Data.Array.Mixed.Shape
+  (KnownShX (..), shxAppend, shxDropSSX, shxSize, shxTakeSSX)
 import Data.Array.Nested
-  (IShR, KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
-import Data.Array.Nested.Internal.Shape (shCvtRX, shCvtSX, shrSize, shsSize)
+  ( IShR
+  , KnownShS (..)
+  , MapJust
+  , Replicate
+  , ShR (..)
+  , pattern (:$:)
+  , pattern ZSR
+  )
+import Data.Array.Nested.Internal.Shape
+  (shCvtRX, shCvtSX, shCvtXR', shrSize, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -171,9 +180,16 @@ ftkAst t = case t of
   AstXFromS v -> case ftkAst v of
     FTKS sh x -> FTKX (fromList $ toList sh) x
 
-  AstNestS v -> case ftkAst v of
-    FTKS _ x -> FTKS knownShS (FTKS knownShS x)
-
+  AstXNestR @sh1 @m v -> case ftkAst v of
+    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))
+                                  sh (knownShX @sh1))
+                      (FTKR (shCvtXR' (shxDropSSX sh (knownShX @sh1))) x)
+  AstXNestS @sh1 @sh2 v -> case ftkAst v of
+    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh (knownShX @sh1))
+                                  (FTKS knownShS x)
+  AstXNest @sh1 @sh2 v -> case ftkAst v of
+    FTKX sh x -> FTKX (shxTakeSSX (Proxy @sh2) sh (knownShX @sh1))
+                      (FTKX (shxDropSSX sh (knownShX @sh1)) x)
   AstXUnNestR @_ @_ @m v -> case ftkAst v of
     FTKX sh1 (FTKR sh2 x) ->
       FTKX (sh1 `shxAppend` shCvtRX sh2) x
@@ -339,8 +355,9 @@ varInAst var = \case
   AstXFromR v -> varInAst var v
   AstXFromS v -> varInAst var v
 
-  AstNestS v -> varInAst var v
-
+  AstXNestR v -> varInAst var v
+  AstXNestS v -> varInAst var v
+  AstXNest v -> varInAst var v
   AstXUnNestR v -> varInAst var v
   AstXUnNestS v -> varInAst var v
   AstXUnNest v -> varInAst var v

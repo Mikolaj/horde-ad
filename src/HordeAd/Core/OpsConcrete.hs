@@ -19,6 +19,7 @@ import System.Random
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Shape (StaticShX (..))
 import Data.Array.Nested
   (KnownShS (..), KnownShX (..), MapJust, Rank, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -257,27 +258,52 @@ instance BaseTensor RepN where
          => RepN (TKS2 sh r) -> RepN (TKX2 sh' r)
   xfromS = RepN . Nested.scastToMixed (knownShX @sh') . unRepN
 
-  snest shs t = RepN $ Nested.snest shs $ unRepN t
+  xnestR :: forall sh1 m x. TensorKind1 x
+         => StaticShX sh1 -> RepN (TKX2 (sh1 ++ Replicate m Nothing) x)
+         -> RepN (TKX2 sh1 (TKR2 m x))
+  xnestR sh =
+    RepN
+    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing)
+                                                      (RepORArray x))
+                    -> Nested.Mixed sh1 (Nested.Ranked m (RepORArray x)))
+    . Nested.mnest sh
+    . unRepN
+  xnestS :: forall sh1 sh2 x. TensorKind1 x
+         => StaticShX sh1 -> RepN (TKX2 (sh1 ++ MapJust sh2) x)
+         -> RepN (TKX2 sh1 (TKS2 sh2 x))
+  xnestS sh =
+    RepN
+    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Mixed (MapJust sh2)
+                                                      (RepORArray x))
+                    -> Nested.Mixed sh1 (Nested.Shaped m (RepORArray x)))
+    . Nested.mnest sh
+    . unRepN
+  xnest :: forall sh1 sh2 x. TensorKind1 x
+        => StaticShX sh1 -> RepN (TKX2 (sh1 ++ sh2) x)
+        -> RepN (TKX2 sh1 (TKX2 sh2 x))
+  xnest sh = RepN . Nested.mnest sh . unRepN
 
   xunNestR :: forall sh1 m x.
               RepN (TKX2 sh1 (TKR2 m x))
            -> RepN (TKX2 (sh1 ++ Replicate m Nothing) x)
-  xunNestR t =
-    RepN $ Nested.munNest
-    $ (unsafeCoerce :: Nested.Mixed sh1 (Nested.Ranked m (RepORArray x))
+  xunNestR =
+    RepN
+    . Nested.munNest
+    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Ranked m (RepORArray x))
                     -> Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing)
                                                       (RepORArray x)))
-    $ unRepN t
+    . unRepN
   xunNestS :: forall sh1 sh2 x.
               RepN (TKX2 sh1 (TKS2 sh2 x))
            -> RepN (TKX2 (sh1 ++ MapJust sh2) x)
-  xunNestS t =
-    RepN $ Nested.munNest
-    $ (unsafeCoerce :: Nested.Mixed sh1 (Nested.Shaped m (RepORArray x))
+  xunNestS =
+    RepN
+    . Nested.munNest
+    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Shaped m (RepORArray x))
                     -> Nested.Mixed sh1 (Nested.Mixed (MapJust sh2)
                                                       (RepORArray x)))
-    $ unRepN t
-  xunNest t = RepN $ Nested.munNest $ unRepN t
+    . unRepN
+  xunNest = RepN . Nested.munNest . unRepN
 
   tpair u v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN

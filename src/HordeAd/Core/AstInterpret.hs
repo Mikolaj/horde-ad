@@ -34,6 +34,7 @@ import Data.Array.Nested
   ( IxR (..)
   , IxS (..)
   , KnownShS (..)
+  , KnownShX (..)
   , ListR (..)
   , ListS (..)
   , Rank
@@ -883,7 +884,9 @@ interpretAst !env = \case
   AstXFromR v -> xfromR $ interpretAst env v
   AstXFromS v -> xfromS $ interpretAst env v
 
-  AstNestS v -> snest knownShS $ interpretAst env v
+  AstXNestR v -> xnestR knownShX $ interpretAst env v
+  AstXNestS v -> xnestS knownShX $ interpretAst env v
+  AstXNest v -> xnest knownShX $ interpretAst env v
   AstXUnNestR v -> xunNestR $ interpretAst env v
   AstXUnNestS v -> xunNestS $ interpretAst env v
   AstXUnNest v -> xunNest $ interpretAst env v

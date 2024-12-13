@@ -25,11 +25,13 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxFromShape)
+import Data.Array.Mixed.Shape
+  (pattern (:.%), pattern ZIX, ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IShR
   , IxS (..)
   , KnownShS (..)
+  , KnownShX (..)
   , ListS (..)
   , Rank
   , ShR (..)
@@ -44,7 +46,7 @@ import Data.Array.Nested
   , pattern ZS
   , type (++)
   )
-import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -489,9 +491,16 @@ build1V snat@SNat (var, v0) =
     Ast.AstXFromR v -> traceRule $ astXFromR $ build1V snat (var, v)
     Ast.AstXFromS v -> traceRule $ astXFromS $ build1V snat (var, v)
 
-    Ast.AstNestS @_ @sh1 @sh2 v -> traceRule $
-      withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-      astNestS $ build1V snat (var, v)
+    Ast.AstXNestR @sh1 @m v -> traceRule $
+      withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+        astXNestR $ build1V snat (var, v)
+    Ast.AstXNestS @sh1 @sh2 v -> traceRule $
+      withKnownShX (knownShX @sh1
+                    `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+      astXNestS $ build1V snat (var, v)
+    Ast.AstXNest  @sh1 @sh2 v -> traceRule $
+      withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+       astXNest $ build1V snat (var, v)
     Ast.AstXUnNestR v -> traceRule $ astXUnNestR $ build1V snat (var, v)
     Ast.AstXUnNestS v -> traceRule $ astXUnNestS $ build1V snat (var, v)
     Ast.AstXUnNest v -> traceRule $ astXUnNest $ build1V snat (var, v)

@@ -32,7 +32,7 @@ module HordeAd.Core.AstSimplify
   , astProject1, astProject2, astProjectR, astProjectS
   , astPrimalPart, astDualPart
   , astRFromS, astRFromX, astSFromR, astSFromX, astXFromR, astXFromS
-  , astNestS, astXUnNestR, astXUnNestS, astXUnNest
+  , astXNestR, astXNestS, astXNest, astXUnNestR, astXUnNestS, astXUnNest
   , astLetHVectorIn, astHApply, astLetFun
     -- * The simplifying bottom-up pass
   , simplifyAst
@@ -103,7 +103,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtSX)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -378,7 +378,9 @@ astNonIndexStep t = case t of
   Ast.AstSFromX v -> astSFromX v
   Ast.AstXFromR v -> astXFromR v
   Ast.AstXFromS v -> astXFromS v
-  Ast.AstNestS v -> astNestS v
+  Ast.AstXNestR v -> astXNestR v
+  Ast.AstXNestS v -> astXNestS v
+  Ast.AstXNest v -> astXNest v
   Ast.AstXUnNestR v -> astXUnNestR v
   Ast.AstXUnNestS v -> astXUnNestS v
   Ast.AstXUnNest v -> astXUnNest v
@@ -862,13 +864,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
                  :: Rank shm + Rank shn :~: Rank (shm ++ shn)) $
       astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
   Ast.AstSFromX _t -> error "TODO"
-  Ast.AstNestS{} -> Ast.AstIndexS v0 ix
-{- TODO:
-  Ast.AstNestS @_ @_ @sh2 v ->
-    withKnownShS (Nested.Internal.Shape.shsAppend (knownShS @shn) (knownShS @sh2)) $
-    gcastWith (unsafeCoerce Refl
-               :: (shm ++ shn) ++ sh2 :~: shm ++ (shn ++ sh2)) $
-    astNestS (astIndexRec v ix) -}
 
   Ast.AstApply{} -> Ast.AstIndexS v0 ix
 
@@ -2282,19 +2277,60 @@ astXFromS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astXFromS v
 -- impossible, shapes may differ: astXFromS (Ast.AstSFromX v) = v
 astXFromS v = Ast.AstXFromS v
 
-astNestS
-  :: forall r sh1 sh2 ms s.
-     (TensorKind1 r, KnownShS sh1, KnownShS sh2, AstSpan s)
-  => AstTensor ms s (TKS2 (sh1 ++ sh2) r)
-  -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 r))
-astNestS t = case t of
+astXNestR
+  :: forall sh1 m x ms s.
+     (TensorKind1 x, KnownShX sh1, KnownNat m, AstSpan s)
+  => AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
+  -> AstTensor ms s (TKX2 sh1 (TKR2 m x))
+astXNestR t = case t of
   Ast.AstLet var u2 d2 ->  -- TODO: good idea?
-    astLet var u2 (astNestS d2)
-  Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astNestS u
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astLet var u2 (astXNestR d2)
+  Ast.AstFromPrimal u ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    Ast.AstFromPrimal $ astXNestR u
   Ast.AstCond b v1 v2 ->
-    Ast.AstCond b (astNestS v1) (astNestS v2)  -- TODO: ??
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    Ast.AstCond b (astXNestR v1) (astXNestR v2)  -- TODO: ??
 -- TODO: when sh agrees:  Ast.AstUnNestS u -> u
-  _ -> Ast.AstNestS t
+  _ -> Ast.AstXNestR t
+
+astXNestS
+  :: forall sh1 sh2 x ms s.
+     (TensorKind1 x, KnownShX sh1, KnownShS sh2, AstSpan s)
+  => AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
+  -> AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
+astXNestS t = case t of
+  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astLet var u2 (astXNestS d2)
+  Ast.AstFromPrimal u ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    Ast.AstFromPrimal $ astXNestS u
+  Ast.AstCond b v1 v2 ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    Ast.AstCond b (astXNestS v1) (astXNestS v2)  -- TODO: ??
+  _ -> Ast.AstXNestS t
+
+astXNest
+  :: forall sh1 sh2 x ms s.
+     (TensorKind1 x, KnownShX sh1, KnownShX sh2, AstSpan s)
+  => AstTensor ms s (TKX2 (sh1 ++ sh2) x)
+  -> AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
+astXNest t = case t of
+  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astLet var u2 (astXNest d2)
+  Ast.AstFromPrimal u ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    Ast.AstFromPrimal $ astXNest u
+  Ast.AstCond b v1 v2 ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    Ast.AstCond b (astXNest v1) (astXNest v2)  -- TODO: ??
+  _ -> Ast.AstXNest t
 
 astXUnNestR
   :: forall sh1 m x ms s.
@@ -2425,9 +2461,16 @@ astPrimalPart t = case t of
   Ast.AstXFromR v -> astXFromR $ astPrimalPart v
   Ast.AstXFromS v -> astXFromS $ astPrimalPart v
 
-  Ast.AstNestS @_ @sh1 @sh2 v ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    astNestS $ astPrimalPart v
+  Ast.AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astXNestR $ astPrimalPart v
+  Ast.AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astXNestS $ astPrimalPart v
+  Ast.AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astXNest $ astPrimalPart v
   Ast.AstXUnNestR v -> astXUnNestR $ astPrimalPart v
   Ast.AstXUnNestS v -> astXUnNestS $ astPrimalPart v
   Ast.AstXUnNest v -> astXUnNest $ astPrimalPart v
@@ -2516,9 +2559,16 @@ astDualPart t = case t of
   Ast.AstXFromR v -> astXFromR $ astDualPart v
   Ast.AstXFromS v -> astXFromS $ astDualPart v
 
-  Ast.AstNestS @_ @sh1 @sh2 v ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    astNestS $ astDualPart v
+  Ast.AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astXNestR $ astDualPart v
+  Ast.AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astXNestS $ astDualPart v
+  Ast.AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astXNest $ astDualPart v
   Ast.AstXUnNestR v -> astXUnNestR $ astDualPart v
   Ast.AstXUnNestS v -> astXUnNestS $ astDualPart v
   Ast.AstXUnNest v -> astXUnNest $ astDualPart v
@@ -2816,9 +2866,16 @@ simplifyAst t = case t of
   Ast.AstXFromR v -> astXFromR $ simplifyAst v
   Ast.AstXFromS v -> astXFromS $ simplifyAst v
 
-  Ast.AstNestS @_ @sh1 @sh2 v ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    astNestS $ simplifyAst v
+  Ast.AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astXNestR $ simplifyAst v
+  Ast.AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astXNestS $ simplifyAst v
+  Ast.AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astXNest $ simplifyAst v
   Ast.AstXUnNestR v -> astXUnNestR $ simplifyAst v
   Ast.AstXUnNestS v -> astXUnNestS $ simplifyAst v
   Ast.AstXUnNest v -> astXUnNest $ simplifyAst v
@@ -3057,10 +3114,16 @@ expandAst t = case t of
   Ast.AstXFromR v -> astXFromR $ expandAst v
   Ast.AstXFromS v -> astXFromS $ expandAst v
 
-  Ast.AstNestS @_ @sh1 @sh2 v ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    astNestS $ expandAst v
-
+  Ast.AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astXNestR $ expandAst v
+  Ast.AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astXNestS $ expandAst v
+  Ast.AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astXNest $ expandAst v
   Ast.AstXUnNestR v -> astXUnNestR $ expandAst v
   Ast.AstXUnNestS v -> astXUnNestS $ expandAst v
   Ast.AstXUnNest v -> astXUnNest $ expandAst v
@@ -3631,10 +3694,16 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstXFromR v -> astXFromR <$> substitute1Ast i var v
   Ast.AstXFromS v -> astXFromS <$> substitute1Ast i var v
 
-  Ast.AstNestS @_ @sh1 @sh2 v ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    astNestS <$> substitute1Ast i var v
-
+  Ast.AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astXNestR <$> substitute1Ast i var v
+  Ast.AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astXNestS <$> substitute1Ast i var v
+  Ast.AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astXNest <$> substitute1Ast i var v
   Ast.AstXUnNestR v -> astXUnNestR <$> substitute1Ast i var v
   Ast.AstXUnNestS v -> astXUnNestS <$> substitute1Ast i var v
   Ast.AstXUnNest v -> astXUnNest <$> substitute1Ast i var v

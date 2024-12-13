@@ -24,7 +24,6 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 
 import Data.Array.Nested (IShR, KnownShS (..))
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -444,7 +443,15 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xfromR = astXFromR
   xfromS = astXFromS
 
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh = astNestS
+  xnestR sh =
+    withKnownShX sh $
+    astXNestR
+  xnestS sh =
+    withKnownShX sh $
+    astXNestS
+  xnest sh =
+    withKnownShX sh $
+    astXNest
   xunNestR = astXUnNestR
   xunNestS = astXUnNestS
   xunNest = astXUnNest
@@ -717,8 +724,15 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xfromR = AstRaw . AstXFromR . unAstRaw
   xfromS = AstRaw . AstXFromS . unAstRaw
 
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    AstRaw . AstNestS . unAstRaw
+  xnestR sh =
+    withKnownShX sh $
+    AstRaw . AstXNestR . unAstRaw
+  xnestS sh =
+    withKnownShX sh $
+    AstRaw . AstXNestS . unAstRaw
+  xnest sh =
+    withKnownShX sh $
+    AstRaw . AstXNest . unAstRaw
   xunNestR = AstRaw . AstXUnNestR . unAstRaw
   xunNestS = AstRaw . AstXUnNestS . unAstRaw
   xunNest = AstRaw . AstXUnNest . unAstRaw
@@ -962,8 +976,15 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xfromR = AstNoVectorize . xfromR  . unAstNoVectorize
   xfromS = AstNoVectorize . xfromS  . unAstNoVectorize
 
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    AstNoVectorize . astNestS . unAstNoVectorize
+  xnestR sh =
+    withKnownShX sh $
+    AstNoVectorize . astXNestR . unAstNoVectorize
+  xnestS sh =
+    withKnownShX sh $
+    AstNoVectorize . astXNestS . unAstNoVectorize
+  xnest sh =
+    withKnownShX sh $
+    AstNoVectorize . astXNest . unAstNoVectorize
   xunNestR = AstNoVectorize . astXUnNestR . unAstNoVectorize
   xunNestS = AstNoVectorize . astXUnNestS . unAstNoVectorize
   xunNest = AstNoVectorize . astXUnNest . unAstNoVectorize
@@ -1213,8 +1234,15 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xfromR = AstNoSimplify . AstXFromR . unAstNoSimplify
   xfromS = AstNoSimplify . AstXFromS . unAstNoSimplify
 
-  snest sh | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    AstNoSimplify . AstNestS . unAstNoSimplify
+  xnestR sh =
+    withKnownShX sh $
+    AstNoSimplify . AstXNestR . unAstNoSimplify
+  xnestS sh =
+    withKnownShX sh $
+    AstNoSimplify . AstXNestS . unAstNoSimplify
+  xnest sh =
+    withKnownShX sh $
+    AstNoSimplify . AstXNest . unAstNoSimplify
   xunNestR = AstNoSimplify . AstXUnNestR . unAstNoSimplify
   xunNestS = AstNoSimplify . AstXUnNestS . unAstNoSimplify
   xunNest = AstNoSimplify . AstXUnNest . unAstNoSimplify

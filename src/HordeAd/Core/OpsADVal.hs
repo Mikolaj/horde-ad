@@ -26,11 +26,11 @@ import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Shape (StaticShX, ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
-  (IShR, KnownShS (..), KnownShX (..), MapJust, Rank, Replicate, ShS, type (++))
+  (IShR, KnownShS (..), KnownShX (..), MapJust, Rank, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtSX)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
@@ -463,13 +463,31 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     dDnotShared (xfromR u) (XFromR u')
   xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
 
-  snest :: forall sh1 sh2 x.
-           (TensorKind1 x, KnownShS sh2)
-        => ShS sh1 -> ADVal target (TKS2 (sh1 ++ sh2) x)
-        -> ADVal target (TKS2 sh1 (TKS2 sh2 x))
-  snest sh (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS sh =
-    withKnownShS (sh `shsAppend` knownShS @sh2) $
-    dD (snest sh u) (NestS u')
+  xnestR :: forall sh1 m x.
+            (TensorKind1 x, KnownNat m)
+         => StaticShX sh1 -> ADVal target (TKX2 (sh1 ++ Replicate m Nothing) x)
+         -> ADVal target (TKX2 sh1 (TKR2 m x))
+  xnestR sh1 (D u u') =
+    withKnownShX sh1 $
+    withKnownShX (sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    dD (xnestR sh1 u) (XNestR u')
+  xnestS :: forall sh1 sh2 x.
+            (TensorKind1 x, KnownShS sh2)
+         => StaticShX sh1 -> ADVal target (TKX2 (sh1 ++ MapJust sh2) x)
+         -> ADVal target (TKX2 sh1 (TKS2 sh2 x))
+  xnestS sh1 (D u u') =
+    withKnownShX sh1 $
+    withKnownShX (sh1 `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    dD (xnestS sh1 u) (XNestS u')
+  xnest :: forall sh1 sh2 x.
+           (TensorKind1 x, KnownShX sh2)
+        => StaticShX sh1 -> ADVal target (TKX2 (sh1 ++ sh2) x)
+        -> ADVal target (TKX2 sh1 (TKX2 sh2 x))
+  xnest sh1 (D u u') =
+    withKnownShX sh1 $
+    withKnownShX (sh1 `ssxAppend` knownShX @sh2) $
+    dD (xnest sh1 u) (XNest u')
+
   xunNestR :: forall sh1 m x.
               (TensorKind1 x, KnownShX sh1, KnownNat m)
            => ADVal target (TKX2 sh1 (TKR2 m x))
