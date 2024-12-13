@@ -27,7 +27,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, Nat, SomeNat (..), sameNat, someNatVal, type (+))
+import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -153,26 +153,26 @@ type family UnWind tk where
     UnWind (TKX2 (Replicate n Nothing ++ sh2) x)
   UnWind (TKR2 n (TKProduct y z)) =
     TKProduct (UnWind (TKR2 n y)) (UnWind (TKR2 n z))
-  UnWind (TKS2 sh (TKScalar r)) =
-    TKS2 sh (TKScalar r)
+  UnWind (TKS2 sh1 (TKScalar r)) =
+    TKS2 sh1 (TKScalar r)
   UnWind (TKS2 sh1 (TKR2 m x)) =
-    UnWind (TKR2 (Rank sh1 + m) x)
+    UnWind (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
   UnWind (TKS2 sh1 (TKS2 sh2 x)) =
     UnWind (TKS2 (sh1 ++ sh2) x)
   UnWind (TKS2 sh1 (TKX2 sh2 x)) =
     UnWind (TKX2 (MapJust sh1 ++ sh2) x)
-  UnWind (TKS2 sh (TKProduct y z)) =
-    TKProduct (UnWind (TKS2 sh y)) (UnWind (TKS2 sh z))
-  UnWind (TKX2 sh (TKScalar r)) =
-    TKX2 sh (TKScalar r)
+  UnWind (TKS2 sh1 (TKProduct y z)) =
+    TKProduct (UnWind (TKS2 sh1 y)) (UnWind (TKS2 sh1 z))
+  UnWind (TKX2 sh1 (TKScalar r)) =
+    TKX2 sh1 (TKScalar r)
   UnWind (TKX2 sh1 (TKR2 m x)) =
-    UnWind (TKR2 (Rank sh1 + m) x)
+    UnWind (TKX2 (sh1 ++ Replicate m Nothing) x)
   UnWind (TKX2 sh1 (TKS2 sh2 x)) =
     UnWind (TKX2 (sh1 ++ MapJust sh2) x)
   UnWind (TKX2 sh1 (TKX2 sh2 x)) =
     UnWind (TKX2 (sh1 ++ sh2) x)
-  UnWind (TKX2 sh (TKProduct y z)) =
-    TKProduct (UnWind (TKX2 sh y)) (UnWind (TKX2 sh z))
+  UnWind (TKX2 sh1 (TKProduct y z)) =
+    TKProduct (UnWind (TKX2 sh1 y)) (UnWind (TKX2 sh1 z))
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
   UnWind TKUntyped =
@@ -185,31 +185,32 @@ unWindSTK = \case
   stk@(STKR _ STKScalar{}) -> stk
   STKR (SNat @n) (STKR (SNat @m) stk2) ->
     unWindSTK $ STKR (SNat @(n + m)) stk2
-  STKR n (STKS sh stk2) ->
+  STKR n (STKS sh2 stk2) ->
     unWindSTK
-    $ STKX (ssxReplicate n `ssxAppend` ssxFromShape (shCvtSX sh)) stk2
-  STKR n (STKX sh stk2) ->
-    unWindSTK $ STKX (ssxReplicate n `ssxAppend` sh) stk2
+    $ STKX (ssxReplicate n `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2
+  STKR n (STKX sh2 stk2) ->
+    unWindSTK $ STKX (ssxReplicate n `ssxAppend` sh2) stk2
   STKR n (STKProduct y z) ->
     unWindSTK $ STKProduct (STKR n y) (STKR n z)
   stk@(STKS _ STKScalar{}) -> stk
-  STKS @sh sh (STKR (SNat @m) stk2) | Dict <- lemKnownNatRankS sh ->
-    unWindSTK $ STKR (SNat @(Rank sh + m)) stk2
-  STKS sh (STKS sh2 stk2) ->
-    unWindSTK $ STKS (shsAppend sh sh2) stk2
-  STKS sh (STKX sh2 stk2) ->
-    unWindSTK $ STKX (ssxFromShape (shCvtSX sh) `ssxAppend` sh2) stk2
-  STKS sh (STKProduct y z) ->
-    unWindSTK $ STKProduct (STKS sh y) (STKS sh z)
+  STKS sh1 (STKR m stk2) ->
+    unWindSTK
+    $ STKX (ssxFromShape (shCvtSX sh1) `ssxAppend` ssxReplicate m) stk2
+  STKS sh1 (STKS sh2 stk2) ->
+    unWindSTK $ STKS (shsAppend sh1 sh2) stk2
+  STKS sh1 (STKX sh2 stk2) ->
+    unWindSTK $ STKX (ssxFromShape (shCvtSX sh1) `ssxAppend` sh2) stk2
+  STKS sh1 (STKProduct y z) ->
+    unWindSTK $ STKProduct (STKS sh1 y) (STKS sh1 z)
   stk@(STKX _ STKScalar{}) -> stk
-  STKX @sh sh (STKR (SNat @m) stk2) | Dict <- lemKnownNatRankX sh ->
-    unWindSTK $ STKR (SNat @(Rank sh + m)) stk2
-  STKX sh (STKS sh2 stk2) ->
-    unWindSTK $ STKX (sh `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2
-  STKX sh (STKX sh2 stk2) ->
-    unWindSTK $ STKX (sh `ssxAppend` sh2) stk2
-  STKX sh (STKProduct y z) ->
-    unWindSTK $ STKProduct (STKX sh y) (STKX sh z)
+  STKX sh1 (STKR m stk2) ->
+    unWindSTK $ STKX (sh1 `ssxAppend` ssxReplicate m) stk2
+  STKX sh1 (STKS sh2 stk2) ->
+    unWindSTK $ STKX (sh1 `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2
+  STKX sh1 (STKX sh2 stk2) ->
+    unWindSTK $ STKX (sh1 `ssxAppend` sh2) stk2
+  STKX sh1 (STKProduct y z) ->
+    unWindSTK $ STKProduct (STKX sh1 y) (STKX sh1 z)
   STKProduct y z | (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK y)
                  , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK z) ->
     STKProduct (unWindSTK y) (unWindSTK z)
@@ -225,47 +226,41 @@ unWindShare stk t = case stk of
   STKR SNat STKScalar{} -> DTKR t
   STKR (SNat @n) (STKR (SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
     unWindShare (STKR (SNat @(n + m)) stk2) (runNest t)
-  STKR n@(SNat @n) (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
-    gcastWith (unsafeCoerce Refl
-               :: Rank (Replicate n (Nothing @Nat)) :~: n) $
-    withKnownShX sh2 $ withKnownShX (ssxReplicate n)
-    $ withKnownShX (ssxReplicate n `ssxAppend` sh2)
-    $ unWindShare (STKX (ssxReplicate n `ssxAppend` sh2) stk2)
-                  (xunNest $ xfromR @_ @(Replicate n (Nothing @Nat)) t)
+  STKR n@SNat (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh2 $
+    unWindShare (STKX (ssxReplicate n `ssxAppend` sh2) stk2)
+                (runNestX t)
   STKR n@SNat (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
                                      , Dict <- lemTensorKindOfSTK stk2 ->
     unWindShare (STKProduct (STKR n stk1) (STKR n stk2)) (runzip t)
-  STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
-  STKS @sh sh (STKR (SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2
-                                    , Dict <- lemKnownNatRankS sh ->
-    withKnownShS sh
-    $ unWindShare (STKR (SNat @(Rank sh + m)) stk2) (runNest $ rfromS t)
-  STKS sh (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShS sh $ withKnownShS sh2 $ withKnownShS (shsAppend sh sh2)
-    $ unWindShare (STKS (shsAppend sh sh2) stk2) (sunNest t)
-  STKS @sh sh (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh) :~: Rank sh) $
-    withKnownShX sh2 $ withKnownShS sh
-    $ withKnownShX (ssxFromShape (shCvtSX sh))
-    $ withKnownShX (ssxFromShape (shCvtSX sh) `ssxAppend` sh2)
-    $ unWindShare (STKX (ssxFromShape (shCvtSX sh) `ssxAppend` sh2) stk2)
-                  (xunNest $ xfromS @_ @_ @(MapJust sh) t)
-  STKS sh (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShS sh
-    $ unWindShare (STKProduct (STKS sh stk1) (STKS sh stk2)) (sunzip t)
-  STKX sh STKScalar{} -> withKnownShX sh $ DTKX t
-  STKX @sh sh (STKR (SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2
-                                    , Dict <- lemKnownNatRankX sh ->
-    withKnownShX sh
-    $ unWindShare (STKR (SNat @(Rank sh + m)) stk2) (runNest $ rfromX t)
-  STKX sh (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShX sh $ withKnownShX sh2 $ withKnownShX (ssxAppend sh sh2)
-    $ unWindShare (STKX (ssxAppend sh sh2) stk2) (xunNest t)
-  STKX sh (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShX sh
-    $ unWindShare (STKProduct (STKX sh stk1) (STKX sh stk2)) (xunzip t)
+  STKS sh1 STKScalar{} -> withKnownShS sh1 $ DTKS t
+  STKS sh1 (STKR m@(SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh1 $
+    unWindShare (STKX (ssxFromShape (shCvtSX sh1)
+                       `ssxAppend` ssxReplicate m) stk2) (sunNestR @_ @_ @m t)
+  STKS sh1 (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh1 $ withKnownShS sh2 $
+    unWindShare (STKS (shsAppend sh1 sh2) stk2) (sunNest t)
+  STKS sh1 (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh2 $ withKnownShS sh1 $
+    unWindShare (STKX (ssxFromShape (shCvtSX sh1) `ssxAppend` sh2) stk2)
+                (sunNestX t)
+  STKS sh1 (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
+                                  , Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh1 $
+    unWindShare (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) (sunzip t)
+  STKX sh1 STKScalar{} -> withKnownShX sh1 $ DTKX t
+  STKX sh1 (STKR m@(SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh1 $
+    unWindShare (STKX (sh1 `ssxAppend` ssxReplicate m) stk2)
+                      (xunNestR @_ @_ @m t)
+  STKX sh1 (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh1 $ withKnownShX sh2 $ withKnownShX (ssxAppend sh1 sh2) $
+    unWindShare (STKX (ssxAppend sh1 sh2) stk2) (xunNest t)
+  STKX sh1 (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
+                                  , Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh1 $
+    unWindShare (STKProduct (STKX sh1 stk1) (STKX sh1 stk2)) (xunzip t)
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                        , Dict <- lemTensorKindOfSTK stk2
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
