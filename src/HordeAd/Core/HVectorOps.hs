@@ -6,9 +6,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( addTarget
-  , RepD(..)
-  , toRepDDuplicable, fromRepD, addRepD, addDynamic
+  ( addTarget, RepD(..), addDynamic
   , sizeHVector, shapeDynamic, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromDynamicR, fromDynamicS, unravelHVector, ravelHVector
@@ -73,26 +71,6 @@ data RepD target y where
              -> RepD target (TKProduct x z)
   DTKUntyped :: HVector target
              -> RepD target TKUntyped
-
--- The argument of the first call (but not of recursive calls)
--- is assumed to be duplicable. In AST case, this creates
--- a tower of projections for product, but if it's balanced,
--- that's of logarithmic length, so maybe even better than sharing
--- excessively, which is hard for technical typing reasons.
-toRepDDuplicable
-  :: BaseTensor target
-  => STensorKindType x -> target x -> RepD target x
-toRepDDuplicable stk t = case stk of
-  STKScalar _ -> DTKScalar t
-  STKR SNat STKScalar{} -> DTKR t
-  STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
-  STKX sh STKScalar{} -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                       , Dict <- lemTensorKindOfSTK stk2 ->
-    DTKProduct (toRepDDuplicable stk1 (tproject1 t))
-               (toRepDDuplicable stk2 (tproject2 t))
-  STKUntyped{} -> DTKUntyped $ dunHVector t
-  _ -> error "TODO"
 
 fromRepD :: BaseTensor target
          => RepD target y -> target y

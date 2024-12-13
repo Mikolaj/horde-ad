@@ -661,8 +661,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               in tlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = taddLet stensorKind (tproject1 daccRes_deRes)
-                                                  (tproject1 db1)
+                  let added = addTarget stensorKind (tproject1 daccRes_deRes)
+                                                    (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumRDer (Proxy @target)
                           k accShs codomainShs eShs
@@ -748,8 +748,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               in tlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = taddLet stensorKind (tproject1 daccRes_deRes)
-                                                  (tproject1 db1)
+                  let added = addTarget stensorKind (tproject1 daccRes_deRes)
+                                                    (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = dmapAccumLDer (Proxy @target)
                           k accShs codomainShs eShs
@@ -772,14 +772,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                          q es
                          df rf acc0' es'
     in dD (tpair accFin bs) dual
-
-taddLet :: ADReady target
-        => STensorKindType y -> target y -> target y -> target y
-taddLet stk t1 t2 | Dict <- lemTensorKindOfSTK stk =
-  tlet t1 $ \ !u1 ->
-  tlet t2 $ \ !u2 ->
-    fromRepD $ addRepD (toRepDDuplicable stk u1)
-                       (toRepDDuplicable stk u2)
 
 unADValDynamicTensor
   :: DynamicTensor (ADVal f)
