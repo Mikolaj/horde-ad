@@ -215,9 +215,9 @@ unWindSTK = \case
                  , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK z) ->
     STKProduct (unWindSTK y) (unWindSTK z)
   stk@STKUntyped -> stk
-  STKR _ STKUntyped -> error "unWindSTK: STKUntyped can't be nested in arrays"
-  STKS _ STKUntyped -> error "unWindSTK: STKUntyped can't be nested in arrays"
-  STKX _ STKUntyped -> error "unWindSTK: STKUntyped can't be nested in arrays"
+  STKR _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
+  STKS _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
+  STKX _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
 
 unWindShare :: (BaseTensor target, ShareTensor target)
             => STensorKindType y -> target y -> RepD target (UnWind y)
@@ -288,27 +288,51 @@ windShare :: (BaseTensor target, ShareTensor target)
 windShare stk t = case stk of
   STKScalar{} -> t
   STKR _ STKScalar{} -> t
-  STKR (SNat @n) (STKR (SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
-    rnest (SNat @n) $ windShare (STKR (SNat @(n + m)) stk2) t
+  STKR n@(SNat @n) (STKR (SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    rnest n $ windShare (STKR (SNat @(n + m)) stk2) t
+  STKR n (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh2 $
+    rnestS n
+    $ windShare (STKX (ssxReplicate n
+                       `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2) t
+  STKR n (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh2 $
+    rnestX n
+    $ windShare (STKX (ssxReplicate n `ssxAppend` sh2) stk2) t
   STKR n@SNat (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
                                      , Dict <- lemTensorKindOfSTK stk2 ->
     rzip $ windShare (STKProduct (STKR n stk1) (STKR n stk2)) t
   STKS _ STKScalar{} -> t
-  STKS sh (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShS sh2 $ withKnownShS (shsAppend sh sh2)
-    $ snest sh $ windShare (STKS (shsAppend sh sh2) stk2) t
-  STKS sh (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShS sh
-    $ szip $ windShare (STKProduct (STKS sh stk1) (STKS sh stk2)) t
+  STKS sh1 (STKR m@SNat stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    snestR sh1
+    $ windShare (STKX (ssxFromShape (shCvtSX sh1)
+                       `ssxAppend` ssxReplicate m) stk2) t
+  STKS sh1 (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh2 $
+    snest sh1 $ windShare (STKS (shsAppend sh1 sh2) stk2) t
+  STKS sh1 (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh2 $
+    snestX sh1 $ windShare (STKX (ssxFromShape (shCvtSX sh1)
+                                  `ssxAppend` sh2) stk2) t
+  STKS sh1 (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
+                                  , Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh1 $
+    szip $ windShare (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) t
   STKX _ STKScalar{} -> t
-  STKX sh (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShX sh2 $ withKnownShX (ssxAppend sh sh2)
-    $ xnest sh $ windShare (STKX (ssxAppend sh sh2) stk2) t
-  STKX sh (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-    withKnownShX sh
-    $ xzip $ windShare (STKProduct (STKX sh stk1) (STKX sh stk2)) t
+  STKX sh1 (STKR m@SNat stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    xnestR sh1
+    $ windShare (STKX (sh1 `ssxAppend` ssxReplicate m) stk2) t
+  STKX sh1 (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShS sh2 $
+    xnestS sh1
+    $ windShare (STKX (sh1 `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2) t
+  STKX sh1 (STKX sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh2 $
+    xnest sh1 $ windShare (STKX (ssxAppend sh1 sh2) stk2) t
+  STKX sh1 (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
+                                  , Dict <- lemTensorKindOfSTK stk2 ->
+    withKnownShX sh1 $
+    xzip $ windShare (STKProduct (STKX sh1 stk1) (STKX sh1 stk2)) t
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                        , Dict <- lemTensorKindOfSTK stk2
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
@@ -316,7 +340,9 @@ windShare stk t = case stk of
     let (t1, t2) = tunpair t
     in tpair (windShare stk1 t1) (windShare stk2 t2)
   STKUntyped -> t
-  _ -> error "TODO"
+  STKR _ STKUntyped -> error "windShare: TKUntyped can't be nested in arrays"
+  STKS _ STKUntyped -> error "windShare: TKUntyped can't be nested in arrays"
+  STKX _ STKUntyped -> error "windShare: TKUntyped can't be nested in arrays"
 
 addShare ::
   (ADReadyNoLet target, ShareTensor target)
