@@ -76,8 +76,6 @@ instance ShareTensor RepN where
   tshare = id
   tunpair (RepN (t1, t2)) = (RepN t1, RepN t2)
   tunvector = unRepN
-  taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
-                                           (toRepDShare stk t2)
 
 instance BaseTensor RepN where
   rshape = tshapeR . unRepN

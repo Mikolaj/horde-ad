@@ -130,8 +130,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                      in (dDnotShared u1 d1, dDnotShared u2 d2)
   tunvector (D u u') = let vh = tunvector u
                        in ahhToHVector vh u'
-  taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
-                                           (toRepDShare stk t2)
 
 
 -- * Base tensor instance

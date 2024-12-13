@@ -619,8 +619,6 @@ instance AstSpan s => ShareTensor (AstRaw s) where
               in (tproject1 tShared, tproject2 tShared)
   tunvector (AstRaw (AstMkHVector l)) = rawHVector l
   tunvector t = dunHVector $ tshare t
-  taddShare stk t1 t2 = fromRepD $ addRepD (toRepDShare stk t1)
-                                           (toRepDShare stk t2)
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw

@@ -154,7 +154,6 @@ class ShareTensor (target :: Target) where
   tunpair :: (TensorKind1 x, TensorKind1 z)
           => target (TKProduct x z) -> (target x, target z)
   tunvector :: target TKUntyped -> HVector target
-  taddShare :: STensorKindType y -> target y -> target y -> target y
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.

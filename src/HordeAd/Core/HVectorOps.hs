@@ -8,7 +8,7 @@
 module HordeAd.Core.HVectorOps
   ( addShare
   , RepD(..)
-  , toRepDShare, toRepDDuplicable, fromRepD, addRepD, addDynamic
+  , toRepDDuplicable, fromRepD, addRepD, addDynamic
   , sizeHVector, shapeDynamic, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromDynamicR, fromDynamicS, unravelHVector, ravelHVector
@@ -73,21 +73,6 @@ data RepD target y where
              -> RepD target (TKProduct x z)
   DTKUntyped :: HVector target
              -> RepD target TKUntyped
-
-toRepDShare
-  :: ShareTensor target
-  => STensorKindType x -> target x -> RepD target x
-toRepDShare stk t = case stk of
-  STKScalar _ -> DTKScalar t
-  STKR SNat STKScalar{} -> DTKR t
-  STKS sh STKScalar{} -> withKnownShS sh $ DTKS t
-  STKX sh STKScalar{} -> withKnownShX sh $ DTKX t
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                       , Dict <- lemTensorKindOfSTK stk2 ->
-    let (t1, t2) = tunpair t
-    in DTKProduct (toRepDShare stk1 t1) (toRepDShare stk2 t2)
-  STKUntyped{} -> DTKUntyped $ tunvector t
-  _ -> error "TODO"
 
 -- The argument of the first call (but not of recursive calls)
 -- is assumed to be duplicable. In AST case, this creates

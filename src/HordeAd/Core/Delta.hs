@@ -1090,7 +1090,7 @@ evalR !s !c d0 = case d0 of
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
-          let addc x = RepAD $ taddShare stensorKind c (unRepAD x)
+          let addc x = RepAD $ addShare stensorKind c (unRepAD x)
           in s {dMap = DMap.adjust addc n $ dMap s}
         Nothing ->
           let cd = RepAD c
