@@ -204,7 +204,14 @@ unWindSTK = \case
   STKS _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
   STKX _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
 
-unWindShare :: (BaseTensor target, ShareTensor target)
+-- This uses tunpairDup so to preserve sharing, `target` either has
+-- to have a ShareTensor instance or the argument has to be duplicable.
+-- Only the argument of the first call, not of recursive calls,
+-- is assumed to be duplicable. In the AST case, this creates
+-- a tower of projections for product, but if it's balanced,
+-- that's of logarithmic length, so maybe even better than sharing
+-- excessively, which is hard for technical typing reasons.
+unWindShare :: BaseTensor target
             => STensorKindType y -> target y -> RepD target (UnWind y)
 unWindShare stk t = case stk of
   STKScalar{} -> DTKScalar t
@@ -259,16 +266,16 @@ unWindShare stk t = case stk of
                        , Dict <- lemTensorKindOfSTK stk2
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
-    let (t1, t2) = tunpair t
+    let (t1, t2) = tunpairDup t
     in DTKProduct (unWindShare stk1 t1) (unWindShare stk2 t2)
   STKUntyped ->
-    let vt = tunvector t
+    let vt = dunHVector t
     in DTKUntyped vt
   STKR _ STKUntyped -> error "unWindShare: TKUntyped can't be nested in arrays"
   STKS _ STKUntyped -> error "unWindShare: TKUntyped can't be nested in arrays"
   STKX _ STKUntyped -> error "unWindShare: TKUntyped can't be nested in arrays"
 
-windShare :: (BaseTensor target, ShareTensor target)
+windShare :: BaseTensor target
           => STensorKindType y -> target (UnWind y) -> target y
 windShare stk t = case stk of
   STKScalar{} -> t
@@ -322,17 +329,15 @@ windShare stk t = case stk of
                        , Dict <- lemTensorKindOfSTK stk2
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
-    let (t1, t2) = tunpair t
+    let (t1, t2) = tunpairDup t  -- but t is a tpair due to fromRepD
     in tpair (windShare stk1 t1) (windShare stk2 t2)
   STKUntyped -> t
   STKR _ STKUntyped -> error "windShare: TKUntyped can't be nested in arrays"
   STKS _ STKUntyped -> error "windShare: TKUntyped can't be nested in arrays"
   STKX _ STKUntyped -> error "windShare: TKUntyped can't be nested in arrays"
 
-addShare ::
-  (ADReadyNoLet target, ShareTensor target)
-  => STensorKindType y
-  -> target y -> target y -> target y
+addShare :: ADReadyNoLet target
+         => STensorKindType y -> target y -> target y -> target y
 addShare stk a b =
   let a2 = unWindShare stk a
       b2 = unWindShare stk b
