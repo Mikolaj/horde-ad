@@ -913,16 +913,73 @@ class ( Num (IntOf target)
            (TensorKind1 x, KnownNat m)
         => SNat n -> target (TKR2 (n + m) x)
         -> target (TKR2 n (TKR2 m x))
+  rnest n@SNat =
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)
+                                          ++ Replicate m Nothing) :~: n + m) $
+    gcastWith (unsafeCoerce Refl :: Replicate (n + m) (Nothing @Nat)
+                                    :~: Replicate n (Nothing @Nat)
+                                        ++ Replicate m Nothing) $
+    withKnownShX (ssxReplicate n) $
+    withKnownShX (ssxReplicate (SNat @(n + m))) $
+    rfromX . xnestR (ssxReplicate n) . xfromR @_ @(Replicate (n + m) Nothing)
+  -- Some of these operations have akward type signatures, but these
+  -- are the most type-safe or the strongest versions of the typing possible.
+  rnestS :: forall n sh2 x.
+            (TensorKind1 x, KnownShS sh2)
+         => SNat n -> target (TKX2 (Replicate n Nothing ++ MapJust sh2) x)
+         -> target (TKR2 n (TKS2 sh2 x))
+  rnestS n@SNat =
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    withKnownShX (ssxReplicate n) $
+    rfromX . xnestS (ssxReplicate n)
+  rnestX :: forall n sh2 x.
+            (TensorKind1 x, KnownShX sh2)
+         => SNat n -> target (TKX2 (Replicate n Nothing ++ sh2) x)
+         -> target (TKR2 n (TKX2 sh2 x))
+  rnestX n@SNat =
+    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    withKnownShX (ssxReplicate n) $
+    rfromX . xnest (ssxReplicate n)
+  snestR :: forall sh1 m x.
+            (TensorKind1 x, KnownNat m)
+         => ShS sh1 -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
+         -> target (TKS2 sh1 (TKR2 m x))
+  snestR sh1 =
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    withKnownShS sh1 $
+    withKnownShX (ssxFromShape (shCvtSX sh1)) $
+    sfromX . xnestR (ssxFromShape (shCvtSX sh1))
   snest :: forall sh1 sh2 x.
            (TensorKind1 x, KnownShS sh2)
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
         -> target (TKS2 sh1 (TKS2 sh2 x))
+  snest sh1 =
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1 ++ MapJust sh2)
+                                    :~: Rank (sh1 ++ sh2)) $
+    withKnownShS sh1 $
+    withKnownShX (ssxFromShape (shCvtSX sh1)) $
+    withKnownShS (sh1 `shsAppend` knownShS @sh2) $
+    withKnownShX (ssxFromShape (shCvtSX sh1)
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    sfromX . xnestS (ssxFromShape (shCvtSX sh1)) . xfromS
+  snestX :: forall sh1 sh2 x.
+            (TensorKind1 x, KnownShX sh2)
+         => ShS sh1 -> target (TKX2 (MapJust sh1 ++ sh2) x)
+         -> target (TKS2 sh1 (TKX2 sh2 x))
+  snestX sh1 =
+    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    withKnownShS sh1 $
+    withKnownShX (ssxFromShape (shCvtSX sh1)) $
+    sfromX . xnest (ssxFromShape (shCvtSX sh1))
+  -- These three are primitives; the others are defined from them.
   xnestR :: forall sh1 m x.
-            (TensorKind1 x, KnownShX sh1, KnownNat m)
+            (TensorKind1 x, KnownNat m)
          => StaticShX sh1 -> target (TKX2 (sh1 ++ Replicate m Nothing) x)
          -> target (TKX2 sh1 (TKR2 m x))
   xnestS :: forall sh1 sh2 x.
-            (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+            (TensorKind1 x, KnownShS sh2)
          => StaticShX sh1 -> target (TKX2 (sh1 ++ MapJust sh2) x)
          -> target (TKX2 sh1 (TKS2 sh2 x))
   xnest :: forall sh1 sh2 x.
