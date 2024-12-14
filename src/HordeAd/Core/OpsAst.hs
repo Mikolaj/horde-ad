@@ -372,6 +372,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                          -- this introduces new variable names
   rcast = astCastR
   rfromIntegral = fromPrimal . astFromIntegralR . astSpanPrimal
+  rzip = AstZipR
+  runzip = AstUnzipR
   rtoScalar = AstToScalar . AstSFromR
   rfromScalar = AstRFromS . AstFromScalar
 
@@ -387,6 +389,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xfromVector = AstFromVectorX
   xreplicate = AstReplicate SNat
   xtoScalar = AstToScalar . AstSFromX
+  xzip = AstZipX
+  xunzip = AstUnzipX
   xfromScalar = AstXFromS . AstFromScalar
   xfromPrimal = fromPrimal
   xprimalPart = astSpanPrimal
@@ -423,6 +427,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                       -- this introduces new variable names
   scast = astCastS
   sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
+  szip = AstZipS
+  sunzip = AstUnzipS
   stoScalar = AstToScalar
   sfromScalar = AstFromScalar
 
@@ -669,6 +675,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rcast = AstRaw . AstCastR . unAstRaw
   rfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralR . astSpanPrimalRaw . unAstRaw
+  rzip = AstRaw . AstZipR . unAstRaw
+  runzip = AstRaw . AstUnzipR . unAstRaw
   rtoScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
   rfromScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
 
@@ -686,6 +694,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
   xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
   xreplicate = AstRaw . AstReplicate SNat . unAstRaw
+  xzip = AstRaw . AstZipX . unAstRaw
+  xunzip = AstRaw . AstUnzipX . unAstRaw
   xtoScalar = AstRaw . AstToScalar . AstSFromX . unAstRaw
   xfromScalar = AstRaw . AstXFromS . AstFromScalar . unAstRaw
   xfromPrimal = AstRaw . fromPrimal . unAstRaw
@@ -721,6 +731,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   scast = AstRaw . AstCastS . unAstRaw
   sfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . astSpanPrimalRaw . unAstRaw
+  szip = AstRaw . AstZipS . unAstRaw
+  sunzip = AstRaw . AstUnzipS . unAstRaw
   stoScalar = AstRaw . AstToScalar . unAstRaw
   sfromScalar = AstRaw . AstFromScalar . unAstRaw
 
@@ -912,6 +924,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                     $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   rcast = AstNoVectorize . rcast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
+  rzip = AstNoVectorize . AstZipR . unAstNoVectorize
+  runzip = AstNoVectorize . AstUnzipR . unAstNoVectorize
   rtoScalar = AstNoVectorize . rtoScalar . unAstNoVectorize
   rfromScalar = AstNoVectorize . rfromScalar . unAstNoVectorize
 
@@ -927,6 +941,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   xfromVector = AstNoVectorize . xfromVector . V.map unAstNoVectorize
   xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
+  xzip = AstNoVectorize . AstZipX . unAstNoVectorize
+  xunzip = AstNoVectorize . AstUnzipX . unAstNoVectorize
   xtoScalar = AstNoVectorize . xtoScalar . unAstNoVectorize
   xfromScalar = AstNoVectorize . xfromScalar . unAstNoVectorize
   xfromPrimal = AstNoVectorize . xfromPrimal . unAstNoVectorize
@@ -964,6 +980,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                 $ fmap (unAstNoVectorize) . f . fmap AstNoVectorize
   scast = AstNoVectorize . scast . unAstNoVectorize
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
+  szip = AstNoVectorize . AstZipS . unAstNoVectorize
+  sunzip = AstNoVectorize . AstUnzipS . unAstNoVectorize
   stoScalar = AstNoVectorize . stoScalar . unAstNoVectorize
   sfromScalar = AstNoVectorize . sfromScalar . unAstNoVectorize
 
@@ -1160,6 +1178,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rcast = AstNoSimplify . AstCastR . unAstNoSimplify
   rfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralR
                   . astSpanPrimal . unAstNoSimplify
+  rzip = AstNoSimplify . AstZipR . unAstNoSimplify
+  runzip = AstNoSimplify . AstUnzipR . unAstNoSimplify
   rtoScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify
   rfromScalar = AstNoSimplify . AstRFromS . AstFromScalar . unAstNoSimplify
 
@@ -1177,6 +1197,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify
   xreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
+  xzip = AstNoSimplify . AstZipX . unAstNoSimplify
+  xunzip = AstNoSimplify . AstUnzipX . unAstNoSimplify
   xtoScalar = AstNoSimplify . AstToScalar . AstSFromX . unAstNoSimplify
   xfromScalar = AstNoSimplify . AstXFromS . AstFromScalar . unAstNoSimplify
   xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
@@ -1220,6 +1242,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   scast = AstNoSimplify . AstCastS . unAstNoSimplify
   sfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralS
                   . astSpanPrimal . unAstNoSimplify
+  szip = AstNoSimplify . AstZipS . unAstNoSimplify
+  sunzip = AstNoSimplify . AstUnzipS . unAstNoSimplify
   stoScalar = AstNoSimplify . AstToScalar . unAstNoSimplify
   sfromScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
 

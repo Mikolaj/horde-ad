@@ -232,6 +232,8 @@ inlineAst memo v0 = case v0 of
     let (memo1, l2) = inlineAst memo l
         (memo2, v2) = inlineAst memo1 v
     in (memo2, Ast.AstLetHVectorIn vars l2 v2)
+  Ast.AstZipR v -> second Ast.AstZipR (inlineAst memo v)
+  Ast.AstUnzipR v -> second Ast.AstUnzipR (inlineAst memo v)
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
@@ -297,6 +299,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstProjectS l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectS l2 p)
+  Ast.AstZipS v -> second Ast.AstZipS (inlineAst memo v)
+  Ast.AstUnzipS v -> second Ast.AstUnzipS (inlineAst memo v)
 
   Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ inlineAst memo a
   Ast.AstMaxIndexX a -> second Ast.AstMaxIndexX $ inlineAst memo a
@@ -350,6 +354,8 @@ inlineAst memo v0 = case v0 of
   Ast.AstProjectX l p ->
     let (memo1, l2) = inlineAst memo l
     in (memo1, Ast.AstProjectX l2 p)
+  Ast.AstZipX v -> second Ast.AstZipX (inlineAst memo v)
+  Ast.AstUnzipX v -> second Ast.AstUnzipX (inlineAst memo v)
 
   Ast.AstRFromS v -> second Ast.AstRFromS $ inlineAst memo v
   Ast.AstRFromX v -> second Ast.AstRFromX $ inlineAst memo v
@@ -588,6 +594,8 @@ unshareAst memo = \case
     -- higher than if simplified.
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectR l2 p)
+  Ast.AstZipR v -> second Ast.AstZipR (unshareAst memo v)
+  Ast.AstUnzipR v -> second Ast.AstUnzipR (unshareAst memo v)
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a
@@ -649,6 +657,8 @@ unshareAst memo = \case
   Ast.AstProjectS l p ->
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectS l2 p)
+  Ast.AstZipS v -> second Ast.AstZipS (unshareAst memo v)
+  Ast.AstUnzipS v -> second Ast.AstUnzipS (unshareAst memo v)
 
   Ast.AstMinIndexX a -> second Ast.AstMinIndexX $ unshareAst memo a
   Ast.AstMaxIndexX a -> second Ast.AstMaxIndexX $ unshareAst memo a
@@ -710,6 +720,8 @@ unshareAst memo = \case
   Ast.AstProjectX l p ->
     let (memo1, l2) = unshareAst memo l
     in (memo1, Ast.AstProjectX l2 p)
+  Ast.AstZipX v -> second Ast.AstZipX (unshareAst memo v)
+  Ast.AstUnzipX v -> second Ast.AstUnzipX (unshareAst memo v)
 
   Ast.AstRFromS v -> second Ast.AstRFromS $ unshareAst memo v
   Ast.AstRFromX v -> second Ast.AstRFromX $ unshareAst memo v

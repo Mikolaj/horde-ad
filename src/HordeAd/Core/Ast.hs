@@ -390,6 +390,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
                   -> AstTensor AstMethodLet s2 z
                   -> AstTensor AstMethodLet s2 z
+  AstZipR :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+          => AstTensor ms s (TKProduct (TKR2 n y) (TKR2 n z))
+          -> AstTensor ms s (TKR2 n (TKProduct y z))
+  AstUnzipR :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+            => AstTensor ms s (TKR2 n (TKProduct y z))
+            -> AstTensor ms s (TKProduct (TKR2 n y) (TKR2 n z))
 
   -- Here starts the shaped part.
   AstFromScalar :: GoodScalar r
@@ -483,6 +489,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -- out of bounds indexing is permitted
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
+  AstZipS :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+          => AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
+          -> AstTensor ms s (TKS2 sh (TKProduct y z))
+  AstUnzipS :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+            => AstTensor ms s (TKS2 sh (TKProduct y z))
+            -> AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
 
   -- Here starts the mixed part.
   AstN1X :: (GoodScalar r, KnownShX sh)
@@ -571,6 +583,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -- out of bounds indexing is permitted
   AstProjectX :: (GoodScalar r, KnownShX sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKX sh r)
+  AstZipX :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+          => AstTensor ms s (TKProduct (TKX2 sh y) (TKX2 sh z))
+          -> AstTensor ms s (TKX2 sh (TKProduct y z))
+  AstUnzipX :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+            => AstTensor ms s (TKX2 sh (TKProduct y z))
+            -> AstTensor ms s (TKProduct (TKX2 sh y) (TKX2 sh z))
 
   -- Ops that involve more than one variant of arrays
   AstRFromS :: (KnownShS sh, TensorKind1 r)

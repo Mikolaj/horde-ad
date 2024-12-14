@@ -393,6 +393,10 @@ build1V snat@SNat (var, v0) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
+    Ast.AstZipR v -> traceRule $
+      Ast.AstZipR $ build1V snat (var, v)
+    Ast.AstUnzipR v -> traceRule $
+      Ast.AstUnzipR $ build1V snat (var, v)
 
     Ast.AstMinIndexS v -> traceRule $
       Ast.AstMinIndexS $ build1V snat (var, v)
@@ -481,6 +485,15 @@ build1V snat@SNat (var, v0) =
     Ast.AstFromIntegralS v -> traceRule $
       astFromIntegralS $ build1V snat (var, v)
     Ast.AstProjectS l p -> traceRule $ astProjectS (build1V snat (var, l)) p
+    Ast.AstZipS v -> traceRule $
+      Ast.AstZipS $ build1V snat (var, v)
+    Ast.AstUnzipS v -> traceRule $
+      Ast.AstUnzipS $ build1V snat (var, v)
+
+    Ast.AstZipX v -> traceRule $
+      Ast.AstZipX $ build1V snat (var, v)
+    Ast.AstUnzipX v -> traceRule $
+      Ast.AstUnzipX $ build1V snat (var, v)
 
     Ast.AstRFromS @sh1 v -> traceRule $
       astRFromS @(k ': sh1) $ build1V snat (var, v)

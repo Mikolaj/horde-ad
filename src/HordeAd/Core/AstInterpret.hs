@@ -515,7 +515,8 @@ interpretAst !env = \case
         t2 = interpretAst env y
     in rappend t1 t2
   AstSlice i n AstIotaR ->
-    let u = Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
+    let u = Nested.rfromListPrimLinear (n :$: ZSR)
+            $ map fromIntegral [i .. i + n - 1]
     in interpretAst env
        $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
   AstSlice i n v -> rslice i n (interpretAst env v)
@@ -603,6 +604,8 @@ interpretAst !env = \case
       in tlet @_ @TKUntyped lt
            (\lw -> interpretAst (env2 (dunHVector lw)) v)
     _ -> error "TODO"
+  AstZipR v -> rzip $ interpretAst env v
+  AstUnzipR v -> runzip $ interpretAst env v
 
   AstMinIndexS v ->
     sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
@@ -812,6 +815,8 @@ interpretAst !env = \case
     let lt = interpretAst env l
     in tlet @_ @TKUntyped lt
          (\lw -> sfromD $ dunHVector lw V.! p)
+  AstZipS v -> szip $ interpretAst env v
+  AstUnzipS v -> sunzip $ interpretAst env v
 
   AstMinIndexX _v -> error "TODO"
   AstMaxIndexX _v -> error "TODO"
@@ -863,6 +868,8 @@ interpretAst !env = \case
   AstCastX _v ->  error "TODO"
   AstFromIntegralX _v -> error "TODO"
   AstProjectX _l _p -> error "TODO"
+  AstZipX v -> xzip $ interpretAst env v
+  AstUnzipX v -> xunzip $ interpretAst env v
 
   AstRFromS v -> rfromS $ interpretAst env v
   AstRFromX v -> rfromX $ interpretAst env v

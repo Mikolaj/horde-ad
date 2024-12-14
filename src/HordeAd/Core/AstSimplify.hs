@@ -342,6 +342,8 @@ astNonIndexStep t = case t of
   Ast.AstFromIntegralR v -> astFromIntegralR v
   Ast.AstProjectR l p -> astProjectR l p
   Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
+  Ast.AstZipR _ -> t
+  Ast.AstUnzipR _ -> t
 
   Ast.AstMinIndexS{} -> t
   Ast.AstMaxIndexS{} -> t
@@ -372,6 +374,12 @@ astNonIndexStep t = case t of
   Ast.AstCastS v -> astCastS v
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstProjectS l p -> astProjectS l p
+  Ast.AstZipS _ -> t
+  Ast.AstUnzipS _ -> t
+
+  Ast.AstZipX _ -> t
+  Ast.AstUnzipX _ -> t
+
   Ast.AstRFromS v -> astRFromS v
   Ast.AstRFromX v -> astRFromX v
   Ast.AstSFromR v -> astSFromR v
@@ -611,6 +619,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
       in astLetHVectorIn vars l (astIndexRec (unAstRanked lp) ix) -}
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
+  Ast.AstZipR _ -> Ast.AstIndex v0 ix
+
   Ast.AstRFromS @sh t ->
     let (takeSh, dropSh) = splitAt (valueOf @m) (shapeT @sh)
     in withShapeP takeSh $ \(Proxy @p_take) ->
@@ -857,6 +867,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
+  Ast.AstZipS _ -> Ast.AstIndexS v0 ix
+
   Ast.AstSFromR t ->
     withListSh (Proxy @shn) $ \_ ->
     withListSh (Proxy @shm) $ \_ ->
@@ -2432,6 +2444,8 @@ astPrimalPart t = case t of
   Ast.AstCastR v -> astCastR $ astPrimalPart v
   Ast.AstProjectR l p -> astProjectR (astPrimalPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
+  Ast.AstZipR v -> Ast.AstZipR (astPrimalPart v)
+  Ast.AstUnzipR v -> Ast.AstUnzipR (astPrimalPart v)
 
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
   AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
@@ -2453,6 +2467,11 @@ astPrimalPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstProjectS l p -> astProjectS (astPrimalPart l) p
+  Ast.AstZipS v -> Ast.AstZipS (astPrimalPart v)
+  Ast.AstUnzipS v -> Ast.AstUnzipS (astPrimalPart v)
+
+  Ast.AstZipX v -> Ast.AstZipX (astPrimalPart v)
+  Ast.AstUnzipX v -> Ast.AstUnzipX (astPrimalPart v)
 
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
   Ast.AstRFromX v -> astRFromX $ astPrimalPart v
@@ -2532,6 +2551,8 @@ astDualPart t = case t of
   Ast.AstCastR v -> astCastR $ astDualPart v
   Ast.AstProjectR l p -> astProjectR (astDualPart l) p
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
+  Ast.AstZipR v -> Ast.AstZipR (astDualPart v)
+  Ast.AstUnzipR v -> Ast.AstUnzipR (astDualPart v)
 
   AstN1S{} -> Ast.AstDualPart t
   AstN2S{} -> Ast.AstDualPart t
@@ -2551,6 +2572,11 @@ astDualPart t = case t of
   Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPart v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstProjectS l p -> astProjectS (astDualPart l) p
+  Ast.AstZipS v -> Ast.AstZipS (astDualPart v)
+  Ast.AstUnzipS v -> Ast.AstUnzipS (astDualPart v)
+
+  Ast.AstZipX v -> Ast.AstZipX (astDualPart v)
+  Ast.AstUnzipX v -> Ast.AstUnzipX (astDualPart v)
 
   Ast.AstRFromS v -> astRFromS $ astDualPart v
   Ast.AstRFromX v -> astRFromX $ astDualPart v
@@ -2832,6 +2858,8 @@ simplifyAst t = case t of
   Ast.AstProjectR l p -> astProjectR (simplifyAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
+  Ast.AstZipR v -> Ast.AstZipR (simplifyAst v)
+  Ast.AstUnzipR v -> Ast.AstUnzipR (simplifyAst v)
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
@@ -2858,6 +2886,11 @@ simplifyAst t = case t of
   Ast.AstCastS v -> astCastS $ simplifyAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
+  Ast.AstZipS v -> Ast.AstZipS (simplifyAst v)
+  Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
+
+  Ast.AstZipX v -> Ast.AstZipX (simplifyAst v)
+  Ast.AstUnzipX v -> Ast.AstUnzipX (simplifyAst v)
 
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
   Ast.AstRFromX v -> astRFromX $ simplifyAst v
@@ -3077,6 +3110,8 @@ expandAst t = case t of
   Ast.AstProjectR l p -> astProjectR (expandAst l) p
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars (expandAst l) (expandAst v)
+  Ast.AstZipR v -> Ast.AstZipR (expandAst v)
+  Ast.AstUnzipR v -> Ast.AstUnzipR (expandAst v)
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
@@ -3106,6 +3141,11 @@ expandAst t = case t of
   Ast.AstCastS v -> astCastS $ expandAst v
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   Ast.AstProjectS l p -> astProjectS (expandAst l) p
+  Ast.AstZipS v -> Ast.AstZipS (expandAst v)
+  Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
+
+  Ast.AstZipX v -> Ast.AstZipX (expandAst v)
+  Ast.AstUnzipX v -> Ast.AstUnzipX (expandAst v)
 
   Ast.AstRFromS v -> astRFromS $ expandAst v
   Ast.AstRFromX v -> astRFromX $ expandAst v
@@ -3622,6 +3662,8 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (ml, mv) ->
         Just $ astLetHVectorIn vars (fromMaybe l ml) (fromMaybe v mv)
+  Ast.AstZipR v -> Ast.AstZipR <$> substitute1Ast i var v
+  Ast.AstUnzipR v -> Ast.AstUnzipR <$> substitute1Ast i var v
 
   Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1Ast i var a
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1Ast i var a
@@ -3686,6 +3728,11 @@ substitute1Ast i var v1 = case v1 of
     case substitute1Ast i var l of
       Nothing -> Nothing
       ml -> Just $ astProjectS (fromMaybe l ml) p
+  Ast.AstZipS v -> Ast.AstZipS <$> substitute1Ast i var v
+  Ast.AstUnzipS v -> Ast.AstUnzipS <$> substitute1Ast i var v
+
+  Ast.AstZipX v -> Ast.AstZipX <$> substitute1Ast i var v
+  Ast.AstUnzipX v -> Ast.AstUnzipX <$> substitute1Ast i var v
 
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
   Ast.AstRFromX v -> astRFromX <$> substitute1Ast i var v

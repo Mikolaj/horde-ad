@@ -385,6 +385,8 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
+  AstZipR v -> printPrefixOp printAst cfg d "rzip" [v]
+  AstUnzipR v -> printPrefixOp printAst cfg d "runzip" [v]
 
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
@@ -470,6 +472,11 @@ printAstAux cfg d = \case
       . printAst cfg 11 l
       . showString " "
       . shows p
+  AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
+  AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
+
+  AstZipX v -> printPrefixOp printAst cfg d "xzip" [v]
+  AstUnzipX v -> printPrefixOp printAst cfg d "xunzip" [v]
 
   AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
   AstRFromX v -> printPrefixOp printAst cfg d "rfromX" [v]

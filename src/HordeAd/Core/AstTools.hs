@@ -125,6 +125,10 @@ ftkAst t = case t of
     DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
+  AstZipR v -> case ftkAst v of
+    FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
+  AstUnzipR v -> case ftkAst v of
+    FTKR sh (FTKProduct y z) -> FTKProduct (FTKR sh y) (FTKR sh z)
 
   AstMinIndexS{} -> FTKS knownShS FTKScalar
   AstMaxIndexS{} -> FTKS knownShS FTKScalar
@@ -163,6 +167,15 @@ ftkAst t = case t of
   AstCastS{} -> FTKS knownShS FTKScalar
   AstFromIntegralS{} -> FTKS knownShS FTKScalar
   AstProjectS{} -> FTKS knownShS FTKScalar
+  AstZipS v -> case ftkAst v of
+    FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
+  AstUnzipS v -> case ftkAst v of
+    FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
+
+  AstZipX v -> case ftkAst v of
+    FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
+  AstUnzipX v -> case ftkAst v of
+    FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   AstRFromS @sh v
    | Dict <- lemKnownNatRankS (knownShS @sh) -> case ftkAst v of
@@ -299,6 +312,8 @@ varInAst var = \case
   AstFromIntegralR t -> varInAst var t
   AstProjectR l _p -> varInAst var l
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
+  AstZipR v -> varInAst var v
+  AstUnzipR v -> varInAst var v
 
   AstMinIndexS a -> varInAst var a
   AstMaxIndexS a -> varInAst var a
@@ -323,6 +338,8 @@ varInAst var = \case
   AstCastS t -> varInAst var t
   AstFromIntegralS a -> varInAst var a
   AstProjectS l _p -> varInAst var l
+  AstZipS v -> varInAst var v
+  AstUnzipS v -> varInAst var v
 
   AstMinIndexX a -> varInAst var a
   AstMaxIndexX a -> varInAst var a
@@ -347,6 +364,8 @@ varInAst var = \case
   AstCastX t -> varInAst var t
   AstFromIntegralX a -> varInAst var a
   AstProjectX l _p -> varInAst var l
+  AstZipX v -> varInAst var v
+  AstUnzipX v -> varInAst var v
 
   AstRFromS v -> varInAst var v
   AstRFromX v -> varInAst var v
