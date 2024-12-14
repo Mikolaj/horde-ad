@@ -31,7 +31,6 @@ import Prelude
 
 import Control.DeepSeq (NFData (..))
 import Data.Boolean (Boolean (..))
-import Data.Default
 import Data.Kind (Type)
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -364,8 +363,7 @@ type role RepN nominal
 newtype RepN y = RepN {unRepN :: RepORArray y}
 
 type GoodTKConstraint y =
-  ( Default (RepORArray y)  -- TODO: remove
-  , Show (RepORArray y)
+  ( Show (RepORArray y)
   , Nested.KnownElt (RepORArray y) )
 
 -- A class so that the constraint can be represented by a single Dict.
