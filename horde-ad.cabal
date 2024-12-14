@@ -157,7 +157,6 @@ library horde-ad-simplified
                       HordeAd.External.CommonShapedOps
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.Internal.BackendOX
                       HordeAd.Util.ShapedList
                       HordeAd.Util.SizedList
 
