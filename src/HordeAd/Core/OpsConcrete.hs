@@ -131,6 +131,8 @@ instance BaseTensor RepN where
                                        (fmap unRepN . f . RepN)
   rcast = RepN . tcastR . unRepN
   rfromIntegral = RepN . tfromIntegralR . unRepN
+  rzip (RepN (a, b)) = RepN $ Nested.rzip a b
+  runzip = RepN . Nested.runzip . unRepN
   rtoScalar = RepN . Nested.runScalar . unRepN
   rfromScalar = RepN . Nested.rscalar . unRepN
 
@@ -150,6 +152,8 @@ instance BaseTensor RepN where
 --  xoneHot = ...
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
+  xzip (RepN (a, b)) = RepN $ Nested.mzip a b
+  xunzip = RepN . Nested.munzip . unRepN
   xtoScalar = RepN . Nested.munScalar . unRepN
   xfromScalar = RepN . Nested.mscalar . unRepN
   xfromPrimal = id
@@ -227,6 +231,8 @@ instance BaseTensor RepN where
                                    (fmap unRepN . f . RepN)
   scast = RepN . tcastS . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
+  szip (RepN (a, b)) = RepN $ Nested.szip a b
+  sunzip = RepN . Nested.sunzip . unRepN
   stoScalar = RepN . Nested.sunScalar . unRepN
   sfromScalar = RepN . Nested.sscalar . unRepN
 
