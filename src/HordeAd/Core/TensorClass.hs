@@ -68,13 +68,11 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Internal.BackendOX
-import HordeAd.Util.ShapedList (dropIxS)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -209,23 +207,6 @@ class ( Num (IntOf target)
   rindex0 :: (TensorKind2 r, KnownNat m)
           => target (TKR2 m r) -> IxROf target m -> target (TKR2 0 r)
   rindex0 = rindex
-  roneHot :: forall r m n.
-             ( TensorKind2 r, KnownNat m, KnownNat n
-             , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
-             , EqF (PrimalOf target), Num (RepORArray r) )
-          => IShR m -> target (TKR2 n r) -> IxROf target m
-          -> target (TKR2 (m + n) r)
-  roneHot sh v ix = case stensorKind @r of
-    STKScalar{} ->
-      rscatter @_ @_ @0
-               (Nested.Internal.Shape.shrAppend sh (rshape v)) v (const ix)
-    _ -> let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                          $ zip (toList ix) (toList ix2))
-                         (rindex0 v (dropIndex ix2))
-                         (rscalar 0)
-         in rbuild (Nested.Internal.Shape.shrAppend sh (rshape v)) f
-           -- TODO: if this is used often, maybe express this as the gather that
-           -- would come out of vectorization, making sure it simplifies well
   rsum :: (GoodScalar r, KnownNat n) => target (TKR (1 + n) r) -> target (TKR n r)
   rsum0 :: (GoodScalar r, KnownNat n) => target (TKR n r) -> target (TKR 0 r)
   rsum0 = rsum . rflatten
@@ -469,12 +450,6 @@ class ( Num (IntOf target)
             , KnownShX (sh1 ++ sh2) )
          => target (TKX (sh1 ++ sh2) r) -> IxXOf target sh1
          -> target (TKX sh2 r)
-  xoneHot :: forall r sh1 sh2.
-             ( GoodScalar r, KnownShX sh1, KnownShX sh2
-             , KnownShX (sh1 ++ sh2) )
-          => IShX sh1 -> target (TKX sh2 r) -> IxXOf target sh1
-          -> target (TKX (sh1 ++ sh2) r)
-  xoneHot = error "TODO"
   xfromVector :: (GoodScalar r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX sh r))
               -> target (TKX (Just n ': sh) r)
@@ -542,32 +517,6 @@ class ( Num (IntOf target)
           => target (TKS2 sh1 r) -> IxSOf target sh1
           -> target (TKS2 '[] r)
   sindex0 | Refl <- lemAppNil @sh1 = sindex
-  soneHot :: forall r sh1 sh2.
-             ( TensorKind2 r, KnownShS sh1, KnownShS sh2
-             , KnownShS (sh1 ++ sh2)
-             , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
-             , EqF (PrimalOf target), Num (RepORArray r) )
-          => target (TKS2 sh2 r) -> IxSOf target sh1
-          -> target (TKS2 (sh1 ++ sh2) r)
-  soneHot v ix = case stensorKind @r of
-    STKScalar{} | Dict <- lemKnownNatRankS (knownShS @sh1) ->
-      gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
-      gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-      sscatter @_ @_ @'[] @(Rank sh1) v (const ix)
-    _ ->
-      gcastWith (unsafeCoerce Refl
-                 :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-      gcastWith (unsafeCoerce Refl
-                 :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-      gcastWith (unsafeCoerce Refl
-                 :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-      withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-      gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
-         let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                       $ zip (toList ix) (toList ix2))
-                      (sindex0 v (dropIxS @(Rank sh1) ix2))
-                      (sscalar 0)
-      in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
   ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
        => target (TKS (n ': sh) r) -> target (TKS sh r)
   ssum0 :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
