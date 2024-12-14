@@ -30,7 +30,7 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape
-  (KnownShX (..), ssxAppend, ssxFromShape, ssxReplicate)
+  (KnownShX (..), shxAppend, ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IShR
   , KnownShS (..)
@@ -43,7 +43,8 @@ import Data.Array.Nested
   , pattern ZSR
   , type (++)
   )
-import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank, shsAppend)
+import Data.Array.Nested.Internal.Shape
+  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -167,6 +168,46 @@ unWindSTK = \case
   STKR _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
   STKS _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
   STKX _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
+
+unWindFTK :: FullTensorKind y -> FullTensorKind (UnWind y)
+unWindFTK = \case
+  ftk@FTKScalar{} -> ftk
+  ftk@(FTKR _ FTKScalar{}) -> ftk
+  FTKR sh1 (FTKR sh2 ftk2) ->
+    unWindFTK $ FTKR (sh1 `shrAppend` sh2) ftk2
+  FTKR sh1 (FTKS sh2 ftk2) ->
+    unWindFTK
+    $ FTKX (shCvtRX sh1 `shxAppend` shCvtSX sh2) ftk2
+  FTKR sh1 (FTKX sh2 ftk2) ->
+    unWindFTK $ FTKX (shCvtRX sh1 `shxAppend` sh2) ftk2
+  FTKR n (FTKProduct y z) ->
+    unWindFTK $ FTKProduct (FTKR n y) (FTKR n z)
+  ftk@(FTKS _ FTKScalar{}) -> ftk
+  FTKS sh1 (FTKR sh2 ftk2) ->
+    unWindFTK
+    $ FTKX (shCvtSX sh1 `shxAppend` shCvtRX sh2) ftk2
+  FTKS sh1 (FTKS sh2 ftk2) ->
+    unWindFTK $ FTKS (sh1 `shsAppend` sh2) ftk2
+  FTKS sh1 (FTKX sh2 ftk2) ->
+    unWindFTK $ FTKX (shCvtSX sh1 `shxAppend` sh2) ftk2
+  FTKS sh1 (FTKProduct y z) ->
+    unWindFTK $ FTKProduct (FTKS sh1 y) (FTKS sh1 z)
+  ftk@(FTKX _ FTKScalar{}) -> ftk
+  FTKX sh1 (FTKR sh2 ftk2) ->
+    unWindFTK $ FTKX (sh1 `shxAppend` shCvtRX sh2) ftk2
+  FTKX sh1 (FTKS sh2 ftk2) ->
+    unWindFTK $ FTKX (sh1 `shxAppend` shCvtSX sh2) ftk2
+  FTKX sh1 (FTKX sh2 ftk2) ->
+    unWindFTK $ FTKX (sh1 `shxAppend` sh2) ftk2
+  FTKX sh1 (FTKProduct y z) ->
+    unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
+  FTKProduct y z | (Dict, Dict) <- lemTensorKind1OfFTK (unWindFTK y)
+                 , (Dict, Dict) <- lemTensorKind1OfFTK (unWindFTK z) ->
+    FTKProduct (unWindFTK y) (unWindFTK z)
+  ftk@FTKUntyped{} -> ftk
+  FTKR _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
+  FTKS _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
+  FTKX _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
 
 -- This uses tunpairDup so to preserve sharing, `target` either has
 -- to have a ShareTensor instance or the argument has to be duplicable.

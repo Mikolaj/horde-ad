@@ -9,7 +9,7 @@ module HordeAd.Core.TensorKind
   , lemTensorKindOfSTK, lemTensorKind1OfSTK, sameTensorKind, sameSTK
   , lemTensorKindOfBuild, lemTensorKind1OfBuild
   , lemTensorKindOfAD, lemTensorKind1OfAD, lemBuildOfAD
-  , FullTensorKind(..), lemTensorKindOfFTK, buildFTK
+  , FullTensorKind(..), lemTensorKindOfFTK, lemTensorKind1OfFTK, buildFTK
   , aDFTK, aDFTK1
     -- * Type family RepORArray
   , RepORArray, GoodTK, TensorKind1, TensorKind2
@@ -235,17 +235,22 @@ deriving instance Show (FullTensorKind y)
 deriving instance Eq (FullTensorKind y)
 
 lemTensorKindOfFTK :: FullTensorKind y -> Dict TensorKind y
-lemTensorKindOfFTK = \case
-  FTKScalar -> Dict
-  FTKR sh x | SNat <- shrRank sh -> case lemTensorKindOfFTK x of
-    Dict -> Dict
-  FTKS sh x -> case lemTensorKindOfFTK x of
-    Dict -> withKnownShS sh Dict
-  FTKX sh x -> case lemTensorKindOfFTK x of
-    Dict -> withKnownShX (ssxFromShape sh) Dict
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
-                       , Dict <- lemTensorKindOfFTK ftk2 -> Dict
-  FTKUntyped{} -> Dict
+lemTensorKindOfFTK = fst . lemTensorKind1OfFTK
+
+lemTensorKind1OfFTK :: FullTensorKind y
+                    -> ( Dict TensorKind y
+                       , Dict Nested.Elt (RepORArray y) )
+lemTensorKind1OfFTK = \case
+  FTKScalar -> (Dict, Dict)
+  FTKR sh x | SNat <- shrRank sh -> case lemTensorKind1OfFTK x of
+    (Dict, Dict) -> (Dict, Dict)
+  FTKS sh x -> case lemTensorKind1OfFTK x of
+    (Dict, Dict) -> withKnownShS sh (Dict, Dict)
+  FTKX sh x -> case lemTensorKind1OfFTK x of
+    (Dict, Dict) -> withKnownShX (ssxFromShape sh) (Dict, Dict)
+  FTKProduct ftk1 ftk2 | (Dict, Dict) <- lemTensorKind1OfFTK ftk1
+                       , (Dict, Dict) <- lemTensorKind1OfFTK ftk2 -> (Dict, Dict)
+  FTKUntyped{} -> (Dict, Dict)
 
 buildFTK :: SNat k -> FullTensorKind y
          -> FullTensorKind (BuildTensorKind k y)
