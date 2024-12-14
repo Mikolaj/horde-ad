@@ -72,7 +72,6 @@ import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Internal.BackendOX
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 

@@ -47,14 +47,12 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Mixed as Mixed
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
@@ -775,35 +773,3 @@ tunScalarS = Nested.sunScalar
 tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Num r)
                 => r -> Nested.Shaped sh r -> Nested.Shaped sh r
 tscaleByScalarS s = liftVS (V.map (* s))
-
-tftkG :: STensorKindType y -> RepORArray y -> FullTensorKind y
-tftkG stk t =
-  let repackShapeTree :: STensorKindType y -> Mixed.ShapeTree (RepORArray y)
-                      -> FullTensorKind y
-      repackShapeTree stk0 tree = case stk0 of
-        STKScalar _ -> FTKScalar
-        STKR _ stk1 -> let (sh, rest) = tree
-                       in FTKR sh $ repackShapeTree stk1 rest
-        STKS _ stk1 -> let (sh, rest) = tree
-                       in FTKS sh $ repackShapeTree stk1 rest
-        STKX _ stk1 -> let (sh, rest) = tree
-                       in FTKX sh $ repackShapeTree stk1 rest
-        STKProduct stk1 stk2 ->
-                       let (tree1, tree2) = tree
-                       in FTKProduct (repackShapeTree stk1 tree1)
-                                     (repackShapeTree stk2 tree2)
-        STKUntyped -> error "STKUntyped can be nested in arrays"
-  in case stk of
-    STKScalar _ -> FTKScalar
-    STKR _ stk1 -> FTKR (Nested.rshape t) $ repackShapeTree stk1
-                   $ snd $ Mixed.mshapeTree t
-    STKS sh stk1 -> FTKS sh $ repackShapeTree stk1
-                    $ snd $ Mixed.mshapeTree t
-    STKX _ stk1 -> FTKX (Nested.mshape t) $ repackShapeTree stk1
-                   $ snd $ Mixed.mshapeTree t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                         , Dict <- lemTensorKindOfSTK stk2 ->
-      FTKProduct (tftkG stk1 (fst t))
-                 (tftkG stk2 (snd t))
-    STKUntyped ->
-      FTKUntyped $ V.map (voidFromDynamicF (toList . tshapeR . unRepN)) t
