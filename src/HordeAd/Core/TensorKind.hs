@@ -330,8 +330,8 @@ newtype RepN y = RepN {unRepN :: RepORArray y}
 
 type GoodTKConstraint y =
   ( Default (RepORArray y)  -- TODO: remove
-  , Show (RepORArray y), Nested.KnownElt (RepORArray y)
-  , Num (RepORArray (ADTensorKind y)) )
+  , Show (RepORArray y)
+  , Nested.KnownElt (RepORArray y) )
 
 -- A class so that the constraint can be represented by a single Dict.
 class GoodTKConstraint y => GoodTK y
