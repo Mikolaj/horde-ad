@@ -175,7 +175,7 @@ class ( Num (IntOf target)
       => BaseTensor (target :: Target) where
 
   -- Integer codomain
-  rshape :: TensorKind2 r => target (TKR2 n r) -> IShR n
+  rshape :: TensorKind1 r => target (TKR2 n r) -> IShR n
   rrank :: forall r n. (TensorKind2 r, KnownNat n) => target (TKR2 n r) -> Int
   rrank _ = valueOf @n
   rsize :: TensorKind2 r => target (TKR2 n r) -> Int
