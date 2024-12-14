@@ -472,7 +472,7 @@ oRdmapAccumR
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumR k _ bShs _ f acc0 es
  | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (repConstant 0 bShs))
+  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -494,7 +494,7 @@ oRdmapAccumL
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumL k _ bShs _ f acc0 es
  | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (repConstant 0 bShs))
+  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)

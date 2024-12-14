@@ -6,14 +6,14 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( addTarget
+  ( addTarget, constantTarget
   , sizeHVector, shapeDynamic, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromDynamicR, fromDynamicS, unravelHVector, ravelHVector
   , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
   , mapHVectorShaped
   , mapRanked, mapRanked01, mapRanked10, mapRanked11
-  , replicate1HVector, repConstant, repConstant0Old, toADTensorKindShared
+  , replicate1HVector, toADTensorKindShared
   ) where
 
 import Prelude
@@ -758,25 +758,6 @@ mapShaped f (DynamicShapedDummy @r @sh _ _) = DynamicShaped $ f @r @sh (srepl 0)
 replicate1HVector :: BaseTensor target
                   => SNat k -> HVector target -> HVector target
 replicate1HVector = replicate1HVectorF rreplicate sreplicate
-
-repConstant :: forall y target. ADReadyNoLet target
-            => (forall r. GoodScalar r => r)
-            -> FullTensorKind y -> target y
-repConstant = constantTarget
-
-repConstant0Old :: forall y target. ADReadyNoLet target
-                => FullTensorKind y -> target y
-repConstant0Old = \case
-  FTKScalar -> rtoScalar $ rscalar 0
-  FTKR sh FTKScalar | SNat <- shrRank sh -> rzero sh
-  FTKS sh FTKScalar -> withKnownShS sh $ srepl 0
-  FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xzero sh
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
-                       , Dict <- lemTensorKindOfFTK ftk2 ->
-    tpair (repConstant0Old ftk1)
-          (repConstant0Old ftk2)
-  FTKUntyped ssh -> dmkHVector $ V.map dynamicFromVoid ssh
-  _ -> error "TODO"
 
 toADTensorKindShared
   :: forall target y. (BaseTensor target, ShareTensor target)

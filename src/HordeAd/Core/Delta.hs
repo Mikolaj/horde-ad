@@ -110,7 +110,7 @@ gradientFromDelta
   -> Delta target z
   -> target (ADTensorKind x)
 gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = repConstant 1 $ aDFTK $ tftk (stensorKind @z) value
+  let oneAtF = constantTarget 1 $ aDFTK $ tftk (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalR s0 dt deltaTopLevel
@@ -1070,7 +1070,7 @@ evalR !s !c d0 = case d0 of
                     , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @z) ->
     case shapeDeltaFull d of
       FTKProduct _ ftk2 ->
-        let zero = repConstant 0 $ aDFTK ftk2
+        let zero = constantTarget 0 $ aDFTK ftk2
         in evalR s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
@@ -1078,7 +1078,7 @@ evalR !s !c d0 = case d0 of
                  , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x) ->
     case shapeDeltaFull d of
       FTKProduct ftk1 _ ->
-        let zero = repConstant 0 $ aDFTK ftk1
+        let zero = constantTarget 0 $ aDFTK ftk1
         in evalR s (tpair zero c) d
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     -- In this context, by construction, @d@ is the dual component
@@ -1608,7 +1608,7 @@ fwdR params s d0 = case d0 of
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
         Just Refl -> fwdSame params s d0
-        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
+        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
 
 fwdSame
   :: forall target y.
@@ -1621,7 +1621,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKScalar r1)) ->
       case sameTensorKind @(TKScalar r1) @(ADTensorKind (TKScalar r1)) of
         Just Refl -> second kcast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
+        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   FromScalarG d -> let (s2, t) = fwdSame params s d
                    in (s2, sfromScalar t)
   ToScalarG d -> let (s2, t) = fwdSame params s d
@@ -1631,7 +1631,7 @@ fwdSame params s = \case
       Just dtk -> (s, evalRepM dtk)
       Nothing -> error "fwdSame: missing input"
   -- See the comment about these three in evalSame.
-  ZeroG ftk -> (s, repConstant0Old $ aDFTK ftk)  -- TODO: not repConstant only for backward compatibility with test results
+  ZeroG ftk -> (s, constantTarget 0 $ aDFTK ftk)
   ScaleG k d -> second (* k) $ fwdSame params s d
   AddG d e -> let (s2, t) = fwdSame params s d
                   (s3, u) = fwdSame params s2 e
@@ -1667,7 +1667,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r1)) ->
       case sameTensorKind @(TKR n r1) @(ADTensorKind (TKR n r1)) of
         Just Refl -> second rcast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
+        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   ZipR d -> second rzip $ fwdSame params s d
   UnzipR d -> second runzip $ fwdSame params s d
   RFromH d i ->
@@ -1708,7 +1708,7 @@ fwdSame params s = \case
     | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r1)) ->
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
         Just Refl -> second scast $ fwdSame params s d
-        _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
+        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   ZipS d -> second szip $ fwdSame params s d
   UnzipS d -> second sunzip $ fwdSame params s d
   SFromH d i ->

@@ -27,7 +27,6 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxFromShape)
 import Data.Array.Nested (KnownShS (..), KnownShX, type (++))
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Delta
@@ -159,11 +158,7 @@ dAdd v w = AddG v w
 -- in particular in case of numeric literals and also for forward derivative.
 intOfShape :: forall z f. (ADReadyNoLet f, TensorKind z)
            => f z -> Int -> f z
-intOfShape tsh c = case stensorKind @z of  -- TODO: only for backward compat
-  STKR SNat STKScalar{} -> rconcrete $ Nested.rreplicateScal (rshape tsh) (fromIntegral c)
-  STKS sh STKScalar{} -> withKnownShS sh $ sconcrete $ Nested.sreplicateScal (sshape tsh) (fromIntegral c)
-  STKX sh STKScalar{} -> withKnownShX sh $ xconcrete $ Nested.mreplicateScal (xshape tsh) (fromIntegral c)
-  _ -> repConstant (fromIntegral c) (tftk stensorKind tsh)
+intOfShape tsh c = constantTarget (fromIntegral c) (tftk stensorKind tsh)
 
 fromPrimalADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
 fromPrimalADVal a = dDnotShared a (ZeroG $ tftk stensorKind a)

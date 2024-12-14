@@ -185,7 +185,7 @@ revEvalArtifact
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt
  | Dict <- lemTensorKindOfAD (stensorKind @z) =
-  let oneAtF = repConstant 1 $ aDFTK $ ftkAst artPrimalRev
+  let oneAtF = constantTarget 1 $ aDFTK $ ftkAst artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
