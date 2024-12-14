@@ -9,7 +9,8 @@ module HordeAd.Core.TensorKind
   , lemTensorKindOfSTK, lemTensorKind1OfSTK, sameTensorKind, sameSTK
   , lemTensorKindOfBuild, lemTensorKind1OfBuild
   , lemTensorKindOfAD, lemTensorKind1OfAD, lemBuildOfAD
-  , FullTensorKind(..), lemTensorKindOfFTK, lemTensorKind1OfFTK, buildFTK
+  , FullTensorKind(..), ftkToStk
+  , lemTensorKindOfFTK, lemTensorKind1OfFTK, buildFTK
   , aDFTK, aDFTK1
     -- * Type family RepORArray
   , RepORArray, GoodTK, TensorKind1, TensorKind2
@@ -233,6 +234,15 @@ data FullTensorKind y where
 
 deriving instance Show (FullTensorKind y)
 deriving instance Eq (FullTensorKind y)
+
+ftkToStk :: FullTensorKind y -> STensorKindType y
+ftkToStk = \case
+  FTKScalar -> STKScalar typeRep
+  FTKR sh x -> STKR (shrRank sh) (ftkToStk x)
+  FTKS sh x -> STKS sh (ftkToStk x)
+  FTKX sh x -> STKX (ssxFromShape sh) (ftkToStk x)
+  FTKProduct ftk1 ftk2 -> STKProduct (ftkToStk ftk1) (ftkToStk ftk2)
+  FTKUntyped{} -> STKUntyped
 
 lemTensorKindOfFTK :: FullTensorKind y -> Dict TensorKind y
 lemTensorKindOfFTK = fst . lemTensorKind1OfFTK

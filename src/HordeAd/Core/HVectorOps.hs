@@ -90,7 +90,26 @@ addRepW a b = case (a, b) of
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ V.zipWith addDynamic hv1 hv2
 
-type family UnWind tk where
+constantRepW :: forall yUnWind target. ADReadyNoLet target
+            => (forall r. GoodScalar r => r)
+            -> FullTensorKind yUnWind -> RepW target yUnWind
+constantRepW r = \case
+  FTKScalar -> DTKScalar $ rtoScalar $ rscalar r
+  FTKR sh FTKScalar | SNat <- shrRank sh -> DTKR $ rrepl (toList sh) r
+  FTKS sh FTKScalar -> withKnownShS sh $ DTKS $ srepl r
+  FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ DTKX $ xrepl sh r
+  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
+                       , Dict <- lemTensorKindOfFTK ftk2 ->
+    DTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
+  FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
+    DTKUntyped
+    $ mapHVectorShaped (const $ srepl @_ @_ @target r)
+    $ V.map dynamicFromVoid ssh
+  _ -> error "constantRepW: impossible normal form of UnWind"
+         -- a pity we can't rule out this case via types
+         -- even if we write (UnWind y) above
+
+type family UnWind y where
   UnWind (TKScalar r) =
     TKScalar r
   UnWind (TKR2 n (TKScalar r)) =
@@ -350,6 +369,11 @@ addTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
   in windTarget stk $ addRepW a2 b2
+
+constantTarget :: forall y target. ADReadyNoLet target
+               => (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
+constantTarget r ftk =
+  windTarget (ftkToStk ftk) $ constantRepW r (unWindFTK ftk)
 
 
 -- * Dynamic
@@ -738,20 +762,7 @@ replicate1HVector = replicate1HVectorF rreplicate sreplicate
 repConstant :: forall y target. ADReadyNoLet target
             => (forall r. GoodScalar r => r)
             -> FullTensorKind y -> target y
-repConstant r = \case
-  FTKScalar -> rtoScalar $ rscalar r
-  FTKR sh FTKScalar | SNat <- shrRank sh -> rrepl (toList sh) r
-  FTKS sh FTKScalar -> withKnownShS sh $ srepl r
-  FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ xrepl sh r
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
-                       , Dict <- lemTensorKindOfFTK ftk2 ->
-    tpair (repConstant r ftk1)
-          (repConstant r ftk2)
-  FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
-    dmkHVector
-    $ mapHVectorShaped (const $ srepl @_ @_ @target r)
-    $ V.map dynamicFromVoid ssh
-  _ -> error "TODO"
+repConstant = constantTarget
 
 repConstant0Old :: forall y target. ADReadyNoLet target
                 => FullTensorKind y -> target y
