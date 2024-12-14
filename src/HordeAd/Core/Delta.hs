@@ -481,6 +481,12 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownNat n)
         => Delta target (TKR n r1) -> Delta target (TKR n r2)
+  ZipR :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+       => Delta target (TKProduct (TKR2 n y) (TKR2 n z))
+       -> Delta target (TKR2 n (TKProduct y z))
+  UnzipR :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+         => Delta target (TKR2 n (TKProduct y z))
+         -> Delta target (TKProduct (TKR2 n y) (TKR2 n z))
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
@@ -572,6 +578,12 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
+  ZipS :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+       => Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
+       -> Delta target (TKS2 sh (TKProduct y z))
+  UnzipS :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+         => Delta target (TKS2 sh (TKProduct y z))
+         -> Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
   SFromH :: (KnownShS sh, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 
@@ -582,6 +594,12 @@ data Delta :: Target -> TensorKindType -> Type where
   FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
               => Data.Vector.Vector (Delta target (TKX sh r))
               -> Delta target (TKX (Just n ': sh) r)
+  ZipX :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+       => Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
+       -> Delta target (TKX2 sh (TKProduct y z))
+  UnzipX :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+         => Delta target (TKX2 sh (TKProduct y z))
+         -> Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
   RFromS :: forall sh r target. (TensorKind1 r, KnownShS sh)
          => Delta target (TKS2 sh r)
@@ -720,6 +738,10 @@ shapeDeltaFull = \case
     FTKR _ x -> FTKR sh x
   GatherR sh _ _ -> FTKR sh FTKScalar
   CastR d -> FTKR (shapeDelta d) FTKScalar
+  ZipR d -> case shapeDeltaFull d of
+    FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
+  UnzipR d -> case shapeDeltaFull d of
+    FTKR sh (FTKProduct y z) -> FTKProduct (FTKR sh y) (FTKR sh z)
   RFromH d i -> FTKR (fromList $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
   IndexS d _ix -> case shapeDeltaFull d of
@@ -750,10 +772,18 @@ shapeDeltaFull = \case
     FTKS _ x -> FTKS knownShS x
   GatherS{} -> FTKS knownShS FTKScalar
   CastS{} -> FTKS knownShS FTKScalar
+  ZipS d -> case shapeDeltaFull d of
+    FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
+  UnzipS d -> case shapeDeltaFull d of
+    FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
   SFromH{} -> FTKS knownShS FTKScalar
 
   IndexX{} -> error "TODO"
   FromVectorX{} -> error "TODO"
+  ZipX d -> case shapeDeltaFull d of
+    FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
+  UnzipX d -> case shapeDeltaFull d of
+    FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   RFromS @sh d
    | Dict <- lemKnownNatRankS (knownShS @sh) -> case shapeDeltaFull d of
@@ -1241,6 +1271,10 @@ evalSame !s !c = \case
   CastR @r1 @_ @n d ->
     evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
                                $ rcast c) d
+  ZipR d ->
+    evalSame s (runzip c) d
+  UnzipR d ->
+    evalSame s (rzip c) d
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
@@ -1291,11 +1325,27 @@ evalSame !s !c = \case
   CastS @r1 @_ @sh d ->
     evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
                                $ scast c) d
+  ZipS d ->
+    evalSame s (sunzip c) d
+  UnzipS d ->
+    evalSame s (szip c) d
   SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
     in assert (dynamicsMatch (cs V.! i) ci) $
        evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
+
+  IndexX{} -> error "TODO"
+  FromVectorX @r @sh ld ->
+    let cShared = tshare c
+        f :: EvalState target -> Int -> Delta target (TKX sh r)
+             -> EvalState target
+        f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
+    in V.ifoldl' f s ld
+  ZipX d ->
+    evalSame s (xunzip c) d
+  UnzipX d ->
+    evalSame s (xzip c) d
 
   RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
   RFromS @sh d | Dict <- lemKnownNatRankS (knownShS @sh) ->
@@ -1332,14 +1382,6 @@ evalSame !s !c = \case
     evalSame s (xnestS knownShX c) d
   XUnNest d ->
     evalSame s (xnest knownShX c) d
-
-  IndexX{} -> error "TODO"
-  FromVectorX @r @sh ld ->
-    let cShared = tshare c
-        f :: EvalState target -> Int -> Delta target (TKX sh r)
-             -> EvalState target
-        f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
-    in V.ifoldl' f s ld
 
   HToH v -> evalHVector s (tunvector c) v
 
@@ -1626,6 +1668,8 @@ fwdSame params s = \case
       case sameTensorKind @(TKR n r1) @(ADTensorKind (TKR n r1)) of
         Just Refl -> second rcast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
+  ZipR d -> second rzip $ fwdSame params s d
+  UnzipR d -> second runzip $ fwdSame params s d
   RFromH d i ->
     let (s2, v) = fwdSame params s d
     in (s2, rfromD $ dunHVector v V.! i)
@@ -1665,12 +1709,21 @@ fwdSame params s = \case
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
         Just Refl -> second scast $ fwdSame params s d
         _ -> (s, repConstant 0 $ aDFTK $ shapeDeltaFull d0)
+  ZipS d -> second szip $ fwdSame params s d
+  UnzipS d -> second sunzip $ fwdSame params s d
   SFromH d i ->
     let (s2, v) = fwdSame params s d
     in (s2, sfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, sfromD $ tunvector v V.! i)
+
+  IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
+  FromVectorX lsd ->
+    let (s2, l) = mapAccumL (fwdSame params) s lsd
+    in (s2, xfromVector l)
+  ZipX d -> second xzip $ fwdSame params s d
+  UnzipX d -> second xunzip $ fwdSame params s d
 
   RFromS (SFromR d) ->
     fwdSame params s d  -- no information lost, so no checks
@@ -1696,11 +1749,6 @@ fwdSame params s = \case
   XUnNestR d -> second xunNestR $ fwdSame params s d
   XUnNestS d -> second xunNestS $ fwdSame params s d
   XUnNest d -> second xunNest $ fwdSame params s d
-
-  IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
-  FromVectorX lsd ->
-    let (s2, l) = mapAccumL (fwdSame params) s lsd
-    in (s2, xfromVector l)
 
   HToH v -> second dmkHVector
             $ fwdHVector params s v

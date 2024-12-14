@@ -317,6 +317,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rfromIntegral (D u _) =
     let v = rfromIntegral u
     in fromPrimalADVal v
+  rzip (D u u') = dD (rzip u) (ZipR u')
+  runzip (D u u') = dD (runzip u) (UnzipR u')
   rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
   rfromScalar (D t d) = dDnotShared (rfromScalar t) (RFromS $ FromScalarG d)
 
@@ -331,6 +333,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xfromVector = fromVectorX
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
+  xzip (D u u') = dD (xzip u) (ZipX u')
+  xunzip (D u u') = dD (xunzip u) (UnzipX u')
   xtoScalar (D t d) = dDnotShared (xtoScalar t) (ToScalarG $ SFromX d)
   xfromScalar (D t d) = dDnotShared (xfromScalar t) (XFromS $ FromScalarG d)
   xfromPrimal t = fromPrimalADVal t
@@ -409,6 +413,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
   sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)
+  szip (D u u') = dD (szip u) (ZipS u')
+  sunzip (D u u') = dD (sunzip u) (UnzipS u')
 
   sfromPrimal t = fromPrimalADVal t
   sprimalPart (D u _) = u
