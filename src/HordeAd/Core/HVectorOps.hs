@@ -6,7 +6,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( addTarget, RepD(..), addDynamic
+  ( addTarget
   , sizeHVector, shapeDynamic, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromDynamicR, fromDynamicS, unravelHVector, ravelHVector
@@ -50,34 +50,33 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
+-- * Winding
+
 -- This captures the normal form of type family UnWind and also
 -- corresponds to the portion of ox-arrays that has Num defined.
-type role RepD nominal nominal
-data RepD target y where
+type role RepW nominal nominal
+data RepW target y where
   DTKScalar :: GoodScalar r
             => target (TKScalar r)
-            -> RepD target (TKScalar r)
+            -> RepW target (TKScalar r)
   DTKR :: (GoodScalar r, KnownNat n)
        => target (TKR n r)
-       -> RepD target (TKR n r)
+       -> RepW target (TKR n r)
   DTKS :: (GoodScalar r, KnownShS sh)
        => target (TKS sh r)
-       -> RepD target (TKS sh r)
+       -> RepW target (TKS sh r)
   DTKX :: (GoodScalar r, KnownShX sh)
        => target (TKX sh r)
-       -> RepD target (TKX sh r)
-  DTKProduct :: forall x z target. (TensorKind1 x, TensorKind1 z)
-             => RepD target x -> RepD target z
-             -> RepD target (TKProduct x z)
+       -> RepW target (TKX sh r)
+  DTKProduct :: (TensorKind1 x, TensorKind1 z)
+             => RepW target x -> RepW target z
+             -> RepW target (TKProduct x z)
   DTKUntyped :: HVector target
-             -> RepD target TKUntyped
+             -> RepW target TKUntyped
 
-addRepD ::
-  ADReadyNoLet target
-  => RepD target y
-  -> RepD target y
-  -> RepD target y
-addRepD a b = case (a, b) of
+addRepW :: ADReadyNoLet target
+        => RepW target y -> RepW target y -> RepW target y
+addRepW a b = case (a, b) of
   (DTKScalar ta, DTKScalar tb) ->
     DTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
       -- somehow this results in shorter terms than @ta + tb@
@@ -86,12 +85,9 @@ addRepD a b = case (a, b) of
   (DTKS ta, DTKS tb) -> DTKS $ ta + tb
   (DTKX ta, DTKX tb) -> DTKX $ ta + tb
   (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
-    DTKProduct (addRepD ta1 tb1) (addRepD ta2 tb2)
+    DTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ V.zipWith addDynamic hv1 hv2
-
-
--- * Winding
 
 type family UnWind tk where
   UnWind (TKScalar r) =
@@ -180,7 +176,7 @@ unWindSTK = \case
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
 unWindTarget :: BaseTensor target
-             => STensorKindType y -> target y -> RepD target (UnWind y)
+             => STensorKindType y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
   STKScalar{} -> DTKScalar t
   STKR SNat STKScalar{} -> DTKR t
@@ -244,7 +240,7 @@ unWindTarget stk t = case stk of
   STKX _ STKUntyped -> error "unWindTarget: TKUntyped can't be nested in arrays"
 
 windTarget :: BaseTensor target
-           => STensorKindType y -> RepD target (UnWind y) -> target y
+           => STensorKindType y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
   (STKScalar{}, DTKScalar v) -> v
   (STKR _ STKScalar{}, DTKR v) -> v
@@ -312,7 +308,7 @@ addTarget :: ADReadyNoLet target
 addTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
-  in windTarget stk $ addRepD a2 b2
+  in windTarget stk $ addRepW a2 b2
 
 
 -- * Dynamic
