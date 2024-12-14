@@ -58,22 +58,22 @@ import HordeAd.Util.SizedList
 -- corresponds to the portion of ox-arrays that has Num defined.
 type role RepW nominal nominal
 data RepW target y where
-  DTKScalar :: GoodScalar r
+  WTKScalar :: GoodScalar r
             => target (TKScalar r)
             -> RepW target (TKScalar r)
-  DTKR :: (GoodScalar r, KnownNat n)
+  WTKR :: (GoodScalar r, KnownNat n)
        => target (TKR n r)
        -> RepW target (TKR n r)
-  DTKS :: (GoodScalar r, KnownShS sh)
+  WTKS :: (GoodScalar r, KnownShS sh)
        => target (TKS sh r)
        -> RepW target (TKS sh r)
-  DTKX :: (GoodScalar r, KnownShX sh)
+  WTKX :: (GoodScalar r, KnownShX sh)
        => target (TKX sh r)
        -> RepW target (TKX sh r)
-  DTKProduct :: (TensorKind1 x, TensorKind1 z)
+  WTKProduct :: (TensorKind1 x, TensorKind1 z)
              => RepW target x -> RepW target z
              -> RepW target (TKProduct x z)
-  DTKUntyped :: HVector target
+  WTKUntyped :: HVector target
              -> RepW target TKUntyped
 
 -- This captures the normal form of type family UnWind for full singletons.
@@ -104,31 +104,31 @@ fromFTKW = \case
 addRepW :: ADReadyNoLet target
         => RepW target y -> RepW target y -> RepW target y
 addRepW a b = case (a, b) of
-  (DTKScalar ta, DTKScalar tb) ->
-    DTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
+  (WTKScalar ta, WTKScalar tb) ->
+    WTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
       -- somehow this results in shorter terms than @ta + tb@
       -- TODO: re-evaluate once scalar term simplification is complete
-  (DTKR ta, DTKR tb) -> DTKR $ ta + tb
-  (DTKS ta, DTKS tb) -> DTKS $ ta + tb
-  (DTKX ta, DTKX tb) -> DTKX $ ta + tb
-  (DTKProduct ta1 ta2, DTKProduct tb1 tb2) ->
-    DTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
-  (DTKUntyped hv1, DTKUntyped hv2) ->
-    DTKUntyped $ V.zipWith addDynamic hv1 hv2
+  (WTKR ta, WTKR tb) -> WTKR $ ta + tb
+  (WTKS ta, WTKS tb) -> WTKS $ ta + tb
+  (WTKX ta, WTKX tb) -> WTKX $ ta + tb
+  (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
+    WTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
+  (WTKUntyped hv1, WTKUntyped hv2) ->
+    WTKUntyped $ V.zipWith addDynamic hv1 hv2
 
 constantRepW :: forall y target. ADReadyNoLet target
             => (forall r. GoodScalar r => r)
             -> FullTensorKindW y -> RepW target y
 constantRepW r = \case
-  WFTKScalar -> DTKScalar $ rtoScalar $ rscalar r
-  WFTKR sh | SNat <- shrRank sh -> DTKR $ rrepl (toList sh) r
-  WFTKS sh -> withKnownShS sh $ DTKS $ srepl r
-  WFTKX sh -> withKnownShX (ssxFromShape sh) $ DTKX $ xrepl sh r
+  WFTKScalar -> WTKScalar $ rtoScalar $ rscalar r
+  WFTKR sh | SNat <- shrRank sh -> WTKR $ rrepl (toList sh) r
+  WFTKS sh -> withKnownShS sh $ WTKS $ srepl r
+  WFTKX sh -> withKnownShX (ssxFromShape sh) $ WTKX $ xrepl sh r
   WFTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK (fromFTKW ftk1)
                         , Dict <- lemTensorKindOfFTK (fromFTKW ftk2) ->
-    DTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
+    WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
   WFTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
-    DTKUntyped
+    WTKUntyped
     $ mapHVectorShaped (const $ srepl @_ @_ @target r)
     $ V.map dynamicFromVoid ssh
 
@@ -261,8 +261,8 @@ unWindFTK = \case
 unWindTarget :: BaseTensor target
              => STensorKindType y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
-  STKScalar{} -> DTKScalar t
-  STKR SNat STKScalar{} -> DTKR t
+  STKScalar{} -> WTKScalar t
+  STKR SNat STKScalar{} -> WTKR t
   STKR (SNat @n) (STKR (SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
     unWindTarget (STKR (SNat @(n + m)) stk2) (runNest t)
   STKR n@SNat (STKS sh2 stk2) | Dict <- lemTensorKindOfSTK stk2 ->
@@ -277,7 +277,7 @@ unWindTarget stk t = case stk of
   STKR n@SNat (STKProduct stk1 stk2) | Dict <- lemTensorKindOfSTK stk1
                                      , Dict <- lemTensorKindOfSTK stk2 ->
     unWindTarget (STKProduct (STKR n stk1) (STKR n stk2)) (runzip t)
-  STKS sh1 STKScalar{} -> withKnownShS sh1 $ DTKS t
+  STKS sh1 STKScalar{} -> withKnownShS sh1 $ WTKS t
   STKS sh1 (STKR m@(SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
     withKnownShS sh1 $
     unWindTarget (STKX (ssxFromShape (shCvtSX sh1)
@@ -293,7 +293,7 @@ unWindTarget stk t = case stk of
                                   , Dict <- lemTensorKindOfSTK stk2 ->
     withKnownShS sh1 $
     unWindTarget (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) (sunzip t)
-  STKX sh1 STKScalar{} -> withKnownShX sh1 $ DTKX t
+  STKX sh1 STKScalar{} -> withKnownShX sh1 $ WTKX t
   STKX sh1 (STKR m@(SNat @m) stk2) | Dict <- lemTensorKindOfSTK stk2 ->
     withKnownShX sh1 $
     unWindTarget (STKX (sh1 `ssxAppend` ssxReplicate m) stk2)
@@ -314,10 +314,10 @@ unWindTarget stk t = case stk of
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
                        , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
     let (t1, t2) = tunpairDup t
-    in DTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
+    in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
   STKUntyped ->
     let vt = dunHVector t
-    in DTKUntyped vt
+    in WTKUntyped vt
   STKR _ STKUntyped -> error "unWindTarget: TKUntyped can't be nested in arrays"
   STKS _ STKUntyped -> error "unWindTarget: TKUntyped can't be nested in arrays"
   STKX _ STKUntyped -> error "unWindTarget: TKUntyped can't be nested in arrays"
@@ -325,8 +325,8 @@ unWindTarget stk t = case stk of
 windTarget :: BaseTensor target
            => STensorKindType y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
-  (STKScalar{}, DTKScalar v) -> v
-  (STKR _ STKScalar{}, DTKR v) -> v
+  (STKScalar{}, WTKScalar v) -> v
+  (STKR _ STKScalar{}, WTKR v) -> v
   (STKR n@(SNat @n) (STKR (SNat @m) stk2), _) | Dict <- lemTensorKindOfSTK stk2 ->
     rnest n $ windTarget (STKR (SNat @(n + m)) stk2) t
   (STKR n (STKS sh2 stk2), _) | Dict <- lemTensorKindOfSTK stk2 ->
@@ -341,7 +341,7 @@ windTarget stk t = case (stk, t) of
   (STKR n@SNat (STKProduct stk1 stk2), _) | Dict <- lemTensorKindOfSTK stk1
                                           , Dict <- lemTensorKindOfSTK stk2 ->
     rzip $ windTarget (STKProduct (STKR n stk1) (STKR n stk2)) t
-  (STKS _ STKScalar{}, DTKS v) -> v
+  (STKS _ STKScalar{}, WTKS v) -> v
   (STKS sh1 (STKR m@SNat stk2), _) | Dict <- lemTensorKindOfSTK stk2 ->
     snestR sh1
     $ windTarget (STKX (ssxFromShape (shCvtSX sh1)
@@ -357,7 +357,7 @@ windTarget stk t = case (stk, t) of
                                        , Dict <- lemTensorKindOfSTK stk2 ->
     withKnownShS sh1 $
     szip $ windTarget (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) t
-  (STKX _ STKScalar{}, DTKX v) -> v
+  (STKX _ STKScalar{}, WTKX v) -> v
   (STKX sh1 (STKR m@SNat stk2), _) | Dict <- lemTensorKindOfSTK stk2 ->
     xnestR sh1
     $ windTarget (STKX (sh1 `ssxAppend` ssxReplicate m) stk2) t
@@ -372,13 +372,13 @@ windTarget stk t = case (stk, t) of
                                        , Dict <- lemTensorKindOfSTK stk2 ->
     withKnownShX sh1 $
     xzip $ windTarget (STKProduct (STKX sh1 stk1) (STKX sh1 stk2)) t
-  (STKProduct stk1 stk2, DTKProduct t1 t2)
+  (STKProduct stk1 stk2, WTKProduct t1 t2)
    | Dict <- lemTensorKindOfSTK stk1
    , Dict <- lemTensorKindOfSTK stk2
    , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
    , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
     tpair (windTarget stk1 t1) (windTarget stk2 t2)
-  (STKUntyped, DTKUntyped v) -> dmkHVector v
+  (STKUntyped, WTKUntyped v) -> dmkHVector v
   (STKR _ STKUntyped, _) ->
     error "windTarget: TKUntyped can't be nested in arrays"
   (STKS _ STKUntyped, _) ->
