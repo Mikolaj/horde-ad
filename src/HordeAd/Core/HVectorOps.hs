@@ -30,7 +30,7 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape
-  (KnownShX (..), shxAppend, ssxAppend, ssxFromShape, ssxReplicate)
+  (IShX, KnownShX (..), shxAppend, ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IShR
   , KnownShS (..)
@@ -43,6 +43,7 @@ import Data.Array.Nested
   , pattern ZSR
   , type (++)
   )
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend)
 
@@ -75,6 +76,31 @@ data RepW target y where
   DTKUntyped :: HVector target
              -> RepW target TKUntyped
 
+-- This captures the normal form of type family UnWind for full singletons.
+type role FullTensorKindW nominal
+data FullTensorKindW y where
+  WFTKScalar :: GoodScalar r
+             => FullTensorKindW (TKScalar r)
+  WFTKR :: GoodScalar r
+        => IShR n -> FullTensorKindW (TKR n r)
+  WFTKS :: GoodScalar r
+        => ShS sh -> FullTensorKindW (TKS sh r)
+  WFTKX :: GoodScalar r
+        => IShX sh -> FullTensorKindW (TKX sh r)
+  WFTKProduct :: (Nested.Elt (RepORArray y), Nested.Elt (RepORArray z))
+              => FullTensorKindW y -> FullTensorKindW z
+              -> FullTensorKindW (TKProduct y z)
+  WFTKUntyped :: VoidHVector -> FullTensorKindW TKUntyped
+
+fromFTKW :: FullTensorKindW y -> FullTensorKind y
+fromFTKW = \case
+  WFTKScalar -> FTKScalar
+  WFTKR sh -> FTKR sh FTKScalar
+  WFTKS sh -> FTKS sh FTKScalar
+  WFTKX sh -> FTKX sh FTKScalar
+  WFTKProduct ftk1 ftk2 -> FTKProduct (fromFTKW ftk1) (fromFTKW ftk2)
+  WFTKUntyped ssh -> FTKUntyped ssh
+
 addRepW :: ADReadyNoLet target
         => RepW target y -> RepW target y -> RepW target y
 addRepW a b = case (a, b) of
@@ -90,24 +116,21 @@ addRepW a b = case (a, b) of
   (DTKUntyped hv1, DTKUntyped hv2) ->
     DTKUntyped $ V.zipWith addDynamic hv1 hv2
 
-constantRepW :: forall yUnWind target. ADReadyNoLet target
+constantRepW :: forall y target. ADReadyNoLet target
             => (forall r. GoodScalar r => r)
-            -> FullTensorKind yUnWind -> RepW target yUnWind
+            -> FullTensorKindW y -> RepW target y
 constantRepW r = \case
-  FTKScalar -> DTKScalar $ rtoScalar $ rscalar r
-  FTKR sh FTKScalar | SNat <- shrRank sh -> DTKR $ rrepl (toList sh) r
-  FTKS sh FTKScalar -> withKnownShS sh $ DTKS $ srepl r
-  FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh) $ DTKX $ xrepl sh r
-  FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
-                       , Dict <- lemTensorKindOfFTK ftk2 ->
+  WFTKScalar -> DTKScalar $ rtoScalar $ rscalar r
+  WFTKR sh | SNat <- shrRank sh -> DTKR $ rrepl (toList sh) r
+  WFTKS sh -> withKnownShS sh $ DTKS $ srepl r
+  WFTKX sh -> withKnownShX (ssxFromShape sh) $ DTKX $ xrepl sh r
+  WFTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK (fromFTKW ftk1)
+                        , Dict <- lemTensorKindOfFTK (fromFTKW ftk2) ->
     DTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
-  FTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
+  WFTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     DTKUntyped
     $ mapHVectorShaped (const $ srepl @_ @_ @target r)
     $ V.map dynamicFromVoid ssh
-  _ -> error "constantRepW: impossible normal form of UnWind"
-         -- a pity we can't rule out this case via types
-         -- even if we write (UnWind y) above
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -188,10 +211,10 @@ unWindSTK = \case
   STKS _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
   STKX _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
 
-unWindFTK :: FullTensorKind y -> FullTensorKind (UnWind y)
+unWindFTK :: FullTensorKind y -> FullTensorKindW (UnWind y)
 unWindFTK = \case
-  ftk@FTKScalar{} -> ftk
-  ftk@(FTKR _ FTKScalar{}) -> ftk
+  FTKScalar -> WFTKScalar
+  FTKR sh FTKScalar -> WFTKR sh
   FTKR sh1 (FTKR sh2 ftk2) ->
     unWindFTK $ FTKR (sh1 `shrAppend` sh2) ftk2
   FTKR sh1 (FTKS sh2 ftk2) ->
@@ -201,7 +224,7 @@ unWindFTK = \case
     unWindFTK $ FTKX (shCvtRX sh1 `shxAppend` sh2) ftk2
   FTKR n (FTKProduct y z) ->
     unWindFTK $ FTKProduct (FTKR n y) (FTKR n z)
-  ftk@(FTKS _ FTKScalar{}) -> ftk
+  FTKS sh FTKScalar -> WFTKS sh
   FTKS sh1 (FTKR sh2 ftk2) ->
     unWindFTK
     $ FTKX (shCvtSX sh1 `shxAppend` shCvtRX sh2) ftk2
@@ -211,7 +234,7 @@ unWindFTK = \case
     unWindFTK $ FTKX (shCvtSX sh1 `shxAppend` sh2) ftk2
   FTKS sh1 (FTKProduct y z) ->
     unWindFTK $ FTKProduct (FTKS sh1 y) (FTKS sh1 z)
-  ftk@(FTKX _ FTKScalar{}) -> ftk
+  FTKX sh FTKScalar -> WFTKX sh
   FTKX sh1 (FTKR sh2 ftk2) ->
     unWindFTK $ FTKX (sh1 `shxAppend` shCvtRX sh2) ftk2
   FTKX sh1 (FTKS sh2 ftk2) ->
@@ -220,10 +243,10 @@ unWindFTK = \case
     unWindFTK $ FTKX (sh1 `shxAppend` sh2) ftk2
   FTKX sh1 (FTKProduct y z) ->
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
-  FTKProduct y z | (Dict, Dict) <- lemTensorKind1OfFTK (unWindFTK y)
-                 , (Dict, Dict) <- lemTensorKind1OfFTK (unWindFTK z) ->
-    FTKProduct (unWindFTK y) (unWindFTK z)
-  ftk@FTKUntyped{} -> ftk
+  FTKProduct y z | (Dict, Dict) <- lemTensorKind1OfFTK (fromFTKW $ unWindFTK y)
+                 , (Dict, Dict) <- lemTensorKind1OfFTK (fromFTKW $ unWindFTK z) ->
+    WFTKProduct (unWindFTK y) (unWindFTK z)
+  FTKUntyped ssh -> WFTKUntyped ssh
   FTKR _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
   FTKS _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
   FTKX _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"

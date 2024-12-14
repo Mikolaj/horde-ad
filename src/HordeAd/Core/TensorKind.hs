@@ -220,7 +220,8 @@ lemBuildOfAD snat@SNat = \case
 
 type role FullTensorKind nominal
 data FullTensorKind y where
-  FTKScalar :: GoodScalar r => FullTensorKind (TKScalar r)
+  FTKScalar :: GoodScalar r
+            => FullTensorKind (TKScalar r)
   FTKR :: forall n x. Nested.Elt (RepORArray x)
        => IShR n -> FullTensorKind x -> FullTensorKind (TKR2 n x)
   FTKS :: forall sh x. Nested.Elt (RepORArray x)
