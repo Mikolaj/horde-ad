@@ -64,18 +64,20 @@ import HordeAd.Util.SizedList
 roneHot :: forall r m n target.
            ( BaseTensor target, TensorKind2 r, KnownNat m, KnownNat n
            , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
-           , EqF (PrimalOf target), Num (RepORArray r) )
+           , EqF (PrimalOf target) )
         => IShR m -> target (TKR2 n r) -> IxROf target m
         -> target (TKR2 (m + n) r)
 roneHot sh v ix = case stensorKind @r of
   STKScalar{} ->
     rscatter @_ @_ @0
              (shrAppend sh (rshape v)) v (const ix)
-  _ -> let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                        $ zip (toList ix) (toList ix2))
-                       (rindex0 v (dropIndex ix2))
-                       (rscalar 0)
-       in rbuild (shrAppend sh (rshape v)) f
+  _ -> case tftk stensorKind v of
+    FTKR _ ftk2 ->
+      let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                       $ zip (toList ix) (toList ix2))
+                      (rindex0 v (dropIndex ix2))
+                      (constantTarget 0 (FTKR ZSR ftk2))
+      in rbuild (shrAppend sh (rshape v)) f
          -- TODO: if this is used often, maybe express this as the gather that
          -- would come out of vectorization, making sure it simplifies well
 
@@ -83,7 +85,7 @@ soneHot :: forall r sh1 sh2 target.
            ( BaseTensor target, TensorKind2 r, KnownShS sh1, KnownShS sh2
            , KnownShS (sh1 ++ sh2)
            , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
-           , EqF (PrimalOf target), Num (RepORArray r) )
+           , EqF (PrimalOf target) )
         => target (TKS2 sh2 r) -> IxSOf target sh1
         -> target (TKS2 (sh1 ++ sh2) r)
 soneHot v ix = case stensorKind @r of
@@ -91,20 +93,21 @@ soneHot v ix = case stensorKind @r of
     gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
     gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
     sscatter @_ @_ @'[] @(Rank sh1) v (const ix)
-  _ ->
-    gcastWith (unsafeCoerce Refl
-               :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-    gcastWith (unsafeCoerce Refl
-               :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-    gcastWith (unsafeCoerce Refl
-               :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-    withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-    gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
-       let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                     $ zip (toList ix) (toList ix2))
-                    (sindex0 v (dropIxS @(Rank sh1) ix2))
-                    (sscalar 0)
-    in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
+  _ -> case tftk stensorKind v of
+    FTKS _ ftk2 ->
+      gcastWith (unsafeCoerce Refl
+                 :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
+      gcastWith (unsafeCoerce Refl
+                 :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
+      gcastWith (unsafeCoerce Refl
+                 :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+      withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
+      gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
+         let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                       $ zip (toList ix) (toList ix2))
+                      (sindex0 v (dropIxS @(Rank sh1) ix2))
+                      (constantTarget 0 (FTKS ZSS ftk2))
+      in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
 
 xoneHot :: forall r sh1 sh2 target.
 --           ( BaseTensor target, GoodScalar r, KnownShX sh1, KnownShX sh2
