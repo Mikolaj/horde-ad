@@ -373,7 +373,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            -> AstTensor ms s (TKR (1 + n) r)
   AstReverse :: (KnownNat n, TensorKind2 r)
              => AstTensor ms s (TKR2 (1 + n) r) -> AstTensor ms s (TKR2 (1 + n) r)
-  AstTranspose :: (KnownNat n, TensorKind2 r)
+  AstTranspose :: (KnownNat n, TensorKind1 r)
                => Permutation.PermR -> AstTensor ms s (TKR2 n r)
                -> AstTensor ms s (TKR2 n r)
   AstReshape :: (KnownNat n, KnownNat m, TensorKind2 r)
@@ -471,7 +471,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               => AstTensor ms s (TKS2 (n ': sh) r)
               -> AstTensor ms s (TKS2 (n ': sh) r)
   AstTransposeS :: forall perm sh r s ms.
-                   (PermC perm, KnownShS sh, Rank perm <= Rank sh, TensorKind2 r)
+                   (PermC perm, KnownShS sh, Rank perm <= Rank sh, TensorKind1 r)
                 => Permutation.Perm perm -> AstTensor ms s (TKS2 sh r)
                 -> AstTensor ms s (TKS2 (Permutation.PermutePrefix perm sh) r)
   AstReshapeS :: ( KnownShS sh, Nested.Product sh ~ Nested.Product sh2

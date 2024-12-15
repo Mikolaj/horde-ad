@@ -897,7 +897,7 @@ treverseR
 treverseR = Nested.rrev1
 
 ttransposeR
-  :: Nested.KnownElt r
+  :: Nested.Elt r
   => Permutation.PermR -> Nested.Ranked n r -> Nested.Ranked n r
 ttransposeR = Nested.rtranspose
 
@@ -1268,7 +1268,7 @@ treverseS = Nested.srev1
 -- TODO: remove the conversion and overhaul the whole codebase
 ttransposeS
   :: forall perm r sh.
-     (Nested.KnownElt r, PermC perm, Rank perm <= Rank sh )
+     (Nested.Elt r, PermC perm, Rank perm <= Rank sh )
   => Permutation.Perm perm -> Nested.Shaped sh r
   -> Nested.Shaped (Permutation.PermutePrefix perm sh) r
 ttransposeS perm =

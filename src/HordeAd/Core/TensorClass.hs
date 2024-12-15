@@ -285,7 +285,7 @@ class ( Num (IntOf target)
   rtr :: (TensorKind2 r, KnownNat n)
       => target (TKR2 (2 + n) r) -> target (TKR2 (2 + n) r)
   rtr = rtranspose [1, 0]
-  rtranspose :: (TensorKind2 r, KnownNat n)
+  rtranspose :: (TensorKind1 r, KnownNat n)
              => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
   rflatten :: (TensorKind2 r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (flattenShape $ rshape u) u
@@ -608,7 +608,7 @@ class ( Num (IntOf target)
   str = stranspose (Permutation.makePerm @'[1, 0])
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
-                , Rank perm <= Rank sh, TensorKind2 r )
+                , Rank perm <= Rank sh, TensorKind1 r )
              => Permutation.Perm perm -> target (TKS2 sh r)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
   sflatten :: (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))

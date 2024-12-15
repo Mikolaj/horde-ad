@@ -459,7 +459,7 @@ data Delta :: Target -> TensorKindType -> Type where
   ReverseR :: (TensorKind2 r, KnownNat n)
            => Delta target (TKR2 (1 + n) r) -> Delta target (TKR2 (1 + n) r)
     -- ^ Reverse elements of the outermost dimension.
-  TransposeR :: (TensorKind2 r, KnownNat n)
+  TransposeR :: (TensorKind1 r, KnownNat n)
              => Permutation.PermR -> Delta target (TKR2 n r)
              -> Delta target (TKR2 n r)
     -- ^ Transpose according to the permutation.
@@ -549,7 +549,7 @@ data Delta :: Target -> TensorKindType -> Type where
            -> Delta target (TKS2 (n ': sh) r)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall perm sh r target.
-                (TensorKind2 r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
+                (TensorKind1 r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
              => Permutation.Perm perm
              -> Delta target (TKS2 sh r)
              -> Delta target (TKS2 (Permutation.PermutePrefix perm sh) r)

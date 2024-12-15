@@ -60,7 +60,7 @@ import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.
-astTr :: forall n s r. (KnownNat n, TensorKind2 r, AstSpan s)
+astTr :: forall n s r. (KnownNat n, TensorKind1 r, AstSpan s)
       => AstTensor AstMethodLet s (TKR2 (2 + n) r) -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
 astTr = astTranspose [1, 0]
 
@@ -655,12 +655,12 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 --
 -- This abbreviation is used a lot below.
 astTrS :: forall n m sh s r.
-          (KnownNat n, KnownNat m, KnownShS sh, TensorKind2 r, AstSpan s)
+          (KnownNat n, KnownNat m, KnownShS sh, TensorKind1 r, AstSpan s)
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
 astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
 astTrX :: forall n m sh s r.
 --          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)
-        AstTensor AstMethodLet s (TKX (Just n ': Just m ': sh) r) -> AstTensor AstMethodLet s (TKX (Just m ': Just n ': sh) r)
+        AstTensor AstMethodLet s (TKX2 (Just n ': Just m ': sh) r) -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': sh) r)
 astTrX = error "TODO"
 
 intBindingRefreshS
@@ -920,9 +920,10 @@ astTrGeneral
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrGeneral stk t = case stk of
-  STKR SNat STKScalar{} -> astTr t
-  STKS sh STKScalar{} -> withKnownShS sh $ astTrS t
-  STKX sh STKScalar{} -> withKnownShX sh $ astTrX t
+  STKScalar{} -> t
+  STKR SNat stk1 | Dict <- lemTensorKindOfSTK stk1 -> astTr t
+  STKS sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShS sh $ astTrS t
+  STKX sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShX sh $ astTrX t
   STKProduct @z1 @z2 stk1 stk2
     | Dict <- lemTensorKindOfBuild (SNat @k1) stk
     , Dict <- lemTensorKindOfBuild (SNat @k1) stk1
@@ -941,7 +942,6 @@ astTrGeneral stk t = case stk of
         let (u1, u2) = (astProject1 tShared, astProject2 tShared)
         in astPair (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)
   STKUntyped -> astTrAstHVector t
-  _ -> error "TODO"
 
 
 -- * Rule tracing machinery

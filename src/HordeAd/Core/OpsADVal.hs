@@ -380,7 +380,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
-                , Rank perm <= Rank sh, TensorKind2 r )
+                , Rank perm <= Rank sh, TensorKind1 r )
              => Permutation.Perm perm -> ADVal target (TKS2 sh r)
              -> ADVal target (TKS2 (Permutation.PermutePrefix perm sh) r)
   stranspose perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =

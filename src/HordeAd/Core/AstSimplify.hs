@@ -1888,7 +1888,7 @@ astReverseS v = Ast.AstReverseS v
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
-astTranspose :: forall n s r. (TensorKind2 r, KnownNat n, AstSpan s)
+astTranspose :: forall n s r. (TensorKind1 r, KnownNat n, AstSpan s)
              => Permutation.PermR -> AstTensor AstMethodLet s (TKR2 n r)
              -> AstTensor AstMethodLet s (TKR2 n r)
 astTranspose perm = \case
@@ -1926,7 +1926,7 @@ astTranspose perm = \case
 
 astTransposeS :: forall perm sh s r.
                  ( PermC perm, KnownShS sh, Rank perm <= Rank sh
-                 , TensorKind2 r, AstSpan s )
+                 , TensorKind1 r, AstSpan s )
               => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
               -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 astTransposeS perm t = case perm of
