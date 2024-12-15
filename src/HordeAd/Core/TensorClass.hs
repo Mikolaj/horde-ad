@@ -22,7 +22,6 @@ module HordeAd.Core.TensorClass
 import Prelude
 
 import Data.Kind (Constraint, Type)
-import Data.List (foldl')
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))

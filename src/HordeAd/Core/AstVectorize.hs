@@ -237,42 +237,10 @@ build1V snat@SNat (var, v0) =
       STKProduct{} -> error "TODO"
       STKUntyped -> error "TODO"
       _ -> error "TODO"
-    Ast.AstReplicate @y2 snat2@(SNat @k2) v -> traceRule $
-      let repl2Stk :: forall z.
-                      STensorKindType z
-                   -> AstTensor AstMethodLet s (BuildTensorKind k z)
-                   -> AstTensor AstMethodLet s (BuildTensorKind k
-                                                  (BuildTensorKind k2 z))
-          repl2Stk stk u = case stk of
-            STKScalar{} -> u
-            STKR SNat STKScalar{} -> astTr $ astReplicate snat2 u
-            STKS sh STKScalar{} -> withKnownShS sh $ astTrS $ astReplicate snat2 u
-            STKX sh STKScalar{} -> withKnownShX sh $ astTrX $ astReplicate snat2 u
-            STKProduct @z1 @z2 stk1 stk2
-              | (Dict, Dict) <- lemTensorKind1OfBuild snat stk1
-              , Dict <- lemTensorKindOfBuild snat2 stk1
-              , (Dict, Dict) <- lemTensorKind1OfBuild
-                                  snat (stensorKind @(BuildTensorKind k2 z1))
-              , (Dict, Dict) <- lemTensorKind1OfBuild snat stk2
-              , Dict <- lemTensorKindOfBuild snat2 stk2
-              , (Dict, Dict) <- lemTensorKind1OfBuild
-                                  snat (stensorKind @(BuildTensorKind k2 z2)) ->
-                astLetFun u $ \ !uShared ->
-                  let (u1, u2) = (astProject1 uShared, astProject2 uShared)
-                  in astPair (repl2Stk stk1 u1) (repl2Stk stk2 u2)
-            STKUntyped ->
-              astTrAstHVector
-              $ fun1DToAst (shapeAstHVector u) $ \ !vars !asts ->
-                  astLetHVectorIn
-                    vars
-                    u
-                    (Ast.AstMkHVector
-                     $ replicate1HVectorF
-                         (\k3 -> withSNat k3 $ \snat3 -> astReplicate snat3)
-                         (astReplicate SNat)
-                         snat2 asts)
-            _ -> error "TODO"
-     in repl2Stk (stensorKind @y2) (build1V snat (var, v))
+    Ast.AstReplicate @y2 snat2@(SNat @k2) v
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $
+      astTrGeneral @k2 (stensorKind @y2) (astReplicate snat2
+                                          $ build1V snat (var, v))
     Ast.AstBuild1 snat2 (var2, v2) ->
       build1VOccurenceUnknown snat (var, build1VOccurenceUnknown snat2 (var2, v2))
         -- happens only when testing and mixing different pipelines
