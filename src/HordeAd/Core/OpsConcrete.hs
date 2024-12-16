@@ -51,7 +51,7 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
-import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
+import Data.Array.Nested.Internal.Shape (shrRank, shsAppend, shsProduct)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
@@ -629,17 +629,17 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNR :: forall n m a. Nested.PrimElt a
-         => Nested.Ranked (n + m) a -> [(IIxR64 n, Nested.Ranked m a)]
-         -> Nested.Ranked (n + m) a
+updateNR :: forall n m a. GoodScalar a
+         => RepN (TKR (n + m) a) -> [(IxROf RepN n, RepN (TKR m a))]
+         -> RepN (TKR (n + m) a)
 updateNR arr upd =
-  let values = Nested.rtoVector arr
-      sh = Nested.rshape arr
+  let values = Nested.rtoVector $ unRepN arr
+      sh = rshape arr
       f !t (ix, u) =
-        let v = Nested.rtoVector u
-            i = fromIntegral $ toLinearIdx @n @m fromIntegral sh ix
+        let v = Nested.rtoVector $ unRepN u
+            i = fromIntegral $ unRepN $ toLinearIdx @n @m fromIntegral sh ix
         in V.concat [V.take i t, v, V.drop (i + V.length v) t]
-  in Nested.rfromVector sh (foldl' f values upd)
+  in RepN $ Nested.rfromVector sh (foldl' f values upd)
 
 tminIndexR
   :: forall r r2 n.
@@ -754,7 +754,7 @@ tmatmul2R t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
-              (KnownNat m, KnownNat n, Nested.PrimElt r, Num r, Show r)
+              (KnownNat p, KnownNat m, KnownNat n, GoodScalar r)
            => IShR (p + n) -> RepN (TKR (m + n) r)
            -> (IxROf RepN m -> IxROf RepN p)
            -> RepN (TKR (p + n) r)
@@ -762,32 +762,32 @@ tscatterZR sh (RepN t) f =
   let (shm, shDropP) = splitAt_Shape @m $ Nested.rshape t
       s = product $ shapeToList shm
       g ix =
-        let ix2 = fmap unRepN $ f $ fmap RepN ix
-        in if ixInBounds (indexToList ix2) (shapeToList sh)
-           then M.insertWith (V.zipWith (+)) ix2 (Nested.rtoVector $ t `tindexNR` ix)
+        let ix2 = f $ fmap RepN ix
+        in if ixInBounds (fmap unRepN $ toList ix2) (toList sh)
+           then M.insertWith (V.zipWith (+)) ix2
+                             (Nested.rtoVector $ t `tindexNR` ix)
            else id
       ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in RepN $ updateNR (Nested.rreplicate sh (Nested.rscalar 0))
-     $ map (second $ Nested.rfromVector shDropP)
+  in updateNR (rreplicate0N sh (rscalar 0))
+     $ map (second $ RepN . Nested.rfromVector shDropP)
      $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatterZ1R :: (Nested.PrimElt r, Nested.NumElt r, Num r, Default r)
+tscatterZ1R :: (GoodScalar r, KnownNat p, KnownNat n)
             => IShR (p + n) -> RepN (TKR (1 + n) r)
             -> (IntOf RepN -> IxROf RepN p)
             -> RepN (TKR (p + n) r)
 tscatterZ1R sh (RepN t) f =
-  RepN
-  $ sum $ imap (\i ti ->
-                 let ix2 = fmap unRepN $ f $ RepN $ fromIntegral i
-                 in if ixInBounds (indexToList ix2) (shapeToList sh)
-                    then updateNR (Nested.rreplicate sh (Nested.rscalar 0)) [(ix2, ti)]
-                    else Nested.rreplicate sh (Nested.rscalar def))
-      $ Nested.rtoListOuter t
+  sum $ imap (\i ti ->
+                 let ix2 = f $ RepN $ fromIntegral i
+                 in if ixInBounds (fmap unRepN $ toList ix2) (toList sh)
+                    then updateNR (rreplicate0N sh (rscalar 0)) [(ix2, RepN ti)]
+                    else rreplicate0N sh (rscalar 0))
+  $ Nested.rtoListOuter t
 
 -- TODO: make this strict
 tfromList0NR
@@ -853,22 +853,22 @@ tgatherZ1R k t f = case stensorKind @r of
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNS :: forall n sh r. (Nested.PrimElt r, KnownShS sh, KnownShS (Drop n sh))
-         => Nested.Shaped sh r
-         -> [(IIxS64 (Take n sh), Nested.Shaped (Drop n sh) r)]
-         -> Nested.Shaped sh r
+updateNS :: forall n sh r. (GoodScalar r, KnownShS sh, KnownShS (Drop n sh))
+         => RepN (TKS sh r)
+         -> [(IxSOf RepN (Take n sh), RepN (TKS (Drop n sh) r))]
+         -> RepN (TKS sh r)
 updateNS arr upd =
-  let values = Nested.stoVector arr
+  let values = Nested.stoVector $ unRepN arr
       sh = knownShS @sh
       f !t (ix, u) =
-        let v = Nested.stoVector u
+        let v = Nested.stoVector $ unRepN u
             i = gcastWith (unsafeCoerce Refl
                            :: sh :~: Take n sh ++ Drop n sh)
-                $ fromIntegral
+                $ fromIntegral $ unRepN
                 $ ShapedList.toLinearIdx @(Take n sh) @(Drop n sh)
                                          fromIntegral sh ix
         in V.concat [V.take i t, v, V.drop (i + V.length v) t]
-  in Nested.sfromVector knownShS (foldl' f values upd)
+  in RepN $ Nested.sfromVector knownShS (foldl' f values upd)
 
 tminIndexS
   :: forall n sh r r2.
@@ -998,43 +998,45 @@ tmatmul2S t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              ( Nested.PrimElt r, Num r, KnownShS sh2, KnownShS sh
-              , KnownShS (Drop p sh) )
+              ( GoodScalar r, KnownShS sh2, KnownShS sh
+              , KnownShS (Take p sh), KnownShS (Drop p sh))
            => RepN (TKS (sh2 ++ Drop p sh) r)
            -> (IxSOf RepN sh2 -> IxSOf RepN (Take p sh))
            -> RepN (TKS sh r)
-tscatterZS (RepN t) f =
-  let sh2 = knownShS @sh2
-      g ix =
-        let ix2 = fmap unRepN $ f $ fmap RepN ix
-        in if ixInBounds (ShapedList.indexToList ix2) (shapeT @sh)
-           then M.insertWith (V.zipWith (+)) ix2
-                  (Nested.stoVector $ tindexNS @_ @sh2 @(Drop p sh) t ix)
-           else id
-      ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
-                              $ fromIntegral i
-                            | i <- [0 .. sizeT @sh2 - 1] ]
-  in RepN $ updateNS (Nested.sreplicateScal knownShS 0)
-     $ map (second $ Nested.sfromVector knownShS)
-     $ M.assocs ivs
+tscatterZS (RepN t) f = case shsProduct (knownShS @sh) of
+  SNat ->
+    let sh2 = knownShS @sh2
+        g ix =
+          let ix2 = f $ fmap RepN ix
+          in if ixInBounds (toList $ fmap unRepN $ ix2) (shapeT @sh)
+             then M.insertWith (V.zipWith (+)) ix2
+                    (Nested.stoVector $ tindexNS @_ @sh2 @(Drop p sh) t ix)
+             else id
+        ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
+                                $ fromIntegral i
+                              | i <- [0 .. sizeT @sh2 - 1] ]
+    in updateNS (sreplicate0N (sscalar 0))
+       $ map (second $ RepN . Nested.sfromVector knownShS)
+       $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               (Nested.PrimElt r, Nested.NumElt r, Num r, Default r, KnownShS sh, KnownShS (Drop p sh))
+               ( GoodScalar r, KnownShS sh, KnownShS (Take p sh)
+               , KnownShS (Drop p sh) )
             => RepN (TKS (n2 ': Drop p sh) r)
             -> (IntOf RepN -> IxSOf RepN (Take p sh))
             -> RepN (TKS sh r)
-tscatterZ1S (RepN t) f =
-   RepN
-   $ sum $ imap (\i ti ->
-                   let ix2 = fmap unRepN $ f $ RepN $ fromIntegral i
-                   in if ixInBounds (ShapedList.indexToList ix2)
+tscatterZ1S (RepN t) f = case shsProduct (knownShS @sh) of
+  SNat ->
+    sum $ imap (\i ti ->
+                   let ix2 = f $ RepN $ fromIntegral i
+                   in if ixInBounds (toList $ fmap unRepN $ ix2)
                                     (shapeT @sh)
-                      then updateNS (Nested.sreplicateScal knownShS 0) [(ix2, ti)]
-                      else Nested.sreplicateScal knownShS def)
+                      then updateNS (sreplicate0N (sscalar 0)) [(ix2, RepN ti)]
+                      else sreplicate0N (sscalar 0))
         $ Nested.stoListOuter t
 
 -- TODO: make this strict
