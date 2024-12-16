@@ -827,26 +827,30 @@ tzipWith0NR f =
 -- The semantics of the operation permits index out of bounds
 -- and the result of such indexing is def.
 tgatherZR :: forall m p n r.
-             (KnownNat m, KnownNat p, KnownNat n, GoodScalar r)
-          => IShR (m + n) -> RepN (TKR (p + n) r)
+             (KnownNat m, KnownNat p, KnownNat n, TensorKind2 r)
+          => IShR (m + n) -> RepN (TKR2 (p + n) r)
           -> (IxROf RepN m -> IxROf RepN p)
-          -> RepN (TKR (m + n) r)
-tgatherZR sh t f =
-  let shm = takeShape @m sh
-      s = sizeShape shm
-      l = [ Nested.rtoVector $ unRepN
-            $ t `rindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
-          | i <- [0 .. fromIntegral s - 1] ]
-  in RepN $ Nested.rfromVector sh $ V.concat l
+          -> RepN (TKR2 (m + n) r)
+tgatherZR sh t f = case stensorKind @r of
+  STKScalar{} ->
+    let shm = takeShape @m sh
+        s = sizeShape shm
+        l = [ Nested.rtoVector $ unRepN
+              $ t `rindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
+            | i <- [0 .. fromIntegral s - 1] ]
+    in RepN $ Nested.rfromVector sh $ V.concat l
+  _ -> rbuild sh (\ix -> t ! f ix)
 
 tgatherZ1R :: forall p n r.
-              (KnownNat p, KnownNat n, GoodScalar r)
-           => Int -> RepN (TKR (p + n) r)
+              (KnownNat p, KnownNat n, TensorKind2 r)
+           => Int -> RepN (TKR2 (p + n) r)
            -> (IntOf RepN -> IxROf RepN p)
-           -> RepN (TKR (1 + n) r)
-tgatherZ1R k t f =
-  rfromList $ NonEmpty.map (\i -> t `rindex` f (RepN i))
-                           (NonEmpty.fromList [0 .. fromIntegral k - 1])
+           -> RepN (TKR2 (1 + n) r)
+tgatherZ1R k t f = case stensorKind @r of
+  STKScalar{} ->
+    rfromList $ NonEmpty.map (\i -> t `rindex` f (RepN i))
+                             (NonEmpty.fromList [0 .. fromIntegral k - 1])
+  _ -> rbuild1 k (\ix -> t ! f ix)
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
@@ -1076,27 +1080,37 @@ tzipWith0NS f =
 tgatherZS :: forall sh2 p sh r.
              ( KnownShS sh2, KnownShS sh, KnownShS (Take p sh)
              , KnownShS (Drop p sh), KnownShS (sh2 ++ Drop p sh)
-             , GoodScalar r )
-          => RepN (TKS sh r)
+             , TensorKind2 r )
+          => RepN (TKS2 sh r)
           -> (IxSOf RepN sh2 -> IxSOf RepN (Take p sh))
-          -> RepN (TKS (sh2 ++ Drop p sh) r)
+          -> RepN (TKS2 (sh2 ++ Drop p sh) r)
 tgatherZS t f =
   gcastWith (unsafeCoerce Refl :: sh :~: Take p sh ++ Drop p sh) $
-  let sh2 = knownShS @sh2
-      s = sizeT @sh2
-      l = [ Nested.stoVector $ unRepN
-            $ sindex @_ @_ @_ @(Drop p sh)
-                t (f (fmap RepN $ ShapedList.fromLinearIdx fromIntegral sh2 i))
-          | i <- [0 .. fromIntegral s - 1] ]
-  in RepN $ Nested.sfromVector knownShS $ V.concat l
+  gcastWith (unsafeCoerce Refl :: Take (Rank sh2) (sh2 ++ Drop p sh) :~: sh2) $
+  gcastWith (unsafeCoerce Refl
+             :: Drop (Rank sh2) (sh2 ++ Drop p sh) :~: Drop p sh) $
+  case stensorKind @r of
+    STKScalar{} ->
+      let sh2 = knownShS @sh2
+          s = sizeT @sh2
+          l = [ Nested.stoVector $ unRepN
+                $ sindex @_ @_ @_ @(Drop p sh)
+                    t (f (fmap RepN
+                          $ ShapedList.fromLinearIdx fromIntegral sh2 i))
+              | i <- [0 .. fromIntegral s - 1] ]
+      in RepN $ Nested.sfromVector knownShS $ V.concat l
+    _ -> sbuild @_ @_ @(Rank sh2) (\ix -> t !$ f ix)
 
 tgatherZ1S :: forall n2 p sh r.
               ( KnownNat n2, KnownShS sh, KnownShS (Take p sh)
-              , KnownShS (Drop p sh), GoodScalar r )
-           => RepN (TKS sh r)
+              , KnownShS (Drop p sh), TensorKind2 r )
+           => RepN (TKS2 sh r)
            -> (IntOf RepN -> IxSOf RepN (Take p sh))
-           -> RepN (TKS (n2 ': Drop p sh) r)
+           -> RepN (TKS2 (n2 ': Drop p sh) r)
 tgatherZ1S t f =
   gcastWith (unsafeCoerce Refl :: sh :~: Take p sh ++ Drop p sh) $
-  sfromList $ NonEmpty.map (\i -> t `sindex` f (RepN i))
-                           (NonEmpty.fromList [0 .. valueOf @n2 - 1])
+  case stensorKind @r of
+    STKScalar{} ->
+      sfromList $ NonEmpty.map (\i -> t `sindex` f (RepN i))
+                               (NonEmpty.fromList [0 .. valueOf @n2 - 1])
+    _ -> sbuild1 (\ix -> t !$ f ix)
