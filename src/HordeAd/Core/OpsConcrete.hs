@@ -16,19 +16,15 @@ import Data.Function ((&))
 import Data.Int (Int64)
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.Index (imap)
-import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict qualified as M
 import Data.Proxy (Proxy (Proxy))
-import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import GHC.Exts (IsList (..))
 import GHC.IsList qualified as IsList
-import GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
+import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import System.Random
@@ -38,7 +34,6 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
 import Data.Array.Mixed.Lemmas
-import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (StaticShX (..))
 import Data.Array.Nested
   ( IShR
@@ -199,7 +194,7 @@ instance BaseTensor RepN where
 
   sminIndex = RepN . tminIndexS . unRepN
   smaxIndex = RepN . tmaxIndexS . unRepN
-  sfloor = RepN . tfloorS . unRepN
+  sfloor = RepN . liftVS (V.map floor) . unRepN
   siota :: forall n r. (GoodScalar r, KnownNat n)
         => RepN (TKS '[n] r)  -- from 0 to n - 1
   siota = let n = valueOf @n :: Int
@@ -207,26 +202,32 @@ instance BaseTensor RepN where
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
   sindex v ix = tindexZS v (fmap unRepN $ ix)
   sindex0 v ix = tindex0S v (fmap unRepN ix)
-  ssum = RepN . tsumS . unRepN
-  ssum0 = RepN . tscalarS . tsum0S . unRepN
-  sdot0 u v = RepN $ tscalarS $ tdot0S (unRepN u) (unRepN v)
+  ssum = RepN . Nested.ssumOuter1 . unRepN
+  ssum0 = RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN
+  sdot0 u v = RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   sscatter t f = RepN $ tscatterZS (unRepN t)
                                    (fmap unRepN . f . fmap RepN)
   sscatter1 t f = RepN $ tscatterZ1S (unRepN t)
                                       (fmap unRepN . f . RepN)
-  sfromList = RepN . tfromListS . NonEmpty.map unRepN
+  sfromList = RepN . Nested.sfromListOuter SNat . NonEmpty.map unRepN
+    -- TODO: make this strict
   sfromList0N = RepN . tfromList0NS . map unRepN
-  sfromVector = RepN . tfromVectorS . V.map unRepN
-  sfromVector0N = RepN . tfromVector0NS . V.map unRepN
-  sunravelToList = map RepN . tunravelToListS . unRepN
-  sreplicate = RepN . treplicateS . unRepN
-  sreplicate0N = RepN . treplicate0NS . unRepN
-  sappend u v = RepN $ tappendS (unRepN u) (unRepN v)
-  sslice (_ :: Proxy i) _ = RepN . tsliceS @i . unRepN
-  sreverse = RepN . treverseS . unRepN
-  stranspose perm = RepN . ttransposeS perm . unRepN
-  sreshape = RepN . treshapeS . unRepN
+  sfromVector =
+    RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
+    . V.map unRepN
+  sfromVector0N = RepN . tfromList0NS . V.toList . V.map unRepN
+  sunravelToList = map RepN . Nested.stoListOuter . unRepN
+  sreplicate = RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
+  sreplicate0N :: forall r sh. (GoodScalar r, KnownShS sh)
+               => RepN (TKS '[] r) -> RepN (TKS sh r)
+  sreplicate0N | Refl <- lemAppNil @sh =
+    RepN . Nested.sreplicate (knownShS @sh) . unRepN
+  sappend u v = RepN $ Nested.sappend (unRepN u) (unRepN v)
+  sslice (_ :: Proxy i) _ = RepN . Nested.sslice (SNat @i) SNat . unRepN
+  sreverse = RepN . Nested.srev1 . unRepN
+  stranspose perm = RepN . Nested.stranspose perm . unRepN
+  sreshape = RepN . Nested.sreshape knownShS . unRepN
   sbuild1 f = RepN $ tbuild1S (unRepN . f . RepN)
   smap0N :: forall r1 r sh target.
             (target ~ RepN, TensorKind2 r1, TensorKind2 r, KnownShS sh)
@@ -256,16 +257,16 @@ instance BaseTensor RepN where
                                  (fmap unRepN . f . fmap RepN)
   sgather1 t f = RepN $ tgatherZ1S (unRepN t)
                                    (fmap unRepN . f . RepN)
-  scast = RepN . tcastS . unRepN
-  sfromIntegral = RepN . tfromIntegralS . unRepN
+  scast = RepN . liftVS (V.map realToFrac) . unRepN
+  sfromIntegral = RepN . liftVS (V.map fromIntegral) . unRepN
   szip (RepN (a, b)) = RepN $ Nested.szip a b
   sunzip = RepN . Nested.sunzip . unRepN
   stoScalar = RepN . Nested.sunScalar . unRepN
   sfromScalar = RepN . Nested.sscalar . unRepN
 
   sscaleByScalar s v =
-    RepN $ tscaleByScalarS (tunScalarS $ unRepN s) (unRepN v)
-  sdot1In proxy u v = RepN $ tdot1InS proxy (unRepN u) (unRepN v)
+    RepN $ liftVS (V.map (* Nested.sunScalar (unRepN s))) (unRepN v)
+  sdot1In proxy u v = RepN $ Nested.sdot1Inner proxy (unRepN u) (unRepN v)
 
   sfromPrimal = id
   sprimalPart = id
@@ -877,12 +878,14 @@ updateNS arr upd =
   in Nested.sfromVector knownShS (foldl' f values upd)
 
 tminIndexS
-  :: forall n sh r r2. ( Nested.PrimElt r, Nested.PrimElt r2, NumAndShow r, NumAndShow r2, KnownShS sh
-                       , KnownShS (Init (n ': sh)) )
+  :: forall n sh r r2.
+     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownShS sh
+     , KnownShS (Init (n ': sh)) )
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
 tminIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
-      f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead . Nested.sminIndexPrim
+      f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead
+          . Nested.sminIndexPrim
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
@@ -900,12 +903,14 @@ tminIndexS =
         Nothing -> error "tminIndexS: impossible someNatVal error"
 
 tmaxIndexS
-  :: forall n sh r r2. ( Nested.PrimElt r, Nested.PrimElt r2, NumAndShow r, NumAndShow r2, KnownShS sh
-                       , KnownShS (Init (n ': sh)) )
+  :: forall n sh r r2.
+     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownShS sh
+     , KnownShS (Init (n ': sh)) )
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
 tmaxIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
-      f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead . Nested.smaxIndexPrim
+      f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead
+          . Nested.smaxIndexPrim
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
@@ -921,11 +926,6 @@ tmaxIndexS =
               Nested.srerank @'[m] @'[] @(Init (n ': sh)) knownShS knownShS (f @m)
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
-
-tfloorS :: forall r r2 sh.
-           (Nested.PrimElt r, RealFrac r, Nested.PrimElt r2, Integral r2)
-        => Nested.Shaped sh r -> Nested.Shaped sh r2
-tfloorS = liftVS (V.map floor)
 
 liftVS
   :: (Nested.PrimElt r1, Nested.PrimElt r)
@@ -992,35 +992,9 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
     -- to avoid linearizing @values@, we do everything in unsized way
 -}
 
--- | Sum the outermost dimension.
-tsumS
-  :: forall n sh r. (Nested.PrimElt r, NumAndShow r)
-  => Nested.Shaped (n ': sh) r -> Nested.Shaped sh r
-tsumS = Nested.ssumOuter1
-
--- | Sum all elements of a tensor.
-tsum0S
-  :: forall sh r. (Nested.PrimElt r, NumAndShow r)
-  => Nested.Shaped sh r -> r
-tsum0S = Nested.ssumAllPrim
-
-tdot0S
-  :: forall sh r. (Nested.PrimElt r, NumAndShow r)
-  => Nested.Shaped sh r -> Nested.Shaped sh r -> r
-tdot0S = Nested.sdot
-
-tdot1InS
-  :: (Nested.PrimElt r, NumAndShow r)
-  => Proxy n -> Nested.Shaped (sh ++ '[n]) r -> Nested.Shaped (sh ++ '[n]) r
-  -> Nested.Shaped sh r
-tdot1InS = Nested.sdot1Inner
-
-tunravelToListS :: forall r n sh. Nested.KnownElt r
-                => Nested.Shaped (n ': sh) r -> [Nested.Shaped sh r]
-tunravelToListS = Nested.stoListOuter
-
 tmatmul2S
-  :: forall m n p r. (Nested.PrimElt r, KnownNat m, KnownNat n, KnownNat p, Numeric r)
+  :: forall m n p r.
+     (Nested.PrimElt r, KnownNat m, KnownNat n, KnownNat p, Numeric r)
   => Nested.Shaped '[m, n] r -> Nested.Shaped '[n, p] r -> Nested.Shaped '[m, p] r
 tmatmul2S t u =
   let t2 = Nested.stoVector t
@@ -1038,7 +1012,8 @@ tmatmul2S t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              (Nested.PrimElt r, NumAndShow r, KnownShS sh2, KnownShS sh, KnownShS (Drop p sh))
+              ( Nested.PrimElt r, NumAndShow r, KnownShS sh2, KnownShS sh
+              , KnownShS (Drop p sh) )
            => Nested.Shaped (sh2 ++ Drop p sh) r
            -> (IIxS64 sh2 -> IIxS64 (Take p sh))
            -> Nested.Shaped sh r
@@ -1073,17 +1048,7 @@ tscatterZ1S t f =
                                     (shapeT @sh)
                       then updateNS (Nested.sreplicateScal knownShS 0) [(ix2, ti)]
                       else Nested.sreplicateScal knownShS def)
-        $ tunravelToListS t
-
-tfromListS
-  :: forall n sh r. (Nested.KnownElt r, KnownNat n)
-  => NonEmpty (Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
-tfromListS = Nested.sfromListOuter SNat  -- TODO: make this strict
-
-tfromListX
-  :: forall n sh r. -- (NumAndShow r, KnownNat n)
-   NonEmpty (Nested.Mixed sh r) -> Nested.Mixed (Just n ': sh) r
-tfromListX = error "TODO"
+        $ Nested.stoListOuter t
 
 -- TODO: make this strict
 tfromList0NS
@@ -1095,64 +1060,6 @@ tfromList0NS l = case NonEmpty.nonEmpty l of
                  $ Nested.semptyArray (knownShS @sh)
     Nothing -> error "tfromList0NS: empty list, but not shape"
   Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
-
-tfromVectorS
-  :: forall n sh r. (Nested.KnownElt r, KnownNat n)
-  => Data.Vector.Vector (Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
-tfromVectorS = tfromListS . NonEmpty.fromList . V.toList
-
-_tfromVectorX
-  :: forall n sh r. -- (NumAndShow r, KnownNat n)
-   Data.Vector.Vector (Nested.Mixed sh r) -> Nested.Mixed (Just n ': sh) r
-_tfromVectorX = tfromListX . NonEmpty.fromList . V.toList
-
-tfromVector0NS
-  :: forall r sh. (Nested.KnownElt r, KnownShS sh, KnownNat (Nested.Product sh))
-  => Data.Vector.Vector (Nested.Shaped '[] r) -> Nested.Shaped sh r
-tfromVector0NS = tfromList0NS . V.toList
-
-treplicateS
-  :: forall n sh r. (Nested.KnownElt r, KnownNat n)
-  => Nested.Shaped sh r -> Nested.Shaped (n ': sh) r
-treplicateS = Nested.sreplicate (SNat @n :$$ ZSS)
-
-treplicate0NS
-  :: forall r sh. (Nested.KnownElt r, KnownShS sh)
-  => Nested.Shaped '[] r -> Nested.Shaped sh r
-treplicate0NS | Refl <- lemAppNil @sh = Nested.sreplicate (knownShS @sh)
-
-tappendS
-  :: forall r m n sh. Nested.KnownElt r
-  => Nested.Shaped (m ': sh) r -> Nested.Shaped (n ': sh) r -> Nested.Shaped ((m + n) ': sh) r
-tappendS = Nested.sappend
-
-tsliceS
-  :: forall i n k sh r. (Nested.KnownElt r, KnownNat i, KnownNat n)
-  => Nested.Shaped (i + n + k ': sh) r -> Nested.Shaped (n ': sh) r
-tsliceS = Nested.sslice (SNat @i) SNat
-
-treverseS
-  :: forall n sh r. Nested.KnownElt r
-  => Nested.Shaped (n ': sh) r -> Nested.Shaped (n ': sh) r
-treverseS = Nested.srev1
-
--- TODO: remove the conversion and overhaul the whole codebase
-ttransposeS
-  :: forall perm r sh.
-     (Nested.Elt r, PermC perm, Rank perm <= Rank sh )
-  => Permutation.Perm perm -> Nested.Shaped sh r
-  -> Nested.Shaped (Permutation.PermutePrefix perm sh) r
-ttransposeS perm =
-  gcastWith (unsafeCoerce Refl :: Compare (Rank perm) (Rank sh) :~: LT) $
-  gcastWith (unsafeCoerce Refl
-             :: Permutation.PermutePrefix perm sh :~: Permutation.PermutePrefix perm sh) $
-  Nested.stranspose perm
-
-treshapeS
-  :: forall r sh sh2.
-     (Nested.KnownElt r, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2)
-  => Nested.Shaped sh r -> Nested.Shaped sh2 r
-treshapeS = Nested.sreshape knownShS
 
 tbuild1S
   :: forall n sh r. (KnownNat n, Nested.KnownElt r)
@@ -1213,27 +1120,3 @@ tgatherZ1S t f =
           $ NonEmpty.map (\i -> t `tindexZS'` f i)
                          (NonEmpty.fromList [0 .. valueOf @n2 - 1])
   in Nested.sfromListOuter SNat l
-
-tcastS :: forall r1 r2 sh.
-          (Nested.PrimElt r1, Nested.PrimElt r2, Real r1, Fractional r2)
-       => Nested.Shaped sh r1 -> Nested.Shaped sh r2
-tcastS = liftVS (V.map realToFrac)
-
-tfromIntegralS :: forall r1 r2 sh .
-                  (Nested.PrimElt r1, Nested.PrimElt r2, NumAndShow r2, Integral r1)
-               => Nested.Shaped sh r1 -> Nested.Shaped sh r2
-tfromIntegralS = liftVS (V.map fromIntegral)
-
-tscalarS
-  :: Nested.Elt r
-  => r -> Nested.Shaped '[] r
-tscalarS = Nested.sscalar
-
-tunScalarS
-  :: Nested.Elt r
-  => Nested.Shaped '[] r -> r
-tunScalarS = Nested.sunScalar
-
-tscaleByScalarS :: forall r sh. (Nested.PrimElt r, Num r)
-                => r -> Nested.Shaped sh r -> Nested.Shaped sh r
-tscaleByScalarS s = liftVS (V.map (* s))
