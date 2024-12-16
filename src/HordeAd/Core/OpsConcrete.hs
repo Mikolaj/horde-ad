@@ -37,7 +37,6 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Shape (StaticShX (..))
 import Data.Array.Nested
   ( IShR
-  , IxR
   , KnownShS (..)
   , KnownShX (..)
   , MapJust
@@ -116,8 +115,8 @@ instance BaseTensor RepN where
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
   rfloor = RepN . liftVR (V.map floor) . unRepN
-  rindex v ix = tindexZR v (fmap unRepN ix)
-  rindex0 v ix = tindex0R v (fmap unRepN ix)
+  rindex = tindexZR
+  rindex0 = tindex0R
   rsum = RepN . Nested.rsumOuter1 . unRepN
   rsum0 = RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
@@ -199,8 +198,8 @@ instance BaseTensor RepN where
   siota = let n = valueOf @n :: Int
           in RepN $ Nested.sfromList1 SNat
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
-  sindex v ix = tindexZS v (fmap unRepN $ ix)
-  sindex0 v ix = tindex0S v (fmap unRepN ix)
+  sindex = tindexZS
+  sindex0 = tindex0S
   ssum = RepN . Nested.ssumOuter1 . unRepN
   ssum0 = RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN
   sdot0 u v = RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
@@ -709,21 +708,25 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
 
 tindexZR
   :: forall r m n. (TensorKind1 r, Show (RepORArray r), KnownNat m, KnownNat n)
-  => RepN (TKR2 (m + n) r) -> IIxR64 m -> RepN (TKR2 n r)
-tindexZR v ix = case tftk stensorKind v of
-  FTKR sh x | SNat <- shrRank sh ->
-   if ixInBounds (toList ix) (toList sh)
-   then RepN $ tindexNR (unRepN v) ix
-   else constantTarget def (FTKR (dropShape @m sh) x)
+  => RepN (TKR2 (m + n) r) -> IxROf RepN m -> RepN (TKR2 n r)
+tindexZR v ixRepN =
+  let ix = fmap unRepN ixRepN
+  in case tftk stensorKind v of
+    FTKR sh x | SNat <- shrRank sh ->
+     if ixInBounds (toList ix) (toList sh)
+     then RepN $ tindexNR (unRepN v) ix
+     else constantTarget def (FTKR (dropShape @m sh) x)
 
 tindex0R
-  :: (TensorKind1 r, KnownNat n)
-  => RepN (TKR2 n r) -> IIxR64 n -> RepN (TKR2 0 r)
-tindex0R v ix = case tftk stensorKind v of
-  FTKR sh x ->
-   if ixInBounds (toList ix) (toList sh)
-   then rscalar $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
-   else constantTarget def (FTKR ZSR x)
+  :: (TensorKind1 r, KnownNat m)
+  => RepN (TKR2 m r) -> IxROf RepN m -> RepN (TKR2 0 r)
+tindex0R v ixRepN =
+  let ix = fmap unRepN ixRepN
+  in case tftk stensorKind v of
+    FTKR sh x ->
+     if ixInBounds (toList ix) (toList sh)
+     then rscalar $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
+     else constantTarget def (FTKR ZSR x)
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -826,23 +829,23 @@ tzipWith0NR f =
 tgatherZR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, GoodScalar r)
           => IShR (m + n) -> RepN (TKR (p + n) r)
-          -> (IxR m (RepN (TKScalar Int64)) -> IxR p (RepN (TKScalar Int64)))
+          -> (IxROf RepN m -> IxROf RepN p)
           -> RepN (TKR (m + n) r)
 tgatherZR sh t f =
   let shm = takeShape @m sh
       s = sizeShape shm
       l = [ Nested.rtoVector $ unRepN
-            $ t `tindexZR` fmap unRepN (f (fmap RepN $ fromLinearIdx fromIntegral shm i))
+            $ t `rindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
           | i <- [0 .. fromIntegral s - 1] ]
   in RepN $ Nested.rfromVector sh $ V.concat l
 
 tgatherZ1R :: forall p n r.
               (KnownNat p, KnownNat n, GoodScalar r)
            => Int -> RepN (TKR (p + n) r)
-           -> (RepN (TKScalar Int64) -> IxR p (RepN (TKScalar Int64)))
+           -> (IntOf RepN -> IxROf RepN p)
            -> RepN (TKR (1 + n) r)
 tgatherZ1R k t f =
-  rfromList $ NonEmpty.map (\i -> t `tindexZR` fmap unRepN (f (RepN i)))
+  rfromList $ NonEmpty.map (\i -> t `rindex` f (RepN i))
                            (NonEmpty.fromList [0 .. fromIntegral k - 1])
 
 -- TODO: try to weave a similar magic as in tindex0R
@@ -944,20 +947,22 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- and return def, so it's fine. Similarly in gather and scatter.
 tindexZS
   :: forall r sh1 sh2. (TensorKind1 r, KnownShS sh1, KnownShS sh2)
-  => RepN (TKS2 (sh1 ++ sh2) r) -> IIxS64 sh1 -> RepN (TKS2 sh2 r)
-tindexZS v ix =
-  withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-  case tftk stensorKind v of
-    FTKS sh x ->
-      if ixInBounds (toList ix) (toList sh)
-      then RepN $ tindexNS (unRepN v) ix
-      else constantTarget def (FTKS knownShS x)
+  => RepN (TKS2 (sh1 ++ sh2) r) -> IxSOf RepN sh1 -> RepN (TKS2 sh2 r)
+tindexZS v ixRepN =
+  let ix = fmap unRepN ixRepN
+  in withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+     case tftk stensorKind v of
+       FTKS sh x ->
+         if ixInBounds (toList ix) (toList sh)
+         then RepN $ tindexNS (unRepN v) ix
+         else constantTarget def (FTKS knownShS x)
 
 tindex0S
   :: (TensorKind1 r, KnownShS sh)
-  => RepN (TKS2 sh r) -> IIxS64 sh -> RepN (TKS2 '[] r)
-tindex0S v ix =
-  case tftk stensorKind v of
+  => RepN (TKS2 sh r) -> IxSOf RepN sh -> RepN (TKS2 '[] r)
+tindex0S v ixRepN =
+  let ix = fmap unRepN ixRepN
+  in case tftk stensorKind v of
     FTKS sh x ->
       if ixInBounds (toList ix) (toList sh)
       then sscalar $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
@@ -1069,8 +1074,9 @@ tzipWith0NS f =
 -- The semantics of the operation permits index out of bounds
 -- and the result of such indexing is def.
 tgatherZS :: forall sh2 p sh r.
-             ( KnownShS sh2, KnownShS (Take p sh), KnownShS (Drop p sh)
-             , KnownShS (sh2 ++ Drop p sh), GoodScalar r )
+             ( KnownShS sh2, KnownShS sh, KnownShS (Take p sh)
+             , KnownShS (Drop p sh), KnownShS (sh2 ++ Drop p sh)
+             , GoodScalar r )
           => RepN (TKS sh r)
           -> (IxSOf RepN sh2 -> IxSOf RepN (Take p sh))
           -> RepN (TKS (sh2 ++ Drop p sh) r)
@@ -1079,18 +1085,18 @@ tgatherZS t f =
   let sh2 = knownShS @sh2
       s = sizeT @sh2
       l = [ Nested.stoVector $ unRepN
-            $ tindexZS @_ @_ @(Drop p sh)
-                t (fmap unRepN (f (fmap RepN $ ShapedList.fromLinearIdx fromIntegral sh2 $ fromIntegral i)))
-          | i <- [0 .. s - 1] ]
+            $ sindex @_ @_ @_ @(Drop p sh)
+                t (f (fmap RepN $ ShapedList.fromLinearIdx fromIntegral sh2 i))
+          | i <- [0 .. fromIntegral s - 1] ]
   in RepN $ Nested.sfromVector knownShS $ V.concat l
 
 tgatherZ1S :: forall n2 p sh r.
-              ( KnownNat n2, KnownShS (Take p sh), KnownShS (Drop p sh)
-              , GoodScalar r )
+              ( KnownNat n2, KnownShS sh, KnownShS (Take p sh)
+              , KnownShS (Drop p sh), GoodScalar r )
            => RepN (TKS sh r)
            -> (IntOf RepN -> IxSOf RepN (Take p sh))
            -> RepN (TKS (n2 ': Drop p sh) r)
 tgatherZ1S t f =
   gcastWith (unsafeCoerce Refl :: sh :~: Take p sh ++ Drop p sh) $
-  sfromList $ NonEmpty.map (\i -> t `tindexZS` (fmap unRepN (f (RepN i))))
+  sfromList $ NonEmpty.map (\i -> t `sindex` f (RepN i))
                            (NonEmpty.fromList [0 .. valueOf @n2 - 1])
