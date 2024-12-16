@@ -726,7 +726,7 @@ tindexZR v ix = case tftk stensorKind v of
   FTKR sh x | SNat <- shrRank sh ->
    if ixInBounds (toList ix) (toList sh)
    then RepN $ tindexNR (unRepN v) ix
-   else constantTarget 0 (FTKR (dropShape @m sh) x)
+   else constantTarget def (FTKR (dropShape @m sh) x)
 
 tindex0R
   :: (TensorKind1 r, KnownNat n)
@@ -735,7 +735,7 @@ tindex0R v ix = case tftk stensorKind v of
   FTKR sh x ->
    if ixInBounds (toList ix) (toList sh)
    then rscalar $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
-   else constantTarget 0 (FTKR ZSR x)
+   else constantTarget def (FTKR ZSR x)
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -837,7 +837,7 @@ tzipWith0NR f =
 -- and then inlining toVector and tindexZR
 --
 -- Note how tindexZR is used. The semantics of the operation
--- permits index out of bounds and the result of such indexing is zero.
+-- permits index out of bounds and the result of such indexing is def.
 tgatherZR :: forall m p n r.
              (Nested.PrimElt r, KnownNat m, KnownNat p, KnownNat n, Show r, Default r)
           => IShR (m + n) -> Nested.Ranked (p + n) r
@@ -973,7 +973,7 @@ tindexZS v ix =
     FTKS sh x ->
       if ixInBounds (toList ix) (toList sh)
       then RepN $ tindexNS (unRepN v) ix
-      else constantTarget 0 (FTKS knownShS x)
+      else constantTarget def (FTKS knownShS x)
 
 tindex0S
   :: (TensorKind1 r, KnownShS sh)
@@ -983,7 +983,7 @@ tindex0S v ix =
     FTKS sh x ->
       if ixInBounds (toList ix) (toList sh)
       then sscalar $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
-      else constantTarget 0 (FTKS ZSS x)
+      else constantTarget def (FTKS ZSS x)
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
 tindex0S (SS.A (SG.A OI.T{..})) ix =
@@ -1092,7 +1092,7 @@ tzipWith0NS f =
 -- and then inlining toVector and tindexZS
 --
 -- Note how tindexZS is used. The semantics of the operation
--- permits index out of bounds and the result of such indexing is zero.
+-- permits index out of bounds and the result of such indexing is def.
 tgatherZS :: forall sh2 p sh r.
              ( Nested.PrimElt r, Default r, KnownShS sh2, KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
