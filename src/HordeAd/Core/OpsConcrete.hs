@@ -121,10 +121,8 @@ instance BaseTensor RepN where
   rsum0 = RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
-  rscatter sh t f = RepN $ tscatterZR sh (unRepN t)
-                                         (fmap unRepN . f . fmap RepN)
-  rscatter1 sh t f = RepN $ tscatterZ1R sh (unRepN t)
-                                           (fmap unRepN . f . RepN)
+  rscatter = tscatterZR
+  rscatter1 = tscatterZ1R
   rfromList = RepN . Nested.rfromListOuter . NonEmpty.map unRepN
     -- TODO: make this strict
   rfromList0N sh = RepN . tfromList0NR sh . map unRepN
@@ -204,10 +202,8 @@ instance BaseTensor RepN where
   ssum0 = RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN
   sdot0 u v = RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
-  sscatter t f = RepN $ tscatterZS (unRepN t)
-                                   (fmap unRepN . f . fmap RepN)
-  sscatter1 t f = RepN $ tscatterZ1S (unRepN t)
-                                      (fmap unRepN . f . RepN)
+  sscatter = tscatterZS
+  sscatter1 = tscatterZ1S
   sfromList = RepN . Nested.sfromListOuter SNat . NonEmpty.map unRepN
     -- TODO: make this strict
   sfromList0N = RepN . tfromList0NS . map unRepN
@@ -759,20 +755,20 @@ tmatmul2R t u =
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
               (KnownNat m, KnownNat n, Nested.PrimElt r, Num r, Show r)
-           => IShR (p + n) -> Nested.Ranked (m + n) r
-           -> (IIxR64 m -> IIxR64 p)
-           -> Nested.Ranked (p + n) r
-tscatterZR sh t f =
+           => IShR (p + n) -> RepN (TKR (m + n) r)
+           -> (IxROf RepN m -> IxROf RepN p)
+           -> RepN (TKR (p + n) r)
+tscatterZR sh (RepN t) f =
   let (shm, shDropP) = splitAt_Shape @m $ Nested.rshape t
       s = product $ shapeToList shm
       g ix =
-        let ix2 = f ix
+        let ix2 = fmap unRepN $ f $ fmap RepN ix
         in if ixInBounds (indexToList ix2) (shapeToList sh)
            then M.insertWith (V.zipWith (+)) ix2 (Nested.rtoVector $ t `tindexNR` ix)
            else id
       ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (Nested.rreplicate sh (Nested.rscalar 0))
+  in RepN $ updateNR (Nested.rreplicate sh (Nested.rscalar 0))
      $ map (second $ Nested.rfromVector shDropP)
      $ M.assocs ivs
 
@@ -781,11 +777,13 @@ tscatterZR sh t f =
 -- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
 tscatterZ1R :: (Nested.PrimElt r, Nested.NumElt r, Num r, Default r)
-            => IShR (p + n) -> Nested.Ranked (1 + n) r -> (Int64 -> IIxR64 p)
-            -> Nested.Ranked (p + n) r
-tscatterZ1R sh t f =
-  sum $ imap (\i ti ->
-                 let ix2 = f $ fromIntegral i
+            => IShR (p + n) -> RepN (TKR (1 + n) r)
+            -> (IntOf RepN -> IxROf RepN p)
+            -> RepN (TKR (p + n) r)
+tscatterZ1R sh (RepN t) f =
+  RepN
+  $ sum $ imap (\i ti ->
+                 let ix2 = fmap unRepN $ f $ RepN $ fromIntegral i
                  in if ixInBounds (indexToList ix2) (shapeToList sh)
                     then updateNR (Nested.rreplicate sh (Nested.rscalar 0)) [(ix2, ti)]
                     else Nested.rreplicate sh (Nested.rscalar def))
@@ -1002,13 +1000,13 @@ tmatmul2S t u =
 tscatterZS :: forall r sh2 p sh.
               ( Nested.PrimElt r, Num r, KnownShS sh2, KnownShS sh
               , KnownShS (Drop p sh) )
-           => Nested.Shaped (sh2 ++ Drop p sh) r
-           -> (IIxS64 sh2 -> IIxS64 (Take p sh))
-           -> Nested.Shaped sh r
-tscatterZS t f =
+           => RepN (TKS (sh2 ++ Drop p sh) r)
+           -> (IxSOf RepN sh2 -> IxSOf RepN (Take p sh))
+           -> RepN (TKS sh r)
+tscatterZS (RepN t) f =
   let sh2 = knownShS @sh2
       g ix =
-        let ix2 = f ix
+        let ix2 = fmap unRepN $ f $ fmap RepN ix
         in if ixInBounds (ShapedList.indexToList ix2) (shapeT @sh)
            then M.insertWith (V.zipWith (+)) ix2
                   (Nested.stoVector $ tindexNS @_ @sh2 @(Drop p sh) t ix)
@@ -1016,7 +1014,7 @@ tscatterZS t f =
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
                               $ fromIntegral i
                             | i <- [0 .. sizeT @sh2 - 1] ]
-  in updateNS (Nested.sreplicateScal knownShS 0)
+  in RepN $ updateNS (Nested.sreplicateScal knownShS 0)
      $ map (second $ Nested.sfromVector knownShS)
      $ M.assocs ivs
 
@@ -1026,12 +1024,13 @@ tscatterZS t f =
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
                (Nested.PrimElt r, Nested.NumElt r, Num r, Default r, KnownShS sh, KnownShS (Drop p sh))
-            => Nested.Shaped (n2 ': Drop p sh) r
-            -> (Int64 -> IIxS64 (Take p sh))
-            -> Nested.Shaped sh r
-tscatterZ1S t f =
-    sum $ imap (\i ti ->
-                   let ix2 = f $ fromIntegral i
+            => RepN (TKS (n2 ': Drop p sh) r)
+            -> (IntOf RepN -> IxSOf RepN (Take p sh))
+            -> RepN (TKS sh r)
+tscatterZ1S (RepN t) f =
+   RepN
+   $ sum $ imap (\i ti ->
+                   let ix2 = fmap unRepN $ f $ RepN $ fromIntegral i
                    in if ixInBounds (ShapedList.indexToList ix2)
                                     (shapeT @sh)
                       then updateNS (Nested.sreplicateScal knownShS 0) [(ix2, ti)]
