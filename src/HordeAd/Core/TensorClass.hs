@@ -1445,7 +1445,7 @@ sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
     _ -> error "sfromD: scalar mismatch"
   _ -> error $ "sfromD: shape mismatch " ++ show (shapeT @sh2, shapeT @sh)
 
-rscalar :: forall r target. (TensorKind2 r, BaseTensor target)
+rscalar :: forall r target. (TensorKind1 r, BaseTensor target)
         => RepORArray r -> target (TKR2 0 r)
 rscalar r = let a = Nested.rscalar r
             in tconcrete (tftkG (STKR (SNat @0) (stensorKind @r)) a) (RepN a)
@@ -1464,7 +1464,7 @@ ingestData :: forall target r sh.
            => [r] -> target (TKS sh r)
 ingestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
-sscalar :: forall r target. (TensorKind2 r, BaseTensor target)
+sscalar :: forall r target. (TensorKind1 r, BaseTensor target)
         => RepORArray r -> target (TKS2 '[] r)
 sscalar r = let a = Nested.sscalar r
             in tconcrete (tftkG (STKS ZSS (stensorKind @r)) a) (RepN a)

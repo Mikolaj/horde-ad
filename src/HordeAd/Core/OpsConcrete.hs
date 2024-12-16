@@ -116,14 +116,12 @@ instance ShareTensor RepN where
   tunvector = unRepN
 
 instance BaseTensor RepN where
-  rshape = tshapeR . unRepN
+  rshape = Nested.rshape . unRepN
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
   rfloor = RepN . tfloorR . unRepN
-  rindex v ix = tindexZR v (fmap unRepN $ ix)
---  rindex0 v ix = RepN . tscalarR $ tindex0R (unRepN v) (fmap unRepN $ ix)
--- TODO: re-add when there's a faster implementation
---  roneHot sh v ix = RepN $ toneHotR sh (unRepN v) (fmap unRepN $ ix)
+  rindex v ix = tindexZR v (fmap unRepN ix)
+  rindex0 v ix = tindex0R v (fmap unRepN ix)
   rsum = RepN . tsumR . unRepN
   rsum0 = RepN . tscalarR . tsum0R . unRepN
   rdot0 u v = RepN $ tscalarR $ tdot0R (unRepN u) (unRepN v)
@@ -186,8 +184,6 @@ instance BaseTensor RepN where
 
   xshape = Nested.mshape . unRepN
   xindex = error "TODO"
--- TODO: add when there's a faster implementation
---  xoneHot = ...
   xfromVector = error "TODO"
   xreplicate _ = error "TODO"
   xzip (RepN (a, b)) = RepN $ Nested.mzip a b
@@ -208,16 +204,7 @@ instance BaseTensor RepN where
           in RepN $ Nested.sfromList1 SNat
              $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
   sindex v ix = tindexZS v (fmap unRepN $ ix)
---  sindex0 v ix = RepN . tscalarS $ tindex0S (unRepN v) (fmap unRepN $ ix)
--- TODO: re-add when there's a faster implementation
-{-  soneHot  :: forall r sh1 sh2.
-              ( TensorKind2 r, KnownShS sh2
-              , KnownShS (sh1 ++ sh2) )
-           => RepN (TKS2 sh2 r) -> IxSOf RepN sh1
-           -> RepN (TKS2 (sh1 ++ sh2) r)
-  soneHot v ix = case stensorKind @r of
-    STKScalar{} -> RepN $ toneHotS (unRepN v) (fmap unRepN $ ix)
-    _ -> error "TODO" -}
+  sindex0 v ix = tindex0S v (fmap unRepN ix)
   ssum = RepN . tsumS . unRepN
   ssum0 = RepN . tscalarS . tsum0S . unRepN
   sdot0 u v = RepN $ tscalarS $ tdot0S (unRepN u) (unRepN v)
@@ -658,37 +645,37 @@ updateNR arr upd =
         in V.concat [V.take i t, v, V.drop (i + V.length v) t]
   in Nested.rfromVector sh (foldl' f values upd)
 
-tshapeR
-  :: Nested.Elt r
-  => Nested.Ranked n r -> IShR n
-tshapeR = Nested.rshape
-
 tminIndexR
-  :: forall n r r2. (Nested.PrimElt r, Nested.PrimElt r2, NumAndShow r, NumAndShow r2, KnownNat n)
+  :: forall r r2 n.
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownNat n)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tminIndexR =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
       f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead
           . Nested.rminIndexPrim
-  in Nested.rrerank (SNat @n) ZSR f
+  in Nested.rrerank SNat ZSR f
 
 tmaxIndexR
-  :: forall n r r2. (Nested.PrimElt r, Nested.PrimElt r2, NumAndShow r, NumAndShow r2, KnownNat n)
+  :: forall r r2 n.
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownNat n)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
 tmaxIndexR =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
       f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead
           . Nested.rmaxIndexPrim
-  in Nested.rrerank (SNat @n) ZSR f
+  in Nested.rrerank SNat ZSR f
 
+-- TODO: unwind and only then do the PrimElt things. Use also for cast
+-- and others. Try to give the user a version that takes a function
+-- (and probably its derivative, as with mapAccums).
 tfloorR :: (Nested.PrimElt r, RealFrac r, Nested.PrimElt r2, Integral r2)
         => Nested.Ranked n r -> Nested.Ranked n r2
 tfloorR = liftVR (V.map floor)
 
 liftVR
-  :: (Nested.PrimElt r1, Nested.PrimElt r)
-  => (VS.Vector r1 -> VS.Vector r)
-  -> Nested.Ranked n r1 -> Nested.Ranked n r
+  :: (Nested.PrimElt r1, Nested.PrimElt r2)
+  => (VS.Vector r1 -> VS.Vector r2)
+  -> Nested.Ranked n r1 -> Nested.Ranked n r2
 liftVR f =
   Nested.Internal.arithPromoteRanked
     (Nested.Internal.Mixed.mliftNumElt1
@@ -699,7 +686,7 @@ ixInBounds ix sh =
   and $ zipWith (\i dim -> 0 <= i && i < fromIntegral dim) ix sh
 
 tindexNR
-  :: forall m n r. (KnownNat m, KnownNat n, Nested.Elt r, Show r)
+  :: (Nested.Elt r, Show r, KnownNat m, KnownNat n)
   => Nested.Ranked (m + n) r -> IIxR64 m -> Nested.Ranked n r
 tindexNR v ix = let sh = Nested.rshape v
                     !_A = assert (ixInBounds (toList ix) (toList sh)
@@ -719,7 +706,7 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
 -}
 
 tindexZR'
-  :: forall m n r. (KnownNat m, KnownNat n, Nested.Elt r, Default r, Show r)
+  :: forall r m n. (Nested.Elt r, Default r, Show r, KnownNat m, KnownNat n)
   => Nested.Ranked (m + n) r -> IIxR64 m -> Nested.Ranked n r
 tindexZR' v ix =
   let sh = Nested.rshape v
@@ -728,7 +715,7 @@ tindexZR' v ix =
      else Nested.rreplicate (dropShape @m sh) (Nested.rscalar def)
 
 tindexZR
-  :: forall m n r. (KnownNat m, KnownNat n, TensorKind2 r)
+  :: forall r m n. (TensorKind1 r, Show (RepORArray r), KnownNat m, KnownNat n)
   => RepN (TKR2 (m + n) r) -> IIxR64 m -> RepN (TKR2 n r)
 tindexZR v ix = case tftk stensorKind v of
   FTKR sh x | SNat <- shrRank sh ->
@@ -736,26 +723,19 @@ tindexZR v ix = case tftk stensorKind v of
    then RepN $ tindexNR (unRepN v) ix
    else constantTarget 0 (FTKR (dropShape @m sh) x)
 
-_tindex0R
-  :: (KnownNat n, Nested.KnownElt r, Default r)
-  => Nested.Ranked n r -> IIxR64 n -> r
-_tindex0R v ix =
-  let sh = Nested.rshape v
-  in if ixInBounds (toList ix) (toList sh)
-     then Nested.rindex v (fmap fromIntegral ix)
-     else def
+tindex0R
+  :: (TensorKind1 r, KnownNat n)
+  => RepN (TKR2 n r) -> IIxR64 n -> RepN (TKR2 0 r)
+tindex0R v ix = case tftk stensorKind v of
+  FTKR sh x ->
+   if ixInBounds (toList ix) (toList sh)
+   then rscalar $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
+   else constantTarget 0 (FTKR ZSR x)
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
                                         strides))
 -}
-
-_toneHotR
-  :: forall m n r. (KnownNat n, Nested.KnownElt r,     Nested.PrimElt r, Nested.NumElt r, Num r, Show r, Default r)
-  => IShR m -> Nested.Ranked n r -> IIxR64 m -> Nested.Ranked (m + n) r
-_toneHotR sh v ix =
-  tscatterZR @0 (Nested.Internal.Shape.shrAppend sh (Nested.rshape v))
-             v (const ix)
 
 -- | Sum the outermost dimension.
 tsumR
@@ -920,7 +900,7 @@ tmap0NR
 tmap0NR f =
   Nested.Internal.arithPromoteRanked
     (Nested.Internal.Mixed.mliftPrim (Nested.runScalar . f . Nested.rscalar ))
-      -- too slow: tbuildNR (tshapeR v) (\ix -> f $ v `tindexNR` ix)
+      -- too slow: tbuildNR (Nested.rshape v) (\ix -> f $ v `tindexNR` ix)
 
 tzipWith0NR
   :: (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
@@ -1059,7 +1039,7 @@ liftVS f =
        (`Mixed.Internal.Arith.liftVEltwise1` f))
 
 tindexNS
-  :: forall sh1 sh2 r. Nested.Elt r
+  :: Nested.Elt r
   => Nested.Shaped (sh1 ++ sh2) r -> IIxS64 sh1 -> Nested.Shaped sh2 r
 tindexNS v ix = Nested.sindexPartial v (fmap fromIntegral ix)
 {- TODO
@@ -1086,9 +1066,9 @@ tindexZS' v ix | Refl <- lemAppNil @sh2 =
      else Nested.sreplicate (knownShS @sh2) (Nested.sscalar def)
 
 tindexZS
-  :: forall sh1 sh2 r. (KnownShS sh1, KnownShS sh2, TensorKind1 r)
+  :: forall r sh1 sh2. (TensorKind1 r, KnownShS sh1, KnownShS sh2)
   => RepN (TKS2 (sh1 ++ sh2) r) -> IIxS64 sh1 -> RepN (TKS2 sh2 r)
-tindexZS v ix | Refl <- lemAppNil @sh2 =
+tindexZS v ix =
   withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
   case tftk stensorKind v of
     FTKS sh x ->
@@ -1096,14 +1076,15 @@ tindexZS v ix | Refl <- lemAppNil @sh2 =
       then RepN $ tindexNS (unRepN v) ix
       else constantTarget 0 (FTKS knownShS x)
 
-_tindex0S
-  :: (Nested.KnownElt r, Default r)
-  => Nested.Shaped sh r -> IIxS64 sh -> r
-_tindex0S v ix =
-  let sh = Nested.Internal.Shape.shsToList $ Nested.sshape v
-  in if ixInBounds (ShapedList.indexToList ix) sh
-     then Nested.sindex v (fmap fromIntegral ix)
-     else def
+tindex0S
+  :: (TensorKind1 r, KnownShS sh)
+  => RepN (TKS2 sh r) -> IIxS64 sh -> RepN (TKS2 '[] r)
+tindex0S v ix =
+  case tftk stensorKind v of
+    FTKS sh x ->
+      if ixInBounds (toList ix) (toList sh)
+      then sscalar $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
+      else constantTarget 0 (FTKS ZSS x)
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
 tindex0S (SS.A (SG.A OI.T{..})) ix =
@@ -1112,14 +1093,6 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
                                         strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 -}
-
-_toneHotS
-  :: forall sh1 sh2 r. (Nested.KnownElt r,    Nested.PrimElt r, Nested.NumElt r, Num r, Show r, Default r, KnownShS sh2, KnownShS (sh1 ++ sh2))
-  => Nested.Shaped sh2 r -> IIxS64 sh1 -> Nested.Shaped (sh1 ++ sh2) r
-_toneHotS v ix =
-  gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
-  gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-  tscatterZS @_ @'[] @(Rank sh1) v (const ix)
 
 -- | Sum the outermost dimension.
 tsumS
@@ -1177,7 +1150,7 @@ tscatterZS t f =
         let ix2 = f ix
         in if ixInBounds (ShapedList.indexToList ix2) (shapeT @sh)
            then M.insertWith (V.zipWith (+)) ix2
-                  (Nested.stoVector $ tindexNS @sh2 @(Drop p sh) t ix)
+                  (Nested.stoVector $ tindexNS @_ @sh2 @(Drop p sh) t ix)
            else id
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
                               $ fromIntegral i
