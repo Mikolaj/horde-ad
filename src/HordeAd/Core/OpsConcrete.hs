@@ -673,9 +673,14 @@ tmaxIndexR =
           . Nested.rmaxIndexPrim
   in Nested.rrerank SNat ZSR f
 
--- TODO: unwind and only then do the PrimElt things. Use also for cast
--- and others. Try to give the user a version that takes a function
--- (and probably its derivative, as with mapAccums).
+-- We could generalize by unwinding and only then doing the PrimElt things,
+-- but we'd need a type family that says "replace this underlying scalars
+-- by this one", which makes things too complicated.
+--
+-- We could also expose `liftVR` in the user API, but in addition
+-- to the main function argument, such as floor or cast, it'd need the function's
+-- derivative, just as with mapAccums. Maybe it's better to generalize even more
+-- and permit arbitrary extra ops if given their derivatives.
 liftVR
   :: (Nested.PrimElt r1, Nested.PrimElt r2)
   => (VS.Vector r1 -> VS.Vector r2)
