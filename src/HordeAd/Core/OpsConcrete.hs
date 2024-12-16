@@ -634,10 +634,6 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
 
 -- * Internal definitions
 
--- We often debug around here, so let's add Show and obfuscate it
--- to avoid warnings that it's unused. The addition silences warnings upstream.
-type NumAndShow r = (Nested.KnownElt r, Nested.NumElt r, Num r, Show r, Default r)
-
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
@@ -771,7 +767,7 @@ tmatmul2R t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
-              (KnownNat m, KnownNat n, Nested.PrimElt r, NumAndShow r)
+              (KnownNat m, KnownNat n, Nested.PrimElt r, Num r, Show r)
            => IShR (p + n) -> Nested.Ranked (m + n) r
            -> (IIxR64 m -> IIxR64 p)
            -> Nested.Ranked (p + n) r
@@ -793,7 +789,7 @@ tscatterZR sh t f =
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatterZ1R :: (Nested.PrimElt r, NumAndShow r)
+tscatterZ1R :: (Nested.PrimElt r, Nested.NumElt r, Num r, Default r)
             => IShR (p + n) -> Nested.Ranked (1 + n) r -> (Int64 -> IIxR64 p)
             -> Nested.Ranked (p + n) r
 tscatterZ1R sh t f =
@@ -843,7 +839,7 @@ tzipWith0NR f =
 -- Note how tindexZR is used. The semantics of the operation
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZR :: forall m p n r.
-             (Nested.PrimElt r, KnownNat m, KnownNat p, KnownNat n, NumAndShow r)
+             (Nested.PrimElt r, KnownNat m, KnownNat p, KnownNat n, Show r, Default r)
           => IShR (m + n) -> Nested.Ranked (p + n) r
           -> (IIxR64 m -> IIxR64 p)
           -> Nested.Ranked (m + n) r
@@ -854,7 +850,7 @@ tgatherZR sh t f =
           | i <- [0 .. fromIntegral s - 1] ]
   in Nested.rfromVector sh $ V.concat l
 
-tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, NumAndShow r)
+tgatherZ1R :: forall p n r. (KnownNat p, KnownNat n, Nested.KnownElt r, Show r, Default r)
            => Int -> Nested.Ranked (p + n) r -> (Int64 -> IIxR64 p)
            -> Nested.Ranked (1 + n) r
 tgatherZ1R k t f =
@@ -1017,7 +1013,7 @@ tmatmul2S t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZS :: forall r sh2 p sh.
-              ( Nested.PrimElt r, NumAndShow r, KnownShS sh2, KnownShS sh
+              ( Nested.PrimElt r, Num r, KnownShS sh2, KnownShS sh
               , KnownShS (Drop p sh) )
            => Nested.Shaped (sh2 ++ Drop p sh) r
            -> (IIxS64 sh2 -> IIxS64 (Take p sh))
@@ -1042,7 +1038,7 @@ tscatterZS t f =
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S :: forall r n2 p sh.
-               (Nested.PrimElt r, NumAndShow r, KnownShS sh, KnownShS (Drop p sh))
+               (Nested.PrimElt r, Nested.NumElt r, Num r, Default r, KnownShS sh, KnownShS (Drop p sh))
             => Nested.Shaped (n2 ': Drop p sh) r
             -> (Int64 -> IIxS64 (Take p sh))
             -> Nested.Shaped sh r
@@ -1098,7 +1094,7 @@ tzipWith0NS f =
 -- Note how tindexZS is used. The semantics of the operation
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherZS :: forall sh2 p sh r.
-             ( Nested.PrimElt r, NumAndShow r, KnownShS sh2, KnownShS (Drop p sh)
+             ( Nested.PrimElt r, Default r, KnownShS sh2, KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
           => Nested.Shaped sh r
           -> (IIxS64 sh2 -> IIxS64 (Take p sh))
@@ -1116,7 +1112,7 @@ tgatherZS t f =
   in Nested.sfromVector knownShS $ V.concat l
 
 tgatherZ1S :: forall n2 p sh r.
-              (NumAndShow r, KnownNat n2, KnownShS (Drop p sh))
+              (Nested.KnownElt r, Default r, KnownNat n2, KnownShS (Drop p sh))
            => Nested.Shaped sh r -> (Int64 -> IIxS64 (Take p sh))
            -> Nested.Shaped (n2 ': Drop p sh) r
 tgatherZ1S t f =
