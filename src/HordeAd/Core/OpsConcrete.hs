@@ -119,29 +119,31 @@ instance BaseTensor RepN where
   rshape = Nested.rshape . unRepN
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
-  rfloor = RepN . tfloorR . unRepN
+  rfloor = RepN . liftVR (V.map floor) . unRepN
   rindex v ix = tindexZR v (fmap unRepN ix)
   rindex0 v ix = tindex0R v (fmap unRepN ix)
-  rsum = RepN . tsumR . unRepN
-  rsum0 = RepN . tscalarR . tsum0R . unRepN
-  rdot0 u v = RepN $ tscalarR $ tdot0R (unRepN u) (unRepN v)
+  rsum = RepN . Nested.rsumOuter1 . unRepN
+  rsum0 = RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN
+  rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   rscatter sh t f = RepN $ tscatterZR sh (unRepN t)
                                          (fmap unRepN . f . fmap RepN)
   rscatter1 sh t f = RepN $ tscatterZ1R sh (unRepN t)
                                            (fmap unRepN . f . RepN)
-  rfromList = RepN . tfromListR . NonEmpty.map unRepN
+  rfromList = RepN . Nested.rfromListOuter . NonEmpty.map unRepN
+    -- TODO: make this strict
   rfromList0N sh = RepN . tfromList0NR sh . map unRepN
-  rfromVector = RepN . tfromVectorR . V.map unRepN
-  rfromVector0N sh = RepN . tfromVector0NR sh . V.map unRepN
-  runravelToList = map RepN . tunravelToListR . unRepN
-  rreplicate k = RepN . treplicateR k . unRepN
-  rreplicate0N sh = RepN . treplicate0NR sh . unRepN
-  rappend u v = RepN $ tappendR (unRepN u) (unRepN v)
-  rslice i n = RepN . tsliceR i n . unRepN
-  rreverse = RepN . treverseR . unRepN
-  rtranspose perm = RepN . ttransposeR perm . unRepN
-  rreshape sh = RepN . treshapeR sh . unRepN
+  rfromVector =
+    RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
+  rfromVector0N sh = RepN . tfromList0NR sh . V.toList . V.map unRepN
+  runravelToList = map RepN . Nested.rtoListOuter . unRepN
+  rreplicate k = RepN . Nested.rreplicate (k :$: ZSR) . unRepN
+  rreplicate0N sh = RepN . Nested.rreplicate sh . unRepN
+  rappend u v = RepN $ Nested.rappend (unRepN u) (unRepN v)
+  rslice i n = RepN . Nested.rslice i n . unRepN
+  rreverse = RepN . Nested.rrev1 . unRepN
+  rtranspose perm = RepN . Nested.rtranspose perm . unRepN
+  rreshape sh = RepN . Nested.rreshape sh . unRepN
   rbuild1 k f = RepN $ tbuild1R k (unRepN . f . RepN)
   rmap0N :: forall r r1 n target.
             (target ~ RepN, TensorKind2 r, TensorKind2 r1, KnownNat n)
@@ -165,16 +167,16 @@ instance BaseTensor RepN where
                                        (fmap unRepN . f . fmap RepN)
   rgather1 k t f = RepN $ tgatherZ1R k (unRepN t)
                                        (fmap unRepN . f . RepN)
-  rcast = RepN . tcastR . unRepN
-  rfromIntegral = RepN . tfromIntegralR . unRepN
+  rcast = RepN . liftVR (V.map realToFrac) . unRepN
+  rfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
   rzip (RepN (a, b)) = RepN $ Nested.rzip a b
   runzip = RepN . Nested.runzip . unRepN
   rtoScalar = RepN . Nested.runScalar . unRepN
   rfromScalar = RepN . Nested.rscalar . unRepN
 
   rscaleByScalar s v =
-    RepN $ tscaleByScalarR (tunScalarR $ unRepN s) (unRepN v)
-  rdot1In u v = RepN $ tdot1InR (unRepN u) (unRepN v)
+    RepN $ liftVR (V.map (* Nested.runScalar (unRepN s))) (unRepN v)
+  rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
 
   rfromPrimal = id
   rprimalPart = id
@@ -622,6 +624,11 @@ instance ADReady target
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
+{-
+tdot0R t u = OR.toVector t LA.<.> OR.toVector u
+  -- TODO: if offset 0 and same strides, use toUnorderedVectorT
+  -- TODO: if either has length 1 values, it may or may not be faster to do
+  -- tsum0R (t * u) -}
 
 
 -- * Internal definitions
@@ -668,10 +675,6 @@ tmaxIndexR =
 -- TODO: unwind and only then do the PrimElt things. Use also for cast
 -- and others. Try to give the user a version that takes a function
 -- (and probably its derivative, as with mapAccums).
-tfloorR :: (Nested.PrimElt r, RealFrac r, Nested.PrimElt r2, Integral r2)
-        => Nested.Ranked n r -> Nested.Ranked n r2
-tfloorR = liftVR (V.map floor)
-
 liftVR
   :: (Nested.PrimElt r1, Nested.PrimElt r2)
   => (VS.Vector r1 -> VS.Vector r2)
@@ -737,38 +740,6 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
                                         strides))
 -}
 
--- | Sum the outermost dimension.
-tsumR
-  :: forall n r. (Nested.PrimElt r, NumAndShow r)
-  => Nested.Ranked (1 + n) r -> Nested.Ranked n r
-tsumR = Nested.rsumOuter1
-
--- | Sum all elements of a tensor.
-tsum0R
-  :: (Nested.PrimElt r, NumAndShow r)
-  => Nested.Ranked n r -> r
-tsum0R = Nested.rsumAllPrim
-
-tdot0R
-  :: (Nested.PrimElt r, NumAndShow r)
-  => Nested.Ranked n r -> Nested.Ranked n r -> r
-tdot0R = Nested.rdot
-{-
-tdot0R t u = OR.toVector t LA.<.> OR.toVector u
-  -- TODO: if offset 0 and same strides, use toUnorderedVectorT
-  -- TODO: if either has length 1 values, it may or may not be faster to do
-  -- tsum0R (t * u)
--}
-
-tdot1InR
-  :: (Nested.PrimElt r, NumAndShow r)
-  => Nested.Ranked (n + 1) r -> Nested.Ranked (n + 1) r -> Nested.Ranked n r
-tdot1InR = Nested.rdot1Inner
-
-tunravelToListR :: Nested.KnownElt r
-                => Nested.Ranked (1 + n) r -> [Nested.Ranked n r]
-tunravelToListR = Nested.rtoListOuter
-
 tmatmul2R
   :: (Nested.PrimElt r, Numeric r)
   => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 2 r
@@ -808,7 +779,7 @@ tscatterZR sh t f =
            else id
       ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
                             | i <- [0 .. fromIntegral s - 1] ]
-  in updateNR (treplicate0NR sh (Nested.rscalar 0))
+  in updateNR (Nested.rreplicate sh (Nested.rscalar 0))
      $ map (second $ Nested.rfromVector shDropP)
      $ M.assocs ivs
 
@@ -823,14 +794,9 @@ tscatterZ1R sh t f =
   sum $ imap (\i ti ->
                  let ix2 = f $ fromIntegral i
                  in if ixInBounds (indexToList ix2) (shapeToList sh)
-                    then updateNR (treplicate0NR sh (Nested.rscalar 0)) [(ix2, ti)]
-                    else treplicate0NR sh (Nested.rscalar def))
-      $ tunravelToListR t
-
-tfromListR
-  :: forall n r. Nested.KnownElt r
-  => NonEmpty (Nested.Ranked n r) -> Nested.Ranked (1 + n) r
-tfromListR = Nested.rfromListOuter  -- TODO: make this strict
+                    then updateNR (Nested.rreplicate sh (Nested.rscalar 0)) [(ix2, ti)]
+                    else Nested.rreplicate sh (Nested.rscalar def))
+      $ Nested.rtoListOuter t
 
 -- TODO: make this strict
 tfromList0NR
@@ -839,52 +805,6 @@ tfromList0NR
 tfromList0NR sh l = case NonEmpty.nonEmpty l of
   Nothing -> Nested.rreshape sh Nested.remptyArray
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
-
-tfromVectorR
-  :: forall n r. Nested.KnownElt r
-  => Data.Vector.Vector (Nested.Ranked n r) -> Nested.Ranked (1 + n) r
-tfromVectorR = tfromListR . NonEmpty.fromList . V.toList
-
-tfromVector0NR
-  :: Nested.KnownElt r
-  => IShR n -> Data.Vector.Vector (Nested.Ranked 0 r) -> Nested.Ranked n r
-tfromVector0NR sh = tfromList0NR sh . V.toList
-
-treplicateR
-  :: forall n r. Nested.KnownElt r
-  => Int -> Nested.Ranked n r -> Nested.Ranked (1 + n) r
-treplicateR n = Nested.rreplicate (n :$: ZSR)
-
-treplicate0NR
-  :: Nested.KnownElt r
-  => IShR n -> Nested.Ranked 0 r -> Nested.Ranked n r
-treplicate0NR sh = Nested.rreplicate sh
-
-tappendR
-  :: Nested.KnownElt r
-  => Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
-  -> Nested.Ranked (1 + n) r
-tappendR = Nested.rappend
-
-tsliceR
-  :: Nested.KnownElt r
-  => Int -> Int -> Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
-tsliceR = Nested.rslice
-
-treverseR
-  :: Nested.KnownElt r
-  => Nested.Ranked (1 + n) r -> Nested.Ranked (1 + n) r
-treverseR = Nested.rrev1
-
-ttransposeR
-  :: Nested.Elt r
-  => Permutation.PermR -> Nested.Ranked n r -> Nested.Ranked n r
-ttransposeR = Nested.rtranspose
-
-treshapeR
-  :: Nested.KnownElt r
-  => IShR m -> Nested.Ranked n r -> Nested.Ranked m r
-treshapeR = Nested.rreshape
 
 tbuild1R
   :: forall n r. Nested.KnownElt r
@@ -935,28 +855,6 @@ tgatherZ1R k t f =
   let l = NonEmpty.map (\i -> t `tindexZR'` f i)
                        (NonEmpty.fromList [0 .. fromIntegral k - 1])
   in Nested.rfromListOuter l
-
-tcastR :: (Nested.PrimElt r1, Nested.PrimElt r2, Real r1, Fractional r2)
-       => Nested.Ranked n r1 -> Nested.Ranked n r2
-tcastR = liftVR (V.map realToFrac)
-
-tfromIntegralR :: (Nested.PrimElt r1, Nested.PrimElt r2, NumAndShow r2, Integral r1)
-               => Nested.Ranked n r1 -> Nested.Ranked n r2
-tfromIntegralR = liftVR (V.map fromIntegral)
-
-tscalarR
-  :: Nested.Elt r
-  => r -> Nested.Ranked 0 r
-tscalarR = Nested.rscalar
-
-tunScalarR
-  :: Nested.Elt r
-  => Nested.Ranked 0 r -> r
-tunScalarR = Nested.runScalar
-
-tscaleByScalarR :: (Nested.PrimElt r, Num r)
-                => r -> Nested.Ranked n r -> Nested.Ranked n r
-tscaleByScalarR s = liftVR (V.map (* s))
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
