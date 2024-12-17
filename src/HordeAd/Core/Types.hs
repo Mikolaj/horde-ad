@@ -279,7 +279,7 @@ instance Default Z0 where
   def = Z0
 
 instance Nested.PrimElt Z0
-newtype instance Nested.Internal.Mixed.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed.Mixed sh (Nested.Internal.Mixed.Primitive Z0)) deriving (Eq, Generic) deriving (Show) via (Nested.Internal.Mixed.ShowViaPrimitive sh Z0)  -- no content, orthotope optimises this (via Vector)
+newtype instance Nested.Internal.Mixed.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed.Mixed sh (Nested.Internal.Mixed.Primitive Z0)) deriving (Eq, Generic)  -- no content, orthotope optimises this (via Vector)
 deriving instance Ord (Nested.Mixed sh Z0)
 instance NFData (Nested.Mixed sh Z0)
 newtype instance Nested.Internal.Mixed.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
