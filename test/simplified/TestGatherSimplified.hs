@@ -79,9 +79,9 @@ testTrees =
 gatherNested1 :: forall target r. (ADReady target, GoodScalar r)
               => target (TKR 2 r) -> target (TKR 1 r)
 gatherNested1 t =
-  rgather @target @r @1
+  rgather @target @(TKScalar r) @1
           (2 :$: ZSR)
-          (rgather @target @r @1
+          (rgather @target @(TKScalar r) @1
                    (4 :$: 2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
           (\(i2 :.: ZIR) -> i2 + i2 :.: i2 :.: ZIR)
@@ -107,7 +107,7 @@ testGatherNestedBuild1 =
 gather1 :: forall target r. (ADReady target, GoodScalar r)
         => target (TKR 2 r) -> target (TKR 1 r)
 gather1 t =
-  rgather @target @r @1
+  rgather @target @(TKScalar r) @1
           (2 :$: ZSR)
           t
           (\(i2 :.: ZIR) -> i2 + i2 :.: i2 :.: ZIR)
@@ -144,9 +144,9 @@ testGatherSimpPP1 = do
 gatherNested02 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 1 r) -> target (TKR 1 r)
 gatherNested02 t =
-  rgather @target @r @1
+  rgather @target @(TKScalar r) @1
           (1 :$: ZSR)
-          (rgather @target @r @1
+          (rgather @target @(TKScalar r) @1
                    (2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 + k3 :.: ZIR))
           (\(i1 :.: ZIR) -> i1 + i1 + i1 :.: ZIR)
@@ -160,9 +160,9 @@ testGatherNested02 =
 gatherNested2 :: forall target r. (ADReady target, GoodScalar r)
               => target (TKR 2 r) -> target (TKR 2 r)
 gatherNested2 t =
-  rgather @target @r @2
+  rgather @target @(TKScalar r) @2
           (2 :$: 3 :$: ZSR)
-          (rgather @target @r @3
+          (rgather @target @(TKScalar r) @3
                    (2 :$: 3 :$: 4 :$: 2 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: ZIR))
           (\(i1 :.: i2 :.: ZIR) -> i1 :.: i2 :.: i1 + i2 :.: i1 :.: ZIR)
@@ -188,7 +188,7 @@ testGatherNestedBuild2 =
 gather2 :: forall target r. (ADReady target, GoodScalar r)
         => target (TKR 2 r) -> target (TKR 2 r)
 gather2 t =
-  rgather @target @r @2
+  rgather @target @(TKScalar r) @2
           (2 :$: 3 :$: ZSR)
           t
           (\(i1 :.: i2 :.: ZIR) -> i1 + i2 + i1 + i2 :.: i1 :.: ZIR)
@@ -224,9 +224,9 @@ testGatherSimpPP2 = do
 gatherNested12 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 2 r) -> target (TKR 2 r)
 gatherNested12 t =
-  rgather @target @r @1
+  rgather @target @(TKScalar r) @1
           (2 :$: 4 :$: ZSR)
-          (rgather @target @r @3
+          (rgather @target @(TKScalar r) @3
                    (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: k1 :.: ZIR))
           (\(i1 :.: ZIR) -> i1 :.: i1 + i1 :.: ZIR)
@@ -253,7 +253,7 @@ testGatherNestedBuild12 =
 gather12 :: forall target r. (ADReady target, GoodScalar r)
          => target (TKR 2 r) -> target (TKR 2 r)
 gather12 t =
-  rgather @target @r @2
+  rgather @target @(TKScalar r) @2
           (2 :$: 4 :$: ZSR)
           t
           (\(i1 :.: k3 :.: ZIR) -> i1 + i1 + i1 + k3 :.: i1 :.: ZIR)
@@ -485,9 +485,9 @@ testGatherSimpPP34 = do
 scatterNested1 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 2 r) -> target (TKR 1 r)
 scatterNested1 t =
-  rscatter @target @r @2
+  rscatter @target @(TKScalar r) @2
           (2 :$: ZSR)
-          (rscatter @target @r @1
+          (rscatter @target @(TKScalar r) @1
                    (7 :$: 2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
           (\(i1 :.: i2 :.: ZIR) -> i2 `quotF` (1 + i1) :.: ZIR)
@@ -512,7 +512,7 @@ testScatterNestedBuild1 =
 scatter1 :: forall target r. (ADReady target, GoodScalar r)
          => target (TKR 2 r) -> target (TKR 1 r)
 scatter1 t =
-  rscatter @target @r @2
+  rscatter @target @(TKScalar r) @2
           (2 :$: ZSR)
           t
           (\(i1 :.: i2 :.: ZIR) -> minF (i2 + 2 * i1) 1 :.: ZIR)
@@ -548,9 +548,9 @@ testScatterSimpPP1 = do
 scatterNested2 :: forall target r. (ADReady target, GoodScalar r)
               => target (TKR 2 r) -> target (TKR 2 r)
 scatterNested2 t =
-  rscatter @target @r @4
+  rscatter @target @(TKScalar r) @4
           (2 :$: 3 :$: ZSR)
-          (rscatter @target @r @1
+          (rscatter @target @(TKScalar r) @1
                    (2 :$: 3 :$: 4 :$: 2 :$: ZSR) t
                    (\(k1 :.: ZIR) -> minF k1 1 :.: minF k1 2  :.: minF k1 3 :.: ZIR))
           (\(i1 :.: i2 :.: _i3 :.: i4 :.: ZIR) ->
@@ -577,7 +577,7 @@ testScatterNestedBuild2 =
 scatter2 :: forall target r. (ADReady target, GoodScalar r)
         => target (TKR 2 r) -> target (TKR 2 r)
 scatter2 t =
-  rscatter @target @r @2
+  rscatter @target @(TKScalar r) @2
           (2 :$: 3 :$: ZSR)
           t
           (\(i1 :.: i2 :.: ZIR) -> minF (i1 + i2 + i1 + i2) 1 :.: minF i1 2 :.: ZIR)
@@ -614,9 +614,9 @@ testScatterSimpPP2 = do
 scatterNested12 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 2 r) -> target (TKR 2 r)
 scatterNested12 t =
-  rscatter @target @r @2
+  rscatter @target @(TKScalar r) @2
           (2 :$: 4 :$: ZSR)
-          (rscatter @target @r @2
+          (rscatter @target @(TKScalar r) @2
                    (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: ZIR) ->
                      minF k1 1 :.: minF (k2 + k1) 2 :.: minF k1 3 :.: ZIR))
@@ -644,7 +644,7 @@ testScatterNestedBuild12 =
 scatter12 :: forall target r. (ADReady target, GoodScalar r)
          => target (TKR 2 r) -> target (TKR 2 r)
 scatter12 t =
-  rscatter @target @r @2
+  rscatter @target @(TKScalar r) @2
           (2 :$: 4 :$: ZSR)
           t
           (\(i1 :.: k3 :.: ZIR) -> minF (i1 + i1 + i1 + k3) 1 :.: minF i1 3 :.: ZIR)

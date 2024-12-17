@@ -423,10 +423,10 @@ data Delta :: Target -> TensorKindType -> Type where
         => Delta target (TKR n r) -> Delta target (TKR 0 r)
   Dot0R :: (KnownNat n, GoodScalar r)
         => target (TKR n r) -> Delta target (TKR n r) -> Delta target (TKR 0 r)
-  ScatterR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
-           => IShR (p + n) -> Delta target (TKR (m + n) r)
+  ScatterR :: (TensorKind2 r, KnownNat m, KnownNat p, KnownNat n)
+           => IShR (p + n) -> Delta target (TKR2 (m + n) r)
            -> (IxROf target m -> IxROf target p)
-           -> Delta target (TKR (p + n) r)
+           -> Delta target (TKR2 (p + n) r)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -467,10 +467,10 @@ data Delta :: Target -> TensorKindType -> Type where
            => IShR m -> Delta target (TKR2 n r)
            -> Delta target (TKR2 m r)
     -- ^ Change the shape of the tensor to the given one.
-  GatherR :: (GoodScalar r, KnownNat m, KnownNat p, KnownNat n)
-          => IShR (m + n) -> Delta target (TKR (p + n) r)
+  GatherR :: (TensorKind2 r, KnownNat m, KnownNat p, KnownNat n)
+          => IShR (m + n) -> Delta target (TKR2 (p + n) r)
           -> (IxROf target m -> IxROf target p)
-          -> Delta target (TKR (m + n) r)
+          -> Delta target (TKR2 (m + n) r)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -504,13 +504,13 @@ data Delta :: Target -> TensorKindType -> Type where
         => target (TKS sh r) -> Delta target (TKS sh r)
         -> Delta target (TKS '[] r)
   ScatterS :: forall target r sh2 p sh.
-              ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
+              ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
               , KnownShS (Take p sh), KnownShS (Drop p sh)
               , KnownShS (sh2 ++ Drop p sh) )
-           => Delta target (TKS (sh2 ++ Drop p sh) r)
+           => Delta target (TKS2 (sh2 ++ Drop p sh) r)
            -> (IxSOf target sh2
                -> IxSOf target (Take p sh))
-           -> Delta target (TKS sh r)
+           -> Delta target (TKS2 sh r)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -561,13 +561,13 @@ data Delta :: Target -> TensorKindType -> Type where
            -> Delta target (TKS2 sh2 r)
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall target r sh2 p sh.
-             ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
+             ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
              , KnownShS (Take p sh), KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
-          => Delta target (TKS sh r)
+          => Delta target (TKS2 sh r)
           -> (IxSOf target sh2
               -> IxSOf target (Take p sh))
-          -> Delta target (TKS (sh2 ++ Drop p sh) r)
+          -> Delta target (TKS2 (sh2 ++ Drop p sh) r)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -714,7 +714,8 @@ shapeDeltaFull = \case
   SumR d -> FTKR (tailShape (shapeDelta d)) FTKScalar
   Sum0R{} -> FTKR ZSR FTKScalar
   Dot0R{} -> FTKR ZSR FTKScalar
-  ScatterR sh _ _ -> FTKR sh FTKScalar
+  ScatterR sh d _ -> case shapeDeltaFull d of
+    FTKR _ x -> FTKR sh x
   FromVectorR l -> case V.toList l of
     [] -> case stensorKind @y of
       STKR @n SNat STKScalar{} -> case sameNat (Proxy @n) (Proxy @1) of
@@ -736,7 +737,8 @@ shapeDeltaFull = \case
     FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
   ReshapeR sh d -> case shapeDeltaFull d of
     FTKR _ x -> FTKR sh x
-  GatherR sh _ _ -> FTKR sh FTKScalar
+  GatherR sh d _ -> case shapeDeltaFull d of
+    FTKR _ x -> FTKR sh x
   CastR d -> FTKR (shapeDelta d) FTKScalar
   ZipR d -> case shapeDeltaFull d of
     FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
@@ -749,7 +751,8 @@ shapeDeltaFull = \case
   SumS{} -> FTKS knownShS FTKScalar
   Sum0S{} -> FTKS knownShS FTKScalar
   Dot0S{} -> FTKS knownShS FTKScalar
-  ScatterS{} -> FTKS knownShS FTKScalar
+  ScatterS d _ -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS knownShS x
   FromVectorS l -> case V.toList l of
     [] -> case stensorKind @y of
       STKS _ STKScalar{} -> FTKS knownShS FTKScalar
@@ -770,7 +773,8 @@ shapeDeltaFull = \case
           FTKS knownShS x
   ReshapeS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
-  GatherS{} -> FTKS knownShS FTKScalar
+  GatherS d _ -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS knownShS x
   CastS{} -> FTKS knownShS FTKScalar
   ZipS d -> case shapeDeltaFull d of
     FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)

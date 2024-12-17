@@ -225,14 +225,14 @@ class ( Num (IntOf target)
     _ :$: width2 :$: ZSR -> rsum (rtranspose [2,1,0] (rreplicate width2 m1)
                                   * rtranspose [1,0] (rreplicate (rlength m1) m2))
     _ -> error "rmatmul2: impossible pattern needlessly required"
-  rscatter :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
-           => IShR (p + n) -> target (TKR (m + n) r)
+  rscatter :: (TensorKind2 r, KnownNat m, KnownNat n, KnownNat p)
+           => IShR (p + n) -> target (TKR2 (m + n) r)
            -> (IxROf target m -> IxROf target p)
-           -> target (TKR (p + n) r)
-  rscatter1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
-            => IShR (p + n) -> target (TKR (1 + n) r)
+           -> target (TKR2 (p + n) r)
+  rscatter1 :: forall r n p. (TensorKind2 r, KnownNat n, KnownNat p)
+            => IShR (p + n) -> target (TKR2 (1 + n) r)
             -> (IntOf target -> IxROf target p)
-            -> target (TKR (p + n) r)
+            -> target (TKR2 (p + n) r)
   rscatter1 sh v f = rscatter @target @r @1 sh v
                               (\(i :.: ZIR) -> f i)
 
@@ -384,14 +384,14 @@ class ( Num (IntOf target)
   rzipWith40N f u v w x =
     rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix)
                                 (rindex0 x ix))
-  rgather :: (GoodScalar r, KnownNat m, KnownNat n, KnownNat p)
-          => IShR (m + n) -> target (TKR (p + n) r)
+  rgather :: (TensorKind2 r, KnownNat m, KnownNat n, KnownNat p)
+          => IShR (m + n) -> target (TKR2 (p + n) r)
           -> (IxROf target m -> IxROf target p)
-          -> target (TKR (m + n) r)
-  rgather1 :: forall r n p. (GoodScalar r, KnownNat n, KnownNat p)
-           => Int -> target (TKR (p + n) r)
+          -> target (TKR2 (m + n) r)
+  rgather1 :: forall r n p. (TensorKind2 r, KnownNat n, KnownNat p)
+           => Int -> target (TKR2 (p + n) r)
            -> (IntOf target -> IxROf target p)
-           -> target (TKR (1 + n) r)
+           -> target (TKR2 (1 + n) r)
   rgather1 k v f = rgather @target @r @1
                            (k :$: dropShape (rshape v)) v
                            (\(i :.: ZIR) -> f i)
@@ -534,19 +534,19 @@ class ( Num (IntOf target)
           * stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @target @m m2))
   sscatter
     :: forall r sh2 p sh.
-       ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
+       ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh)
        , KnownShS (sh2 ++ Drop p sh) )
-    => target (TKS (sh2 ++ Drop p sh) r)
+    => target (TKS2 (sh2 ++ Drop p sh) r)
     -> (IxSOf target sh2 -> IxSOf target (Take p sh))
-    -> target (TKS sh r)
+    -> target (TKS2 sh r)
   sscatter1
     :: forall r n2 p sh.
-       ( GoodScalar r, KnownNat n2, KnownShS sh, KnownNat p
+       ( TensorKind2 r, KnownNat n2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh) )
-    => target (TKS (n2 ': Drop p sh) r)
+    => target (TKS2 (n2 ': Drop p sh) r)
     -> (IntOf target -> IxSOf target (Take p sh))
-    -> target (TKS sh r)
+    -> target (TKS2 sh r)
   sscatter1 v f = sscatter @target @r @'[n2] v (\(i :.$ _) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
@@ -778,19 +778,19 @@ class ( Num (IntOf target)
                                                 (sindex0 x ix))
   sgather
     :: forall r sh2 p sh.
-       ( GoodScalar r, KnownShS sh2, KnownShS sh, KnownNat p
+       ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh)
        , KnownShS (sh2 ++ Drop p sh) )
-    => target (TKS sh r)
+    => target (TKS2 sh r)
     -> (IxSOf target sh2 -> IxSOf target (Take p sh))
-    -> target (TKS (sh2 ++ Drop p sh) r)
+    -> target (TKS2 (sh2 ++ Drop p sh) r)
   sgather1
     :: forall r n2 p sh.
-       ( GoodScalar r, KnownNat n2, KnownShS sh, KnownNat p
+       ( TensorKind2 r, KnownNat n2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh) )
-    => target (TKS sh r)
+    => target (TKS2 sh r)
     -> (IntOf target -> IxSOf target (Take p sh))
-    -> target (TKS (n2 ': Drop p sh) r)
+    -> target (TKS2 (n2 ': Drop p sh) r)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
   scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownShS sh)
         => target (TKS sh r1) -> target (TKS sh r2)

@@ -98,7 +98,8 @@ ftkAst t = case t of
   AstIndex v _ -> case ftkAst v of
     FTKR sh x -> FTKR (dropShape sh) x
   AstSum v -> FTKR (tailShape $ shapeAst v) FTKScalar
-  AstScatter sh _ _ -> FTKR sh FTKScalar
+  AstScatter sh v _ -> case ftkAst v of
+    FTKR _ x -> FTKR sh x
   AstFromVector l -> case V.toList l of
     [] -> case stensorKind @y of
       STKR @n SNat STKScalar{} -> case sameNat (Proxy @n) (Proxy @1) of
@@ -118,7 +119,8 @@ ftkAst t = case t of
     FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
   AstReshape sh v -> case ftkAst v of
     FTKR _ x -> FTKR sh x
-  AstGather sh _v (_vars, _ix) -> FTKR sh FTKScalar
+  AstGather sh v _ -> case ftkAst v of
+    FTKR _ x -> FTKR sh x
   AstCastR v -> FTKR (shapeAst v) FTKScalar
   AstFromIntegralR a -> FTKR (shapeAst a) FTKScalar
   AstProjectR l p -> case shapeAstHVector l V.! p of
@@ -143,7 +145,8 @@ ftkAst t = case t of
   AstIndexS v _ix -> case ftkAst v of
     FTKS _sh1sh2 x -> FTKS knownShS x
   AstSumS{} -> FTKS knownShS FTKScalar
-  AstScatterS{} -> FTKS knownShS FTKScalar
+  AstScatterS v _ -> case ftkAst v of
+    FTKS _ x -> FTKS knownShS x
   AstFromVectorS l -> case V.toList l of
     [] -> case stensorKind @y of
       STKS _ STKScalar{} -> FTKS knownShS FTKScalar
@@ -163,7 +166,8 @@ ftkAst t = case t of
           FTKS knownShS x
   AstReshapeS v -> case ftkAst v of
     FTKS _ x -> FTKS knownShS x
-  AstGatherS{} -> FTKS knownShS FTKScalar
+  AstGatherS v _ -> case ftkAst v of
+    FTKS _ x -> FTKS knownShS x
   AstCastS{} -> FTKS knownShS FTKScalar
   AstFromIntegralS{} -> FTKS knownShS FTKScalar
   AstProjectS{} -> FTKS knownShS FTKScalar

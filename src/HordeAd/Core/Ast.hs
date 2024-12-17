@@ -358,10 +358,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSum :: (KnownNat n, GoodScalar r)
          => AstTensor ms s (TKR (1 + n) r) -> AstTensor ms s (TKR n r)
   AstScatter :: forall m n p r s ms.
-                (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
+                (KnownNat m, KnownNat n, KnownNat p, TensorKind2 r)
              => IShR (p + n)
-             -> AstTensor ms s (TKR (m + n) r) -> (AstVarList m, AstIxR ms p)
-             -> AstTensor ms s (TKR (p + n) r)
+             -> AstTensor ms s (TKR2 (m + n) r) -> (AstVarList m, AstIxR ms p)
+             -> AstTensor ms s (TKR2 (p + n) r)
   AstFromVector :: (KnownNat n, TensorKind2 r)
                 => Data.Vector.Vector (AstTensor ms s (TKR2 n r))
                 -> AstTensor ms s (TKR2 (1 + n) r)
@@ -379,10 +379,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstReshape :: (KnownNat n, KnownNat m, TensorKind2 r)
              => IShR m -> AstTensor ms s (TKR2 n r) -> AstTensor ms s (TKR2 m r)
   AstGather :: forall m n p r s ms.
-               (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
+               (KnownNat m, KnownNat n, KnownNat p, TensorKind2 r)
             => IShR (m + n)
-            -> AstTensor ms s (TKR (p + n) r) -> (AstVarList m, AstIxR ms p)
-            -> AstTensor ms s (TKR (m + n) r)
+            -> AstTensor ms s (TKR2 (p + n) r) -> (AstVarList m, AstIxR ms p)
+            -> AstTensor ms s (TKR2 (m + n) r)
     -- out of bounds indexing is permitted
   AstProjectR :: (GoodScalar r, KnownNat n)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKR n r)
@@ -452,10 +452,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstScatterS :: forall sh2 p sh r s ms.
                  ( KnownShS sh2, KnownShS sh, KnownNat p
                  , KnownShS (Take p sh), KnownShS (Drop p sh)
-                 , KnownShS (sh2 ++ Drop p sh), GoodScalar r )
-              => AstTensor ms s (TKS (sh2 ++ Drop p sh) r)
+                 , KnownShS (sh2 ++ Drop p sh), TensorKind2 r )
+              => AstTensor ms s (TKS2 (sh2 ++ Drop p sh) r)
               -> (AstVarListS sh2, AstIxS ms (Take p sh))
-              -> AstTensor ms s (TKS sh r)
+              -> AstTensor ms s (TKS2 sh r)
 
   AstFromVectorS :: (KnownNat n, KnownShS sh, TensorKind2 r)
                  => Data.Vector.Vector (AstTensor ms s (TKS2 sh r))
@@ -480,12 +480,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   AstGatherS :: forall sh2 p sh r s ms.
-                ( GoodScalar r, KnownShS sh, KnownShS sh2, KnownNat p
+                ( TensorKind2 r, KnownShS sh, KnownShS sh2, KnownNat p
                 , KnownShS (Take p sh), KnownShS (Drop p sh)
                 , KnownShS (sh2 ++ Drop p sh) )
-             => AstTensor ms s (TKS sh r)
+             => AstTensor ms s (TKS2 sh r)
              -> (AstVarListS sh2, AstIxS ms (Take p sh))
-             -> AstTensor ms s (TKS (sh2 ++ Drop p sh) r)
+             -> AstTensor ms s (TKS2 (sh2 ++ Drop p sh) r)
     -- out of bounds indexing is permitted
   AstProjectS :: (GoodScalar r, KnownShS sh)
               => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
