@@ -831,7 +831,7 @@ tfromList0NR sh l = case NonEmpty.nonEmpty l of
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
 tbuild1R
-  :: forall n r. Nested.KnownElt r
+  :: forall n r. Nested.Elt r
   => Int -> (Int64 -> Nested.Ranked n r) -> Nested.Ranked (1 + n) r
 tbuild1R k f =
   Nested.rfromListOuter
@@ -1122,7 +1122,7 @@ tfromList0NS l = case NonEmpty.nonEmpty l of
   Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
 
 tbuild1S
-  :: forall n sh r. (KnownNat n, Nested.KnownElt r)
+  :: forall n sh r. (KnownNat n, Nested.Elt r)
   => (Int64 -> Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
 tbuild1S f =
   let k = valueOf @n

@@ -152,7 +152,7 @@ data FullTensorKindW y where
         => ShS sh -> FullTensorKindW (TKS sh r)
   WFTKX :: GoodScalar r
         => IShX sh -> FullTensorKindW (TKX sh r)
-  WFTKProduct :: (Nested.Elt (RepORArray y), Nested.Elt (RepORArray z))
+  WFTKProduct :: (Nested.KnownElt (RepORArray y), Nested.KnownElt (RepORArray z))
               => FullTensorKindW y -> FullTensorKindW z
               -> FullTensorKindW (TKProduct y z)
   WFTKUntyped :: VoidHVector -> FullTensorKindW TKUntyped
@@ -247,7 +247,7 @@ unWindSTK = \case
     $ STKX (ssxReplicate n `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2
   STKR n (STKX sh2 stk2) ->
     unWindSTK $ STKX (ssxReplicate n `ssxAppend` sh2) stk2
-  STKR n (STKProduct y z) ->
+  STKR n@SNat (STKProduct y z) ->
     unWindSTK $ STKProduct (STKR n y) (STKR n z)
   stk@(STKS _ STKScalar{}) -> stk
   STKS sh1 (STKR m stk2) ->
@@ -257,7 +257,7 @@ unWindSTK = \case
     unWindSTK $ STKS (sh1 `shsAppend` sh2) stk2
   STKS sh1 (STKX sh2 stk2) ->
     unWindSTK $ STKX (ssxFromShape (shCvtSX sh1) `ssxAppend` sh2) stk2
-  STKS sh1 (STKProduct y z) ->
+  STKS sh1 (STKProduct y z) -> withKnownShS sh1 $
     unWindSTK $ STKProduct (STKS sh1 y) (STKS sh1 z)
   stk@(STKX _ STKScalar{}) -> stk
   STKX sh1 (STKR m stk2) ->
@@ -266,7 +266,7 @@ unWindSTK = \case
     unWindSTK $ STKX (sh1 `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2
   STKX sh1 (STKX sh2 stk2) ->
     unWindSTK $ STKX (sh1 `ssxAppend` sh2) stk2
-  STKX sh1 (STKProduct y z) ->
+  STKX sh1 (STKProduct y z) -> withKnownShX sh1 $
     unWindSTK $ STKProduct (STKX sh1 y) (STKX sh1 z)
   STKProduct y z | (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK y)
                  , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK z) ->
@@ -287,8 +287,8 @@ unWindFTK = \case
     $ FTKX (shCvtRX sh1 `shxAppend` shCvtSX sh2) ftk2
   FTKR sh1 (FTKX sh2 ftk2) ->
     unWindFTK $ FTKX (shCvtRX sh1 `shxAppend` sh2) ftk2
-  FTKR n (FTKProduct y z) ->
-    unWindFTK $ FTKProduct (FTKR n y) (FTKR n z)
+  FTKR sh1 (FTKProduct y z) | SNat <- shrRank sh1 ->
+    unWindFTK $ FTKProduct (FTKR sh1 y) (FTKR sh1 z)
   FTKS sh FTKScalar -> WFTKS sh
   FTKS sh1 (FTKR sh2 ftk2) ->
     unWindFTK
@@ -297,7 +297,7 @@ unWindFTK = \case
     unWindFTK $ FTKS (sh1 `shsAppend` sh2) ftk2
   FTKS sh1 (FTKX sh2 ftk2) ->
     unWindFTK $ FTKX (shCvtSX sh1 `shxAppend` sh2) ftk2
-  FTKS sh1 (FTKProduct y z) ->
+  FTKS sh1 (FTKProduct y z) -> withKnownShS sh1 $
     unWindFTK $ FTKProduct (FTKS sh1 y) (FTKS sh1 z)
   FTKX sh FTKScalar -> WFTKX sh
   FTKX sh1 (FTKR sh2 ftk2) ->
@@ -306,7 +306,7 @@ unWindFTK = \case
     unWindFTK $ FTKX (sh1 `shxAppend` shCvtSX sh2) ftk2
   FTKX sh1 (FTKX sh2 ftk2) ->
     unWindFTK $ FTKX (sh1 `shxAppend` sh2) ftk2
-  FTKX sh1 (FTKProduct y z) ->
+  FTKX sh1 (FTKProduct y z) -> withKnownShX (ssxFromShape sh1) $
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
   FTKProduct y z | (Dict, Dict) <- lemTensorKind1OfFTK (fromFTKW $ unWindFTK y)
                  , (Dict, Dict) <- lemTensorKind1OfFTK (fromFTKW $ unWindFTK z) ->
