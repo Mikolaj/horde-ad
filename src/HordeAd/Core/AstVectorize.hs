@@ -229,7 +229,7 @@ build1V snat@SNat (var, v0) =
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
         in build1VOccurenceUnknown snat (var, t)
-      STKS sh  STKScalar{}-> withKnownShS sh $
+      STKS sh STKScalar{} -> withKnownShS sh $
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
         in build1VOccurenceUnknown snat (var, t)
@@ -617,15 +617,11 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 
 -- * Vectorization of AstShaped
 
--- TODO: we avoid constraint KnownNat (Rank sh) that would infect
--- a lot of AstShaped constructor and from there a lot of the codebase.
--- This should be solved in a cleaner way.
---
--- This abbreviation is used a lot below.
 astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, TensorKind1 r, AstSpan s)
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
-astTrS = withListSh (Proxy @sh) $ \_ -> astTransposeS (Permutation.makePerm @'[1, 0])
+astTrS | Dict <- lemKnownNatRankS (knownShS @sh) =
+  astTransposeS (Permutation.makePerm @'[1, 0])
 astTrX :: forall n m sh s r.
 --          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)
         AstTensor AstMethodLet s (TKX2 (Just n ': Just m ': sh) r) -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': sh) r)
