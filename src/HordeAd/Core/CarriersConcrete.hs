@@ -2,18 +2,17 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Core.CarriersConcrete
-  ( IIxR64, IIxS64, RepN(..)
+  ( RepN(..)
   ) where
 
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
-import Data.Int (Int64)
 import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise2)
-import Data.Array.Nested (IxR, IxS, KnownShS (..))
+import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
@@ -75,10 +74,6 @@ instance TensorKind y
       rnf (RepN @y1 $ fst t, RepN @y2 $ snd t)
     STKUntyped -> rnf t
     _ -> error "TODO"
-
-type IIxR64 n = IxR n Int64
-
-type IIxS64 sh = IxS sh Int64
 
 type instance BoolOf RepN = Bool
 

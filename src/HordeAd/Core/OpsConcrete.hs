@@ -37,6 +37,8 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Shape (StaticShX (..))
 import Data.Array.Nested
   ( IShR
+  , IxR
+  , IxS
   , KnownShS (..)
   , KnownShX (..)
   , MapJust
@@ -696,7 +698,7 @@ ixInBounds ix sh =
 
 tindexNR
   :: (Nested.Elt r, Show r, KnownNat m, KnownNat n)
-  => Nested.Ranked (m + n) r -> IIxR64 m -> Nested.Ranked n r
+  => Nested.Ranked (m + n) r -> IxR m Int64 -> Nested.Ranked n r
 tindexNR v ix = let sh = Nested.rshape v
                     !_A = assert (ixInBounds (toList ix) (toList sh)
                                   `blame` (v, ix)) ()
@@ -977,7 +979,7 @@ liftVS f =
 
 tindexNS
   :: Nested.Elt r
-  => Nested.Shaped (sh1 ++ sh2) r -> IIxS64 sh1 -> Nested.Shaped sh2 r
+  => Nested.Shaped (sh1 ++ sh2) r -> IxS sh1 Int64 -> Nested.Shaped sh2 r
 tindexNS v ix = Nested.sindexPartial v (fmap fromIntegral ix)
 {- TODO
 tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
