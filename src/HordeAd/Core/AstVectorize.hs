@@ -308,9 +308,8 @@ build1V snat@SNat (var, v0) =
       astSumOfListR $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndex v ix -> traceRule $ case stensorKind @y of
-      STKR _ STKScalar{} ->
+      STKR _ _ ->
         build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
-      _ -> error "TODO"
     Ast.AstSum v -> traceRule $
       astSum $ astTr $ build1V snat (var, v)
     Ast.AstScatter sh v (vars, ix) -> traceRule $
@@ -395,7 +394,7 @@ build1V snat@SNat (var, v0) =
       astSumOfListS $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndexS @sh1 v ix -> traceRule $ case stensorKind @y of
-     STKS @sh _ STKScalar{} ->
+     STKS @sh _ _ ->
       gcastWith (unsafeCoerce Refl
                  :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
@@ -403,7 +402,6 @@ build1V snat@SNat (var, v0) =
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
       gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
       build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
-     _ -> error "TODO"
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1V snat (var, v)
     Ast.AstScatterS @sh2 @p @sh3 v (vars, ix) -> traceRule $
@@ -584,9 +582,12 @@ build1V snat@SNat (var, v0) =
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n s r k.
-     (KnownNat m, KnownNat n, GoodScalar r, AstSpan s)
-  => SNat k -> (IntVarName, AstTensor AstMethodLet s (TKR (m + n) r), AstIxR AstMethodLet m)
-  -> AstTensor AstMethodLet s (TKR (1 + n) r)
+     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+  => SNat k
+  -> ( IntVarName
+     , AstTensor AstMethodLet s (TKR2 (m + n) r)
+     , AstIxR AstMethodLet m )
+  -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
 build1VIndex snat@SNat (var, v0, ZIR) = build1VOccurenceUnknown snat (var, v0)
 build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
   let k = sNatValue snat
@@ -639,10 +640,12 @@ intBindingRefreshS var ix =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( GoodScalar r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
+     ( TensorKind2 r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
      , KnownShS (Drop p (Take p sh ++ Drop p sh)), AstSpan s )
-  => (IntVarName, AstTensor AstMethodLet s (TKS sh r), AstIxS AstMethodLet (Take p sh))
-  -> AstTensor AstMethodLet s (TKS (k ': Drop p sh) r)
+  => ( IntVarName
+     , AstTensor AstMethodLet s (TKS2 sh r)
+     , AstIxS AstMethodLet (Take p sh) )
+  -> AstTensor AstMethodLet s (TKS2 (k ': Drop p sh) r)
 build1VIndexS (var, v0, ZIS) =
   gcastWith (unsafeCoerce Refl :: p :~: 0)
     -- otherwise sh would need to be empty, but then Take gets stuck
