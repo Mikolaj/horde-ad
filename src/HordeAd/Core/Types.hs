@@ -184,8 +184,7 @@ type GoodScalarConstraint r =
   ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r, Default r
   , NFData r, Nested.PrimElt r, Nested.KnownElt r, Nested.NumElt r
   , forall sh. Show (Nested.Mixed sh r), forall sh. Eq (Nested.Mixed sh r)
-  , forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
-  , Num (ADTensorScalar r) , Nested.KnownElt (ADTensorScalar r) )
+  , forall sh. NFData (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r) )
 
 type data TensorKindType =
     TKScalar Type

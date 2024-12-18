@@ -163,10 +163,11 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
         FTKX{} -> error "TODO"
-        FTKProduct @y1 @y2 ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
-                                     , Dict <- lemTensorKindOfFTK ftk2
-                                     , Dict <- eltDictRep (ftkToStk ftk1)
-                                     , Dict <- eltDictRep (ftkToStk ftk2) ->
+        FTKProduct @y1 @y2 ftk1 ftk2
+         | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
+         , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
+         , Dict <- eltDictRep (ftkToStk ftk1)
+         , Dict <- eltDictRep (ftkToStk ftk2) ->
             let (t1, rest1) = rebuildInputs @y1 els ftk1
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
             in (tpair t1 t2, rest2)
@@ -226,8 +227,8 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
         FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
                           $ ([InputId j :=> MTKS @r @sh t], j + 1)
         FTKX{} -> error "TODO"
-        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
-                             , Dict <- lemTensorKindOfFTK ftk2
+        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
+                             , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
                              , Dict <- eltDictRep (ftkToStk ftk1)
                              , Dict <- eltDictRep (ftkToStk ftk2) ->
           let (t1, t2) = tunpair t
@@ -829,10 +830,10 @@ shapeDeltaFull = \case
   HToH v ->
     FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta)) v
   MapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
-    | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) ->
+    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
   MapAccumL @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
-    | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) ->
+    | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
 
 shapeDelta :: forall target r n.
@@ -1070,20 +1071,20 @@ evalR
 evalR !s !c d0 = case d0 of
   -- All constructors that admit a TKProduct kind need to be handled in evalR
   -- except for InputG that is always constructed only in basic kinds.
-  PairG @y1 @y2 d1 d2 | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y1)
-                      , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y2) ->
+  PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
+                      , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
     let (c1, c2) = tunpair c
     in evalR (evalR s c1 d1) c2 d2
-  Project1G @_ @z d | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y)
-                    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @z) ->
+  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                    , Dict <- lemTensorKindOfAD (stensorKind @z) ->
     case shapeDeltaFull d of
       FTKProduct _ ftk2 ->
         let zero = constantTarget 0 $ aDFTK ftk2
         in evalR s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
-  Project2G @x d | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y)
-                 , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x) ->
+  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                 , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     case shapeDeltaFull d of
       FTKProduct ftk1 _ ->
         let zero = constantTarget 0 $ aDFTK ftk1
@@ -1138,13 +1139,13 @@ evalR !s !c d0 = case d0 of
             k accShs bShs eShs
             q es
             _df rf acc0' es'
-   | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @(ADTensorKind bShs))
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @(ADTensorKind eShs))
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs
@@ -1168,13 +1169,13 @@ evalR !s !c d0 = case d0 of
             k accShs bShs eShs
             q es
             _df rf acc0' es'
-   | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @(ADTensorKind bShs))
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @(ADTensorKind eShs))
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs
@@ -1529,17 +1530,17 @@ fwdR
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 fwdR params s d0 = case d0 of
-  PairG @y1 @y2 d1 d2 | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y1)
-                      , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y2) ->
+  PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
+                      , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
     let (s2, t) = fwdR params s d1
         (s3, u) = fwdR params s2 d2
     in (s3, tpair t u)
-  Project1G @_ @z d | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y)
-                    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @z) ->
+  Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                    , Dict <- lemTensorKindOfAD (stensorKind @z) ->
     let (s2, v) = fwdR params s d
     in (s2, tproject1 v)
-  Project2G @x d | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @y)
-                 , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x) ->
+  Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
+                 , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     let (s2, v) = fwdR params s d
     in (s2, tproject2 v)
   InputG _ftk inputId ->
@@ -1562,13 +1563,13 @@ fwdR params s d0 = case d0 of
             k accShs bShs eShs
             q es
             df _rf acc0' es'
-   | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @eShs)
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @(ADTensorKind eShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs
@@ -1589,13 +1590,13 @@ fwdR params s d0 = case d0 of
             k accShs bShs eShs
             q es
             df _rf acc0' es'
-   | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @eShs)
+   | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @(ADTensorKind eShs))
+   , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
    , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs

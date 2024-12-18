@@ -550,7 +550,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'
   tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
-  tconcrete ftk t | Dict <- lemTensorKindOfFTK ftk =
+  tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimalADVal $ tconcrete ftk t
   dmkHVector hv =
     let (!as, !as') = V.unzip $ V.map unADValDynamicTensor hv
@@ -578,8 +578,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
          => FullTensorKind x
          -> HFun x z
          -> HFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
-  drevDt _ftk h | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x)
-                , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @z) =
+  drevDt _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
+                , Dict <- lemTensorKindOfAD (stensorKind @z) =
     let rf :: forall f. ADReady f
            => f (TKProduct (ADTensorKind z) x)
            -> f (ADTensorKind x)
@@ -594,7 +594,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
        => FullTensorKind x
        -> HFun x z
        -> HFun (TKProduct (ADTensorKind x) x) (ADTensorKind z)
-  dfwd _ftk h | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x)
+  dfwd _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
               , Dict <- lemTensorKindOfAD (stensorKind @z) =
     let df :: forall f. ADReady f
            => f (TKProduct (ADTensorKind x) x)
@@ -625,13 +625,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     -> ADVal target (BuildTensorKind k eShs)
     -> ADVal target (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumRDer _ !k accShs bShs eShs f df rf acc0D esD
-   | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs)
+   | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) =
+   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
     let (acc0, acc0') = unADValRep stensorKind acc0D
         (esNotShared, es') = unADValRep stensorKind esD
         es = tshare esNotShared
@@ -712,13 +712,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     -> ADVal target (BuildTensorKind k eShs)
     -> ADVal target (TKProduct accShs (BuildTensorKind k bShs))
   dmapAccumLDer _ !k accShs bShs eShs f df rf acc0D esD
-   | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs)
+   | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-   , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) =
+   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+   , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
     let (acc0, acc0') = unADValRep stensorKind acc0D
         (esNotShared, es') = unADValRep stensorKind esD
         es = tshare esNotShared

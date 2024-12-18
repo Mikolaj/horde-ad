@@ -187,8 +187,8 @@ constantRepW r = \case
   WFTKR sh | SNat <- shrRank sh -> WTKR $ rrepl (toList sh) r
   WFTKS sh -> withKnownShS sh $ WTKS $ srepl r
   WFTKX sh -> withKnownShX (ssxFromShape sh) $ WTKX $ xrepl sh r
-  WFTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK (fromFTKW ftk1)
-                        , Dict <- lemTensorKindOfFTK (fromFTKW ftk2) ->
+  WFTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW ftk1)
+                        , Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW ftk2) ->
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
   WFTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
     WTKUntyped
@@ -268,8 +268,8 @@ unWindSTK = \case
   STKX sh1 (STKProduct y z) ->
     withKnownShX sh1 $
     unWindSTK $ STKProduct (STKX sh1 y) (STKX sh1 z)
-  STKProduct y z | (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK y)
-                 , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK z) ->
+  STKProduct y z | Dict <- lemTensorKindOfSTK (unWindSTK y)
+                 , Dict <- lemTensorKindOfSTK (unWindSTK z) ->
     STKProduct (unWindSTK y) (unWindSTK z)
   stk@STKUntyped -> stk
   STKR _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
@@ -310,8 +310,9 @@ unWindFTK = \case
   FTKX sh1 (FTKProduct y z) ->
     withKnownShX (ssxFromShape sh1) $
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
-  FTKProduct y z | (Dict, Dict) <- lemTensorKind1OfFTK (fromFTKW $ unWindFTK y)
-                 , (Dict, Dict) <- lemTensorKind1OfFTK (fromFTKW $ unWindFTK z) ->
+  FTKProduct y z
+   | Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW $ unWindFTK y)
+   , Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW $ unWindFTK z) ->
     WFTKProduct (unWindFTK y) (unWindFTK z)
   FTKUntyped ssh -> WFTKUntyped ssh
   FTKR _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
@@ -395,8 +396,8 @@ unWindTarget stk t = case stk of
                        , Dict <- lemTensorKindOfSTK stk2
                        , Dict <- eltDictRep stk1
                        , Dict <- eltDictRep stk2
-                       , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
-                       , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
+                       , Dict <- lemTensorKindOfSTK (unWindSTK stk1)
+                       , Dict <- lemTensorKindOfSTK (unWindSTK stk2) ->
     let (t1, t2) = tunpairDup t
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
   STKUntyped ->
@@ -477,8 +478,8 @@ windTarget stk t = case (stk, t) of
    , Dict <- lemTensorKindOfSTK stk2
    , Dict <- eltDictRep stk1
    , Dict <- eltDictRep stk2
-   , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk1)
-   , (Dict, Dict) <- lemTensorKind1OfSTK (unWindSTK stk2) ->
+   , Dict <- lemTensorKindOfSTK (unWindSTK stk1)
+   , Dict <- lemTensorKindOfSTK (unWindSTK stk2) ->
     tpair (windTarget stk1 t1) (windTarget stk2 t2)
   (STKUntyped, WTKUntyped v) -> dmkHVector v
   (STKR _ STKUntyped, _) ->
@@ -917,8 +918,8 @@ toADTensorKindShared stk t = case stk of
                        , Dict <- lemTensorKindOfSTK stk2
                        , Dict <- eltDictRep stk1
                        , Dict <- eltDictRep stk2
-                       , (Dict, Dict) <- lemTensorKind1OfAD stk1
-                       , (Dict, Dict) <- lemTensorKind1OfAD stk2 ->
+                       , Dict <- lemTensorKindOfAD stk1
+                       , Dict <- lemTensorKindOfAD stk2 ->
     let (t1, t2) = tunpair t
     in tpair (toADTensorKindShared stk1 t1) (toADTensorKindShared stk2 t2)
   STKUntyped -> t

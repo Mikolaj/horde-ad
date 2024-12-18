@@ -211,8 +211,8 @@ generateDeltaInputs =
         FTKS sh FTKScalar -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
         FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh)
                    $ (InputG ftk (toInputId j), j + 1)
-        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfFTK ftk1
-                             , Dict <- lemTensorKindOfFTK ftk2
+        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
+                             , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
                              , Dict <- eltDictRep (ftkToStk ftk1)
                              , Dict <- eltDictRep (ftkToStk ftk2) ->
           let (d1, j1) = gen j ftk1

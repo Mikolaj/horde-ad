@@ -251,11 +251,11 @@ interpretAst !env = \case
             FTKR sh FTKScalar | SNat <- shrRank sh -> rfromList0N (0 :$: sh) []
             FTKS sh FTKScalar -> withKnownShS sh $ sfromList0N []
             FTKX{} -> error "TODO"
-            FTKProduct @z1 @z2 ftk1 ftk2
-              | Dict <- lemTensorKindOfFTK ftk1
-              , Dict <- lemTensorKindOfFTK ftk2
-              , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z1)
-              , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z2) ->
+            FTKProduct ftk1 ftk2
+              | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
+              , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
+              , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk1)
+              , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk2) ->
                 tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
             FTKUntyped ssh -> dmkHVector $ replicate1HVector @target (SNat @0)
                               $ V.map dynamicFromVoid ssh
@@ -897,9 +897,9 @@ interpretAst !env = \case
           -- getting interpreted
     in tApply t2 ll2
   AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
-    | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
@@ -907,9 +907,9 @@ interpretAst !env = \case
         es2 = interpretAst env es
     in dmapAccumRDer (Proxy @target) k accShs bShs eShs f df rf acc02 es2
   AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
-    | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @accShs)
-    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @bShs)
-    , (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @eShs) ->
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0

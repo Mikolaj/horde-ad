@@ -538,8 +538,8 @@ ravel k@SNat t = case stensorKind @y of
     , Dict <- lemTensorKindOfSTK stk2
     , Dict <- eltDictRep stk1
     , Dict <- eltDictRep stk2
-    , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y1)
-    , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y2) ->
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
       in tpair (ravel k lt1) (ravel k lt2)
   STKUntyped -> dmkHVector $ ravelHVector $ tunvector <$> t
@@ -559,8 +559,8 @@ unravel k@SNat t = case stensorKind @y of
     , Dict <- lemTensorKindOfSTK stk2
     , Dict <- eltDictRep stk1
     , Dict <- eltDictRep stk2
-    , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y1)
-    , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y2) ->
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let lt1 = unravel k $ tproject1 t
           lt2 = unravel k $ tproject2 t
       in zipWith tpair lt1 lt2
@@ -583,7 +583,7 @@ oRdmapAccumR
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumR k _ bShs _ f acc0 es
- | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) = case sNatValue k of
+ | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) = case sNatValue k of
   0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
@@ -605,7 +605,7 @@ oRdmapAccumL
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumL k _ bShs _ f acc0 es
- | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) = case sNatValue k of
+ | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) = case sNatValue k of
   0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b

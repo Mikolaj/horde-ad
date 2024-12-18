@@ -222,12 +222,12 @@ ftkAst t = case t of
     $ V.map (voidFromDynamicF (shapeToList . shapeAst)) v
   AstApply v _ll -> shapeAstHFun v
   AstMapAccumRDer @accShs @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
-    | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-    , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) ->
+    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
   AstMapAccumLDer @accShs @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
-    | (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @accShs)
-    , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @bShs) ->
+    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
 
   _ -> error "TODO"

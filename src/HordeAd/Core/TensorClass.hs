@@ -126,8 +126,8 @@ class LetTensor (target :: Target) where
       , Dict <- lemTensorKindOfSTK stk2
       , Dict <- eltDictRep stk1
       , Dict <- eltDictRep stk2
-      , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z1)
-      , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z2) ->
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
         tlet u $ \ !u1 ->
           tpair (treplicate snat stk1 (tproject1 u1))
                 (treplicate snat stk2 (tproject2 u1))
@@ -1070,8 +1070,8 @@ class ( Num (IntOf target)
             , Dict <- lemTensorKindOfSTK stk2
             , Dict <- eltDictRep stk1
             , Dict <- eltDictRep stk2
-            , (Dict, Dict) <- lemTensorKind1OfBuild snat stk1
-            , (Dict, Dict) <- lemTensorKind1OfBuild snat stk2 ->
+            , Dict <- lemTensorKindOfBuild snat stk1
+            , Dict <- lemTensorKindOfBuild snat stk2 ->
               let f1 i = tproject1 @_ @z1 @z2 $ g i
                   f2 i = tproject2 @_ @z1 @z2 $ g i
                     -- TODO: looks expensive, but hard to do better,
@@ -1124,7 +1124,7 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR n r))
-  rfwd f ftk | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x)
+  rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
@@ -1154,7 +1154,7 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS sh r))
-  sfwd f ftk | (Dict, Dict) <- lemTensorKind1OfAD (stensorKind @x)
+  sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
              , Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
