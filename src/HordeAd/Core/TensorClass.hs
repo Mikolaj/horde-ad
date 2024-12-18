@@ -21,6 +21,7 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
+import Data.Default
 import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -1065,14 +1066,15 @@ class ( Num (IntOf target)
     let replStk :: STensorKindType z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
         replStk stk g = case stk of
-          STKR SNat STKScalar{} -> rbuild1 (sNatValue snat) g
-          STKS sh STKScalar{} -> withKnownShS sh $ sbuild1 g
-          STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
+          STKScalar{} -> rtoScalar $ rscalar def  -- TODO: ???
+          STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+            rbuild1 (sNatValue snat) g
+          STKS sh x | Dict <- lemTensorKindOfSTK x ->
+            withKnownShS sh $ sbuild1 g
+          STKX sh _ -> withKnownShX sh $ error "TODO"
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfSTK stk1
             , Dict <- lemTensorKindOfSTK stk2
-            , Dict <- eltDictRep stk1
-            , Dict <- eltDictRep stk2
             , Dict <- lemTensorKindOfBuild snat stk1
             , Dict <- lemTensorKindOfBuild snat stk2 ->
               let f1 i = tproject1 @_ @z1 @z2 $ g i
@@ -1081,7 +1083,6 @@ class ( Num (IntOf target)
                     -- so let's hope g is full of variables
               in tpair (replStk stk1 f1) (replStk stk2 f2)
           STKUntyped -> dbuild1 @target snat g
-          _ -> error "TODO"
     in replStk (stensorKind @y) f
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally

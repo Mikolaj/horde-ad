@@ -11,6 +11,7 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (when)
+import Data.Default
 import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
@@ -35,6 +36,7 @@ import Data.Array.Nested
   , ListS (..)
   , Rank
   , ShR (..)
+  , ShS (..)
   , pattern (:$:)
   , pattern (:.$)
   , pattern (:.:)
@@ -46,6 +48,7 @@ import Data.Array.Nested
   , pattern ZS
   , type (++)
   )
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank)
 
 import HordeAd.Core.Ast (AstTensor)
@@ -192,7 +195,8 @@ build1V snat@SNat (var, v0) =
     Ast.AstVar _ var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
       then case isTensorInt v0 of
-        Just Refl -> 0  -- TODO: ???
+        Just Refl -> Ast.AstToScalar $ Ast.AstConcrete (FTKS ZSS FTKScalar)
+                     $ RepN $ Nested.sscalar def  -- TODO: ???
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstPrimalPart v
