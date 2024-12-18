@@ -124,6 +124,8 @@ class LetTensor (target :: Target) where
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2
+      , Dict <- eltDictRep stk1
+      , Dict <- eltDictRep stk2
       , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z1)
       , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z2) ->
         tlet u $ \ !u1 ->
@@ -1066,10 +1068,12 @@ class ( Num (IntOf target)
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfSTK stk1
             , Dict <- lemTensorKindOfSTK stk2
-            , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z1)
-            , (Dict, Dict) <- lemTensorKind1OfBuild snat (stensorKind @z2) ->
-              let f1 i = tproject1 $ g i
-                  f2 i = tproject2 $ g i
+            , Dict <- eltDictRep stk1
+            , Dict <- eltDictRep stk2
+            , (Dict, Dict) <- lemTensorKind1OfBuild snat stk1
+            , (Dict, Dict) <- lemTensorKind1OfBuild snat stk2 ->
+              let f1 i = tproject1 @_ @z1 @z2 $ g i
+                  f2 i = tproject2 @_ @z1 @z2 $ g i
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
               in tpair (replStk stk1 f1) (replStk stk2 f2)

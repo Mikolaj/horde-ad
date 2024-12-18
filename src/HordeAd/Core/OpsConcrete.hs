@@ -451,6 +451,8 @@ ravel k@SNat t = case stensorKind @y of
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2
+    , Dict <- eltDictRep stk1
+    , Dict <- eltDictRep stk2
     , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y1)
     , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
@@ -470,6 +472,8 @@ unravel k@SNat t = case stensorKind @y of
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2
+    , Dict <- eltDictRep stk1
+    , Dict <- eltDictRep stk2
     , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y1)
     , (Dict, Dict) <- lemTensorKind1OfBuild k (stensorKind @y2) ->
       let lt1 = unravel k $ tproject1 t
