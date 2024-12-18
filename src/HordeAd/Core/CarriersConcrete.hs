@@ -26,31 +26,6 @@ import HordeAd.Core.Types
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
 
 instance TensorKind y
-         => Show (RepN y) where
-  showsPrec d (RepN t) = case stensorKind @y of
-    STKScalar _ -> showsPrec d t
-    STKR _ STKScalar{} -> showsPrec d t
-    STKR _ (STKR _ STKScalar{}) -> showsPrec d t
-    STKR _ (STKS _ STKScalar{}) -> showsPrec d t
-    STKR _ (STKX _ STKScalar{}) -> showsPrec d t
-    STKR _ (STKProduct (STKR _ STKScalar{}) (STKR _ STKScalar{})) -> showsPrec d t
-    STKS _ STKScalar{} -> showsPrec d t
-    STKS _ (STKR _ STKScalar{}) -> showsPrec d t
-    STKS _ (STKS _ STKScalar{}) -> showsPrec d t
-    STKS _ (STKX _ STKScalar{}) -> showsPrec d t
-    STKS _ (STKProduct (STKS _ STKScalar{}) (STKS _ STKScalar{})) -> showsPrec d t
-    STKX _ STKScalar{} -> showsPrec d t
-    STKX _ (STKR _ STKScalar{}) -> showsPrec d t
-    STKX _ (STKS _ STKScalar{}) -> showsPrec d t
-    STKX _ (STKX _ STKScalar{}) -> showsPrec d t
-    STKX _ (STKProduct (STKX _ STKScalar{}) (STKX _ STKScalar{})) -> showsPrec d t
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-      showsPrec d (RepN @y1 $ fst t, RepN @y2 $ snd t)
-    STKUntyped -> showsPrec d t
-    _ -> error "TODO"
-
-instance TensorKind y
          => NFData (RepN y) where
   rnf (RepN t) = case stensorKind @y of
     STKScalar _ -> rnf t
@@ -74,16 +49,6 @@ instance TensorKind y
       rnf (RepN @y1 $ fst t, RepN @y2 $ snd t)
     STKUntyped -> rnf t
     _ -> error "TODO"
-
-type instance BoolOf RepN = Bool
-
-type instance HFunOf RepN x z = RepORArray x -> RepORArray z
-
-type instance PrimalOf RepN = RepN
-
-type instance DualOf RepN = DummyDualTarget
-
-type instance ShareOf RepN = RepN
 
 
 instance (Nested.PrimElt r, Integral r)

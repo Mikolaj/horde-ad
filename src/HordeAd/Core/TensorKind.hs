@@ -353,6 +353,16 @@ type family RepORArray (y :: TensorKindType) where
   RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
   RepORArray TKUntyped = HVector RepN
 
+showDictRep :: STensorKindType y -> Dict Show (RepORArray y)
+showDictRep = \case
+    STKScalar{} -> Dict
+    STKR _ x | Dict <- showDictRep x -> Dict
+    STKS _ x | Dict <- showDictRep x -> Dict
+    STKX _ x | Dict <- showDictRep x -> Dict
+    STKProduct stk1 stk2 | Dict <- showDictRep stk1
+                         , Dict <- showDictRep stk2 -> Dict
+    STKUntyped -> Dict
+
 -- TODO: move back to HordeAd.Core.CarriersConcrete as soon as TKUntyped is gone
 --
 -- Needed because `RepORArray` can't be partially applied.
@@ -361,6 +371,19 @@ type family RepORArray (y :: TensorKindType) where
 -- to attach a Show instance to.
 type role RepN nominal
 newtype RepN y = RepN {unRepN :: RepORArray y}
+
+instance TensorKind y => Show (RepN y) where
+  showsPrec d (RepN t) | Dict <- showDictRep (stensorKind @y) = showsPrec d t
+
+type instance BoolOf RepN = Bool
+
+type instance HFunOf RepN x z = RepORArray x -> RepORArray z
+
+type instance PrimalOf RepN = RepN
+
+type instance DualOf RepN = DummyDualTarget
+
+type instance ShareOf RepN = RepN
 
 type GoodTKConstraint y =
   ( Show (RepORArray y)
