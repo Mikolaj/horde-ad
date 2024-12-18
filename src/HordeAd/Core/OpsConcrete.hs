@@ -717,9 +717,9 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
 -}
 
 tindexZR
-  :: forall r m n. (TensorKind1 r, Show (RepORArray r), KnownNat m, KnownNat n)
+  :: forall r m n. (TensorKind1 r, KnownNat m, KnownNat n)
   => RepN (TKR2 (m + n) r) -> IxROf RepN m -> RepN (TKR2 n r)
-tindexZR v ixRepN =
+tindexZR v ixRepN | Dict <- showDictRep (stensorKind @r) =
   let ix = fmap unRepN ixRepN
   in case tftk stensorKind v of
     FTKR sh x | SNat <- shrRank sh ->
@@ -788,7 +788,7 @@ tscatterZR sh t f = case tftk stensorKind t of
     in updateNR zero
        $ map (second $ RepN . Nested.rfromVector shDropP)
        $ M.assocs ivs
-  FTKR _ x ->
+  FTKR _ x | Dict <- showDictRep (ftkToStk x) ->
     let zero = constantTarget 0 (FTKR sh x)
         (shm, _) = splitAt_Shape @m $ rshape t
         s = shrSize shm
