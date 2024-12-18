@@ -416,7 +416,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sreverse = astReverseS
   stranspose perm = astTransposeS perm
   sreshape = astReshapeS
-  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
           => (IntOf (AstTensor AstMethodLet s)
               -> AstTensor AstMethodLet s (TKS2 sh r))
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -524,7 +524,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astLet var astP
           $ simplifyInline gradient
     in AstLambda (varP, ftkx, ast)
-  drevDt :: forall x z. (TensorKind1 x, TensorKind z)
+  drevDt :: forall x z. (TensorKind x, TensorKind z)
          => FullTensorKind x
          -> HFun x z
          -> AstHFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
@@ -541,7 +541,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet var (astProject2 astP)
           $ simplifyInline gradient
     in AstLambda (varP, ftk2, ast)
-  dfwd :: forall x z. (TensorKind1 x, TensorKind z)
+  dfwd :: forall x z. (TensorKind x, TensorKind z)
        => FullTensorKind x
        -> HFun x z
        -> AstHFun (TKProduct (ADTensorKind x)  x) (ADTensorKind z)
@@ -719,7 +719,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sreverse = AstRaw . AstReverseS . unAstRaw
   stranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   sreshape = AstRaw . AstReshapeS . unAstRaw
-  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
           => (IntOf (AstRaw s) -> AstRaw s (TKS2 sh r))
           -> AstRaw s (TKS2 (n ': sh) r)
   sbuild1 f = AstRaw $ AstBuild1 (SNat @n)
@@ -802,7 +802,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
   dmapAccumRDer
     :: forall accShs bShs eShs k.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstRaw s)
     -> SNat k
     -> FullTensorKind accShs
@@ -824,7 +824,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       AstRaw $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
   dmapAccumLDer
     :: forall accShs bShs eShs k.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstRaw s)
     -> SNat k
     -> FullTensorKind accShs
@@ -970,7 +970,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   stranspose perm =
     AstNoVectorize . stranspose perm . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
-  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
           => (IntOf (AstNoVectorize s) -> AstNoVectorize s (TKS2 sh r))
           -> AstNoVectorize s (TKS2 (n ': sh) r)
   sbuild1 f = AstNoVectorize $ AstBuild1 (SNat @n)
@@ -1040,7 +1040,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
   dmapAccumRDer
     :: forall accShs bShs eShs k.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoVectorize s)
     -> SNat k
     -> FullTensorKind accShs
@@ -1062,7 +1062,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
       AstNoVectorize $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoVectorize acc0) (unAstNoVectorize es)
   dmapAccumLDer
     :: forall accShs bShs eShs k.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoVectorize s)
     -> SNat k
     -> FullTensorKind accShs
@@ -1229,7 +1229,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   stranspose perm =
     AstNoSimplify . AstTransposeS perm . unAstNoSimplify
   sreshape = AstNoSimplify . AstReshapeS . unAstNoSimplify
-  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
           => (IntOf (AstNoSimplify s) -> AstNoSimplify s (TKS2 sh r))
           -> AstNoSimplify s (TKS2 (n ': sh) r)
   sbuild1 f =
@@ -1320,7 +1320,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
   dmapAccumRDer
     :: forall accShs bShs eShs k.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoSimplify s)
     -> SNat k
     -> FullTensorKind accShs
@@ -1342,7 +1342,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
       AstNoSimplify $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
   dmapAccumLDer
     :: forall accShs bShs eShs k.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (AstNoSimplify s)
     -> SNat k
     -> FullTensorKind accShs

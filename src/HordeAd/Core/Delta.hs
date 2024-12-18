@@ -400,12 +400,12 @@ data Delta :: Target -> TensorKindType -> Type where
               => Delta target (TKScalar r) -> Delta target (TKS '[] r)
   ToScalarG :: GoodScalar r
             => Delta target (TKS '[] r) -> Delta target (TKScalar r)
-  PairG :: (TensorKind1 y, TensorKind1 z)
+  PairG :: (TensorKind y, TensorKind z)
          => Delta target y -> Delta target z
          -> Delta target (TKProduct y z)
-  Project1G :: forall x z target. (TensorKind1 x, TensorKind1 z)
+  Project1G :: forall x z target. (TensorKind x, TensorKind z)
             => Delta target (TKProduct x z) -> Delta target x
-  Project2G :: forall x z target. (TensorKind1 x, TensorKind1 z)
+  Project2G :: forall x z target. (TensorKind x, TensorKind z)
             => Delta target (TKProduct x z) -> Delta target z
   InputG :: forall target y.
             FullTensorKind y -> InputId target y -> Delta target y
@@ -416,7 +416,7 @@ data Delta :: Target -> TensorKindType -> Type where
   AddG :: Num (target y)
        => Delta target y -> Delta target y -> Delta target y
 
-  IndexR :: (TensorKind1 r, KnownNat n, KnownNat m)
+  IndexR :: (TensorKind r, KnownNat n, KnownNat m)
          => Delta target (TKR2 (m + n) r) -> IxROf target m
          -> Delta target (TKR2 n r)
     -- ^ The sub-tensor at the given index. The given shape is of the
@@ -427,7 +427,7 @@ data Delta :: Target -> TensorKindType -> Type where
         => Delta target (TKR n r) -> Delta target (TKR 0 r)
   Dot0R :: (KnownNat n, GoodScalar r)
         => target (TKR n r) -> Delta target (TKR n r) -> Delta target (TKR 0 r)
-  ScatterR :: (TensorKind1 r, KnownNat m, KnownNat p, KnownNat n)
+  ScatterR :: (TensorKind r, KnownNat m, KnownNat p, KnownNat n)
            => IShR (p + n) -> Delta target (TKR2 (m + n) r)
            -> (IxROf target m -> IxROf target p)
            -> Delta target (TKR2 (p + n) r)
@@ -441,7 +441,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorR :: (KnownNat n, TensorKind1 r)
+  FromVectorR :: (KnownNat n, TensorKind r)
               => Data.Vector.Vector (Delta target (TKR2 n r))
               -> Delta target (TKR2 (1 + n) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
@@ -460,18 +460,18 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKR (1 + n) r)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
-  ReverseR :: (TensorKind1 r, KnownNat n)
+  ReverseR :: (TensorKind r, KnownNat n)
            => Delta target (TKR2 (1 + n) r) -> Delta target (TKR2 (1 + n) r)
     -- ^ Reverse elements of the outermost dimension.
-  TransposeR :: (TensorKind1 r, KnownNat n)
+  TransposeR :: (TensorKind r, KnownNat n)
              => Permutation.PermR -> Delta target (TKR2 n r)
              -> Delta target (TKR2 n r)
     -- ^ Transpose according to the permutation.
-  ReshapeR :: (TensorKind1 r, KnownNat n, KnownNat m)
+  ReshapeR :: (TensorKind r, KnownNat n, KnownNat m)
            => IShR m -> Delta target (TKR2 n r)
            -> Delta target (TKR2 m r)
     -- ^ Change the shape of the tensor to the given one.
-  GatherR :: (TensorKind1 r, KnownNat m, KnownNat p, KnownNat n)
+  GatherR :: (TensorKind r, KnownNat m, KnownNat p, KnownNat n)
           => IShR (m + n) -> Delta target (TKR2 (p + n) r)
           -> (IxROf target m -> IxROf target p)
           -> Delta target (TKR2 (m + n) r)
@@ -485,16 +485,16 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownNat n)
         => Delta target (TKR n r1) -> Delta target (TKR n r2)
-  ZipR :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+  ZipR :: (TensorKind y, TensorKind z, KnownNat n)
        => Delta target (TKProduct (TKR2 n y) (TKR2 n z))
        -> Delta target (TKR2 n (TKProduct y z))
-  UnzipR :: (TensorKind1 y, TensorKind1 z, KnownNat n)
+  UnzipR :: (TensorKind y, TensorKind z, KnownNat n)
          => Delta target (TKR2 n (TKProduct y z))
          -> Delta target (TKProduct (TKR2 n y) (TKR2 n z))
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
-  IndexS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+  IndexS :: (TensorKind r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
          => Delta target (TKS2 (sh1 ++ sh2) r)
          -> IxSOf target sh1
          -> Delta target (TKS2 sh2 r)
@@ -508,7 +508,7 @@ data Delta :: Target -> TensorKindType -> Type where
         => target (TKS sh r) -> Delta target (TKS sh r)
         -> Delta target (TKS '[] r)
   ScatterS :: forall target r sh2 p sh.
-              ( TensorKind1 r, KnownShS sh2, KnownShS sh, KnownNat p
+              ( TensorKind r, KnownShS sh2, KnownShS sh, KnownNat p
               , KnownShS (Take p sh), KnownShS (Drop p sh)
               , KnownShS (sh2 ++ Drop p sh) )
            => Delta target (TKS2 (sh2 ++ Drop p sh) r)
@@ -525,7 +525,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorS :: (TensorKind1 r, KnownShS sh, KnownNat n)
+  FromVectorS :: (TensorKind r, KnownShS sh, KnownNat n)
               => Data.Vector.Vector (Delta target (TKS2 sh r))
               -> Delta target (TKS2 (n ': sh) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
@@ -548,24 +548,24 @@ data Delta :: Target -> TensorKindType -> Type where
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
-  ReverseS :: (TensorKind1 r, KnownShS sh, KnownNat n)
+  ReverseS :: (TensorKind r, KnownShS sh, KnownNat n)
            => Delta target (TKS2 (n ': sh) r)
            -> Delta target (TKS2 (n ': sh) r)
     -- ^ Reverse elements of the outermost dimension.
   TransposeS :: forall perm sh r target.
-                (TensorKind1 r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
+                (TensorKind r, PermC perm, KnownShS sh, Rank perm <= Rank sh)
              => Permutation.Perm perm
              -> Delta target (TKS2 sh r)
              -> Delta target (TKS2 (Permutation.PermutePrefix perm sh) r)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: ( TensorKind1 r, KnownShS sh, KnownShS sh2
+  ReshapeS :: ( TensorKind r, KnownShS sh, KnownShS sh2
               , Nested.Product sh
                 ~ Nested.Product sh2 )
            => Delta target (TKS2 sh r)
            -> Delta target (TKS2 sh2 r)
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall target r sh2 p sh.
-             ( TensorKind1 r, KnownShS sh2, KnownShS sh, KnownNat p
+             ( TensorKind r, KnownShS sh2, KnownShS sh, KnownNat p
              , KnownShS (Take p sh), KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
           => Delta target (TKS2 sh r)
@@ -582,10 +582,10 @@ data Delta :: Target -> TensorKindType -> Type where
     -- TODO: this is a haddock for Gather1; fix.
   CastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShS sh)
         => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
-  ZipS :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+  ZipS :: (TensorKind y, TensorKind z, KnownShS sh)
        => Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
        -> Delta target (TKS2 sh (TKProduct y z))
-  UnzipS :: (TensorKind1 y, TensorKind1 z, KnownShS sh)
+  UnzipS :: (TensorKind y, TensorKind z, KnownShS sh)
          => Delta target (TKS2 sh (TKProduct y z))
          -> Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
   SFromH :: (KnownShS sh, GoodScalar r)
@@ -598,60 +598,60 @@ data Delta :: Target -> TensorKindType -> Type where
   FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
               => Data.Vector.Vector (Delta target (TKX sh r))
               -> Delta target (TKX (Just n ': sh) r)
-  ZipX :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+  ZipX :: (TensorKind y, TensorKind z, KnownShX sh)
        => Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> Delta target (TKX2 sh (TKProduct y z))
-  UnzipX :: (TensorKind1 y, TensorKind1 z, KnownShX sh)
+  UnzipX :: (TensorKind y, TensorKind z, KnownShX sh)
          => Delta target (TKX2 sh (TKProduct y z))
          -> Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
-  RFromS :: forall sh r target. (TensorKind1 r, KnownShS sh)
+  RFromS :: forall sh r target. (TensorKind r, KnownShS sh)
          => Delta target (TKS2 sh r)
          -> Delta target (TKR2 (Rank sh) r)
-  RFromX :: forall sh r target. (TensorKind1 r, KnownShX sh)
+  RFromX :: forall sh r target. (TensorKind r, KnownShX sh)
          => Delta target (TKX2 sh r)
          -> Delta target (TKR2 (Rank sh) r)
   SFromR :: forall sh r target.
-            (KnownShS sh, KnownNat (Rank sh), TensorKind1 r)
+            (KnownShS sh, KnownNat (Rank sh), TensorKind r)
          => Delta target (TKR2 (Rank sh) r)
          -> Delta target (TKS2 sh r)
   SFromX :: forall sh sh' r target.
-            (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+            (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => Delta target (TKX2 sh' r)
          -> Delta target (TKS2 sh r)
-  XFromR :: (KnownShX sh, TensorKind1 r, KnownNat (Rank sh))
+  XFromR :: (KnownShX sh, TensorKind r, KnownNat (Rank sh))
          => Delta target (TKR2 (Rank sh) r)
          -> Delta target (TKX2 sh r)
-  XFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r)
+  XFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => Delta target (TKS2 sh r)
          -> Delta target (TKX2 sh' r)
 
   -- The constraints about ++ in these three are needed for deriving Show.
-  XNestR :: ( TensorKind1 x, KnownShX sh1, KnownNat m
+  XNestR :: ( TensorKind x, KnownShX sh1, KnownNat m
             , KnownShX (sh1 ++ Replicate m Nothing) )
          => Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
          -> Delta target (TKX2 sh1 (TKR2 m x))
-  XNestS :: ( TensorKind1 x, KnownShX sh1, KnownShS sh2
+  XNestS :: ( TensorKind x, KnownShX sh1, KnownShS sh2
             , KnownShX (sh1 ++ MapJust sh2) )
          => Delta target (TKX2 (sh1 ++ MapJust sh2) x)
          -> Delta target (TKX2 sh1 (TKS2 sh2 x))
-  XNest :: (TensorKind1 x, KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2))
+  XNest :: (TensorKind x, KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2))
         => Delta target (TKX2 (sh1 ++ sh2) x)
         -> Delta target (TKX2 sh1 (TKX2 sh2 x))
-  XUnNestR :: (TensorKind1 x, KnownShX sh1, KnownNat m)
+  XUnNestR :: (TensorKind x, KnownShX sh1, KnownNat m)
            => Delta target (TKX2 sh1 (TKR2 m x))
            -> Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
-  XUnNestS :: (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+  XUnNestS :: (TensorKind x, KnownShX sh1, KnownShS sh2)
            => Delta target (TKX2 sh1 (TKS2 sh2 x))
            -> Delta target (TKX2 (sh1 ++ MapJust sh2) x)
-  XUnNest :: (TensorKind1 x, KnownShX sh1, KnownShX sh2)
+  XUnNest :: (TensorKind x, KnownShX sh1, KnownShX sh2)
           => Delta target (TKX2 sh1 (TKX2 sh2 x))
           -> Delta target (TKX2 (sh1 ++ sh2) x)
 
   HToH :: HVector (Delta target) -> Delta target TKUntyped
   MapAccumR
     :: forall target k accShs bShs eShs.
-       ( TensorKind1 accShs, TensorKind bShs, TensorKind1 eShs
+       ( TensorKind accShs, TensorKind bShs, TensorKind eShs
        , TensorKind (BuildTensorKind k eShs)
        , TensorKind (BuildTensorKind k accShs) )
     => SNat k
@@ -671,7 +671,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
   MapAccumL
     :: forall target k accShs bShs eShs.
-       ( TensorKind1 accShs, TensorKind bShs, TensorKind1 eShs
+       ( TensorKind accShs, TensorKind bShs, TensorKind eShs
        , TensorKind (BuildTensorKind k eShs)
        , TensorKind (BuildTensorKind k accShs) )
     => SNat k
@@ -836,13 +836,13 @@ shapeDeltaFull = \case
       FTKProduct accShs (buildFTK k bShs)
 
 shapeDelta :: forall target r n.
-              (TensorKind1 r, KnownNat n)
+              (TensorKind r, KnownNat n)
            => Delta target (TKR2 n r) -> IShR n
 shapeDelta t = case shapeDeltaFull t of
   FTKR sh _ -> sh
 
 lengthDelta :: forall target r n.
-               (TensorKind1 r, KnownNat n)
+               (TensorKind r, KnownNat n)
             => Delta target (TKR2 (1 + n) r) -> Int
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"

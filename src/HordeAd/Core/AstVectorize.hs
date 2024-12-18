@@ -60,7 +60,7 @@ import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.
-astTr :: forall n s r. (KnownNat n, TensorKind1 r, AstSpan s)
+astTr :: forall n s r. (KnownNat n, TensorKind r, AstSpan s)
       => AstTensor AstMethodLet s (TKR2 (2 + n) r) -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
 astTr = astTranspose [1, 0]
 
@@ -582,7 +582,7 @@ build1V snat@SNat (var, v0) =
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n s r k.
-     (KnownNat m, KnownNat n, TensorKind1 r, AstSpan s)
+     (KnownNat m, KnownNat n, TensorKind r, AstSpan s)
   => SNat k
   -> ( IntVarName
      , AstTensor AstMethodLet s (TKR2 (m + n) r)
@@ -619,7 +619,7 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 -- * Vectorization of AstShaped
 
 astTrS :: forall n m sh s r.
-          (KnownNat n, KnownNat m, KnownShS sh, TensorKind1 r, AstSpan s)
+          (KnownNat n, KnownNat m, KnownShS sh, TensorKind r, AstSpan s)
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
 astTrS | Dict <- lemKnownNatRankS (knownShS @sh) =
   astTransposeS (Permutation.makePerm @'[1, 0])
@@ -640,7 +640,7 @@ intBindingRefreshS var ix =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( TensorKind1 r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
+     ( TensorKind r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
      , KnownShS (Drop p (Take p sh ++ Drop p sh)), AstSpan s )
   => ( IntVarName
      , AstTensor AstMethodLet s (TKS2 sh r)

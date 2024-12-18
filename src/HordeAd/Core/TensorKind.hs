@@ -13,8 +13,7 @@ module HordeAd.Core.TensorKind
   , lemTensorKindOfFTK, lemTensorKind1OfFTK, buildFTK
   , aDFTK, aDFTK1, tftkG
     -- * Type family RepORArray
-  , RepORArray, TensorKind1
-  , RepN(..), eltDictRep, showDictRep  -- only temporarily here
+  , RepORArray, RepN(..), eltDictRep, showDictRep  -- only temporarily here
     -- * Misc
   , DynamicTensor(..)
   , HVector
@@ -396,9 +395,6 @@ type instance PrimalOf RepN = RepN
 type instance DualOf RepN = DummyDualTarget
 
 type instance ShareOf RepN = RepN
-
-
-type TensorKind1 y = (TensorKind y, Nested.KnownElt (RepORArray y))
 
 
 -- * Misc

@@ -290,12 +290,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rslice i n (D u u') = dD (rslice i n u) (SliceR i n u')
   rreverse (D u u') = dD (rreverse u) (ReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (TransposeR perm u')
-  rreshape :: forall n m r. (TensorKind1 r, KnownNat n, KnownNat m)
+  rreshape :: forall n m r. (TensorKind r, KnownNat n, KnownNat m)
            => IShR m -> ADVal target (TKR2 n r) -> ADVal target (TKR2 m r)
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
-  rbuild1 :: forall r n. (TensorKind1 r, KnownNat n)
+  rbuild1 :: forall r n. (TensorKind r, KnownNat n)
           => Int -> (IntOf (ADVal target) -> ADVal target (TKR2 n r))
           -> ADVal target (TKR2 (1 + n) r)
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
@@ -380,19 +380,19 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   stranspose :: forall perm r sh.
                 ( PermC perm, KnownShS sh
-                , Rank perm <= Rank sh, TensorKind1 r )
+                , Rank perm <= Rank sh, TensorKind r )
              => Permutation.Perm perm -> ADVal target (TKS2 sh r)
              -> ADVal target (TKS2 (Permutation.PermutePrefix perm sh) r)
   stranspose perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
     dD (stranspose perm u) (TransposeS @_ @_ @_ @target perm u')
   sreshape :: forall sh sh2 r.
-              ( TensorKind1 r, KnownShS sh, KnownShS sh2
+              ( TensorKind r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2)
            => ADVal target (TKS2 sh r) -> ADVal target (TKS2 sh2 r)
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
-  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
           => (IntOf (ADVal target) -> ADVal target (TKS2 sh r))
           -> ADVal target (TKS2 (n ': sh) r)
   sbuild1 f = case sameNat (Proxy @n) (Proxy @0) of
@@ -432,17 +432,17 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
    where
-    dRFromS :: (TensorKind1 r2, KnownShS sh2)
+    dRFromS :: (TensorKind r2, KnownShS sh2)
             => Delta target (TKS2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
   rfromX (D u u') = dDnotShared (rfromX u) (dRFromX u')
    where
-    dRFromX :: (TensorKind1 r2, KnownShX sh2)
+    dRFromX :: (TensorKind r2, KnownShX sh2)
             => Delta target (TKX2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
     dRFromX (XFromR d) = d  -- no information lost, so no checks
     dRFromX d = RFromX d
-  sfromR :: forall r sh. (TensorKind1 r, KnownShS sh, KnownNat (Rank sh))
+  sfromR :: forall r sh. (TensorKind r, KnownShS sh, KnownNat (Rank sh))
          => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKS2 sh r)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
@@ -452,7 +452,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromR d = SFromR d
   sfromX :: forall r sh sh'.
-            ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind1 r )
+            ( KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r )
          => ADVal target (TKX2 sh' r) -> ADVal target (TKS2 sh r)
   sfromX (D u u') = dDnotShared (sfromX u) (dSFromX u')
    where
@@ -461,14 +461,14 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromX d = SFromX d
-  xfromR :: forall sh r. (KnownShX sh, TensorKind1 r)
+  xfromR :: forall sh r. (KnownShX sh, TensorKind r)
          => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKX2 sh r)
   xfromR (D u u') | Dict <- lemKnownNatRankX (knownShX @sh) =
     dDnotShared (xfromR u) (XFromR u')
   xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
 
   xnestR :: forall sh1 m x.
-            (TensorKind1 x, KnownNat m)
+            (TensorKind x, KnownNat m)
          => StaticShX sh1 -> ADVal target (TKX2 (sh1 ++ Replicate m Nothing) x)
          -> ADVal target (TKX2 sh1 (TKR2 m x))
   xnestR sh1 (D u u') =
@@ -476,7 +476,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     withKnownShX (sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     dD (xnestR sh1 u) (XNestR u')
   xnestS :: forall sh1 sh2 x.
-            (TensorKind1 x, KnownShS sh2)
+            (TensorKind x, KnownShS sh2)
          => StaticShX sh1 -> ADVal target (TKX2 (sh1 ++ MapJust sh2) x)
          -> ADVal target (TKX2 sh1 (TKS2 sh2 x))
   xnestS sh1 (D u u') =
@@ -484,7 +484,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     withKnownShX (sh1 `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
     dD (xnestS sh1 u) (XNestS u')
   xnest :: forall sh1 sh2 x.
-           (TensorKind1 x, KnownShX sh2)
+           (TensorKind x, KnownShX sh2)
         => StaticShX sh1 -> ADVal target (TKX2 (sh1 ++ sh2) x)
         -> ADVal target (TKX2 sh1 (TKX2 sh2 x))
   xnest sh1 (D u u') =
@@ -493,14 +493,14 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     dD (xnest sh1 u) (XNest u')
 
   xunNestR :: forall sh1 m x.
-              (TensorKind1 x, KnownShX sh1, KnownNat m)
+              (TensorKind x, KnownShX sh1, KnownNat m)
            => ADVal target (TKX2 sh1 (TKR2 m x))
            -> ADVal target (TKX2 (sh1 ++ Replicate m Nothing) x)
   xunNestR (D u u') =
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     dD (xunNestR u) (XUnNestR u')
   xunNestS :: forall sh1 sh2 x.
-              (TensorKind1 x, KnownShX sh1, KnownShS sh2)
+              (TensorKind x, KnownShX sh1, KnownShS sh2)
            => ADVal target (TKX2 sh1 (TKS2 sh2 x))
            -> ADVal target (TKX2 (sh1 ++ MapJust sh2) x)
   xunNestS (D u u') =
@@ -508,7 +508,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                   `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
     dD (xunNestS u) (XUnNestS u')
   xunNest :: forall sh1 sh2 x.
-             (TensorKind1 x, KnownShX sh1, KnownShX sh2)
+             (TensorKind x, KnownShX sh1, KnownShX sh2)
           => ADVal target (TKX2 sh1 (TKX2 sh2 x))
           -> ADVal target (TKX2 (sh1 ++ sh2) x)
   xunNest (D u u') =
@@ -574,7 +574,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare aShared)
     in HFun rf
-  drevDt :: forall x z. (TensorKind1 x, TensorKind z)
+  drevDt :: forall x z. (TensorKind x, TensorKind z)
          => FullTensorKind x
          -> HFun x z
          -> HFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
@@ -590,7 +590,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject2 db_aShared)
     in HFun rf
-  dfwd :: forall x z. (TensorKind1 x, TensorKind z)
+  dfwd :: forall x z. (TensorKind x, TensorKind z)
        => FullTensorKind x
        -> HFun x z
        -> HFun (TKProduct (ADTensorKind x) x) (ADTensorKind z)
@@ -608,7 +608,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in HFun df
   dmapAccumRDer
     :: forall k accShs bShs eShs.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (ADVal target)
     -> SNat k
     -> FullTensorKind accShs
@@ -695,7 +695,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in dD (tpair accFin bs) dual
   dmapAccumLDer
     :: forall k accShs bShs eShs.
-       (TensorKind1 accShs, TensorKind1 bShs, TensorKind1 eShs)
+       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => Proxy (ADVal target)
     -> SNat k
     -> FullTensorKind accShs

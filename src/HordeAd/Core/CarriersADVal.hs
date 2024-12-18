@@ -132,14 +132,14 @@ dDnotShared = ADVal
 -- terms get an identifier. Alternatively, 'HordeAd.Core.CarriersADVal.dD'
 -- or library definitions that use it could be made smarter.
 
-unPairG :: (TensorKind1 x, TensorKind1 y)
+unPairG :: (TensorKind x, TensorKind y)
         => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unPairG (PairG a b) = (a, b)
 unPairG (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
 unPairG d = let dShared = shareDelta d  -- TODO: more cases
             in (Project1G dShared, Project2G dShared)
 
-unPairGUnshared :: (TensorKind1 x, TensorKind1 y)
+unPairGUnshared :: (TensorKind x, TensorKind y)
                 => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unPairGUnshared (PairG a b) = (a, b)
 unPairGUnshared (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
@@ -301,13 +301,13 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ >. D v _ = u >. v
   D u _ >=. D v _ = u >=. v
 
-indexPrimal :: ( ADReadyNoLet target, TensorKind1 r
+indexPrimal :: ( ADReadyNoLet target, TensorKind r
                , KnownNat m, KnownNat n )
             => ADVal target (TKR2 (m + n) r) -> IxROf target m
             -> ADVal target (TKR2 n r)
 indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
 
-fromVector :: (ADReadyNoLet target, KnownNat n, TensorKind1 r)
+fromVector :: (ADReadyNoLet target, KnownNat n, TensorKind r)
            => Data.Vector.Vector (ADVal target (TKR2 n r))
            -> ADVal target (TKR2 (1 + n) r)
 fromVector lu =
@@ -334,14 +334,14 @@ instance ( ADReadyNoLet target
                    (fromList [ifF b 0 1])
     _ -> error "TODO"
 
-indexPrimalS :: ( ADReadyNoLet target, TensorKind1 r
+indexPrimalS :: ( ADReadyNoLet target, TensorKind r
                 , KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2) )
              => ADVal target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
              -> ADVal target (TKS2 sh2 r)
 indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
 
 fromVectorS :: forall n sh target r.
-               (ADReadyNoLet target, KnownNat n, KnownShS sh, TensorKind1 r)
+               (ADReadyNoLet target, KnownNat n, KnownShS sh, TensorKind r)
             => Data.Vector.Vector (ADVal target (TKS2 sh r))
             -> ADVal target (TKS2 (n ': sh) r)
 fromVectorS lu = assert (length lu == valueOf @n) $
