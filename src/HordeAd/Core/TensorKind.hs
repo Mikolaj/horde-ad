@@ -285,7 +285,9 @@ eltDictRep = \case
     STKX sh x | Dict <- eltDictRep x -> withKnownShX sh Dict
     STKProduct stk1 stk2 | Dict <- eltDictRep stk1
                          , Dict <- eltDictRep stk2 -> Dict
-    STKUntyped -> Dict
+    STKUntyped ->
+      unsafeCoerce (Dict @Nested.KnownElt @Double)
+        -- these are never nested in arrays, so this hack is fine
 
 showDictRep :: STensorKindType y -> Dict Show (RepORArray y)
 showDictRep = \case
@@ -388,9 +390,6 @@ type HVector (target :: Target) =
     -- the two, preserving sharing whenever possible. The only reason
     -- this exists is to express and preserve sharing, which is
     -- not possible with `HVector AstHVector` alone.
-
-instance Nested.Elt (HVector RepN) where  -- dummy
-instance Nested.KnownElt (HVector RepN) where  -- dummy
 
 type role VoidTensor nominal
 data VoidTensor :: Target
