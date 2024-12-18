@@ -13,7 +13,7 @@ module HordeAd.Core.TensorKind
   , lemTensorKindOfFTK, lemTensorKind1OfFTK, buildFTK
   , aDFTK, aDFTK1, tftkG
     -- * Type family RepORArray
-  , RepORArray, GoodTK, TensorKind1, TensorKind2
+  , RepORArray, TensorKind1
   , RepN(..), showDictRep  -- only temporarily here
     -- * Misc
   , DynamicTensor(..)
@@ -385,14 +385,6 @@ type instance DualOf RepN = DummyDualTarget
 
 type instance ShareOf RepN = RepN
 
-type GoodTKConstraint y =
-  ( Nested.KnownElt (RepORArray y) )
-
--- A class so that the constraint can be represented by a single Dict.
-class GoodTKConstraint y => GoodTK y
-instance GoodTKConstraint y => GoodTK y
-
-type TensorKind2 y = (TensorKind y, GoodTK y)
 
 type TensorKind1 y = (TensorKind y, Nested.KnownElt (RepORArray y))
 

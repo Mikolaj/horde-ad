@@ -412,7 +412,7 @@ data Delta :: Target -> TensorKindType -> Type where
   AddG :: Num (target y)
        => Delta target y -> Delta target y -> Delta target y
 
-  IndexR :: (TensorKind2 r, KnownNat n, KnownNat m)
+  IndexR :: (TensorKind1 r, KnownNat n, KnownNat m)
          => Delta target (TKR2 (m + n) r) -> IxROf target m
          -> Delta target (TKR2 n r)
     -- ^ The sub-tensor at the given index. The given shape is of the
@@ -423,7 +423,7 @@ data Delta :: Target -> TensorKindType -> Type where
         => Delta target (TKR n r) -> Delta target (TKR 0 r)
   Dot0R :: (KnownNat n, GoodScalar r)
         => target (TKR n r) -> Delta target (TKR n r) -> Delta target (TKR 0 r)
-  ScatterR :: (TensorKind2 r, KnownNat m, KnownNat p, KnownNat n)
+  ScatterR :: (TensorKind1 r, KnownNat m, KnownNat p, KnownNat n)
            => IShR (p + n) -> Delta target (TKR2 (m + n) r)
            -> (IxROf target m -> IxROf target p)
            -> Delta target (TKR2 (p + n) r)
@@ -437,7 +437,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorR :: (KnownNat n, TensorKind2 r)
+  FromVectorR :: (KnownNat n, TensorKind1 r)
               => Data.Vector.Vector (Delta target (TKR2 n r))
               -> Delta target (TKR2 (1 + n) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
@@ -456,18 +456,18 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKR (1 + n) r)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
-  ReverseR :: (TensorKind2 r, KnownNat n)
+  ReverseR :: (TensorKind1 r, KnownNat n)
            => Delta target (TKR2 (1 + n) r) -> Delta target (TKR2 (1 + n) r)
     -- ^ Reverse elements of the outermost dimension.
   TransposeR :: (TensorKind1 r, KnownNat n)
              => Permutation.PermR -> Delta target (TKR2 n r)
              -> Delta target (TKR2 n r)
     -- ^ Transpose according to the permutation.
-  ReshapeR :: (TensorKind2 r, KnownNat n, KnownNat m)
+  ReshapeR :: (TensorKind1 r, KnownNat n, KnownNat m)
            => IShR m -> Delta target (TKR2 n r)
            -> Delta target (TKR2 m r)
     -- ^ Change the shape of the tensor to the given one.
-  GatherR :: (TensorKind2 r, KnownNat m, KnownNat p, KnownNat n)
+  GatherR :: (TensorKind1 r, KnownNat m, KnownNat p, KnownNat n)
           => IShR (m + n) -> Delta target (TKR2 (p + n) r)
           -> (IxROf target m -> IxROf target p)
           -> Delta target (TKR2 (m + n) r)
@@ -490,7 +490,7 @@ data Delta :: Target -> TensorKindType -> Type where
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
-  IndexS :: (TensorKind2 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+  IndexS :: (TensorKind1 r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
          => Delta target (TKS2 (sh1 ++ sh2) r)
          -> IxSOf target sh1
          -> Delta target (TKS2 sh2 r)
@@ -504,7 +504,7 @@ data Delta :: Target -> TensorKindType -> Type where
         => target (TKS sh r) -> Delta target (TKS sh r)
         -> Delta target (TKS '[] r)
   ScatterS :: forall target r sh2 p sh.
-              ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
+              ( TensorKind1 r, KnownShS sh2, KnownShS sh, KnownNat p
               , KnownShS (Take p sh), KnownShS (Drop p sh)
               , KnownShS (sh2 ++ Drop p sh) )
            => Delta target (TKS2 (sh2 ++ Drop p sh) r)
@@ -521,7 +521,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorS :: (TensorKind2 r, KnownShS sh, KnownNat n)
+  FromVectorS :: (TensorKind1 r, KnownShS sh, KnownNat n)
               => Data.Vector.Vector (Delta target (TKS2 sh r))
               -> Delta target (TKS2 (n ': sh) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
@@ -544,7 +544,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
-  ReverseS :: (TensorKind2 r, KnownShS sh, KnownNat n)
+  ReverseS :: (TensorKind1 r, KnownShS sh, KnownNat n)
            => Delta target (TKS2 (n ': sh) r)
            -> Delta target (TKS2 (n ': sh) r)
     -- ^ Reverse elements of the outermost dimension.
@@ -554,14 +554,14 @@ data Delta :: Target -> TensorKindType -> Type where
              -> Delta target (TKS2 sh r)
              -> Delta target (TKS2 (Permutation.PermutePrefix perm sh) r)
     -- ^ Transpose according to the permutation.
-  ReshapeS :: ( TensorKind2 r, KnownShS sh, KnownShS sh2
+  ReshapeS :: ( TensorKind1 r, KnownShS sh, KnownShS sh2
               , Nested.Product sh
                 ~ Nested.Product sh2 )
            => Delta target (TKS2 sh r)
            -> Delta target (TKS2 sh2 r)
     -- ^ Change the shape of the tensor from the first to the second.
   GatherS :: forall target r sh2 p sh.
-             ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
+             ( TensorKind1 r, KnownShS sh2, KnownShS sh, KnownNat p
              , KnownShS (Take p sh), KnownShS (Drop p sh)
              , KnownShS (sh2 ++ Drop p sh) )
           => Delta target (TKS2 sh r)
@@ -832,13 +832,13 @@ shapeDeltaFull = \case
       FTKProduct accShs (buildFTK k bShs)
 
 shapeDelta :: forall target r n.
-              (TensorKind2 r, KnownNat n)
+              (TensorKind1 r, KnownNat n)
            => Delta target (TKR2 n r) -> IShR n
 shapeDelta t = case shapeDeltaFull t of
   FTKR sh _ -> sh
 
 lengthDelta :: forall target r n.
-               (TensorKind2 r, KnownNat n)
+               (TensorKind1 r, KnownNat n)
             => Delta target (TKR2 (1 + n) r) -> Int
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"

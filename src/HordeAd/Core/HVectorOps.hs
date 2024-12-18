@@ -62,7 +62,7 @@ import HordeAd.Util.SizedList
 -- These use constantTarget, so can't be defined in TensorClass.
 
 roneHot :: forall r m n target.
-           ( BaseTensor target, TensorKind2 r, KnownNat m, KnownNat n
+           ( BaseTensor target, TensorKind1 r, KnownNat m, KnownNat n
            , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
            , EqF (PrimalOf target) )
         => IShR m -> target (TKR2 n r) -> IxROf target m
@@ -82,7 +82,7 @@ roneHot sh v ix = case stensorKind @r of
          -- would come out of vectorization, making sure it simplifies well
 
 soneHot :: forall r sh1 sh2 target.
-           ( BaseTensor target, TensorKind2 r, KnownShS sh1, KnownShS sh2
+           ( BaseTensor target, TensorKind1 r, KnownShS sh1, KnownShS sh2
            , KnownShS (sh1 ++ sh2)
            , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
            , EqF (PrimalOf target) )

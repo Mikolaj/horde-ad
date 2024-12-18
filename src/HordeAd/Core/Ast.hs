@@ -349,7 +349,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                   -> AstTensor ms PrimalSpan (TKR n r2)
   AstIotaR :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
 
-  AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, TensorKind2 r)
+  AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, TensorKind1 r)
            => AstTensor ms s (TKR2 (m + n) r) -> AstIxR ms m
            -> AstTensor ms s (TKR2 n r)
     -- first ix is for outermost dimension; empty index means identity,
@@ -358,11 +358,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSum :: (KnownNat n, GoodScalar r)
          => AstTensor ms s (TKR (1 + n) r) -> AstTensor ms s (TKR n r)
   AstScatter :: forall m n p r s ms.
-                (KnownNat m, KnownNat n, KnownNat p, TensorKind2 r)
+                (KnownNat m, KnownNat n, KnownNat p, TensorKind1 r)
              => IShR (p + n)
              -> AstTensor ms s (TKR2 (m + n) r) -> (AstVarList m, AstIxR ms p)
              -> AstTensor ms s (TKR2 (p + n) r)
-  AstFromVector :: (KnownNat n, TensorKind2 r)
+  AstFromVector :: (KnownNat n, TensorKind1 r)
                 => Data.Vector.Vector (AstTensor ms s (TKR2 n r))
                 -> AstTensor ms s (TKR2 (1 + n) r)
   AstAppend :: (KnownNat n, GoodScalar r)
@@ -371,15 +371,15 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSlice :: (KnownNat n, GoodScalar r)
            => Int -> Int -> AstTensor ms s (TKR (1 + n) r)
            -> AstTensor ms s (TKR (1 + n) r)
-  AstReverse :: (KnownNat n, TensorKind2 r)
+  AstReverse :: (KnownNat n, TensorKind1 r)
              => AstTensor ms s (TKR2 (1 + n) r) -> AstTensor ms s (TKR2 (1 + n) r)
   AstTranspose :: (KnownNat n, TensorKind1 r)
                => Permutation.PermR -> AstTensor ms s (TKR2 n r)
                -> AstTensor ms s (TKR2 n r)
-  AstReshape :: (KnownNat n, KnownNat m, TensorKind2 r)
+  AstReshape :: (KnownNat n, KnownNat m, TensorKind1 r)
              => IShR m -> AstTensor ms s (TKR2 n r) -> AstTensor ms s (TKR2 m r)
   AstGather :: forall m n p r s ms.
-               (KnownNat m, KnownNat n, KnownNat p, TensorKind2 r)
+               (KnownNat m, KnownNat n, KnownNat p, TensorKind1 r)
             => IShR (m + n)
             -> AstTensor ms s (TKR2 (p + n) r) -> (AstVarList m, AstIxR ms p)
             -> AstTensor ms s (TKR2 (m + n) r)
@@ -441,7 +441,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
 
   AstIndexS :: forall sh1 sh2 s x ms.
                ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-               , TensorKind2 x )
+               , TensorKind1 x )
             => AstTensor ms s (TKS2 (sh1 ++ sh2) x) -> AstIxS ms sh1
             -> AstTensor ms s (TKS2 sh2 x)
     -- first ix is for outermost dimension; empty index means identity,
@@ -452,12 +452,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstScatterS :: forall sh2 p sh r s ms.
                  ( KnownShS sh2, KnownShS sh, KnownNat p
                  , KnownShS (Take p sh), KnownShS (Drop p sh)
-                 , KnownShS (sh2 ++ Drop p sh), TensorKind2 r )
+                 , KnownShS (sh2 ++ Drop p sh), TensorKind1 r )
               => AstTensor ms s (TKS2 (sh2 ++ Drop p sh) r)
               -> (AstVarListS sh2, AstIxS ms (Take p sh))
               -> AstTensor ms s (TKS2 sh r)
 
-  AstFromVectorS :: (KnownNat n, KnownShS sh, TensorKind2 r)
+  AstFromVectorS :: (KnownNat n, KnownShS sh, TensorKind1 r)
                  => Data.Vector.Vector (AstTensor ms s (TKS2 sh r))
                  -> AstTensor ms s (TKS2 (n ': sh) r)
   AstAppendS :: (KnownNat n, KnownNat m, KnownShS sh, GoodScalar r)
@@ -467,7 +467,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSliceS :: (KnownNat i, KnownNat n, KnownNat k, KnownShS sh, GoodScalar r)
             => AstTensor ms s (TKS (i + n + k ': sh) r)
             -> AstTensor ms s (TKS (n ': sh) r)
-  AstReverseS :: (KnownNat n, KnownShS sh, TensorKind2 r)
+  AstReverseS :: (KnownNat n, KnownShS sh, TensorKind1 r)
               => AstTensor ms s (TKS2 (n ': sh) r)
               -> AstTensor ms s (TKS2 (n ': sh) r)
   AstTransposeS :: forall perm sh r s ms.
@@ -475,12 +475,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                 => Permutation.Perm perm -> AstTensor ms s (TKS2 sh r)
                 -> AstTensor ms s (TKS2 (Permutation.PermutePrefix perm sh) r)
   AstReshapeS :: ( KnownShS sh, Nested.Product sh ~ Nested.Product sh2
-                 , TensorKind2 r, KnownShS sh2 )
+                 , TensorKind1 r, KnownShS sh2 )
               => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKS2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   AstGatherS :: forall sh2 p sh r s ms.
-                ( TensorKind2 r, KnownShS sh, KnownShS sh2, KnownNat p
+                ( TensorKind1 r, KnownShS sh, KnownShS sh2, KnownNat p
                 , KnownShS (Take p sh), KnownShS (Drop p sh)
                 , KnownShS (sh2 ++ Drop p sh) )
              => AstTensor ms s (TKS2 sh r)

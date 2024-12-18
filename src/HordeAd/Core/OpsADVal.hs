@@ -290,12 +290,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rslice i n (D u u') = dD (rslice i n u) (SliceR i n u')
   rreverse (D u u') = dD (rreverse u) (ReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (TransposeR perm u')
-  rreshape :: forall n m r. (TensorKind2 r, KnownNat n, KnownNat m)
+  rreshape :: forall n m r. (TensorKind1 r, KnownNat n, KnownNat m)
            => IShR m -> ADVal target (TKR2 n r) -> ADVal target (TKR2 m r)
   rreshape sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (ReshapeR sh u')
-  rbuild1 :: forall r n. (TensorKind2 r, KnownNat n)
+  rbuild1 :: forall r n. (TensorKind1 r, KnownNat n)
           => Int -> (IntOf (ADVal target) -> ADVal target (TKR2 n r))
           -> ADVal target (TKR2 (1 + n) r)
   rbuild1 0 _ = case sameNat (Proxy @n) (Proxy @0) of
@@ -386,13 +386,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   stranspose perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
     dD (stranspose perm u) (TransposeS @_ @_ @_ @target perm u')
   sreshape :: forall sh sh2 r.
-              ( TensorKind2 r, KnownShS sh, KnownShS sh2
+              ( TensorKind1 r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2)
            => ADVal target (TKS2 sh r) -> ADVal target (TKS2 sh2 r)
   sreshape t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (ReshapeS u')
-  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
           => (IntOf (ADVal target) -> ADVal target (TKS2 sh r))
           -> ADVal target (TKS2 (n ': sh) r)
   sbuild1 f = case sameNat (Proxy @n) (Proxy @0) of

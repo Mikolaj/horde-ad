@@ -416,7 +416,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sreverse = astReverseS
   stranspose perm = astTransposeS perm
   sreshape = astReshapeS
-  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
           => (IntOf (AstTensor AstMethodLet s)
               -> AstTensor AstMethodLet s (TKS2 sh r))
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -719,7 +719,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sreverse = AstRaw . AstReverseS . unAstRaw
   stranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   sreshape = AstRaw . AstReshapeS . unAstRaw
-  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
           => (IntOf (AstRaw s) -> AstRaw s (TKS2 sh r))
           -> AstRaw s (TKS2 (n ': sh) r)
   sbuild1 f = AstRaw $ AstBuild1 (SNat @n)
@@ -970,7 +970,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   stranspose perm =
     AstNoVectorize . stranspose perm . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
-  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
           => (IntOf (AstNoVectorize s) -> AstNoVectorize s (TKS2 sh r))
           -> AstNoVectorize s (TKS2 (n ': sh) r)
   sbuild1 f = AstNoVectorize $ AstBuild1 (SNat @n)
@@ -1229,7 +1229,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   stranspose perm =
     AstNoSimplify . AstTransposeS perm . unAstNoSimplify
   sreshape = AstNoSimplify . AstReshapeS . unAstNoSimplify
-  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
           => (IntOf (AstNoSimplify s) -> AstNoSimplify s (TKS2 sh r))
           -> AstNoSimplify s (TKS2 (n ': sh) r)
   sbuild1 f =

@@ -582,7 +582,7 @@ build1V snat@SNat (var, v0) =
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndex
   :: forall m n s r k.
-     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+     (KnownNat m, KnownNat n, TensorKind1 r, AstSpan s)
   => SNat k
   -> ( IntVarName
      , AstTensor AstMethodLet s (TKR2 (m + n) r)
@@ -640,7 +640,7 @@ intBindingRefreshS var ix =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( TensorKind2 r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
+     ( TensorKind1 r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
      , KnownShS (Drop p (Take p sh ++ Drop p sh)), AstSpan s )
   => ( IntVarName
      , AstTensor AstMethodLet s (TKS2 sh r)

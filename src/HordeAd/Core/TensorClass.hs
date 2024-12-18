@@ -175,11 +175,11 @@ class ( Num (IntOf target)
 
   -- Integer codomain
   rshape :: TensorKind1 r => target (TKR2 n r) -> IShR n
-  rrank :: forall r n. (TensorKind2 r, KnownNat n) => target (TKR2 n r) -> Int
+  rrank :: forall r n. (TensorKind1 r, KnownNat n) => target (TKR2 n r) -> Int
   rrank _ = valueOf @n
-  rsize :: TensorKind2 r => target (TKR2 n r) -> Int
+  rsize :: TensorKind1 r => target (TKR2 n r) -> Int
   rsize = sizeShape . rshape
-  rlength :: TensorKind2 r => target (TKR2 (1 + n) r) -> Int
+  rlength :: TensorKind1 r => target (TKR2 (1 + n) r) -> Int
   rlength v = case rshape v of
     ZSR -> error "rlength: impossible pattern needlessly required"
     k :$: _ -> k
@@ -198,11 +198,11 @@ class ( Num (IntOf target)
 
   -- First index is for outermost dimension; empty index means identity,
   -- index ouf of bounds produces zero (but beware of vectorization).
-  rindex, (!) :: (TensorKind2 r, KnownNat m, KnownNat n)
+  rindex, (!) :: (TensorKind1 r, KnownNat m, KnownNat n)
               => target (TKR2 (m + n) r) -> IxROf target m -> target (TKR2 n r)
   infixl 9 !
   (!) = rindex  -- prefix form better when type applications are necessary
-  rindex0 :: (TensorKind2 r, KnownNat m)
+  rindex0 :: (TensorKind1 r, KnownNat m)
           => target (TKR2 m r) -> IxROf target m -> target (TKR2 0 r)
   rindex0 = rindex
   rsum :: (GoodScalar r, KnownNat n) => target (TKR (1 + n) r) -> target (TKR n r)
@@ -225,11 +225,11 @@ class ( Num (IntOf target)
     _ :$: width2 :$: ZSR -> rsum (rtranspose [2,1,0] (rreplicate width2 m1)
                                   * rtranspose [1,0] (rreplicate (rlength m1) m2))
     _ -> error "rmatmul2: impossible pattern needlessly required"
-  rscatter :: (TensorKind2 r, KnownNat m, KnownNat n, KnownNat p)
+  rscatter :: (TensorKind1 r, KnownNat m, KnownNat n, KnownNat p)
            => IShR (p + n) -> target (TKR2 (m + n) r)
            -> (IxROf target m -> IxROf target p)
            -> target (TKR2 (p + n) r)
-  rscatter1 :: forall r n p. (TensorKind2 r, KnownNat n, KnownNat p)
+  rscatter1 :: forall r n p. (TensorKind1 r, KnownNat n, KnownNat p)
             => IShR (p + n) -> target (TKR2 (1 + n) r)
             -> (IntOf target -> IxROf target p)
             -> target (TKR2 (p + n) r)
@@ -239,24 +239,24 @@ class ( Num (IntOf target)
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined).
-  rfromList :: (TensorKind2 r, KnownNat n)
+  rfromList :: (TensorKind1 r, KnownNat n)
             => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
-  rfromList0N :: (TensorKind2 r, KnownNat n)
+  rfromList0N :: (TensorKind1 r, KnownNat n)
               => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
   rfromList0N sh = rfromVector0N sh . V.fromList
   -- This is morally non-empty strict vectors:
-  rfromVector :: (TensorKind2 r, KnownNat n)
+  rfromVector :: (TensorKind1 r, KnownNat n)
               => Data.Vector.Vector (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
-  rfromVector0N :: (TensorKind2 r, KnownNat n)
+  rfromVector0N :: (TensorKind1 r, KnownNat n)
                 => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
                 -> target (TKR2 n r)
   rfromVector0N sh = rreshape sh . rfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  runravelToList :: forall r n. (TensorKind2 r, KnownNat n)
+  runravelToList :: forall r n. (TensorKind1 r, KnownNat n)
                  => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
   runravelToList t =
     let f :: Int -> target (TKR2 n r)
@@ -279,18 +279,18 @@ class ( Num (IntOf target)
   runcons v = case rshape v of
                 ZSR -> Nothing
                 len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
-  rreverse :: (TensorKind2 r, KnownNat n)
+  rreverse :: (TensorKind1 r, KnownNat n)
            => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-  rtr :: (TensorKind2 r, KnownNat n)
+  rtr :: (TensorKind1 r, KnownNat n)
       => target (TKR2 (2 + n) r) -> target (TKR2 (2 + n) r)
   rtr = rtranspose [1, 0]
   rtranspose :: (TensorKind1 r, KnownNat n)
              => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
-  rflatten :: (TensorKind2 r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
+  rflatten :: (TensorKind1 r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (flattenShape $ rshape u) u
-  rreshape :: (TensorKind2 r, KnownNat n, KnownNat m)
+  rreshape :: (TensorKind1 r, KnownNat n, KnownNat m)
            => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
-  rbuild :: forall r m n. (TensorKind2 r, KnownNat m, KnownNat n)
+  rbuild :: forall r m n. (TensorKind1 r, KnownNat m, KnownNat n)
          => IShR (m + n) -> (IxROf target m -> target (TKR2 n r))
          -> target (TKR2 (m + n) r)
   rbuild sh0 f0 =
@@ -301,58 +301,58 @@ class ( Num (IntOf target)
           let g i = buildSh sh (\ix -> f (i :.: ix))
           in rbuild1 k g
     in buildSh (takeShape @m @n sh0) f0
-  rbuild1 :: (TensorKind2 r, KnownNat n)  -- this form needs less typeapps
+  rbuild1 :: (TensorKind1 r, KnownNat n)  -- this form needs less typeapps
           => Int -> (IntOf target -> target (TKR2 n r)) -> target (TKR2 (1 + n) r)
-  rmap :: (TensorKind2 r, TensorKind2 r2, KnownNat m, KnownNat n)
+  rmap :: (TensorKind1 r, TensorKind1 r2, KnownNat m, KnownNat n)
        => (target (TKR2 n r) -> target (TKR2 n r2))
        -> target (TKR2 (m + n) r) -> target (TKR2 (m + n) r2)
   rmap f v = rbuild (rshape v) (\ix -> f (v ! ix))
-  rmap1 :: (TensorKind2 r, TensorKind2 r2, KnownNat n)
+  rmap1 :: (TensorKind1 r, TensorKind1 r2, KnownNat n)
         => (target (TKR2 n r) -> target (TKR2 n r2))
         -> target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r2)
   rmap1 f u = rbuild1 (rlength u) (\i -> f (u ! [i]))
-  rmap0N :: (TensorKind2 r, TensorKind2 r1, KnownNat n)
+  rmap0N :: (TensorKind1 r, TensorKind1 r1, KnownNat n)
          => (target (TKR2 0 r1) -> target (TKR2 0 r)) -> target (TKR2 n r1)
          -> target (TKR2 n r)
   rmap0N f v = rbuild (rshape v) (f . rindex0 v)
-  rzipWith :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r
+  rzipWith :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r
               , KnownNat m, KnownNat n1, KnownNat n2, KnownNat n )
            => IShR (m + n)
            -> (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n r))
            -> target (TKR2 (m + n1) r1) -> target (TKR2 (m + n2) r2)
            -> target (TKR2 (m + n) r)
   rzipWith sh f u v = rbuild sh (\ix -> f (u ! ix) (v ! ix))
-  rzipWith1 :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r
+  rzipWith1 :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r
                , KnownNat n1, KnownNat n2, KnownNat n )
             => (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n r))
             -> target (TKR2 (1 + n1) r1) -> target (TKR2 (1 + n2) r2) -> target (TKR2 (1 + n) r)
   rzipWith1 f u v = rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]))
-  rzipWith0N :: (TensorKind2 r1, TensorKind2 r2, TensorKind2 r, KnownNat n)
+  rzipWith0N :: (TensorKind1 r1, TensorKind1 r2, TensorKind1 r, KnownNat n)
              => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r))
              -> target (TKR2 n r1) -> target (TKR2 n r2) -> target (TKR2 n r)
   rzipWith0N f u v = rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix))
-  rzipWith3 :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r
+  rzipWith3 :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r
                , KnownNat m, KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n )
             => IShR (m + n)
             -> (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n3 r3) -> target (TKR2 n r))
             -> target (TKR2 (m + n1) r1) -> target (TKR2 (m + n2) r2) -> target (TKR2 (m + n3) r3)
             -> target (TKR2 (m + n) r)
   rzipWith3 sh f u v w = rbuild sh (\ix -> f (u ! ix) (v ! ix) (w ! ix))
-  rzipWith31 :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r
+  rzipWith31 :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r
                 , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n )
              => (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n3 r3) -> target (TKR2 n r))
              -> target (TKR2 (1 + n1) r1) -> target (TKR2 (1 + n2) r2) -> target (TKR2 (1 + n3) r3)
              -> target (TKR2 (1 + n) r)
   rzipWith31 f u v w =
     rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]))
-  rzipWith30N :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r
+  rzipWith30N :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r
                  , KnownNat n )
               => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r3) -> target (TKR2 0 r))
               -> target (TKR2 n r1) -> target (TKR2 n r2) -> target (TKR2 n r3) -> target (TKR2 n r)
   rzipWith30N f u v w =
     rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix))
-  rzipWith4 :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r4
-               , TensorKind2 r, KnownNat m
+  rzipWith4 :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r4
+               , TensorKind1 r, KnownNat m
                , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n4
                , KnownNat n )
             => IShR (m + n)
@@ -363,8 +363,8 @@ class ( Num (IntOf target)
             -> target (TKR2 (m + n) r)
   rzipWith4 sh f u v w x =
     rbuild sh (\ix -> f (u ! ix) (v ! ix) (w ! ix) (x ! ix))
-  rzipWith41 :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r4
-                , TensorKind2 r
+  rzipWith41 :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r4
+                , TensorKind1 r
                 , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n4
                 , KnownNat n )
              => (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n3 r3) -> target (TKR2 n4 r4)
@@ -374,8 +374,8 @@ class ( Num (IntOf target)
              -> target (TKR2 (1 + n) r)
   rzipWith41 f u v w x =
     rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]) (x ! [i]))
-  rzipWith40N :: ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r4
-                 , TensorKind2 r
+  rzipWith40N :: ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r4
+                 , TensorKind1 r
                  , KnownNat n )
               => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r3) -> target (TKR2 0 r4)
                   -> target (TKR2 0 r))
@@ -384,11 +384,11 @@ class ( Num (IntOf target)
   rzipWith40N f u v w x =
     rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix)
                                 (rindex0 x ix))
-  rgather :: (TensorKind2 r, KnownNat m, KnownNat n, KnownNat p)
+  rgather :: (TensorKind1 r, KnownNat m, KnownNat n, KnownNat p)
           => IShR (m + n) -> target (TKR2 (p + n) r)
           -> (IxROf target m -> IxROf target p)
           -> target (TKR2 (m + n) r)
-  rgather1 :: forall r n p. (TensorKind2 r, KnownNat n, KnownNat p)
+  rgather1 :: forall r n p. (TensorKind1 r, KnownNat n, KnownNat p)
            => Int -> target (TKR2 (p + n) r)
            -> (IntOf target -> IxROf target p)
            -> target (TKR2 (1 + n) r)
@@ -477,15 +477,15 @@ class ( Num (IntOf target)
      => PrimalOf target (TKX sh r)-> DualOf target (TKX sh r)
      -> target (TKX sh r)
   -- Integer codomain
-  sshape :: forall sh r. (TensorKind2 r, KnownShS sh)
+  sshape :: forall sh r. (TensorKind1 r, KnownShS sh)
          => target (TKS2 sh r) -> ShS sh
   sshape _ = knownShS @sh
-  srank :: forall sh r. (TensorKind2 r, KnownNat (Rank sh))
+  srank :: forall sh r. (TensorKind1 r, KnownNat (Rank sh))
         => target (TKS2 sh r) -> Int
   srank _ = valueOf @(Rank sh)
-  ssize :: forall sh r. (TensorKind2 r, KnownShS sh) => target (TKS2 sh r) -> Int
+  ssize :: forall sh r. (TensorKind1 r, KnownShS sh) => target (TKS2 sh r) -> Int
   ssize _ = sizeT @sh
-  slength :: forall r n sh. (TensorKind2 r, KnownNat n)
+  slength :: forall r n sh. (TensorKind1 r, KnownNat n)
           => target (TKS2 (n ': sh) r) -> Int
   slength _ = valueOf @n
   sminIndex :: ( GoodScalar r, GoodScalar r2, KnownShS sh, KnownNat n
@@ -505,13 +505,13 @@ class ( Num (IntOf target)
   -- an operation, often a tensor reduction. A number suffix in the name
   -- indicates the rank of the codomain, if bounded.
   sindex, (!$) :: forall r sh1 sh2.
-                  ( TensorKind2 r, KnownShS sh1, KnownShS sh2
+                  ( TensorKind1 r, KnownShS sh1, KnownShS sh2
                   , KnownShS (sh1 ++ sh2) )
                => target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
                -> target (TKS2 sh2 r)
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
-  sindex0 :: forall sh1 r. (TensorKind2 r, KnownShS sh1)
+  sindex0 :: forall sh1 r. (TensorKind1 r, KnownShS sh1)
           => target (TKS2 sh1 r) -> IxSOf target sh1
           -> target (TKS2 '[] r)
   sindex0 | Refl <- lemAppNil @sh1 = sindex
@@ -534,7 +534,7 @@ class ( Num (IntOf target)
           * stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @target @m m2))
   sscatter
     :: forall r sh2 p sh.
-       ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
+       ( TensorKind1 r, KnownShS sh2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh)
        , KnownShS (sh2 ++ Drop p sh) )
     => target (TKS2 (sh2 ++ Drop p sh) r)
@@ -542,7 +542,7 @@ class ( Num (IntOf target)
     -> target (TKS2 sh r)
   sscatter1
     :: forall r n2 p sh.
-       ( TensorKind2 r, KnownNat n2, KnownShS sh, KnownNat p
+       ( TensorKind1 r, KnownNat n2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh) )
     => target (TKS2 (n2 ': Drop p sh) r)
     -> (IntOf target -> IxSOf target (Take p sh))
@@ -552,19 +552,19 @@ class ( Num (IntOf target)
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
   -- by one rank, and is omitted if a more general variant is not defined).
-  sfromList :: (TensorKind2 r, KnownNat n, KnownShS sh)
+  sfromList :: (TensorKind1 r, KnownNat n, KnownShS sh)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
   sfromList0N :: forall r sh.
-                 (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))
+                 (TensorKind1 r, KnownShS sh, KnownNat (Nested.Product sh))
               => [target (TKS2 '[] r)] -> target (TKS2 sh r)
   sfromList0N = sfromVector0N . V.fromList
   -- This is morally non-empty strict vectors:
-  sfromVector :: (TensorKind2 r, KnownNat n, KnownShS sh)
+  sfromVector :: (TensorKind1 r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (target (TKS2 sh r))
               -> target (TKS2 (n ': sh) r)
   sfromVector0N :: forall r sh.
-                   (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))
+                   (TensorKind1 r, KnownShS sh, KnownNat (Nested.Product sh))
                 => Data.Vector.Vector (target (TKS2 '[] r))
                 -> target (TKS2 sh r)
   sfromVector0N =
@@ -572,7 +572,7 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  sunravelToList :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+  sunravelToList :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
                  => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
   sunravelToList t =
     let f :: Int -> target (TKS2 sh r)
@@ -599,9 +599,9 @@ class ( Num (IntOf target)
     LTI -> Just ( v !$ (0 :.$ ZIS)
                 , sslice @target @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
-  sreverse :: (TensorKind2 r, KnownNat n, KnownShS sh)
+  sreverse :: (TensorKind1 r, KnownNat n, KnownShS sh)
            => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
-  str :: ( TensorKind2 r, KnownNat n, KnownNat m, KnownShS sh
+  str :: ( TensorKind1 r, KnownNat n, KnownNat m, KnownShS sh
          , KnownNat (Rank sh) )
       => target (TKS2 (n ': m ': sh) r) -> target (TKS2 (m ': n ': sh) r)
   str = stranspose (Permutation.makePerm @'[1, 0])
@@ -610,15 +610,15 @@ class ( Num (IntOf target)
                 , Rank perm <= Rank sh, TensorKind1 r )
              => Permutation.Perm perm -> target (TKS2 sh r)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
-  sflatten :: (TensorKind2 r, KnownShS sh, KnownNat (Nested.Product sh))
+  sflatten :: (TensorKind1 r, KnownShS sh, KnownNat (Nested.Product sh))
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
   sflatten = sreshape
-  sreshape :: ( TensorKind2 r, KnownShS sh, KnownShS sh2
+  sreshape :: ( TensorKind1 r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2 )
            => target (TKS2 sh r) -> target (TKS2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  sbuild :: forall r m sh. (TensorKind2 r, KnownShS sh, KnownShS (Take m sh))
+  sbuild :: forall r m sh. (TensorKind1 r, KnownShS sh, KnownShS (Take m sh))
          => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) r))
          -> target (TKS2 sh r)
   sbuild =
@@ -636,11 +636,11 @@ class ( Num (IntOf target)
                   :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (knownShS @(Take m sh))
                  (knownShS @sh)
-  sbuild1 :: forall r n sh. (TensorKind2 r, KnownNat n, KnownShS sh)
+  sbuild1 :: forall r n sh. (TensorKind1 r, KnownNat n, KnownShS sh)
           => (IntOf target -> target (TKS2 sh r))
           -> target (TKS2 (n ': sh) r)
   smap :: forall r r2 m sh.
-          ( TensorKind2 r, TensorKind2 r2, KnownNat m
+          ( TensorKind1 r, TensorKind1 r2, KnownNat m
           , KnownShS sh, KnownShS (Take m sh), KnownShS (Drop m sh) )
        => (target (TKS2 (Drop m sh) r) -> target (TKS2 (Drop m sh) r2))
        -> target (TKS2 sh r) -> target (TKS2 sh r2)
@@ -648,12 +648,12 @@ class ( Num (IntOf target)
                         :: sh :~: Take m sh ++ Drop m sh)
              $ sbuild (\ix -> f (v !$ ix))
   smap1 :: forall r sh n r2.
-           (TensorKind2 r, TensorKind2 r2, KnownNat n, KnownShS sh)
+           (TensorKind1 r, TensorKind1 r2, KnownNat n, KnownShS sh)
         => (target (TKS2 sh r) -> target (TKS2 sh r2))
         -> target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r2)
   smap1 f u = sbuild1 (\i -> f (u !$ (i :.$ ZIS)))
   smap0N :: forall r1 r sh.
-            (TensorKind2 r1, TensorKind2 r, KnownShS sh)
+            (TensorKind1 r1, TensorKind1 r, KnownShS sh)
          => (target (TKS2 '[] r1) -> target (TKS2 '[] r)) -> target (TKS2 sh r1)
          -> target (TKS2 sh r)
   smap0N f v =
@@ -661,7 +661,7 @@ class ( Num (IntOf target)
     $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @r @(Rank sh) (f . sindex0 v)
   szipWith :: forall r1 r2 r m sh1 sh2 sh.
-              ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r
+              ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r
               , KnownNat m, KnownShS sh1, KnownShS sh2, KnownShS sh
               , KnownShS (Take m sh), KnownShS (Drop m sh1)
               , KnownShS (Drop m sh2), KnownShS (Drop m sh)
@@ -673,7 +673,7 @@ class ( Num (IntOf target)
            -> target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh r)
   szipWith f u v = sbuild (\ix -> f (u !$ ix) (v !$ ix))
   szipWith1 :: forall r1 r2 r n sh1 sh2 sh.
-               ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r
+               ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r
                , KnownNat n, KnownShS sh1, KnownShS sh2, KnownShS sh )
             => (target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh r))
             -> target (TKS2 (n ': sh1) r1) -> target (TKS2 (n ': sh2) r2)
@@ -681,7 +681,7 @@ class ( Num (IntOf target)
   szipWith1 f u v = sbuild1 (\i -> f (u !$ (i :.$ ZIS))
                                      (v !$ (i :.$ ZIS)))
   szipWith0N :: forall r1 r2 r sh.
-                (TensorKind2 r1, TensorKind2 r2, TensorKind2 r, KnownShS sh)
+                (TensorKind1 r1, TensorKind1 r2, TensorKind1 r, KnownShS sh)
              => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r))
              -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r)
   szipWith0N f u v =
@@ -689,7 +689,7 @@ class ( Num (IntOf target)
     $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 u ix) (sindex0 v ix))
   szipWith3 :: forall r1 r2 r3 r m sh1 sh2 sh3 sh.
-               ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r
+               ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r
                , KnownNat m
                , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh
                , KnownShS (Take m sh), KnownShS (Drop m sh1)
@@ -705,7 +705,7 @@ class ( Num (IntOf target)
             -> target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh3 r3) -> target (TKS2 sh r)
   szipWith3 f u v w = sbuild (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix))
   szipWith31 :: forall r1 r2 r3 r n sh1 sh2 sh3 sh.
-                ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r
+                ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r
                 , KnownNat n
                 , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh )
              => (target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh3 r3) -> target (TKS2 sh r))
@@ -716,7 +716,7 @@ class ( Num (IntOf target)
                                         (v !$ (i :.$ ZIS))
                                         (w !$ (i :.$ ZIS)))
   szipWith30N :: forall r1 r2 r3 r sh.
-                 ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r
+                 ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r
                  , KnownShS sh, KnownNat (Rank sh) )
               => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r3)
                   -> target (TKS2 '[] r))
@@ -728,8 +728,8 @@ class ( Num (IntOf target)
                                                 (sindex0 v ix)
                                                 (sindex0 w ix))
   szipWith4 :: forall r1 r2 r3 r4 r m sh1 sh2 sh3 sh4 sh.
-               ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r4
-               , TensorKind2 r, KnownNat m
+               ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r4
+               , TensorKind1 r, KnownNat m
                , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh4
                , KnownShS sh
                , KnownShS (Take m sh), KnownShS (Drop m sh1)
@@ -749,8 +749,8 @@ class ( Num (IntOf target)
   szipWith4 f u v w x =
     sbuild (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix) (x !$ ix))
   szipWith41 :: forall r1 r2 r3 r4 r n sh1 sh2 sh3 sh4 sh.
-                ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r4
-                , TensorKind2 r, KnownNat n
+                ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r4
+                , TensorKind1 r, KnownNat n
                 , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh4
                 , KnownShS sh )
              => (target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh3 r3)
@@ -763,8 +763,8 @@ class ( Num (IntOf target)
                                           (w !$ (i :.$ ZIS))
                                           (x !$ (i :.$ ZIS)))
   szipWith40N :: forall r1 r2 r3 sh r4 r.
-                 ( TensorKind2 r1, TensorKind2 r2, TensorKind2 r3, TensorKind2 r4
-                 , TensorKind2 r, KnownShS sh, KnownNat (Rank sh) )
+                 ( TensorKind1 r1, TensorKind1 r2, TensorKind1 r3, TensorKind1 r4
+                 , TensorKind1 r, KnownShS sh, KnownNat (Rank sh) )
               => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r3)
                   -> target (TKS2 '[] r4) -> target (TKS2 '[] r))
               -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r3) -> target (TKS2 sh r4)
@@ -778,7 +778,7 @@ class ( Num (IntOf target)
                                                 (sindex0 x ix))
   sgather
     :: forall r sh2 p sh.
-       ( TensorKind2 r, KnownShS sh2, KnownShS sh, KnownNat p
+       ( TensorKind1 r, KnownShS sh2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh)
        , KnownShS (sh2 ++ Drop p sh) )
     => target (TKS2 sh r)
@@ -786,7 +786,7 @@ class ( Num (IntOf target)
     -> target (TKS2 (sh2 ++ Drop p sh) r)
   sgather1
     :: forall r n2 p sh.
-       ( TensorKind2 r, KnownNat n2, KnownShS sh, KnownNat p
+       ( TensorKind1 r, KnownNat n2, KnownShS sh, KnownNat p
        , KnownShS (Take p sh), KnownShS (Drop p sh) )
     => target (TKS2 sh r)
     -> (IntOf target -> IxSOf target (Take p sh))

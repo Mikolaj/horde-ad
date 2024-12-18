@@ -397,14 +397,14 @@ astNonIndexStep t = case t of
 
 astIndexR
   :: forall m n s r.
-     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+     (KnownNat m, KnownNat n, TensorKind1 r, AstSpan s)
   => AstTensor AstMethodLet s (TKR2 (m + n) r) -> AstIxR AstMethodLet m
   -> AstTensor AstMethodLet s (TKR2 n r)
 astIndexR = astIndexKnobsR defaultKnobs
 
 astIndexStep
   :: forall m n s r.
-     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+     (KnownNat m, KnownNat n, TensorKind1 r, AstSpan s)
   => AstTensor AstMethodLet s (TKR2 (m + n) r) -> AstIxR AstMethodLet m
   -> AstTensor AstMethodLet s (TKR2 n r)
 astIndexStep v ix = astIndexKnobsR (defaultKnobs {knobStepOnly = True})
@@ -414,7 +414,7 @@ astIndexStep v ix = astIndexKnobsR (defaultKnobs {knobStepOnly = True})
 astIndexS
   :: forall sh1 sh2 s r.
      ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-     , TensorKind2 r, AstSpan s )
+     , TensorKind1 r, AstSpan s )
   => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
   -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astIndexS = astIndexKnobsS defaultKnobs
@@ -422,7 +422,7 @@ astIndexS = astIndexKnobsS defaultKnobs
 astIndexStepS
   :: forall sh1 sh2 s r.
      ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-     , TensorKind2 r, AstSpan s )
+     , TensorKind1 r, AstSpan s )
   => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
   -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
@@ -439,7 +439,7 @@ astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
 -- either from full recursive simplification or from astIndexStep.
 astIndexKnobsR
   :: forall m n s r.
-     (KnownNat m, KnownNat n, TensorKind2 r, AstSpan s)
+     (KnownNat m, KnownNat n, TensorKind1 r, AstSpan s)
   => SimplifyKnobs -> AstTensor AstMethodLet s (TKR2 (m + n) r)
   -> AstIxR AstMethodLet m
   -> AstTensor AstMethodLet s (TKR2 n r)
@@ -462,7 +462,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
                        else astIndexKnobsR knobs v2 ix2
      astGather
        :: forall m' n' p' r'.
-          (TensorKind2 r', KnownNat m', KnownNat p', KnownNat n')
+          (TensorKind1 r', KnownNat m', KnownNat p', KnownNat n')
        => IShR (m' + n') -> AstTensor AstMethodLet s (TKR2 (p' + n') r')
        -> (AstVarList m', AstIxR AstMethodLet p')
        -> AstTensor AstMethodLet s (TKR2 (m' + n') r')
@@ -638,7 +638,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
 astIndexKnobsS
   :: forall shm shn s r.
      ( KnownShS shm, KnownShS shn, KnownShS (shm ++ shn)
-     , TensorKind2 r, AstSpan s )
+     , TensorKind1 r, AstSpan s )
   => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS = astIndexKnobsS knobs v ix
@@ -646,7 +646,7 @@ astIndexKnobsS _ v0 ZIS = v0
 astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) | Dict <- sixKnown rest1 =
   let astIndexRec, astIndex
         :: forall shm' shn' s' r'.
-           ( TensorKind2 r', KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn')
+           ( TensorKind1 r', KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn')
            , AstSpan s' )
         => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
         -> AstIxS AstMethodLet shm'
@@ -662,7 +662,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
                         else astIndexKnobsS knobs v2 ix2
       astGather
         :: forall shm' shn' p' r'.
-           ( TensorKind2 r', KnownShS shm', KnownShS shn', KnownNat p'
+           ( TensorKind1 r', KnownShS shm', KnownShS shn', KnownNat p'
            , KnownShS (Take p' shm'), KnownShS (Drop p' shm')
            , KnownShS (shn' ++ Drop p' shm') )
        => AstTensor AstMethodLet s (TKS2 shm' r')
@@ -901,14 +901,14 @@ shareIx ix f = unsafePerformIO $ do
 
 astGatherR
   :: forall m n p s r.
-     (KnownNat m, KnownNat p, KnownNat n, TensorKind2 r, AstSpan s)
+     (KnownNat m, KnownNat p, KnownNat n, TensorKind1 r, AstSpan s)
   => IShR (m + n) -> AstTensor AstMethodLet s (TKR2 (p + n) r) -> (AstVarList m, AstIxR AstMethodLet p)
   -> AstTensor AstMethodLet s (TKR2 (m + n) r)
 astGatherR = astGatherKnobsR defaultKnobs
 
 astGatherS
   :: forall sh2 p sh s r.
-     ( TensorKind2 r, KnownShS sh, KnownShS sh2, KnownNat p
+     ( TensorKind1 r, KnownShS sh, KnownShS sh2, KnownNat p
      , KnownShS (Take p sh), KnownShS (Drop p sh)
      , KnownShS (sh2 ++ Drop p sh) )
   => AstTensor AstMethodLet s (TKS2 sh r)
@@ -918,7 +918,7 @@ astGatherS = astGatherKnobsS defaultKnobs
 
 astGatherStep
   :: forall m n p s r.
-     (KnownNat m, KnownNat p, KnownNat n, TensorKind2 r, AstSpan s)
+     (KnownNat m, KnownNat p, KnownNat n, TensorKind1 r, AstSpan s)
   => IShR (m + n) -> AstTensor AstMethodLet s (TKR2 (p + n) r) -> (AstVarList m, AstIxR AstMethodLet p)
   -> AstTensor AstMethodLet s (TKR2 (m + n) r)
 astGatherStep sh v (vars, ix) =
@@ -928,7 +928,7 @@ astGatherStep sh v (vars, ix) =
 
 astGatherStepS
   :: forall sh2 p sh s r.
-     ( KnownShS sh, KnownShS sh2, KnownNat p, TensorKind2 r, AstSpan s
+     ( KnownShS sh, KnownShS sh2, KnownNat p, TensorKind1 r, AstSpan s
      , KnownShS (Take p sh), KnownShS (Drop p sh)
      , KnownShS (sh2 ++ Drop p sh) )
   => AstTensor AstMethodLet s (TKS2 sh r)
@@ -951,7 +951,7 @@ astGatherStepS v (vars, ix) =
 -- either from full recursive simplification or from astGatherStep.
 astGatherKnobsR
   :: forall m n p s r.
-     (KnownNat m, KnownNat p, KnownNat n, TensorKind2 r, AstSpan s)
+     (KnownNat m, KnownNat p, KnownNat n, TensorKind1 r, AstSpan s)
   => SimplifyKnobs -> IShR (m + n) -> AstTensor AstMethodLet s (TKR2 (p + n) r)
   -> (AstVarList m, AstIxR AstMethodLet p)
   -> AstTensor AstMethodLet s (TKR2 (m + n) r)
@@ -1002,7 +1002,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                     else astIndexKnobsR knobs v2 ix2
   astGatherRec, astGather
     :: forall m' n' p' s' r'.
-       (KnownNat m', KnownNat p', KnownNat n', AstSpan s', TensorKind2 r')
+       (KnownNat m', KnownNat p', KnownNat n', AstSpan s', TensorKind1 r')
     => IShR (m' + n') -> AstTensor AstMethodLet s' (TKR2 (p' + n') r')
     -> (AstVarList m', AstIxR AstMethodLet p')
     -> AstTensor AstMethodLet s' (TKR2 (m' + n') r')
@@ -1020,7 +1020,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   -- and so we don't have to reduce it to expose any top redexes.
   astGatherCase
     :: forall m' n' p' r'.
-       (KnownNat m', KnownNat p', KnownNat n', TensorKind2 r')
+       (KnownNat m', KnownNat p', KnownNat n', TensorKind1 r')
     => IShR (m' + n') -> AstTensor AstMethodLet s (TKR2 (p' + n') r')
     -> (AstVarList m', AstIxR AstMethodLet p')
     -> AstTensor AstMethodLet s (TKR2 (m' + n') r')
@@ -1267,7 +1267,7 @@ isVar _ = False
 
 astGatherKnobsS
   :: forall sh2 p sh s r.
-     ( TensorKind2 r, KnownShS sh, KnownShS sh2, KnownNat p
+     ( TensorKind1 r, KnownShS sh, KnownShS sh2, KnownNat p
      , KnownShS (Take p sh), KnownShS (Drop p sh)
      , KnownShS (sh2 ++ Drop p sh) )
   => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 sh r)
@@ -1568,7 +1568,7 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
 
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatter :: forall m n p s r.
-              (TensorKind2 r, KnownNat m, KnownNat n, KnownNat p, AstSpan s)
+              (TensorKind1 r, KnownNat m, KnownNat n, KnownNat p, AstSpan s)
            => IShR (p + n) -> AstTensor AstMethodLet s (TKR2 (m + n) r)
            -> (AstVarList m, AstIxR AstMethodLet p)
            -> AstTensor AstMethodLet s (TKR2 (p + n) r)
@@ -1590,7 +1590,7 @@ astScatter sh v (vars, ix) = Ast.AstScatter sh v (vars, ix)
 astScatterS :: forall sh2 p sh s r.
                ( KnownShS sh2, KnownShS sh, KnownNat p
                , KnownShS (Take p sh), KnownShS (Drop p sh)
-               , KnownShS (sh2 ++ Drop p sh), TensorKind2 r, AstSpan s )
+               , KnownShS (sh2 ++ Drop p sh), TensorKind1 r, AstSpan s )
             => AstTensor AstMethodLet s (TKS2 (sh2 ++ Drop p sh) r)
             -> (AstVarListS sh2, AstIxS AstMethodLet (Take p sh))
             -> AstTensor AstMethodLet s (TKS2 sh r)
@@ -1611,7 +1611,7 @@ astScatterS (Ast.AstFromPrimal v) (vars, ix) =
   Ast.AstFromPrimal $ astScatterS v (vars, ix)
 astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
 
-astFromVector :: forall s r n. (KnownNat n, TensorKind2 r, AstSpan s)
+astFromVector :: forall s r n. (KnownNat n, TensorKind1 r, AstSpan s)
               => Data.Vector.Vector (AstTensor AstMethodLet s (TKR2 n r))
               -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
 astFromVector v | V.length v == 1 = astReplicate (SNat @1) (v V.! 0)
@@ -1637,7 +1637,7 @@ astFromVector l | Just Refl <- sameAstSpan @s @FullSpan =
 astFromVector l = Ast.AstFromVector l
 
 astFromVectorS :: forall s r n sh.
-                  (KnownNat n, KnownShS sh, TensorKind2 r, AstSpan s)
+                  (KnownNat n, KnownShS sh, TensorKind1 r, AstSpan s)
                => Data.Vector.Vector (AstTensor AstMethodLet s (TKS2 sh r))
                -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astFromVectorS v | V.length v == 1 = astReplicate SNat (v V.! 0)
@@ -1719,7 +1719,7 @@ astReplicate snat@SNat
   v -> Ast.AstReplicate snat v
 
 astReplicateN :: forall n p s r.
-                 (KnownNat n, KnownNat p, TensorKind2 r, AstSpan s)
+                 (KnownNat n, KnownNat p, TensorKind1 r, AstSpan s)
               => IShR (n + p) -> AstTensor AstMethodLet s (TKR2 p r)
               -> AstTensor AstMethodLet s (TKR2 (n + p) r)
 astReplicateN sh v =
@@ -1730,7 +1730,7 @@ astReplicateN sh v =
   in go (takeShape sh)
 
 astReplicateNS :: forall shn shp s r.
-                  (KnownShS shn, KnownShS shp, TensorKind2 r, AstSpan s)
+                  (KnownShS shn, KnownShS shp, TensorKind1 r, AstSpan s)
                => AstTensor AstMethodLet s (TKS2 shp r)
                -> AstTensor AstMethodLet s (TKS2 (shn ++ shp) r)
 astReplicateNS v =
@@ -1864,7 +1864,7 @@ astSliceS v = Ast.AstSliceS @i v
        $ map fromIntegral [i :: Int .. i + n - 1]
 -}
 
-astReverse :: forall n s r. (KnownNat n, TensorKind2 r, AstSpan s)
+astReverse :: forall n s r. (KnownNat n, TensorKind1 r, AstSpan s)
            => AstTensor AstMethodLet s (TKR2 (1 + n) r)
            -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
 astReverse (AstConcrete ftk t) = AstConcrete ftk $ rreverse t
@@ -1879,7 +1879,7 @@ astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
   in astGatherR sh v (var ::: vars, ix2)
 astReverse v = Ast.AstReverse v
 
-astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, TensorKind2 r, AstSpan s)
+astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, TensorKind1 r, AstSpan s)
             => AstTensor AstMethodLet s (TKS2 (n ': sh) r)
             -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (AstConcrete ftk t) = AstConcrete ftk $ sreverse t
@@ -2067,7 +2067,7 @@ astTransposeS perm t = case perm of
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
-astReshape :: forall p m s r. (KnownNat p, KnownNat m, TensorKind2 r, AstSpan s)
+astReshape :: forall p m s r. (KnownNat p, KnownNat m, TensorKind1 r, AstSpan s)
            => IShR m -> AstTensor AstMethodLet s (TKR2 p r) -> AstTensor AstMethodLet s (TKR2 m r)
 astReshape shOut = \case
   Ast.AstReplicate @y2 (SNat @k) x
@@ -2095,7 +2095,7 @@ astReshape shOut = \case
 
 astReshapeS :: forall sh sh2 r s.
                ( KnownShS sh, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2
-               , TensorKind2 r, AstSpan s )
+               , TensorKind1 r, AstSpan s )
             => AstTensor AstMethodLet s (TKS2 sh r) -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astReshapeS = \case
   Ast.AstReplicate @y2 (SNat @k) x
