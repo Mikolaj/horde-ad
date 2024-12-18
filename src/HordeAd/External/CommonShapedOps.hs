@@ -23,8 +23,8 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
@@ -175,7 +175,7 @@ maxPool1S v =
           Just (SomeNat @i _proxy) ->
             gcastWith (unsafeCoerce Refl :: Compare i m :~: LT) $
             gcastWith (unsafeCoerce Refl :: Compare ksize (m - i) :~: LT) $
-            smaximum $ sslice @target @r @i @(m - i - ksize) @ksize
+            smaximum $ sslice @target @(TKScalar r) @i @(m - i - ksize) @ksize
                               Proxy Proxy v
           Nothing -> error "maxPool1S: impossible someNatVal error"
   in sfromList $ NonEmpty.fromList $ map maxOfSlice l

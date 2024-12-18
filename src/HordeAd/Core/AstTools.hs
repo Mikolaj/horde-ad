@@ -108,12 +108,13 @@ ftkAst t = case t of
       _ -> error "ftkAst: AstFromVector with no arguments"
     v : _ -> case ftkAst v of
       FTKR sh x -> FTKR (V.length l :$: sh) x
-  AstAppend x y -> case shapeAst x of
-    ZSR -> error "ftkAst: impossible pattern needlessly required"
-    xi :$: xsh -> case shapeAst y of
+  AstAppend a b -> case ftkAst a of
+    FTKR ZSR _ -> error "ftkAst: impossible pattern needlessly required"
+    FTKR (ai :$: ash) x -> case shapeAst b of
       ZSR -> error "ftkAst: impossible pattern needlessly required"
-      yi :$: _ -> FTKR (xi + yi :$: xsh) FTKScalar
-  AstSlice _i n v -> FTKR (n :$: tailShape (shapeAst v)) FTKScalar
+      bi :$: _ -> FTKR (ai + bi :$: ash) x
+  AstSlice _i n v -> case ftkAst v of
+    FTKR sh x -> FTKR (n :$: tailShape sh) x
   AstReverse v -> ftkAst v
   AstTranspose perm v -> case ftkAst v of
     FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
@@ -154,8 +155,10 @@ ftkAst t = case t of
       _ -> error "ftkAst: AstFromVectorS with no arguments"
     d : _ -> case ftkAst d of
       FTKS _ x -> FTKS knownShS x
-  AstAppendS{} -> FTKS knownShS FTKScalar
-  AstSliceS{} -> FTKS knownShS FTKScalar
+  AstAppendS a _ -> case ftkAst a of
+    FTKS _ x -> FTKS knownShS x
+  AstSliceS a -> case ftkAst a of
+    FTKS _ x -> FTKS knownShS x
   AstReverseS v -> ftkAst v
   AstTransposeS @perm @sh2 perm v -> case ftkAst v of
     FTKS _ x ->

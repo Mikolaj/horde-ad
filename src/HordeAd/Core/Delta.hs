@@ -450,15 +450,15 @@ data Delta :: Target -> TensorKindType -> Type where
              => Int -> Delta target (TKR n r)
              -> Delta target (TKR (1 + n) r)
     -- ^ Copy the given tensor along the new, outermost dimension.
-  AppendR :: (GoodScalar r, KnownNat n)
-          => Delta target (TKR (1 + n) r)
-          -> Delta target (TKR (1 + n) r)
-          -> Delta target (TKR (1 + n) r)
+  AppendR :: (TensorKind r, KnownNat n)
+          => Delta target (TKR2 (1 + n) r)
+          -> Delta target (TKR2 (1 + n) r)
+          -> Delta target (TKR2 (1 + n) r)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
-  SliceR :: (GoodScalar r, KnownNat n)
-         => Int -> Int -> Delta target (TKR (1 + n) r)
-         -> Delta target (TKR (1 + n) r)
+  SliceR :: (TensorKind r, KnownNat n)
+         => Int -> Int -> Delta target (TKR2 (1 + n) r)
+         -> Delta target (TKR2 (1 + n) r)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
   ReverseR :: (TensorKind r, KnownNat n)
@@ -535,17 +535,17 @@ data Delta :: Target -> TensorKindType -> Type where
              => Delta target (TKS sh r) -> Delta target (TKS (n ': sh) r)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall target r m n sh.
-             (GoodScalar r, KnownNat m, KnownNat n, KnownShS sh)
-          => Delta target (TKS (m ': sh) r)
-          -> Delta target (TKS (n ': sh) r)
-          -> Delta target (TKS ((m + n) ': sh) r)
+             (TensorKind r, KnownNat m, KnownNat n, KnownShS sh)
+          => Delta target (TKS2 (m ': sh) r)
+          -> Delta target (TKS2 (n ': sh) r)
+          -> Delta target (TKS2 ((m + n) ': sh) r)
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   SliceS :: forall target i n k r sh.
-            (GoodScalar r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
-         => Delta target (TKS (i + n + k ': sh) r)
-         -> Delta target (TKS (n ': sh) r)
+            (TensorKind r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
+         => Delta target (TKS2 (i + n + k ': sh) r)
+         -> Delta target (TKS2 (n ': sh) r)
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
@@ -731,12 +731,13 @@ shapeDeltaFull = \case
     d : _ -> case shapeDeltaFull d of
       FTKR sh x -> FTKR (length l :$: sh) x
   ReplicateR n d -> FTKR (n :$: shapeDelta d) FTKScalar
-  AppendR x y -> case shapeDelta x of
-    ZSR -> error "shapeDeltaFull: impossible pattern needlessly required"
-    xi :$: xsh -> case shapeDelta y of
-      ZSR -> error "shapeDeltaFull: impossible pattern needlessly required"
-      yi :$: _ -> FTKR (xi + yi :$: xsh) FTKScalar
-  SliceR _ n d -> FTKR (n :$: tailShape (shapeDelta d)) FTKScalar
+  AppendR a b -> case shapeDeltaFull a of
+    FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
+    FTKR (ai :$: ash) x -> case shapeDeltaFull b of
+      FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
+      FTKR (bi :$: _) _ -> FTKR (ai + bi :$: ash) x
+  SliceR _ n d -> case shapeDeltaFull d of
+    FTKR sh x -> FTKR (n :$: tailShape sh) x
   ReverseR d -> shapeDeltaFull d
   TransposeR perm d -> case shapeDeltaFull d of
     FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
@@ -766,8 +767,10 @@ shapeDeltaFull = \case
     d : _ -> case shapeDeltaFull d of
       FTKS _ x -> FTKS knownShS x
   ReplicateS{} -> FTKS knownShS FTKScalar
-  AppendS{} -> FTKS knownShS FTKScalar
-  SliceS{} -> FTKS knownShS FTKScalar
+  AppendS a _ -> case shapeDeltaFull a of
+    FTKS _ x -> FTKS knownShS x
+  SliceS d -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS knownShS x
   ReverseS d -> shapeDeltaFull d
   TransposeS @perm @sh2 perm d -> case shapeDeltaFull d of
     FTKS _ x ->
@@ -1261,14 +1264,16 @@ evalSame !s !c = \case
                    s2 = evalSame s (rslice 0 k cShared) d
                in evalSame s2 (rslice k (n - k) cShared) e
     ZSR -> error "evalSame: impossible pattern needlessly required"
-  SliceR i n d -> case rshape c of
-    n' :$: rest ->
+  SliceR i n d -> case tftk (stensorKind @y) c of
+    FTKR (n' :$: rest) x ->
       assert (n' == n `blame` (n', n)) $
-      evalSame s (rconcat [ rzero (i :$: rest)
-                          , c
-                          , rzero (lengthDelta d - i - n :$: rest) ])
-                  d
-    ZSR -> error "evalSame: impossible pattern needlessly required"
+      evalSame s
+               (rconcat
+                  [ constantTarget 0 (FTKR (i :$: rest) x)
+                  , c
+                  , constantTarget 0 (FTKR (lengthDelta d - i - n :$: rest) x) ])
+               d
+    FTKR ZSR _ -> error "evalSame: impossible pattern needlessly required"
   ReverseR d -> evalSame s (rreverse c) d
   TransposeR perm d ->
     let permR = permInverse perm
@@ -1312,8 +1317,11 @@ evalSame !s !c = \case
     let cShared = tshare c
         s2 = evalSame s (sslice (Proxy @0) Proxy cShared) d
     in evalSame s2 (sslice (Proxy @m) Proxy cShared) e
-  SliceS @_ @i d ->
-    evalSame s (sappend @_ @_ @i (srepl 0) (sappend c (srepl 0))) d
+  SliceS @_ @i d -> case tftk (stensorKind @y) c of
+    FTKS _ x -> evalSame s (sappend @_ @_ @i
+                              (constantTarget 0 (FTKS knownShS x))
+                              (sappend
+                                 c (constantTarget 0 (FTKS knownShS x)))) d
   ReverseS d -> evalSame s (sreverse c) d
   TransposeS @perm @sh2 perm d ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)

@@ -155,8 +155,15 @@ instance BaseTensor RepN where
     map RepN . Nested.rtoListOuter . unRepN
   rreplicate k = RepN . Nested.rreplicate (k :$: ZSR) . unRepN
   rreplicate0N sh = RepN . Nested.rreplicate sh . unRepN
-  rappend u v = RepN $ Nested.rappend (unRepN u) (unRepN v)
-  rslice i n = RepN . Nested.rslice i n . unRepN
+  rappend :: forall r n. TensorKind r
+          => RepN (TKR2 (1 + n) r) -> RepN (TKR2 (1 + n) r)
+          -> RepN (TKR2 (1 + n) r)
+  rappend u v | Dict <- eltDictRep (stensorKind @r) =
+    RepN $ Nested.rappend (unRepN u) (unRepN v)
+  rslice :: forall r n. TensorKind r
+         => Int -> Int -> RepN (TKR2 (1 + n) r) -> RepN (TKR2 (1 + n) r)
+  rslice i n | Dict <- eltDictRep (stensorKind @r) =
+    RepN . Nested.rslice i n . unRepN
   rreverse :: forall r n. TensorKind r
            => RepN (TKR2 (1 + n) r) -> RepN (TKR2 (1 + n) r)
   rreverse | Dict <- eltDictRep (stensorKind @r) =
@@ -272,8 +279,16 @@ instance BaseTensor RepN where
                => RepN (TKS '[] r) -> RepN (TKS sh r)
   sreplicate0N | Refl <- lemAppNil @sh =
     RepN . Nested.sreplicate (knownShS @sh) . unRepN
-  sappend u v = RepN $ Nested.sappend (unRepN u) (unRepN v)
-  sslice (_ :: Proxy i) _ = RepN . Nested.sslice (SNat @i) SNat . unRepN
+  sappend :: forall r m n sh. TensorKind r
+          => RepN (TKS2 (m ': sh) r) -> RepN (TKS2 (n ': sh) r)
+          -> RepN (TKS2 ((m + n) ': sh) r)
+  sappend u v | Dict <- eltDictRep (stensorKind @r) =
+    RepN $ Nested.sappend (unRepN u) (unRepN v)
+  sslice :: forall r i n k sh. (TensorKind r, KnownNat i, KnownNat n)
+         => Proxy i -> Proxy n
+         -> RepN (TKS2 (i + n + k ': sh) r) -> RepN (TKS2 (n ': sh) r)
+  sslice (_ :: Proxy i) _ | Dict <- eltDictRep (stensorKind @r) =
+    RepN . Nested.sslice (SNat @i) SNat . unRepN
   sreverse :: forall r n sh. TensorKind r
            => RepN (TKS2 (n ': sh) r) -> RepN (TKS2 (n ': sh) r)
   sreverse | Dict <- eltDictRep (stensorKind @r) =

@@ -1763,41 +1763,43 @@ astReplicate0NT sh =
         astReplicate snat $ go sh' v
   in go sh
 
-astAppend :: (KnownNat n, GoodScalar r, AstSpan s)
-          => AstTensor AstMethodLet s (TKR (1 + n) r) -> AstTensor AstMethodLet s (TKR (1 + n) r)
-          -> AstTensor AstMethodLet s (TKR (1 + n) r)
-astAppend (AstConcrete (FTKR (ulen :$: sh) FTKScalar) u)
-          (AstConcrete (FTKR (vlen :$: _) FTKScalar) v) =
-  AstConcrete (FTKR (ulen + vlen :$: sh) FTKScalar) $ rappend u v
+astAppend :: (KnownNat n, TensorKind r, AstSpan s)
+          => AstTensor AstMethodLet s (TKR2 (1 + n) r)
+          -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
+          -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
+astAppend (AstConcrete (FTKR (ulen :$: sh) ftk2) u)
+          (AstConcrete (FTKR (vlen :$: _) _) v) =
+  AstConcrete (FTKR (ulen + vlen :$: sh) ftk2) $ rappend u v
 astAppend (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppend u v
 astAppend (Ast.AstFromVector l1) (Ast.AstFromVector l2) =
   astFromVector $ l1 V.++ l2
 astAppend u v = Ast.AstAppend u v
 
-astAppendS :: (KnownNat m, KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
-           => AstTensor AstMethodLet s (TKS (m ': sh) r) -> AstTensor AstMethodLet s (TKS (n ': sh) r)
-           -> AstTensor AstMethodLet s (TKS ((m + n) ': sh) r)
-astAppendS (AstConcrete _ u) (AstConcrete _ v) =
-  AstConcrete (FTKS knownShS FTKScalar) $ sappend u v
+astAppendS :: (KnownNat m, KnownNat n, KnownShS sh, TensorKind r, AstSpan s)
+           => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
+           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
+           -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) r)
+astAppendS (AstConcrete (FTKS _ x) u) (AstConcrete _ v) =
+  AstConcrete (FTKS knownShS x) $ sappend u v
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromVectorS l1) (Ast.AstFromVectorS l2) =
   astFromVectorS $ l1 V.++ l2
 astAppendS u v = Ast.AstAppendS u v
 
-astSlice :: forall k s r. (KnownNat k, GoodScalar r, AstSpan s)
-         => Int -> Int -> AstTensor AstMethodLet s (TKR (1 + k) r)
-         -> AstTensor AstMethodLet s (TKR (1 + k) r)
-astSlice i n (AstConcrete (FTKR (_ :$: sh) FTKScalar) t) =
-  AstConcrete (FTKR (n :$: sh) FTKScalar) $ rslice i n t
+astSlice :: forall k s r. (KnownNat k, TensorKind r, AstSpan s)
+         => Int -> Int -> AstTensor AstMethodLet s (TKR2 (1 + k) r)
+         -> AstTensor AstMethodLet s (TKR2 (1 + k) r)
+astSlice i n (AstConcrete (FTKR (_ :$: sh) ftk2) t) =
+  AstConcrete (FTKR (n :$: sh) ftk2) $ rslice i n t
 astSlice i n (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
 astSlice _i n (Ast.AstReplicate @y2 _ v) = case stensorKind @y2 of
   STKR{} -> withSNat n $ \snat -> astReplicate snat v
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
-astSlice i n w@(Ast.AstAppend (u :: AstTensor AstMethodLet s (TKR (1 + k) r))
-                              (v :: AstTensor AstMethodLet s (TKR (1 + k) r))) =
+astSlice i n w@(Ast.AstAppend (u :: AstTensor AstMethodLet s (TKR2 (1 + k) r))
+                              (v :: AstTensor AstMethodLet s (TKR2 (1 + k) r))) =
   -- GHC 9.2.7 -- 9.6.1 with the plugins demand so much verbiage ^^^
   -- It seems this is caused by only having (1 + n) in the type
   -- signature and + not being injective. Quite hopless in cases
@@ -1822,12 +1824,12 @@ astSlice i n v = Ast.AstSlice i n v
 -}
 
 astSliceS :: forall i n k sh s r.
-             ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, GoodScalar r
+             ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, TensorKind r
              , AstSpan s )
-          => AstTensor AstMethodLet s (TKS (i + n + k ': sh) r)
-          -> AstTensor AstMethodLet s (TKS (n ': sh) r)
-astSliceS (AstConcrete _ t) =
-  AstConcrete (FTKS knownShS FTKScalar) $ sslice (Proxy @i) (Proxy @n) t
+          => AstTensor AstMethodLet s (TKS2 (i + n + k ': sh) r)
+          -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
+astSliceS (AstConcrete (FTKS _ ftk2) t) =
+  AstConcrete (FTKS knownShS ftk2) $ sslice (Proxy @i) (Proxy @n) t
 astSliceS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
@@ -1835,8 +1837,8 @@ astSliceS (Ast.AstReplicate @y2 _ v) = case stensorKind @y2 of
   STKS{} -> astReplicate (SNat @n) v
 astSliceS (Ast.AstFromVectorS l) =
   astFromVectorS $ V.take (valueOf @n) (V.drop (valueOf @i) l)
-astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS (ulen : sh) r))
-                            (v :: AstTensor AstMethodLet s (TKS (vlen : sh) r))) =
+astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS2 (ulen : sh) r))
+                            (v :: AstTensor AstMethodLet s (TKS2 (vlen : sh) r))) =
   case cmpNat (Proxy @(i + n)) (Proxy @ulen) of
     LTI -> astSliceS @i @n @(ulen - (i + n)) u
     EQI -> astSliceS @i @n @0 u
