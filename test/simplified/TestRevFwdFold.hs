@@ -662,7 +662,7 @@ testSin0Fold0S = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1.0 :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = sfold @f @Double @Double @'[] @'[] @0
+               f x0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[] @'[] @0
                             (\x _a -> sin x)
                             x0 (srepl 0)
            in rfromS . f . sfromR) (rscalar 1.1))
@@ -739,7 +739,7 @@ testSin0Fold6S = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 6 :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 1] Double)
-               f a0 = sfold @f @Double @Double @'[2, 1] @'[] @2
+               f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 1] @'[] @2
                         (\x a -> str
                                  $ str x + sreplicate @_ @1
                                                       (sreplicate @_ @2 a))
@@ -752,7 +752,7 @@ testSin0Fold7S = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 250 :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
-               f a0 = sfold @f @Double @Double @'[2, 5] @'[] @2
+               f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 5] @'[] @2
                         (\x _a -> str $ sreplicate @_ @5 $ ssum (str x))
                         (sreplicate @_ @2 (sreplicate @_ @5 a0))
                         (sreplicate @_ @2 a0)
@@ -763,7 +763,7 @@ testSin0Fold8S = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
-               f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
+               f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
                                           (sreplicate @_ @2
@@ -802,7 +802,7 @@ testSin0Fold8Srev = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
-                f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
+                f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
                                           (sreplicate @_ @2
@@ -816,7 +816,7 @@ testSin0Fold8Srev2 = do
   let h = srev1 @(ADVal RepN)
                 (let f :: forall f. ADReady f
                        => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
-                     f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
+                     f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
                                           (sreplicate @_ @2
@@ -833,7 +833,7 @@ testSin0Fold182Srev = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.4409160296923509) :: RepN (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
-                f a0 = sfold @f @Double @Double @'[5] @'[] @1
+                f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[5] @'[] @1
                         (\_x a -> atan2F (sreplicate @_ @5 a)
                                          (sreplicate @_ @5
                                           $ sin (ssum $ sreplicate @_ @7 a)))
@@ -846,7 +846,7 @@ testSin0Fold182SrevPP = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan)
            (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
-                f a0 = sfold @f @Double @Double @'[5] @'[] @1
+                f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[5] @'[] @1
                         (\_x a -> atan2F (sreplicate @_ @5 a)
                                          (sreplicate @_ @5
                                           $ sin (ssum $ sreplicate @_ @7 a)))
@@ -861,7 +861,7 @@ testSin0Fold18Srev = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-2.4026418024701366) :: RepN (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
-                f a0 = sfold @f @Double @Double @'[2, 5] @'[] @2
+                f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 5] @'[] @2
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
                                           (sreplicate @_ @2
@@ -901,7 +901,7 @@ testSin0Fold8Sfwd = do
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 (-0.2200311410593445)))
     (rfwd1 @RepN
            (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
-                f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
+                f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
                                           (sreplicate @_ @2
@@ -915,7 +915,7 @@ testSin0Fold8Sfwd2 = do
   let h = rfwd1 @(ADVal RepN)
                 (let f :: forall f. ADReady f
                        => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
-                     f a0 = sfold @f @Double @Double @'[2, 5] @'[] @3
+                     f a0 = sfold @f @(TKScalar Double) @(TKScalar Double) @'[2, 5] @'[] @3
                         (\x a -> str $ sreplicate @_ @5
                                  $ atan2F (ssum (str $ sin x))
                                           (sreplicate @_ @2
@@ -1141,7 +1141,7 @@ testSin0Scan1Rev2PPA = do
   let (art, _) =
         revArtifactAdapt
                  True
-                 (\x0 -> rscan (\x a -> sin x - a) x0
+                 (\x0 -> rscan @_ @(TKScalar Double) (\x a -> sin x - a) x0
                            (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7])))
                  (rscalar 1.1)
   printArtifactPretty IM.empty (simplifyArtifact art)
