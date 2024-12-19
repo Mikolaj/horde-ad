@@ -1104,8 +1104,8 @@ class ( Num (IntOf target)
   -- so it's awkward to put the methods into @BaseTensor@,
   -- which shouldn't know about lets, etc.
   rrev :: forall x r n.
-          (TensorKind x, GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => f x -> f (TKR n r))
+          (TensorKind x, TensorKind r, KnownNat n)
+       => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
@@ -1114,55 +1114,56 @@ class ( Num (IntOf target)
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n.
-            (TensorKind x, GoodScalar r, KnownNat n)
-         => (forall f. ADReady f => f x -> f (TKR n r))
+            (TensorKind x, TensorKind r, KnownNat n)
+         => (forall f. ADReady f => f x -> f (TKR2 n r))
          -> FullTensorKind x
          -> target x
-         -> target (ADTensorKind (TKR n r))  -- ^ incoming cotangent (dt)
+         -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
   rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-               , Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
+               , Dict <- lemTensorKindOfAD (stensorKind @(TKR2 n r)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   rfwd :: forall x r n.
-          (TensorKind x, GoodScalar r, KnownNat n)
-       => (forall f. ADReady f => f x -> f (TKR n r))
+          (TensorKind x, TensorKind r, KnownNat n)
+       => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
-       -> target (ADTensorKind (TKR n r))
+       -> target (ADTensorKind (TKR2 n r))
   rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-             , Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
+             , Dict <- lemTensorKindOfAD (stensorKind @(TKR2 n r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
   srev :: forall x r sh.
-          ( TensorKind x, GoodScalar r, KnownShS sh
-          , ADTensorKind (TKS sh r) ~ TKS sh r )
-       => (forall f. ADReady f => f x -> f (TKS sh r))
+          ( TensorKind x, TensorKind r, KnownShS sh
+          , ADTensorKind (TKS2 sh r) ~ TKS2 sh r )
+       => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  srev f ftk es = srevDt f ftk es (srepl 1)
+  srev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
+    \ !es -> tApply (drev @target ftk $ HFun f) es
   srevDt :: forall x r sh.
-            (TensorKind x, GoodScalar r, KnownShS sh)
-         => (forall f. ADReady f => f x -> f (TKS sh r))
+            (TensorKind x, TensorKind r, KnownShS sh)
+         => (forall f. ADReady f => f x -> f (TKS2 sh r))
          -> FullTensorKind x
          -> target x
-         -> target (ADTensorKind (TKS sh r))  -- ^ incoming cotangent (dt)
+         -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
   srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-               , Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
+               , Dict <- lemTensorKindOfAD (stensorKind @(TKS2 sh r)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   sfwd :: forall x r sh.
-          (TensorKind x, GoodScalar r, KnownShS sh)
-       => (forall f. ADReady f => f x -> f (TKS sh r))
+          (TensorKind x, TensorKind r, KnownShS sh)
+       => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
-       -> target (ADTensorKind (TKS sh r))
+       -> target (ADTensorKind (TKS2 sh r))
   sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-             , Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
+             , Dict <- lemTensorKindOfAD (stensorKind @(TKS2 sh r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
   -- If the result of the argument function is not a scalar,

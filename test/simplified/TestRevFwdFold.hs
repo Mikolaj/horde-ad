@@ -518,7 +518,7 @@ testSin0RrevPP5S = do
   resetVarCounter
   let a1 = srev1 @(AstTensor AstMethodLet PrimalSpan) @Double @'[] @'[] (srev1 sin) (srepl 1.1)
   printAstPretty IM.empty (simplifyInline a1)
-    @?= "negate (sin (sscalar 1.1)) * (sscalar 1.0 * sscalar 1.0)"
+    @?= "negate (sin (sscalar 1.1)) * sscalar 1.0"
 
 testSin0Fold0 :: Assertion
 testSin0Fold0 = do
@@ -2391,7 +2391,7 @@ testSin0rmapAccumRD01SN531bSPPFull = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet FullSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "(\\m1 -> [sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [ssum (ssum (tproject1 m1))] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sproject (tproject2 m1) 0] [tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])])), [tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])]))))) 0]) (tpair (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]), [sscalar 1.1]))"
+    @?= "(\\h1 -> [sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscalar 4.0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sproject h1 0] [tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])])), [tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])]))))) 0]) [sscalar 1.1]"
 
 testSin0rmapAccumRD01SN531bRPP :: Assertion
 testSin0rmapAccumRD01SN531bRPP = do
@@ -2488,7 +2488,7 @@ testSin0rmapAccumRD01SN531bSPPj = do
     IM.empty
     (simplifyInline
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "[ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i42, i43] -> [i42, i43])) (\\[i44] -> [i44])) (\\[i45] -> [i45])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate (sscalar 1.1)) + sfromR (rfromIntegral (rfromS (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))))] [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))])), [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))]))))) 0))]"
+    @?= "[ssum (ssum (sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscatter (sscatter (sscatter (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i41, i42] -> [i41, i42])) (\\[i43] -> [i43])) (\\[i44] -> [i44])] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]) + sreplicate (sreplicate (sscalar 1.1)) + sfromR (rfromIntegral (rfromS (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0,0,0,0]) + sreplicate siota + stranspose (sreplicate siota))))] [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))])), [stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0]))))]))))) 0))]"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -3428,7 +3428,7 @@ testSin0FoldNestedS1PP = do
   printAstPretty
     IM.empty
     (g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
-    @?= "let v6 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (stoScalar (sscalar Z0), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in [ssum (tproject2 v6) + tproject1 v6]"
+    @?= "let v5 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (stoScalar (sscalar Z0), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in [ssum (tproject2 v5) + tproject1 v5]"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
@@ -4499,7 +4499,7 @@ testSin0revhV = do
   let f :: forall g. BaseTensor g
         => HVector g -> g TKUntyped
       f x =
-        rrev @g @_ @Double @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
+        rrev @g @_ @(TKScalar Double) @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
              (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
              (dmkHVector x)
   assertEqualUpToEpsilon 1e-10
@@ -4512,7 +4512,7 @@ testSin0revhVPP = do
   let f :: forall g. BaseTensor g
         => HVector g -> g TKUntyped
       f x =
-        rrev @g @_ @Double @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
+        rrev @g @_ @(TKScalar Double) @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
              (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
              (dmkHVector x)
   printAstSimple IM.empty (f @(AstTensor AstMethodLet PrimalSpan)
@@ -4525,7 +4525,7 @@ testSin0revhV2 = do
   let f :: forall g. BaseTensor g
         => HVector g -> g TKUntyped
       f x =
-        rrev @g @_ @Double @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
+        rrev @g @_ @(TKScalar Double) @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
              (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
              (dmkHVector x)
       h :: forall g.
@@ -4542,7 +4542,7 @@ testSin0revhV3 = do
   let f :: forall g. ADReady g
         => HVector g -> g TKUntyped
       f x =
-        srev @g @_ @Double @'[] (\v -> sin (sfromD $ dunHVector v V.! 0))
+        srev @g @_ @(TKScalar Double) @'[] (\v -> sin (sfromD $ dunHVector v V.! 0))
              (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
              (dmkHVector x)
       h :: forall g.
@@ -4561,7 +4561,7 @@ testSin0revhV4 = do
       f :: forall g. (BaseTensor g)
         => HVector g -> g TKUntyped
       f x =
-        rrevDt @g @_ @Double @1 (rscanZip const doms (rscalar 5) . dunHVector)
+        rrevDt @g @_ @(TKScalar Double) @1 (rscanZip const doms (rscalar 5) . dunHVector)
                (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
@@ -4580,7 +4580,7 @@ testSin0revhV5 = do
       f :: forall g. (BaseTensor g)
         => HVector g -> g TKUntyped
       f x =
-        srevDt @g @_ @Double @'[4] (sscanZip const doms (srepl 5) . dunHVector)
+        srevDt @g @_ @(TKScalar Double) @'[4] (sscanZip const doms (srepl 5) . dunHVector)
                (FTKUntyped doms3) (dmkHVector x) (ingestData [1, 2, 3, 4])
       h :: forall g.
            (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
@@ -4599,7 +4599,7 @@ testSin0revhV6 = do
       f :: forall g. (BaseTensor g)
         => HVector g -> g TKUntyped
       f x =
-        rrevDt @g @_ @Double @1
+        rrevDt @g @_ @(TKScalar Double) @1
                (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
                                         in z * z) doms (rscalar 5) (dunHVector v))
                 (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
@@ -4620,7 +4620,7 @@ testSin0revhV7 = do
       f :: forall g. (BaseTensor g)
         => HVector g -> g TKUntyped
       f x =
-        srevDt @g @_ @Double @'[4]
+        srevDt @g @_ @(TKScalar Double) @'[4]
                (\v -> sscanZip (\_ w -> let z = sfromD $ w V.! 0
                                         in z * z) doms (srepl 5) (dunHVector v))
                (FTKUntyped doms3) (dmkHVector x) (ingestData [1, 2, 3, 4])
