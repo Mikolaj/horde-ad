@@ -135,39 +135,39 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
-        FTKR @n sh (FTKScalar @r) | SNat <- shrRank sh -> case els of
+        FTKR @n sh x | SNat <- shrRank sh
+                     , Dict <- lemTensorKindOfSTK (ftkToStk x) -> case els of
           Some mt@(MTKR @r2 @n2 t) : rest ->
             case ( sameNat (Proxy @n) (Proxy @n2)
-                 , testEquality (typeRep @r) (typeRep @r2) ) of
+                 , sameSTK (ftkToStk x) (stensorKind @r2) ) of
               (Just Refl, Just Refl) -> (t, rest)
               _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
                            ++ " instead of "
                            ++ "FTKR @" ++ show (valueOf @n :: Int)
-                           ++ " @" ++ show (typeRep @r)
                            ++ " within " ++ show_iMap (iMap s2)
           Some mt@(MTKRDummy @r2 @sh2) : rest
             | Dict <- lemKnownNatRankS (knownShS @sh2)
             , Just Refl <- sameNat (Proxy @n) (Proxy @(Rank sh2))
-            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
+            , Just Refl <- sameSTK (ftkToStk x) (STKScalar (typeRep @r2)) ->
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
-        FTKS @sh sh (FTKScalar @r) -> withKnownShS sh $ case els of
-          Some mt@(MTKS @r2 @sh2 t) : rest ->
-            case ( sameShape @sh @sh2
-                 , testEquality (typeRep @r) (typeRep @r2) ) of
-              (Just Refl, Just Refl) -> (t, rest)
-              _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
-                           ++ " instead of "
-                           ++ "FTKS @" ++ show (shapeT @sh)
-                           ++ " @" ++ show (typeRep @r)
-                           ++ " within " ++ show_iMap (iMap s2)
-          Some mt@(MTKSDummy @r2 @sh2) : rest
-            | Just Refl <- sameShape @sh @sh2
-            , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-              (evalRepM mt, rest)
-          _ -> error $ "gradientFromDelta: illegal RepM: "
-                       ++ show_iMap (iMap s2)
+        FTKS @sh sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+          withKnownShS sh $ case els of
+            Some mt@(MTKS @r2 @sh2 t) : rest ->
+              case ( sameShape @sh @sh2
+                   , sameSTK (ftkToStk x) (stensorKind @r2) ) of
+                (Just Refl, Just Refl) -> (t, rest)
+                _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
+                             ++ " instead of "
+                             ++ "FTKS @" ++ show (shapeT @sh)
+                             ++ " within " ++ show_iMap (iMap s2)
+            Some mt@(MTKSDummy @r2 @sh2) : rest
+              | Just Refl <- sameShape @sh @sh2
+              , Just Refl <- sameSTK (ftkToStk x) (STKScalar (typeRep @r2)) ->
+                (evalRepM mt, rest)
+            _ -> error $ "gradientFromDelta: illegal RepM: "
+                         ++ show_iMap (iMap s2)
         FTKX{} -> error "TODO"
         FTKProduct @y1 @y2 ftk1 ftk2
          | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
@@ -182,17 +182,19 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                               -> DynamicTensor target
               toDynamicTensor (Some b) = case b of
                 MTKScalar @r t -> DynamicRanked @r @0 $ rfromScalar t
-                MTKR @r @n t -> DynamicRanked @r @n t
-                MTKS @r @sh t -> DynamicShaped @r @sh t
+                MTKR @y @n t | STKScalar @r _ <- stensorKind @y ->
+                  DynamicRanked @r @n t
+                MTKS @y @sh t | STKScalar @r _ <- stensorKind @y ->
+                  DynamicShaped @r @sh t
                 MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
                 MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
                 MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
+                _ -> error "rebuildInputs: unexpected type"
               len = V.length shs
               (els1, els2) = splitAt len els
           in ( dmkHVector
                $ V.fromList $ map toDynamicTensor els1
              , els2 )
-        _ -> error "TODO"
       (res, remainder) = rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2)
                          $ aDFTK parameters0
   in assert (null remainder) res
@@ -226,12 +228,12 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
                        , Int )
       generateDSums j ftk t = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalar @r t], j + 1)
-        FTKR sh (FTKScalar @r) | SNat <- shrRank sh ->
-          withShapeP (shapeToList sh) $ \(Proxy @sh) ->
-            case lemKnownNatRankS (knownShS @sh) of
-              Dict -> ([InputId j :=> MTKR @r t], j + 1)
-        FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
-                          $ ([InputId j :=> MTKS @r @sh t], j + 1)
+        FTKR sh x | SNat <- shrRank sh
+                  , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+          ([InputId j :=> MTKR t], j + 1)
+        FTKS @sh sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+          withKnownShS sh $
+          ([InputId j :=> MTKS t], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
                              , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
@@ -246,7 +248,6 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
               len = V.length ts
           in ( zipWith dynamicTensorToRepM [j ..] $ V.toList ts
              , j + len )
-        _ -> error "TODO"
       iMap = DMap.fromDistinctAscList $ fst
              $ generateDSums 0 (tftk stensorKind ds) ds
       s0 = DMap.empty
@@ -278,28 +279,26 @@ repToM
   :: STensorKindType x -> target x
   -> RepM target x
 repToM stk t = case stk of
-  STKScalar _ -> MTKScalar t
-  STKR SNat STKScalar{} -> MTKR t
-  STKS sh STKScalar{} -> withKnownShS sh $ MTKS t
-  STKX{} -> error "repToM"
-  STKProduct{} -> error "repToM"
-  STKUntyped{} -> error "repToM"
-  _ -> error "TODO"
+  STKScalar{} -> MTKScalar t
+  STKR SNat x | Dict <- lemTensorKindOfSTK x -> MTKR t
+  STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ MTKS t
+  STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ error "TODO"
+  STKProduct{} -> error "repToM: unexpected type"
+  STKUntyped{} -> error "repToM: unexpected type"
 
-addRepM ::
-  ADReadyNoLet target
-  => RepM target y
-  -> RepM target y
-  -> RepM target y
+addRepM :: forall target y. ADReadyNoLet target
+        => RepM target y -> RepM target y -> RepM target y
 addRepM a b = case (a, b) of
   (MTKScalar ta, MTKScalar tb) ->
     MTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
-  (MTKR ta, MTKR tb) -> MTKR $ ta + tb
+  (MTKR ta, MTKR tb) | STKR _ STKScalar{} <- stensorKind @y -> MTKR $ ta + tb
+  (MTKR ta, MTKR tb) -> MTKR $ addTarget stensorKind ta tb
   (MTKScalarDummy, _) -> b
   (_, MTKScalarDummy) -> a
   (MTKRDummy, _) -> b
   (_, MTKRDummy) -> a
-  (MTKS ta, MTKS tb) -> MTKS $ ta + tb
+  (MTKS ta, MTKS tb) | STKS _ STKScalar{} <- stensorKind @y -> MTKS $ ta + tb
+  (MTKS ta, MTKS tb) -> MTKS $ addTarget stensorKind ta tb
   (MTKSDummy, _) -> b
   (_, MTKSDummy) -> a
 
@@ -311,12 +310,12 @@ data RepM target y where
   MTKScalar :: GoodScalar r
             => target (TKScalar r)
             -> RepM target (TKScalar r)
-  MTKR :: (GoodScalar r, KnownNat n)
-       => target (TKR n r)
-       -> RepM target (TKR n r)
-  MTKS :: (GoodScalar r, KnownShS sh)
-       => target (TKS sh r)
-       -> RepM target (TKS sh r)
+  MTKR :: (TensorKind r, KnownNat n)
+       => target (TKR2 n r)
+       -> RepM target (TKR2 n r)
+  MTKS :: (TensorKind r, KnownShS sh)
+       => target (TKS2 sh r)
+       -> RepM target (TKS2 sh r)
   MTKScalarDummy :: GoodScalar r
                  => RepM target (TKScalar r)
   MTKRDummy :: (GoodScalar r, KnownShS sh)
