@@ -35,6 +35,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape
   (IShX, KnownShX (..), shxAppend, ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , KnownShS (..)
@@ -194,6 +195,39 @@ constantRepW r = \case
     WTKUntyped
     $ mapHVectorShaped (const $ srepl @_ @_ @target r)
     $ V.map dynamicFromVoid ssh
+
+toADTensorKindW
+  :: forall y target. BaseTensor target
+  => RepW target y -> RepW target (ADTensorKind y)
+toADTensorKindW t = case t of
+  WTKScalar @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           WTKScalar $ rtoScalar $ rscalar Z0
+  WTKR @r v -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           WTKR $ rrepl @_ @_ @target (toList $ rshape v) Z0
+  WTKS @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           WTKS $ srepl @_ @_ @target Z0
+  WTKX @r v -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> t
+      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+           WTKX $ xrepl @_ @_ @target (xshape v) Z0
+  WTKProduct @y1 @y2 t1 t2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
+                           , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
+    WTKProduct (toADTensorKindW t1) (toADTensorKindW t2)
+  WTKUntyped{} -> t
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -500,6 +534,17 @@ constantTarget :: forall y target. BaseTensor target
                => (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
 constantTarget r ftk =
   windTarget (ftkToStk ftk) $ constantRepW r (unWindFTK ftk)
+
+toADTensorKindShared  -- TODO: does not require Shared now
+  :: BaseTensor target
+  => STensorKindType y -> target y
+  -> target (ADTensorKind y)
+toADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
+  windTarget (aDSTK stk) $ toADTensorKindW $ unWindTarget stk a
+
+lemUnWindOfAD :: STensorKindType y
+              -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
+lemUnWindOfAD _ = unsafeCoerceRefl
 
 
 -- * Dynamic
@@ -882,45 +927,3 @@ mapShaped f (DynamicShapedDummy @r @sh _ _) =
 replicate1HVector :: BaseTensor target
                   => SNat k -> HVector target -> HVector target
 replicate1HVector = replicate1HVectorF rreplicate sreplicate
-
-toADTensorKindShared
-  :: forall target y. (BaseTensor target, ShareTensor target)
-  => STensorKindType y -> target y
-  -> target (ADTensorKind y)
-toADTensorKindShared stk t = case stk of
-  STKScalar @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
-           rtoScalar $ rscalar Z0
-  STKR SNat (STKScalar @r _) -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
-           rrepl @_ @_ @target (toList $ rshape t) Z0
-  STKS @sh sh (STKScalar @r _) -> withKnownShS sh
-                      $ case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
-           srepl @sh @Z0 @target Z0
-  STKX sh (STKScalar @r _) -> withKnownShX sh
-                  $ case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
-           xrepl @_ @_ @target (xshape t) Z0
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                       , Dict <- lemTensorKindOfSTK stk2
-                       , Dict <- eltDictRep stk1
-                       , Dict <- eltDictRep stk2
-                       , Dict <- lemTensorKindOfAD stk1
-                       , Dict <- lemTensorKindOfAD stk2 ->
-    let (t1, t2) = tunpair t
-    in tpair (toADTensorKindShared stk1 t1) (toADTensorKindShared stk2 t2)
-  STKUntyped -> t
-  _ -> error "TODO"

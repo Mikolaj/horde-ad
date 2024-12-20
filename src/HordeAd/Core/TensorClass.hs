@@ -1513,6 +1513,7 @@ xrepl sh =
 nullRep :: forall y target. (TensorKind y, BaseTensor target)
         => target y -> Bool
 nullRep t = case stensorKind @y of
+  STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) -> True
   STKScalar{} -> False
   STKR{} -> False
   STKS{} -> False

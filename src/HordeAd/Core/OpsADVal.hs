@@ -522,9 +522,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tftk stk (D u _) = tftk stk u
   tcond stk b u v = case stk of
     STKScalar _ -> rtoScalar $ ifF b (rfromScalar u) (rfromScalar v)
-    STKR SNat STKScalar{} -> ifF b u v
-    STKS sh STKScalar{} -> withKnownShS sh $ ifF b u v
-    STKX sh STKScalar{} -> withKnownShX sh $ ifF b u v
+    STKR SNat x | Dict <- lemTensorKindOfSTK x -> ifF b u v
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ ifF b u v
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ ifF b u v
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                          , Dict <- lemTensorKindOfSTK stk2
                          , Dict <- eltDictRep stk1
@@ -539,7 +539,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
           vs = tunvector v
           fd = mapDynamic2 (ifF b) (ifF b)
       in dmkHVector $ V.zipWith fd us vs
-    _ -> error "TODO"
   tfromPrimal :: STensorKindType y
             -> target y
             -> ADVal target y

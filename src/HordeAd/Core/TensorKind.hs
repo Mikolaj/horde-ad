@@ -7,7 +7,7 @@ module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
   , lemTensorKindOfSTK, sameTensorKind, sameSTK
-  , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
+  , lemTensorKindOfBuild, aDSTK, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
   , buildFTK, aDFTK, tftkG
     -- * Type family RepORArray
@@ -150,37 +150,36 @@ lemTensorKindOfBuild snat@SNat = \case
                        , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
   STKUntyped -> Dict
 
-lemTensorKindOfAD :: forall y.
-                     STensorKindType y
-                  -> Dict TensorKind (ADTensorKind y)
-lemTensorKindOfAD = \case
-  STKScalar @r rep -> case testEquality rep (typeRep @Double) of
-    Just Refl -> Dict
-    _ -> case testEquality rep (typeRep @Float) of
-      Just Refl -> Dict
+aDSTK :: STensorKindType y
+      -> STensorKindType (ADTensorKind y)
+aDSTK = \case
+  t@(STKScalar @r tr) -> case testEquality tr (typeRep @Double) of
+    Just Refl -> t
+    _ -> case testEquality tr (typeRep @Float) of
+      Just Refl -> t
       _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
-           Dict @TensorKind @(TKScalar Z0)
-  STKR SNat rs | Dict <- lemTensorKindOfAD rs -> Dict
-  STKS sh rs | Dict <- lemTensorKindOfAD rs -> withKnownShS sh Dict
-  STKX sh rs | Dict <- lemTensorKindOfAD rs -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfAD stk1
-                       , Dict <- lemTensorKindOfAD stk2 -> Dict
-  STKUntyped -> Dict
+           STKScalar (typeRep @Z0)
+  STKR sh x -> STKR sh $ aDSTK x
+  STKS sh x -> STKS sh $ aDSTK x
+  STKX sh x -> STKX sh $ aDSTK x
+  STKProduct stk1 stk2 -> STKProduct (aDSTK stk1) (aDSTK stk2)
+  t@STKUntyped{} -> t
 
-lemBuildOfAD :: forall k y.
-                SNat k -> STensorKindType y
-             -> Maybe (BuildTensorKind k (ADTensorKind y)
-                       :~: ADTensorKind (BuildTensorKind k y))
+lemTensorKindOfAD :: STensorKindType y
+                  -> Dict TensorKind (ADTensorKind y)
+lemTensorKindOfAD = lemTensorKindOfSTK . aDSTK
+
+lemBuildOfAD :: SNat k -> STensorKindType y
+             -> BuildTensorKind k (ADTensorKind y)
+                :~: ADTensorKind (BuildTensorKind k y)
 lemBuildOfAD snat@SNat = \case
-  STKScalar{} -> Just unsafeCoerceRefl
-  STKR{} -> Just unsafeCoerceRefl
-  STKS{} -> Just unsafeCoerceRefl
-  STKX{} -> Just unsafeCoerceRefl
-  STKProduct stk1 stk2 ->
-    case (lemBuildOfAD snat stk1, lemBuildOfAD snat stk2) of
-      (Just Refl, Just Refl) -> Just Refl
-      _ -> Nothing
-  STKUntyped -> Just Refl
+  STKScalar{} -> Refl
+  STKR{} -> unsafeCoerceRefl
+  STKS{} -> unsafeCoerceRefl
+  STKX{} -> unsafeCoerceRefl
+  STKProduct stk1 stk2 | Refl <- lemBuildOfAD snat stk1
+                       , Refl <- lemBuildOfAD snat stk2 -> Refl
+  STKUntyped -> Refl
 
 type role FullTensorKind nominal
 data FullTensorKind y where

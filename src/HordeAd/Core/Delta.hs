@@ -1163,8 +1163,8 @@ evalR !s !c d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+   , Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs
         bShsAD = aDFTK bShs
         eShsAD = aDFTK eShs
@@ -1193,8 +1193,8 @@ evalR !s !c d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind bShs))
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+   , Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs
         bShsAD = aDFTK bShs
         eShsAD = aDFTK eShs
@@ -1592,8 +1592,8 @@ fwdR params s d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+   , Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs
         bShsAD = aDFTK bShs
         eShsAD = aDFTK eShs
@@ -1619,8 +1619,8 @@ fwdR params s d0 = case d0 of
    , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind accShs))
    , Dict <- lemTensorKindOfBuild k (stensorKind @(ADTensorKind eShs))
-   , Just Refl <- lemBuildOfAD k (stensorKind @bShs)
-   , Just Refl <- lemBuildOfAD k (stensorKind @eShs) ->
+   , Refl <- lemBuildOfAD k (stensorKind @bShs)
+   , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
     let accShsAD = aDFTK accShs
         bShsAD = aDFTK bShs
         eShsAD = aDFTK eShs

@@ -212,35 +212,19 @@ build1V snat@SNat (var, v0) =
       traceRule $
         Ast.AstD (build1VOccurenceUnknown snat (var, u))
                  (build1VOccurenceUnknown snat (var, u'))
-    Ast.AstCond b (Ast.AstFromPrimal v)
-                  (Ast.AstFromPrimal w) -> traceRule $ case stensorKind @y of
-      STKR SNat STKScalar{} ->
-        let t = Ast.AstFromPrimal
-                $ astIndexStep (astFromVector $ V.fromList [v, w])
-                               (singletonIndex (astCond b 0 1))
-        in build1VOccurenceUnknown snat (var, t)
-      STKS sh STKScalar{} -> withKnownShS sh $
-        let t = Ast.AstFromPrimal
-                $ astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
-                                      (astCond b 0 1 :.$ ZIS)
-        in build1VOccurenceUnknown snat (var, t)
-      STKX{} -> error "TODO"
-      STKProduct{} -> error "TODO"
-      STKUntyped -> error "TODO"
-      _ -> error "TODO"
     Ast.AstCond b v w -> traceRule $ case stensorKind @y of
-      STKR SNat STKScalar{} ->
+      STKScalar{} -> error "TODO"
+      STKR SNat x | Dict <- lemTensorKindOfSTK x ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
         in build1VOccurenceUnknown snat (var, t)
-      STKS sh STKScalar{} -> withKnownShS sh $
+      STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
         in build1VOccurenceUnknown snat (var, t)
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"
       STKUntyped -> error "TODO"
-      _ -> error "TODO"
     Ast.AstReplicate @y2 snat2@(SNat @k2) v
      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $
       astTrGeneral @k2 (stensorKind @y2) (astReplicate snat2
@@ -511,9 +495,9 @@ build1V snat@SNat (var, v0) =
      , Dict <- lemTensorKindOfAD (stensorKind @accShs)
      , Dict <- lemTensorKindOfAD (stensorKind @bShs)
      , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-     , Just Refl <- lemBuildOfAD snat (stensorKind @accShs)
-     , Just Refl <- lemBuildOfAD snat (stensorKind @bShs)
-     , Just Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
+     , Refl <- lemBuildOfAD snat (stensorKind @accShs)
+     , Refl <- lemBuildOfAD snat (stensorKind @bShs)
+     , Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
       astLetFun
         (Ast.AstMapAccumRDer
            k5
@@ -543,9 +527,9 @@ build1V snat@SNat (var, v0) =
      , Dict <- lemTensorKindOfAD (stensorKind @accShs)
      , Dict <- lemTensorKindOfAD (stensorKind @bShs)
      , Dict <- lemTensorKindOfAD (stensorKind @eShs)
-     , Just Refl <- lemBuildOfAD snat (stensorKind @accShs)
-     , Just Refl <- lemBuildOfAD snat (stensorKind @bShs)
-     , Just Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
+     , Refl <- lemBuildOfAD snat (stensorKind @accShs)
+     , Refl <- lemBuildOfAD snat (stensorKind @bShs)
+     , Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
       astLetFun
         (Ast.AstMapAccumLDer
            k5

@@ -545,20 +545,21 @@ ravel :: forall k y. TensorKind y
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
   STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) -> RepN Z0
-  STKR SNat STKScalar{} -> rfromList $ NonEmpty.fromList t
-  STKS sh STKScalar{} -> withKnownShS sh $ sfromList $ NonEmpty.fromList t
-  STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
+  STKScalar _ -> error "ravel: scalar"
+  STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    rfromList $ NonEmpty.fromList t
+  STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    withKnownShS sh $ sfromList $ NonEmpty.fromList t
+  STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    withKnownShX sh $ error "TODO"
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2
-    , Dict <- eltDictRep stk1
-    , Dict <- eltDictRep stk2
     , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
     , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
       in tpair (ravel k lt1) (ravel k lt2)
   STKUntyped -> dmkHVector $ ravelHVector $ tunvector <$> t
-  _ -> error "TODO"
 
 unravel :: forall k y. TensorKind y
         => SNat k -> RepN (BuildTensorKind k y)
@@ -566,14 +567,16 @@ unravel :: forall k y. TensorKind y
 unravel k@SNat t = case stensorKind @y of
   STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) ->
     replicate (sNatValue k) (RepN Z0)
-  STKR SNat STKScalar{} -> runravelToList t
-  STKS sh STKScalar{} -> withKnownShS sh $ sunravelToList t
-  STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
+  STKScalar _ -> error "unravel: scalar"
+  STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    runravelToList t
+  STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    withKnownShS sh $ sunravelToList t
+  STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    withKnownShX sh $ error "TODO"
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2
-    , Dict <- eltDictRep stk1
-    , Dict <- eltDictRep stk2
     , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
     , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let lt1 = unravel k $ tproject1 t
@@ -583,7 +586,6 @@ unravel k@SNat t = case stensorKind @y of
     if V.null $ tunvector t
     then replicate (sNatValue k) $ dmkHVector V.empty
     else dmkHVector <$> unravelHVector (tunvector t)
-  _ -> error "TODO"
 
 oRdmapAccumR
   :: forall k accShs bShs eShs.

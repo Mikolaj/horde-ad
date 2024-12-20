@@ -320,15 +320,17 @@ instance ( ADReadyNoLet target
          => IfF (ADVal target) where
   ifF :: forall y. TensorKind y
       => BoolOf target -> ADVal target y -> ADVal target y -> ADVal target y
-  ifF !b !v !w = case stensorKind @y of  -- bangs for the proper order of sharing stamps
-    STKR SNat STKScalar{} ->
+  -- Bangs are for the proper order of sharing stamps.
+  ifF !b !v !w = case stensorKind @y of
+    STKScalar{} -> error "TODO"
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       indexPrimal (fromVector $ V.fromList [v, w])
                   (fromList [ifF b 0 1])
-    STKS sh STKScalar{} -> withKnownShS sh $
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
       indexPrimalS @_ @_ @'[2]
                    (fromVectorS $ V.fromList [v, w])
                    (fromList [ifF b 0 1])
-    STKX sh STKScalar{} -> withKnownShX sh $
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $
       indexPrimalX @_ @_ @'[Just 2]
                    (fromVectorX $ V.fromList [v, w])
                    (fromList [ifF b 0 1])
