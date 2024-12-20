@@ -139,9 +139,9 @@ defaultKnobs = SimplifyKnobs False False
 -- and nesting with reshape and gather they don't fuse, which is when
 -- this function is invoked.
 astTransposeAsGather
-  :: forall n s r. (KnownNat n, GoodScalar r, AstSpan s)
-  => SimplifyKnobs -> Permutation.PermR -> AstTensor AstMethodLet s (TKR n r)
-  -> AstTensor AstMethodLet s (TKR n r)
+  :: forall n s r. (KnownNat n, TensorKind r, AstSpan s)
+  => SimplifyKnobs -> Permutation.PermR -> AstTensor AstMethodLet s (TKR2 n r)
+  -> AstTensor AstMethodLet s (TKR2 n r)
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather knobs perm v =
   let pInt = length perm
@@ -161,9 +161,9 @@ astTransposeAsGather knobs perm v =
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
 
 astTransposeAsGatherS
-  :: forall perm sh s r p. (GoodScalar r, KnownShS sh, p ~ Rank perm)
-  => Permutation.Perm perm -> SimplifyKnobs -> AstTensor AstMethodLet s (TKS sh r)
-  -> AstTensor AstMethodLet s (TKS (Permutation.PermutePrefix perm sh) r)
+  :: forall perm sh s r p. (TensorKind r, KnownShS sh, p ~ Rank perm)
+  => Permutation.Perm perm -> SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 sh r)
+  -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 {-# NOINLINE astTransposeAsGatherS #-}
 astTransposeAsGatherS perm knobs v =
   withShapeP (drop (sNatValue (Permutation.permRank perm))
@@ -218,8 +218,9 @@ astTransposeAsGatherS perm knobs v =
 -- where term size blowup can't be avoided, because the index has to be
 -- normalized between each reshape.
 astReshapeAsGather
-  :: forall p m s r. (KnownNat p, KnownNat m, GoodScalar r, AstSpan s)
-  => SimplifyKnobs -> IShR m -> AstTensor AstMethodLet s (TKR p r) -> AstTensor AstMethodLet s (TKR m r)
+  :: forall p m s r. (KnownNat p, KnownNat m, TensorKind r, AstSpan s)
+  => SimplifyKnobs -> IShR m -> AstTensor AstMethodLet s (TKR2 p r)
+  -> AstTensor AstMethodLet s (TKR2 m r)
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather knobs shOut v =
   funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
@@ -231,8 +232,9 @@ astReshapeAsGather knobs shOut v =
     in astGatherKnobsR @m @0 knobs shOut v (vars, asts)
 
 astReshapeAsGatherS
-  :: forall sh sh2 r s. (GoodScalar r, KnownShS sh, KnownShS sh2)
-  => SimplifyKnobs -> AstTensor AstMethodLet s (TKS sh r) -> AstTensor AstMethodLet s (TKS sh2 r)
+  :: forall sh sh2 r s. (TensorKind r, KnownShS sh, KnownShS sh2)
+  => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 sh r)
+  -> AstTensor AstMethodLet s (TKS2 sh2 r)
 {-# NOINLINE astReshapeAsGatherS #-}
 astReshapeAsGatherS knobs v =
   gcastWith (unsafeCoerce Refl :: sh2 ++ '[] :~: sh2) $
@@ -1749,15 +1751,18 @@ astReplicate0N sh = astReplicate0NT sh . fromPrimal . AstConcrete (FTKR ZSR FTKS
 astReplicate0NS :: forall shn s r. (KnownShS shn, GoodScalar r, AstSpan s)
                 => r -> AstTensor AstMethodLet s (TKS shn r)
 astReplicate0NS =
-  let go :: ShS sh' -> AstTensor AstMethodLet s (TKS '[] r) -> AstTensor AstMethodLet s (TKS sh' r)
+  let go :: ShS sh' -> AstTensor AstMethodLet s (TKS '[] r)
+         -> AstTensor AstMethodLet s (TKS sh' r)
       go ZSS v = v
       go ((:$$) SNat sh') v | Dict <- sshapeKnown sh' = astReplicate SNat $ go sh' v
   in go (knownShS @shn) . fromPrimal . AstConcrete (FTKS ZSS FTKScalar) . sscalar
 
-astReplicate0NT :: forall n s r. (GoodScalar r, AstSpan s)
-                => IShR n -> AstTensor AstMethodLet s (TKR 0 r) -> AstTensor AstMethodLet s (TKR n r)
+astReplicate0NT :: forall n s r. (TensorKind r, AstSpan s)
+                => IShR n -> AstTensor AstMethodLet s (TKR2 0 r)
+                -> AstTensor AstMethodLet s (TKR2 n r)
 astReplicate0NT sh =
-  let go :: IShR n' -> AstTensor AstMethodLet s (TKR 0 r) -> AstTensor AstMethodLet s (TKR n' r)
+  let go :: IShR n' -> AstTensor AstMethodLet s (TKR2 0 r)
+         -> AstTensor AstMethodLet s (TKR2 n' r)
       go ZSR v = v
       go (k :$: sh') v | Dict <- knownShR sh' = withSNat k $ \snat ->
         astReplicate snat $ go sh' v
