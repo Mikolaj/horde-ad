@@ -535,9 +535,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            => AstTensor ms PrimalSpan (TKX '[Just n] r)
 
   AstIndexX :: forall sh1 sh2 s r ms.
-               (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
-            => AstTensor ms s (TKX (sh1 ++ sh2) r) -> AstIndexX ms sh1
-            -> AstTensor ms s (TKX sh2 r)
+               (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), TensorKind r)
+            => AstTensor ms s (TKX2 (sh1 ++ sh2) r) -> AstIndexX ms sh1
+            -> AstTensor ms s (TKX2 sh2 r)
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
@@ -551,26 +551,26 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               -> (AstIxX sh2, AstIndexX ms (Take p sh))
               -> AstTensor ms s (TKX sh r)
 
-  AstFromVectorX :: (KnownNat n, KnownShX sh, GoodScalar r)
-                 => Data.Vector.Vector (AstTensor ms s (TKX sh r))
-                 -> AstTensor ms s (TKX (Just n ': sh) r)
-  AstAppendX :: (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r)
-             => AstTensor ms s (TKX (Just m ': sh) r)
-             -> AstTensor ms s (TKX (Just n ': sh) r)
-             -> AstTensor ms s (TKX (Just (m + n) ': sh) r)
-  AstSliceX :: (KnownNat i, KnownNat n, KnownNat k, KnownShX sh, GoodScalar r)
-            => AstTensor ms s (TKX (Just (i + n + k) ': sh) r)
-            -> AstTensor ms s (TKX (Just n ': sh) r)
-  AstReverseX :: (KnownNat n, KnownShX sh, GoodScalar r)
-              => AstTensor ms s (TKX (Just n ': sh) r)
-              -> AstTensor ms s (TKX (Just n ': sh) r)
+  AstFromVectorX :: (KnownNat n, KnownShX sh, TensorKind r)
+                 => Data.Vector.Vector (AstTensor ms s (TKX2 sh r))
+                 -> AstTensor ms s (TKX2 (Just n ': sh) r)
+  AstAppendX :: (KnownNat n, KnownNat m, KnownShX sh, TensorKind r)
+             => AstTensor ms s (TKX2 (Just m ': sh) r)
+             -> AstTensor ms s (TKX2 (Just n ': sh) r)
+             -> AstTensor ms s (TKX2 (Just (m + n) ': sh) r)
+  AstSliceX :: (KnownNat i, KnownNat n, KnownNat k, KnownShX sh, TensorKind r)
+            => AstTensor ms s (TKX2 (Just (i + n + k) ': sh) r)
+            -> AstTensor ms s (TKX2 (Just n ': sh) r)
+  AstReverseX :: (KnownNat n, KnownShX sh, TensorKind r)
+              => AstTensor ms s (TKX2 (Just n ': sh) r)
+              -> AstTensor ms s (TKX2 (Just n ': sh) r)
   AstTransposeX :: forall perm sh r s ms.
-                   (PermC perm, KnownShX sh, Rank perm <= Rank sh, GoodScalar r)
-                => Permutation.Perm perm -> AstTensor ms s (TKX sh r)
-                -> AstTensor ms s (TKX (Permutation.PermutePrefix perm sh) r)
-  AstReshapeX :: (KnownShX sh, GoodScalar r, KnownShX sh2)
-              => IShX sh2 -> AstTensor ms s (TKX sh r)
-              -> AstTensor ms s (TKX sh2 r)
+                   (PermC perm, KnownShX sh, Rank perm <= Rank sh, TensorKind r)
+                => Permutation.Perm perm -> AstTensor ms s (TKX2 sh r)
+                -> AstTensor ms s (TKX2 (Permutation.PermutePrefix perm sh) r)
+  AstReshapeX :: (KnownShX sh, TensorKind r, KnownShX sh2)
+              => IShX sh2 -> AstTensor ms s (TKX2 sh r)
+              -> AstTensor ms s (TKX2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   AstGatherX :: forall sh2 p sh r s ms.

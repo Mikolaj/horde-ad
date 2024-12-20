@@ -72,10 +72,17 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-  (pattern (:.%), pattern ZIX, shxAppend, shxDropSSX, shxTakeSSX)
+  ( SMayNat (..)
+  , pattern (:!%)
+  , pattern (:.%)
+  , pattern ZIX
+  , pattern ZKX
+  , shxAppend
+  , shxDropSSX
+  , shxTakeSSX
+  )
 import Data.Array.Nested
   ( IShR
-  , IxS (..)
   , KnownShS (..)
   , KnownShX (..)
   , MapJust
@@ -83,8 +90,7 @@ import Data.Array.Nested
   , Replicate
   , ShR (..)
   , ShS (..)
-  , pattern (:.$)
-  , pattern ZIS
+  , ShX (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -592,13 +598,13 @@ data Delta :: Target -> TensorKindType -> Type where
   SFromH :: (KnownShS sh, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 
-  IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), GoodScalar r)
-         => Delta target (TKX (sh1 ++ sh2) r)
+  IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), TensorKind r)
+         => Delta target (TKX2 (sh1 ++ sh2) r)
          -> IxXOf target sh1
-         -> Delta target (TKX sh2 r)
-  FromVectorX :: (GoodScalar r, KnownShX sh, KnownNat n)
-              => Data.Vector.Vector (Delta target (TKX sh r))
-              -> Delta target (TKX (Just n ': sh) r)
+         -> Delta target (TKX2 sh2 r)
+  FromVectorX :: (KnownNat n, KnownShX sh, TensorKind r)
+              => Data.Vector.Vector (Delta target (TKX2 sh r))
+              -> Delta target (TKX2 (Just n ': sh) r)
   ZipX :: (TensorKind y, TensorKind z, KnownShX sh)
        => Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> Delta target (TKX2 sh (TKProduct y z))
@@ -790,8 +796,16 @@ shapeDeltaFull = \case
     FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
   SFromH{} -> FTKS knownShS FTKScalar
 
-  IndexX{} -> error "TODO"
-  FromVectorX{} -> error "TODO"
+  IndexX @sh1 d _ix -> case shapeDeltaFull d of
+    FTKX sh x -> FTKX (shxDropSSX sh (knownShX @sh1)) x
+  FromVectorX @n l -> case V.toList l of
+    [] -> case stensorKind @y of
+      STKX sh STKScalar{} -> case sh of
+        (_ :!% ZKX) -> FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar
+        _ -> error "shapeDeltaFull: AstFromVectorX with no arguments"
+      _ -> error "shapeDeltaFull: AstFromVectorX with no arguments"
+    d : _ -> case shapeDeltaFull d of
+      FTKX sh x -> FTKX (SKnown (SNat @n) :$% sh) x
   ZipX d -> case shapeDeltaFull d of
     FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
   UnzipX d -> case shapeDeltaFull d of
@@ -1250,9 +1264,8 @@ evalSame !s !c = \case
       -- too slow: evalSame s (rmap0N (* (tscalar c)) v) vd
   ScatterR _sh d f ->
     evalSame s (rgather (shapeDelta d) c f) d
-  FromVectorR @n1 @r ld ->
+  FromVectorR ld ->
     let cShared = tshare c
-        cxs :: [target (TKR2 n1 r)]
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
@@ -1309,8 +1322,9 @@ evalSame !s !c = \case
     evalSame s (sgather c f) d
   FromVectorS ld ->
     let cShared = tshare c
-    in V.ifoldl' (\ !s2 i d2 ->
-         evalSame s2 (cShared !$ (fromIntegral i :.$ ZIS)) d2) s ld
+        cxs = sunravelToList cShared
+    in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
+       $ zip cxs (V.toList ld)
   ReplicateS d ->
     evalSame s (ssum c) d
   AppendS @_ @_ @m d e ->
@@ -1353,9 +1367,9 @@ evalSame !s !c = \case
        evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
 
   IndexX{} -> error "TODO"
-  FromVectorX @r @sh ld ->
+  FromVectorX @_ @sh @r ld ->
     let cShared = tshare c
-        f :: EvalState target -> Int -> Delta target (TKX sh r)
+        f :: EvalState target -> Int -> Delta target (TKX2 sh r)
              -> EvalState target
         f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
     in V.ifoldl' f s ld

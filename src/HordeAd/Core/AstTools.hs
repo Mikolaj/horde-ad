@@ -30,16 +30,17 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-  (KnownShX (..), shxAppend, shxDropSSX, shxSize, shxTakeSSX)
-import Data.Array.Nested
-  ( IShR
-  , KnownShS (..)
-  , MapJust
-  , Replicate
-  , ShR (..)
-  , pattern (:$:)
-  , pattern ZSR
+  ( KnownShX (..)
+  , SMayNat (..)
+  , pattern (:!%)
+  , pattern ZKX
+  , shxAppend
+  , shxDropSSX
+  , shxSize
+  , shxTakeSSX
   )
+import Data.Array.Nested
+  (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShX (..))
 import Data.Array.Nested.Internal.Shape
   (shCvtRX, shCvtSX, shCvtXR', shrSize, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
@@ -150,8 +151,8 @@ ftkAst t = case t of
     FTKS _ x -> FTKS knownShS x
   AstFromVectorS l -> case V.toList l of
     [] -> case stensorKind @y of
-      STKS _ STKScalar{} -> FTKS knownShS FTKScalar
-        -- the only case where we can guess the x
+      STKS sh STKScalar{} -> FTKS sh FTKScalar
+        -- the simplest case where we know the x
       _ -> error "ftkAst: AstFromVectorS with no arguments"
     d : _ -> case ftkAst d of
       FTKS _ x -> FTKS knownShS x
@@ -179,6 +180,16 @@ ftkAst t = case t of
   AstUnzipS v -> case ftkAst v of
     FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
 
+  AstIndexX @sh1 v _ix -> case ftkAst v of
+    FTKX sh x -> FTKX (shxDropSSX sh (knownShX @sh1)) x
+  AstFromVectorX @n l -> case V.toList l of
+    [] -> case stensorKind @y of
+      STKX sh STKScalar{} -> case sh of
+        (_ :!% ZKX) -> FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar
+        _ -> error "ftkAst: AstFromVectorX with no arguments"
+      _ -> error "ftkAst: AstFromVectorX with no arguments"
+    d : _ -> case ftkAst d of
+      FTKX sh x -> FTKX (SKnown (SNat @n) :$% sh) x
   AstZipX v -> case ftkAst v of
     FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
   AstUnzipX v -> case ftkAst v of

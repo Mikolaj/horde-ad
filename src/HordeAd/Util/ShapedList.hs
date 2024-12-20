@@ -22,7 +22,7 @@ module HordeAd.Util.ShapedList
   , listToIndex, indexToList  -- indexToSized, sizedToIndex
   , shapedToIndex, ixsLengthSNat
   -- * Tensor shapes as fully encapsulated shaped lists, with operations
-  , listToShape, shapeToList, takeShS, dropShS
+  , listToShape, shapeToList, takeShS, dropShS, takeShX, dropShX
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   , permutePrefixIndex
@@ -36,20 +36,18 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape (IShX)
 import Data.Array.Nested
   ( IxR
   , IxS (..)
   , KnownShS (..)
+  , KnownShX (..)
   , ListS (..)
   , Rank
   , ShS (..)
-  , pattern (:.$)
-  , pattern (::$)
-  , pattern ZIS
-  , pattern ZS
   , type (++)
   )
-import Data.Array.Nested.Internal.Shape (listsToList, shsToList)
+import Data.Array.Nested.Internal.Shape (listsToList)
 
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList qualified as SizedList
@@ -179,16 +177,24 @@ ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
 listToShape :: KnownShS sh => [Int] -> ShS sh
 listToShape = fromList
 
-shapeToList :: ShS sh -> [Int]
-shapeToList = shsToList
+shapeToList :: KnownShS sh => ShS sh -> [Int]
+shapeToList = toList
 
-takeShS :: forall len sh. (KnownNat len, KnownShS (Take len sh))
+takeShS :: forall len sh. (KnownNat len, KnownShS sh, KnownShS (Take len sh))
         => ShS sh -> ShS (Take len sh)
-takeShS ix = listToShape $ take (valueOf @len) $ shapeToList ix
+takeShS ix = fromList $ take (valueOf @len) $ toList ix
 
-dropShS :: forall len sh. (KnownNat len, KnownShS (Drop len sh))
+dropShS :: forall len sh. (KnownNat len, KnownShS sh, KnownShS (Drop len sh))
         => ShS sh -> ShS (Drop len sh)
-dropShS ix = listToShape $ drop (valueOf @len) $ shapeToList ix
+dropShS ix = fromList $ drop (valueOf @len) $ toList ix
+
+takeShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+        => IShX sh -> IShX (Drop len sh)
+takeShX ix = fromList $ take (valueOf @len) $ toList ix
+
+dropShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+        => IShX sh -> IShX (Drop len sh)
+dropShX ix = fromList $ drop (valueOf @len) $ toList ix
 
 
 -- * Operations involving both indexes and shapes

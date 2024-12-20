@@ -844,10 +844,10 @@ interpretAst !env = \case
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexX AstIotaX (_i :.% ZIX) -> error "TODO"
-  AstIndexX @sh1 @_ @_ @r v ix ->
+  AstIndexX v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
-    in xindex @target @r @sh1 v2 ix3
+    in xindex v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where

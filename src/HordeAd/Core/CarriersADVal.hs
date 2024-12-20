@@ -349,17 +349,17 @@ fromVectorS lu = assert (length lu == valueOf @n) $
      (FromVectorS $ V.map (\(D _ u') -> u') lu)
 
 indexPrimalX :: ( ADReadyNoLet target
-                , GoodScalar r, KnownShX sh1, KnownShX sh2
+                , TensorKind r, KnownShX sh1, KnownShX sh2
                 , KnownShX (sh1 ++ sh2) )
-             => ADVal target (TKX (sh1 ++ sh2) r) -> IxXOf target sh1
-             -> ADVal target (TKX sh2 r)
+             => ADVal target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
+             -> ADVal target (TKX2 sh2 r)
 indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
 
 fromVectorX :: forall n sh target r.
                ( ADReadyNoLet target
-               , KnownNat n, KnownShX sh, GoodScalar r )
-            => Data.Vector.Vector (ADVal target (TKX sh r))
-            -> ADVal target (TKX (Just n ': sh) r)
+               , KnownNat n, KnownShX sh, TensorKind r )
+            => Data.Vector.Vector (ADVal target (TKX2 sh r))
+            -> ADVal target (TKX2 (Just n ': sh) r)
 fromVectorX lu = assert (length lu == valueOf @n) $
   dD (xfromVector $ V.map (\(D u _) -> u) lu)
      (FromVectorX $ V.map (\(D _ u') -> u') lu)
