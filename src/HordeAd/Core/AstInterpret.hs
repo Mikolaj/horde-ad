@@ -951,10 +951,6 @@ interpretAstBool !env = \case
   AstBoolConst a -> if a then true else false
   AstRel @y3 opCodeRel arg1 arg2 ->
     case stensorKind @y3 of
-      STKScalar{} ->
-        let r1 = interpretAstPrimal env arg1
-            r2 = interpretAstPrimal env arg2
-        in interpretAstRelOp opCodeRel r1 r2
       STKR SNat STKScalar{} ->
         let r1 = interpretAstPrimalRuntimeSpecialized env arg1
             r2 = interpretAstPrimalRuntimeSpecialized env arg2
@@ -963,8 +959,7 @@ interpretAstBool !env = \case
         let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
             r2 = interpretAstPrimalSRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      STKX sh STKScalar{} -> withKnownShX sh $
+      _ ->
         let r1 = interpretAstPrimal env arg1
             r2 = interpretAstPrimal env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      _ -> error "TODO"

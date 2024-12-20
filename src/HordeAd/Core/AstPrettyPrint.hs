@@ -15,7 +15,6 @@ import Prelude
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
-import Data.Maybe (fromJust)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
@@ -89,8 +88,8 @@ printAstVar cfg var =
       rankTensorKind (STKScalar _) = 0
       rankTensorKind (STKR snat _) = fromIntegral $ fromSNat snat
       rankTensorKind (STKS sh _) = fromIntegral $ fromSNat $ shsRank sh
-      rankTensorKind (STKX sh _) =
-        fromIntegral $ fromSNat $ X.shxRank $ fromJust $ X.ssxToShX' sh
+      rankTensorKind (STKX (X.StaticShX l) _) =
+        fromIntegral $ fromSNat $ X.listxRank l
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
       rankTensorKind STKUntyped = -1
