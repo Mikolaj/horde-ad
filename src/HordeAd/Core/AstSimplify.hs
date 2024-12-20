@@ -104,7 +104,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -502,10 +502,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
                                               (Ast.AstRel LsOp i1 len) of
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
-  Ast.AstReplicate @y2 _k v -> case stensorKind @y2 of
-    STKR{} -> astIndex v rest1
-  Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
-    STKR{} -> astIndex (astLet var2 i1 v) rest1
+  Ast.AstReplicate @y2 _k v | STKR{} <- stensorKind @y2 -> astIndex v rest1
+  Ast.AstBuild1 @y2 _snat (var2, v) | STKR{} <- stensorKind @y2 ->
+    astIndex (astLet var2 i1 v) rest1
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
   Ast.AstMinIndexR v -> Ast.AstMinIndexR $ astIndexKnobsR knobs v ix
@@ -584,14 +583,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     in astIndex v (iRev :.: rest1)
   Ast.AstTranspose perm v | valueOf @m >= length perm ->
     astIndex v (Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix)
-  Ast.AstTranspose perm v -> case stensorKind @r of
-    STKScalar{} ->
-      astIndex (astTransposeAsGather knobs perm v) ix
-    _ -> Ast.AstIndex v0 ix
-  Ast.AstReshape sh v -> case stensorKind @r of
-    STKScalar{} ->
-      astIndex (astReshapeAsGather knobs sh v) ix
-    _ -> Ast.AstIndex v0 ix
+  Ast.AstTranspose perm v -> astIndex (astTransposeAsGather knobs perm v) ix
+  Ast.AstReshape sh v -> astIndex (astReshapeAsGather knobs sh v) ix
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
   Ast.AstGather @_ @n7 (_ :$: sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstTensor AstMethodLet s (TKR2 (m1 + n) r)
@@ -691,10 +684,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstReplicate @y2 _snat v -> case stensorKind @y2 of
     STKS sh _ -> withKnownShS sh $ astIndex v rest1  -- TODO: out of bounds?
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
-    STKS sh _ -> withKnownShS sh $
-      withListSh (Proxy @(shm1 ++ shn)) $ \_ ->
-        astIndex (astLet var2 i1 v) rest1
-        -- this uses astLet, because the index integers are ranked
+    STKS sh _ ->
+      withKnownShS sh $
+      withKnownShS (knownShS @shm1 `shsAppend` knownShS @shn) $
+      astIndex (astLet var2 i1 v) rest1
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
   Ast.AstMinIndexS @shz @n1 v ->
@@ -824,23 +817,19 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
     in astIndex v (iRev :.$ rest1)
   Ast.AstTransposeS @perm perm v
     | rankPerm <- Permutation.permRank perm
-    , length (shapeT @shm) < sNatValue rankPerm -> case stensorKind @r of
-      STKScalar{} ->
+    , length (shapeT @shm) < sNatValue rankPerm ->
         astIndex (astTransposeAsGatherS @perm perm knobs v) ix
-      _ -> Ast.AstIndexS v0 ix
   Ast.AstTransposeS @perm @sh2 perm v ->
     withShapeP
       (permutePrefixList (Permutation.permToList' perm)
                          (shapeT @shm)) $ \(Proxy @shmPerm) ->
-        gcastWith (unsafeCoerce Refl :: shm :~: Permutation.PermutePrefix perm shmPerm) $
+        gcastWith (unsafeCoerce Refl
+                   :: shm :~: Permutation.PermutePrefix perm shmPerm) $
         let ix2 :: AstIxS AstMethodLet shmPerm = unsafeCoerce $
               Nested.Internal.Shape.ixsPermutePrefix perm ix
         in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm ++ shn) $
            astIndex @shmPerm v ix2
-  Ast.AstReshapeS v -> case stensorKind @r of
-    STKScalar{} ->
-      astIndex (astReshapeAsGatherS knobs v) ix
-    _ -> Ast.AstIndexS v0 ix
+  Ast.AstReshapeS v -> astIndex (astReshapeAsGatherS knobs v) ix
   Ast.AstGatherS @_ @p @sh v (ZS, ix2) ->
     withShapeP (shapeT @(Take p sh) ++ shapeT @shm)
     $ \(Proxy @sh1n) ->
@@ -1180,14 +1169,14 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       in astGather sh4 v (vars4, iRev :.: rest4)
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
       astGather sh4 v (vars4, Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix4)
-    Ast.AstTranspose perm v ->case stensorKind @r' of
-      STKScalar{} | knobExpand knobs ->
-        astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)
-      _ -> Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstReshape sh v -> case stensorKind @r' of
-      STKScalar{} | knobExpand knobs ->
-        astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
-      _ -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstTranspose perm v ->
+      if knobExpand knobs
+      then astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)
+      else Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstReshape sh v ->
+      if knobExpand knobs
+      then astGather sh4 (astReshapeAsGather knobs sh v) (vars4, ix4)
+      else Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstGather @m2 @n2 _sh2 v2 (vars2, ix2) ->
       -- Term ix4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
@@ -1524,8 +1513,8 @@ astSum t0 = case shapeAst t0 of
   _ -> case t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum v)
     -- this is problematic, because it keeps huge tensors alive for longer
-    Ast.AstReplicate @y2 k v -> case stensorKind @y2 of
-      STKR{} -> v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
+    Ast.AstReplicate @y2 k v | STKR{} <- stensorKind @y2 ->
+      v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
     Ast.AstFromVector l -> astSumOfListR $ V.toList l
     Ast.AstSlice _i 0 v -> astReplicate0N (tailShape $ shapeAst v) 0
@@ -1544,8 +1533,8 @@ astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> astReshapeS t0
   _ -> case t0 of
     -- Ast.AstLet var u v -> astLet var u (astSumS v)
-    Ast.AstReplicate @y2 k v -> case stensorKind @y2 of
-      STKS{} -> v * astReplicate0NS (fromInteger $ fromSNat k)
+    Ast.AstReplicate @y2 k v | STKS{} <- stensorKind @y2 ->
+      v * astReplicate0NS (fromInteger $ fromSNat k)
     Ast.AstScatterS @sh2 @p v (vars, _ :.$ ix) | Dict <- sixKnown ix ->
       case cmpNat (Proxy @1) (Proxy @p) of
         LTI ->
@@ -1803,8 +1792,8 @@ astSlice i n (AstConcrete (FTKR (_ :$: sh) ftk2) t) =
   AstConcrete (FTKR (n :$: sh) ftk2) $ rslice i n t
 astSlice i n (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
-astSlice _i n (Ast.AstReplicate @y2 _ v) = case stensorKind @y2 of
-  STKR{} -> withSNat n $ \snat -> astReplicate snat v
+astSlice _i n (Ast.AstReplicate @y2 _ v) | STKR{} <- stensorKind @y2 =
+  withSNat n $ \snat -> astReplicate snat v
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
 astSlice i n w@(Ast.AstAppend (u :: AstTensor AstMethodLet s (TKR2 (1 + k) r))
                               (v :: AstTensor AstMethodLet s (TKR2 (1 + k) r))) =
@@ -1841,8 +1830,8 @@ astSliceS (AstConcrete (FTKS _ ftk2) t) =
 astSliceS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
-astSliceS (Ast.AstReplicate @y2 _ v) = case stensorKind @y2 of
-  STKS{} -> astReplicate (SNat @n) v
+astSliceS (Ast.AstReplicate @y2 _ v) | STKS{} <- stensorKind @y2 =
+  astReplicate (SNat @n) v
 astSliceS (Ast.AstFromVectorS l) =
   astFromVectorS $ V.take (valueOf @n) (V.drop (valueOf @i) l)
 astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS2 (ulen : sh) r))
@@ -2081,9 +2070,9 @@ astReshape :: forall p m s r. (KnownNat p, KnownNat m, TensorKind r, AstSpan s)
            => IShR m -> AstTensor AstMethodLet s (TKR2 p r) -> AstTensor AstMethodLet s (TKR2 m r)
 astReshape shOut = \case
   Ast.AstReplicate @y2 (SNat @k) x
-    | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
-      case stensorKind @y2 of
-        STKR{} -> astReshape shOut x
+    | Just Refl <- sameNat (Proxy @k) (Proxy @1)
+    , STKR{} <- stensorKind @y2 ->
+      astReshape shOut x
   Ast.AstLet var u v -> astLet var u (astReshape shOut v)
   AstN1R opCode u | not (isVar u) -> AstN1R opCode (astReshape shOut u)
   AstN2R opCode u v | not (isVar u && isVar v) ->
@@ -2109,8 +2098,7 @@ astReshapeS :: forall sh sh2 r s.
             => AstTensor AstMethodLet s (TKS2 sh r) -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astReshapeS = \case
   Ast.AstReplicate @y2 (SNat @k) x
-    | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
-      case stensorKind @y2 of
+    | Just Refl <- sameNat (Proxy @k) (Proxy @1) -> case stensorKind @y2 of
         STKS sh _ -> withKnownShS sh $ astReshapeS x
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 v)
   AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
