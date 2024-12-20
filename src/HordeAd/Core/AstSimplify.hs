@@ -487,12 +487,14 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i1
-                           , STKR SNat STKScalar{} <- stensorKind @y2 ->
+                           , STKR{} <- stensorKind @y2 ->
     let i = fromIntegral it
     in if 0 <= i && i < sNatValue k
        then astIndex v rest1
-       else astReplicate0N (dropShape $ shapeAst v) def
-      -- TODO: document it's not def when out of bounds if not STKR SNat STKScalar
+       else case ftkAst v of
+         FTKR sh x ->
+           let ftk = FTKR (dropShape sh) x
+           in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
 {- TODO: this generalization of the above case slows down test 3nestedSumBuild1
    orders of magnitude
   Ast.AstReplicate k v ->
@@ -553,14 +555,14 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatter{} ->  -- normal form
     Ast.AstIndex v0 ix
-  Ast.AstFromVector @_ @y2 l | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
-    STKScalar{} ->
-      let i = fromIntegral it
-      in if 0 <= i && i < length l
-         then astIndex (l V.! i) rest1
-         else astReplicate0N (dropShape $ shapeAst v0) def
-    _ -> astIndex (l V.! fromIntegral it) rest1
-      -- TODO: document it's not 0 when out of bounds
+  Ast.AstFromVector l | AstConcrete _ (RepN it) <- i1 ->
+    let i = fromIntegral it
+    in if 0 <= i && i < length l
+       then astIndex (l V.! i) rest1
+       else case ftkAst v0 of
+         FTKR sh x ->
+           let ftk = FTKR (dropShape sh) x
+           in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
   Ast.AstFromVector{} | ZIR <- rest1 ->  -- normal form
     Ast.AstIndex v0 ix
   Ast.AstFromVector l ->
@@ -681,8 +683,19 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
     shareIx ix $ \ !ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
+  Ast.AstReplicate @y2 k v
+   | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
+    STKS sh _ ->
+      withKnownShS sh $
+      let i = fromIntegral it
+      in if 0 <= i && i < sNatValue k
+         then astIndex v rest1
+         else case ftkAst v of
+           FTKS _ x ->
+             let ftk = FTKS knownShS x
+             in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
   Ast.AstReplicate @y2 _snat v -> case stensorKind @y2 of
-    STKS sh _ -> withKnownShS sh $ astIndex v rest1  -- TODO: out of bounds?
+    STKS sh _ -> withKnownShS sh $ astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
     STKS sh _ ->
       withKnownShS sh $
@@ -785,15 +798,14 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatterS{} ->  -- normal form
     Ast.AstIndexS v0 ix
-  Ast.AstFromVectorS @_ @_ @y2 l
-   | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
-    STKScalar{} ->
-      let i = fromIntegral it
-      in if 0 <= i && i < length l
-         then astIndex (l V.! i) rest1
-         else astReplicate0NS def
-    _ -> astIndex (l V.! fromIntegral it) rest1
-      -- TODO: document it's not 0 when out of bounds
+  Ast.AstFromVectorS l | AstConcrete _ (RepN it) <- i1 ->
+    let i = fromIntegral it
+    in if 0 <= i && i < length l
+       then astIndex (l V.! i) rest1
+       else case ftkAst v0 of
+         FTKS _ x ->
+           let ftk = FTKS knownShS x
+           in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
   Ast.AstFromVectorS{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS v0 ix
   Ast.AstFromVectorS l ->
@@ -1042,16 +1054,17 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                     (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
-    Ast.AstReplicate @y2 snat v
-     | AstConcrete _ (RepN it) <- i4
-     , STKScalar{} <- stensorKind @r' -> case stensorKind @y2 of
-      STKR{} ->
-        let i = fromIntegral it
-        in if 0 <= i && i < sNatValue snat
-           then astGather sh4 v (vars4, rest4)
-           else astReplicate0N sh4 def
-    Ast.AstReplicate @y2 _ v -> case stensorKind @y2 of
-      STKR{} -> astGather sh4 v (vars4, rest4)
+    Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i4
+                             , STKR{} <- stensorKind @y2 ->
+      let i = fromIntegral it
+      in if 0 <= i && i < sNatValue k
+         then astGather sh4 v (vars4, rest4)
+         else case ftkAst v of
+           FTKR _ x ->
+             let ftk = FTKR sh4 x
+             in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
+    Ast.AstReplicate @y2 _ v | STKR{} <- stensorKind @y2 ->
+      astGather sh4 v (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
 
@@ -1120,12 +1133,14 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
           else astReplicate0N sh4 def
     Ast.AstScatter{} ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstFromVector l | AstConcrete _ (RepN it) <- i4
-                        , STKScalar{} <- stensorKind @r' ->
+    Ast.AstFromVector l | AstConcrete _ (RepN it) <- i4 ->
       let i = fromIntegral it
       in if 0 <= i && i < length l
          then astGather sh4 (l V.! i) (vars4, rest4)
-         else astReplicate0N sh4 def
+         else case ftkAst v4 of
+           FTKR _ x ->
+             let ftk = FTKR sh4 x
+             in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
     Ast.AstFromVector{} | gatherFromNF vars4 ix4 ->  -- normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstFromVector l ->
