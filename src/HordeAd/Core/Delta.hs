@@ -172,9 +172,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
         FTKX{} -> error "TODO"
         FTKProduct @y1 @y2 ftk1 ftk2
          | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
-         , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
-         , Dict <- eltDictRep (ftkToStk ftk1)
-         , Dict <- eltDictRep (ftkToStk ftk2) ->
+         , Dict <- lemTensorKindOfSTK (ftkToStk ftk2) ->
             let (t1, rest1) = rebuildInputs @y1 els ftk1
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
             in (tpair t1 t2, rest2)
@@ -242,9 +240,7 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
           ([InputId j :=> MTKS t], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
-                             , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
-                             , Dict <- eltDictRep (ftkToStk ftk1)
-                             , Dict <- eltDictRep (ftkToStk ftk2) ->
+                             , Dict <- lemTensorKindOfSTK (ftkToStk ftk2) ->
           let (t1, t2) = tunpair t
               (ds1, j1) = generateDSums j ftk1 t1
               (ds2, j2) = generateDSums j1 ftk2 t2

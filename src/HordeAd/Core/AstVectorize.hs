@@ -740,8 +740,6 @@ substProjRep snat@SNat var ftk2 var1 v
           FTKProduct ftk41 ftk42
             | Dict <- lemTensorKindOfSTK (ftkToStk ftk41)
             , Dict <- lemTensorKindOfSTK (ftkToStk ftk42)
-            , Dict <- eltDictRep (ftkToStk ftk41)
-            , Dict <- eltDictRep (ftkToStk ftk42)
             , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk41)
             , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk42) ->
               let prVar1 = astProject1 prVar
@@ -878,11 +876,9 @@ astTrGeneral
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrGeneral stk t = case stk of
   STKScalar{} -> t
-  STKR SNat stk1 | Dict <- lemTensorKindOfSTK stk1
-                 , Dict <- eltDictRep stk1 ->
+  STKR SNat stk1 | Dict <- lemTensorKindOfSTK stk1 ->
     astTr t
-  STKS sh stk1 | Dict <- lemTensorKindOfSTK stk1
-               , Dict <- eltDictRep stk1->
+  STKS sh stk1 | Dict <- lemTensorKindOfSTK stk1 ->
     withKnownShS sh $ astTrS t
   STKX sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShX sh $ astTrX t
   STKProduct @z1 @z2 stk1 stk2

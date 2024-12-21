@@ -526,9 +526,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ ifF b u v
     STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ ifF b u v
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                         , Dict <- lemTensorKindOfSTK stk2
-                         , Dict <- eltDictRep stk1
-                         , Dict <- eltDictRep stk2 ->
+                         , Dict <- lemTensorKindOfSTK stk2 ->
       let (u1, u2) = tunpair u
           (v1, v2) = tunpair v
           !t1 = tcond stk1 b u1 v1

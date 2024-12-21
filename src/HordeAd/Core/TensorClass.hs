@@ -125,8 +125,6 @@ class LetTensor (target :: Target) where
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- eltDictRep stk1
-      , Dict <- eltDictRep stk2
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
         tlet u $ \ !u1 ->
