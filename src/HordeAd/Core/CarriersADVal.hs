@@ -8,7 +8,6 @@ module HordeAd.Core.CarriersADVal
     ADVal, pattern D, dD, dDnotShared, fromPrimalADVal
     -- * Auxiliary definitions
   , unPairG, unPairGUnshared
-  , indexPrimal, fromVector, indexPrimalS, fromVectorS, indexPrimalX, fromVectorX
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , generateDeltaInputs, makeADInputs, ahhToHVector
@@ -16,17 +15,15 @@ module HordeAd.Core.CarriersADVal
 
 import Prelude
 
-import Control.Exception.Assert.Sugar
 import Data.Proxy (Proxy (Proxy))
-import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, sameNat, type (+))
+import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxFromShape)
-import Data.Array.Nested (KnownShS (..), KnownShX, type (++))
+import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested.Internal.Shape (shrRank)
 
 import HordeAd.Core.Delta
@@ -297,79 +294,6 @@ instance OrdF f => OrdF (ADVal f) where
   D u _ <=. D v _ = u <=. v
   D u _ >. D v _ = u >. v
   D u _ >=. D v _ = u >=. v
-
-indexPrimal :: ( ADReadyNoLet target, TensorKind r
-               , KnownNat m, KnownNat n )
-            => ADVal target (TKR2 (m + n) r) -> IxROf target m
-            -> ADVal target (TKR2 n r)
-indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
-
-fromVector :: (ADReadyNoLet target, KnownNat n, TensorKind r)
-           => Data.Vector.Vector (ADVal target (TKR2 n r))
-           -> ADVal target (TKR2 (1 + n) r)
-fromVector lu =
-  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (rfromVector $ V.map (\(D u _) -> u) lu)
-     (FromVectorR $ V.map (\(D _ u') -> u') lu)
-
-instance ( ADReadyNoLet target
-         , BoolOf (PrimalOf target) ~ BoolOf target )
-         => IfF (ADVal target) where
-  ifF :: forall y. TensorKind y
-      => BoolOf target -> ADVal target y -> ADVal target y -> ADVal target y
-  -- Bangs are for the proper order of sharing stamps.
-  ifF !b !v !w = case stensorKind @y of
-    STKScalar{} -> error "TODO"
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
-      indexPrimal (fromVector $ V.fromList [v, w])
-                  (fromList [ifF b 0 1])
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
-      indexPrimalS @_ @_ @'[2]
-                   (fromVectorS $ V.fromList [v, w])
-                   (fromList [ifF b 0 1])
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $
-      indexPrimalX @_ @_ @'[Just 2]
-                   (fromVectorX $ V.fromList [v, w])
-                   (fromList [ifF b 0 1])
-    _ -> error "TODO"
-
-indexPrimalS :: ( ADReadyNoLet target, TensorKind r
-                , KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2) )
-             => ADVal target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
-             -> ADVal target (TKS2 sh2 r)
-indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
-
-fromVectorS :: forall n sh target r.
-               (ADReadyNoLet target, KnownNat n, KnownShS sh, TensorKind r)
-            => Data.Vector.Vector (ADVal target (TKS2 sh r))
-            -> ADVal target (TKS2 (n ': sh) r)
-fromVectorS lu = assert (length lu == valueOf @n) $
-  dD (sfromVector $ V.map (\(D u _) -> u) lu)
-     (FromVectorS $ V.map (\(D _ u') -> u') lu)
-
-indexPrimalX :: ( ADReadyNoLet target
-                , TensorKind r, KnownShX sh1, KnownShX sh2
-                , KnownShX (sh1 ++ sh2) )
-             => ADVal target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
-             -> ADVal target (TKX2 sh2 r)
-indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
-
-fromVectorX :: forall n sh target r.
-               ( ADReadyNoLet target
-               , KnownNat n, KnownShX sh, TensorKind r )
-            => Data.Vector.Vector (ADVal target (TKX2 sh r))
-            -> ADVal target (TKX2 (Just n ': sh) r)
-fromVectorX lu = assert (length lu == valueOf @n) $
-  dD (xfromVector $ V.map (\(D u _) -> u) lu)
-     (FromVectorX $ V.map (\(D _ u') -> u') lu)
-
-{- TODO: use for speed-up, e.g,. by checking the type at runtime
-instance IfF (ADVal (FlipR OR.Array)) where
-  ifF (_, b) v w = if b then v else w
-
-instance IfF (ADVal (FlipS OS.Array)) where
-  ifF (_, b) v w = if b then v else w
--}
 
 type instance HFunOf (ADVal f) x y = HFun x y
 

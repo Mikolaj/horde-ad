@@ -14,14 +14,17 @@ module HordeAd.Core.OpsADVal
 
 import Prelude hiding (foldl')
 
+import Control.Exception.Assert.Sugar
 import Data.List (foldl')
 import Data.List.Index (imap)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
+import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
@@ -243,6 +246,53 @@ instance ( BaseTensor target
         !rl = reverse l
     in Just (AsHVector rl, Just restAll)
 
+indexPrimal :: ( ADReadyNoLet target, TensorKind r
+               , KnownNat m, KnownNat n )
+            => ADVal target (TKR2 (m + n) r) -> IxROf target m
+            -> ADVal target (TKR2 n r)
+indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
+
+indexPrimalS :: ( ADReadyNoLet target, TensorKind r
+                , KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2) )
+             => ADVal target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
+             -> ADVal target (TKS2 sh2 r)
+indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
+
+indexPrimalX :: ( ADReadyNoLet target
+                , TensorKind r, KnownShX sh1, KnownShX sh2
+                , KnownShX (sh1 ++ sh2) )
+             => ADVal target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
+             -> ADVal target (TKX2 sh2 r)
+indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
+
+instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
+         => IfF (ADVal target) where
+  ifF :: forall y. TensorKind y
+      => BoolOf target -> ADVal target y -> ADVal target y -> ADVal target y
+  -- Bangs are for the proper order of sharing stamps.
+  ifF !b !v !w = case stensorKind @y of
+    STKScalar{} -> error "TODO"
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+      indexPrimal (rfromVector $ V.fromList [v, w])
+                  (fromList [ifF b 0 1])
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
+      indexPrimalS @_ @_ @'[2]
+                   (sfromVector $ V.fromList [v, w])
+                   (fromList [ifF b 0 1])
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $
+      indexPrimalX @_ @_ @'[Just 2]
+                   (xfromVector $ V.fromList [v, w])
+                   (fromList [ifF b 0 1])
+    _ -> error "TODO"
+
+{- TODO: use for speed-up, e.g,. by checking the type at runtime
+instance IfF (ADVal (FlipR OR.Array)) where
+  ifF (_, b) v w = if b then v else w
+
+instance IfF (ADVal (FlipS OS.Array)) where
+  ifF (_, b) v w = if b then v else w
+-}
+
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
@@ -279,7 +329,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (rscatter sh u g) (ScatterR sh u' g)
 
-  rfromVector = fromVector
+  rfromVector :: forall n r. (KnownNat n, TensorKind r)
+              => Data.Vector.Vector (ADVal target (TKR2 n r))
+              -> ADVal target (TKR2 (1 + n) r)
+  rfromVector lu =
+    -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
+    dD (rfromVector $ V.map (\(D u _) -> u) lu)
+       (FromVectorR $ V.map (\(D _ u') -> u') lu)
   runravelToList (D u u') =
     let lu = runravelToList u
         f i ui = dD ui (IndexR u' (singletonIndex $ fromIntegral i))
@@ -330,7 +386,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   xshape (D u _) = xshape u
   xindex d i = indexPrimalX d (tprimalPart (STKScalar typeRep) <$> i)
-  xfromVector = fromVectorX
+
+  xfromVector :: forall n sh r. (KnownNat n, KnownShX sh, TensorKind r)
+              => Data.Vector.Vector (ADVal target (TKX2 sh r))
+              -> ADVal target (TKX2 (Just n ': sh) r)
+  xfromVector lu = assert (length lu == valueOf @n) $
+    dD (xfromVector $ V.map (\(D u _) -> u) lu)
+       (FromVectorX $ V.map (\(D _ u') -> u') lu)
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
   xzip (D u u') = dD (xzip u) (ZipX u')
@@ -366,7 +428,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (sscatter u g) (ScatterS u' g)
 
-  sfromVector = fromVectorS
+  sfromVector :: forall n sh r. (KnownNat n, KnownShS sh, TensorKind r)
+              => Data.Vector.Vector (ADVal target (TKS2 sh r))
+              -> ADVal target (TKS2 (n ': sh) r)
+  sfromVector lu = assert (length lu == valueOf @n) $
+    dD (sfromVector $ V.map (\(D u _) -> u) lu)
+       (FromVectorS $ V.map (\(D _ u') -> u') lu)
   sunravelToList (D u u') =
     let lu = sunravelToList u
         f i ui = dD ui (IndexS u' (ShapedList.singletonIndex $ fromIntegral i))
