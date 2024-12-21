@@ -63,11 +63,9 @@ import GHC.TypeLits
   ( KnownNat
   , Nat
   , OrderingI (..)
-  , SomeNat (..)
   , cmpNat
   , fromSNat
   , sameNat
-  , someNatVal
   , type (+)
   , type (-)
   , type (<=)
@@ -76,6 +74,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Mixed.Types qualified as X (unsafeCoerceRefl)
@@ -147,27 +146,26 @@ astTransposeAsGather
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather knobs perm v =
   let pInt = length perm
-  in case someNatVal $ toInteger pInt of
-    Just (SomeNat @p _) -> do
-      funToVarsIx pInt $ \ (!vars, !ix) ->
-        let asts :: AstIxR AstMethodLet p
-            asts = Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix
-        in case cmpNat (Proxy @p) (Proxy @n) of
-          EQI -> astGatherKnobsR @p @(n - p) knobs
-                                 (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
-                                 (vars, asts)
-          LTI -> astGatherKnobsR @p @(n - p) knobs
-                                 (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
-                                 (vars, asts)
-          _ -> error "astTransposeAsGather: permutation longer than rank"
-    Nothing -> error "astTransposeAsGather: impossible someNatVal error"
+  in withSNat pInt $ \ (SNat @p) ->
+    funToVarsIx pInt $ \ (!vars, !ix) ->
+      let asts :: AstIxR AstMethodLet p
+          asts = Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix
+      in case cmpNat (Proxy @p) (Proxy @n) of
+        EQI -> astGatherKnobsR @p @0 knobs
+                 (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
+                 (vars, asts)
+        LTI -> astGatherKnobsR @p @(n - p) knobs
+                 (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
+                 (vars, asts)
+        _ -> error "astTransposeAsGather: permutation longer than rank"
 
 astTransposeAsGatherS
-  :: forall perm sh s r p. (TensorKind r, KnownShS sh, p ~ Rank perm)
-  => Permutation.Perm perm -> SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 sh r)
+  :: forall perm sh s r. (TensorKind r, KnownShS sh)
+  => SimplifyKnobs -> Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 {-# NOINLINE astTransposeAsGatherS #-}
-astTransposeAsGatherS perm knobs v =
+astTransposeAsGatherS knobs perm v = case Permutation.permRank perm of
+ SNat @p ->
   withShapeP (drop (sNatValue (Permutation.permRank perm))
               $ shapeT @sh) $ \(Proxy @shd) ->
     gcastWith (unsafeCoerce Refl :: Drop p sh :~: shd) $
@@ -190,9 +188,7 @@ astTransposeAsGatherS perm knobs v =
              $ \(Proxy @sh2shp) ->
              gcastWith (unsafeCoerce Refl
                         :: sh2shp :~: sh2 ++ Drop p sh) $
-             case Permutation.permRank perm of
-               SNat @p2 -> gcastWith (unsafeCoerce Refl :: p2 :~: p) $
-                           astGatherKnobsS @sh2 @p @sh knobs v (vars, asts)
+             astGatherKnobsS @sh2 @p @sh knobs v (vars, asts)
 
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
@@ -227,9 +223,11 @@ astReshapeAsGather
 astReshapeAsGather knobs shOut v =
   funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
     let shIn = shapeAst v
+        fromInt = AstConcrete FTKScalar . RepN . fromIntegral
         asts :: AstIxR AstMethodLet p
-        asts = let i = toLinearIdx @m @0 (AstConcrete FTKScalar . RepN . fromIntegral) shOut ix
-               in simplifyAstIxR $ fromLinearIdx (AstConcrete FTKScalar . RepN . fromIntegral) shIn i
+        asts = let i :: AstInt AstMethodLet
+                   i = toLinearIdx @m @0 fromInt shOut ix
+               in simplifyAstIxR $ fromLinearIdx fromInt shIn i
                     -- we generate these, so we simplify
     in astGatherKnobsR @m @0 knobs shOut v (vars, asts)
 
@@ -238,21 +236,20 @@ astReshapeAsGatherS
   => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 sh2 r)
 {-# NOINLINE astReshapeAsGatherS #-}
-astReshapeAsGatherS knobs v =
-  gcastWith (unsafeCoerce Refl :: sh2 ++ '[] :~: sh2) $
-  funToVarsIxS @sh2 $ \ (!vars, !ix) ->
+astReshapeAsGatherS knobs v | Refl <- lemAppNil @sh2 =
+   funToVarsIxS @sh2 $ \ (!vars, !ix) ->
     let shIn = knownShS @sh
         shOut = knownShS @sh2
+        fromInt = AstConcrete FTKScalar . RepN . fromIntegral
         asts :: AstIxS AstMethodLet sh
         asts = let i :: AstInt AstMethodLet
-                   i = ShapedList.toLinearIdx @sh2 @'[] (AstConcrete FTKScalar . RepN . fromIntegral) shOut ix
-               in simplifyAstIxS $ ShapedList.fromLinearIdx (AstConcrete FTKScalar . RepN . fromIntegral) shIn i
+                   i = ShapedList.toLinearIdx @sh2 @'[] fromInt shOut ix
+               in simplifyAstIxS $ ShapedList.fromLinearIdx fromInt shIn i
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[]) $
-       withListSh (Proxy @sh) $ \(_ :: IShR p) ->
-       gcastWith (unsafeCoerce Refl :: Rank sh :~: p) $
-       astGatherKnobsS @sh2 @p @sh knobs v (vars, asts)
+       case shsRank shIn of
+         SNat @p -> astGatherKnobsS @sh2 @p @sh knobs v (vars, asts)
 
 
 -- * Permutation operations
@@ -831,7 +828,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
   Ast.AstTransposeS @perm perm v
     | rankPerm <- Permutation.permRank perm
     , length (shapeT @shm) < sNatValue rankPerm ->
-        astIndex (astTransposeAsGatherS @perm perm knobs v) ix
+        astIndex (astTransposeAsGatherS @perm knobs perm v) ix
   Ast.AstTransposeS @perm @sh2 perm v ->
     withShapeP
       (permutePrefixList (Permutation.permToList' perm)
