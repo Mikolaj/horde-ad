@@ -50,7 +50,7 @@ build-type:         Simple
 extra-doc-files:    README.md,
                     CHANGELOG.md
 
-tested-with:        GHC ==9.6.6 || ==9.8.4 || ==9.10.1 || ==9.12.1
+tested-with:        GHC ==9.8.4 || ==9.10.1 || ==9.12.1
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
