@@ -213,7 +213,9 @@ build1V snat@SNat (var, v0) =
         Ast.AstD (build1VOccurenceUnknown snat (var, u))
                  (build1VOccurenceUnknown snat (var, u'))
     Ast.AstCond b v w -> traceRule $ case stensorKind @y of
-      STKScalar{} -> error "TODO"
+      STKScalar{} ->
+        error $ "build1V: AstCond: building over scalars is undefined: "
+                ++ show v0
       STKR SNat x | Dict <- lemTensorKindOfSTK x ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
                              (singletonIndex (astCond b 0 1))
@@ -223,7 +225,7 @@ build1V snat@SNat (var, v0) =
                                     (astCond b 0 1 :.$ ZIS)
         in build1VOccurenceUnknown snat (var, t)
       STKX{} -> error "TODO"
-      STKProduct{} -> error "TODO"
+      STKProduct{} -> error "TODO"  -- revisit when we have general Index; also look at tcond
       STKUntyped -> error "TODO"
     Ast.AstReplicate @y2 snat2@(SNat @k2) v
      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $

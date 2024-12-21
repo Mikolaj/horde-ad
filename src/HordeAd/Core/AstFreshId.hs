@@ -67,35 +67,9 @@ funToAstIO :: forall y z s s2 ms. TensorKind y
 {-# INLINE funToAstIO #-}
 funToAstIO ftk f = do
   freshId <- unsafeGetFreshAstVarId
-  case ftk of
-    FTKScalar @r ->
-      return $!
-        let varName = mkAstVarName freshId
-            !x = f (AstVar FTKScalar varName)
-        in (varName, x)
-    FTKR shr (FTKScalar @r) ->
-      return $! withShapeP (shapeToList shr) $ \(Proxy @p_sh) ->
-        let varName = mkAstVarName freshId
-            !x = f (AstVar ftk varName)
-        in (varName, x)
-    FTKS @sh _shs (FTKScalar @r) -> do
-      let varName = mkAstVarName freshId
-          !x = f (AstVar ftk varName)
-      return (varName, x)
-    FTKS _ (FTKS _ FTKScalar) -> do
-      let varName = mkAstVarName freshId
-          !x = f (AstVar ftk varName)
-      return (varName, x)
-    FTKX{} -> error "TODO"
-    FTKProduct{} -> do
-      let varName = mkAstVarName freshId
-          !x = f (AstVar ftk varName)
-      return (varName, x)
-    FTKUntyped{} -> do
-      let varName = mkAstVarName freshId
-          !x = f (AstVar ftk varName)
-      return (varName, x)
-    _ -> error "TODO"
+  let varName = mkAstVarName freshId
+      !x = f (AstVar ftk varName)
+  return (varName, x)
 
 funToAst :: TensorKind y
          => FullTensorKind y
