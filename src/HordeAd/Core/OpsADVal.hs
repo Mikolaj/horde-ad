@@ -53,6 +53,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Util.ShapedList (ssxRank)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -511,7 +512,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     dSFromX d = SFromX d
   xfromR :: forall sh r. (KnownShX sh, TensorKind r)
          => ADVal target (TKR2 (Rank sh) r) -> ADVal target (TKX2 sh r)
-  xfromR (D u u') | Dict <- lemKnownNatRankX (knownShX @sh) =
+  xfromR (D u u') | SNat <- ssxRank (knownShX @sh) =
     dDnotShared (xfromR u) (XFromR u')
   xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
 

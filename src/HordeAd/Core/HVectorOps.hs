@@ -49,7 +49,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend)
+  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, shsRank)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -89,7 +89,7 @@ soneHot :: forall r sh1 sh2 target.
         => target (TKS2 sh2 r) -> IxSOf target sh1
         -> target (TKS2 (sh1 ++ sh2) r)
 soneHot v ix = case stensorKind @r of
-  STKScalar{} | Dict <- lemKnownNatRankS (knownShS @sh1) ->
+  STKScalar{} | SNat <- shsRank (knownShS @sh1) ->
     gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
     gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
     sscatter @_ @_ @'[] @(Rank sh1) v (const ix)

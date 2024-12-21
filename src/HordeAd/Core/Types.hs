@@ -10,7 +10,7 @@ module HordeAd.Core.Types
   , withKnownShS, withKnownShX
   , sshapeKnown, slistKnown, sixKnown, knownShR
   , shapeT, shapeP, sizeT, sizeP
-  , withShapeP, sameShape, matchingRank, lemKnownNatRankS, lemKnownNatRankX
+  , withShapeP, sameShape, matchingRank
   , Dict(..), PermC, trustMeThisIsAPermutation
   , Take, Drop, Last, Init
     -- * Kinds of the functors that determine the structure of a tensor type
@@ -140,14 +140,6 @@ matchingRank =
   if length (shapeT @sh1) == valueOf @n2
   then Just (unsafeCoerce Refl :: Rank sh1 :~: n2)
   else Nothing
-
-lemKnownNatRankS :: ShS sh -> Dict KnownNat (Rank sh)
-lemKnownNatRankS ZSS = Dict
-lemKnownNatRankS (_ :$$ sh) | Dict <- lemKnownNatRankS sh = Dict
-
-lemKnownNatRankX :: StaticShX sh -> Dict KnownNat (Rank sh)
-lemKnownNatRankX ZKX = Dict
-lemKnownNatRankX (_ :!% sh) | Dict <- lemKnownNatRankX sh = Dict
 
 class Permutation.IsPermutation is => PermC is
 instance Permutation.IsPermutation is => PermC is

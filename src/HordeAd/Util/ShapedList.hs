@@ -26,6 +26,7 @@ module HordeAd.Util.ShapedList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   , permutePrefixIndex
+  , ssxRank
   ) where
 
 import Prelude
@@ -36,7 +37,7 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX)
+import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank)
 import Data.Array.Nested
   ( IxR
   , IxS (..)
@@ -261,3 +262,6 @@ permutePrefixSized p ix =
 permutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
                    => Permutation.PermR -> IxS sh i -> IxS sh2 i
 permutePrefixIndex p (IxS ix) = IxS $ permutePrefixSized p ix
+
+ssxRank :: StaticShX sh -> SNat (Rank sh)
+ssxRank (StaticShX l) = listxRank l

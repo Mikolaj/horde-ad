@@ -42,12 +42,13 @@ import Data.Array.Mixed.Shape
 import Data.Array.Nested
   (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShX (..))
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shCvtXR', shrSize, shsSize)
+  (shCvtRX, shCvtSX, shCvtXR', shrSize, shsRank, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Util.ShapedList (ssxRank)
 import HordeAd.Util.SizedList
 
 -- * Shape calculation
@@ -196,17 +197,17 @@ ftkAst t = case t of
     FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   AstRFromS @sh v
-   | Dict <- lemKnownNatRankS (knownShS @sh) -> case ftkAst v of
+   | SNat <- shsRank (knownShS @sh) -> case ftkAst v of
     FTKS _ x -> FTKR (fromList $ shapeT @sh) x
   AstRFromX @sh v
-   | Dict <- lemKnownNatRankX (knownShX @sh) -> case ftkAst v of
+   | SNat <- ssxRank (knownShX @sh) -> case ftkAst v of
     FTKX shx x -> FTKR (fromList $ toList shx) x
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
     FTKX _ x -> FTKS knownShS x
   AstXFromR @sh v
-   | Dict <- lemKnownNatRankX (knownShX @sh) -> case ftkAst v of
+   | SNat <- ssxRank (knownShX @sh) -> case ftkAst v of
     FTKR shr x -> FTKX (fromList $ toList shr) x
   AstXFromS v -> case ftkAst v of
     FTKS sh x -> FTKX (fromList $ toList sh) x

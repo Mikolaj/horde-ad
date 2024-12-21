@@ -42,7 +42,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank, shsRank)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -604,7 +604,7 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, TensorKind r, AstSpan s)
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
-astTrS | Dict <- lemKnownNatRankS (knownShS @sh) =
+astTrS | SNat <- shsRank (knownShS @sh) =
   astTransposeS (Permutation.makePerm @'[1, 0])
 astTrX :: forall n m sh s r.
 --          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)

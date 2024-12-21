@@ -24,6 +24,7 @@ import GHC.TypeLits (KnownNat, Nat)
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Nested (KnownShS (..), Rank)
+import Data.Array.Nested.Internal.Shape (shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersAst
@@ -155,7 +156,7 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) = do
             -> IO ( AstDynamic AstMethodShare PrimalSpan
                   , AstDynamic AstMethodLet FullSpan )
           f i (DynamicRankedDummy @r @sh _ _)
-            | Dict <- lemKnownNatRankS (knownShS @sh) = do
+            | SNat <- shsRank (knownShS @sh) = do
               return
                 ( DynamicRanked @r @(Rank sh)
                                 (AstProjectR astVarPrimal i)
@@ -219,7 +220,7 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk)
                   , AstDynamic AstMethodShare PrimalSpan
                   , AstDynamic AstMethodLet FullSpan )
           f i (DynamicRankedDummy @r @sh _ _)
-            | Dict <- lemKnownNatRankS (knownShS @sh) = do
+            | SNat <- shsRank (knownShS @sh) = do
               return
                 ( DynamicRanked @r @(Rank sh)
                                 (AstProjectR astVarPrimalD i)

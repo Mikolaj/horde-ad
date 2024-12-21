@@ -102,6 +102,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Util.ShapedList (ssxRank)
 import HordeAd.Util.SizedList
 
 type IMap target = DEnumMap (InputId target) (RepM target)
@@ -815,17 +816,17 @@ shapeDeltaFull = \case
     FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   RFromS @sh d
-   | Dict <- lemKnownNatRankS (knownShS @sh) -> case shapeDeltaFull d of
+   | SNat <- shsRank (knownShS @sh) -> case shapeDeltaFull d of
     FTKS _ x -> FTKR (fromList $ shapeT @sh) x
   RFromX @sh d
-   | Dict <- lemKnownNatRankX (knownShX @sh) -> case shapeDeltaFull d of
+   | SNat <- ssxRank (knownShX @sh) -> case shapeDeltaFull d of
     FTKX shx x -> FTKR (fromList $ toList shx) x
   SFromR d -> case shapeDeltaFull d of
     FTKR _ x -> FTKS knownShS x
   SFromX d -> case shapeDeltaFull d of
     FTKX _ x -> FTKS knownShS x
   XFromR @sh d
-   | Dict <- lemKnownNatRankX (knownShX @sh) -> case shapeDeltaFull d of
+   | SNat <- ssxRank (knownShX @sh) -> case shapeDeltaFull d of
     FTKR shr x -> FTKX (fromList $ toList shr) x
   XFromS d -> case shapeDeltaFull d of
     FTKS sh x -> FTKX (fromList $ toList sh) x
@@ -1384,9 +1385,9 @@ evalSame !s !c = \case
     evalSame s (xzip c) d
 
   RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
-  RFromS @sh d | Dict <- lemKnownNatRankS (knownShS @sh) ->
+  RFromS @sh d | SNat <- shsRank (knownShS @sh) ->
     evalSame s (sfromR c) d
-  RFromX @sh d | Dict <- lemKnownNatRankX (knownShX @sh) ->
+  RFromX @sh d | SNat <- ssxRank (knownShX @sh) ->
     evalSame s (xfromR c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
@@ -1401,7 +1402,7 @@ evalSame !s !c = \case
   SFromX d ->
     evalSame s (xfromS c) d
 -- impossible, shapes may differ: XFromS (SFromX d) -> evalSame s c d
-  XFromR @sh d | Dict <- lemKnownNatRankX (knownShX @sh) ->
+  XFromR @sh d | SNat <- ssxRank (knownShX @sh) ->
     evalSame s (rfromX c) d
   XFromS @sh d ->
     evalSame s (sfromX c) d
@@ -1770,7 +1771,7 @@ fwdSame params s = \case
       Just Refl -> fwdSame params s d
       _ -> error "fwdSame: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ fwdSame params s d
-  XFromR @sh d | Dict <- lemKnownNatRankX (knownShX @sh) ->
+  XFromR @sh d | SNat <- ssxRank (knownShX @sh) ->
     second xfromR $ fwdSame params s d
   XFromS d -> second xfromS $ fwdSame params s d
   SFromX @sh (XFromS @sh2 d) ->

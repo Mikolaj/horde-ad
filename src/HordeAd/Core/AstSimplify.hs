@@ -104,7 +104,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend, shsRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -121,6 +121,7 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Util.ShapedList (ssxRank)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -2236,12 +2237,12 @@ astRFromS :: forall sh s r. (TensorKind r, KnownShS sh)
           => AstTensor AstMethodLet s (TKS2 sh r)
           -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
 astRFromS (AstConcrete ftk t)
- | Dict <- lemKnownNatRankS (knownShS @sh) = case ftk of
+ | SNat <- shsRank (knownShS @sh) = case ftk of
   FTKS _ x ->
     let u = rfromS t
     in AstConcrete (FTKR (rshape u) x) u
 astRFromS (Ast.AstFromPrimal v)
- | Dict <- lemKnownNatRankS (knownShS @sh) =
+ | SNat <- shsRank (knownShS @sh) =
   Ast.AstFromPrimal $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
@@ -2250,12 +2251,12 @@ astRFromX :: forall sh s r. (TensorKind r, KnownShX sh)
           => AstTensor AstMethodLet s (TKX2 sh r)
           -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
 astRFromX (AstConcrete ftk t)
- | Dict <- lemKnownNatRankX (knownShX @sh) = case ftk of
+ | SNat <- ssxRank (knownShX @sh) = case ftk of
   FTKX _ x ->
     let u = rfromX t
     in AstConcrete (FTKR (rshape u) x) u
 astRFromX (Ast.AstFromPrimal v)
- | Dict <- lemKnownNatRankX (knownShX @sh) =
+ | SNat <- ssxRank (knownShX @sh) =
   Ast.AstFromPrimal $ astRFromX v
 astRFromX (Ast.AstXFromR v) = v  -- no information lost, so no checks
 astRFromX v = Ast.AstRFromX v
@@ -2760,7 +2761,7 @@ astLetHVectorIn vars l v = case v of
                          -> AstTensor AstMethodLet s2 z
                    mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
                      | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-                     , Dict <- lemKnownNatRankS (knownShS @sh3) =
+                     , SNat <- shsRank (knownShS @sh3) =
                        astLet (mkAstVarName @s @(TKR (Rank sh3) r3) varId)
                               (astProjectR l i)
                      | otherwise =
