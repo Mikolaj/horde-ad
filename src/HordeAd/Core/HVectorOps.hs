@@ -63,7 +63,7 @@ import HordeAd.Util.SizedList
 
 roneHot :: forall r m n target.
            ( BaseTensor target, TensorKind r, KnownNat m, KnownNat n
-           , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
+           , BoolOf (PrimalOf target) ~ BoolOf target
            , EqF (PrimalOf target) )
         => IShR m -> target (TKR2 n r) -> IxROf target m
         -> target (TKR2 (m + n) r)
@@ -84,7 +84,7 @@ roneHot sh v ix = case stensorKind @r of
 soneHot :: forall r sh1 sh2 target.
            ( BaseTensor target, TensorKind r, KnownShS sh1, KnownShS sh2
            , KnownShS (sh1 ++ sh2)
-           , BoolOf (PrimalOf target) ~ BoolOf target, IfF target
+           , BoolOf (PrimalOf target) ~ BoolOf target
            , EqF (PrimalOf target) )
         => target (TKS2 sh2 r) -> IxSOf target sh1
         -> target (TKS2 (sh1 ++ sh2) r)

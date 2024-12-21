@@ -26,26 +26,19 @@ import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
-  (pattern (:.%), pattern ZIX, ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IShR
+  , IxR (..)
   , IxS (..)
+  , IxX (..)
   , KnownShS (..)
   , KnownShX (..)
+  , ListR (..)
   , ListS (..)
   , Rank
   , ShR (..)
   , ShS (..)
-  , pattern (:$:)
-  , pattern (:.$)
-  , pattern (:.:)
-  , pattern (::$)
-  , pattern (:::)
-  , pattern ZIR
-  , pattern ZIS
-  , pattern ZR
-  , pattern ZS
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -218,7 +211,7 @@ build1V snat@SNat (var, v0) =
                 ++ show v0
       STKR SNat x | Dict <- lemTensorKindOfSTK x ->
         let t = astIndexStep (astFromVector $ V.fromList [v, w])
-                             (singletonIndex (astCond b 0 1))
+                             (astCond b 0 1 :.: ZIR)
         in build1VOccurenceUnknown snat (var, t)
       STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
         let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])

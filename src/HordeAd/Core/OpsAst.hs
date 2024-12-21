@@ -152,9 +152,6 @@ fwdProduceArtifact f envInit =
 
 type instance BoolOf (AstTensor AstMethodLet s) = AstBool AstMethodLet
 
-instance IfF (AstTensor AstMethodLet s) where
-  ifF cond a b = astCond cond a b
-
 instance AstSpan s => EqF (AstTensor AstMethodLet s) where
   AstConcrete _ u ==. AstConcrete _ v = AstBoolConst $ u ==. v
     -- common in indexing
@@ -467,7 +464,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject2 = astProject2
   dshape = shapeAstHVector
   tftk _stk = ftkAst
-  tcond stk b u v | Dict <- lemTensorKindOfSTK stk = AstCond b u v
+  tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk = astCond b u v
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimal t
   tprimalPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanPrimal t
   tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDual t
@@ -584,9 +581,6 @@ astSpanDualRaw t | Just Refl <- sameAstSpan @s @FullSpan = AstDualPart t
 astSpanDualRaw _ = error "a spuriuos case for pattern match coverage"
 
 type instance BoolOf (AstRaw s) = AstBool AstMethodShare
-
-instance IfF (AstRaw s) where
-  ifF cond a b = AstRaw $ AstCond cond (unAstRaw a) (unAstRaw b)
 
 instance AstSpan s => EqF (AstRaw s) where
   AstRaw v ==. AstRaw u = AstRel EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
@@ -772,7 +766,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
   dshape = shapeAstHVector . unAstRaw
   tftk _stk = ftkAst . unAstRaw
-  tcond stk b u v | Dict <- lemTensorKindOfSTK stk =
+  tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ fromPrimal $ unAstRaw t
@@ -850,7 +844,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
 type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
 
-deriving instance IfF (AstNoVectorize s)
 deriving instance AstSpan s => EqF (AstNoVectorize s)
 deriving instance AstSpan s => OrdF (AstNoVectorize s)
 deriving instance Eq (AstNoVectorize s y)
@@ -1020,7 +1013,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject2 t = AstNoVectorize $ astProject2 $ unAstNoVectorize t
   dshape = shapeAstHVector . unAstNoVectorize
   tftk _stk = ftkAst . unAstNoVectorize
-  tcond stk b u v = AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
+  tcond !stk !b !u !v =
+    AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tprimalPart stk t = AstNoVectorize $ tprimalPart stk $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
@@ -1088,7 +1082,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
 type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 
-deriving instance IfF (AstNoSimplify s)
 deriving instance AstSpan s => EqF (AstNoSimplify s)
 deriving instance AstSpan s => OrdF (AstNoSimplify s)
 deriving instance Eq (AstNoSimplify s y)
@@ -1286,7 +1279,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tproject2 t = AstNoSimplify $ AstProject2 $ unAstNoSimplify t
   dshape = shapeAstHVector . unAstNoSimplify
   tftk _stk = ftkAst . unAstNoSimplify
-  tcond stk b u v | Dict <- lemTensorKindOfSTK stk =
+  tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ fromPrimal $ unAstNoSimplify t

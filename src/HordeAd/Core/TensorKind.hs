@@ -20,8 +20,7 @@ module HordeAd.Core.TensorKind
   , rankDynamic, isDynamicRanked, voidFromShL, voidFromSh, voidFromShS
   , voidFromDynamicF, replicate1VoidHVector, index1HVectorF, replicate1HVectorF
     -- * Generic types of booleans and related class definitions
-  , BoolOf, Boolean(..)
-  , IfF(..), EqF(..), OrdF(..), minF, maxF
+  , BoolOf, Boolean(..), EqF(..), OrdF(..)
   ) where
 
 import Prelude
@@ -553,9 +552,6 @@ replicate1DynamicF rreplicate sreplicate k@(SNat @k) u = case u of
 
 type family BoolOf (t :: Target) :: Type
 
-class Boolean (BoolOf f) => IfF (f :: Target) where
-  ifF :: TensorKind y => BoolOf f -> f y -> f y -> f y
-
 infix 4 ==., /=.
 class Boolean (BoolOf f) => EqF (f :: Target) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
@@ -569,11 +565,3 @@ class Boolean (BoolOf f) => OrdF (f :: Target) where
   u >. v = v <. u
   u >=. v = notB (u <. v)
   u <=. v = v >=. u
-
-minF :: (IfF f, OrdF f, TensorKind y)
-     => f y -> f y -> f y
-minF u v = ifF (u <=. v) u v
-
-maxF :: (IfF f, OrdF f, TensorKind y)
-     => f y -> f y -> f y
-maxF u v = ifF (u >=. v) u v

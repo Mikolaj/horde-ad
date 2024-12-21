@@ -1022,11 +1022,18 @@ class ( Num (IntOf target)
             -> target z
   dshape :: target TKUntyped -> VoidHVector
   tftk :: STensorKindType y -> target y -> FullTensorKind y
-  tcond :: IfF target
+  tcond :: Boolean (BoolOf target)
         => STensorKindType y
-        -> BoolOf target
-        -> target y -> target y
-        -> target y
+        -> BoolOf target -> target y -> target y -> target y
+  ifF :: (Boolean (BoolOf target), TensorKind y)
+      => BoolOf target -> target y -> target y -> target y
+  ifF = tcond stensorKind
+  minF :: (Boolean (BoolOf target), OrdF target, TensorKind y)
+       => target y -> target y -> target y
+  minF u v = ifF (u <=. v) u v
+  maxF :: (Boolean (BoolOf target), OrdF target, TensorKind y)
+       => target y -> target y -> target y
+  maxF u v = ifF (u >=. v) u v
   tfromPrimal :: STensorKindType y
               -> PrimalOf target y
               -> target y
@@ -1624,7 +1631,6 @@ type ADReadyEqs target =
 
 type ADReadyClasses target =
   ( Boolean (BoolOf target)
-  , IfF target
   , EqF target
   , OrdF target
   , BaseTensor target

@@ -104,9 +104,6 @@ instance OrdF RepN where
     STKUntyped -> error "TODO"
     _ -> error "TODO"
 
-instance IfF RepN where
-  ifF b v w = if b then v else w
-
 instance LetTensor RepN where
   tlet = (&)
   toShare = id

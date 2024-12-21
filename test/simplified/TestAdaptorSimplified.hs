@@ -411,7 +411,7 @@ testPiecewiseLinearPP = do
       fT x = ifF (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactAdapt True fT (rscalar 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x2 x1 -> let v3 = roneHot [] x2 [ifF (x1 >. rscalar 0.0) 0 1] in rscalar 2.0 * v3 ! [0] + rscalar 5.0 * v3 ! [1]"
+    @?= "\\x2 x1 -> let v3 = roneHot [] x2 [ifF (x1 >. rscalar 0.0) 0 1] in rscalar 5.0 * v3 ! [1] + rscalar 2.0 * v3 ! [0]"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromVector (fromList [rscalar 2.0 * x1, rscalar 5.0 * x1]) ! [ifF (x1 >. rscalar 0.0) 0 1]"
 

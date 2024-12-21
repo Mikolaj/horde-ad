@@ -24,14 +24,23 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (StaticShX, ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
-  (IShR, KnownShS (..), KnownShX (..), MapJust, Rank, Replicate, type (++))
+  ( IShR
+  , IxR (..)
+  , IxS (..)
+  , IxX (..)
+  , KnownShS (..)
+  , KnownShX (..)
+  , MapJust
+  , Rank
+  , Replicate
+  , type (++)
+  )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shCvtSX)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
@@ -264,20 +273,6 @@ indexPrimalX :: ( ADReadyNoLet target
              => ADVal target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
              -> ADVal target (TKX2 sh2 r)
 indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
-
-instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
-         => IfF (ADVal target) where
-  ifF :: forall y. TensorKind y
-      => BoolOf target -> ADVal target y -> ADVal target y -> ADVal target y
-  ifF = tcond (stensorKind @y)
-
-{- TODO: use for speed-up, e.g,. by checking the type at runtime
-instance IfF (ADVal (FlipR OR.Array)) where
-  ifF (_, b) v w = if b then v else w
-
-instance IfF (ADVal (FlipS OS.Array)) where
-  ifF (_, b) v w = if b then v else w
--}
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -578,15 +573,15 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     STKScalar _ -> rtoScalar $ ifF b (rfromScalar u) (rfromScalar v)
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       indexPrimal (rfromVector $ V.fromList [u, v])
-                  (fromList [ifF b 0 1])
+                  (ifF b 0 1 :.: ZIR)
     STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
       indexPrimalS @_ @_ @'[2]
                    (sfromVector $ V.fromList [u, v])
-                   (fromList [ifF b 0 1])
+                   (ifF b 0 1 :.$ ZIS)
     STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $
       indexPrimalX @_ @_ @'[Just 2]
                    (xfromVector $ V.fromList [u, v])
-                   (fromList [ifF b 0 1])
+                   (ifF b 0 1 :.% ZIX)
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                          , Dict <- lemTensorKindOfSTK stk2 ->
       let (u1, u2) = tunpair u
