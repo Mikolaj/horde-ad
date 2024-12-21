@@ -205,12 +205,12 @@ generateDeltaInputs
      FullTensorKind x -> Delta target x
 generateDeltaInputs =
   let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
-      gen j ftk = case ftk of
+      gen j ftk| Dict <- lemTensorKindOfSTK (ftkToStk ftk) = case ftk of
         FTKScalar -> (InputG ftk (toInputId j), j + 1)
-        FTKR sh FTKScalar | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
-        FTKS sh FTKScalar -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
-        FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh)
-                   $ (InputG ftk (toInputId j), j + 1)
+        FTKR sh _ | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
+        FTKS sh _ -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
+        FTKX sh _ -> withKnownShX (ssxFromShape sh)
+                     $ (InputG ftk (toInputId j), j + 1)
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
                              , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
                              , Dict <- eltDictRep (ftkToStk ftk1)
@@ -227,7 +227,6 @@ generateDeltaInputs =
                 DynamicShaped $ InputG (FTKS @sh knownShS (FTKScalar @r)) (toInputId i)
               len = V.length shs
           in (HToH $ V.map f $ V.zip (V.enumFromN j len) shs, j + len)
-        _ -> error "TODO"
   in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs

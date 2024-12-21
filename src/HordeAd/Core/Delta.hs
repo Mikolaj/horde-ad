@@ -94,7 +94,8 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtRX, shCvtSX, shCvtXR', shrRank)
+import Data.Array.Nested.Internal.Shape
+  (shCvtRX, shCvtSX, shCvtXR', shrRank, shsRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -145,10 +146,10 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                            ++ " instead of "
                            ++ "FTKR @" ++ show (valueOf @n :: Int)
                            ++ " within " ++ show_iMap (iMap s2)
-          Some mt@(MTKRDummy @r2 @sh2) : rest
-            | Dict <- lemKnownNatRankS (knownShS @sh2)
-            , Just Refl <- sameNat (Proxy @n) (Proxy @(Rank sh2))
-            , Just Refl <- sameSTK (ftkToStk x) (STKScalar (typeRep @r2)) ->
+          Some mt@(MTKRDummy @_ @n2 sh2 x2) : rest
+            | SNat <- shrRank sh2
+            , Just Refl <- sameNat (Proxy @n) (Proxy @n2)  -- TODO: compare sh
+            , Just Refl <- sameSTK (ftkToStk x) (ftkToStk x2) ->  -- TODO: compare ftk
               (evalRepM mt, rest)
           _ -> error $ "gradientFromDelta: illegal RepM: "
                        ++ show_iMap (iMap s2)
@@ -162,9 +163,9 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                              ++ " instead of "
                              ++ "FTKS @" ++ show (shapeT @sh)
                              ++ " within " ++ show_iMap (iMap s2)
-            Some mt@(MTKSDummy @r2 @sh2) : rest
-              | Just Refl <- sameShape @sh @sh2
-              , Just Refl <- sameSTK (ftkToStk x) (STKScalar (typeRep @r2)) ->
+            Some mt@(MTKSDummy sh2 x2) : rest
+              | Just Refl <- testEquality sh sh2
+              , Just Refl <- sameSTK (ftkToStk x) (ftkToStk x2) ->
                 (evalRepM mt, rest)
             _ -> error $ "gradientFromDelta: illegal RepM: "
                          ++ show_iMap (iMap s2)
@@ -187,8 +188,13 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 MTKS @y @sh t | STKScalar @r _ <- stensorKind @y ->
                   DynamicShaped @r @sh t
                 MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
-                MTKRDummy @r @sh -> DynamicRankedDummy @r @sh Proxy Proxy
-                MTKSDummy @r @sh -> DynamicShapedDummy @r @sh Proxy Proxy
+                MTKRDummy shr ftk | SNat <- shrRank shr
+                                  , STKScalar @r _ <- ftkToStk ftk ->
+                  withShapeP (toList shr) $ \(Proxy @sh) ->
+                    DynamicRankedDummy @r @sh Proxy Proxy
+                MTKSDummy @_ @sh sh ftk | STKScalar @r _ <- ftkToStk ftk ->
+                  withKnownShS sh $
+                  DynamicShapedDummy @r @sh Proxy Proxy
                 _ -> error "rebuildInputs: unexpected type"
               len = V.length shs
               (els1, els2) = splitAt len els
@@ -261,8 +267,8 @@ evalRepM = \case
   MTKR t -> t
   MTKS t -> t
   MTKScalarDummy -> rtoScalar $ rscalar 0
-  MTKRDummy @_ @sh -> withListSh (Proxy @sh) $ \sh4 -> rzero sh4
-  MTKSDummy -> srepl 0
+  MTKRDummy shr ftk -> constantTarget 0 (FTKR shr ftk)
+  MTKSDummy sh ftk -> constantTarget 0 (FTKS sh ftk)
 
 dynamicTensorToRepM
   :: Int -> DynamicTensor target
@@ -295,12 +301,12 @@ addRepM a b = case (a, b) of
   (MTKR ta, MTKR tb) -> MTKR $ addTarget stensorKind ta tb
   (MTKScalarDummy, _) -> b
   (_, MTKScalarDummy) -> a
-  (MTKRDummy, _) -> b
-  (_, MTKRDummy) -> a
+  (MTKRDummy{}, _) -> b
+  (_, MTKRDummy{}) -> a
   (MTKS ta, MTKS tb) | STKS _ STKScalar{} <- stensorKind @y -> MTKS $ ta + tb
   (MTKS ta, MTKS tb) -> MTKS $ addTarget stensorKind ta tb
-  (MTKSDummy, _) -> b
-  (_, MTKSDummy) -> a
+  (MTKSDummy{}, _) -> b
+  (_, MTKSDummy{}) -> a
 
 -- This is very similar to DynamicTensor, but the second type parameter
 -- gives a peek of what's inside, which is crucial for dependent maps
@@ -318,10 +324,12 @@ data RepM target y where
        -> RepM target (TKS2 sh r)
   MTKScalarDummy :: GoodScalar r
                  => RepM target (TKScalar r)
-  MTKRDummy :: (GoodScalar r, KnownShS sh)
-            => RepM target (TKR (Rank sh) r)
-  MTKSDummy  :: (GoodScalar r, KnownShS sh)
-             => RepM target (TKS sh r)
+  MTKRDummy :: forall x n target.
+               IShR n -> FullTensorKind x
+            -> RepM target (TKR2 n x)
+  MTKSDummy  :: forall x sh target.
+                ShS sh -> FullTensorKind x
+             -> RepM target (TKS2 sh x)
 
 deriving instance ( (forall y7. TensorKind y7 => Show (target y7))
                   , Show (target TKUntyped)
@@ -998,11 +1006,12 @@ initEvalState ftk0 =
                     -> ([DSum (InputId target) (RepM target)], Int)
       generateDSums j ftk  = case ftk of
         FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)
-        FTKR sh (FTKScalar @r) -> withShapeP (shapeToList sh) $ \(Proxy @sh) ->
-          case lemKnownNatRankS (knownShS @sh) of
-            Dict -> ([InputId j :=> MTKRDummy @r @sh], j + 1)
-        FTKS @sh sh (FTKScalar @r) -> withKnownShS sh
-                          $ ([InputId j :=> MTKSDummy @r @sh], j + 1)
+        FTKR shr x | SNat <- shrRank shr
+                   , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+          ([InputId j :=> MTKRDummy shr x], j + 1)
+        FTKS sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+          withKnownShS sh $
+          ([InputId j :=> MTKSDummy sh x], j + 1)
         FTKX{} -> error "TODO"
         FTKProduct ftk1 ftk2 ->
           let (ds1, j1) = generateDSums j ftk1
@@ -1013,7 +1022,6 @@ initEvalState ftk0 =
           in ( zipWith fromDynamicTensor [j ..]
                $ map dynamicFromVoid $ V.toList shs
              , j + len )
-        _ -> error "TODO"
       -- Create finite maps that hold values associated with inputs
       -- and with (possibly shared) term tree nodes.
       -- The former are usually initialized with dummy values so that it's cheap
@@ -1030,10 +1038,12 @@ initEvalState ftk0 =
       fromDynamicTensor n b = case b of
         DynamicRanked{} -> error "fromDynamicTensor: impossible case"
         DynamicShaped{} -> error "fromDynamicTensor: impossible case"
-        DynamicRankedDummy @r @sh _ _ | Dict <- lemKnownNatRankS (knownShS @sh) ->
-          InputId n :=> MTKRDummy @r @sh
+        DynamicRankedDummy @r @sh _ _ | SNat @n <- shsRank (knownShS @sh) ->
+          let shr :: IShR n
+              shr = fromList (toList (knownShS @sh))
+          in InputId n :=> MTKRDummy @(TKScalar r) shr FTKScalar
         DynamicShapedDummy @r @sh _ _ ->
-          InputId n :=> MTKSDummy @r @sh
+          InputId n :=> MTKSDummy @(TKScalar r) @sh knownShS FTKScalar
       iMap = DMap.fromDistinctAscList $ fst $ generateDSums 0
              $ aDFTK ftk0
       dMap = DMap.empty

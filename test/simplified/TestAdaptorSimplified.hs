@@ -2109,7 +2109,7 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactAdapt True t (ringestData [3] [0.651,0.14,0.3414])
   printArtifactSimple renames artifactRev
-    @?= "\\m8 x1 -> rreshape [3] (rreplicate 3 (rscalar 0.0))"
+    @?= "\\m8 x1 -> tconcrete (FTKR [3] FTKScalar) (rfromListLinear [3] [0.0,0.0,0.0])"
   printArtifactPrimalSimple renames artifactRev
     @?= "\\x1 -> rfromIntegral (rfromS (sgather (stranspose (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0,0]) + siota + sreplicate (sscalar 1)))]))) (\\[i6, i7] -> [i6, i7, ifF (i7 >=. quotF i6 (1 + i7)) 0 1])))"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
