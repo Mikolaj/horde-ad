@@ -269,21 +269,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
          => IfF (ADVal target) where
   ifF :: forall y. TensorKind y
       => BoolOf target -> ADVal target y -> ADVal target y -> ADVal target y
-  -- Bangs are for the proper order of sharing stamps.
-  ifF !b !v !w = case stensorKind @y of
-    STKScalar{} -> error "TODO"
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
-      indexPrimal (rfromVector $ V.fromList [v, w])
-                  (fromList [ifF b 0 1])
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
-      indexPrimalS @_ @_ @'[2]
-                   (sfromVector $ V.fromList [v, w])
-                   (fromList [ifF b 0 1])
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $
-      indexPrimalX @_ @_ @'[Just 2]
-                   (xfromVector $ V.fromList [v, w])
-                   (fromList [ifF b 0 1])
-    _ -> error "TODO"
+  ifF = tcond (stensorKind @y)
 
 {- TODO: use for speed-up, e.g,. by checking the type at runtime
 instance IfF (ADVal (FlipR OR.Array)) where
@@ -587,11 +573,20 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unPairGUnshared u')
   dshape (D u _) = dshape u
   tftk stk (D u _) = tftk stk u
-  tcond stk b u v = case stk of
+  -- Bangs are for the proper order of sharing stamps.
+  tcond !stk !b !u !v = case stk of
     STKScalar _ -> rtoScalar $ ifF b (rfromScalar u) (rfromScalar v)
-    STKR SNat x | Dict <- lemTensorKindOfSTK x -> ifF b u v
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ ifF b u v
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ ifF b u v
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+      indexPrimal (rfromVector $ V.fromList [u, v])
+                  (fromList [ifF b 0 1])
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
+      indexPrimalS @_ @_ @'[2]
+                   (sfromVector $ V.fromList [u, v])
+                   (fromList [ifF b 0 1])
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $
+      indexPrimalX @_ @_ @'[Just 2]
+                   (xfromVector $ V.fromList [u, v])
+                   (fromList [ifF b 0 1])
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                          , Dict <- lemTensorKindOfSTK stk2 ->
       let (u1, u2) = tunpair u
