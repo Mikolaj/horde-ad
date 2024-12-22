@@ -639,7 +639,8 @@ astIndexKnobsS
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
   -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
-astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS = astIndexKnobsS knobs v ix
+astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS =
+  astIndexKnobsS knobs v ix  -- no non-indexing constructor yet revealed
 astIndexKnobsS _ v0 ZIS = v0
 astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
                | Dict <- sixKnown rest1 =
@@ -2482,7 +2483,9 @@ astPrimalPart t = case t of
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astPrimalPart u)
                                              (astPrimalPart v)
   AstSumOfListS args -> astSumOfListS (map astPrimalPart args)
-  Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPart v) ix
+  Ast.AstIndexS @sh1 @sh2 v ix ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astIndexS (astPrimalPart v) ix
   Ast.AstSumS v -> astSumS (astPrimalPart v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astPrimalPart v) (var, ix)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astPrimalPart l)
@@ -2588,7 +2591,9 @@ astDualPart t = case t of
   Ast.AstR2S{} -> Ast.AstDualPart t
   Ast.AstI2S{} -> Ast.AstDualPart t
   AstSumOfListS args -> astSumOfListS (map astDualPart args)
-  Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPart v) ix
+  Ast.AstIndexS @sh1 @sh2 v ix ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astIndexS (astDualPart v) ix
   Ast.AstSumS v -> astSumS (astDualPart v)
   Ast.AstScatterS v (var, ix) -> astScatterS (astDualPart v) (var, ix)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astDualPart l)
@@ -2899,7 +2904,9 @@ simplifyAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
   AstSumOfListS args -> astSumOfListS (map simplifyAst args)
-  Ast.AstIndexS v ix -> astIndexS (simplifyAst v) (simplifyAstIxS ix)
+  Ast.AstIndexS @sh1 @sh2 v ix ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astIndexS (simplifyAst v) (simplifyAstIxS ix)
   Ast.AstSumS v -> astSumS (simplifyAst v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (simplifyAst v) (var, simplifyAstIxS ix)
@@ -3151,9 +3158,11 @@ expandAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
   AstSumOfListS args -> astSumOfListS (map expandAst args)
-  Ast.AstIndexS v ix -> astIndexKnobsS (defaultKnobs {knobExpand = True})
-                                       (expandAst v)
-                                       (expandAstIxS ix)
+  Ast.AstIndexS @sh1 @sh2 v ix ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astIndexKnobsS (defaultKnobs {knobExpand = True})
+                   (expandAst v)
+                   (expandAstIxS ix)
   Ast.AstSumS v -> astSumS (expandAst v)
   Ast.AstScatterS v (var, ix) ->
     astScatterS (expandAst v) (var, expandAstIxS ix)
@@ -3722,7 +3731,8 @@ substitute1Ast i var v1 = case v1 of
     in if any isJust margs
        then Just $ astSumOfListS $ zipWith fromMaybe args margs
        else Nothing
-  Ast.AstIndexS v ix ->
+  Ast.AstIndexS @sh1 @sh2 v ix ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     case (substitute1Ast i var v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexS (fromMaybe v mv) (fromMaybe ix mix)

@@ -33,7 +33,7 @@ import Data.Array.Nested
   , ShX (..)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsRank)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend, shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
@@ -402,7 +402,8 @@ printAstAux cfg d = \case
     in showParen (d > 6)
        $ printAst cfg 7 left
          . foldr (.) id rs
-  AstIndexS v ix ->
+  AstIndexS @sh1 @sh2 v ix ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "

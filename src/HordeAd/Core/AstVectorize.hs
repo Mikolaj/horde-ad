@@ -42,7 +42,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank, shsRank)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank, shsAppend, shsRank)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -376,8 +376,9 @@ build1V snat@SNat (var, v0) =
     Ast.AstSumOfListS args -> traceRule $
       astSumOfListS $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
-    Ast.AstIndexS @sh1 v ix -> traceRule $ case stensorKind @y of
+    Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case stensorKind @y of
      STKS @sh _ _ ->
+      withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
       gcastWith (unsafeCoerce Refl
                  :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
       gcastWith (unsafeCoerce Refl
@@ -642,7 +643,8 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
      then case astIndexStepS v0 ix of  -- push deeper
        Ast.AstIndexS v1 ZIS -> traceRule $
          build1VOccurenceUnknown (SNat @k) (var, v1)
-       v@(Ast.AstIndexS @sh1 v1 ix1) -> traceRule $
+       v@(Ast.AstIndexS @sh1 @sh2 v1 ix1) -> traceRule $
+         withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
          gcastWith (unsafeCoerce Refl
                     :: k ': sh1 :~: Take (1 + Rank sh1)
                                             (k ': sh1 ++ Drop p sh)) $

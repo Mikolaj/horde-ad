@@ -440,8 +440,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            => AstTensor ms PrimalSpan (TKS '[n] r)
 
   AstIndexS :: forall sh1 sh2 s x ms.
-               ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-               , TensorKind x )
+               (KnownShS sh1, KnownShS sh2, TensorKind x)
             => AstTensor ms s (TKS2 (sh1 ++ sh2) x) -> AstIxS ms sh1
             -> AstTensor ms s (TKS2 sh2 x)
     -- first ix is for outermost dimension; empty index means identity,
@@ -535,7 +534,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            => AstTensor ms PrimalSpan (TKX '[Just n] r)
 
   AstIndexX :: forall sh1 sh2 s r ms.
-               (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), TensorKind r)
+               (KnownShX sh1, KnownShX sh2, TensorKind r)
             => AstTensor ms s (TKX2 (sh1 ++ sh2) r) -> AstIndexX ms sh1
             -> AstTensor ms s (TKX2 sh2 r)
     -- first ix is for outermost dimension; empty index means identity,

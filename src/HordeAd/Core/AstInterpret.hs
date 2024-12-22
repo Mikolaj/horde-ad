@@ -29,7 +29,7 @@ import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX)
+import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxAppend)
 import Data.Array.Nested
   ( IxR (..)
   , IxS (..)
@@ -42,7 +42,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shrRank)
+import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -658,10 +658,11 @@ interpretAst !env = \case
 -- TODO: in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS AstIotaS (i :.$ ZIS) ->
     sfromIntegral . sfromPrimal . sfromR . rfromScalar $ interpretAstPrimal env i
-  AstIndexS @sh1 @_ @_ @r v ix ->
+  AstIndexS @sh1 @sh2 v ix ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
-    in sindex @target @r @sh1 v2 ix3
+    in sindex @target @_ @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
@@ -844,7 +845,8 @@ interpretAst !env = \case
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexX AstIotaX (_i :.% ZIX) -> error "TODO"
-  AstIndexX v ix ->
+  AstIndexX @sh1 @sh2 v ix ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
     in xindex v2 ix3
