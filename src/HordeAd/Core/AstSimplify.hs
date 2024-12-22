@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=12 #-}
 -- | Term-simplifying combinators corresponding to the Ast constructors
 -- and complete bottom-up simplifying functions. The former
 -- simplify only on the basis of inspecting the roots of their
@@ -103,7 +104,8 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend, shsRank)
+import Data.Array.Nested.Internal.Shape
+  (ixrAppend, ixsAppend, shCvtSX, shsAppend, shsRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -511,19 +513,18 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstMinIndexR v -> Ast.AstMinIndexR $ astIndexKnobsR knobs v ix
   Ast.AstMaxIndexR v -> Ast.AstMaxIndexR $ astIndexKnobsR knobs v ix
   Ast.AstFloorR v -> Ast.AstFloorR $ astIndexKnobsR knobs v ix
-  Ast.AstIotaR | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> astFromIntegralR $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
+  Ast.AstIotaR
+   | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> astFromIntegralR
+                 $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
 -- TODO:  AstIndex AstIotaR (i :.: ZIR) ->
 --    rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
   Ast.AstIotaR -> Ast.AstIndex v0 ix
-  AstN1R opCode u ->
-    shareIx ix $ \ !ix2 -> AstN1R opCode (astIndexRec u ix2)
+  AstN1R opCode u -> AstN1R opCode (astIndexRec u ix)
   AstN2R opCode u v ->
     shareIx ix $ \ !ix2 -> AstN2R opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  Ast.AstR1R opCode u ->
-    shareIx ix
-    $ \ !ix2 -> Ast.AstR1R opCode (astIndexRec u ix2)
+  Ast.AstR1R opCode u -> Ast.AstR1R opCode (astIndexRec u ix)
   Ast.AstR2R opCode u v ->
     shareIx ix
     $ \ !ix2 -> Ast.AstR2R opCode (astIndexRec u ix2) (astIndexRec v ix2)
@@ -533,7 +534,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   AstSumOfListR args ->
     shareIx ix $ \ !ix2 -> astSumOfListR (map (`astIndexRec` ix2) args)
   Ast.AstIndex v ix2 ->
-    astIndex v (appendIndex ix2 ix)
+    astIndex v (ix2 `ixrAppend` ix)
   Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = backpermCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
@@ -709,7 +710,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
 
   Ast.AstMinIndexS @shz @n1 v ->
     withShapeP (drop 1 (shapeT @shn)
-                   ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
+                ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
       gcastWith (unsafeCoerce Refl
                  :: Drop 1 shn ++ '[Last shz] :~: shd) $
       withSNat (shapeT @shn !! 0) $ \(SNat @i0shn) ->
@@ -739,18 +740,16 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
         $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs v ix
   Ast.AstIotaS | AstConcrete _ (RepN i) <- i1 -> case sameShape @shn @'[] of
-    Just Refl -> astFromIntegralS $ AstConcrete (FTKS knownShS FTKScalar) $ RepN $ Nested.sscalar i
+    Just Refl -> astFromIntegralS
+                 $ AstConcrete (FTKS ZSS FTKScalar) $ RepN $ Nested.sscalar i
     _ -> error "astIndexKnobsS: shape not []"
 -- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
 --    sfromIntegral . sfromPrimal . sfromR . rfromScalar $ interpretAstPrimal env i
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
-  AstN1S opCode u ->
-    shareIx ix $ \ !ix2 -> AstN1S opCode (astIndexRec u ix2)
+  AstN1S opCode u -> AstN1S opCode (astIndexRec u ix)
   AstN2S opCode u v ->
     shareIx ix $ \ !ix2 -> AstN2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
-  Ast.AstR1S opCode u ->
-    shareIx ix
-    $ \ !ix2 -> Ast.AstR1S opCode (astIndexRec u ix2)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndexRec u ix)
   Ast.AstR2S opCode u v ->
     shareIx ix
     $ \ !ix2 -> Ast.AstR2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
@@ -759,31 +758,23 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
     $ \ !ix2 -> Ast.AstI2S opCode (astIndexRec u ix2) (astIndexRec v ix2)
   AstSumOfListS args ->
     shareIx ix $ \ !ix2 -> astSumOfListS (map (`astIndexRec` ix2) args)
-  Ast.AstIndexS v (ix2 :: AstIxS AstMethodLet sh4) ->
-    gcastWith (unsafeCoerce Refl
-               :: (sh4 ++ shm) ++ shn :~: sh4 ++ (shm ++ shn)) $
-    withShapeP (shapeT @sh4 ++ shapeT @shm) $ \(Proxy @sh41) ->
-      gcastWith (unsafeCoerce Refl :: sh4 ++ shm :~: sh41) $
-      astIndexS v (ShapedList.appendIndex ix2 ix)
+  Ast.AstIndexS v (ix2 :: AstIxS AstMethodLet sh4)
+   | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
+    withKnownShS (knownShS @sh4 `shsAppend` knownShS @shm) $
+    astIndexS v (ix2 `ixsAppend` ix)
   Ast.AstSumS @n1 v ->
     let perm3 = backpermCycle $ length (shapeT @shm) + 1
-    in withShapeP (shapeT @shm
-                   ++ (valueOf @n1 : shapeT @shn)) $ \(Proxy @sm1n) ->
-      gcastWith (unsafeCoerce Refl :: shm ++ (n1 : shn) :~: sm1n) $
-      withSNat (1 + length (shapeT @shn)
-                + length (shapeT @shm)) $ \(SNat @r1mn) ->
-        gcastWith (unsafeCoerce Refl :: Rank (n1 : shm ++ shn) :~: r1mn) $
-        Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
-          gcastWith (unsafeCoerce Refl
-                     :: Compare (Rank perm3P) (Rank (n1 : shm ++ shn))
-                        :~: LT) $
-          gcastWith (unsafeCoerce Refl
-                     :: Permutation.PermutePrefix perm3P (n1 : (shm ++ shn))
-                        :~: shm ++ (n1 : shn)) $
-          trustMeThisIsAPermutation @perm3P $
-          astSumS $ astIndex @shm @(n1 : shn)
-                             (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
-                             ix
+    in Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
+         gcastWith (unsafeCoerce Refl
+                    :: Compare (Rank perm3P) (Rank (n1 : shm ++ shn))
+                       :~: LT) $
+         gcastWith (unsafeCoerce Refl
+                    :: Permutation.PermutePrefix perm3P (n1 : (shm ++ shn))
+                       :~: shm ++ (n1 : shn)) $
+         trustMeThisIsAPermutation @perm3P $
+         astSumS $ astIndex @shm @(n1 : shn)
+                            (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
+                            ix
 -- TODO:
 --  Ast.AstScatterS @sh2 @p7 @sh7
 --                  v (vars, AstIntVar var5 ::$ (ix2 :: AstIxS p71))
