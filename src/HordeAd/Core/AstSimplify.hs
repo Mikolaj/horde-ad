@@ -441,7 +441,8 @@ astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
 astIndexKnobsR
   :: forall m n s r.
      (KnownNat m, KnownNat n, TensorKind r, AstSpan s)
-  => SimplifyKnobs -> AstTensor AstMethodLet s (TKR2 (m + n) r)
+  => SimplifyKnobs
+  -> AstTensor AstMethodLet s (TKR2 (m + n) r)
   -> AstIxR AstMethodLet m
   -> AstTensor AstMethodLet s (TKR2 n r)
 astIndexKnobsR knobs (Ast.AstIndex v ix) ZIR =
@@ -462,11 +463,11 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
                                            (simplifyAstIxR ix2)
                        else astIndexKnobsR knobs v2 ix2
      astGather
-       :: forall m' n' p' r'.
-          (TensorKind r', KnownNat m', KnownNat p', KnownNat n')
-       => IShR (m' + n') -> AstTensor AstMethodLet s (TKR2 (p' + n') r')
+       :: forall m' n' p'.
+          (KnownNat m', KnownNat p', KnownNat n')
+       => IShR (m' + n') -> AstTensor AstMethodLet s (TKR2 (p' + n') r)
        -> (AstVarList m', AstIxR AstMethodLet p')
-       -> AstTensor AstMethodLet s (TKR2 (m' + n') r')
+       -> AstTensor AstMethodLet s (TKR2 (m' + n') r)
      astGather sh2 v2 (vars2, ix2) =
        if knobStepOnly knobs
        then astGatherKnobsR knobs
@@ -635,18 +636,20 @@ astIndexKnobsS
   :: forall shm shn s r.
      ( KnownShS shm, KnownShS shn, KnownShS (shm ++ shn)
      , TensorKind r, AstSpan s )
-  => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
+  => SimplifyKnobs
+  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
+  -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS = astIndexKnobsS knobs v ix
 astIndexKnobsS _ v0 ZIS = v0
-astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) | Dict <- sixKnown rest1 =
+astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
+ | Dict <- sixKnown rest1 =
   let astIndexRec, astIndex
-        :: forall shm' shn' s' r'.
-           ( TensorKind r', KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn')
-           , AstSpan s' )
-        => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
+        :: forall shm' shn' s'.
+           (KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn'), AstSpan s')
+        => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
         -> AstIxS AstMethodLet shm'
-        -> AstTensor AstMethodLet s' (TKS2 shn' r')
+        -> AstTensor AstMethodLet s' (TKS2 shn' r)
       astIndexRec v2 ZIS = v2
       astIndexRec v2 ix2 = if knobStepOnly knobs
                            then Ast.AstIndexS v2 ix2
@@ -657,13 +660,13 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1)) |
                                             (simplifyAstIxS ix2)
                         else astIndexKnobsS knobs v2 ix2
       astGather
-        :: forall shm' shn' p' r'.
-           ( TensorKind r', KnownShS shm', KnownShS shn', KnownNat p'
+        :: forall shm' shn' p'.
+           ( KnownShS shm', KnownShS shn', KnownNat p'
            , KnownShS (Take p' shm'), KnownShS (Drop p' shm')
            , KnownShS (shn' ++ Drop p' shm') )
-       => AstTensor AstMethodLet s (TKS2 shm' r')
+       => AstTensor AstMethodLet s (TKS2 shm' r)
         -> (AstVarListS shn', AstIxS AstMethodLet (Take p' shm'))
-        -> AstTensor AstMethodLet s (TKS2 (shn' ++ Drop p' shm') r')
+        -> AstTensor AstMethodLet s (TKS2 (shn' ++ Drop p' shm') r)
       astGather v2 (vars2, ix2) =
         if knobStepOnly knobs
         then astGatherKnobsS knobs
@@ -1021,11 +1024,11 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   -- Note that v4 is in weak head normal form and so can't one-step reduce
   -- and so we don't have to reduce it to expose any top redexes.
   astGatherCase
-    :: forall m' n' p' r'.
-       (KnownNat m', KnownNat p', KnownNat n', TensorKind r')
-    => IShR (m' + n') -> AstTensor AstMethodLet s (TKR2 (p' + n') r')
+    :: forall m' n' p'.
+       (KnownNat m', KnownNat p', KnownNat n')
+    => IShR (m' + n') -> AstTensor AstMethodLet s (TKR2 (p' + n') r)
     -> (AstVarList m', AstIxR AstMethodLet p')
-    -> AstTensor AstMethodLet s (TKR2 (m' + n') r')
+    -> AstTensor AstMethodLet s (TKR2 (m' + n') r)
   astGatherCase sh4 v4 (_, ZIR) = astReplicateN sh4 v4  -- not really possible
   astGatherCase sh4 v4 ( vars4
                        , ix4@(i4 :.: (rest4 :: AstIxR AstMethodLet p1')) ) = case v4 of
@@ -1124,7 +1127,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstConcrete _ i5 :.: (ix2 :: AstIxR AstMethodLet p71))
       | AstConcrete _ i6 <- i4
-      , STKScalar{} <- stensorKind @r' ->
+      , STKScalar{} <- stensorKind @r ->
           gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
           if i6 == i5
           then astGather sh4 (astScatter sh v (vars, ix2)) (vars4, rest4)
@@ -1203,13 +1206,13 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
             simplifyAstInt  -- we generate the index, so we simplify on the spot
             $ foldr (uncurry astLetInt) i
                     (zipSized vars (indexToSized ix))
-          composedGather :: p' <= m2 => AstTensor AstMethodLet s (TKR2 (m' + n') r')
+          composedGather :: p' <= m2 => AstTensor AstMethodLet s (TKR2 (m' + n') r)
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
                 ix22 = fmap (substLet ix4 vars2p) ix2
             in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n')
                $ astGather sh4 v2 (appendSized vars4 vars22, ix22)
-          assimilatedGather :: m2 <= p' => AstTensor AstMethodLet s (TKR2 (m' + n') r')
+          assimilatedGather :: m2 <= p' => AstTensor AstMethodLet s (TKR2 (m' + n') r)
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
                 ix22 = fmap (substLet ix42 vars2) ix2
