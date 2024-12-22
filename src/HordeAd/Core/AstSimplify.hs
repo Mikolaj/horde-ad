@@ -644,38 +644,38 @@ astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS =
 astIndexKnobsS _ v0 ZIS = v0
 astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
                | Dict <- sixKnown rest1 =
-  withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-  let astIndexRec, astIndex
-        :: forall shm' shn' s'.
-           (KnownShS shm', KnownShS shn', AstSpan s')
-        => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
-        -> AstIxS AstMethodLet shm'
-        -> AstTensor AstMethodLet s' (TKS2 shn' r)
-      astIndexRec v2 ZIS = v2
-      astIndexRec v2 ix2 =
-        withKnownShS (knownShS @shm' `shsAppend` knownShS @shn') $
-        if knobStepOnly knobs
-        then Ast.AstIndexS v2 ix2
-        else astIndexKnobsS knobs v2 ix2
-      astIndex v2 ix2 =
-        withKnownShS (knownShS @shm' `shsAppend` knownShS @shn') $
-        if knobStepOnly knobs
-        then astIndexKnobsS knobs (astNonIndexStep v2) (simplifyAstIxS ix2)
-        else astIndexKnobsS knobs v2 ix2
-      astGather
-        :: forall shm' shn' p'.
-           ( KnownShS shm', KnownShS shn', KnownNat p'
-           , KnownShS (Take p' shm'), KnownShS (Drop p' shm')
-           , KnownShS (shn' ++ Drop p' shm') )
+ withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+ let astIndexRec, astIndex
+       :: forall shm' shn' s'.
+          (KnownShS shm', KnownShS shn', AstSpan s')
+       => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
+       -> AstIxS AstMethodLet shm'
+       -> AstTensor AstMethodLet s' (TKS2 shn' r)
+     astIndexRec v2 ZIS = v2
+     astIndexRec v2 ix2 =
+       withKnownShS (knownShS @shm' `shsAppend` knownShS @shn') $
+       if knobStepOnly knobs
+       then Ast.AstIndexS v2 ix2
+       else astIndexKnobsS knobs v2 ix2
+     astIndex v2 ix2 =
+       withKnownShS (knownShS @shm' `shsAppend` knownShS @shn') $
+       if knobStepOnly knobs
+       then astIndexKnobsS knobs (astNonIndexStep v2) (simplifyAstIxS ix2)
+       else astIndexKnobsS knobs v2 ix2
+     astGather
+       :: forall shm' shn' p'.
+          ( KnownShS shm', KnownShS shn', KnownNat p'
+          , KnownShS (Take p' shm'), KnownShS (Drop p' shm')
+          , KnownShS (shn' ++ Drop p' shm') )
        => AstTensor AstMethodLet s (TKS2 shm' r)
-        -> (AstVarListS shn', AstIxS AstMethodLet (Take p' shm'))
-        -> AstTensor AstMethodLet s (TKS2 (shn' ++ Drop p' shm') r)
-      astGather v2 (vars2, ix2) =
-        if knobStepOnly knobs
-        then astGatherKnobsS knobs
-                             (astNonIndexStep v2)
-                             (vars2, simplifyAstIxS ix2)
-        else astGatherKnobsS knobs v2 (vars2, ix2)
+       -> (AstVarListS shn', AstIxS AstMethodLet (Take p' shm'))
+       -> AstTensor AstMethodLet s (TKS2 (shn' ++ Drop p' shm') r)
+     astGather v2 (vars2, ix2) =
+       if knobStepOnly knobs
+       then astGatherKnobsS knobs
+                            (astNonIndexStep v2)
+                            (vars2, simplifyAstIxS ix2)
+       else astGatherKnobsS knobs v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS v0 ix
