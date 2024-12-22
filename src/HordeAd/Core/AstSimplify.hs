@@ -414,21 +414,21 @@ astIndexStep v ix = astIndexKnobsR (defaultKnobs {knobStepOnly = True})
 
 astIndexS
   :: forall sh1 sh2 s r.
-     ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-     , TensorKind r, AstSpan s )
+     (KnownShS sh1, KnownShS sh2, TensorKind r, AstSpan s)
   => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
   -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astIndexS = astIndexKnobsS defaultKnobs
 
 astIndexStepS
   :: forall sh1 sh2 s r.
-     ( KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2)
-     , TensorKind r, AstSpan s )
+     (KnownShS sh1, KnownShS sh2, TensorKind r, AstSpan s)
   => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
   -> AstTensor AstMethodLet s (TKS2 sh2 r)
-astIndexStepS v ix = astIndexKnobsS (defaultKnobs {knobStepOnly = True})
-                                    (astNonIndexStep v)
-                                    (simplifyAstIxS ix)
+astIndexStepS v ix =
+  withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  astIndexKnobsS (defaultKnobs {knobStepOnly = True})
+                 (astNonIndexStep v)
+                 (simplifyAstIxS ix)
 
 -- If knobStepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
@@ -634,8 +634,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
 
 astIndexKnobsS
   :: forall shm shn s r.
-     ( KnownShS shm, KnownShS shn, KnownShS (shm ++ shn)
-     , TensorKind r, AstSpan s )
+     (KnownShS shm, KnownShS shn, TensorKind r, AstSpan s)
   => SimplifyKnobs
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
   -> AstIxS AstMethodLet shm
@@ -643,22 +642,25 @@ astIndexKnobsS
 astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS = astIndexKnobsS knobs v ix
 astIndexKnobsS _ v0 ZIS = v0
 astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
- | Dict <- sixKnown rest1 =
+               | Dict <- sixKnown rest1 =
+  withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
   let astIndexRec, astIndex
         :: forall shm' shn' s'.
-           (KnownShS shm', KnownShS shn', KnownShS (shm' ++ shn'), AstSpan s')
+           (KnownShS shm', KnownShS shn', AstSpan s')
         => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
         -> AstIxS AstMethodLet shm'
         -> AstTensor AstMethodLet s' (TKS2 shn' r)
       astIndexRec v2 ZIS = v2
-      astIndexRec v2 ix2 = if knobStepOnly knobs
-                           then Ast.AstIndexS v2 ix2
-                           else astIndexKnobsS knobs v2 ix2
-      astIndex v2 ix2 = if knobStepOnly knobs
-                        then astIndexKnobsS knobs
-                                            (astNonIndexStep v2)
-                                            (simplifyAstIxS ix2)
-                        else astIndexKnobsS knobs v2 ix2
+      astIndexRec v2 ix2 =
+        withKnownShS (knownShS @shm' `shsAppend` knownShS @shn') $
+        if knobStepOnly knobs
+        then Ast.AstIndexS v2 ix2
+        else astIndexKnobsS knobs v2 ix2
+      astIndex v2 ix2 =
+        withKnownShS (knownShS @shm' `shsAppend` knownShS @shn') $
+        if knobStepOnly knobs
+        then astIndexKnobsS knobs (astNonIndexStep v2) (simplifyAstIxS ix2)
+        else astIndexKnobsS knobs v2 ix2
       astGather
         :: forall shm' shn' p'.
            ( KnownShS shm', KnownShS shn', KnownNat p'
@@ -2449,6 +2451,7 @@ astPrimalPart t = case t of
   Ast.AstI2 opCode u v -> Ast.AstI2 opCode (astPrimalPart u) (astPrimalPart v)
   AstSumOfList args -> astSumOfList (map astPrimalPart args)
   Ast.AstCast v -> astCast $ astPrimalPart v
+
   AstN1R opCode u -> AstN1R opCode (astPrimalPart u)
   AstN2R opCode u v -> AstN2R opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (astPrimalPart u)
@@ -2556,6 +2559,7 @@ astDualPart t = case t of
   Ast.AstI2{} -> Ast.AstDualPart t
   AstSumOfList args -> astSumOfList (map astDualPart args)
   Ast.AstCast v -> astCast $ astDualPart v
+
   AstN1R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   AstN2R{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
   Ast.AstR1R{} -> Ast.AstDualPart t
