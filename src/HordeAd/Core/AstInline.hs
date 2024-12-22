@@ -29,7 +29,6 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
@@ -193,15 +192,15 @@ inlineAst memo v0 = case v0 of
     in (memo2, Ast.AstSumOfListR args2)
   Ast.AstIndex v ix ->
     let (memo1, v2) = inlineAst memo v
-        (memo2, ix2) = mapAccumR inlineAst memo1 (indexToList ix)
-    in (memo2, Ast.AstIndex v2 (listToIndex ix2))
+        (memo2, ix2) = mapAccumR inlineAst memo1 (toList ix)
+    in (memo2, Ast.AstIndex v2 (fromList ix2))
   Ast.AstSum v -> second Ast.AstSum (inlineAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
-        (memoI0, ix2) = mapAccumR inlineAst EM.empty (indexToList ix)
+        (memoI0, ix2) = mapAccumR inlineAst EM.empty (toList ix)
         count = fromIntegral $ sizeShape sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
+    in (memo2, Ast.AstScatter sh v2 (vars, fromList ix2))
   Ast.AstFromVector l ->
     let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
@@ -217,10 +216,10 @@ inlineAst memo v0 = case v0 of
   Ast.AstReshape sh v -> second (Ast.AstReshape sh) (inlineAst memo v)
   Ast.AstGather sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
-        (memoI0, ix2) = mapAccumR inlineAst EM.empty (indexToList ix)
+        (memoI0, ix2) = mapAccumR inlineAst EM.empty (toList ix)
         count = fromIntegral $ sizeShape sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
+    in (memo2, Ast.AstGather sh v2 (vars, fromList ix2))
   Ast.AstCastR v -> second Ast.AstCastR $ inlineAst memo v
   Ast.AstFromIntegralR v -> second Ast.AstFromIntegralR $ inlineAst memo v
   Ast.AstConcrete{} -> (memo, v0)
@@ -263,16 +262,16 @@ inlineAst memo v0 = case v0 of
   Ast.AstIndexS @sh1 v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1
-                                 (ShapedList.indexToList ix)
-    in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
+                                 (toList ix)
+    in (memo2, Ast.AstIndexS @sh1 v2 (fromList ix2))
   Ast.AstSumS v -> second Ast.AstSumS (inlineAst memo v)
   Ast.AstScatterS @sh2 @p @sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
-                                  (ShapedList.indexToList ix)
+                                  (toList ix)
         count = fromIntegral $ sizeT @sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
+    in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, fromList ix2))
   Ast.AstFromVectorS l ->
     let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
@@ -289,10 +288,10 @@ inlineAst memo v0 = case v0 of
   Ast.AstGatherS @sh2 @p @sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
-                                  (ShapedList.indexToList ix)
+                                  (toList ix)
         count = fromIntegral $ sizeT @sh2 + sizeT @sh - valueOf @p
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
+    in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, fromList ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAst memo v
@@ -559,14 +558,14 @@ unshareAst memo = \case
     in (memo2, Ast.AstSumOfListR args2)
   Ast.AstIndex v ix ->
     let (memo1, v2) = unshareAst memo v
-        (memo2, ix2) = mapAccumR unshareAst memo1 (indexToList ix)
-    in (memo2, Ast.AstIndex v2 (listToIndex ix2))
+        (memo2, ix2) = mapAccumR unshareAst memo1 (toList ix)
+    in (memo2, Ast.AstIndex v2 (fromList ix2))
   Ast.AstSum v -> second Ast.AstSum (unshareAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, ix2) = mapAccumR (unshareAstScoped $ toList vars)
-                                 memo (indexToList ix)
+                                 memo (toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in (memo2, Ast.AstScatter sh v2 (vars, listToIndex ix2))
+    in (memo2, Ast.AstScatter sh v2 (vars, fromList ix2))
   Ast.AstFromVector l ->
     let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
     in (memo2, Ast.AstFromVector $ V.fromList l2)
@@ -581,9 +580,9 @@ unshareAst memo = \case
   Ast.AstReshape sh v -> second (Ast.AstReshape sh) (unshareAst memo v)
   Ast.AstGather sh v (vars, ix) ->
     let (memo1, ix2) = mapAccumR (unshareAstScoped $ toList vars)
-                                 memo (indexToList ix)
+                                 memo (toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in (memo2, Ast.AstGather sh v2 (vars, listToIndex ix2))
+    in (memo2, Ast.AstGather sh v2 (vars, fromList ix2))
   Ast.AstCastR v -> second Ast.AstCastR $ unshareAst memo v
   Ast.AstFromIntegralR v -> second Ast.AstFromIntegralR $ unshareAst memo v
   Ast.AstConcrete ftk t -> (memo, Ast.AstConcrete ftk t)
@@ -624,15 +623,15 @@ unshareAst memo = \case
     in (memo2, Ast.AstSumOfListS args2)
   Ast.AstIndexS @sh1 v ix ->
     let (memo1, v2) = unshareAst memo v
-        (memo2, ix2) = mapAccumR unshareAst memo1 (ShapedList.indexToList ix)
-    in (memo2, Ast.AstIndexS @sh1 v2 (ShapedList.listToIndex ix2))
+        (memo2, ix2) = mapAccumR unshareAst memo1 (toList ix)
+    in (memo2, Ast.AstIndexS @sh1 v2 (fromList ix2))
   Ast.AstSumS v -> second Ast.AstSumS (unshareAst memo v)
   Ast.AstScatterS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ toList vars)
-                    memo (ShapedList.indexToList ix)
+                    memo (toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
+    in (memo2, Ast.AstScatterS @sh2 @p v2 (vars, fromList ix2))
   Ast.AstFromVectorS l ->
     let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
     in (memo2, Ast.AstFromVectorS $ V.fromList l2)
@@ -648,9 +647,9 @@ unshareAst memo = \case
   Ast.AstGatherS @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ toList vars)
-                    memo (ShapedList.indexToList ix)
+                    memo (toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, ShapedList.listToIndex ix2))
+    in (memo2, Ast.AstGatherS @sh2 @p v2 (vars, fromList ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ unshareAst memo v

@@ -449,9 +449,9 @@ voidFromShL :: forall r. GoodScalar r
 voidFromShL sh = withShapeP sh $ \proxySh ->
                    DynamicRankedDummy (Proxy @r) proxySh
 
-voidFromSh :: forall r n. GoodScalar r
+voidFromSh :: forall r n. (GoodScalar r, KnownNat n)
            => IShR n -> DynamicTensor VoidTensor
-voidFromSh sh = voidFromShL @r (shapeToList sh)
+voidFromSh sh = voidFromShL @r (toList sh)
 
 voidFromShS :: forall r sh. (GoodScalar r, KnownShS sh)
             => DynamicTensor VoidTensor

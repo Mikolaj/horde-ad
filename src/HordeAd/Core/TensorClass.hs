@@ -1485,7 +1485,7 @@ rrepl sh = rconcrete . Nested.rreplicateScal (fromList sh)
 ringestData :: forall target r n.
               (GoodScalar r, KnownNat n, BaseTensor target)
            => [Int] -> [r] -> target (TKR n r)
-ringestData sh l = rconcrete $ Nested.rfromListPrimLinear (listToShape sh) l
+ringestData sh l = rconcrete $ Nested.rfromListPrimLinear (fromList sh) l
 
 ingestData :: forall target r sh.
               (GoodScalar r, KnownShS sh, BaseTensor target)

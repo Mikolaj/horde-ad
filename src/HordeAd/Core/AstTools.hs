@@ -127,7 +127,7 @@ ftkAst t = case t of
   AstCastR v -> FTKR (shapeAst v) FTKScalar
   AstFromIntegralR a -> FTKR (shapeAst a) FTKScalar
   AstProjectR l p -> case shapeAstHVector l V.! p of
-    DynamicRankedDummy @_ @sh _ _ -> FTKR (listToShape $ shapeT @sh) FTKScalar
+    DynamicRankedDummy @_ @sh _ _ -> FTKR (fromList $ shapeT @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
   AstZipR v -> case ftkAst v of
@@ -234,7 +234,7 @@ ftkAst t = case t of
 
   AstMkHVector v ->
     FTKUntyped
-    $ V.map (voidFromDynamicF (shapeToList . shapeAst)) v
+    $ V.map (voidFromDynamicF (toList . shapeAst)) v
   AstApply v _ll -> shapeAstHFun v
   AstMapAccumRDer @accShs @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)

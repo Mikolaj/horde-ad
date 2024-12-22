@@ -7,22 +7,15 @@
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
-  -- , consShaped, unconsContShaped
-    singletonSized, appendSized
+    singletonSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized, dropIxS
-  -- , unsnocSized1, lastSized
-  -- , initSized, zipSized
   , zipWith_Sized, reverseSized
-  -- , sizedCompare
-  , listToSized, sizedToList
-  -- , shapedToSized
     -- * Tensor indexes as fully encapsulated shaped lists, with operations
-  , singletonIndex, appendIndex
+  , singletonIndex
   , zipWith_Index
-  , listToIndex, indexToList  -- indexToSized, sizedToIndex
   , shapedToIndex, ixsLengthSNat
-  -- * Tensor shapes as fully encapsulated shaped lists, with operations
-  , listToShape, shapeToList, takeShS, dropShS, takeShX, dropShX
+    -- * Tensor shapes as fully encapsulated shaped lists, with operations
+  , takeShS, dropShS, takeShX, dropShX
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   , permutePrefixIndex
@@ -31,7 +24,6 @@ module HordeAd.Util.ShapedList
 
 import Prelude
 
-import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
@@ -48,7 +40,6 @@ import Data.Array.Nested
   , ShS (..)
   , type (++)
   )
-import Data.Array.Nested.Internal.Shape (listsToList)
 
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList qualified as SizedList
@@ -58,32 +49,27 @@ import HordeAd.Util.SizedList qualified as SizedList
 singletonSized :: KnownNat n => i n -> ListS '[n] i
 singletonSized i = i ::$ ZS
 
-appendSized :: KnownShS (sh2 ++ sh)
-            => ListS sh2 (Const i) -> ListS sh (Const i)
-            -> ListS (sh2 ++ sh) (Const i)
-appendSized l1 l2 = listToSized $ sizedToList l1 ++ sizedToList l2
-
 headSized :: ListS (n ': sh) i -> i n
 headSized (i ::$ _ix) = i
 
 tailSized :: ListS (n ': sh) i -> ListS sh i
 tailSized (_i ::$ ix) = ix
 
-takeSized :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
+takeSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
           => ListS sh (Const i) -> ListS (Take len sh) (Const i)
-takeSized ix = listToSized $ take (valueOf @len) $ sizedToList ix
+takeSized ix = fromList $ take (valueOf @len) $ toList ix
 
-dropSized :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
+dropSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
           => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
-dropSized ix = listToSized $ drop (valueOf @len) $ sizedToList ix
+dropSized ix = fromList $ drop (valueOf @len) $ toList ix
 
 splitAt_Sized
-  :: (KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
+  :: (KnownShS sh, KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
   => ListS sh (Const i)
   -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
 splitAt_Sized ix = (takeSized ix, dropSized ix)
 
-dropIxS :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
+dropIxS :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
         => IxS sh i -> IxS (Drop len sh) i
 dropIxS (IxS ix) = IxS $ dropSized ix
 
@@ -115,7 +101,7 @@ zipWith_Sized f ((Const i) ::$ irest) ((Const j) ::$ jrest) =
   Const (f i j) ::$ zipWith_Sized f irest jrest
 
 reverseSized :: KnownShS sh => ListS sh (Const i) -> ListS sh (Const i)
-reverseSized = listToSized . reverse . sizedToList
+reverseSized = fromList . reverse . toList
 
 {-
 -- | Pairwise comparison of two sized list values.
@@ -128,45 +114,18 @@ sizedCompare f (i ::$ idx) (j ::$ idx') =
   f i j <> sizedCompare f idx idx'
 -}
 
-listToSized :: KnownShS sh => [i] -> ListS sh (Const i)
-listToSized = fromList
-
-sizedToList :: ListS sh (Const i) -> [i]
-sizedToList = listsToList
-
--- shapedToSized :: KnownNat (Rank sh)
---               => ListS sh i -> ListR (Rank sh) i
--- shapedToSized = SizedList.listToSized . sizedToList
-
-
 -- * Tensor indexes as fully encapsulated shaped lists, with operations
 
 -- TODO take Fin instead of i?
 singletonIndex :: KnownNat n => i -> IxS '[n] i
 singletonIndex i = i :.$ ZIS
 
-appendIndex :: KnownShS (sh2 ++ sh)
-            => IxS sh2 i -> IxS sh i -> IxS (sh2 ++ sh) i
-appendIndex (IxS ix1) (IxS ix2) = IxS $ appendSized ix1 ix2
-
 zipWith_Index :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
 zipWith_Index f (IxS l1) (IxS l2) = IxS $ zipWith_Sized f l1 l2
 
-listToIndex :: KnownShS sh => [i] -> IxS sh i
-listToIndex = fromList
-
-indexToList :: IxS sh i -> [i]
-indexToList = Foldable.toList
-
--- indexToSized :: IxS sh i -> ListS sh i
--- indexToSized (IxS l) = l
-
--- sizedToIndex :: ListS sh i -> IxS sh i
--- sizedToIndex = IxS
-
-shapedToIndex :: KnownNat (Rank sh)
+shapedToIndex :: (KnownShS sh, KnownNat (Rank sh))
               => IxS sh i -> IxR (Rank sh) i
-shapedToIndex = SizedList.listToIndex . indexToList
+shapedToIndex = fromList . toList
 
 ixsLengthSNat :: IxS list i -> SNat (Rank list)
 ixsLengthSNat ZIS = SNat
@@ -174,12 +133,6 @@ ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
 
 
 -- * Tensor shapes as fully encapsulated shaped lists, with operations
-
-listToShape :: KnownShS sh => [Int] -> ShS sh
-listToShape = fromList
-
-shapeToList :: KnownShS sh => ShS sh -> [Int]
-shapeToList = toList
 
 takeShS :: forall len sh. (KnownNat len, KnownShS sh, KnownShS (Take len sh))
         => ShS sh -> ShS (Take len sh)
@@ -255,7 +208,7 @@ permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
 permutePrefixSized p ix =
   if length (shapeT @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else listToSized $ SizedList.permutePrefixList p $ sizedToList ix
+  else fromList $ SizedList.permutePrefixList p $ toList ix
 
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.

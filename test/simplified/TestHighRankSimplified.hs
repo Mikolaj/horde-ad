@@ -7,6 +7,7 @@ module TestHighRankSimplified (testTrees) where
 import Prelude
 
 import Data.Int (Int64)
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
@@ -371,12 +372,12 @@ fooNoGo v =
       shTail = tailShape (rshape v)
   in rbuild1 3 (\ix ->
        bar ( rreplicate0N shTail (rscalar 3.14)
-           , bar ( rrepl (shapeToList shTail) 3.14
+           , bar ( rrepl (toList shTail) 3.14
                  , rindex v [ix]) )
        + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* 6 >. abs ix)
                r (rreplicate0N shTail (rscalar 5) * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r0) r0 x) v)
-     * rbuild1 3 (const $ rrepl (shapeToList shTail) 1)
+     * rbuild1 3 (const $ rrepl (toList shTail) 1)
 
 testFooNoGo :: Assertion
 testFooNoGo =
@@ -473,7 +474,7 @@ nestedSumBuildB v =
         (rfromList
              [ rbuild1 2 rfromIndex0
              , rsum $ rbuild [9, 2] $ const $ rfromIndex0 ix
-             , rindex v (listToIndex @n
+             , rindex v (fromList
                          $ replicate (rrank v - 1)
                              (maxF 0 $ minF 1 $ ix2 `quotF` 2 + ix `quotF` 4 - 1))
              , rbuild1 2 (\_ -> rsum0 v)

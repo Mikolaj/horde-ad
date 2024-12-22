@@ -15,14 +15,15 @@ import Control.Exception (assert)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (IShR, ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList
 
@@ -72,7 +73,7 @@ rfromIndex1 :: forall n r target.
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map rfromScalar . indexToList
+  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map rfromScalar . toList
 
 {-
 rint64FromIndex1 :: forall n target.
@@ -258,13 +259,13 @@ indexz0 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.
 within0
-  :: forall target n. ADReady target
+  :: forall target n. (ADReady target, KnownNat n)
   => IShR n -> IxROf target n -> BoolOf target
 within0 sh ix =
   let within :: IntOf target -> IntOf target -> BoolOf target
       within i dim = 0 <=. i &&* dim >. i
   in foldr (&&*) true
-     $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
+     $ zipWith within (toList ix) (map fromIntegral $ toList sh)
 
 maxPool2dUnpadded
   :: (ADReady target, GoodScalar r)

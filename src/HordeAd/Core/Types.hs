@@ -57,16 +57,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Mixed.Types (Dict (..))
 import Data.Array.Nested
-  ( IxR
-  , IxS (..)
-  , IxX
-  , KnownShS (..)
-  , ListS (..)
-  , Rank
-  , ShR (..)
-  , ShS (..)
-  , StaticShX (..)
-  )
+  (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)

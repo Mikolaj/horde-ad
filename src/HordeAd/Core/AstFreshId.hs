@@ -20,6 +20,7 @@ import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import Data.List.Index (imapM)
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, Nat)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -30,7 +31,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 unRawHVector :: HVector (AstRaw s) -> HVector (AstTensor AstMethodShare s)
@@ -278,8 +278,8 @@ funToVarsIxIO
 {-# INLINE funToVarsIxIO #-}
 funToVarsIxIO m f = do
   varList <- replicateM m unsafeGetFreshAstVarName
-  let !vars = listToSized varList
-      !ix = listToIndex $ map AstIntVar varList
+  let !vars = fromList varList
+      !ix = fromList $ map AstIntVar varList
   return $! f (vars, ix)
 
 funToVarsIx
@@ -302,8 +302,8 @@ funToVarsIxIOS
 funToVarsIxIOS f = do
   let p = length $ shapeT @sh
   varList <- replicateM p unsafeGetFreshAstVarName
-  let !vars = ShapedList.listToSized varList
-      !ix = ShapedList.listToIndex $ map AstIntVar varList
+  let !vars = fromList varList
+      !ix = fromList $ map AstIntVar varList
   return $! f (vars, ix)
 
 funToVarsIxS

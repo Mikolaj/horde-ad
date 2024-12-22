@@ -4,23 +4,21 @@
 -- | @GHC.Nat@-indexed lists, tensors shapes and indexes.
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
-    singletonSized, snocSized, appendSized
+    singletonSized, snocSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , permInverse
   , backpermutePrefixList, permutePrefixList
-  , sizedCompare, listToSized, sizedToList
+  , sizedCompare
     -- * Tensor indexes as fully encapsulated sized lists, with operations
-  , singletonIndex, snocIndex, appendIndex
+  , singletonIndex, snocIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
-  , listToIndex, indexToList, indexToSized, sizedToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , singletonShape, appendShape
+  , singletonShape
   , tailShape, takeShape, dropShape, splitAt_Shape
   , lastShape, initShape
   , lengthShape, sizeShape, flattenShape
-  , listToShape, shapeToList
   , withListShape, withListSh
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
@@ -29,7 +27,6 @@ module HordeAd.Util.SizedList
 import Prelude
 
 import Control.Arrow (first)
-import Data.Foldable qualified as Foldable
 import Data.List (sort)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
@@ -78,11 +75,6 @@ snocSized :: KnownNat n => ListR n i -> i -> ListR (1 + n) i
 snocSized ZR last1 = last1 ::: ZR
 snocSized (i ::: ix) last1 = i ::: snocSized ix last1
 
-appendSized :: KnownNat n
-            => ListR m i -> ListR n i -> ListR (m + n) i
-appendSized ZR ix2 = ix2
-appendSized (i1 ::: ix1) ix2 = i1 ::: appendSized ix1 ix2
-
 headSized :: ListR (1 + n) i -> i
 headSized ZR = error "headSized: impossible pattern needlessly required"
 headSized (i ::: _ix) = i
@@ -91,13 +83,13 @@ tailSized :: ListR (1 + n) i -> ListR n i
 tailSized ZR = error "tailSized: impossible pattern needlessly required"
 tailSized (_i ::: ix) = ix
 
-takeSized :: forall len n i. KnownNat len
+takeSized :: forall len n i. (KnownNat n, KnownNat len)
           => ListR (len + n) i -> ListR len i
-takeSized ix = listToSized $ take (valueOf @len) $ sizedToList ix
+takeSized ix = fromList $ take (valueOf @len) $ toList ix
 
 dropSized :: forall len n i. (KnownNat len, KnownNat n)
           => ListR (len + n) i -> ListR n i
-dropSized ix = listToSized $ drop (valueOf @len) $ sizedToList ix
+dropSized ix = fromList $ drop (valueOf @len) $ toList ix
 
 splitAt_Sized :: (KnownNat m, KnownNat n)
               => ListR (m + n) i -> (ListR m i, ListR n i)
@@ -168,14 +160,6 @@ sizedCompare f (i ::: idx) (j ::: idx') =
 sizedCompare _ _ _ =
   error "sizedCompare: impossible pattern needlessly required"
 
--- Look Ma, no unsafeCoerce! This compiles only with GHC >= 9.2,
--- but the rest of our code caught up and fails with GHC 9.0 as well.
-listToSized :: forall n i. KnownNat n => [i] -> ListR n i
-listToSized = fromList
-
-sizedToList :: ListR n i -> [i]
-sizedToList = Foldable.toList
-
 
 -- * Tensor indexes as fully encapsulated sized lists, with operations
 
@@ -197,16 +181,13 @@ singletonIndex = IxR . singletonSized
 snocIndex :: KnownNat n => IxR n i -> i -> IxR (1 + n) i
 snocIndex (IxR ix) i = IxR $ snocSized ix i
 
-appendIndex :: KnownNat n => IxR m i -> IxR n i -> IxR (m + n) i
-appendIndex (IxR ix1) (IxR ix2) = IxR $ appendSized ix1 ix2
-
 headIndex :: IxR (1 + n) i -> i
 headIndex (IxR ix) = headSized ix
 
 tailIndex :: IxR (1 + n) i -> IxR n i
 tailIndex (IxR ix) = IxR $ tailSized ix
 
-takeIndex :: forall m n i. KnownNat m
+takeIndex :: forall m n i. (KnownNat m, KnownNat n)
           => IxR (m + n) i -> IxR m i
 takeIndex (IxR ix) = IxR $ takeSized ix
 
@@ -245,31 +226,16 @@ zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
 zipWith_Index :: (i -> j -> k) -> IxR n i -> IxR n j -> IxR n k
 zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
 
-listToIndex :: KnownNat n => [i] -> IxR n i
-listToIndex = fromList
-
-indexToList :: IxR n i -> [i]
-indexToList = Foldable.toList
-
-indexToSized :: IxR n i -> ListR n i
-indexToSized (IxR l) = l
-
-sizedToIndex :: ListR n i -> IxR n i
-sizedToIndex = IxR
-
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
 
 singletonShape :: i -> ShR 1 i
 singletonShape = ShR . singletonSized
 
-appendShape :: KnownNat n => ShR m i -> ShR n i -> ShR (m + n) i
-appendShape (ShR ix1) (ShR ix2) = ShR $ appendSized ix1 ix2
-
 tailShape :: ShR (1 + n) i -> ShR n i
 tailShape (ShR ix) = ShR $ tailSized ix
 
-takeShape :: forall m n i. KnownNat m
+takeShape :: forall m n i. (KnownNat n, KnownNat m)
           => ShR (m + n) i -> ShR m i
 takeShape (ShR ix) = ShR $ takeSized ix
 
@@ -298,21 +264,15 @@ sizeShape (n :$: sh) = fromIntegral n * sizeShape sh
 flattenShape :: Integral i => ShR n i -> ShR 1 i
 flattenShape = singletonShape . fromIntegral . sizeShape
 
--- Warning: do not pass a list of strides to this function.
-listToShape :: KnownNat n => [i] -> ShR n i
-listToShape = fromList
-
-shapeToList :: ShR n i -> [i]
-shapeToList = Foldable.toList
-
 -- Both shape representations denote the same shape.
 withListShape
-  :: [i]
+  :: forall i a.
+     [i]
   -> (forall n. KnownNat n => ShR n i -> a)
   -> a
 withListShape shList f =
   case someNatVal $ toInteger (length shList) of
-    Just (SomeNat @n _) -> f $ listToShape @n shList
+    Just (SomeNat @n _) -> f $ (fromList shList :: ShR n i)
     _ -> error "withListShape: impossible someNatVal error"
 
 -- All three shape representations denote the same shape.
@@ -327,7 +287,7 @@ withListSh (Proxy @sh) f =
   in case someNatVal $ toInteger (length shList) of
     Just (SomeNat @n _) ->
       gcastWith (unsafeCoerce Refl :: Rank sh :~: n) $
-      f $ listToShape @n shList
+      f $ fromList shList
     _ -> error "withListSh: impossible someNatVal error"
 
 

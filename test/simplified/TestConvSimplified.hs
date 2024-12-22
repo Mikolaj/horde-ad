@@ -650,7 +650,7 @@ indexz02
   :: forall target r n.
      (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
   => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
-indexz02 d ix = ifF (1 >. (indexToList ix !! 0)) (d ! ix) (rscalar 0)
+indexz02 d ix = ifF (1 >. (toList ix !! 0)) (d ! ix) (rscalar 0)
 
 rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
          => target (TKR 4 r) -> target (TKR 0 r)

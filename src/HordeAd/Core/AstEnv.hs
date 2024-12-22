@@ -27,18 +27,18 @@ import Data.Dependent.Sum
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (Nat)
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat, Nat)
 import Text.Show (showListWith)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (Rank)
+import Data.Array.Nested (KnownShS (..), Rank)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 -- * The environment and operations for extending it
@@ -123,21 +123,20 @@ extendEnvI :: BaseTensor target
            -> AstEnv target
 extendEnvI var !i !env = extendEnv var (tfromPrimal (STKScalar typeRep) i) env
 
-extendEnvVars :: forall target m. BaseTensor target
+extendEnvVars :: forall target m. (KnownNat m, BaseTensor target)
               => AstVarList m -> IxROf target m
               -> AstEnv target
               -> AstEnv target
 extendEnvVars vars !ix !env =
-  let assocs = zip (sizedToList vars) (indexToList ix)
+  let assocs = zip (toList vars) (toList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-extendEnvVarsS :: forall target sh. BaseTensor target
+extendEnvVarsS :: forall target sh. (KnownShS sh, BaseTensor target)
                => AstVarListS sh -> IxSOf target sh
                -> AstEnv target
                -> AstEnv target
 extendEnvVarsS vars !ix !env =
-  let assocs = zip (ShapedList.sizedToList vars)
-                   (ShapedList.indexToList ix)
+  let assocs = zip (toList vars) (toList ix)
   in foldr (uncurry extendEnvI) env assocs
 
 
@@ -154,7 +153,7 @@ interpretLambdaIHVector f !env (!var, !ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIndex
-  :: forall target s r m n ms. BaseTensor target
+  :: forall target s r m n ms. (KnownNat m, BaseTensor target)
   => (AstEnv target -> AstTensor ms s (TKR n r) -> target (TKR n r))
   -> AstEnv target -> (AstVarList m, AstTensor ms s (TKR n r))
   -> IxROf target m
@@ -164,7 +163,7 @@ interpretLambdaIndex f !env (!vars, !ast) =
   \ix -> f (extendEnvVars vars ix env) ast
 
 interpretLambdaIndexS
-  :: forall sh sh2 target s r ms. BaseTensor target
+  :: forall sh sh2 target s r ms. (KnownShS sh2, BaseTensor target)
   => (AstEnv target -> AstTensor ms s (TKS sh r) -> target (TKS sh r))
   -> AstEnv target -> (AstVarListS sh2, AstTensor ms s (TKS sh r))
   -> IxSOf target sh2
@@ -174,7 +173,7 @@ interpretLambdaIndexS f !env (!vars, !ast) =
   \ix -> f (extendEnvVarsS vars ix env) ast
 
 interpretLambdaIndexToIndex
-  :: forall target m n ms. BaseTensor target
+  :: forall target m n ms. (KnownNat m, BaseTensor target)
   => (AstEnv target -> AstInt ms -> IntOf target)
   -> AstEnv target -> (AstVarList m, AstIxR ms n)
   -> IxROf target m
@@ -184,7 +183,7 @@ interpretLambdaIndexToIndex f !env (!vars, !asts) =
   \ix -> f (extendEnvVars vars ix env) <$> asts
 
 interpretLambdaIndexToIndexS
-  :: forall target sh sh2 ms. BaseTensor target
+  :: forall target sh sh2 ms. (KnownShS sh, BaseTensor target)
   => (AstEnv target -> AstInt ms -> IntOf target)
   -> AstEnv target -> (AstVarListS sh, AstIxS ms sh2)
   -> IxSOf target sh

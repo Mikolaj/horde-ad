@@ -20,10 +20,9 @@ import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 lowercase :: String -> String
 lowercase = map Data.Char.toLower
@@ -45,7 +44,7 @@ instance HasShape (RepORArray y) => HasShape (RepN y) where
   shapeL = shapeL . unRepN
 
 instance BaseTensor target => HasShape (DynamicTensor target) where
-  shapeL (DynamicRanked t) = shapeToList $ rshape t
+  shapeL (DynamicRanked t) = toList $ rshape t
   shapeL (DynamicShaped @_ @sh _) = shapeT @sh
   shapeL (DynamicRankedDummy @_ @sh _ _) = shapeT @sh
   shapeL (DynamicShapedDummy @_ @sh _ _) = shapeT @sh

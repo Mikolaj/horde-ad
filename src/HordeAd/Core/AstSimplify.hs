@@ -81,6 +81,7 @@ import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Mixed.Types qualified as X (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
+  , IxR (..)
   , IxS (..)
   , KnownShS (..)
   , KnownShX (..)
@@ -105,7 +106,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (ixrAppend, ixsAppend, shCvtSX, shsAppend, shsRank)
+  (ixrAppend, ixsAppend, listrAppend, shCvtSX, shrAppend, shsAppend, shsRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -587,7 +588,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     astIndex v (Nested.Internal.Shape.ixrPermutePrefix (permInverse perm) ix)
   Ast.AstTranspose perm v -> astIndex (astTransposeAsGather knobs perm v) ix
   Ast.AstReshape sh v -> astIndex (astReshapeAsGather knobs sh v) ix
-  Ast.AstGather _sh v (ZR, ix2) -> astIndex v (appendIndex ix2 ix)
+  Ast.AstGather _sh v (ZR, ix2) -> astIndex v (ix2 `ixrAppend` ix)
   Ast.AstGather @_ @n7 (_ :$: sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstTensor AstMethodLet s (TKR2 (m1 + n) r)
         w = gcastWith (unsafeCoerce Refl :: m1 + n :~: m71 + n7) $
@@ -628,7 +629,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
        gcastWith (unsafeCoerce Refl :: sh :~: p_take ++ p_drop) $
        gcastWith (unsafeCoerce Refl :: Rank p_drop :~: n) $
        astRFromS $ astIndexKnobsS @p_take @p_drop knobs
-                                  t (ShapedList.listToIndex $ indexToList ix)
+                                  t (fromList $ toList ix)
   Ast.AstRFromX{} -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndex v0 ix
@@ -843,7 +844,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
       gcastWith (unsafeCoerce Refl :: (Take p sh ++ shm :~: sh1n)) $
       gcastWith (unsafeCoerce Refl :: Take p sh ++ shm ++ shn :~: sh) $
         -- TODO: why is this needed? if it's true (it is), GHC should know it
-      astIndex v (ShapedList.appendIndex ix2 ix)
+      astIndex v (ix2 `ixsAppend` ix)
   Ast.AstGatherS v (Const var2 ::$ (vars :: AstVarListS shm71), ix2) | Dict <- slistKnown vars ->
     withListSh (Proxy @shn) $ \_ ->
       withShapeP (shapeT @shm1 ++ shapeT @shn) $ \(Proxy @sh1n) ->
@@ -1037,13 +1038,13 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       -- because it needs to be in scope of vars4, so we can't use tlet.
       -- Also, the sharing would be dissolved by the substitution, anyway,
       -- and the same subsitution would be unsound with sharing.
-      funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
+      funToVarsIx (valueOf @m') $ \ (!varsFresh, IxR !ixFresh) ->
         -- This subst doesn't currently break sharing, because it's a rename.
         let subst i =
               foldr (\(i2, var2) v2 ->
                        substituteAst i2 var2 v2)
                     i
-                    (zipSized (indexToSized ixFresh) vars4)
+                    (zipSized ixFresh vars4)
             ix5 = fmap subst ix4
         in Ast.AstD (astGatherRec sh4 u (vars4, ix4))
                     (astGatherRec sh4 u' (varsFresh, ix5))
@@ -1066,12 +1067,12 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstMinIndexR v ->
       Ast.AstMinIndexR
       $ astGatherKnobsR knobs
-          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
+          (sh4 `shrAppend` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
     Ast.AstMaxIndexR v ->
       Ast.AstMaxIndexR
       $ astGatherKnobsR knobs
-          (sh4 `appendShape` singletonShape (lastShape (shapeAst v)))
+          (sh4 `shrAppend` singletonShape (lastShape (shapeAst v)))
           v (vars4, ix4)
     Ast.AstFloorR v ->
       Ast.AstFloorR
@@ -1107,7 +1108,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       let perm3 = backpermCycle $ valueOf @p' + 1
           perm4 = permCycle $ valueOf @m' + 1
           (sh41, sh42) = splitAt_Shape @m' sh4
-          sh5 = appendShape sh41 (lengthAst v :$: sh42)
+          sh5 = sh41 `shrAppend` (lengthAst v :$: sh42)
           innerGather = astGather sh5 (astTranspose perm3 v) (vars4, ix4)
       in if not (knobExpand knobs) || length perm4 <= valueOf @m'
          then astSum $ astTranspose perm4 innerGather
@@ -1141,16 +1142,16 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstFromVector l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
-      funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
+      funToVarsIx (valueOf @m') $ \ (!varsFresh, IxR !ixFresh) ->
         let f v = astGatherRec sh4 v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
               foldr (\(i2, var2) v2 ->
                       substituteAst i2 var2 v2)
                     i
-                    (zipSized (indexToSized ixFresh) vars4)
+                    (zipSized ixFresh vars4)
             i5 = subst i4
-       in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: ixFresh)
+       in astGather sh4 (astFromVector $ V.map f l) (varsFresh, i5 :.: IxR ixFresh)
     Ast.AstAppend u v ->
       let ulen = AstConcrete FTKScalar $ RepN $ fromIntegral $ lengthAst u
           iu = simplifyAstInt (AstN2 MinusOp i4 ulen)
@@ -1159,16 +1160,16 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                           then astGather sh4 u (vars4, i4 :.: rest4)
                           else astGather sh4 v (vars4, iu :.: rest4)
         bExpr ->
-          funToVarsIx (valueOf @m') $ \ (!varsFresh, !ixFresh) ->
+          funToVarsIx (valueOf @m') $ \ (!varsFresh, IxR !ixFresh) ->
             let u2 = astGatherRec sh4 u (vars4, i4 :.: rest4)
                 v2 = astGatherRec sh4 v (vars4, iu :.: rest4)
                 -- This subst doesn't break sharing because it's a rename.
                 subst i =
                   foldr (uncurry substituteAstBool) i
-                        (zipSized (indexToSized ixFresh) vars4)
+                        (zipSized ixFresh vars4)
                 bExpr5 = subst bExpr
             in astGather sh4 (astFromVector $ V.fromList [u2, v2])
-                             (varsFresh, astCond bExpr5 0 1 :.: ixFresh)
+                             (varsFresh, astCond bExpr5 0 1 :.: IxR ixFresh)
     Ast.AstSlice i _k v ->
       let ii = simplifyAstInt (i4 + fromIntegral i)
         -- we generate this index, so we simplify on the spot
@@ -1196,22 +1197,22 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       -- as in tletIx help or would we need to switch indexes to vector
       -- altogether (terrible for user comfort, especially wrt typing).
       let substLet :: AstIxR AstMethodLet m7 -> AstVarList m7 -> AstInt AstMethodLet -> AstInt AstMethodLet
-          substLet ix vars i =
+          substLet (IxR ix) vars i =
             simplifyAstInt  -- we generate the index, so we simplify on the spot
             $ foldr (uncurry astLetInt) i
-                    (zipSized vars (indexToSized ix))
+                    (zipSized vars ix)
           composedGather :: p' <= m2 => AstTensor AstMethodLet s (TKR2 (m' + n') r)
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
                 ix22 = fmap (substLet ix4 vars2p) ix2
             in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n')
-               $ astGather sh4 v2 (appendSized vars4 vars22, ix22)
+               $ astGather sh4 v2 (vars4 `listrAppend` vars22, ix22)
           assimilatedGather :: m2 <= p' => AstTensor AstMethodLet s (TKR2 (m' + n') r)
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
                 ix22 = fmap (substLet ix42 vars2) ix2
             in gcastWith (unsafeCoerce Refl :: n' + p' - m2 :~: n2)
-               $ astGather sh4 v2 (vars4, appendIndex ix22 ix44)
+               $ astGather sh4 v2 (vars4, ix22  `ixrAppend` ix44)
       in case cmpNat (Proxy @p') (Proxy @m2) of
         LTI -> composedGather
         EQI -> assimilatedGather
@@ -1250,12 +1251,12 @@ gatherFromNF vars (i :.: rest) = case cmpNat (Proxy @p) (Proxy @m) of
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
         cmp _ = False
         (varsP, varsPM) = splitAt_Sized @p @(m - p) vars
-    in all cmp (zipIndex rest (sizedToIndex (fmap AstIntVar varsP)))
+    in all cmp (zipIndex rest (IxR (fmap AstIntVar varsP)))
        && not (any (`varNameInAst` i) varsPM)
   EQI ->
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
         cmp _ = False
-    in all cmp (zipIndex rest (sizedToIndex (fmap AstIntVar vars)))
+    in all cmp (zipIndex rest (IxR (fmap AstIntVar vars)))
   GTI -> False
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT

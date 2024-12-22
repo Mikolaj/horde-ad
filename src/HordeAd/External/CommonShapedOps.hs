@@ -15,6 +15,7 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
+import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 import Type.Reflection (typeRep)
@@ -22,6 +23,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shsRank)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -64,12 +66,13 @@ sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
 sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . rfromScalar
 
 sfromIndex1 :: forall r sh target.
-               (ADReady target, GoodScalar r, KnownNat (Rank sh))
+               (ADReady target, GoodScalar r, KnownShS sh)
             => IxSOf target sh -> target (TKS '[Rank sh] r)
-sfromIndex1 = case sameNat (Proxy @(Rank sh)) (Proxy @0) of
-  Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
-  _ -> sfromR . rfromIntegral . rfromPrimal . rfromList
-       . NonEmpty.fromList . map rfromScalar . ShapedList.indexToList
+sfromIndex1 | SNat <- shsRank (knownShS @sh) =
+  case sameNat (Proxy @(Rank sh)) (Proxy @0) of
+    Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
+    _ -> sfromR . rfromIntegral . rfromPrimal . rfromList
+         . NonEmpty.fromList . map rfromScalar . toList
 
 {-
 sletIx :: forall r sh n target.
@@ -276,9 +279,9 @@ indexz0S
   :: forall shOut sh target r.
      (KnownShS shOut, KnownShS sh, ADReady target, GoodScalar r)
   => target (TKS sh r) -> IxROf target (Rank shOut) -> target (TKS '[] r)
-indexz0S d ix =
+indexz0S d ix | SNat <- shsRank (knownShS @shOut) =
   ifF (within0S @shOut @target ix)
-      (sindex0 d (ShapedList.listToIndex (indexToList ix)))
+      (sindex0 d (fromList (toList ix)))
       (srepl 0)
 
 -- | Given an index and shape, check if the index is fully within the shape.
@@ -289,11 +292,11 @@ within0S
        -- the indexes may be outside shOut and even negative (e.g., for
        -- convolutions with padding)
   -> BoolOf target
-within0S ix =
+within0S ix | SNat <- shsRank (knownShS @shOut) =
   let within :: IntOf target -> IntOf target -> BoolOf target
       within i dim = 0 <=. i &&* dim >. i
   in foldr (&&*) true
-     $ zipWith within (indexToList ix) (map fromIntegral $ shapeT @shOut)
+     $ zipWith within (toList ix) (map fromIntegral $ shapeT @shOut)
        -- or use sfromIndex1 and compare vectors?
 
 maxPool2dUnpaddedS

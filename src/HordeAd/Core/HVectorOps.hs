@@ -543,7 +543,7 @@ sizeHVector = let f (DynamicRanked @r t) = rsize @target @(TKScalar r) t
 
 shapeDynamic :: BaseTensor target
              => DynamicTensor target -> [Int]
-shapeDynamic = shapeDynamicF (shapeToList . rshape)
+shapeDynamic = shapeDynamicF (toList . rshape)
 
 dynamicsMatch :: forall f g. (BaseTensor f, BaseTensor g)
               => DynamicTensor f -> DynamicTensor g -> Bool
@@ -570,7 +570,7 @@ voidHVectorMatches v1 v2 =
 -- as well as when generating dummy zero parameters based on a template.
 voidFromDynamic :: BaseTensor target
                 => DynamicTensor target -> DynamicTensor VoidTensor
-voidFromDynamic = voidFromDynamicF (shapeToList . rshape)
+voidFromDynamic = voidFromDynamicF (toList . rshape)
 
 voidFromHVector :: BaseTensor target
                 => HVector target -> VoidHVector
@@ -594,7 +594,7 @@ fromDynamicR zero = \case
   DynamicShaped{} -> error "fromDynamicR: ranked from shaped"
   DynamicRankedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> let sh2 = listToShape (shapeT @sh2)
+      Just Refl -> let sh2 = fromList (shapeT @sh2)
                    in zero sh2
       _ -> error "fromDynamicR: scalar mismatch"
     _ -> error "fromDynamicR: shape mismatch"
@@ -733,7 +733,7 @@ mapRanked f (DynamicRanked t) = DynamicRanked $ f t
 mapRanked f (DynamicShaped @_ @sh t) =
   withListSh (Proxy @sh) $ \(_ :: IShR n) ->
     let res = f $ rfromS @_ @_ @sh t
-    in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 mapRanked f (DynamicRankedDummy @r @sh _ _) =
@@ -742,7 +742,7 @@ mapRanked f (DynamicRankedDummy @r @sh _ _) =
 mapRanked f (DynamicShapedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \(sh1 :: IShR n) ->
     let res = f @r (rzero sh1)
-    in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 
@@ -763,7 +763,7 @@ mapRanked01 f (DynamicRanked t) = DynamicRanked $ f t
 mapRanked01 f (DynamicShaped @_ @sh t) =
   withListSh (Proxy @sh) $ \(_ :: IShR n) ->
     let res = f $ rfromS @_ @_ @sh t
-    in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
       case someNatVal $ 1 + valueOf @n of
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
@@ -776,7 +776,7 @@ mapRanked01 f (DynamicRankedDummy @r @sh _ _) =
 mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \(sh1 :: IShR n) ->
     let res = f @r (rzero sh1)
-    in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
       case someNatVal $ 1 + valueOf @n of
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
@@ -804,7 +804,7 @@ mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
   (:$$) @_ @sh0 _ tl | Dict <- sshapeKnown tl ->
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
       let res = f $ rfromS @_ @_ @sh t
-      in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
@@ -817,7 +817,7 @@ mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
   (:$$) @_ @sh0 k tl | Dict <- sshapeKnown tl ->
     withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
       let res = f @r (rzero $ sNatValue k :$: sh1)
-      in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 
@@ -841,7 +841,7 @@ mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
   (:$$) @_ @sh0 _ tl | Dict <- sshapeKnown tl ->
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
       let res = f $ rfromS @_ @_ @sh t
-      in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
@@ -858,7 +858,7 @@ mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
   (:$$) @_ @sh0 k tl | Dict <- sshapeKnown tl ->
     withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
       let res = f @r (rzero $ sNatValue k :$: sh1)
-      in withShapeP (shapeToList $ rshape res) $ \(Proxy @shr) ->
+      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
@@ -879,7 +879,7 @@ mapShaped
       => target (TKS shq rq) -> target (TKS shq rq))
   -> DynamicTensor target -> DynamicTensor target
 mapShaped f (DynamicRanked @r @n t) =
-  withShapeP (shapeToList $ rshape t) $ \(Proxy @sh) ->
+  withShapeP (toList $ rshape t) $ \(Proxy @sh) ->
     withListSh (Proxy @sh) $ \(_ :: IShR m) ->
       gcastWith (unsafeCoerce Refl :: n :~: m) $
       DynamicRanked $ rfromS $ f @r @sh $ sfromR t

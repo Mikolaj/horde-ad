@@ -11,6 +11,7 @@ import Control.Exception.Assert.Sugar
 import Data.IntMap.Strict qualified as IM
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
@@ -1314,7 +1315,7 @@ rscanZip :: forall rn n target. (GoodScalar rn, KnownNat n, ADReady target)
 rscanZip f eShs acc0 es =
   let width = case V.unsnoc es of
         Nothing -> error "rscanZip: can't determine argument width"
-        Just (_, d) -> case shapeDynamicF (shapeToList . rshape) d of
+        Just (_, d) -> case shapeDynamicF (toList . rshape) d of
           [] -> error "rscanZip: wrong rank of argument"
           w : _shm -> w
       sh = rshape acc0

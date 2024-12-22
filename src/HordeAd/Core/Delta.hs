@@ -849,7 +849,7 @@ shapeDeltaFull = \case
     FTKX sh1 (FTKX sh2 x) -> FTKX (sh1 `shxAppend` sh2) x
 
   HToH v ->
-    FTKUntyped $ V.map (voidFromDynamicF (shapeToList . shapeDelta)) v
+    FTKUntyped $ V.map (voidFromDynamicF (toList . shapeDelta)) v
   MapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
