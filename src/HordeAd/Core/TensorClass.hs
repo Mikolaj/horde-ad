@@ -1232,18 +1232,19 @@ class ( Num (IntOf target)
     -> target (TKR2 (1 + n) rn)
   rscan f acc0 es =
     let shm :: IShR m
-        (width, shm) = case rshape es of
-          width2 :$: shm2 -> (width2, shm2)
-          ZSR -> error "rscan: impossible pattern needlessly required"
-        sh = rshape acc0
+        (width, shm, xm) = case tftk stensorKind es of
+          FTKR (width2 :$: shm2) xm -> (width2, shm2, xm)
+          FTKR ZSR _ -> error "rfold: impossible pattern needlessly required"
+        (sh, x) = case tftk stensorKind acc0 of
+          FTKR sh x -> (sh, x)
     in withSNat width $ \snat ->
       let bs =
             tproject2
             $ dmapAccumL (Proxy @target)
                 snat
-                (FTKR @_ sh (FTKScalar @rn))
-                (FTKR @_ sh (FTKScalar @rn))
-                (FTKR @_ shm (FTKScalar @rm))
+                (FTKR @_ sh x)
+                (FTKR @_ sh x)
+                (FTKR @_ shm xm)
                 (let g :: forall f. ADReady f
                        => f (TKR2 n rn) -> f (TKR2 m rm)
                        -> f (TKProduct (TKR2 n rn) (TKR2 n rn))
@@ -1261,12 +1262,24 @@ class ( Num (IntOf target)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 sh rn)
   sfold f acc0 es =
-    tproject1
+    let xm = case tftk stensorKind es of
+          FTKS _ x2 -> x2
+        x = case tftk stensorKind acc0 of
+          FTKS _ x2 -> x2
+    in tproject1
       (dmapAccumL (Proxy @target)
          (SNat @k)
+
+
+-- this is the only error
          (FTKS @sh knownShS (FTKScalar @rn))
+-- this fixes it:
+--         (FTKS @sh knownShS x)
+
+
+
          (FTKScalar @Z0)
-         (FTKS @shm knownShS (FTKScalar @rm))
+         (FTKS @shm knownShS xm)
          (let g :: forall f. ADReady f
                 => f (TKS2 sh rn) -> f (TKS2 shm rm)
                 -> f (TKProduct (TKS2 sh rn) TKUnit)
@@ -1282,13 +1295,17 @@ class ( Num (IntOf target)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 (1 + k ': sh) rn)
   sscan f acc0 es =
-    let bs =
+    let xm = case tftk stensorKind es of
+          FTKS _ x2 -> x2
+        x = case tftk stensorKind acc0 of
+          FTKS _ x2 -> x2
+        bs =
           tproject2
           $ dmapAccumL (Proxy @target)
              (SNat @k)
-             (FTKS @sh knownShS (FTKScalar @rn))
-             (FTKS @sh knownShS (FTKScalar @rn))
-             (FTKS @shm knownShS (FTKScalar @rm))
+             (FTKS @sh knownShS x)
+             (FTKS @sh knownShS x)
+             (FTKS @shm knownShS xm)
              (let g :: forall f. ADReady f
                     => f (TKS2 sh rn) -> f (TKS2 shm rm)
                     -> f (TKProduct (TKS2 sh rn) (TKS2 sh rn))
