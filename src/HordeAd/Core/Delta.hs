@@ -95,7 +95,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shCvtXR', shrRank, shsRank)
+  (shCvtRX, shCvtSX, shCvtXR', shrRank, shsAppend, shsRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -438,7 +438,7 @@ data Delta :: Target -> TensorKindType -> Type where
         => Delta target (TKR n r) -> Delta target (TKR 0 r)
   Dot0R :: (KnownNat n, GoodScalar r)
         => target (TKR n r) -> Delta target (TKR n r) -> Delta target (TKR 0 r)
-  ScatterR :: (TensorKind r, KnownNat m, KnownNat p, KnownNat n)
+  ScatterR :: (TensorKind r, KnownNat m, KnownNat n, KnownNat p)
            => IShR (p + n) -> Delta target (TKR2 (m + n) r)
            -> (IxROf target m -> IxROf target p)
            -> Delta target (TKR2 (p + n) r)
@@ -482,7 +482,7 @@ data Delta :: Target -> TensorKindType -> Type where
            => IShR m -> Delta target (TKR2 n r)
            -> Delta target (TKR2 m r)
     -- ^ Change the shape of the tensor to the given one.
-  GatherR :: (TensorKind r, KnownNat m, KnownNat p, KnownNat n)
+  GatherR :: (TensorKind r, KnownNat m, KnownNat n, KnownNat p)
           => IShR (m + n) -> Delta target (TKR2 (p + n) r)
           -> (IxROf target m -> IxROf target p)
           -> Delta target (TKR2 (m + n) r)
@@ -505,10 +505,11 @@ data Delta :: Target -> TensorKindType -> Type where
   RFromH :: (KnownNat n, GoodScalar r)
          => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
-  IndexS :: (TensorKind r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
-         => Delta target (TKS2 (sh1 ++ sh2) r)
-         -> IxSOf target sh1
-         -> Delta target (TKS2 sh2 r)
+  IndexS :: ( TensorKind r, KnownShS shm, KnownShS shn
+            , KnownShS (shm ++ shn) )  -- needed for the Show instance
+         => Delta target (TKS2 (shm ++ shn) r)
+         -> IxSOf target shm
+         -> Delta target (TKS2 shn r)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
   SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
@@ -518,14 +519,12 @@ data Delta :: Target -> TensorKindType -> Type where
   Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
         => target (TKS sh r) -> Delta target (TKS sh r)
         -> Delta target (TKS '[] r)
-  ScatterS :: forall target r sh2 p sh.
-              ( TensorKind r, KnownShS sh2, KnownShS sh, KnownNat p
-              , KnownShS (Take p sh), KnownShS (Drop p sh)
-              , KnownShS (sh2 ++ Drop p sh) )
-           => Delta target (TKS2 (sh2 ++ Drop p sh) r)
-           -> (IxSOf target sh2
-               -> IxSOf target (Take p sh))
-           -> Delta target (TKS2 sh r)
+  ScatterS :: forall target r shm shn shp.
+              ( TensorKind r, KnownShS shm, KnownShS shn, KnownShS shp
+              , KnownShS (shm ++ shn) )  -- needed for the Show instance
+           => Delta target (TKS2 (shm ++ shn) r)
+           -> (IxSOf target shm -> IxSOf target shp)
+           -> Delta target (TKS2 (shp ++ shn) r)
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
@@ -575,14 +574,12 @@ data Delta :: Target -> TensorKindType -> Type where
            => Delta target (TKS2 sh r)
            -> Delta target (TKS2 sh2 r)
     -- ^ Change the shape of the tensor from the first to the second.
-  GatherS :: forall target r sh2 p sh.
-             ( TensorKind r, KnownShS sh2, KnownShS sh, KnownNat p
-             , KnownShS (Take p sh), KnownShS (Drop p sh)
-             , KnownShS (sh2 ++ Drop p sh) )
-          => Delta target (TKS2 sh r)
-          -> (IxSOf target sh2
-              -> IxSOf target (Take p sh))
-          -> Delta target (TKS2 (sh2 ++ Drop p sh) r)
+  GatherS :: forall target r shm shn shp.
+             ( TensorKind r, KnownShS shm, KnownShS shn, KnownShS shp
+             , KnownShS (shp ++ shn) )  -- needed for the Show instance
+          => Delta target (TKS2 (shp ++ shn) r)
+          -> (IxSOf target shm -> IxSOf target shp)
+          -> Delta target (TKS2 (shm ++ shn) r)
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const ZR) [] (ScalarR d) k@ is equivalent
@@ -767,8 +764,8 @@ shapeDeltaFull = \case
   SumS{} -> FTKS knownShS FTKScalar
   Sum0S{} -> FTKS knownShS FTKScalar
   Dot0S{} -> FTKS knownShS FTKScalar
-  ScatterS d _ -> case shapeDeltaFull d of
-    FTKS _ x -> FTKS knownShS x
+  ScatterS @_ @_ @shm @shn @shp d _ -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
   FromVectorS l -> case V.toList l of
     [] -> case stensorKind @y of
       STKS _ STKScalar{} -> FTKS knownShS FTKScalar
@@ -791,8 +788,8 @@ shapeDeltaFull = \case
           FTKS knownShS x
   ReshapeS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
-  GatherS d _ -> case shapeDeltaFull d of
-    FTKS _ x -> FTKS knownShS x
+  GatherS @_ @_ @shm @shn @shp d _ -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS (knownShS @shm `shsAppend` knownShS @shn) x
   CastS{} -> FTKS knownShS FTKScalar
   ZipS d -> case shapeDeltaFull d of
     FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
@@ -1324,8 +1321,8 @@ evalSame !s !c = \case
   Dot0S v vd ->
     evalSame s (v * sreplicate0N c) vd
       -- too slow: evalSame s (smap0N (* (sscalar c)) v) vd
-  ScatterS d f ->
-    evalSame s (sgather c f) d
+  ScatterS @_ @_ @shm @shn @shp d f ->
+    evalSame s (sgather @_ @_ @shm @shn @shp c f) d
   FromVectorS ld ->
     let cShared = tshare c
         cxs = sunravelToList cShared
@@ -1357,8 +1354,8 @@ evalSame !s !c = \case
         $ evalSame s (stranspose permRev c) d
   ReshapeS d ->
     evalSame s (sreshape c) d
-  GatherS d f ->
-    evalSame s (sscatter c f) d
+  GatherS @_ @_ @shm @shn @shp d f ->
+    evalSame s (sscatter @_ @_ @shm @shn @shp c f) d
   CastS @r1 @_ @sh d ->
     evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
                                $ scast c) d
@@ -1720,9 +1717,9 @@ fwdSame params s = \case
   Sum0S d -> second ssum0 $ fwdSame params s d
   Dot0S _ ZeroG{} -> (s, srepl 0)
   Dot0S v d -> second (sdot0 v) $ fwdSame params s d
-  ScatterS d f ->
+  ScatterS @_ @_ @shm @shn @shp d f ->
     let (s2, t) = fwdSame params s d
-    in (s2, sscatter t f)
+    in (s2, sscatter @_ @_ @shm @shn @shp t f)
   FromVectorS lsd ->
     let (s2, l) = mapAccumL (fwdSame params) s lsd
     in (s2, sfromVector l)
@@ -1738,9 +1735,9 @@ fwdSame params s = \case
   TransposeS perm d -> second (stranspose perm)
                        $ fwdSame params s d
   ReshapeS d -> second sreshape $ fwdSame params s d
-  GatherS d f ->
+  GatherS @_ @_ @shm @shn @shp d f ->
     let (s2, t) = fwdSame params s d
-    in (s2, sgather t f)
+    in (s2, sgather @_ @_ @shm @shn @shp t f)
   d0@(CastS @r1 @_ @sh d)
     | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r1)) ->
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of

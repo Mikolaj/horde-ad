@@ -243,7 +243,61 @@ instance BaseTensor RepN where
   ssum0 = RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN
   sdot0 u v = RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
-  sscatter = tscatterZS
+  -- Performance depends a lot on the number and size of tensors.
+  -- If tensors are not tiny, memory taken by underlying vectors matters most
+  -- and this implementation is probbaly optimal in this respect
+  -- (the only new vectors are created by V.concat, but this is done on demand).
+  -- TODO: optimize updateNS and make it consume and forget arguments
+  -- one by one to make the above true
+  --
+  -- Note how ix being in bounds is checked. The semantics of the operation
+  -- permits index out of bounds and then no tensors is added at such an index.
+  sscatter @_ @shm @shn @shp t f =
+    case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
+      SNat ->
+        withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+        case tftk stensorKind t of
+          FTKS _ x@FTKScalar ->  -- optimized
+            withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+            gcastWith (unsafeCoerce Refl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+            gcastWith (unsafeCoerce Refl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+            let zero = constantTarget 0 (FTKS knownShS x)
+                shm = knownShS @shm
+                s = shsSize shm
+                g ix =
+                  let ix2 = f $ fmap RepN ix
+                  in if ixInBounds (map unRepN $ toList $ ix2)
+                                   (shapeT @(shp ++ shn))
+                     then M.insertWith (V.zipWith (+)) ix2
+                            (Nested.stoVector
+                             $ tindexNS @_ @shm @shn (unRepN t) ix)
+                     else id
+                ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral shm
+                                        $ fromIntegral i
+                                      | i <- [0 .. s - 1] ]
+            in updateNS @(Rank shp) zero
+               $ map (second $ RepN . Nested.sfromVector knownShS)
+               $ M.assocs ivs
+          FTKS _ x | Dict <- eltDictRep (ftkToStk x) ->
+            withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+            gcastWith (unsafeCoerce Refl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+            gcastWith (unsafeCoerce Refl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+            let zero = constantTarget 0 (FTKS knownShS x)
+                shm = knownShS @shm
+                s = shsSize shm
+                g ix =
+                  let ix2 = f $ fmap RepN ix
+                  in if ixInBounds (map unRepN $ toList $ ix2)
+                                   (shapeT @(shp ++ shn))
+                     then M.insertWith (addTarget stensorKind) ix2
+                            (RepN
+                             $ tindexNS @_ @shm @shn (unRepN t) ix)
+                     else id
+                ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral shm
+                                        $ fromIntegral i
+                                      | i <- [0 .. s - 1] ]
+            in updateNS @(Rank shp) zero
+               $ M.assocs ivs
   sscatter1 = tscatterZ1S
   sfromList :: forall r n sh. (TensorKind r, KnownNat n)
             => NonEmpty (RepN (TKS2 sh r)) -> RepN (TKS2 (n ': sh) r)
@@ -331,7 +385,25 @@ instance BaseTensor RepN where
       gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
       $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
       $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
-  sgather = tgatherZS
+  -- The semantics of the operation permits index out of bounds
+  -- and the result of such indexing is def.
+  sgather @r @shm @shn @shp t f =
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+    gcastWith (unsafeCoerce Refl :: Take (Rank shm) (shm ++ shn) :~: shm) $
+    gcastWith (unsafeCoerce Refl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
+    case stensorKind @r of
+      STKScalar{} ->  -- optimized
+        let shm = knownShS @shm
+            s = sizeT @shm
+            l = [ Nested.stoVector $ unRepN
+                  $ sindex @_ @_ @_ @shn
+                      t (f (fmap RepN
+                            $ ShapedList.fromLinearIdx fromIntegral shm i))
+                | i <- [0 .. fromIntegral s - 1] ]
+        in RepN $ Nested.sfromVector knownShS $ V.concat l
+      _ ->
+        sbuild @_ @_ @(Rank shm) (\ix -> t !$ f ix)
   sgather1 = tgatherZ1S
   scast = RepN . liftVS (V.map realToFrac) . unRepN
   sfromIntegral = RepN . liftVS (V.map fromIntegral) . unRepN
@@ -1141,76 +1213,28 @@ tmatmul2S t u =
   in Nested.sfromVector knownShS $ LA.flatten
      $ LA.reshape (valueOf @n) t2 LA.<> LA.reshape (valueOf @p) u2
 
--- Performance depends a lot on the number and size of tensors.
--- If tensors are not tiny, memory taken by underlying vectors matters most
--- and this implementation is probbaly optimal in this respect
--- (the only new vectors are created by V.concat, but this is done on demand).
--- TODO: optimize updateNS and make it consume and forget arguments
--- one by one to make the above true
---
--- Note how ix being in bounds is checked. The semantics of the operation
--- permits index out of bounds and then no tensors is added at such an index.
-tscatterZS :: forall r sh2 p sh.
-              ( TensorKind r, KnownShS sh2, KnownShS sh
-              , KnownShS (Take p sh), KnownShS (Drop p sh)
-              , KnownShS (sh2 ++ Drop p sh) )
-           => RepN (TKS2 (sh2 ++ Drop p sh) r)
-           -> (IxSOf RepN sh2 -> IxSOf RepN (Take p sh))
-           -> RepN (TKS2 sh r)
-tscatterZS t f = case shsProduct (knownShS @sh) of
-  SNat -> case tftk stensorKind t of
-    FTKS _ x@FTKScalar ->  -- optimized
-      let zero = constantTarget 0 (FTKS knownShS x)
-          sh2 = knownShS @sh2
-          s = shsSize sh2
-          g ix =
-            let ix2 = f $ fmap RepN ix
-            in if ixInBounds (map unRepN $ toList $ ix2) (shapeT @sh)
-               then M.insertWith (V.zipWith (+)) ix2
-                      (Nested.stoVector
-                       $ tindexNS @_ @sh2 @(Drop p sh) (unRepN t) ix)
-               else id
-          ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
-                                  $ fromIntegral i
-                                | i <- [0 .. s - 1] ]
-      in updateNS zero
-         $ map (second $ RepN . Nested.sfromVector knownShS)
-         $ M.assocs ivs
-    FTKS _ x | Dict <- eltDictRep (ftkToStk x) ->
-      let zero = constantTarget 0 (FTKS knownShS x)
-          sh2 = knownShS @sh2
-          s = shsSize sh2
-          g ix =
-            let ix2 = f $ fmap RepN ix
-            in if ixInBounds (map unRepN $ toList $ ix2) (shapeT @sh)
-               then M.insertWith (addTarget stensorKind) ix2
-                      (RepN
-                       $ tindexNS @_ @sh2 @(Drop p sh) (unRepN t) ix)
-               else id
-          ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral sh2
-                                  $ fromIntegral i
-                                | i <- [0 .. s - 1] ]
-      in updateNS zero
-         $ M.assocs ivs
-
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OS.fromVector
 -- or optimize tscatterNS and instantiate it instead
-tscatterZ1S :: forall r n2 p sh.
-               ( TensorKind r, KnownNat n2, KnownShS sh, KnownShS (Take p sh)
-               , KnownShS (Drop p sh) )
-            => RepN (TKS2 (n2 ': Drop p sh) r)
-            -> (IntOf RepN -> IxSOf RepN (Take p sh))
-            -> RepN (TKS2 sh r)
-tscatterZ1S t f = case shsProduct (knownShS @sh) of
+tscatterZ1S
+  :: forall r n2 shn shp.
+     (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+  => RepN (TKS2 (n2 ': shn) r)
+  -> (IntOf RepN -> IxSOf RepN shp)
+  -> RepN (TKS2 (shp ++ shn) r)
+tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
   SNat -> case tftk stensorKind t of
     FTKS _ x ->
+      withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+      gcastWith (unsafeCoerce Refl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+      gcastWith (unsafeCoerce Refl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
       let zero = constantTarget 0 (FTKS knownShS x)
           lt = sunravelToList t
           g i ti = let ix2 = f $ RepN $ fromIntegral i
-                   in if ixInBounds (map unRepN $ toList ix2) (shapeT @sh)
-                      then updateNS zero [(ix2, ti)]
+                   in if ixInBounds (map unRepN $ toList ix2)
+                                    (shapeT @(shp ++ shn))
+                      then updateNS @(Rank shp) zero [(ix2, ti)]
                       else zero
           lu = imap g lt
       in foldr (addTarget stensorKind) zero lu
@@ -1252,40 +1276,14 @@ tzipWith0NS f =
     (Nested.Internal.Mixed.mliftPrim2
        (\x y -> Nested.sunScalar $ f (Nested.sscalar x) (Nested.sscalar y)))
 
--- The semantics of the operation permits index out of bounds
--- and the result of such indexing is def.
-tgatherZS :: forall sh2 p sh r.
-             ( KnownShS sh2, KnownShS sh, KnownShS (Take p sh)
-             , KnownShS (Drop p sh), KnownShS (sh2 ++ Drop p sh)
-             , TensorKind r )
-          => RepN (TKS2 sh r)
-          -> (IxSOf RepN sh2 -> IxSOf RepN (Take p sh))
-          -> RepN (TKS2 (sh2 ++ Drop p sh) r)
-tgatherZS t f =
-  gcastWith (unsafeCoerce Refl :: sh :~: Take p sh ++ Drop p sh) $
-  gcastWith (unsafeCoerce Refl :: Take (Rank sh2) (sh2 ++ Drop p sh) :~: sh2) $
-  gcastWith (unsafeCoerce Refl
-             :: Drop (Rank sh2) (sh2 ++ Drop p sh) :~: Drop p sh) $
-  case stensorKind @r of
-    STKScalar{} ->  -- optimized
-      let sh2 = knownShS @sh2
-          s = sizeT @sh2
-          l = [ Nested.stoVector $ unRepN
-                $ sindex @_ @_ @_ @(Drop p sh)
-                    t (f (fmap RepN
-                          $ ShapedList.fromLinearIdx fromIntegral sh2 i))
-              | i <- [0 .. fromIntegral s - 1] ]
-      in RepN $ Nested.sfromVector knownShS $ V.concat l
-    _ -> sbuild @_ @_ @(Rank sh2) (\ix -> t !$ f ix)
-
-tgatherZ1S :: forall n2 p sh r.
-              ( KnownNat n2, KnownShS sh, KnownShS (Take p sh)
-              , KnownShS (Drop p sh), TensorKind r )
-           => RepN (TKS2 sh r)
-           -> (IntOf RepN -> IxSOf RepN (Take p sh))
-           -> RepN (TKS2 (n2 ': Drop p sh) r)
+tgatherZ1S
+  :: forall r n2 shn shp.
+     (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+  => RepN (TKS2 (shp ++ shn) r)
+  -> (IntOf RepN -> IxSOf RepN shp)
+  -> RepN (TKS2 (n2 ': shn) r)
 tgatherZ1S t f =
-  gcastWith (unsafeCoerce Refl :: sh :~: Take p sh ++ Drop p sh) $
+  withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
   case stensorKind @r of
     STKScalar{} ->  -- optimized
       sfromList $ NonEmpty.map (\i -> t `sindex` f (RepN i))

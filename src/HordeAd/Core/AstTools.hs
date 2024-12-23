@@ -42,7 +42,7 @@ import Data.Array.Mixed.Shape
 import Data.Array.Nested
   (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShX (..))
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shCvtXR', shrSize, shsRank, shsSize)
+  (shCvtRX, shCvtSX, shCvtXR', shrSize, shsAppend, shsRank, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -148,8 +148,8 @@ ftkAst t = case t of
   AstIndexS v _ix -> case ftkAst v of
     FTKS _sh1sh2 x -> FTKS knownShS x
   AstSumS{} -> FTKS knownShS FTKScalar
-  AstScatterS v _ -> case ftkAst v of
-    FTKS _ x -> FTKS knownShS x
+  AstScatterS @_ @shn @shp v _ -> case ftkAst v of
+    FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
   AstFromVectorS l -> case V.toList l of
     [] -> case stensorKind @y of
       STKS sh STKScalar{} -> FTKS sh FTKScalar
@@ -171,8 +171,8 @@ ftkAst t = case t of
           FTKS knownShS x
   AstReshapeS v -> case ftkAst v of
     FTKS _ x -> FTKS knownShS x
-  AstGatherS v _ -> case ftkAst v of
-    FTKS _ x -> FTKS knownShS x
+  AstGatherS @shm @shn v _ -> case ftkAst v of
+    FTKS _ x -> FTKS (knownShS @shm `shsAppend` knownShS @shn) x
   AstCastS{} -> FTKS knownShS FTKScalar
   AstFromIntegralS{} -> FTKS knownShS FTKScalar
   AstProjectS{} -> FTKS knownShS FTKScalar

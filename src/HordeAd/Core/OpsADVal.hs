@@ -42,7 +42,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
@@ -405,10 +405,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let !u = tshare ue in
     let !v = tshare ve
     in dD (sdot0 u v) (AddG (Dot0S v u') (Dot0S u v'))
-  sscatter (D u u') f =
+  sscatter @r @shm @shn @shp (D u u') f =
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (sscatter u g) (ScatterS u' g)
+    in dD (sscatter @_ @r @shm @shn @shp u g) (ScatterS @_ @r @shm @shn @shp u' g)
 
   sfromVector :: forall n sh r. (KnownNat n, KnownShS sh, TensorKind r)
               => Data.Vector.Vector (ADVal target (TKS2 sh r))
@@ -452,10 +454,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     Nothing -> sfromList $ NonEmpty.map (f . fromIntegral)
                          $ (0 :: Int) :| [1 .. valueOf @n - 1]
       -- element-wise (POPL) version
-  sgather (D u u') f =
+  sgather @r @shm @shn @shp (D u u') f =
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (sgather u g) (GatherS u' g)
+    in dD (sgather @_ @r @shm @shn @shp u g) (GatherS @_ @r @shm @shn @shp u' g)
   scast (D u u') = dD (scast u) (CastS u')
   sfromIntegral (D u _) =
     let v = sfromIntegral u

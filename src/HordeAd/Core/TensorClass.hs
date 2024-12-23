@@ -509,11 +509,11 @@ class ( Num (IntOf target)
   -- Typically scalar (rank 0) codomain or a generalization of such
   -- an operation, often a tensor reduction. A number suffix in the name
   -- indicates the rank of the codomain, if bounded.
-  sindex, (!$) :: forall r sh1 sh2.
-                  ( TensorKind r, KnownShS sh1, KnownShS sh2
-                  , KnownShS (sh1 ++ sh2) )
-               => target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
-               -> target (TKS2 sh2 r)
+  sindex, (!$) :: forall r shm shn.
+                  ( TensorKind r, KnownShS shm, KnownShS shn
+                  , KnownShS (shm ++ shn) )
+               => target (TKS2 (shm ++ shn) r) -> IxSOf target shm
+               -> target (TKS2 shn r)
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
   sindex0 :: forall sh1 r. (TensorKind r, KnownShS sh1)
@@ -538,20 +538,17 @@ class ( Num (IntOf target)
     ssum (stranspose (Permutation.makePerm @'[2, 1, 0]) (sreplicate @target @p m1)
           * stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @target @m m2))
   sscatter
-    :: forall r sh2 p sh.
-       ( TensorKind r, KnownShS sh2, KnownShS sh, KnownNat p
-       , KnownShS (Take p sh), KnownShS (Drop p sh)
-       , KnownShS (sh2 ++ Drop p sh) )
-    => target (TKS2 (sh2 ++ Drop p sh) r)
-    -> (IxSOf target sh2 -> IxSOf target (Take p sh))
-    -> target (TKS2 sh r)
+    :: forall r shm shn shp.
+       (TensorKind r, KnownShS shm, KnownShS shn, KnownShS shp)
+    => target (TKS2 (shm ++ shn) r)
+    -> (IxSOf target shm -> IxSOf target shp)
+    -> target (TKS2 (shp ++ shn) r)
   sscatter1
-    :: forall r n2 p sh.
-       ( TensorKind r, KnownNat n2, KnownShS sh, KnownNat p
-       , KnownShS (Take p sh), KnownShS (Drop p sh) )
-    => target (TKS2 (n2 ': Drop p sh) r)
-    -> (IntOf target -> IxSOf target (Take p sh))
-    -> target (TKS2 sh r)
+    :: forall r n2 shn shp.
+       (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+    => target (TKS2 (n2 ': shn) r)
+    -> (IntOf target -> IxSOf target shp)
+    -> target (TKS2 (shp ++ shn) r)
   sscatter1 v f = sscatter @target @r @'[n2] v (\(i :.$ _) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
@@ -783,20 +780,17 @@ class ( Num (IntOf target)
                                                 (sindex0 w ix)
                                                 (sindex0 x ix))
   sgather
-    :: forall r sh2 p sh.
-       ( TensorKind r, KnownShS sh2, KnownShS sh, KnownNat p
-       , KnownShS (Take p sh), KnownShS (Drop p sh)
-       , KnownShS (sh2 ++ Drop p sh) )
-    => target (TKS2 sh r)
-    -> (IxSOf target sh2 -> IxSOf target (Take p sh))
-    -> target (TKS2 (sh2 ++ Drop p sh) r)
+    :: forall r shm shn shp.
+       (TensorKind r, KnownShS shm, KnownShS shn, KnownShS shp)
+    => target (TKS2 (shp ++ shn) r)
+    -> (IxSOf target shm -> IxSOf target shp)
+    -> target (TKS2 (shm ++ shn) r)
   sgather1
-    :: forall r n2 p sh.
-       ( TensorKind r, KnownNat n2, KnownShS sh, KnownNat p
-       , KnownShS (Take p sh), KnownShS (Drop p sh) )
-    => target (TKS2 sh r)
-    -> (IntOf target -> IxSOf target (Take p sh))
-    -> target (TKS2 (n2 ': Drop p sh) r)
+    :: forall r n2 shn shp.
+       (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+    => target (TKS2 (shp ++ shn) r)
+    -> (IntOf target -> IxSOf target shp)
+    -> target (TKS2 (n2 ': shn) r)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
   scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, KnownShS sh)
         => target (TKS sh r1) -> target (TKS sh r2)

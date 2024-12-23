@@ -29,6 +29,7 @@ import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxAppend)
 import Data.Array.Nested
   ( IxR (..)
@@ -39,7 +40,6 @@ import Data.Array.Nested
   , ListS (..)
   , Rank
   , ShR (..)
-  , type (++)
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
@@ -270,7 +270,7 @@ interpretAst !env = \case
   --   tconcrete
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  AstBuild1 @y2 snat (var, v) ->
+  AstBuild1 snat (var, v) ->
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat f
   AstLet @y2 var u v -> case stensorKind @y2 of
@@ -755,13 +755,13 @@ interpretAst !env = \case
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
-  AstScatterS @_ @p @sh v (ZS, ix) ->
-    gcastWith (unsafeCoerce Refl :: Take p sh ++ Drop p sh :~: sh)
+  AstScatterS @_ @shn @shp v (ZS, ix) ->
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     soneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstScatterS v (vars, ix) ->
+  AstScatterS @shm @shn @shp v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-    in sscatter t1 f2
+    in sscatter @_ @_ @shm @shn @shp t1 f2
   AstFromVectorS l ->
     let l2 = V.map (interpretAst env) l
     in sfromVector l2
@@ -781,24 +781,20 @@ interpretAst !env = \case
   AstReverseS v -> sreverse (interpretAst env v)
   AstTransposeS perm v -> stranspose perm $ interpretAst env v
   AstReshapeS v -> sreshape (interpretAst env v)
-  AstGatherS @_ @p @sh v (ZS, ix) ->
-    gcastWith (unsafeCoerce Refl :: Take p sh ++ Drop p sh :~: sh)
+  AstGatherS @_ @shn @shp v (ZS, ix) ->
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
-    gcastWith (unsafeCoerce Refl :: Take (Rank sh2) sh2 :~: sh2)
-    $ gcastWith (unsafeCoerce Refl :: Drop (Rank sh2) sh2 :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Drop p sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Drop p sh)
-        -- transitivity of type equality doesn't work, by design,
-        -- so this direct cast is needed instead of more basic laws
-    $ sbuild @target @r @(Rank sh2)
-             (interpretLambdaIndexS
-                interpretAst env
-                (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i))
-  AstGatherS v (vars, ix) ->
+  AstGatherS @shm AstIotaS (vars, i :.$ ZIS) | Refl <- lemAppNil @shm ->
+    gcastWith (unsafeCoerce Refl :: Drop (Rank shm) shm :~: '[]) $
+    gcastWith (unsafeCoerce Refl :: Take (Rank shm) shm :~: shm) $
+    sbuild @_ @_ @(Rank shm)
+           (interpretLambdaIndexS
+              interpretAst env
+              (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i))
+  AstGatherS @shm @shn @shp v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-    in sgather t1 f2
+    in sgather @_ @_ @shm @shn @shp t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't

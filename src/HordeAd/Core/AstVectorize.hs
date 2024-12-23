@@ -388,16 +388,12 @@ build1V snat@SNat (var, v0) =
       build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1V snat (var, v)
-    Ast.AstScatterS @sh2 @p @sh3 v (vars, ix) -> traceRule $
-      gcastWith (unsafeCoerce Refl
-                 :: Take (1 + p) (k : sh3) :~: (k : Take p sh3)) $
-      gcastWith (unsafeCoerce Refl
-                 :: Drop (1 + p) (k : sh3) :~: Drop p sh3) $
+    Ast.AstScatterS @shm @shn @shp v (vars, ix) -> traceRule $
+      withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
-      in astScatterS @(k ': sh2) @(1 + p)
+      in astScatterS @(k ': shm) @shn @(k ': shp)
                      (build1VOccurenceUnknown snat (var, v))
                      (Const varFresh ::$ vars, astVarFresh :.$ ix2)
-
     Ast.AstFromVectorS l -> traceRule $
       astTrS
       $ astFromVectorS (V.map (\v -> build1VOccurenceUnknown snat (var, v)) l)
@@ -419,15 +415,12 @@ build1V snat@SNat (var, v0) =
                    :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
         $ astTransposeS zsuccPerm $ build1V snat (var, v)
-    Ast.AstReshapeS @sh2 v -> traceRule $
+    Ast.AstReshapeS v -> traceRule $
       astReshapeS $ build1V snat (var, v)
-    Ast.AstGatherS @sh2 @p @sh3 v (vars, ix) -> traceRule $
-      gcastWith (unsafeCoerce Refl
-                 :: Take (1 + p) (k : sh3) :~: (k : Take p sh3)) $
-      gcastWith (unsafeCoerce Refl
-                 :: Drop (1 + p) (k : sh3) :~: Drop p sh3) $
+    Ast.AstGatherS @shm @shn @shp v (vars, ix) -> traceRule $
+      withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
-      in astGatherStepS @(k ': sh2) @(1 + p)
+      in astGatherStepS @(k ': shm) @shn @(k ': shp)
                         (build1VOccurenceUnknown snat (var, v))
                         (Const varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstCastS v -> traceRule $
@@ -624,7 +617,7 @@ intBindingRefreshS var ix =
 
 build1VIndexS
   :: forall k p sh s r.
-     ( TensorKind r, KnownNat k, KnownNat p, KnownShS sh, KnownShS (Take p sh)
+     ( TensorKind r, KnownNat k, KnownShS sh, KnownShS (Take p sh)
      , KnownShS (Drop p (Take p sh ++ Drop p sh)), AstSpan s )
   => ( IntVarName
      , AstTensor AstMethodLet s (TKS2 sh r)
@@ -645,17 +638,8 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
          build1VOccurenceUnknown (SNat @k) (var, v1)
        v@(Ast.AstIndexS @sh1 @sh2 v1 ix1) -> traceRule $
          withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-         gcastWith (unsafeCoerce Refl
-                    :: k ': sh1 :~: Take (1 + Rank sh1)
-                                            (k ': sh1 ++ Drop p sh)) $
-         gcastWith (unsafeCoerce Refl
-                    :: Drop p sh
-                       :~: Drop (1 + Rank sh1)
-                                   (k ': sh1 ++ Drop p sh)) $
-         withListSh (Proxy @(k ': sh1)) $ \(_ :: IShR rankSh1Plus1) ->
-         gcastWith (unsafeCoerce Refl :: rankSh1Plus1 :~: 1 + Rank sh1) $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
-             ruleD = astGatherStepS @'[k] @(1 + Rank sh1)
+             ruleD = astGatherStepS @'[k] @sh2 @(k ': sh1)
                                     (build1VOccurenceUnknown (SNat @k) (var, v1))
                                     (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = length $ shapeT @sh1

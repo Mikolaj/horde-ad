@@ -92,7 +92,7 @@ soneHot v ix = case stensorKind @r of
   STKScalar{} | SNat <- shsRank (knownShS @sh1) ->
     gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
     gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-    sscatter @_ @_ @'[] @(Rank sh1) v (const ix)
+    sscatter @_ @_ @'[] @_ @sh1 v (const ix)
   _ -> case tftk stensorKind v of
     FTKS _ ftk2 ->
       gcastWith (unsafeCoerce Refl

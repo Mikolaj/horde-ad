@@ -409,13 +409,14 @@ printAstAux cfg d = \case
       . showString " !$ "
       . showListWith (printAstInt cfg 0) (toList ix)
   AstSumS v -> printPrefixOp printAst cfg d "ssum" [v]
-  AstScatterS v (ZS, ix) ->
+  AstScatterS @shm @shn v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "
       . printAst cfg 11 v
       . showString " "
       . showListWith (printAstInt cfg 0) (toList ix)
-  AstScatterS v (vars, ix) ->
+  AstScatterS @shm @shn v (vars, ix) ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     showParen (d > 10)
     $ showString "sscatter "
       . printAst cfg 11 v
@@ -447,12 +448,14 @@ printAstAux cfg d = \case
 -- TODO:    printPrefixOp printAst cfg d ("stranspose " ++ show (permToList perm)) [v]
   AstReshapeS v ->
     printPrefixOp printAst cfg d "sreshape" [v]
-  AstGatherS v (ZS, ix) ->
+  AstGatherS @_ @shn @shp v (ZS, ix) ->
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAstInt cfg 0) (toList ix)
-  AstGatherS v (vars, ix) ->
+  AstGatherS @_ @shn @shp v (vars, ix) ->
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     showParen (d > 10)
     $ showString "sgather "
       . printAst cfg 11 v
