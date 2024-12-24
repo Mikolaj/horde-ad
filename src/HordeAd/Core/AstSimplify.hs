@@ -637,7 +637,7 @@ astIndexKnobsS
 astIndexKnobsS knobs (Ast.AstIndexS v ix) ZIS =
   astIndexKnobsS knobs v ix  -- no non-indexing constructor yet revealed
 astIndexKnobsS _ v0 ZIS = v0
-astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
+astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
                | Dict <- sixKnown rest1 =
  withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
  let astIndexRec, astIndex
@@ -657,7 +657,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
        if knobStepOnly knobs
        then astIndexKnobsS knobs (astNonIndexStep v2) (simplifyAstIxS ix2)
        else astIndexKnobsS knobs v2 ix2
-{-     astGather
+     astGather
        :: forall shm' shn' shp'.
           (KnownShS shm', KnownShS shn', KnownShS shp')
        => AstTensor AstMethodLet s (TKS2 (shp' ++ shn') r)
@@ -670,7 +670,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
                             knobs
                             (astNonIndexStep v2)
                             (vars2, simplifyAstIxS ix2)
-       else astGatherKnobsS @shm' @shn' @shp' knobs v2 (vars2, ix2) -}
+       else astGatherKnobsS @shm' @shn' @shp' knobs v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS v0 ix
@@ -830,22 +830,17 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 i1 (rest1 :: AstIxS AstMethodLet shm1))
         in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm ++ shn) $
            astIndex @shmPerm v ix2
   Ast.AstReshapeS v -> astIndex (astReshapeAsGatherS knobs v) ix
-  Ast.AstGatherS{} -> Ast.AstIndexS v0 ix
-{- TODO  Ast.AstGatherS @_ @p @sh v (ZS, ix2) ->
-    withShapeP (shapeT @(Take p sh) ++ shapeT @shm)
-    $ \(Proxy @sh1n) ->
-      gcastWith (unsafeCoerce Refl :: (Take p sh ++ shm :~: sh1n)) $
-      gcastWith (unsafeCoerce Refl :: Take p sh ++ shm ++ shn :~: sh) $
-        -- TODO: why is this needed? if it's true (it is), GHC should know it
-      astIndex v (ix2 `ixsAppend` ix)
-  Ast.AstGatherS v (Const var2 ::$ (vars :: AstVarListS shm71), ix2) | Dict <- slistKnown vars ->
-    withListSh (Proxy @shn) $ \_ ->
-      withShapeP (shapeT @shm1 ++ shapeT @shn) $ \(Proxy @sh1n) ->
-        gcastWith (unsafeCoerce Refl :: shm1 ++ shn :~: sh1n) $
-        let w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
-            w = astGather v (vars, ix2)
-        in astLet var2 i1 $ astIndexS @shm1 @shn w rest1 -}
-      -- this uses astLet, because the index integers are ranked
+  Ast.AstGatherS @_ @_ @shp' v (ZS, ix2) ->
+    gcastWith (unsafeCoerce Refl
+              :: shp' ++ (in1 ': shm1) ++ shn :~: shp' ++ (in1 ': shm1 ++ shn)) $
+    withKnownShS (knownShS @shp' `shsAppend` knownShS @shm) $
+    astIndex @(shp' ++ shm) @shn v (ix2 `ixsAppend` ix)
+  Ast.AstGatherS @_ @shn' @shp' v ((::$) @_ @shm71 (Const var2) vars, ix2)
+                 | Dict <- slistKnown vars ->
+    gcastWith (unsafeCoerce Refl :: shm71 ++ shn' :~: shm1 ++ shn) $
+      let w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
+          w = astGather @shm71 @shn' @shp' v (vars, ix2)
+      in astLet var2 i1 $ astIndexS @shm1 @shn w rest1
   Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs t ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs v ix
   AstConcrete (FTKS _ x) t ->
@@ -1832,13 +1827,13 @@ astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS2 (ulen : sh) r))
         LTI -> astSliceS @(i - ulen) @n @k v
         EQI -> astSliceS @0 @n @k v
         GTI -> Ast.AstSliceS @i w -- cheap iff fits in one
-astSliceS (Ast.AstGatherS @_ @p @sh4 v ((::$) @_ @sh21 (Const var) vars, ix)) =
+astSliceS (Ast.AstGatherS @_ @shn @shp v ((::$) @_ @sh21 (Const var) vars, ix))
+                          | Dict <- slistKnown vars =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIxS  -- cheap subst, because ivar is tiny
               ivar var ix
       vars2 = Const var ::$ vars
-  in case slistKnown vars2 of
-    Dict -> astGatherS @(n : sh21) @p @sh4 v (vars2, ix2)
+  in astGatherS @(n : sh21) @shn @shp v (vars2, ix2)
 astSliceS v = Ast.AstSliceS @i v
 {- TODO: is this beneficial? for i==0 and for i/=0?
   AstSliceS @i @n AstIotaS ->
@@ -2025,23 +2020,20 @@ astTransposeS perm t = case perm of
                          :: Compare (Rank perm3) (Rank sh2) :~: EQ) $
               astTransposeS perm3 u
         GT -> error "astTransposeS: GT"
-{- TODO  Ast.AstGatherS @sh2 @p @sh3 v (vars, ix)
+  Ast.AstGatherS @shm @shn @shp v (vars, ix)
     -- TODO: should the below be backpermute or permute?
-    | length (Permutation.permToList' perm) <= length (shapeT @sh2) ->
-      withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh)) $ \(Proxy @shp) ->
-      gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
+    | length (Permutation.permToList' perm) <= length (shapeT @shm) ->
       withShapeP (backpermutePrefixList
                     (Permutation.permToList' perm)
-                    (shapeT @sh2)) $ \(Proxy @shmPerm) ->
+                    (shapeT @shm)) $ \(Proxy @shmPerm) ->
         gcastWith (unsafeCoerce Refl
-                   :: Permutation.PermutePrefix perm sh2 :~: shmPerm) $
+                   :: Permutation.PermutePrefix perm shm :~: shmPerm) $
         let vars2 :: AstVarListS shmPerm =
               Nested.Internal.Shape.listsPermutePrefix perm vars
         in gcastWith (unsafeCoerce Refl
-                      :: Permutation.PermutePrefix perm sh2 ++ Drop p sh3
-                         :~: Permutation.PermutePrefix perm sh) $
-           astGatherS @shmPerm @p @sh3 v (vars2, ix) -}
+                      :: Permutation.PermutePrefix perm shm ++ shn
+                         :~: Permutation.PermutePrefix perm (shm ++ shn)) $
+           astGatherS @shmPerm @shn @shp v (vars2, ix)
  -- TODO: AstConcreteS t -> AstConcreteS $ ttransposeS @perm t
   Ast.AstFromPrimal v ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
