@@ -12,7 +12,7 @@ module HordeAd.Core.Types
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
   , Dict(..), PermC, trustMeThisIsAPermutation
-  , Take, Drop, Last, Init
+  , Take, Drop
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
     -- * Some fundamental constraints and types
@@ -149,14 +149,6 @@ type family Take (n :: Nat) (xs :: [k]) :: [k] where
 type family Drop (n :: Nat) (xs :: [k]) :: [k] where
     Drop 0 xs = xs
     Drop n (x ': xs) = Drop (n - 1) xs
-
-type family Last (xs :: [k]) where
-  Last '[x] = x
-  Last (x ': xs) = Last xs
-
-type family Init (xs :: [k]) where
-  Init '[x] = '[]
-  Init (x ': xs) = x ': Init xs
 
 
 -- * Types of types of tensors

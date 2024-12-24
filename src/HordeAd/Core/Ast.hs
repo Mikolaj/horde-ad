@@ -43,6 +43,7 @@ import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX, IxX, ListX)
+import Data.Array.Mixed.Types (Init)
 import Data.Array.Nested
   ( IShR
   , IxR

@@ -78,7 +78,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
-import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
+import Data.Array.Mixed.Types (Init, Last, Tail, unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IxR (..)

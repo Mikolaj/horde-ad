@@ -61,6 +61,7 @@ import Data.Array.Nested.Internal.Shape
   (shrRank, shrSize, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
+import Data.Array.Mixed.Types (Init)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal
