@@ -22,7 +22,7 @@ module HordeAd.Core.HVectorOps
 
 import Prelude
 
-import Data.List (foldl', transpose)
+import Data.List (transpose)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
