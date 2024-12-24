@@ -5,6 +5,10 @@ package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
 
+constraints:
+  base-orphans < 0.9.3,
+  base-compat < 0.14.1
+
 
 
 source-repository-package
