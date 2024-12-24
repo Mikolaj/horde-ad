@@ -236,7 +236,7 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
         FTKR sh x | SNat <- shrRank sh
                   , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
           ([InputId j :=> MTKR t], j + 1)
-        FTKS @sh sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+        FTKS sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
           withKnownShS sh $
           ([InputId j :=> MTKS t], j + 1)
         FTKX{} -> error "TODO"
@@ -764,7 +764,7 @@ shapeDeltaFull = \case
   SumS{} -> FTKS knownShS FTKScalar
   Sum0S{} -> FTKS knownShS FTKScalar
   Dot0S{} -> FTKS knownShS FTKScalar
-  ScatterS @_ @_ @shm @shn @shp d _ -> case shapeDeltaFull d of
+  ScatterS @_ @_ @_ @shn @shp d _ -> case shapeDeltaFull d of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
   FromVectorS l -> case V.toList l of
     [] -> case stensorKind @y of
@@ -788,7 +788,7 @@ shapeDeltaFull = \case
           FTKS knownShS x
   ReshapeS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
-  GatherS @_ @_ @shm @shn @shp d _ -> case shapeDeltaFull d of
+  GatherS @_ @_ @shm @shn d _ -> case shapeDeltaFull d of
     FTKS _ x -> FTKS (knownShS @shm `shsAppend` knownShS @shn) x
   CastS{} -> FTKS knownShS FTKScalar
   ZipS d -> case shapeDeltaFull d of
@@ -1401,14 +1401,14 @@ evalSame !s !c = \case
 -- impossible, shapes may differ: XFromS (SFromX d) -> evalSame s c d
   XFromR @sh d | SNat <- ssxRank (knownShX @sh) ->
     evalSame s (rfromX c) d
-  XFromS @sh d ->
+  XFromS d ->
     evalSame s (sfromX c) d
 
-  XNestR @_ @sh1 @m d ->
+  XNestR d ->
     evalSame s (xunNestR c) d
-  XNestS @_ @sh1 @sh2 d ->
+  XNestS d ->
     evalSame s (xunNestS c) d
-  XNest @_ @sh1 @sh2 d ->
+  XNest d ->
     evalSame s (xunNest c) d
   XUnNestR d ->
     evalSame s (xnestR knownShX c) d
@@ -1777,9 +1777,9 @@ fwdSame params s = \case
       _ -> error "fwdSame: different shapes in SFromX(XFromS)"
   SFromX d -> second sfromX $ fwdSame params s d
 
-  XNestR @_ @sh1 @m d -> second (xnestR knownShX) $ fwdSame params s d
-  XNestS @_ @sh1 @sh2 d -> second (xnestS knownShX) $ fwdSame params s d
-  XNest @_ @sh1 @sh2 d -> second (xnest knownShX) $ fwdSame params s d
+  XNestR d -> second (xnestR knownShX) $ fwdSame params s d
+  XNestS d -> second (xnestS knownShX) $ fwdSame params s d
+  XNest d -> second (xnest knownShX) $ fwdSame params s d
   XUnNestR d -> second xunNestR $ fwdSame params s d
   XUnNestS d -> second xunNestS $ fwdSame params s d
   XUnNest d -> second xunNest $ fwdSame params s d

@@ -206,7 +206,7 @@ printAstAux cfg d = \case
                                   ("treplicate " ++ show (sNatValue snat)) [v]
     STKUntyped -> printPrefixOp printAst cfg d
                                 ("treplicate " ++ show (sNatValue snat)) [v]
-  AstBuild1 @y2 k (var, v) ->
+  AstBuild1 k (var, v) ->
     showParen (d > 10)
     $ showString "tbuild1 "
       . shows k
@@ -409,7 +409,7 @@ printAstAux cfg d = \case
       . showString " !$ "
       . showListWith (printAstInt cfg 0) (toList ix)
   AstSumS v -> printPrefixOp printAst cfg d "ssum" [v]
-  AstScatterS @shm @shn v (ZS, ix) ->
+  AstScatterS v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "
       . printAst cfg 11 v

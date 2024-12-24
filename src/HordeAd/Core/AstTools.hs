@@ -222,7 +222,7 @@ ftkAst t = case t of
   AstXNest @sh1 @sh2 v -> case ftkAst v of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @sh2) sh (knownShX @sh1))
                       (FTKX (shxDropSSX sh (knownShX @sh1)) x)
-  AstXUnNestR @_ @_ @m v -> case ftkAst v of
+  AstXUnNestR v -> case ftkAst v of
     FTKX sh1 (FTKR sh2 x) ->
       FTKX (sh1 `shxAppend` shCvtRX sh2) x
   AstXUnNestS v -> case ftkAst v of
