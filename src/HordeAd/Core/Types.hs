@@ -12,7 +12,7 @@ module HordeAd.Core.Types
   , shapeT, shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
   , Dict(..), PermC, trustMeThisIsAPermutation
-  , Take, Drop
+  , Head, Take, Drop
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
     -- * Some fundamental constraints and types
@@ -142,13 +142,16 @@ trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 
+type family Head l where
+  Head (x : _) = x
+
 type family Take (n :: Nat) (xs :: [k]) :: [k] where
-    Take 0 xs = '[]
-    Take n (x ': xs) = x ': Take (n - 1) xs
+  Take 0 xs = '[]
+  Take n (x ': xs) = x ': Take (n - 1) xs
 
 type family Drop (n :: Nat) (xs :: [k]) :: [k] where
-    Drop 0 xs = xs
-    Drop n (x ': xs) = Drop (n - 1) xs
+  Drop 0 xs = xs
+  Drop n (x ': xs) = Drop (n - 1) xs
 
 
 -- * Types of types of tensors

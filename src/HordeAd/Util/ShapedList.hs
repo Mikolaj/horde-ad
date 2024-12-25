@@ -9,17 +9,17 @@ module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
     singletonSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized, dropIxS
-  , zipWith_Sized, reverseSized
+  , zipSized, zipWith_Sized, reverseSized
     -- * Tensor indexes as fully encapsulated shaped lists, with operations
-  , singletonIndex
-  , zipWith_Index
+  , singletonIndex, zipIndex, zipWith_Index
   , shapedToIndex, ixsLengthSNat
     -- * Tensor shapes as fully encapsulated shaped lists, with operations
   , takeShS, dropShS, takeShX, dropShX
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   , permutePrefixIndex
-  , ssxRank
+  , ssxRank, ixsRank
+  , listsTakeLen, listsDropLen
   ) where
 
 import Prelude
@@ -28,6 +28,7 @@ import Data.Functor.Const
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 
+import Data.Array.Mixed.Permutation (DropLen, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank)
 import Data.Array.Nested
@@ -40,6 +41,7 @@ import Data.Array.Nested
   , ShS (..)
   , type (++)
   )
+import Data.Array.Nested.Internal.Shape (listsRank)
 
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList qualified as SizedList
@@ -81,15 +83,16 @@ dropIxS (IxS ix) = IxS $ dropSized ix
 -- initSized (_i ::$ ZS) = ZS
 -- initSized (i ::$ ix@(_ ::$ _)) = i ::$ initSized ix
 
--- zipSized :: ListS sh i -> ListS sh j -> ListS sh (i, j)
--- zipSized ZS ZS = ZS
--- zipSized (i ::$ irest) (j ::$ jrest) = (i, j) ::$ zipSized irest jrest
+zipSized :: ListS sh (Const i) -> ListS sh (Const j) -> ListS sh (Const (i, j))
+zipSized ZS ZS = ZS
+zipSized (Const i ::$ irest) (Const j ::$ jrest) =
+  Const (i, j) ::$ zipSized irest jrest
 
 zipWith_Sized :: (i -> j -> k)
               -> ListS sh (Const i) -> ListS sh (Const j)
               -> ListS sh (Const k)
 zipWith_Sized _ ZS ZS = ZS
-zipWith_Sized f ((Const i) ::$ irest) ((Const j) ::$ jrest) =
+zipWith_Sized f (Const i ::$ irest) (Const j ::$ jrest) =
   Const (f i j) ::$ zipWith_Sized f irest jrest
 
 reverseSized :: KnownShS sh => ListS sh (Const i) -> ListS sh (Const i)
@@ -111,6 +114,9 @@ sizedCompare f (i ::$ idx) (j ::$ idx') =
 -- TODO take Fin instead of i?
 singletonIndex :: KnownNat n => i -> IxS '[n] i
 singletonIndex i = i :.$ ZIS
+
+zipIndex :: IxS sh i -> IxS sh j -> IxS sh (i, j)
+zipIndex (IxS l1) (IxS l2) = IxS $ zipSized l1 l2
 
 zipWith_Index :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
 zipWith_Index f (IxS l1) (IxS l2) = IxS $ zipWith_Sized f l1 l2
@@ -210,3 +216,18 @@ permutePrefixIndex p (IxS ix) = IxS $ permutePrefixSized p ix
 
 ssxRank :: StaticShX sh -> SNat (Rank sh)
 ssxRank (StaticShX l) = listxRank l
+
+ixsRank :: IxS sh i -> SNat (Rank sh)
+ixsRank (IxS l) = listsRank l
+
+listsTakeLen :: forall f g sh1 sh2.
+                ListS sh1 f -> ListS sh2 g -> ListS (TakeLen sh1 sh2) g
+listsTakeLen ZS _ = ZS
+listsTakeLen (_ ::$ sh1) (n ::$ sh2) = n ::$ listsTakeLen sh1 sh2
+listsTakeLen (_ ::$ _) ZS = error "listsTakeLen: list too short"
+
+listsDropLen :: forall f g sh1 sh2.
+                ListS sh1 f -> ListS sh2 g -> ListS (DropLen sh1 sh2) g
+listsDropLen ZS sh = sh
+listsDropLen (_ ::$ sh1) (_ ::$ sh2) = listsDropLen sh1 sh2
+listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"

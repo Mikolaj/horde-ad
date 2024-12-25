@@ -999,7 +999,7 @@ testReluSimplerPP4s = do
       (var3, ast3) = funToAst (FTKS knownShS FTKScalar) (\t -> reluT2 (t, srepl 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> tlet (v1 * sfromPrimal (sreshape (sreplicate (sscalar 7.0)))) (\\i2 -> sfromPrimal (sgather (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0]))) (\\[i5, i4] -> [i5, ifF (sprimalPart i2 !$ [i5, i4] <=. sscalar 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> tlet (v1 * sfromPrimal (sreshape (sreplicate (sscalar 7.0)))) (\\i2 -> sfromPrimal (sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (sprimalPart i2 !$ [i5, i4] <=. sscalar 0.0) 0 1])) * i2)"
 
 testReluSimplerPP4s2 :: Assertion
 testReluSimplerPP4s2 = do
@@ -1012,13 +1012,13 @@ testReluSimplerPP4s2 = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (srepl 128, srepl 42)
   printArtifactPretty renames artifactRev
-    @?= "\\m11 x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m6 = tproject1 m1 * m5 ; m10 = sgather (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m6 !$ [i8, i9] <=. sscalar 0.0) 0 1]) ; m12 = m10 * m11 in tpair (m5 * m12, ssum (sreshape (tproject1 m1 * m12)))"
+    @?= "\\m11 x1 -> let m6 = sreshape (sreplicate (tproject2 m1)) ; m7 = tproject1 m1 * m6 ; m10 = sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) ; m12 = m10 * m11 in tpair (m6 * m12, ssum (sreshape (tproject1 m1 * m12)))"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m6 = tproject1 m1 * m5 ; m10 = sgather (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m6 !$ [i8, i9] <=. sscalar 0.0) 0 1]) in m10 * m6"
+    @?= "\\x1 -> let m6 = sreshape (sreplicate (tproject2 m1)) ; m7 = tproject1 m1 * m6 ; m10 = sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) in m10 * m7"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m11 x1 -> let m5 = sreshape (sreplicate (tproject2 m1)) ; m12 = sgather (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (tproject1 m1 !$ [i8, i9] * m5 !$ [i8, i9] <=. sscalar 0.0) 0 1]) * m11 in tpair (m5 * m12, ssum (sreshape (tproject1 m1) * sreshape m12))"
+    @?= "\\m11 x1 -> let m6 = sreshape (sreplicate (tproject2 m1)) ; m12 = sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (tproject1 m1 !$ [i8, i9] * m6 !$ [i8, i9] <=. sscalar 0.0) 0 1]) * m11 in tpair (m6 * m12, ssum (sreshape (tproject1 m1) * sreshape m12))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> let m6 = tproject1 m1 * sreshape (sreplicate (tproject2 m1)) in sgather (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0]))) (\\[i8, i9] -> [i8, ifF (m6 !$ [i8, i9] <=. sscalar 0.0) 0 1]) * m6"
+    @?= "\\x1 -> let m7 = tproject1 m1 * sreshape (sreplicate (tproject2 m1)) in sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) * m7"
 
 testReluSimpler4s :: Assertion
 testReluSimpler4s = do

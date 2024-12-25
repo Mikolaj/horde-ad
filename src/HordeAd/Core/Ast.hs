@@ -459,7 +459,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstFromVectorS :: (KnownNat n, KnownShS sh, TensorKind r)
                  => Data.Vector.Vector (AstTensor ms s (TKS2 sh r))
                  -> AstTensor ms s (TKS2 (n ': sh) r)
-  AstAppendS :: (KnownNat n, KnownNat m, KnownShS sh, TensorKind r)
+  AstAppendS :: (KnownNat m, KnownNat n, KnownShS sh, TensorKind r)
              => AstTensor ms s (TKS2 (m ': sh) r)
              -> AstTensor ms s (TKS2 (n ': sh) r)
              -> AstTensor ms s (TKS2 ((m + n) ': sh) r)
