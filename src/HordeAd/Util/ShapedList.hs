@@ -73,14 +73,6 @@ dropIxS :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
         => IxS sh i -> IxS (Drop len sh) i
 dropIxS (IxS ix) = IxS $ dropSized ix
 
-{-
-unsnocSized1 :: ListS (n ': sh) i -> (ListS sh i, i)
-unsnocSized1 (i ::$ ix) = case ix of
-  ZS -> (ZS, i)
-  _ ::$ _ -> let (init1, last1) = unsnocSized1 ix
-             in (i ::$ init1, last1)
--}
-
 -- lastSized :: ListS (n ': sh) i -> i
 -- lastSized (i ::$ ZS) = i
 -- lastSized (_i ::$ ix@(_ ::$ _)) = lastSized ix

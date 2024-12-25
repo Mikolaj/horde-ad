@@ -106,7 +106,21 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (ixrAppend, ixsAppend, listrAppend, shCvtSX, shrAppend, shsAppend, shsRank)
+  ( ixrAppend
+  , ixsAppend
+  , ixsInit
+  , ixsLast
+  , listrAppend
+  , listsInit
+  , listsLast
+  , shCvtSX
+  , shrAppend
+  , shsAppend
+  , shsInit
+  , shsLast
+  , shsRank
+  , shsTail
+  )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
@@ -163,7 +177,7 @@ astTransposeAsGather knobs perm v =
         _ -> error "astTransposeAsGather: permutation longer than rank"
 
 astTransposeAsGatherS
-  :: forall perm sh s r. (TensorKind r, KnownShS sh)
+  :: forall perm sh s r. (TensorKind r, KnownShS sh, AstSpan s)
   => SimplifyKnobs -> Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 {-# NOINLINE astTransposeAsGatherS #-}
@@ -229,7 +243,7 @@ astReshapeAsGather knobs shOut v =
     in astGatherKnobsR @m @0 knobs shOut v (vars, asts)
 
 astReshapeAsGatherS
-  :: forall sh sh2 r s. (TensorKind r, KnownShS sh, KnownShS sh2)
+  :: forall sh sh2 r s. (TensorKind r, KnownShS sh, KnownShS sh2, AstSpan s)
   => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 sh2 r)
 {-# NOINLINE astReshapeAsGatherS #-}
@@ -900,7 +914,7 @@ astGatherR = astGatherKnobsR defaultKnobs
 
 astGatherS
   :: forall shm shn shp r s.
-     (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r)
+     (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r, AstSpan s)
   => AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
@@ -1201,8 +1215,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
                 ix22 = fmap (substLet ix42 vars2) ix2
-            in gcastWith (unsafeCoerce Refl :: n' + p' - m2 :~: n2)
-               $ astGather sh4 v2 (vars4, ix22  `ixrAppend` ix44)
+            in gcastWith (unsafeCoerce Refl :: n' + p' - m2 :~: n2) $
+               astGather sh4 v2 (vars4, ix22  `ixrAppend` ix44)
       in case cmpNat (Proxy @p') (Proxy @m2) of
         LTI -> composedGather
         EQI -> assimilatedGather
@@ -1261,13 +1275,99 @@ isVar _ = False
 
 astGatherKnobsS
   :: forall shm shn shp r s.
-     (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r)
+     (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r, AstSpan s)
   => SimplifyKnobs
   -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
-astGatherKnobsS _ v (vars, ix) =
-  Ast.AstGatherS @shm @shn @shp v (vars, ix)  -- TODO
+astGatherKnobsS knobs v0 (vars0, ix0) =
+  case (knownShS @shm, (vars0, ix0)) of
+    _ | any (`varNameInAst` v0) $ toList vars0 ->
+      error $ "astGatherS: gather vars in v0: "
+              ++ show (vars0, v0)
+    (_, (ZS, _)) -> astIndex v0 ix0
+    (_, (_, ZIS)) -> if knobExpand knobs
+                     then Ast.AstGatherS v0 (vars0, ix0)
+                     else astReplicateNS @shm @shn v0
+    (shm@((:$$) @_ @sh' k sh'), (var ::$ vars, i1 :.$ rest1)) ->
+      if | not (any (`varNameInAst` i1) $ toList vars0) ->
+           withKnownShS (shsTail (knownShS @shp)) $
+           withKnownShS (shsTail (knownShS @shp) `shsAppend` knownShS @shn) $
+           astGatherKnobsS @shm @shn @(Tail shp)
+                           knobs (astIndex v0 (i1 :.$ ZIS))
+                           (vars0, rest1)
+         | case iN of
+             AstIntVar varN' ->
+               varN' == getConst varN
+               && not (any (getConst varN `varNameInAst`) restN)
+             _ -> False
+         , kN@SNat <- shsLast shm
+         , vkN@SNat <- shsLast (knownShS @shp)
+         , case geq kN vkN of
+             Just Refl -> True
+             _ -> False
+           -> gcastWith (unsafeCoerce Refl
+                         :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
+              gcastWith (unsafeCoerce Refl
+                         :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
+              withKnownShS (shsInit shm) $
+              withKnownShS (shsInit (knownShS @shp)) $
+              astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
+                              knobs v0 (varsN, restN)
+         | varInIndexS (varNameToAstVarId $ getConst var) ix0 ->
+           astGatherCase @shm @shn @shp v0 (vars0, ix0)
+         | otherwise ->
+           if knobExpand knobs
+           then Ast.AstGatherS @shm @shn @shp v0 (vars0, ix0)
+           else withKnownShS sh' $
+                withKnownShS (knownShS @sh' `shsAppend` knownShS @shn) $
+                astReplicate k (astGatherKnobsS @(Tail shm) @shn @shp
+                                                knobs v0 (vars, ix0))
+       where
+        restN = ixsInit ix0
+        iN = ixsLast ix0
+        varsN = listsInit vars0
+        varN = listsLast vars0
+ where
+  astIndex
+    :: forall shm' shn' s'.
+       (KnownShS shm', KnownShS shn', AstSpan s')
+    => AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
+    -> AstIxS AstMethodLet shm'
+    -> AstTensor AstMethodLet s' (TKS2 shn' r)
+  astIndex v2 ix2 =
+    withKnownShS (knownShS @shm' `shsAppend` knownShS @shn') $
+    if knobStepOnly knobs
+    then astIndexKnobsS knobs (astNonIndexStep v2) (simplifyAstIxS ix2)
+    else astIndexKnobsS knobs v2 ix2
+  astGatherRec, astGather
+    :: forall shm' shn' shp' s' r'.
+       (KnownShS shm', KnownShS shn', KnownShS shp', AstSpan s', TensorKind r')
+    => AstTensor AstMethodLet s' (TKS2 (shp' ++ shn') r')
+    -> (AstVarListS shm', AstIxS AstMethodLet shp')
+    -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
+  astGatherRec v2 (vars2, ix2) =
+    withKnownShS (knownShS @shp' `shsAppend` knownShS @shn') $
+    if knobStepOnly knobs
+    then Ast.AstGatherS @shm' @shn' @shp' v2 (vars2, ix2)
+    else astGatherKnobsS @shm' @shn' @shp' knobs v2 (vars2, ix2)
+  astGather v2 (vars2, ix2) =
+    withKnownShS (knownShS @shp' `shsAppend` knownShS @shn') $
+    if knobStepOnly knobs
+    then astGatherKnobsS @shm' @shn' @shp'
+                         knobs
+                         (astNonIndexStep v2)
+                         (vars2, simplifyAstIxS ix2)
+    else astGatherKnobsS @shm' @shn' @shp' knobs v2 (vars2, ix2)
+  -- Note that v4 is in weak head normal form and so can't one-step reduce
+  -- and so we don't have to reduce it to expose any top redexes.
+  astGatherCase
+    :: forall shm' shn' shp'.
+       (KnownShS shm', KnownShS shn', KnownShS shp')
+    => AstTensor AstMethodLet s (TKS2 (shp' ++ shn') r)
+    -> (AstVarListS shm', AstIxS AstMethodLet shp')
+    -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r)
+  astGatherCase v (vars, ix) = Ast.AstGatherS @shm' @shn' @shp' v (vars, ix)  -- TODO
 {- TODO: is this beneficial?
   AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
     gcastWith (unsafeCoerce Refl :: Take (Rank sh2) sh2 :~: sh2)
