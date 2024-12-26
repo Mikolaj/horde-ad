@@ -27,6 +27,7 @@ module HordeAd.Util.SizedList
 import Prelude
 
 import Control.Arrow (first)
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.List (sort)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
@@ -34,7 +35,6 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested
   ( IShR
@@ -286,7 +286,7 @@ withListSh (Proxy @sh) f =
   let shList = shapeT @sh
   in case someNatVal $ toInteger (length shList) of
     Just (SomeNat @n _) ->
-      gcastWith (unsafeCoerce Refl :: Rank sh :~: n) $
+      gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $
       f $ fromList shList
     _ -> error "withListSh: impossible someNatVal error"
 

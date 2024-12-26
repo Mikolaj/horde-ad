@@ -156,7 +156,7 @@ aDSTK = \case
     Just Refl -> t
     _ -> case testEquality tr (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            STKScalar (typeRep @Z0)
   STKR sh x -> STKR sh $ aDSTK x
   STKS sh x -> STKS sh $ aDSTK x
@@ -220,7 +220,7 @@ aDFTK = \case
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            FTKScalar @Z0
   FTKR sh x -> FTKR sh $ aDFTK x
   FTKS sh x -> FTKS sh $ aDFTK x

@@ -21,6 +21,7 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Default
 import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty)
@@ -42,7 +43,6 @@ import GHC.TypeLits
   )
 import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -636,7 +636,7 @@ class ( Num (IntOf target)
           ((:$$) SNat sh2, (:$$) _ sh2m) | Dict <- sshapeKnown sh2m ->
             let g i = buildSh sh2 sh2m (f . (i :.$))
             in sbuild1 g
-    in gcastWith (unsafeCoerce Refl
+    in gcastWith (unsafeCoerceRefl
                   :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (knownShS @(Take m sh))
                  (knownShS @sh)
@@ -648,7 +648,7 @@ class ( Num (IntOf target)
           , KnownShS sh, KnownShS (Take m sh), KnownShS (Drop m sh) )
        => (target (TKS2 (Drop m sh) r) -> target (TKS2 (Drop m sh) r2))
        -> target (TKS2 sh r) -> target (TKS2 sh r2)
-  smap f v = gcastWith (unsafeCoerce Refl
+  smap f v = gcastWith (unsafeCoerceRefl
                         :: sh :~: Take m sh ++ Drop m sh)
              $ sbuild (\ix -> f (v !$ ix))
   smap1 :: forall r sh n r2.
@@ -661,8 +661,8 @@ class ( Num (IntOf target)
          => (target (TKS2 '[] r1) -> target (TKS2 '[] r)) -> target (TKS2 sh r1)
          -> target (TKS2 sh r)
   smap0N f v =
-    gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+    gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @r @(Rank sh) (f . sindex0 v)
   szipWith :: forall r1 r2 r m sh1 sh2 sh.
               ( TensorKind r1, TensorKind r2, TensorKind r
@@ -689,8 +689,8 @@ class ( Num (IntOf target)
              => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r))
              -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r)
   szipWith0N f u v =
-    gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+    gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 u ix) (sindex0 v ix))
   szipWith3 :: forall r1 r2 r3 r m sh1 sh2 sh3 sh.
                ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r
@@ -726,8 +726,8 @@ class ( Num (IntOf target)
                   -> target (TKS2 '[] r))
               -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r3) -> target (TKS2 sh r)
   szipWith30N f u v w =
-    gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+    gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 u ix)
                                                 (sindex0 v ix)
                                                 (sindex0 w ix))
@@ -774,8 +774,8 @@ class ( Num (IntOf target)
               -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r3) -> target (TKS2 sh r4)
               -> target (TKS2 sh r)
   szipWith40N f u v w x =
-    gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+    gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
+    $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 u ix)
                                                 (sindex0 v ix)
                                                 (sindex0 w ix)
@@ -862,10 +862,10 @@ class ( Num (IntOf target)
         => SNat n -> target (TKR2 (n + m) x)
         -> target (TKR2 n (TKR2 m x))
   rnest n@SNat =
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)
                                           ++ Replicate m Nothing) :~: n + m) $
-    gcastWith (unsafeCoerce Refl :: Replicate (n + m) (Nothing @Nat)
+    gcastWith (unsafeCoerceRefl :: Replicate (n + m) (Nothing @Nat)
                                     :~: Replicate n (Nothing @Nat)
                                         ++ Replicate m Nothing) $
     withKnownShX (ssxReplicate n) $
@@ -878,7 +878,7 @@ class ( Num (IntOf target)
          => SNat n -> target (TKX2 (Replicate n Nothing ++ MapJust sh2) x)
          -> target (TKR2 n (TKS2 sh2 x))
   rnestS n@SNat =
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
     withKnownShX (ssxReplicate n) $
     rfromX . xnestS (ssxReplicate n)
   rnestX :: forall n sh2 x.
@@ -886,7 +886,7 @@ class ( Num (IntOf target)
          => SNat n -> target (TKX2 (Replicate n Nothing ++ sh2) x)
          -> target (TKR2 n (TKX2 sh2 x))
   rnestX n@SNat =
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
     withKnownShX (ssxReplicate n) $
     rfromX . xnest (ssxReplicate n)
   snestR :: forall sh1 m x.
@@ -894,7 +894,7 @@ class ( Num (IntOf target)
          => ShS sh1 -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
          -> target (TKS2 sh1 (TKR2 m x))
   snestR sh1 =
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
     withKnownShS sh1 $
     withKnownShX (ssxFromShape (shCvtSX sh1)) $
     sfromX . xnestR (ssxFromShape (shCvtSX sh1))
@@ -903,8 +903,8 @@ class ( Num (IntOf target)
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
         -> target (TKS2 sh1 (TKS2 sh2 x))
   snest sh1 =
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1 ++ MapJust sh2)
+    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1 ++ MapJust sh2)
                                     :~: Rank (sh1 ++ sh2)) $
     withKnownShS sh1 $
     withKnownShX (ssxFromShape (shCvtSX sh1)) $
@@ -917,7 +917,7 @@ class ( Num (IntOf target)
          => ShS sh1 -> target (TKX2 (MapJust sh1 ++ sh2) x)
          -> target (TKS2 sh1 (TKX2 sh2 x))
   snestX sh1 =
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
     withKnownShS sh1 $
     withKnownShX (ssxFromShape (shCvtSX sh1)) $
     sfromX . xnest (ssxFromShape (shCvtSX sh1))
@@ -939,8 +939,8 @@ class ( Num (IntOf target)
              (TensorKind x, KnownNat n, KnownNat m)
           => target (TKR2 n (TKR2 m x)) -> target (TKR2 (n + m) x)
   runNest =
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)
                                           ++ Replicate m Nothing) :~: n + m) $
     withKnownShX (ssxReplicate (SNat @n)) $
     withKnownShX (ssxReplicate (SNat @n) `ssxAppend` ssxReplicate (SNat @m)) $
@@ -950,7 +950,7 @@ class ( Num (IntOf target)
            => target (TKR2 n (TKS2 sh2 x))
            -> target (TKX2 (Replicate n Nothing ++ MapJust sh2) x)
   runNestS =
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
     withKnownShX (ssxReplicate (SNat @n)) $
     xunNestS . xfromR @_ @(Replicate n Nothing)
   runNestX :: forall n sh2 x.
@@ -958,7 +958,7 @@ class ( Num (IntOf target)
            => target (TKR2 n (TKX2 sh2 x))
            -> target (TKX2 (Replicate n Nothing ++ sh2) x)
   runNestX =
-    gcastWith (unsafeCoerce Refl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
+    gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
     withKnownShX (ssxReplicate (SNat @n)) $
     withKnownShX (ssxReplicate (SNat @n) `ssxAppend` knownShX @sh2) $
     xunNest . xfromR @_ @(Replicate n Nothing)
@@ -967,15 +967,15 @@ class ( Num (IntOf target)
            => target (TKS2 sh1 (TKR2 m x))
            -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
   sunNestR =
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
     xunNestR . xfromS @_ @_ @(MapJust sh1)
   sunNest :: forall sh1 sh2 x.
              (TensorKind x, KnownShS sh1, KnownShS sh2)
           => target (TKS2 sh1 (TKS2 sh2 x)) -> target (TKS2 (sh1 ++ sh2) x)
   sunNest =
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
-    gcastWith (unsafeCoerce Refl
+    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerceRefl
                :: Rank (MapJust sh1 ++ MapJust sh2) :~: Rank (sh1 ++ sh2)) $
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
@@ -987,7 +987,7 @@ class ( Num (IntOf target)
            => target (TKS2 sh1 (TKX2 sh2 x))
            -> target (TKX2 (MapJust sh1 ++ sh2) x)
   sunNestX =
-    gcastWith (unsafeCoerce Refl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))
                   `ssxAppend` knownShX @sh2) $

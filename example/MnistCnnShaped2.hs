@@ -7,21 +7,21 @@ module MnistCnnShaped2 where
 
 import Prelude
 
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import Numeric.LinearAlgebra (Numeric)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import MnistData
@@ -88,8 +88,8 @@ convMnistTwoS kh@SNat kw@SNat
               input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
-  gcastWith (unsafeCoerce Refl :: Div (Div w 2) 2 :~: Div w 4) $
-  gcastWith (unsafeCoerce Refl :: Div (Div h 2) 2 :~: Div h 4) $
+  gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $
+  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $
   let t1 = convMnistLayerS kh kw
                            h w
                            (SNat @1) c_out batch_size

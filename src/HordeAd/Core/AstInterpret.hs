@@ -27,10 +27,10 @@ import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
 import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (Typeable, typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxAppend)
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IxR (..)
   , IxS (..)
@@ -785,8 +785,8 @@ interpretAst !env = \case
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstGatherS @shm AstIotaS (vars, i :.$ ZIS) | Refl <- lemAppNil @shm ->
-    gcastWith (unsafeCoerce Refl :: Drop (Rank shm) shm :~: '[]) $
-    gcastWith (unsafeCoerce Refl :: Take (Rank shm) shm :~: shm) $
+    gcastWith (unsafeCoerceRefl :: Drop (Rank shm) shm :~: '[]) $
+    gcastWith (unsafeCoerceRefl :: Take (Rank shm) shm :~: shm) $
     sbuild @_ @_ @(Rank shm)
            (interpretLambdaIndexS
               interpretAst env

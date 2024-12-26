@@ -34,7 +34,7 @@ import Data.Default
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality ((:~:))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -55,7 +55,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Mixed.Types (Dict (..))
+import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
 import Data.Array.Nested
   (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
@@ -122,14 +122,14 @@ withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
 sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
           => Maybe (sh1 :~: sh2)
 sameShape = if shapeT @sh1 == shapeT @sh2
-            then Just (unsafeCoerce Refl :: sh1 :~: sh2)
+            then Just (unsafeCoerceRefl :: sh1 :~: sh2)
             else Nothing
 
 matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
              => Maybe (Rank sh1 :~: n2)
 matchingRank =
   if length (shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerce Refl :: Rank sh1 :~: n2)
+  then Just (unsafeCoerceRefl :: Rank sh1 :~: n2)
   else Nothing
 
 class Permutation.IsPermutation is => PermC is
@@ -142,6 +142,7 @@ trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
 
+type Head :: [k] -> k
 type family Head l where
   Head (x : _) = x
 

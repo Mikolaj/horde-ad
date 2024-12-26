@@ -78,8 +78,8 @@ benchProd ~(_l, list, _vec) =
     , bench "VecD crev" $
         let f :: DynamicTensor OR.Array -> RepN (TKR 0 Double)
             f (DynamicRanked @r2 @n2 d) =
-                 gcastWith (unsafeCoerce Refl :: r2 :~: Double) $
-                 gcastWith (unsafeCoerce Refl :: n2 :~: 0) $
+                 gcastWith (unsafeCoerceRefl :: r2 :~: Double) $
+                 gcastWith (unsafeCoerceRefl :: n2 :~: 0) $
                  d
             f _ = error "benchProd: wrong type"
         in nf (V.map f . fst
@@ -132,8 +132,8 @@ _rankedVecDProd :: forall r target.
                 => HVector target -> target (TKR 0 r)
 _rankedVecDProd =
   let f acc (DynamicRanked @r2 @n2 d) =
-        gcastWith (unsafeCoerce Refl :: r2 :~: r) $
-        gcastWith (unsafeCoerce Refl :: n2 :~: 0) $
+        gcastWith (unsafeCoerceRefl :: r2 :~: r) $
+        gcastWith (unsafeCoerceRefl :: n2 :~: 0) $
         d * acc
       f _ _ = error "rankedVecDProd: wrong type"
   in V.foldl' f 0

@@ -23,10 +23,10 @@ import GHC.TypeLits (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IxR (..)
@@ -379,12 +379,12 @@ build1V snat@SNat (var, v0) =
     Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case stensorKind @y of
      STKS @sh _ _ ->
       withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-      gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
+      gcastWith (unsafeCoerceRefl :: rankSh1 :~: Rank sh1) $
       build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstSumS v -> traceRule $
       astSumS $ astTrS $ build1V snat (var, v)
@@ -409,9 +409,9 @@ build1V snat@SNat (var, v0) =
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
           zsuccPerm = Permutation.permShift1 perm
       in
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
         $ astTransposeS zsuccPerm $ build1V snat (var, v)
@@ -624,12 +624,12 @@ build1VIndexS
      , AstIxS AstMethodLet (Take p sh) )
   -> AstTensor AstMethodLet s (TKS2 (k ': Drop p sh) r)
 build1VIndexS (var, v0, ZIS) =
-  gcastWith (unsafeCoerce Refl :: p :~: 0)
+  gcastWith (unsafeCoerceRefl :: p :~: 0)
     -- otherwise sh would need to be empty, but then Take gets stuck
     -- so the application of this function wouldn't type-check
   $ build1VOccurenceUnknown (SNat @k) (var, v0)
 build1VIndexS (var, v0, ix@(_ :.$ _)) =
-  gcastWith (unsafeCoerce Refl :: sh :~: Take p sh ++ Drop p sh) $
+  gcastWith (unsafeCoerceRefl :: sh :~: Take p sh ++ Drop p sh) $
   let vTrace = Ast.AstBuild1 (SNat @k) (var, Ast.AstIndexS v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAst var v0
@@ -821,11 +821,11 @@ astTrDynamic t@(DynamicShaped @_ @sh u) =
          case cmpNat (Proxy @2) (Proxy @(Rank sh)) of
            EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstTensor AstMethodLet s4 (TKS sh4 r4)) ->
-               gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
+               gcastWith (unsafeCoerceRefl :: sh4 :~: shPermuted) $
                DynamicShaped w
            LTI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
              (w :: AstTensor AstMethodLet s4 (TKS sh4 r4)) ->
-               gcastWith (unsafeCoerce Refl :: sh4 :~: shPermuted) $
+               gcastWith (unsafeCoerceRefl :: sh4 :~: shPermuted) $
                DynamicShaped w
            _ -> t
 astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =

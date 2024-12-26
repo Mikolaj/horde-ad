@@ -62,6 +62,7 @@ import Data.Array.Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal
@@ -260,8 +261,8 @@ instance BaseTensor RepN where
         case tftk stensorKind t of
           FTKS _ x@FTKScalar ->  -- optimized
             withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-            gcastWith (unsafeCoerce Refl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-            gcastWith (unsafeCoerce Refl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
             let zero = constantTarget 0 (FTKS knownShS x)
                 shm = knownShS @shm
                 s = shsSize shm
@@ -281,8 +282,8 @@ instance BaseTensor RepN where
                $ M.assocs ivs
           FTKS _ x | Dict <- eltDictRep (ftkToStk x) ->
             withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-            gcastWith (unsafeCoerce Refl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-            gcastWith (unsafeCoerce Refl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
             let zero = constantTarget 0 (FTKS knownShS x)
                 shm = knownShS @shm
                 s = shsSize shm
@@ -370,8 +371,8 @@ instance BaseTensor RepN where
     (STKScalar{}, STKScalar{}) ->
       RepN $ tmap0NS (unRepN . f . RepN) (unRepN v)
     _ ->  -- TODO: how to call the default implementation?
-      gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
-      $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+      gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
+      $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
       $ sbuild @target @r @(Rank sh) (f . sindex0 v)
   szipWith0N :: forall r1 r2 r sh target.
                 ( target ~ RepN, TensorKind r1, TensorKind r2, TensorKind r
@@ -383,16 +384,16 @@ instance BaseTensor RepN where
       RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
                          (unRepN t) (unRepN u)
     _ ->  -- TODO: how to call the default implementation?
-      gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[])
-      $ gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh)
+      gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
+      $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
       $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
   -- The semantics of the operation permits index out of bounds
   -- and the result of such indexing is def.
   sgather @r @shm @shn @shp t f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    gcastWith (unsafeCoerce Refl :: Take (Rank shm) (shm ++ shn) :~: shm) $
-    gcastWith (unsafeCoerce Refl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
+    gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
+    gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case stensorKind @r of
       STKScalar{} ->  -- optimized
         let shm = knownShS @shm
@@ -1076,7 +1077,7 @@ updateNS arr upd = case stensorKind @r of
         sh = knownShS @sh
         f !t (ix, u) =
           let v = Nested.stoVector $ unRepN u
-              i = gcastWith (unsafeCoerce Refl
+              i = gcastWith (unsafeCoerceRefl
                              :: sh :~: Take n sh ++ Drop n sh)
                   $ fromIntegral $ unRepN
                   $ ShapedList.toLinearIdx @(Take n sh) @(Drop n sh)
@@ -1085,7 +1086,7 @@ updateNS arr upd = case stensorKind @r of
     in RepN $ Nested.sfromVector knownShS (foldl' f values upd)
   _ -> case shsProduct (knownShS @(Take n sh)) of
     SNat ->
-      gcastWith (unsafeCoerce Refl :: sh :~: Take n sh ++ Drop n sh) $
+      gcastWith (unsafeCoerceRefl :: sh :~: Take n sh ++ Drop n sh) $
       let arrNested = snest (knownShS @(Take n sh)) arr
           shNested = sshape arrNested
           f i v = case lookup (ShapedList.fromLinearIdx
@@ -1113,9 +1114,9 @@ tminIndexS =
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat _proxy) ->
-              gcastWith (unsafeCoerce Refl
+              gcastWith (unsafeCoerceRefl
                          :: Init (n ': sh) ++ '[m] :~: n ': sh) $
-              gcastWith (unsafeCoerce Refl
+              gcastWith (unsafeCoerceRefl
                          :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
               Nested.srerank @'[m] @'[] @(Init (n ': sh)) knownShS knownShS (f @m)
             Nothing -> error "tminIndexS: impossible someNatVal error"
@@ -1138,9 +1139,9 @@ tmaxIndexS =
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
             Just (SomeNat _proxy) ->
-              gcastWith (unsafeCoerce Refl
+              gcastWith (unsafeCoerceRefl
                          :: Init (n ': sh) ++ '[m] :~: n ': sh) $
-              gcastWith (unsafeCoerce Refl
+              gcastWith (unsafeCoerceRefl
                          :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
               Nested.srerank @'[m] @'[] @(Init (n ': sh)) knownShS knownShS (f @m)
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
@@ -1228,8 +1229,8 @@ tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
   SNat -> case tftk stensorKind t of
     FTKS _ x ->
       withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-      gcastWith (unsafeCoerce Refl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-      gcastWith (unsafeCoerce Refl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+      gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+      gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
       let zero = constantTarget 0 (FTKS knownShS x)
           lt = sunravelToList t
           g i ti = let ix2 = f $ RepN $ fromIntegral i

@@ -67,7 +67,6 @@ import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
@@ -80,6 +79,7 @@ import Data.Array.Mixed.Shape
   , shxDropSSX
   , shxTakeSSX
   )
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , KnownShS (..)
@@ -783,7 +783,7 @@ shapeDeltaFull = \case
       withShapeP
         (backpermutePrefixList (Permutation.permToList' perm)
                                (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-          gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
+          gcastWith (unsafeCoerceRefl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
           FTKS knownShS x
   ReshapeS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
@@ -1342,13 +1342,13 @@ evalSame !s !c = \case
   TransposeS @perm @sh2 perm d ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh2)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh2 :~: shp) $
+    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh2 :~: shp) $
     Permutation.permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
-        $ gcastWith (unsafeCoerce Refl
+        $ gcastWith (unsafeCoerceRefl
                      :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
-        $ gcastWith (unsafeCoerce Refl
+        $ gcastWith (unsafeCoerceRefl
                      :: Rank permR :~: Rank perm)
         $ evalSame s (stranspose permRev c) d
   ReshapeS d ->
@@ -1427,22 +1427,22 @@ evalDynamic
   -> (DynamicTensor target, DynamicTensor (Delta target))
   -> EvalState target
 evalDynamic !s3 (t, DynamicRanked @r @n d2) =
-  gcastWith (unsafeCoerce Refl :: TKR n r :~: ADTensorKind (TKR n r)) $
+  gcastWith (unsafeCoerceRefl :: TKR n r :~: ADTensorKind (TKR n r)) $
     -- this is a noble lie to maintain no ADTensorKind under HVector
     -- and at the same time re-use the new eval function also for HVector
   evalSame s3 (toADTensorKindShared (stensorKind @(TKR n r)) $ rfromD t) d2
 evalDynamic s3 (t, DynamicShaped @r @sh d2) =
-  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
+  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
   evalSame s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t) d2
 evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
+  gcastWith (unsafeCoerceRefl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
   withListSh (Proxy @sh) $ \sh2 ->
     evalSame @(TKR (Rank sh) r)
              s3 (toADTensorKindShared (stensorKind @(TKR (Rank sh) r))
                  $ rfromD @r t)
              (ZeroG $ FTKR sh2 FTKScalar)
 evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
+  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
   evalSame @(TKS sh r)
         s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t)
         (ZeroG $ FTKS knownShS FTKScalar)
@@ -1529,17 +1529,17 @@ fwdDynamic
   => IMap target -> ADMap target -> DynamicTensor (Delta target)
   -> (ADMap target, DynamicTensor target)
 fwdDynamic params s (DynamicRanked @r @n d) =
-  gcastWith (unsafeCoerce Refl :: TKR n r :~: ADTensorKind (TKR n r)) $
+  gcastWith (unsafeCoerceRefl :: TKR n r :~: ADTensorKind (TKR n r)) $
   second DynamicRanked $ fwdSame params s d
 fwdDynamic params s (DynamicShaped @r @sh d) =
-  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
+  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
   second DynamicShaped $ fwdSame params s d
 fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
+  gcastWith (unsafeCoerceRefl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
   withListSh (Proxy @sh) $ \sh2 ->
     second (DynamicRanked @r) $ fwdSame params s (ZeroG $ FTKR sh2 FTKScalar)
 fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerce Refl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
+  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
   second (DynamicShaped @r @sh) $ fwdSame params s (ZeroG $ FTKS knownShS FTKScalar)
 
 fwdHVector

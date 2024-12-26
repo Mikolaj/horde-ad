@@ -31,7 +31,6 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape
   (IShX, KnownShX (..), shxAppend, ssxAppend, ssxFromShape, ssxReplicate)
@@ -90,19 +89,19 @@ soneHot :: forall r sh1 sh2 target.
         -> target (TKS2 (sh1 ++ sh2) r)
 soneHot v ix = case stensorKind @r of
   STKScalar{} | SNat <- shsRank (knownShS @sh1) ->
-    gcastWith (unsafeCoerce Refl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
-    gcastWith (unsafeCoerce Refl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+    gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+    gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
     sscatter @_ @_ @'[] @_ @sh1 v (const ix)
   _ -> case tftk stensorKind v of
     FTKS _ ftk2 ->
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-      gcastWith (unsafeCoerce Refl :: rankSh1 :~: Rank sh1) $
+      gcastWith (unsafeCoerceRefl :: rankSh1 :~: Rank sh1) $
          let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                        $ zip (toList ix) (toList ix2))
                       (sindex0 v (dropIxS @(Rank sh1) ix2))
@@ -204,25 +203,25 @@ toADTensorKindW t = case t of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            WTKScalar $ rtoScalar $ rscalar Z0
   WTKR @r v -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            WTKR $ rrepl @_ @_ @target (toList $ rshape v) Z0
   WTKS @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            WTKS $ srepl @_ @_ @target Z0
   WTKX @r v -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerce Refl :: ADTensorScalar r :~: Z0) $
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            WTKX $ xrepl @_ @_ @target (xshape v) Z0
   WTKProduct @y1 @y2 t1 t2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                            , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
@@ -624,7 +623,7 @@ unravelDynamic
 unravelDynamic (DynamicRanked @rp @p t) =
   case someNatVal $ valueOf @p - 1 of
     Just (SomeNat @p1 _) ->
-      gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+      gcastWith (unsafeCoerceRefl :: p :~: 1 + p1 ) $
       map (DynamicRanked @rp @p1) $ runravelToList t
     Nothing -> error "unravelDynamic: rank 0"
 unravelDynamic (DynamicShaped @_ @sh t) = case knownShS @sh of
@@ -634,7 +633,7 @@ unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
   withListSh (Proxy @sh) $ \(sh :: IShR p) ->
     case someNatVal $ valueOf @p - 1 of
       Just (SomeNat @p1 _) ->
-        gcastWith (unsafeCoerce Refl :: p :~: 1 + p1 ) $
+        gcastWith (unsafeCoerceRefl :: p :~: 1 + p1 ) $
         map (DynamicRanked @rp @p1) $ runravelToList (rzero sh)
       Nothing -> error "unravelDynamic: rank 0"
 unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case knownShS @sh of
@@ -734,7 +733,7 @@ mapRanked f (DynamicShaped @_ @sh t) =
   withListSh (Proxy @sh) $ \(_ :: IShR n) ->
     let res = f $ rfromS @_ @_ @sh t
     in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
+        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 mapRanked f (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh1 ->
@@ -743,7 +742,7 @@ mapRanked f (DynamicShapedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \(sh1 :: IShR n) ->
     let res = f @r (rzero sh1)
     in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
+        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 
 -- Hindler-Milner polymorphism is not great for existential types programming.
@@ -766,8 +765,8 @@ mapRanked01 f (DynamicShaped @_ @sh t) =
     in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
       case someNatVal $ 1 + valueOf @n of
         Just (SomeNat @n1 _) ->
-          gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-          gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
+          gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
+          gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
           DynamicShaped $ sfromR @_ @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
 mapRanked01 f (DynamicRankedDummy @r @sh _ _) =
@@ -779,8 +778,8 @@ mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
     in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
       case someNatVal $ 1 + valueOf @n of
         Just (SomeNat @n1 _) ->
-          gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-          gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
+          gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
+          gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
           DynamicShaped $ sfromR @_ @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
 
@@ -805,7 +804,7 @@ mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
       let res = f $ rfromS @_ @_ @sh t
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
+        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked10: rank 0"
@@ -818,7 +817,7 @@ mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
     withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
       let res = f @r (rzero $ sNatValue k :$: sh1)
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerce Refl :: Rank shr :~: n) $
+        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
         DynamicShaped $ sfromR @_ @_ @shr res
 
 mapHVectorRanked11
@@ -844,8 +843,8 @@ mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
-            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
+            gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
+            gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
             DynamicShaped $ sfromR @_ @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
 mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
@@ -861,8 +860,8 @@ mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         case someNatVal $ 1 + valueOf @n of
           Just (SomeNat @n1 _) ->
-            gcastWith (unsafeCoerce Refl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerce Refl :: Rank shr :~: n1) $
+            gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
+            gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
             DynamicShaped $ sfromR @_ @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
 
@@ -881,7 +880,7 @@ mapShaped
 mapShaped f (DynamicRanked @r @n t) =
   withShapeP (toList $ rshape t) $ \(Proxy @sh) ->
     withListSh (Proxy @sh) $ \(_ :: IShR m) ->
-      gcastWith (unsafeCoerce Refl :: n :~: m) $
+      gcastWith (unsafeCoerceRefl :: n :~: m) $
       DynamicRanked $ rfromS $ f @r @sh $ sfromR t
 mapShaped f (DynamicShaped t) = DynamicShaped $ f t
 mapShaped f (DynamicRankedDummy @r @sh _ _) =

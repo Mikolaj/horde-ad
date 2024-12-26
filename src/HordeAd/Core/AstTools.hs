@@ -18,6 +18,7 @@ module HordeAd.Core.AstTools
 
 import Prelude hiding (foldl')
 
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List (foldl')
@@ -26,7 +27,6 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (sameNat, type (+))
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
@@ -167,7 +167,7 @@ ftkAst t = case t of
       withShapeP
         (backpermutePrefixList (Permutation.permToList' perm)
                                (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-          gcastWith (unsafeCoerce Refl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
+          gcastWith (unsafeCoerceRefl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
           FTKS knownShS x
   AstReshapeS v -> case ftkAst v of
     FTKS _ x -> FTKS knownShS x

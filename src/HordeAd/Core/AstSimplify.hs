@@ -197,20 +197,20 @@ astTransposeAsGatherS knobs perm v = case Permutation.permRank perm of
  SNat @p ->
   withShapeP (drop (sNatValue (Permutation.permRank perm))
               $ shapeT @sh) $ \(Proxy @shd) ->
-    gcastWith (unsafeCoerce Refl :: Drop p sh :~: shd) $
+    gcastWith (unsafeCoerceRefl :: Drop p sh :~: shd) $
     withShapeP (take (sNatValue (Permutation.permRank perm))
                 $ shapeT @sh) $ \(Proxy @shp) ->
-      gcastWith (unsafeCoerce Refl :: Take p sh :~: shp) $
+      gcastWith (unsafeCoerceRefl :: Take p sh :~: shp) $
       withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                         (shapeT @shp)) $ \(Proxy @sh2) ->
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix perm (Take p sh) :~: sh2) $
         funToVarsIxS @sh2 $ \ (!vars, !ix) ->
           let asts :: AstIxS AstMethodLet (Take p sh)
               asts = ShapedList.permutePrefixIndex (Permutation.permToList' perm) ix
-          in gcastWith (unsafeCoerce Refl
+          in gcastWith (unsafeCoerceRefl
                         :: Permutation.PermutePrefix perm sh :~: sh2 ++ Drop p sh) $
-             gcastWith (unsafeCoerce Refl :: Take p sh ++ Drop p sh :~: sh) $
+             gcastWith (unsafeCoerceRefl :: Take p sh ++ Drop p sh :~: sh) $
              astGatherKnobsS @sh2 @(Drop p sh) @(Take p sh) knobs v (vars, asts)
 
 -- This generates big terms that don't simplify well,
@@ -270,8 +270,8 @@ astReshapeAsGatherS knobs v | Refl <- lemAppNil @sh2
                    i = ShapedList.toLinearIdx @sh2 @'[] fromInt shOut ix
                in simplifyAstIxS $ ShapedList.fromLinearIdx fromInt shIn i
                     -- we generate these, so we simplify
-    in gcastWith (unsafeCoerce Refl :: Take (Rank sh) sh :~: sh) $
-       gcastWith (unsafeCoerce Refl :: Drop (Rank sh) sh :~: '[]) $
+    in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
        astGatherKnobsS @sh2 @'[] @sh knobs v (vars, asts)
 
 
@@ -562,13 +562,13 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstScatter @_ @n7 (_ :$: sh)
                  v (vars, AstIntVar var5 :.: (ix2 :: AstIxR AstMethodLet p71))
     | AstIntVar var6 <- i1, var6 == var5 ->
-        gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
+        gcastWith (unsafeCoerceRefl :: m1 + n :~: p71 + n7) $
         astIndex (astScatter sh v (vars, ix2)) rest1
   Ast.AstScatter @_ @n7 (_ :$: sh)
                  v (vars, AstConcrete _ i5 :.: (ix2 :: AstIxR AstMethodLet p71))
     | AstConcrete _ i6 <- i1
     , STKScalar{} <- stensorKind @r ->
-        gcastWith (unsafeCoerce Refl :: m1 + n :~: p71 + n7) $
+        gcastWith (unsafeCoerceRefl :: m1 + n :~: p71 + n7) $
         if i6 == i5
         then astIndex (astScatter sh v (vars, ix2)) rest1
         else astReplicate0N (dropShape @m1 sh) def
@@ -611,7 +611,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (ix2 `ixrAppend` ix)
   Ast.AstGather @_ @n7 (_ :$: sh') v (var2 ::: (vars :: AstVarList m71), ix2) ->
     let w :: AstTensor AstMethodLet s (TKR2 (m1 + n) r)
-        w = gcastWith (unsafeCoerce Refl :: m1 + n :~: m71 + n7) $
+        w = gcastWith (unsafeCoerceRefl :: m1 + n :~: m71 + n7) $
             astGather sh' v (vars, ix2)
     in astLet var2 i1 $ astIndex w rest1
   Ast.AstGather{} ->
@@ -646,8 +646,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     let (takeSh, dropSh) = splitAt (valueOf @m) (shapeT @sh)
     in withShapeP takeSh $ \(Proxy @p_take) ->
        withShapeP dropSh $ \(Proxy @p_drop) ->
-       gcastWith (unsafeCoerce Refl :: sh :~: p_take ++ p_drop) $
-       gcastWith (unsafeCoerce Refl :: Rank p_drop :~: n) $
+       gcastWith (unsafeCoerceRefl :: sh :~: p_take ++ p_drop) $
+       gcastWith (unsafeCoerceRefl :: Rank p_drop :~: n) $
        astRFromS $ astIndexKnobsS @p_take @p_drop knobs
                                   t (fromList $ toList ix)
   Ast.AstRFromX{} -> error "TODO"
@@ -732,30 +732,30 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstMinIndexS @shz @n1 v ->
     withShapeP (drop 1 (shapeT @shn)
                 ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Drop 1 shn ++ '[Last shz] :~: shd) $
       withSNat (shapeT @shn !! 0) $ \(SNat @i0shn) ->
-        gcastWith (unsafeCoerce Refl :: Permutation.Index 0 shn :~: i0shn) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl :: Permutation.Index 0 shn :~: i0shn) $
+        gcastWith (unsafeCoerceRefl
                    :: Permutation.Index 0 shn ': Drop 1 shn :~: shn) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Init (shn ++ '[Last shz]) :~: shn) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
         Ast.AstMinIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
         $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
   Ast.AstMaxIndexS @shz @n1 v ->
     withShapeP (drop 1 (shapeT @shn)
                    ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Drop 1 shn ++ '[Last shz] :~: shd) $
       withSNat (shapeT @shn !! 0) $ \(SNat @i0shn) ->
-        gcastWith (unsafeCoerce Refl :: Permutation.Index 0 shn :~: i0shn) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl :: Permutation.Index 0 shn :~: i0shn) $
+        gcastWith (unsafeCoerceRefl
                    :: Permutation.Index 0 shn ': Drop 1 shn :~: shn) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Init (shn ++ '[Last shz]) :~: shn) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
         Ast.AstMaxIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
         $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
@@ -786,10 +786,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstSumS @n1 v ->
     let perm3 = backpermCycle $ length (shapeT @shm) + 1
     in Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
-         gcastWith (unsafeCoerce Refl
+         gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm3P) (Rank (n1 : shm ++ shn))
                        :~: LT) $
-         gcastWith (unsafeCoerce Refl
+         gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm3P (n1 : (shm ++ shn))
                        :~: shm ++ (n1 : shn)) $
          trustMeThisIsAPermutation @perm3P $
@@ -846,21 +846,21 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
     withShapeP
       (permutePrefixList (Permutation.permToList' perm)
                          (shapeT @shm)) $ \(Proxy @shmPerm) ->
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: shm :~: Permutation.PermutePrefix perm shmPerm) $
         let ix2 :: AstIxS AstMethodLet shmPerm = unsafeCoerce $
               ixsPermutePrefix perm ix
-        in gcastWith (unsafeCoerce Refl :: sh2 :~: shmPerm ++ shn) $
+        in gcastWith (unsafeCoerceRefl :: sh2 :~: shmPerm ++ shn) $
            astIndex @shmPerm v ix2
   Ast.AstReshapeS v -> astIndex (astReshapeAsGatherS knobs v) ix
   Ast.AstGatherS @_ @_ @shp' v (ZS, ix2) ->
-    gcastWith (unsafeCoerce Refl
+    gcastWith (unsafeCoerceRefl
               :: shp' ++ (in1 ': shm1) ++ shn :~: shp' ++ (in1 ': shm1 ++ shn)) $
     withKnownShS (knownShS @shp' `shsAppend` knownShS @shm) $
     astIndex @(shp' ++ shm) @shn v (ix2 `ixsAppend` ix)
   Ast.AstGatherS @_ @shn' @shp' v ((::$) @_ @shm71 (Const var2) vars, ix2)
                  | Dict <- slistKnown vars ->
-    gcastWith (unsafeCoerce Refl :: shm71 ++ shn' :~: shm1 ++ shn) $
+    gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
       let w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
           w = astGather @shm71 @shn' @shp' v (vars, ix2)
       in astLet var2 i1 $ astIndexS @shm1 @shn w rest1
@@ -891,7 +891,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
 
   Ast.AstSFromR t | SNat <- shsRank (knownShS @shn)
                   , SNat <- shsRank (knownShS @shm) ->
-    gcastWith (unsafeCoerce Refl
+    gcastWith (unsafeCoerceRefl
                :: Rank shm + Rank shn :~: Rank (shm ++ shn)) $
     astSFromR $ astIndexKnobsR knobs t (ShapedList.shapedToIndex ix)
   Ast.AstSFromX _t -> error "TODO"
@@ -1132,14 +1132,14 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstIntVar var5 :.: (ix2 :: AstIxR AstMethodLet p71))
       | AstIntVar var6 <- i4, var6 == var5 ->
-          gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
+          gcastWith (unsafeCoerceRefl :: p1' + n' :~: p71 + n7) $
           astGather sh4 (astScatter sh v (vars, ix2))
                         (vars4, rest4)
     Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstConcrete _ i5 :.: (ix2 :: AstIxR AstMethodLet p71))
       | AstConcrete _ i6 <- i4
       , STKScalar{} <- stensorKind @r ->
-          gcastWith (unsafeCoerce Refl :: p1' + n' :~: p71 + n7) $
+          gcastWith (unsafeCoerceRefl :: p1' + n' :~: p71 + n7) $
           if i6 == i5
           then astGather sh4 (astScatter sh v (vars, ix2)) (vars4, rest4)
           else astReplicate0N sh4 def
@@ -1223,13 +1223,13 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
           composedGather =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
                 ix22 = fmap (substLet ix4 vars2p) ix2
-            in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n') $
+            in gcastWith (unsafeCoerceRefl :: m2 + n2 - p' :~: n') $
                astGather sh4 v2 (vars4 `listrAppend` vars22, ix22)
           assimilatedGather :: m2 <= p' => AstTensor AstMethodLet s (TKR2 (m' + n') r)
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
                 ix22 = fmap (substLet ix42 vars2) ix2
-            in gcastWith (unsafeCoerce Refl :: n' + p' - m2 :~: n2) $
+            in gcastWith (unsafeCoerceRefl :: n' + p' - m2 :~: n2) $
                astGather sh4 v2 (vars4, ix22  `ixrAppend` ix44)
       in case cmpNat (Proxy @p') (Proxy @m2) of
         LTI -> composedGather
@@ -1249,10 +1249,10 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       let (takeSh, dropSh) = splitAt (valueOf @p') (shapeT @sh)
       in withShapeP takeSh $ \(Proxy @p_take) ->
          withShapeP dropSh $ \(Proxy @p_drop) ->
-         gcastWith (unsafeCoerce Refl :: sh :~: p_take ++ p_drop) $
-         gcastWith (unsafeCoerce Refl :: p_take :~: Take p' sh) $
-         gcastWith (unsafeCoerce Refl :: p_drop :~: Drop p' sh) $
-         gcastWith (unsafeCoerce Refl :: X.Rank sh :~: p' + n') $
+         gcastWith (unsafeCoerceRefl :: sh :~: p_take ++ p_drop) $
+         gcastWith (unsafeCoerceRefl :: p_take :~: Take p' sh) $
+         gcastWith (unsafeCoerceRefl :: p_drop :~: Drop p' sh) $
+         gcastWith (unsafeCoerceRefl :: X.Rank sh :~: p' + n') $
          astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
@@ -1278,7 +1278,7 @@ gatherFromNF vars (i :.: rest) = case cmpNat (Proxy @p) (Proxy @m) of
   GTI -> False
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
-flipCompare = unsafeCoerce Refl
+flipCompare = unsafeCoerceRefl
 
 isVar :: AstTensor AstMethodLet s y -> Bool
 isVar Ast.AstVar{} = True
@@ -1320,9 +1320,9 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
          , case geq kN vkN of
              Just Refl -> True
              _ -> False
-           -> gcastWith (unsafeCoerce Refl
+           -> gcastWith (unsafeCoerceRefl
                          :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
-              gcastWith (unsafeCoerce Refl
+              gcastWith (unsafeCoerceRefl
                          :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
               withKnownShS (shsInit shm) $
               withKnownShS (shsInit (knownShS @shp)) $
@@ -1425,13 +1425,13 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       astLet var u (astGatherCase @shm' @shn' @shp' v (vars4, ix4))
 
     Ast.AstMinIndexS @sh @n v ->
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: shp' ++ (shn' ++ '[Last (n : sh)]) :~: n ': sh) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Head (shm' ++ (shn' ++ '[Last (n : sh)]))
                     ': (Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
                     :~: shm' ++ (shn' ++ '[Last (n : sh)])) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Init (shm' ++ (shn' ++ '[Last (n : sh)])) :~: shm' ++ shn') $
       withKnownNat (shsLast (SNat @n :$$ knownShS @sh)) $
       withKnownNat (shsHead (knownShS @shm'
@@ -1451,13 +1451,13 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       $ astGatherKnobsS @shm' @(shn' ++ '[Last (n : sh)]) @shp'
                         knobs v (vars4, ix4)
     Ast.AstMaxIndexS @sh @n v ->
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: shp' ++ (shn' ++ '[Last (n : sh)]) :~: n ': sh) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Head (shm' ++ (shn' ++ '[Last (n : sh)]))
                     ': (Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
                     :~: shm' ++ (shn' ++ '[Last (n : sh)])) $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Init (shm' ++ (shn' ++ '[Last (n : sh)])) :~: shm' ++ shn') $
       withKnownNat (shsLast (SNat @n :$$ knownShS @sh)) $
       withKnownNat (shsHead (knownShS @shm'
@@ -1510,18 +1510,18 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       let perm3 = backpermCycle $ shsLength (knownShS @shp') + 1
           perm4 = permCycle $ shsLength (knownShS @shm') + 1
       in Permutation.permFromList perm3 $ \(perm3S :: Permutation.Perm perm3P) ->
-         gcastWith (unsafeCoerce Refl
+         gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm3P) (Rank (n1 : shp' ++ shn'))
                        :~: LT) $
-         gcastWith (unsafeCoerce Refl
+         gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm3P (n1 : (shp' ++ shn'))
                        :~: shp' ++ (n1 : shn')) $
          trustMeThisIsAPermutation @perm3P $
          Permutation.permFromList perm4 $ \(perm4S :: Permutation.Perm perm4P) ->
-         gcastWith (unsafeCoerce Refl
+         gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm4P) (Rank (shm' ++ (n1 : shn')))
                        :~: LT) $
-         gcastWith (unsafeCoerce Refl
+         gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm4P (shm' ++ (n1 : shn'))
                        :~: n1 : (shm' ++ shn')) $
          trustMeThisIsAPermutation @perm4P $
@@ -1612,7 +1612,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
           else Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
         _ ->
           gcastWith (lemRankMapJust $ shsTakeLen perm (knownShS @sh)) $
-          gcastWith (unsafeCoerce Refl :: Rank (TakeLen perm sh) :~: Rank perm) $
+          gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
           Permutation.permInverse perm
           $ \ (invperm :: Nested.Perm invperm) proof ->
             case proof (ssxFromShape $ shCvtSX
@@ -1620,50 +1620,50 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
               Refl ->
                 -- from PermutePrefix and ranks:
                 gcastWith
-                  (unsafeCoerce Refl
+                  (unsafeCoerceRefl
                    :: Permutation.PermutePrefix invperm shp' ++ shn'
                       :~: Permutation.PermutePrefix invperm (shp' ++ shn')) $
                 -- from AstTransposeS:
 --                gcastWith
---                  (unsafeCoerce Refl
+--                  (unsafeCoerceRefl
 --                   :: Permutation.PermutePrefix invperm (shp' ++ shn')
 --                      :~: Permutation.PermutePrefix invperm (Permutation.PermutePrefix perm sh)) $
                 -- from PermutePrefix:
 --                gcastWith
---                  (unsafeCoerce Refl
+--                  (unsafeCoerceRefl
 --                   :: Permutation.PermutePrefix invperm (Permutation.PermutePrefix perm sh)
 --                      :~: {-1-} Permutation.Permute invperm (TakeLen invperm (Permutation.PermutePrefix perm sh))
 --                          ++ {-2-} DropLen invperm (Permutation.PermutePrefix perm sh)) $
                 -- 1. from PermutePrefix:
 --                gcastWith
---                  (unsafeCoerce Refl
+--                  (unsafeCoerceRefl
 --                   :: Permutation.Permute invperm (TakeLen invperm (Permutation.PermutePrefix perm sh))
 --                      :~: Permutation.Permute invperm (TakeLen invperm (Permutation.Permute perm (TakeLen perm sh) ++ DropLen perm sh))) $
                 -- ranks
                 gcastWith
-                  (unsafeCoerce Refl
+                  (unsafeCoerceRefl
                    :: Permutation.Permute invperm (TakeLen invperm (Permutation.Permute perm (TakeLen perm sh) ++ DropLen perm sh))
                       :~: Permutation.Permute invperm (Permutation.Permute perm (TakeLen perm sh))) $
                 -- from permInverse but MapJust-unwrapped:
                 gcastWith
-                  (unsafeCoerce Refl
+                  (unsafeCoerceRefl
                    :: Permutation.Permute invperm (Permutation.Permute perm (TakeLen perm sh))
                       :~: TakeLen perm sh) $
                 -- end of 1.
                 -- 2. from PermutePrefix
 --                gcastWith
---                  (unsafeCoerce Refl
+--                  (unsafeCoerceRefl
 --                   :: DropLen invperm (Permutation.PermutePrefix perm sh)
 --                      :~: DropLen invperm (Permutation.Permute perm (TakeLen perm sh) ++ DropLen perm sh)) $
                 -- ranks
                 gcastWith
-                  (unsafeCoerce Refl
+                  (unsafeCoerceRefl
                    :: DropLen invperm (Permutation.Permute perm (TakeLen perm sh) ++ DropLen perm sh)
                       :~: DropLen perm sh) $
                 -- end of 2.
                 -- from TakeLen:
                 gcastWith
-                  (unsafeCoerce Refl
+                  (unsafeCoerceRefl
                    :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
                 let invix4 = ixsPermutePrefix invperm ix4
                 in case sixKnown invix4 of
@@ -1698,12 +1698,12 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
           composedGather =
             -- we have: shm2 ++ shn2 == shp' ++ shn'
             -- so from ranks:
-            gcastWith (unsafeCoerce Refl :: TakeLen shp' shm2 :~: shp') $
+            gcastWith (unsafeCoerceRefl :: TakeLen shp' shm2 :~: shp') $
             -- and from congruence:
---            gcastWith (unsafeCoerce Refl
+--            gcastWith (unsafeCoerceRefl
 --                       :: DropLen shp' shm2 ++ shn2 :~: shn') $
             -- from congruence:
-            gcastWith (unsafeCoerce Refl
+            gcastWith (unsafeCoerceRefl
                        :: (shm' ++ DropLen shp' shm2) ++ shn2 :~: shm' ++ shn') $
             let vars2p = ShapedList.listsTakeLen list4 vars2
                 vars22 = ShapedList.listsDropLen list4 vars2
@@ -1716,12 +1716,12 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
           assimilatedGather =
             -- we have: shm2 ++ shn2 == shp' ++ shn'
             -- so from ranks:
-            gcastWith (unsafeCoerce Refl :: TakeLen shm2 shp' :~: shm2) $
+            gcastWith (unsafeCoerceRefl :: TakeLen shm2 shp' :~: shm2) $
             -- and from congruence:
---            gcastWith (unsafeCoerce Refl
+--            gcastWith (unsafeCoerceRefl
 --                       :: DropLen shm2 shp' ++ shn' :~: shn2) $
             -- from congruence:
-            gcastWith (unsafeCoerce Refl
+            gcastWith (unsafeCoerceRefl
                        :: (shp2 ++ DropLen shm2 shp') ++ shn' :~: shp2 ++ shn2) $
             let ix42 = IxS $ ShapedList.listsTakeLen vars2 list4
                 ix44 = IxS $ ShapedList.listsDropLen vars2 list4
@@ -1748,10 +1748,10 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       let (takeSh, dropSh) = splitAt (valueOf @p') (shapeT @sh)
       in withShapeP takeSh $ \(Proxy @p_take) ->
          withShapeP dropSh $ \(Proxy @p_drop) ->
-         gcastWith (unsafeCoerce Refl :: sh :~: p_take ++ p_drop) $
-         gcastWith (unsafeCoerce Refl :: p_take :~: Take p' sh) $
-         gcastWith (unsafeCoerce Refl :: p_drop :~: Drop p' sh) $
-         gcastWith (unsafeCoerce Refl :: X.Rank sh :~: p' + n') $
+         gcastWith (unsafeCoerceRefl :: sh :~: p_take ++ p_drop) $
+         gcastWith (unsafeCoerceRefl :: p_take :~: Take p' sh) $
+         gcastWith (unsafeCoerceRefl :: p_drop :~: Drop p' sh) $
+         gcastWith (unsafeCoerceRefl :: X.Rank sh :~: p' + n') $
          astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
@@ -1762,10 +1762,10 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
 
 {- TODO: is this beneficial?
   AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
-    gcastWith (unsafeCoerce Refl :: Take (Rank sh2) sh2 :~: sh2)
-    $ gcastWith (unsafeCoerce Refl :: Drop (Rank sh2) sh2 :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: Drop p sh :~: '[])
-    $ gcastWith (unsafeCoerce Refl :: sh2 :~: sh2 ++ Drop p sh)
+    gcastWith (unsafeCoerceRefl :: Take (Rank sh2) sh2 :~: sh2)
+    $ gcastWith (unsafeCoerceRefl :: Drop (Rank sh2) sh2 :~: '[])
+    $ gcastWith (unsafeCoerceRefl :: Drop p sh :~: '[])
+    $ gcastWith (unsafeCoerceRefl :: sh2 :~: sh2 ++ Drop p sh)
         -- transitivity of type equality doesn't work, by design,
         -- so this direct cast is needed instead of more basic laws
     $ sbuild @target @r @(Rank sh2)
@@ -2209,9 +2209,9 @@ astReplicate snat@SNat
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
           zsuccPerm = Permutation.permShift1 perm
       in
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
-        gcastWith (unsafeCoerce Refl :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
+        gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
         astTransposeS zsuccPerm $ astReplicate snat v
   v -> Ast.AstReplicate snat v
@@ -2236,7 +2236,7 @@ astReplicateNS v =
       go ZSS = v
       go ((:$$) @k @shn2 SNat shn2) | Dict <- sshapeKnown shn2 =
         withShapeP (shapeT @shn2 ++ shapeT @shp) $ \(Proxy @sh) ->
-          gcastWith (unsafeCoerce Refl :: sh :~: shn2 ++ shp) $
+          gcastWith (unsafeCoerceRefl :: sh :~: shn2 ++ shp) $
           astReplicate (SNat @k) $ go shn2
   in go (knownShS @shn)
 
@@ -2334,7 +2334,7 @@ astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS2 (ulen : sh) r))
     LTI -> astSliceS @i @n @(ulen - (i + n)) u
     EQI -> astSliceS @i @n @0 u
     GTI ->
-      gcastWith (unsafeCoerce Refl :: vlen :~: i - ulen + n + k) $
+      gcastWith (unsafeCoerceRefl :: vlen :~: i - ulen + n + k) $
       case cmpNat (Proxy @ulen) (Proxy @i) of
         LTI -> astSliceS @(i - ulen) @n @k v
         EQI -> astSliceS @0 @n @k v
@@ -2442,27 +2442,27 @@ astTransposeS perm t = case perm of
   Ast.AstLet var u v ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
+    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
     astLet var u (astTransposeS perm v)
   AstN1S opCode u | not (isVar u) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
+    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
     AstN1S opCode (astTransposeS perm u)
   AstN2S opCode u v | not (isVar u && isVar v) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
+    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
     AstN2S opCode (astTransposeS perm u) (astTransposeS perm v)
   Ast.AstR1S opCode u | not (isVar u) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
+    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
    Ast.AstR1S opCode (astTransposeS perm u)
   Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
     withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                       (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
+    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
    Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
   Ast.AstSumS @n v ->
     let zsuccP :: Permutation.Perm (0 : Permutation.MapSucc perm)
@@ -2470,10 +2470,10 @@ astTransposeS perm t = case perm of
     in
       withShapeP (backpermutePrefixList (Permutation.permToList' perm)
                                         (shapeT @sh)) $ \(Proxy @shp) ->
-        gcastWith (unsafeCoerce Refl :: Permutation.PermutePrefix perm sh :~: shp) $
-        gcastWith (unsafeCoerce Refl :: Rank (0 : Permutation.MapSucc perm)
+        gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
+        gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm)
                                         :~: 1 + Rank perm) $
-        gcastWith (unsafeCoerce Refl
+        gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh)
                       :~: n : Permutation.PermutePrefix perm sh) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
@@ -2503,12 +2503,12 @@ astTransposeS perm t = case perm of
               shpPerm :: Nested.ShS (Take p (Permutation.PermutePrefix perm sh))
               shpPerm = ShapedList.takeShS @p shPerm
           in
-              gcastWith (unsafeCoerce Refl
+              gcastWith (unsafeCoerceRefl
                          :: Permutation.PermutePrefix perm (Take p sh)
                             :~: (Take p (Permutation.PermutePrefix perm sh))) $
               let ix2 :: AstIxS (Take p (Permutation.PermutePrefix perm sh)) =
                     ixsPermutePrefix perm ix
-              in gcastWith (unsafeCoerce Refl
+              in gcastWith (unsafeCoerceRefl
                             :: Drop p (Permutation.PermutePrefix perm sh) :~: Drop p sh) $
                  astScatterS @sh2 @p @(Permutation.PermutePrefix perm sh) v (vars, ix2)
 -}
@@ -2521,15 +2521,15 @@ astTransposeS perm t = case perm of
         perm3V = normalizePermutation $ backpermutePrefixList permV perm2Matched
     in Permutation.permFromList perm3V $ \(perm3 :: Permutation.Perm perm3) ->
       trustMeThisIsAPermutation @perm3 $
-      gcastWith (unsafeCoerce Refl
+      gcastWith (unsafeCoerceRefl
                  :: Permutation.PermutePrefix perm3 sh2
                     :~: Permutation.PermutePrefix perm sh) $
       case compare (length perm3V)
                    (Nested.Internal.Shape.shsLength (knownShS @sh2)) of
-        LT -> gcastWith (unsafeCoerce Refl
+        LT -> gcastWith (unsafeCoerceRefl
                          :: Compare (Rank perm3) (Rank sh2) :~: LT) $
               astTransposeS perm3 u
-        EQ -> gcastWith (unsafeCoerce Refl
+        EQ -> gcastWith (unsafeCoerceRefl
                          :: Compare (Rank perm3) (Rank sh2) :~: EQ) $
               astTransposeS perm3 u
         GT -> error "astTransposeS: GT"

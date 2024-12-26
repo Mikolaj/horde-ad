@@ -19,8 +19,8 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 import Type.Reflection (typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsRank)
@@ -176,8 +176,8 @@ maxPool1S v =
       maxOfSlice i =
         case someNatVal $ toInteger i of
           Just (SomeNat @i _proxy) ->
-            gcastWith (unsafeCoerce Refl :: Compare i m :~: LT) $
-            gcastWith (unsafeCoerce Refl :: Compare ksize (m - i) :~: LT) $
+            gcastWith (unsafeCoerceRefl :: Compare i m :~: LT) $
+            gcastWith (unsafeCoerceRefl :: Compare ksize (m - i) :~: LT) $
             smaximum $ sslice @target @(TKScalar r) @i @(m - i - ksize) @ksize
                               Proxy Proxy v
           Nothing -> error "maxPool1S: impossible someNatVal error"
@@ -232,9 +232,9 @@ slicezS
      , Rank shOut ~ Rank sh, ADReady target, GoodScalar r )
   => target (TKS sh r) -> IxSOf target sh -> target (TKS shOut r)
 slicezS d ixBase =
-  gcastWith (unsafeCoerce Refl
+  gcastWith (unsafeCoerceRefl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
-  gcastWith (unsafeCoerce Refl :: Drop (Rank sh) shOut :~: '[]) $
+  gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
   sbuild @target @(TKScalar r) @(Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)
