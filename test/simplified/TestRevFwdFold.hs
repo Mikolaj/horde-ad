@@ -855,7 +855,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "let v5 = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (tconcrete (FTKS [5] FTKScalar) (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0])) (tpair (stoScalar (sscalar Z0), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sscalar 1.1)) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in rfromS (ssum (tproject1 v5)) + rfromS (sreshape (tproject2 v5))"
+    @?= "let v5 = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (tconcrete (FTKS [5] FTKScalar) (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0])) (tpair (stoScalar (sscalar Z0), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sscalar 1.1)) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in rfromS (ssum (tproject1 v5)) + rfromS (ssum (tproject2 v5))"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do

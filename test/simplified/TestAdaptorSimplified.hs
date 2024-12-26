@@ -2099,7 +2099,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAst (FTKR [3] FTKScalar) $ t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\v1 -> rfromPrimal (rfromIntegral (rfromS (sgather (stranspose (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota))]))) (\\[i5, i4] -> [i5, i4, ifF (i4 >=. quotF i5 (1 + i4)) 0 1]))))"
+    @?= "\\v1 -> rfromPrimal (rfromIntegral (rfromS (sgather (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4]))))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -2111,6 +2111,6 @@ testConcatBuild3PP2 = do
   printArtifactSimple renames artifactRev
     @?= "\\m8 x1 -> tconcrete (FTKR [3] FTKScalar) (rfromListLinear [3] [0.0,0.0,0.0])"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x1 -> rfromIntegral (rfromS (sgather (stranspose (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0,0]) + siota + sreplicate (sscalar 1)))]))) (\\[i6, i7] -> [i6, i7, ifF (i7 >=. quotF i6 (1 + i7)) 0 1])))"
+    @?= "\\x1 -> rfromIntegral (rfromS (sgather (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0,0]) + siota + sreplicate (sscalar 1)))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> rfromIntegral (rfromS (sgather (stranspose (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0,0]) + siota + sreplicate (sscalar 1)))]))) (\\[i6, i7] -> [i6, i7, ifF (i7 >=. quotF i6 (1 + i7)) 0 1])))"
+    @?= "\\x1 -> rfromIntegral (rfromS (sgather (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0,0]) + siota + sreplicate (sscalar 1)))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))"
