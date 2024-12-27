@@ -132,7 +132,7 @@ printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
   printAstDynamicVarNameBrief renames var
   ++ " @" ++ show (typeRep @ty)
   ++ " @" ++ show (typeRep @r)
-  ++ " @" ++ show (shapeT @sh)
+  ++ " @" ++ show (knownShS @sh)
 
 
 -- * General pretty-printing of AST terms

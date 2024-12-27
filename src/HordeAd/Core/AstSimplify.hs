@@ -125,10 +125,12 @@ import Data.Array.Nested.Internal.Shape
   , shrAppend
   , shsAppend
   , shsHead
+  , shsIndex
   , shsInit
   , shsKnownShS
   , shsLast
   , shsLength
+  , shsPermute
   , shsRank
   , shsTail
   , shsTakeLen
@@ -193,25 +195,18 @@ astTransposeAsGatherS
   => SimplifyKnobs -> Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 {-# NOINLINE astTransposeAsGatherS #-}
-astTransposeAsGatherS knobs perm v = case Permutation.permRank perm of
- SNat @p ->
-  withShapeP (drop (sNatValue (Permutation.permRank perm))
-              $ shapeT @sh) $ \(Proxy @shd) ->
-    gcastWith (unsafeCoerceRefl :: Drop p sh :~: shd) $
-    withShapeP (take (sNatValue (Permutation.permRank perm))
-                $ shapeT @sh) $ \(Proxy @shp) ->
-      gcastWith (unsafeCoerceRefl :: Take p sh :~: shp) $
-      withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                        (shapeT @shp)) $ \(Proxy @sh2) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix perm (Take p sh) :~: sh2) $
-        funToVarsIxS @sh2 $ \ (!vars, !ix) ->
-          let asts :: AstIxS AstMethodLet (Take p sh)
-              asts = ShapedList.permutePrefixIndex (Permutation.permToList' perm) ix
-          in gcastWith (unsafeCoerceRefl
-                        :: Permutation.PermutePrefix perm sh :~: sh2 ++ Drop p sh) $
-             gcastWith (unsafeCoerceRefl :: Take p sh ++ Drop p sh :~: sh) $
-             astGatherKnobsS @sh2 @(Drop p sh) @(Take p sh) knobs v (vars, asts)
+astTransposeAsGatherS knobs perm v =
+   withKnownShS (ShapedList.shsDropLen perm (knownShS @sh)) $
+   withKnownShS (shsTakeLen perm (knownShS @sh)) $
+   withKnownShS (shsPermute perm (shsTakeLen perm (knownShS @sh))) $
+   funToVarsIxS @(Permutation.Permute perm (TakeLen perm sh)) $ \ (!vars, !ix) ->
+     let asts :: AstIxS AstMethodLet (TakeLen perm sh)
+         asts = ShapedList.permutePrefixIndex (Permutation.permToList' perm) ix
+     in gcastWith (unsafeCoerceRefl :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
+        astGatherKnobsS @(Permutation.Permute perm (TakeLen perm sh))
+                        @(DropLen perm sh)
+                        @(TakeLen perm sh)
+                        knobs v (vars, asts)
 
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
@@ -643,13 +638,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstZipR _ -> Ast.AstIndex v0 ix
 
   Ast.AstRFromS @sh t ->
-    let (takeSh, dropSh) = splitAt (valueOf @m) (shapeT @sh)
-    in withShapeP takeSh $ \(Proxy @p_take) ->
-       withShapeP dropSh $ \(Proxy @p_drop) ->
-       gcastWith (unsafeCoerceRefl :: sh :~: p_take ++ p_drop) $
-       gcastWith (unsafeCoerceRefl :: Rank p_drop :~: n) $
-       astRFromS $ astIndexKnobsS @p_take @p_drop knobs
-                                  t (fromList $ toList ix)
+    withKnownShS (ShapedList.takeShS @m (knownShS @sh)) $
+    withKnownShS (ShapedList.dropShS @m (knownShS @sh)) $
+    gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
+    gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
+    astRFromS $ astIndexKnobsS @(Take m sh) @(Drop m sh)
+                               knobs t (fromList $ toList ix)
   Ast.AstRFromX{} -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndex v0 ix
@@ -729,36 +723,44 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       astIndex (astLet var2 i1 v) rest1
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
 
-  Ast.AstMinIndexS @shz @n1 v ->
-    withShapeP (drop 1 (shapeT @shn)
-                ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
-      gcastWith (unsafeCoerceRefl
-                 :: Drop 1 shn ++ '[Last shz] :~: shd) $
-      withSNat (shapeT @shn !! 0) $ \(SNat @i0shn) ->
-        gcastWith (unsafeCoerceRefl :: Permutation.Index 0 shn :~: i0shn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.Index 0 shn ': Drop 1 shn :~: shn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Init (shn ++ '[Last shz]) :~: shn) $
-        gcastWith (unsafeCoerceRefl
-                   :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
-        Ast.AstMinIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
-        $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
-  Ast.AstMaxIndexS @shz @n1 v ->
-    withShapeP (drop 1 (shapeT @shn)
-                   ++ [last (shapeT @shz)]) $ \(Proxy @shd) ->
-      gcastWith (unsafeCoerceRefl
-                 :: Drop 1 shn ++ '[Last shz] :~: shd) $
-      withSNat (shapeT @shn !! 0) $ \(SNat @i0shn) ->
-        gcastWith (unsafeCoerceRefl :: Permutation.Index 0 shn :~: i0shn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.Index 0 shn ': Drop 1 shn :~: shn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Init (shn ++ '[Last shz]) :~: shn) $
-        gcastWith (unsafeCoerceRefl
-                   :: shm ++ (shn ++ '[Last shz]) :~: n1 ': shz) $
-        Ast.AstMaxIndexS @(Drop 1 shn ++ '[Last shz]) @(Permutation.Index 0 shn)
-        $ astIndexKnobsS @shm @(shn ++ '[Last shz]) knobs v ix
+  Ast.AstMinIndexS @shz @n1 v -> case shsLast (SNat @n1 :$$ knownShS @shz) of
+    nl@SNat ->
+      let shnl = knownShS @shn `shsAppend` (nl :$$ ZSS)
+      in withKnownNat (shsIndex Proxy Proxy (SNat @0) shnl) $
+         withKnownShS shnl $
+         withKnownShS (ShapedList.dropShS @1 shnl) $
+           -- TODO: (shsTail shnl) would be more precise, but ++ is stuck at shn
+           -- and can't produce ': at this point
+         gcastWith (unsafeCoerceRefl
+                    :: Permutation.Index 0 (shn ++ '[Last (n1 : shz)])
+                       ': Drop 1 (shn ++ '[Last (n1 : shz)])
+                       :~: shn ++ '[Last (n1 : shz)]) $
+         gcastWith (unsafeCoerceRefl
+                    :: Init (shn ++ '[Last (n1 : shz)]) :~: shn) $
+         gcastWith (unsafeCoerceRefl
+                    :: shm ++ (shn ++ '[Last (n1 : shz)]) :~: n1 ': shz) $
+         Ast.AstMinIndexS @(Drop 1 (shn ++ '[Last (n1 : shz)]))
+                          @(Permutation.Index 0 (shn ++ '[Last (n1 : shz)]))
+         $ astIndexKnobsS @shm @(shn ++ '[Last (n1 : shz)]) knobs v ix
+  Ast.AstMaxIndexS @shz @n1 v -> case shsLast (SNat @n1 :$$ knownShS @shz) of
+    nl@SNat ->
+      let shnl = knownShS @shn `shsAppend` (nl :$$ ZSS)
+      in withKnownNat (shsIndex Proxy Proxy (SNat @0) shnl) $
+         withKnownShS shnl $
+         withKnownShS (ShapedList.dropShS @1 shnl) $
+           -- TODO: (shsTail shnl) would be more precise, but ++ is stuck at shn
+           -- and can't produce ': at this point
+         gcastWith (unsafeCoerceRefl
+                    :: Permutation.Index 0 (shn ++ '[Last (n1 : shz)])
+                       ': Drop 1 (shn ++ '[Last (n1 : shz)])
+                       :~: shn ++ '[Last (n1 : shz)]) $
+         gcastWith (unsafeCoerceRefl
+                    :: Init (shn ++ '[Last (n1 : shz)]) :~: shn) $
+         gcastWith (unsafeCoerceRefl
+                    :: shm ++ (shn ++ '[Last (n1 : shz)]) :~: n1 ': shz) $
+         Ast.AstMaxIndexS @(Drop 1 (shn ++ '[Last (n1 : shz)]))
+                          @(Permutation.Index 0 (shn ++ '[Last (n1 : shz)]))
+         $ astIndexKnobsS @shm @(shn ++ '[Last (n1 : shz)]) knobs v ix
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs v ix
   Ast.AstIotaS | AstConcrete _ (RepN i) <- i1 -> case sameShape @shn @'[] of
     Just Refl -> astFromIntegralS
@@ -1424,58 +1426,44 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstLet var u v ->
       astLet var u (astGatherCase @shm' @shn' @shp' v (vars4, ix4))
 
-    Ast.AstMinIndexS @sh @n v ->
-      gcastWith (unsafeCoerceRefl
-                 :: shp' ++ (shn' ++ '[Last (n : sh)]) :~: n ': sh) $
-      gcastWith (unsafeCoerceRefl
-                 :: Head (shm' ++ (shn' ++ '[Last (n : sh)]))
-                    ': (Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
-                    :~: shm' ++ (shn' ++ '[Last (n : sh)])) $
-      gcastWith (unsafeCoerceRefl
-                 :: Init (shm' ++ (shn' ++ '[Last (n : sh)])) :~: shm' ++ shn') $
-      withKnownNat (shsLast (SNat @n :$$ knownShS @sh)) $
-      withKnownNat (shsHead (knownShS @shm'
-                    `shsAppend`
-                    (knownShS @shn'
-                     `shsAppend`
-                     (shsLast (SNat @n :$$ knownShS @sh) :$$ ZSS)))) $
-      withKnownShS (knownShS @shn'
-                    `shsAppend` (shsLast (SNat @n :$$ knownShS @sh) :$$ ZSS)) $
-      withKnownShS (shsTail (knownShS @shm'
-                             `shsAppend`
-                             (knownShS @shn'
-                              `shsAppend`
-                              (shsLast (SNat @n :$$ knownShS @sh) :$$ ZSS)))) $
-      Ast.AstMinIndexS @(Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
-                       @(Head (shm' ++ (shn' ++ '[Last (n : sh)])))
-      $ astGatherKnobsS @shm' @(shn' ++ '[Last (n : sh)]) @shp'
-                        knobs v (vars4, ix4)
-    Ast.AstMaxIndexS @sh @n v ->
-      gcastWith (unsafeCoerceRefl
-                 :: shp' ++ (shn' ++ '[Last (n : sh)]) :~: n ': sh) $
-      gcastWith (unsafeCoerceRefl
-                 :: Head (shm' ++ (shn' ++ '[Last (n : sh)]))
-                    ': (Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
-                    :~: shm' ++ (shn' ++ '[Last (n : sh)])) $
-      gcastWith (unsafeCoerceRefl
-                 :: Init (shm' ++ (shn' ++ '[Last (n : sh)])) :~: shm' ++ shn') $
-      withKnownNat (shsLast (SNat @n :$$ knownShS @sh)) $
-      withKnownNat (shsHead (knownShS @shm'
-                    `shsAppend`
-                    (knownShS @shn'
-                     `shsAppend`
-                     (shsLast (SNat @n :$$ knownShS @sh) :$$ ZSS)))) $
-      withKnownShS (knownShS @shn'
-                    `shsAppend` (shsLast (SNat @n :$$ knownShS @sh) :$$ ZSS)) $
-      withKnownShS (shsTail (knownShS @shm'
-                             `shsAppend`
-                             (knownShS @shn'
-                              `shsAppend`
-                              (shsLast (SNat @n :$$ knownShS @sh) :$$ ZSS)))) $
-      Ast.AstMaxIndexS @(Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
-                       @(Head (shm' ++ (shn' ++ '[Last (n : sh)])))
-      $ astGatherKnobsS @shm' @(shn' ++ '[Last (n : sh)]) @shp'
-                        knobs v (vars4, ix4)
+    Ast.AstMinIndexS @sh @n v -> case shsLast (SNat @n :$$ knownShS @sh) of
+      nl@SNat ->
+        let shnl = knownShS @shn' `shsAppend` (nl :$$ ZSS)
+        in gcastWith (unsafeCoerceRefl
+                     :: shp' ++ (shn' ++ '[Last (n : sh)]) :~: n ': sh) $
+           gcastWith (unsafeCoerceRefl
+                      :: Head (shm' ++ (shn' ++ '[Last (n : sh)]))
+                         ': (Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
+                         :~: shm' ++ (shn' ++ '[Last (n : sh)])) $
+           gcastWith (unsafeCoerceRefl
+                      :: Init (shm' ++ (shn' ++ '[Last (n : sh)]))
+                      :~: shm' ++ shn') $
+           withKnownShS shnl $
+           withKnownNat (shsHead (knownShS @shm' `shsAppend` shnl)) $
+           withKnownShS (shsTail (knownShS @shm' `shsAppend` shnl)) $
+           Ast.AstMinIndexS @(Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
+                            @(Head (shm' ++ (shn' ++ '[Last (n : sh)])))
+           $ astGatherKnobsS @shm' @(shn' ++ '[Last (n : sh)]) @shp'
+                             knobs v (vars4, ix4)
+    Ast.AstMaxIndexS @sh @n v -> case shsLast (SNat @n :$$ knownShS @sh) of
+      nl@SNat ->
+        let shnl = knownShS @shn' `shsAppend` (nl :$$ ZSS)
+        in gcastWith (unsafeCoerceRefl
+                     :: shp' ++ (shn' ++ '[Last (n : sh)]) :~: n ': sh) $
+           gcastWith (unsafeCoerceRefl
+                      :: Head (shm' ++ (shn' ++ '[Last (n : sh)]))
+                         ': (Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
+                         :~: shm' ++ (shn' ++ '[Last (n : sh)])) $
+           gcastWith (unsafeCoerceRefl
+                      :: Init (shm' ++ (shn' ++ '[Last (n : sh)]))
+                      :~: shm' ++ shn') $
+           withKnownShS shnl $
+           withKnownNat (shsHead (knownShS @shm' `shsAppend` shnl)) $
+           withKnownShS (shsTail (knownShS @shm' `shsAppend` shnl)) $
+           Ast.AstMaxIndexS @(Tail (shm' ++ (shn' ++ '[Last (n : sh)])))
+                            @(Head (shm' ++ (shn' ++ '[Last (n : sh)])))
+           $ astGatherKnobsS @shm' @(shn' ++ '[Last (n : sh)]) @shp'
+                             knobs v (vars4, ix4)
     Ast.AstFloorS v ->
       Ast.AstFloorS
       $ astGatherKnobsS @shm' @shn' @shp' knobs v (vars4, ix4)

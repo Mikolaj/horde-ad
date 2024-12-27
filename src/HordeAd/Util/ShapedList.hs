@@ -19,18 +19,22 @@ module HordeAd.Util.ShapedList
   , toLinearIdx, fromLinearIdx
   , permutePrefixIndex
   , ssxRank, ixsRank
-  , listsTakeLen, listsDropLen
+  , listsTakeLen, listsDropLen, shsDropLen
   ) where
 
 import Prelude
 
+import Data.Coerce (coerce)
 import Data.Functor.Const
+import Data.Type.Equality (gcastWith, (:~:))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
+import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Permutation (DropLen, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank)
+import Data.Array.Mixed.Types (fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
   ( IxR
   , IxS (..)
@@ -41,7 +45,7 @@ import Data.Array.Nested
   , ShS (..)
   , type (++)
   )
-import Data.Array.Nested.Internal.Shape (listsRank)
+import Data.Array.Nested.Internal.Shape (listsDropLenPerm, listsRank, shsLength)
 
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList qualified as SizedList
@@ -132,21 +136,48 @@ ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
 
 -- * Tensor shapes as fully encapsulated shaped lists, with operations
 
-takeShS :: forall len sh. (KnownNat len, KnownShS sh, KnownShS (Take len sh))
+-- TODO
+takeShS :: forall len sh. (KnownNat len, KnownShS sh)
         => ShS sh -> ShS (Take len sh)
-takeShS ix = fromList $ take (valueOf @len) $ toList ix
+takeShS sh0 = fromList2 $ take (valueOf @len) $ toList sh0
+ where
+  fromList2 topl = ShS (go (knownShS @sh) topl)
+    where  -- TODO: induction over (unary) SNat?
+      go :: forall sh'. ShS sh' -> [Int] -> ListS (Take len sh') SNat
+      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
+      go (sn :$$ sh) (i : is)
+        | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
+        | otherwise = error $ "takeShS: Value does not match typing (type says "
+                                ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
+      go _ _ = error $ "takeShS: Mismatched list length (type says "
+                         ++ show (shsLength (knownShS @sh)) ++ ", list has length "
+                         ++ show (length topl) ++ ")"
 
-dropShS :: forall len sh. (KnownNat len, KnownShS sh, KnownShS (Drop len sh))
+-- TODO
+dropShS :: forall len sh. (KnownNat len, KnownShS sh)
         => ShS sh -> ShS (Drop len sh)
-dropShS ix = fromList $ drop (valueOf @len) $ toList ix
+dropShS sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
+ where
+  fromList2 topl = ShS (go (knownShS @sh) $ replicate (valueOf @len) (-1) ++ topl)
+    where  -- TODO: induction over (unary) SNat?
+      go :: forall sh'. ShS sh' -> [Int] -> ListS (Drop len sh') SNat
+      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
+      go (sn :$$ sh) (i : is)
+        | i == -1 = unsafeCoerce $ go sh is
+        | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
+        | otherwise = error $ "dropShS: Value does not match typing (type says "
+                                ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
+      go _ _ = error $ "dropShS: Mismatched list length (type says "
+                         ++ show (shsLength (knownShS @sh)) ++ ", list has length "
+                         ++ show (length topl) ++ ")"
 
-takeShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
-        => IShX sh -> IShX (Drop len sh)
-takeShX ix = fromList $ take (valueOf @len) $ toList ix
+takeShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
+        => IShX sh -> IShX (Take len sh)
+takeShX sh0 = fromList $ take (valueOf @len) $ toList sh0
 
 dropShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
         => IShX sh -> IShX (Drop len sh)
-dropShX ix = fromList $ drop (valueOf @len) $ toList ix
+dropShX sh0 = fromList $ drop (valueOf @len) $ toList sh0
 
 
 -- * Operations involving both indexes and shapes
@@ -231,3 +262,6 @@ listsDropLen :: forall f g sh1 sh2.
 listsDropLen ZS sh = sh
 listsDropLen (_ ::$ sh1) (_ ::$ sh2) = listsDropLen sh1 sh2
 listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
+
+shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
+shsDropLen = coerce (listsDropLenPerm @SNat)

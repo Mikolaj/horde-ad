@@ -9,11 +9,12 @@ import Prelude
 import Criterion.Main
 import Data.List (foldl1')
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import Test.Inspection
-import Unsafe.Coerce (unsafeCoerce)
+
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 
 --import qualified Data.Array.ShapedS as OS
 --import           HordeAd.Internal.TensorFFI (RowSum)

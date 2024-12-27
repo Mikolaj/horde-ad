@@ -300,7 +300,7 @@ funToVarsIxIOS
   => ((AstVarListS sh, AstIxS ms sh) -> a) -> IO a
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS f = do
-  let p = length $ shapeT @sh
+  let p = sNatValue $ shsRank $ knownShS @sh
   varList <- replicateM p unsafeGetFreshAstVarName
   let !vars = fromList varList
       !ix = fromList $ map AstIntVar varList

@@ -115,7 +115,7 @@ extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
       extendEnv @target @_ @(TKS sh r) (mkAstVarName varId) (srepl 0) env
   _ -> error $ "extendEnvD: impossible type"
                `showFailure`
-               ( vd, typeRep @ty, typeRep @r, shapeT @sh
+               ( vd, typeRep @ty, typeRep @r, knownShS @sh
                , scalarDynamic d, shapeDynamic d )
 
 extendEnvI :: BaseTensor target
