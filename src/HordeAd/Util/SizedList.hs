@@ -5,12 +5,12 @@
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
     snocSized
-  , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized
+  , unsnocSized1, lastSized, initSized
   , permInverse
   , backpermutePrefixList
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , snocIndex
-  , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
+  , unsnocIndex1, lastIndex, initIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , lastShape, initShape
   , withListShape, withListSh
@@ -85,19 +85,6 @@ initSized ZR = error "initSized: impossible pattern needlessly required"
 initSized (_i ::: ZR) = ZR
 initSized (i ::: ix@(_ ::: _)) = i ::: initSized ix
 
-zipSized :: ListR n i -> ListR n j -> ListR n (i, j)
-zipSized ZR ZR = ZR
-zipSized (i ::: irest) (j ::: jrest) = (i, j) ::: zipSized irest jrest
-zipSized _ _ = error "zipSized: impossible pattern needlessly required"
-
-zipWith_Sized :: (i -> j -> k) -> ListR n i -> ListR n j
-              -> ListR n k
-zipWith_Sized _ ZR ZR = ZR
-zipWith_Sized f (i ::: irest) (j ::: jrest) =
-  f i j ::: zipWith_Sized f irest jrest
-zipWith_Sized _ _ _ =
-  error "zipWith_Sized: impossible pattern needlessly required"
-
 -- | As in orthotope, we usually backpermute, in which case a permutation lists
 -- indices into the list to permute. However, we use the same type for
 -- an occasional forward permutation.
@@ -135,13 +122,6 @@ lastIndex (IxR ix) = lastSized ix
 
 initIndex :: IxR (1 + n) i -> IxR n i
 initIndex (IxR ix) = IxR $ initSized ix
-
-zipIndex :: IxR n i -> IxR n j -> IxR n (i, j)
-zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
-
-zipWith_Index :: (i -> j -> k) -> IxR n i -> IxR n j -> IxR n k
-zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
-
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
 

@@ -1428,7 +1428,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
         let subst i =
               foldr (\(i2, var2) v2 -> substituteAst i2 var2 v2)
                     i
-                    (toList $ ShapedList.zipSized ixFresh vars4)
+                    (toList $ zipSizedS ixFresh vars4)
             ix5 = fmap subst ix4
         in Ast.AstD (astGatherRec @shm' @shn' @shp' u (vars4, ix4))
                     (astGatherRec @shm' @shn' @shp' u' (varsFresh, ix5))
@@ -1583,7 +1583,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
               foldr (\(i2, var2) v2 ->
                       substituteAst i2 var2 v2)
                     i
-                    (toList $ ShapedList.zipSized ixFresh vars4)
+                    (toList $ zipSizedS ixFresh vars4)
             i5 = subst i4
        in astGather @shm' @shn' @(p1' ': shm')
                     (astFromVectorS $ V.map f l) (varsFresh, i5 :.$ IxS ixFresh)
@@ -1601,7 +1601,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
                 -- This subst doesn't break sharing because it's a rename.
                 subst i =
                   foldr (uncurry substituteAstBool) i
-                        (toList $ ShapedList.zipSized ixFresh vars4)
+                        (toList $ zipSizedS ixFresh vars4)
                 bExpr5 = subst bExpr
             in astGather @shm' @shn' @(p1' ': shm')
                          (astFromVectorS $ V.fromList [u2, v2])
@@ -1703,7 +1703,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
           substLet (IxS ix) vars i =
             simplifyAstInt  -- we generate the index, so we simplify on the spot
             $ foldr (uncurry astLetInt) i
-                    (toList $ ShapedList.zipSized vars ix)
+                    (toList $ zipSizedS vars ix)
           IxS list4 = ix4
           composedGather ::  -- rank4 <= rank2
                             AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r)
@@ -1799,7 +1799,7 @@ gatherFromNFS vars (i :.$ IxS rest) =
           intVars = listsFmap (Const . AstIntVar . getConst) varsP
       in case (slistKnown varsP, slistKnown varsPM) of
         (Dict, Dict) -> case sameShape @(TakeLen shp shm) @shp of
-          Just Refl -> all cmp (toList $ ShapedList.zipSized rest intVars)
+          Just Refl -> all cmp (toList $ zipSizedS rest intVars)
                        && not (any (`varNameInAst` i) $ toList varsPM)
           Nothing -> False
 
@@ -4325,7 +4325,7 @@ substitute1AstIxS
 substitute1AstIxS i var ix =
   let mix = fmap (substitute1Ast i var) ix
   in if any isJust mix
-     then Just $ ShapedList.zipWith_Index fromMaybe ix mix
+     then Just $ zipWith_IndexS fromMaybe ix mix
      else Nothing
 
 substitute1AstDynamic

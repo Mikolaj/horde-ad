@@ -6,12 +6,7 @@
 -- | @[Nat]@-indexed lists to be used as is for lists of tensor variables,
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
-  ( -- * Shaped lists (sized, where size is shape) and their permutations
-    zipSized, zipWith_Sized
-    -- * Tensor indexes as fully encapsulated shaped lists, with operations
-  , zipIndex, zipWith_Index
-    -- * Operations involving both indexes and shapes
-  , toLinearIdx, fromLinearIdx
+  ( toLinearIdx, fromLinearIdx
   ) where
 
 import Prelude
@@ -41,32 +36,6 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList qualified as SizedList
-
--- * Shaped lists and their permutations
-
-zipSized :: ListS sh (Const i) -> ListS sh (Const j) -> ListS sh (Const (i, j))
-zipSized ZS ZS = ZS
-zipSized (Const i ::$ irest) (Const j ::$ jrest) =
-  Const (i, j) ::$ zipSized irest jrest
-
-zipWith_Sized :: (i -> j -> k)
-              -> ListS sh (Const i) -> ListS sh (Const j)
-              -> ListS sh (Const k)
-zipWith_Sized _ ZS ZS = ZS
-zipWith_Sized f (Const i ::$ irest) (Const j ::$ jrest) =
-  Const (f i j) ::$ zipWith_Sized f irest jrest
-
-
--- * Tensor indexes as fully encapsulated shaped lists, with operations
-
-zipIndex :: IxS sh i -> IxS sh j -> IxS sh (i, j)
-zipIndex (IxS l1) (IxS l2) = IxS $ zipSized l1 l2
-
-zipWith_Index :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
-zipWith_Index f (IxS l1) (IxS l2) = IxS $ zipWith_Sized f l1 l2
-
-
--- * Operations involving both indexes and shapes
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
