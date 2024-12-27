@@ -7,7 +7,7 @@
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
-    zipSized, zipWith_Sized, reverseSized
+    zipSized, zipWith_Sized
     -- * Tensor indexes as fully encapsulated shaped lists, with operations
   , zipIndex, zipWith_Index
   , shapedToIndex, ixsLengthSNat
@@ -56,9 +56,6 @@ zipWith_Sized :: (i -> j -> k)
 zipWith_Sized _ ZS ZS = ZS
 zipWith_Sized f (Const i ::$ irest) (Const j ::$ jrest) =
   Const (f i j) ::$ zipWith_Sized f irest jrest
-
-reverseSized :: KnownShS sh => ListS sh (Const i) -> ListS sh (Const i)
-reverseSized = fromList . reverse . toList
 
 
 -- * Tensor indexes as fully encapsulated shaped lists, with operations

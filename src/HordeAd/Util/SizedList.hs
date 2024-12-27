@@ -5,7 +5,7 @@
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
     snocSized
-  , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
+  , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized
   , permInverse
   , backpermutePrefixList
   , sizedCompare
@@ -98,14 +98,6 @@ zipWith_Sized f (i ::: irest) (j ::: jrest) =
   f i j ::: zipWith_Sized f irest jrest
 zipWith_Sized _ _ _ =
   error "zipWith_Sized: impossible pattern needlessly required"
-
-reverseSized :: ListR n i -> ListR n i
-reverseSized l = go l ZR
- where
-  -- This constraint is mistakenly reported by GHC 9.4 as redundant:
-  go :: KnownNat n => ListR m i -> ListR n i -> ListR (m + n) i
-  go ZR acc = acc
-  go (x ::: xs) acc = go xs (x ::: acc)
 
 -- | As in orthotope, we usually backpermute, in which case a permutation lists
 -- indices into the list to permute. However, we use the same type for
