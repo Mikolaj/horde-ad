@@ -13,7 +13,6 @@ module HordeAd.Util.ShapedList
   , shapedToIndex, ixsLengthSNat
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
-  , permutePrefixIndex
   ) where
 
 import Prelude
@@ -129,17 +128,3 @@ fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
 zeroOf :: Num j => (Int -> j) -> ShS sh -> IxS sh j
 zeroOf _ ZSS = ZIS
 zeroOf fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOf fromInt sh
-
--- TODO: these hacks stay for now:
-permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                   => Permutation.PermR -> ListS sh (Const i) -> ListS sh2 (Const i)
-permutePrefixSized p ix =
-  if sNatValue (shsRank $ knownShS @sh) < length p
-  then error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else fromList $ SizedList.permutePrefixList p $ toList ix
-
--- Inverse permutation of indexes corresponds to normal permutation
--- of the shape of the projected tensor.
-permutePrefixIndex :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
-                   => Permutation.PermR -> IxS sh i -> IxS sh2 i
-permutePrefixIndex p (IxS ix) = IxS $ permutePrefixSized p ix

@@ -200,14 +200,40 @@ astTransposeAsGatherS knobs perm v =
    withKnownShS (shsDropLen perm (knownShS @sh)) $
    withKnownShS (shsTakeLen perm (knownShS @sh)) $
    withKnownShS (shsPermute perm (shsTakeLen perm (knownShS @sh))) $
-   funToVarsIxS @(Permutation.Permute perm (TakeLen perm sh)) $ \ (!vars, !ix) ->
-     let asts :: AstIxS AstMethodLet (TakeLen perm sh)
-         asts = ShapedList.permutePrefixIndex (Permutation.permToList' perm) ix
-     in gcastWith (unsafeCoerceRefl :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
-        astGatherKnobsS @(Permutation.Permute perm (TakeLen perm sh))
-                        @(DropLen perm sh)
-                        @(TakeLen perm sh)
-                        knobs v (vars, asts)
+   funToVarsIxS @(Permutation.Permute perm (TakeLen perm sh)) @AstMethodLet
+   $ \ (!vars, !ix) ->
+     -- See astGatherCase.AstTransposeS for an example with more comments.
+     gcastWith (lemRankMapJust $ shsTakeLen perm (knownShS @sh)) $
+     gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
+     Permutation.permInverse perm $ \(invperm :: Nested.Perm invperm) proof ->
+       case proof (ssxFromShape $ shCvtSX $ shsTakeLen perm (knownShS @sh)) of
+         Refl ->
+           gcastWith (unsafeCoerceRefl
+                      :: DropLen invperm
+                           (Permutation.Permute perm (TakeLen perm sh))
+                         :~: '[]) $
+           gcastWith (lemAppNil
+                        @(Permutation.Permute invperm
+                            (Permutation.Permute perm (TakeLen perm sh)))) $
+           -- Seriously? This should be deduced from the above:
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix invperm
+                           (Permutation.Permute perm (TakeLen perm sh))
+                         :~: Permutation.Permute invperm
+                           (Permutation.Permute perm (TakeLen perm sh))) $
+           -- This should follow from @proof@, if not for MapJust:
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.Permute invperm
+                           (Permutation.Permute perm (TakeLen perm sh))
+                         :~: TakeLen perm sh) $
+           let asts :: AstIxS AstMethodLet (TakeLen perm sh)
+               asts = ixsPermutePrefix invperm ix
+           in gcastWith (unsafeCoerceRefl
+                         :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
+              astGatherKnobsS @(Permutation.Permute perm (TakeLen perm sh))
+                              @(DropLen perm sh)
+                              @(TakeLen perm sh)
+                              knobs v (vars, asts)
 
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.

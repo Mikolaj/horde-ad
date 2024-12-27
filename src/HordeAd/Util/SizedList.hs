@@ -7,7 +7,7 @@ module HordeAd.Util.SizedList
     snocSized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , permInverse
-  , backpermutePrefixList, permutePrefixList
+  , backpermutePrefixList
   , sizedCompare
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , snocIndex
@@ -117,11 +117,6 @@ permInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
-
--- Boxed vector is not that bad, because we move pointers around,
--- but don't follow them. Storable vectors wouldn't work for Ast.
-permutePrefixList :: PermR -> [i] -> [i]
-permutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank

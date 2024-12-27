@@ -30,7 +30,6 @@ module HordeAd.Core.Types
   , takeShape, dropShape, splitAt_Shape
   , splitAt_SizedS, dropIxS, takeShS, dropShS, takeShX, dropShX
   , listsTakeLen, listsDropLen, shsDropLen
-  , ixsRank, ssxRank
   ) where
 
 import Prelude
@@ -382,6 +381,12 @@ instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatF r where
 
 -- All of this should have better names and types, just as in ox-arrays,
 -- and be consistently added for all 9 kinds of shape things.
+
+-- - Permutation.permInverse for ShS and not only for StaticShX (the proof
+--   does not convert (easily)). Though, frankly, the proof is useless,
+--   due to how bad GHC is at reasoning (no (++) congruence, no (:~:)
+--   transitivity, etc., see astGatherCase.AstTransposeS
+--   and astTransposeAsGatherS).
 
 ixsRank :: IxS sh i -> SNat (Rank sh)
 ixsRank (IxS l) = listsRank l
