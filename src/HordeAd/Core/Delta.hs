@@ -94,7 +94,15 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shCvtXR', shrRank, shsAppend, shsPermutePrefix, shsRank)
+  ( shCvtRX
+  , shCvtSX
+  , shCvtXR'
+  , shrRank
+  , shrTail
+  , shsAppend
+  , shsPermutePrefix
+  , shsRank
+  )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -722,7 +730,7 @@ shapeDeltaFull = \case
 
   IndexR d _ -> case shapeDeltaFull d of
     FTKR sh x -> FTKR (dropShape sh) x
-  SumR d -> FTKR (tailShape (shapeDelta d)) FTKScalar
+  SumR d -> FTKR (shrTail (shapeDelta d)) FTKScalar
   Sum0R{} -> FTKR ZSR FTKScalar
   Dot0R{} -> FTKR ZSR FTKScalar
   ScatterR sh d _ -> case shapeDeltaFull d of
@@ -743,7 +751,7 @@ shapeDeltaFull = \case
       FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
       FTKR (bi :$: _) _ -> FTKR (ai + bi :$: ash) x
   SliceR _ n d -> case shapeDeltaFull d of
-    FTKR sh x -> FTKR (n :$: tailShape sh) x
+    FTKR sh x -> FTKR (n :$: shrTail sh) x
   ReverseR d -> shapeDeltaFull d
   TransposeR perm d -> case shapeDeltaFull d of
     FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x

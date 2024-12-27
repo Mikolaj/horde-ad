@@ -24,6 +24,7 @@ import Data.Array.Nested
   , pattern ZSR
   )
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shrTail)
 
 import HordeAd
 
@@ -283,7 +284,7 @@ fooBuild3 :: forall target r n.
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild3 v =
   rbuild1 22 $ \ix ->
-    bar ( rreplicate0N (tailShape $ rshape v) (rscalar 1)
+    bar ( rreplicate0N (shrTail $ rshape v) (rscalar 1)
         , rindex v [minF 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
@@ -297,9 +298,9 @@ fooBuild5 :: forall target r n.
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild5 v =
   let r = rsum v
-      v' = rreplicate0N (tailShape $ rshape v) $ rminimum $ rflatten v
+      v' = rreplicate0N (shrTail $ rshape v) $ rminimum $ rflatten v
   in rbuild1 2 $ \ix ->
-       r * foo ( rreplicate0N (tailShape $ rshape v) (rscalar 3)
+       r * foo ( rreplicate0N (shrTail $ rshape v) (rscalar 3)
                , rscaleByScalar (rscalar 5) r
                , r * v')
        + bar (r, rindex v [minF 1 (ix + 1)])  -- index not out of bounds
@@ -329,7 +330,7 @@ fooBuild1 :: forall target r n.
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild1 v =
   let r = rsum v
-      tk = rreplicate0N (tailShape $ rshape v)
+      tk = rreplicate0N (shrTail $ rshape v)
       v' = tk $ rminimum $ rflatten v
   in rbuild1 3 $ \ix ->
        r * foo ( tk (rscalar 3)
@@ -369,7 +370,7 @@ fooNoGo :: forall target r n.
 fooNoGo v =
   let r = rsum v
       r0 = rsum0 v
-      shTail = tailShape (rshape v)
+      shTail = shrTail (rshape v)
   in rbuild1 3 (\ix ->
        bar ( rreplicate0N shTail (rscalar 3.14)
            , bar ( rrepl (toList shTail) 3.14

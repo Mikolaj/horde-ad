@@ -44,6 +44,7 @@ import Data.Array.Nested.Internal.Shape
   , shCvtSX
   , shCvtXR'
   , shrSize
+  , shrTail
   , shsAppend
   , shsPermutePrefix
   , shsRank
@@ -105,7 +106,7 @@ ftkAst t = case t of
     v : _ -> ftkAst v
   AstIndex v _ -> case ftkAst v of
     FTKR sh x -> FTKR (dropShape sh) x
-  AstSum v -> FTKR (tailShape $ shapeAst v) FTKScalar
+  AstSum v -> FTKR (shrTail $ shapeAst v) FTKScalar
   AstScatter sh v _ -> case ftkAst v of
     FTKR _ x -> FTKR sh x
   AstFromVector l -> case V.toList l of
@@ -122,7 +123,7 @@ ftkAst t = case t of
       ZSR -> error "ftkAst: impossible pattern needlessly required"
       bi :$: _ -> FTKR (ai + bi :$: ash) x
   AstSlice _i n v -> case ftkAst v of
-    FTKR sh x -> FTKR (n :$: tailShape sh) x
+    FTKR sh x -> FTKR (n :$: shrTail sh) x
   AstReverse v -> ftkAst v
   AstTranspose perm v -> case ftkAst v of
     FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x

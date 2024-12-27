@@ -122,6 +122,7 @@ import Data.Array.Nested.Internal.Shape
   , listsRank
   , shCvtSX
   , shrAppend
+  , shrTail
   , shsAppend
   , shsHead
   , shsIndex
@@ -2013,7 +2014,7 @@ astSum t0 = case shapeAst t0 of
       v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
     Ast.AstFromVector l -> astSumOfListR $ V.toList l
-    Ast.AstSlice _i 0 v -> astReplicate0N (tailShape $ shapeAst v) 0
+    Ast.AstSlice _i 0 v -> astReplicate0N (shrTail $ shapeAst v) 0
     Ast.AstSlice i 1 v -> astIndexR v (fromIntegral i :.: ZIR)
     Ast.AstReverse v -> astSum v
     AstConcrete (FTKR sh FTKScalar) t ->

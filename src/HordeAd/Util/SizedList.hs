@@ -5,17 +5,17 @@
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
     snocSized
-  , headSized, tailSized, takeSized, dropSized, splitAt_Sized
+  , takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , permInverse
   , backpermutePrefixList, permutePrefixList
   , sizedCompare
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , snocIndex
-  , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
+  , takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
     -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , tailShape, takeShape, dropShape, splitAt_Shape
+  , takeShape, dropShape, splitAt_Shape
   , lastShape, initShape
   , lengthShape, sizeShape
   , withListShape, withListSh
@@ -70,14 +70,6 @@ import HordeAd.Core.Types
 snocSized :: KnownNat n => ListR n i -> i -> ListR (1 + n) i
 snocSized ZR last1 = last1 ::: ZR
 snocSized (i ::: ix) last1 = i ::: snocSized ix last1
-
-headSized :: ListR (1 + n) i -> i
-headSized ZR = error "headSized: impossible pattern needlessly required"
-headSized (i ::: _ix) = i
-
-tailSized :: ListR (1 + n) i -> ListR n i
-tailSized ZR = error "tailSized: impossible pattern needlessly required"
-tailSized (_i ::: ix) = ix
 
 takeSized :: forall len n i. (KnownNat n, KnownNat len)
           => ListR (len + n) i -> ListR len i
@@ -174,12 +166,6 @@ sizedCompare _ _ _ =
 snocIndex :: KnownNat n => IxR n i -> i -> IxR (1 + n) i
 snocIndex (IxR ix) i = IxR $ snocSized ix i
 
-headIndex :: IxR (1 + n) i -> i
-headIndex (IxR ix) = headSized ix
-
-tailIndex :: IxR (1 + n) i -> IxR n i
-tailIndex (IxR ix) = IxR $ tailSized ix
-
 takeIndex :: forall m n i. (KnownNat m, KnownNat n)
           => IxR (m + n) i -> IxR m i
 takeIndex (IxR ix) = IxR $ takeSized ix
@@ -221,9 +207,6 @@ zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
 
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
-
-tailShape :: ShR (1 + n) i -> ShR n i
-tailShape (ShR ix) = ShR $ tailSized ix
 
 takeShape :: forall m n i. (KnownNat n, KnownNat m)
           => ShR (m + n) i -> ShR m i
