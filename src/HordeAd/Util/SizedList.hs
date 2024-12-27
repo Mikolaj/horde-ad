@@ -5,17 +5,14 @@
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
     snocSized
-  , takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , permInverse
   , backpermutePrefixList, permutePrefixList
   , sizedCompare
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , snocIndex
-  , takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
     -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , takeShape, dropShape, splitAt_Shape
   , lastShape, initShape
   , withListShape, withListSh
     -- * Operations involving both indexes and shapes
@@ -71,18 +68,6 @@ import HordeAd.Core.Types
 snocSized :: KnownNat n => ListR n i -> i -> ListR (1 + n) i
 snocSized ZR last1 = last1 ::: ZR
 snocSized (i ::: ix) last1 = i ::: snocSized ix last1
-
-takeSized :: forall len n i. (KnownNat n, KnownNat len)
-          => ListR (len + n) i -> ListR len i
-takeSized ix = fromList $ take (valueOf @len) $ toList ix
-
-dropSized :: forall len n i. (KnownNat len, KnownNat n)
-          => ListR (len + n) i -> ListR n i
-dropSized ix = fromList $ drop (valueOf @len) $ toList ix
-
-splitAt_Sized :: (KnownNat m, KnownNat n)
-              => ListR (m + n) i -> (ListR m i, ListR n i)
-splitAt_Sized ix = (takeSized ix, dropSized ix)
 
 unsnocSized1 :: ListR (1 + n) i -> (ListR n i, i)
 unsnocSized1 ZR = error "unsnocSized1: impossible pattern needlessly required"
@@ -167,30 +152,6 @@ sizedCompare _ _ _ =
 snocIndex :: KnownNat n => IxR n i -> i -> IxR (1 + n) i
 snocIndex (IxR ix) i = IxR $ snocSized ix i
 
-takeIndex :: forall m n i. (KnownNat m, KnownNat n)
-          => IxR (m + n) i -> IxR m i
-takeIndex (IxR ix) = IxR $ takeSized ix
-
-dropIndex :: forall m n i. (KnownNat m, KnownNat n)
-          => IxR (m + n) i -> IxR n i
-dropIndex (IxR ix) = IxR $ dropSized ix
-
-splitAt_Index :: (KnownNat m, KnownNat n)
-              => IxR (m + n) i -> (IxR m i, IxR n i)
-splitAt_Index ix = (takeIndex ix, dropIndex ix)
-
--- TODO: simplify the type machinery; e.g., would p ~ m + n help?
-splitAtInt_Index :: forall m n i. (KnownNat m, KnownNat n)
-                 => Int -> IxR (m + n) i -> (IxR m i, IxR n i)
-splitAtInt_Index j ix =
-  if j < 0
-  then error "splitAtInt_Index: negative index"
-  else case someNatVal $ toInteger j of
-    Just (SomeNat proxy) -> case sameNat (Proxy @m) proxy of
-      Just Refl -> splitAt_Index ix
-      _ -> error "splitAtInt_Index: index differs to what expected from context"
-    Nothing -> error "splitAtInt_Index: impossible someNatVal error"
-
 unsnocIndex1 :: IxR (1 + n) i -> (IxR n i, i)
 unsnocIndex1 (IxR ix) = first IxR $ unsnocSized1 ix
 
@@ -208,18 +169,6 @@ zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
 
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
-
-takeShape :: forall m n i. (KnownNat n, KnownNat m)
-          => ShR (m + n) i -> ShR m i
-takeShape (ShR ix) = ShR $ takeSized ix
-
-dropShape :: forall m n i. (KnownNat m, KnownNat n)
-          => ShR (m + n) i -> ShR n i
-dropShape (ShR ix) = ShR $ dropSized ix
-
-splitAt_Shape :: (KnownNat m, KnownNat n)
-              => ShR (m + n) i -> (ShR m i, ShR n i)
-splitAt_Shape ix = (takeShape ix, dropShape ix)
 
 lastShape :: ShR (1 + n) i -> i
 lastShape (ShR ix) = lastSized ix

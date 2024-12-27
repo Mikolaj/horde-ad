@@ -24,20 +24,30 @@ module HordeAd.Core.Types
   , IxROf, IxSOf, IxXOf
     -- * Misc
   , IntegralF(..), RealFloatF(..)
+    -- * Feature requests for ox-arrays
+  , ixsRank, ssxRank
+  , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
+  , takeShape, dropShape, splitAt_Shape
+  , splitAt_SizedS, dropIxS, takeShS, dropShS, takeShX, dropShX
+  , listsTakeLen, listsDropLen, shsDropLen
+  , ixsRank, ssxRank
   ) where
 
 import Prelude
 
 import Control.DeepSeq (NFData (..))
 import Data.Array.Internal.RankedS qualified as RS
+import Data.Coerce (coerce)
 import Data.Default
+import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:))
+import Data.Type.Equality (gcastWith, testEquality, (:~:))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
+import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 import GHC.TypeLits
   ( KnownNat
@@ -53,15 +63,33 @@ import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
+import Data.Array.Mixed.Permutation (DropLen, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Mixed.Types (Dict (..))
+import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank, withKnownShX)
+import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
-  (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
+  ( IxR (..)
+  , IxS (..)
+  , IxX
+  , KnownShS (..)
+  , KnownShX (..)
+  , ListR (..)
+  , ListS (..)
+  , Rank
+  , ShR (..)
+  , ShS (..)
+  )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Shape
-  (shsProduct, shsRank, shsToList, withKnownShS)
+  ( listsDropLenPerm
+  , listsRank
+  , shsLength
+  , shsProduct
+  , shsRank
+  , shsToList
+  , withKnownShS
+  )
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -349,3 +377,126 @@ instance {-# OVERLAPPABLE #-} Integral r => IntegralF r where
 instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatF r where
   atan2F = atan2
 -}
+
+-- * Feature requests for ox-arrays
+
+-- All of this should have better names and types, just as in ox-arrays,
+-- and be consistently added for all 9 kinds of shape things.
+
+ixsRank :: IxS sh i -> SNat (Rank sh)
+ixsRank (IxS l) = listsRank l
+
+ssxRank :: StaticShX sh -> SNat (Rank sh)
+ssxRank (StaticShX l) = listxRank l
+
+takeSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
+          => ListS sh (Const i) -> ListS (Take len sh) (Const i)
+takeSized ix = fromList $ take (valueOf @len) $ toList ix
+
+dropSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
+          => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
+dropSized ix = fromList $ drop (valueOf @len) $ toList ix
+
+splitAt_Sized
+  :: (KnownShS sh, KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
+  => ListS sh (Const i)
+  -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
+splitAt_Sized ix = (takeSized ix, dropSized ix)
+
+takeIndex :: forall m n i. (KnownNat m, KnownNat n)
+          => IxR (m + n) i -> IxR m i
+takeIndex (IxR ix) = IxR $ takeSizedS ix
+
+dropIndex :: forall m n i. (KnownNat m, KnownNat n)
+          => IxR (m + n) i -> IxR n i
+dropIndex (IxR ix) = IxR $ dropSizedS ix
+
+splitAt_Index :: (KnownNat m, KnownNat n)
+              => IxR (m + n) i -> (IxR m i, IxR n i)
+splitAt_Index ix = (takeIndex ix, dropIndex ix)
+
+takeShape :: forall m n i. (KnownNat n, KnownNat m)
+          => ShR (m + n) i -> ShR m i
+takeShape (ShR ix) = ShR $ takeSizedS ix
+
+dropShape :: forall m n i. (KnownNat m, KnownNat n)
+          => ShR (m + n) i -> ShR n i
+dropShape (ShR ix) = ShR $ dropSizedS ix
+
+splitAt_Shape :: (KnownNat m, KnownNat n)
+              => ShR (m + n) i -> (ShR m i, ShR n i)
+splitAt_Shape ix = (takeShape ix, dropShape ix)
+
+takeSizedS :: forall len n i. (KnownNat n, KnownNat len)
+           => ListR (len + n) i -> ListR len i
+takeSizedS ix = fromList $ take (valueOf @len) $ toList ix
+
+dropSizedS :: forall len n i. (KnownNat len, KnownNat n)
+           => ListR (len + n) i -> ListR n i
+dropSizedS ix = fromList $ drop (valueOf @len) $ toList ix
+
+splitAt_SizedS :: (KnownNat m, KnownNat n)
+               => ListR (m + n) i -> (ListR m i, ListR n i)
+splitAt_SizedS ix = (takeSizedS ix, dropSizedS ix)
+
+dropIxS :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
+        => IxS sh i -> IxS (Drop len sh) i
+dropIxS (IxS ix) = IxS $ dropSized ix
+
+-- TODO
+takeShS :: forall len sh. (KnownNat len, KnownShS sh)
+        => ShS sh -> ShS (Take len sh)
+takeShS sh0 = fromList2 $ take (valueOf @len) $ toList sh0
+ where
+  fromList2 topl = ShS (go (knownShS @sh) topl)
+    where  -- TODO: induction over (unary) SNat?
+      go :: forall sh'. ShS sh' -> [Int] -> ListS (Take len sh') SNat
+      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
+      go (sn :$$ sh) (i : is)
+        | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
+        | otherwise = error $ "takeShS: Value does not match typing (type says "
+                                ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
+      go _ _ = error $ "takeShS: Mismatched list length (type says "
+                         ++ show (shsLength (knownShS @sh)) ++ ", list has length "
+                         ++ show (length topl) ++ ")"
+
+-- TODO
+dropShS :: forall len sh. (KnownNat len, KnownShS sh)
+        => ShS sh -> ShS (Drop len sh)
+dropShS sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
+ where
+  fromList2 topl = ShS (go (knownShS @sh) $ replicate (valueOf @len) (-1) ++ topl)
+    where  -- TODO: induction over (unary) SNat?
+      go :: forall sh'. ShS sh' -> [Int] -> ListS (Drop len sh') SNat
+      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
+      go (sn :$$ sh) (i : is)
+        | i == -1 = unsafeCoerce $ go sh is
+        | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
+        | otherwise = error $ "dropShS: Value does not match typing (type says "
+                                ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
+      go _ _ = error $ "dropShS: Mismatched list length (type says "
+                         ++ show (shsLength (knownShS @sh)) ++ ", list has length "
+                         ++ show (length topl) ++ ")"
+
+takeShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
+        => IShX sh -> IShX (Take len sh)
+takeShX sh0 = fromList $ take (valueOf @len) $ toList sh0
+
+dropShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+        => IShX sh -> IShX (Drop len sh)
+dropShX sh0 = fromList $ drop (valueOf @len) $ toList sh0
+
+listsTakeLen :: forall f g sh1 sh2.
+                ListS sh1 f -> ListS sh2 g -> ListS (TakeLen sh1 sh2) g
+listsTakeLen ZS _ = ZS
+listsTakeLen (_ ::$ sh1) (n ::$ sh2) = n ::$ listsTakeLen sh1 sh2
+listsTakeLen (_ ::$ _) ZS = error "listsTakeLen: list too short"
+
+listsDropLen :: forall f g sh1 sh2.
+                ListS sh1 f -> ListS sh2 g -> ListS (DropLen sh1 sh2) g
+listsDropLen ZS sh = sh
+listsDropLen (_ ::$ sh1) (_ ::$ sh2) = listsDropLen sh1 sh2
+listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
+
+shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
+shsDropLen = coerce (listsDropLenPerm @SNat)

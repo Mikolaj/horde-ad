@@ -153,7 +153,6 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (ssxRank)
 import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
@@ -198,7 +197,7 @@ astTransposeAsGatherS
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 {-# NOINLINE astTransposeAsGatherS #-}
 astTransposeAsGatherS knobs perm v =
-   withKnownShS (ShapedList.shsDropLen perm (knownShS @sh)) $
+   withKnownShS (shsDropLen perm (knownShS @sh)) $
    withKnownShS (shsTakeLen perm (knownShS @sh)) $
    withKnownShS (shsPermute perm (shsTakeLen perm (knownShS @sh))) $
    funToVarsIxS @(Permutation.Permute perm (TakeLen perm sh)) $ \ (!vars, !ix) ->
@@ -640,8 +639,8 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstZipR _ -> Ast.AstIndex v0 ix
 
   Ast.AstRFromS @sh t ->
-    withKnownShS (ShapedList.takeShS @m (knownShS @sh)) $
-    withKnownShS (ShapedList.dropShS @m (knownShS @sh)) $
+    withKnownShS (takeShS @m (knownShS @sh)) $
+    withKnownShS (dropShS @m (knownShS @sh)) $
     gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
     gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
     astRFromS $ astIndexKnobsS @(Take m sh) @(Drop m sh)
@@ -730,7 +729,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       let shnl = knownShS @shn `shsAppend` (nl :$$ ZSS)
       in withKnownNat (shsIndex Proxy Proxy (SNat @0) shnl) $
          withKnownShS shnl $
-         withKnownShS (ShapedList.dropShS @1 shnl) $
+         withKnownShS (dropShS @1 shnl) $
            -- TODO: (shsTail shnl) would be more precise, but ++ is stuck at shn
            -- and can't produce ': at this point
          gcastWith (unsafeCoerceRefl
@@ -749,7 +748,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       let shnl = knownShS @shn `shsAppend` (nl :$$ ZSS)
       in withKnownNat (shsIndex Proxy Proxy (SNat @0) shnl) $
          withKnownShS shnl $
-         withKnownShS (ShapedList.dropShS @1 shnl) $
+         withKnownShS (dropShS @1 shnl) $
            -- TODO: (shsTail shnl) would be more precise, but ++ is stuck at shn
            -- and can't produce ': at this point
          gcastWith (unsafeCoerceRefl
@@ -1221,7 +1220,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                     (zipSized vars ix)
           composedGather :: p' <= m2 => AstTensor AstMethodLet s (TKR2 (m' + n') r)
           composedGather =
-            let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
+            let (vars2p, vars22) = splitAt_SizedS @p' @(m2 - p') vars2
                 ix22 = fmap (substLet ix4 vars2p) ix2
             in gcastWith (unsafeCoerceRefl :: m2 + n2 - p' :~: n') $
                astGather sh4 v2 (vars4 `listrAppend` vars22, ix22)
@@ -1268,7 +1267,7 @@ gatherFromNF vars (i :.: rest) = case cmpNat (Proxy @p) (Proxy @m) of
   LTI ->
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
         cmp _ = False
-        (varsP, varsPM) = splitAt_Sized @p @(m - p) vars
+        (varsP, varsPM) = splitAt_SizedS @p @(m - p) vars
     in all cmp (zipIndex rest (IxR (fmap AstIntVar varsP)))
        && not (any (`varNameInAst` i) varsPM)
   EQI ->
@@ -1661,7 +1660,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       then astGather @shm' @shn' @shp' (astReshapeAsGatherS knobs v) (vars4, ix4)
       else Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstGatherS @shm2 @shn2 @shp2 v2 (vars2, ix2)
-                   | SNat @rank4 <- ShapedList.ixsRank ix4
+                   | SNat @rank4 <- ixsRank ix4
                    , SNat @rank2 <- listsRank vars2 ->
       -- Term ix4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
@@ -1691,8 +1690,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
             -- from congruence:
             gcastWith (unsafeCoerceRefl
                        :: (shm' ++ DropLen shp' shm2) ++ shn2 :~: shm' ++ shn') $
-            let vars2p = ShapedList.listsTakeLen list4 vars2
-                vars22 = ShapedList.listsDropLen list4 vars2
+            let vars2p = listsTakeLen list4 vars2
+                vars22 = listsDropLen list4 vars2
                 ix22 = fmap (substLet ix4 vars2p) ix2
                 list422 = vars4 `listsAppend` vars22
             in case slistKnown list422 of
@@ -1709,8 +1708,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
             -- from congruence:
             gcastWith (unsafeCoerceRefl
                        :: (shp2 ++ DropLen shm2 shp') ++ shn' :~: shp2 ++ shn2) $
-            let ix42 = IxS $ ShapedList.listsTakeLen vars2 list4
-                ix44 = IxS $ ShapedList.listsDropLen vars2 list4
+            let ix42 = IxS $ listsTakeLen vars2 list4
+                ix44 = IxS $ listsDropLen vars2 list4
                 ix22 = fmap (substLet ix42 vars2) ix2
                 ix2244 = ix22 `ixsAppend` ix44
             in case sixKnown ix2244 of
@@ -1768,8 +1767,8 @@ gatherFromNFS vars (i :.$ IxS rest) =
     _ ->
       let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
           cmp _ = False
-          varsP = ShapedList.listsTakeLen rest vars
-          varsPM = ShapedList.listsDropLen rest vars
+          varsP = listsTakeLen rest vars
+          varsPM = listsDropLen rest vars
           intVars = listsFmap (Const . AstIntVar . getConst) varsP
       in case (slistKnown varsP, slistKnown varsPM) of
         (Dict, Dict) -> case sameShape @(TakeLen shp shm) @shp of

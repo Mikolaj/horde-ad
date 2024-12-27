@@ -53,7 +53,6 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList (dropIxS)
 import HordeAd.Util.SizedList
 
 -- * One-hots
