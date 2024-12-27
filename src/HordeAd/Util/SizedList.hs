@@ -4,21 +4,20 @@
 -- | @GHC.Nat@-indexed lists, tensors shapes and indexes.
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
-    singletonSized, snocSized
+    snocSized
   , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , permInverse
   , backpermutePrefixList, permutePrefixList
   , sizedCompare
     -- * Tensor indexes as fully encapsulated sized lists, with operations
-  , singletonIndex, snocIndex
+  , snocIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
     -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , singletonShape
   , tailShape, takeShape, dropShape, splitAt_Shape
   , lastShape, initShape
-  , lengthShape, sizeShape, flattenShape
+  , lengthShape, sizeShape
   , withListShape, withListSh
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
@@ -67,9 +66,6 @@ import HordeAd.Core.Types
 -- tensor rank) and usually eventually needed. We could still (in GHC 9.4
 -- at least) coerce the strict @ListR@ to @[i]@, but not the other
 -- way around.
-
-singletonSized :: i -> ListR 1 i
-singletonSized i = i ::: ZR
 
 snocSized :: KnownNat n => ListR n i -> i -> ListR (1 + n) i
 snocSized ZR last1 = last1 ::: ZR
@@ -175,9 +171,6 @@ sizedCompare _ _ _ =
 -- are terms, there is no absolute corrcetness criterion anyway,
 -- because the eventual integer value depends on a variable valuation.
 
-singletonIndex :: i -> IxR 1 i
-singletonIndex = IxR . singletonSized
-
 snocIndex :: KnownNat n => IxR n i -> i -> IxR (1 + n) i
 snocIndex (IxR ix) i = IxR $ snocSized ix i
 
@@ -229,9 +222,6 @@ zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
 
-singletonShape :: i -> ShR 1 i
-singletonShape = ShR . singletonSized
-
 tailShape :: ShR (1 + n) i -> ShR n i
 tailShape (ShR ix) = ShR $ tailSized ix
 
@@ -260,9 +250,6 @@ lengthShape _ = valueOf @n
 sizeShape :: Integral i => ShR n i -> Int
 sizeShape ZSR = 1
 sizeShape (n :$: sh) = fromIntegral n * sizeShape sh
-
-flattenShape :: Integral i => ShR n i -> ShR 1 i
-flattenShape = singletonShape . fromIntegral . sizeShape
 
 -- Both shape representations denote the same shape.
 withListShape

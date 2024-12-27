@@ -584,7 +584,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstFromVector l ->
     shareIx rest1 $ \ !ix2 ->
       Ast.AstIndex (astFromVector $ V.map (`astIndexRec` ix2) l)
-                   (singletonIndex i1)
+                   (i1 :.: ZIR)
   Ast.AstAppend u v ->
     let ulen = AstConcrete FTKScalar $ RepN $ fromIntegral $ lengthAst u
         ix2 = simplifyAstInt (AstN2 MinusOp i1 ulen) :.: rest1
@@ -824,7 +824,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstFromVectorS l ->
     shareIx rest1 $ \ !ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromVectorS $ V.map (`astIndexRec` ix2) l)
-                    (ShapedList.singletonIndex i1)
+                    (i1 :.$ ZIS)
   Ast.AstAppendS @m u v ->
     let ulen = AstConcrete FTKScalar $ RepN $ valueOf @m
         ix1 = i1 :.$ rest1
@@ -1081,12 +1081,12 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstMinIndexR v ->
       Ast.AstMinIndexR
       $ astGatherKnobsR knobs
-          (sh4 `shrAppend` singletonShape (lastShape (shapeAst v)))
+          (sh4 `shrAppend` (lastShape (shapeAst v) :$: ZSR))
           v (vars4, ix4)
     Ast.AstMaxIndexR v ->
       Ast.AstMaxIndexR
       $ astGatherKnobsR knobs
-          (sh4 `shrAppend` singletonShape (lastShape (shapeAst v)))
+          (sh4 `shrAppend` (lastShape (shapeAst v) :$: ZSR))
           v (vars4, ix4)
     Ast.AstFloorR v ->
       Ast.AstFloorR

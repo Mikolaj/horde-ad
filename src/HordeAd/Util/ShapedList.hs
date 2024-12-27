@@ -7,11 +7,10 @@
 -- tensor shapes and tensor indexes.
 module HordeAd.Util.ShapedList
   ( -- * Shaped lists (sized, where size is shape) and their permutations
-    singletonSized
-  , headSized, tailSized, takeSized, dropSized, splitAt_Sized, dropIxS
+    headSized, tailSized, takeSized, dropSized, splitAt_Sized, dropIxS
   , zipSized, zipWith_Sized, reverseSized
     -- * Tensor indexes as fully encapsulated shaped lists, with operations
-  , singletonIndex, zipIndex, zipWith_Index
+  , zipIndex, zipWith_Index
   , shapedToIndex, ixsLengthSNat
     -- * Tensor shapes as fully encapsulated shaped lists, with operations
   , takeShS, dropShS, takeShX, dropShX
@@ -52,9 +51,6 @@ import HordeAd.Core.Types
 import HordeAd.Util.SizedList qualified as SizedList
 
 -- * Shaped lists and their permutations
-
-singletonSized :: KnownNat n => i n -> ListS '[n] i
-singletonSized i = i ::$ ZS
 
 headSized :: ListS (n ': sh) i -> i n
 headSized (i ::$ _ix) = i
@@ -115,10 +111,6 @@ sizedCompare f (i ::$ idx) (j ::$ idx') =
 -}
 
 -- * Tensor indexes as fully encapsulated shaped lists, with operations
-
--- TODO take Fin instead of i?
-singletonIndex :: KnownNat n => i -> IxS '[n] i
-singletonIndex i = i :.$ ZIS
 
 zipIndex :: IxS sh i -> IxS sh j -> IxS sh (i, j)
 zipIndex (IxS l1) (IxS l2) = IxS $ zipSized l1 l2

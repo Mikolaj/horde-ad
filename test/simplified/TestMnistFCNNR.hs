@@ -193,9 +193,9 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped (voidFromHVector hVectorInit)
        (varGlyph, astGlyph) <-
-         funToAstIO (FTKR (singletonShape sizeMnistGlyphInt) FTKScalar) id
+         funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
        (varLabel, astLabel) <-
-         funToAstIO (FTKR (singletonShape sizeMnistLabelInt) FTKScalar) id
+         funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHidden widthHidden2 (astGlyph, astLabel)
@@ -512,9 +512,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        (_, _, var, hVector2)
          <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
        (varGlyph, astGlyph) <-
-         funToAstIO (FTKR (singletonShape sizeMnistGlyphInt) FTKScalar) id
+         funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
        (varLabel, astLabel) <-
-         funToAstIO (FTKR (singletonShape sizeMnistLabelInt) FTKScalar) id
+         funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (astGlyph, astLabel)
@@ -794,7 +794,7 @@ testVT2OPPNonLin = do
                       , AstFromPrimal $ AstCastR $ AstConcrete (FTKR [5] FTKScalar) a4 )
                     , ( AstCastR $ AstFromPrimal $ AstConcrete (FTKR [2, 5] FTKScalar) a5
                       , AstFromPrimal $ AstCastR $ AstConcrete (FTKR [2] FTKScalar) a6 ) )
-      (_, ast3) = funToAst (FTKR (singletonShape 0) (FTKScalar @Float))
+      (_, ast3) = funToAst (FTKR (0 :$: ZSR) (FTKScalar @Float))
                            (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
     @?= "\\dummy -> tlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rfromPrimal (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rscalar 7.0)))) * rfromPrimal (tconcrete (FTKR [3,4] FTKScalar) (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rfromPrimal (tconcrete (FTKR [4] FTKScalar) (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v3 -> tlet (rfromPrimal (recip (rreplicate 4 (rscalar 1.0) + exp (negate (rprimalPart v3))))) (\\v4 -> rD (rprimalPart v4) (rdualPart (rfromPrimal (rprimalPart v4 * (rreplicate 4 (rscalar 1.0) - rprimalPart v4)) * rD (rreplicate 4 (rscalar 0.0)) (rdualPart v3)))))))) * rfromPrimal (tconcrete (FTKR [4,5] FTKScalar) (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rfromPrimal (rcast (tconcrete (FTKR [5] FTKScalar) (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v6 -> tlet (rfromPrimal (recip (rreplicate 5 (rscalar 1.0) + exp (negate (rprimalPart v6))))) (\\v7 -> rD (rprimalPart v7) (rdualPart (rfromPrimal (rprimalPart v7 * (rreplicate 5 (rscalar 1.0) - rprimalPart v7)) * rD (rreplicate 5 (rscalar 0.0)) (rdualPart v6))))))) * rfromPrimal (tconcrete (FTKR [5,2] FTKScalar) (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rfromPrimal (rcast (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"

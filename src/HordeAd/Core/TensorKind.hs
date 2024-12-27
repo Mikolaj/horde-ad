@@ -43,6 +43,8 @@ import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
+  , IxR (..)
+  , IxS (..)
   , KnownShS (..)
   , SMayNat (..)
   , ShR (..)
@@ -57,8 +59,6 @@ import Data.Array.Nested.Internal.Mixed as Mixed
 import Data.Array.Nested.Internal.Shape (shrRank, shsRank)
 
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
-import HordeAd.Util.SizedList
 
 -- * Singletons
 
@@ -512,11 +512,11 @@ index1DynamicF :: (forall r n. (GoodScalar r, KnownNat n)
 index1DynamicF rshape sshape rindex sindex u i = case u of
   DynamicRanked t -> case rshape t of
     ZSR -> error "index1Dynamic: rank 0"
-    _ :$: _ -> DynamicRanked $ rindex t (singletonIndex i)
+    _ :$: _ -> DynamicRanked $ rindex t (i :.: ZIR)
   DynamicShaped t -> case sshape t of
     ZSS -> error "index1Dynamic: rank 0"
     (:$$) SNat tl | Dict <- sshapeKnown tl ->
-      DynamicShaped $ sindex t (ShapedList.singletonIndex i)
+      DynamicShaped $ sindex t (i :.$ ZIS)
   DynamicRankedDummy @r @sh p1 _ -> case knownShS @sh of
     ZSS -> error "index1Dynamic: rank 0"
     (:$$) @_ @sh2 _ tl | Dict <- sshapeKnown tl ->

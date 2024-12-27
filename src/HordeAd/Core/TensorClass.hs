@@ -73,7 +73,6 @@ import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 -- Note that no Ast* module except AstInterpret and AstEnv
@@ -262,7 +261,7 @@ class ( Num (IntOf target)
                  => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
   runravelToList t =
     let f :: Int -> target (TKR2 n r)
-        f i = rindex t (singletonIndex $ fromIntegral i)
+        f i = rindex t (fromIntegral i :.: ZIR)
     in map f [0 .. rlength t - 1]
   rreplicate :: (GoodScalar r, KnownNat n)
              => Int -> target (TKR n r) -> target (TKR (1 + n) r)
@@ -291,7 +290,7 @@ class ( Num (IntOf target)
   rtranspose :: (TensorKind r, KnownNat n)
              => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
   rflatten :: (TensorKind r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
-  rflatten u = rreshape (flattenShape $ rshape u) u
+  rflatten u = rreshape (sizeShape (rshape u) :$: ZSR) u
   rreshape :: (TensorKind r, KnownNat n, KnownNat m)
            => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
   rbuild :: forall r m n. (TensorKind r, KnownNat m, KnownNat n)
@@ -579,7 +578,7 @@ class ( Num (IntOf target)
                  => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
   sunravelToList t =
     let f :: Int -> target (TKS2 sh r)
-        f i = sindex t (ShapedList.singletonIndex $ fromIntegral i)
+        f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. slength t - 1]
   sreplicate :: (KnownNat n, KnownShS sh, GoodScalar r)
              => target (TKS sh r) -> target (TKS (n ': sh) r)

@@ -14,6 +14,7 @@ import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested
   ( IShR
+  , IxS (..)
   , KnownShS (..)
   , Rank
   , ShR (..)
@@ -25,7 +26,6 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
-import HordeAd.Util.ShapedList qualified as ShapedList
 
 import CrossTesting
 import EqEpsilon
@@ -228,13 +228,13 @@ fooBuild2S v = rfromS $
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
-        (sindex v (ShapedList.singletonIndex (rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
-             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001)))
+        (sindex v ((rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001) :.$ ZIS ))
            -- index out of bounds; also fine
-        (sqrt $ abs $ sindex v (ShapedList.singletonIndex (rtoScalar $ rfromS $ let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
+        (sqrt $ abs $ sindex v ((rtoScalar $ rfromS $ let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
                                 in ifF (signum rr ==. negate (signum $ srepl 2))
                                    (rr + srepl 2)
-                                   rr)))
+                                   rr) :.$ ZIS))
 
 testFooBuild21S :: Assertion
 testFooBuild21S =
@@ -260,11 +260,11 @@ fooBuildNest2S v = rfromS $
          &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
 -- TODO:        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ treplicate (SNat @5) stensorKind $ snest (knownShS @[12,11])
-        (sindex v (ShapedList.singletonIndex (rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ tproject2 $ tfromPrimal stensorKind $ tpair tunit (tprimalPart stensorKind $ snest (knownShS @[5,12,11])
-             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v))) - srepl 10001)))
+        (sindex v ((rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ tproject2 $ tfromPrimal stensorKind $ tpair tunit (tprimalPart stensorKind $ snest (knownShS @[5,12,11])
+             $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v))) - srepl 10001) :.$ ZIS))
            -- index out of bounds; also fine
 -- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))
-        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (rtoScalar $ rfromS $ ifF (signum (sprimalPart rr) ==. negate (signum $ srepl 2)) (sprimalPart rr + srepl 2) (sprimalPart rr))))
+        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v ((rtoScalar $ rfromS $ ifF (signum (sprimalPart rr) ==. negate (signum $ srepl 2)) (sprimalPart rr + srepl 2) (sprimalPart rr)) :.$ ZIS))
 
 testFooBuildNest21S :: Assertion
 testFooBuildNest21S =

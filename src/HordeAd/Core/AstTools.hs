@@ -51,8 +51,6 @@ import Data.Array.Nested.Internal.Shape
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
-
-
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -96,7 +94,7 @@ ftkAst t = case t of
   AstMinIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
   AstMaxIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
   AstFloorR a -> FTKR (shapeAst a) FTKScalar
-  AstIotaR -> FTKR (singletonShape (maxBound :: Int)) FTKScalar  -- ought to be enough
+  AstIotaR -> FTKR ((maxBound :: Int) :$: ZSR) FTKScalar  -- ought to be enough
   AstN1R _opCode v -> ftkAst v
   AstN2R _opCode v _ -> ftkAst v
   AstR1R _opCode v -> ftkAst v

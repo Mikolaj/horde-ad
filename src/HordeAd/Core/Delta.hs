@@ -730,7 +730,7 @@ shapeDeltaFull = \case
   FromVectorR l -> case V.toList l of
     [] -> case stensorKind @y of
       STKR @n SNat STKScalar{} -> case sameNat (Proxy @n) (Proxy @1) of
-        Just Refl -> FTKR (singletonShape 0) FTKScalar
+        Just Refl -> FTKR (0 :$: ZSR) FTKScalar
           -- the only case where we can guess the shape and x
         _ -> error "shapeDeltaFull: FromVectorR with no arguments"
       _ -> error "shapeDeltaFull: FromVectorR with no arguments"

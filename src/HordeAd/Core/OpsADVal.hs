@@ -54,8 +54,6 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList (ssxRank)
-import HordeAd.Util.ShapedList qualified as ShapedList
-import HordeAd.Util.SizedList
 
 -- * Non-symbolic reverse and forward derivative computation
 
@@ -320,7 +318,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
        (FromVectorR $ V.map (\(D _ u') -> u') lu)
   runravelToList (D u u') =
     let lu = runravelToList u
-        f i ui = dD ui (IndexR u' (singletonIndex $ fromIntegral i))
+        f i ui = dD ui (IndexR u' (fromIntegral i :.: ZIR))
     in imap f lu
   rreplicate k (D u u') = dD (rreplicate k u) (ReplicateR k u')
   rappend (D u u') (D v v') =
@@ -420,7 +418,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
        (FromVectorS $ V.map (\(D _ u') -> u') lu)
   sunravelToList (D u u') =
     let lu = sunravelToList u
-        f i ui = dD ui (IndexS u' (ShapedList.singletonIndex $ fromIntegral i))
+        f i ui = dD ui (IndexS u' (fromIntegral i :.$ ZIS))
     in imap f lu
   sreplicate (D u u') = dD (sreplicate u) ( ReplicateS u')
   sappend (D u u') (D v v') =
