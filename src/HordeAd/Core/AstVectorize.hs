@@ -42,7 +42,8 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shrRank, shsAppend, shsRank)
+import Data.Array.Nested.Internal.Shape
+  (shCvtSX, shrRank, shsAppend, shsLength, shsRank)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -642,7 +643,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
              ruleD = astGatherStepS @'[k] @sh2 @(k ': sh1)
                                     (build1VOccurenceUnknown (SNat @k) (var, v1))
                                     (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
-             len = length $ shapeT @sh1
+             len = shsLength $ knownShS @sh1
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVectorS{} | len == 1 -> ruleD

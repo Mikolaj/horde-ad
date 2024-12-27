@@ -18,17 +18,15 @@ module HordeAd.Core.AstTools
 
 import Prelude hiding (foldl')
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (sameNat, type (+))
 
-import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
   ( KnownShX (..)
   , SMayNat (..)
@@ -42,8 +40,18 @@ import Data.Array.Mixed.Shape
 import Data.Array.Nested
   (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShX (..))
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shCvtXR', shrSize, shsAppend, shsRank, shsSize)
+  ( shCvtRX
+  , shCvtSX
+  , shCvtXR'
+  , shrSize
+  , shsAppend
+  , shsPermutePrefix
+  , shsRank
+  , shsSize
+  )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+
+
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
@@ -127,7 +135,8 @@ ftkAst t = case t of
   AstCastR v -> FTKR (shapeAst v) FTKScalar
   AstFromIntegralR a -> FTKR (shapeAst a) FTKScalar
   AstProjectR l p -> case shapeAstHVector l V.! p of
-    DynamicRankedDummy @_ @sh _ _ -> FTKR (fromList $ shapeT @sh) FTKScalar
+    DynamicRankedDummy @_ @sh _ _ ->
+      FTKR (fromList $ toList $ knownShS @sh) FTKScalar
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
   AstZipR v -> case ftkAst v of
@@ -162,13 +171,10 @@ ftkAst t = case t of
   AstSliceS a -> case ftkAst a of
     FTKS _ x -> FTKS knownShS x
   AstReverseS v -> ftkAst v
-  AstTransposeS @perm @sh2 perm v -> case ftkAst v of
+  AstTransposeS @_ @sh2 perm v -> case ftkAst v of
     FTKS _ x ->
-      withShapeP
-        (backpermutePrefixList (Permutation.permToList' perm)
-                               (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-          gcastWith (unsafeCoerceRefl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
-          FTKS knownShS x
+      withKnownShS (shsPermutePrefix perm (knownShS @sh2)) $
+      FTKS knownShS x
   AstReshapeS v -> case ftkAst v of
     FTKS _ x -> FTKS knownShS x
   AstGatherS @shm @shn v _ -> case ftkAst v of
@@ -198,7 +204,7 @@ ftkAst t = case t of
 
   AstRFromS @sh v
    | SNat <- shsRank (knownShS @sh) -> case ftkAst v of
-    FTKS _ x -> FTKR (fromList $ shapeT @sh) x
+    FTKS _ x -> FTKR (fromList $ toList $ knownShS @sh) x
   AstRFromX @sh v
    | SNat <- ssxRank (knownShX @sh) -> case ftkAst v of
     FTKX shx x -> FTKR (fromList $ toList shx) x

@@ -74,7 +74,6 @@ import GHC.TypeLits
   )
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, TakeLen)
@@ -131,6 +130,7 @@ import Data.Array.Nested.Internal.Shape
   , shsLast
   , shsLength
   , shsPermute
+  , shsPermutePrefix
   , shsRank
   , shsTail
   , shsTakeLen
@@ -786,7 +786,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
     withKnownShS (knownShS @sh4 `shsAppend` knownShS @shm) $
     astIndexS v (ix2 `ixsAppend` ix)
   Ast.AstSumS @n1 v ->
-    let perm3 = backpermCycle $ length (shapeT @shm) + 1
+    let perm3 = backpermCycle $ sNatValue $ shsRank $ knownShS @shm
     in Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm3P) (Rank (n1 : shm ++ shn))
@@ -841,19 +841,15 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :.$ rest1)
   Ast.AstTransposeS @perm perm v
-    | rankPerm <- Permutation.permRank perm
-    , length (shapeT @shm) < sNatValue rankPerm ->
+    | gcompare (shsRank (knownShS @shm)) (Permutation.permRank perm) == GLT ->
         astIndex (astTransposeAsGatherS @perm knobs perm v) ix
   Ast.AstTransposeS @perm @sh2 perm v ->
-    withShapeP
-      (permutePrefixList (Permutation.permToList' perm)
-                         (shapeT @shm)) $ \(Proxy @shmPerm) ->
-        gcastWith (unsafeCoerceRefl
-                   :: shm :~: Permutation.PermutePrefix perm shmPerm) $
-        let ix2 :: AstIxS AstMethodLet shmPerm = unsafeCoerce $
-              ixsPermutePrefix perm ix
-        in gcastWith (unsafeCoerceRefl :: sh2 :~: shmPerm ++ shn) $
-           astIndex @shmPerm v ix2
+    withKnownShS (shsPermutePrefix perm (knownShS @shm)) $
+    let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix perm shm)
+        ix2 = ixsPermutePrefix perm ix
+    in gcastWith (unsafeCoerceRefl
+                  :: sh2 :~: Permutation.PermutePrefix perm shm ++ shn) $
+       astIndex @(Permutation.PermutePrefix perm shm) v ix2
   Ast.AstReshapeS v -> astIndex (astReshapeAsGatherS knobs v) ix
   Ast.AstGatherS @_ @_ @shp' v (ZS, ix2) ->
     gcastWith (unsafeCoerceRefl
@@ -2223,9 +2219,8 @@ astReplicateNS v =
   let go :: ShS shn' -> AstTensor AstMethodLet s (TKS2 (shn' ++ shp) r)
       go ZSS = v
       go ((:$$) @k @shn2 SNat shn2) | Dict <- sshapeKnown shn2 =
-        withShapeP (shapeT @shn2 ++ shapeT @shp) $ \(Proxy @sh) ->
-          gcastWith (unsafeCoerceRefl :: sh :~: shn2 ++ shp) $
-          astReplicate (SNat @k) $ go shn2
+        withKnownShS (knownShS @shn2 `shsAppend` knownShS @shp) $
+        astReplicate (SNat @k) $ go shn2
   in go (knownShS @shn)
 
 astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s)
@@ -2428,78 +2423,43 @@ astTransposeS perm t = case perm of
  Permutation.PNil -> t
  _ -> case t of
   Ast.AstLet var u v ->
-    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
+    withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
     astLet var u (astTransposeS perm v)
   AstN1S opCode u | not (isVar u) ->
-    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
+    withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
     AstN1S opCode (astTransposeS perm u)
   AstN2S opCode u v | not (isVar u && isVar v) ->
-    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
+    withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
     AstN2S opCode (astTransposeS perm u) (astTransposeS perm v)
   Ast.AstR1S opCode u | not (isVar u) ->
-    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
-   Ast.AstR1S opCode (astTransposeS perm u)
+    withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
+    Ast.AstR1S opCode (astTransposeS perm u)
   Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
-    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
-   Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
+    withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
+    Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
   Ast.AstSumS @n v ->
     let zsuccP :: Permutation.Perm (0 : Permutation.MapSucc perm)
         zsuccP = Permutation.permShift1 perm
     in
-      withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                        (shapeT @sh)) $ \(Proxy @shp) ->
-        gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
-        gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm)
-                                        :~: 1 + Rank perm) $
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh)
-                      :~: n : Permutation.PermutePrefix perm sh) $
-        trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-        astSumS $ astTransposeS zsuccP v
+      withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
+      gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm)
+                                     :~: 1 + Rank perm) $
+      gcastWith (unsafeCoerceRefl
+                 :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh)
+                    :~: n : Permutation.PermutePrefix perm sh) $
+      trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
+      astSumS $ astTransposeS zsuccP v
   Ast.AstScatterS @shm @shn @shp v (vars, ix)
     -- TODO: should the below be backpermute or permute?
-    | length (Permutation.permToList' perm) <= length (shapeT @shp) ->
-      withShapeP (backpermutePrefixList
-                    (Permutation.permToList' perm)
-                    (shapeT @shp)) $ \(Proxy @shpPerm) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix perm shp :~: shpPerm) $
-        let ix2 :: AstIxS AstMethodLet shpPerm =
-              ixsPermutePrefix perm ix
+    | gcompare (Permutation.permRank perm) (shsRank $ knownShS @shp) /= GGT ->
+        withKnownShS (shsPermutePrefix perm (knownShS @shp)) $
+        let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix perm shp)
+            ix2 = ixsPermutePrefix perm ix
         in gcastWith (unsafeCoerceRefl
                       :: Permutation.PermutePrefix perm shp ++ shn
                          :~: Permutation.PermutePrefix perm (shp ++ shn)) $
-           astScatterS @shm @shn @shpPerm v (vars, ix2)
-{- TODO: failed higher level approach:
-      case ShapedList.ixsLengthSNat ix of
-        (SNat :: SNat p') ->
-          gcastWith (X.unsafeCoerceRefl :: p' :~: p) $
-          let sh :: Nested.ShS sh
-              sh = knownShS @sh
-              shPerm :: Nested.ShS (Permutation.PermutePrefix perm sh)
-              shPerm = Nested.Internal.Shape.applyPermShS perm sh
-              shpPerm :: Nested.ShS (Take p (Permutation.PermutePrefix perm sh))
-              shpPerm = ShapedList.takeShS @p shPerm
-          in
-              gcastWith (unsafeCoerceRefl
-                         :: Permutation.PermutePrefix perm (Take p sh)
-                            :~: (Take p (Permutation.PermutePrefix perm sh))) $
-              let ix2 :: AstIxS (Take p (Permutation.PermutePrefix perm sh)) =
-                    ixsPermutePrefix perm ix
-              in gcastWith (unsafeCoerceRefl
-                            :: Drop p (Permutation.PermutePrefix perm sh) :~: Drop p sh) $
-                 astScatterS @sh2 @p @(Permutation.PermutePrefix perm sh) v (vars, ix2)
--}
+           astScatterS @shm @shn @(Permutation.PermutePrefix perm shp)
+                       v (vars, ix2)
   Ast.AstTransposeS @_ @sh2 perm2 u ->  -- TODO: try to perform at type level
     let permV = Permutation.permToList' perm
         perm2V = Permutation.permToList' perm2
@@ -2523,26 +2483,21 @@ astTransposeS perm t = case perm of
         GT -> error "astTransposeS: GT"
   Ast.AstGatherS @shm @shn @shp v (vars, ix)
     -- TODO: should the below be backpermute or permute?
-    | length (Permutation.permToList' perm) <= length (shapeT @shm) ->
-      withShapeP (backpermutePrefixList
-                    (Permutation.permToList' perm)
-                    (shapeT @shm)) $ \(Proxy @shmPerm) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix perm shm :~: shmPerm) $
-        let vars2 :: AstVarListS shmPerm =
-              Nested.Internal.Shape.listsPermutePrefix perm vars
+    | gcompare (Permutation.permRank perm) (shsRank $ knownShS @shm) /= GGT ->
+        withKnownShS (shsPermutePrefix perm (knownShS @shm)) $
+        let vars2 :: AstVarListS (Permutation.PermutePrefix perm shm)
+            vars2 = Nested.Internal.Shape.listsPermutePrefix perm vars
         in gcastWith (unsafeCoerceRefl
                       :: Permutation.PermutePrefix perm shm ++ shn
                          :~: Permutation.PermutePrefix perm (shm ++ shn)) $
-           astGatherS @shmPerm @shn @shp v (vars2, ix)
+           astGatherS @(Permutation.PermutePrefix perm shm) @shn @shp
+                      v (vars2, ix)
   AstConcrete (FTKS sh FTKScalar) v ->
     let shPerm = Nested.Internal.Shape.shsPermutePrefix perm sh
     in withKnownShS shPerm $
        AstConcrete (FTKS shPerm FTKScalar) $ stranspose perm v
   Ast.AstFromPrimal v ->
-    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh :~: shp) $
+    withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
     Ast.AstFromPrimal $ astTransposeS perm v
   u -> Ast.AstTransposeS @perm perm u  -- TODO
 
@@ -3168,7 +3123,7 @@ mapRankedShaped fRanked fShaped
         fShaped @sh4 @r4 (mkAstVarName varId) (astReplicate0NS 0) acc
   _ -> error $ "mapRankedShaped: corrupted arguments"
                `showFailure`
-               ( vd, typeRep @ty, typeRep @r3, shapeT @sh3
+               ( vd, typeRep @ty, typeRep @r3, knownShS @sh3
                , scalarDynamic d, rankDynamic d )
 
 -- Inlining doesn't work for this let constructor, because it has many
