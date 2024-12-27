@@ -296,7 +296,7 @@ within0S ix | SNat <- shsRank (knownShS @shOut) =
   let within :: IntOf target -> IntOf target -> BoolOf target
       within i dim = 0 <=. i &&* dim >. i
   in foldr (&&*) true
-     $ zipWith within (toList ix) (map fromIntegral $ shapeT @shOut)
+     $ zipWith within (toList ix) (map fromIntegral $ toList $ knownShS @shOut)
        -- or use sfromIndex1 and compare vectors?
 
 maxPool2dUnpaddedS

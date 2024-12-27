@@ -38,16 +38,16 @@ instance (KnownNat n, Nested.PrimElt a) => HasShape (Nested.Ranked n a) where
   shapeL = toList . Nested.rshape
 
 instance KnownShS sh => HasShape (Nested.Shaped sh a) where
-  shapeL _ = shapeT @sh
+  shapeL _ = toList $ knownShS @sh
 
 instance HasShape (RepORArray y) => HasShape (RepN y) where
   shapeL = shapeL . unRepN
 
 instance BaseTensor target => HasShape (DynamicTensor target) where
   shapeL (DynamicRanked t) = toList $ rshape t
-  shapeL (DynamicShaped @_ @sh _) = shapeT @sh
-  shapeL (DynamicRankedDummy @_ @sh _ _) = shapeT @sh
-  shapeL (DynamicShapedDummy @_ @sh _ _) = shapeT @sh
+  shapeL (DynamicShaped @_ @sh _) = toList $ knownShS @sh
+  shapeL (DynamicRankedDummy @_ @sh _ _) = toList $ knownShS @sh
+  shapeL (DynamicShapedDummy @_ @sh _ _) = toList $ knownShS @sh
 
 instance HasShape Z0 where
   shapeL _ = [0]

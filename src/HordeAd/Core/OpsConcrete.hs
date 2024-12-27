@@ -269,7 +269,7 @@ instance BaseTensor RepN where
                 g ix =
                   let ix2 = f $ fmap RepN ix
                   in if ixInBounds (map unRepN $ toList $ ix2)
-                                   (shapeT @(shp ++ shn))
+                                   (toList $ knownShS @(shp ++ shn))
                      then M.insertWith (V.zipWith (+)) ix2
                             (Nested.stoVector
                              $ tindexNS @_ @shm @shn (unRepN t) ix)
@@ -290,7 +290,7 @@ instance BaseTensor RepN where
                 g ix =
                   let ix2 = f $ fmap RepN ix
                   in if ixInBounds (map unRepN $ toList $ ix2)
-                                   (shapeT @(shp ++ shn))
+                                   (toList $ knownShS @(shp ++ shn))
                      then M.insertWith (addTarget stensorKind) ix2
                             (RepN
                              $ tindexNS @_ @shm @shn (unRepN t) ix)
@@ -1109,7 +1109,7 @@ tminIndexS =
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
-      let sh = shapeT @sh
+      let sh = toList $ knownShS @sh
       in case someNatVal $ toInteger $ last sh of
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
@@ -1134,7 +1134,7 @@ tmaxIndexS =
   in case sameShape @sh @'[] of
     Just Refl -> f @n
     _ ->
-      let sh = shapeT @sh
+      let sh = toList $ knownShS @sh
       in case someNatVal $ toInteger $ last sh of
         Just (SomeNat @m _proxy) ->
           case someNatVal $ toInteger $ length sh of
@@ -1235,7 +1235,7 @@ tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
           lt = sunravelToList t
           g i ti = let ix2 = f $ RepN $ fromIntegral i
                    in if ixInBounds (map unRepN $ toList ix2)
-                                    (shapeT @(shp ++ shn))
+                                    (toList $ knownShS @(shp ++ shn))
                       then updateNS @(Rank shp) zero [(ix2, ti)]
                       else zero
           lu = imap g lt

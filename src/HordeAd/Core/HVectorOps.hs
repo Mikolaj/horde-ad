@@ -593,7 +593,7 @@ fromDynamicR zero = \case
   DynamicShaped{} -> error "fromDynamicR: ranked from shaped"
   DynamicRankedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> let sh2 = fromList (shapeT @sh2)
+      Just Refl -> let sh2 = fromList $ toList $ knownShS @sh2
                    in zero sh2
       _ -> error "fromDynamicR: scalar mismatch"
     _ -> error "fromDynamicR: shape mismatch"

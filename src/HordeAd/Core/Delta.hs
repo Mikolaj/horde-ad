@@ -94,7 +94,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shCvtXR', shrRank, shsAppend, shsRank)
+  (shCvtRX, shCvtSX, shCvtXR', shrRank, shsAppend, shsPermutePrefix, shsRank)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.HVectorOps
@@ -161,7 +161,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 (Just Refl, Just Refl) -> (t, rest)
                 _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
                              ++ " instead of "
-                             ++ "FTKS @" ++ show (shapeT @sh)
+                             ++ "FTKS @" ++ show (knownShS @sh)
                              ++ " within " ++ show_iMap (iMap s2)
             Some mt@(MTKSDummy sh2 x2) : rest
               | Just Refl <- testEquality sh sh2
@@ -778,13 +778,10 @@ shapeDeltaFull = \case
   SliceS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
   ReverseS d -> shapeDeltaFull d
-  TransposeS @perm @sh2 perm d -> case shapeDeltaFull d of
+  TransposeS @_ @sh2 perm d -> case shapeDeltaFull d of
     FTKS _ x ->
-      withShapeP
-        (backpermutePrefixList (Permutation.permToList' perm)
-                               (shapeT @sh2)) $ \(Proxy @sh2Perm) ->
-          gcastWith (unsafeCoerceRefl :: sh2Perm :~: Permutation.PermutePrefix perm sh2) $
-          FTKS knownShS x
+      withKnownShS (shsPermutePrefix perm (knownShS @sh2)) $
+      FTKS knownShS x
   ReshapeS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
   GatherS @_ @_ @shm @shn d _ -> case shapeDeltaFull d of
@@ -813,7 +810,7 @@ shapeDeltaFull = \case
 
   RFromS @sh d
    | SNat <- shsRank (knownShS @sh) -> case shapeDeltaFull d of
-    FTKS _ x -> FTKR (fromList $ shapeT @sh) x
+    FTKS _ x -> FTKR (fromList $ toList $ knownShS @sh) x
   RFromX @sh d
    | SNat <- ssxRank (knownShX @sh) -> case shapeDeltaFull d of
     FTKX shx x -> FTKR (fromList $ toList shx) x
@@ -1340,9 +1337,7 @@ evalSame !s !c = \case
                                  c (constantTarget 0 (FTKS knownShS x)))) d
   ReverseS d -> evalSame s (sreverse c) d
   TransposeS @perm @sh2 perm d ->
-    withShapeP (backpermutePrefixList (Permutation.permToList' perm)
-                                      (shapeT @sh2)) $ \(Proxy @shp) ->
-    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix perm sh2 :~: shp) $
+    withKnownShS (shsPermutePrefix perm (knownShS @sh2)) $
     Permutation.permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)

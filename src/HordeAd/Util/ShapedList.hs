@@ -45,7 +45,8 @@ import Data.Array.Nested
   , ShS (..)
   , type (++)
   )
-import Data.Array.Nested.Internal.Shape (listsDropLenPerm, listsRank, shsLength)
+import Data.Array.Nested.Internal.Shape
+  (listsDropLenPerm, listsRank, shsLength, shsRank)
 
 import HordeAd.Core.Types
 import HordeAd.Util.SizedList qualified as SizedList
@@ -235,7 +236,7 @@ zeroOf fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOf fromInt sh
 permutePrefixSized :: forall sh sh2 i. (KnownShS sh, KnownShS sh2)
                    => Permutation.PermR -> ListS sh (Const i) -> ListS sh2 (Const i)
 permutePrefixSized p ix =
-  if length (shapeT @sh) < length p
+  if sNatValue (shsRank $ knownShS @sh) < length p
   then error "permutePrefixSized: cannot permute a list shorter than permutation"
   else fromList $ SizedList.permutePrefixList p $ toList ix
 

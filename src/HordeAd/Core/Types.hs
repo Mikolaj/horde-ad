@@ -9,7 +9,7 @@ module HordeAd.Core.Types
     -- * Definitions for type-level list shapes
   , withKnownShS, withKnownShX
   , sshapeKnown, slistKnown, sixKnown, knownShR
-  , shapeT, shapeP, sizeT, sizeP
+  , shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
   , Dict(..), PermC, trustMeThisIsAPermutation
   , Head, Take, Drop
@@ -34,7 +34,7 @@ import Data.Default
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:))
+import Data.Type.Equality (testEquality, (:~:))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -55,12 +55,13 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Mixed.Types (Dict (..), unsafeCoerceRefl)
+import Data.Array.Mixed.Types (Dict (..))
 import Data.Array.Nested
   (IxR, IxS (..), IxX, KnownShS (..), ListS (..), Rank, ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
-import Data.Array.Nested.Internal.Shape (shsToList, withKnownShS)
+import Data.Array.Nested.Internal.Shape
+  (shsProduct, shsRank, shsToList, withKnownShS)
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -102,14 +103,11 @@ knownShR :: ShR n i -> Dict KnownNat n
 knownShR ZSR = Dict
 knownShR (_ :$: (l :: ShR m i)) | Dict <- knownShR l = knownNatSucc @m
 
-shapeT :: forall sh. KnownShS sh => [Int]
-shapeT = shsToList (knownShS @sh)
-
 shapeP :: forall sh. KnownShS sh => Proxy sh -> [Int]
 shapeP _ = shsToList (knownShS @sh)
 
 sizeT :: forall sh. KnownShS sh => Int
-sizeT = product $ shapeT @sh
+sizeT = sNatValue $ shsProduct $ knownShS @sh
 
 sizeP :: forall sh. KnownShS sh => Proxy sh -> Int
 sizeP _ = sizeT @sh
@@ -121,16 +119,11 @@ withShapeP (n : ns) f = withSNat n $ \(SNat @n) ->
 
 sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
           => Maybe (sh1 :~: sh2)
-sameShape = if shapeT @sh1 == shapeT @sh2
-            then Just (unsafeCoerceRefl :: sh1 :~: sh2)
-            else Nothing
+sameShape = testEquality (knownShS @sh1) (knownShS @sh2)
 
 matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
              => Maybe (Rank sh1 :~: n2)
-matchingRank =
-  if length (shapeT @sh1) == valueOf @n2
-  then Just (unsafeCoerceRefl :: Rank sh1 :~: n2)
-  else Nothing
+matchingRank = testEquality (shsRank $ knownShS @sh1) (SNat @n2)
 
 class Permutation.IsPermutation is => PermC is
 instance Permutation.IsPermutation is => PermC is

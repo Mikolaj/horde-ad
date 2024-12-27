@@ -54,7 +54,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed as Mixed
-import Data.Array.Nested.Internal.Shape (shrRank)
+import Data.Array.Nested.Internal.Shape (shrRank, shsRank)
 
 import HordeAd.Core.Types
 import HordeAd.Util.ShapedList qualified as ShapedList
@@ -428,13 +428,13 @@ shapeDynamicF :: (forall r n. (GoodScalar r, KnownNat n) => target (TKR n r) -> 
               -> DynamicTensor target -> [Int]
 {-# INLINE shapeDynamicF #-}
 shapeDynamicF f (DynamicRanked t) = f t
-shapeDynamicF _ (DynamicShaped @_ @sh _) = shapeT @sh
+shapeDynamicF _ (DynamicShaped @_ @sh _) = toList $ knownShS @sh
 shapeDynamicF _ (DynamicRankedDummy _ proxy_sh) = shapeP proxy_sh
 shapeDynamicF _ (DynamicShapedDummy _ proxy_sh) = shapeP proxy_sh
 
 rankDynamic :: DynamicTensor target -> Int
 rankDynamic (DynamicRanked @_ @n _) = valueOf @n
-rankDynamic (DynamicShaped @_ @sh _) = length $ shapeT @sh
+rankDynamic (DynamicShaped @_ @sh _) = sNatValue $ shsRank $ knownShS @sh
 rankDynamic (DynamicRankedDummy _ proxy_sh) = length $ shapeP proxy_sh
 rankDynamic (DynamicShapedDummy _ proxy_sh) = length $ shapeP proxy_sh
 

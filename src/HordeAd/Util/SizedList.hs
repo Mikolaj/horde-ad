@@ -283,7 +283,7 @@ withListSh
       => IShR n -> a)
   -> a
 withListSh (Proxy @sh) f =
-  let shList = shapeT @sh
+  let shList = toList $ knownShS @sh
   in case someNatVal $ toInteger (length shList) of
     Just (SomeNat @n _) ->
       gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $

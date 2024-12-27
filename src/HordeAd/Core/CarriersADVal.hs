@@ -257,10 +257,11 @@ rFromH (HToH hv) i = case hv V.! i of
   DynamicRankedDummy @r2 @sh _ _
     | Just Refl <- matchingRank @sh @n
     , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG $ FTKR (fromList $ shapeT @sh) FTKScalar
+      ZeroG $ FTKR (fromList $ toList $ knownShS @sh) FTKScalar
   _ -> error "rFromH: impossible case"
 rFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
-  DynamicRankedDummy @_ @sh _ _ -> ZeroG $ FTKR (fromList $ shapeT @sh) FTKScalar
+  DynamicRankedDummy @_ @sh _ _ ->
+    ZeroG $ FTKR (fromList $ toList $ knownShS @sh) FTKScalar
   DynamicShapedDummy{} -> error "rFromH: DynamicShapedDummy"
 rFromH d i = RFromH d i
 
@@ -273,11 +274,12 @@ sFromH (HToH hv) i = case hv V.! i of
   DynamicShapedDummy @r2 @sh3 _ _
     | Just Refl <- sameShape @sh @sh3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG $ FTKS (fromList $ shapeT @sh3) FTKScalar
+      ZeroG $ FTKS (fromList $ toList $ knownShS @sh3) FTKScalar
   _ -> error "sFromH: impossible case"
 sFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
   DynamicRankedDummy{} -> error "sFromH: DynamicRankedDummy"
-  DynamicShapedDummy @_ @sh3 _ _ -> ZeroG $ FTKS (fromList $ shapeT @sh3) FTKScalar
+  DynamicShapedDummy @_ @sh3 _ _ ->
+    ZeroG $ FTKS (fromList $ toList $ knownShS @sh3) FTKScalar
 sFromH d i = SFromH d i
 
 

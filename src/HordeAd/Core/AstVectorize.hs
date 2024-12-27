@@ -43,7 +43,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtSX, shrRank, shsAppend, shsLength, shsRank)
+  (shCvtSX, shrRank, shsAppend, shsLength, shsPermutePrefix, shsRank)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -806,44 +806,34 @@ substProjVars :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
 
 astTrDynamic :: AstSpan s
-             => DynamicTensor (AstTensor AstMethodLet s) -> DynamicTensor (AstTensor AstMethodLet s)
+             => DynamicTensor (AstTensor AstMethodLet s)
+             -> DynamicTensor (AstTensor AstMethodLet s)
 astTrDynamic t@(DynamicRanked @_ @n1 u) =
   case cmpNat (Proxy @2) (Proxy @n1) of
     EQI -> DynamicRanked $ astTr @(n1 - 2) u
     LTI -> DynamicRanked $ astTr @(n1 - 2) u
     _ -> t
-astTrDynamic t@(DynamicShaped @_ @sh u) =
-  let sh1 = shapeT @sh
-      permute10 (m0 : m1 : ms) = m1 : m0 : ms
-      permute10 ms = ms
-      sh1Permuted = permute10 sh1
-  in withShapeP sh1Permuted $ \(Proxy @shPermuted) ->
-       withListSh (Proxy @sh) $ \_ ->
-         case cmpNat (Proxy @2) (Proxy @(Rank sh)) of
-           EQI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
-             (w :: AstTensor AstMethodLet s4 (TKS sh4 r4)) ->
-               gcastWith (unsafeCoerceRefl :: sh4 :~: shPermuted) $
-               DynamicShaped w
-           LTI -> case astTransposeS (Permutation.makePerm @'[1, 0]) u of
-             (w :: AstTensor AstMethodLet s4 (TKS sh4 r4)) ->
-               gcastWith (unsafeCoerceRefl :: sh4 :~: shPermuted) $
-               DynamicShaped w
-           _ -> t
+astTrDynamic t@(DynamicShaped @_ @sh u) | SNat @n <- shsRank (knownShS @sh) =
+  case cmpNat (Proxy @2) (Proxy @n) of
+    LTI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                          (knownShS @sh)) $
+           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
+    EQI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                          (knownShS @sh)) $
+           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
+    GTI -> t
 astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
-  let permute10 (m0 : m1 : ms) = m1 : m0 : ms
-      permute10 ms = ms
-      sh1Permuted = permute10 $ shapeT @sh1
-  in withShapeP sh1Permuted $ \proxy ->
-       DynamicRankedDummy p1 proxy
+  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                 (knownShS @sh1)) $
+  DynamicRankedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
 astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
-  let permute10 (m0 : m1 : ms) = m1 : m0 : ms
-      permute10 ms = ms
-      sh1Permuted = permute10 $ shapeT @sh1
-  in withShapeP sh1Permuted $ \proxy ->
-       DynamicShapedDummy p1 proxy
+  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                 (knownShS @sh1)) $
+  DynamicShapedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
 
 astTrAstHVector :: forall s. AstSpan s
-                => AstTensor AstMethodLet s TKUntyped -> AstTensor AstMethodLet s TKUntyped
+                => AstTensor AstMethodLet s TKUntyped
+                -> AstTensor AstMethodLet s TKUntyped
 astTrAstHVector t =
   fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
     astLetHVectorIn
