@@ -436,19 +436,19 @@ astIndexStep v ix = astIndexKnobsR (defaultKnobs {knobStepOnly = True})
                                    (simplifyAstIxR ix)
 
 astIndexS
-  :: forall sh1 sh2 s r.
-     (KnownShS sh1, KnownShS sh2, TensorKind r, AstSpan s)
-  => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
-  -> AstTensor AstMethodLet s (TKS2 sh2 r)
+  :: forall shm shn s r.
+     (KnownShS shm, KnownShS shn, TensorKind r, AstSpan s)
+  => AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
+  -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexS = astIndexKnobsS defaultKnobs
 
 astIndexStepS
-  :: forall sh1 sh2 s r.
-     (KnownShS sh1, KnownShS sh2, TensorKind r, AstSpan s)
-  => AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) r) -> AstIxS AstMethodLet sh1
-  -> AstTensor AstMethodLet s (TKS2 sh2 r)
+  :: forall shm shn s r.
+     (KnownShS shm, KnownShS shn, TensorKind r, AstSpan s)
+  => AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
+  -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexStepS v ix =
-  withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
   astIndexKnobsS (defaultKnobs {knobStepOnly = True})
                  (astNonIndexStep v)
                  (simplifyAstIxS ix)
@@ -2966,8 +2966,8 @@ astPrimalPart t = case t of
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astPrimalPart u)
                                              (astPrimalPart v)
   AstSumOfListS args -> astSumOfListS (map astPrimalPart args)
-  Ast.AstIndexS @sh1 @sh2 v ix ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  Ast.AstIndexS @shm @shn v ix ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (astPrimalPart v) ix
   Ast.AstSumS v -> astSumS (astPrimalPart v)
   Ast.AstScatterS @shm @shn @shp v (var, ix) ->
@@ -3078,8 +3078,8 @@ astDualPart t = case t of
   Ast.AstR2S{} -> Ast.AstDualPart t
   Ast.AstI2S{} -> Ast.AstDualPart t
   AstSumOfListS args -> astSumOfListS (map astDualPart args)
-  Ast.AstIndexS @sh1 @sh2 v ix ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  Ast.AstIndexS @shm @shn v ix ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (astDualPart v) ix
   Ast.AstSumS v -> astSumS (astDualPart v)
   Ast.AstScatterS @shm @shn @shp v (var, ix) ->
@@ -3395,8 +3395,8 @@ simplifyAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
   AstSumOfListS args -> astSumOfListS (map simplifyAst args)
-  Ast.AstIndexS @sh1 @sh2 v ix ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  Ast.AstIndexS @shm @shn v ix ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (simplifyAst v) (simplifyAstIxS ix)
   Ast.AstSumS v -> astSumS (simplifyAst v)
   Ast.AstScatterS @shm @shn @shp v (var, ix) ->
@@ -3651,8 +3651,8 @@ expandAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
   AstSumOfListS args -> astSumOfListS (map expandAst args)
-  Ast.AstIndexS @sh1 @sh2 v ix ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  Ast.AstIndexS @shm @shn v ix ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexKnobsS (defaultKnobs {knobExpand = True})
                    (expandAst v)
                    (expandAstIxS ix)
@@ -4227,8 +4227,8 @@ substitute1Ast i var v1 = case v1 of
     in if any isJust margs
        then Just $ astSumOfListS $ zipWith fromMaybe args margs
        else Nothing
-  Ast.AstIndexS @sh1 @sh2 v ix ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  Ast.AstIndexS @shm @shn v ix ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     case (substitute1Ast i var v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexS (fromMaybe v mv) (fromMaybe ix mix)
