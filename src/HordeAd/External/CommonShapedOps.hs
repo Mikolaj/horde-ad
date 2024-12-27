@@ -28,7 +28,6 @@ import Data.Array.Nested.Internal.Shape (shsRank)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 sminIndexN :: forall target sh r.
               ( ADReady target, GoodScalar r

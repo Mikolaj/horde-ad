@@ -74,7 +74,6 @@ import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 instance EqF RepN where
   (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
