@@ -10,7 +10,6 @@ module HordeAd.Util.ShapedList
     zipSized, zipWith_Sized
     -- * Tensor indexes as fully encapsulated shaped lists, with operations
   , zipIndex, zipWith_Index
-  , shapedToIndex, ixsLengthSNat
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx
   ) where
@@ -65,14 +64,6 @@ zipIndex (IxS l1) (IxS l2) = IxS $ zipSized l1 l2
 
 zipWith_Index :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
 zipWith_Index f (IxS l1) (IxS l2) = IxS $ zipWith_Sized f l1 l2
-
-shapedToIndex :: (KnownShS sh, KnownNat (Rank sh))
-              => IxS sh i -> IxR (Rank sh) i
-shapedToIndex = fromList . toList
-
-ixsLengthSNat :: IxS list i -> SNat (Rank list)
-ixsLengthSNat ZIS = SNat
-ixsLengthSNat (_ :.$ l) | SNat <- ixsLengthSNat l = SNat
 
 
 -- * Operations involving both indexes and shapes

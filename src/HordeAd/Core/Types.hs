@@ -30,6 +30,7 @@ module HordeAd.Core.Types
   , takeShape, dropShape, splitAt_Shape
   , splitAt_SizedS, dropIxS, takeShS, dropShS, takeShX, dropShX
   , listsTakeLen, listsDropLen, shsDropLen
+  , ixrToIxs, ixsToIxr
   ) where
 
 import Prelude
@@ -505,3 +506,12 @@ listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
 
 shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
 shsDropLen = coerce (listsDropLenPerm @SNat)
+
+-- And the same for ShS, for the opposite direction, etc., etc.
+ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
+         => IxS sh i -> IxR (Rank sh) i
+ixrToIxs = fromList . toList
+
+ixsToIxr :: (KnownShS sh, KnownNat (Rank sh))
+         => IxR (Rank sh) i -> IxS sh i
+ixsToIxr = fromList . toList

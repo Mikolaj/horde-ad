@@ -39,7 +39,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 -- * Pretty-printing setup and checks
 

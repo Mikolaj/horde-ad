@@ -53,7 +53,6 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 interpretAstPrimalRuntimeSpecialized
   :: forall target n r.

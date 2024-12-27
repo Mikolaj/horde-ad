@@ -8,7 +8,6 @@ module HordeAd.Util.SizedList
   , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized
   , permInverse
   , backpermutePrefixList
-  , sizedCompare
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , snocIndex
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
@@ -109,17 +108,6 @@ permInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
-
--- | Pairwise comparison of two sized list values.
--- The comparison function is invoked once for each rank
--- on the corresponding pair of indices.
-sizedCompare :: Monoid m
-                 => (i -> i -> m) -> ListR n i -> ListR n i -> m
-sizedCompare _ ZR ZR = mempty
-sizedCompare f (i ::: idx) (j ::: idx') =
-  f i j <> sizedCompare f idx idx'
-sizedCompare _ _ _ =
-  error "sizedCompare: impossible pattern needlessly required"
 
 
 -- * Tensor indexes as fully encapsulated sized lists, with operations
