@@ -14,8 +14,6 @@ module HordeAd.Util.SizedList
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , lastShape, initShape
   , withListShape, withListSh
-    -- * Operations involving both indexes and shapes
-  , toLinearIdx, fromLinearIdx, zeroOf
   ) where
 
 import Prelude
@@ -156,58 +154,3 @@ withListSh (Proxy @sh) f =
       gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $
       f $ fromList shList
     _ -> error "withListSh: impossible someNatVal error"
-
-
--- * Operations involving both indexes and shapes
-
--- | Given a multidimensional index, get the corresponding linear
--- index into the buffer. Note that the index doesn't need to be pointing
--- at a scalar. It may point at the start of a larger tensor instead.
---
--- If any of the dimensions is 0 or if rank is 0, the result will be 0,
--- which is fine, that's pointing at the start of the empty buffer.
--- Note that the resulting 0 may be a complex term.
---
--- Warning: @fromInteger@ of type @j@ cannot be used.
-toLinearIdx :: forall m n j. Num j
-            => (Int -> j) -> ShR (m + n) Int -> IxR m j -> j
-toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
-  where
-    -- Additional argument: index, in the @m - m1@ dimensional array so far,
-    -- of the @m - m1 + n@ dimensional tensor pointed to by the current
-    -- @m - m1@ dimensional index prefix.
-    go :: ShR (m1 + n) Int -> IxR m1 j -> j -> j
-    go sh ZIR tensidx = fromInt (shrSize sh) * tensidx
-    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt n * tensidx + i)
-    go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
-
--- | Given a linear index into the buffer, get the corresponding
--- multidimensional index. Here we require an index pointing at a scalar.
---
--- If any of the dimensions is 0, the linear index has to be 0
--- (which we can't assert, because j may be a term and so == lies)
--- and a fake index with correct length but lots of zeroes is produced,
--- because it doesn't matter, because it's going to point at the start
--- of the empty buffer anyway.
---
--- Warning: @fromInteger@ of type @j@ cannot be used.
-fromLinearIdx :: forall n j. (Num j, IntegralF j)
-              => (Int -> j) -> ShR n Int -> j -> IxR n j
-fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
-  where
-    -- Returns (linear index into array of sub-tensors,
-    -- multi-index within sub-tensor).
-    go :: ShR n1 Int -> j -> (j, IxR n1 j)
-    go ZSR n = (n, ZIR)
-    go (k :$: sh) _ | signum k == 0 =
-      (fromInt 0, fromInt 0 :.: zeroOf fromInt sh)
-    go (n :$: sh) lin =
-      let (tensLin, idxInTens) = go sh lin
-          tensLin' = tensLin `quotF` fromInt n
-          i = tensLin `remF` fromInt n
-      in (tensLin', i :.: idxInTens)
-
--- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: Num j => (Int -> j) -> ShR n i -> IxR n j
-zeroOf _ ZSR = ZIR
-zeroOf fromInt (_ :$: sh) = fromInt 0 :.: zeroOf fromInt sh

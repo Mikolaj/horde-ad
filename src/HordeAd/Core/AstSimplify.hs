@@ -153,7 +153,6 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 data SimplifyKnobs = SimplifyKnobs
@@ -289,8 +288,8 @@ astReshapeAsGatherS knobs v | Refl <- lemAppNil @sh2
         fromInt = AstConcrete FTKScalar . RepN . fromIntegral
         asts :: AstIxS AstMethodLet sh
         asts = let i :: AstInt AstMethodLet
-                   i = ShapedList.toLinearIdx @sh2 @'[] fromInt shOut ix
-               in simplifyAstIxS $ ShapedList.fromLinearIdx fromInt shIn i
+                   i = toLinearIdxS @sh2 @'[] fromInt shOut ix
+               in simplifyAstIxS $ fromLinearIdxS fromInt shIn i
                     -- we generate these, so we simplify
     in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $

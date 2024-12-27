@@ -74,7 +74,6 @@ import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 instance EqF RepN where
@@ -274,7 +273,7 @@ instance BaseTensor RepN where
                             (Nested.stoVector
                              $ tindexNS @_ @shm @shn (unRepN t) ix)
                      else id
-                ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral shm
+                ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
                                         $ fromIntegral i
                                       | i <- [0 .. s - 1] ]
             in updateNS @(Rank shp) zero
@@ -295,7 +294,7 @@ instance BaseTensor RepN where
                             (RepN
                              $ tindexNS @_ @shm @shn (unRepN t) ix)
                      else id
-                ivs = foldr g M.empty [ ShapedList.fromLinearIdx fromIntegral shm
+                ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
                                         $ fromIntegral i
                                       | i <- [0 .. s - 1] ]
             in updateNS @(Rank shp) zero
@@ -401,7 +400,7 @@ instance BaseTensor RepN where
             l = [ Nested.stoVector $ unRepN
                   $ sindex @_ @_ @_ @shn
                       t (f (fmap RepN
-                            $ ShapedList.fromLinearIdx fromIntegral shm i))
+                            $ fromLinearIdxS fromIntegral shm i))
                 | i <- [0 .. fromIntegral s - 1] ]
         in RepN $ Nested.sfromVector knownShS $ V.concat l
       _ ->
@@ -1080,8 +1079,8 @@ updateNS arr upd = case stensorKind @r of
               i = gcastWith (unsafeCoerceRefl
                              :: sh :~: Take n sh ++ Drop n sh)
                   $ fromIntegral $ unRepN
-                  $ ShapedList.toLinearIdx @(Take n sh) @(Drop n sh)
-                                           fromIntegral sh ix
+                  $ toLinearIdxS @(Take n sh) @(Drop n sh)
+                                 fromIntegral sh ix
           in V.concat [V.take i t, v, V.drop (i + V.length v) t]
     in RepN $ Nested.sfromVector knownShS (foldl' f values upd)
   _ -> case shsProduct (knownShS @(Take n sh)) of
@@ -1089,7 +1088,7 @@ updateNS arr upd = case stensorKind @r of
       gcastWith (unsafeCoerceRefl :: sh :~: Take n sh ++ Drop n sh) $
       let arrNested = snest (knownShS @(Take n sh)) arr
           shNested = sshape arrNested
-          f i v = case lookup (ShapedList.fromLinearIdx
+          f i v = case lookup (fromLinearIdxS
                                  @(Take n sh) (RepN . fromIntegral)
                                  shNested ((RepN . fromIntegral) i)) upd of
             Just u -> snest (knownShS @'[]) u

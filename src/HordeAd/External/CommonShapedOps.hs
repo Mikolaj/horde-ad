@@ -28,7 +28,6 @@ import Data.Array.Nested.Internal.Shape (shsRank)
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 sminIndexN :: forall target sh r.
@@ -36,7 +35,7 @@ sminIndexN :: forall target sh r.
               , KnownShS sh, KnownNat (Nested.Product sh) )
            => target (TKS sh r) -> IxSOf target sh
 sminIndexN t =
-  ShapedList.fromLinearIdx
+  fromLinearIdxS
     (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
     (sshape t)
     (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rfromS $ sminIndex (sflatten t))
@@ -46,7 +45,7 @@ smaxIndexN :: forall target sh r.
               , KnownShS sh, KnownNat (Nested.Product sh) )
            => target (TKS sh r) -> IxSOf target sh
 smaxIndexN t =
-  ShapedList.fromLinearIdx
+  fromLinearIdxS
     (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
     (sshape t)
     (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rfromS $ smaxIndex (sflatten t))
