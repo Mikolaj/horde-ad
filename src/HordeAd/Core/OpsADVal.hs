@@ -24,7 +24,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
+import GHC.TypeLits (fromSNat, KnownNat, sameNat, type (+), type (<=))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -449,8 +449,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
       STKScalar{} ->
         sconcrete $ Nested.semptyArray (knownShS @sh)
       _ -> error "sbuild1: empty nested array"
-    Nothing -> sfromList $ NonEmpty.map (f . fromIntegral)
-                         $ (0 :: Int) :| [1 .. valueOf @n - 1]
+    Nothing -> sfromList $ NonEmpty.map (f . fromInteger)
+                         $ 0 :| [1 .. valueOf @n - 1]
       -- element-wise (POPL) version
   sgather @r @shm @shn @shp (D u u') f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
@@ -615,7 +615,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tlambda _ = id
   tApply (HFun f) = f
   dbuild1 k f =
-    dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
+    dmkHVector $ ravelHVector $ map (tunvector . f . fromInteger) [0 .. fromSNat k - 1]
   drev :: forall x z. (TensorKind x, TensorKind z)
        => FullTensorKind x
        -> HFun x z

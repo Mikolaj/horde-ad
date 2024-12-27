@@ -12,7 +12,7 @@ import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
-import GHC.TypeLits (KnownNat, Nat, type (*))
+import GHC.TypeLits (KnownNat, Nat, fromSNat, type (*))
 import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -138,7 +138,7 @@ rnnMnistLossFusedS out_width@SNat
                              xs adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in sfromPrimal (recip $ srepl $ fromIntegral $ sNatValue batch_size) * loss
+  in sfromPrimal (recip $ srepl $ fromInteger $ fromSNat batch_size) * loss
 
 rnnMnistTestS
   :: forall target h w out_width batch_size r.
@@ -171,4 +171,4 @@ rnnMnistTestS out_width@SNat batch_size@SNat
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
-     / fromIntegral (sNatValue batch_size)
+     / fromInteger (fromSNat batch_size)

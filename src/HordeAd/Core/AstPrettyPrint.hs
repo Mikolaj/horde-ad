@@ -86,10 +86,10 @@ printAstVar :: forall s y. TensorKind y => PrintConfig -> AstVarName s y -> Show
 printAstVar cfg var =
   let rankTensorKind :: STensorKindType x -> Int
       rankTensorKind (STKScalar _) = 0
-      rankTensorKind (STKR snat _) = fromIntegral $ fromSNat snat
-      rankTensorKind (STKS sh _) = fromIntegral $ fromSNat $ shsRank sh
+      rankTensorKind (STKR snat _) = fromInteger $ fromSNat snat
+      rankTensorKind (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
       rankTensorKind (STKX (X.StaticShX l) _) =
-        fromIntegral $ fromSNat $ X.listxRank l
+        fromInteger $ fromSNat $ X.listxRank l
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
       rankTensorKind STKUntyped = -1

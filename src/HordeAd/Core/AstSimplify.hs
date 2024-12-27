@@ -122,6 +122,7 @@ import Data.Array.Nested.Internal.Shape
   , listsRank
   , shCvtSX
   , shrAppend
+  , shrRank
   , shrTail
   , shsAppend
   , shsHead
@@ -240,7 +241,7 @@ astReshapeAsGather
   -> AstTensor AstMethodLet s (TKR2 m r)
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather knobs shOut v =
-  funToVarsIx (lengthShape shOut) $ \ (!vars, !ix) ->
+  funToVarsIx (sNatValue $ shrRank shOut) $ \ (!vars, !ix) ->
     let shIn = shapeAst v
         fromInt = AstConcrete FTKScalar . RepN . fromIntegral
         asts :: AstIxR AstMethodLet p

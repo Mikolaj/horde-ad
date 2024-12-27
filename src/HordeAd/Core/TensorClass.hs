@@ -68,7 +68,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shrSize, shsAppend)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
@@ -179,7 +179,7 @@ class ( Num (IntOf target)
   rrank :: forall r n. (TensorKind r, KnownNat n) => target (TKR2 n r) -> Int
   rrank _ = valueOf @n
   rsize :: TensorKind r => target (TKR2 n r) -> Int
-  rsize = sizeShape . rshape
+  rsize = shrSize . rshape
   rlength :: TensorKind r => target (TKR2 (1 + n) r) -> Int
   rlength v = case rshape v of
     ZSR -> error "rlength: impossible pattern needlessly required"
@@ -267,7 +267,7 @@ class ( Num (IntOf target)
              => Int -> target (TKR n r) -> target (TKR (1 + n) r)
   rreplicate0N :: (GoodScalar r, KnownNat n)
                => IShR n -> target (TKR 0 r) -> target (TKR n r)
-  rreplicate0N sh = rreshape sh . rreplicate (sizeShape sh)
+  rreplicate0N sh = rreshape sh . rreplicate (shrSize sh)
   rappend :: (TensorKind r, KnownNat n)
           => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
           -> target (TKR2 (1 + n) r)
@@ -290,7 +290,7 @@ class ( Num (IntOf target)
   rtranspose :: (TensorKind r, KnownNat n)
              => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
   rflatten :: (TensorKind r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
-  rflatten u = rreshape (sizeShape (rshape u) :$: ZSR) u
+  rflatten u = rreshape (rsize u :$: ZSR) u
   rreshape :: (TensorKind r, KnownNat n, KnownNat m)
            => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
   rbuild :: forall r m n. (TensorKind r, KnownNat m, KnownNat n)

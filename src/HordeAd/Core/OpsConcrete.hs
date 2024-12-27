@@ -27,7 +27,7 @@ import Data.Vector.Storable qualified as VS
 import GHC.Exts (IsList (..))
 import GHC.IsList qualified as IsList
 import GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
+  (fromSNat, KnownNat, SomeNat (..), sameNat, someNatVal, type (+), type (<=))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import System.Random
@@ -236,9 +236,9 @@ instance BaseTensor RepN where
   sfloor = RepN . liftVS (V.map floor) . unRepN
   siota :: forall n r. (GoodScalar r, KnownNat n)
         => RepN (TKS '[n] r)  -- from 0 to n - 1
-  siota = let n = valueOf @n :: Int
+  siota = let n = valueOf @n
           in RepN $ Nested.sfromList1 SNat
-             $ NonEmpty.map fromIntegral $ NonEmpty.fromList [0 .. n - 1]
+             $ NonEmpty.map fromInteger $ NonEmpty.fromList [0 .. n - 1]
   sindex = tindexZS
   sindex0 = tindex0S
   ssum = RepN . Nested.ssumOuter1 . unRepN
@@ -518,7 +518,7 @@ instance BaseTensor RepN where
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tApply f x = RepN $ f $ unRepN x
   dbuild1 k f =
-    dmkHVector $ ravelHVector $ map (tunvector . f . fromIntegral) [0 .. sNatValue k - 1]
+    dmkHVector $ ravelHVector $ map (tunvector . f . fromInteger) [0 .. fromSNat k - 1]
   -- The code for drevDt and dfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drev :: forall x z. (TensorKind x, TensorKind z)
@@ -1044,7 +1044,7 @@ tgatherZR :: forall m p n r.
 tgatherZR sh t f = case stensorKind @r of
   STKScalar{} ->  -- optimized
     let shm = takeShape @m sh
-        s = sizeShape shm
+        s = shrSize shm
         l = [ Nested.rtoVector $ unRepN
               $ t `rindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
             | i <- [0 .. fromIntegral s - 1] ]

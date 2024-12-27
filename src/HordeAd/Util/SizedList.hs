@@ -17,7 +17,6 @@ module HordeAd.Util.SizedList
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , takeShape, dropShape, splitAt_Shape
   , lastShape, initShape
-  , lengthShape, sizeShape
   , withListShape, withListSh
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
@@ -47,6 +46,8 @@ import Data.Array.Nested
   , pattern ZIR
   , pattern ZR
   )
+
+import Data.Array.Nested.Internal.Shape (shrSize)
 
 import HordeAd.Core.Types
 
@@ -226,14 +227,6 @@ lastShape (ShR ix) = lastSized ix
 initShape :: ShR (1 + n) i -> ShR n i
 initShape (ShR ix) = ShR $ initSized ix
 
-lengthShape :: forall n i. KnownNat n => ShR n i -> Int
-lengthShape _ = valueOf @n
-
--- | The number of elements in an array of this shape
-sizeShape :: Integral i => ShR n i -> Int
-sizeShape ZSR = 1
-sizeShape (n :$: sh) = fromIntegral n * sizeShape sh
-
 -- Both shape representations denote the same shape.
 withListShape
   :: forall i a.
@@ -280,7 +273,7 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: ShR (m1 + n) Int -> IxR m1 j -> j -> j
-    go sh ZIR tensidx = fromInt (sizeShape sh) * tensidx
+    go sh ZIR tensidx = fromInt (shrSize sh) * tensidx
     go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 

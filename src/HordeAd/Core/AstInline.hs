@@ -22,6 +22,8 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
+import Data.Array.Nested.Internal.Shape (shrRank)
+
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -29,7 +31,6 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 -- * The joint inlining and simplification term transformation
 
@@ -198,7 +199,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (toList ix)
-        count = fromIntegral $ sizeShape sh
+        count = fromInteger $ fromSNat $ shrRank sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatter sh v2 (vars, fromList ix2))
   Ast.AstFromVector l ->
@@ -217,7 +218,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstGather sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (toList ix)
-        count = fromIntegral $ sizeShape sh
+        count = fromInteger $ fromSNat $ shrRank sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGather sh v2 (vars, fromList ix2))
   Ast.AstCastR v -> second Ast.AstCastR $ inlineAst memo v
