@@ -2033,20 +2033,23 @@ astSumOfListS :: (GoodScalar r, KnownShS sh)
               -> AstTensor AstMethodLet s (TKS sh r)
 astSumOfListS = foldr1 (+)  -- @sum@ reverses order
 
-astSum :: (KnownNat n, GoodScalar r, AstSpan s)
-       => AstTensor AstMethodLet s (TKR (1 + n) r)
-       -> AstTensor AstMethodLet s (TKR n r)
+astSum :: forall n r s. (KnownNat n, TensorKind r, AstSpan s)
+       => AstTensor AstMethodLet s (TKR2 (1 + n) r)
+       -> AstTensor AstMethodLet s (TKR2 n r)
 astSum t0 = case shapeAst t0 of
-  0 :$: rest -> astReplicate0N rest 0
+  0 :$: rest | STKScalar{} <- stensorKind @r -> astReplicate0N rest 0
 --  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
   _ -> case t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum v)
     -- this is problematic, because it keeps huge tensors alive for longer
-    Ast.AstReplicate @y2 k v | STKR{} <- stensorKind @y2 ->
+    Ast.AstReplicate @y2 k v | STKR{} <- stensorKind @y2
+                             , STKScalar{} <- stensorKind @r ->
       v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
-    Ast.AstFromVector l -> astSumOfListR $ V.toList l
-    Ast.AstSlice _i 0 v -> astReplicate0N (shrTail $ shapeAst v) 0
+    Ast.AstFromVector l | STKScalar{} <- stensorKind @r ->
+      astSumOfListR $ V.toList l
+    Ast.AstSlice _i 0 v | STKScalar{} <- stensorKind @r ->
+      astReplicate0N (shrTail $ shapeAst v) 0
     Ast.AstSlice i 1 v -> astIndexR v (fromIntegral i :.: ZIR)
     Ast.AstReverse v -> astSum v
     AstConcrete (FTKR sh FTKScalar) t ->

@@ -54,7 +54,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shrRank, shrSize, shsAppend, shsProduct, shsSize)
+  (shrRank, shrSize, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
@@ -117,8 +117,18 @@ instance BaseTensor RepN where
   rfloor = RepN . liftVR (V.map floor) . unRepN
   rindex = tindexZR
   rindex0 = tindex0R
-  rsum = RepN . Nested.rsumOuter1 . unRepN
-  rsum0 = RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN
+  rsum t = case tftk stensorKind t of
+    FTKR _ FTKScalar ->  -- optimized
+      RepN . Nested.rsumOuter1 . unRepN $ t
+    FTKR _ x ->
+      let l = runravelToList t
+          sh = shrTail $ rshape t
+      in foldr (addTarget stensorKind) (constantTarget 0 (FTKR sh x)) l
+  rsum0 t = case tftk stensorKind t of
+    FTKR _ FTKScalar ->  -- optimized
+      RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
+    FTKR _ _ ->
+      rsum . rflatten $ t
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   rscatter = tscatterZR
@@ -134,8 +144,10 @@ instance BaseTensor RepN where
     RepN . tfromList0NR sh . V.toList . V.map unRepN
   runravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.rtoListOuter . unRepN
-  rreplicate k = RepN . Nested.rreplicate (k :$: ZSR) . unRepN
-  rreplicate0N sh = RepN . Nested.rreplicate sh . unRepN
+  rreplicate @r k | Dict <- eltDictRep (stensorKind @r) =
+    RepN . Nested.rreplicate (k :$: ZSR) . unRepN
+  rreplicate0N @r sh | Dict <- eltDictRep (stensorKind @r) =
+    RepN . Nested.rreplicate sh . unRepN
   rappend @r u v | Dict <- eltDictRep (stensorKind @r) =
     RepN $ Nested.rappend (unRepN u) (unRepN v)
   rslice @r i n | Dict <- eltDictRep (stensorKind @r) =

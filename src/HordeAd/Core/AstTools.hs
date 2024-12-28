@@ -105,7 +105,8 @@ ftkAst t = case t of
     v : _ -> ftkAst v
   AstIndex v _ -> case ftkAst v of
     FTKR sh x -> FTKR (dropShape sh) x
-  AstSum v -> FTKR (shrTail $ shapeAst v) FTKScalar
+  AstSum v -> case ftkAst v of
+    FTKR sh x -> FTKR (shrTail sh) x
   AstScatter sh v _ -> case ftkAst v of
     FTKR _ x -> FTKR sh x
   AstFromVector l -> case V.toList l of

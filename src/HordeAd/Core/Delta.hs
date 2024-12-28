@@ -438,10 +438,10 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKR2 n r)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
-  SumR :: (GoodScalar r, KnownNat n)
-       => Delta target (TKR (1 + n) r) -> Delta target (TKR n r)
-  Sum0R :: (GoodScalar r, KnownNat n)
-        => Delta target (TKR n r) -> Delta target (TKR 0 r)
+  SumR :: (TensorKind r, KnownNat n)
+       => Delta target (TKR2 (1 + n) r) -> Delta target (TKR2 n r)
+  Sum0R :: (TensorKind r, KnownNat n)
+        => Delta target (TKR2 n r) -> Delta target (TKR2 0 r)
   Dot0R :: (KnownNat n, GoodScalar r)
         => target (TKR n r) -> Delta target (TKR n r) -> Delta target (TKR 0 r)
   ScatterR :: (TensorKind r, KnownNat m, KnownNat n, KnownNat p)
@@ -462,9 +462,9 @@ data Delta :: Target -> TensorKindType -> Type where
               => Data.Vector.Vector (Delta target (TKR2 n r))
               -> Delta target (TKR2 (1 + n) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  ReplicateR :: (GoodScalar r, KnownNat n)
-             => Int -> Delta target (TKR n r)
-             -> Delta target (TKR (1 + n) r)
+  ReplicateR :: (TensorKind r, KnownNat n)
+             => Int -> Delta target (TKR2 n r)
+             -> Delta target (TKR2 (1 + n) r)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendR :: (TensorKind r, KnownNat n)
           => Delta target (TKR2 (1 + n) r)
@@ -729,8 +729,10 @@ shapeDeltaFull = \case
 
   IndexR d _ -> case shapeDeltaFull d of
     FTKR sh x -> FTKR (dropShape sh) x
-  SumR d -> FTKR (shrTail (shapeDelta d)) FTKScalar
-  Sum0R{} -> FTKR ZSR FTKScalar
+  SumR d -> case shapeDeltaFull d of
+    FTKR sh x -> FTKR (shrTail sh) x
+  Sum0R d -> case shapeDeltaFull d of
+    FTKR _ x -> FTKR ZSR x
   Dot0R{} -> FTKR ZSR FTKScalar
   ScatterR sh d _ -> case shapeDeltaFull d of
     FTKR _ x -> FTKR sh x
@@ -743,7 +745,8 @@ shapeDeltaFull = \case
       _ -> error "shapeDeltaFull: FromVectorR with no arguments"
     d : _ -> case shapeDeltaFull d of
       FTKR sh x -> FTKR (length l :$: sh) x
-  ReplicateR n d -> FTKR (n :$: shapeDelta d) FTKScalar
+  ReplicateR n d -> case shapeDeltaFull d of
+    FTKR sh x -> FTKR (n :$: sh) x
   AppendR a b -> case shapeDeltaFull a of
     FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
     FTKR (ai :$: ash) x -> case shapeDeltaFull b of
@@ -1674,7 +1677,7 @@ fwdSame params s = \case
 
   IndexR d ix -> second (`rindex` ix) $ fwdSame params s d
   SumR d -> second rsum $ fwdSame params s d
-  Sum0R ZeroG{} -> (s, rscalar 0)
+  Sum0R (ZeroG (FTKR _ x)) -> (s, constantTarget 0 (FTKR ZSR x))
   Sum0R d -> second rsum0 $ fwdSame params s d
   Dot0R _ ZeroG{} -> (s, rscalar 0)
   Dot0R v d -> second (rdot0 v) $ fwdSame params s d
