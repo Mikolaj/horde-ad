@@ -48,7 +48,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, shsRank)
+  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, shsKnownShS, shsRank)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -626,7 +626,7 @@ unravelDynamic (DynamicRanked @rp @p t) =
     Nothing -> error "unravelDynamic: rank 0"
 unravelDynamic (DynamicShaped @_ @sh t) = case knownShS @sh of
   ZSS -> error "unravelDynamic: rank 0"
-  (:$$) SNat tl | Dict <- sshapeKnown tl -> map DynamicShaped $ sunravelToList t
+  (:$$) SNat tl | Dict <- shsKnownShS tl -> map DynamicShaped $ sunravelToList t
 unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
   withListSh (Proxy @sh) $ \(sh :: IShR p) ->
     case someNatVal $ valueOf @p - 1 of
@@ -636,7 +636,7 @@ unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
       Nothing -> error "unravelDynamic: rank 0"
 unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case knownShS @sh of
   ZSS -> error "unravelDynamic: rank 0"
-  (:$$) SNat tl | Dict <- sshapeKnown tl ->
+  (:$$) SNat tl | Dict <- shsKnownShS tl ->
     map DynamicShaped $ sunravelToList (srepl 0 :: target (TKS sh rp))
 
 unravelHVector
@@ -798,7 +798,7 @@ mapRanked10 f (DynamicRanked t) = case rshape t of
   _ :$: _ -> DynamicRanked $ f t
 mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
   ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 _ tl | Dict <- sshapeKnown tl ->
+  (:$$) @_ @sh0 _ tl | Dict <- shsKnownShS tl ->
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
       let res = f $ rfromS @_ @_ @sh t
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
@@ -806,12 +806,12 @@ mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
         DynamicShaped $ sfromR @_ @_ @shr res
 mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- sshapeKnown tl ->
+  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
     withListSh (Proxy @sh0) $ \sh1 ->
       DynamicRanked @r $ f (rzero $ sNatValue k :$: sh1)
 mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- sshapeKnown tl ->
+  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
     withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
       let res = f @r (rzero $ sNatValue k :$: sh1)
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
@@ -835,7 +835,7 @@ mapRanked11 f (DynamicRanked t) = case rshape t of
   _ :$: _ -> DynamicRanked $ f t
 mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
   ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 _ tl | Dict <- sshapeKnown tl ->
+  (:$$) @_ @sh0 _ tl | Dict <- shsKnownShS tl ->
     withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
       let res = f $ rfromS @_ @_ @sh t
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
@@ -847,12 +847,12 @@ mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
           _ -> error "mapRanked01: impossible someNatVal"
 mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- sshapeKnown tl ->
+  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
     withListSh (Proxy @sh0) $ \sh1 ->
       DynamicRanked @r $ f (rzero $ sNatValue k :$: sh1)
 mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- sshapeKnown tl ->
+  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
     withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
       let res = f @r (rzero $ sNatValue k :$: sh1)
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->

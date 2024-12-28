@@ -56,7 +56,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed as Mixed
-import Data.Array.Nested.Internal.Shape (shrRank, shsRank)
+import Data.Array.Nested.Internal.Shape (shrRank, shsKnownShS, shsRank)
 
 import HordeAd.Core.Types
 
@@ -515,15 +515,15 @@ index1DynamicF rshape sshape rindex sindex u i = case u of
     _ :$: _ -> DynamicRanked $ rindex t (i :.: ZIR)
   DynamicShaped t -> case sshape t of
     ZSS -> error "index1Dynamic: rank 0"
-    (:$$) SNat tl | Dict <- sshapeKnown tl ->
+    (:$$) SNat tl | Dict <- shsKnownShS tl ->
       DynamicShaped $ sindex t (i :.$ ZIS)
   DynamicRankedDummy @r @sh p1 _ -> case knownShS @sh of
     ZSS -> error "index1Dynamic: rank 0"
-    (:$$) @_ @sh2 _ tl | Dict <- sshapeKnown tl ->
+    (:$$) @_ @sh2 _ tl | Dict <- shsKnownShS tl ->
                          DynamicRankedDummy @r @sh2 p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> case knownShS @sh of
     ZSS -> error "index1Dynamic: rank 0"
-    (:$$) @_ @sh2 _ tl | Dict <- sshapeKnown tl ->
+    (:$$) @_ @sh2 _ tl | Dict <- shsKnownShS tl ->
                          DynamicShapedDummy @r @sh2 p1 Proxy
 
 replicate1HVectorF :: (forall r n. (GoodScalar r, KnownNat n)

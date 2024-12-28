@@ -68,7 +68,8 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shrSize, shsAppend)
+import Data.Array.Nested.Internal.Shape
+  (shCvtSX, shrRank, shrSize, shsAppend, shsKnownShS)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
@@ -299,7 +300,7 @@ class ( Num (IntOf target)
     let buildSh :: IShR m1 -> (IxROf target m1 -> target (TKR2 n r))
                 -> target (TKR2 (m1 + n) r)
         buildSh ZSR f = f ZIR
-        buildSh (k :$: sh) f | Dict <- knownShR sh =
+        buildSh (k :$: sh) f | SNat <- shrRank sh =
           let g i = buildSh sh (\ix -> f (i :.: ix))
           in rbuild1 k g
     in buildSh (takeShape @m @n sh0) f0
@@ -631,7 +632,7 @@ class ( Num (IntOf target)
           -> target (TKS2 (sh1 ++ Drop m sh) r)
         buildSh sh1 sh1m f = case (sh1, sh1m) of
           (ZSS, _) -> f ZIS
-          ((:$$) SNat sh2, (:$$) _ sh2m) | Dict <- sshapeKnown sh2m ->
+          ((:$$) SNat sh2, (:$$) _ sh2m) | Dict <- shsKnownShS sh2m ->
             let g i = buildSh sh2 sh2m (f . (i :.$))
             in sbuild1 g
     in gcastWith (unsafeCoerceRefl

@@ -8,7 +8,7 @@ module HordeAd.Core.Types
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
     -- * Definitions for type-level list shapes
   , withKnownShS, withKnownShX
-  , sshapeKnown, slistKnown, sixKnown, knownShR
+  , slistKnown, sixKnown
   , shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
   , Dict(..), PermC, trustMeThisIsAPermutation
@@ -121,24 +121,17 @@ valueOf = fromInteger $ fromSNat (SNat @n)
 
 -- * Definitions for type-level list shapes
 
-sshapeKnown :: ShS sh -> Dict KnownShS sh
-sshapeKnown ZSS = Dict
-sshapeKnown (SNat :$$ sh) | Dict <- sshapeKnown sh = Dict
-
+-- TODO: this can probably be retired when we have conversions
+-- from ShS to ShR, etc.
 slistKnown :: ListS sh i -> Dict KnownShS sh
 slistKnown ZS = Dict
 slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
 
+-- TODO: this can probably be retired when we have conversions
+-- from ShS to ShR, etc.
 sixKnown :: IxS sh i -> Dict KnownShS sh
 sixKnown ZIS = Dict
 sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
-
-knownNatSucc :: KnownNat n => Dict KnownNat (n + 1)
-knownNatSucc = Dict
-
-knownShR :: ShR n i -> Dict KnownNat n
-knownShR ZSR = Dict
-knownShR (_ :$: (l :: ShR m i)) | Dict <- knownShR l = knownNatSucc @m
 
 shapeP :: forall sh. KnownShS sh => Proxy sh -> [Int]
 shapeP _ = shsToList (knownShS @sh)

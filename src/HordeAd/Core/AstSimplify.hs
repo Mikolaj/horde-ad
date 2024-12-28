@@ -1028,8 +1028,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
          | otherwise ->
            if knobExpand knobs
            then Ast.AstGather sh0 v0 (vars0, ix0)
-           else case knownShR sh' of
-             Dict -> withSNat k $ \snat ->
+           else case shrRank sh' of
+             SNat -> withSNat k $ \snat ->
                astReplicate snat (astGatherKnobsR knobs sh' v0 (vars, ix0))
        where
         restN = ixrInit ix0
@@ -2240,7 +2240,7 @@ astReplicateN :: forall n p s r.
 astReplicateN sh v =
   let go :: IShR n' -> AstTensor AstMethodLet s (TKR2 (n' + p) r)
       go ZSR = v
-      go (k :$: sh2) | Dict <- knownShR sh2 = withSNat k $ \snat ->
+      go (k :$: sh2) | SNat <- shrRank sh2 = withSNat k $ \snat ->
         astReplicate snat $ go sh2
   in go (takeShape sh)
 
@@ -2251,7 +2251,7 @@ astReplicateNS :: forall shn shp s r.
 astReplicateNS v =
   let go :: ShS shn' -> AstTensor AstMethodLet s (TKS2 (shn' ++ shp) r)
       go ZSS = v
-      go ((:$$) @k @shn2 SNat shn2) | Dict <- sshapeKnown shn2 =
+      go ((:$$) @k @shn2 SNat shn2) | Dict <- shsKnownShS shn2 =
         withKnownShS (knownShS @shn2 `shsAppend` knownShS @shp) $
         astReplicate (SNat @k) $ go shn2
   in go (knownShS @shn)
@@ -2262,7 +2262,7 @@ astReplicate0N sh =
   let go :: IShR n' -> AstTensor AstMethodLet s (TKR 0 r)
          -> AstTensor AstMethodLet s (TKR n' r)
       go ZSR v = v
-      go (k :$: sh') v | Dict <- knownShR sh' = withSNat k $ \snat ->
+      go (k :$: sh') v | SNat <- shrRank sh' = withSNat k $ \snat ->
         astReplicate snat $ go sh' v
   in go sh . fromPrimal . AstConcrete (FTKR ZSR FTKScalar) . rscalar
 
@@ -2272,7 +2272,7 @@ astReplicate0NS =
   let go :: ShS sh' -> AstTensor AstMethodLet s (TKS '[] r)
          -> AstTensor AstMethodLet s (TKS sh' r)
       go ZSS v = v
-      go ((:$$) SNat sh') v | Dict <- sshapeKnown sh' =
+      go ((:$$) SNat sh') v | Dict <- shsKnownShS sh' =
         astReplicate SNat $ go sh' v
   in go (knownShS @shn) . fromPrimal . AstConcrete (FTKS ZSS FTKScalar) . sscalar
 
