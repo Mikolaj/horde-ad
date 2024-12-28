@@ -73,7 +73,6 @@ import Data.Array.Nested.Internal.Shape (shCvtSX, shrSize, shsAppend)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 -- Note that no Ast* module except AstInterpret and AstEnv
 -- depends on any Tensor*, Carriers* and Ops* modules

@@ -12,7 +12,6 @@ module HordeAd.Core.Types
   , shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
   , Dict(..), PermC, trustMeThisIsAPermutation
-  , Head, Take, Drop
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
     -- * Some fundamental constraints and types
@@ -27,6 +26,7 @@ module HordeAd.Core.Types
   , withListSh, backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
     -- * Feature requests for ox-arrays
+  , Head, Take, Drop
   , ixsRank, ssxRank
   , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
   , takeShape, dropShape, splitAt_Shape
@@ -171,18 +171,6 @@ trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
 trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
 trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
   Dict -> r
-
-type Head :: [k] -> k
-type family Head l where
-  Head (x : _) = x
-
-type family Take (n :: Nat) (xs :: [k]) :: [k] where
-  Take 0 xs = '[]
-  Take n (x ': xs) = x ': Take (n - 1) xs
-
-type family Drop (n :: Nat) (xs :: [k]) :: [k] where
-  Drop 0 xs = xs
-  Drop n (x ': xs) = Drop (n - 1) xs
 
 
 -- * Types of types of tensors
@@ -506,16 +494,32 @@ zeroOfS _ ZSS = ZIS
 zeroOfS fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOfS fromInt sh
 
 
--- * Feature requests for ox-arrays
+-- * Shopping list for ox-arrays
 
 -- All of this should have better names and types, just as in ox-arrays,
 -- and be consistently added for all 9 kinds of shape things.
 
--- - Permutation.permInverse for ShS and not only for StaticShX (the proof
---   does not convert (easily)). Though, frankly, the proof is useless,
+-- - Permutation.permInverse for ShS instead of only for StaticShX (the proof
+--   does not convert (easily)). Though, frankly, the proof is often useless,
 --   due to how bad GHC is at reasoning (no (++) congruence, no (:~:)
 --   transitivity, etc., see astGatherCase.AstTransposeS
---   and astTransposeAsGatherS).
+--   and astTransposeAsGatherS), so it's easier to postulate the thing
+--   GHC needs in one or two clauses than to write a dozen bread crumbs
+--   to lead GHC to grudgingly use the proof.
+
+-- - The Proxies in listsIndex are unused.
+
+type Head :: [k] -> k
+type family Head l where
+  Head (x : _) = x
+
+type family Take (n :: Nat) (xs :: [k]) :: [k] where
+  Take 0 xs = '[]
+  Take n (x ': xs) = x ': Take (n - 1) xs
+
+type family Drop (n :: Nat) (xs :: [k]) :: [k] where
+  Drop 0 xs = xs
+  Drop n (x ': xs) = Drop (n - 1) xs
 
 ixsRank :: IxS sh i -> SNat (Rank sh)
 ixsRank (IxS l) = listsRank l

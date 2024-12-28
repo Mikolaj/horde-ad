@@ -54,7 +54,6 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 -- This abbreviation is used a lot below.
 astTr :: forall n s r. (KnownNat n, TensorKind r, AstSpan s)

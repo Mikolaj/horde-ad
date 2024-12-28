@@ -31,7 +31,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Util.SizedList
 
 unRawHVector :: HVector (AstRaw s) -> HVector (AstTensor AstMethodShare s)
 unRawHVector =
