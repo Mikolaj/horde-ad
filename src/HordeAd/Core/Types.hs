@@ -24,6 +24,7 @@ module HordeAd.Core.Types
   , IxROf, IxSOf, IxXOf
     -- * Misc
   , IntegralF(..), RealFloatF(..)
+  , backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
     -- * Feature requests for ox-arrays
   , ixsRank, ssxRank
@@ -34,6 +35,7 @@ module HordeAd.Core.Types
   , ixrToIxs, ixsToIxr
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
+  , permRInverse
   ) where
 
 import Prelude
@@ -45,6 +47,7 @@ import Data.Default
 import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
+import Data.List (sort)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:))
 import Data.Vector.Storable qualified as V
@@ -66,7 +69,7 @@ import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
-import Data.Array.Mixed.Permutation (DropLen, TakeLen)
+import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank, withKnownShX)
 import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
@@ -385,6 +388,9 @@ instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatF r where
   atan2F = atan2
 -}
 
+backpermutePrefixList :: PermR -> [i] -> [i]
+backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
+
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
@@ -661,3 +667,6 @@ zipIndexS (IxS l1) (IxS l2) = IxS $ zipSizedS l1 l2
 
 zipWith_IndexS :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
 zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
+
+permRInverse :: PermR -> PermR
+permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]

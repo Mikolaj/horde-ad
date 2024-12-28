@@ -76,7 +76,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Lemmas
-import Data.Array.Mixed.Permutation (DropLen, TakeLen)
+import Data.Array.Mixed.Permutation (DropLen, TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
 import Data.Array.Mixed.Types (Init, Last, Tail, unsafeCoerceRefl)
@@ -185,7 +185,7 @@ astTransposeAsGather knobs perm v =
   in withSNat pInt $ \ (SNat @p) ->
     funToVarsIx pInt $ \ (!vars, !ix) ->
       let asts :: AstIxR AstMethodLet p
-          asts = ixrPermutePrefix (permInverse perm) ix
+          asts = ixrPermutePrefix (permRInverse perm) ix
       in case cmpNat (Proxy @p) (Proxy @n) of
         EQI -> astGatherKnobsR @p @0 knobs
                  (Nested.Internal.Shape.shrPermutePrefix perm (shapeAst v)) v
@@ -209,7 +209,7 @@ astTransposeAsGatherS knobs perm v =
      -- See astGatherCase.AstTransposeS for an example with more comments.
      gcastWith (lemRankMapJust $ shsTakeLen perm (knownShS @sh)) $
      gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
-     Permutation.permInverse perm $ \(invperm :: Nested.Perm invperm) proof ->
+     permInverse perm $ \(invperm :: Nested.Perm invperm) proof ->
        case proof (ssxFromShape $ shCvtSX $ shsTakeLen perm (knownShS @sh)) of
          Refl ->
            gcastWith (unsafeCoerceRefl
@@ -631,7 +631,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
       -- we generate this index, so we simplify on the spot
     in astIndex v (iRev :.: rest1)
   Ast.AstTranspose perm v | valueOf @m >= length perm ->
-    astIndex v (ixrPermutePrefix (permInverse perm) ix)
+    astIndex v (ixrPermutePrefix (permRInverse perm) ix)
   Ast.AstTranspose perm v -> astIndex (astTransposeAsGather knobs perm v) ix
   Ast.AstReshape sh v -> astIndex (astReshapeAsGather knobs sh v) ix
   Ast.AstGather _sh v (ZR, ix2) -> astIndex v (ix2 `ixrAppend` ix)
@@ -1227,7 +1227,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
         -- we generate this index, so we simplify on the spot
       in astGather sh4 v (vars4, iRev :.: rest4)
     Ast.AstTranspose perm v | valueOf @p' >= length perm ->
-      astGather sh4 v (vars4, ixrPermutePrefix (permInverse perm) ix4)
+      astGather sh4 v (vars4, ixrPermutePrefix (permRInverse perm) ix4)
     Ast.AstTranspose perm v ->
       if knobExpand knobs
       then astGather sh4 (astTransposeAsGather knobs perm v) (vars4, ix4)
@@ -1631,7 +1631,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
         _ ->
           gcastWith (lemRankMapJust $ shsTakeLen perm (knownShS @sh)) $
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
-          Permutation.permInverse perm
+          permInverse perm
           $ \ (invperm :: Nested.Perm invperm) proof ->
             case proof (ssxFromShape $ shCvtSX
                         $ shsTakeLen perm (knownShS @sh)) of

@@ -68,6 +68,7 @@ import Text.Show (showListWith)
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
 
+import Data.Array.Mixed.Permutation (permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
   ( SMayNat (..)
@@ -1295,7 +1296,7 @@ evalSame !s !c = \case
     FTKR ZSR _ -> error "evalSame: impossible pattern needlessly required"
   ReverseR d -> evalSame s (rreverse c) d
   TransposeR perm d ->
-    let permR = permInverse perm
+    let permR = permRInverse perm
     in evalSame s (rtranspose permR c) d
   ReshapeR _sh d ->
     evalSame s (rreshape (shapeDelta d) c) d
@@ -1345,7 +1346,7 @@ evalSame !s !c = \case
   ReverseS d -> evalSame s (sreverse c) d
   TransposeS @perm @sh2 perm d ->
     withKnownShS (shsPermutePrefix perm (knownShS @sh2)) $
-    Permutation.permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
+    permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
         $ gcastWith (unsafeCoerceRefl
