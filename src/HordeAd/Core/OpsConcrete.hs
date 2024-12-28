@@ -54,7 +54,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shrRank, shrSize, shrTail, shsAppend, shsProduct, shsSize)
+  (shrRank, shrSize, shsTail, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
@@ -211,8 +211,18 @@ instance BaseTensor RepN where
                 $ NonEmpty.map fromInteger $ NonEmpty.fromList [0 .. n - 1]
   sindex = tindexZS
   sindex0 = tindex0S
-  ssum = RepN . Nested.ssumOuter1 . unRepN
-  ssum0 = RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN
+  ssum t = case tftk stensorKind t of
+    FTKS _ FTKScalar ->  -- optimized
+      RepN . Nested.ssumOuter1 . unRepN $ t
+    FTKS _ x ->
+      let l = sunravelToList t
+          sh = shsTail $ sshape t
+      in foldr (addTarget stensorKind) (constantTarget 0 (FTKS sh x)) l
+  ssum0 t = case tftk stensorKind t of
+    FTKS _ FTKScalar ->  -- optimized
+      RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
+    FTKS _ _ ->
+      ssum . sflatten $ t
   sdot0 u v = RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   -- Performance depends a lot on the number and size of tensors.
@@ -283,8 +293,10 @@ instance BaseTensor RepN where
     RepN . tfromList0NS . V.toList . V.map unRepN
   sunravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.stoListOuter . unRepN
-  sreplicate = RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
-  sreplicate0N @_ @sh | Refl <- lemAppNil @sh =
+  sreplicate @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
+    RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
+  sreplicate0N @r @sh | Refl <- lemAppNil @sh
+                      , Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.sreplicate (knownShS @sh) . unRepN
   sappend @r u v | Dict <- eltDictRep (stensorKind @r) =
     RepN $ Nested.sappend (unRepN u) (unRepN v)

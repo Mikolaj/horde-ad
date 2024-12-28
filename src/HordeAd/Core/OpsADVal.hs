@@ -400,7 +400,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let lu = sunravelToList u
         f i ui = dD ui (IndexS u' (fromIntegral i :.$ ZIS))
     in imap f lu
-  sreplicate (D u u') = dD (sreplicate u) ( ReplicateS u')
+  sreplicate (D u u') = dD (sreplicate u) (ReplicateS u')
   sappend (D u u') (D v v') =
     dD (sappend u v) (AppendS u' v')
   sslice @_ @i i_proxy n_proxy (D u u') =

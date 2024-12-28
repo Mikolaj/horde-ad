@@ -103,6 +103,7 @@ import Data.Array.Nested.Internal.Shape
   , shsAppend
   , shsPermutePrefix
   , shsRank
+  , shsTail
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -518,10 +519,10 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKS2 shn r)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
-  SumS :: (GoodScalar r, KnownNat n, KnownShS sh)
-       => Delta target (TKS (n ': sh) r) -> Delta target (TKS sh r)
-  Sum0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-        => Delta target (TKS sh r) -> Delta target (TKS '[] r)
+  SumS :: (TensorKind r, KnownNat n, KnownShS sh)
+       => Delta target (TKS2 (n ': sh) r) -> Delta target (TKS2 sh r)
+  Sum0S :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+        => Delta target (TKS2 sh r) -> Delta target (TKS2 '[] r)
   Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
         => target (TKS sh r) -> Delta target (TKS sh r)
         -> Delta target (TKS '[] r)
@@ -546,8 +547,8 @@ data Delta :: Target -> TensorKindType -> Type where
               -> Delta target (TKS2 (n ': sh) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   ReplicateS :: forall target r n sh.
-                (GoodScalar r, KnownShS sh, KnownNat n)
-             => Delta target (TKS sh r) -> Delta target (TKS (n ': sh) r)
+                (TensorKind r, KnownShS sh, KnownNat n)
+             => Delta target (TKS2 sh r) -> Delta target (TKS2 (n ': sh) r)
     -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall target r m n sh.
              (TensorKind r, KnownNat m, KnownNat n, KnownShS sh)
@@ -770,8 +771,10 @@ shapeDeltaFull = \case
 
   IndexS d _ix -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
-  SumS{} -> FTKS knownShS FTKScalar
-  Sum0S{} -> FTKS knownShS FTKScalar
+  SumS d -> case shapeDeltaFull d of
+    FTKS sh x -> FTKS (shsTail sh) x
+  Sum0S d -> case shapeDeltaFull d of
+    FTKS _ x -> FTKS ZSS x
   Dot0S{} -> FTKS knownShS FTKScalar
   ScatterS @_ @_ @_ @shn @shp d _ -> case shapeDeltaFull d of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
@@ -782,7 +785,8 @@ shapeDeltaFull = \case
       _ -> error "shapeDeltaFull: FromVectorS with no arguments"
     d : _ -> case shapeDeltaFull d of
       FTKS _ x -> FTKS knownShS x
-  ReplicateS{} -> FTKS knownShS FTKScalar
+  ReplicateS @_ @_ @n d -> case shapeDeltaFull d of
+    FTKS sh x -> FTKS (SNat @n :$$ sh) x
   AppendS a _ -> case shapeDeltaFull a of
     FTKS _ x -> FTKS knownShS x
   SliceS d -> case shapeDeltaFull d of
@@ -1717,7 +1721,7 @@ fwdSame params s = \case
 
   IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
   SumS d -> second ssum $ fwdSame params s d
-  Sum0S ZeroG{} -> (s, srepl 0)
+  Sum0S (ZeroG (FTKS _ x)) -> (s, constantTarget 0 (FTKS ZSS x))
   Sum0S d -> second ssum0 $ fwdSame params s d
   Dot0S _ ZeroG{} -> (s, srepl 0)
   Dot0S v d -> second (sdot0 v) $ fwdSame params s d

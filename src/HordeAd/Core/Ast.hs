@@ -449,8 +449,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
-  AstSumS :: forall n sh r s ms. (KnownNat n, KnownShS sh, GoodScalar r)
-          => AstTensor ms s (TKS (n ': sh) r) -> AstTensor ms s (TKS sh r)
+  AstSumS :: forall n sh r s ms. (KnownNat n, KnownShS sh, TensorKind r)
+          => AstTensor ms s (TKS2 (n ': sh) r) -> AstTensor ms s (TKS2 sh r)
   AstScatterS :: forall shm shn shp r s ms.
                  (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r)
               => AstTensor ms s (TKS2 (shm ++ shn) r)

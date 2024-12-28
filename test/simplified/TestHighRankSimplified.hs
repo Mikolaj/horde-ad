@@ -225,11 +225,11 @@ fooBuild2S
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                                  ix = sfromR $ rfromScalar ix' in
-    ifF (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+    ifF (ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
-         &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+         &&* ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
-        (sindex v ((rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+        (sindex v ((rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001) :.$ ZIS ))
            -- index out of bounds; also fine
         (sqrt $ abs $ sindex v ((rtoScalar $ rfromS $ let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
@@ -256,12 +256,12 @@ fooBuildNest2S
 fooBuildNest2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                                  ix = sfromR $ rfromScalar ix' in
-    ifF (ix - (sunNest @_ @'[] @'[] . tprimalPart stensorKind . snest knownShS . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+    ifF (ix - (sunNest @_ @'[] @'[] . tprimalPart stensorKind . snest knownShS . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
-         &&* ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4]
+         &&* ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
 -- TODO:        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ treplicate (SNat @5) stensorKind $ snest (knownShS @[12,11])
-        (sindex v ((rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @r @[5,12,11,9,4] $ sunNest $ tproject2 $ tfromPrimal stensorKind $ tpair tunit (tprimalPart stensorKind $ snest (knownShS @[5,12,11])
+        (sindex v ((rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4] $ sunNest $ tproject2 $ tfromPrimal stensorKind $ tpair tunit (tprimalPart stensorKind $ snest (knownShS @[5,12,11])
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v))) - srepl 10001) :.$ ZIS))
            -- index out of bounds; also fine
 -- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))

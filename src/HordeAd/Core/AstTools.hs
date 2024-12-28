@@ -50,6 +50,7 @@ import Data.Array.Nested.Internal.Shape
   , shsPermutePrefix
   , shsRank
   , shsSize
+  , shsTail
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -155,7 +156,8 @@ ftkAst t = case t of
   AstSumOfListS{} -> FTKS knownShS FTKScalar
   AstIndexS v _ix -> case ftkAst v of
     FTKS _sh1sh2 x -> FTKS knownShS x
-  AstSumS{} -> FTKS knownShS FTKScalar
+  AstSumS v -> case ftkAst v of
+    FTKS sh x -> FTKS (shsTail sh) x
   AstScatterS @_ @shn @shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
   AstFromVectorS l -> case V.toList l of

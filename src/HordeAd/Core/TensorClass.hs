@@ -524,10 +524,10 @@ class ( Num (IntOf target)
           => target (TKS2 sh1 r) -> IxSOf target sh1
           -> target (TKS2 '[] r)
   sindex0 | Refl <- lemAppNil @sh1 = sindex
-  ssum :: forall r n sh. (GoodScalar r, KnownNat n, KnownShS sh)
-       => target (TKS (n ': sh) r) -> target (TKS sh r)
-  ssum0 :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-        => target (TKS sh r) -> target (TKS '[] r)
+  ssum :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
+       => target (TKS2 (n ': sh) r) -> target (TKS2 sh r)
+  ssum0 :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+        => target (TKS2 sh r) -> target (TKS2 '[] r)
   ssum0 = ssum . sflatten
   sdot0 :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
         => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
@@ -584,12 +584,12 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKS2 sh r)
         f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. slength t - 1]
-  sreplicate :: (KnownNat n, KnownShS sh, GoodScalar r)
-             => target (TKS sh r) -> target (TKS (n ': sh) r)
+  sreplicate :: (KnownNat n, KnownShS sh, TensorKind r)
+             => target (TKS2 sh r) -> target (TKS2 (n ': sh) r)
   sreplicate0N :: forall r sh.
-                  (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
-               => target (TKS '[] r) -> target (TKS sh r)
-  sreplicate0N = sreshape @target @(TKScalar r) @'[Nested.Product sh] @sh
+                  (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+               => target (TKS2 '[] r) -> target (TKS2 sh r)
+  sreplicate0N = sreshape @target @r @'[Nested.Product sh] @sh
                  . sreplicate @target @(Nested.Product sh)
   sappend :: (TensorKind r, KnownNat m, KnownNat n, KnownShS sh)
           => target (TKS2 (m ': sh) r) -> target (TKS2 (n ': sh) r)

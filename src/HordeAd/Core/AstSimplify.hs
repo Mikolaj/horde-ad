@@ -2052,32 +2052,34 @@ astSum t0 = case shapeAst t0 of
       astReplicate0N (shrTail $ shapeAst v) 0
     Ast.AstSlice i 1 v -> astIndexR v (fromIntegral i :.: ZIR)
     Ast.AstReverse v -> astSum v
-    AstConcrete (FTKR sh FTKScalar) t ->
-      AstConcrete (FTKR (Nested.Internal.Shape.shrTail sh) FTKScalar) $ rsum t
+    AstConcrete (FTKR sh x) t -> AstConcrete (FTKR (shrTail sh) x) $ rsum t
     Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum v
     _ -> Ast.AstSum t0
 
-astSumS :: forall n sh r s. (KnownNat n, KnownShS sh, GoodScalar r, AstSpan s)
-        => AstTensor AstMethodLet s (TKS (n ': sh) r)
-        -> AstTensor AstMethodLet s (TKS sh r)
+astSumS :: forall n sh r s. (KnownNat n, KnownShS sh, TensorKind r, AstSpan s)
+        => AstTensor AstMethodLet s (TKS2 (n ': sh) r)
+        -> AstTensor AstMethodLet s (TKS2 sh r)
 astSumS t0 = case sameNat (Proxy @n) (Proxy @0) of
- Just Refl -> astReplicate0NS 0
+ Just Refl | STKScalar{} <- stensorKind @r -> astReplicate0NS 0
 -- _ -> case sameNat (Proxy @n) (Proxy @1) of
 --  Just Refl -> astReshapeS t0  -- TODO: slows down the CNNO test
  _ -> case t0 of
     -- Ast.AstLet var u v -> astLet var u (astSumS v)
     -- this is problematic, because it keeps huge tensors alive for longer
-    Ast.AstReplicate @y2 k v | STKS{} <- stensorKind @y2 ->
-      v * astReplicate0NS (fromInteger $ fromSNat k)
+    Ast.AstReplicate @y2 k v | STKS{} <- stensorKind @y2
+                             , STKScalar{} <- stensorKind @r ->
+     v * astReplicate0NS (fromInteger $ fromSNat k)
     Ast.AstScatterS @shm @shn @shp v (vars, _ :.$ ix) | Dict <- sixKnown ix ->
       astScatterS @shm @shn @(Tail shp) v (vars, ix)
-    Ast.AstFromVectorS l -> astSumOfListS $ V.toList l
-    Ast.AstSliceS @_ @k _v | Just Refl <- sameNat (Proxy @k) (Proxy @0) ->
+    Ast.AstFromVectorS l | STKScalar{} <- stensorKind @r ->
+      astSumOfListS $ V.toList l
+    Ast.AstSliceS @_ @k _v  | STKScalar{} <- stensorKind @r
+                            , Just Refl <- sameNat (Proxy @k) (Proxy @0) ->
       astReplicate0NS 0
     Ast.AstSliceS @i @k v | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v -> astSumS v
-    AstConcrete _ t -> AstConcrete (FTKS knownShS FTKScalar) $ ssum t
+    AstConcrete (FTKS sh x) t -> AstConcrete (FTKS (shsTail sh) x) $ ssum t
     Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSumS v
     _ -> Ast.AstSumS t0
 
