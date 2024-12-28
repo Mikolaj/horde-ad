@@ -43,6 +43,7 @@ import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
   , shCvtXR'
+  , shrInit
   , shrSize
   , shrTail
   , shsAppend
@@ -91,8 +92,8 @@ ftkAst t = case t of
   AstCast{} -> FTKScalar
   AstFromIntegral{} -> FTKScalar
 
-  AstMinIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
-  AstMaxIndexR a -> FTKR (initShape $ shapeAst a) FTKScalar
+  AstMinIndexR a -> FTKR (shrInit $ shapeAst a) FTKScalar
+  AstMaxIndexR a -> FTKR (shrInit $ shapeAst a) FTKScalar
   AstFloorR a -> FTKR (shapeAst a) FTKScalar
   AstIotaR -> FTKR ((maxBound :: Int) :$: ZSR) FTKScalar  -- ought to be enough
   AstN1R _opCode v -> ftkAst v

@@ -4,15 +4,8 @@
 -- | @GHC.Nat@-indexed lists, tensors shapes and indexes.
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
-    snocSized
-  , unsnocSized1, lastSized, initSized
-  , permInverse
+    permInverse
   , backpermutePrefixList
-    -- * Tensor indexes as fully encapsulated sized lists, with operations
-  , snocIndex
-  , unsnocIndex1, lastIndex, initIndex
-    -- * Tensor shapes as fully encapsulated sized lists, with operations
-  , lastShape, initShape
   , withListShape, withListSh
   ) where
 
@@ -62,27 +55,6 @@ import HordeAd.Core.Types
 -- at least) coerce the strict @ListR@ to @[i]@, but not the other
 -- way around.
 
-snocSized :: KnownNat n => ListR n i -> i -> ListR (1 + n) i
-snocSized ZR last1 = last1 ::: ZR
-snocSized (i ::: ix) last1 = i ::: snocSized ix last1
-
-unsnocSized1 :: ListR (1 + n) i -> (ListR n i, i)
-unsnocSized1 ZR = error "unsnocSized1: impossible pattern needlessly required"
-unsnocSized1 (i ::: ix) = case ix of
-  ZR -> (ZR, i)
-  _ ::: _ -> let (init1, last1) = unsnocSized1 ix
-             in (i ::: init1, last1)
-
-lastSized :: ListR (1 + n) i -> i
-lastSized ZR = error "lastSized: impossible pattern needlessly required"
-lastSized (i ::: ZR) = i
-lastSized (_i ::: ix@(_ ::: _)) = lastSized ix
-
-initSized :: ListR (1 + n) i -> ListR n i
-initSized ZR = error "initSized: impossible pattern needlessly required"
-initSized (_i ::: ZR) = ZR
-initSized (i ::: ix@(_ ::: _)) = i ::: initSized ix
-
 -- | As in orthotope, we usually backpermute, in which case a permutation lists
 -- indices into the list to permute. However, we use the same type for
 -- an occasional forward permutation.
@@ -109,25 +81,7 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- are terms, there is no absolute corrcetness criterion anyway,
 -- because the eventual integer value depends on a variable valuation.
 
-snocIndex :: KnownNat n => IxR n i -> i -> IxR (1 + n) i
-snocIndex (IxR ix) i = IxR $ snocSized ix i
-
-unsnocIndex1 :: IxR (1 + n) i -> (IxR n i, i)
-unsnocIndex1 (IxR ix) = first IxR $ unsnocSized1 ix
-
-lastIndex :: IxR (1 + n) i -> i
-lastIndex (IxR ix) = lastSized ix
-
-initIndex :: IxR (1 + n) i -> IxR n i
-initIndex (IxR ix) = IxR $ initSized ix
-
 -- * Tensor shapes as fully encapsulated sized lists, with operations
-
-lastShape :: ShR (1 + n) i -> i
-lastShape (ShR ix) = lastSized ix
-
-initShape :: ShR (1 + n) i -> ShR n i
-initShape (ShR ix) = ShR $ initSized ix
 
 -- Both shape representations denote the same shape.
 withListShape

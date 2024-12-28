@@ -109,12 +109,16 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Lemmas
 import Data.Array.Nested.Internal.Shape
   ( ixrAppend
+  , ixrInit
+  , ixrLast
   , ixrPermutePrefix
   , ixsAppend
   , ixsInit
   , ixsLast
   , ixsPermutePrefix
   , listrAppend
+  , listrInit
+  , listrLast
   , listsAppend
   , listsFmap
   , listsInit
@@ -122,6 +126,7 @@ import Data.Array.Nested.Internal.Shape
   , listsRank
   , shCvtSX
   , shrAppend
+  , shrLast
   , shrRank
   , shrTail
   , shsAppend
@@ -1028,8 +1033,10 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
              Dict -> withSNat k $ \snat ->
                astReplicate snat (astGatherKnobsR knobs sh' v0 (vars, ix0))
        where
-        (restN, iN) = unsnocIndex1 ix0
-        (varsN, varN) = unsnocSized1 vars0
+        restN = ixrInit ix0
+        iN = ixrLast ix0
+        varsN = listrInit vars0
+        varN = listrLast vars0
     _ ->
       error "astGather: impossible pattern needlessly required"
  where
@@ -1108,12 +1115,12 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstMinIndexR v ->
       Ast.AstMinIndexR
       $ astGatherKnobsR knobs
-          (sh4 `shrAppend` (lastShape (shapeAst v) :$: ZSR))
+          (sh4 `shrAppend` (shrLast (shapeAst v) :$: ZSR))
           v (vars4, ix4)
     Ast.AstMaxIndexR v ->
       Ast.AstMaxIndexR
       $ astGatherKnobsR knobs
-          (sh4 `shrAppend` (lastShape (shapeAst v) :$: ZSR))
+          (sh4 `shrAppend` (shrLast (shapeAst v) :$: ZSR))
           v (vars4, ix4)
     Ast.AstFloorR v ->
       Ast.AstFloorR
