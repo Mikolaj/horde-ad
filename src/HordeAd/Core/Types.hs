@@ -24,7 +24,7 @@ module HordeAd.Core.Types
   , IxROf, IxSOf, IxXOf
     -- * Misc
   , IntegralF(..), RealFloatF(..)
-  , backpermutePrefixList
+  , withListSh, backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
     -- * Feature requests for ox-arrays
   , ixsRank, ssxRank
@@ -74,7 +74,8 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank, withKnownShX)
 import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
-  ( IxR (..)
+  ( IShR
+  , IxR (..)
   , IxS (..)
   , IxX
   , KnownShS (..)
@@ -387,6 +388,18 @@ instance {-# OVERLAPPABLE #-} Integral r => IntegralF r where
 instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatF r where
   atan2F = atan2
 -}
+
+-- All three shape representations denote the same shape.
+-- TODO: this can probably be retired when we have conversions
+-- from ShS to ShR, etc.
+withListSh
+  :: KnownShS sh
+  => Proxy sh
+  -> (forall n. (KnownNat n, Rank sh ~ n)
+      => IShR n -> a)
+  -> a
+withListSh (Proxy @sh) f | SNat <- shsRank (knownShS @sh) =
+  f $ fromList $ toList $ knownShS @sh
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l

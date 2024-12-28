@@ -4,7 +4,6 @@
 -- | @GHC.Nat@-indexed lists, tensors shapes and indexes.
 module HordeAd.Util.SizedList
   ( -- * Sized lists and their permutations
-    withListShape, withListSh
   ) where
 
 import Prelude
@@ -35,29 +34,3 @@ import Data.Array.Nested
 import Data.Array.Nested.Internal.Shape (shrSize)
 
 import HordeAd.Core.Types
-
--- Both shape representations denote the same shape.
-withListShape
-  :: forall i a.
-     [i]
-  -> (forall n. KnownNat n => ShR n i -> a)
-  -> a
-withListShape shList f =
-  case someNatVal $ toInteger (length shList) of
-    Just (SomeNat @n _) -> f $ (fromList shList :: ShR n i)
-    _ -> error "withListShape: impossible someNatVal error"
-
--- All three shape representations denote the same shape.
-withListSh
-  :: KnownShS sh
-  => Proxy sh
-  -> (forall n. (KnownNat n, Rank sh ~ n)
-      => IShR n -> a)
-  -> a
-withListSh (Proxy @sh) f =
-  let shList = toList $ knownShS @sh
-  in case someNatVal $ toInteger (length shList) of
-    Just (SomeNat @n _) ->
-      gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $
-      f $ fromList shList
-    _ -> error "withListSh: impossible someNatVal error"
