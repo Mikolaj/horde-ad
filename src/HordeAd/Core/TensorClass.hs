@@ -120,11 +120,11 @@ class LetTensor (target :: Target) where
     STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
     STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
-    STKProduct @z1 @z2 stk1 stk2
+    STKProduct stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z1)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) ->
+      , Dict <- lemTensorKindOfBuild snat stk1
+      , Dict <- lemTensorKindOfBuild snat stk2 ->
         tlet u $ \ !u1 ->
           tpair (treplicate snat stk1 (tproject1 u1))
                 (treplicate snat stk2 (tproject2 u1))
@@ -133,7 +133,27 @@ class LetTensor (target :: Target) where
         dmkHVector
         $ replicate1HVectorF rreplicate sreplicate snat
         $ dunHVector u1
-
+  tsum :: BaseTensor target
+       => SNat k -> STensorKindType z
+       -> target (BuildTensorKind k z)
+       -> target z
+  tsum snat@SNat stk u = case stk of
+    STKScalar{} -> u
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+      rsum u
+    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShS sh $ ssum u
+    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShX sh $ undefined{-xsum-} u
+    STKProduct stk1 stk2
+      | Dict <- lemTensorKindOfSTK stk1
+      , Dict <- lemTensorKindOfSTK stk2
+      , Dict <- lemTensorKindOfBuild snat stk1
+      , Dict <- lemTensorKindOfBuild snat stk2 ->
+        tlet u $ \ !u1 ->
+          tpair (tsum snat stk1 (tproject1 u1))
+                (tsum snat stk2 (tproject2 u1))
+    STKUntyped -> error "STKUntyped"  -- can be easily done, but nm
   toShare :: TensorKind y
           => target y
           -> ShareOf target y
