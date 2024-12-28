@@ -117,11 +117,9 @@ class LetTensor (target :: Target) where
              -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
     STKScalar{} -> u
--- TODO?      error "treplicate: type family BuildTensorKind stuck at TKScalar"
-    STKR SNat STKScalar{} -> rreplicate (sNatValue snat) u
-    STKS sh STKScalar{} -> withKnownShS sh $ sreplicate u
--- TODO:    STKS sh (STKS _ STKScalar{}) -> withKnownShS sh $ sreplicate u
-    STKX sh STKScalar{} -> withKnownShX sh $ xreplicate u
+    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
     STKProduct @z1 @z2 stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2
@@ -135,7 +133,6 @@ class LetTensor (target :: Target) where
         dmkHVector
         $ replicate1HVectorF rreplicate sreplicate snat
         $ dunHVector u1
-    _ -> error "TODO"
 
   toShare :: TensorKind y
           => target y
