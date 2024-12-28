@@ -317,20 +317,10 @@ astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
 -}
 
 instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => AstTensor AstMethodLet s x
-       -> (AstTensor AstMethodLet s x -> AstTensor AstMethodLet s z)
-       -> AstTensor AstMethodLet s z
   tlet u f = astLetFun u f
-
-  toShare :: AstTensor AstMethodLet s y
-          -> AstRaw s y
   toShare t = AstRaw $ AstToShare t
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  tunshare :: forall y. TensorKind y
-           => AstRaw s y
-           -> AstTensor AstMethodLet s y
   tunshare =
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> unshareAstTensor . unAstRaw
@@ -408,16 +398,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sfromVector = astFromVectorS
   sreplicate = astReplicate SNat
   sappend u v = astAppendS u v
-  sslice (_ :: Proxy i) Proxy = astSliceS @i
+  sslice @_ @i Proxy Proxy = astSliceS @i
   sreverse = astReverseS
   stranspose perm = astTransposeS perm
   sreshape = astReshapeS
-  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
-          => (IntOf (AstTensor AstMethodLet s)
-              -> AstTensor AstMethodLet s (TKS2 sh r))
-          -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
-  sbuild1 f =
-    astBuild1Vectorize (SNat @n) f
+  sbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
   sgather @_ @shm @shn @shp t f =
     astGatherStepS @shm @shn @shp t
     $ funToAstIxS f
@@ -472,16 +457,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimal $ AstConcrete ftk a
   dmkHVector = AstMkHVector
-  tlambda :: forall x z. TensorKind x
-          => FullTensorKind x -> HFun x z -> HFunOf (AstTensor AstMethodLet s) x z
   tlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
           unHFun f ll
     in AstLambda (var, shss, ast)
-  tApply :: forall x z. (TensorKind x, TensorKind z)
-          => HFunOf (AstTensor AstMethodLet s) x z
-          -> AstTensor AstMethodLet s x
-          -> AstTensor AstMethodLet s z
   tApply t ll = astHApply t ll
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
@@ -502,11 +481,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- value of the derivative at a particular fixed input.
   -- The limitation of AstRaw as a newtype make it impossible
   -- to switch the tests from AstTensor to AstRaw.
-  drev :: forall x z. (TensorKind x, TensorKind z)
-       => FullTensorKind x
-       -> HFun x z
-       -> AstHFun x (ADTensorKind x)
-  drev ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x) =
+  drev @x ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x) =
     -- we don't have an AST constructor to hold it, so we compute
     --
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -521,12 +496,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astLet var astP
           $ simplifyInline gradient
     in AstLambda (varP, ftkx, ast)
-  drevDt :: forall x z. (TensorKind x, TensorKind z)
-         => FullTensorKind x
-         -> HFun x z
-         -> AstHFun (TKProduct (ADTensorKind z) x) (ADTensorKind x)
-  drevDt ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
-                , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  drevDt @x @z ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
+                      , Dict <- lemTensorKindOfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
@@ -538,12 +509,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet var (astProject2 astP)
           $ simplifyInline gradient
     in AstLambda (varP, ftk2, ast)
-  dfwd :: forall x z. (TensorKind x, TensorKind z)
-       => FullTensorKind x
-       -> HFun x z
-       -> AstHFun (TKProduct (ADTensorKind x)  x) (ADTensorKind z)
-  dfwd ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
-              , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  dfwd @x @z ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
+                    , Dict <- lemTensorKindOfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactFwd varDs var derivative _primal, _delta) =
@@ -606,8 +573,6 @@ deriving instance (RealFloatF (AstTensor AstMethodShare s y))
 instance AstSpan s => ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  tshare :: forall y. TensorKind y
-         => AstRaw s y -> AstRaw s y
   tshare t = case unAstRaw t of
     u | astIsSmall True u -> t
     AstShare{} -> t
@@ -710,14 +675,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sfromVector = AstRaw . AstFromVectorS . V.map unAstRaw
   sreplicate = AstRaw . AstReplicate SNat . unAstRaw
   sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
-  sslice (_ :: Proxy i) Proxy = AstRaw . AstSliceS @i . unAstRaw
+  sslice @_ @i Proxy Proxy = AstRaw . AstSliceS @i . unAstRaw
   sreverse = AstRaw . AstReverseS . unAstRaw
   stranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   sreshape = AstRaw . AstReshapeS . unAstRaw
-  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
-          => (IntOf (AstRaw s) -> AstRaw s (TKS2 sh r))
-          -> AstRaw s (TKS2 (n ': sh) r)
-  sbuild1 f = AstRaw $ AstBuild1 (SNat @n)
+  sbuild1 @_ @n f = AstRaw $ AstBuild1 (SNat @n)
               $ funToAstI  -- this introduces new variable names
               $ unAstRaw . f . AstRaw
   sgather @_ @shm @shn @shp t f =
@@ -796,47 +758,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
-  dmapAccumRDer
-    :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (AstRaw s)
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                    (TKProduct accShs eShs))
-                         (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                    (TKProduct accShs eShs))
-                         (ADTensorKind (TKProduct accShs eShs))
-    -> AstRaw s accShs
-    -> AstRaw s (BuildTensorKind k eShs)
-    -> AstRaw s (TKProduct accShs (BuildTensorKind k bShs))
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumRDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
       AstRaw $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
-  dmapAccumLDer
-    :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (AstRaw s)
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> HFunOf (AstRaw s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                    (TKProduct accShs eShs))
-                         (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (AstRaw s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                    (TKProduct accShs eShs))
-                         (ADTensorKind (TKProduct accShs eShs))
-    -> AstRaw s accShs
-    -> AstRaw s (BuildTensorKind k eShs)
-    -> AstRaw s (TKProduct accShs (BuildTensorKind k bShs))
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumLDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
       AstRaw $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
@@ -877,17 +803,9 @@ noVectorizeHVector =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoVectorize s) where
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => AstNoVectorize s x
-       -> (AstNoVectorize s x -> AstNoVectorize s z)
-       -> AstNoVectorize s z
   tlet u f = AstNoVectorize
              $ astLetFun (unAstNoVectorize u)
                          (unAstNoVectorize . f . AstNoVectorize)
-
-  toShare :: forall y. TensorKind y
-          => AstNoVectorize s y
-          -> AstRaw s y
   toShare t = toShare $ unAstNoVectorize t
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
@@ -966,12 +884,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   stranspose perm =
     AstNoVectorize . stranspose perm . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
-  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
-          => (IntOf (AstNoVectorize s) -> AstNoVectorize s (TKS2 sh r))
-          -> AstNoVectorize s (TKS2 (n ': sh) r)
-  sbuild1 f = AstNoVectorize $ AstBuild1 (SNat @n)
-                $ funToAstI  -- this introduces new variable names
-                $ unAstNoVectorize . f . AstNoVectorize
+  sbuild1 @_ @n f = AstNoVectorize $ AstBuild1 (SNat @n)
+                    $ funToAstI  -- this introduces new variable names
+                    $ unAstNoVectorize . f . AstNoVectorize
   sgather @_ @shm @shn @shp t f =
     AstNoVectorize $ sgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap (unAstNoVectorize) . f . fmap AstNoVectorize
@@ -1036,47 +951,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
-  dmapAccumRDer
-    :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (AstNoVectorize s)
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                            (TKProduct accShs eShs))
-                                 (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                            (TKProduct accShs eShs))
-                                 (ADTensorKind (TKProduct accShs eShs))
-    -> AstNoVectorize s accShs
-    -> AstNoVectorize s (BuildTensorKind k eShs)
-    -> AstNoVectorize s (TKProduct accShs (BuildTensorKind k bShs))
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumRDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
       AstNoVectorize $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoVectorize acc0) (unAstNoVectorize es)
-  dmapAccumLDer
-    :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (AstNoVectorize s)
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> HFunOf (AstNoVectorize s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                            (TKProduct accShs eShs))
-                                 (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (AstNoVectorize s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                            (TKProduct accShs eShs))
-                                 (ADTensorKind (TKProduct accShs eShs))
-    -> AstNoVectorize s accShs
-    -> AstNoVectorize s (BuildTensorKind k eShs)
-    -> AstNoVectorize s (TKProduct accShs (BuildTensorKind k bShs))
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumLDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
       AstNoVectorize $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoVectorize acc0) (unAstNoVectorize es)
@@ -1129,16 +1008,9 @@ noSimplifyHVector =
   in V.map f
 
 instance AstSpan s => LetTensor (AstNoSimplify s) where
-  tlet :: forall x z. (TensorKind x, TensorKind z)
-       => AstNoSimplify s x
-       -> (AstNoSimplify s x -> AstNoSimplify s z)
-       -> AstNoSimplify s  z
   tlet u f = AstNoSimplify
              $ astLetFunNoSimplify (unAstNoSimplify u)
                                    (unAstNoSimplify . f . AstNoSimplify)
-
-  toShare :: AstNoSimplify s y
-          -> AstRaw s y
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
@@ -1222,15 +1094,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   sreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
   sappend u v =
     AstNoSimplify $ AstAppendS (unAstNoSimplify u) (unAstNoSimplify v)
-  sslice (_ :: Proxy i) Proxy = AstNoSimplify . AstSliceS @i . unAstNoSimplify
+  sslice @_ @i Proxy Proxy = AstNoSimplify . AstSliceS @i . unAstNoSimplify
   sreverse = AstNoSimplify . AstReverseS . unAstNoSimplify
   stranspose perm =
     AstNoSimplify . AstTransposeS perm . unAstNoSimplify
   sreshape = AstNoSimplify . AstReshapeS . unAstNoSimplify
-  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
-          => (IntOf (AstNoSimplify s) -> AstNoSimplify s (TKS2 sh r))
-          -> AstNoSimplify s (TKS2 (n ': sh) r)
-  sbuild1 f =
+  sbuild1 @_ @n f =
     AstNoSimplify
     $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
   sgather @_ @shm @shn @shp t f =
@@ -1317,47 +1186,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
-  dmapAccumRDer
-    :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (AstNoSimplify s)
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                           (TKProduct accShs eShs))
-                                (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
-    -> AstNoSimplify s accShs
-    -> AstNoSimplify s (BuildTensorKind k eShs)
-    -> AstNoSimplify s (TKProduct accShs (BuildTensorKind k bShs))
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumRDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
       AstNoSimplify $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
-  dmapAccumLDer
-    :: forall accShs bShs eShs k.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => Proxy (AstNoSimplify s)
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> HFunOf (AstNoSimplify s) (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                           (TKProduct accShs eShs))
-                                (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf (AstNoSimplify s) (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                           (TKProduct accShs eShs))
-                                (ADTensorKind (TKProduct accShs eShs))
-    -> AstNoSimplify s accShs
-    -> AstNoSimplify s (BuildTensorKind k eShs)
-    -> AstNoSimplify s (TKProduct accShs (BuildTensorKind k bShs))
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumLDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
       AstNoSimplify $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
