@@ -269,6 +269,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstCond :: TensorKind y
           => AstBool ms -> AstTensor ms s y -> AstTensor ms s y
           -> AstTensor ms s y
+  AstSum :: TensorKind y
+         => SNat k -> AstTensor ms s (BuildTensorKind k y)
+         -> AstTensor ms s y
   AstReplicate :: TensorKind y
                => SNat k -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
@@ -356,8 +359,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0,
     -- but vectorization is permitted to change the value
-  AstSum :: (KnownNat n, TensorKind r)
-         => AstTensor ms s (TKR2 (1 + n) r) -> AstTensor ms s (TKR2 n r)
   AstScatter :: forall m n p r s ms.
                 (KnownNat m, KnownNat n, KnownNat p, TensorKind r)
              => IShR (p + n)

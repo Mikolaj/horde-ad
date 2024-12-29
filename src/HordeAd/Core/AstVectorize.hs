@@ -132,7 +132,8 @@ build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
     in build1VOccurenceUnknown snat (varFresh, v2)
 
 intBindingRefresh
-  :: IntVarName -> AstIxR AstMethodLet n -> (IntVarName, AstInt AstMethodLet, AstIxR AstMethodLet n)
+  :: IntVarName -> AstIxR AstMethodLet n
+  -> (IntVarName, AstInt AstMethodLet, AstIxR AstMethodLet n)
 {-# NOINLINE intBindingRefresh #-}
 intBindingRefresh var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
@@ -293,8 +294,11 @@ build1V snat@SNat (var, v0) =
     Ast.AstIndex v ix -> traceRule $ case stensorKind @y of
       STKR _ _ ->
         build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
-    Ast.AstSum v -> traceRule $
-      astSum $ astTr $ build1V snat (var, v)
+    Ast.AstSum @y2 (SNat @k1) v
+      | Dict <- lemTensorKindOfBuild (SNat @k1) (stensorKind @y2)
+      , Dict <- lemTensorKindOfBuild (SNat @k) (stensorKind @y) -> traceRule $
+         astSum (SNat @k1) $ astTrGeneral @k @k1 (stensorKind @y2)
+                           $ build1V snat (var, v)
     Ast.AstScatter sh v (vars, ix) -> traceRule $
       -- We use a refreshed var binding in the new scatter expression so as
       -- not to duplicate the var binding from build1VOccurenceUnknown call.

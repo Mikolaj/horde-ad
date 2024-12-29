@@ -337,7 +337,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   riota = fromPrimal $ AstIotaR
   rindex v ix = astIndexStep v ix
-  rsum = astSum
+  rsum v = withSNat (rlength v) $ \snat -> astSum snat v
   rscatter sh t f = astScatter sh t
                     $ funToAstIxR f
                           -- this introduces new variable names
@@ -612,7 +612,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rfloor = AstRaw . fromPrimal . AstFloorR . astSpanPrimalRaw . unAstRaw
   riota = AstRaw . fromPrimal $ AstIotaR
   rindex v ix = AstRaw $ AstIndex (unAstRaw v) (unAstRaw <$> ix)
-  rsum = AstRaw . AstSum . unAstRaw
+  rsum v = withSNat (rlength v) $ \snat ->
+             AstRaw . AstSum snat . unAstRaw $ v
   rscatter sh t f = AstRaw $ AstScatter sh (unAstRaw t)
                     $ funToAstIxR (fmap unAstRaw . f . fmap AstRaw)
                         -- this introduces new variable names
@@ -1024,7 +1025,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   riota = AstNoSimplify . fromPrimal $ AstIotaR
   rindex v ix =
     AstNoSimplify $ AstIndex (unAstNoSimplify v) (unAstNoSimplify <$> ix)
-  rsum = AstNoSimplify . AstSum . unAstNoSimplify
+  rsum v = withSNat (rlength v) $ \snat ->
+             AstNoSimplify . AstSum snat . unAstNoSimplify $ v
   rscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
                     $ funToAstIxR
                         (fmap unAstNoSimplify . f . fmap AstNoSimplify)

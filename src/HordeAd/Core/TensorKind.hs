@@ -9,7 +9,7 @@ module HordeAd.Core.TensorKind
   , lemTensorKindOfSTK, sameTensorKind, sameSTK
   , lemTensorKindOfBuild, aDSTK, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
-  , buildFTK, aDFTK, tftkG
+  , buildFTK, razeFTK, aDFTK, tftkG
     -- * Type family RepORArray
   , RepORArray, RepN(..), eltDictRep, showDictRep  -- only temporarily here
     -- * Misc
@@ -26,7 +26,9 @@ module HordeAd.Core.TensorKind
 import Prelude
 
 import Control.DeepSeq (NFData (..))
+import Control.Exception.Assert.Sugar
 import Data.Boolean (Boolean (..))
+import Data.GADT.Compare
 import Data.Kind (Type)
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -203,8 +205,7 @@ ftkToStk = \case
   FTKProduct ftk1 ftk2 -> STKProduct (ftkToStk ftk1) (ftkToStk ftk2)
   FTKUntyped{} -> STKUntyped
 
-buildFTK :: SNat k -> FullTensorKind y
-         -> FullTensorKind (BuildTensorKind k y)
+buildFTK :: SNat k -> FullTensorKind y -> FullTensorKind (BuildTensorKind k y)
 buildFTK snat@SNat = \case
   FTKScalar -> FTKScalar
   FTKR sh x -> FTKR (sNatValue snat :$: sh) x
@@ -212,6 +213,20 @@ buildFTK snat@SNat = \case
   FTKX sh x -> FTKX (SKnown snat :$% sh) x
   FTKProduct ftk1 ftk2 -> FTKProduct (buildFTK snat ftk1) (buildFTK snat ftk2)
   FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
+
+razeFTK :: forall y k. TensorKind y
+        => SNat k -> FullTensorKind (BuildTensorKind k y) -> FullTensorKind y
+razeFTK snat@SNat ftk = case (stensorKind @y, ftk) of
+  (STKScalar{}, FTKScalar) -> FTKScalar
+  (STKR{}, FTKR (_ :$: sh) x) -> FTKR sh x
+  (STKR{}, FTKR ZSR _) -> error "razeFTK: impossible built tensor kind"
+  (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x
+  (STKX{}, FTKX (_ :$% sh) x) -> FTKX sh x
+  (STKProduct @y1 @y2 stk1 stk2, FTKProduct ftk1 ftk2)
+    | Dict <- lemTensorKindOfSTK stk1
+    , Dict <- lemTensorKindOfSTK stk2 ->
+      FTKProduct (razeFTK @y1 snat ftk1) (razeFTK @y2 snat ftk2)
+  (STKUntyped, FTKUntyped shs) -> FTKUntyped $ unreplicate1VoidHVector snat shs
 
 aDFTK :: FullTensorKind y
       -> FullTensorKind (ADTensorKind y)
@@ -479,6 +494,23 @@ replicate1VoidTensor :: SNat k -> DynamicTensor VoidTensor
 replicate1VoidTensor (SNat @k) u = case u of
   DynamicRankedDummy @r @sh p1 _ -> DynamicRankedDummy @r @(k ': sh) p1 Proxy
   DynamicShapedDummy @r @sh p1 _ -> DynamicShapedDummy @r @(k ': sh) p1 Proxy
+
+unreplicate1VoidHVector :: SNat k -> VoidHVector -> VoidHVector
+unreplicate1VoidHVector k = V.map (unreplicate1VoidTensor k)
+
+unreplicate1VoidTensor :: SNat k -> DynamicTensor VoidTensor
+                       -> DynamicTensor VoidTensor
+unreplicate1VoidTensor snat u = case u of
+  DynamicRankedDummy @r @sh' p1 _ -> case knownShS @sh' of
+    (:$$) @_ @sh snat' sh' -> withKnownShS sh' $
+                              assert (isJust $ geq snat snat')
+                              $ DynamicRankedDummy @r @sh p1 Proxy
+    _ -> error "unreplicate1VoidTensor: impossible shape"
+  DynamicShapedDummy @r @sh' p1 _ -> case knownShS @sh' of
+    (:$$) @_ @sh snat' sh' -> withKnownShS sh' $
+                              assert (isJust $ geq snat snat')
+                              $ DynamicShapedDummy @r @sh p1 Proxy
+    _ -> error "unreplicate1VoidTensor: impossible shape"
 
 index1HVectorF :: (forall r n. (GoodScalar r, KnownNat n)
                    => target (TKR n r) -> IShR n)

@@ -340,6 +340,7 @@ astNonIndexStep t = case t of
   Ast.AstFromPrimal{} -> t
   Ast.AstD{} -> t
   Ast.AstCond a b c -> astCond a b c
+  Ast.AstSum snat v -> astSum snat v
   Ast.AstReplicate k v -> astReplicate k v
   Ast.AstBuild1{} -> t
   Ast.AstLet var u v -> astLet var u v
@@ -378,7 +379,6 @@ astNonIndexStep t = case t of
   Ast.AstI2R{} -> t
   AstSumOfListR l -> astSumOfListR l
   Ast.AstIndex{} -> t  -- was supposed to be *non*-index
-  Ast.AstSum v -> astSum v
   Ast.AstScatter sh v (vars, ix) -> astScatter sh v (vars, ix)
   Ast.AstFromVector l -> astFromVector l
   Ast.AstAppend x y -> astAppend x y
@@ -533,6 +533,9 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     shareIx ix $ \ !ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
+  Ast.AstSum snat v ->  -- almost neutral; transposition is likely to fuse away
+    let perm3 = backpermCycle $ valueOf @m + 1
+    in astSum snat $ astIndex (astTranspose perm3 v) ix
   Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i1
                            , STKR{} <- stensorKind @y2 ->
     let i = fromIntegral it
@@ -581,9 +584,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     shareIx ix $ \ !ix2 -> astSumOfListR (map (`astIndexRec` ix2) args)
   Ast.AstIndex v ix2 ->
     astIndex v (ix2 `ixrAppend` ix)
-  Ast.AstSum v ->  -- almost neutral; transposition is likely to fuse away
-    let perm3 = backpermCycle $ valueOf @m + 1
-    in astSum $ astIndex (astTranspose perm3 v) ix
   Ast.AstScatter @_ @n7 (_ :$: sh)
                  v (vars, AstIntVar var5 :.: (ix2 :: AstIxR AstMethodLet p71))
     | AstIntVar var6 <- i1, var6 == var5 ->
@@ -1097,6 +1097,15 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                     (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
+    Ast.AstSum snat v ->
+      let perm3 = backpermCycle $ valueOf @p' + 1
+          perm4 = permCycle $ valueOf @m' + 1
+          (sh41, sh42) = splitAt_Shape @m' sh4
+          sh5 = sh41 `shrAppend` (lengthAst v :$: sh42)
+          innerGather = astGather sh5 (astTranspose perm3 v) (vars4, ix4)
+      in if not (knobExpand knobs) || length perm4 <= valueOf @m'
+         then astSum snat $ astTranspose perm4 innerGather
+         else astSum snat $ astTransposeAsGather knobs perm4 innerGather
     Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i4
                              , STKR{} <- stensorKind @y2 ->
       let i = fromIntegral it
@@ -1151,15 +1160,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       (Ast.AstFromVector{}, i2 :.: ZIR) -> astGather sh4 v2 (vars4, i2 :.: ix4)
       _ ->  -- AstVar, AstConcrete
         Ast.AstGather sh4 v4 (vars4, ix4)
-    Ast.AstSum v ->
-      let perm3 = backpermCycle $ valueOf @p' + 1
-          perm4 = permCycle $ valueOf @m' + 1
-          (sh41, sh42) = splitAt_Shape @m' sh4
-          sh5 = sh41 `shrAppend` (lengthAst v :$: sh42)
-          innerGather = astGather sh5 (astTranspose perm3 v) (vars4, ix4)
-      in if not (knobExpand knobs) || length perm4 <= valueOf @m'
-         then astSum $ astTranspose perm4 innerGather
-         else astSum $ astTransposeAsGather knobs perm4 innerGather
     Ast.AstScatter @_ @n7 (_ :$: sh)
                    v (vars, AstIntVar var5 :.: (ix2 :: AstIxR AstMethodLet p71))
       | AstIntVar var6 <- i4, var6 == var5 ->
@@ -2033,28 +2033,32 @@ astSumOfListS :: (GoodScalar r, KnownShS sh)
               -> AstTensor AstMethodLet s (TKS sh r)
 astSumOfListS = foldr1 (+)  -- @sum@ reverses order
 
-astSum :: forall n r s. (KnownNat n, TensorKind r, AstSpan s)
-       => AstTensor AstMethodLet s (TKR2 (1 + n) r)
-       -> AstTensor AstMethodLet s (TKR2 n r)
-astSum t0 = case shapeAst t0 of
-  0 :$: rest | STKScalar{} <- stensorKind @r -> astReplicate0N rest 0
+astSum :: forall y k s. (TensorKind y, AstSpan s)
+       => SNat k -> AstTensor AstMethodLet s (BuildTensorKind k y)
+       -> AstTensor AstMethodLet s y
+astSum snat t0 = case (stensorKind @y, ftkAst t0) of
 --  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
+  (STKR{}, FTKR (0 :$: rest) FTKScalar) -> astReplicate0N rest 0
   _ -> case t0 of
-    -- Ast.AstLet var u v -> astLet var u (astSum v)
-    -- this is problematic, because it keeps huge tensors alive for longer
-    Ast.AstReplicate @y2 k v | STKR{} <- stensorKind @y2
-                             , STKScalar{} <- stensorKind @r ->
+    -- Ast.AstLet var u v -> astLet var u (astSum snat v)
+      -- this is problematic, because it keeps huge tensors alive for longer
+    Ast.AstReplicate @y2 k v | STKR SNat _ <- stensorKind @y2
+                             , STKR _ STKScalar{} <- stensorKind @y ->
       v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
-    Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix) -> astScatter sh v (vars, ix)
-    Ast.AstFromVector l | STKScalar{} <- stensorKind @r ->
+    Ast.AstFromVector l | STKR _ STKScalar{} <- stensorKind @y ->
       astSumOfListR $ V.toList l
-    Ast.AstSlice _i 0 v | STKScalar{} <- stensorKind @r ->
-      astReplicate0N (shrTail $ shapeAst v) 0
-    Ast.AstSlice i 1 v -> astIndexR v (fromIntegral i :.: ZIR)
-    Ast.AstReverse v -> astSum v
-    AstConcrete (FTKR sh x) t -> AstConcrete (FTKR (shrTail sh) x) $ rsum t
-    Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum v
-    _ -> Ast.AstSum t0
+    Ast.AstSlice _i 0 v | STKR _ STKScalar{} <- stensorKind @y ->
+      astReplicate0N (shrTail (shapeAst v)) 0
+    Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix)
+      | STKR{} <- stensorKind @y ->
+        astScatter sh v (vars, ix)
+    Ast.AstSlice i 1 v | STKR SNat _ <- stensorKind @y ->
+      astIndexR v (fromIntegral i :.: ZIR)
+    Ast.AstReverse v | STKR{} <- stensorKind @y ->
+      astSum snat v
+    AstConcrete ftk t -> AstConcrete (razeFTK snat ftk) $ tsum snat stensorKind t
+    Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum snat v
+    _ -> Ast.AstSum snat t0
 
 astSumS :: forall n sh r s. (KnownNat n, KnownShS sh, TensorKind r, AstSpan s)
         => AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -2096,10 +2100,10 @@ astScatter sh@(k :$: _) _v (_vars, AstConcrete _ (RepN it) :.: _ix)
   , STKScalar{} <- stensorKind @r =
       astReplicate0N sh def
 -- else update (rzero sh 0) [AstConcreteS it] (astScatter ...)
-astScatter sh v (var ::: vars, ix)
+astScatter sh v ((:::) @k var vars, ix)
  | not $ varNameToAstVarId var `varInIndex` ix
  , STKScalar{} <- stensorKind @r =
-  astScatter sh (astSum v) (vars, ix)
+  astScatter sh (astSum (SNat @k) v) (vars, ix)
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstFromPrimal v) (vars, ix) =
   Ast.AstFromPrimal $ astScatter sh v (vars, ix)
@@ -2423,7 +2427,8 @@ astTranspose perm = \case
   Ast.AstR1R opCode u | not (isVar u) -> Ast.AstR1R opCode (astTranspose perm u)
   Ast.AstR2R opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2R opCode (astTranspose perm u) (astTranspose perm v)
-  Ast.AstSum v -> astSum $ astTranspose (0 : map succ perm) v
+  Ast.AstSum snat v ->
+    astSum snat $ astTranspose (0 : map succ perm) v
   Ast.AstScatter @_ @_ @p sh v (vars, ix) | length perm <= valueOf @p ->
     -- TODO: should the below be backpermute or permute?
     astScatter (Nested.Internal.Shape.shrPermutePrefix perm sh) v
@@ -2905,6 +2910,9 @@ astPrimalPart t = case t of
   Ast.AstFromPrimal v -> v
   Ast.AstD u _ -> u
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
+  Ast.AstSum @y2 snat v
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+      astSum snat (astPrimalPart v)
   Ast.AstReplicate k v -> astReplicate k (astPrimalPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
@@ -2924,7 +2932,6 @@ astPrimalPart t = case t of
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (astPrimalPart u) (astPrimalPart v)
   AstSumOfListR args -> astSumOfListR (map astPrimalPart args)
   Ast.AstIndex v ix -> astIndexR (astPrimalPart v) ix
-  Ast.AstSum v -> astSum (astPrimalPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astPrimalPart v) (var, ix)
   Ast.AstFromVector l -> astFromVector (V.map astPrimalPart l)
   Ast.AstAppend x y -> astAppend (astPrimalPart x) (astPrimalPart y)
@@ -3019,6 +3026,9 @@ astDualPart t = case t of
   Ast.AstFromPrimal{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
+  Ast.AstSum @y2 snat v
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+      astSum snat (astDualPart v)
   Ast.AstReplicate k v -> astReplicate k (astDualPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstLet var u v -> astLet var u (astDualPart v)
@@ -3038,7 +3048,6 @@ astDualPart t = case t of
   Ast.AstI2R{} -> Ast.AstDualPart t
   AstSumOfListR args -> astSumOfListR (map astDualPart args)
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
-  Ast.AstSum v -> astSum (astDualPart v)
   Ast.AstScatter sh v (var, ix) -> astScatter sh (astDualPart v) (var, ix)
   Ast.AstFromVector l -> astFromVector (V.map astDualPart l)
   Ast.AstAppend x y -> astAppend (astDualPart x) (astDualPart y)
@@ -3309,6 +3318,9 @@ simplifyAst t = case t of
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
+  Ast.AstSum @y2 snat v
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+      astSum snat (simplifyAst v)
   Ast.AstReplicate k v -> astReplicate k (simplifyAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
@@ -3346,7 +3358,6 @@ simplifyAst t = case t of
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (simplifyAst u) (simplifyAst v)
   AstSumOfListR args -> astSumOfListR (map simplifyAst args)
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIxR ix)
-  Ast.AstSum v -> astSum (simplifyAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (simplifyAst v) (var, simplifyAstIxR ix)
   Ast.AstFromVector l -> astFromVector (V.map simplifyAst l)
@@ -3511,6 +3522,9 @@ expandAst t = case t of
   Ast.AstD u u' -> Ast.AstD (expandAst u) (expandAst u')
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
+  Ast.AstSum @y2 snat v
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+      astSum snat (expandAst v)
   Ast.AstReplicate k v -> astReplicate k (expandAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
@@ -3555,7 +3569,6 @@ expandAst t = case t of
   Ast.AstIndex v ix -> astIndexKnobsR (defaultKnobs {knobExpand = True})
                                       (expandAst v)
                                       (expandAstIxR ix)
-  Ast.AstSum v -> astSum (expandAst v)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (expandAst v) (var, expandAstIxR ix)
   Ast.AstFromVector l -> astFromVector (V.map expandAst l)
@@ -4060,6 +4073,9 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing, Nothing) -> Nothing
       (mb, mv, mw) ->
         Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+  Ast.AstSum @y2 snat v
+    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+      astSum snat <$> substitute1Ast i var v
   Ast.AstReplicate k v -> astReplicate k <$> substitute1Ast i var v
   Ast.AstBuild1 k (var2, v) ->
     Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
@@ -4140,7 +4156,6 @@ substitute1Ast i var v1 = case v1 of
     case (substitute1Ast i var v, substitute1AstIxR i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexR (fromMaybe v mv) (fromMaybe ix mix)
-  Ast.AstSum v -> astSum <$> substitute1Ast i var v
   Ast.AstScatter sh v (vars, ix) ->
     case (substitute1Ast i var v, substitute1AstIxR i var ix) of
       (Nothing, Nothing) -> Nothing

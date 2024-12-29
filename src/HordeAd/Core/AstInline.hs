@@ -117,6 +117,7 @@ inlineAst memo v0 = case v0 of
         memo4 = EM.unionWith max memoA2 memoA3
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstCond b1 t2 t3)
+  Ast.AstSum snat v -> second (Ast.AstSum snat) (inlineAst memo v)
   Ast.AstReplicate k v -> second (Ast.AstReplicate k) (inlineAst memo v)
   Ast.AstBuild1 k (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
@@ -195,7 +196,6 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1 (toList ix)
     in (memo2, Ast.AstIndex v2 (fromList ix2))
-  Ast.AstSum v -> second Ast.AstSum (inlineAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (toList ix)
@@ -495,6 +495,7 @@ unshareAst memo = \case
         (memo2, t2) = unshareAst memo1 a2
         (memo3, t3) = unshareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
+  Ast.AstSum snat v -> second (Ast.AstSum snat) (unshareAst memo v)
   Ast.AstReplicate k v -> second (Ast.AstReplicate k) (unshareAst memo v)
   Ast.AstBuild1 snat (var, v) ->
     let (memo1, v2) = unshareAstScoped [var] memo v
@@ -561,7 +562,6 @@ unshareAst memo = \case
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (toList ix)
     in (memo2, Ast.AstIndex v2 (fromList ix2))
-  Ast.AstSum v -> second Ast.AstSum (unshareAst memo v)
   Ast.AstScatter sh v (vars, ix) ->
     let (memo1, ix2) = mapAccumR (unshareAstScoped $ toList vars)
                                  memo (toList ix)

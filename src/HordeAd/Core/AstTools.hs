@@ -75,6 +75,7 @@ ftkAst t = case t of
   AstFromPrimal a -> ftkAst a
   AstD u _ -> ftkAst u
   AstCond _b v _w -> ftkAst v
+  AstSum snat v -> razeFTK snat (ftkAst v)
   AstReplicate snat v -> buildFTK snat (ftkAst v)
   AstBuild1 snat (_var, v) -> buildFTK snat (ftkAst v)
   AstLet _ _ v -> ftkAst v
@@ -106,8 +107,6 @@ ftkAst t = case t of
     v : _ -> ftkAst v
   AstIndex v _ -> case ftkAst v of
     FTKR sh x -> FTKR (dropShape sh) x
-  AstSum v -> case ftkAst v of
-    FTKR sh x -> FTKR (shrTail sh) x
   AstScatter sh v _ -> case ftkAst v of
     FTKR _ x -> FTKR sh x
   AstFromVector l -> case V.toList l of
@@ -325,7 +324,7 @@ varInAst var = \case
   AstI2R _ t u -> varInAst var t || varInAst var u
   AstSumOfListR l -> any (varInAst var) l
   AstIndex v ix -> varInAst var v || varInIndex var ix
-  AstSum v -> varInAst var v
+  AstSum _ v -> varInAst var v
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstFromVector vl -> any (varInAst var) $ V.toList vl
   AstAppend v u -> varInAst var v || varInAst var u
