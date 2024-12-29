@@ -340,8 +340,8 @@ astNonIndexStep t = case t of
   Ast.AstFromPrimal{} -> t
   Ast.AstD{} -> t
   Ast.AstCond a b c -> astCond a b c
-  Ast.AstSum snat v -> astSum snat v
-  Ast.AstReplicate k v -> astReplicate k v
+  Ast.AstSum snat stk v -> astSum snat stk v
+  Ast.AstReplicate snat stk v -> astReplicate snat stk v
   Ast.AstBuild1{} -> t
   Ast.AstLet var u v -> astLet var u v
   AstConcrete{} -> t
@@ -532,13 +532,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     shareIx ix $ \ !ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
-  Ast.AstSum snat v ->  -- almost neutral; transposition is likely to fuse away
+  Ast.AstSum snat _ v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = backpermCycle $ valueOf @m + 1
-    in astSum snat $ astIndex (astTranspose perm3 v) ix
-  Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i1
-                           , STKR{} <- stensorKind @y2 ->
+    in astSum snat stensorKind $ astIndex (astTranspose perm3 v) ix
+  Ast.AstReplicate snat STKR{} v | AstConcrete _ (RepN it) <- i1 ->
     let i = fromIntegral it
-    in if 0 <= i && i < sNatValue k
+    in if 0 <= i && i < sNatValue snat
        then astIndex v rest1
        else case ftkAst v of
          FTKR sh x ->
@@ -553,7 +552,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
                                               (Ast.AstRel LsOp i1 len) of
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
-  Ast.AstReplicate @y2 _k v | STKR{} <- stensorKind @y2 -> astIndex v rest1
+  Ast.AstReplicate _ STKR{} v -> astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) | STKR{} <- stensorKind @y2 ->
     astIndex (astLet var2 i1 v) rest1
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
@@ -733,7 +732,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
     shareIx ix $ \ !ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
-  Ast.AstSum snat@(SNat @n1) v ->
+  Ast.AstSum snat@(SNat @n1) _ v ->
     let perm3 = backpermCycle $ sNatValue $ shsRank $ knownShS @shm
     in Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl
@@ -743,22 +742,21 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
                     :: Permutation.PermutePrefix perm3P (n1 : (shm ++ shn))
                        :~: shm ++ (n1 : shn)) $
          trustMeThisIsAPermutation @perm3P $
-         astSum snat $ astIndex @shm @(n1 : shn)
-                                (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
-                                ix
-  Ast.AstReplicate @y2 k v
-   | AstConcrete _ (RepN it) <- i1 -> case stensorKind @y2 of
-    STKS sh _ ->
+         astSum snat stensorKind
+         $ astIndex @shm @(n1 : shn)
+                    (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
+                    ix
+  Ast.AstReplicate snat (STKS sh _) v
+    | AstConcrete _ (RepN it) <- i1 ->
       withKnownShS sh $
       let i = fromIntegral it
-      in if 0 <= i && i < sNatValue k
+      in if 0 <= i && i < sNatValue snat
          then astIndex v rest1
          else case ftkAst v of
            FTKS _ x ->
              let ftk = FTKS knownShS x
              in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
-  Ast.AstReplicate @y2 _snat v -> case stensorKind @y2 of
-    STKS sh _ -> withKnownShS sh $ astIndex v rest1
+  Ast.AstReplicate _ (STKS sh _) v -> withKnownShS sh $ astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
     STKS sh _ ->
       withKnownShS sh $
@@ -1029,7 +1027,8 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
            then Ast.AstGather sh0 v0 (vars0, ix0)
            else case shrRank sh' of
              SNat -> withSNat k $ \snat ->
-               astReplicate snat (astGatherKnobsR knobs sh' v0 (vars, ix0))
+               astReplicate snat stensorKind
+                            (astGatherKnobsR knobs sh' v0 (vars, ix0))
        where
         restN = ixrInit ix0
         iN = ixrLast ix0
@@ -1096,26 +1095,25 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
                     (astGatherRec sh4 u' (varsFresh, ix5))
     Ast.AstCond b v w -> astCond b (astGather sh4 v (vars4, ix4))
                                    (astGather sh4 w (vars4, ix4))
-    Ast.AstSum snat v ->
+    Ast.AstSum snat _ v ->
       let perm3 = backpermCycle $ valueOf @p' + 1
           perm4 = permCycle $ valueOf @m' + 1
           (sh41, sh42) = splitAt_Shape @m' sh4
           sh5 = sh41 `shrAppend` (lengthAst v :$: sh42)
           innerGather = astGather sh5 (astTranspose perm3 v) (vars4, ix4)
-      in if not (knobExpand knobs) || length perm4 <= valueOf @m'
-         then astSum snat $ astTranspose perm4 innerGather
-         else astSum snat $ astTransposeAsGather knobs perm4 innerGather
-    Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i4
-                             , STKR{} <- stensorKind @y2 ->
+      in astSum snat stensorKind
+         $ if not (knobExpand knobs) || length perm4 <= valueOf @m'
+           then astTranspose perm4 innerGather
+           else astTransposeAsGather knobs perm4 innerGather
+    Ast.AstReplicate snat STKR{} v | AstConcrete _ (RepN it) <- i4 ->
       let i = fromIntegral it
-      in if 0 <= i && i < sNatValue k
+      in if 0 <= i && i < sNatValue snat
          then astGather sh4 v (vars4, rest4)
          else case ftkAst v of
            FTKR _ x ->
              let ftk = FTKR sh4 x
              in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
-    Ast.AstReplicate @y2 _ v | STKR{} <- stensorKind @y2 ->
-      astGather sh4 v (vars4, rest4)
+    Ast.AstReplicate _ STKR{} v -> astGather sh4 v (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLet var u v -> astLet var u (astGatherCase sh4 v (vars4, ix4))
 
@@ -1365,8 +1363,9 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
            then Ast.AstGatherS @shm @shn @shp v0 (vars0, ix0)
            else withKnownShS sh' $
                 withKnownShS (knownShS @sh' `shsAppend` knownShS @shn) $
-                astReplicate k (astGatherKnobsS @(Tail shm) @shn @shp
-                                                knobs v0 (vars, ix0))
+                astReplicate k stensorKind
+                             (astGatherKnobsS @(Tail shm) @shn @shp
+                                              knobs v0 (vars, ix0))
        where
         restN = ixsInit ix0
         iN = ixsLast ix0
@@ -1439,7 +1438,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstCond b v w ->
       astCond b (astGather @shm' @shn' @shp' v (vars4, ix4))
                 (astGather @shm' @shn' @shp' w (vars4, ix4))
-    Ast.AstSum snat@(SNat @n1) v ->
+    Ast.AstSum snat@(SNat @n1) _ v ->
       let perm3 = backpermCycle $ shsLength (knownShS @shp') + 1
           perm4 = permCycle $ shsLength (knownShS @shm') + 1
       in Permutation.permFromList perm3 $ \(perm3S :: Permutation.Perm perm3P) ->
@@ -1463,19 +1462,20 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
          let innerGather =
                astGather @shm' @(n1 : shn') @shp'
                          (astTransposeS perm3S v) (vars4, ix4)
-         in if not (knobExpand knobs) || length perm4 <= shsLength (knownShS @shm')
-            then astSum snat $ astTransposeS perm4S innerGather
-            else astSum snat $ astTransposeAsGatherS knobs perm4S innerGather
-    Ast.AstReplicate @y2 k v | AstConcrete _ (RepN it) <- i4
-                             , STKS{} <- stensorKind @y2 ->
+         in astSum snat stensorKind
+            $ if not (knobExpand knobs)
+                 || length perm4 <= shsLength (knownShS @shm')
+              then astTransposeS perm4S innerGather
+              else astTransposeAsGatherS knobs perm4S innerGather
+    Ast.AstReplicate snat STKS{} v | AstConcrete _ (RepN it) <- i4 ->
       let i = fromIntegral it
-      in if 0 <= i && i < sNatValue k
+      in if 0 <= i && i < sNatValue snat
          then astGather @shm' @shn' @(Tail shp') v (vars4, rest4)
          else case ftkAst v of
            FTKS _ x ->
              let ftk = FTKS knownShS x
              in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
-    Ast.AstReplicate @y2 _ v | STKS{} <- stensorKind @y2 ->
+    Ast.AstReplicate _ STKS{} v ->
       astGather @shm' @shn' @shp1' v (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstLet var u v ->
@@ -2033,54 +2033,6 @@ astSumOfListS :: (GoodScalar r, KnownShS sh)
               -> AstTensor AstMethodLet s (TKS sh r)
 astSumOfListS = foldr1 (+)  -- @sum@ reverses order
 
-astSum :: forall y k s. (TensorKind y, AstSpan s)
-       => SNat k -> AstTensor AstMethodLet s (BuildTensorKind k y)
-       -> AstTensor AstMethodLet s y
-astSum snat t0 = case (stensorKind @y, ftkAst t0) of
---  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
-  (STKR{}, FTKR (0 :$: rest) FTKScalar) -> astReplicate0N rest 0
-  (STKS{}, FTKS (SNat @n :$$ rest) FTKScalar)
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-      withKnownShS rest
-      $ astReplicate0NS 0
-  _ -> case t0 of
-    -- Ast.AstLet var u v -> astLet var u (astSum snat v)
-      -- this is problematic, because it keeps huge tensors alive for longer
-    Ast.AstReplicate @y2 k v | STKR SNat _ <- stensorKind @y2
-                             , STKR _ STKScalar{} <- stensorKind @y ->
-      v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat k)
-    Ast.AstReplicate @y2 k v | STKS{} <- stensorKind @y2
-                             , STKS sh STKScalar{} <- stensorKind @y ->
-     withKnownShS sh $
-     v * astReplicate0NS (fromInteger $ fromSNat k)
-    Ast.AstFromVector l | STKR _ STKScalar{} <- stensorKind @y ->
-      astSumOfListR $ V.toList l
-    Ast.AstFromVectorS l | STKS _ STKScalar{} <- stensorKind @y ->
-      astSumOfListS $ V.toList l
-    Ast.AstSlice _i 0 v | STKR _ STKScalar{} <- stensorKind @y ->
-      astReplicate0N (shrTail (shapeAst v)) 0
-    Ast.AstSliceS @_ @k2 _v  | STKS _ STKScalar{} <- stensorKind @y
-                             , Just Refl <- sameNat (Proxy @k2) (Proxy @0) ->
-      astReplicate0NS 0
-    Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix)
-      | STKR{} <- stensorKind @y ->
-        astScatter sh v (vars, ix)
-    Ast.AstScatterS @shm @shn @shp v (vars, _ :.$ ix)
-      | STKS{} <- stensorKind @y
-      , Dict <- sixKnown ix ->
-        astScatterS @shm @shn @(Tail shp) v (vars, ix)
-    Ast.AstSlice i 1 v | STKR SNat _ <- stensorKind @y ->
-      astIndexR v (fromIntegral i :.: ZIR)
-    Ast.AstSliceS @i @k2 v  | STKS{} <- stensorKind @y
-                            , Just Refl <- sameNat (Proxy @k2) (Proxy @1) ->
-      astIndexS v (valueOf @i :.$ ZIS)
-    Ast.AstReverse v | STKR{} <- stensorKind @y ->
-      astSum snat v
-    Ast.AstReverseS v | STKS{} <- stensorKind @y -> astSum snat v
-    AstConcrete ftk t -> AstConcrete (razeFTK snat ftk) $ tsum snat stensorKind t
-    Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum snat v
-    _ -> Ast.AstSum snat t0
-
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatter :: forall m n p s r.
               (TensorKind r, KnownNat m, KnownNat n, KnownNat p, AstSpan s)
@@ -2097,7 +2049,7 @@ astScatter sh@(k :$: _) _v (_vars, AstConcrete _ (RepN it) :.: _ix)
 astScatter sh v ((:::) @k var vars, ix)
  | not $ varNameToAstVarId var `varInIndex` ix
  , STKScalar{} <- stensorKind @r =
-  astScatter sh (astSum (SNat @k) v) (vars, ix)
+  astScatter sh (astSum (SNat @k) stensorKind v) (vars, ix)
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstFromPrimal v) (vars, ix) =
   Ast.AstFromPrimal $ astScatter sh v (vars, ix)
@@ -2122,7 +2074,7 @@ astScatterS v (Const var ::$ (vars :: AstVarListS sh3), ix)
   , Dict <- slistKnown vars
   , STKScalar{} <- stensorKind @r =
       withKnownShS (knownShS @sh3 `shsAppend` knownShS @shn) $
-      astScatterS @sh3 @shn @shp (astSum SNat v) (vars, ix)
+      astScatterS @sh3 @shn @shp (astSum SNat stensorKind v) (vars, ix)
 -- astScatterS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterS (Ast.AstFromPrimal v) (vars, ix) =
   withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
@@ -2132,7 +2084,7 @@ astScatterS v (vars, ix) = Ast.AstScatterS @shm @shn @shp v (vars, ix)
 astFromVector :: forall s r n. (KnownNat n, TensorKind r, AstSpan s)
               => Data.Vector.Vector (AstTensor AstMethodLet s (TKR2 n r))
               -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
-astFromVector v | V.length v == 1 = astReplicate (SNat @1) (v V.! 0)
+astFromVector v | V.length v == 1 = astReplicate (SNat @1) stensorKind (v V.! 0)
 astFromVector l | Just Refl <- sameAstSpan @s @PrimalSpan =
   let unConst :: AstTensor AstMethodLet PrimalSpan (TKR2 n r)
               -> Maybe (FullTensorKind r, RepN (TKR2 n r))
@@ -2158,7 +2110,7 @@ astFromVectorS :: forall s r n sh.
                   (KnownNat n, KnownShS sh, TensorKind r, AstSpan s)
                => Data.Vector.Vector (AstTensor AstMethodLet s (TKS2 sh r))
                -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
-astFromVectorS v | V.length v == 1 = astReplicate SNat (v V.! 0)
+astFromVectorS v | V.length v == 1 = astReplicate SNat stensorKind (v V.! 0)
 astFromVectorS l | Just Refl <- sameAstSpan @s @PrimalSpan =
   let unConst :: AstTensor AstMethodLet PrimalSpan (TKS2 sh r)
               -> Maybe (FullTensorKind r, RepN (TKS2 sh r))
@@ -2184,7 +2136,7 @@ astFromVectorX :: forall s r n sh.
                   (KnownNat n, KnownShX sh, GoodScalar r, AstSpan s)
                => Data.Vector.Vector (AstTensor AstMethodLet s (TKX sh r))
                -> AstTensor AstMethodLet s (TKX (Just n ': sh) r)
-astFromVectorX v | V.length v == 1 = astReplicate SNat (v V.! 0)
+astFromVectorX v | V.length v == 1 = astReplicate SNat stensorKind (v V.! 0)
 astFromVectorX l | Just Refl <- sameAstSpan @s @PrimalSpan =
   let unConst :: AstTensor AstMethodLet PrimalSpan (TKX sh r)
               -> Maybe (RepN (TKX sh r))
@@ -2205,16 +2157,66 @@ astFromVectorX l | Just Refl <- sameAstSpan @s @FullSpan =
     Nothing -> Ast.AstFromVectorX l
 astFromVectorX l = Ast.AstFromVectorX l
 
-astReplicate :: forall k y s. (TensorKind y, AstSpan s)
-             => SNat k -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astReplicate snat@SNat
- | Dict <- lemTensorKindOfBuild snat (stensorKind @y) = \case
+astSum :: forall y k s. AstSpan s
+       => SNat k -> STensorKindType y
+       -> AstTensor AstMethodLet s (BuildTensorKind k y)
+       -> AstTensor AstMethodLet s y
+astSum snat stk t0 = case (stk, ftkAst t0) of
+--  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
+  (STKR{}, FTKR (0 :$: rest) FTKScalar) -> astReplicate0N rest 0
+  (STKS{}, FTKS (SNat @n :$$ rest) FTKScalar)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+      withKnownShS rest
+      $ astReplicate0NS 0
+  _ -> case t0 of
+    -- Ast.AstLet var u v -> astLet var u (astSum snat v)
+      -- this is problematic, because it keeps huge tensors alive for longer
+    Ast.AstReplicate snat2 (STKR SNat _) v | STKR _ STKScalar{} <- stk ->
+      v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat snat2)
+    Ast.AstReplicate snat2 (STKS sh _) v | STKS _ STKScalar{} <- stk ->
+     withKnownShS sh $
+     v * astReplicate0NS (fromInteger $ fromSNat snat2)
+    Ast.AstFromVector l | STKR _ STKScalar{} <- stk ->
+      astSumOfListR $ V.toList l
+    Ast.AstFromVectorS l | STKS _ STKScalar{} <- stk ->
+      astSumOfListS $ V.toList l
+    Ast.AstSlice _i 0 v | STKR _ STKScalar{} <- stk ->
+      astReplicate0N (shrTail (shapeAst v)) 0
+    Ast.AstSliceS @_ @k2 _v  | STKS _ STKScalar{} <- stk
+                             , Just Refl <- sameNat (Proxy @k2) (Proxy @0) ->
+      astReplicate0NS 0
+    Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix)
+      | STKR{} <- stk ->
+        astScatter sh v (vars, ix)
+    Ast.AstScatterS @shm @shn @shp v (vars, _ :.$ ix)
+      | STKS{} <- stk
+      , Dict <- sixKnown ix ->
+        astScatterS @shm @shn @(Tail shp) v (vars, ix)
+    Ast.AstSlice i 1 v | STKR SNat _ <- stk ->
+      astIndexR v (fromIntegral i :.: ZIR)
+    Ast.AstSliceS @i @k2 v  | STKS{} <- stk
+                            , Just Refl <- sameNat (Proxy @k2) (Proxy @1) ->
+      astIndexS v (valueOf @i :.$ ZIS)
+    Ast.AstReverse v | STKR{} <- stk -> astSum snat stk v
+    Ast.AstReverseS v | STKS{} <- stk -> astSum snat stk v
+    AstConcrete ftk t | Dict <- lemTensorKindOfSTK stk ->
+      AstConcrete (razeFTK snat stensorKind ftk) $ tsum snat stk t
+    Ast.AstFromPrimal v | Dict <- lemTensorKindOfSTK stk ->
+      Ast.AstFromPrimal $ astSum snat stk v
+    _ -> Ast.AstSum snat stk t0
+
+astReplicate :: forall k y s. AstSpan s
+             => SNat k -> STensorKindType y
+             -> AstTensor AstMethodLet s y
+             -> AstTensor AstMethodLet s (BuildTensorKind k y)
+astReplicate snat@SNat stk
+ | Dict <- lemTensorKindOfBuild snat stk = \case
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside replicate and only move
           if they don't) -}
   Ast.AstTranspose perm v ->
-    astTranspose (0 : map succ perm) $ astReplicate snat v
+    astTranspose (0 : map succ perm) $ astReplicate snat stensorKind v
 {- see the previous comment
   Ast.AstReshape sh v ->
     AstReshape (k :$: sh) $ astReplicate k v
@@ -2223,8 +2225,8 @@ astReplicate snat@SNat
 -- a projection reduces this away. The cost to AD should not be too high.
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
 --  AstConcrete t -> AstConcrete $ treplicateR k t
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat v
-  Ast.AstTransposeS @perm @sh1 perm v -> case stensorKind @y of
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
+  Ast.AstTransposeS @perm @sh1 perm v -> case stk of
     STKS @sh _ _ ->
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
           zsuccPerm = Permutation.permShift1 perm
@@ -2233,8 +2235,8 @@ astReplicate snat@SNat
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-        astTransposeS zsuccPerm $ astReplicate snat v
-  v -> Ast.AstReplicate snat v
+        astTransposeS zsuccPerm $ astReplicate snat stensorKind v
+  v -> Ast.AstReplicate snat stk v
 
 astReplicateN :: forall n p s r.
                  (KnownNat n, KnownNat p, TensorKind r, AstSpan s)
@@ -2244,7 +2246,7 @@ astReplicateN sh v =
   let go :: IShR n' -> AstTensor AstMethodLet s (TKR2 (n' + p) r)
       go ZSR = v
       go (k :$: sh2) | SNat <- shrRank sh2 = withSNat k $ \snat ->
-        astReplicate snat $ go sh2
+        astReplicate snat stensorKind $ go sh2
   in go (takeShape sh)
 
 astReplicateNS :: forall shn shp s r.
@@ -2256,7 +2258,7 @@ astReplicateNS v =
       go ZSS = v
       go ((:$$) @k @shn2 SNat shn2) | Dict <- shsKnownShS shn2 =
         withKnownShS (knownShS @shn2 `shsAppend` knownShS @shp) $
-        astReplicate (SNat @k) $ go shn2
+        astReplicate (SNat @k) stensorKind $ go shn2
   in go (knownShS @shn)
 
 astReplicate0N :: forall n s r. (GoodScalar r, AstSpan s)
@@ -2266,7 +2268,7 @@ astReplicate0N sh =
          -> AstTensor AstMethodLet s (TKR n' r)
       go ZSR v = v
       go (k :$: sh') v | SNat <- shrRank sh' = withSNat k $ \snat ->
-        astReplicate snat $ go sh' v
+        astReplicate snat stensorKind $ go sh' v
   in go sh . fromPrimal . AstConcrete (FTKR ZSR FTKScalar) . rscalar
 
 astReplicate0NS :: forall shn s r. (KnownShS shn, GoodScalar r, AstSpan s)
@@ -2276,7 +2278,7 @@ astReplicate0NS =
          -> AstTensor AstMethodLet s (TKS sh' r)
       go ZSS v = v
       go ((:$$) SNat sh') v | Dict <- shsKnownShS sh' =
-        astReplicate SNat $ go sh' v
+        astReplicate SNat stensorKind $ go sh' v
   in go (knownShS @shn) . fromPrimal . AstConcrete (FTKS ZSS FTKScalar) . sscalar
 
 astAppend :: (KnownNat n, TensorKind r, AstSpan s)
@@ -2311,8 +2313,8 @@ astSlice i n (AstConcrete (FTKR (_ :$: sh) ftk2) t) =
   AstConcrete (FTKR (n :$: sh) ftk2) $ rslice i n t
 astSlice i n (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSlice i n v
 astSlice 0 n v | n == lengthAst v = v
-astSlice _i n (Ast.AstReplicate @y2 _ v) | STKR{} <- stensorKind @y2 =
-  withSNat n $ \snat -> astReplicate snat v
+astSlice _i n (Ast.AstReplicate _ stk@STKR{} v) =
+  withSNat n $ \snat -> astReplicate snat stk v
 astSlice i n (Ast.AstFromVector l) = astFromVector $ V.take n (V.drop i l)
 astSlice i n w@(Ast.AstAppend (u :: AstTensor AstMethodLet s (TKR2 (1 + k) r))
                               (v :: AstTensor AstMethodLet s (TKR2 (1 + k) r))) =
@@ -2343,8 +2345,8 @@ astSliceS (AstConcrete (FTKS _ ftk2) t) =
 astSliceS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
-astSliceS (Ast.AstReplicate @y2 _ v) | STKS{} <- stensorKind @y2 =
-  astReplicate (SNat @n) v
+astSliceS (Ast.AstReplicate _ snat@STKS{} v) =
+  astReplicate (SNat @n) snat v
 astSliceS (Ast.AstFromVectorS l) =
   astFromVectorS $ V.take (valueOf @n) (V.drop (valueOf @i) l)
 astSliceS w@(Ast.AstAppendS (u :: AstTensor AstMethodLet s (TKS2 (ulen : sh) r))
@@ -2381,7 +2383,7 @@ astReverse :: forall n s r. (KnownNat n, TensorKind r, AstSpan s)
            -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
 astReverse (AstConcrete ftk t) = AstConcrete ftk $ rreverse t
 astReverse (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverse v
-astReverse (Ast.AstReplicate k v) = astReplicate k v
+astReverse (Ast.AstReplicate snat stk v) = astReplicate snat stk v
 astReverse (Ast.AstFromVector l) = astFromVector $ V.reverse l
 astReverse (Ast.AstReverse v) = v
 astReverse (Ast.AstGather sh@(k :$: _) v (var ::: vars, ix)) =
@@ -2396,7 +2398,7 @@ astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, TensorKind r, AstSpan 
             -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (AstConcrete ftk t) = AstConcrete ftk $ sreverse t
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
-astReverseS (Ast.AstReplicate k v) = astReplicate k v
+astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
 astReverseS (Ast.AstFromVectorS l) = astFromVectorS $ V.reverse l
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstGatherS @shm @shn @shp v ((::$) @k (Const var) vars, ix)) =
@@ -2421,8 +2423,8 @@ astTranspose perm = \case
   Ast.AstR1R opCode u | not (isVar u) -> Ast.AstR1R opCode (astTranspose perm u)
   Ast.AstR2R opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2R opCode (astTranspose perm u) (astTranspose perm v)
-  Ast.AstSum snat v ->
-    astSum snat $ astTranspose (0 : map succ perm) v
+  Ast.AstSum snat stk v ->
+    astSum snat stk $ astTranspose (0 : map succ perm) v
   Ast.AstScatter @_ @_ @p sh v (vars, ix) | length perm <= valueOf @p ->
     -- TODO: should the below be backpermute or permute?
     astScatter (Nested.Internal.Shape.shrPermutePrefix perm sh) v
@@ -2474,7 +2476,7 @@ astTransposeS perm t = case perm of
   Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
     withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
     Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
-  Ast.AstSum snat@(SNat @n) v ->
+  Ast.AstSum snat@(SNat @n) _ v ->
     let zsuccP :: Permutation.Perm (0 : Permutation.MapSucc perm)
         zsuccP = Permutation.permShift1 perm
     in
@@ -2485,7 +2487,7 @@ astTransposeS perm t = case perm of
                  :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh)
                     :~: n : Permutation.PermutePrefix perm sh) $
       trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-      astSum snat $ astTransposeS zsuccP v
+      astSum snat stensorKind $ astTransposeS zsuccP v
   Ast.AstScatterS @shm @shn @shp v (vars, ix)
     -- TODO: should the below be backpermute or permute?
     | gcompare (Permutation.permRank perm) (shsRank $ knownShS @shp) /= GGT ->
@@ -2545,9 +2547,8 @@ astReshape :: forall p m s r. (KnownNat p, KnownNat m, TensorKind r, AstSpan s)
            => IShR m -> AstTensor AstMethodLet s (TKR2 p r)
            -> AstTensor AstMethodLet s (TKR2 m r)
 astReshape shOut = \case
-  Ast.AstReplicate @y2 (SNat @k) x
-    | Just Refl <- sameNat (Proxy @k) (Proxy @1)
-    , STKR{} <- stensorKind @y2 ->
+  Ast.AstReplicate (SNat @k) STKR{} x
+    | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astReshape shOut x
   Ast.AstLet var u v -> astLet var u (astReshape shOut v)
   AstN1R opCode u | not (isVar u) -> AstN1R opCode (astReshape shOut u)
@@ -2577,9 +2578,9 @@ astReshapeS :: forall sh sh2 r s.
             => AstTensor AstMethodLet s (TKS2 sh r)
             -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astReshapeS = \case
-  Ast.AstReplicate @y2 (SNat @k) x
-    | Just Refl <- sameNat (Proxy @k) (Proxy @1) -> case stensorKind @y2 of
-        STKS sh _ -> withKnownShS sh $ astReshapeS x
+  Ast.AstReplicate (SNat @k) (STKS sh _) x
+    | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
+      withKnownShS sh $ astReshapeS x
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 v)
   AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 u)
   AstN2S opCode u v | not (isVar u && isVar v) ->
@@ -2904,10 +2905,10 @@ astPrimalPart t = case t of
   Ast.AstFromPrimal v -> v
   Ast.AstD u _ -> u
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
-  Ast.AstSum @y2 snat v
-    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-      astSum snat (astPrimalPart v)
-  Ast.AstReplicate k v -> astReplicate k (astPrimalPart v)
+  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+    astSum snat stk (astPrimalPart v)
+  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+    astReplicate snat stk (astPrimalPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
 
@@ -3019,10 +3020,10 @@ astDualPart t = case t of
   Ast.AstFromPrimal{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
-  Ast.AstSum @y2 snat v
-    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-      astSum snat (astDualPart v)
-  Ast.AstReplicate k v -> astReplicate k (astDualPart v)
+  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+    astSum snat stk (astDualPart v)
+  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+    astReplicate snat stk (astDualPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstLet var u v -> astLet var u (astDualPart v)
 
@@ -3310,10 +3311,10 @@ simplifyAst t = case t of
   Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
-  Ast.AstSum @y2 snat v
-    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-      astSum snat (simplifyAst v)
-  Ast.AstReplicate k v -> astReplicate k (simplifyAst v)
+  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+    astSum snat stk (simplifyAst v)
+  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+    astReplicate snat stk (simplifyAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   AstConcrete{} -> t
@@ -3513,10 +3514,10 @@ expandAst t = case t of
   Ast.AstD u u' -> Ast.AstD (expandAst u) (expandAst u')
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
-  Ast.AstSum @y2 snat v
-    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-      astSum snat (expandAst v)
-  Ast.AstReplicate k v -> astReplicate k (expandAst v)
+  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+    astSum snat stk (expandAst v)
+  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+    astReplicate snat stk (expandAst v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   AstConcrete{} -> t
@@ -4063,10 +4064,10 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing, Nothing) -> Nothing
       (mb, mv, mw) ->
         Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
-  Ast.AstSum @y2 snat v
-    | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-      astSum snat <$> substitute1Ast i var v
-  Ast.AstReplicate k v -> astReplicate k <$> substitute1Ast i var v
+  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+    astSum snat stk <$> substitute1Ast i var v
+  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+    astReplicate snat stk <$> substitute1Ast i var v
   Ast.AstBuild1 k (var2, v) ->
     Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
   Ast.AstLet var2 u v ->

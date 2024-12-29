@@ -393,10 +393,10 @@ testCNNOPP = do
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
       blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR 4 Double)
-      blackGlyph = AstReplicate (SNat @1)
-                   $ AstReplicate (SNat @1)
-                   $ AstReplicate (SNat @4)
-                   $ AstReplicate (SNat @4)
+      blackGlyph = AstReplicate (SNat @1) stensorKind
+                   $ AstReplicate (SNat @1) stensorKind
+                   $ AstReplicate (SNat @4) stensorKind
+                   $ AstReplicate (SNat @4) stensorKind
                        (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN Double
       valsInit =

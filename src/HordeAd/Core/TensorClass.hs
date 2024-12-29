@@ -267,6 +267,8 @@ class ( Num (IntOf target)
   rindex0 = rindex
   rsum :: (TensorKind r, KnownNat n)
        => target (TKR2 (1 + n) r) -> target (TKR2 n r)
+  -- This op (and it's Delta constructor) is worthwhile, because flattening
+  -- is O(n) sometimes, unlike transpose, etc.
   rsum0 :: (TensorKind r, KnownNat n)
         => target (TKR2 n r) -> target (TKR2 0 r)
   rsum0 = rsum . rflatten

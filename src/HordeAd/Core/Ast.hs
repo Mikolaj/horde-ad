@@ -269,11 +269,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstCond :: TensorKind y
           => AstBool ms -> AstTensor ms s y -> AstTensor ms s y
           -> AstTensor ms s y
-  AstSum :: TensorKind y
-         => SNat k -> AstTensor ms s (BuildTensorKind k y)
+  AstSum :: SNat k -> STensorKindType y
+         -> AstTensor ms s (BuildTensorKind k y)
          -> AstTensor ms s y
-  AstReplicate :: TensorKind y
-               => SNat k -> AstTensor ms s y
+  AstReplicate :: SNat k -> STensorKindType y
+               -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
   AstBuild1 :: TensorKind y
             => SNat k -> (IntVarName, AstTensor ms s y)

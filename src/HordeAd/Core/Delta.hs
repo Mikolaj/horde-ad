@@ -716,7 +716,7 @@ shapeDeltaFull = \case
   Project2G v -> case shapeDeltaFull v of
     FTKProduct _ ftk2 -> ftk2
   SumG snat d ->
-    razeFTK snat (shapeDeltaFull d)
+    razeFTK snat stensorKind (shapeDeltaFull d)
   ReplicateG snat d -> buildFTK snat (shapeDeltaFull d)
   InputG ftk _ -> ftk
   ShareG _ d -> shapeDeltaFull d

@@ -337,14 +337,14 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   riota = fromPrimal $ AstIotaR
   rindex v ix = astIndexStep v ix
-  rsum v = withSNat (rlength v) $ \snat -> astSum snat v
+  rsum v = withSNat (rlength v) $ \snat -> astSum snat stensorKind v
   rscatter sh t f = astScatter sh t
                     $ funToAstIxR f
                           -- this introduces new variable names
 
   rfromVector = astFromVector
   rreplicate k = withSNat k $ \snat ->
-    astReplicate snat
+    astReplicate snat stensorKind
   rappend u v =
     astAppend u v
   rslice i n = astSlice i n
@@ -373,7 +373,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh _ -> sh
   xindex v ix = AstIndexX v ix
   xfromVector = AstFromVectorX
-  xreplicate = AstReplicate SNat
+  xreplicate = AstReplicate SNat stensorKind
   xtoScalar = AstToScalar . AstSFromX
   xzip = AstZipX
   xunzip = AstUnzipX
@@ -390,13 +390,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   siota = fromPrimal $ AstIotaS
   sindex v ix =
     astIndexStepS v ix
-  ssum = astSum SNat
+  ssum = astSum SNat stensorKind
   sscatter @_ @shm @shn @shp t f =
     astScatterS @shm @shn @shp t
     $ funToAstIxS f
         -- this introduces new variable names
   sfromVector = astFromVectorS
-  sreplicate = astReplicate SNat
+  sreplicate = astReplicate SNat stensorKind
   sappend u v = astAppendS u v
   sslice @_ @i Proxy Proxy = astSliceS @i
   sreverse = astReverseS
@@ -613,13 +613,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   riota = AstRaw . fromPrimal $ AstIotaR
   rindex v ix = AstRaw $ AstIndex (unAstRaw v) (unAstRaw <$> ix)
   rsum v = withSNat (rlength v) $ \snat ->
-             AstRaw . AstSum snat . unAstRaw $ v
+             AstRaw . AstSum snat stensorKind . unAstRaw $ v
   rscatter sh t f = AstRaw $ AstScatter sh (unAstRaw t)
                     $ funToAstIxR (fmap unAstRaw . f . fmap AstRaw)
                         -- this introduces new variable names
   rfromVector = AstRaw . AstFromVector . V.map unAstRaw
   rreplicate k = withSNat k $ \snat ->
-    AstRaw . AstReplicate snat . unAstRaw
+    AstRaw . AstReplicate snat stensorKind . unAstRaw
   rappend u v = AstRaw $ AstAppend (unAstRaw u) (unAstRaw v)
   rslice i n = AstRaw . AstSlice i n . unAstRaw
   rreverse = AstRaw . AstReverse . unAstRaw
@@ -653,7 +653,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xindex v ix =
     AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
   xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
-  xreplicate = AstRaw . AstReplicate SNat . unAstRaw
+  xreplicate = AstRaw . AstReplicate SNat stensorKind . unAstRaw
   xzip = AstRaw . AstZipX . unAstRaw
   xunzip = AstRaw . AstUnzipX . unAstRaw
   xtoScalar = AstRaw . AstToScalar . AstSFromX . unAstRaw
@@ -668,13 +668,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sfloor = AstRaw . fromPrimal . AstFloorS . astSpanPrimalRaw . unAstRaw
   siota = AstRaw . fromPrimal $ AstIotaS
   sindex v ix = AstRaw $ AstIndexS (unAstRaw v) (unAstRaw <$> ix)
-  ssum = AstRaw . AstSum SNat . unAstRaw
+  ssum = AstRaw . AstSum SNat stensorKind . unAstRaw
   sscatter @_ @shm @shn @shp t f =
     AstRaw $ AstScatterS @shm @shn @shp (unAstRaw t)
            $ funToAstIxS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
   sfromVector = AstRaw . AstFromVectorS . V.map unAstRaw
-  sreplicate = AstRaw . AstReplicate SNat . unAstRaw
+  sreplicate = AstRaw . AstReplicate SNat stensorKind . unAstRaw
   sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   sslice @_ @i Proxy Proxy = AstRaw . AstSliceS @i . unAstRaw
   sreverse = AstRaw . AstReverseS . unAstRaw
@@ -1026,14 +1026,14 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rindex v ix =
     AstNoSimplify $ AstIndex (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   rsum v = withSNat (rlength v) $ \snat ->
-             AstNoSimplify . AstSum snat . unAstNoSimplify $ v
+             AstNoSimplify . AstSum snat stensorKind . unAstNoSimplify $ v
   rscatter sh t f = AstNoSimplify $ AstScatter sh (unAstNoSimplify t)
                     $ funToAstIxR
                         (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                           -- this introduces new variable names
   rfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
   rreplicate k = withSNat k $ \snat ->
-    AstNoSimplify . AstReplicate snat . unAstNoSimplify
+    AstNoSimplify . AstReplicate snat stensorKind . unAstNoSimplify
   rappend u v =
     AstNoSimplify $ AstAppend (unAstNoSimplify u) (unAstNoSimplify v)
   rslice i n = AstNoSimplify . AstSlice i n . unAstNoSimplify
@@ -1067,7 +1067,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xindex v ix =
     AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify
-  xreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
+  xreplicate = AstNoSimplify . AstReplicate SNat stensorKind . unAstNoSimplify
   xzip = AstNoSimplify . AstZipX . unAstNoSimplify
   xunzip = AstNoSimplify . AstUnzipX . unAstNoSimplify
   xtoScalar = AstNoSimplify . AstToScalar . AstSFromX . unAstNoSimplify
@@ -1086,14 +1086,14 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   siota = AstNoSimplify . fromPrimal $ AstIotaS
   sindex v ix =
     AstNoSimplify $ AstIndexS (unAstNoSimplify v) (unAstNoSimplify <$> ix)
-  ssum = AstNoSimplify . AstSum SNat . unAstNoSimplify
+  ssum = AstNoSimplify . AstSum SNat stensorKind . unAstNoSimplify
   sscatter @_ @shm @shn @shp t f =
     AstNoSimplify $ AstScatterS @shm @shn @shp (unAstNoSimplify t)
                   $ funToAstIxS
                       (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                         -- this introduces new variable names
   sfromVector = AstNoSimplify . AstFromVectorS . V.map unAstNoSimplify
-  sreplicate = AstNoSimplify . AstReplicate SNat . unAstNoSimplify
+  sreplicate = AstNoSimplify . AstReplicate SNat stensorKind . unAstNoSimplify
   sappend u v =
     AstNoSimplify $ AstAppendS (unAstNoSimplify u) (unAstNoSimplify v)
   sslice @_ @i Proxy Proxy = AstNoSimplify . AstSliceS @i . unAstNoSimplify

@@ -214,18 +214,20 @@ buildFTK snat@SNat = \case
   FTKProduct ftk1 ftk2 -> FTKProduct (buildFTK snat ftk1) (buildFTK snat ftk2)
   FTKUntyped shs -> FTKUntyped $ replicate1VoidHVector snat shs
 
-razeFTK :: forall y k. TensorKind y
-        => SNat k -> FullTensorKind (BuildTensorKind k y) -> FullTensorKind y
-razeFTK snat@SNat ftk = case (stensorKind @y, ftk) of
+razeFTK :: forall y k.
+           SNat k -> STensorKindType y
+        -> FullTensorKind (BuildTensorKind k y)
+        -> FullTensorKind y
+razeFTK snat@SNat stk ftk = case (stk, ftk) of
   (STKScalar{}, FTKScalar) -> FTKScalar
   (STKR{}, FTKR (_ :$: sh) x) -> FTKR sh x
   (STKR{}, FTKR ZSR _) -> error "razeFTK: impossible built tensor kind"
   (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x
   (STKX{}, FTKX (_ :$% sh) x) -> FTKX sh x
-  (STKProduct @y1 @y2 stk1 stk2, FTKProduct ftk1 ftk2)
+  (STKProduct stk1 stk2, FTKProduct ftk1 ftk2)
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2 ->
-      FTKProduct (razeFTK @y1 snat ftk1) (razeFTK @y2 snat ftk2)
+      FTKProduct (razeFTK snat stk1 ftk1) (razeFTK snat stk2 ftk2)
   (STKUntyped, FTKUntyped shs) -> FTKUntyped $ unreplicate1VoidHVector snat shs
 
 aDFTK :: FullTensorKind y

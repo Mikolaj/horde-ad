@@ -114,7 +114,7 @@ build1VOccurenceUnknown snat@SNat (var, v00)
     in if varNameInAst var v0
        then build1V snat (var, v0)
        else traceRule $
-         astReplicate snat v0
+         astReplicate snat stensorKind v0
 
 -- This is used to avoid biding the same variable twice in the code,
 -- (unless in very safe situations, e.g., different branches
@@ -221,10 +221,16 @@ build1V snat@SNat (var, v0) =
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"  -- revisit when we have general Index; also look at tcond
       STKUntyped -> error "TODO"
-    Ast.AstReplicate @y2 snat2@(SNat @k2) v
-     | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $
-      astTrGeneral @k2 (stensorKind @y2) (astReplicate snat2
-                                          $ build1V snat (var, v))
+    Ast.AstSum (SNat @k1) stk v
+      | Dict <- lemTensorKindOfBuild (SNat @k1) stk
+      , Dict <- lemTensorKindOfBuild (SNat @k) stk -> traceRule $
+         astSum (SNat @k1) stensorKind
+         $ astTrGeneral @k @k1 stk $ build1V snat (var, v)
+    Ast.AstReplicate snat2@(SNat @k2) stk v
+      | Dict <- lemTensorKindOfSTK stk
+      , Dict <- lemTensorKindOfBuild snat stk -> traceRule $
+        astTrGeneral @k2 stk
+        $ astReplicate snat2 stensorKind $ build1V snat (var, v)
     Ast.AstBuild1 snat2 (var2, v2) ->
       build1VOccurenceUnknown snat (var, build1VOccurenceUnknown snat2 (var2, v2))
         -- happens only when testing and mixing different pipelines
@@ -294,11 +300,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstIndex v ix -> traceRule $ case stensorKind @y of
       STKR _ _ ->
         build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
-    Ast.AstSum @y2 (SNat @k1) v
-      | Dict <- lemTensorKindOfBuild (SNat @k1) (stensorKind @y2)
-      , Dict <- lemTensorKindOfBuild (SNat @k) (stensorKind @y) -> traceRule $
-         astSum (SNat @k1) $ astTrGeneral @k @k1 (stensorKind @y2)
-                           $ build1V snat (var, v)
     Ast.AstScatter sh v (vars, ix) -> traceRule $
       -- We use a refreshed var binding in the new scatter expression so as
       -- not to duplicate the var binding from build1VOccurenceUnknown call.

@@ -710,7 +710,7 @@ testVTOPP :: Assertion
 testVTOPP = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
+      blackGlyph = AstReplicate (SNat @SizeMnistGlyph) stensorKind
                      ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan)
                                                          Double
@@ -730,7 +730,7 @@ testVTOPPNonLin :: Assertion
 testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate (SNat @SizeMnistGlyph)
+      blackGlyph = AstReplicate (SNat @SizeMnistGlyph) stensorKind
                      ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                          (AstTensor AstMethodLet FullSpan) Double
@@ -761,7 +761,7 @@ testVT2OPP :: Assertion
 testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate (SNat @3)
+      blackGlyph = AstReplicate (SNat @3) stensorKind
                      ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstTensor AstMethodLet FullSpan) Double
@@ -781,7 +781,7 @@ testVT2OPPNonLin :: Assertion
 testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate (SNat @3)
+      blackGlyph = AstReplicate (SNat @3) stensorKind
                      ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Float))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Float
@@ -797,13 +797,13 @@ testVT2OPPNonLin = do
       (_, ast3) = funToAst (FTKR (0 :$: ZSR) (FTKScalar @Float))
                            (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\dummy -> tlet (exp (rsum (rtranspose [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rfromPrimal (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rscalar 7.0)))) * rfromPrimal (tconcrete (FTKR [3,4] FTKScalar) (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rfromPrimal (tconcrete (FTKR [4] FTKScalar) (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v3 -> tlet (rfromPrimal (recip (rreplicate 4 (rscalar 1.0) + exp (negate (rprimalPart v3))))) (\\v4 -> rD (rprimalPart v4) (rdualPart (rfromPrimal (rprimalPart v4 * (rreplicate 4 (rscalar 1.0) - rprimalPart v4)) * rD (rreplicate 4 (rscalar 0.0)) (rdualPart v3)))))))) * rfromPrimal (tconcrete (FTKR [4,5] FTKScalar) (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rfromPrimal (rcast (tconcrete (FTKR [5] FTKScalar) (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v6 -> tlet (rfromPrimal (recip (rreplicate 5 (rscalar 1.0) + exp (negate (rprimalPart v6))))) (\\v7 -> rD (rprimalPart v7) (rdualPart (rfromPrimal (rprimalPart v7 * (rreplicate 5 (rscalar 1.0) - rprimalPart v7)) * rD (rreplicate 5 (rscalar 0.0)) (rdualPart v6))))))) * rfromPrimal (tconcrete (FTKR [5,2] FTKScalar) (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rfromPrimal (rcast (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
+    @?= "\\dummy -> tlet (exp (rsum (rtranspse [1,0] (rreplicate 2 (tlet (rcast (rsum (rtranspose [1,0] (rreplicate 5 (rcast (tlet (rsum (rfromPrimal (rtranspose [1,0] (rreplicate 4 (rreplicate 3 (rscalar 7.0)))) * rfromPrimal (tconcrete (FTKR [3,4] FTKScalar) (rfromListLinear [3,4] [1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0]))) + rcast (rfromPrimal (tconcrete (FTKR [4] FTKScalar) (rfromListLinear [4] [1.0,2.0,3.0,4.0])))) (\\v3 -> tlet (rfromPrimal (recip (rreplicate 4 (rscalar 1.0) + exp (negate (rprimalPart v3))))) (\\v4 -> rD (rprimalPart v4) (rdualPart (rfromPrimal (rprimalPart v4 * (rreplicate 4 (rscalar 1.0) - rprimalPart v4)) * rD (rreplicate 4 (rscalar 0.0)) (rdualPart v3)))))))) * rfromPrimal (tconcrete (FTKR [4,5] FTKScalar) (rfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])))) + rfromPrimal (rcast (tconcrete (FTKR [5] FTKScalar) (rfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v6 -> tlet (rfromPrimal (recip (rreplicate 5 (rscalar 1.0) + exp (negate (rprimalPart v6))))) (\\v7 -> rD (rprimalPart v7) (rdualPart (rfromPrimal (rprimalPart v7 * (rreplicate 5 (rscalar 1.0) - rprimalPart v7)) * rD (rreplicate 5 (rscalar 0.0)) (rdualPart v6))))))) * rfromPrimal (tconcrete (FTKR [5,2] FTKScalar) (rfromListLinear [5,2] [1.0,1.0,2.0,2.0,3.0,3.0,4.0,4.0,5.0,5.0]))) + rfromPrimal (rcast (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [1.0,2.0]))))) (\\v9 -> rreplicate 2 (recip (rsum v9)) * v9)"
 
 testVT2OPPNonLin2 :: Assertion
 testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = AstReplicate (SNat @3)
+      blackGlyph = AstReplicate (SNat @3) stensorKind
                      ((fromPrimal . AstConcrete (FTKR ZSR FTKScalar)) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet FullSpan (TKR 0 Double))
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double

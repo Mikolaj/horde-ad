@@ -74,8 +74,8 @@ ftkAst t = case t of
   AstFromPrimal a -> ftkAst a
   AstD u _ -> ftkAst u
   AstCond _b v _w -> ftkAst v
-  AstSum snat v -> razeFTK snat (ftkAst v)
-  AstReplicate snat v -> buildFTK snat (ftkAst v)
+  AstSum snat stk v -> razeFTK snat stk (ftkAst v)
+  AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstBuild1 snat (_var, v) -> buildFTK snat (ftkAst v)
   AstLet _ _ v -> ftkAst v
   AstShare _ v -> ftkAst v
@@ -294,8 +294,8 @@ varInAst var = \case
   AstFromPrimal v -> varInAst var v
   AstD u u' -> varInAst var u || varInAst var u'
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
-  AstSum _ v -> varInAst var v
-  AstReplicate _ v -> varInAst var v
+  AstSum _ _ v -> varInAst var v
+  AstReplicate _ _ v -> varInAst var v
   AstBuild1 _ (_var2, v) -> varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
@@ -452,7 +452,7 @@ astIsSmall relaxed = \case
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
   AstFromPrimal v -> astIsSmall relaxed v
-  AstReplicate _ v ->
+  AstReplicate _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
   AstConcrete FTKScalar _ -> True
   AstConcrete (FTKR sh FTKScalar) _ -> shrSize sh <= 1

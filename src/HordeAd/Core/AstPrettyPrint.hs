@@ -194,15 +194,15 @@ printAstAux cfg d = \case
       . printAst cfg 11 a1
       . showString " "
       . printAst cfg 11 a2
-  AstSum @y2 snat v | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
-   case stensorKind @y2 of
+  AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+   case stk of
     STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
     STKS{} -> printPrefixOp printAst cfg d "ssum" [v]
     STKX{} -> printPrefixOp printAst cfg d "xsum" [v]
     STKProduct{} -> printPrefixOp printAst cfg d "tsum" [v]
     STKUntyped -> printPrefixOp printAst cfg d "tsum" [v]
-  AstReplicate @y2 snat v -> case stensorKind @y2 of
+  AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk -> case stk of
     STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
