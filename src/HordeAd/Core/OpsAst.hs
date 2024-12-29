@@ -390,7 +390,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   siota = fromPrimal $ AstIotaS
   sindex v ix =
     astIndexStepS v ix
-  ssum = astSumS
+  ssum = astSum SNat
   sscatter @_ @shm @shn @shp t f =
     astScatterS @shm @shn @shp t
     $ funToAstIxS f
@@ -668,7 +668,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sfloor = AstRaw . fromPrimal . AstFloorS . astSpanPrimalRaw . unAstRaw
   siota = AstRaw . fromPrimal $ AstIotaS
   sindex v ix = AstRaw $ AstIndexS (unAstRaw v) (unAstRaw <$> ix)
-  ssum = AstRaw . AstSumS . unAstRaw
+  ssum = AstRaw . AstSum SNat . unAstRaw
   sscatter @_ @shm @shn @shp t f =
     AstRaw $ AstScatterS @shm @shn @shp (unAstRaw t)
            $ funToAstIxS (fmap unAstRaw . f . fmap AstRaw)
@@ -1086,7 +1086,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   siota = AstNoSimplify . fromPrimal $ AstIotaS
   sindex v ix =
     AstNoSimplify $ AstIndexS (unAstNoSimplify v) (unAstNoSimplify <$> ix)
-  ssum = AstNoSimplify . AstSumS . unAstNoSimplify
+  ssum = AstNoSimplify . AstSum SNat . unAstNoSimplify
   sscatter @_ @shm @shn @shp t f =
     AstNoSimplify $ AstScatterS @shm @shn @shp (unAstNoSimplify t)
                   $ funToAstIxS

@@ -155,8 +155,6 @@ ftkAst t = case t of
   AstSumOfListS{} -> FTKS knownShS FTKScalar
   AstIndexS v _ix -> case ftkAst v of
     FTKS _sh1sh2 x -> FTKS knownShS x
-  AstSumS v -> case ftkAst v of
-    FTKS sh x -> FTKS (shsTail sh) x
   AstScatterS @_ @shn @shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
   AstFromVectorS l -> case V.toList l of
@@ -297,6 +295,7 @@ varInAst var = \case
   AstFromPrimal v -> varInAst var v
   AstD u u' -> varInAst var u || varInAst var u'
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
+  AstSum _ v -> varInAst var v
   AstReplicate _ v -> varInAst var v
   AstBuild1 _ (_var2, v) -> varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
@@ -324,7 +323,6 @@ varInAst var = \case
   AstI2R _ t u -> varInAst var t || varInAst var u
   AstSumOfListR l -> any (varInAst var) l
   AstIndex v ix -> varInAst var v || varInIndex var ix
-  AstSum _ v -> varInAst var v
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstFromVector vl -> any (varInAst var) $ V.toList vl
   AstAppend v u -> varInAst var v || varInAst var u
@@ -351,7 +349,6 @@ varInAst var = \case
   AstI2S _ t u -> varInAst var t || varInAst var u
   AstSumOfListS l -> any (varInAst var) l
   AstIndexS v ix -> varInAst var v || varInIndexS var ix
-  AstSumS v -> varInAst var v
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
   AstFromVectorS vl -> any (varInAst var) $ V.toList vl
   AstAppendS v u -> varInAst var v || varInAst var u
@@ -377,7 +374,6 @@ varInAst var = \case
   AstI2X _ t u -> varInAst var t || varInAst var u
   AstSumOfListX l -> any (varInAst var) l
   AstIndexX v ix -> varInAst var v || varInIndexX var ix
-  AstSumX v -> varInAst var v
   AstScatterX v (_vars, ix) -> varInIndexX var ix || varInAst var v
   AstFromVectorX vl -> any (varInAst var) $ V.toList vl
   AstAppendX v u -> varInAst var v || varInAst var u

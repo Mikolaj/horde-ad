@@ -390,8 +390,6 @@ build1V snat@SNat (var, v0) =
       withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
       gcastWith (unsafeCoerceRefl :: rankSh1 :~: Rank sh1) $
       build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
-    Ast.AstSumS v -> traceRule $
-      astSumS $ astTrS $ build1V snat (var, v)
     Ast.AstScatterS @shm @shn @shp v (vars, ix) -> traceRule $
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix

@@ -760,10 +760,6 @@ interpretAst !env = \case
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         rsum0 $ interpretAst env t
 -}
-  AstSumS v -> ssum $ interpretAst env v
-    -- TODO: recognize when sum0 may be used instead, which is much cheaper
-    -- or should I do that in Delta instead? no, because tsum0R
-    -- is cheaper, too
   AstScatterS @_ @shn @shp v (ZS, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     soneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
@@ -859,7 +855,6 @@ interpretAst !env = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
-  AstSumX _v -> error "TODO"
   AstScatterX _v (_vars, _ix) -> error "TODO"
   AstFromVectorX l ->
     let l2 = V.map (interpretAst env) l

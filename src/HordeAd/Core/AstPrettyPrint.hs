@@ -414,7 +414,6 @@ printAstAux cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAstInt cfg 0) (toList ix)
-  AstSumS v -> printPrefixOp printAst cfg d "ssum" [v]
   AstScatterS v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "

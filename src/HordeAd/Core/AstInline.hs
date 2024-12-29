@@ -265,7 +265,6 @@ inlineAst memo v0 = case v0 of
         (memo2, ix2) = mapAccumR inlineAst memo1
                                  (toList ix)
     in (memo2, Ast.AstIndexS @sh1 v2 (fromList ix2))
-  Ast.AstSumS v -> second Ast.AstSumS (inlineAst memo v)
   Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
@@ -332,7 +331,6 @@ inlineAst memo v0 = case v0 of
         (memo2, ix2) = mapAccumR inlineAst memo1
                                  (toList ix)
     in (memo2, Ast.AstIndexX @sh1 v2 (fromList ix2))
-  Ast.AstSumX v -> second Ast.AstSumX (inlineAst memo v)
   Ast.AstScatterX{} -> error "TODO"
   Ast.AstFromVectorX l ->
     let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
@@ -626,7 +624,6 @@ unshareAst memo = \case
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (toList ix)
     in (memo2, Ast.AstIndexS @sh1 v2 (fromList ix2))
-  Ast.AstSumS v -> second Ast.AstSumS (unshareAst memo v)
   Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ toList vars)
@@ -689,7 +686,6 @@ unshareAst memo = \case
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexX @sh1 v2 (fromList ix2))
-  Ast.AstSumX v -> second Ast.AstSumX (unshareAst memo v)
   Ast.AstScatterX @sh2 @p v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ toList vars)
