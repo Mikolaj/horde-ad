@@ -291,7 +291,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
   rindex d i = indexPrimal d (tprimalPart (STKScalar typeRep) <$> i)
-  rsum (D u u') = dD (rsum u) (SumR u')
+  rsum (D u u') = withSNat (rlength u) $ \snat ->
+    dD (rsum u) (SumG snat u')
   rsum0 (D u u') = dD (rsum0 u) (Sum0R u')
   rdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
@@ -311,7 +312,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let lu = runravelToList u
         f i ui = dD ui (IndexR u' (fromIntegral i :.: ZIR))
     in imap f lu
-  rreplicate k (D u u') = dD (rreplicate k u) (ReplicateR k u')
+  rreplicate k (D u u') = withSNat k $ \snat ->
+    dD (rreplicate k u) (ReplicateG snat u')
   rappend (D u u') (D v v') =
     dD (rappend u v) (AppendR u' v')
   rslice i n (D u u') = dD (rslice i n u) (SliceR i n u')
@@ -379,7 +381,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   siota = fromPrimalADVal siota
   sindex d i = indexPrimalS d (tprimalPart (STKScalar typeRep) <$> i)
-  ssum (D u u') = dD (ssum u) (SumS u')
+  ssum (D u u') = dD (ssum u) (SumG SNat u')
   ssum0 (D u u') = dD (ssum0 u) (Sum0S u')
   sdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
@@ -400,7 +402,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let lu = sunravelToList u
         f i ui = dD ui (IndexS u' (fromIntegral i :.$ ZIS))
     in imap f lu
-  sreplicate (D u u') = dD (sreplicate u) (ReplicateS u')
+  sreplicate (D u u') = dD (sreplicate u) (ReplicateG SNat u')
   sappend (D u u') (D v v') =
     dD (sappend u v) (AppendS u' v')
   sslice @_ @i i_proxy n_proxy (D u u') =

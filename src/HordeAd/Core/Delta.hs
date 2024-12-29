@@ -425,6 +425,12 @@ data Delta :: Target -> TensorKindType -> Type where
             => Delta target (TKProduct x z) -> Delta target x
   Project2G :: forall x z target. (TensorKind x, TensorKind z)
             => Delta target (TKProduct x z) -> Delta target z
+  SumG :: ( TensorKind y
+          , TensorKind (BuildTensorKind k y) ) -- needed for the Show instance
+       => SNat k -> Delta target (BuildTensorKind k y) -> Delta target y
+  ReplicateG :: TensorKind y
+             => SNat k -> Delta target y -> Delta target (BuildTensorKind k y)
+    -- ^ Copy the given tensor along the new, outermost dimension.
   InputG :: forall target y.
             FullTensorKind y -> InputId target y -> Delta target y
   ShareG :: NodeId target y -> Delta target y -> Delta target y
@@ -439,8 +445,6 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKR2 n r)
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. If index is out of bounds, the result is defined and is 0.
-  SumR :: (TensorKind r, KnownNat n)
-       => Delta target (TKR2 (1 + n) r) -> Delta target (TKR2 n r)
   Sum0R :: (TensorKind r, KnownNat n)
         => Delta target (TKR2 n r) -> Delta target (TKR2 0 r)
   Dot0R :: (KnownNat n, GoodScalar r)
@@ -463,10 +467,6 @@ data Delta :: Target -> TensorKindType -> Type where
               => Data.Vector.Vector (Delta target (TKR2 n r))
               -> Delta target (TKR2 (1 + n) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  ReplicateR :: (TensorKind r, KnownNat n)
-             => Int -> Delta target (TKR2 n r)
-             -> Delta target (TKR2 (1 + n) r)
-    -- ^ Copy the given tensor along the new, outermost dimension.
   AppendR :: (TensorKind r, KnownNat n)
           => Delta target (TKR2 (1 + n) r)
           -> Delta target (TKR2 (1 + n) r)
@@ -722,6 +722,9 @@ shapeDeltaFull = \case
     FTKProduct ftk1 _ -> ftk1
   Project2G v -> case shapeDeltaFull v of
     FTKProduct _ ftk2 -> ftk2
+  SumG snat d ->
+    razeFTK snat (shapeDeltaFull d)
+  ReplicateG snat d -> buildFTK snat (shapeDeltaFull d)
   InputG ftk _ -> ftk
   ShareG _ d -> shapeDeltaFull d
   ZeroG ftk -> ftk
@@ -730,8 +733,6 @@ shapeDeltaFull = \case
 
   IndexR d _ -> case shapeDeltaFull d of
     FTKR sh x -> FTKR (dropShape sh) x
-  SumR d -> case shapeDeltaFull d of
-    FTKR sh x -> FTKR (shrTail sh) x
   Sum0R d -> case shapeDeltaFull d of
     FTKR _ x -> FTKR ZSR x
   Dot0R{} -> FTKR ZSR FTKScalar
@@ -746,8 +747,6 @@ shapeDeltaFull = \case
       _ -> error "shapeDeltaFull: FromVectorR with no arguments"
     d : _ -> case shapeDeltaFull d of
       FTKR sh x -> FTKR (length l :$: sh) x
-  ReplicateR n d -> case shapeDeltaFull d of
-    FTKR sh x -> FTKR (n :$: sh) x
   AppendR a b -> case shapeDeltaFull a of
     FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
     FTKR (ai :$: ash) x -> case shapeDeltaFull b of
@@ -1119,6 +1118,10 @@ evalR !s !c d0 = case d0 of
       FTKProduct ftk1 _ ->
         let zero = constantTarget 0 $ aDFTK ftk1
         in evalR s (tpair zero c) d
+  SumG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
+    evalR s (treplicateShare snat (aDSTK $ stensorKind @y2) c) d
+  ReplicateG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
+    evalR s (tsumShare snat (aDSTK $ stensorKind @y2) c) d
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
@@ -1268,8 +1271,6 @@ evalSame !s !c = \case
               in evalSame (evalSame s cShared d) cShared e
 
   IndexR d ix -> evalSame s (roneHot (takeShape $ shapeDelta d) c ix) d
-  SumR d ->
-    evalSame s (rreplicate (lengthDelta d) c) d
   Sum0R d ->
     evalSame s (rreplicate0N (shapeDelta d) c) d
   Dot0R v vd ->
@@ -1282,8 +1283,6 @@ evalSame !s !c = \case
         cxs = runravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
-  ReplicateR _n d ->
-    evalSame s (rsum c) d
   AppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
                    k = lengthDelta d
@@ -1576,6 +1575,12 @@ fwdR params s d0 = case d0 of
                  , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     let (s2, v) = fwdR params s d
     in (s2, tproject2 v)
+  SumG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
+    let (s2, t) = fwdR params s d
+    in (s2, tsumShare snat (aDSTK $ stensorKind @y2) t)
+  ReplicateG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
+    let (s2, t) = fwdR params s d
+    in (s2, treplicateShare snat (aDSTK $ stensorKind @y2) t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, toADTensorKindShared stensorKind $ evalRepM dtk)
@@ -1680,7 +1685,6 @@ fwdSame params s = \case
               in (s3, t + u)
 
   IndexR d ix -> second (`rindex` ix) $ fwdSame params s d
-  SumR d -> second rsum $ fwdSame params s d
   Sum0R (ZeroG (FTKR _ x)) -> (s, constantTarget 0 (FTKR ZSR x))
   Sum0R d -> second rsum0 $ fwdSame params s d
   Dot0R _ ZeroG{} -> (s, rscalar 0)
@@ -1691,9 +1695,6 @@ fwdSame params s = \case
   FromVectorR lsd ->
     let (s2, l) = mapAccumL (fwdSame params) s lsd
     in (s2, rfromVector l)
-  ReplicateR n d ->
-    let (s2, t) = fwdSame params s d
-    in (s2, rreplicate n t)
   AppendR d e ->
     let (s2, t) = fwdSame params s d
         (s3, u) = fwdSame params s2 e

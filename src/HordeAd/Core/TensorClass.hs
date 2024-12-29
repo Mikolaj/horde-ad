@@ -111,6 +111,13 @@ class LetTensor (target :: Target) where
        => target x
        -> (target x -> target z)
        -> target z
+  toShare :: TensorKind y
+          => target y
+          -> ShareOf target y
+  tunshare :: TensorKind y
+           => ShareOf target y
+           -> target y
+  tunshare = error "tunshare: this instance should never be used"
   treplicate :: BaseTensor target
              => SNat k -> STensorKindType z
              -> target z
@@ -154,13 +161,6 @@ class LetTensor (target :: Target) where
           tpair (tsum snat stk1 (tproject1 u1))
                 (tsum snat stk2 (tproject2 u1))
     STKUntyped -> error "STKUntyped"  -- can be easily done, but nm
-  toShare :: TensorKind y
-          => target y
-          -> ShareOf target y
-  tunshare :: TensorKind y
-           => ShareOf target y
-           -> target y
-  tunshare = error "tunshare: this instance should never be used"
 
 class ShareTensor (target :: Target) where
   tshare :: forall y. TensorKind y
@@ -168,6 +168,48 @@ class ShareTensor (target :: Target) where
   tunpair :: (TensorKind x, TensorKind z)
           => target (TKProduct x z) -> (target x, target z)
   tunvector :: target TKUntyped -> HVector target
+  treplicateShare :: BaseTensor target
+                  => SNat k -> STensorKindType z
+                  -> target z
+                  -> target (BuildTensorKind k z)
+  treplicateShare snat@SNat stk u = case stk of
+    STKScalar{} -> u
+    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
+    STKProduct stk1 stk2
+      | Dict <- lemTensorKindOfSTK stk1
+      , Dict <- lemTensorKindOfSTK stk2
+      , Dict <- lemTensorKindOfBuild snat stk1
+      , Dict <- lemTensorKindOfBuild snat stk2 ->
+        let (u1, u2) = tunpair u
+        in tpair (treplicateShare snat stk1 u1)
+                 (treplicateShare snat stk2 u2)
+    STKUntyped ->
+      let lu = tunvector u
+      in dmkHVector
+         $ replicate1HVectorF rreplicate sreplicate snat lu
+  tsumShare :: BaseTensor target
+             => SNat k -> STensorKindType z
+             -> target (BuildTensorKind k z)
+             -> target z
+  tsumShare snat@SNat stk u = case stk of
+    STKScalar{} -> u
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+      rsum u
+    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShS sh $ ssum u
+    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShX sh $ undefined{-xsum-} u
+    STKProduct stk1 stk2
+      | Dict <- lemTensorKindOfSTK stk1
+      , Dict <- lemTensorKindOfSTK stk2
+      , Dict <- lemTensorKindOfBuild snat stk1
+      , Dict <- lemTensorKindOfBuild snat stk2 ->
+        let (u1, u2) = tunpair u
+        in tpair (tsumShare snat stk1 u1)
+                 (tsumShare snat stk2 u2)
+    STKUntyped -> error "STKUntyped"  -- can be easily done, but nm
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
