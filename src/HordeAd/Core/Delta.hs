@@ -44,7 +44,7 @@ module HordeAd.Core.Delta
     -- * Delta expression identifiers
   , NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere
-  , evalFromnMap, EvalState
+  , evalRevFromnMap, EvalState
   ) where
 
 import Prelude
@@ -127,8 +127,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   let oneAtF = constantTarget 1 $ aDFTK $ tftk (stensorKind @z) value
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
-      s1 = evalR s0 dt deltaTopLevel
-      s2 = evalFromnMap s1
+      s1 = evalRev s0 dt deltaTopLevel
+      s2 = evalRevFromnMap s1
       rebuildInputs :: forall ady.  -- ady ~ ADTensorKind y
                        [Some (RepM target)] -> FullTensorKind ady
                     -> (target ady, [Some (RepM target)])
@@ -260,7 +260,7 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
       iMap = DMap.fromDistinctAscList $ fst
              $ generateDSums 0 (tftk stensorKind ds) ds
       s0 = DMap.empty
-      !(!_s2, !c) = fwdR iMap s0 deltaTopLevel
+      !(!_s2, !c) = evalFwd iMap s0 deltaTopLevel
   in c
 
 evalRepM :: forall target x. ADReadyNoLet target
@@ -1051,13 +1051,13 @@ initEvalState ftk0 =
 -- the second is the cotangent accumulator that will become an actual
 -- cotangent contribution when complete (see below for an explanation)
 -- and the third argument is the node to evaluate.
-evalRRuntimeSpecialized
+evalRevRuntimeSpecialized
   :: forall n r target.
      (GoodScalar r, KnownNat n, ADReadyNoLet target, ShareTensor target)
   => EvalState target -> target (ADTensorKind (TKR n r))
   -> Delta target (TKR n r)
   -> EvalState target
-evalRRuntimeSpecialized !s !c =
+evalRevRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
   -- an existential type. All IfDifferentiable and RowSum instances should
@@ -1065,9 +1065,9 @@ evalRRuntimeSpecialized !s !c =
   -- If the scalar type is not on the list, performance suffers greatly.
   -- TODO: can I pattern match on (typeRep @r) instead?
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalSame @(TKR n Double) s c
+    Just Refl -> evalRevSame @(TKR n Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalSame @(TKR n Float) s c
+      Just Refl -> evalRevSame @(TKR n Float) s c
       _ -> const s
 
 evalSRuntimeSpecialized
@@ -1078,29 +1078,29 @@ evalSRuntimeSpecialized
   -> EvalState target
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalSame @(TKS sh Double) s c
+    Just Refl -> evalRevSame @(TKS sh Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalSame @(TKS sh Float) s c
+      Just Refl -> evalRevSame @(TKS sh Float) s c
       _ -> const s
 
-evalR
+evalRev
   :: forall y target.
      (TensorKind y, ADReadyNoLet target, ShareTensor target)
   => EvalState target -> target (ADTensorKind y) -> Delta target y
   -> EvalState target
-evalR !s !c d0 = case d0 of
-  -- All constructors that admit a TKProduct kind need to be handled in evalR
+evalRev !s !c d0 = case d0 of
+  -- All constructors that admit a TKProduct kind need to be handled in evalRev
   -- except for InputG that is always constructed only in basic kinds.
   PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                       , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
     let (c1, c2) = tunpair c
-    in evalR (evalR s c1 d1) c2 d2
+    in evalRev (evalRev s c1 d1) c2 d2
   Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
                     , Dict <- lemTensorKindOfAD (stensorKind @z) ->
     case shapeDeltaFull d of
       FTKProduct _ ftk2 ->
         let zero = constantTarget 0 $ aDFTK ftk2
-        in evalR s (tpair c zero) d
+        in evalRev s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
   Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
@@ -1108,11 +1108,11 @@ evalR !s !c d0 = case d0 of
     case shapeDeltaFull d of
       FTKProduct ftk1 _ ->
         let zero = constantTarget 0 $ aDFTK ftk1
-        in evalR s (tpair zero c) d
+        in evalRev s (tpair zero c) d
   SumG snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalR s (treplicateShare snat (aDSTK stk) c) d
+    evalRev s (treplicateShare snat (aDSTK stk) c) d
   ReplicateG snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalR s (tsumShare snat (aDSTK stk) c) d
+    evalRev s (tsumShare snat (aDSTK stk) c) d
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
@@ -1187,8 +1187,8 @@ evalR !s !c d0 = case d0 of
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
-        s2 = evalR s dacc acc0'
-    in evalR s2 des es'
+        s2 = evalRev s dacc acc0'
+    in evalRev s2 des es'
   MapAccumL @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
             q es
@@ -1217,32 +1217,32 @@ evalR !s !c d0 = case d0 of
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
-        s2 = evalR s dacc acc0'
-    in evalR s2 des es'
+        s2 = evalRev s dacc acc0'
+    in evalRev s2 des es'
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
-        Just Refl -> evalSame s c d0
+        Just Refl -> evalRevSame s c d0
         _ -> s  -- the constructors remaining here have y that is a non-TKProduct
                 -- so if y is equal to ADTensorKind y, the latter has
                 -- the () scalar type and so no influence on the derivative.
 
-evalSame
+evalRevSame
   :: forall y target.
      ( TensorKind y, ADReadyNoLet target, ShareTensor target
      , y ~ ADTensorKind y )
   => EvalState target -> target (ADTensorKind y) -> Delta target y
   -> EvalState target
-evalSame !s !c = \case
+evalRevSame !s !c = \case
   -- All constructors that only admit a non-TKProduct kind
   -- (and the InputG constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
   Cast @r1 d ->
-    evalR s (toADTensorKindShared (stensorKind @(TKScalar r1))
+    evalRev s (toADTensorKindShared (stensorKind @(TKScalar r1))
              $ kcast c) d
-  FromScalarG d -> evalSame s (stoScalar c) d
-  ToScalarG d -> evalSame s (sfromScalar c) d
+  FromScalarG d -> evalRevSame s (stoScalar c) d
+  ToScalarG d -> evalRevSame s (sfromScalar c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1257,85 +1257,85 @@ evalSame !s !c = \case
   -- This is ensured by the types of the three constructors, assuming that
   -- no Num instances are defined for the non-base type tensors.
   ZeroG{} -> s
-  ScaleG k d -> evalSame s (k * c) d
+  ScaleG k d -> evalRevSame s (k * c) d
   AddG d e -> let cShared = tshare c
-              in evalSame (evalSame s cShared d) cShared e
+              in evalRevSame (evalRevSame s cShared d) cShared e
 
-  IndexR d ix -> evalSame s (roneHot (takeShape $ shapeDelta d) c ix) d
+  IndexR d ix -> evalRevSame s (roneHot (takeShape $ shapeDelta d) c ix) d
   Sum0R d ->
-    evalSame s (rreplicate0N (shapeDelta d) c) d
+    evalRevSame s (rreplicate0N (shapeDelta d) c) d
   Dot0R v vd ->
-    evalSame s (v * rreplicate0N (rshape v) c) vd
-      -- too slow: evalSame s (rmap0N (* (tscalar c)) v) vd
+    evalRevSame s (v * rreplicate0N (rshape v) c) vd
+      -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
   ScatterR _sh d f ->
-    evalSame s (rgather (shapeDelta d) c f) d
+    evalRevSame s (rgather (shapeDelta d) c f) d
   FromVectorR ld ->
     let cShared = tshare c
         cxs = runravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
+    in foldl' (\ !s2 (cx, d2) -> evalRevSame s2 cx d2) s
        $ zip cxs (V.toList ld)
   AppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
                    k = lengthDelta d
-                   s2 = evalSame s (rslice 0 k cShared) d
-               in evalSame s2 (rslice k (n - k) cShared) e
-    ZSR -> error "evalSame: impossible pattern needlessly required"
+                   s2 = evalRevSame s (rslice 0 k cShared) d
+               in evalRevSame s2 (rslice k (n - k) cShared) e
+    ZSR -> error "evalRevSame: impossible pattern needlessly required"
   SliceR i n d -> case tftk (stensorKind @y) c of
     FTKR (n' :$: rest) x ->
       assert (n' == n `blame` (n', n)) $
-      evalSame s
+      evalRevSame s
                (rconcat
                   [ constantTarget 0 (FTKR (i :$: rest) x)
                   , c
                   , constantTarget 0 (FTKR (lengthDelta d - i - n :$: rest) x) ])
                d
-    FTKR ZSR _ -> error "evalSame: impossible pattern needlessly required"
-  ReverseR d -> evalSame s (rreverse c) d
+    FTKR ZSR _ -> error "evalRevSame: impossible pattern needlessly required"
+  ReverseR d -> evalRevSame s (rreverse c) d
   TransposeR perm d ->
     let permR = permRInverse perm
-    in evalSame s (rtranspose permR c) d
+    in evalRevSame s (rtranspose permR c) d
   ReshapeR _sh d ->
-    evalSame s (rreshape (shapeDelta d) c) d
+    evalRevSame s (rreshape (shapeDelta d) c) d
   GatherR _sh d f ->
-    evalSame s (rscatter (shapeDelta d) c f) d
+    evalRevSame s (rscatter (shapeDelta d) c f) d
   CastR @r1 @_ @n d ->
-    evalRRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
+    evalRevRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
                                $ rcast c) d
   ZipR d ->
-    evalSame s (runzip c) d
+    evalRevSame s (runzip c) d
   UnzipR d ->
-    evalSame s (rzip c) d
+    evalRevSame s (rzip c) d
   RFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicRanked c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
+       evalRevSame s (dmkHVector $ cs V.// [(i, ci)]) d
         -- should be used only with small vectors or we end up with the same
         -- problem of summing a lot of one-hots as in indexing
 
-  IndexS d ix -> evalSame s (soneHot c ix) d
+  IndexS d ix -> evalRevSame s (soneHot c ix) d
   Sum0S d ->
-    evalSame s (sreplicate0N c) d
+    evalRevSame s (sreplicate0N c) d
   Dot0S v vd ->
-    evalSame s (v * sreplicate0N c) vd
-      -- too slow: evalSame s (smap0N (* (sscalar c)) v) vd
+    evalRevSame s (v * sreplicate0N c) vd
+      -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
   ScatterS @_ @_ @shm @shn @shp d f ->
-    evalSame s (sgather @_ @_ @shm @shn @shp c f) d
+    evalRevSame s (sgather @_ @_ @shm @shn @shp c f) d
   FromVectorS ld ->
     let cShared = tshare c
         cxs = sunravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
+    in foldl' (\ !s2 (cx, d2) -> evalRevSame s2 cx d2) s
        $ zip cxs (V.toList ld)
   AppendS @_ @_ @m d e ->
     let cShared = tshare c
-        s2 = evalSame s (sslice (Proxy @0) Proxy cShared) d
-    in evalSame s2 (sslice (Proxy @m) Proxy cShared) e
+        s2 = evalRevSame s (sslice (Proxy @0) Proxy cShared) d
+    in evalRevSame s2 (sslice (Proxy @m) Proxy cShared) e
   SliceS @_ @i d -> case tftk (stensorKind @y) c of
-    FTKS _ x -> evalSame s (sappend @_ @_ @i
+    FTKS _ x -> evalRevSame s (sappend @_ @_ @i
                               (constantTarget 0 (FTKS knownShS x))
                               (sappend
                                  c (constantTarget 0 (FTKS knownShS x)))) d
-  ReverseS d -> evalSame s (sreverse c) d
+  ReverseS d -> evalRevSame s (sreverse c) d
   TransposeS @perm @sh2 perm d ->
     withKnownShS (shsPermutePrefix perm (knownShS @sh2)) $
     permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
@@ -1345,112 +1345,112 @@ evalSame !s !c = \case
                      :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
         $ gcastWith (unsafeCoerceRefl
                      :: Rank permR :~: Rank perm)
-        $ evalSame s (stranspose permRev c) d
+        $ evalRevSame s (stranspose permRev c) d
   ReshapeS d ->
-    evalSame s (sreshape c) d
+    evalRevSame s (sreshape c) d
   GatherS @_ @_ @shm @shn @shp d f ->
-    evalSame s (sscatter @_ @_ @shm @shn @shp c f) d
+    evalRevSame s (sscatter @_ @_ @shm @shn @shp c f) d
   CastS @r1 @_ @sh d ->
     evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
                                $ scast c) d
   ZipS d ->
-    evalSame s (sunzip c) d
+    evalRevSame s (sunzip c) d
   UnzipS d ->
-    evalSame s (szip c) d
+    evalRevSame s (szip c) d
   SFromH d i ->
     let cs = V.map dynamicFromVoid $ shapeDeltaH d
         ci = DynamicShaped c
     in assert (dynamicsMatch (cs V.! i) ci) $
-       evalSame s (dmkHVector $ cs V.// [(i, ci)]) d
+       evalRevSame s (dmkHVector $ cs V.// [(i, ci)]) d
 
   IndexX{} -> error "TODO"
   FromVectorX @_ @sh @r ld ->
     let cShared = tshare c
         f :: EvalState target -> Int -> Delta target (TKX2 sh r)
              -> EvalState target
-        f !s2 i d2 = evalSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
+        f !s2 i d2 = evalRevSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
     in V.ifoldl' f s ld
   ZipX d ->
-    evalSame s (xunzip c) d
+    evalRevSame s (xunzip c) d
   UnzipX d ->
-    evalSame s (xzip c) d
+    evalRevSame s (xzip c) d
 
-  RFromS (SFromR d) -> evalSame s c d  -- no information lost, so no checks
+  RFromS (SFromR d) -> evalRevSame s c d  -- no information lost, so no checks
   RFromS @sh d | SNat <- shsRank (knownShS @sh) ->
-    evalSame s (sfromR c) d
+    evalRevSame s (sfromR c) d
   RFromX @sh d | SNat <- ssxRank (knownShX @sh) ->
-    evalSame s (xfromR c) d
+    evalRevSame s (xfromR c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> evalSame s c d
-      _ -> error "evalSame: different shapes in SFromR(RFromS)"
+      Just Refl -> evalRevSame s c d
+      _ -> error "evalRevSame: different shapes in SFromR(RFromS)"
   SFromR d ->
-    evalSame s (rfromS c) d
+    evalRevSame s (rfromS c) d
   SFromX @sh (XFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> evalSame s c d
-      _ -> error "evalSame: different shapes in SFromX(XFromS)"
+      Just Refl -> evalRevSame s c d
+      _ -> error "evalRevSame: different shapes in SFromX(XFromS)"
   SFromX d ->
-    evalSame s (xfromS c) d
--- impossible, shapes may differ: XFromS (SFromX d) -> evalSame s c d
+    evalRevSame s (xfromS c) d
+-- impossible, shapes may differ: XFromS (SFromX d) -> evalRevSame s c d
   XFromR @sh d | SNat <- ssxRank (knownShX @sh) ->
-    evalSame s (rfromX c) d
+    evalRevSame s (rfromX c) d
   XFromS d ->
-    evalSame s (sfromX c) d
+    evalRevSame s (sfromX c) d
 
   XNestR d ->
-    evalSame s (xunNestR c) d
+    evalRevSame s (xunNestR c) d
   XNestS d ->
-    evalSame s (xunNestS c) d
+    evalRevSame s (xunNestS c) d
   XNest d ->
-    evalSame s (xunNest c) d
+    evalRevSame s (xunNest c) d
   XUnNestR d ->
-    evalSame s (xnestR knownShX c) d
+    evalRevSame s (xnestR knownShX c) d
   XUnNestS d ->
-    evalSame s (xnestS knownShX c) d
+    evalRevSame s (xnestS knownShX c) d
   XUnNest d ->
-    evalSame s (xnest knownShX c) d
+    evalRevSame s (xnest knownShX c) d
 
-  HToH v -> evalHVector s (tunvector c) v
+  HToH v -> evalRevHVector s (tunvector c) v
 
-  d -> evalR s c d
-    -- the remaining constructors are already handled in evalR, so let's use that
+  d -> evalRev s c d
+    -- the remaining constructors are already handled in evalRev, so let's use that
 
-evalDynamic
+evalRevDynamic
   :: (ADReadyNoLet target, ShareTensor target)
   => EvalState target
   -> (DynamicTensor target, DynamicTensor (Delta target))
   -> EvalState target
-evalDynamic !s3 (t, DynamicRanked @r @n d2) =
+evalRevDynamic !s3 (t, DynamicRanked @r @n d2) =
   gcastWith (unsafeCoerceRefl :: TKR n r :~: ADTensorKind (TKR n r)) $
     -- this is a noble lie to maintain no ADTensorKind under HVector
     -- and at the same time re-use the new eval function also for HVector
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKR n r)) $ rfromD t) d2
-evalDynamic s3 (t, DynamicShaped @r @sh d2) =
+  evalRevSame s3 (toADTensorKindShared (stensorKind @(TKR n r)) $ rfromD t) d2
+evalRevDynamic s3 (t, DynamicShaped @r @sh d2) =
   gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  evalSame s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t) d2
-evalDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
+  evalRevSame s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t) d2
+evalRevDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerceRefl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
   withListSh (Proxy @sh) $ \sh2 ->
-    evalSame @(TKR (Rank sh) r)
+    evalRevSame @(TKR (Rank sh) r)
              s3 (toADTensorKindShared (stensorKind @(TKR (Rank sh) r))
                  $ rfromD @r t)
              (ZeroG $ FTKR sh2 FTKScalar)
-evalDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
+evalRevDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
   gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  evalSame @(TKS sh r)
+  evalRevSame @(TKS sh r)
         s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t)
         (ZeroG $ FTKS knownShS FTKScalar)
 
-evalHVector
+evalRevHVector
   :: (ADReadyNoLet target, ShareTensor target)
   => EvalState target -> HVector target -> HVector (Delta target)
   -> EvalState target
-evalHVector s as as' = V.foldl' evalDynamic s $ V.zip as as'
+evalRevHVector s as as' = V.foldl' evalRevDynamic s $ V.zip as as'
 
-evalFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
+evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
              => EvalState target -> EvalState target
-evalFromnMap s@EvalState{nMap, dMap} =
+evalRevFromnMap s@EvalState{nMap, dMap} =
   -- We discharge the non-vector cases before the vector ones, because
   -- the latter tend to create and store more cases and so enlarge
   -- the working set of cases.
@@ -1458,24 +1458,24 @@ evalFromnMap s@EvalState{nMap, dMap} =
     Just (n@(NodeId @_ @y _) :=> d, nMap2) ->
       let s2 = s {nMap = nMap2}
           errorMissing :: a
-          errorMissing = error $ "evalFromnMap: missing cotangent " ++ show n
+          errorMissing = error $ "evalRevFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
             STKR @n SNat (STKScalar @r _) -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalRRuntimeSpecialized @n @r s2 c d
+              Just (RepAD c) -> evalRevRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
             STKS @sh sh (STKScalar @r _) ->
               withKnownShS sh $ case DMap.lookup n dMap of
                 Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
                 Nothing -> errorMissing
             _ -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalR s2 c d
+              Just (RepAD c) -> evalRev s2 c d
               Nothing -> errorMissing
-      in evalFromnMap s3
+      in evalRevFromnMap s3
     Nothing -> s  -- loop ends
 
 {-
         -- The general case is given as the last one below,
-        -- but for a few constructors it's faster to inline @evalR@ instead.
+        -- but for a few constructors it's faster to inline @evalRev@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
         Index0 ZeroR{} _ _ -> s  -- shortcut
@@ -1500,7 +1500,7 @@ evalFromnMap s@EvalState{nMap, dMap} =
               let v = treplicate0ND sh 0 `OD.update` [(ixs, c)]
               in s { nMap = DMap.insert n (DynamicRanked d) $ nMap s
                    , dMap = DMap.insert n v $ dMap s }
-            _ -> error "evalFromnMap: corrupted nMap"
+            _ -> error "evalRevFromnMap: corrupted nMap"
 -}
 
 
@@ -1519,64 +1519,64 @@ evalFromnMap s@EvalState{nMap, dMap} =
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
-fwdDynamic
+evalFwdDynamic
   :: forall target. (ADReadyNoLet target, ShareTensor target)
   => IMap target -> ADMap target -> DynamicTensor (Delta target)
   -> (ADMap target, DynamicTensor target)
-fwdDynamic params s (DynamicRanked @r @n d) =
+evalFwdDynamic params s (DynamicRanked @r @n d) =
   gcastWith (unsafeCoerceRefl :: TKR n r :~: ADTensorKind (TKR n r)) $
-  second DynamicRanked $ fwdSame params s d
-fwdDynamic params s (DynamicShaped @r @sh d) =
+  second DynamicRanked $ evalFwdSame params s d
+evalFwdDynamic params s (DynamicShaped @r @sh d) =
   gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  second DynamicShaped $ fwdSame params s d
-fwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
+  second DynamicShaped $ evalFwdSame params s d
+evalFwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
   gcastWith (unsafeCoerceRefl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
   withListSh (Proxy @sh) $ \sh2 ->
-    second (DynamicRanked @r) $ fwdSame params s (ZeroG $ FTKR sh2 FTKScalar)
-fwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
+    second (DynamicRanked @r) $ evalFwdSame params s (ZeroG $ FTKR sh2 FTKScalar)
+evalFwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
   gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  second (DynamicShaped @r @sh) $ fwdSame params s (ZeroG $ FTKS knownShS FTKScalar)
+  second (DynamicShaped @r @sh) $ evalFwdSame params s (ZeroG $ FTKS knownShS FTKScalar)
 
-fwdHVector
+evalFwdHVector
   :: forall target. (ADReadyNoLet target, ShareTensor target)
   => IMap target -> ADMap target -> HVector (Delta target)
   -> (ADMap target,  HVector target)
-fwdHVector params = mapAccumL (fwdDynamic params)
+evalFwdHVector params = mapAccumL (evalFwdDynamic params)
 
-fwdR
+evalFwd
   :: forall target y.
      (ADReadyNoLet target, ShareTensor target, TensorKind y)
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
-fwdR params s d0 = case d0 of
+evalFwd params s d0 = case d0 of
   PairG @y1 @y2 d1 d2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                       , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
-    let (s2, t) = fwdR params s d1
-        (s3, u) = fwdR params s2 d2
+    let (s2, t) = evalFwd params s d1
+        (s3, u) = evalFwd params s2 d2
     in (s3, tpair t u)
   Project1G @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
                     , Dict <- lemTensorKindOfAD (stensorKind @z) ->
-    let (s2, v) = fwdR params s d
+    let (s2, v) = evalFwd params s d
     in (s2, tproject1 v)
   Project2G @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
                  , Dict <- lemTensorKindOfAD (stensorKind @x) ->
-    let (s2, v) = fwdR params s d
+    let (s2, v) = evalFwd params s d
     in (s2, tproject2 v)
   SumG snat stk d | Refl <- lemBuildOfAD snat stk ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = evalFwd params s d
     in (s2, tsumShare snat (aDSTK stk) t)
   ReplicateG snat stk d | Refl <- lemBuildOfAD snat stk ->
-    let (s2, t) = fwdR params s d
+    let (s2, t) = evalFwd params s d
     in (s2, treplicateShare snat (aDSTK stk) t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, toADTensorKindShared stensorKind $ evalRepM dtk)
-      Nothing -> error "fwdR: missing input"
+      Nothing -> error "evalFwd: missing input"
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     case DMap.lookup n s of
       Just e1 -> (s, unRepAD e1)
       Nothing ->
-        let (s2, cRaw) = fwdR params s d
+        let (s2, cRaw) = evalFwd params s d
             cShared = tshare cRaw
             cd = RepAD cShared
               -- cRaw is shared, because it's put into the map and then
@@ -1600,8 +1600,8 @@ fwdR params s d0 = case d0 of
     let accShsAD = aDFTK accShs
         bShsAD = aDFTK bShs
         eShsAD = aDFTK eShs
-        (s2, cacc0) = fwdR params s acc0'
-        (s3, ces) = fwdR params s2 es'
+        (s2, cacc0) = evalFwd params s acc0'
+        (s3, ces) = evalFwd params s2 es'
     in (s3, dmapAccumR (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
@@ -1627,8 +1627,8 @@ fwdR params s d0 = case d0 of
     let accShsAD = aDFTK accShs
         bShsAD = aDFTK bShs
         eShsAD = aDFTK eShs
-        (s2, cacc0) = fwdR params s acc0'
-        (s3, ces) = fwdR params s2 es'
+        (s2, cacc0) = evalFwd params s acc0'
+        (s3, ces) = evalFwd params s2 es'
     in (s3, dmapAccumL (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
@@ -1641,142 +1641,142 @@ fwdR params s d0 = case d0 of
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
-        Just Refl -> fwdSame params s d0
+        Just Refl -> evalFwdSame params s d0
         _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
 
-fwdSame
+evalFwdSame
   :: forall target y.
      ( TensorKind y, ADReadyNoLet target, ShareTensor target
      , y ~ ADTensorKind y )
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
-fwdSame params s = \case
+evalFwdSame params s = \case
   d0@(Cast @r1 d)
     | Dict <- lemTensorKindOfAD (stensorKind @(TKScalar r1)) ->
       case sameTensorKind @(TKScalar r1) @(ADTensorKind (TKScalar r1)) of
-        Just Refl -> second kcast $ fwdSame params s d
+        Just Refl -> second kcast $ evalFwdSame params s d
         _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
-  FromScalarG d -> let (s2, t) = fwdSame params s d
+  FromScalarG d -> let (s2, t) = evalFwdSame params s d
                    in (s2, sfromScalar t)
-  ToScalarG d -> let (s2, t) = fwdSame params s d
+  ToScalarG d -> let (s2, t) = evalFwdSame params s d
                  in (s2, stoScalar t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)
-      Nothing -> error "fwdSame: missing input"
-  -- See the comment about these three in evalSame.
+      Nothing -> error "evalFwdSame: missing input"
+  -- See the comment about these three in evalRevSame.
   ZeroG ftk -> (s, constantTarget 0 $ aDFTK ftk)
-  ScaleG k d -> second (* k) $ fwdSame params s d
-  AddG d e -> let (s2, t) = fwdSame params s d
-                  (s3, u) = fwdSame params s2 e
+  ScaleG k d -> second (* k) $ evalFwdSame params s d
+  AddG d e -> let (s2, t) = evalFwdSame params s d
+                  (s3, u) = evalFwdSame params s2 e
               in (s3, t + u)
 
-  IndexR d ix -> second (`rindex` ix) $ fwdSame params s d
+  IndexR d ix -> second (`rindex` ix) $ evalFwdSame params s d
   Sum0R (ZeroG (FTKR _ x)) -> (s, constantTarget 0 (FTKR ZSR x))
-  Sum0R d -> second rsum0 $ fwdSame params s d
+  Sum0R d -> second rsum0 $ evalFwdSame params s d
   Dot0R _ ZeroG{} -> (s, rscalar 0)
-  Dot0R v d -> second (rdot0 v) $ fwdSame params s d
+  Dot0R v d -> second (rdot0 v) $ evalFwdSame params s d
   ScatterR sh d f ->
-    let (s2, t) = fwdSame params s d
+    let (s2, t) = evalFwdSame params s d
     in (s2, rscatter sh t f)
   FromVectorR lsd ->
-    let (s2, l) = mapAccumL (fwdSame params) s lsd
+    let (s2, l) = mapAccumL (evalFwdSame params) s lsd
     in (s2, rfromVector l)
   AppendR d e ->
-    let (s2, t) = fwdSame params s d
-        (s3, u) = fwdSame params s2 e
+    let (s2, t) = evalFwdSame params s d
+        (s3, u) = evalFwdSame params s2 e
     in (s3, rappend t u)
-  SliceR i n d -> second (rslice i n) $ fwdSame params s d
-  ReverseR d -> second rreverse $ fwdSame params s d
-  TransposeR perm d -> second (rtranspose perm) $ fwdSame params s d
-  ReshapeR sh d -> second (rreshape sh) $ fwdSame params s d
+  SliceR i n d -> second (rslice i n) $ evalFwdSame params s d
+  ReverseR d -> second rreverse $ evalFwdSame params s d
+  TransposeR perm d -> second (rtranspose perm) $ evalFwdSame params s d
+  ReshapeR sh d -> second (rreshape sh) $ evalFwdSame params s d
   GatherR sh d f ->
-    let (s2, t) = fwdSame params s d
+    let (s2, t) = evalFwdSame params s d
     in (s2, rgather sh t f)
   d0@(CastR @r1 @_ @n d)
     | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r1)) ->
       case sameTensorKind @(TKR n r1) @(ADTensorKind (TKR n r1)) of
-        Just Refl -> second rcast $ fwdSame params s d
+        Just Refl -> second rcast $ evalFwdSame params s d
         _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
-  ZipR d -> second rzip $ fwdSame params s d
-  UnzipR d -> second runzip $ fwdSame params s d
+  ZipR d -> second rzip $ evalFwdSame params s d
+  UnzipR d -> second runzip $ evalFwdSame params s d
   RFromH d i ->
-    let (s2, v) = fwdSame params s d
+    let (s2, v) = evalFwdSame params s d
     in (s2, rfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, rfromD $ tunvector v) V.! i)
 
-  IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
+  IndexS d ix -> second (`sindex` ix) $ evalFwdSame params s d
   Sum0S (ZeroG (FTKS _ x)) -> (s, constantTarget 0 (FTKS ZSS x))
-  Sum0S d -> second ssum0 $ fwdSame params s d
+  Sum0S d -> second ssum0 $ evalFwdSame params s d
   Dot0S _ ZeroG{} -> (s, srepl 0)
-  Dot0S v d -> second (sdot0 v) $ fwdSame params s d
+  Dot0S v d -> second (sdot0 v) $ evalFwdSame params s d
   ScatterS @_ @_ @shm @shn @shp d f ->
-    let (s2, t) = fwdSame params s d
+    let (s2, t) = evalFwdSame params s d
     in (s2, sscatter @_ @_ @shm @shn @shp t f)
   FromVectorS lsd ->
-    let (s2, l) = mapAccumL (fwdSame params) s lsd
+    let (s2, l) = mapAccumL (evalFwdSame params) s lsd
     in (s2, sfromVector l)
   AppendS d e ->
-    let (s2, t) = fwdSame params s d
-        (s3, u) = fwdSame params s2 e
+    let (s2, t) = evalFwdSame params s d
+        (s3, u) = evalFwdSame params s2 e
     in (s3, sappend t u)
-  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ fwdSame params s d
-  ReverseS d -> second sreverse $ fwdSame params s d
+  SliceS @_ @i d -> second (sslice (Proxy @i) Proxy) $ evalFwdSame params s d
+  ReverseS d -> second sreverse $ evalFwdSame params s d
   TransposeS perm d -> second (stranspose perm)
-                       $ fwdSame params s d
-  ReshapeS d -> second sreshape $ fwdSame params s d
+                       $ evalFwdSame params s d
+  ReshapeS d -> second sreshape $ evalFwdSame params s d
   GatherS @_ @_ @shm @shn @shp d f ->
-    let (s2, t) = fwdSame params s d
+    let (s2, t) = evalFwdSame params s d
     in (s2, sgather @_ @_ @shm @shn @shp t f)
   d0@(CastS @r1 @_ @sh d)
     | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r1)) ->
       case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
-        Just Refl -> second scast $ fwdSame params s d
+        Just Refl -> second scast $ evalFwdSame params s d
         _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
-  ZipS d -> second szip $ fwdSame params s d
-  UnzipS d -> second sunzip $ fwdSame params s d
+  ZipS d -> second szip $ evalFwdSame params s d
+  UnzipS d -> second sunzip $ evalFwdSame params s d
   SFromH d i ->
-    let (s2, v) = fwdSame params s d
+    let (s2, v) = evalFwdSame params s d
     in (s2, sfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, sfromD $ tunvector v V.! i)
 
-  IndexX d ix -> second (`xindex` ix) $ fwdSame params s d
+  IndexX d ix -> second (`xindex` ix) $ evalFwdSame params s d
   FromVectorX lsd ->
-    let (s2, l) = mapAccumL (fwdSame params) s lsd
+    let (s2, l) = mapAccumL (evalFwdSame params) s lsd
     in (s2, xfromVector l)
-  ZipX d -> second xzip $ fwdSame params s d
-  UnzipX d -> second xunzip $ fwdSame params s d
+  ZipX d -> second xzip $ evalFwdSame params s d
+  UnzipX d -> second xunzip $ evalFwdSame params s d
 
   RFromS (SFromR d) ->
-    fwdSame params s d  -- no information lost, so no checks
-  RFromS d -> second rfromS $ fwdSame params s d
-  RFromX d -> second rfromX $ fwdSame params s d
+    evalFwdSame params s d  -- no information lost, so no checks
+  RFromS d -> second rfromS $ evalFwdSame params s d
+  RFromX d -> second rfromX $ evalFwdSame params s d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> fwdSame params s d
-      _ -> error "fwdSame: different shapes in SFromR(RFromS)"
-  SFromR d -> second sfromR $ fwdSame params s d
+      Just Refl -> evalFwdSame params s d
+      _ -> error "evalFwdSame: different shapes in SFromR(RFromS)"
+  SFromR d -> second sfromR $ evalFwdSame params s d
   XFromR @sh d | SNat <- ssxRank (knownShX @sh) ->
-    second xfromR $ fwdSame params s d
-  XFromS d -> second xfromS $ fwdSame params s d
+    second xfromR $ evalFwdSame params s d
+  XFromS d -> second xfromS $ evalFwdSame params s d
   SFromX @sh (XFromS @sh2 d) ->
     case sameShape @sh @sh2 of
-      Just Refl -> fwdSame params s d
-      _ -> error "fwdSame: different shapes in SFromX(XFromS)"
-  SFromX d -> second sfromX $ fwdSame params s d
+      Just Refl -> evalFwdSame params s d
+      _ -> error "evalFwdSame: different shapes in SFromX(XFromS)"
+  SFromX d -> second sfromX $ evalFwdSame params s d
 
-  XNestR d -> second (xnestR knownShX) $ fwdSame params s d
-  XNestS d -> second (xnestS knownShX) $ fwdSame params s d
-  XNest d -> second (xnest knownShX) $ fwdSame params s d
-  XUnNestR d -> second xunNestR $ fwdSame params s d
-  XUnNestS d -> second xunNestS $ fwdSame params s d
-  XUnNest d -> second xunNest $ fwdSame params s d
+  XNestR d -> second (xnestR knownShX) $ evalFwdSame params s d
+  XNestS d -> second (xnestS knownShX) $ evalFwdSame params s d
+  XNest d -> second (xnest knownShX) $ evalFwdSame params s d
+  XUnNestR d -> second xunNestR $ evalFwdSame params s d
+  XUnNestS d -> second xunNestS $ evalFwdSame params s d
+  XUnNest d -> second xunNest $ evalFwdSame params s d
 
   HToH v -> second dmkHVector
-            $ fwdHVector params s v
+            $ evalFwdHVector params s v
 
-  d -> fwdR params s d
+  d -> evalFwd params s d

@@ -680,7 +680,7 @@ instance AdaptableHVector RepN (HVector RepN) where
   -> Maybe (RepN TKUntyped)
   -> Delta RepN TKUntyped
   -> RepN TKUntyped #-}
-{-# SPECIALIZE evalFromnMap
+{-# SPECIALIZE evalRevFromnMap
   :: EvalState RepN -> EvalState RepN #-}
 
 instance ADReady target
