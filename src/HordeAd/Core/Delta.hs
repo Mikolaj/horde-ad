@@ -424,11 +424,14 @@ data Delta :: Target -> TensorKindType -> Type where
             => Delta target (TKProduct x z) -> Delta target x
   Project2G :: forall x z target. (TensorKind x, TensorKind z)
             => Delta target (TKProduct x z) -> Delta target z
-  SumG :: ( TensorKind y
-          , TensorKind (BuildTensorKind k y) ) -- needed for the Show instance
-       => SNat k -> Delta target (BuildTensorKind k y) -> Delta target y
+  SumG :: TensorKind (BuildTensorKind k y) -- needed for the Show instance
+       => SNat k -> STensorKindType y
+       -> Delta target (BuildTensorKind k y)
+       -> Delta target y
   ReplicateG :: TensorKind y
-             => SNat k -> Delta target y -> Delta target (BuildTensorKind k y)
+             => SNat k -> STensorKindType y
+             -> Delta target y
+             -> Delta target (BuildTensorKind k y)
     -- ^ Copy the given tensor along the new, outermost dimension.
   InputG :: forall target y.
             FullTensorKind y -> InputId target y -> Delta target y
@@ -715,9 +718,8 @@ shapeDeltaFull = \case
     FTKProduct ftk1 _ -> ftk1
   Project2G v -> case shapeDeltaFull v of
     FTKProduct _ ftk2 -> ftk2
-  SumG snat d ->
-    razeFTK snat stensorKind (shapeDeltaFull d)
-  ReplicateG snat d -> buildFTK snat (shapeDeltaFull d)
+  SumG snat stk d -> razeFTK snat stk (shapeDeltaFull d)
+  ReplicateG snat _ d -> buildFTK snat (shapeDeltaFull d)
   InputG ftk _ -> ftk
   ShareG _ d -> shapeDeltaFull d
   ZeroG ftk -> ftk
@@ -1107,10 +1109,10 @@ evalR !s !c d0 = case d0 of
       FTKProduct ftk1 _ ->
         let zero = constantTarget 0 $ aDFTK ftk1
         in evalR s (tpair zero c) d
-  SumG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
-    evalR s (treplicateShare snat (aDSTK $ stensorKind @y2) c) d
-  ReplicateG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
-    evalR s (tsumShare snat (aDSTK $ stensorKind @y2) c) d
+  SumG snat stk d | Refl <- lemBuildOfAD snat stk ->
+    evalR s (treplicateShare snat (aDSTK stk) c) d
+  ReplicateG snat stk d | Refl <- lemBuildOfAD snat stk ->
+    evalR s (tsumShare snat (aDSTK stk) c) d
   ShareG n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
@@ -1560,12 +1562,12 @@ fwdR params s d0 = case d0 of
                  , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     let (s2, v) = fwdR params s d
     in (s2, tproject2 v)
-  SumG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
+  SumG snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = fwdR params s d
-    in (s2, tsumShare snat (aDSTK $ stensorKind @y2) t)
-  ReplicateG @y2 snat d | Refl <- lemBuildOfAD snat (stensorKind @y2) ->
+    in (s2, tsumShare snat (aDSTK stk) t)
+  ReplicateG snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = fwdR params s d
-    in (s2, treplicateShare snat (aDSTK $ stensorKind @y2) t)
+    in (s2, treplicateShare snat (aDSTK stk) t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, toADTensorKindShared stensorKind $ evalRepM dtk)
