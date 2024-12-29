@@ -454,14 +454,14 @@ testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 615
-  length (show (simplifyInline @(TKR 2 Float) t1)) @?= 615
+  length (show t1) @?= 625
+  length (show (simplifyInline @(TKR 2 Float) t1)) @?= 625
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                             (rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @10 [8, 16] t))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 534
-  length (show (simplifyInline @(TKR 2 Float) t2)) @?= 534
+  length (show t2) @?= 544
+  length (show (simplifyInline @(TKR 2 Float) t2)) @?= 544
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -469,16 +469,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 962
-  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 962
+  length (show t1) @?= 972
+  length (show (simplifyInline @(TKR 3 Float) t1)) @?= 972
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                                (rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 715
-  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 715
+  length (show t2) @?= 725
+  length (show (simplifyInline @(TKR 3 Float) t2)) @?= 725
 
 -- scatters instead of gathers
 

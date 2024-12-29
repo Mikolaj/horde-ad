@@ -50,7 +50,6 @@ import Data.Array.Nested.Internal.Shape
   , shsPermutePrefix
   , shsRank
   , shsSize
-  , shsTail
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 

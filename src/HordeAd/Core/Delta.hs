@@ -103,7 +103,6 @@ import Data.Array.Nested.Internal.Shape
   , shsAppend
   , shsPermutePrefix
   , shsRank
-  , shsTail
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
@@ -519,8 +518,6 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKS2 shn r)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
-  SumS :: (TensorKind r, KnownNat n, KnownShS sh)
-       => Delta target (TKS2 (n ': sh) r) -> Delta target (TKS2 sh r)
   Sum0S :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
         => Delta target (TKS2 sh r) -> Delta target (TKS2 '[] r)
   Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
@@ -546,10 +543,6 @@ data Delta :: Target -> TensorKindType -> Type where
               => Data.Vector.Vector (Delta target (TKS2 sh r))
               -> Delta target (TKS2 (n ': sh) r)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  ReplicateS :: forall target r n sh.
-                (TensorKind r, KnownShS sh, KnownNat n)
-             => Delta target (TKS2 sh r) -> Delta target (TKS2 (n ': sh) r)
-    -- ^ Copy the given tensor along the new, outermost dimension.
   AppendS :: forall target r m n sh.
              (TensorKind r, KnownNat m, KnownNat n, KnownShS sh)
           => Delta target (TKS2 (m ': sh) r)
@@ -770,8 +763,6 @@ shapeDeltaFull = \case
 
   IndexS d _ix -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
-  SumS d -> case shapeDeltaFull d of
-    FTKS sh x -> FTKS (shsTail sh) x
   Sum0S d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS ZSS x
   Dot0S{} -> FTKS knownShS FTKScalar
@@ -784,8 +775,6 @@ shapeDeltaFull = \case
       _ -> error "shapeDeltaFull: FromVectorS with no arguments"
     d : _ -> case shapeDeltaFull d of
       FTKS _ x -> FTKS knownShS x
-  ReplicateS @_ @_ @n d -> case shapeDeltaFull d of
-    FTKS sh x -> FTKS (SNat @n :$$ sh) x
   AppendS a _ -> case shapeDeltaFull a of
     FTKS _ x -> FTKS knownShS x
   SliceS d -> case shapeDeltaFull d of
@@ -1323,8 +1312,6 @@ evalSame !s !c = \case
         -- problem of summing a lot of one-hots as in indexing
 
   IndexS d ix -> evalSame s (soneHot c ix) d
-  SumS d ->
-    evalSame s (sreplicate c) d
   Sum0S d ->
     evalSame s (sreplicate0N c) d
   Dot0S v vd ->
@@ -1337,8 +1324,6 @@ evalSame !s !c = \case
         cxs = sunravelToList cShared
     in foldl' (\ !s2 (cx, d2) -> evalSame s2 cx d2) s
        $ zip cxs (V.toList ld)
-  ReplicateS d ->
-    evalSame s (ssum c) d
   AppendS @_ @_ @m d e ->
     let cShared = tshare c
         s2 = evalSame s (sslice (Proxy @0) Proxy cShared) d
@@ -1721,7 +1706,6 @@ fwdSame params s = \case
 --  in (s2, rfromD $ tunvector v) V.! i)
 
   IndexS d ix -> second (`sindex` ix) $ fwdSame params s d
-  SumS d -> second ssum $ fwdSame params s d
   Sum0S (ZeroG (FTKS _ x)) -> (s, constantTarget 0 (FTKS ZSS x))
   Sum0S d -> second ssum0 $ fwdSame params s d
   Dot0S _ ZeroG{} -> (s, srepl 0)
@@ -1732,9 +1716,6 @@ fwdSame params s = \case
   FromVectorS lsd ->
     let (s2, l) = mapAccumL (fwdSame params) s lsd
     in (s2, sfromVector l)
-  ReplicateS d ->
-    let (s2, t) = fwdSame params s d
-    in (s2, sreplicate t)
   AppendS d e ->
     let (s2, t) = fwdSame params s d
         (s3, u) = fwdSame params s2 e
