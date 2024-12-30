@@ -3280,213 +3280,8 @@ astFromScalar t = case t of
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astFromScalar v
   _ -> Ast.AstFromScalar t
 
--- * The simplifying bottom-up pass
 
-simplifyAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
-simplifyAstInt = simplifyAst
-
-simplifyAstIxR :: AstIxR AstMethodLet n -> AstIxR AstMethodLet n
-simplifyAstIxR = fmap simplifyAstInt
-
-simplifyAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
-simplifyAstIxS = fmap simplifyAstInt
-
--- | This function guarantees full simplification: every redex
--- is visited and each combinator applied. The most exhaustive and costly
--- variants of each combinator are used, e.g., astIndexR.
-simplifyAst
-  :: forall s y. (AstSpan s, TensorKind y)
-  => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-simplifyAst t = case t of
-  Ast.AstFromScalar u -> astFromScalar $ simplifyAst u
-  Ast.AstToScalar u -> Ast.AstToScalar $ simplifyAst u
-  Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
-  Ast.AstProject1 v -> astProject1 (simplifyAst v)
-  Ast.AstProject2 v -> astProject2 (simplifyAst v)
-  Ast.AstVar{} -> t
-  Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
-  Ast.AstDualPart v -> astDualPart (simplifyAst v)
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal (simplifyAst v)
-  Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
-  Ast.AstCond b a2 a3 ->
-    astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
-  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
-    astSum snat stk (simplifyAst v)
-  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
-    astReplicate snat stk (simplifyAst v)
-  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
-  Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
-  AstConcrete{} -> t
-
-  Ast.AstMinIndexR a -> Ast.AstMinIndexR (simplifyAst a)
-  Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (simplifyAst a)
-  Ast.AstFloorR a -> Ast.AstFloorR (simplifyAst a)
-  Ast.AstIotaR -> t
-  AstN1 opCode u ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp1 opCode (simplifyAst u)
-      _ -> AstN1 opCode (simplifyAst u)
-  AstN2 opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
-      _ -> AstN2 opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstR1 opCode u -> Ast.AstR1 opCode (simplifyAst u)
-  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2 opCode u v ->
-    case isTensorInt u of
-      Just Refl -> contractAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
-      _ -> Ast.AstI2 opCode (simplifyAst u) (simplifyAst v)
-  AstSumOfList args ->
-    case isTensorInt t of
-      Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
-      _ -> astSumOfList (map simplifyAst args)
-  Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
-  Ast.AstCast v -> astCast $ simplifyAst v
-  Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
-  AstN1R opCode u -> AstN1R opCode (simplifyAst u)
-  AstN2R opCode u v -> AstN2R opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstR1R opCode u -> Ast.AstR1R opCode (simplifyAst u)
-  Ast.AstR2R opCode u v -> Ast.AstR2R opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2R opCode u v -> Ast.AstI2R opCode (simplifyAst u) (simplifyAst v)
-  AstSumOfListR args -> astSumOfListR (map simplifyAst args)
-  Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIxR ix)
-  Ast.AstScatter sh v (var, ix) ->
-    astScatter sh (simplifyAst v) (var, simplifyAstIxR ix)
-  Ast.AstFromVector l -> astFromVector (V.map simplifyAst l)
-  Ast.AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
-  Ast.AstSlice i k v -> astSlice i k (simplifyAst v)
-  Ast.AstReverse v -> astReverse (simplifyAst v)
-  Ast.AstTranspose perm v ->
-    astTranspose (normalizePermutation perm) (simplifyAst v)
-  Ast.AstReshape sh v -> astReshape sh (simplifyAst v)
-  Ast.AstGather sh v (vars, ix) ->
-    astGatherR sh (simplifyAst v) (vars, simplifyAstIxR ix)
-  Ast.AstCastR v -> astCastR $ simplifyAst v
-  Ast.AstFromIntegralR v -> astFromIntegralR $ simplifyAst v
-  Ast.AstProjectR l p -> astProjectR (simplifyAst l) p
-  Ast.AstLetHVectorIn vars l v ->
-    astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
-  Ast.AstZipR v -> Ast.AstZipR (simplifyAst v)
-  Ast.AstUnzipR v -> Ast.AstUnzipR (simplifyAst v)
-
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
-  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
-  Ast.AstIotaS -> t
-  AstN1S opCode u -> AstN1S opCode (simplifyAst u)
-  AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
-  AstSumOfListS args -> astSumOfListS (map simplifyAst args)
-  Ast.AstIndexS @shm @shn v ix ->
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    astIndexS (simplifyAst v) (simplifyAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    astScatterS @shm @shn @shp (simplifyAst v) (var, simplifyAstIxS ix)
-  Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAst l)
-  Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
-  Ast.AstSliceS @i v -> astSliceS @i (simplifyAst v)
-  Ast.AstReverseS v -> astReverseS (simplifyAst v)
-  Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v
-  Ast.AstReshapeS v -> astReshapeS $ simplifyAst v
-  Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    astGatherS @shm @shn @shp (simplifyAst v) (vars, simplifyAstIxS ix)
-  Ast.AstCastS v -> astCastS $ simplifyAst v
-  Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
-  Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
-  Ast.AstZipS v -> Ast.AstZipS (simplifyAst v)
-  Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
-
-  Ast.AstZipX v -> Ast.AstZipX (simplifyAst v)
-  Ast.AstUnzipX v -> Ast.AstUnzipX (simplifyAst v)
-
-  Ast.AstRFromS v -> astRFromS $ simplifyAst v
-  Ast.AstRFromX v -> astRFromX $ simplifyAst v
-  Ast.AstSFromR v -> astSFromR $ simplifyAst v
-  Ast.AstSFromX v -> astSFromX $ simplifyAst v
-  Ast.AstXFromR v -> astXFromR $ simplifyAst v
-  Ast.AstXFromS v -> astXFromS $ simplifyAst v
-
-  Ast.AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astXNestR $ simplifyAst v
-  Ast.AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astXNestS $ simplifyAst v
-  Ast.AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astXNest $ simplifyAst v
-  Ast.AstXUnNestR v -> astXUnNestR $ simplifyAst v
-  Ast.AstXUnNestS v -> astXUnNestS $ simplifyAst v
-  Ast.AstXUnNest v -> astXUnNest $ simplifyAst v
-
-  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
-  Ast.AstApply v ll -> astHApply (simplifyAstHFun v)
-                                  (simplifyAst ll)
-  Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
-      Ast.AstMapAccumRDer k accShs bShs eShs
-                          (simplifyAstHFun f)
-                          (simplifyAstHFun df)
-                          (simplifyAstHFun rf)
-                          (simplifyAst acc0)
-                          (simplifyAst es)
-  Ast.AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
-      Ast.AstMapAccumLDer k accShs bShs eShs
-                          (simplifyAstHFun f)
-                          (simplifyAstHFun df)
-                          (simplifyAstHFun rf)
-                          (simplifyAst acc0)
-                          (simplifyAst es)
-  _ -> error "TODO"
-
-simplifyAstDynamic
-  :: AstSpan s
-  => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
-simplifyAstDynamic (DynamicRanked u) =
-  DynamicRanked $ simplifyAst u
-simplifyAstDynamic (DynamicShaped u) =
-  DynamicShaped $ simplifyAst u
-simplifyAstDynamic u@DynamicRankedDummy{} = u
-simplifyAstDynamic u@DynamicShapedDummy{} = u
-
-simplifyAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
-simplifyAstHFun = \case
-  Ast.AstLambda ~(vvars, ftk, l) ->
-    Ast.AstLambda (vvars, ftk, simplifyAst l)
-
-simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
-simplifyAstBool t = case t of
-  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
-  Ast.AstBoolNot arg -> Ast.AstBoolNot $ simplifyAstBool arg
-  Ast.AstB2 opCodeBool arg1 arg2 ->
-    contractAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
-  AstBoolConst{} -> t
-  Ast.AstRel @y3 opCodeRel arg1 arg2 ->
-    case stensorKind @y3 of
-      STKScalar{} ->
-        contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
-      -- These expressions potentially represent large tensors that are
-      -- expensive to compute even when constant so we simplify and ignore them,
-      -- because computation should be done on GPU, not on CPU when simplifying;
-      -- we'd need a flag to control how much we pre-compute.
-      -- Anyway, because these tensors sometimes represent indexes,
-      -- we simplify them a bit more than the shaped ones.
-      _ -> Ast.AstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
-
-
--- * The expanding (to gather expressions) bottom-up pass
+-- * The expansion (e.g., into gather expressions) bottom-up pass
 
 expandAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
 expandAstInt = expandAst
@@ -3741,6 +3536,478 @@ expandAstBool t = case t of
       -- Anyway, because these tensors sometimes represent indexes,
       -- we expand them a bit more than the shaped ones.
       _ -> Ast.AstRel opCodeRel (expandAst arg1) (expandAst arg2)
+
+
+-- * The simplifying bottom-up pass
+
+simplifyAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
+simplifyAstInt = simplifyAst
+
+simplifyAstIxR :: AstIxR AstMethodLet n -> AstIxR AstMethodLet n
+simplifyAstIxR = fmap simplifyAstInt
+
+simplifyAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
+simplifyAstIxS = fmap simplifyAstInt
+
+-- | This function guarantees full simplification: every redex
+-- is visited and each combinator applied. The most exhaustive and costly
+-- variants of each combinator are used, e.g., astIndexR.
+simplifyAst
+  :: forall s y. (AstSpan s, TensorKind y)
+  => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
+simplifyAst t = case t of
+  Ast.AstFromScalar u -> astFromScalar $ simplifyAst u
+  Ast.AstToScalar u -> Ast.AstToScalar $ simplifyAst u
+  Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
+  Ast.AstProject1 v -> astProject1 (simplifyAst v)
+  Ast.AstProject2 v -> astProject2 (simplifyAst v)
+  Ast.AstVar{} -> t
+  Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
+  Ast.AstDualPart v -> astDualPart (simplifyAst v)
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal (simplifyAst v)
+  Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
+  Ast.AstCond b a2 a3 ->
+    astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
+  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+    astSum snat stk (simplifyAst v)
+  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+    astReplicate snat stk (simplifyAst v)
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
+  Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
+  AstConcrete{} -> t
+
+  Ast.AstMinIndexR a -> Ast.AstMinIndexR (simplifyAst a)
+  Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (simplifyAst a)
+  Ast.AstFloorR a -> Ast.AstFloorR (simplifyAst a)
+  Ast.AstIotaR -> t
+  AstN1 opCode u ->
+    case isTensorInt u of
+      Just Refl -> contractAstNumOp1 opCode (simplifyAst u)
+      _ -> AstN1 opCode (simplifyAst u)
+  AstN2 opCode u v ->
+    case isTensorInt u of
+      Just Refl -> contractAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
+      _ -> AstN2 opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (simplifyAst u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2 opCode u v ->
+    case isTensorInt u of
+      Just Refl -> contractAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
+      _ -> Ast.AstI2 opCode (simplifyAst u) (simplifyAst v)
+  AstSumOfList args ->
+    case isTensorInt t of
+      Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
+      _ -> astSumOfList (map simplifyAst args)
+  Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
+  Ast.AstCast v -> astCast $ simplifyAst v
+  Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
+  AstN1R opCode u -> AstN1R opCode (simplifyAst u)
+  AstN2R opCode u v -> AstN2R opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstR1R opCode u -> Ast.AstR1R opCode (simplifyAst u)
+  Ast.AstR2R opCode u v -> Ast.AstR2R opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2R opCode u v -> Ast.AstI2R opCode (simplifyAst u) (simplifyAst v)
+  AstSumOfListR args -> astSumOfListR (map simplifyAst args)
+  Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIxR ix)
+  Ast.AstScatter sh v (var, ix) ->
+    astScatter sh (simplifyAst v) (var, simplifyAstIxR ix)
+  Ast.AstFromVector l -> astFromVector (V.map simplifyAst l)
+  Ast.AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
+  Ast.AstSlice i k v -> astSlice i k (simplifyAst v)
+  Ast.AstReverse v -> astReverse (simplifyAst v)
+  Ast.AstTranspose perm v ->
+    astTranspose (normalizePermutation perm) (simplifyAst v)
+  Ast.AstReshape sh v -> astReshape sh (simplifyAst v)
+  Ast.AstGather sh v (vars, ix) ->
+    astGatherR sh (simplifyAst v) (vars, simplifyAstIxR ix)
+  Ast.AstCastR v -> astCastR $ simplifyAst v
+  Ast.AstFromIntegralR v -> astFromIntegralR $ simplifyAst v
+  Ast.AstProjectR l p -> astProjectR (simplifyAst l) p
+  Ast.AstLetHVectorIn vars l v ->
+    astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
+  Ast.AstZipR v -> Ast.AstZipR (simplifyAst v)
+  Ast.AstUnzipR v -> Ast.AstUnzipR (simplifyAst v)
+
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
+  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
+  Ast.AstIotaS -> t
+  AstN1S opCode u -> AstN1S opCode (simplifyAst u)
+  AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
+  AstSumOfListS args -> astSumOfListS (map simplifyAst args)
+  Ast.AstIndexS @shm @shn v ix ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    astIndexS (simplifyAst v) (simplifyAstIxS ix)
+  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    astScatterS @shm @shn @shp (simplifyAst v) (var, simplifyAstIxS ix)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAst l)
+  Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
+  Ast.AstSliceS @i v -> astSliceS @i (simplifyAst v)
+  Ast.AstReverseS v -> astReverseS (simplifyAst v)
+  Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v
+  Ast.AstReshapeS v -> astReshapeS $ simplifyAst v
+  Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+    astGatherS @shm @shn @shp (simplifyAst v) (vars, simplifyAstIxS ix)
+  Ast.AstCastS v -> astCastS $ simplifyAst v
+  Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
+  Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
+  Ast.AstZipS v -> Ast.AstZipS (simplifyAst v)
+  Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
+
+  Ast.AstZipX v -> Ast.AstZipX (simplifyAst v)
+  Ast.AstUnzipX v -> Ast.AstUnzipX (simplifyAst v)
+
+  Ast.AstRFromS v -> astRFromS $ simplifyAst v
+  Ast.AstRFromX v -> astRFromX $ simplifyAst v
+  Ast.AstSFromR v -> astSFromR $ simplifyAst v
+  Ast.AstSFromX v -> astSFromX $ simplifyAst v
+  Ast.AstXFromR v -> astXFromR $ simplifyAst v
+  Ast.AstXFromS v -> astXFromS $ simplifyAst v
+
+  Ast.AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astXNestR $ simplifyAst v
+  Ast.AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astXNestS $ simplifyAst v
+  Ast.AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astXNest $ simplifyAst v
+  Ast.AstXUnNestR v -> astXUnNestR $ simplifyAst v
+  Ast.AstXUnNestS v -> astXUnNestS $ simplifyAst v
+  Ast.AstXUnNest v -> astXUnNest $ simplifyAst v
+
+  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
+  Ast.AstApply v ll -> astHApply (simplifyAstHFun v)
+                                  (simplifyAst ll)
+  Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs
+                          (simplifyAstHFun f)
+                          (simplifyAstHFun df)
+                          (simplifyAstHFun rf)
+                          (simplifyAst acc0)
+                          (simplifyAst es)
+  Ast.AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+      Ast.AstMapAccumLDer k accShs bShs eShs
+                          (simplifyAstHFun f)
+                          (simplifyAstHFun df)
+                          (simplifyAstHFun rf)
+                          (simplifyAst acc0)
+                          (simplifyAst es)
+  _ -> error "TODO"
+
+simplifyAstDynamic
+  :: AstSpan s
+  => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
+simplifyAstDynamic (DynamicRanked u) =
+  DynamicRanked $ simplifyAst u
+simplifyAstDynamic (DynamicShaped u) =
+  DynamicShaped $ simplifyAst u
+simplifyAstDynamic u@DynamicRankedDummy{} = u
+simplifyAstDynamic u@DynamicShapedDummy{} = u
+
+simplifyAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
+simplifyAstHFun = \case
+  Ast.AstLambda ~(vvars, ftk, l) ->
+    Ast.AstLambda (vvars, ftk, simplifyAst l)
+
+simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
+simplifyAstBool t = case t of
+  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
+  Ast.AstBoolNot arg -> Ast.AstBoolNot $ simplifyAstBool arg
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    contractAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
+  AstBoolConst{} -> t
+  Ast.AstRel @y3 opCodeRel arg1 arg2 ->
+    case stensorKind @y3 of
+      STKScalar{} ->
+        contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+      -- These expressions potentially represent large tensors that are
+      -- expensive to compute even when constant so we simplify and ignore them,
+      -- because computation should be done on GPU, not on CPU when simplifying;
+      -- we'd need a flag to control how much we pre-compute.
+      -- Anyway, because these tensors sometimes represent indexes,
+      -- we simplify them a bit more than the shaped ones.
+      _ -> Ast.AstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+
+
+-- * The contraction (e.g., from gather expressions) bottom-up pass
+
+-- When we have multiple backends, there should be one such pass
+-- per backend that chooses a representation that is best for the backend.
+-- Then AST should be extended with backend-specific constructors
+-- and the interpreter would interpret all of them, but the simplifier
+-- would ignore all and the user API would not make them available.
+
+{- TODO:
+
+expandAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
+expandAstInt = expandAst
+
+expandAstIxR :: AstIxR AstMethodLet n -> AstIxR AstMethodLet n
+expandAstIxR = fmap expandAstInt
+
+expandAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
+expandAstIxS = fmap expandAstInt
+
+expandAst
+  :: forall s y. (AstSpan s, TensorKind y)
+  => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
+expandAst t = case t of
+  Ast.AstFromScalar u -> astFromScalar $ expandAst u
+  Ast.AstToScalar u -> Ast.AstToScalar $ expandAst u
+  Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
+  Ast.AstProject1 v -> astProject1 (expandAst v)
+  Ast.AstProject2 v -> astProject2 (expandAst v)
+  Ast.AstVar{} -> t
+  Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
+  Ast.AstDualPart v -> astDualPart (expandAst v)
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal (expandAst v)
+  Ast.AstD u u' -> Ast.AstD (expandAst u) (expandAst u')
+  Ast.AstCond b a2 a3 ->
+    astCond (expandAstBool b) (expandAst a2) (expandAst a3)
+  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+    astSum snat stk (expandAst v)
+  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+    astReplicate snat stk (expandAst v)
+  Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
+  Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
+  AstConcrete{} -> t
+
+  Ast.AstMinIndexR a -> Ast.AstMinIndexR (expandAst a)
+  Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (expandAst a)
+  Ast.AstFloorR a -> Ast.AstFloorR (expandAst a)
+  Ast.AstIotaR -> t
+  AstN1 opCode u ->
+    case isTensorInt u of
+      Just Refl -> contractAstNumOp1 opCode (expandAst u)
+      _ -> AstN1 opCode (expandAst u)
+  AstN2 opCode u v ->
+    case isTensorInt u of
+      Just Refl -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
+      _ -> {- TODO: case opCode of
+        TimesOp | Just Refl <- sameNat (Proxy @n) (Proxy @3) ->
+          AstN2R opCode (simplifyAst u) (simplifyAst v)
+            -- TODO: a workaround for interpretMatmul2 not yet generalized
+            -- to gathers (and moved from AstInterpret here, ideally)
+        _ -> -} AstN2 opCode (expandAst u) (expandAst v)
+  Ast.AstR1 opCode u -> Ast.AstR1 opCode (expandAst u)
+  Ast.AstR2 opCode u v -> Ast.AstR2 opCode (expandAst u) (expandAst v)
+  Ast.AstI2 opCode u v ->
+    case isTensorInt u of
+      Just Refl -> contractAstIntegralOp2 opCode (expandAst u) (expandAst v)
+      _ -> Ast.AstI2 opCode (expandAst u) (expandAst v)
+  AstSumOfList args ->
+    case isTensorInt t of
+      Just Refl -> foldr1 contractAstPlusOp (map expandAst args)
+      _ -> astSumOfList (map expandAst args)
+  Ast.AstFloor a -> Ast.AstFloor (expandAst a)
+  Ast.AstCast v -> astCast $ expandAst v
+  Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
+  AstN1R opCode u -> AstN1R opCode (expandAst u)
+  AstN2R opCode u v -> AstN2R opCode (expandAst u) (expandAst v)
+  Ast.AstR1R opCode u -> Ast.AstR1R opCode (expandAst u)
+  Ast.AstR2R opCode u v -> Ast.AstR2R opCode (expandAst u) (expandAst v)
+  Ast.AstI2R opCode u v -> Ast.AstI2R opCode (expandAst u) (expandAst v)
+  AstSumOfListR args -> astSumOfListR (map expandAst args)
+  Ast.AstIndex v ix -> astIndexKnobsR (defaultKnobs {knobExpand = True})
+                                      (expandAst v)
+                                      (expandAstIxR ix)
+  Ast.AstScatter sh v (var, ix) ->
+    astScatter sh (expandAst v) (var, expandAstIxR ix)
+  Ast.AstFromVector l -> astFromVector (V.map expandAst l)
+  Ast.AstAppend x y -> astAppend (expandAst x) (expandAst y)
+  Ast.AstSlice i k v -> astSlice i k (expandAst v)
+  Ast.AstReverse v -> astReverse (expandAst v)
+  Ast.AstTranspose @_ @x perm v -> case v of
+    Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
+    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProjectR Ast.AstVar{} _ -> t  -- normal form
+    Ast.AstReplicate{} -> t  -- normal form
+      -- TODO: this nf is silly, but right now transposes of replicates
+      -- are small OR.Arrays and equivalent gathers are large OR.Arrays,
+      -- so this has to stay. Maybe we should contract gathers back
+      -- to transposes of replicates (not only to replicates). Or maybe
+      -- we should extend orthotope to any gather schemes, not only
+      -- the simple ones.
+    AstN1R _ w | isVar w -> t  -- normal form
+    AstN2R _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1R _ w | isVar w -> t  -- normal form
+    Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
+    AstSumOfListR{} -> t  -- normal form
+    Ast.AstScatter @_ @_ @p _ _ _ | length perm > valueOf @p -> t  -- nf
+    _ ->  -- not nf, let's express all as a gather
+      astTransposeAsGather (defaultKnobs {knobExpand = True})
+                           (normalizePermutation perm)
+                           (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
+  Ast.AstReshape @_ @_ @x sh v -> case v of
+    Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
+    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProjectR Ast.AstVar{} _ -> t  -- normal form
+    AstN1R _ w | isVar w -> t  -- normal form
+    AstN2R _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1R _ w | isVar w -> t  -- normal form
+    Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
+    AstSumOfListR{} -> t  -- normal form
+    Ast.AstScatter{} -> t  -- normal form
+    _ ->  -- not nf, let's express all as a gather
+      astReshapeAsGather (defaultKnobs {knobExpand = True})
+                         sh
+                         (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
+  Ast.AstGather sh v (vars, ix) ->
+    astGatherKnobsR (defaultKnobs {knobExpand = True})
+                    sh (expandAst v) (vars, expandAstIxR ix)
+  Ast.AstCastR v -> astCastR $ expandAst v
+  Ast.AstFromIntegralR v -> astFromIntegralR $ expandAst v
+  Ast.AstProjectR l p -> astProjectR (expandAst l) p
+  Ast.AstLetHVectorIn vars l v ->
+    astLetHVectorIn vars (expandAst l) (expandAst v)
+  Ast.AstZipR v -> Ast.AstZipR (expandAst v)
+  Ast.AstUnzipR v -> Ast.AstUnzipR (expandAst v)
+
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
+  Ast.AstFloorS a -> Ast.AstFloorS (expandAst a)
+  Ast.AstIotaS -> t
+  AstN1S opCode u -> AstN1S opCode (expandAst u)
+  AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
+  AstSumOfListS args -> astSumOfListS (map expandAst args)
+  Ast.AstIndexS @shm @shn v ix ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    astIndexKnobsS (defaultKnobs {knobExpand = True})
+                   (expandAst v)
+                   (expandAstIxS ix)
+  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    astScatterS @shm @shn @shp (expandAst v) (var, expandAstIxS ix)
+  Ast.AstFromVectorS l -> astFromVectorS (V.map expandAst l)
+  Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
+  Ast.AstSliceS @i v -> astSliceS @i (expandAst v)
+  Ast.AstReverseS v -> astReverseS (expandAst v)
+  Ast.AstTransposeS perm v -> astTransposeS perm $ expandAst v
+  Ast.AstReshapeS v -> astReshapeS $ expandAst v
+  Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+    astGatherKnobsS @shm @shn @shp
+                    (defaultKnobs {knobExpand = True})
+                    (expandAst v) (vars, expandAstIxS ix)
+  Ast.AstCastS v -> astCastS $ expandAst v
+  Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
+  Ast.AstProjectS l p -> astProjectS (expandAst l) p
+  Ast.AstZipS v -> Ast.AstZipS (expandAst v)
+  Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
+
+  Ast.AstZipX v -> Ast.AstZipX (expandAst v)
+  Ast.AstUnzipX v -> Ast.AstUnzipX (expandAst v)
+
+  Ast.AstRFromS v -> astRFromS $ expandAst v
+  Ast.AstRFromX v -> astRFromX $ expandAst v
+  Ast.AstSFromR v -> astSFromR $ expandAst v
+  Ast.AstSFromX v -> astSFromX $ expandAst v
+  Ast.AstXFromR v -> astXFromR $ expandAst v
+  Ast.AstXFromS v -> astXFromS $ expandAst v
+
+  Ast.AstXNestR @sh1 @m v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    astXNestR $ expandAst v
+  Ast.AstXNestS @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    astXNestS $ expandAst v
+  Ast.AstXNest @sh1 @sh2 v ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    astXNest $ expandAst v
+  Ast.AstXUnNestR v -> astXUnNestR $ expandAst v
+  Ast.AstXUnNestS v -> astXUnNestS $ expandAst v
+  Ast.AstXUnNest v -> astXUnNest $ expandAst v
+
+  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
+  Ast.AstApply v ll -> astHApply (expandAstHFun v)
+                                  (expandAst ll)
+  Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+      Ast.AstMapAccumRDer k accShs bShs eShs
+                          (expandAstHFun f)
+                          (expandAstHFun df)
+                          (expandAstHFun rf)
+                          (expandAst acc0)
+                          (expandAst es)
+  Ast.AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+      Ast.AstMapAccumLDer k accShs bShs eShs
+                          (expandAstHFun f)
+                          (expandAstHFun df)
+                          (expandAstHFun rf)
+                          (expandAst acc0)
+                          (expandAst es)
+  _ -> error "TODO"
+
+expandAstDynamic
+  :: AstSpan s
+  => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
+expandAstDynamic (DynamicRanked u) =
+  DynamicRanked $ expandAst u
+expandAstDynamic (DynamicShaped u) =
+  DynamicShaped $ expandAst u
+expandAstDynamic u@DynamicRankedDummy{} = u
+expandAstDynamic u@DynamicShapedDummy{} = u
+
+expandAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
+expandAstHFun = \case
+  Ast.AstLambda ~(vvars, ftk, l) ->
+    Ast.AstLambda (vvars, ftk, expandAst l)
+
+expandAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
+expandAstBool t = case t of
+  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
+  Ast.AstBoolNot arg -> Ast.AstBoolNot $ expandAstBool arg
+  Ast.AstB2 opCodeBool arg1 arg2 ->
+    contractAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
+  AstBoolConst{} -> t
+  Ast.AstRel @y3 opCodeRel arg1 arg2 ->
+    case stensorKind @y3 of
+      STKScalar{} ->
+        contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
+      -- These expressions potentially represent large tensors that are
+      -- expensive to compute even when constant so we expand and ignore them,
+      -- because computation should be done on GPU, not on CPU when expanding;
+      -- we'd need a flag to control how much we pre-compute.
+      -- Anyway, because these tensors sometimes represent indexes,
+      -- we expand them a bit more than the shaped ones.
+      _ -> Ast.AstRel opCodeRel (expandAst arg1) (expandAst arg2)
+-}
 
 
 -- * Contraction of arithmetic and boolean operation terms
