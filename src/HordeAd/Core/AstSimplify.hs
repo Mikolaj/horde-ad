@@ -2047,9 +2047,8 @@ astScatter sh@(k :$: _) _v (_vars, AstConcrete _ (RepN it) :.: _ix)
       astReplicate0N sh def
 -- else update (rzero sh 0) [AstConcreteS it] (astScatter ...)
 astScatter sh v ((:::) @k var vars, ix)
- | not $ varNameToAstVarId var `varInIndex` ix
- , STKScalar{} <- stensorKind @r =
-  astScatter sh (astSum (SNat @k) stensorKind v) (vars, ix)
+  | not $ varNameToAstVarId var `varInIndex` ix =
+    astScatter sh (astSum (SNat @k) stensorKind v) (vars, ix)
 -- astScatter sh v (ZR, ix) = update (rzero sh 0) ix v
 astScatter sh (Ast.AstFromPrimal v) (vars, ix) =
   Ast.AstFromPrimal $ astScatter sh v (vars, ix)
@@ -2071,8 +2070,7 @@ astScatterS _v (_vars, (:.$) @k (AstConcrete _ (RepN it)) _ix)
 -- else update (rzero sh 0) [AstConcreteS it] (astScatter ...) -}
 astScatterS v (Const var ::$ (vars :: AstVarListS sh3), ix)
   | not $ varNameToAstVarId var `varInIndexS` ix
-  , Dict <- slistKnown vars
-  , STKScalar{} <- stensorKind @r =
+  , Dict <- slistKnown vars =
       withKnownShS (knownShS @sh3 `shsAppend` knownShS @shn) $
       astScatterS @sh3 @shn @shp (astSum SNat stensorKind v) (vars, ix)
 -- astScatterS v (ZR, ix) = update (rzero sh 0) ix v
@@ -2144,7 +2142,8 @@ astFromVectorX l | Just Refl <- sameAstSpan @s @PrimalSpan =
       unConst _ = Nothing
   in case V.mapM unConst l of
     Just l3 | V.length l3 >= 1 ->
-      AstConcrete (FTKX (SKnown (SNat @n) :$% xshape (l3 V.! 0)) FTKScalar) $ xfromVector l3
+      AstConcrete (FTKX (SKnown (SNat @n) :$% xshape (l3 V.! 0)) FTKScalar)
+      $ xfromVector l3
     _ -> Ast.AstFromVectorX l
 astFromVectorX l | Just Refl <- sameAstSpan @s @FullSpan =
   let unFromPrimal :: AstTensor AstMethodLet FullSpan (TKX sh r)
@@ -2443,8 +2442,8 @@ astTranspose perm = \case
     -- TODO: should the below be backpermute or permute?
     astGatherR (Nested.Internal.Shape.shrPermutePrefix perm sh) v
                (Nested.Internal.Shape.listrPermutePrefix perm vars, ix)
-  AstConcrete (FTKR sh FTKScalar) t ->
-    AstConcrete (FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) FTKScalar)
+  AstConcrete (FTKR sh x) t ->
+    AstConcrete (FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x)
     $ rtranspose perm t
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astTranspose perm v
   u -> Ast.AstTranspose perm u
@@ -2531,10 +2530,10 @@ astTransposeS perm t = case perm of
                          :~: Permutation.PermutePrefix perm (shm ++ shn)) $
            astGatherS @(Permutation.PermutePrefix perm shm) @shn @shp
                       v (vars2, ix)
-  AstConcrete (FTKS sh FTKScalar) v ->
+  AstConcrete (FTKS sh x) v ->
     let shPerm = Nested.Internal.Shape.shsPermutePrefix perm sh
     in withKnownShS shPerm $
-       AstConcrete (FTKS shPerm FTKScalar) $ stranspose perm v
+       AstConcrete (FTKS shPerm x) $ stranspose perm v
   Ast.AstFromPrimal v ->
     withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
     Ast.AstFromPrimal $ astTransposeS perm v
@@ -3588,13 +3587,11 @@ expandAst t = case t of
     Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
     AstSumOfListR{} -> t  -- normal form
     Ast.AstScatter @_ @_ @p _ _ _ | length perm > valueOf @p -> t  -- nf
-    _ -> case stensorKind @x of
-      STKScalar{} ->  -- not nf, let's express all as a gather
-        astTransposeAsGather (defaultKnobs {knobExpand = True})
-                             (normalizePermutation perm)
-                             (expandAst v)
-          -- this is expensive but the only way to guarantee full simplification
-      _ -> t  -- or not
+    _ ->  -- not nf, let's express all as a gather
+      astTransposeAsGather (defaultKnobs {knobExpand = True})
+                           (normalizePermutation perm)
+                           (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
   Ast.AstReshape @_ @_ @x sh v -> case v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
@@ -3609,13 +3606,11 @@ expandAst t = case t of
     Ast.AstR2R _ x y | isVar x && isVar y -> t  -- normal form
     AstSumOfListR{} -> t  -- normal form
     Ast.AstScatter{} -> t  -- normal form
-    _ -> case stensorKind @x of
-      STKScalar{} ->  -- not nf, let's express all as a gather
-        astReshapeAsGather (defaultKnobs {knobExpand = True})
-                           sh
-                           (expandAst v)
-          -- this is expensive but the only way to guarantee full simplification
-      _ -> t  -- or not
+    _ ->  -- not nf, let's express all as a gather
+      astReshapeAsGather (defaultKnobs {knobExpand = True})
+                         sh
+                         (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
   Ast.AstGather sh v (vars, ix) ->
     astGatherKnobsR (defaultKnobs {knobExpand = True})
                     sh (expandAst v) (vars, expandAstIxR ix)

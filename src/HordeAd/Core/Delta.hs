@@ -424,11 +424,11 @@ data Delta :: Target -> TensorKindType -> Type where
             => Delta target (TKProduct x z) -> Delta target x
   Project2G :: forall x z target. (TensorKind x, TensorKind z)
             => Delta target (TKProduct x z) -> Delta target z
-  SumG :: TensorKind (BuildTensorKind k y) -- needed for the Show instance
+  SumG :: TensorKind (BuildTensorKind k y)  -- needed for the Show instance
        => SNat k -> STensorKindType y
        -> Delta target (BuildTensorKind k y)
        -> Delta target y
-  ReplicateG :: TensorKind y
+  ReplicateG :: TensorKind y  -- needed for the Show instance
              => SNat k -> STensorKindType y
              -> Delta target y
              -> Delta target (BuildTensorKind k y)
