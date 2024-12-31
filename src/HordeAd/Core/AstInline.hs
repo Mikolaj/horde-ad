@@ -4,7 +4,7 @@
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
     simplifyArtifact, simplifyArtifactGradient
-  , simplifyInlineContract
+  , simplifyInline, simplifyInlineContract
     -- * The translates global sharing to normal lets
   , unshareAstTensor
   ) where
@@ -46,6 +46,19 @@ simplifyArtifactGradient :: forall x z. TensorKind x
 simplifyArtifactGradient art | Dict <- lemTensorKindOfAD (stensorKind @x) =
   art { artDerivativeRev =
         simplifyInlineContract $ artDerivativeRev art }
+
+-- Potentially, some more inlining could be triggered after the second
+-- simplification, but it's probably rare, so we don't insisit on a fixpoint.
+-- The second simplification is very likely to trigger, because substitution
+-- often reveals redexes.
+simplifyInline
+  :: forall z s.(AstSpan s, TensorKind z)
+  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
+simplifyInline =
+  snd . inlineAst EM.empty
+  . simplifyAst . expandAst
+  . snd . inlineAst EM.empty . simplifyAst
+    -- no specialization possible except for the tag type s
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
