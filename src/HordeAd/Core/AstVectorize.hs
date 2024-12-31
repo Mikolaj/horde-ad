@@ -537,6 +537,14 @@ build1V snat@SNat (var, v0) =
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrGeneral @k5 @k
                                          (stensorKind @bShs) (astProject2 x1bs1)))
+
+    Ast.AstReplicate0NR{} -> error "build1V: term not accessible from user API"
+    Ast.AstSum0R{} -> error "build1V: term not accessible from user API"
+    Ast.AstDot0R{} -> error "build1V: term not accessible from user API"
+    Ast.AstDot1InR{} -> error "build1V: term not accessible from user API"
+    Ast.AstMatvecmulR{} -> error "build1V: term not accessible from user API"
+    Ast.AstMatmul2R{} -> error "build1V: term not accessible from user API"
+
     _ -> error $ "TODO: " ++ show v0
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes

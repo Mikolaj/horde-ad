@@ -863,6 +863,20 @@ interpretAst !env = \case
         es2 = interpretAst env es
     in dmapAccumLDer (Proxy @target) k accShs bShs eShs f df rf acc02 es2
 
+  AstReplicate0NR sh stk v | Dict <- lemTensorKindOfSTK stk
+                           , SNat <- shrRank sh ->
+    rreplicate0N sh (interpretAst env v)
+  AstSum0R SNat stk v | Dict <- lemTensorKindOfSTK stk ->
+    rsum0 (interpretAst env v)
+  AstDot0R SNat u v ->
+    rdot0 (interpretAst env u) (interpretAst env v)
+  AstDot1InR u v ->
+    rdot1In (interpretAst env u) (interpretAst env v)
+  AstMatvecmulR u v ->
+    rmatvecmul (interpretAst env u) (interpretAst env v)
+  AstMatmul2R u v ->
+    rmatmul2 (interpretAst env u) (interpretAst env v)
+
 interpretAstDynamic
   :: forall target s. (ADReady target, AstSpan s)
   => AstEnv target

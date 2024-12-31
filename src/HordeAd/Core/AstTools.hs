@@ -248,6 +248,20 @@ ftkAst t = case t of
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
 
+  AstReplicate0NR sh _ v -> case ftkAst v of
+    FTKR _ x -> FTKR sh x
+  AstSum0R _ _ v ->  case ftkAst v of
+    FTKR _ x -> FTKR ZSR x
+  AstDot0R _ _u _v -> FTKR ZSR FTKScalar
+  AstDot1InR u _v -> case ftkAst u of
+    FTKR (n :$: _) FTKScalar -> FTKR (n :$: ZSR) FTKScalar
+  AstMatvecmulR u _v -> case ftkAst u of
+    FTKR (m :$: _) FTKScalar -> FTKR (m :$: ZSR) FTKScalar
+  AstMatmul2R u v -> case (ftkAst u, ftkAst v) of
+    (FTKR (m :$: _ :$: ZSR) FTKScalar, FTKR (_ :$: p :$: ZSR) FTKScalar) ->
+      FTKR (m :$: p :$: ZSR) FTKScalar
+    _ -> error "ftkAst: impossible pattern needlessly required"
+
   _ -> error "TODO"
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
@@ -407,6 +421,13 @@ varInAst var = \case
     varInAst var acc0 || varInAst var es
   AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
+
+  AstReplicate0NR _ _ v -> varInAst var v
+  AstSum0R _ _ v -> varInAst var v
+  AstDot0R _ u v -> varInAst var u || varInAst var v
+  AstDot1InR u v -> varInAst var u || varInAst var v
+  AstMatvecmulR u v -> varInAst var u || varInAst var v
+  AstMatmul2R u v -> varInAst var u || varInAst var v
 
 varInIndex :: AstVarId -> AstIxR ms n -> Bool
 varInIndex var = any (varInAst var)

@@ -443,6 +443,15 @@ astNonIndexStep t = case t of
   Ast.AstXUnNestR v -> astXUnNestR v
   Ast.AstXUnNestS v -> astXUnNestS v
   Ast.AstXUnNest v -> astXUnNest v
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> t
+  Ast.AstSum0R{} -> t
+  Ast.AstDot0R{} -> t
+  Ast.AstDot1InR{} -> t
+  Ast.AstMatvecmulR{} -> t
+  Ast.AstMatmul2R{} -> t
+
   _ -> t  -- TODO
 
 astIndexR
@@ -678,6 +687,14 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstRFromX{} -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndex v0 ix
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> Ast.AstIndex v0 ix
+  Ast.AstSum0R{} -> Ast.AstIndex v0 ix
+  Ast.AstDot0R{} -> Ast.AstIndex v0 ix
+  Ast.AstDot1InR{} -> Ast.AstIndex v0 ix
+  Ast.AstMatvecmulR{} -> Ast.AstIndex v0 ix
+  Ast.AstMatmul2R{} -> Ast.AstIndex v0 ix
 
 astIndexKnobsS
   :: forall shm shn s r.
@@ -1290,6 +1307,14 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstZipR _v -> error "TODO"
 
     Ast.AstApply{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+
+    -- The below should not appear here unless via wacky tests.
+    Ast.AstReplicate0NR{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstSum0R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstDot0R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstDot1InR{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstMatvecmulR{} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstMatmul2R{} -> Ast.AstGather sh4 v4 (vars4, ix4)
 
 gatherFromNF :: forall m p. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIxR AstMethodLet (1 + p) -> Bool
@@ -3004,6 +3029,15 @@ astPrimalPart t = case t of
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs f df rf
                           (astPrimalPart acc0) (astPrimalPart es)
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> Ast.AstPrimalPart t
+  Ast.AstSum0R{} -> Ast.AstPrimalPart t
+  Ast.AstDot0R{} -> Ast.AstPrimalPart t
+  Ast.AstDot1InR{} -> Ast.AstPrimalPart t
+  Ast.AstMatvecmulR{} -> Ast.AstPrimalPart t
+  Ast.AstMatmul2R{} -> Ast.AstPrimalPart t
+
   _ -> error "TODO"
 
 -- Note how this can't be pushed down, say, multiplication, because it
@@ -3117,6 +3151,15 @@ astDualPart t = case t of
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs) ->
       Ast.AstMapAccumRDer k accShs bShs eShs f df rf
                           (astDualPart acc0) (astDualPart es)
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> Ast.AstDualPart t
+  Ast.AstSum0R{} -> Ast.AstDualPart t
+  Ast.AstDot0R{} -> Ast.AstDualPart t
+  Ast.AstDot1InR{} -> Ast.AstDualPart t
+  Ast.AstMatvecmulR{} -> Ast.AstDualPart t
+  Ast.AstMatmul2R{} -> Ast.AstDualPart t
+
   _ -> error "TODO"
 
 astHApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
@@ -3504,6 +3547,15 @@ expandAst t = case t of
                           (expandAstHFun rf)
                           (expandAst acc0)
                           (expandAst es)
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> t
+  Ast.AstSum0R{} -> t
+  Ast.AstDot0R{} -> t
+  Ast.AstDot1InR{} -> t
+  Ast.AstMatvecmulR{} -> t
+  Ast.AstMatmul2R{} -> t
+
   _ -> error "TODO"
 
 expandAstDynamic
@@ -3707,6 +3759,15 @@ simplifyAst t = case t of
                           (simplifyAstHFun rf)
                           (simplifyAst acc0)
                           (simplifyAst es)
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> t
+  Ast.AstSum0R{} -> t
+  Ast.AstDot0R{} -> t
+  Ast.AstDot1InR{} -> t
+  Ast.AstMatvecmulR{} -> t
+  Ast.AstMatmul2R{} -> t
+
   _ -> error "TODO"
 
 simplifyAstDynamic
@@ -3999,6 +4060,15 @@ contractAst t = case t of
                           (contractAstHFun rf)
                           (contractAst acc0)
                           (contractAst es)
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> t
+  Ast.AstSum0R{} -> t
+  Ast.AstDot0R{} -> t
+  Ast.AstDot1InR{} -> t
+  Ast.AstMatvecmulR{} -> t
+  Ast.AstMatmul2R{} -> t
+
   _ -> error "TODO"
 
 contractAstDynamic
@@ -4603,6 +4673,36 @@ substitute1Ast i var v1 = case v1 of
                                      (fromMaybe rf mrf)
                                      (fromMaybe acc0 macc0)
                                      (fromMaybe es mes)
+
+  Ast.AstReplicate0NR sh stk v | Dict <- lemTensorKindOfSTK stk ->
+    Ast.AstReplicate0NR sh stk <$> substitute1Ast i var v
+  Ast.AstSum0R snat@SNat stk v | Dict <- lemTensorKindOfSTK stk ->
+    Ast.AstSum0R snat stk <$> substitute1Ast i var v
+  Ast.AstDot0R snat@SNat u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstDot0R snat (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstDot1InR u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstDot1InR (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstMatvecmulR u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstMatvecmulR (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstMatmul2R u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstMatmul2R (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+
   _ -> error "TODO"
 
 substitute1AstIxR

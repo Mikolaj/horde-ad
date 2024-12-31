@@ -39,6 +39,7 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
+import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -658,6 +659,29 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -> AstTensor ms s accShs
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
+
+  -- Here starts the backend-specific primitives part.
+  AstReplicate0NR :: IShR n -> STensorKindType x
+                  -> AstTensor ms s (TKR2 0 x)
+                  -> AstTensor ms s (TKR2 n x)
+  AstSum0R :: SNat n -> STensorKindType x
+           -> AstTensor ms s (TKR2 n x)
+           -> AstTensor ms s (TKR2 0 x)
+  AstDot0R :: GoodScalar r
+           => SNat n
+           -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR n r)
+           -> AstTensor ms s (TKR 0 r)
+  AstDot1InR :: GoodScalar r
+             => AstTensor ms s (TKR 2 r) -> AstTensor ms s (TKR 2 r)
+             -> AstTensor ms s (TKR 1 r)
+  AstMatvecmulR :: GoodScalar r
+                => AstTensor ms s (TKR 2 r)
+                -> AstTensor ms s (TKR 1 r)
+                -> AstTensor ms s (TKR 1 r)
+  AstMatmul2R :: (GoodScalar r, Numeric r)
+              => AstTensor ms s (TKR 2 r)
+              -> AstTensor ms s (TKR 2 r)
+              -> AstTensor ms s (TKR 2 r)
 
 deriving instance Show (AstTensor ms s y)
 

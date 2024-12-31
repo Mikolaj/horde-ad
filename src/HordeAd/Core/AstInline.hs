@@ -405,6 +405,27 @@ inlineAst memo v0 = case v0 of
         (memo5, es2) = inlineAst memo4 es
     in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
 
+  Ast.AstReplicate0NR sh stk v ->
+    second (Ast.AstReplicate0NR sh stk) (inlineAst memo v)
+  Ast.AstSum0R snat stk v ->
+    second (Ast.AstSum0R snat stk) (inlineAst memo v)
+  Ast.AstDot0R snat u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstDot0R snat u2 v3)
+  Ast.AstDot1InR u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstDot1InR u2 v3)
+  Ast.AstMatvecmulR u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstMatvecmulR u2 v3)
+  Ast.AstMatmul2R u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstMatmul2R u2 v3)
+
 inlineAstDynamic
   :: AstSpan s
   => AstMemo -> AstDynamic AstMethodLet s
@@ -764,6 +785,27 @@ unshareAst memo = \case
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es
     in (memo2, Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc02 es2)
+
+  Ast.AstReplicate0NR sh stk v ->
+    second (Ast.AstReplicate0NR sh stk) (unshareAst memo v)
+  Ast.AstSum0R snat stk v ->
+    second (Ast.AstSum0R snat stk) (unshareAst memo v)
+  Ast.AstDot0R snat u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstDot0R snat u2 v3)
+  Ast.AstDot1InR u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstDot1InR u2 v3)
+  Ast.AstMatvecmulR u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstMatvecmulR u2 v3)
+  Ast.AstMatmul2R u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstMatmul2R u2 v3)
 
 unshareAstDynamic
   :: AstSpan s
