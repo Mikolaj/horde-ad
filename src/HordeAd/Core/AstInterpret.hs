@@ -216,12 +216,13 @@ interpretAst !env = \case
   AstD @y2 u u' ->
    tD (stensorKind @y2) (interpretAstPrimal env u) (interpretAstDual env u')
   AstCond @y2 b a1 a2 ->
-    -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
     in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
   AstReplicate snat stk v ->
     treplicate snat stk (interpretAst env v)
   -- These are only needed for tests that don't vectorize Ast.
+  -- TODO: move these to contractAst at some point, ideally using
+  -- the introduced AST for rmatvecmul also for other terms.
   AstBuild1 @y2
             snat (var, AstSum _ _
                          (AstN2R TimesOp t (AstIndex
@@ -246,27 +247,6 @@ interpretAst !env = \case
         let t1 = interpretAst env t
             t2 = interpretAst env u
         in rmatvecmul t2 t1
-  AstBuild1 snat@(SNat @n) (_, v)
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-      let emptyFromStk :: FullTensorKind z
-                       -> target (BuildTensorKind n z)
-          emptyFromStk ftk = case ftk of
-            FTKScalar -> error "TODO"
-            FTKR sh x | SNat <- shrRank sh
-                      , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-              rfromList0N (0 :$: sh) []
-            FTKS sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-              withKnownShS sh $ sfromList0N []
-            FTKX{} -> error "TODO"
-            FTKProduct ftk1 ftk2
-              | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
-              , Dict <- lemTensorKindOfSTK (ftkToStk ftk2)
-              , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk1)
-              , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk2) ->
-                tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
-            FTKUntyped ssh -> dmkHVector $ replicate1HVector @target (SNat @0)
-                              $ V.map dynamicFromVoid ssh
-      in emptyFromStk (ftkAst v)
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,
   -- not to concrete numbers (and so Primal a is not equal to a).
