@@ -56,7 +56,7 @@ simplifyInline
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
   snd . inlineAst EM.empty
-  . simplifyAst . expandAst
+  . contractAst . expandAst  -- TODO: when/if contractAst does less simplification, add simplifyAst in-between
   . snd . inlineAst EM.empty . simplifyAst
     -- no specialization possible except for the tag type s
 
