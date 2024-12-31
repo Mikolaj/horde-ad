@@ -247,8 +247,12 @@ interpretAst !env = \case
       let emptyFromStk :: FullTensorKind z
                        -> target (BuildTensorKind n z)
           emptyFromStk ftk = case ftk of
-            FTKR sh FTKScalar | SNat <- shrRank sh -> rfromList0N (0 :$: sh) []
-            FTKS sh FTKScalar -> withKnownShS sh $ sfromList0N []
+            FTKScalar -> error "TODO"
+            FTKR sh x | SNat <- shrRank sh
+                      , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+              rfromList0N (0 :$: sh) []
+            FTKS sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+              withKnownShS sh $ sfromList0N []
             FTKX{} -> error "TODO"
             FTKProduct ftk1 ftk2
               | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
@@ -258,7 +262,6 @@ interpretAst !env = \case
                 tpair (emptyFromStk ftk1) (emptyFromStk ftk2)
             FTKUntyped ssh -> dmkHVector $ replicate1HVector @target (SNat @0)
                               $ V.map dynamicFromVoid ssh
-            _ -> error "TODO"
       in emptyFromStk (ftkAst v)
   -- The following can't be, in general, so partially evaluated, because v
   -- may contain variables that the evironment sends to terms,

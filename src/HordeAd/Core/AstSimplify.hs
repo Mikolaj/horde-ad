@@ -3363,7 +3363,7 @@ expandAst t = case t of
   Ast.AstAppend x y -> astAppend (expandAst x) (expandAst y)
   Ast.AstSlice i k v -> astSlice i k (expandAst v)
   Ast.AstReverse v -> astReverse (expandAst v)
-  Ast.AstTranspose @_ @x perm v -> case v of
+  Ast.AstTranspose perm v -> case v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
@@ -3389,7 +3389,7 @@ expandAst t = case t of
                            (normalizePermutation perm)
                            (expandAst v)
         -- this is expensive but the only way to guarantee full simplification
-  Ast.AstReshape @_ @_ @x sh v -> case v of
+  Ast.AstReshape sh v -> case v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form

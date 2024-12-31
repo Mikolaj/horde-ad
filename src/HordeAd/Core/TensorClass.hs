@@ -314,7 +314,8 @@ class ( Num (IntOf target)
   rfromList0N sh = rfromVector0N sh . V.fromList
   -- This is morally non-empty strict vectors:
   rfromVector :: (TensorKind r, KnownNat n)
-              => Data.Vector.Vector (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
+              => Data.Vector.Vector (target (TKR2 n r))
+              -> target (TKR2 (1 + n) r)
   rfromVector0N :: (TensorKind r, KnownNat n)
                 => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
                 -> target (TKR2 n r)
