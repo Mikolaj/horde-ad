@@ -494,7 +494,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           revProduceArtifact False (unHFun f) emptyEnv ftkx
         (varP, ast) = funToAst ftkx $ \ !astP ->
           astLet var astP
-          $ simplifyInline gradient
+          $ simplifyInlineContract gradient
     in AstLambda (varP, ftkx, ast)
   drevDt @x @z ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
                       , Dict <- lemTensorKindOfAD (stensorKind @z) =
@@ -507,7 +507,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDt (astProject1 astP)
           $ astLet var (astProject2 astP)
-          $ simplifyInline gradient
+          $ simplifyInlineContract gradient
     in AstLambda (varP, ftk2, ast)
   dfwd @x @z ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
                     , Dict <- lemTensorKindOfAD (stensorKind @z) =
@@ -519,7 +519,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDs (astProject1 astP)
           $ astLet var (astProject2 astP)
-          $ simplifyInline derivative
+          $ simplifyInlineContract derivative
     in AstLambda (varP, ftk2, ast)
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     AstMapAccumRDer k accShs bShs eShs f df rf acc0 es

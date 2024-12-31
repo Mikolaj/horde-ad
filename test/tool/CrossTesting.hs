@@ -108,18 +108,18 @@ rev' f vals =
       (gradient2, value2) =
         crevDtMaybeBoth dt (h id id id) vals
       (gradient3, value3) =
-        crevDtMaybeBoth dt (h id id simplifyInline) vals
+        crevDtMaybeBoth dt (h id id simplifyInlineContract) vals
       (gradient2UnSimp, value2UnSimp) =
         crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) vals
       gradientRrev2UnSimp =
         rrev1 @RepN @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (gradient3UnSimp, value3UnSimp) =
-        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInline)
+        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
         rrev1 @RepN @r @n @m @r
-              (hGeneral unAstNoSimplify AstNoSimplify simplifyInline) vals
+              (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineContract) vals
       (gradient4, value4) =
         crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
                       vals
@@ -129,14 +129,14 @@ rev' f vals =
         rrev1 @RepN @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (gradient5, value5) =
-        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInline)
+        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
                       vals
       gradientRrev5 =
         rrev1 @RepN @r @n @m @r
-              (hGeneral unAstNoVectorize AstNoVectorize simplifyInline) vals
-      astVectSimp = simplifyInline $ snd $ funToAst (FTKR (rshape vals) FTKScalar) f
+              (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineContract) vals
+      astVectSimp = simplifyInlineContract $ snd $ funToAst (FTKR (rshape vals) FTKScalar) f
       astSimp =
-        simplifyInline $ simplifyInline $ snd  -- builds simplify with difficulty
+        simplifyInlineContract $ simplifyInlineContract $ snd  -- builds simplify with difficulty
         $ funToAst (FTKR (rshape vals) FTKScalar) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
@@ -162,7 +162,7 @@ rev' f vals =
         revEvalArtifact7 (simplifyArtifact artifactsGradAstT)
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id simplifyInline) ftk
+                False (hAst id id simplifyInlineContract) ftk
       (gradient3Ast, value3Ast) =
         revEvalArtifact7 artifactsSimpleAst
       (gradient3AstS, value3AstS) =
@@ -176,7 +176,7 @@ rev' f vals =
         revEvalArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoSimplify AstNoSimplify simplifyInline)
+                False (hAst unAstNoSimplify AstNoSimplify simplifyInlineContract)
                 ftk
       (gradient3AstUnSimp, value3AstUnSimp) =
         revEvalArtifact7 artifactsSimpleAstUnSimp
@@ -191,7 +191,7 @@ rev' f vals =
         revEvalArtifact7 (simplifyArtifact artifactsPrimalAst)
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoVectorize AstNoVectorize simplifyInline)
+                False (hAst unAstNoVectorize AstNoVectorize simplifyInlineContract)
                 ftk
       (gradient5Ast, value5Ast) =
         revEvalArtifact7 artifactsPSimpleAst
@@ -340,10 +340,10 @@ assertEqualUpToEpsilon'
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of simplification of non-vectorized AST"
               (show astSimp)
-              (show (simplifyInline astSimp))
+              (show (simplifyInlineContract astSimp))
   assertEqual "Idempotence of simplification of vectorized AST"
               (show astVectSimp)
-              (show (simplifyInline astVectSimp))
+              (show (simplifyInlineContract astVectSimp))
   -}
 
 assertEqualUpToEpsilonShort
@@ -443,10 +443,10 @@ assertEqualUpToEpsilonShort
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
               (show astSimp)
-              (show (simplifyInline astSimp))
+              (show (simplifyInlineContract astSimp))
   assertEqual "Idempotence of gradient simplification"
               (show astVectSimp)
-              (show (simplifyInline astVectSimp))
+              (show (simplifyInlineContract astVectSimp))
   -}
 
 t16 :: (GoodScalar r, Fractional r) => RepN (TKR 5 r)

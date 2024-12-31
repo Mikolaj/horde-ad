@@ -4,7 +4,7 @@
 module HordeAd.Core.AstInline
   ( -- * The joint inlining and simplification term transformation
     simplifyArtifact, simplifyArtifactGradient
-  , simplifyInline
+  , simplifyInlineContract
     -- * The translates global sharing to normal lets
   , unshareAstTensor
   ) where
@@ -37,24 +37,24 @@ import HordeAd.Core.Types
 simplifyArtifact :: forall x z. (TensorKind x, TensorKind z)
                  => AstArtifactRev x z -> AstArtifactRev x z
 simplifyArtifact art | Dict <- lemTensorKindOfAD (stensorKind @x) =
-  let !der = simplifyInline $ artDerivativeRev art in
-  let !prim = simplifyInline $ artPrimalRev art
+  let !der = simplifyInlineContract $ artDerivativeRev art in
+  let !prim = simplifyInlineContract $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
 simplifyArtifactGradient :: forall x z. TensorKind x
                          => AstArtifactRev x z -> AstArtifactRev x z
 simplifyArtifactGradient art | Dict <- lemTensorKindOfAD (stensorKind @x) =
   art { artDerivativeRev =
-        simplifyInline $ artDerivativeRev art }
+        simplifyInlineContract $ artDerivativeRev art }
 
 -- Potentially, some more inlining could be triggered after the second
 -- simplification, but it's probably rare, so we don't insisit on a fixpoint.
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
-simplifyInline
+simplifyInlineContract
   :: forall z s.(AstSpan s, TensorKind z)
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInline =
+simplifyInlineContract =
   snd . inlineAst EM.empty
   . contractAst . expandAst  -- TODO: when/if contractAst does less simplification, add simplifyAst in-between
   . snd . inlineAst EM.empty . simplifyAst
