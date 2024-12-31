@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
@@ -171,12 +172,15 @@ interpretAst !env = \case
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
-  AstVar @y2 sh var ->
+  AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
     Just (AstEnvElemRep t) ->
-      assert (tftk (stensorKind @y2) t == sh
-              `blame` (sh, tftk (stensorKind @y2) t, var, t{-, env-})) t
+#ifdef WITH_EXPENSIVE_ASSERTIONS
+      assert (tftk (stensorKind @y2) t == _sh
+              `blame` (_sh, tftk (stensorKind @y2) t, var, t))
+#endif
+      t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
 -- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstPrimalPart a -> interpretAst env a
