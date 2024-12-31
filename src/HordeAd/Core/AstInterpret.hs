@@ -324,24 +324,6 @@ interpretAst !env = \case
             t2 = interpretAst env s
         in tscaleByScalar0 t2 t1
   -}
-  AstN2R TimesOp v (AstLet var u (AstReshape sh (AstReplicate (SNat @m) stk s)))
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
-        -- The varNameInAst check is needed, because although variable
-        -- capture is impossible, because we don't create nested lets
-        -- with the same variable, we could create such nested lets
-        -- if we omitted this check.
-        interpretAst env
-          (AstLet var u (AstN2R TimesOp v (AstReshape sh
-                                            (AstReplicate (SNat @m) stk s))))
-  AstN2R TimesOp v (AstReshape sh (AstLet var u (AstReplicate (SNat @m) stk s)))
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
-        interpretAst env
-          (AstLet var u (AstN2R TimesOp v (AstReshape sh
-                                            (AstReplicate (SNat @m) stk s))))
-  AstN2R TimesOp v (AstLet var u (AstReplicate (SNat @m) stk s))
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
-        interpretAst env
-          (AstLet var u (AstN2R TimesOp v (AstReplicate (SNat @m) stk s)))
   AstN1R opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
@@ -373,27 +355,6 @@ interpretAst !env = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
-  AstSum snat stk (AstN2R TimesOp (AstLet vart vt (AstTranspose tperm t))
-                                  (AstTranspose uperm u))
-   | Dict <- lemTensorKindOfSTK stk ->
-    interpretAst env
-      (AstLet vart vt
-         (AstSum snat stk (AstN2R TimesOp (AstTranspose tperm t)
-                                         (AstTranspose uperm u))))
-  AstSum snat stk (AstN2R TimesOp (AstTranspose tperm t)
-                                  (AstLet varu vu (AstTranspose uperm u)))
-   | Dict <- lemTensorKindOfSTK stk ->
-    interpretAst env
-      (AstLet varu vu
-         (AstSum snat stk (AstN2R TimesOp (AstTranspose tperm t)
-                                          (AstTranspose uperm u))))
-  AstSum snat stk (AstN2R TimesOp (AstLet vart vt (AstTranspose tperm t))
-                                  (AstLet varu vu (AstTranspose uperm u)))
-   | Dict <- lemTensorKindOfSTK stk ->
-    interpretAst env
-      (AstLet vart vt (AstLet varu vu
-         (AstSum snat stk (AstN2R TimesOp (AstTranspose tperm t)
-                                         (AstTranspose uperm u)))))
   AstSum _ (STKR (SNat @n) (STKScalar rRep))
          v@(AstN2R TimesOp (AstTranspose tperm (AstReplicate _tk stkt t))
                            (AstTranspose uperm (AstReplicate _uk stku u)))
@@ -519,14 +480,14 @@ interpretAst !env = \case
       let t1 = interpretAst env s
       in rreplicate0N sh t1
     _ -> rreshape sh (interpretAst env v)
-  AstReshape sh (AstLet var v (AstReplicate snat stk t)) ->
-    interpretAst env (AstLet var v (AstReshape sh (AstReplicate snat stk t)))
   AstReshape sh v -> rreshape sh (interpretAst env v)
   AstGather _ v (ZR, ix) ->
     rindex (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstGather sh AstIotaR (vars, i :.: ZIR) ->
-    rbuild sh (interpretLambdaIndex interpretAst env
-                                    (vars, fromPrimal @s $ AstFromIntegralR $ AstRFromS $ AstFromScalar i))
+    rbuild sh (interpretLambdaIndex
+                 interpretAst env
+                 (vars, fromPrimal @s $ AstFromIntegralR
+                        $ AstRFromS $ AstFromScalar i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)

@@ -3348,6 +3348,7 @@ expandAst t = case t of
   Ast.AstFloor a -> Ast.AstFloor (expandAst a)
   Ast.AstCast v -> astCast $ expandAst v
   Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
+
   AstN1R opCode u -> AstN1R opCode (expandAst u)
   AstN2R opCode u v -> AstN2R opCode (expandAst u) (expandAst v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (expandAst u)
@@ -3599,6 +3600,7 @@ simplifyAst t = case t of
   Ast.AstFloor a -> Ast.AstFloor (simplifyAst a)
   Ast.AstCast v -> astCast $ simplifyAst v
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
+
   AstN1R opCode u -> AstN1R opCode (simplifyAst u)
   AstN2R opCode u v -> AstN2R opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (simplifyAst u)
@@ -3745,6 +3747,10 @@ simplifyAstBool t = case t of
 -- Then AST should be extended with backend-specific constructors
 -- and the interpreter would interpret all of them, but the simplifier
 -- would ignore all and the user API would not make them available.
+--
+-- Note that unlike all the other code in this module, this function
+-- is not written in a compositional style nor close to it,
+-- but it's instead defined in an ad-hoc way based on benchmarks.
 
 contractAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstInt = contractAst
@@ -3755,9 +3761,6 @@ contractAstIxR = fmap contractAstInt
 contractAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
 contractAstIxS = fmap contractAstInt
 
--- | This function guarantees full simplification: every redex
--- is visited and each combinator applied. The most exhaustive and costly
--- variants of each combinator are used, e.g., astIndexR.
 contractAst
   :: forall s y. (AstSpan s, TensorKind y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -3774,6 +3777,45 @@ contractAst t = case t of
   Ast.AstD u u' -> Ast.AstD (contractAst u) (contractAst u')
   Ast.AstCond b a2 a3 ->
     astCond (contractAstBool b) (contractAst a2) (contractAst a3)
+  Ast.AstSum snat stk (AstN2R TimesOp
+                         (Ast.AstLet vart vt (Ast.AstTranspose tperm t2))
+                         (Ast.AstTranspose uperm u))
+   | Dict <- lemTensorKindOfSTK stk ->
+      (Ast.AstLet
+         vart
+         (contractAst vt)
+         (contractAst $ Ast.AstSum  -- the crucial exposed redex
+            snat stk (AstN2R
+                        TimesOp
+                        (Ast.AstTranspose tperm (contractAst t2))
+                        (Ast.AstTranspose uperm (contractAst u)))))
+  Ast.AstSum snat stk (AstN2R TimesOp
+                         (Ast.AstTranspose tperm t2)
+                         (Ast.AstLet varu vu (Ast.AstTranspose uperm u)))
+   | Dict <- lemTensorKindOfSTK stk ->
+      (Ast.AstLet
+         varu
+         (contractAst vu)
+         (contractAst $ Ast.AstSum  -- the crucial exposed redex
+            snat stk (AstN2R
+                        TimesOp
+                        (Ast.AstTranspose tperm (contractAst t2))
+                        (Ast.AstTranspose uperm (contractAst u)))))
+  Ast.AstSum snat stk (AstN2R TimesOp
+                         (Ast.AstLet vart vt (Ast.AstTranspose tperm t2))
+                         (Ast.AstLet varu vu (Ast.AstTranspose uperm u)))
+   | Dict <- lemTensorKindOfSTK stk ->
+      (Ast.AstLet
+         vart
+         (contractAst vt)
+         (Ast.AstLet
+            varu
+            (contractAst vu)
+            (contractAst $ Ast.AstSum  -- the crucial exposed redex
+               snat stk (AstN2R
+                           TimesOp
+                           (Ast.AstTranspose tperm (contractAst t2))
+                           (Ast.AstTranspose uperm (contractAst u))))))
   Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
     astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
@@ -3807,7 +3849,45 @@ contractAst t = case t of
   Ast.AstFloor a -> Ast.AstFloor (contractAst a)
   Ast.AstCast v -> astCast $ contractAst v
   Ast.AstFromIntegral v -> astFromIntegral $ contractAst v
+
   AstN1R opCode u -> AstN1R opCode (contractAst u)
+  AstN2R TimesOp v (Ast.AstLet var u
+                      (Ast.AstReshape sh
+                         (Ast.AstReplicate (SNat @m) stk s)))
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v)
+    , Dict <- lemTensorKindOfSTK stk ->
+        -- The varNameInAst check is needed, because although variable
+        -- capture is impossible, because we don't create nested lets
+        -- with the same variable, we could create such nested lets
+        -- if we omitted this check.
+        Ast.AstLet
+          var
+          (contractAst u)
+          (AstN2R
+             TimesOp v (Ast.AstReshape  sh
+                          (Ast.AstReplicate
+                             (SNat @m) stk (contractAst s))))
+  AstN2R TimesOp v (Ast.AstReshape sh
+                      (Ast.AstLet
+                         var u (Ast.AstReplicate (SNat @m) stk s)))
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v)
+    , Dict <- lemTensorKindOfSTK stk ->
+        Ast.AstLet
+          var
+          (contractAst u)
+          (AstN2R
+             TimesOp v (astReshape sh
+                          (Ast.AstReplicate
+                             (SNat @m) stk (contractAst s))))
+  AstN2R TimesOp v (Ast.AstLet var u (Ast.AstReplicate (SNat @m) stk s))
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v)
+    , Dict <- lemTensorKindOfSTK stk ->
+        Ast.AstLet
+          var
+          (contractAst u)
+          (AstN2R
+              TimesOp v (Ast.AstReplicate
+                           (SNat @m) stk (contractAst s)))
   AstN2R opCode u v -> AstN2R opCode (contractAst u) (contractAst v)
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (contractAst u)
   Ast.AstR2R opCode u v -> Ast.AstR2R opCode (contractAst u) (contractAst v)
@@ -3822,6 +3902,12 @@ contractAst t = case t of
   Ast.AstReverse v -> astReverse (contractAst v)
   Ast.AstTranspose perm v ->
     astTranspose (normalizePermutation perm) (contractAst v)
+  Ast.AstReshape sh (Ast.AstLet var v (Ast.AstReplicate snat stk t2))
+    | Dict <- lemTensorKindOfSTK stk ->
+      Ast.AstLet
+        var
+        (contractAst v)
+        (astReshape sh (Ast.AstReplicate snat stk (contractAst t2)))
   Ast.AstReshape sh v -> astReshape sh (contractAst v)
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (contractAst v) (vars, contractAstIxR ix)
