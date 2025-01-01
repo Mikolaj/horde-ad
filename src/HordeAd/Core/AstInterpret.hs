@@ -26,7 +26,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
-import GHC.TypeLits (KnownNat, sameNat)
+import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxAppend)
@@ -37,7 +37,6 @@ import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
-import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
@@ -318,63 +317,6 @@ interpretAst !env = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
-  AstSum _ (STKR (SNat @n) (STKScalar rRep))
-         v@(AstN2R TimesOp (AstTranspose tperm (AstReplicate _tk stkt t))
-                           (AstTranspose uperm (AstReplicate _uk stku u)))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @2) ->
-      case ( stkt,  stku) of
-       (STKR{}, STKR{}) ->
-        let interpretMatmul2 t1 u1 =
-              let t2 = interpretAst env t1
-                  u2 = interpretAst env u1
-              in case testEquality rRep (typeRep @Double) of
-                Just Refl -> rmatmul2 t2 u2
-                _ -> case testEquality rRep (typeRep @Float) of
-                  Just Refl -> rmatmul2 t2 u2
-                  _ -> case testEquality rRep (typeRep @Int64) of
-                    Just Refl -> rmatmul2 t2 u2
-                    _ -> case testEquality rRep (typeRep @CInt) of
-                      Just Refl -> rmatmul2 t2 u2
-                      _ -> case rshape u2 of
-                        _ :$: width2 :$: ZSR -> rsum (rtranspose [2,1,0] (rreplicate width2 t2)
-                                                    * rtranspose [1,0] (rreplicate (rlength t2) u2))
-                        _ -> error "impossible pattern needlessly required"
-        in case (tperm, uperm) of
-          ([2, 1, 0], [1, 0]) ->  -- tk and uk are fine due to perms matching
-            interpretMatmul2 t u
-          ([1, 0], [2, 1, 0]) ->
-            interpretMatmul2 u t
-          ([2, 1, 0], [2, 0, 1]) ->
-            interpretMatmul2 t (astTranspose [1, 0] u)
-          ([2, 0, 1], [2, 1, 0]) ->
-            interpretMatmul2 u (astTranspose [1, 0] t)
-          ([1, 2, 0], [1, 0]) ->
-            interpretMatmul2 (astTranspose [1, 0] t) u
-          ([1, 0], [1, 2, 0]) ->
-            interpretMatmul2 (astTranspose [1, 0] u) t
---          ([1, 2, 0], [2, 0, 1]) ->
---            interpretMatmul2 (AstTranspose [1, 0] t) (AstTranspose [1, 0] u)
---          ([2, 0, 1], [1, 2, 0]) ->
---            interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
-          -- The variants below emerge when the whole term is transposed.
-          -- All overlap with variants above and the cheaper one is selected.
-          ([2, 0, 1], [1, 2, 0]) ->
-            rtr $ interpretMatmul2 t u
-          ([1, 2, 0], [2, 0, 1]) ->
-            rtr $ interpretMatmul2 u t
---          ([2, 0, 1], [2, 1, 0]) ->
---            rtr $ interpretMatmul2 t (AstTranspose [1, 0] u)
---          ([2, 1, 0], [2, 0, 1]) ->
---            rtr $ interpretMatmul2 u (AstTranspose [1, 0] t)
---          ([1, 2, 0], [1, 0]) ->
---            rtr $ interpretMatmul2 (AstTranspose [1, 0] u) t
---          ([1, 0], [2, 1, 0]) ->
---            ttr
---            $ interpretMatmul2 (AstTranspose [1, 0] t) (AstTranspose [1, 0] u)
---          ([2, 1, 0], [1, 0]) ->
---            ttr
---            $ interpretMatmul2 (AstTranspose [1, 0] u) (AstTranspose [1, 0] t)
-          _ -> rsum $ interpretAst env v
   AstSum snat stk v -> tsum snat stk $ interpretAst env v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R

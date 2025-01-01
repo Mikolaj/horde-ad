@@ -61,6 +61,7 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
+import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
   ( KnownNat
@@ -3862,6 +3863,62 @@ contractAst t = case t of
                            TimesOp
                            (Ast.AstTranspose tperm (contractAst t2))
                            (Ast.AstTranspose uperm (contractAst u))))))
+  Ast.AstSum snat stk@(STKR (SNat @n) (STKScalar rRep))
+    v@(AstN2R TimesOp (Ast.AstTranspose tperm (Ast.AstReplicate _tk stkt t2))
+                      (Ast.AstTranspose uperm (Ast.AstReplicate _uk stku u2)))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @2) -> case (stkt,  stku) of
+      (STKR{}, STKR{}) ->
+        let interpretMatmul2 t3 u3 =
+              let t4 = contractAst t3
+                  u4 = contractAst u3
+              in case testEquality rRep (typeRep @Double) of
+                Just Refl -> Ast.AstMatmul2R t4 u4
+                _ -> case testEquality rRep (typeRep @Float) of
+                  Just Refl -> Ast.AstMatmul2R t4 u4
+                  _ -> case testEquality rRep (typeRep @Int64) of
+                    Just Refl -> Ast.AstMatmul2R t4 u4
+                    _ -> case testEquality rRep (typeRep @CInt) of
+                      Just Refl -> Ast.AstMatmul2R t4 u4
+                      _ -> astSum snat stk (contractAst v)
+        in case (tperm, uperm) of
+          ([2, 1, 0], [1, 0]) ->  -- tk and uk are fine due to perms matching
+            interpretMatmul2 t2 u2
+          ([1, 0], [2, 1, 0]) ->
+            interpretMatmul2 u2 t2
+          ([2, 1, 0], [2, 0, 1]) ->
+            interpretMatmul2 t2 (astTranspose [1, 0] u2)
+          ([2, 0, 1], [2, 1, 0]) ->
+            interpretMatmul2 u2 (astTranspose [1, 0] t2)
+          ([1, 2, 0], [1, 0]) ->
+            interpretMatmul2 (astTranspose [1, 0] t2) u2
+          ([1, 0], [1, 2, 0]) ->
+            interpretMatmul2 (astTranspose [1, 0] u2) t2
+--          ([1, 2, 0], [2, 0, 1]) ->
+--            interpretMatmul2 (astTranspose [1, 0] t2) (astTranspose [1, 0] u2)
+--          ([2, 0, 1], [1, 2, 0]) ->
+--            interpretMatmul2 (astTranspose [1, 0] u2) (astTranspose [1, 0] t2)
+          -- The variants below emerge when the whole term is transposed.
+          -- All overlap with variants above and the cheaper one is selected.
+          ([2, 0, 1], [1, 2, 0]) ->
+            Ast.AstTranspose [1, 0] $ interpretMatmul2 t2 u2
+          ([1, 2, 0], [2, 0, 1]) ->
+            Ast.AstTranspose [1, 0] $ interpretMatmul2 u2 t2
+--          ([2, 0, 1], [2, 1, 0]) ->
+--            Ast.AstTranspose [1, 0]
+--            $ interpretMatmul2 t2 (astTranspose [1, 0] u2)
+--          ([2, 1, 0], [2, 0, 1]) ->
+--            Ast.AstTranspose [1, 0]
+--            $ interpretMatmul2 u2 (astTranspose [1, 0] t2)
+--          ([1, 2, 0], [1, 0]) ->
+--            Ast.AstTranspose [1, 0]
+--            $ interpretMatmul2 (astTranspose [1, 0] u2) t2
+--          ([1, 0], [2, 1, 0]) ->
+--            Ast.AstTranspose [1, 0]
+--            $ interpretMatmul2 (astTranspose [1, 0] t2) (astTranspose [1, 0] u2)
+--          ([2, 1, 0], [1, 0]) ->
+--            Ast.AstTranspose [1, 0]
+--            $ interpretMatmul2 (astTranspose [1, 0] u2) (astTranspose [1, 0] t2)
+          _ -> astSum snat stk (contractAst v)
   Ast.AstSum _ (STKR (SNat @n) _) (AstN2R TimesOp t2 u)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
         Ast.AstDot0R (SNat @1) (contractAst t2) (contractAst u)
