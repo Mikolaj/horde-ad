@@ -576,6 +576,28 @@ printAstAux cfg d = \case
       . printAst cfg 11 v
   AstMatmul2R u v ->
     printPrefixOp printAst cfg d "rmatmul2" [u, v]
+  AstReplicate0NS _sh stk v | Dict <- lemTensorKindOfSTK stk ->
+    printPrefixOp printAst cfg d "sreplicate0N" [v]
+  AstSum0S sh stk v | Dict <- lemTensorKindOfSTK stk ->
+    withKnownShS sh $
+    printPrefixOp printAst cfg d "ssum0" [v]
+  AstDot0S sh u v ->
+    withKnownShS sh $
+    printPrefixOp printAst cfg d "sdot0" [u, v]
+  AstDot1InS SNat SNat u v ->
+    printPrefixOp printAst cfg d "ssdot1In" [u, v]
+  AstMatvecmulS SNat SNat u v ->
+    showParen (d > 10)
+    $ showString "smatvecmul "
+      . printAst cfg 11 u
+      . showString " "
+      . printAst cfg 11 v
+  AstMatmul2S SNat SNat SNat u v ->
+    showParen (d > 10)
+    $ showString "smatmul2 "
+      . printAst cfg 11 u
+      . showString " "
+      . printAst cfg 11 v
   _ -> error "TODO"
 
 -- Differs from standard only in the space after comma.

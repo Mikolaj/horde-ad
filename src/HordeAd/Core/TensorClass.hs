@@ -881,9 +881,9 @@ class ( Num (IntOf target)
     => target (TKS '[] r) -> target (TKS sh r) -> target (TKS sh r)
   sscaleByScalar s v = v * sreplicate0N s
   sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
-          => Proxy m
-          -> target (TKS '[n, m] r) -> target (TKS '[n, m] r)
-          -> target (TKS '[n] r)  -- TODO: generalize
+          => SNat n
+          -> target (TKS '[m, n] r) -> target (TKS '[m, n] r)
+          -> target (TKS '[m] r)  -- TODO: generalize
   sdot1In _ t u = ssum $ str (t * u)
 
   -- Primal/dual things.

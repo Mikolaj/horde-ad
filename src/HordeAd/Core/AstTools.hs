@@ -38,7 +38,7 @@ import Data.Array.Mixed.Shape
   , shxTakeSSX
   )
 import Data.Array.Nested
-  (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShX (..))
+  (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
@@ -254,13 +254,21 @@ ftkAst t = case t of
     FTKR _ x -> FTKR ZSR x
   AstDot0R _ _u _v -> FTKR ZSR FTKScalar
   AstDot1InR u _v -> case ftkAst u of
-    FTKR (n :$: _) FTKScalar -> FTKR (n :$: ZSR) FTKScalar
+    FTKR (m :$: _) FTKScalar -> FTKR (m :$: ZSR) FTKScalar
   AstMatvecmulR u _v -> case ftkAst u of
     FTKR (m :$: _) FTKScalar -> FTKR (m :$: ZSR) FTKScalar
   AstMatmul2R u v -> case (ftkAst u, ftkAst v) of
     (FTKR (m :$: _ :$: ZSR) FTKScalar, FTKR (_ :$: p :$: ZSR) FTKScalar) ->
       FTKR (m :$: p :$: ZSR) FTKScalar
     _ -> error "ftkAst: impossible pattern needlessly required"
+  AstReplicate0NS sh _ v -> case ftkAst v of
+    FTKS _ x -> FTKS sh x
+  AstSum0S _ _ v ->  case ftkAst v of
+    FTKS _ x -> FTKS ZSS x
+  AstDot0S _ _u _v -> FTKS ZSS FTKScalar
+  AstDot1InS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
+  AstMatvecmulS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
+  AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
   _ -> error "TODO"
 
@@ -428,6 +436,12 @@ varInAst var = \case
   AstDot1InR u v -> varInAst var u || varInAst var v
   AstMatvecmulR u v -> varInAst var u || varInAst var v
   AstMatmul2R u v -> varInAst var u || varInAst var v
+  AstReplicate0NS _ _ v -> varInAst var v
+  AstSum0S _ _ v -> varInAst var v
+  AstDot0S _ u v -> varInAst var u || varInAst var v
+  AstDot1InS _ _ u v -> varInAst var u || varInAst var v
+  AstMatvecmulS _ _ u v -> varInAst var u || varInAst var v
+  AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
 
 varInIndex :: AstVarId -> AstIxR ms n -> Bool
 varInIndex var = any (varInAst var)

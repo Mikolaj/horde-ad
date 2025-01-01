@@ -544,6 +544,12 @@ build1V snat@SNat (var, v0) =
     Ast.AstDot1InR{} -> error "build1V: term not accessible from user API"
     Ast.AstMatvecmulR{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2R{} -> error "build1V: term not accessible from user API"
+    Ast.AstReplicate0NS{} -> error "build1V: term not accessible from user API"
+    Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
+    Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
+    Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
+    Ast.AstMatvecmulS{} -> error "build1V: term not accessible from user API"
+    Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
 
     _ -> error $ "TODO: " ++ show v0
 

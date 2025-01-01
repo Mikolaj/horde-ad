@@ -33,7 +33,7 @@ import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxAppend)
 import Data.Array.Nested
   (IxR (..), KnownShS (..), KnownShX (..), ListR (..), ListS (..), ShR (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
+import Data.Array.Nested.Internal.Shape (shrRank, shsAppend, shsProduct)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -728,6 +728,23 @@ interpretAst !env = \case
     rmatvecmul (interpretAst env u) (interpretAst env v)
   AstMatmul2R u v ->
     rmatmul2 (interpretAst env u) (interpretAst env v)
+  AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk
+                           , SNat <- shsProduct sh ->
+    withKnownShS sh $
+    sreplicate0N (interpretAst env v)
+  AstSum0S sh stk v | Dict <- lemTensorKindOfSTK stk
+                    , SNat <- shsProduct sh ->
+    withKnownShS sh $
+    ssum0 (interpretAst env v)
+  AstDot0S sh u v | SNat <- shsProduct sh ->
+    withKnownShS sh $
+    sdot0 (interpretAst env u) (interpretAst env v)
+  AstDot1InS SNat n@SNat u v ->
+    sdot1In n (interpretAst env u) (interpretAst env v)
+  AstMatvecmulS SNat SNat u v ->
+    smatvecmul (interpretAst env u) (interpretAst env v)
+  AstMatmul2S SNat SNat SNat u v ->
+    smatmul2 (interpretAst env u) (interpretAst env v)
 
 interpretAstDynamic
   :: forall target s. (ADReady target, AstSpan s)

@@ -355,7 +355,7 @@ instance BaseTensor RepN where
 
   sscaleByScalar s v =
     RepN $ liftVS (V.map (* Nested.sunScalar (unRepN s))) (unRepN v)
-  sdot1In proxy u v = RepN $ Nested.sdot1Inner proxy (unRepN u) (unRepN v)
+  sdot1In (SNat @n) u v = RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
 
   sfromPrimal = id
   sprimalPart = id

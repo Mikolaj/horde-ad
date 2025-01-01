@@ -56,6 +56,7 @@ import Data.Array.Nested
   , MapJust
   , Rank
   , Replicate
+  , ShS (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -682,6 +683,30 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               => AstTensor ms s (TKR 2 r)
               -> AstTensor ms s (TKR 2 r)
               -> AstTensor ms s (TKR 2 r)
+  AstReplicate0NS :: ShS sh -> STensorKindType x
+                  -> AstTensor ms s (TKS2 '[] x)
+                  -> AstTensor ms s (TKS2 sh x)
+  AstSum0S :: ShS sh -> STensorKindType x
+           -> AstTensor ms s (TKS2 sh x)
+           -> AstTensor ms s (TKS2 '[] x)
+  AstDot0S :: GoodScalar r
+           => ShS sh
+           -> AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
+           -> AstTensor ms s (TKS '[] r)
+  AstDot1InS :: GoodScalar r
+             => SNat m -> SNat n
+             -> AstTensor ms s (TKS '[m, n] r) -> AstTensor ms s (TKS '[m, n] r)
+             -> AstTensor ms s (TKS '[m] r)
+  AstMatvecmulS :: GoodScalar r
+                => SNat m -> SNat n
+                -> AstTensor ms s (TKS '[m, n] r)
+                -> AstTensor ms s (TKS '[n] r)
+                -> AstTensor ms s (TKS '[m] r)
+  AstMatmul2S :: (GoodScalar r, Numeric r)
+              => SNat m -> SNat n -> SNat p
+              -> AstTensor ms s (TKS '[m, n] r)
+              -> AstTensor ms s (TKS '[n, p] r)
+              -> AstTensor ms s (TKS '[m, p] r)
 
 deriving instance Show (AstTensor ms s y)
 

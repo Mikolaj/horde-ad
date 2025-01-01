@@ -452,6 +452,12 @@ astNonIndexStep t = case t of
   Ast.AstDot1InR{} -> t
   Ast.AstMatvecmulR{} -> t
   Ast.AstMatmul2R{} -> t
+  Ast.AstReplicate0NS{} -> t
+  Ast.AstSum0S{} -> t
+  Ast.AstDot0S{} -> t
+  Ast.AstDot1InS{} -> t
+  Ast.AstMatvecmulS{} -> t
+  Ast.AstMatmul2S{} -> t
 
   _ -> t  -- TODO
 
@@ -941,6 +947,14 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstSFromX _t -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndexS v0 ix
+
+  -- The below should not appear here unless via wacky tests.
+  Ast.AstReplicate0NS{} -> Ast.AstIndexS v0 ix
+-- impossible: Ast.AstSum0S{} -> Ast.AstIndexS v0 ix
+-- impossible: Ast.AstDot0S{} -> Ast.AstIndexS v0 ix
+  Ast.AstDot1InS{} -> Ast.AstIndexS v0 ix
+  Ast.AstMatvecmulS{} -> Ast.AstIndexS v0 ix
+  Ast.AstMatmul2S{} -> Ast.AstIndexS v0 ix
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -1793,19 +1807,13 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
 
     Ast.AstApply{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
-{- TODO: is this beneficial?
-  AstGatherS @sh2 @p @sh @r AstIotaS (vars, i :.$ ZIS) ->
-    gcastWith (unsafeCoerceRefl :: Take (Rank sh2) sh2 :~: sh2)
-    $ gcastWith (unsafeCoerceRefl :: Drop (Rank sh2) sh2 :~: '[])
-    $ gcastWith (unsafeCoerceRefl :: Drop p sh :~: '[])
-    $ gcastWith (unsafeCoerceRefl :: sh2 :~: sh2 ++ Drop p sh)
-        -- transitivity of type equality doesn't work, by design,
-        -- so this direct cast is needed instead of more basic laws
-    $ sbuild @target @r @(Rank sh2)
-             (interpretLambdaIndexS
-                interpretAst env
-                (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i))
--}
+    -- The below should not appear here unless via wacky tests.
+    Ast.AstReplicate0NS{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+--    Ast.AstSum0S{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+--    Ast.AstDot0S{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+    Ast.AstDot1InS{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+    Ast.AstMatvecmulS{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+    Ast.AstMatmul2S{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
 gatherFromNFS :: forall shm n shp. KnownShS shp
               => AstVarListS shm -> AstIxS AstMethodLet (n ': shp) -> Bool
@@ -3020,6 +3028,12 @@ astPrimalPart t = case t of
   Ast.AstDot1InR{} -> Ast.AstPrimalPart t
   Ast.AstMatvecmulR{} -> Ast.AstPrimalPart t
   Ast.AstMatmul2R{} -> Ast.AstPrimalPart t
+  Ast.AstReplicate0NS{} -> Ast.AstPrimalPart t
+  Ast.AstSum0S{} -> Ast.AstPrimalPart t
+  Ast.AstDot0S{} -> Ast.AstPrimalPart t
+  Ast.AstDot1InS{} -> Ast.AstPrimalPart t
+  Ast.AstMatvecmulS{} -> Ast.AstPrimalPart t
+  Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
 
   _ -> error "TODO"
 
@@ -3142,6 +3156,12 @@ astDualPart t = case t of
   Ast.AstDot1InR{} -> Ast.AstDualPart t
   Ast.AstMatvecmulR{} -> Ast.AstDualPart t
   Ast.AstMatmul2R{} -> Ast.AstDualPart t
+  Ast.AstReplicate0NS{} -> Ast.AstDualPart t
+  Ast.AstSum0S{} -> Ast.AstDualPart t
+  Ast.AstDot0S{} -> Ast.AstDualPart t
+  Ast.AstDot1InS{} -> Ast.AstDualPart t
+  Ast.AstMatvecmulS{} -> Ast.AstDualPart t
+  Ast.AstMatmul2S{} -> Ast.AstDualPart t
 
   _ -> error "TODO"
 
@@ -3538,6 +3558,12 @@ expandAst t = case t of
   Ast.AstDot1InR{} -> t
   Ast.AstMatvecmulR{} -> t
   Ast.AstMatmul2R{} -> t
+  Ast.AstReplicate0NS{} -> t
+  Ast.AstSum0S{} -> t
+  Ast.AstDot0S{} -> t
+  Ast.AstDot1InS{} -> t
+  Ast.AstMatvecmulS{} -> t
+  Ast.AstMatmul2S{} -> t
 
   _ -> error "TODO"
 
@@ -3750,6 +3776,12 @@ simplifyAst t = case t of
   Ast.AstDot1InR{} -> t
   Ast.AstMatvecmulR{} -> t
   Ast.AstMatmul2R{} -> t
+  Ast.AstReplicate0NS{} -> t
+  Ast.AstSum0S{} -> t
+  Ast.AstDot0S{} -> t
+  Ast.AstDot1InS{} -> t
+  Ast.AstMatvecmulS{} -> t
+  Ast.AstMatmul2S{} -> t
 
   _ -> error "TODO"
 
@@ -4181,6 +4213,12 @@ contractAst t = case t of
   Ast.AstDot1InR{} -> t
   Ast.AstMatvecmulR{} -> t
   Ast.AstMatmul2R{} -> t
+  Ast.AstReplicate0NS{} -> t
+  Ast.AstSum0S{} -> t
+  Ast.AstDot0S{} -> t
+  Ast.AstDot1InS{} -> t
+  Ast.AstMatvecmulS{} -> t
+  Ast.AstMatmul2S{} -> t
 
   _ -> error "TODO"
 
@@ -4814,6 +4852,36 @@ substitute1Ast i var v1 = case v1 of
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
        then Just $ Ast.AstMatmul2R (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk ->
+    Ast.AstReplicate0NS sh stk <$> substitute1Ast i var v
+  Ast.AstSum0S sh stk v | Dict <- lemTensorKindOfSTK stk ->
+    withKnownShS sh $
+    Ast.AstSum0S sh stk <$> substitute1Ast i var v
+  Ast.AstDot0S sh u v ->
+    withKnownShS sh $
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstDot0S sh (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstDot1InS m@SNat n@SNat u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstDot1InS  m n(fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstMatvecmulS m@SNat n@SNat u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstMatvecmulS m n (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstMatmul2S m@SNat n@SNat p@SNat u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ Ast.AstMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
 
   _ -> error "TODO"

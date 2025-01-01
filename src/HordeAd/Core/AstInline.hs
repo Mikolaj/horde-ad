@@ -425,6 +425,26 @@ inlineAst memo v0 = case v0 of
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstMatmul2R u2 v3)
+  Ast.AstReplicate0NS sh stk v ->
+    second (Ast.AstReplicate0NS sh stk) (inlineAst memo v)
+  Ast.AstSum0S sh stk v ->
+    second (Ast.AstSum0S sh stk) (inlineAst memo v)
+  Ast.AstDot0S sh u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstDot0S sh u2 v3)
+  Ast.AstDot1InS m n u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstDot1InS m n u2 v3)
+  Ast.AstMatvecmulS m n u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstMatvecmulS m n u2 v3)
+  Ast.AstMatmul2S m n p u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstMatmul2S m n p u2 v3)
 
 inlineAstDynamic
   :: AstSpan s
@@ -806,6 +826,26 @@ unshareAst memo = \case
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstMatmul2R u2 v3)
+  Ast.AstReplicate0NS sh stk v ->
+    second (Ast.AstReplicate0NS sh stk) (unshareAst memo v)
+  Ast.AstSum0S sh stk v ->
+    second (Ast.AstSum0S sh stk) (unshareAst memo v)
+  Ast.AstDot0S sh u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstDot0S sh u2 v3)
+  Ast.AstDot1InS m n u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstDot1InS m n u2 v3)
+  Ast.AstMatvecmulS m n u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstMatvecmulS m n u2 v3)
+  Ast.AstMatmul2S m n p u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstMatmul2S m n p u2 v3)
 
 unshareAstDynamic
   :: AstSpan s
