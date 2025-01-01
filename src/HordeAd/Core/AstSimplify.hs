@@ -3877,10 +3877,68 @@ contractAst t = case t of
                            TimesOp
                            (Ast.AstTranspose tperm (contractAst t2))
                            (Ast.AstTranspose uperm (contractAst u))))))
+  Ast.AstSum _ (STKR (SNat @n) _) (AstN2R TimesOp t2 u)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        Ast.AstDot0R (SNat @1) (contractAst t2) (contractAst u)
+  Ast.AstSum _ (STKR (SNat @n) _) (Ast.AstReshape @p _sh (AstN2R TimesOp t2 u))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        Ast.AstDot0R (SNat @p) (contractAst t2) (contractAst u)
+  Ast.AstSum _ (STKR (SNat @n) _) (Ast.AstTranspose [1, 0] (AstN2R TimesOp t2 u))
+    -- TODO: generalize
+    | Just Refl <- sameNat (Proxy @n) (Proxy @1) ->
+        Ast.AstDot1InR (contractAst t2) (contractAst u)
+  Ast.AstSum snat stk@(STKR (SNat @n) _) (Ast.AstReshape
+                                            sh (Ast.AstTranspose _ t2))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        contractAst (Ast.AstSum snat stk (Ast.AstReshape sh t2))
+  Ast.AstSum snat stk@(STKR (SNat @n) _) (Ast.AstReshape
+                                            sh (Ast.AstReverse t2))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        contractAst (Ast.AstSum snat stk (Ast.AstReshape sh t2))
+  Ast.AstSum _ (STKR (SNat @n) x) (Ast.AstReshape @p _sh (Ast.AstSum _ _ t2))
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        Ast.AstSum0R (SNat @(1 + p)) x (contractAst t2)
+  Ast.AstSum _ (STKR (SNat @n) x) (Ast.AstSum _ _ t2)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0)
+    , Dict <- lemTensorKindOfSTK x ->
+        Ast.AstSum0R (SNat @(2 + n)) x (contractAst t2)  -- TODO: more cases are needed
+  Ast.AstSum snat stk (Ast.AstLet var v t2) | Dict <- lemTensorKindOfSTK stk ->
+    contractAst (Ast.AstLet var v (Ast.AstSum snat stk t2))
+  Ast.AstSum snat stk (Ast.AstReshape sh (Ast.AstLet var v t2))
+    | Dict <- lemTensorKindOfSTK stk ->
+      contractAst (Ast.AstLet
+                     var
+                     v
+                     (Ast.AstSum snat stk (Ast.AstReshape sh t2)))
+  Ast.AstSum _ (STKR (SNat @n) x) (Ast.AstReshape @p _sh t2)
+    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+        Ast.AstSum0R (SNat @p) x (contractAst t2)
   Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
     astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
     astReplicate snat stk (contractAst v)
+  -- These are only needed for tests that don't vectorize Ast.
+  Ast.AstBuild1 @y2
+                snat (var, Ast.AstSum
+                             _ _ (AstN2R
+                                    TimesOp t2 (Ast.AstIndex
+                                                  u (AstIntVar var2 :.: ZIR))))
+    | STKR (SNat @n) _ <- stensorKind @y2
+    , Just Refl <- sameNat (Proxy @n) (Proxy @0)
+    , var == var2, sNatValue snat == lengthAst u ->
+        Ast.AstMatvecmulR (contractAst u) (contractAst t2)
+  Ast.AstBuild1 @y2
+                snat (var, Ast.AstSum _ _
+                             (Ast.AstReshape @p
+                                _sh (AstN2R
+                                       TimesOp t2 (Ast.AstIndex
+                                                     u (AstIntVar
+                                                          var2 :.: ZIR)))))
+    | STKR (SNat @n) _ <- stensorKind @y2
+    , Just Refl <- sameNat (Proxy @n) (Proxy @0)
+    , Just Refl <- sameNat (Proxy @p) (Proxy @1)
+    , var == var2, sNatValue snat == lengthAst u ->
+        Ast.AstMatvecmulR (contractAst u) (contractAst t2)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, contractAst v)
   Ast.AstLet var u v -> astLet var (contractAst u) (contractAst v)
   AstConcrete{} -> t
@@ -3963,6 +4021,9 @@ contractAst t = case t of
   Ast.AstReverse v -> astReverse (contractAst v)
   Ast.AstTranspose perm v ->
     astTranspose (normalizePermutation perm) (contractAst v)
+  Ast.AstReshape sh (Ast.AstReplicate _ (STKR @m _ x) s)
+    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
+      Ast.AstReplicate0NR sh x (contractAst s)
   Ast.AstReshape sh (Ast.AstLet var v (Ast.AstReplicate snat stk t2))
     | Dict <- lemTensorKindOfSTK stk ->
       Ast.AstLet
