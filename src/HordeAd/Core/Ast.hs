@@ -474,8 +474,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                    (PermC perm, KnownShS sh, Rank perm <= Rank sh, TensorKind r)
                 => Permutation.Perm perm -> AstTensor ms s (TKS2 sh r)
                 -> AstTensor ms s (TKS2 (Permutation.PermutePrefix perm sh) r)
-  AstReshapeS :: ( KnownShS sh, Nested.Product sh ~ Nested.Product sh2
-                 , TensorKind r, KnownShS sh2 )
+  AstReshapeS :: ( KnownShS sh, KnownShS sh2
+                 , Nested.Product sh ~ Nested.Product sh2, TensorKind r)
               => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKS2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
