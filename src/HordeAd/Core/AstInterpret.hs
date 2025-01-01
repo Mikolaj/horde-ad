@@ -23,25 +23,15 @@ import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
 import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (Typeable, typeRep)
 
-import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxAppend)
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
-  ( IxR (..)
-  , IxS (..)
-  , KnownShS (..)
-  , KnownShX (..)
-  , ListR (..)
-  , ListS (..)
-  , Rank
-  , ShR (..)
-  )
+  (IxR (..), KnownShS (..), KnownShX (..), ListR (..), ListS (..), ShR (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shrRank, shsAppend)
 
@@ -538,8 +528,6 @@ interpretAst !env = \case
   AstSumOfListS args ->
     let args2 = interpretAst env <$> args
     in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
-  AstIndexS AstIotaS (i :.$ ZIS) ->
-    sfromIntegral . sfromPrimal . sfromR . rfromScalar $ interpretAstPrimal env i
   AstIndexS @sh1 @sh2 v ix ->
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     let v2 = interpretAst env v
@@ -662,13 +650,6 @@ interpretAst !env = \case
   AstGatherS @_ @shn @shp v (ZS, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstGatherS @shm AstIotaS (vars, i :.$ ZIS) | Refl <- lemAppNil @shm ->
-    gcastWith (unsafeCoerceRefl :: Drop (Rank shm) shm :~: '[]) $
-    gcastWith (unsafeCoerceRefl :: Take (Rank shm) shm :~: shm) $
-    sbuild @_ @_ @(Rank shm)
-           (interpretLambdaIndexS
-              interpretAst env
-              (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i))
   AstGatherS @shm @shn @shp v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)

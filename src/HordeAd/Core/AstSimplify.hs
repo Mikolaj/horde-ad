@@ -576,8 +576,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     Just Refl -> astFromIntegralR
                  $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
--- TODO:  AstIndex AstIotaR (i :.: ZIR) ->
---    rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
   Ast.AstIotaR -> Ast.AstIndex v0 ix
   AstN1R opCode u -> AstN1R opCode (astIndexRec u ix)
   AstN2R opCode u v ->
@@ -1152,11 +1150,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstIotaR | AstConcrete _ (RepN i) <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astFromIntegralR $ astReplicate0N sh4 i
       _ -> error "astGather: AstIota: impossible pattern needlessly required"
-{- TODO: is this beneficial?
-    AstGather sh AstIotaR (vars, i :.: ZIR) ->
-      rbuild sh (interpretLambdaIndex interpretAst env
-                                      (vars, fromPrimal @s $ AstFromIntegralR $ AstFromScalar i))
--}
     Ast.AstIotaR ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     AstN1R opCode v | not (isVar v) ->
@@ -1551,11 +1544,6 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       $ astGatherKnobsS @shm' @shn' @shp' knobs v (vars4, ix4)
     Ast.AstIotaS | AstConcrete _ (RepN i) <- i4 ->
       astFromIntegralS $ astReplicate0NS i
-{- TODO: is this beneficial?
-    AstGather sh AstIotaR (vars, i :.: ZIR) ->
-      rbuild sh (interpretLambdaIndex interpretAst env
-                                      (vars, fromPrimal @s $ AstFromIntegralR $ AstFromScalar i))
--}
     Ast.AstIotaS ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     AstN1S opCode v | not (isVar v) ->
@@ -2354,12 +2342,6 @@ astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
               ivar var ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
-{- TODO: is this beneficial?
-  AstSlice i n AstIotaR ->
-    let u = Nested.rfromListPrimLinear (n :$: ZSR) $ map fromIntegral [i .. i + n - 1]
-    in interpretAst env
-       $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
--}
 
 astSliceS :: forall i n k sh s r.
              ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, TensorKind r
@@ -3812,6 +3794,9 @@ simplifyAstBool t = case t of
 -- Note that unlike all the other code in this module, this function
 -- is not written in a compositional style nor close to it,
 -- but it's instead defined in an ad-hoc way based on benchmarks.
+--
+-- TODO: Move some of this to simplifyAst.
+-- TODO: Generalize some of the extra term constructors and the rules.
 
 contractAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstInt = contractAst
@@ -4051,6 +4036,8 @@ contractAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (contractAst u) (contractAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (contractAst u) (contractAst v)
   AstSumOfListS args -> astSumOfListS (map contractAst args)
+  Ast.AstIndexS Ast.AstIotaS (i :.$ ZIS) ->
+    astFromIntegralS $ astFromScalar $ contractAstInt i
   Ast.AstIndexS @shm @shn v ix ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (contractAst v) (contractAstIxS ix)
@@ -4063,6 +4050,14 @@ contractAst t = case t of
   Ast.AstReverseS v -> astReverseS (contractAst v)
   Ast.AstTransposeS perm v -> astTransposeS perm $ contractAst v
   Ast.AstReshapeS v -> astReshapeS $ contractAst v
+{- TODO, but sbuild is tricky, so only if benchmarks show it's worth it:
+  AstGatherS @shm AstIotaS (vars, i :.$ ZIS) | Refl <- lemAppNil @shm ->
+    gcastWith (unsafeCoerceRefl :: Drop (Rank shm) shm :~: '[]) $
+    gcastWith (unsafeCoerceRefl :: Take (Rank shm) shm :~: shm) $
+    sbuild @_ @_ @(Rank shm)
+           (interpretLambdaIndexS
+              interpretAst env
+              (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i)) -}
   Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     astGatherS @shm @shn @shp (contractAst v) (vars, contractAstIxS ix)
