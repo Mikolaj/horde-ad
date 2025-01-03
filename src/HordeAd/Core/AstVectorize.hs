@@ -19,6 +19,7 @@ import Data.List (mapAccumR)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
@@ -31,7 +32,6 @@ import Data.Array.Nested
   ( IShR
   , IxR (..)
   , IxS (..)
-  , IxX (..)
   , KnownShS (..)
   , KnownShX (..)
   , ListR (..)
@@ -436,11 +436,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstUnzipS v -> traceRule $
       Ast.AstUnzipS $ build1V snat (var, v)
 
-    Ast.AstZipX v -> traceRule $
-      Ast.AstZipX $ build1V snat (var, v)
-    Ast.AstUnzipX v -> traceRule $
-      Ast.AstUnzipX $ build1V snat (var, v)
-
     Ast.AstRFromS @sh1 v -> traceRule $
       astRFromS @(k ': sh1) $ build1V snat (var, v)
     Ast.AstRFromX @sh1 v -> traceRule $
@@ -550,8 +545,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatvecmulS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
-
-    _ -> error $ "TODO: " ++ show v0
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
 -- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
@@ -731,10 +724,26 @@ substProjRep snat@SNat var ftk2 var1 v
           FTKScalar -> prVar
           FTKR sh FTKScalar | SNat <- shrRank sh ->
             Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-          FTKS sh FTKScalar -> withKnownShS sh
-                     $ Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
-          FTKX sh FTKScalar -> withKnownShX (ssxFromShape sh)
-                     $ Ast.AstIndexX prVar (Ast.AstIntVar var :.% ZIX)
+          FTKS sh FTKScalar ->
+            withKnownShS sh $
+            Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
+          FTKX @sh sh FTKScalar ->
+            withKnownShX (ssxFromShape sh) $
+            withShapeP (toList sh) $ \ (Proxy @sh2) -> case knownShS @sh2 of
+              ZSS -> error "substProjRep: impossible empty shape"
+              (:$$) @_ @sh2Rest _ sh2Rest ->
+                withKnownShS sh2Rest $
+{-              gcastWith (unsafeCoerceRefl
+                           :: Rank sh2 :~: Rank (Just k ': sh)) $
+                gcastWith (unsafeCoerceRefl
+                           :: Rank sh2 :~: 1 + Rank sh2Rest) $
+                gcastWith (unsafeCoerceRefl
+                           :: Rank (Just k ': sh) :~: 1 + Rank sh) $ -}
+                -- The above is somehow not enough and so we need this:
+                gcastWith (unsafeCoerceRefl :: Rank sh2Rest :~: Rank sh) $
+                Ast.AstXFromS @sh2Rest @sh
+                $ Ast.AstIndexS (Ast.AstSFromX @sh2 @(Just k ': sh) prVar)
+                                (Ast.AstIntVar var :.$ ZIS)
           FTKProduct ftk41 ftk42
             | Dict <- lemTensorKindOfSTK (ftkToStk ftk41)
             , Dict <- lemTensorKindOfSTK (ftkToStk ftk42)

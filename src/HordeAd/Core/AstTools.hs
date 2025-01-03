@@ -14,6 +14,7 @@ module HordeAd.Core.AstTools
   , astIsSmall
     -- * Odds and ends
   , bindsToLet
+  , liftXFromS1, liftXFromS2
   ) where
 
 import Prelude hiding (foldl')
@@ -22,23 +23,16 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (sameNat, type (+))
 
 import Data.Array.Mixed.Shape
-  ( KnownShX (..)
-  , SMayNat (..)
-  , pattern (:!%)
-  , pattern ZKX
-  , shxAppend
-  , shxDropSSX
-  , shxSize
-  , shxTakeSSX
-  )
+  (KnownShX (..), shxAppend, shxDropSSX, shxSize, shxTakeSSX, ssxFromShape)
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
-  (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShS (..), ShX (..))
+  (IShR, KnownShS (..), MapJust, Rank, Replicate, ShR (..), ShS (..))
 import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
@@ -184,21 +178,6 @@ ftkAst t = case t of
   AstUnzipS v -> case ftkAst v of
     FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
 
-  AstIndexX @sh1 v _ix -> case ftkAst v of
-    FTKX sh x -> FTKX (shxDropSSX sh (knownShX @sh1)) x
-  AstFromVectorX @n l -> case V.toList l of
-    [] -> case stensorKind @y of
-      STKX sh STKScalar{} -> case sh of
-        (_ :!% ZKX) -> FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar
-        _ -> error "ftkAst: AstFromVectorX with no arguments"
-      _ -> error "ftkAst: AstFromVectorX with no arguments"
-    d : _ -> case ftkAst d of
-      FTKX sh x -> FTKX (SKnown (SNat @n) :$% sh) x
-  AstZipX v -> case ftkAst v of
-    FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
-  AstUnzipX v -> case ftkAst v of
-    FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
-
   AstRFromS @sh v
    | SNat <- shsRank (knownShS @sh) -> case ftkAst v of
     FTKS _ x -> FTKR (fromList $ toList $ knownShS @sh) x
@@ -269,8 +248,6 @@ ftkAst t = case t of
   AstDot1InS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
   AstMatvecmulS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
-
-  _ -> error "TODO"
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
@@ -384,31 +361,6 @@ varInAst var = \case
   AstZipS v -> varInAst var v
   AstUnzipS v -> varInAst var v
 
-  AstMinIndexX a -> varInAst var a
-  AstMaxIndexX a -> varInAst var a
-  AstFloorX a -> varInAst var a
-  AstIotaX -> False
-  AstN1X _ t -> varInAst var t
-  AstN2X _ t u -> varInAst var t || varInAst var u
-  AstR1X _ t -> varInAst var t
-  AstR2X _ t u -> varInAst var t || varInAst var u
-  AstI2X _ t u -> varInAst var t || varInAst var u
-  AstSumOfListX l -> any (varInAst var) l
-  AstIndexX v ix -> varInAst var v || varInIndexX var ix
-  AstScatterX v (_vars, ix) -> varInIndexX var ix || varInAst var v
-  AstFromVectorX vl -> any (varInAst var) $ V.toList vl
-  AstAppendX v u -> varInAst var v || varInAst var u
-  AstSliceX v -> varInAst var v
-  AstReverseX v -> varInAst var v
-  AstTransposeX _perm v -> varInAst var v
-  AstReshapeX _ v -> varInAst var v
-  AstGatherX v (_vars, ix) -> varInIndexX var ix || varInAst var v
-  AstCastX t -> varInAst var t
-  AstFromIntegralX a -> varInAst var a
-  AstProjectX l _p -> varInAst var l
-  AstZipX v -> varInAst var v
-  AstUnzipX v -> varInAst var v
-
   AstRFromS v -> varInAst var v
   AstRFromX v -> varInAst var v
   AstSFromR v -> varInAst var v
@@ -448,9 +400,6 @@ varInIndex var = any (varInAst var)
 
 varInIndexS :: AstVarId -> AstIxS ms sh -> Bool
 varInIndexS var = any (varInAst var)
-
-varInIndexX :: AstVarId -> AstIndexX ms sh -> Bool
-varInIndexX var = any (varInAst var)
 
 varInAstDynamic :: AstVarId -> AstDynamic ms s -> Bool
 varInAstDynamic var = \case
@@ -541,3 +490,34 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
   bindToLet !u (var :=> w)
     | Dict <- tensorKindFromAstVarName var =
       AstLet var w u
+
+liftXFromS1 :: forall sh' x ms s.
+               (forall sh. KnownShS sh
+                => AstTensor ms s (TKS2 sh x)
+                -> AstTensor ms s (TKS2 sh x))
+            -> AstTensor ms s (TKX2 sh' x)
+            -> AstTensor ms s (TKX2 sh' x)
+liftXFromS1 f (AstXFromS u) = AstXFromS (f u)
+liftXFromS1 f a = case ftkAst a of
+  FTKX sh2 x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withKnownShX (ssxFromShape sh2) $
+    withShapeP (toList sh2) $ \ (Proxy @sh) ->
+      gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      AstXFromS @sh @sh' $ f (AstSFromX @sh @sh' a)
+
+liftXFromS2 :: forall sh' x ms s.
+               (forall sh. KnownShS sh
+                => AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
+                -> AstTensor ms s (TKS2 sh x))
+            -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKX2 sh' x)
+            -> AstTensor ms s (TKX2 sh' x)
+liftXFromS2 f (AstXFromS @shu u) (AstXFromS @shv v) =
+  case sameShape @shu @shv of
+    Just Refl -> AstXFromS $ f u v
+    Nothing -> error "liftXFromS2: shapes don't agree"
+liftXFromS2 f a b  = case ftkAst a of
+  FTKX sh2 x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withKnownShX (ssxFromShape sh2) $
+    withShapeP (toList sh2) $ \ (Proxy @sh) ->
+      gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      AstXFromS @sh @sh' $ f (AstSFromX @sh @sh' a) (AstSFromX @sh @sh' b)

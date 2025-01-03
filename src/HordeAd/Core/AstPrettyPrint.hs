@@ -483,9 +483,6 @@ printAstAux cfg d = \case
   AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
 
-  AstZipX v -> printPrefixOp printAst cfg d "xzip" [v]
-  AstUnzipX v -> printPrefixOp printAst cfg d "xunzip" [v]
-
   AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
   AstRFromX v -> printPrefixOp printAst cfg d "rfromX" [v]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
@@ -598,7 +595,6 @@ printAstAux cfg d = \case
       . printAst cfg 11 u
       . showString " "
       . printAst cfg 11 v
-  _ -> error "TODO"
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS

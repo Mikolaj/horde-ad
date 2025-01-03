@@ -43,7 +43,7 @@ import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX, IxX, ListX)
+import Data.Array.Mixed.Shape (IxX)
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Nested
   ( IShR
@@ -226,8 +226,6 @@ type AstIxS ms sh = IxS sh (AstInt ms)
 type AstVarListS sh = ListS sh (Const IntVarName)
 
 type AstIndexX ms sh = IxX sh (AstInt ms)
-
-type AstIxX sh = ListX sh (Const IntVarName)
 
 
 -- * AstBindingsCase and AstBindings
@@ -493,98 +491,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstUnzipS :: (TensorKind y, TensorKind z, KnownShS sh)
             => AstTensor ms s (TKS2 sh (TKProduct y z))
             -> AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
-
-  -- Here starts the mixed part.
-  AstN1X :: (GoodScalar r, KnownShX sh)
-         => OpCodeNum1 -> AstTensor ms s (TKX sh r) -> AstTensor ms s (TKX sh r)
-  AstN2X :: (GoodScalar r, KnownShX sh)
-         => OpCodeNum2 -> AstTensor ms s (TKX sh r) -> AstTensor ms s (TKX sh r)
-         -> AstTensor ms s (TKX sh r)
-  AstR1X :: (Differentiable r, GoodScalar r, KnownShX sh)
-         => OpCode1 -> AstTensor ms s (TKX sh r) -> AstTensor ms s (TKX sh r)
-  AstR2X :: (Differentiable r, GoodScalar r, KnownShX sh)
-         => OpCode2 -> AstTensor ms s (TKX sh r) -> AstTensor ms s (TKX sh r)
-         -> AstTensor ms s (TKX sh r)
-  AstI2X :: (Integral r, GoodScalar r, KnownShX sh)
-         => OpCodeIntegral2 -> AstTensor ms s (TKX sh r)
-         -> AstTensor ms s (TKX sh r)
-         -> AstTensor ms s (TKX sh r)
-  AstSumOfListX :: (KnownShX sh, GoodScalar r)
-                => [AstTensor ms s (TKX sh r)] -> AstTensor ms s (TKX sh r)
-  AstMinIndexX :: ( KnownShX sh, KnownNat n, GoodScalar r, GoodScalar r2
-                  , GoodScalar r2, KnownShX (Init (Just n ': sh)) )
-               => AstTensor ms PrimalSpan (TKX (Just n ': sh) r)
-               -> AstTensor ms PrimalSpan (TKX (Init (Just n ': sh)) r2)
-  AstMaxIndexX :: ( KnownShX sh, KnownNat n, GoodScalar r, GoodScalar r2
-                  , GoodScalar r2, KnownShX (Init (Just n ': sh)) )
-               => AstTensor ms PrimalSpan (TKX (Just n ': sh) r)
-               -> AstTensor ms PrimalSpan (TKX (Init (Just n ': sh)) r2)
-  AstFloorX :: ( GoodScalar r, RealFrac r, Integral r2, GoodScalar r2
-               , KnownShX sh )
-            => AstTensor ms PrimalSpan (TKX sh r)
-            -> AstTensor ms PrimalSpan (TKX sh r2)
-  AstCastX :: ( GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2
-              , KnownShX sh )
-           => AstTensor ms s (TKX sh r1) -> AstTensor ms s (TKX sh r2)
-  AstFromIntegralX :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
-                   => AstTensor ms PrimalSpan (TKX sh r1)
-                   -> AstTensor ms PrimalSpan (TKX sh r2)
-  AstIotaX :: forall n r ms. (GoodScalar r, KnownNat n)
-           => AstTensor ms PrimalSpan (TKX '[Just n] r)
-
-  AstIndexX :: forall sh1 sh2 s r ms.
-               (KnownShX sh1, KnownShX sh2, TensorKind r)
-            => AstTensor ms s (TKX2 (sh1 ++ sh2) r) -> AstIndexX ms sh1
-            -> AstTensor ms s (TKX2 sh2 r)
-    -- first ix is for outermost dimension; empty index means identity,
-    -- if index is out of bounds, the result is defined and is 0,
-    -- but vectorization is permitted to change the value
-  AstScatterX :: forall sh2 p sh r s ms.
-                 ( KnownShX sh2, KnownShX sh, KnownNat p
-                 , KnownShX (Take p sh), KnownShX (Drop p sh)
-                 , KnownShX (sh2 ++ Drop p sh), GoodScalar r )
-              => AstTensor ms s (TKX (sh2 ++ Drop p sh) r)
-              -> (AstIxX sh2, AstIndexX ms (Take p sh))
-              -> AstTensor ms s (TKX sh r)
-
-  AstFromVectorX :: (KnownNat n, KnownShX sh, TensorKind r)
-                 => Data.Vector.Vector (AstTensor ms s (TKX2 sh r))
-                 -> AstTensor ms s (TKX2 (Just n ': sh) r)
-  AstAppendX :: (KnownNat n, KnownNat m, KnownShX sh, TensorKind r)
-             => AstTensor ms s (TKX2 (Just m ': sh) r)
-             -> AstTensor ms s (TKX2 (Just n ': sh) r)
-             -> AstTensor ms s (TKX2 (Just (m + n) ': sh) r)
-  AstSliceX :: (KnownNat i, KnownNat n, KnownNat k, KnownShX sh, TensorKind r)
-            => AstTensor ms s (TKX2 (Just (i + n + k) ': sh) r)
-            -> AstTensor ms s (TKX2 (Just n ': sh) r)
-  AstReverseX :: (KnownNat n, KnownShX sh, TensorKind r)
-              => AstTensor ms s (TKX2 (Just n ': sh) r)
-              -> AstTensor ms s (TKX2 (Just n ': sh) r)
-  AstTransposeX :: forall perm sh r s ms.
-                   (PermC perm, KnownShX sh, Rank perm <= Rank sh, TensorKind r)
-                => Permutation.Perm perm -> AstTensor ms s (TKX2 sh r)
-                -> AstTensor ms s (TKX2 (Permutation.PermutePrefix perm sh) r)
-  AstReshapeX :: (KnownShX sh, TensorKind r, KnownShX sh2)
-              => IShX sh2 -> AstTensor ms s (TKX2 sh r)
-              -> AstTensor ms s (TKX2 sh2 r)
-    -- beware that the order of type arguments is different than in orthotope
-    -- and than the order of value arguments in the ranked version
-  AstGatherX :: forall sh2 p sh r s ms.
-                ( GoodScalar r, KnownShX sh, KnownShX sh2, KnownNat p
-                , KnownShX (Take p sh), KnownShX (Drop p sh)
-                , KnownShX (sh2 ++ Drop p sh) )
-             => AstTensor ms s (TKX sh r)
-             -> (AstIxX sh2, AstIndexX ms (Take p sh))
-             -> AstTensor ms s (TKX (sh2 ++ Drop p sh) r)
-    -- out of bounds indexing is permitted
-  AstProjectX :: (GoodScalar r, KnownShX sh)
-              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKX sh r)
-  AstZipX :: (TensorKind y, TensorKind z, KnownShX sh)
-          => AstTensor ms s (TKProduct (TKX2 sh y) (TKX2 sh z))
-          -> AstTensor ms s (TKX2 sh (TKProduct y z))
-  AstUnzipX :: (TensorKind y, TensorKind z, KnownShX sh)
-            => AstTensor ms s (TKX2 sh (TKProduct y z))
-            -> AstTensor ms s (TKProduct (TKX2 sh y) (TKX2 sh z))
 
   -- Ops that involve more than one variant of arrays
   AstRFromS :: (KnownShS sh, TensorKind r)

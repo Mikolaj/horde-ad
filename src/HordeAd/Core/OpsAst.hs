@@ -22,8 +22,11 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
+import Data.Type.Equality (gcastWith)
+import GHC.Exts (IsList (..))
 
-import Data.Array.Nested (IShR, KnownShS (..))
+import Data.Array.Nested (type (++), Rank, IShR, KnownShS (..), KnownShX (..))
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -371,13 +374,47 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
-  xindex v ix = AstIndexX v ix
-  xfromVector = AstFromVectorX
+  xindex @_ @sh1 @sh2 a ix = case ftkAst a of
+    FTKX @sh1sh2 sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
+      withShapeP (toList sh1sh2) $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh1sh2 :~: Rank sh) $
+        gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
+        withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
+        withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
+        astXFromS @(Drop (Rank sh1) sh) @sh2
+        $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
+                        (astSFromX @sh @sh1sh2 a)
+                        (fromList (toList ix))
+  xfromVector @_ @n @sh' la = case V.uncons la of
+    Nothing -> error "xfromVector: the vector is empty"
+    Just (a, _) -> case ftkAst a of
+      FTKX sh' _ ->
+        withShapeP (toList sh') $ \ (Proxy @sh) ->
+          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+          astXFromS @(n ': sh) @(Just n ': sh')
+          $ astFromVectorS $ V.map (astSFromX @sh @sh') la
   xreplicate = AstReplicate SNat stensorKind
-  xtoScalar = AstToScalar . AstSFromX
-  xzip = AstZipX
-  xunzip = AstUnzipX
-  xfromScalar = AstXFromS . AstFromScalar
+  xtoScalar = AstToScalar . astSFromX
+  xzip @_ @_ @sh' a = case ftkAst a of
+    FTKProduct (FTKX sh' _) (FTKX _ _) ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        astLetFunNoSimplify a $ \a3 ->
+        let (a31, a32) = tunpairDup a3
+        in astXFromS @sh @sh'
+           $ szip $ astPair (astSFromX @sh @sh' a31)
+                            (astSFromX @sh @sh' a32)
+  xunzip @_ @_ @sh' a = case ftkAst a of
+    FTKX sh' _ ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        astLetFunNoSimplify (sunzip $ astSFromX @sh @sh' a) $ \b3 ->
+        let (b31, b32) = tunpairDup b3
+        in astPair (astXFromS @sh @sh' b31)
+                   (astXFromS @sh @sh' b32)
+  xfromScalar = astXFromS . astFromScalar
   xfromPrimal = fromPrimal
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
@@ -650,12 +687,46 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
-  xindex v ix =
-    AstRaw $ AstIndexX (unAstRaw v) (unAstRaw <$> ix)
-  xfromVector = AstRaw . AstFromVectorX . V.map unAstRaw
+  xindex @_ @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
+    FTKX @sh1sh2 sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
+      withShapeP (toList sh1sh2) $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh1sh2 :~: Rank sh) $
+        gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
+        withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
+        withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
+        AstRaw $ AstXFromS @(Drop (Rank sh1) sh) @sh2
+        $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
+                    (AstSFromX @sh @sh1sh2 a)
+                    (fromList (toList (unAstRaw <$> ix)))
+  xfromVector @_ @n @sh' la = case V.uncons la of
+    Nothing -> error "xfromVector: the vector is empty"
+    Just (AstRaw a, _) -> case ftkAst a of
+      FTKX sh' _ ->
+        withShapeP (toList sh') $ \ (Proxy @sh) ->
+          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+          AstRaw $ AstXFromS @(n ': sh) @(Just n ': sh')
+          $ AstFromVectorS $ V.map (AstSFromX @sh @sh' . unAstRaw) la
   xreplicate = AstRaw . AstReplicate SNat stensorKind . unAstRaw
-  xzip = AstRaw . AstZipX . unAstRaw
-  xunzip = AstRaw . AstUnzipX . unAstRaw
+  xzip @_ @_ @sh' (AstRaw a) = case ftkAst a of
+    FTKProduct (FTKX sh' _) (FTKX _ _) ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstRaw
+        $ let (a31, a32) = tunpair $ AstRaw a
+          in AstXFromS @sh @sh'
+             $ AstZipS $ AstPair (AstSFromX @sh @sh' $ unAstRaw a31)
+                                 (AstSFromX @sh @sh' $ unAstRaw a32)
+  xunzip @_ @_ @sh' (AstRaw a) = case ftkAst a of
+    FTKX sh' _ ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstRaw
+        $ let b3 = AstRaw $ AstUnzipS $ AstSFromX @sh @sh' a
+              (b31, b32) = tunpair b3
+          in AstPair (AstXFromS @sh @sh' $ unAstRaw b31)
+                     (AstXFromS @sh @sh' $ unAstRaw b32)
   xtoScalar = AstRaw . AstToScalar . AstSFromX . unAstRaw
   xfromScalar = AstRaw . AstXFromS . AstFromScalar . unAstRaw
   xfromPrimal = AstRaw . fromPrimal . unAstRaw
@@ -855,15 +926,14 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   xfromVector = AstNoVectorize . xfromVector . V.map unAstNoVectorize
   xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
-  xzip = AstNoVectorize . AstZipX . unAstNoVectorize
-  xunzip = AstNoVectorize . AstUnzipX . unAstNoVectorize
+  xzip = AstNoVectorize . xzip . unAstNoVectorize
+  xunzip = AstNoVectorize . xunzip . unAstNoVectorize
   xtoScalar = AstNoVectorize . xtoScalar . unAstNoVectorize
   xfromScalar = AstNoVectorize . xfromScalar . unAstNoVectorize
   xfromPrimal = AstNoVectorize . xfromPrimal . unAstNoVectorize
   xprimalPart = AstNoVectorize . xprimalPart . unAstNoVectorize
   xdualPart = xdualPart . unAstNoVectorize
-  xD u u' =
-    AstNoVectorize $ xD (unAstNoVectorize u) u'
+  xD u u' = AstNoVectorize $ xD (unAstNoVectorize u) u'
 
   sminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
   smaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
@@ -1064,12 +1134,47 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   xshape t = case ftkAst $ unAstNoSimplify t of
     FTKX sh _ -> sh
-  xindex v ix =
-    AstNoSimplify $ AstIndexX (unAstNoSimplify v) (unAstNoSimplify <$> ix)
-  xfromVector = AstNoSimplify . AstFromVectorX . V.map unAstNoSimplify
+  xindex @_ @sh1 @sh2 (AstNoSimplify a) ix = case ftkAst a of
+    FTKX @sh1sh2 sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
+      withShapeP (toList sh1sh2) $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh1sh2 :~: Rank sh) $
+        gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
+        withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
+        withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
+        AstNoSimplify $ AstXFromS @(Drop (Rank sh1) sh) @sh2
+        $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
+                    (AstSFromX @sh @sh1sh2 a)
+                    (fromList (toList (unAstNoSimplify <$> ix)))
+  xfromVector @_ @n @sh' la = case V.uncons la of
+    Nothing -> error "xfromVector: the vector is empty"
+    Just (AstNoSimplify a, _) -> case ftkAst a of
+      FTKX sh' _ ->
+        withShapeP (toList sh') $ \ (Proxy @sh) ->
+          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+          AstNoSimplify $ AstXFromS @(n ': sh) @(Just n ': sh')
+          $ AstFromVectorS $ V.map (AstSFromX @sh @sh' . unAstNoSimplify) la
   xreplicate = AstNoSimplify . AstReplicate SNat stensorKind . unAstNoSimplify
-  xzip = AstNoSimplify . AstZipX . unAstNoSimplify
-  xunzip = AstNoSimplify . AstUnzipX . unAstNoSimplify
+  xzip @_ @_ @sh' (AstNoSimplify a) = case ftkAst a of
+    FTKProduct (FTKX sh' _) (FTKX _ _) ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstNoSimplify
+        $ astLetFunNoSimplify a $ \a3 ->
+          let (a31, a32) = tunpairDup a3
+          in AstXFromS @sh @sh'
+             $ AstZipS $ AstPair (AstSFromX @sh @sh' a31)
+                                 (AstSFromX @sh @sh' a32)
+  xunzip @_ @_ @sh' (AstNoSimplify a) = case ftkAst a of
+    FTKX sh' _ ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstNoSimplify
+        $ astLetFunNoSimplify (AstUnzipS $ AstSFromX @sh @sh' a) $ \b3 ->
+          let (b31, b32) = tunpairDup b3
+          in AstPair (AstXFromS @sh @sh' b31)
+                     (AstXFromS @sh @sh' b32)
   xtoScalar = AstNoSimplify . AstToScalar . AstSFromX . unAstNoSimplify
   xfromScalar = AstNoSimplify . AstXFromS . AstFromScalar . unAstNoSimplify
   xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify

@@ -29,7 +29,6 @@ import Foreign.C (CInt)
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
-import Data.Array.Mixed.Shape (pattern (:.%), pattern ZIX, ssxAppend)
 import Data.Array.Nested
   (IxR (..), KnownShS (..), KnownShX (..), ListR (..), ListS (..), ShR (..))
 import Data.Array.Nested qualified as Nested
@@ -503,59 +502,6 @@ interpretAst !env = \case
          (\lw -> sfromD $ dunHVector lw V.! p)
   AstZipS v -> szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
-
-  AstMinIndexX _v -> error "TODO"
-  AstMaxIndexX _v -> error "TODO"
-  AstFloorX _v -> error "TODO"
-  AstIotaX -> error "TODO"
-  AstN1X opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstN1 opCode u2
-  AstN2X opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstN2 opCode u2 v2
-  AstR1X opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstR1 opCode u2
-  AstR2X opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstR2F opCode u2 v2
-  AstI2X opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstI2F opCode u2 v2
-  AstSumOfListX args ->
-    let args2 = interpretAst env <$> args
-    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
-  AstIndexX AstIotaX (_i :.% ZIX) -> error "TODO"
-  AstIndexX @sh1 @sh2 v ix ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    let v2 = interpretAst env v
-        ix3 = interpretAstPrimal env <$> ix
-    in xindex v2 ix3
-      -- if index is out of bounds, the operations returns with an undefined
-      -- value of the correct rank and shape; this is needed, because
-      -- vectorization can produce out of bound indexing from code where
-      -- the indexing is guarded by conditionals
-  AstScatterX _v (_vars, _ix) -> error "TODO"
-  AstFromVectorX l ->
-    let l2 = V.map (interpretAst env) l
-    in xfromVector l2
-  AstAppendX _x _y -> error "TODO"
-  AstSliceX AstIotaX -> error "TODO"
-  AstSliceX _v -> error "TODO"
-  AstReverseX _v -> error "TODO"
-  AstTransposeX _perm _v -> error "TODO"
-  AstReshapeX _ _ -> error "TODO"
-  AstGatherX AstIotaX (_vars, _i :.% ZIX) -> error "TODO"
-  AstGatherX _v (_vars, _ix) -> error "TODO"
-  AstCastX _v ->  error "TODO"
-  AstFromIntegralX _v -> error "TODO"
-  AstProjectX _l _p -> error "TODO"
-  AstZipX v -> xzip $ interpretAst env v
-  AstUnzipX v -> xunzip $ interpretAst env v
 
   AstRFromS v -> rfromS $ interpretAst env v
   AstRFromX v -> rfromX $ interpretAst env v

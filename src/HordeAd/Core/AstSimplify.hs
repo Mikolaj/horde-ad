@@ -22,9 +22,10 @@ module HordeAd.Core.AstSimplify
   , astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
+  , astFromScalar
   , astPair, astLet, astCond, astSumOfList, astSumOfListR, astSumOfListS
   , astSum, astScatter, astScatterS
-  , astFromVector, astFromVectorS, astFromVectorX
+  , astFromVector, astFromVectorS
   , astReplicate, astAppend, astAppendS, astSlice, astSliceS
   , astReverse, astReverseS
   , astTranspose, astTransposeS, astReshape, astReshapeS
@@ -94,10 +95,8 @@ import Data.Array.Nested
   , Product
   , Rank
   , Replicate
-  , SMayNat (..)
   , ShR (..)
   , ShS (..)
-  , ShX (..)
   , pattern (:$:)
   , pattern (:.$)
   , pattern (:.:)
@@ -429,9 +428,6 @@ astNonIndexStep t = case t of
   Ast.AstProjectS l p -> astProjectS l p
   Ast.AstZipS _ -> t
   Ast.AstUnzipS _ -> t
-
-  Ast.AstZipX _ -> t
-  Ast.AstUnzipX _ -> t
 
   Ast.AstRFromS v -> astRFromS v
   Ast.AstRFromX v -> astRFromX v
@@ -2155,32 +2151,6 @@ astFromVectorS l | Just Refl <- sameAstSpan @s @FullSpan =
     Nothing -> Ast.AstFromVectorS l
 astFromVectorS l = Ast.AstFromVectorS l
 
-astFromVectorX :: forall s r n sh.
-                  (KnownNat n, KnownShX sh, GoodScalar r, AstSpan s)
-               => Data.Vector.Vector (AstTensor AstMethodLet s (TKX sh r))
-               -> AstTensor AstMethodLet s (TKX (Just n ': sh) r)
-astFromVectorX v | V.length v == 1 = astReplicate SNat stensorKind (v V.! 0)
-astFromVectorX l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstTensor AstMethodLet PrimalSpan (TKX sh r)
-              -> Maybe (RepN (TKX sh r))
-      unConst (AstConcrete _ t) = Just t
-      unConst _ = Nothing
-  in case V.mapM unConst l of
-    Just l3 | V.length l3 >= 1 ->
-      AstConcrete (FTKX (SKnown (SNat @n) :$% xshape (l3 V.! 0)) FTKScalar)
-      $ xfromVector l3
-    _ -> Ast.AstFromVectorX l
-astFromVectorX l | Just Refl <- sameAstSpan @s @FullSpan =
-  let unFromPrimal :: AstTensor AstMethodLet FullSpan (TKX sh r)
-                 -> Maybe (AstTensor AstMethodLet PrimalSpan (TKX sh r))
-      unFromPrimal (Ast.AstFromPrimal t) = Just t
-      unFromPrimal _ = Nothing
-  in case V.mapM unFromPrimal l of
-    Just l2 | V.null l2 -> Ast.AstFromVectorX V.empty
-    Just l2 -> Ast.AstFromPrimal $ astFromVectorX l2
-    Nothing -> Ast.AstFromVectorX l
-astFromVectorX l = Ast.AstFromVectorX l
-
 astSum :: forall y k s. AstSpan s
        => SNat k -> STensorKindType y
        -> AstTensor AstMethodLet s (BuildTensorKind k y)
@@ -2987,9 +2957,6 @@ astPrimalPart t = case t of
   Ast.AstZipS v -> Ast.AstZipS (astPrimalPart v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (astPrimalPart v)
 
-  Ast.AstZipX v -> Ast.AstZipX (astPrimalPart v)
-  Ast.AstUnzipX v -> Ast.AstUnzipX (astPrimalPart v)
-
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
   Ast.AstRFromX v -> astRFromX $ astPrimalPart v
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
@@ -3035,8 +3002,6 @@ astPrimalPart t = case t of
   Ast.AstDot1InS{} -> Ast.AstPrimalPart t
   Ast.AstMatvecmulS{} -> Ast.AstPrimalPart t
   Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
-
-  _ -> error "TODO"
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -3115,9 +3080,6 @@ astDualPart t = case t of
   Ast.AstZipS v -> Ast.AstZipS (astDualPart v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (astDualPart v)
 
-  Ast.AstZipX v -> Ast.AstZipX (astDualPart v)
-  Ast.AstUnzipX v -> Ast.AstUnzipX (astDualPart v)
-
   Ast.AstRFromS v -> astRFromS $ astDualPart v
   Ast.AstRFromX v -> astRFromX $ astDualPart v
   Ast.AstSFromR v -> astSFromR $ astDualPart v
@@ -3163,8 +3125,6 @@ astDualPart t = case t of
   Ast.AstDot1InS{} -> Ast.AstDualPart t
   Ast.AstMatvecmulS{} -> Ast.AstDualPart t
   Ast.AstMatmul2S{} -> Ast.AstDualPart t
-
-  _ -> error "TODO"
 
 astHApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
           => AstHFun x y -> AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
@@ -3502,9 +3462,6 @@ expandAst t = case t of
   Ast.AstZipS v -> Ast.AstZipS (expandAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
 
-  Ast.AstZipX v -> Ast.AstZipX (expandAst v)
-  Ast.AstUnzipX v -> Ast.AstUnzipX (expandAst v)
-
   Ast.AstRFromS v -> astRFromS $ expandAst v
   Ast.AstRFromX v -> astRFromX $ expandAst v
   Ast.AstSFromR v -> astSFromR $ expandAst v
@@ -3565,8 +3522,6 @@ expandAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
-
-  _ -> error "TODO"
 
 expandAstDynamic
   :: AstSpan s
@@ -3720,9 +3675,6 @@ simplifyAst t = case t of
   Ast.AstZipS v -> Ast.AstZipS (simplifyAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
 
-  Ast.AstZipX v -> Ast.AstZipX (simplifyAst v)
-  Ast.AstUnzipX v -> Ast.AstUnzipX (simplifyAst v)
-
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
   Ast.AstRFromX v -> astRFromX $ simplifyAst v
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
@@ -3783,8 +3735,6 @@ simplifyAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
-
-  _ -> error "TODO"
 
 simplifyAstDynamic
   :: AstSpan s
@@ -4379,9 +4329,6 @@ contractAst t = case t of
   Ast.AstZipS v -> Ast.AstZipS (contractAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
 
-  Ast.AstZipX v -> Ast.AstZipX (contractAst v)
-  Ast.AstUnzipX v -> Ast.AstUnzipX (contractAst v)
-
   Ast.AstRFromS v -> astRFromS $ contractAst v
   Ast.AstRFromX v -> astRFromX $ contractAst v
   Ast.AstSFromR v -> astSFromR $ contractAst v
@@ -4442,8 +4389,6 @@ contractAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
-
-  _ -> error "TODO"
 
 contractAstDynamic
   :: AstSpan s
@@ -4981,9 +4926,6 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstZipS v -> Ast.AstZipS <$> substitute1Ast i var v
   Ast.AstUnzipS v -> Ast.AstUnzipS <$> substitute1Ast i var v
 
-  Ast.AstZipX v -> Ast.AstZipX <$> substitute1Ast i var v
-  Ast.AstUnzipX v -> Ast.AstUnzipX <$> substitute1Ast i var v
-
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
   Ast.AstRFromX v -> astRFromX <$> substitute1Ast i var v
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
@@ -5106,8 +5048,6 @@ substitute1Ast i var v1 = case v1 of
     in if isJust mu || isJust mv
        then Just $ Ast.AstMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-
-  _ -> error "TODO"
 
 substitute1AstIxR
   :: (AstSpan s2, TensorKind y)

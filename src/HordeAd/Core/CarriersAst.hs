@@ -16,13 +16,13 @@ import Prelude hiding (foldl')
 
 import GHC.TypeLits (KnownNat)
 
-import Data.Array.Nested (KnownShS (..), KnownShX)
-import Data.Array.Nested qualified as Nested
+import Data.Array.Nested (KnownShS (..))
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.OpsConcrete ()
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * Basic type family instances
@@ -131,7 +131,7 @@ instance (GoodScalar r, RealFloatF r, AstSpan s)
 
 -- * Unlawful numeric instances for ranked AST; they are lawful modulo evaluation
 
-instance (Num (Nested.Ranked n r), GoodScalar r, KnownNat n)
+instance (GoodScalar r, KnownNat n)
          => Num (AstTensor ms s (TKR n r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -178,14 +178,14 @@ instance (GoodScalar r, Integral r, KnownNat n)
   quotF = AstI2R QuotOp
   remF = AstI2R RemOp
 
-instance (GoodScalar r, Differentiable r, Fractional (Nested.Ranked n r), KnownNat n)
+instance (GoodScalar r, Differentiable r, KnownNat n)
          => Fractional (AstTensor ms s (TKR n r)) where
   u / v = AstR2R DivideOp u v
   recip = AstR1R RecipOp
   fromRational r = error $ "fromRational not defined for ranked tensors: "
                            ++ show r
 
-instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
+instance (GoodScalar r, Differentiable r, KnownNat n)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi not defined for ranked tensors"
   exp = AstR1R ExpOp
@@ -206,14 +206,14 @@ instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan 
   acosh = AstR1R AcoshOp
   atanh = AstR1R AtanhOp
 
-instance (GoodScalar r, Differentiable r, Floating (Nested.Ranked n r), AstSpan s, KnownNat n)
+instance (GoodScalar r, Differentiable r, KnownNat n)
          => RealFloatF (AstTensor ms s (TKR n r)) where
   atan2F = AstR2R Atan2Op
 
 
 -- * Unlawful numeric instances for shaped AST; they are lawful modulo evaluation
 
-instance (GoodScalar r, Num (Nested.Shaped sh r), KnownShS sh)
+instance (GoodScalar r, KnownShS sh)
          => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
@@ -261,15 +261,14 @@ instance (Integral r, GoodScalar r, KnownShS sh)
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
-instance ( GoodScalar r, Differentiable r, Fractional (Nested.Shaped sh r)
-         , KnownShS sh )
+instance (GoodScalar r, Differentiable r, KnownShS sh)
          => Fractional (AstTensor ms s (TKS sh r)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational r = error $ "fromRational not defined for shaped tensors: "
                            ++ show r
 
-instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, KnownShS sh, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) (RepN pi)
   exp = AstR1S ExpOp
@@ -290,91 +289,64 @@ instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped s
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (GoodScalar r, Differentiable r, KnownShS sh, Floating (Nested.Shaped sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, KnownShS sh, AstSpan s)
          => RealFloatF (AstTensor ms s (TKS sh r)) where
   atan2F = AstR2S Atan2Op
 
 
 -- mixed
 
-instance (GoodScalar r, Num (Nested.Mixed sh r), KnownShX sh)
+instance GoodScalar r
          => Num (AstTensor ms s (TKX sh r)) where
-  -- The normal form has AstConcrete, if any, as the first element of the list.
-  -- All lists fully flattened and length >= 2.
-  AstSumOfListX (AstConcrete ftk u : lu) + AstSumOfListX (AstConcrete _ v : lv) =
-    AstSumOfListX (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfListX lu + AstSumOfListX (AstConcrete ftk v : lv) =
-    AstSumOfListX (AstConcrete ftk v : lv ++ lu)
-  AstSumOfListX lu + AstSumOfListX lv = AstSumOfListX (lu ++ lv)
-
-  AstConcrete ftk u + AstSumOfListX (AstConcrete _ v : lv) =
-    AstSumOfListX (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfListX (AstConcrete ftk v : lv) = AstSumOfListX (AstConcrete ftk v : u : lv)
-  u + AstSumOfListX lv = AstSumOfListX (u : lv)
-
-  AstSumOfListX (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfListX (AstConcrete ftk (u + v) : lu)
-  AstSumOfListX (AstConcrete ftk u : lu) + v = AstSumOfListX (AstConcrete ftk u : v : lu)
-  AstSumOfListX lu + v = AstSumOfListX (v : lu)
-
-  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfListX [AstConcrete ftk v, u]
-  u + v = AstSumOfListX [u, v]
-
-  AstConcrete ftk u - AstConcrete _ v =
-    AstConcrete ftk (u - v)  -- common in indexing
-  u - v = AstN2X MinusOp u v
-
-  AstConcrete ftk u * AstConcrete _ v =
-    AstConcrete ftk (u * v)  -- common in indexing
-  u * v = AstN2X TimesOp u v
-
-  negate = AstN1X NegateOp
-  abs = AstN1X AbsOp
-  signum = AstN1X SignumOp
+  (+) = liftXFromS2 (+)
+  (-) = liftXFromS2 (-)
+  (*) = liftXFromS2 (*)
+  negate = liftXFromS1 negate
+  abs = liftXFromS1 abs
+  signum = liftXFromS1 signum
   fromInteger i = error $ "fromInteger not defined for mixed tensors: "
                           ++ show i
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (Integral r, GoodScalar r, KnownShX sh)
+instance (Integral r, GoodScalar r)
          => IntegralF (AstTensor ms s (TKX sh r)) where
-  quotF = AstI2X QuotOp
-  remF = AstI2X RemOp
+  quotF = liftXFromS2 quotF
+  remF = liftXFromS2 remF
 
-instance ( GoodScalar r, Differentiable r, Fractional (Nested.Mixed sh r)
-         , KnownShX sh )
+instance (GoodScalar r, Differentiable r)
          => Fractional (AstTensor ms s (TKX sh r)) where
-  u / v = AstR2X DivideOp u v
-  recip = AstR1X RecipOp
+  (/) = liftXFromS2 (/)
+  recip = liftXFromS1 recip
   fromRational r = error $ "fromRational not defined for mixed tensors: "
                            ++ show r
 
-instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, AstSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
   pi = error "pi not defined for mixed tensors"
-  exp = AstR1X ExpOp
-  log = AstR1X LogOp
-  sqrt = AstR1X SqrtOp
-  (**) = AstR2X PowerOp
-  logBase = AstR2X LogBaseOp
-  sin = AstR1X SinOp
-  cos = AstR1X CosOp
-  tan = AstR1X TanOp
-  asin = AstR1X AsinOp
-  acos = AstR1X AcosOp
-  atan = AstR1X AtanOp
-  sinh = AstR1X SinhOp
-  cosh = AstR1X CoshOp
-  tanh = AstR1X TanhOp
-  asinh = AstR1X AsinhOp
-  acosh = AstR1X AcoshOp
-  atanh = AstR1X AtanhOp
+  exp = liftXFromS1 exp
+  log = liftXFromS1 log
+  sqrt = liftXFromS1 sqrt
+  (**) = liftXFromS2 (**)
+  logBase = liftXFromS2 logBase
+  sin = liftXFromS1 sin
+  cos = liftXFromS1 cos
+  tan = liftXFromS1 tan
+  asin = liftXFromS1 asin
+  acos = liftXFromS1 acos
+  atan = liftXFromS1 atan
+  sinh = liftXFromS1 sinh
+  cosh = liftXFromS1 cosh
+  tanh = liftXFromS1 tanh
+  asinh = liftXFromS1 asinh
+  acosh = liftXFromS1 acosh
+  atanh = liftXFromS1 atanh
 
-instance (GoodScalar r, Differentiable r, KnownShX sh, Floating (Nested.Mixed sh r), AstSpan s)
+instance (GoodScalar r, Differentiable r, AstSpan s)
          => RealFloatF (AstTensor ms s (TKX sh r)) where
-  atan2F = AstR2X Atan2Op
+  atan2F = liftXFromS2 atan2F
+
 
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 
