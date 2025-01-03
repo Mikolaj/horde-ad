@@ -365,8 +365,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rfromIntegral = fromPrimal . astFromIntegralR . astSpanPrimal
   rzip = AstZipR
   runzip = AstUnzipR
-  rtoScalar = AstToScalar . AstSFromR
-  rfromScalar = AstRFromS . AstFromScalar
+  rtoScalar = AstToScalar . astSFromR
+  rfromScalar = astRFromS . astFromScalar
 
   rfromPrimal = fromPrimal
   rprimalPart = astSpanPrimal
@@ -397,7 +397,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
           astXFromS @(n ': sh) @(Just n ': sh')
           $ astFromVectorS $ V.map (astSFromX @sh @sh') la
-  xreplicate = AstReplicate SNat stensorKind
+  xreplicate = astReplicate SNat stensorKind
   xtoScalar = AstToScalar . astSFromX
   xzip @_ @_ @sh' a = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
@@ -451,7 +451,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   szip = AstZipS
   sunzip = AstUnzipS
   stoScalar = AstToScalar
-  sfromScalar = AstFromScalar
+  sfromScalar = astFromScalar
 
   sfromPrimal = fromPrimal
   sprimalPart = astSpanPrimal
@@ -507,11 +507,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstProjectR hVectorOf i
+              DynamicRanked @r @n $ astProjectR hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
-            DynamicShaped @r @sh $ AstProjectS hVectorOf i
+            DynamicShaped @r @sh $ astProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
-  tunpairDup (AstPair t1 t2) = (t1, t2)
   tunpairDup t = (tproject1 t, tproject2 t)
   dbuild1 k f = astBuild1Vectorize k f
   -- TODO: (still) relevant?
@@ -1016,8 +1015,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoVectorize $ astHApply t (unAstNoVectorize ll)
   dunHVector = noVectorizeHVector . dunHVector . unAstNoVectorize
-  tunpairDup (AstNoVectorize (AstPair t1 t2)) =
-    (AstNoVectorize t1, AstNoVectorize t2)
   tunpairDup t = (tproject1 t, tproject2 t)
   dbuild1 k f =
     AstNoVectorize . AstBuild1 k $ funToAstI (unAstNoVectorize . f . AstNoVectorize)
@@ -1287,7 +1284,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in noSimplifyHVector $ V.imap f $ shapeAstHVector hVectorOf
-  tunpairDup (AstNoSimplify (AstPair t1 t2)) =
+  tunpairDup (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification
     (AstNoSimplify t1, AstNoSimplify t2)
   tunpairDup t = (tproject1 t, tproject2 t)
   dbuild1 k f = AstNoSimplify $ astBuild1Vectorize
