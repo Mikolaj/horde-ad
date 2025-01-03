@@ -249,9 +249,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstPair :: (TensorKind y, TensorKind z)
           => AstTensor ms s y -> AstTensor ms s z
           -> AstTensor ms s (TKProduct y z)
-  AstProject1 :: forall x z s ms. (TensorKind x, TensorKind z)
+  AstProject1 :: (TensorKind x, TensorKind z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s x
-  AstProject2 :: forall x z s ms. (TensorKind x, TensorKind z)
+  AstProject2 :: (TensorKind x, TensorKind z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s z
   AstApply :: (TensorKind x, TensorKind z)
             => AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
@@ -278,7 +278,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstBuild1 :: TensorKind y
             => SNat k -> (IntVarName, AstTensor ms s y)
             -> AstTensor ms s (BuildTensorKind k y)
-  AstLet :: forall y z s s2. (AstSpan s, TensorKind y, TensorKind z)
+  AstLet :: (TensorKind y, TensorKind z, AstSpan s)
          => AstVarName s y -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s2 z
          -> AstTensor AstMethodLet s2 z
@@ -336,21 +336,21 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSumOfListR :: (GoodScalar r, KnownNat n)
                 => [AstTensor ms s (TKR n r)] -> AstTensor ms s (TKR n r)
   AstMinIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
-              => AstTensor ms PrimalSpan (TKR (1 + n) r)
-              -> AstTensor ms PrimalSpan (TKR n r2)
+               => AstTensor ms PrimalSpan (TKR (1 + n) r)
+               -> AstTensor ms PrimalSpan (TKR n r2)
   AstMaxIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
-              => AstTensor ms PrimalSpan (TKR (1 + n) r)
-              -> AstTensor ms PrimalSpan (TKR n r2)
+               => AstTensor ms PrimalSpan (TKR (1 + n) r)
+               -> AstTensor ms PrimalSpan (TKR n r2)
   AstFloorR :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
                , KnownNat n )
-           => AstTensor ms PrimalSpan (TKR n r)
-           -> AstTensor ms PrimalSpan (TKR n r2)
+            => AstTensor ms PrimalSpan (TKR n r)
+            -> AstTensor ms PrimalSpan (TKR n r2)
   AstCastR :: ( GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2
-             , KnownNat n )
-          => AstTensor ms s (TKR n r1) -> AstTensor ms s (TKR n r2)
+              , KnownNat n )
+           => AstTensor ms s (TKR n r1) -> AstTensor ms s (TKR n r2)
   AstFromIntegralR :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
-                  => AstTensor ms PrimalSpan (TKR n r1)
-                  -> AstTensor ms PrimalSpan (TKR n r2)
+                   => AstTensor ms PrimalSpan (TKR n r1)
+                   -> AstTensor ms PrimalSpan (TKR n r2)
   AstIotaR :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
 
   AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, TensorKind r)
@@ -440,10 +440,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstFromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
                    => AstTensor ms PrimalSpan (TKS sh r1)
                    -> AstTensor ms PrimalSpan (TKS sh r2)
-  AstIotaS :: forall n r ms. (GoodScalar r, KnownNat n)
+  AstIotaS :: (KnownNat n, GoodScalar r)
            => AstTensor ms PrimalSpan (TKS '[n] r)
 
-  AstIndexS :: forall shm shn s x ms.
+  AstIndexS :: forall shm shn x s ms.
                (KnownShS shm, KnownShS shn, TensorKind x)
             => AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
@@ -468,8 +468,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstReverseS :: (KnownNat n, KnownShS sh, TensorKind r)
               => AstTensor ms s (TKS2 (n ': sh) r)
               -> AstTensor ms s (TKS2 (n ': sh) r)
-  AstTransposeS :: forall perm sh r s ms.
-                   (PermC perm, KnownShS sh, Rank perm <= Rank sh, TensorKind r)
+  AstTransposeS :: (PermC perm, KnownShS sh, TensorKind r, Rank perm <= Rank sh)
                 => Permutation.Perm perm -> AstTensor ms s (TKS2 sh r)
                 -> AstTensor ms s (TKS2 (Permutation.PermutePrefix perm sh) r)
   AstReshapeS :: ( KnownShS sh, KnownShS sh2
@@ -502,29 +501,23 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstXFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
             => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKX2 sh' r)
 
-  AstXNestR :: forall sh1 m x ms s.
-               (TensorKind x, KnownShX sh1, KnownNat m)
+  AstXNestR :: (KnownShX sh1, KnownNat m, TensorKind x)
             => AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
             -> AstTensor ms s (TKX2 sh1 (TKR2 m x))
-  AstXNestS :: forall sh1 sh2 x ms s.
-               (TensorKind x, KnownShX sh1, KnownShS sh2)
+  AstXNestS :: (KnownShX sh1, KnownShS sh2, TensorKind x)
             => AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
             -> AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
-  AstXNest :: forall sh1 sh2 x ms s.
-              (TensorKind x, KnownShX sh1, KnownShX sh2)
+  AstXNest :: (KnownShX sh1, KnownShX sh2, TensorKind x)
            => AstTensor ms s (TKX2 (sh1 ++ sh2) x)
            -> AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
 
-  AstXUnNestR :: forall sh1 m x ms s.
-                 (TensorKind x, KnownShX sh1, KnownNat m)
+  AstXUnNestR :: (KnownShX sh1, KnownNat m, TensorKind x)
               => AstTensor ms s (TKX2 sh1 (TKR2 m x))
               -> AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
-  AstXUnNestS :: forall sh1 sh2 x ms s.
-                 (TensorKind x, KnownShX sh1, KnownShS sh2)
+  AstXUnNestS :: (KnownShX sh1, KnownShS sh2, TensorKind x)
               => AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
               -> AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
-  AstXUnNest :: forall sh1 sh2 x ms s.
-                (TensorKind x, KnownShX sh1, KnownShX sh2)
+  AstXUnNest :: (KnownShX sh1, KnownShX sh2, TensorKind x)
              => AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
              -> AstTensor ms s (TKX2 (sh1 ++ sh2) x)
 

@@ -442,7 +442,7 @@ overleaf v = let wrap i = i `remF` fromIntegral (rlength v)
 testOverleaf :: Assertion
 testOverleaf =
   assertEqualUpToEpsilon' 1e-10
-    (ringestData @_ @Double [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (ringestData @Double [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @0 overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafInt64n :: Assertion
@@ -464,24 +464,24 @@ testOverleafCIntToFloatn =
   assertEqualUpToEpsilon 1e-10
     (rfromList0N [28] (replicate 28 (rscalar 0.0)))
     (rev @_ @(TKR 0 Float)
-         (rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
+         (rfromIntegral . overleaf @CInt . rfloor) (ringestData @Float [28] [0 .. 27]))
 
 testOverleafInt64p :: Assertion
 testOverleafInt64p =
   assertEqualUpToEpsilon' 1e-10
-    (ringestData @_ @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (ringestData @Int64 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
     (rev' @Int64 @0 overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCIntp :: Assertion
 testOverleafCIntp =
   assertEqualUpToEpsilon' 1e-10
-    (ringestData @_ @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (ringestData @CInt [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
     (rev' @CInt @0 overleaf (ringestData [28] [0 .. 27]))
 
 testOverleafCIntToFloatp :: Assertion
 testOverleafCIntToFloatp =
   assertEqualUpToEpsilon' 1e-10
-    (ringestData @_ @Float @1 [28] (replicate 28 0.0))
+    (ringestData @Float @1 [28] (replicate 28 0.0))
     (let f :: forall f. ADReady f => f (TKR 1 Float) -> f (TKR 0 Float)
          f = rfromIntegral . overleaf @CInt . rfloor
      in rev' @Float @0 f (ringestData [28] [0 .. 27]))
