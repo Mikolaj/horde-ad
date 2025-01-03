@@ -33,7 +33,14 @@ import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
-  (IShX, KnownShX (..), shxAppend, ssxAppend, ssxFromShape, ssxReplicate)
+  ( IShX
+  , KnownShX (..)
+  , shxAppend
+  , ssxAppend
+  , ssxFromShape
+  , ssxReplicate
+  , withKnownShX
+  )
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -48,7 +55,15 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, shsKnownShS, shsRank)
+  ( shCvtRX
+  , shCvtSX
+  , shrAppend
+  , shrRank
+  , shsAppend
+  , shsKnownShS
+  , shsRank
+  , withKnownShS
+  )
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind

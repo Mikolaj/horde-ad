@@ -29,10 +29,12 @@ import Foreign.C (CInt)
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
+import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Nested
   (IxR (..), KnownShS (..), KnownShX (..), ListR (..), ListS (..), ShR (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shrRank, shsAppend, shsProduct)
+import Data.Array.Nested.Internal.Shape
+  (shrRank, shsAppend, shsProduct, withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv

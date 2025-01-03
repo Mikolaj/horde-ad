@@ -29,7 +29,14 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (sameNat, type (+))
 
 import Data.Array.Mixed.Shape
-  (KnownShX (..), shxAppend, shxDropSSX, shxSize, shxTakeSSX, ssxFromShape)
+  ( KnownShX (..)
+  , shxAppend
+  , shxDropSSX
+  , shxSize
+  , shxTakeSSX
+  , ssxFromShape
+  , withKnownShX
+  )
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   (IShR, KnownShS (..), MapJust, Rank, Replicate, ShR (..), ShS (..))
@@ -44,6 +51,7 @@ import Data.Array.Nested.Internal.Shape
   , shsPermutePrefix
   , shsRank
   , shsSize
+  , withKnownShS
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 

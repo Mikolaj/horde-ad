@@ -26,7 +26,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (fromSNat, KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IxR (..)
   , IxS (..)
@@ -37,7 +37,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend)
+import Data.Array.Nested.Internal.Shape (shCvtSX, withKnownShS, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor

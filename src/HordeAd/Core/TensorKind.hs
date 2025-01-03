@@ -41,7 +41,7 @@ import Type.Reflection (TypeRep, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Shape
-  (IShX, KnownShX (..), StaticShX (..), ssxFromShape)
+  (IShX, KnownShX (..), StaticShX (..), ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -58,7 +58,8 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed as Mixed
-import Data.Array.Nested.Internal.Shape (shrRank, shsKnownShS, shsRank)
+import Data.Array.Nested.Internal.Shape
+  (shrRank, shsKnownShS, shsRank, withKnownShS)
 
 import HordeAd.Core.Types
 

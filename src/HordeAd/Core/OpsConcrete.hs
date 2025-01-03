@@ -54,11 +54,12 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shrRank, shrSize, shsTail, shrTail, shsAppend, shsProduct, shsSize)
+  (shrRank, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Mixed.Shape (withKnownShX)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal

@@ -17,12 +17,14 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 import Type.Reflection (typeRep)
 
+import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 updateWithGradient :: Double -> HVector RepN -> HVector RepN -> HVector RepN

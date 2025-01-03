@@ -26,7 +26,8 @@ import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Shape
+  (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -43,7 +44,14 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtSX, shrRank, shsAppend, shsLength, shsPermutePrefix, shsRank)
+  ( shCvtSX
+  , shrRank
+  , shsAppend
+  , shsLength
+  , shsPermutePrefix
+  , shsRank
+  , withKnownShS
+  )
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))

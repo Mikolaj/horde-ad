@@ -79,6 +79,7 @@ import Data.Array.Mixed.Shape
   , shxAppend
   , shxDropSSX
   , shxTakeSSX
+  , withKnownShX
   )
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
@@ -103,6 +104,7 @@ import Data.Array.Nested.Internal.Shape
   , shsAppend
   , shsPermutePrefix
   , shsRank
+  , withKnownShS
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 

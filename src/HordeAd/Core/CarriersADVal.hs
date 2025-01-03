@@ -22,9 +22,9 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape (ssxFromShape)
+import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
 import Data.Array.Nested (KnownShS (..))
-import Data.Array.Nested.Internal.Shape (shrRank)
+import Data.Array.Nested.Internal.Shape (shrRank, withKnownShS)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId

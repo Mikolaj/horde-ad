@@ -7,7 +7,6 @@ module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
     -- * Definitions for type-level list shapes
-  , withKnownShS, withKnownShX
   , slistKnown, sixKnown
   , shapeP, sizeT, sizeP
   , withShapeP, sameShape, matchingRank
@@ -71,7 +70,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank, withKnownShX)
+import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank)
 import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -97,7 +96,6 @@ import Data.Array.Nested.Internal.Shape
   , shsProduct
   , shsRank
   , shsToList
-  , withKnownShS
   )
 
 -- * Definitions to help express and manipulate type-level natural numbers

@@ -21,7 +21,8 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Shape
+  (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
 import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested
   ( KnownShS (..)
@@ -33,7 +34,8 @@ import Data.Array.Nested
   , ShX (..)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsAppend, shsRank)
+import Data.Array.Nested.Internal.Shape
+  (shCvtSX, shsAppend, shsRank, withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete

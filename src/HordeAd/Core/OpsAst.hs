@@ -27,6 +27,8 @@ import GHC.Exts (IsList (..))
 
 import Data.Array.Nested (type (++), Rank, IShR, KnownShS (..), KnownShX (..))
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Mixed.Shape (withKnownShX)
+import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast

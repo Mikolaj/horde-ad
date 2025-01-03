@@ -82,7 +82,8 @@ import Type.Reflection (typeRep)
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (ssxAppend, ssxFromShape, ssxReplicate)
+import Data.Array.Mixed.Shape
+  (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
 import Data.Array.Mixed.Types (Init, Last, Tail, unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -144,6 +145,7 @@ import Data.Array.Nested.Internal.Shape
   , shsRank
   , shsTail
   , shsTakeLen
+  , withKnownShS
   )
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
