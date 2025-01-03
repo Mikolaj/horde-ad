@@ -7,7 +7,6 @@ module HordeAd.Core.CarriersConcrete
 
 import Prelude hiding (foldl')
 
-import Control.DeepSeq (NFData (..))
 import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
@@ -24,32 +23,6 @@ import HordeAd.Core.Types
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
-
-instance TensorKind y
-         => NFData (RepN y) where
-  rnf (RepN t) = case stensorKind @y of
-    STKScalar _ -> rnf t
-    STKR _ STKScalar{} -> rnf t
---    STKR _ (STKR _ STKScalar{}) -> rnf t
---    STKR _ (STKS _ STKScalar{}) -> rnf t
-    STKR _ (STKX _ STKScalar{}) -> rnf t
---    STKR _ (STKProduct (STKR _ STKScalar{}) (STKR _ STKScalar{})) -> rnf t
-    STKS _ STKScalar{} -> rnf t
---    STKS _ (STKR _ STKScalar{}) -> rnf t
---    STKS _ (STKS _ STKScalar{}) -> rnf t
-    STKS _ (STKX _ STKScalar{}) -> rnf t
---    STKS _ (STKProduct (STKS _ STKScalar{}) (STKS _ STKScalar{})) -> rnf t
-    STKX _ STKScalar{} -> rnf t
---    STKX _ (STKR _ STKScalar{}) -> rnf t
---    STKX _ (STKS _ STKScalar{}) -> rnf t
-    STKX _ (STKX _ STKScalar{}) -> rnf t
-    STKX _ (STKProduct (STKX _ STKScalar{}) (STKX _ STKScalar{})) -> rnf t
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-      rnf (RepN @y1 $ fst t, RepN @y2 $ snd t)
-    STKUntyped -> rnf t
-    _ -> error "TODO"
-
 
 instance (Nested.PrimElt r, Integral r)
          => IntegralF (Nested.Ranked n r) where

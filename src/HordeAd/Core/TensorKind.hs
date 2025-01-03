@@ -318,6 +318,19 @@ showDictRep = \case
                          , Dict <- showDictRep stk2 -> Dict
     STKUntyped -> Dict
 
+nfdataDictRep :: STensorKindType y -> Dict NFData (RepORArray y)
+nfdataDictRep = \case
+    STKScalar{} -> Dict
+    STKR _ x | Dict <- nfdataDictRep x
+             , Dict <- eltDictRep x -> Dict
+    STKS _ x | Dict <- nfdataDictRep x
+             , Dict <- eltDictRep x -> Dict
+    STKX _ x | Dict <- nfdataDictRep x
+             , Dict <- eltDictRep x -> Dict
+    STKProduct stk1 stk2 | Dict <- nfdataDictRep stk1
+                         , Dict <- nfdataDictRep stk2 -> Dict
+    STKUntyped -> Dict
+
 -- TODO: move back to HordeAd.Core.CarriersConcrete as soon as TKUntyped is gone
 --
 -- Needed because `RepORArray` can't be partially applied.
@@ -329,6 +342,9 @@ newtype RepN y = RepN {unRepN :: RepORArray y}
 
 instance TensorKind y => Show (RepN y) where
   showsPrec d (RepN t) | Dict <- showDictRep (stensorKind @y) = showsPrec d t
+
+instance TensorKind y => NFData (RepN y) where
+  rnf (RepN t) | Dict <- nfdataDictRep (stensorKind @y) = rnf t
 
 type instance BoolOf RepN = Bool
 
