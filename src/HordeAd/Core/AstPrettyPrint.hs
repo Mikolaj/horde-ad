@@ -486,10 +486,8 @@ printAstAux cfg d = \case
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
 
   AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
-  AstRFromX v -> printPrefixOp printAst cfg d "rfromX" [v]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
-  AstXFromR v -> printPrefixOp printAst cfg d "xfromR" [v]
   AstXFromS v -> printPrefixOp printAst cfg d "xfromS" [v]
 
   AstXNestR @sh1 @m v ->

@@ -464,10 +464,18 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
 
   rfromS = astRFromS
-  rfromX = astRFromX
+  rfromX @_ @sh' a = case ftkAst a of
+    FTKX sh' _ ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        astRFromS @sh $ astSFromX @sh @sh' a
   sfromR = astSFromR
   sfromX = astSFromX
-  xfromR = astXFromR
+  xfromR @sh' a = case ftkAst a of
+    FTKR sh2 _ ->
+      withShapeP (toList sh2) $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        astXFromS @sh @sh' $ astSFromR @sh a
   xfromS = astXFromS
 
   xnestR sh =
@@ -779,10 +787,18 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                   . astSpanPrimalRaw . unAstRaw
 
   rfromS = AstRaw . AstRFromS . unAstRaw
-  rfromX = AstRaw . AstRFromX . unAstRaw
+  rfromX @_ @sh' (AstRaw a) = case ftkAst a of
+    FTKX sh' _ ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstRaw $ AstRFromS @sh $ AstSFromX @sh @sh' a
   sfromR = AstRaw . AstSFromR . unAstRaw
   sfromX = AstRaw . AstSFromX . unAstRaw
-  xfromR = AstRaw . AstXFromR . unAstRaw
+  xfromR @sh' (AstRaw a) = case ftkAst a of
+    FTKR sh2 _ ->
+      withShapeP (toList sh2) $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstRaw $ AstXFromS @sh @sh' $ AstSFromR @sh a
   xfromS = AstRaw . AstXFromS . unAstRaw
 
   xnestR sh =
@@ -1236,10 +1252,18 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                   . astSpanPrimal . unAstNoSimplify
 
   rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
-  rfromX = AstNoSimplify . AstRFromX . unAstNoSimplify
+  rfromX @_ @sh' (AstNoSimplify a) = case ftkAst a of
+    FTKX sh' _ ->
+      withShapeP (toList sh') $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstNoSimplify $ AstRFromS @sh $ AstSFromX @sh @sh' a
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
-  sfromX = AstNoSimplify . AstSFromX . unAstNoSimplify
-  xfromR = AstNoSimplify . AstXFromR . unAstNoSimplify
+  sfromX  = AstNoSimplify . AstSFromX . unAstNoSimplify
+  xfromR @sh' (AstNoSimplify a) = case ftkAst a of
+    FTKR sh2 _ ->
+      withShapeP (toList sh2) $ \ (Proxy @sh) ->
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+        AstNoSimplify $ AstXFromS @sh @sh' $ AstSFromR @sh a
   xfromS = AstNoSimplify . AstXFromS . unAstNoSimplify
 
   xnestR sh =

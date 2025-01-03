@@ -495,14 +495,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   -- Ops that involve more than one variant of arrays
   AstRFromS :: (KnownShS sh, TensorKind r)
             => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
-  AstRFromX :: (KnownShX sh, TensorKind r)
-            => AstTensor ms s (TKX2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
   AstSFromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
             => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
-  AstXFromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind r)
-            => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKX2 sh r)
   AstXFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
             => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKX2 sh' r)
 

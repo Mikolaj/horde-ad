@@ -33,7 +33,7 @@ module HordeAd.Core.AstSimplify
   , astFromIntegral, astFromIntegralR, astFromIntegralS
   , astProject1, astProject2, astProjectR, astProjectS
   , astPrimalPart, astDualPart
-  , astRFromS, astRFromX, astSFromR, astSFromX, astXFromR, astXFromS
+  , astRFromS, astSFromR, astSFromX, astXFromS
   , astXNestR, astXNestS, astXNest, astXUnNestR, astXUnNestS, astXUnNest
   , astLetHVectorIn, astHApply, astLetFun
     -- * The expansion (e.g., into gather expressions) bottom-up pass
@@ -432,10 +432,8 @@ astNonIndexStep t = case t of
   Ast.AstUnzipS _ -> t
 
   Ast.AstRFromS v -> astRFromS v
-  Ast.AstRFromX v -> astRFromX v
   Ast.AstSFromR v -> astSFromR v
   Ast.AstSFromX v -> astSFromX v
-  Ast.AstXFromR v -> astXFromR v
   Ast.AstXFromS v -> astXFromS v
   Ast.AstXNestR v -> astXNestR v
   Ast.AstXNestS v -> astXNestS v
@@ -688,7 +686,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
     astRFromS $ astIndexKnobsS @(Take m sh) @(Drop m sh)
                                knobs t (ixsToIxr ix)
-  Ast.AstRFromX{} -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndex v0 ix
 
@@ -1310,7 +1307,6 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
          astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
-    Ast.AstRFromX{} -> error "TODO"
     Ast.AstZipR _v -> error "TODO"
 
     Ast.AstApply{} -> Ast.AstGather sh4 v4 (vars4, ix4)
@@ -2704,20 +2700,6 @@ astRFromS (Ast.AstFromPrimal v)
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
-astRFromX :: forall sh s r. (TensorKind r, KnownShX sh)
-          => AstTensor AstMethodLet s (TKX2 sh r)
-          -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
-astRFromX (AstConcrete ftk t)
- | SNat <- ssxRank (knownShX @sh) = case ftk of
-  FTKX _ x ->
-    let u = rfromX t
-    in AstConcrete (FTKR (rshape u) x) u
-astRFromX (Ast.AstFromPrimal v)
- | SNat <- ssxRank (knownShX @sh) =
-  Ast.AstFromPrimal $ astRFromX v
-astRFromX (Ast.AstXFromR v) = v  -- no information lost, so no checks
-astRFromX v = Ast.AstRFromX v
-
 astSFromR :: forall sh s r. (TensorKind r, KnownShS sh, KnownNat (Rank sh))
           => AstTensor AstMethodLet s (TKR2 (Rank sh) r)
           -> AstTensor AstMethodLet s (TKS2 sh r)
@@ -2746,17 +2728,6 @@ astSFromX (Ast.AstXFromS @sh1 v) =
     Just Refl -> v
     _ -> error "astSFromX: different shapes in SFromX(XFromS)"
 astSFromX v = Ast.AstSFromX v
-
-astXFromR :: forall sh s r.
-             (KnownShX sh, KnownNat (Rank sh), TensorKind r)
-          => AstTensor AstMethodLet s (TKR2 (Rank sh) r)
-          -> AstTensor AstMethodLet s (TKX2 sh r)
-astXFromR (AstConcrete ftk t) = case ftk of
-  FTKR _ x ->
-    let u = xfromR t
-    in AstConcrete (FTKX (xshape u) x) u
-astXFromR (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astXFromR v
-astXFromR v = Ast.AstXFromR v
 
 astXFromS :: forall sh sh' s r.
              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
@@ -2960,10 +2931,8 @@ astPrimalPart t = case t of
   Ast.AstUnzipS v -> Ast.AstUnzipS (astPrimalPart v)
 
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
-  Ast.AstRFromX v -> astRFromX $ astPrimalPart v
   Ast.AstSFromR v -> astSFromR $ astPrimalPart v
   Ast.AstSFromX v -> astSFromX $ astPrimalPart v
-  Ast.AstXFromR v -> astXFromR $ astPrimalPart v
   Ast.AstXFromS v -> astXFromS $ astPrimalPart v
 
   Ast.AstXNestR @sh1 @m v ->
@@ -3083,10 +3052,8 @@ astDualPart t = case t of
   Ast.AstUnzipS v -> Ast.AstUnzipS (astDualPart v)
 
   Ast.AstRFromS v -> astRFromS $ astDualPart v
-  Ast.AstRFromX v -> astRFromX $ astDualPart v
   Ast.AstSFromR v -> astSFromR $ astDualPart v
   Ast.AstSFromX v -> astSFromX $ astDualPart v
-  Ast.AstXFromR v -> astXFromR $ astDualPart v
   Ast.AstXFromS v -> astXFromS $ astDualPart v
 
   Ast.AstXNestR @sh1 @m v ->
@@ -3465,10 +3432,8 @@ expandAst t = case t of
   Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
 
   Ast.AstRFromS v -> astRFromS $ expandAst v
-  Ast.AstRFromX v -> astRFromX $ expandAst v
   Ast.AstSFromR v -> astSFromR $ expandAst v
   Ast.AstSFromX v -> astSFromX $ expandAst v
-  Ast.AstXFromR v -> astXFromR $ expandAst v
   Ast.AstXFromS v -> astXFromS $ expandAst v
 
   Ast.AstXNestR @sh1 @m v ->
@@ -3678,10 +3643,8 @@ simplifyAst t = case t of
   Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
 
   Ast.AstRFromS v -> astRFromS $ simplifyAst v
-  Ast.AstRFromX v -> astRFromX $ simplifyAst v
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
   Ast.AstSFromX v -> astSFromX $ simplifyAst v
-  Ast.AstXFromR v -> astXFromR $ simplifyAst v
   Ast.AstXFromS v -> astXFromS $ simplifyAst v
 
   Ast.AstXNestR @sh1 @m v ->
@@ -4332,10 +4295,8 @@ contractAst t = case t of
   Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
 
   Ast.AstRFromS v -> astRFromS $ contractAst v
-  Ast.AstRFromX v -> astRFromX $ contractAst v
   Ast.AstSFromR v -> astSFromR $ contractAst v
   Ast.AstSFromX v -> astSFromX $ contractAst v
-  Ast.AstXFromR v -> astXFromR $ contractAst v
   Ast.AstXFromS v -> astXFromS $ contractAst v
 
   Ast.AstXNestR @sh1 @m v ->
@@ -4929,10 +4890,8 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstUnzipS v -> Ast.AstUnzipS <$> substitute1Ast i var v
 
   Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
-  Ast.AstRFromX v -> astRFromX <$> substitute1Ast i var v
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstSFromX v -> astSFromX <$> substitute1Ast i var v
-  Ast.AstXFromR v -> astXFromR <$> substitute1Ast i var v
   Ast.AstXFromS v -> astXFromS <$> substitute1Ast i var v
 
   Ast.AstXNestR @sh1 @m v ->

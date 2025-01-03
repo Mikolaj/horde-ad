@@ -446,11 +446,8 @@ build1V snat@SNat (var, v0) =
 
     Ast.AstRFromS @sh1 v -> traceRule $
       astRFromS @(k ': sh1) $ build1V snat (var, v)
-    Ast.AstRFromX @sh1 v -> traceRule $
-      astRFromX @(Just k ': sh1) $ build1V snat (var, v)
     Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
     Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
-    Ast.AstXFromR v -> traceRule $ astXFromR $ build1V snat (var, v)
     Ast.AstXFromS v -> traceRule $ astXFromS $ build1V snat (var, v)
 
     Ast.AstXNestR @sh1 @m v -> traceRule $

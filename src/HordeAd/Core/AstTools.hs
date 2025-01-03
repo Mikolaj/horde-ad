@@ -189,16 +189,10 @@ ftkAst t = case t of
   AstRFromS @sh v
    | SNat <- shsRank (knownShS @sh) -> case ftkAst v of
     FTKS _ x -> FTKR (fromList $ toList $ knownShS @sh) x
-  AstRFromX @sh v
-   | SNat <- ssxRank (knownShX @sh) -> case ftkAst v of
-    FTKX shx x -> FTKR (fromList $ toList shx) x
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
     FTKX _ x -> FTKS knownShS x
-  AstXFromR @sh v
-   | SNat <- ssxRank (knownShX @sh) -> case ftkAst v of
-    FTKR shr x -> FTKX (fromList $ toList shr) x
   AstXFromS v -> case ftkAst v of
     FTKS sh x -> FTKX (fromList $ toList sh) x
 
@@ -370,10 +364,8 @@ varInAst var = \case
   AstUnzipS v -> varInAst var v
 
   AstRFromS v -> varInAst var v
-  AstRFromX v -> varInAst var v
   AstSFromR v -> varInAst var v
   AstSFromX v -> varInAst var v
-  AstXFromR v -> varInAst var v
   AstXFromS v -> varInAst var v
 
   AstXNestR v -> varInAst var v
@@ -460,7 +452,6 @@ astIsSmall relaxed = \case
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstProjectR t _ -> astIsSmall relaxed t
   AstRFromS v -> astIsSmall relaxed v
-  AstRFromX v -> astIsSmall relaxed v
 
   AstIotaS -> True
   AstFromVectorS v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
@@ -471,7 +462,6 @@ astIsSmall relaxed = \case
   AstProjectS t _ -> astIsSmall relaxed t
   AstSFromR v -> astIsSmall relaxed v
   AstSFromX v -> astIsSmall relaxed v
-  AstXFromR v -> astIsSmall relaxed v
   AstXFromS v -> astIsSmall relaxed v
 
   AstMkHVector v | V.length v == 1 -> case v V.! 0 of
