@@ -210,21 +210,10 @@ build1V snat@SNat (var, v0) =
       traceRule $
         Ast.AstD (build1VOccurenceUnknown snat (var, u))
                  (build1VOccurenceUnknown snat (var, u'))
-    Ast.AstCond b v w -> traceRule $ case stensorKind @y of
-      STKScalar{} ->
-        error $ "build1V: AstCond: building over scalars is undefined: "
-                ++ show v0
-      STKR SNat x | Dict <- lemTensorKindOfSTK x ->
-        let t = astIndexStep (astFromVector (SNat @2) $ V.fromList [v, w])
-                             (astCond b 0 1 :.: ZIR)
-        in build1VOccurenceUnknown snat (var, t)
-      STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
-        let t = astIndexStepS @'[2] (astFromVector (SNat @2) $ V.fromList [v, w])
-                                    (astCond b 0 1 :.$ ZIS)
-        in build1VOccurenceUnknown snat (var, t)
-      STKX{} -> error "TODO"
-      STKProduct{} -> error "TODO"  -- revisit when we have general Index; also look at tcond
-      STKUntyped -> error "TODO"
+    Ast.AstCond b u v -> traceRule $
+      let uv = astFromVector (SNat @2) (V.fromList [u, v])
+          t = astIndexBuild (SNat @2) (stensorKind @y) uv (astCond b 0 1)
+      in build1VOccurenceUnknown snat (var, t)
     Ast.AstFromVector @y2 snat1@(SNat @k1) l
      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $
       astTrBuild @k1 @k (stensorKind @y2)
@@ -785,9 +774,9 @@ astIndexBuild :: forall y k s. AstSpan s
 astIndexBuild snat@SNat stk u i = case stk of
   STKScalar{} -> u
   STKR SNat x | Dict <- lemTensorKindOfSTK x ->
-    Ast.AstIndex u (i :.: ZIR)
+    astIndexStep u (i :.: ZIR)
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
-    withKnownShS sh $ Ast.AstIndexS u (i :.$ ZIS)
+    withKnownShS sh $ astIndexStepS u (i :.$ ZIS)
   STKX @sh sh x | Dict <- lemTensorKindOfSTK x -> case ftkAst u of
    FTKX sh3 _->
     withKnownShX sh $
@@ -804,7 +793,7 @@ astIndexBuild snat@SNat stk u i = case stk of
         -- The above is somehow not enough and so we need this:
         gcastWith (unsafeCoerceRefl :: Rank sh2Rest :~: Rank sh) $
         Ast.AstXFromS @sh2Rest @sh
-        $ Ast.AstIndexS (Ast.AstSFromX @sh2 @(Just k ': sh) u)
+        $ astIndexStepS (Ast.AstSFromX @sh2 @(Just k ': sh) u)
                         (i :.$ ZIS)
   STKProduct stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1

@@ -207,7 +207,7 @@ class ShareTensor (target :: Target) where
                    -> Data.Vector.Vector (target y)
                    -> target (BuildTensorKind k y)
   tfromVectorShare snat@SNat stk v = case stk of
-    STKScalar{} -> error "tfromVector: vector of scalars"
+    STKScalar{} -> error "tfromVectorShare: vector of scalars"
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rfromVector v
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
