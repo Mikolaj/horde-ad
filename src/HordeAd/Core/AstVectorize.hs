@@ -846,43 +846,16 @@ substProjRep
 substProjRep snat@SNat var ftk2 var1 v
   | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) =
     let var3 :: AstVarName s2 (BuildTensorKind k y2)
-        var3 = mkAstVarName (varNameToAstVarId var1)
+        var3 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
         ftk3 = buildFTK snat ftk2
         astVar3 = Ast.AstVar ftk3 var3
         v2 = substituteAst
                (astIndexBuild snat (ftkToStk ftk2) astVar3 (Ast.AstIntVar var))
                var1 v
+          -- The subsitutions of projections don't break sharing,
+          -- because they don't duplicate variables and the added var
+          -- is eventually being eliminated instead of substituted for.
     in (var3, ftk3, v2)
-
-substProjRanked :: forall n1 r1 s1 s y.
-                   ( KnownNat n1, GoodScalar r1, AstSpan s, AstSpan s1
-                   , TensorKind y )
-                => Int -> IntVarName -> IShR n1
-                -> AstVarName s1 (TKR n1 r1)
-                -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-substProjRanked k var sh1 var1 =
-  let var2 = mkAstVarName @s1 @(TKR (1 + n1) r1) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-      projection =
-        Ast.AstIndex (Ast.AstVar (FTKR (k :$: sh1) FTKScalar) var2)
-                     (Ast.AstIntVar var :.: ZIR)
-  in substituteAst
-       projection var1
-         -- The subsitutions of projections don't break sharing,
-         -- because they don't duplicate variables and the added var
-         -- is eventually being eliminated instead of substituted for.
-
-substProjShaped :: forall k sh1 r1 s1 s y.
-                   ( KnownNat k, KnownShS sh1, GoodScalar r1
-                   , AstSpan s, AstSpan s1, TensorKind y )
-                => IntVarName -> AstVarName s1 (TKS sh1 r1)
-                -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-substProjShaped var var1 =
-  let var2 = mkAstVarName @s1 @(TKS (k : sh1) r1) (varNameToAstVarId var1)
-      projection =
-        Ast.AstIndexS (Ast.AstVar @(TKS (k ': sh1) r1) (FTKS knownShS FTKScalar) var2)
-                      (Ast.AstIntVar var :.$ ZIS)
-  in substituteAst
-       projection var1
 
 substProjDynamic :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
                  => IntVarName -> AstTensor AstMethodLet s y
@@ -891,12 +864,17 @@ substProjDynamic :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
     ( withListSh (Proxy @sh3) $ \sh1 ->
-        substProjRanked @_ @r3 @s
-                        (valueOf @k) var sh1 (mkAstVarName varId) v3
+        let ftk2 = FTKR sh1 (FTKScalar @r3)
+            var1 = mkAstVarName varId
+            (_, _, u) = substProjRep @_ @_ @s (SNat @k) var ftk2 var1 v3
+        in u
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
   | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    ( substProjShaped @k @sh3 @r3 @s var (mkAstVarName varId) v3
+    (   let ftk2 = FTKS (knownShS @sh3) (FTKScalar @r3)
+            var1 = mkAstVarName varId
+            (_, _, u) = substProjRep @_ @_ @s (SNat @k) var ftk2 var1 v3
+        in u
     , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
 substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
 
@@ -905,6 +883,7 @@ substProjVars :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
               -> AstTensor AstMethodLet s y
               -> (AstTensor AstMethodLet s y, [AstDynamicVarName])
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
+
 
 -- * Rule tracing machinery
 
