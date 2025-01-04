@@ -14,7 +14,8 @@ module HordeAd.Core.TensorClass
   , HFun(..)
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData
   , ingestData, sscalar, srepl, xrepl, nullRep
-  , shapeDynamic, unravelHVector, ravelHVector, mapDynamic2
+  , shapeDynamic, unravelHVector, ravelHVector
+  , mapHVectorRanked10, mapRanked10
     -- * The giga-constraint
   , ADReady, ADReadyNoLet
   ) where
@@ -55,6 +56,7 @@ import Data.Array.Mixed.Types (Init)
 import Data.Array.Nested
   ( IShR
   , IxS (..)
+  , IxX (..)
   , KnownShS (..)
   , KnownShX (..)
   , MapJust
@@ -286,6 +288,29 @@ class ShareTensor (target :: Target) where
       let lu = tunvector u
       in dmkHVector
          $ replicate1HVectorF rreplicate sreplicate snat lu
+  tindexBuildShare :: BaseTensor target
+                   => SNat k -> STensorKindType z
+                   -> target (BuildTensorKind k z) -> IntOf target
+                   -> target z
+  tindexBuildShare snat@SNat stk u i = case stk of
+    STKScalar{} -> u
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+      rindex u (i :.: ZIR)
+    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShS sh $ sindex u (i :.$ ZIS)
+    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShX sh $ xindex u (i :.% ZIX)
+    STKProduct stk1 stk2
+      | Dict <- lemTensorKindOfSTK stk1
+      , Dict <- lemTensorKindOfSTK stk2
+      , Dict <- lemTensorKindOfBuild snat stk1
+      , Dict <- lemTensorKindOfBuild snat stk2 ->
+        let (u1, u2) = tunpair u
+        in tpair (tindexBuildShare snat stk1 u1 i)
+                 (tindexBuildShare snat stk2 u2 i)
+    STKUntyped ->
+      let lu = tunvector u
+      in dmkHVector $ mapHVectorRanked10 (`rindex` (i :.: ZIR)) lu
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -1755,69 +1780,42 @@ ravelHVector  -- the inverse of unravelHVector
 ravelHVector = V.fromList . map ravelDynamic
                . transpose . map V.toList
 
-mapDynamic2
-  :: (BaseTensor f1, BaseTensor f2)
-  => (forall r n. (GoodScalar r, KnownNat n)
-      => f1 (TKR n r) -> f2 (TKR n r)
-      -> g (TKR n r))
-  -> (forall r sh. (GoodScalar r, KnownShS sh)
-      => f1 (TKS sh r) -> f2 (TKS sh r)
-      -> g (TKS sh r))
-  -> DynamicTensor f1 -> DynamicTensor f2 -> DynamicTensor g
-mapDynamic2 fr _fs (DynamicRanked @r1 @n1 t1) (DynamicRanked @r2 @n2 t2) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case sameNat (Proxy @n1) (Proxy @n2) of
-      Just Refl -> DynamicRanked $ fr t1 t2
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 fr _fs (DynamicRanked @r1 @n1 t1) (DynamicRankedDummy @r2 @sh2 _ _) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case matchingRank @sh2 @n1 of
-      Just Refl -> withListSh (Proxy @sh2) $ \shp ->
-        DynamicRanked @r1 $ fr t1 (rzero shp)
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 fr _fs (DynamicRankedDummy @r1 @sh1 _ _) (DynamicRanked @r2 @n2 t2) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case matchingRank @sh1 @n2 of
-      Just Refl -> withListSh (Proxy @sh1) $ \shp ->
-        DynamicRanked @r1 $ fr (rzero shp) t2
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 fr _fs (DynamicRankedDummy @r1 @sh1 _ _)
-                (DynamicRankedDummy @r2 @sh2 _ _) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> withListSh (Proxy @sh1) $ \shp ->
-        DynamicRanked @r1 $ fr (rzero shp) (rzero shp)
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 _fr fs (DynamicShaped @r1 @sh1 t1) (DynamicShaped @r2 @sh2 t2) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> DynamicShaped $ fs t1 t2
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 _fr fs (DynamicShaped @r1 @sh1 t1) (DynamicShapedDummy @r2 @sh2 _ _) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> DynamicShaped $ fs t1 (srepl 0)
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _) (DynamicShaped @r2 @sh2 t2) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> DynamicShaped $ fs (srepl 0) t2
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 _fr fs (DynamicShapedDummy @r1 @sh1 _ _)
-                (DynamicShapedDummy @r2 @sh2 _ _) =
-  case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> case sameShape @sh1 @sh2 of
-      Just Refl -> DynamicShaped @_ @sh1 $ fs (srepl @_ @r1 0) (srepl @_ @r1 0)
-      Nothing -> error "mapDynamic2: n mismatch"
-    Nothing -> error "mapDynamic2: r mismatch"
-mapDynamic2 _ _ _ _ = error "mapDynamic2: unexpected arguments"
+mapHVectorRanked10
+  :: BaseTensor target
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => target (TKR (1 + q) rq) -> target (TKR q rq))
+  -> HVector target -> HVector target
+mapHVectorRanked10 f = V.map (mapRanked10 f)
+
+mapRanked10
+  :: BaseTensor target
+  => (forall rq q. (GoodScalar rq, KnownNat q)
+      => target (TKR (1 + q) rq) -> target (TKR q rq))
+  -> DynamicTensor target -> DynamicTensor target
+mapRanked10 f (DynamicRanked t) = case rshape t of
+  ZSR -> error "mapRanked10: rank 0"
+  _ :$: _ -> DynamicRanked $ f t
+mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
+  ZSS -> error "mapRanked10: rank 0"
+  (:$$) @_ @sh0 _ tl | Dict <- shsKnownShS tl ->
+    withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
+      let res = f $ rfromS @_ @_ @sh t
+      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
+        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
+        DynamicShaped $ sfromR @_ @_ @shr res
+mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
+  ZSS -> error "mapRanked10: rank 0"
+  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
+    withListSh (Proxy @sh0) $ \sh1 ->
+      DynamicRanked @r $ f (rzero $ sNatValue k :$: sh1)
+mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
+  ZSS -> error "mapRanked10: rank 0"
+  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
+    withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
+      let res = f @r (rzero $ sNatValue k :$: sh1)
+      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
+        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
+        DynamicShaped $ sfromR @_ @_ @shr res
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

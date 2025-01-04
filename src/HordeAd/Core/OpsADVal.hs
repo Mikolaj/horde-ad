@@ -23,18 +23,16 @@ import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (fromSNat, KnownNat, sameNat, type (+))
+import GHC.TypeLits (fromSNat, KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IxR (..)
   , IxS (..)
-  , IxX (..)
   , KnownShS (..)
   , KnownShX (..)
   , Rank
-  , type (++)
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shCvtSX, withKnownShS, shsAppend)
@@ -248,25 +246,6 @@ instance ( BaseTensor target
         !rl = reverse l
     in Just (AsHVector rl, Just restAll)
 
-indexPrimal :: ( ADReadyNoLet target, TensorKind r
-               , KnownNat m, KnownNat n )
-            => ADVal target (TKR2 (m + n) r) -> IxROf target m
-            -> ADVal target (TKR2 n r)
-indexPrimal (D u u') ix = dD (rindex u ix) (IndexR u' ix)
-
-indexPrimalS :: ( ADReadyNoLet target, TensorKind r
-                , KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2) )
-             => ADVal target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
-             -> ADVal target (TKS2 sh2 r)
-indexPrimalS (D u u') ix = dD (sindex u ix) (IndexS u' ix)
-
-indexPrimalX :: ( ADReadyNoLet target
-                , TensorKind r, KnownShX sh1, KnownShX sh2
-                , KnownShX (sh1 ++ sh2) )
-             => ADVal target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
-             -> ADVal target (TKX2 sh2 r)
-indexPrimalX (D u u') ix = dD (xindex u ix) (IndexX u' ix)
-
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
@@ -290,7 +269,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   -- TODO: speed up by using tindex0R and dIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
-  rindex d i = indexPrimal d (tprimalPart (STKScalar typeRep) <$> i)
+  rindex (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (rindex u ix) (IndexR u' ix)
   rsum (D u u') = withSNat (rlength u) $ \snat ->
     dD (rsum u) (SumG snat stensorKind u')
   rsum0 (D u u') = dD (rsum0 u) (Sum0R u')
@@ -353,7 +334,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rScale k = ScaleG k
 
   xshape (D u _) = xshape u
-  xindex d i = indexPrimalX d (tprimalPart (STKScalar typeRep) <$> i)
+  xindex (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (xindex u ix) (IndexX u' ix)
 
   xfromVector @_ @k lu = assert (length lu == valueOf @k) $
     dD (xfromVector $ V.map (\(D u _) -> u) lu)
@@ -380,7 +363,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
 
   siota = fromPrimalADVal siota
-  sindex d i = indexPrimalS d (tprimalPart (STKScalar typeRep) <$> i)
+  sindex (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (sindex u ix) (IndexS u' ix)
   ssum (D u u') = dD (ssum u) (SumG SNat stensorKind u')
   ssum0 (D u u') = dD (ssum0 u) (Sum0S u')
   sdot0 (D ue u') (D ve v') =
@@ -511,31 +496,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   dshape (D u _) = dshape u
   tftk stk (D u _) = tftk stk u
   -- Bangs are for the proper order of sharing stamps.
-  tcond !stk !b !u !v = case stk of
-    STKScalar _ -> rtoScalar $ ifF b (rfromScalar u) (rfromScalar v)
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
-      indexPrimal (rfromVector $ V.fromList [u, v])
-                  (ifF b 0 1 :.: ZIR)
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
-      indexPrimalS @_ @_ @'[2]
-                   (sfromVector $ V.fromList [u, v])
-                   (ifF b 0 1 :.$ ZIS)
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $
-      indexPrimalX @_ @_ @'[Just 2]
-                   (xfromVector $ V.fromList [u, v])
-                   (ifF b 0 1 :.% ZIX)
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                         , Dict <- lemTensorKindOfSTK stk2 ->
-      let (u1, u2) = tunpair u
-          (v1, v2) = tunpair v
-          !t1 = tcond stk1 b u1 v1
-          !t2 = tcond stk2 b u2 v2
-      in tpair t1 t2
-    STKUntyped ->
-      let us = tunvector u
-          vs = tunvector v
-          fd = mapDynamic2 (ifF b) (ifF b)
-      in dmkHVector $ V.zipWith fd us vs
+  tcond !stk !b !u !v =
+    let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
+    in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'

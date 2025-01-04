@@ -14,9 +14,8 @@ module HordeAd.Core.HVectorOps
   , sizeHVector, dynamicsMatch, voidHVectorMatches
   , voidFromDynamic, voidFromHVector, dynamicFromVoid
   , fromDynamicR, fromDynamicS
-  , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked10, mapHVectorRanked11
-  , mapHVectorShaped
-  , mapRanked, mapRanked01, mapRanked10, mapRanked11
+  , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked11, mapHVectorShaped
+  , mapRanked, mapRanked01, mapRanked11
   , replicate1HVector, toADTensorKindShared
   ) where
 
@@ -690,43 +689,6 @@ mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
           gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
           DynamicShaped $ sfromR @_ @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
-
-mapHVectorRanked10
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR (1 + q) rq) -> target (TKR q rq))
-  -> HVector target -> HVector target
-mapHVectorRanked10 f = V.map (mapRanked10 f)
-
-mapRanked10
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR (1 + q) rq) -> target (TKR q rq))
-  -> DynamicTensor target -> DynamicTensor target
-mapRanked10 f (DynamicRanked t) = case rshape t of
-  ZSR -> error "mapRanked10: rank 0"
-  _ :$: _ -> DynamicRanked $ f t
-mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
-  ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 _ tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
-      let res = f $ rfromS @_ @_ @sh t
-      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @_ @shr res
-mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
-  ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \sh1 ->
-      DynamicRanked @r $ f (rzero $ sNatValue k :$: sh1)
-mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
-  ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
-      let res = f @r (rzero $ sNatValue k :$: sh1)
-      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @_ @shr res
 
 mapHVectorRanked11
   :: BaseTensor target
