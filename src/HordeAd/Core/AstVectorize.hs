@@ -63,11 +63,6 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- This abbreviation is used a lot below.
-astTr :: forall n s r. (KnownNat n, TensorKind r, AstSpan s)
-      => AstTensor AstMethodLet s (TKR2 (2 + n) r) -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
-astTr = astTranspose [1, 0]
-
 -- | The application @build1Vectorize k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, that is, rewrites it to a term
 -- with the same value, but not containing the outermost @AstBuild1@
@@ -231,18 +226,18 @@ build1V snat@SNat (var, v0) =
       STKUntyped -> error "TODO"
     Ast.AstFromVector @y2 snat1@(SNat @k1) l
      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $
-      astTrGeneral @k1 @k (stensorKind @y2)
+      astTrBuild @k1 @k (stensorKind @y2)
       $ astFromVector snat1 (V.map (\v ->
           build1VOccurenceUnknown snat (var, v)) l)
     Ast.AstSum (SNat @k1) stk v
       | Dict <- lemTensorKindOfBuild (SNat @k1) stk
       , Dict <- lemTensorKindOfBuild (SNat @k) stk -> traceRule $
          astSum (SNat @k1) stensorKind
-         $ astTrGeneral @k @k1 stk $ build1V snat (var, v)
+         $ astTrBuild @k @k1 stk $ build1V snat (var, v)
     Ast.AstReplicate snat2@(SNat @k2) stk v
       | Dict <- lemTensorKindOfSTK stk
       , Dict <- lemTensorKindOfBuild snat stk -> traceRule $
-        astTrGeneral @k2 stk
+        astTrBuild @k2 stk
         $ astReplicate snat2 stensorKind $ build1V snat (var, v)
     Ast.AstBuild1 snat2 (var2, v2) ->
       build1VOccurenceUnknown snat (var, build1VOccurenceUnknown snat2 (var2, v2))
@@ -500,11 +495,11 @@ build1V snat@SNat (var, v0) =
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrGeneral @k @k5 (stensorKind @eShs)
+           (astTrBuild @k @k5 (stensorKind @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
-                           (astTrGeneral @k5 @k
-                                         (stensorKind @bShs) (astProject2 x1bs1)))
+                           (astTrBuild @k5 @k
+                                       (stensorKind @bShs) (astProject2 x1bs1)))
     Ast.AstMapAccumLDer @accShs @bShs @eShs @k5
                         k5@SNat accShs bShs eShs f df rf acc0 es
      | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
@@ -532,11 +527,11 @@ build1V snat@SNat (var, v0) =
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrGeneral @k @k5 (stensorKind @eShs)
+           (astTrBuild @k @k5 (stensorKind @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
-                           (astTrGeneral @k5 @k
-                                         (stensorKind @bShs) (astProject2 x1bs1)))
+                           (astTrBuild @k5 @k
+                                       (stensorKind @bShs) (astProject2 x1bs1)))
 
     Ast.AstReplicate0NR{} -> error "build1V: term not accessible from user API"
     Ast.AstSum0R{} -> error "build1V: term not accessible from user API"
@@ -609,16 +604,6 @@ build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
 
 
 -- * Vectorization of AstShaped
-
-astTrS :: forall n m sh s r.
-          (KnownNat n, KnownNat m, KnownShS sh, TensorKind r, AstSpan s)
-       => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r) -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
-astTrS | SNat <- shsRank (knownShS @sh) =
-  astTransposeS (Permutation.makePerm @'[1, 0])
-astTrX :: forall n m sh s r.
---          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)
-        AstTensor AstMethodLet s (TKX2 (Just n ': Just m ': sh) r) -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': sh) r)
-astTrX = error "TODO"
 
 intBindingRefreshS
   :: IntVarName -> AstIxS AstMethodLet sh -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
@@ -707,6 +692,89 @@ build1VOccurenceUnknownDynamic SNat (var, d) = case d of
 
 
 -- * Auxiliary machinery
+
+astTr :: forall n s r. (KnownNat n, TensorKind r, AstSpan s)
+      => AstTensor AstMethodLet s (TKR2 (2 + n) r)
+      -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
+astTr = astTranspose [1, 0]
+
+astTrS :: forall n m sh s r.
+          (KnownNat n, KnownNat m, KnownShS sh, TensorKind r, AstSpan s)
+       => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
+       -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
+astTrS | SNat <- shsRank (knownShS @sh) =
+  astTransposeS (Permutation.makePerm @'[1, 0])
+
+astTrX :: forall n m sh s r.
+--          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)
+          AstTensor AstMethodLet s (TKX2 (Just n ': Just m ': sh) r)
+       -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': sh) r)
+astTrX = error "TODO"
+
+astTrDynamic :: AstSpan s
+             => DynamicTensor (AstTensor AstMethodLet s)
+             -> DynamicTensor (AstTensor AstMethodLet s)
+astTrDynamic t@(DynamicRanked @_ @n1 u) =
+  case cmpNat (Proxy @2) (Proxy @n1) of
+    EQI -> DynamicRanked $ astTr @(n1 - 2) u
+    LTI -> DynamicRanked $ astTr @(n1 - 2) u
+    _ -> t
+astTrDynamic t@(DynamicShaped @_ @sh u) | SNat @n <- shsRank (knownShS @sh) =
+  case cmpNat (Proxy @2) (Proxy @n) of
+    LTI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                          (knownShS @sh)) $
+           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
+    EQI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                          (knownShS @sh)) $
+           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
+    GTI -> t
+astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
+  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                 (knownShS @sh1)) $
+  DynamicRankedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
+astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
+  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
+                                 (knownShS @sh1)) $
+  DynamicShapedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
+
+astTrAstHVector :: forall s. AstSpan s
+                => AstTensor AstMethodLet s TKUntyped
+                -> AstTensor AstMethodLet s TKUntyped
+astTrAstHVector t =
+  fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
+    astLetHVectorIn
+      vars
+      t
+      (Ast.AstMkHVector @_ @s $ V.map astTrDynamic asts)
+
+astTrBuild
+  :: forall k1 k2 s y. (AstSpan s, KnownNat k1, KnownNat k2)
+  => STensorKindType y
+  -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
+  -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
+astTrBuild stk t = case stk of
+  STKScalar{} -> t
+  STKR SNat stk1 | Dict <- lemTensorKindOfSTK stk1 -> astTr t
+  STKS sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShS sh $ astTrS t
+  STKX sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShX sh $ astTrX t
+  STKProduct @z1 @z2 stk1 stk2
+    | Dict <- lemTensorKindOfBuild (SNat @k1) stk
+    , Dict <- lemTensorKindOfBuild (SNat @k1) stk1
+    , Dict <- lemTensorKindOfBuild (SNat @k2) stk1
+    , Dict <- lemTensorKindOfBuild
+                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z1))
+    , Dict <- lemTensorKindOfBuild
+                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z1))
+    , Dict <- lemTensorKindOfBuild (SNat @k1) stk2
+    , Dict <- lemTensorKindOfBuild (SNat @k2) stk2
+    , Dict <- lemTensorKindOfBuild
+                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z2))
+    , Dict <- lemTensorKindOfBuild
+                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z2)) ->
+      astLetFun t $ \ !tShared ->
+        let (u1, u2) = (astProject1 tShared, astProject2 tShared)
+        in astPair (astTrBuild @k1 @k2 stk1 u1) (astTrBuild @k1 @k2 stk2 u2)
+  STKUntyped -> astTrAstHVector t
 
 substProjRep
   :: forall k s s2 y2 y.
@@ -834,74 +902,6 @@ substProjVars :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
               -> AstTensor AstMethodLet s y
               -> (AstTensor AstMethodLet s y, [AstDynamicVarName])
 substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
-
-astTrDynamic :: AstSpan s
-             => DynamicTensor (AstTensor AstMethodLet s)
-             -> DynamicTensor (AstTensor AstMethodLet s)
-astTrDynamic t@(DynamicRanked @_ @n1 u) =
-  case cmpNat (Proxy @2) (Proxy @n1) of
-    EQI -> DynamicRanked $ astTr @(n1 - 2) u
-    LTI -> DynamicRanked $ astTr @(n1 - 2) u
-    _ -> t
-astTrDynamic t@(DynamicShaped @_ @sh u) | SNat @n <- shsRank (knownShS @sh) =
-  case cmpNat (Proxy @2) (Proxy @n) of
-    LTI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                          (knownShS @sh)) $
-           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
-    EQI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                          (knownShS @sh)) $
-           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
-    GTI -> t
-astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
-  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                 (knownShS @sh1)) $
-  DynamicRankedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
-astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
-  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                 (knownShS @sh1)) $
-  DynamicShapedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
-
-astTrAstHVector :: forall s. AstSpan s
-                => AstTensor AstMethodLet s TKUntyped
-                -> AstTensor AstMethodLet s TKUntyped
-astTrAstHVector t =
-  fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-    astLetHVectorIn
-      vars
-      t
-      (Ast.AstMkHVector @_ @s $ V.map astTrDynamic asts)
-
-astTrGeneral
-  :: forall k1 k2 s y. (AstSpan s, KnownNat k1, KnownNat k2)
-  => STensorKindType y
-  -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
-  -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
-astTrGeneral stk t = case stk of
-  STKScalar{} -> t
-  STKR SNat stk1 | Dict <- lemTensorKindOfSTK stk1 ->
-    astTr t
-  STKS sh stk1 | Dict <- lemTensorKindOfSTK stk1 ->
-    withKnownShS sh $ astTrS t
-  STKX sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShX sh $ astTrX t
-  STKProduct @z1 @z2 stk1 stk2
-    | Dict <- lemTensorKindOfBuild (SNat @k1) stk
-    , Dict <- lemTensorKindOfBuild (SNat @k1) stk1
-    , Dict <- lemTensorKindOfBuild (SNat @k2) stk1
-    , Dict <- lemTensorKindOfBuild
-                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z1))
-    , Dict <- lemTensorKindOfBuild
-                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z1))
-    , Dict <- lemTensorKindOfBuild (SNat @k1) stk2
-    , Dict <- lemTensorKindOfBuild (SNat @k2) stk2
-    , Dict <- lemTensorKindOfBuild
-                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z2))
-    , Dict <- lemTensorKindOfBuild
-                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z2)) ->
-      astLetFun t $ \ !tShared ->
-        let (u1, u2) = (astProject1 tShared, astProject2 tShared)
-        in astPair (astTrGeneral @k1 @k2 stk1 u1) (astTrGeneral @k1 @k2 stk2 u2)
-  STKUntyped -> astTrAstHVector t
-
 
 -- * Rule tracing machinery
 
