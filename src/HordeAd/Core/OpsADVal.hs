@@ -496,9 +496,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   dshape (D u _) = dshape u
   tftk stk (D u _) = tftk stk u
   -- Bangs are for the proper order of sharing stamps.
-  tcond !stk !b !u !v =
-    let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
-    in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
+  tcond !stk !b !u !v = case stk of
+    STKScalar{} ->  -- TODO: eliminate this special case
+      rtoScalar $ ifF b (rfromScalar u) (rfromScalar v)
+    _ ->
+      let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
+      in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'
