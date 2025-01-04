@@ -200,6 +200,27 @@ class ShareTensor (target :: Target) where
   tunpair :: (TensorKind x, TensorKind z)
           => target (TKProduct x z) -> (target x, target z)
   tunvector :: target TKUntyped -> HVector target
+  tfromVectorShare :: forall y k. BaseTensor target
+                   => SNat k -> STensorKindType y
+                   -> Data.Vector.Vector (target y)
+                   -> target (BuildTensorKind k y)
+  tfromVectorShare snat@SNat stk v = case stk of
+    STKScalar{} -> error "tfromVector: vector of scalars"
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+      rfromVector v
+    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShS sh $ sfromVector v
+    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShX sh $ xfromVector v
+    STKProduct stk1 stk2
+      | Dict <- lemTensorKindOfSTK stk1
+      , Dict <- lemTensorKindOfSTK stk2
+      , Dict <- lemTensorKindOfBuild snat stk1
+      , Dict <- lemTensorKindOfBuild snat stk2 ->
+        let (v1, v2) = V.unzip $ V.map tunpair v
+        in tpair (tfromVectorShare snat stk1 v1)
+                 (tfromVectorShare snat stk2 v2)
+    STKUntyped -> error "STKUntyped"  -- can be done, but nm
   tunravelToListShare :: forall y k. BaseTensor target
                       => SNat k -> STensorKindType y
                       -> target (BuildTensorKind k y)

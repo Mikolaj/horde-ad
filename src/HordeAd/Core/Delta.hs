@@ -70,17 +70,7 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation (permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
-  ( SMayNat (..)
-  , pattern (:!%)
-  , pattern (:.%)
-  , pattern ZIX
-  , pattern ZKX
-  , shxAppend
-  , shxDropSSX
-  , shxTakeSSX
-  , withKnownShX
-  )
+import Data.Array.Mixed.Shape (shxAppend, shxDropSSX, shxTakeSSX, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -91,7 +81,6 @@ import Data.Array.Nested
   , Replicate
   , ShR (..)
   , ShS (..)
-  , ShX (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -426,6 +415,11 @@ data Delta :: Target -> TensorKindType -> Type where
             => Delta target (TKProduct x z) -> Delta target x
   Project2G :: forall x z target. (TensorKind x, TensorKind z)
             => Delta target (TKProduct x z) -> Delta target z
+  FromVectorG :: TensorKind y  -- needed for the Show instance
+              => SNat k -> STensorKindType y
+              -> Data.Vector.Vector (Delta target y)
+              -> Delta target (BuildTensorKind k y)
+    -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   SumG :: TensorKind (BuildTensorKind k y)  -- needed for the Show instance
        => SNat k -> STensorKindType y
        -> Delta target (BuildTensorKind k y)
@@ -467,10 +461,6 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorR :: (KnownNat n, TensorKind r)
-              => Data.Vector.Vector (Delta target (TKR2 n r))
-              -> Delta target (TKR2 (1 + n) r)
-    -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   AppendR :: (TensorKind r, KnownNat n)
           => Delta target (TKR2 (1 + n) r)
           -> Delta target (TKR2 (1 + n) r)
@@ -544,10 +534,6 @@ data Delta :: Target -> TensorKindType -> Type where
     -- and then no tensors is added at such an index.
     -- TODO: this is a haddock for Scatter1; fix.
 
-  FromVectorS :: (TensorKind r, KnownShS sh, KnownNat n)
-              => Data.Vector.Vector (Delta target (TKS2 sh r))
-              -> Delta target (TKS2 (n ': sh) r)
-    -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   AppendS :: forall target r m n sh.
              (TensorKind r, KnownNat m, KnownNat n, KnownShS sh)
           => Delta target (TKS2 (m ': sh) r)
@@ -608,9 +594,6 @@ data Delta :: Target -> TensorKindType -> Type where
          => Delta target (TKX2 (sh1 ++ sh2) r)
          -> IxXOf target sh1
          -> Delta target (TKX2 sh2 r)
-  FromVectorX :: (KnownNat n, KnownShX sh, TensorKind r)
-              => Data.Vector.Vector (Delta target (TKX2 sh r))
-              -> Delta target (TKX2 (Just n ': sh) r)
   ZipX :: (TensorKind y, TensorKind z, KnownShX sh)
        => Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> Delta target (TKX2 sh (TKProduct y z))
@@ -720,6 +703,9 @@ shapeDeltaFull = \case
     FTKProduct ftk1 _ -> ftk1
   Project2G v -> case shapeDeltaFull v of
     FTKProduct _ ftk2 -> ftk2
+  FromVectorG snat _ l -> case V.toList l of
+    [] -> error "shapeDeltaFull: empty vector"
+    d : _ -> buildFTK snat (shapeDeltaFull d)
   SumG snat stk d -> razeFTK snat stk (shapeDeltaFull d)
   ReplicateG snat _ d -> buildFTK snat (shapeDeltaFull d)
   InputG ftk _ -> ftk
@@ -735,15 +721,6 @@ shapeDeltaFull = \case
   Dot0R{} -> FTKR ZSR FTKScalar
   ScatterR sh d _ -> case shapeDeltaFull d of
     FTKR _ x -> FTKR sh x
-  FromVectorR l -> case V.toList l of
-    [] -> case stensorKind @y of
-      STKR @n SNat STKScalar{} -> case sameNat (Proxy @n) (Proxy @1) of
-        Just Refl -> FTKR (0 :$: ZSR) FTKScalar
-          -- the only case where we can guess the shape and x
-        _ -> error "shapeDeltaFull: FromVectorR with no arguments"
-      _ -> error "shapeDeltaFull: FromVectorR with no arguments"
-    d : _ -> case shapeDeltaFull d of
-      FTKR sh x -> FTKR (length l :$: sh) x
   AppendR a b -> case shapeDeltaFull a of
     FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
     FTKR (ai :$: ash) x -> case shapeDeltaFull b of
@@ -772,13 +749,6 @@ shapeDeltaFull = \case
   Dot0S{} -> FTKS knownShS FTKScalar
   ScatterS @_ @_ @_ @shn @shp d _ -> case shapeDeltaFull d of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
-  FromVectorS l -> case V.toList l of
-    [] -> case stensorKind @y of
-      STKS _ STKScalar{} -> FTKS knownShS FTKScalar
-        -- the only case where we can guess the x
-      _ -> error "shapeDeltaFull: FromVectorS with no arguments"
-    d : _ -> case shapeDeltaFull d of
-      FTKS _ x -> FTKS knownShS x
   AppendS a _ -> case shapeDeltaFull a of
     FTKS _ x -> FTKS knownShS x
   SliceS d -> case shapeDeltaFull d of
@@ -801,14 +771,6 @@ shapeDeltaFull = \case
 
   IndexX @sh1 d _ix -> case shapeDeltaFull d of
     FTKX sh x -> FTKX (shxDropSSX sh (knownShX @sh1)) x
-  FromVectorX @n l -> case V.toList l of
-    [] -> case stensorKind @y of
-      STKX sh STKScalar{} -> case sh of
-        (_ :!% ZKX) -> FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar
-        _ -> error "shapeDeltaFull: AstFromVectorX with no arguments"
-      _ -> error "shapeDeltaFull: AstFromVectorX with no arguments"
-    d : _ -> case shapeDeltaFull d of
-      FTKX sh x -> FTKX (SKnown (SNat @n) :$% sh) x
   ZipX d -> case shapeDeltaFull d of
     FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
   UnzipX d -> case shapeDeltaFull d of
@@ -1111,6 +1073,12 @@ evalRev !s !c d0 = case d0 of
       FTKProduct ftk1 _ ->
         let zero = constantTarget 0 $ aDFTK ftk1
         in evalRev s (tpair zero c) d
+  FromVectorG snat stk ld | Refl <- lemBuildOfAD snat stk
+                          , Dict <- lemTensorKindOfAD (stensorKind @y) ->
+    let cShared = tshare c
+        cxs = tunravelToListShare snat (aDSTK stk) cShared
+    in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+       $ zip cxs (V.toList ld)
   SumG snat stk d | Refl <- lemBuildOfAD snat stk ->
     evalRev s (treplicateShare snat (aDSTK stk) c) d
   ReplicateG snat stk d | Refl <- lemBuildOfAD snat stk ->
@@ -1271,11 +1239,6 @@ evalRevSame !s !c = \case
       -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
   ScatterR _sh d f ->
     evalRevSame s (rgather (shapeDelta d) c f) d
-  FromVectorR ld ->
-    let cShared = tshare c
-        cxs = runravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalRevSame s2 cx d2) s
-       $ zip cxs (V.toList ld)
   AppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
                    k = lengthDelta d
@@ -1323,11 +1286,6 @@ evalRevSame !s !c = \case
       -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
   ScatterS @_ @_ @shm @shn @shp d f ->
     evalRevSame s (sgather @_ @_ @shm @shn @shp c f) d
-  FromVectorS ld ->
-    let cShared = tshare c
-        cxs = sunravelToList cShared
-    in foldl' (\ !s2 (cx, d2) -> evalRevSame s2 cx d2) s
-       $ zip cxs (V.toList ld)
   AppendS @_ @_ @m d e ->
     let cShared = tshare c
         s2 = evalRevSame s (sslice (Proxy @0) Proxy cShared) d
@@ -1366,12 +1324,6 @@ evalRevSame !s !c = \case
        evalRevSame s (dmkHVector $ cs V.// [(i, ci)]) d
 
   IndexX{} -> error "TODO"
-  FromVectorX @_ @sh @r ld ->
-    let cShared = tshare c
-        f :: EvalState target -> Int -> Delta target (TKX2 sh r)
-             -> EvalState target
-        f !s2 i d2 = evalRevSame s2 (cShared `xindex` (fromIntegral i :.% ZIX)) d2
-    in V.ifoldl' f s ld
   ZipX d ->
     evalRevSame s (xunzip c) d
   UnzipX d ->
@@ -1564,6 +1516,9 @@ evalFwd params s d0 = case d0 of
                  , Dict <- lemTensorKindOfAD (stensorKind @x) ->
     let (s2, v) = evalFwd params s d
     in (s2, tproject2 v)
+  FromVectorG snat stk lsd | Refl <- lemBuildOfAD snat stk ->
+    let (s2, l) = mapAccumL (evalFwd params) s lsd
+    in (s2, tfromVectorShare snat (aDSTK stk) l)
   SumG snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
     in (s2, tsumShare snat (aDSTK stk) t)
@@ -1681,9 +1636,6 @@ evalFwdSame params s = \case
   ScatterR sh d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, rscatter sh t f)
-  FromVectorR lsd ->
-    let (s2, l) = mapAccumL (evalFwdSame params) s lsd
-    in (s2, rfromVector l)
   AppendR d e ->
     let (s2, t) = evalFwdSame params s d
         (s3, u) = evalFwdSame params s2 e
@@ -1717,9 +1669,6 @@ evalFwdSame params s = \case
   ScatterS @_ @_ @shm @shn @shp d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, sscatter @_ @_ @shm @shn @shp t f)
-  FromVectorS lsd ->
-    let (s2, l) = mapAccumL (evalFwdSame params) s lsd
-    in (s2, sfromVector l)
   AppendS d e ->
     let (s2, t) = evalFwdSame params s d
         (s3, u) = evalFwdSame params s2 e
@@ -1747,9 +1696,6 @@ evalFwdSame params s = \case
 --  in (s2, sfromD $ tunvector v V.! i)
 
   IndexX d ix -> second (`xindex` ix) $ evalFwdSame params s d
-  FromVectorX lsd ->
-    let (s2, l) = mapAccumL (evalFwdSame params) s lsd
-    in (s2, xfromVector l)
   ZipX d -> second xzip $ evalFwdSame params s d
   UnzipX d -> second xunzip $ evalFwdSame params s d
 

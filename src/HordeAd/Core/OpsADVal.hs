@@ -304,10 +304,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (rscatter sh u g) (ScatterR sh u' g)
 
-  rfromVector lu =
+  rfromVector lu = withSNat (V.length lu) $ \snat ->
     -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
     dD (rfromVector $ V.map (\(D u _) -> u) lu)
-       (FromVectorR $ V.map (\(D _ u') -> u') lu)
+       (FromVectorG snat stensorKind $ V.map (\(D _ u') -> u') lu)
   runravelToList (D u u') =
     let lu = runravelToList u
         f i ui = dD ui (IndexR u' (fromIntegral i :.: ZIR))
@@ -355,9 +355,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xshape (D u _) = xshape u
   xindex d i = indexPrimalX d (tprimalPart (STKScalar typeRep) <$> i)
 
-  xfromVector @_ @n lu = assert (length lu == valueOf @n) $
+  xfromVector @_ @k lu = assert (length lu == valueOf @k) $
     dD (xfromVector $ V.map (\(D u _) -> u) lu)
-       (FromVectorX $ V.map (\(D _ u') -> u') lu)
+       (FromVectorG (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
   xreplicate _ = error "TODO"
   xzip (D u u') = dD (xzip u) (ZipX u')
@@ -395,9 +395,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (sscatter @_ @r @shm @shn @shp u g) (ScatterS @_ @r @shm @shn @shp u' g)
 
-  sfromVector @_ @n lu = assert (length lu == valueOf @n) $
+  sfromVector @_ @k lu = assert (length lu == valueOf @k) $
     dD (sfromVector $ V.map (\(D u _) -> u) lu)
-       (FromVectorS $ V.map (\(D _ u') -> u') lu)
+       (FromVectorG (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
   sunravelToList (D u u') =
     let lu = sunravelToList u
         f i ui = dD ui (IndexS u' (fromIntegral i :.$ ZIS))

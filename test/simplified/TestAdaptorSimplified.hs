@@ -1059,7 +1059,7 @@ testReluMaxPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rgather [3,4] (rfromVector (fromList [rreplicate 3 (rreplicate 4 (rscalar 0.0)), m1])) (\\[i6, i7] -> [ifF (rscalar 0.0 >=. m1 ! [i6, i7]) 0 1, i6, i7])"
   show deltas
-    @?= "ShareG 100000005 (GatherR [3,4] (ShareG 100000003 (FromVectorR [ZeroG (FTKR [3,4] FTKScalar),InputG (FTKR [3,4] FTKScalar) (InputId 0)])) <function>)"
+    @?= "ShareG 100000005 (GatherR [3,4] (ShareG 100000003 (FromVectorG (SNat @2) (STKR (SNat @2) (STKScalar Double)) [ZeroG (FTKR [3,4] FTKScalar),InputG (FTKR [3,4] FTKScalar) (InputId 0)])) <function>)"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
