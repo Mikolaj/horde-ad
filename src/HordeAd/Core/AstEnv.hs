@@ -35,7 +35,6 @@ import Type.Reflection (typeRep)
 import Data.Array.Nested (KnownShS (..), Rank)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
