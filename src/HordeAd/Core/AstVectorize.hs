@@ -219,16 +219,21 @@ build1V snat@SNat (var, v0) =
         error $ "build1V: AstCond: building over scalars is undefined: "
                 ++ show v0
       STKR SNat x | Dict <- lemTensorKindOfSTK x ->
-        let t = astIndexStep (astFromVector $ V.fromList [v, w])
+        let t = astIndexStep (astFromVector (SNat @2) $ V.fromList [v, w])
                              (astCond b 0 1 :.: ZIR)
         in build1VOccurenceUnknown snat (var, t)
       STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $
-        let t = astIndexStepS @'[2] (astFromVectorS $ V.fromList [v, w])
+        let t = astIndexStepS @'[2] (astFromVector (SNat @2) $ V.fromList [v, w])
                                     (astCond b 0 1 :.$ ZIS)
         in build1VOccurenceUnknown snat (var, t)
       STKX{} -> error "TODO"
       STKProduct{} -> error "TODO"  -- revisit when we have general Index; also look at tcond
       STKUntyped -> error "TODO"
+    Ast.AstFromVector @y2 snat1@(SNat @k1) l
+     | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $
+      astTrGeneral @k1 @k (stensorKind @y2)
+      $ astFromVector snat1 (V.map (\v ->
+          build1VOccurenceUnknown snat (var, v)) l)
     Ast.AstSum (SNat @k1) stk v
       | Dict <- lemTensorKindOfBuild (SNat @k1) stk
       , Dict <- lemTensorKindOfBuild (SNat @k) stk -> traceRule $
@@ -316,8 +321,6 @@ build1V snat@SNat (var, v0) =
                     (build1VOccurenceUnknown snat (var, v))
                     (varFresh ::: vars, astVarFresh :.: ix2)
 
-    Ast.AstFromVector l -> traceRule $
-      astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown snat (var, v)) l)
     Ast.AstAppend v w -> traceRule $
       astTr $ astAppend (astTr $ build1VOccurenceUnknown snat (var, v))
                         (astTr $ build1VOccurenceUnknown snat (var, w))
@@ -405,9 +408,6 @@ build1V snat@SNat (var, v0) =
       in astScatterS @(k ': shm) @shn @(k ': shp)
                      (build1VOccurenceUnknown snat (var, v))
                      (Const varFresh ::$ vars, astVarFresh :.$ ix2)
-    Ast.AstFromVectorS l -> traceRule $
-      astTrS
-      $ astFromVectorS (V.map (\v -> build1VOccurenceUnknown snat (var, v)) l)
     Ast.AstAppendS v w -> traceRule $
       astTrS $ astAppendS (astTrS $ build1VOccurenceUnknown snat (var, v))
                           (astTrS $ build1VOccurenceUnknown snat (var, w))
@@ -660,7 +660,7 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
              len = shsLength $ knownShS @sh1
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
-              Ast.AstFromVectorS{} | len == 1 -> ruleD
+              Ast.AstFromVector{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
               _ -> build1VOccurenceUnknown (SNat @k) (var, v)  -- not a normal form
             else build1VOccurenceUnknown (SNat @k) (var, v)  -- shortcut

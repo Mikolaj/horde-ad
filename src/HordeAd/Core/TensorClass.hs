@@ -118,28 +118,35 @@ class LetTensor (target :: Target) where
            => ShareOf target y
            -> target y
   tunshare = error "tunshare: this instance should never be used"
-  treplicate :: BaseTensor target
-             => SNat k -> STensorKindType z
-             -> target z
-             -> target (BuildTensorKind k z)
-  treplicate snat@SNat stk u = case stk of
-    STKScalar{} -> u
-    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
-    STKProduct stk1 stk2
+  tfromVector :: forall y k. BaseTensor target
+              => SNat k -> STensorKindType y
+              -> Data.Vector.Vector (target y)
+              -> target (BuildTensorKind k y)
+  tfromVector snat@SNat stk v = case stk of
+    STKScalar{} -> error "tfromVector: vector of scalars"
+    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+      rfromVector v
+    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShS sh $ sfromVector v
+    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+      withKnownShX sh $ xfromVector v
+    STKProduct @y1 @y2 stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2
       , Dict <- lemTensorKindOfBuild snat stk1
       , Dict <- lemTensorKindOfBuild snat stk2 ->
-        tlet u $ \ !u1 ->
-          tpair (treplicate snat stk1 (tproject1 u1))
-                (treplicate snat stk2 (tproject2 u1))
-    STKUntyped ->
-      tlet u $ \ !u1 ->
-        dmkHVector
-        $ replicate1HVectorF rreplicate sreplicate snat
-        $ dunHVector u1
+        let f :: ([target y1] -> [target y2] -> target (BuildTensorKind k y))
+              -> target y
+              -> ([target y1] -> [target y2] -> target (BuildTensorKind k y))
+            f acc u = \l1 l2 ->
+              tlet u $ \ u3 ->
+                acc (tproject1 u3 : l1) (tproject2 u3 : l2)
+            res :: [target y1] -> [target y2] -> target (BuildTensorKind k y)
+            res l1 l2 =
+              tpair (tfromVector snat stk1 (V.fromList l1))
+                    (tfromVector snat stk2 (V.fromList l2))
+        in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
+    STKUntyped -> error "STKUntyped"  -- can be done, but nm
   tsum :: BaseTensor target
        => SNat k -> STensorKindType z
        -> target (BuildTensorKind k z)
@@ -157,10 +164,32 @@ class LetTensor (target :: Target) where
       , Dict <- lemTensorKindOfSTK stk2
       , Dict <- lemTensorKindOfBuild snat stk1
       , Dict <- lemTensorKindOfBuild snat stk2 ->
-        tlet u $ \ !u1 ->
-          tpair (tsum snat stk1 (tproject1 u1))
-                (tsum snat stk2 (tproject2 u1))
+        tlet u $ \ !u3 ->
+          tpair (tsum snat stk1 (tproject1 u3))
+                (tsum snat stk2 (tproject2 u3))
     STKUntyped -> error "STKUntyped"  -- can be easily done, but nm
+  treplicate :: BaseTensor target
+             => SNat k -> STensorKindType z
+             -> target z
+             -> target (BuildTensorKind k z)
+  treplicate snat@SNat stk u = case stk of
+    STKScalar{} -> u
+    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
+    STKProduct stk1 stk2
+      | Dict <- lemTensorKindOfSTK stk1
+      , Dict <- lemTensorKindOfSTK stk2
+      , Dict <- lemTensorKindOfBuild snat stk1
+      , Dict <- lemTensorKindOfBuild snat stk2 ->
+        tlet u $ \ !u3 ->
+          tpair (treplicate snat stk1 (tproject1 u3))
+                (treplicate snat stk2 (tproject2 u3))
+    STKUntyped ->
+      tlet u $ \ !u1 ->
+        dmkHVector
+        $ replicate1HVectorF rreplicate sreplicate snat
+        $ dunHVector u1
 
 class ShareTensor (target :: Target) where
   tshare :: TensorKind y

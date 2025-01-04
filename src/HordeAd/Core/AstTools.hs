@@ -26,7 +26,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (sameNat, type (+))
+import GHC.TypeLits (type (+))
 
 import Data.Array.Mixed.Shape
   ( KnownShX (..)
@@ -76,6 +76,9 @@ ftkAst t = case t of
   AstFromPrimal a -> ftkAst a
   AstD u _ -> ftkAst u
   AstCond _b v _w -> ftkAst v
+  AstFromVector snat l -> case V.toList l of
+    [] -> error "ftkAst: empty vector"
+    v : _ -> buildFTK snat (ftkAst v)
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstBuild1 snat (_var, v) -> buildFTK snat (ftkAst v)
@@ -110,14 +113,6 @@ ftkAst t = case t of
     FTKR sh x -> FTKR (dropShape sh) x
   AstScatter sh v _ -> case ftkAst v of
     FTKR _ x -> FTKR sh x
-  AstFromVector l -> case V.toList l of
-    [] -> case stensorKind @y of
-      STKR @n SNat STKScalar{} -> case sameNat (Proxy @n) (Proxy @1) of
-        Just Refl -> FTKR (0 :$: ZSR) FTKScalar
-        Nothing -> error "ftkAst: AstFromVector with no arguments"
-      _ -> error "ftkAst: AstFromVector with no arguments"
-    v : _ -> case ftkAst v of
-      FTKR sh x -> FTKR (V.length l :$: sh) x
   AstAppend a b -> case ftkAst a of
     FTKR ZSR _ -> error "ftkAst: impossible pattern needlessly required"
     FTKR (ai :$: ash) x -> case shapeAst b of
@@ -158,13 +153,6 @@ ftkAst t = case t of
     FTKS _sh1sh2 x -> FTKS knownShS x
   AstScatterS @_ @shn @shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
-  AstFromVectorS l -> case V.toList l of
-    [] -> case stensorKind @y of
-      STKS sh STKScalar{} -> FTKS sh FTKScalar
-        -- the simplest case where we know the x
-      _ -> error "ftkAst: AstFromVectorS with no arguments"
-    d : _ -> case ftkAst d of
-      FTKS _ x -> FTKS knownShS x
   AstAppendS a _ -> case ftkAst a of
     FTKS _ x -> FTKS knownShS x
   AstSliceS a -> case ftkAst a of
@@ -295,6 +283,7 @@ varInAst var = \case
   AstFromPrimal v -> varInAst var v
   AstD u u' -> varInAst var u || varInAst var u'
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
+  AstFromVector _ vl -> any (varInAst var) $ V.toList vl
   AstSum _ _ v -> varInAst var v
   AstReplicate _ _ v -> varInAst var v
   AstBuild1 _ (_var2, v) -> varInAst var v
@@ -324,7 +313,6 @@ varInAst var = \case
   AstSumOfListR l -> any (varInAst var) l
   AstIndex v ix -> varInAst var v || varInIndex var ix
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
-  AstFromVector vl -> any (varInAst var) $ V.toList vl
   AstAppend v u -> varInAst var v || varInAst var u
   AstSlice _ _ v -> varInAst var v
   AstReverse v -> varInAst var v
@@ -350,7 +338,6 @@ varInAst var = \case
   AstSumOfListS l -> any (varInAst var) l
   AstIndexS v ix -> varInAst var v || varInIndexS var ix
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
-  AstFromVectorS vl -> any (varInAst var) $ V.toList vl
   AstAppendS v u -> varInAst var v || varInAst var u
   AstSliceS v -> varInAst var v
   AstReverseS v -> varInAst var v
@@ -445,7 +432,7 @@ astIsSmall relaxed = \case
   AstConcrete{} -> False
 
   AstIotaR -> True
-  AstFromVector v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
+  AstFromVector snat v | sNatValue snat == 1 -> astIsSmall relaxed $ v V.! 0
   AstSlice _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTranspose _ v ->
@@ -454,7 +441,6 @@ astIsSmall relaxed = \case
   AstRFromS v -> astIsSmall relaxed v
 
   AstIotaS -> True
-  AstFromVectorS v | V.length v == 1 -> astIsSmall relaxed $ v V.! 0
   AstSliceS v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTransposeS _perm v ->

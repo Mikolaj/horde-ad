@@ -347,7 +347,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                     $ funToAstIxR f
                           -- this introduces new variable names
 
-  rfromVector = astFromVector
+  rfromVector l = withSNat (V.length l) $ \snat -> astFromVector snat l
   rreplicate k = withSNat k $ \snat ->
     astReplicate snat stensorKind
   rappend u v =
@@ -389,14 +389,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                         (astSFromX @sh @sh1sh2 a)
                         (fromList (toList ix))
-  xfromVector @_ @n @sh' la = case V.uncons la of
-    Nothing -> error "xfromVector: the vector is empty"
-    Just (a, _) -> case ftkAst a of
-      FTKX sh' _ ->
-        withShapeP (toList sh') $ \ (Proxy @sh) ->
-          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
-          astXFromS @(n ': sh) @(Just n ': sh')
-          $ astFromVectorS $ V.map (astSFromX @sh @sh') la
+  xfromVector @_ @k l = astFromVector (SNat @k) l
   xreplicate = astReplicate SNat stensorKind
   xtoScalar = AstToScalar . astSFromX
   xzip @_ @_ @sh' a = case ftkAst a of
@@ -434,7 +427,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astScatterS @shm @shn @shp t
     $ funToAstIxS f
         -- this introduces new variable names
-  sfromVector = astFromVectorS
+  sfromVector @_ @k l = astFromVector (SNat @k) l
   sreplicate = astReplicate SNat stensorKind
   sappend u v = astAppendS u v
   sslice @_ @i Proxy Proxy = astSliceS @i
@@ -663,7 +656,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rscatter sh t f = AstRaw $ AstScatter sh (unAstRaw t)
                     $ funToAstIxR (fmap unAstRaw . f . fmap AstRaw)
                         -- this introduces new variable names
-  rfromVector = AstRaw . AstFromVector . V.map unAstRaw
+  rfromVector l = withSNat (V.length l) $ \snat ->
+    AstRaw . AstFromVector snat . V.map unAstRaw $ l
   rreplicate k = withSNat k $ \snat ->
     AstRaw . AstReplicate snat stensorKind . unAstRaw
   rappend u v = AstRaw $ AstAppend (unAstRaw u) (unAstRaw v)
@@ -709,14 +703,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
                     (fromList (toList (unAstRaw <$> ix)))
-  xfromVector @_ @n @sh' la = case V.uncons la of
-    Nothing -> error "xfromVector: the vector is empty"
-    Just (AstRaw a, _) -> case ftkAst a of
-      FTKX sh' _ ->
-        withShapeP (toList sh') $ \ (Proxy @sh) ->
-          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
-          AstRaw $ AstXFromS @(n ': sh) @(Just n ': sh')
-          $ AstFromVectorS $ V.map (AstSFromX @sh @sh' . unAstRaw) la
+  xfromVector @_ @k l =
+    AstRaw . AstFromVector (SNat @k) . V.map unAstRaw $ l
   xreplicate = AstRaw . AstReplicate SNat stensorKind . unAstRaw
   xzip @_ @_ @sh' (AstRaw a) = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
@@ -753,7 +741,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstScatterS @shm @shn @shp (unAstRaw t)
            $ funToAstIxS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
-  sfromVector = AstRaw . AstFromVectorS . V.map unAstRaw
+  sfromVector @_ @k l =
+    AstRaw . AstFromVector (SNat @k) . V.map unAstRaw $ l
   sreplicate = AstRaw . AstReplicate SNat stensorKind . unAstRaw
   sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   sslice @_ @i Proxy Proxy = AstRaw . AstSliceS @i . unAstRaw
@@ -1116,7 +1105,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                     $ funToAstIxR
                         (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                           -- this introduces new variable names
-  rfromVector = AstNoSimplify . AstFromVector . V.map unAstNoSimplify
+  rfromVector l = withSNat (V.length l) $ \snat ->
+    AstNoSimplify . AstFromVector snat . V.map unAstNoSimplify $ l
   rreplicate k = withSNat k $ \snat ->
     AstNoSimplify . AstReplicate snat stensorKind . unAstNoSimplify
   rappend u v =
@@ -1162,14 +1152,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
                     (fromList (toList (unAstNoSimplify <$> ix)))
-  xfromVector @_ @n @sh' la = case V.uncons la of
-    Nothing -> error "xfromVector: the vector is empty"
-    Just (AstNoSimplify a, _) -> case ftkAst a of
-      FTKX sh' _ ->
-        withShapeP (toList sh') $ \ (Proxy @sh) ->
-          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
-          AstNoSimplify $ AstXFromS @(n ': sh) @(Just n ': sh')
-          $ AstFromVectorS $ V.map (AstSFromX @sh @sh' . unAstNoSimplify) la
+  xfromVector @_ @k l =
+    AstNoSimplify . AstFromVector (SNat @k) . V.map unAstNoSimplify $ l
   xreplicate = AstNoSimplify . AstReplicate SNat stensorKind . unAstNoSimplify
   xzip @_ @_ @sh' (AstNoSimplify a) = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
@@ -1212,7 +1196,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                   $ funToAstIxS
                       (fmap unAstNoSimplify . f . fmap AstNoSimplify)
                         -- this introduces new variable names
-  sfromVector = AstNoSimplify . AstFromVectorS . V.map unAstNoSimplify
+  sfromVector @_ @k l =
+    AstNoSimplify . AstFromVector (SNat @k) . V.map unAstNoSimplify $ l
   sreplicate = AstNoSimplify . AstReplicate SNat stensorKind . unAstNoSimplify
   sappend u v =
     AstNoSimplify $ AstAppendS (unAstNoSimplify u) (unAstNoSimplify v)

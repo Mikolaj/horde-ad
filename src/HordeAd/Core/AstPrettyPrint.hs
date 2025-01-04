@@ -196,6 +196,38 @@ printAstAux cfg d = \case
       . printAst cfg 11 a1
       . showString " "
       . printAst cfg 11 a2
+  AstFromVector @y2 _ l -> case stensorKind @y2 of
+    STKScalar{} -> error "AstFromVector: vector of scalars"
+    STKR{} ->
+      showParen (d > 10)
+      $ showString "rfromVector "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAst cfg 0) (V.toList l))
+    STKS{} ->
+      showParen (d > 10)
+      $ showString "sfromVector "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAst cfg 0) (V.toList l))
+    STKX{} ->
+      showParen (d > 10)
+      $ showString "xfromVector "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAst cfg 0) (V.toList l))
+    STKProduct{} ->
+      showParen (d > 10)
+      $ showString "tfromVector "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAst cfg 0) (V.toList l))
+    STKUntyped ->
+      showParen (d > 10)
+      $ showString "tfromVector "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAst cfg 0) (V.toList l))
   AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
    case stk of
     STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
@@ -346,12 +378,6 @@ printAstAux cfg d = \case
                           (toList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (toList ix))
-  AstFromVector l ->
-    showParen (d > 10)
-    $ showString "rfromVector "
-      . (showParen True
-         $ showString "fromList "
-           . showListWith (printAst cfg 0) (V.toList l))
   AstAppend x y -> printPrefixOp printAst cfg d "rappend" [x, y]
   AstSlice i n v -> printPrefixOp printAst cfg d
                                   ("rslice " ++ show i ++ " " ++ show n) [v]
@@ -434,12 +460,6 @@ printAstAux cfg d = \case
                           (toList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (toList ix))
-  AstFromVectorS l ->
-    showParen (d > 10)
-    $ showString "sfromVector "
-      . (showParen True
-         $ showString "fromList "
-           . showListWith (printAst cfg 0) (V.toList l))
   AstAppendS x y ->
     -- x and y have different types, unlike in AstAppend, so we
     -- have to inline printPrefixOp:

@@ -208,6 +208,13 @@ interpretAst !env = \case
   AstCond @y2 b a1 a2 ->
     let c = interpretAstBool env b
     in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
+  AstFromVector snat l ->
+    let l2 = V.map (interpretAst env) l
+    in tfromVector snat stensorKind l2
+  AstSum snat stk v -> tsum snat stk $ interpretAst env v
+    -- TODO: recognize when sum0 may be used instead, which is much cheaper
+    -- or should I do that in Delta instead? no, because tsum0R
+    -- is cheaper, too
   AstReplicate snat stk v ->
     treplicate snat stk (interpretAst env v)
   -- The following can't be, in general, so partially evaluated, because v
@@ -318,19 +325,12 @@ interpretAst !env = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
-  AstSum snat stk v -> tsum snat stk $ interpretAst env v
-    -- TODO: recognize when sum0 may be used instead, which is much cheaper
-    -- or should I do that in Delta instead? no, because tsum0R
-    -- is cheaper, too
   AstScatter sh v (ZR, ix) ->
     roneHot (takeShape sh) (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstScatter sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
     in rscatter sh t1 f2
-  AstFromVector l ->
-    let l2 = V.map (interpretAst env) l
-    in rfromVector l2
   AstAppend x y ->
     let t1 = interpretAst env x
         t2 = interpretAst env y
@@ -467,9 +467,6 @@ interpretAst !env = \case
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sscatter @_ @_ @shm @shn @shp t1 f2
-  AstFromVectorS l ->
-    let l2 = V.map (interpretAst env) l
-    in sfromVector l2
   AstAppendS x y ->
     let t1 = interpretAst env x
         t2 = interpretAst env y

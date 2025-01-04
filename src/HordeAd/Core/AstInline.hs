@@ -129,6 +129,10 @@ inlineAst memo v0 = case v0 of
         memo4 = EM.unionWith max memoA2 memoA3
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstCond b1 t2 t3)
+  Ast.AstFromVector snat l ->
+    let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
+    in (memo2, Ast.AstFromVector snat $ V.fromList l2)
+      -- TODO: emulate mapAccum using mapM?
   Ast.AstSum snat stk v ->
     second (Ast.AstSum snat stk) (inlineAst memo v)
   Ast.AstReplicate snat stk v ->
@@ -216,10 +220,6 @@ inlineAst memo v0 = case v0 of
         count = fromInteger $ fromSNat $ shrRank sh
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatter sh v2 (vars, fromList ix2))
-  Ast.AstFromVector l ->
-    let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
-    in (memo2, Ast.AstFromVector $ V.fromList l2)
-      -- TODO: emulate mapAccum using mapM?
   Ast.AstAppend x y ->
     let (memo1, t1) = inlineAst memo x
         (memo2, t2) = inlineAst memo1 y
@@ -286,10 +286,6 @@ inlineAst memo v0 = case v0 of
         count = fromIntegral $ sizeT @shp * sizeT @shn
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @shm @shn @shp v2 (vars, fromList ix2))
-  Ast.AstFromVectorS l ->
-    let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
-    in (memo2, Ast.AstFromVectorS $ V.fromList l2)
-      -- TODO: emulate mapAccum using mapM?
   Ast.AstAppendS x y ->
     let (memo1, t1) = inlineAst memo x
         (memo2, t2) = inlineAst memo1 y
@@ -492,6 +488,9 @@ unshareAst memo = \case
         (memo2, t2) = unshareAst memo1 a2
         (memo3, t3) = unshareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
+  Ast.AstFromVector snat l ->
+    let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
+    in (memo2, Ast.AstFromVector snat $ V.fromList l2)
   Ast.AstSum snat stk v ->
     second (Ast.AstSum snat stk) (unshareAst memo v)
   Ast.AstReplicate snat stk v ->
@@ -566,9 +565,6 @@ unshareAst memo = \case
                                  memo (toList ix)
         (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstScatter sh v2 (vars, fromList ix2))
-  Ast.AstFromVector l ->
-    let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
-    in (memo2, Ast.AstFromVector $ V.fromList l2)
   Ast.AstAppend x y ->
     let (memo1, t1) = unshareAst memo x
         (memo2, t2) = unshareAst memo1 y
@@ -631,9 +627,6 @@ unshareAst memo = \case
                     memo (toList ix)
         (memo2, v2) = unshareAst memo1 v
     in (memo2, Ast.AstScatterS @shm @shn @shp v2 (vars, fromList ix2))
-  Ast.AstFromVectorS l ->
-    let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
-    in (memo2, Ast.AstFromVectorS $ V.fromList l2)
   Ast.AstAppendS x y ->
     let (memo1, t1) = unshareAst memo x
         (memo2, t2) = unshareAst memo1 y

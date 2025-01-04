@@ -269,6 +269,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstCond :: TensorKind y
           => AstBool ms -> AstTensor ms s y -> AstTensor ms s y
           -> AstTensor ms s y
+  AstFromVector :: TensorKind y
+                => SNat k -> Data.Vector.Vector (AstTensor ms s y)
+                -> AstTensor ms s (BuildTensorKind k y)
   AstSum :: SNat k -> STensorKindType y
          -> AstTensor ms s (BuildTensorKind k y)
          -> AstTensor ms s y
@@ -365,9 +368,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
              -> AstTensor ms s (TKR2 (m + n) r)
              -> (AstVarList m, AstIxR ms p)
              -> AstTensor ms s (TKR2 (p + n) r)
-  AstFromVector :: (KnownNat n, TensorKind r)
-                => Data.Vector.Vector (AstTensor ms s (TKR2 n r))
-                -> AstTensor ms s (TKR2 (1 + n) r)
   AstAppend :: (KnownNat n, TensorKind r)
             => AstTensor ms s (TKR2 (1 + n) r) -> AstTensor ms s (TKR2 (1 + n) r)
             -> AstTensor ms s (TKR2 (1 + n) r)
@@ -455,9 +455,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               => AstTensor ms s (TKS2 (shm ++ shn) r)
               -> (AstVarListS shm, AstIxS ms shp)
               -> AstTensor ms s (TKS2 (shp ++ shn) r)
-  AstFromVectorS :: (KnownNat n, KnownShS sh, TensorKind r)
-                 => Data.Vector.Vector (AstTensor ms s (TKS2 sh r))
-                 -> AstTensor ms s (TKS2 (n ': sh) r)
   AstAppendS :: (KnownNat m, KnownNat n, KnownShS sh, TensorKind r)
              => AstTensor ms s (TKS2 (m ': sh) r)
              -> AstTensor ms s (TKS2 (n ': sh) r)
