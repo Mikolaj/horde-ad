@@ -18,6 +18,7 @@ import Data.IORef
 import Data.List (mapAccumR)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-))
@@ -28,7 +29,7 @@ import Type.Reflection (typeRep)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
   (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IxR (..)
@@ -45,11 +46,11 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   ( shCvtSX
-  , shrRank
   , shsAppend
   , shsLength
   , shsPermutePrefix
   , shsRank
+  , shsTail
   , withKnownShS
   )
 
@@ -776,9 +777,67 @@ astTrBuild stk t = case stk of
         in astPair (astTrBuild @k1 @k2 stk1 u1) (astTrBuild @k1 @k2 stk2 u2)
   STKUntyped -> astTrAstHVector t
 
+astIndexBuild :: forall y k s. AstSpan s
+              => SNat k -> STensorKindType y
+              -> AstTensor AstMethodLet s (BuildTensorKind k y)
+              -> AstInt AstMethodLet
+              -> AstTensor AstMethodLet s y
+astIndexBuild snat@SNat stk u i = case stk of
+  STKScalar{} -> u
+  STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    Ast.AstIndex u (i :.: ZIR)
+  STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    withKnownShS sh $ Ast.AstIndexS u (i :.$ ZIS)
+  STKX @sh sh x | Dict <- lemTensorKindOfSTK x -> case ftkAst u of
+   FTKX sh3 _->
+    withKnownShX sh $
+    withShapeP (toList sh3) $ \ (Proxy @sh2) -> case knownShS @sh2 of
+      ZSS -> error "astIndexBuild: impossible empty shape"
+      (:$$) @_ @sh2Rest _ sh2Rest ->
+        withKnownShS sh2Rest $
+{-      gcastWith (unsafeCoerceRefl
+                   :: Rank sh2 :~: Rank (Just k ': sh)) $
+        gcastWith (unsafeCoerceRefl
+                   :: Rank sh2 :~: 1 + Rank sh2Rest) $
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (Just k ': sh) :~: 1 + Rank sh) $ -}
+        -- The above is somehow not enough and so we need this:
+        gcastWith (unsafeCoerceRefl :: Rank sh2Rest :~: Rank sh) $
+        Ast.AstXFromS @sh2Rest @sh
+        $ Ast.AstIndexS (Ast.AstSFromX @sh2 @(Just k ': sh) u)
+                        (i :.$ ZIS)
+  STKProduct stk1 stk2
+    | Dict <- lemTensorKindOfSTK stk1
+    , Dict <- lemTensorKindOfSTK stk2
+    , Dict <- lemTensorKindOfBuild snat stk1
+    , Dict <- lemTensorKindOfBuild snat stk2 ->
+      astLetFun u $ \ !u3 ->
+        astPair (astIndexBuild snat stk1 (astProject1 u3) i)
+                (astIndexBuild snat stk2 (astProject2 u3) i)
+  STKUntyped -> case ftkAst u of
+    FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
+      let projDyn :: DynamicTensor (AstTensor AstMethodLet s)
+                  -> DynamicTensor (AstTensor AstMethodLet s)
+          projDyn (DynamicRanked @_ @n2 t) =
+              gcastWith (unsafeCoerceRefl :: Compare 1 n2 :~: LT) $
+              DynamicRanked
+              $ astIndexBuild
+                  snat (STKR (SNat @(n2 - 1)) (STKScalar typeRep)) t i
+          projDyn (DynamicShaped @_ @sh2 t) =
+              gcastWith (unsafeCoerceRefl :: sh2 :~: k ': Tail sh2) $
+              withKnownShS (shsTail (knownShS @sh2)) $
+              DynamicShaped
+              $ astIndexBuild
+                  snat (STKS (shsTail (knownShS @sh2)) (STKScalar typeRep)) t i
+          projDyn _ = error "astIndexBuild: impossible DynamicTensor cases"
+      in astLetHVectorIn
+           vars
+           u
+           (Ast.AstMkHVector $ V.map projDyn asts)
+
 substProjRep
   :: forall k s s2 y2 y.
-     ( AstSpan s, AstSpan s2, TensorKind y2, TensorKind y )
+     (AstSpan s, AstSpan s2, TensorKind y2, TensorKind y)
   => SNat k -> IntVarName
   -> FullTensorKind y2 -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
   -> ( AstVarName s2 (BuildTensorKind k y2)
@@ -790,64 +849,8 @@ substProjRep snat@SNat var ftk2 var1 v
         var3 = mkAstVarName (varNameToAstVarId var1)
         ftk3 = buildFTK snat ftk2
         astVar3 = Ast.AstVar ftk3 var3
-        projection :: AstTensor AstMethodLet s2 (BuildTensorKind k y4)
-                   -> FullTensorKind y4
-                   -> AstTensor AstMethodLet s2 y4
-        projection prVar = \case
-          FTKScalar -> prVar
-          FTKR sh FTKScalar | SNat <- shrRank sh ->
-            Ast.AstIndex prVar (Ast.AstIntVar var :.: ZIR)
-          FTKS sh FTKScalar ->
-            withKnownShS sh $
-            Ast.AstIndexS prVar (Ast.AstIntVar var :.$ ZIS)
-          FTKX @sh sh FTKScalar ->
-            withKnownShX (ssxFromShape sh) $
-            withShapeP (toList sh) $ \ (Proxy @sh2) -> case knownShS @sh2 of
-              ZSS -> error "substProjRep: impossible empty shape"
-              (:$$) @_ @sh2Rest _ sh2Rest ->
-                withKnownShS sh2Rest $
-{-              gcastWith (unsafeCoerceRefl
-                           :: Rank sh2 :~: Rank (Just k ': sh)) $
-                gcastWith (unsafeCoerceRefl
-                           :: Rank sh2 :~: 1 + Rank sh2Rest) $
-                gcastWith (unsafeCoerceRefl
-                           :: Rank (Just k ': sh) :~: 1 + Rank sh) $ -}
-                -- The above is somehow not enough and so we need this:
-                gcastWith (unsafeCoerceRefl :: Rank sh2Rest :~: Rank sh) $
-                Ast.AstXFromS @sh2Rest @sh
-                $ Ast.AstIndexS (Ast.AstSFromX @sh2 @(Just k ': sh) prVar)
-                                (Ast.AstIntVar var :.$ ZIS)
-          FTKProduct ftk41 ftk42
-            | Dict <- lemTensorKindOfSTK (ftkToStk ftk41)
-            , Dict <- lemTensorKindOfSTK (ftkToStk ftk42)
-            , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk41)
-            , Dict <- lemTensorKindOfBuild snat (ftkToStk ftk42) ->
-              let prVar1 = astProject1 prVar
-                  prVar2 = astProject2 prVar
-              in astPair (projection prVar1 ftk41)
-                         (projection prVar2 ftk42)
-          ftk@(FTKUntyped shs0) -> case buildFTK snat ftk of
-            FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
-              let projDyn :: DynamicTensor (AstTensor AstMethodLet s2)
-                          -> DynamicTensor VoidTensor
-                          -> DynamicTensor (AstTensor AstMethodLet s2)
-                  projDyn (DynamicRanked @_ @n2 t)
-                          (DynamicRankedDummy @_ @sh3 _ _)
-                    | Just Refl <- matchingRank @(k ': sh3) @n2 =
-                      withListSh (Proxy @sh3) $ \sh1 ->
-                        DynamicRanked $ projection t (FTKR sh1 FTKScalar)
-                  projDyn (DynamicShaped @_ @sh2 t)
-                          (DynamicShapedDummy @_ @sh3 _ _)
-                    | Just Refl <- sameShape @sh2 @(k ': sh3) =
-                      DynamicShaped $ projection t (FTKS @sh3 knownShS FTKScalar)
-                  projDyn _ _ = error "projDyn: impossible DynamicTensor cases"
-              in astLetHVectorIn
-                   vars
-                   prVar
-                   (Ast.AstMkHVector $ V.zipWith projDyn asts shs0)
-          _ -> error $ "TODO: " ++ show prVar
         v2 = substituteAst
-               (projection astVar3 ftk2)
+               (astIndexBuild snat (ftkToStk ftk2) astVar3 (Ast.AstIntVar var))
                var1 v
     in (var3, ftk3, v2)
 
