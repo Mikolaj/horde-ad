@@ -333,25 +333,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rD t d = dD t d
   rScale k = ScaleG k
 
-  xshape (D u _) = xshape u
-  xindex (D u u') i =
-    let ix = tprimalPart (STKScalar typeRep) <$> i
-    in dD (xindex u ix) (IndexX u' ix)
-
-  xfromVector @_ @k lu = assert (length lu == valueOf @k) $
-    dD (xfromVector $ V.map (\(D u _) -> u) lu)
-       (FromVectorG (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
-  -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
-  xreplicate _ = error "TODO"
-  xzip (D u u') = dD (xzip u) (ZipX u')
-  xunzip (D u u') = dD (xunzip u) (UnzipX u')
-  xtoScalar (D t d) = dDnotShared (xtoScalar t) (ToScalarG $ SFromX d)
-  xfromScalar (D t d) = dDnotShared (xfromScalar t) (XFromS $ FromScalarG d)
-  xfromPrimal t = fromPrimalADVal t
-  xprimalPart (D u _) = u
-  xdualPart (D _ u') = u'
-  xD t d = dD t d
-
   sminIndex (D u _) =
     let v = sminIndex u
     in fromPrimalADVal v
@@ -427,6 +408,25 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sdualPart (D _ u') = u'
   sD t d = dD t d
   sScale k = ScaleG k
+
+  xshape (D u _) = xshape u
+  xindex (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (xindex u ix) (IndexX u' ix)
+
+  xfromVector @_ @k lu = assert (length lu == valueOf @k) $
+    dD (xfromVector $ V.map (\(D u _) -> u) lu)
+       (FromVectorG (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
+  -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
+  xreplicate _ = error "TODO"
+  xzip (D u u') = dD (xzip u) (ZipX u')
+  xunzip (D u u') = dD (xunzip u) (UnzipX u')
+  xtoScalar (D t d) = dDnotShared (xtoScalar t) (ToScalarG $ SFromX d)
+  xfromScalar (D t d) = dDnotShared (xfromScalar t) (XFromS $ FromScalarG d)
+  xfromPrimal t = fromPrimalADVal t
+  xprimalPart (D u _) = u
+  xdualPart (D _ u') = u'
+  xD t d = dD t d
 
   kfloor (D u _) =
     let v = kfloor u

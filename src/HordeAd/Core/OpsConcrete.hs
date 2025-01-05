@@ -191,19 +191,6 @@ instance BaseTensor RepN where
   rD u _ = u
   rScale _ _ = DummyDualTarget
 
-  xshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.mshape . unRepN
-  xindex = error "TODO"
-  xfromVector = error "TODO"
-  xreplicate _ = error "TODO"
-  xzip (RepN (a, b)) = RepN $ Nested.mzip a b
-  xunzip = RepN . Nested.munzip . unRepN
-  xtoScalar = RepN . Nested.munScalar . unRepN
-  xfromScalar = RepN . Nested.mscalar . unRepN
-  xfromPrimal = id
-  xprimalPart = id
-  xdualPart _ = DummyDualTarget
-  xD u _ = u
-
   sminIndex = RepN . tminIndexS . unRepN
   smaxIndex = RepN . tmaxIndexS . unRepN
   sfloor = RepN . liftVS (V.map floor) . unRepN
@@ -363,6 +350,19 @@ instance BaseTensor RepN where
   sdualPart _ = DummyDualTarget
   sD u _ = u
   sScale _ _ = DummyDualTarget
+
+  xshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.mshape . unRepN
+  xindex = error "TODO"
+  xfromVector = error "TODO"
+  xreplicate _ = error "TODO"
+  xzip (RepN (a, b)) = RepN $ Nested.mzip a b
+  xunzip = RepN . Nested.munzip . unRepN
+  xtoScalar = RepN . Nested.munScalar . unRepN
+  xfromScalar = RepN . Nested.mscalar . unRepN
+  xfromPrimal = id
+  xprimalPart = id
+  xdualPart _ = DummyDualTarget
+  xD u _ = u
 
   kfloor = RepN . floor . unRepN
   kcast = RepN . realToFrac . unRepN

@@ -374,6 +374,43 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rD u u' = astSpanD u u'
   rScale s t = astDualPart $ AstFromPrimal s * AstD (rzero (rshape s)) t
 
+  sminIndex = fromPrimal . AstMinIndexS . astSpanPrimal
+  smaxIndex = fromPrimal . AstMaxIndexS . astSpanPrimal
+  sfloor = fromPrimal . AstFloorS . astSpanPrimal
+
+  siota = fromPrimal $ AstIotaS
+  sindex v ix =
+    astIndexStepS v ix
+  ssum = astSum SNat stensorKind
+  sscatter @_ @shm @shn @shp t f =
+    astScatterS @shm @shn @shp t
+    $ funToAstIxS f
+        -- this introduces new variable names
+  sfromVector @_ @k l = astFromVector (SNat @k) l
+  sreplicate = astReplicate SNat stensorKind
+  sappend u v = astAppendS u v
+  sslice @_ @i Proxy Proxy = astSliceS @i
+  sreverse = astReverseS
+  stranspose perm = astTransposeS perm
+  sreshape = astReshapeS
+  sbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
+  sgather @_ @shm @shn @shp t f =
+    astGatherStepS @shm @shn @shp t
+    $ funToAstIxS f
+        -- this introduces new variable names
+  scast = astCastS
+  sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
+  szip = AstZipS
+  sunzip = AstUnzipS
+  stoScalar = AstToScalar
+  sfromScalar = astFromScalar
+
+  sfromPrimal = fromPrimal
+  sprimalPart = astSpanPrimal
+  sdualPart = astSpanDual
+  sD u u' = astSpanD u u'
+  sScale s t = astDualPart $ AstFromPrimal s * AstD 0 t
+
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
   xindex @_ @sh1 @sh2 a ix = case ftkAst a of
@@ -414,43 +451,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
   xD u u' = astSpanD u u'
-
-  sminIndex = fromPrimal . AstMinIndexS . astSpanPrimal
-  smaxIndex = fromPrimal . AstMaxIndexS . astSpanPrimal
-  sfloor = fromPrimal . AstFloorS . astSpanPrimal
-
-  siota = fromPrimal $ AstIotaS
-  sindex v ix =
-    astIndexStepS v ix
-  ssum = astSum SNat stensorKind
-  sscatter @_ @shm @shn @shp t f =
-    astScatterS @shm @shn @shp t
-    $ funToAstIxS f
-        -- this introduces new variable names
-  sfromVector @_ @k l = astFromVector (SNat @k) l
-  sreplicate = astReplicate SNat stensorKind
-  sappend u v = astAppendS u v
-  sslice @_ @i Proxy Proxy = astSliceS @i
-  sreverse = astReverseS
-  stranspose perm = astTransposeS perm
-  sreshape = astReshapeS
-  sbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
-  sgather @_ @shm @shn @shp t f =
-    astGatherStepS @shm @shn @shp t
-    $ funToAstIxS f
-        -- this introduces new variable names
-  scast = astCastS
-  sfromIntegral = fromPrimal . astFromIntegralS . astSpanPrimal
-  szip = AstZipS
-  sunzip = AstUnzipS
-  stoScalar = AstToScalar
-  sfromScalar = astFromScalar
-
-  sfromPrimal = fromPrimal
-  sprimalPart = astSpanPrimal
-  sdualPart = astSpanDual
-  sD u u' = astSpanD u u'
-  sScale s t = astDualPart $ AstFromPrimal s * AstD 0 t
 
   kfloor = fromPrimal . AstFloor . astSpanPrimal
   kcast = astCast

@@ -334,7 +334,8 @@ class ( Num (IntOf target)
       , TensorSupportsX Integral IntegralF target )
       => BaseTensor (target :: Target) where
 
-  -- Integer codomain
+  -- Ranked ops
+  -- Integer codomain.
   rshape :: TensorKind r => target (TKR2 n r) -> IShR n
   rrank :: forall r n. (TensorKind r, KnownNat n) => target (TKR2 n r) -> Int
   rrank _ = valueOf @n
@@ -614,39 +615,7 @@ class ( Num (IntOf target)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
-  xshape :: (TensorKind r, KnownShX sh) => target (TKX2 sh r) -> IShX sh
-  xindex :: ( TensorKind r, KnownShX sh1, KnownShX sh2
-            , KnownShX (sh1 ++ sh2) )
-         => target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
-         -> target (TKX2 sh2 r)
-  xfromVector :: (TensorKind r, KnownNat n, KnownShX sh)
-              => Data.Vector.Vector (target (TKX2 sh r))
-              -> target (TKX2 (Just n ': sh) r)
-  xreplicate :: (KnownNat n, KnownShX sh, TensorKind r)
-             => target (TKX2 sh r) -> target (TKX2 (Just n ': sh) r)
-  xconcrete :: (TensorKind r, KnownShX sh)
-            => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
-  xconcrete a = tconcrete (tftkG (STKX knownShX stensorKind) a) (RepN a)
-  xzip :: (TensorKind y, TensorKind z, KnownShX sh)
-       => target (TKProduct (TKX2 sh y) (TKX2 sh z))
-       -> target (TKX2 sh (TKProduct y z))
-  xunzip :: (TensorKind y, TensorKind z, KnownShX sh)
-         => target (TKX2 sh (TKProduct y z))
-         -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
-  xtoScalar :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
-  xfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
-  xzero :: (GoodScalar r, KnownShX sh)
-        => IShX sh -> target (TKX sh r)
-  xzero sh = xrepl sh 0
-  xfromPrimal :: (TensorKind r, KnownShX sh)
-              => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
-  xprimalPart :: (TensorKind r, KnownShX sh)
-              => target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
-  xdualPart :: (TensorKind r, KnownShX sh)
-            => target (TKX2 sh r) -> DualOf target (TKX2 sh r)
-  xD :: (TensorKind r, KnownShX sh)
-     => PrimalOf target (TKX2 sh r)-> DualOf target (TKX2 sh r)
-     -> target (TKX2 sh r)
+  -- Shaped ops.
   -- Integer codomain
   sshape :: forall sh r. (TensorKind r, KnownShS sh)
          => target (TKS2 sh r) -> ShS sh
@@ -995,6 +964,42 @@ class ( Num (IntOf target)
   sScale :: (GoodScalar r, KnownShS sh)
          => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
          -> DualOf target (TKS sh r)
+
+  -- Mixed ops.
+  -- Integer codomain.
+  xshape :: (TensorKind r, KnownShX sh) => target (TKX2 sh r) -> IShX sh
+  xindex :: ( TensorKind r, KnownShX sh1, KnownShX sh2
+            , KnownShX (sh1 ++ sh2) )
+         => target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
+         -> target (TKX2 sh2 r)
+  xfromVector :: (TensorKind r, KnownNat n, KnownShX sh)
+              => Data.Vector.Vector (target (TKX2 sh r))
+              -> target (TKX2 (Just n ': sh) r)
+  xreplicate :: (KnownNat n, KnownShX sh, TensorKind r)
+             => target (TKX2 sh r) -> target (TKX2 (Just n ': sh) r)
+  xconcrete :: (TensorKind r, KnownShX sh)
+            => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
+  xconcrete a = tconcrete (tftkG (STKX knownShX stensorKind) a) (RepN a)
+  xzip :: (TensorKind y, TensorKind z, KnownShX sh)
+       => target (TKProduct (TKX2 sh y) (TKX2 sh z))
+       -> target (TKX2 sh (TKProduct y z))
+  xunzip :: (TensorKind y, TensorKind z, KnownShX sh)
+         => target (TKX2 sh (TKProduct y z))
+         -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
+  xtoScalar :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
+  xfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
+  xzero :: (GoodScalar r, KnownShX sh)
+        => IShX sh -> target (TKX sh r)
+  xzero sh = xrepl sh 0
+  xfromPrimal :: (TensorKind r, KnownShX sh)
+              => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
+  xprimalPart :: (TensorKind r, KnownShX sh)
+              => target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
+  xdualPart :: (TensorKind r, KnownShX sh)
+            => target (TKX2 sh r) -> DualOf target (TKX2 sh r)
+  xD :: (TensorKind r, KnownShX sh)
+     => PrimalOf target (TKX2 sh r)-> DualOf target (TKX2 sh r)
+     -> target (TKX2 sh r)
 
   -- Scalar ops
   kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
