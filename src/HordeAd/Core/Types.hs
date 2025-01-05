@@ -6,6 +6,7 @@
 module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
+  , pattern SNat'
     -- * Definitions for type-level list shapes
   , slistKnown, sixKnown
   , shapeP, sizeT, sizeP
@@ -115,6 +116,13 @@ proxyFromSNat SNat = Proxy
 {-# INLINE valueOf #-}
 valueOf :: forall n r. (KnownNat n, Num r) => r
 valueOf = fromInteger $ fromSNat (SNat @n)
+
+pattern SNat' :: forall n m. KnownNat n => (KnownNat m, n ~ m) => SNat m
+pattern SNat' <- (matchSNat (Proxy @n) -> Just (Refl :: n :~: m))
+  where SNat' = SNat
+
+matchSNat :: forall n m proxy. KnownNat n => proxy n -> SNat m -> Maybe (n :~: m)
+matchSNat p m@SNat = sameNat p m
 
 
 -- * Definitions for type-level list shapes
