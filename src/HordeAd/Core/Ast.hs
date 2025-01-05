@@ -292,6 +292,38 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
              -> AstTensor AstMethodShare s y
   AstConcrete :: TensorKind y
               => FullTensorKind y -> RepN y -> AstTensor ms PrimalSpan y
+  AstMapAccumRDer
+    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => SNat k
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
+    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
+                          (TKProduct accShs eShs))
+               (ADTensorKind (TKProduct accShs bShs))
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                          (TKProduct accShs eShs))
+               (ADTensorKind (TKProduct accShs eShs))
+    -> AstTensor ms s accShs
+    -> AstTensor ms s (BuildTensorKind k eShs)
+    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
+  AstMapAccumLDer
+    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    => SNat k
+    -> FullTensorKind accShs
+    -> FullTensorKind bShs
+    -> FullTensorKind eShs
+    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
+                          (TKProduct accShs eShs))
+               (ADTensorKind (TKProduct accShs bShs))
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
+                          (TKProduct accShs eShs))
+               (ADTensorKind (TKProduct accShs eShs))
+    -> AstTensor ms s accShs
+    -> AstTensor ms s (BuildTensorKind k eShs)
+    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
 
   -- Extra constructors for optimization.
   AstSumOfList :: STensorKindType y -> [AstTensor ms s y] -> AstTensor ms s y
@@ -316,11 +348,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstFloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
            => AstTensor ms PrimalSpan (TKScalar r)
            -> AstTensor ms PrimalSpan (TKScalar r2)
-  AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
-          => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
   AstFromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                   => AstTensor ms PrimalSpan (TKScalar r1)
                   -> AstTensor ms PrimalSpan (TKScalar r2)
+  AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
+          => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
   -- Here starts the ranked part.
   AstN1R :: (GoodScalar r, KnownNat n)
@@ -337,22 +369,22 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
          => OpCodeIntegral2 -> AstTensor ms s (TKR n r)
          -> AstTensor ms s (TKR n r)
          -> AstTensor ms s (TKR n r)
+  AstFloorR :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+               , KnownNat n )
+            => AstTensor ms PrimalSpan (TKR n r)
+            -> AstTensor ms PrimalSpan (TKR n r2)
+  AstFromIntegralR :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
+                   => AstTensor ms PrimalSpan (TKR n r1)
+                   -> AstTensor ms PrimalSpan (TKR n r2)
+  AstCastR :: ( GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2
+              , KnownNat n )
+           => AstTensor ms s (TKR n r1) -> AstTensor ms s (TKR n r2)
   AstMinIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKR (1 + n) r)
                -> AstTensor ms PrimalSpan (TKR n r2)
   AstMaxIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKR (1 + n) r)
                -> AstTensor ms PrimalSpan (TKR n r2)
-  AstFloorR :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
-               , KnownNat n )
-            => AstTensor ms PrimalSpan (TKR n r)
-            -> AstTensor ms PrimalSpan (TKR n r2)
-  AstCastR :: ( GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2
-              , KnownNat n )
-           => AstTensor ms s (TKR n r1) -> AstTensor ms s (TKR n r2)
-  AstFromIntegralR :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
-                   => AstTensor ms PrimalSpan (TKR n r1)
-                   -> AstTensor ms PrimalSpan (TKR n r2)
   AstIotaR :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
 
   AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, TensorKind r)
@@ -387,12 +419,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
             -> (AstVarList m, AstIxR ms p)
             -> AstTensor ms s (TKR2 (m + n) r)
     -- out of bounds indexing is permitted
-  AstProjectR :: (GoodScalar r, KnownNat n)
-              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKR n r)
-  AstLetHVectorIn :: forall s s2 z. (AstSpan s, TensorKind z)
-                  => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
-                  -> AstTensor AstMethodLet s2 z
-                  -> AstTensor AstMethodLet s2 z
   AstZipR :: (TensorKind y, TensorKind z, KnownNat n)
           => AstTensor ms s (TKProduct (TKR2 n y) (TKR2 n z))
           -> AstTensor ms s (TKR2 n (TKProduct y z))
@@ -419,6 +445,16 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
          => OpCodeIntegral2 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
+  AstFloorS :: ( GoodScalar r, RealFrac r, Integral r2, GoodScalar r2
+               , KnownShS sh )
+            => AstTensor ms PrimalSpan (TKS sh r)
+            -> AstTensor ms PrimalSpan (TKS sh r2)
+  AstFromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
+                   => AstTensor ms PrimalSpan (TKS sh r1)
+                   -> AstTensor ms PrimalSpan (TKS sh r2)
+  AstCastS :: ( GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2
+              , KnownShS sh )
+           => AstTensor ms s (TKS sh r1) -> AstTensor ms s (TKS sh r2)
   AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
                   , GoodScalar r2, KnownShS (Init (n ': sh)) )
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
@@ -427,16 +463,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                   , GoodScalar r2, KnownShS (Init (n ': sh)) )
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
-  AstFloorS :: ( GoodScalar r, RealFrac r, Integral r2, GoodScalar r2
-               , KnownShS sh )
-            => AstTensor ms PrimalSpan (TKS sh r)
-            -> AstTensor ms PrimalSpan (TKS sh r2)
-  AstCastS :: ( GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2
-              , KnownShS sh )
-           => AstTensor ms s (TKS sh r1) -> AstTensor ms s (TKS sh r2)
-  AstFromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
-                   => AstTensor ms PrimalSpan (TKS sh r1)
-                   -> AstTensor ms PrimalSpan (TKS sh r2)
   AstIotaS :: (KnownNat n, GoodScalar r)
            => AstTensor ms PrimalSpan (TKS '[n] r)
 
@@ -476,8 +502,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
              -> (AstVarListS shm, AstIxS ms shp)
              -> AstTensor ms s (TKS2 (shm ++ shn) r)
     -- out of bounds indexing is permitted
-  AstProjectS :: (GoodScalar r, KnownShS sh)
-              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
   AstZipS :: (TensorKind y, TensorKind z, KnownShS sh)
           => AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
           -> AstTensor ms s (TKS2 sh (TKProduct y z))
@@ -485,7 +509,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
             => AstTensor ms s (TKS2 sh (TKProduct y z))
             -> AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
 
-  -- Ops that involve more than one variant of arrays
+  -- Ops that involve more than one variant of arrays.
   AstRFromS :: (KnownShS sh, TensorKind r)
             => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
@@ -504,7 +528,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstXNest :: (KnownShX sh1, KnownShX sh2, TensorKind x)
            => AstTensor ms s (TKX2 (sh1 ++ sh2) x)
            -> AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
-
   AstXUnNestR :: (KnownShX sh1, KnownNat m, TensorKind x)
               => AstTensor ms s (TKX2 sh1 (TKR2 m x))
               -> AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
@@ -514,41 +537,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstXUnNest :: (KnownShX sh1, KnownShX sh2, TensorKind x)
              => AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
              -> AstTensor ms s (TKX2 (sh1 ++ sh2) x)
-
-  -- Here starts the misc part.
-  AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
-  AstMapAccumRDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs bShs))
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs eShs))
-    -> AstTensor ms s accShs
-    -> AstTensor ms s (BuildTensorKind k eShs)
-    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
-  AstMapAccumLDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
-    => SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs bShs))
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs eShs))
-    -> AstTensor ms s accShs
-    -> AstTensor ms s (BuildTensorKind k eShs)
-    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
 
   -- Here starts the backend-specific primitives part.
   AstReplicate0NR :: IShR n -> STensorKindType x
@@ -596,6 +584,17 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               -> AstTensor ms s (TKS '[m, n] r)
               -> AstTensor ms s (TKS '[n, p] r)
               -> AstTensor ms s (TKS '[m, p] r)
+
+  -- Constructors slated for removal.
+  AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
+  AstProjectR :: (GoodScalar r, KnownNat n)
+              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKR n r)
+  AstLetHVectorIn :: forall s s2 z. (AstSpan s, TensorKind z)
+                  => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
+                  -> AstTensor AstMethodLet s2 z
+                  -> AstTensor AstMethodLet s2 z
+  AstProjectS :: (GoodScalar r, KnownShS sh)
+              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
 
 deriving instance Show (AstTensor ms s y)
 
