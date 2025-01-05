@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
-             UndecidableInstances, UndecidableSuperClasses #-}
+             UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Some fundamental type families and types.
@@ -49,7 +49,7 @@ import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (sort)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -61,6 +61,7 @@ import GHC.TypeLits
   , SNat
   , fromSNat
   , pattern SNat
+  , sameNat
   , type (+)
   , type (-)
   , withSomeSNat

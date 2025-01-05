@@ -1216,9 +1216,9 @@ testMatmul2PPS = do
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate (tproject2 m1)))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m2 x1 -> tpair (ssum (stranspose (sreplicate (tproject2 m1)) * stranspose (sreplicate m2)), ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate m2)))"
+    @?= "\\m2 x1 -> tpair (smatmul2 m2 (stranspose (tproject2 m1)), smatmul2 (stranspose (tproject1 m1)) m2)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> ssum (stranspose (sreplicate (tproject1 m1)) * stranspose (sreplicate (tproject2 m1)))"
+    @?= "\\x1 -> smatmul2 (tproject1 m1) (tproject2 m1)"
 
 testAddSpeedBig :: Assertion
 testAddSpeedBig =
