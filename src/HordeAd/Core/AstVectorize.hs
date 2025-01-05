@@ -314,7 +314,7 @@ build1V snat@SNat (var, v0) =
     Ast.AstReverse v -> traceRule $
       astTr $ astReverse $ astTr $ build1V snat (var, v)
     Ast.AstTranspose perm v -> traceRule $
-      astTranspose (normalizePermutation $ 0 : map succ perm)
+      astTranspose (0 : map succ perm)  -- this perm is normalized (I think?)
                    (build1V snat (var, v))
     Ast.AstReshape sh v -> traceRule $
       astReshape (k :$: sh) $ build1V snat (var, v)

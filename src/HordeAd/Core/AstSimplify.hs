@@ -16,10 +16,8 @@
 -- of the original terms provided by the user as possible while making
 -- sure subterms introduced by vectorization are maximally simplified.
 module HordeAd.Core.AstSimplify
-  ( -- * Permutation operations
-    normalizePermutation
-    -- * The combinators for indexing and gather
-  , astNonIndexStep, astIndexStep, astIndexStepS
+  ( -- * The combinators for indexing and gather
+    astNonIndexStep, astIndexStep, astIndexStepS
   , astGatherStep, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
   , astFromScalar
@@ -307,7 +305,11 @@ astReshapeAsGatherS knobs v | Refl <- lemAppNil @sh2
 -- * Permutation operations
 
 normalizePermutation :: Permutation.PermR -> Permutation.PermR
-normalizePermutation perm =
+normalizePermutation perm = perm
+--  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
+-- TODO: port to shaped permutations and then re-enable and replace the below
+normalizePermutationHack :: Permutation.PermR -> Permutation.PermR
+normalizePermutationHack perm =
   map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
 
 -- A representation of a cycle backpermutation.
@@ -1788,8 +1790,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
          astRFromS $ astGatherStepS @_ @p' @sh v
                      ( ShapedList.listToSized $ sizedToList vars4
                      , ShapedList.listToSized $ indexToList ix4 ) -}
-    Ast.AstSFromX{} -> error "TODO"
-    Ast.AstZipS _v -> error "TODO"
+    Ast.AstSFromX{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+    Ast.AstZipS _v -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
     Ast.AstApply{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
@@ -2402,7 +2404,7 @@ astTranspose perm = \case
     let perm2Matched =
           perm2
           ++ take (length perm - length perm2) (drop (length perm2) [0 ..])
-        perm3 = normalizePermutation $ backpermutePrefixList perm perm2Matched
+        perm3 = normalizePermutationHack $ backpermutePrefixList perm perm2Matched
     in astTranspose perm3 t
       -- this rule can be disabled to test fusion of gathers
   -- Note that the following would be wrong, because transpose really
@@ -2474,7 +2476,7 @@ astTransposeS perm t = case perm of
         perm2Matched =
           perm2V
           ++ take (length permV - length perm2V) (drop (length perm2V) [0 ..])
-        perm3V = normalizePermutation $ backpermutePrefixList permV perm2Matched
+        perm3V = normalizePermutationHack $ backpermutePrefixList permV perm2Matched
     in Permutation.permFromList perm3V $ \(perm3 :: Permutation.Perm perm3) ->
       trustMeThisIsAPermutation @perm3 $
       gcastWith (unsafeCoerceRefl
@@ -3429,7 +3431,7 @@ expandAst t = case t of
                 (shsRank $ knownShS @shp) == GGT -> t  -- nf
     _ ->  -- not nf, let's express all as a gather
       astTransposeAsGatherS (defaultKnobs {knobExpand = True})
-                            perm
+                            perm  -- TODO: (normalizePermutation perm)
                             (expandAst v)
         -- this is expensive but the only way to guarantee full simplification
   Ast.AstReshapeS v -> case v of
@@ -3659,7 +3661,7 @@ simplifyAst t = case t of
   Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
   Ast.AstSliceS @i v -> astSliceS @i (simplifyAst v)
   Ast.AstReverseS v -> astReverseS (simplifyAst v)
-  Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v
+  Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v  -- TODO:(normalizePermutation perm)
   Ast.AstReshapeS v -> astReshapeS $ simplifyAst v
   Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
@@ -4318,7 +4320,7 @@ contractAst t = case t of
   Ast.AstAppendS x y -> astAppendS (contractAst x) (contractAst y)
   Ast.AstSliceS @i v -> astSliceS @i (contractAst v)
   Ast.AstReverseS v -> astReverseS (contractAst v)
-  Ast.AstTransposeS perm v -> astTransposeS perm $ contractAst v
+  Ast.AstTransposeS perm v -> astTransposeS perm $ contractAst v  -- TODO:(normalizePermutation perm)
   Ast.AstReshapeS v -> astReshapeS $ contractAst v
 {- TODO, but sbuild is tricky, so only if benchmarks show it's worth it:
   AstGatherS @shm AstIotaS (vars, i :.$ ZIS) | Refl <- lemAppNil @shm ->
