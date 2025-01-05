@@ -666,14 +666,6 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
           -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndex v0 ix
   Ast.AstProjectR{} -> Ast.AstIndex v0 ix
-  {- TODO: this is not really helping:
-  Ast.AstProjectR Ast.AstVar{} _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR (Ast.AstProject1 Ast.AstVar{}) _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR (Ast.AstProject2 Ast.AstVar{}) _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR l p ->
-    fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
-      let lp = fromDynamicR (\sh -> AstRanked $ astReplicate0N sh 0) (asts V.! p)
-      in astLetHVectorIn vars l (astIndexRec (unAstRanked lp) ix) -}
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
   Ast.AstZipR _ -> Ast.AstIndex v0 ix
@@ -766,8 +758,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
          $ astIndex @shm @(n1 : shn)
                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
                     ix
-  Ast.AstReplicate snat (STKS sh _) v
-    | AstConcrete _ (RepN it) <- i1 ->
+  Ast.AstReplicate snat (STKS sh _) v | AstConcrete _ (RepN it) <- i1 ->
       withKnownShS sh $
       let i = fromIntegral it
       in if 0 <= i && i < sNatValue snat
@@ -926,14 +917,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS v0 ix
   Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
-  {- TODO: this is not really helping:
-  Ast.AstProjectR Ast.AstVar{} _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR (Ast.AstProject1 Ast.AstVar{}) _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR (Ast.AstProject2 Ast.AstVar{}) _ -> Ast.AstIndex v0 ix
-  Ast.AstProjectR l p ->
-    fun1DToAst (shapeAstHVector l) $ \ !vars !asts ->
-      let lp = fromDynamicR (\sh -> AstRanked $ astReplicate0N sh 0) (asts V.! p)
-      in astLetHVectorIn vars l (astIndexRec (unAstRanked lp) ix) -}
   Ast.AstLetHVectorIn vars l v ->
     astLetHVectorIn vars l (astIndexRec v ix)
   Ast.AstZipS _ -> Ast.AstIndexS v0 ix
@@ -2087,7 +2070,8 @@ astScatterS :: forall shm shn shp r s .
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
             -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
 astScatterS v (ZS, ZIS) = v
-{- TODO: this is impossible and checked when indexes are created, right?
+{- TODO: this is impossible, due to strongly typed index,
+-- and checked when indexes are created, right?
 astScatterS _v (_vars, (:.$) @k (AstConcrete _ (RepN it)) _ix)
   | let i = fromIntegral it
   , not (0 <= i && i < valueOf @k)
@@ -2610,7 +2594,8 @@ astCastR v = Ast.AstCastR v
 
 astCastS :: ( KnownShS sh, GoodScalar r1, GoodScalar r2, RealFrac r1
             , RealFrac r2 )
-         => AstTensor AstMethodLet s (TKS sh r1) -> AstTensor AstMethodLet s (TKS sh r2)
+         => AstTensor AstMethodLet s (TKS sh r1)
+         -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS (AstConcrete (FTKS sh FTKScalar) t) =
   AstConcrete (FTKS sh FTKScalar) $ scast t
 astCastS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastS v
@@ -2635,7 +2620,8 @@ astFromIntegralR v = Ast.AstFromIntegralR v
 astFromIntegralS :: (KnownShS sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
-astFromIntegralS (AstConcrete (FTKS sh FTKScalar) t) = AstConcrete (FTKS sh FTKScalar) $ sfromIntegral t
+astFromIntegralS (AstConcrete (FTKS sh FTKScalar) t) =
+  AstConcrete (FTKS sh FTKScalar) $ sfromIntegral t
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astFromIntegralS v = Ast.AstFromIntegralS v
 
@@ -2646,7 +2632,7 @@ astProject1 u = case u of
   Ast.AstPair x _z -> x
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
--- TODO: generalize AstConcrete, unless it's not the best idea? currently these must be explicit AstPair, so the other rule works fine:  Ast.AstConcrete u1 -> Ast.AstConcrete $ tproject1 u1
+-- TODO: Ast.AstConcrete u1 -> Ast.AstConcrete $ tproject1 u1
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
   _ -> Ast.AstProject1 u
@@ -3418,8 +3404,52 @@ expandAst t = case t of
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS @i v -> astSliceS @i (expandAst v)
   Ast.AstReverseS v -> astReverseS (expandAst v)
-  Ast.AstTransposeS perm v -> astTransposeS perm $ expandAst v
-  Ast.AstReshapeS v -> astReshapeS $ expandAst v
+  Ast.AstTransposeS perm v -> case v of
+    Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
+    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProjectS Ast.AstVar{} _ -> t  -- normal form
+    Ast.AstReplicate{} -> t  -- normal form
+      -- TODO: this nf is silly, but right now transposes of replicates
+      -- are small OR.Arrays and equivalent gathers are large OR.Arrays,
+      -- so this has to stay. Maybe we should contract gathers back
+      -- to transposes of replicates (not only to replicates). Or maybe
+      -- we should extend orthotope to any gather schemes, not only
+      -- the simple ones.
+    AstSumOfList{} -> t  -- normal form
+    AstN1S _ w | isVar w -> t  -- normal form
+    AstN2S _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1S _ w | isVar w -> t  -- normal form
+    Ast.AstR2S _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstScatterS @_ @_ @shp _ _
+     | gcompare (Permutation.permRank perm)
+                (shsRank $ knownShS @shp) == GGT -> t  -- nf
+    _ ->  -- not nf, let's express all as a gather
+      astTransposeAsGatherS (defaultKnobs {knobExpand = True})
+                            perm
+                            (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
+  Ast.AstReshapeS v -> case v of
+    Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
+    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProjectS Ast.AstVar{} _ -> t  -- normal form
+    AstSumOfList{} -> t  -- normal form
+    AstN1S _ w | isVar w -> t  -- normal form
+    AstN2S _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR1S _ w | isVar w -> t  -- normal form
+    Ast.AstR2S _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstScatterS{} -> t  -- normal form
+    _ ->  -- not nf, let's express all as a gather
+      astReshapeAsGatherS (defaultKnobs {knobExpand = True})
+                          (expandAst v)
+        -- this is expensive but the only way to guarantee full simplification
   Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     astGatherKnobsS @shm @shn @shp
