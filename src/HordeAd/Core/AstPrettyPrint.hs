@@ -321,6 +321,13 @@ printAstAux cfg d = \case
                          . (showParen True
                             $ shows a)
 
+  AstSumOfList _ [] -> error "printAst: empty AstSumOfList"
+  AstSumOfList _ (left : args) ->
+    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
+    in showParen (d > 6)
+       $ printAst cfg 7 left
+         . foldr (.) id rs
+
   AstMinIndexR a ->
     printPrefixOp printAst cfg d "rminIndex" [a]
   AstMaxIndexR a ->
@@ -333,12 +340,6 @@ printAstAux cfg d = \case
   AstR1 opCode u -> printAstR1R printAst cfg d opCode u
   AstR2 opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2 opCode u v -> printAstI2R printAst cfg d opCode u v
-  AstSumOfList [] -> error "printAst: empty AstSumOfList"
-  AstSumOfList (left : args) ->
-    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
-    in showParen (d > 6)
-       $ printAst cfg 7 left
-         . foldr (.) id rs
   AstFloor v ->
     printPrefixOp printAst cfg d "kfloor" [v]
   AstCast v ->
@@ -350,12 +351,6 @@ printAstAux cfg d = \case
   AstR1R opCode u -> printAstR1R printAst cfg d opCode u
   AstR2R opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2R opCode u v -> printAstI2R printAst cfg d opCode u v
-  AstSumOfListR [] -> error "printAst: empty AstSumOfList"
-  AstSumOfListR (left : args) ->
-    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
-    in showParen (d > 6)
-       $ printAst cfg 7 left
-         . foldr (.) id rs
   AstIndex v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
@@ -430,12 +425,6 @@ printAstAux cfg d = \case
   AstR1S opCode u -> printAstR1R printAst cfg d opCode u
   AstR2S opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2S opCode u v -> printAstI2R printAst cfg d opCode u v
-  AstSumOfListS [] -> error "printAst: empty AstSumOfList"
-  AstSumOfListS (left : args) ->
-    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
-    in showParen (d > 6)
-       $ printAst cfg 7 left
-         . foldr (.) id rs
   AstIndexS @sh1 @sh2 v ix ->
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     showParen (d > 9)

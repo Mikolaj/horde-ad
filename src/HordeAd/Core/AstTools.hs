@@ -87,12 +87,15 @@ ftkAst t = case t of
   AstToShare v -> ftkAst v
   AstConcrete ftk _ -> ftk
 
+  AstSumOfList _ args -> case args of
+    [] -> error "ftkAst: AstSumOfList with no arguments"
+    v : _ -> ftkAst v
+
   AstN1{} -> FTKScalar
   AstN2{} -> FTKScalar
   AstR1{} -> FTKScalar
   AstR2{} -> FTKScalar
   AstI2{} -> FTKScalar
-  AstSumOfList{} -> FTKScalar
   AstFloor{} -> FTKScalar
   AstCast{} -> FTKScalar
   AstFromIntegral{} -> FTKScalar
@@ -106,9 +109,6 @@ ftkAst t = case t of
   AstR1R _opCode v -> ftkAst v
   AstR2R _opCode v _ -> ftkAst v
   AstI2R _opCode v _ -> ftkAst v
-  AstSumOfListR args -> case args of
-    [] -> error "ftkAst: AstSumOfListR with no arguments"
-    v : _ -> ftkAst v
   AstIndex v _ -> case ftkAst v of
     FTKR sh x -> FTKR (dropShape sh) x
   AstScatter sh v _ -> case ftkAst v of
@@ -148,7 +148,6 @@ ftkAst t = case t of
   AstR1S{} -> FTKS knownShS FTKScalar
   AstR2S{} -> FTKS knownShS FTKScalar
   AstI2S{} -> FTKS knownShS FTKScalar
-  AstSumOfListS{} -> FTKS knownShS FTKScalar
   AstIndexS v _ix -> case ftkAst v of
     FTKS _sh1sh2 x -> FTKS knownShS x
   AstScatterS @_ @shn @shp v _ -> case ftkAst v of
@@ -292,10 +291,8 @@ varInAst var = \case
   AstToShare v -> varInAst var v
   AstConcrete{} -> False
 
-  AstMinIndexR a -> varInAst var a
-  AstMaxIndexR a -> varInAst var a
-  AstFloorR a -> varInAst var a
-  AstIotaR -> False
+  AstSumOfList _ l -> any (varInAst var) l
+
   AstN1 _ t -> varInAst var t
   AstN2 _ t u -> varInAst var t || varInAst var u
   AstR1 _ t -> varInAst var t
@@ -304,13 +301,16 @@ varInAst var = \case
   AstFloor a -> varInAst var a
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
-  AstSumOfList l -> any (varInAst var) l
+
   AstN1R _ t -> varInAst var t
   AstN2R _ t u -> varInAst var t || varInAst var u
   AstR1R _ t -> varInAst var t
   AstR2R _ t u -> varInAst var t || varInAst var u
   AstI2R _ t u -> varInAst var t || varInAst var u
-  AstSumOfListR l -> any (varInAst var) l
+  AstMinIndexR a -> varInAst var a
+  AstMaxIndexR a -> varInAst var a
+  AstFloorR a -> varInAst var a
+  AstIotaR -> False
   AstIndex v ix -> varInAst var v || varInIndex var ix
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstAppend v u -> varInAst var v || varInAst var u
@@ -335,7 +335,6 @@ varInAst var = \case
   AstR1S _ t -> varInAst var t
   AstR2S _ t u -> varInAst var t || varInAst var u
   AstI2S _ t u -> varInAst var t || varInAst var u
-  AstSumOfListS l -> any (varInAst var) l
   AstIndexS v ix -> varInAst var v || varInIndexS var ix
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
   AstAppendS v u -> varInAst var v || varInAst var u

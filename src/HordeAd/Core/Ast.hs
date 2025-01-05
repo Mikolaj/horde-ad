@@ -293,6 +293,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstConcrete :: TensorKind y
               => FullTensorKind y -> RepN y -> AstTensor ms PrimalSpan y
 
+  -- Extra constructors for optimization.
+  AstSumOfList :: STensorKindType y -> [AstTensor ms s y] -> AstTensor ms s y
+
   -- Here starts the scalar part.
   AstN1 :: GoodScalar r
         => OpCodeNum1 -> AstTensor ms s (TKScalar r)
@@ -310,8 +313,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
         => OpCodeIntegral2 -> AstTensor ms s (TKScalar r)
         -> AstTensor ms s (TKScalar r)
         -> AstTensor ms s (TKScalar r)
-  AstSumOfList :: GoodScalar r
-               => [AstTensor ms s (TKScalar r)] -> AstTensor ms s (TKScalar r)
   AstFloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
            => AstTensor ms PrimalSpan (TKScalar r)
            -> AstTensor ms PrimalSpan (TKScalar r2)
@@ -336,8 +337,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
          => OpCodeIntegral2 -> AstTensor ms s (TKR n r)
          -> AstTensor ms s (TKR n r)
          -> AstTensor ms s (TKR n r)
-  AstSumOfListR :: (GoodScalar r, KnownNat n)
-                => [AstTensor ms s (TKR n r)] -> AstTensor ms s (TKR n r)
   AstMinIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKR (1 + n) r)
                -> AstTensor ms PrimalSpan (TKR n r2)
@@ -420,8 +419,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
          => OpCodeIntegral2 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
-  AstSumOfListS :: (KnownShS sh, GoodScalar r)
-                => [AstTensor ms s (TKS sh r)] -> AstTensor ms s (TKS sh r)
   AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
                   , GoodScalar r2, KnownShS (Init (n ': sh)) )
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)

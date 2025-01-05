@@ -242,14 +242,10 @@ build1V snat@SNat (var, v0) =
                        (build1VOccurenceUnknownRefresh snat (var, v2))
              -- ensures no duplicated bindings, see below
 
-    Ast.AstMinIndexR v -> traceRule $
-     Ast.AstMinIndexR $ build1V snat (var, v)
-    Ast.AstMaxIndexR v -> traceRule $
-     Ast.AstMaxIndexR $ build1V snat (var, v)
-    Ast.AstFloorR v -> traceRule $
-     Ast.AstFloorR $ build1V snat (var, v)
-    Ast.AstIotaR ->
-      error "build1V: AstIotaR can't have free index variables"
+    Ast.AstSumOfList stk args
+     | Dict <- lemTensorKindOfBuild snat stk -> traceRule $
+      astSumOfList stensorKind
+      $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstN1 opCode u -> traceRule $
       Ast.AstN1 opCode (build1V snat (var, u))
@@ -267,8 +263,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstI2 opCode u v -> traceRule $
       Ast.AstI2 opCode (build1VOccurenceUnknown snat (var, u))
                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstSumOfList args -> traceRule $
-      astSumOfList $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
     Ast.AstFloor v -> traceRule $
      Ast.AstFloor $ build1V snat (var, v)
     Ast.AstCast v -> traceRule $
@@ -292,8 +286,14 @@ build1V snat@SNat (var, v0) =
     Ast.AstI2R opCode u v -> traceRule $
       Ast.AstI2R opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
-    Ast.AstSumOfListR args -> traceRule $
-      astSumOfListR $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
+    Ast.AstMinIndexR v -> traceRule $
+     Ast.AstMinIndexR $ build1V snat (var, v)
+    Ast.AstMaxIndexR v -> traceRule $
+     Ast.AstMaxIndexR $ build1V snat (var, v)
+    Ast.AstFloorR v -> traceRule $
+     Ast.AstFloorR $ build1V snat (var, v)
+    Ast.AstIotaR ->
+      error "build1V: AstIotaR can't have free index variables"
 
     Ast.AstIndex v ix -> traceRule $ case stensorKind @y of
       STKR _ _ ->
@@ -374,8 +374,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstI2S opCode u v -> traceRule $
       Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
-    Ast.AstSumOfListS args -> traceRule $
-      astSumOfListS $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case stensorKind @y of
      STKS @sh _ _ ->

@@ -55,25 +55,28 @@ instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcrete ftk u : lu) + AstSumOfList (AstConcrete _ v : lv) =
-    AstSumOfList (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete ftk v : lv) =
-    AstSumOfList (AstConcrete ftk v : lv ++ lu)
-  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu ++ lv)
+  AstSumOfList stk (AstConcrete ftk u : lu)
+    + AstSumOfList _ (AstConcrete _ v : lv) =
+        AstSumOfList stk (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfList stk lu + AstSumOfList _ (AstConcrete ftk v : lv) =
+    AstSumOfList stk (AstConcrete ftk v : lv ++ lu)
+  AstSumOfList stk lu + AstSumOfList _ lv = AstSumOfList stk (lu ++ lv)
 
-  AstConcrete ftk u + AstSumOfList (AstConcrete _ v : lv) =
-    AstSumOfList (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfList (AstConcrete ftk v : lv) = AstSumOfList (AstConcrete ftk v : u : lv)
-  u + AstSumOfList lv = AstSumOfList (u : lv)
+  AstConcrete ftk u + AstSumOfList stk (AstConcrete _ v : lv) =
+    AstSumOfList stk (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfList stk (AstConcrete ftk v : lv) =
+    AstSumOfList stk (AstConcrete ftk v : u : lv)
+  u + AstSumOfList stk lv = AstSumOfList stk (u : lv)
 
-  AstSumOfList (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfList (AstConcrete ftk (u + v) : lu)
-  AstSumOfList (AstConcrete ftk u : lu) + v = AstSumOfList (AstConcrete ftk u : v : lu)
-  AstSumOfList lu + v = AstSumOfList (v : lu)
+  AstSumOfList stk (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfList stk (AstConcrete ftk (u + v) : lu)
+  AstSumOfList stk (AstConcrete ftk u : lu) + v =
+    AstSumOfList stk (AstConcrete ftk u : v : lu)
+  AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList [AstConcrete ftk v, u]
-  u + v = AstSumOfList [u, v]
+  u + AstConcrete ftk v = AstSumOfList stensorKind [AstConcrete ftk v, u]
+  u + v = AstSumOfList stensorKind [u, v]
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing
@@ -135,25 +138,28 @@ instance (GoodScalar r, KnownNat n)
          => Num (AstTensor ms s (TKR n r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListR (AstConcrete ftk u : lu) + AstSumOfListR (AstConcrete _ v : lv) =
-    AstSumOfListR (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfListR lu + AstSumOfListR (AstConcrete ftk v : lv) =
-    AstSumOfListR (AstConcrete ftk v : lv ++ lu)
-  AstSumOfListR lu + AstSumOfListR lv = AstSumOfListR (lu ++ lv)
+  AstSumOfList stk (AstConcrete ftk u : lu)
+    + AstSumOfList _ (AstConcrete _ v : lv) =
+        AstSumOfList stk (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfList stk lu + AstSumOfList _ (AstConcrete ftk v : lv) =
+    AstSumOfList stk (AstConcrete ftk v : lv ++ lu)
+  AstSumOfList stk lu + AstSumOfList _ lv = AstSumOfList stk (lu ++ lv)
 
-  AstConcrete ftk u + AstSumOfListR (AstConcrete _ v : lv) =
-    AstSumOfListR (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfListR (AstConcrete ftk v : lv) = AstSumOfListR (AstConcrete ftk v : u : lv)
-  u + AstSumOfListR lv = AstSumOfListR (u : lv)
+  AstConcrete ftk u + AstSumOfList stk (AstConcrete _ v : lv) =
+    AstSumOfList stk (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfList stk (AstConcrete ftk v : lv) =
+    AstSumOfList stk (AstConcrete ftk v : u : lv)
+  u + AstSumOfList stk lv = AstSumOfList stk (u : lv)
 
-  AstSumOfListR (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfListR (AstConcrete ftk (u + v) : lu)
-  AstSumOfListR (AstConcrete ftk u : lu) + v = AstSumOfListR (AstConcrete ftk u : v : lu)
-  AstSumOfListR lu + v = AstSumOfListR (v : lu)
+  AstSumOfList stk (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfList stk (AstConcrete ftk (u + v) : lu)
+  AstSumOfList stk (AstConcrete ftk u : lu) + v =
+    AstSumOfList stk (AstConcrete ftk u : v : lu)
+  AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfListR [AstConcrete ftk v, u]
-  u + v = AstSumOfListR [u, v]
+  u + AstConcrete ftk v = AstSumOfList stensorKind [AstConcrete ftk v, u]
+  u + v = AstSumOfList stensorKind [u, v]
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing
@@ -217,27 +223,28 @@ instance (GoodScalar r, KnownShS sh)
          => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfListS (AstConcrete ftk u : lu) + AstSumOfListS (AstConcrete _ v : lv) =
-    AstSumOfListS (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfListS lu + AstSumOfListS (AstConcrete ftk v : lv) =
-    AstSumOfListS (AstConcrete ftk v : lv ++ lu)
-  AstSumOfListS lu + AstSumOfListS lv = AstSumOfListS (lu ++ lv)
+  AstSumOfList stk (AstConcrete ftk u : lu)
+    + AstSumOfList _ (AstConcrete _ v : lv) =
+        AstSumOfList stk (AstConcrete ftk (u + v) : lu ++ lv)
+  AstSumOfList stk lu + AstSumOfList _ (AstConcrete ftk v : lv) =
+    AstSumOfList stk (AstConcrete ftk v : lv ++ lu)
+  AstSumOfList stk lu + AstSumOfList _ lv = AstSumOfList stk (lu ++ lv)
 
-  AstConcrete ftk u + AstSumOfListS (AstConcrete _ v : lv) =
-    AstSumOfListS (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfListS (AstConcrete ftk v : lv) =
-    AstSumOfListS (AstConcrete ftk v : u : lv)
-  u + AstSumOfListS lv = AstSumOfListS (u : lv)
+  AstConcrete ftk u + AstSumOfList stk (AstConcrete _ v : lv) =
+    AstSumOfList stk (AstConcrete ftk (u + v) : lv)
+  u + AstSumOfList stk (AstConcrete ftk v : lv) =
+    AstSumOfList stk (AstConcrete ftk v : u : lv)
+  u + AstSumOfList stk lv = AstSumOfList stk (u : lv)
 
-  AstSumOfListS (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfListS (AstConcrete ftk (u + v) : lu)
-  AstSumOfListS (AstConcrete ftk u : lu) + v =
-    AstSumOfListS (AstConcrete ftk u : v : lu)
-  AstSumOfListS lu + v = AstSumOfListS (v : lu)
+  AstSumOfList stk (AstConcrete ftk u : lu) + AstConcrete _ v =
+    AstSumOfList stk (AstConcrete ftk (u + v) : lu)
+  AstSumOfList stk (AstConcrete ftk u : lu) + v =
+    AstSumOfList stk (AstConcrete ftk u : v : lu)
+  AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfListS [AstConcrete ftk v, u]
-  u + v = AstSumOfListS [u, v]
+  u + AstConcrete ftk v = AstSumOfList stensorKind [AstConcrete ftk v, u]
+  u + v = AstSumOfList stensorKind [u, v]
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing

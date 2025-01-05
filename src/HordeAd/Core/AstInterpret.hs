@@ -244,6 +244,17 @@ interpretAst !env = \case
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
 
+  AstSumOfList stk args ->
+    let args2 = interpretAst env <$> args
+    in case stk of
+      STKScalar{} -> foldr1 (+) args2  -- @sum@ breaks and also reverses order
+      STKR SNat STKScalar{} -> foldr1 (+) args2
+      STKS sh STKScalar{} -> withKnownShS sh $ foldr1 (+) args2
+      STKX sh STKScalar{} -> withKnownShX sh $ foldr1 (+) args2
+      _ -> let v = V.fromList args2
+           in withSNat (V.length v) $ \snat ->
+                tsum snat stk $ tfromVector snat stk v
+
   AstMinIndexR v ->
     rminIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstMaxIndexR v ->
@@ -269,9 +280,6 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstSumOfList args ->
-    let args2 = interpretAst env <$> args
-    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstFloor v ->
     kfloor $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
   AstCast v -> kcast $ interpretAst env v
@@ -312,9 +320,6 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstSumOfListR args ->
-    let args2 = interpretAst env <$> args
-    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndex AstIotaR (i :.: ZIR) ->
     rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
   AstIndex v ix ->
@@ -448,9 +453,6 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstSumOfListS args ->
-    let args2 = interpretAst env <$> args
-    in foldr1 (+) args2  -- avoid @fromInteger 0@ in @sum@
   AstIndexS @sh1 @sh2 v ix ->
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     let v2 = interpretAst env v
