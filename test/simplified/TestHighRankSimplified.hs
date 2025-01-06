@@ -220,7 +220,7 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh target r.
-     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh, KnownNat (Nested.Product (k : sh)))
+     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
@@ -251,7 +251,7 @@ testFooBuild25S =
 
 fooBuildNest2S
   :: forall k sh target r.
-     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh, KnownNat (Nested.Product (k : sh)))
+     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuildNest2S v = rfromS $
   sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)

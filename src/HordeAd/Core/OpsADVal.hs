@@ -414,7 +414,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let ix = tprimalPart (STKScalar typeRep) <$> i
     in dD (xindex u ix) (IndexX u' ix)
 
-  xfromVector @_ @k lu = assert (length lu == valueOf @k) $
+  xfromVector @_ @k lu = assert (length lu == valueOf @k) $  -- TODO: Move these assertions to the base instances, that is concrete and AST
     dD (xfromVector $ V.map (\(D u _) -> u) lu)
        (FromVectorG (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
   -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')

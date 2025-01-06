@@ -92,6 +92,7 @@ import Data.Array.Nested.Internal.Shape
   , shrTail
   , shsAppend
   , shsPermutePrefix
+  , shsProduct
   , shsRank
   , withKnownShS
   )
@@ -513,9 +514,9 @@ data Delta :: Target -> TensorKindType -> Type where
          -> Delta target (TKS2 shn r)
     -- ^ The sub-tensor at the given index.
     -- If index is out of bounds, the result is defined and is 0.
-  Sum0S :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+  Sum0S :: (TensorKind r, KnownShS sh)
         => Delta target (TKS2 sh r) -> Delta target (TKS2 '[] r)
-  Dot0S :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
+  Dot0S :: (GoodScalar r, KnownShS sh)
         => target (TKS sh r) -> Delta target (TKS sh r)
         -> Delta target (TKS '[] r)
   ScatterS :: forall target r shm shn shp.
@@ -1279,9 +1280,9 @@ evalRevSame !s !c = \case
         -- problem of summing a lot of one-hots as in indexing
 
   IndexS d ix -> evalRevSame s (soneHot c ix) d
-  Sum0S d ->
+  Sum0S @_ @sh d | SNat <- shsProduct (knownShS @sh) ->
     evalRevSame s (sreplicate0N c) d
-  Dot0S v vd ->
+  Dot0S @_ @sh v vd | SNat <- shsProduct (knownShS @sh) ->
     evalRevSame s (v * sreplicate0N c) vd
       -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
   ScatterS @_ @_ @shm @shn @shp d f ->

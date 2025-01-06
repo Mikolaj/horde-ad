@@ -127,8 +127,8 @@ squaredDifferenceS
   => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS sh r)
 squaredDifferenceS targ res = squareS $ res - sfromPrimal targ
 
-lossCrossEntropyVS :: ( KnownShS sh, KnownNat (Nested.Product sh)
-                      , BaseTensor target, GoodScalar r, Differentiable r )
+lossCrossEntropyVS :: ( KnownShS sh, BaseTensor target, GoodScalar r
+                      , Differentiable r )
                    => target (TKS sh r)
                    -> target (TKS sh r)
                    -> target (TKS '[] r)

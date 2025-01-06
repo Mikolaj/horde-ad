@@ -206,12 +206,13 @@ instance BaseTensor RepN where
       let l = sunravelToList t
           sh = shsTail $ sshape t
       in foldr (addTarget stensorKind) (constantTarget 0 (FTKS sh x)) l
-  ssum0 t = case tftk stensorKind t of
+  ssum0 @_ @sh t | SNat <- shsProduct (knownShS @sh)  = case tftk stensorKind t of
     FTKS _ FTKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
     FTKS _ _ ->
       ssum . sflatten $ t
-  sdot0 u v = RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
+  sdot0 @_ @sh u v | SNat <- shsProduct (knownShS @sh)  =
+    RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   -- Performance depends a lot on the number and size of tensors.
   -- If tensors are not tiny, memory taken by underlying vectors matters most

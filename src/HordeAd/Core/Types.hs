@@ -35,7 +35,7 @@ module HordeAd.Core.Types
   , ixrToIxs, ixsToIxr
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
-  , permRInverse
+  , permRInverse, shxProduct
   ) where
 
 import Prelude
@@ -72,7 +72,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX, StaticShX (..), listxRank)
+import Data.Array.Mixed.Shape (IShX, StaticShX (..), fromSMayNat', listxRank)
 import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -86,6 +86,7 @@ import Data.Array.Nested
   , Rank
   , ShR (..)
   , ShS (..)
+  , ShX (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -686,3 +687,7 @@ zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
 
 permRInverse :: PermR -> PermR
 permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
+
+shxProduct :: IShX sh -> Int
+shxProduct ZSX = 1
+shxProduct (mn :$% sh) = fromSMayNat' mn * shxProduct sh
