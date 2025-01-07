@@ -25,6 +25,7 @@ module HordeAd.Core.Types
   , IntegralF(..), RealFloatF(..)
   , withListSh, backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
+  , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
   , Head, Take, Drop
   , ixsRank, ssxRank
@@ -35,7 +36,7 @@ module HordeAd.Core.Types
   , ixrToIxs, ixsToIxr
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
-  , permRInverse, shxProduct
+  , permRInverse, shxProduct, ixxHead
   ) where
 
 import Prelude
@@ -72,17 +73,18 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX, fromSMayNat', listxRank)
+import Data.Array.Mixed.Shape (IShX, fromSMayNat', listxRank, shxSize)
 import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IxR (..)
   , IxS (..)
-  , IxX
+  , IxX (..)
   , KnownShS (..)
   , KnownShX (..)
   , ListR (..)
   , ListS (..)
+  , ListX (..)
   , Rank
   , ShR (..)
   , ShS (..)
@@ -99,6 +101,7 @@ import Data.Array.Nested.Internal.Shape
   , shsLength
   , shsProduct
   , shsRank
+  , shsSize
   , shsToList
   )
 
@@ -452,7 +455,7 @@ zeroOf fromInt (_ :$: sh) = fromInt 0 :.: zeroOf fromInt sh
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
-toLinearIdxS :: forall sh1 sh2 j. (KnownShS sh2, Num j)
+toLinearIdxS :: forall sh1 sh2 j. Num j
              => (Int -> j) -> ShS (sh1 ++ sh2) -> IxS sh1 j -> j
 toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
   where
@@ -460,7 +463,7 @@ toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall sh3. ShS (sh3 ++ sh2) -> IxS sh3 j -> j -> j
-    go _sh ZIS tensidx = fromInt (sizeT @(sh3 ++ sh2)) * tensidx
+    go sh ZIS tensidx = fromInt (shsSize sh) * tensidx
     go ((:$$) n sh) (i :.$ idx) tensidx =
       go sh idx (fromInt (sNatValue n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
@@ -481,9 +484,9 @@ fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
     -- multi-index within sub-tensor).
     go :: ShS sh1 -> j -> (j, IxS sh1 j)
     go ZSS n = (n, ZIS)
-    go ((:$$) k@SNat sh) _ | sNatValue k == 0 =
+    go ((:$$) k sh) _ | sNatValue k == 0 =
       (fromInt 0, fromInt 0 :.$ zeroOfS fromInt sh)
-    go ((:$$) n@SNat sh) lin =
+    go ((:$$) n sh) lin =
       let (tensLin, idxInTens) = go sh lin
           tensLin' = tensLin `quotF` fromInt (sNatValue n)
           i = tensLin `remF` fromInt (sNatValue n)
@@ -492,7 +495,41 @@ fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfS :: Num j => (Int -> j) -> ShS sh -> IxS sh j
 zeroOfS _ ZSS = ZIS
-zeroOfS fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOfS fromInt sh
+zeroOfS fromInt ((:$$) _ sh) = fromInt 0 :.$ zeroOfS fromInt sh
+
+toLinearIdxX :: forall sh1 sh2 j. Num j
+             => (Int -> j) -> IShX (sh1 ++ sh2) -> IxX sh1 j -> j
+toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
+  where
+    -- Additional argument: index, in the @m - m1@ dimensional array so far,
+    -- of the @m - m1 + n@ dimensional tensor pointed to by the current
+    -- @m - m1@ dimensional index prefix.
+    go :: forall sh3. IShX (sh3 ++ sh2) -> IxX sh3 j -> j -> j
+    go sh ZIX tensidx = fromInt (shxSize sh) * tensidx
+    go ((:$%) n sh) (i :.% idx) tensidx =
+      go sh idx (fromInt (fromSMayNat' n) * tensidx + i)
+    go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
+
+fromLinearIdxX :: forall sh j. (Num j, IntegralF j)
+               => (Int -> j) -> IShX sh -> j -> IxX sh j
+fromLinearIdxX fromInt = \sh lin -> snd (go sh lin)
+  where
+    -- Returns (linear index into array of sub-tensors,
+    -- multi-index within sub-tensor).
+    go :: IShX sh1 -> j -> (j, IxX sh1 j)
+    go ZSX n = (n, ZIX)
+    go ((:$%) k sh) _ | fromSMayNat' k == 0 =
+      (fromInt 0, fromInt 0 :.% zeroOfX fromInt sh)
+    go ((:$%) n sh) lin =
+      let (tensLin, idxInTens) = go sh lin
+          tensLin' = tensLin `quotF` fromInt (fromSMayNat' n)
+          i = tensLin `remF` fromInt (fromSMayNat' n)
+      in (tensLin', i :.% idxInTens)
+
+-- | The zero index in this shape (not dependent on the actual integers).
+zeroOfX :: Num j => (Int -> j) -> IShX sh -> IxX sh j
+zeroOfX _ ZSX = ZIX
+zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 
 
 -- * Shopping list for ox-arrays
@@ -692,3 +729,9 @@ permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
 shxProduct :: IShX sh -> Int
 shxProduct ZSX = 1
 shxProduct (mn :$% sh) = fromSMayNat' mn * shxProduct sh
+
+listxHead :: ListX (mn ': sh) f -> f mn
+listxHead (i ::% _) = i
+
+ixxHead :: IxX (n : sh) i -> i
+ixxHead (IxX list) = getConst (listxHead list)
