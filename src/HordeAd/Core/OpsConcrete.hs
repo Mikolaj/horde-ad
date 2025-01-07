@@ -670,7 +670,7 @@ instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
           unRepN (srepl (2 * realToFrac range))
           * (Nested.sfromVector knownShS (V.fromListN n (randoms seed))
              - unRepN (srepl 0.5))
-        (g1, g2) = split g
+        (g1, g2) = splitGen g
         arr = createRandomVector (sizeP (Proxy @sh)) g1
     in (RepN arr, g2)
 {-

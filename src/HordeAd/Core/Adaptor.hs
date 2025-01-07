@@ -93,7 +93,7 @@ class ForgetShape vals where
 
 -- | A helper class for randomly generating initial parameters.
 class RandomHVector vals where
-  randomVals :: RandomGen g => Double -> g -> (vals, g)
+  randomVals :: SplitGen g => Double -> g -> (vals, g)
 
 
 -- * Basic Adaptor class instances

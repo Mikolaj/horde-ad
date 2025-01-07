@@ -176,7 +176,7 @@ library horde-ad-simplified
       , ilist
       , orthotope
       , ox-arrays
-      , random
+      , random >= 1.3.0
       , some
       , strict-containers
       , unboxed-ref
