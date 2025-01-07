@@ -36,9 +36,10 @@ import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
 import Data.Array.Mixed.Lemmas
 import Data.Array.Nested
-  ( IShR
+  ( StaticShX(..), IShR
   , IxR
   , IxS
+  , IxX
   , KnownShS (..)
   , KnownShX (..)
   , MapJust
@@ -46,6 +47,7 @@ import Data.Array.Nested
   , Replicate
   , ShR (..)
   , ShS (..)
+  , ShX (..)
   , pattern (:$:)
   , pattern ZSR
   , type (++)
@@ -59,7 +61,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (withKnownShX)
+import Data.Array.Mixed.Shape (shxDropSSX, ssxAppend, withKnownShX)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal
@@ -353,9 +355,14 @@ instance BaseTensor RepN where
   sScale _ _ = DummyDualTarget
 
   xshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.mshape . unRepN
-  xindex = error "TODO"
-  xfromVector = error "TODO"
-  xreplicate _ = error "TODO"
+  xindex = tindexZX
+  xindex0 = tindex0X
+  xfromVector @r @n @sh | Dict <- eltDictRep (stensorKind @r) =
+    RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
+    . Nested.mfromListOuter . NonEmpty.fromList . V.toList
+    . V.map unRepN
+  xreplicate @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
+    RepN . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unRepN
   xzip (RepN (a, b)) = RepN $ Nested.mzip a b
   xunzip = RepN . Nested.munzip . unRepN
   xtoScalar = RepN . Nested.munScalar . unRepN
@@ -523,7 +530,7 @@ ravel k@SNat t = case stensorKind @y of
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
     withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX sh x | Dict <- lemTensorKindOfSTK x ->
-    withKnownShX sh $ error "TODO"
+    withKnownShX sh $ xfromList $ NonEmpty.fromList t
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2
@@ -545,7 +552,7 @@ unravel k@SNat t = case stensorKind @y of
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
     withKnownShS sh $ sunravelToList t
   STKX sh x | Dict <- lemTensorKindOfSTK x ->
-    withKnownShX sh $ error "TODO"
+    withKnownShX sh $ xunravelToList t
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2
@@ -1191,3 +1198,31 @@ tgatherZ1S t f =
       sfromList $ NonEmpty.map (\i -> t `sindex` f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
     _ -> sbuild1 (\ix -> t !$ f ix)
+
+tindexNX
+  :: Nested.Elt r
+  => Nested.Mixed (sh1 ++ sh2) r -> IxX sh1 Int64 -> Nested.Mixed sh2 r
+tindexNX v ix = Nested.mindexPartial v (fmap fromIntegral ix)
+
+tindexZX
+  :: forall r sh1 sh2. (TensorKind r, KnownShX sh1, KnownShX sh2)
+  => RepN (TKX2 (sh1 ++ sh2) r) -> IxXOf RepN sh1 -> RepN (TKX2 sh2 r)
+tindexZX v ixRepN | Dict <- eltDictRep (stensorKind @r) =
+  let ix = fmap unRepN ixRepN
+  in withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+     case tftk stensorKind v of
+       FTKX sh x ->
+         if ixInBounds (toList ix) (toList sh)
+         then RepN $ tindexNX (unRepN v) ix
+         else constantTarget def (FTKX (shxDropSSX sh (knownShX @sh1)) x)
+
+tindex0X
+  :: forall r sh. (TensorKind r, KnownShX sh)
+  => RepN (TKX2 sh r) -> IxXOf RepN sh -> RepN (TKX2 '[] r)
+tindex0X v ixRepN | Dict <- eltDictRep (stensorKind @r) =
+  let ix = fmap unRepN ixRepN
+  in case tftk stensorKind v of
+    FTKX sh x ->
+      if ixInBounds (toList ix) (toList sh)
+      then xscalar $ Nested.mindex (unRepN v) (fmap fromIntegral ix)
+      else constantTarget def (FTKX ZSX x)

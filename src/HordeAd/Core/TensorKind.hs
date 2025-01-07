@@ -40,8 +40,7 @@ import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (TypeRep, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape
-  (IShX, KnownShX (..), StaticShX (..), ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape (IShX, KnownShX (..), ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -52,8 +51,7 @@ import Data.Array.Nested
   , ShR (..)
   , ShS (..)
   , ShX (..)
-  , pattern (:$:)
-  , pattern ZSR
+  , StaticShX (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested

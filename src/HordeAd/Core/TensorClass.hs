@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)
   , tunit, rfromD, sfromD, rscalar, rrepl, ringestData
-  , ingestData, sscalar, srepl, xrepl, nullRep
+  , ingestData, sscalar, srepl, xscalar, xrepl, nullRep
   , shapeDynamic, unravelHVector, ravelHVector
   , mapHVectorRanked10, mapRanked10
     -- * The giga-constraint
@@ -52,7 +52,6 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
   ( IShX
-  , StaticShX (..)
   , fromSMayNat'
   , shxDropSSX
   , shxSize
@@ -75,6 +74,7 @@ import Data.Array.Nested
   , ShR (..)
   , ShS (..)
   , ShX (..)
+  , StaticShX (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -1065,7 +1065,7 @@ class ( Num (IntOf target)
           -> target (TKX2 (Nothing ': sh) r)
   xconcat :: (TensorKind r, KnownShX sh)
           => [target (TKX2 (Nothing ': sh) r)] -> target (TKX2 (Nothing ': sh) r)
-  xconcat = foldr1 xappend
+  xconcat = foldr1 xappend  -- TODO: NonEmpty; also elsewhere
   xslice :: (TensorKind r, KnownNat i, KnownNat n, KnownNat k, KnownShX sh)
          => Proxy i -> Proxy n
          -> target (TKX2 (Just (i + n + k) ': sh) r)
@@ -1836,6 +1836,12 @@ srepl = sconcrete . Nested.sreplicateScal knownShS
   --   sreplicate0N . sscalar
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated fromPrimals as small
+
+xscalar :: forall r target. (TensorKind r, BaseTensor target)
+        => RepORArray r -> target (TKX2 '[] r)
+xscalar r | Dict <- eltDictRep (stensorKind @r) =
+  let a = Nested.mscalar r
+  in tconcrete (tftkG (STKX ZKX (stensorKind @r)) a) (RepN a)
 
 xrepl :: (KnownShX sh, GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
