@@ -36,7 +36,7 @@ module HordeAd.Core.Types
   , ixrToIxs, ixsToIxr
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
-  , permRInverse, shxProduct, ixxHead
+  , permRInverse, ixxHead
   ) where
 
 import Prelude
@@ -725,10 +725,6 @@ zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
 
 permRInverse :: PermR -> PermR
 permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
-
-shxProduct :: IShX sh -> Int
-shxProduct ZSX = 1
-shxProduct (mn :$% sh) = fromSMayNat' mn * shxProduct sh
 
 listxHead :: ListX (mn ': sh) f -> f mn
 listxHead (i ::% _) = i

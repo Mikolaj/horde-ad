@@ -52,9 +52,11 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
   ( IShX
+  , fromSMayNat
   , fromSMayNat'
   , shxDropSSX
   , shxSize
+  , shxTakeSSX
   , ssxAppend
   , ssxFromShape
   , ssxReplicate
@@ -978,8 +980,8 @@ class ( Num (IntOf target)
   xlength :: TensorKind r => target (TKX2 (mn ': sh) r) -> Int
   xlength v = case xshape v of
     mn :$% _ -> fromSMayNat' mn
-  xminIndex, xmaxIndex
-    :: (GoodScalar r, GoodScalar r2, KnownShX sh)  -- partial
+  xminIndex, xmaxIndex  -- partial
+    :: (GoodScalar r, GoodScalar r2, KnownShX sh, KnownShX (Init (mn ': sh)))
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
   xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShX sh)
          => target (TKX sh r) -> target (TKX sh r2)
@@ -994,7 +996,7 @@ class ( Num (IntOf target)
           => target (TKX2 sh1 r) -> IxXOf target sh1
           -> target (TKX2 '[] r)
   xindex0 | Refl <- lemAppNil @sh1 = xindex
-  xsum :: (TensorKind r, KnownShX sh)
+  xsum :: (TensorKind r, KnownShX sh, KnownShX (mn ': sh))
        => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
   xsum0 :: (TensorKind r, KnownShX sh)
         => target (TKX2 sh r) -> target (TKX2 '[] r)
@@ -1002,11 +1004,20 @@ class ( Num (IntOf target)
   xdot0 :: (GoodScalar r, KnownShX sh)
         => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
   xdot0 t u = xsum (xflatten (t * u))
-  xmatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-             => target (TKX '[Just m, Just n] r) -> target (TKX '[Just n] r)
-             -> target (TKX '[Just m] r)
-  xmatvecmul m v =
-    xbuild1 (Nested.SKnown (SNat @m)) (\i -> xdot0 v (m `xindex` (i :.% ZIX)))
+  xmatvecmul :: forall r mm mn. GoodScalar r
+             => Nested.SMayNat Int SNat mm -> Nested.SMayNat () SNat mn
+             -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
+             -> target (TKX '[mm] r)
+  xmatvecmul mm mn u v =
+    let mu :: Nested.SMayNat () SNat mm
+        mu = fromSMayNat (const $ Nested.SUnknown ()) Nested.SKnown mm
+    in withKnownShX (mu :!% ZKX) $
+       withKnownShX (mu :!% mn :!% ZKX) $
+       withKnownShX (mn :!% ZKX) $
+       xbuild1 mm (\i -> xdot0 v (u `xindex` (i :.% ZIX)))
+  -- TODO: when we switch to singletons, generalize this to non-Just types
+  -- or split into ranked-style and shaped-style variants or provide
+  -- convenient ways to lift ranked and shaped operations into mixed.
   xmatmul2 :: forall r n m p.
               (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
            => target (TKX '[Just m, Just n] r)
@@ -1017,8 +1028,9 @@ class ( Num (IntOf target)
           * xtranspose (Permutation.makePerm @'[1, 0]) (xreplicate @target @m m2))
   xscatter :: (TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp)
            => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) r)
-           -> (IxXOf target shm -> IxXOf target psh)
+           -> (IxXOf target shm -> IxXOf target shp)
            -> target (TKX2 (shp ++ shn) r)
+  -- TODO: when we switch to singletons, generalize this to non-Just types.
   xscatter1 :: forall r n2 shn shp.
                (TensorKind r, KnownNat n2, KnownShX shn, KnownShX shp)
             => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) r)
@@ -1043,7 +1055,7 @@ class ( Num (IntOf target)
   xfromVector0N :: (TensorKind r, KnownShX sh)
                 => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
                 -> target (TKX2 sh r)
-  xfromVector0N sh = withSNat (shxProduct sh) $ \(SNat @n) ->
+  xfromVector0N sh = withSNat (shxSize sh) $ \(SNat @n) ->
     xreshape @_ @_ @'[Just n] sh . xfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
@@ -1096,7 +1108,7 @@ class ( Num (IntOf target)
   xreshape :: (TensorKind r, KnownShX sh, KnownShX sh2)
            => IShX sh2 -> target (TKX2 sh r) -> target (TKX2 sh2 r)
   xbuild :: forall r m sh.
-            (TensorKind r, KnownShX sh, KnownShX (Take m sh), KnownNat m)
+            (TensorKind r, KnownShX sh, KnownShX (Take m sh))
          => IShX sh
          -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) r))
          -> target (TKX2 sh r)
@@ -1111,7 +1123,8 @@ class ( Num (IntOf target)
             let g i = buildSh sh2 sh2m (f . (i :.%))
             in xbuild1 k g
     in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
-       $ buildSh (takeShX @m sh0) sh0 f0
+       $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) sh0
+                             (knownShX @(Take m sh))) sh0 f0
   xbuild1 :: (TensorKind r, KnownShX sh)
           => Nested.SMayNat Int SNat mn -> (IntOf target -> target (TKX2 sh r))
           -> target (TKX2 (mn ': sh) r)
