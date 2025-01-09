@@ -73,10 +73,11 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IShX, fromSMayNat', listxRank, shxSize)
+import Data.Array.Mixed.Shape (fromSMayNat', listxRank, shxSize)
 import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
+  , IShX
   , IxR (..)
   , IxS (..)
   , IxX (..)

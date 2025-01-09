@@ -37,7 +37,7 @@ import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
 import Data.Array.Mixed.Lemmas
 import Data.Array.Nested
   ( StaticShX(..), IShR
-  , IxR
+  , IxR, IShX
   , IxS
   , IxX
   , KnownShS (..)
@@ -61,7 +61,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, IShX, shxDropSSX, ssxAppend, withKnownShX)
+import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal

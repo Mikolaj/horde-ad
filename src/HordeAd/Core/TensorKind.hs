@@ -40,13 +40,15 @@ import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (TypeRep, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Shape (IShX, KnownShX (..), ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
+  , IShX
   , IxR (..)
   , IxS (..)
   , KnownShS (..)
+  , KnownShX (..)
   , SMayNat (..)
   , ShR (..)
   , ShS (..)

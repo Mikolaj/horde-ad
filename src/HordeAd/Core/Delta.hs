@@ -71,9 +71,7 @@ import Type.Reflection (typeRep)
 import Data.Array.Mixed.Permutation (permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-  ( IShX
-  , StaticShX
-  , shxAppend
+  ( shxAppend
   , shxCast'
   , shxDropSSX
   , shxTail
@@ -84,6 +82,7 @@ import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
+  , IShX
   , KnownShS (..)
   , KnownShX (..)
   , MapJust
@@ -92,6 +91,7 @@ import Data.Array.Nested
   , ShR (..)
   , ShS (..)
   , ShX (..)
+  , StaticShX
   , type (++)
   )
 import Data.Array.Nested qualified as Nested

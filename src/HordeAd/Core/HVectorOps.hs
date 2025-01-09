@@ -30,18 +30,13 @@ import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
-  ( IShX
-  , KnownShX (..)
-  , shxAppend
-  , ssxAppend
-  , ssxFromShape
-  , ssxReplicate
-  , withKnownShX
-  )
+  (shxAppend, ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
+  , IShX
   , KnownShS (..)
+  , KnownShX (..)
   , MapJust
   , Rank
   , Replicate
