@@ -61,7 +61,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (fromSMayNat, fromSMayNat', shxSize, shxTakeSSX, shxTail, ssxFromShape, IShX, shxDropSSX, ssxAppend, withKnownShX)
+import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, IShX, shxDropSSX, ssxAppend, withKnownShX)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal
@@ -365,25 +365,19 @@ instance BaseTensor RepN where
              in RepN $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX) t
   xindex = tindexZX
   xindex0 = tindex0X
-  xsum @r t = case tftk stensorKind t of
+  xsum t = case tftk stensorKind t of
     FTKX _ FTKScalar ->  -- optimized
       RepN . Nested.msumOuter1 . unRepN $ t
-    FTKX (Nested.SKnown SNat :$% _) x ->
+    FTKX _ x ->
       let l = xunravelToList t
           sh = shxTail $ xshape t
       in foldr (addTarget stensorKind) (constantTarget 0 (FTKX sh x)) l
-    FTKX (Nested.SUnknown i :$% sh) x | Dict <- eltDictRep (stensorKind @r) ->
-      withSNat i $ \snat ->
-        let l = xunravelToList $ RepN
-                $ Nested.mcast (Nested.SKnown snat :!% ssxFromShape sh)
-                $ unRepN t
-        in foldr (addTarget stensorKind) (constantTarget 0 (FTKX sh x)) l
   xsum0 t =
    case tftk stensorKind t of
     FTKX _ FTKScalar ->  -- optimized
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
-    FTKX _ _ ->
-      xsum . xflatten $ t
+    FTKX _ _ -> withSNat (shxSize $ xshape t) $ \snat ->
+      xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
   xdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
   xmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
@@ -457,8 +451,12 @@ instance BaseTensor RepN where
     RepN . Nested.mtranspose perm . unRepN
   xreshape @r sh | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.mreshape sh . unRepN
-  xbuild1 @r mn f | Dict <- eltDictRep (stensorKind @r) =
-    RepN $ tbuild1X mn (unRepN . f . RepN)
+  xbuild1 @r f | Dict <- eltDictRep (stensorKind @r) =
+    RepN $ tbuild1X (unRepN . f . RepN)
+  xmcast @x @sh1 @sh2 sh | Dict <- eltDictRep (stensorKind @x) =
+    -- TODO: a lie, for now:
+    gcastWith (unsafeCoerceRefl :: Rank sh1 :~: Rank sh2) $
+    RepN . Nested.mcast sh . unRepN
   xgather @r @shm @shn @shp sh t f =
     withKnownShX (ssxFromShape sh) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
@@ -1483,16 +1481,13 @@ tfromList0NX sh l = case NonEmpty.nonEmpty l of
   Just nl -> Nested.mfromListLinear sh $ NonEmpty.map Nested.munScalar nl
 
 tbuild1X
-  :: forall mn sh r. (Nested.Elt r, KnownShX sh)
-  => Nested.SMayNat Int SNat mn -> (Int64 -> Nested.Mixed sh r)
-  -> Nested.Mixed (mn ': sh) r
-tbuild1X mn f =
-  let k = fromSMayNat' mn
-      mu = fromSMayNat (const $ Nested.SUnknown ()) Nested.SKnown mn
-  in Nested.mcast (mu :!% knownShX)
-     $ Nested.mfromListOuter
-     $ NonEmpty.map f
-     $ NonEmpty.fromList [0 .. fromIntegral k - 1]  -- hope this fuses
+  :: forall r n sh. (Nested.Elt r, KnownNat n, KnownShX sh)
+  => (Int64 -> Nested.Mixed sh r)
+  -> Nested.Mixed (Just n ': sh) r
+tbuild1X f =
+  Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX)
+  $ Nested.mfromListOuter $ NonEmpty.map f
+  $ NonEmpty.fromList [0 .. valueOf @n - 1]  -- hope this fuses
 
 tgatherZ1X
   :: forall r n2 shn shp.
@@ -1506,4 +1501,4 @@ tgatherZ1X SNat t f =
     STKScalar{} ->  -- optimized
       xfromList $ NonEmpty.map (\i -> t `xindex` f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
-    _ -> xbuild1 (Nested.SKnown (SNat @n2)) (\ix -> t `xindex` f ix)
+    _ -> xbuild1 @_ @_ @n2 (\ix -> t `xindex` f ix)

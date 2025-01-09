@@ -996,14 +996,20 @@ class ( Num (IntOf target)
           => target (TKX2 sh1 r) -> IxXOf target sh1
           -> target (TKX2 '[] r)
   xindex0 | Refl <- lemAppNil @sh1 = xindex
-  xsum :: (TensorKind r, KnownShX sh, KnownShX (mn ': sh))
-       => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
+  -- The choice in BuildTensorKind makes it hard to support this one,
+  -- due to SumG and AstSum being typed with BuildTensorKind:
+  -- xsum :: (TensorKind r, KnownShX sh, KnownShX (mn ': sh))
+  --     => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
+  xsum :: (TensorKind r, KnownNat n, KnownShX sh)
+       => target (TKX2 (Just n ': sh) r) -> target (TKX2 sh r)
   xsum0 :: (TensorKind r, KnownShX sh)
         => target (TKX2 sh r) -> target (TKX2 '[] r)
-  xsum0 = xsum . xflatten
+  xsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
+    xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
   xdot0 :: (GoodScalar r, KnownShX sh)
         => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
-  xdot0 t u = xsum (xflatten (t * u))
+  xdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
+    xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten (t * u))
   xmatvecmul :: forall r mm mn. GoodScalar r
              => Nested.SMayNat Int SNat mm -> Nested.SMayNat () SNat mn
              -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
@@ -1014,7 +1020,9 @@ class ( Num (IntOf target)
     in withKnownShX (mu :!% ZKX) $
        withKnownShX (mu :!% mn :!% ZKX) $
        withKnownShX (mn :!% ZKX) $
-       xbuild1 mm (\i -> xdot0 v (u `xindex` (i :.% ZIX)))
+       withSNat (fromSMayNat' mm) $ \(SNat @n) ->
+         xmcast (mu :!% ZKX)
+         $ xbuild1 @_ @_ @n @'[] (\i -> xdot0 v (u `xindex` (i :.% ZIX)))
   -- TODO: when we switch to singletons, generalize this to non-Just types
   -- or split into ranked-style and shaped-style variants or provide
   -- convenient ways to lift ranked and shaped operations into mixed.
@@ -1044,7 +1052,8 @@ class ( Num (IntOf target)
   -- by one rank, and is omitted if a more general variant is not defined).
   xfromList :: forall r n sh. (TensorKind r, KnownNat n, KnownShX sh)
             => NonEmpty (target (TKX2 sh r)) -> target (TKX2 (Just n ': sh) r)
-  xfromList = xfromVector . V.fromList . NonEmpty.toList
+  xfromList = xfromVector
+              . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
   xfromList0N :: (TensorKind r, KnownShX sh)
               => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
@@ -1121,13 +1130,16 @@ class ( Num (IntOf target)
           (k :$% sh2, _ :$% sh2m) ->
             withKnownShX (ssxFromShape sh2m) $
             let g i = buildSh sh2 sh2m (f . (i :.%))
-            in xbuild1 k g
+            in withSNat (fromSMayNat' k) $ \(SNat @n) ->
+                 xmcast (ssxFromShape sh1m) $ xbuild1 @_ @_ @n g
     in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) sh0
                              (knownShX @(Take m sh))) sh0 f0
-  xbuild1 :: (TensorKind r, KnownShX sh)
-          => Nested.SMayNat Int SNat mn -> (IntOf target -> target (TKX2 sh r))
-          -> target (TKX2 (mn ': sh) r)
+  xbuild1 :: (TensorKind r, KnownNat n, KnownShX sh)
+          => (IntOf target -> target (TKX2 sh r))
+          -> target (TKX2 (Just n ': sh) r)
+  xmcast :: (TensorKind x, KnownShX sh)  -- TODO: Rank sh1 ~ Rank sh2)
+         => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
   -- xmap and other special cases of build can be defined by the user.
   xgather :: (TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp)
           => IShX (shm ++ shn)
@@ -1423,7 +1435,7 @@ class ( Num (IntOf target)
           STKS sh x | Dict <- lemTensorKindOfSTK x ->
             withKnownShS sh $ sbuild1 g
           STKX sh  x | Dict <- lemTensorKindOfSTK x ->
-            withKnownShX sh $ xbuild1 (Nested.SKnown snat) g
+            withKnownShX sh $ xbuild1 g
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfSTK stk1
             , Dict <- lemTensorKindOfSTK stk2

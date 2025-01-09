@@ -70,7 +70,17 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation (permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (shxAppend, shxDropSSX, shxTakeSSX, withKnownShX)
+import Data.Array.Mixed.Shape
+  ( IShX
+  , StaticShX
+  , shxAppend
+  , shxCast'
+  , shxDropSSX
+  , shxTail
+  , shxTakeSSX
+  , ssxFromShape
+  , withKnownShX
+  )
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -81,6 +91,7 @@ import Data.Array.Nested
   , Replicate
   , ShR (..)
   , ShS (..)
+  , ShX (..)
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -561,8 +572,7 @@ data Delta :: Target -> TensorKindType -> Type where
              -> Delta target (TKS2 (Permutation.PermutePrefix perm sh) r)
     -- ^ Transpose according to the permutation.
   ReshapeS :: ( TensorKind r, KnownShS sh, KnownShS sh2
-              , Nested.Product sh
-                ~ Nested.Product sh2 )
+              , Nested.Product sh ~ Nested.Product sh2 )
            => Delta target (TKS2 sh r)
            -> Delta target (TKS2 sh2 r)
     -- ^ Change the shape of the tensor from the first to the second.
@@ -595,6 +605,48 @@ data Delta :: Target -> TensorKindType -> Type where
          => Delta target (TKX2 (sh1 ++ sh2) r)
          -> IxXOf target sh1
          -> Delta target (TKX2 sh2 r)
+  Sum0X :: (TensorKind r, KnownShX sh)
+        => Delta target (TKX2 sh r) -> Delta target (TKX2 '[] r)
+  Dot0X :: (GoodScalar r, KnownShX sh)
+        => target (TKX sh r) -> Delta target (TKX sh r)
+        -> Delta target (TKX '[] r)
+  ScatterX :: forall target r shm shn shp.
+              ( TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp
+              , KnownShX (shm ++ shn) )  -- needed for the Show instance
+           => IShX (shp ++ shn) -> Delta target (TKX2 (shm ++ shn) r)
+           -> (IxXOf target shm -> IxXOf target shp)
+           -> Delta target (TKX2 (shp ++ shn) r)
+  AppendX :: forall target r sh.
+             (TensorKind r, KnownShX sh)
+          => Delta target (TKX2 (Nothing ': sh) r)
+          -> Delta target (TKX2 (Nothing ': sh) r)
+          -> Delta target (TKX2 (Nothing ': sh) r)
+  SliceX :: forall target i n k r sh.
+            (TensorKind r, KnownNat i, KnownNat n, KnownNat k, KnownShX sh)
+         => Delta target (TKX2 (Just (i + n + k) ': sh) r)
+         -> Delta target (TKX2 (Just n ': sh) r)
+  ReverseX :: (TensorKind r, KnownShX sh)
+           => Delta target (TKX2 (mn ': sh) r)
+           -> Delta target (TKX2 (mn ': sh) r)
+  TransposeX :: forall perm sh r target.
+                (TensorKind r, PermC perm, KnownShX sh, Rank perm <= Rank sh)
+             => Permutation.Perm perm
+             -> Delta target (TKX2 sh r)
+             -> Delta target (TKX2 (Permutation.PermutePrefix perm sh) r)
+  ReshapeX :: (TensorKind r, KnownShX sh, KnownShX sh2)
+           => IShX sh2 -> Delta target (TKX2 sh r)
+           -> Delta target (TKX2 sh2 r)
+  MCastX :: (TensorKind x, KnownShX sh)
+         => StaticShX sh2 -> Delta target (TKX2 sh x)
+         -> Delta target (TKX2 sh2 x)
+  GatherX :: forall target r shm shn shp.
+             ( TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp
+             , KnownShX (shp ++ shn) )  -- needed for the Show instance
+          => IShX (shm ++ shn) -> Delta target (TKX2 (shp ++ shn) r)
+          -> (IxXOf target shm -> IxXOf target shp)
+          -> Delta target (TKX2 (shm ++ shn) r)
+  CastX :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2, KnownShX sh)
+        => Delta target (TKX sh r1) -> Delta target (TKX sh r2)
   ZipX :: (TensorKind y, TensorKind z, KnownShX sh)
        => Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> Delta target (TKX2 sh (TKProduct y z))
@@ -747,7 +799,7 @@ shapeDeltaFull = \case
     FTKS _ x -> FTKS knownShS x
   Sum0S d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS ZSS x
-  Dot0S{} -> FTKS knownShS FTKScalar
+  Dot0S{} -> FTKS ZSS FTKScalar
   ScatterS @_ @_ @_ @shn @shp d _ -> case shapeDeltaFull d of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
   AppendS a _ -> case shapeDeltaFull a of
@@ -756,9 +808,7 @@ shapeDeltaFull = \case
     FTKS _ x -> FTKS knownShS x
   ReverseS d -> shapeDeltaFull d
   TransposeS @_ @sh2 perm d -> case shapeDeltaFull d of
-    FTKS _ x ->
-      withKnownShS (shsPermutePrefix perm (knownShS @sh2)) $
-      FTKS knownShS x
+    FTKS _ x -> FTKS (shsPermutePrefix perm (knownShS @sh2)) x
   ReshapeS d -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
   GatherS @_ @_ @shm @shn d _ -> case shapeDeltaFull d of
@@ -772,6 +822,25 @@ shapeDeltaFull = \case
 
   IndexX @sh1 d _ix -> case shapeDeltaFull d of
     FTKX sh x -> FTKX (shxDropSSX sh (knownShX @sh1)) x
+  Sum0X d -> case shapeDeltaFull d of
+    FTKX _ x -> FTKX ZSX x
+  Dot0X{} -> FTKX ZSX FTKScalar
+  ScatterX sh d _ -> case shapeDeltaFull d of
+    FTKX _ x -> FTKX sh x
+  AppendX a _ -> shapeDeltaFull a
+  SliceX @_ @_ @n d -> case shapeDeltaFull d of
+    FTKX sh x -> FTKX (Nested.SKnown (SNat @n) :$% shxTail sh) x
+  ReverseX d -> shapeDeltaFull d
+  TransposeX perm d -> case shapeDeltaFull d of
+    FTKX sh x -> FTKX (shxPermutePrefix perm sh) x
+  ReshapeX sh2 d -> case shapeDeltaFull d of
+    FTKX _ x -> FTKX sh2 x
+  MCastX sh2 d -> case shapeDeltaFull d of
+    FTKX sh x -> FTKX (shxCast' sh sh2) x
+  GatherX sh d _ -> case shapeDeltaFull d of
+    FTKX _ x -> FTKX sh x
+  CastX d -> case shapeDeltaFull d of
+    FTKX sh FTKScalar -> FTKX sh FTKScalar
   ZipX d -> case shapeDeltaFull d of
     FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
   UnzipX d -> case shapeDeltaFull d of
@@ -831,6 +900,12 @@ lengthDelta :: forall target r n.
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"
   k :$: _ -> k
+
+shapeDeltaX :: forall target r sh.
+               (TensorKind r, KnownShX sh)
+            => Delta target (TKX2 sh r) -> IShX sh
+shapeDeltaX t = case shapeDeltaFull t of
+  FTKX sh _ -> sh
 
 shapeDeltaH :: forall target.
                Delta target TKUntyped -> VoidHVector
@@ -1046,6 +1121,19 @@ evalSRuntimeSpecialized !s !c =
     Just Refl -> evalRevSame @(TKS sh Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> evalRevSame @(TKS sh Float) s c
+      _ -> const s
+
+evalXRuntimeSpecialized
+  :: forall sh r target.
+     (GoodScalar r, KnownShX sh, ADReadyNoLet target, ShareTensor target)
+  => EvalState target -> target (ADTensorKind (TKX sh r))
+  -> Delta target (TKX sh r)
+  -> EvalState target
+evalXRuntimeSpecialized !s !c =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> evalRevSame @(TKX sh Double) s c
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> evalRevSame @(TKX sh Float) s c
       _ -> const s
 
 evalRev
@@ -1325,6 +1413,53 @@ evalRevSame !s !c = \case
        evalRevSame s (dmkHVector $ cs V.// [(i, ci)]) d
 
   IndexX{} -> error "TODO"
+  Sum0X d ->
+    evalRevSame s (xreplicate0N (shapeDeltaX d) c) d
+  Dot0X v vd ->
+    evalRevSame s (v * xreplicate0N (xshape v) c) vd
+      -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
+  ScatterX @_ @_ @shm @shn @shp _sh d f ->
+    evalRevSame s (xgather @_ @_ @shm @shn @shp (shapeDeltaX d) c f) d
+  AppendX d e -> case (shapeDeltaX d, shapeDeltaX e) of
+    (shd@(Nested.SUnknown m :$% rest), she@(Nested.SUnknown n :$% _)) ->
+      withSNat m $ \(SNat @m) -> withSNat n $ \(SNat @n) ->
+      let cShared =
+            tshare $ xmcast (ssxFromShape
+                             $ Nested.SKnown (SNat @(m + n)) :$% rest) c
+          s2 = evalRevSame s (xmcast (ssxFromShape shd)
+                              $ xslice (Proxy @0) (Proxy @m) cShared) d
+      in evalRevSame s2 (xmcast (ssxFromShape she)
+                         $ xslice (Proxy @m) (Proxy @n) cShared) e
+  SliceX @_ @i @n @k d -> case tftk (stensorKind @y) c of
+    FTKX (_ :$% rest) x ->
+      evalRevSame s
+        (xmcast (ssxFromShape $ Nested.SKnown (SNat @(i + n + k)) :$% rest)
+         $ xconcat
+          [ constantTarget 0 (FTKX (Nested.SUnknown (valueOf @i) :$% rest) x)
+          , xmcast (ssxFromShape $ Nested.SUnknown (valueOf @n) :$% rest) c
+          , constantTarget 0 (FTKX (Nested.SUnknown (valueOf @k) :$% rest) x) ])
+        d
+  ReverseX d -> evalRevSame s (xreverse c) d
+  TransposeX @perm @sh2 perm d ->
+    withKnownShX (ssxPermutePrefix perm (knownShX @sh2)) $
+    permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
+        gcastWith (unsafeCoerceRefl
+                   :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
+        $ gcastWith (unsafeCoerceRefl
+                     :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
+        $ gcastWith (unsafeCoerceRefl
+                     :: Rank permR :~: Rank perm)
+        $ evalRevSame s (xtranspose permRev c) d
+  ReshapeX _sh d ->
+    evalRevSame s (xreshape (shapeDeltaX d) c) d
+  MCastX @_ @sh sh2 d ->
+    withKnownShX sh2 $
+    evalRevSame s (xmcast (knownShX @sh) c) d
+  GatherX @_ @_ @shm @shn @shp _sh d f ->
+    evalRevSame s (xscatter @_ @_ @shm @shn @shp (shapeDeltaX d) c f) d
+  CastX @r1 @_ @sh d ->
+    evalXRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKX sh r1))
+                               $ xcast c) d
   ZipX d ->
     evalRevSame s (xunzip c) d
   UnzipX d ->
@@ -1421,6 +1556,10 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
             STKS @sh sh (STKScalar @r _) ->
               withKnownShS sh $ case DMap.lookup n dMap of
                 Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
+                Nothing -> errorMissing
+            STKX @sh sh (STKScalar @r _) ->
+              withKnownShX sh $ case DMap.lookup n dMap of
+                Just (RepAD c) -> evalXRuntimeSpecialized @sh @r s2 c d
                 Nothing -> errorMissing
             _ -> case DMap.lookup n dMap of
               Just (RepAD c) -> evalRev s2 c d
@@ -1697,6 +1836,31 @@ evalFwdSame params s = \case
 --  in (s2, sfromD $ tunvector v V.! i)
 
   IndexX d ix -> second (`xindex` ix) $ evalFwdSame params s d
+  Sum0X (ZeroG (FTKX _ x)) -> (s, constantTarget 0 (FTKX ZSX x))
+  Sum0X d -> second xsum0 $ evalFwdSame params s d
+  Dot0X _ ZeroG{} -> (s, xrepl ZSX 0)
+  Dot0X v d -> second (xdot0 v) $ evalFwdSame params s d
+  ScatterX @_ @_ @shm @shn @shp sh d f ->
+    let (s2, t) = evalFwdSame params s d
+    in (s2, xscatter @_ @_ @shm @shn @shp sh t f)
+  AppendX d e ->
+    let (s2, t) = evalFwdSame params s d
+        (s3, u) = evalFwdSame params s2 e
+    in (s3, xappend t u)
+  SliceX @_ @i d -> second (xslice (Proxy @i) Proxy) $ evalFwdSame params s d
+  ReverseX d -> second xreverse $ evalFwdSame params s d
+  TransposeX perm d -> second (xtranspose perm)
+                       $ evalFwdSame params s d
+  ReshapeX sh2 d -> second (xreshape sh2) $ evalFwdSame params s d
+  MCastX sh2 d -> second (xmcast sh2) $ evalFwdSame params s d
+  GatherX @_ @_ @shm @shn @shp sh d f ->
+    let (s2, t) = evalFwdSame params s d
+    in (s2, xgather @_ @_ @shm @shn @shp sh t f)
+  d0@(CastX @r1 @_ @sh d)
+    | Dict <- lemTensorKindOfAD (stensorKind @(TKX sh r1)) ->
+      case sameTensorKind @(TKX sh r1) @(ADTensorKind (TKX sh r1)) of
+        Just Refl -> second xcast $ evalFwdSame params s d
+        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   ZipX d -> second xzip $ evalFwdSame params s d
   UnzipX d -> second xunzip $ evalFwdSame params s d
 

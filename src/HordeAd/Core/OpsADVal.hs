@@ -21,7 +21,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (fromSNat, KnownNat, sameNat)
 import Type.Reflection (typeRep)
@@ -30,6 +30,9 @@ import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplica
 import Data.Array.Nested
   ( IxR (..)
   , IxS (..)
+  , IxX (..)
+  , StaticShX(..)
+  , ShX (..)
   , KnownShS (..)
   , KnownShX (..)
   , Rank
@@ -409,16 +412,79 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sD t d = dD t d
   sScale k = ScaleG k
 
+  xminIndex (D u _) =
+    let v = xminIndex u
+    in fromPrimalADVal v
+  xmaxIndex (D u _) =
+    let v = xmaxIndex u
+    in fromPrimalADVal v
+  xfloor (D u _) =
+    let v = xfloor u
+    in fromPrimalADVal v
+
   xshape (D u _) = xshape u
+  xiota = fromPrimalADVal xiota
   xindex (D u u') i =
     let ix = tprimalPart (STKScalar typeRep) <$> i
     in dD (xindex u ix) (IndexX u' ix)
+  xsum (D u u') = dD (xsum u) (SumG SNat stensorKind u')
+  xsum0 (D u u') = dD (xsum0 u) (Sum0X u')
+  xdot0 (D ue u') (D ve v') =
+    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (xdot0 u v) (AddG (Dot0X v u') (Dot0X u v'))
+  xscatter @r @shm @shn @shp sh (D u u') f =
+    withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
+    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    in dD (xscatter @_ @r @shm @shn @shp sh u g)
+          (ScatterX @_ @r @shm @shn @shp sh u' g)
 
   xfromVector @_ @k lu = assert (length lu == valueOf @k) $  -- TODO: Move these assertions to the base instances, that is concrete and AST
     dD (xfromVector $ V.map (\(D u _) -> u) lu)
        (FromVectorG (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
-  -- xreplicate (D u (DeltaX u')) = dD (xreplicate u) (DeltaX $ ReplicateX u')
-  xreplicate _ = error "TODO"
+  xunravelToList (D u u') =
+    let lu = xunravelToList u
+        f i ui = dD ui (IndexX u' (fromIntegral i :.% ZIX))
+    in imap f lu
+  xreplicate (D u u') = dD (xreplicate u) (ReplicateG SNat stensorKind u')
+  xappend (D u u') (D v v') =
+    dD (xappend u v) (AppendX u' v')
+  xslice @_ @i i_proxy n_proxy (D u u') =
+    dD (xslice i_proxy n_proxy u) (SliceX @target @i u')
+  xreverse (D u u') = withKnownShX (ssxFromShape $ xshape u) $
+                      dD (xreverse u) (ReverseX u')
+
+  xtranspose @_ @_ @sh perm (D u u') =
+    withKnownShX (ssxPermutePrefix perm (knownShX @sh)) $
+    dD (xtranspose perm u) (TransposeX @_ @_ @_ @target perm u')
+  xreshape @_ @sh sh t@(D u u') =
+   case testEquality (knownShX @sh) (ssxFromShape sh) of
+    Just Refl | sh == xshape u -> t
+    _ -> dD (xreshape sh u) (ReshapeX sh u')
+  xbuild1 @r @n @sh f = case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> case stensorKind @r of
+      STKScalar{} -> case knownShX @sh of
+        ZKX -> xconcrete $ Nested.memptyArray ZSX
+        _ -> error "xbuild1: empty nested array"
+      _ -> error "xbuild1: shape ambiguity"
+    Nothing -> xfromList $ NonEmpty.map (f . fromInteger)
+                         $ 0 :| [1 .. valueOf @n - 1]
+      -- element-wise (POPL) version
+  xmcast sh2 (D u u') = withKnownShX sh2 $
+                        dD (xmcast sh2 u) (MCastX sh2 u')
+  xgather @r @shm @shn @shp sh (D u u') f =
+    withKnownShX (ssxFromShape sh) $
+    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    in dD (xgather @_ @r @shm @shn @shp sh u g) (GatherX @_ @r @shm @shn @shp sh u' g)
+  xcast (D u u') = dD (xcast u) (CastX u')
+  xfromIntegral (D u _) =
+    let v = xfromIntegral u
+    in fromPrimalADVal v
   xzip (D u u') = dD (xzip u) (ZipX u')
   xunzip (D u u') = dD (xunzip u) (UnzipX u')
   xtoScalar (D t d) = dDnotShared (xtoScalar t) (ToScalarG $ SFromX d)
@@ -427,6 +493,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
   xD t d = dD t d
+  xScale k = ScaleG k
 
   kfloor (D u _) =
     let v = kfloor u

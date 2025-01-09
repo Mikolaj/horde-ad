@@ -36,7 +36,7 @@ module HordeAd.Core.Types
   , ixrToIxs, ixsToIxr
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
-  , permRInverse, ixxHead
+  , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
   ) where
 
 import Prelude
@@ -731,3 +731,11 @@ listxHead (i ::% _) = i
 
 ixxHead :: IxX (n : sh) i -> i
 ixxHead (IxX list) = getConst (listxHead list)
+
+ssxPermutePrefix :: Permutation.Perm is -> StaticShX sh
+                 -> StaticShX (Permutation.PermutePrefix is sh)
+ssxPermutePrefix = undefined
+
+shxPermutePrefix :: Permutation.Perm is -> ShX sh i
+                 -> ShX (Permutation.PermutePrefix is sh) i
+shxPermutePrefix = undefined
