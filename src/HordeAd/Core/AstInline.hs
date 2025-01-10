@@ -207,7 +207,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstMinIndexR a -> second Ast.AstMinIndexR $ inlineAst memo a
   Ast.AstMaxIndexR a -> second Ast.AstMaxIndexR $ inlineAst memo a
   Ast.AstFloorR a -> second Ast.AstFloorR $ inlineAst memo a
-  Ast.AstIotaR -> (memo, v0)
+  Ast.AstIotaR{} -> (memo, v0)
   Ast.AstIndex v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1 (toList ix)
@@ -549,7 +549,7 @@ unshareAst memo = \case
   Ast.AstMinIndexR a -> second Ast.AstMinIndexR $ unshareAst memo a
   Ast.AstMaxIndexR a -> second Ast.AstMaxIndexR $ unshareAst memo a
   Ast.AstFloorR a -> second Ast.AstFloorR $ unshareAst memo a
-  Ast.AstIotaR -> (memo, Ast.AstIotaR)
+  Ast.AstIotaR n -> (memo, Ast.AstIotaR n)
   Ast.AstIndex v ix ->
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (toList ix)

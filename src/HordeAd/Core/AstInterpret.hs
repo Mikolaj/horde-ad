@@ -30,16 +30,13 @@ import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Nested
-  (IxR (..), KnownShS (..), KnownShX (..), ListR (..), ListS (..), ShR (..))
-import Data.Array.Nested qualified as Nested
+import Data.Array.Nested (KnownShS (..), KnownShX (..), ListR (..), ListS (..))
 import Data.Array.Nested.Internal.Shape
   (shrRank, shsAppend, shsProduct, withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -261,7 +258,7 @@ interpretAst !env = \case
     rmaxIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
   AstFloorR v ->
     rfloor $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstIotaR -> error "interpretAst: bare AstIota, most likely a bug"
+  AstIotaR n -> riota n
   AstN1 opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
@@ -320,8 +317,6 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstIndex AstIotaR (i :.: ZIR) ->
-    rfromIntegral . rfromPrimal . rfromScalar $ interpretAstPrimal env i
   AstIndex v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAstPrimal env <$> ix
@@ -340,22 +335,12 @@ interpretAst !env = \case
     let t1 = interpretAst env x
         t2 = interpretAst env y
     in rappend t1 t2
-  AstSlice i n AstIotaR ->
-    let u = Nested.rfromListPrimLinear (n :$: ZSR)
-            $ map fromIntegral [i .. i + n - 1]
-    in interpretAst env
-       $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u
   AstSlice i n v -> rslice i n (interpretAst env v)
   AstReverse v -> rreverse (interpretAst env v)
   AstTranspose perm v -> rtranspose perm $ interpretAst env v
   AstReshape sh v -> rreshape sh (interpretAst env v)
   AstGather _ v (ZR, ix) ->
     rindex (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstGather sh AstIotaR (vars, i :.: ZIR) ->
-    rbuild sh (interpretLambdaIndex
-                 interpretAst env
-                 (vars, fromPrimal @s $ AstFromIntegralR
-                        $ AstRFromS $ AstFromScalar i))
   AstGather sh v (vars, ix) ->
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)

@@ -342,7 +342,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rfloor = fromPrimal . AstFloorR
            . astSpanPrimal
 
-  riota = fromPrimal $ AstIotaR
+  riota = fromPrimal . AstIotaR
   rindex v ix = astIndexStep v ix
   rsum v = withSNat (rlength v) $ \snat -> astSum snat stensorKind v
   rscatter sh t f = astScatter sh t
@@ -799,7 +799,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rminIndex = AstRaw . fromPrimal . AstMinIndexR . astSpanPrimalRaw . unAstRaw
   rmaxIndex = AstRaw . fromPrimal . AstMaxIndexR . astSpanPrimalRaw . unAstRaw
   rfloor = AstRaw . fromPrimal . AstFloorR . astSpanPrimalRaw . unAstRaw
-  riota = AstRaw . fromPrimal $ AstIotaR
+  riota = AstRaw . fromPrimal . AstIotaR
   rindex v ix = AstRaw $ AstIndex (unAstRaw v) (unAstRaw <$> ix)
   rsum v = withSNat (rlength v) $ \snat ->
              AstRaw . AstSum snat stensorKind . unAstRaw $ v
@@ -1193,7 +1193,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
   rmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
   rfloor = AstNoVectorize . rfloor . unAstNoVectorize
-  riota = AstNoVectorize riota
+  riota = AstNoVectorize . riota
   rindex v ix =
     AstNoVectorize $ rindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   rsum = AstNoVectorize . rsum . unAstNoVectorize
@@ -1427,7 +1427,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
               . astSpanPrimal . unAstNoSimplify
   rfloor = AstNoSimplify . fromPrimal . AstFloorR
            . astSpanPrimal . unAstNoSimplify
-  riota = AstNoSimplify . fromPrimal $ AstIotaR
+  riota = AstNoSimplify . fromPrimal . AstIotaR
   rindex v ix =
     AstNoSimplify $ AstIndex (unAstNoSimplify v) (unAstNoSimplify <$> ix)
   rsum v = withSNat (rlength v) $ \snat ->

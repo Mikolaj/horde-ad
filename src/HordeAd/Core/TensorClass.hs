@@ -357,8 +357,7 @@ class ( Num (IntOf target)
     => target (TKR (1 + n) r) -> target (TKR n r2)  -- partial
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
          => target (TKR n r) -> target (TKR n r2)
-  riota :: GoodScalar r => target (TKR 1 r)  -- 0, 1 .. infinity
-  riota = undefined  -- infinite, hence diverges; don't override
+  riota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
 
   -- Typically scalar (rank 0) codomain or a generalization of such
   -- an operation, often a tensor reduction. A number suffix in the name

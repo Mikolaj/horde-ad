@@ -291,7 +291,7 @@ build1V snat@SNat (var, v0) =
      Ast.AstMaxIndexR $ build1V snat (var, v)
     Ast.AstFloorR v -> traceRule $
      Ast.AstFloorR $ build1V snat (var, v)
-    Ast.AstIotaR ->
+    Ast.AstIotaR{} ->
       error "build1V: AstIotaR can't have free index variables"
 
     Ast.AstIndex v ix -> traceRule $ case stensorKind @y of

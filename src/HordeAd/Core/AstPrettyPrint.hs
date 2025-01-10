@@ -334,7 +334,7 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "rmaxIndex" [a]
   AstFloorR a ->
     printPrefixOp printAst cfg d "rfloor" [a]
-  AstIotaR -> showString "riota"
+  AstIotaR n -> showString $ "riota " ++ show n
   AstN1 opCode u -> printAstN1R printAst cfg d opCode u
   AstN2 opCode u v -> printAstN2R printAst cfg d opCode u v
   AstR1 opCode u -> printAstR1R printAst cfg d opCode u

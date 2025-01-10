@@ -102,7 +102,7 @@ ftkAst t = case t of
   AstMinIndexR a -> FTKR (shrInit $ shapeAst a) FTKScalar
   AstMaxIndexR a -> FTKR (shrInit $ shapeAst a) FTKScalar
   AstFloorR a -> FTKR (shapeAst a) FTKScalar
-  AstIotaR -> FTKR ((maxBound :: Int) :$: ZSR) FTKScalar  -- ought to be enough
+  AstIotaR n -> FTKR (n :$: ZSR) FTKScalar
   AstN1R _opCode v -> ftkAst v
   AstN2R _opCode v _ -> ftkAst v
   AstR1R _opCode v -> ftkAst v
@@ -309,7 +309,7 @@ varInAst var = \case
   AstMinIndexR a -> varInAst var a
   AstMaxIndexR a -> varInAst var a
   AstFloorR a -> varInAst var a
-  AstIotaR -> False
+  AstIotaR{} -> False
   AstIndex v ix -> varInAst var v || varInIndex var ix
   AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
   AstAppend v u -> varInAst var v || varInAst var u
@@ -429,7 +429,7 @@ astIsSmall relaxed = \case
   AstConcrete (FTKX sh FTKScalar) _ -> shxSize sh <= 1
   AstConcrete{} -> False
 
-  AstIotaR -> True
+  AstIotaR{} -> True
   AstFromVector snat v | sNatValue snat == 1 -> astIsSmall relaxed $ v V.! 0
   AstSlice _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap

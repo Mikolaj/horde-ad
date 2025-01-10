@@ -379,7 +379,7 @@ astNonIndexStep t = case t of
   Ast.AstMinIndexR{} -> t
   Ast.AstMaxIndexR{} -> t
   Ast.AstFloorR{} -> t
-  Ast.AstIotaR -> t
+  Ast.AstIotaR{} -> t
   AstN1R{} -> t
   AstN2R{} -> t
   Ast.AstR1R{} -> t
@@ -578,12 +578,12 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstMinIndexR v -> Ast.AstMinIndexR $ astIndexKnobsR knobs v ix
   Ast.AstMaxIndexR v -> Ast.AstMaxIndexR $ astIndexKnobsR knobs v ix
   Ast.AstFloorR v -> Ast.AstFloorR $ astIndexKnobsR knobs v ix
-  Ast.AstIotaR
+  Ast.AstIotaR{}
    | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> astFromIntegralR
                  $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
-  Ast.AstIotaR -> Ast.AstIndex v0 ix
+  Ast.AstIotaR{} -> Ast.AstIndex v0 ix
   AstN1R opCode u -> AstN1R opCode (astIndexRec u ix)
   AstN2R opCode u v ->
     shareIx ix $ \ !ix2 -> AstN2R opCode (astIndexRec u ix2) (astIndexRec v ix2)
@@ -1148,10 +1148,11 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
     Ast.AstFloorR v ->
       Ast.AstFloorR
       $ astGatherKnobsR knobs sh4 v (vars4, ix4)
-    Ast.AstIotaR | AstConcrete _ (RepN i) <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
+    Ast.AstIotaR{}
+     | AstConcrete _ (RepN i) <- i4 -> case sameNat (Proxy @p') (Proxy @1) of
       Just Refl -> astFromIntegralR $ astReplicate0N sh4 i
-      _ -> error "astGather: AstIota: impossible pattern needlessly required"
-    Ast.AstIotaR ->  -- probably nothing can be simplified; a normal form
+      _ -> error "astGather: AstIotaR: impossible pattern needlessly required"
+    Ast.AstIotaR{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGather sh4 v4 (vars4, ix4)
     AstN1R opCode v | not (isVar v) ->
       AstN1R opCode (astGatherRec sh4 v (vars4, ix4))
@@ -2303,6 +2304,12 @@ astSlice i n (Ast.AstGather (_ :$: sh') v (var ::: vars, ix)) =
               ivar var ix
   in astGatherR (n :$: sh') v (var ::: vars, ix2)
 astSlice i n v = Ast.AstSlice i n v
+{- TODO???
+  AstSlice i n AstIotaR ->
+    let u = Nested.rfromListPrimLinear (n :$: ZSR)
+            $ map fromIntegral [i .. i + n - 1]
+    in interpretAst env
+       $ AstConcrete (FTKR (Nested.rshape u) FTKScalar) $ RepN u -}
 
 astSliceS :: forall i n k sh s r.
              ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, TensorKind r
@@ -3293,7 +3300,7 @@ expandAst t = case t of
   Ast.AstMinIndexR a -> Ast.AstMinIndexR (expandAst a)
   Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (expandAst a)
   Ast.AstFloorR a -> Ast.AstFloorR (expandAst a)
-  Ast.AstIotaR -> t
+  Ast.AstIotaR{} -> t
   AstN1 opCode u ->
     case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode (expandAst u)
@@ -3600,7 +3607,7 @@ simplifyAst t = case t of
   Ast.AstMinIndexR a -> Ast.AstMinIndexR (simplifyAst a)
   Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (simplifyAst a)
   Ast.AstFloorR a -> Ast.AstFloorR (simplifyAst a)
-  Ast.AstIotaR -> t
+  Ast.AstIotaR{} -> t
   AstN1 opCode u ->
     case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode (simplifyAst u)
@@ -4166,7 +4173,7 @@ contractAst t = case t of
   Ast.AstMinIndexR a -> Ast.AstMinIndexR (contractAst a)
   Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (contractAst a)
   Ast.AstFloorR a -> Ast.AstFloorR (contractAst a)
-  Ast.AstIotaR -> t
+  Ast.AstIotaR{} -> t
   AstN1 opCode u ->
     case isTensorInt u of
       Just Refl -> contractAstNumOp1 opCode (contractAst u)
@@ -4264,6 +4271,8 @@ contractAst t = case t of
   Ast.AstR1R opCode u -> Ast.AstR1R opCode (contractAst u)
   Ast.AstR2R opCode u v -> Ast.AstR2R opCode (contractAst u) (contractAst v)
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (contractAst u) (contractAst v)
+  Ast.AstIndex Ast.AstIotaR{} (i :.: ZIR) ->
+    astFromIntegralR $ astRFromS $ astFromScalar $ contractAstInt i
   Ast.AstIndex v ix -> astIndexR (contractAst v) (contractAstIxR ix)
   Ast.AstScatter sh v (var, ix) ->
     astScatter sh (contractAst v) (var, contractAstIxR ix)
@@ -4290,6 +4299,12 @@ contractAst t = case t of
         (contractAst v)
         (astReshapeS @_ @sh (Ast.AstReplicate snat stk (contractAst t2)))
   Ast.AstReshape sh v -> astReshape sh (contractAst v)
+{- TODO, but sbuild is tricky, so only if benchmarks show it's worth it:
+  AstGather sh AstIotaR (vars, i :.: ZIR) ->
+    rbuild sh (interpretLambdaIndex
+                 interpretAst env
+                 (vars, fromPrimal @s $ AstFromIntegralR
+                        $ AstRFromS $ AstFromScalar i)) -}
   Ast.AstGather sh v (vars, ix) ->
     astGatherR sh (contractAst v) (vars, contractAstIxR ix)
   Ast.AstCastR v -> astCastR $ contractAst v
@@ -4774,7 +4789,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstMinIndexR a -> Ast.AstMinIndexR <$> substitute1Ast i var a
   Ast.AstMaxIndexR a -> Ast.AstMaxIndexR <$> substitute1Ast i var a
   Ast.AstFloorR a -> Ast.AstFloorR <$> substitute1Ast i var a
-  Ast.AstIotaR -> Nothing
+  Ast.AstIotaR{} -> Nothing
   Ast.AstN1 opCode u ->
     (\u2 -> case isTensorInt u2 of
        Just Refl -> contractAstNumOp1 opCode u2

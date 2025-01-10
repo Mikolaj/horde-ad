@@ -118,6 +118,8 @@ instance BaseTensor RepN where
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
   rfloor = RepN . liftVR (V.map floor) . unRepN
+  riota n = RepN $ Nested.rfromList1 $ NonEmpty.map fromInteger
+            $ NonEmpty.fromList [0 .. fromIntegral n - 1]
   rindex = tindexZR
   rindex0 = tindex0R
   rsum t = case tftk stensorKind t of

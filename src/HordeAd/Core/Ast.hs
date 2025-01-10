@@ -385,7 +385,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstMaxIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKR (1 + n) r)
                -> AstTensor ms PrimalSpan (TKR n r2)
-  AstIotaR :: GoodScalar r => AstTensor ms PrimalSpan (TKR 1 r)
+  AstIotaR :: GoodScalar r => Int -> AstTensor ms PrimalSpan (TKR 1 r)
 
   AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, TensorKind r)
            => AstTensor ms s (TKR2 (m + n) r) -> AstIxR ms m
