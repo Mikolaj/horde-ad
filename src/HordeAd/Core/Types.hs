@@ -33,11 +33,11 @@ module HordeAd.Core.Types
   , takeShape, dropShape, splitAt_Shape
   , splitAt_SizedS, dropIxS, takeShS, dropShS, takeShX, dropShX
   , listsTakeLen, listsDropLen, shsDropLen
-  , ixrToIxs, ixsToIxr
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
   , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
+  , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   ) where
 
 import Prelude
@@ -679,15 +679,6 @@ listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
 shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
 shsDropLen = coerce (listsDropLenPerm @SNat)
 
--- And the same for ShS, for the opposite direction, etc., etc.
-ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
-         => IxS sh i -> IxR (Rank sh) i
-ixrToIxs = fromList . toList
-
-ixsToIxr :: (KnownShS sh, KnownNat (Rank sh))
-         => IxR (Rank sh) i -> IxS sh i
-ixsToIxr = fromList . toList
-
 zipSized :: ListR n i -> ListR n j -> ListR n (i, j)
 zipSized ZR ZR = ZR
 zipSized (i ::: irest) (j ::: jrest) = (i, j) ::: zipSized irest jrest
@@ -779,3 +770,18 @@ shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
   gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
   Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
 shCastSX _ _ = error "shCastSX: shapes don't match"
+
+-- TODO; more typed, ensure ranks match, use singletons instead of constraints,
+-- give better names and do the same for ListS, etc.
+ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
+         => IxR (Rank sh) i -> IxS sh i
+ixrToIxs = fromList . toList
+ixsToIxr :: (KnownShS sh, KnownNat (Rank sh))
+         => IxS sh i -> IxR (Rank sh) i
+ixsToIxr = fromList . toList
+ixxToIxs :: (KnownShS sh, KnownShX sh')
+         => IxX sh' i -> IxS sh i
+ixxToIxs = fromList . toList
+ixsToIxx :: (KnownShS sh, KnownShX sh')
+         => IxS sh i -> IxX sh' i
+ixsToIxx = fromList . toList

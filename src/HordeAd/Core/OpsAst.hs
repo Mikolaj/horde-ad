@@ -23,7 +23,6 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat, type (+))
 import Data.Type.Equality (gcastWith)
-import GHC.Exts (IsList (..))
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (type (++), Product, Rank, IShR, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
@@ -459,7 +458,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astXFromS @(Drop (Rank sh1) sh) @sh2
         $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                         (astSFromX @sh @sh1sh2 a)
-                        (fromList (toList ix))
+                        (ixxToIxs ix)
   xsum = astSum SNat stensorKind
   xscatter @_ @shm @_ @shp shpshn0 t f = case ftkAst t of
     FTKX shmshn0 _ | SNat <- ssxRank (knownShX @shm)
@@ -482,7 +481,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astXFromS $ astScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (astSFromX t)
-        $ funToAstIxS (fromList . toList . f . fromList . toList)
+        $ funToAstIxS (ixxToIxs . f . ixsToIxx)
             -- this introduces new variable names
   xfromVector @_ @k l = astFromVector (SNat @k) l
   xreplicate = astReplicate SNat stensorKind
@@ -564,7 +563,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astXFromS $ astGatherStepS @(Take (Rank shm) shmshn)
                                    @(Drop (Rank shm) shmshn)
                                    @(Take (Rank shp) shpshn) (astSFromX t)
-        $ funToAstIxS (fromList . toList . f . fromList . toList)
+        $ funToAstIxS (ixxToIxs . f . ixsToIxx)
             -- this introduces new variable names
   xcast @_ @_ @sh' a = case ftkAst a of
     FTKX sh' _ ->
@@ -884,7 +883,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         AstRaw $ AstXFromS @(Drop (Rank sh1) sh) @sh2
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
-                    (fromList (toList (unAstRaw <$> ix)))
+                    (ixxToIxs (unAstRaw <$> ix))
   xsum = AstRaw . AstSum SNat stensorKind . unAstRaw
   xscatter @_ @shm @_ @shp shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shmshn0 _ | SNat <- ssxRank (knownShX @shm)
@@ -907,8 +906,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         AstXFromS $ AstScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (AstSFromX t)
-        $ funToAstIxS (fmap unAstRaw . fromList . toList
-                       . f . fromList . toList . fmap AstRaw)
+        $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx . fmap AstRaw)
             -- this introduces new variable names
   xfromVector @_ @k l =
     AstRaw . AstFromVector (SNat @k) . V.map unAstRaw $ l
@@ -993,8 +991,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         AstXFromS $ AstGatherS @(Take (Rank shm) shmshn)
                                @(Drop (Rank shm) shmshn)
                                @(Take (Rank shp) shpshn) (AstSFromX t)
-        $ funToAstIxS (fmap unAstRaw . fromList . toList
-                       . f . fromList . toList . fmap AstRaw)
+        $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx . fmap AstRaw)
             -- this introduces new variable names
   xcast @_ @_ @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
@@ -1514,7 +1511,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         AstNoSimplify $ AstXFromS @(Drop (Rank sh1) sh) @sh2
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
-                    (fromList (toList (unAstNoSimplify <$> ix)))
+                    (ixxToIxs (unAstNoSimplify <$> ix))
   xsum = AstNoSimplify . AstSum SNat stensorKind . unAstNoSimplify
   xscatter @_ @shm @_ @shp shpshn0 (AstNoSimplify t) f = AstNoSimplify $ case ftkAst t of
     FTKX shmshn0 _ | SNat <- ssxRank (knownShX @shm)
@@ -1537,8 +1534,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         AstXFromS $ AstScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (AstSFromX t)
-        $ funToAstIxS (fmap unAstNoSimplify . fromList . toList
-                       . f . fromList . toList . fmap AstNoSimplify)
+        $ funToAstIxS (fmap unAstNoSimplify . ixxToIxs . f . ixsToIxx
+                       . fmap AstNoSimplify)
             -- this introduces new variable names
   xfromVector @_ @k l =
     AstNoSimplify . AstFromVector (SNat @k) . V.map unAstNoSimplify $ l
@@ -1623,8 +1620,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         AstXFromS $ AstGatherS @(Take (Rank shm) shmshn)
                                @(Drop (Rank shm) shmshn)
                                @(Take (Rank shp) shpshn) (AstSFromX t)
-        $ funToAstIxS (fmap unAstNoSimplify . fromList . toList
-                       . f . fromList . toList . fmap AstNoSimplify)
+        $ funToAstIxS (fmap unAstNoSimplify . ixxToIxs . f . ixsToIxx
+                       . fmap AstNoSimplify)
             -- this introduces new variable names
   xcast @_ @_ @sh' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX sh' _ ->

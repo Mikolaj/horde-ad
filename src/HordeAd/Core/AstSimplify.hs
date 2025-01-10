@@ -679,7 +679,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
     gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
     astRFromS $ astIndexKnobsS @(Take m sh) @(Drop m sh)
-                               knobs t (ixsToIxr ix)
+                               knobs t (ixrToIxs ix)
 
   Ast.AstApply{} -> Ast.AstIndex v0 ix
 
@@ -927,7 +927,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
                   , SNat <- shsRank (knownShS @shm) ->
     gcastWith (unsafeCoerceRefl
                :: Rank shm + Rank shn :~: Rank (shm ++ shn)) $
-    astSFromR $ astIndexKnobsR knobs t (ixrToIxs ix)
+    astSFromR $ astIndexKnobsR knobs t (ixsToIxr ix)
   Ast.AstSFromX _t -> error "TODO"
 
   Ast.AstApply{} -> Ast.AstIndexS v0 ix

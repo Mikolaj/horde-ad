@@ -236,8 +236,8 @@ slicezS d ixBase =
   sbuild @target @(TKScalar r) @(Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)
-                                       (ixrToIxs ixBase)
-                                       (ixrToIxs ixResult))
+                                       (ixsToIxr ixBase)
+                                       (ixsToIxr ixResult))
 
 {-
 -- TODO: this makes tests unbearably slow
