@@ -20,7 +20,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
@@ -775,23 +774,23 @@ astIndexBuild snat@SNat stk u i = case stk of
     astIndexStep u (i :.: ZIR)
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
     withKnownShS sh $ astIndexStepS u (i :.$ ZIS)
-  STKX @sh sh x | Dict <- lemTensorKindOfSTK x -> case ftkAst u of
-   FTKX sh3 _->
-    withKnownShX sh $
-    withShapeP (toList sh3) $ \ (Proxy @sh2) -> case knownShS @sh2 of
+  STKX @sh' sh' x | Dict <- lemTensorKindOfSTK x -> case ftkAst u of
+   FTKX shBuild' _->
+    withKnownShX sh' $
+    withCastXS shBuild' $ \(shBuild :: ShS shBuild) -> case shBuild of
       ZSS -> error "astIndexBuild: impossible empty shape"
-      (:$$) @_ @sh2Rest _ sh2Rest ->
-        withKnownShS sh2Rest $
+      (:$$) @_ @rest _ rest ->
+        withKnownShS rest $
 {-      gcastWith (unsafeCoerceRefl
-                   :: Rank sh2 :~: Rank (Just k ': sh)) $
+                   :: Rank shBuild :~: Rank (Just k ': sh')) $
         gcastWith (unsafeCoerceRefl
-                   :: Rank sh2 :~: 1 + Rank sh2Rest) $
+                   :: Rank shBuild :~: 1 + Rank rest) $
         gcastWith (unsafeCoerceRefl
-                   :: Rank (Just k ': sh) :~: 1 + Rank sh) $ -}
+                   :: Rank (Just k ': sh') :~: 1 + Rank sh') $ -}
         -- The above is somehow not enough and so we need this:
-        gcastWith (unsafeCoerceRefl :: Rank sh2Rest :~: Rank sh) $
-        Ast.AstXFromS @sh2Rest @sh
-        $ astIndexStepS (Ast.AstSFromX @sh2 @(Just k ': sh) u)
+        gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank sh') $
+        Ast.AstXFromS @rest @sh'
+        $ astIndexStepS (Ast.AstSFromX @shBuild @(Just k ': sh') u)
                         (i :.$ ZIS)
   STKProduct stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1

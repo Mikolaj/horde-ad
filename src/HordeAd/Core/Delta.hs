@@ -198,7 +198,8 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
                 MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
                 MTKRDummy shr ftk | SNat <- shrRank shr
                                   , STKScalar @r _ <- ftkToStk ftk ->
-                  withShapeP (toList shr) $ \(Proxy @sh) ->
+                  withCastRS shr $ \(sh :: ShS sh) ->
+                    withKnownShS sh $
                     DynamicRankedDummy @r @sh Proxy Proxy
                 MTKSDummy @_ @sh sh ftk | STKScalar @r _ <- ftkToStk ftk ->
                   withKnownShS sh $

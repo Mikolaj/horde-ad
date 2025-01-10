@@ -23,7 +23,7 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (type (+))
@@ -37,9 +37,8 @@ import Data.Array.Mixed.Shape
   , ssxFromShape
   , withKnownShX
   )
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
-  (IShR, KnownShS (..), MapJust, Rank, Replicate, ShR (..), ShS (..))
+  (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShS (..))
 import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
@@ -482,10 +481,10 @@ liftXFromS1 :: forall sh' x ms s.
             -> AstTensor ms s (TKX2 sh' x)
 liftXFromS1 f (AstXFromS u) = AstXFromS (f u)
 liftXFromS1 f a = case ftkAst a of
-  FTKX sh2 x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-    withKnownShX (ssxFromShape sh2) $
-    withShapeP (toList sh2) $ \ (Proxy @sh) ->
-      gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+  FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withKnownShX (ssxFromShape sh') $
+    withCastXS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
       AstXFromS @sh @sh' $ f (AstSFromX @sh @sh' a)
 
 liftXFromS2 :: forall sh' x ms s.
@@ -499,8 +498,8 @@ liftXFromS2 f (AstXFromS @shu u) (AstXFromS @shv v) =
     Just Refl -> AstXFromS $ f u v
     Nothing -> error "liftXFromS2: shapes don't agree"
 liftXFromS2 f a b  = case ftkAst a of
-  FTKX sh2 x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-    withKnownShX (ssxFromShape sh2) $
-    withShapeP (toList sh2) $ \ (Proxy @sh) ->
-      gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+  FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withKnownShX (ssxFromShape sh') $
+    withCastXS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
       AstXFromS @sh @sh' $ f (AstSFromX @sh @sh' a) (AstSFromX @sh @sh' b)
