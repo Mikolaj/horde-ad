@@ -849,7 +849,7 @@ shapeDeltaFull = \case
 
   RFromS @sh d
    | SNat <- shsRank (knownShS @sh) -> case shapeDeltaFull d of
-    FTKS _ x -> FTKR (fromList $ toList $ knownShS @sh) x
+    FTKS _ x -> FTKR (shCastSR $ knownShS @sh) x
   RFromX @sh d
    | SNat <- ssxRank (knownShX @sh) -> case shapeDeltaFull d of
     FTKX shx x -> FTKR (fromList $ toList shx) x
@@ -861,7 +861,7 @@ shapeDeltaFull = \case
    | SNat <- ssxRank (knownShX @sh) -> case shapeDeltaFull d of
     FTKR shr x -> FTKX (fromList $ toList shr) x
   XFromS d -> case shapeDeltaFull d of
-    FTKS sh x -> FTKX (fromList $ toList sh) x
+    FTKS sh x -> FTKX (shCastSX knownShX sh) x
 
   XNestR  @_ @sh1 @m d -> case shapeDeltaFull d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))
@@ -1075,7 +1075,7 @@ initEvalState ftk0 =
         DynamicShaped{} -> error "fromDynamicTensor: impossible case"
         DynamicRankedDummy @r @sh _ _ | SNat @n <- shsRank (knownShS @sh) ->
           let shr :: IShR n
-              shr = fromList (toList (knownShS @sh))
+              shr = shCastSR (knownShS @sh)
           in InputId n :=> MTKRDummy @(TKScalar r) shr FTKScalar
         DynamicShapedDummy @r @sh _ _ ->
           InputId n :=> MTKSDummy @(TKScalar r) @sh knownShS FTKScalar

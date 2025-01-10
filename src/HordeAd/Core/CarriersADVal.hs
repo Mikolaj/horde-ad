@@ -23,8 +23,8 @@ import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
-import Data.Array.Nested (KnownShS (..))
-import Data.Array.Nested.Internal.Shape (shrRank, withKnownShS)
+import Data.Array.Nested (KnownShS (..), Rank)
+import Data.Array.Nested.Internal.Shape (shrRank, shsRank, withKnownShS)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
@@ -256,11 +256,13 @@ rFromH (HToH hv) i = case hv V.! i of
   DynamicRankedDummy @r2 @sh _ _
     | Just Refl <- matchingRank @sh @n
     , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG $ FTKR (fromList $ toList $ knownShS @sh) FTKScalar
+      ZeroG $ FTKR (shCastSR $ knownShS @sh) FTKScalar
   _ -> error "rFromH: impossible case"
 rFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
-  DynamicRankedDummy @_ @sh _ _ ->
-    ZeroG $ FTKR (fromList $ toList $ knownShS @sh) FTKScalar
+  DynamicRankedDummy @_ @sh _ _ | SNat <- shsRank (knownShS @sh) ->
+    case sameNat (Proxy @(Rank sh)) (Proxy @n) of
+      Just Refl -> ZeroG $ FTKR (shCastSR $ knownShS @sh) FTKScalar
+      Nothing -> error "rFromH: wrong rank"
   DynamicShapedDummy{} -> error "rFromH: DynamicShapedDummy"
 rFromH d i = RFromH d i
 
@@ -273,7 +275,7 @@ sFromH (HToH hv) i = case hv V.! i of
   DynamicShapedDummy @r2 @sh3 _ _
     | Just Refl <- sameShape @sh @sh3
     , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG $ FTKS (fromList $ toList $ knownShS @sh3) FTKScalar
+      ZeroG $ FTKS (knownShS @sh3) FTKScalar
   _ -> error "sFromH: impossible case"
 sFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
   DynamicRankedDummy{} -> error "sFromH: DynamicRankedDummy"

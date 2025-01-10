@@ -26,7 +26,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (type (+))
+import GHC.TypeLits (sameNat, type (+))
 
 import Data.Array.Mixed.Shape
   ( KnownShX (..)
@@ -38,7 +38,7 @@ import Data.Array.Mixed.Shape
   , withKnownShX
   )
 import Data.Array.Nested
-  (IShR, KnownShS (..), MapJust, Replicate, ShR (..), ShS (..))
+  (IShR, KnownShS (..), MapJust, Rank, Replicate, ShR (..), ShS (..))
 import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
@@ -128,9 +128,11 @@ ftkAst t = case t of
     FTKR _ x -> FTKR sh x
   AstCastR v -> FTKR (shapeAst v) FTKScalar
   AstFromIntegralR a -> FTKR (shapeAst a) FTKScalar
-  AstProjectR l p -> case shapeAstHVector l V.! p of
-    DynamicRankedDummy @_ @sh _ _ ->
-      FTKR (fromList $ toList $ knownShS @sh) FTKScalar
+  AstProjectR @_ @n l p -> case shapeAstHVector l V.! p of
+    DynamicRankedDummy @_ @sh _ _ | SNat <- shsRank (knownShS @sh) ->
+      case sameNat (Proxy @(Rank sh)) (Proxy @n) of
+        Just Refl -> FTKR (shCastSR $ knownShS @sh) FTKScalar
+        Nothing -> error "ftkAst: AstProjectR ill-typed"
     DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
   AstLetHVectorIn _ _ v -> ftkAst v
   AstZipR v -> case ftkAst v of
@@ -174,13 +176,13 @@ ftkAst t = case t of
 
   AstRFromS @sh v
    | SNat <- shsRank (knownShS @sh) -> case ftkAst v of
-    FTKS _ x -> FTKR (fromList $ toList $ knownShS @sh) x
+    FTKS _ x -> FTKR (shCastSR $ knownShS @sh) x
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
     FTKX _ x -> FTKS knownShS x
   AstXFromS v -> case ftkAst v of
-    FTKS sh x -> FTKX (fromList $ toList sh) x
+    FTKS sh x -> FTKX (shCastSX knownShX sh) x
 
   AstXNestR @sh1 @m v -> case ftkAst v of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))

@@ -37,7 +37,7 @@ module HordeAd.Core.Types
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
   , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
-  , withCastRS, withCastXS
+  , withCastRS, withCastXS, shCastSR, shCastSX
   ) where
 
 import Prelude
@@ -393,7 +393,7 @@ withListSh
       => IShR n -> a)
   -> a
 withListSh (Proxy @sh) f | SNat <- shsRank (knownShS @sh) =
-  f $ fromList $ toList $ knownShS @sh
+  f $ shCastSR $ knownShS @sh
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
@@ -759,3 +759,23 @@ withCastXS (Nested.SKnown snat@SNat :$% rest') f =
   withCastXS rest' (\rest -> f (snat :$$ rest))
 withCastXS (Nested.SUnknown k :$% rest') f = withSNat k $ \snat ->
   withCastXS rest' (\rest -> f (snat :$$ rest))
+
+shCastSR :: ShS sh -> IShR (Rank sh)
+shCastSR ZSS = ZSR
+shCastSR (snat2 :$$ rest) =
+  sNatValue snat2 :$: shCastSR rest
+
+-- The constraint is erroneously reported as redundant.
+shCastSX :: Rank sh ~ Rank sh' => StaticShX sh' -> ShS sh -> IShX sh'
+shCastSX ZKX ZSS = ZSX
+shCastSX ((:!%) @_ @restx (Nested.SKnown snat1) restx)
+         ((:$$) @_ @rest snat2 rest) =
+  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
+  if sNatValue snat1 == sNatValue snat2
+  then Nested.SKnown snat1 :$% shCastSX restx rest
+  else error "shCastSX: shapes don't match"
+shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
+         ((:$$) @_ @rest snat2 rest) =
+  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
+  Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
+shCastSX _ _ = error "shCastSX: shapes don't match"
