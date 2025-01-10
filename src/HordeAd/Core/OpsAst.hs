@@ -416,12 +416,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xminIndex a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
-      withShapeP (toList sh') $ \ (Proxy @sh) -> case knownShS @sh of
-        sh@((:$$) @n @rest _ rest) ->
+      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
+        (:$$) @n @rest _ rest ->
           withKnownShX (ssxFromShape $ shxInit sh') $
           withKnownShS rest $
           withKnownShS (shsInit sh) $
-          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
           astXFromS @(Init sh) @(Init sh') . fromPrimal . AstMinIndexS @rest @n
           . astSpanPrimal . astSFromX @sh @sh' $ a
@@ -429,20 +428,19 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xmaxIndex a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
-      withShapeP (toList sh') $ \ (Proxy @sh) -> case knownShS @sh of
-        sh@((:$$) @n @rest _ rest) ->
+      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
+        (:$$) @n @rest _ rest ->
           withKnownShX (ssxFromShape $ shxInit sh') $
           withKnownShS rest $
           withKnownShS (shsInit sh) $
-          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
           astXFromS @(Init sh) @(Init sh') . fromPrimal . AstMaxIndexS @rest @n
           . astSpanPrimal . astSFromX @sh @sh' $ a
         ZSS -> error "xmaxIndex: impossible shape"
   xfloor @_ @_ @sh' a = case ftkAst a of
     FTKX sh' _ ->
-      withShapeP (toList sh') $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         astXFromS @sh @sh' . fromPrimal . AstFloorS
         . astSpanPrimal . astSFromX @sh @sh' $ a
 
@@ -451,8 +449,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh _ -> sh
   xindex @_ @sh1 @sh2 a ix = case ftkAst a of
     FTKX @sh1sh2 sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
-      withShapeP (toList sh1sh2) $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh1sh2 :~: Rank sh) $
+      withCastXS sh1sh2 $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
@@ -463,15 +461,15 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                         (astSFromX @sh @sh1sh2 a)
                         (fromList (toList ix))
   xsum = astSum SNat stensorKind
-  xscatter @_ @shm @shn @shp shpshn0 t f = case ftkAst t of
-    FTKX @shmshn0 shmshn0 _ | SNat <- ssxRank (knownShX @shm)
-                            , SNat <- ssxRank (knownShX @shp) ->
+  xscatter @_ @shm @_ @shp shpshn0 t f = case ftkAst t of
+    FTKX shmshn0 _ | SNat <- ssxRank (knownShX @shm)
+                   , SNat <- ssxRank (knownShX @shp) ->
       withKnownShX (ssxFromShape shmshn0) $
       withKnownShX (ssxFromShape shpshn0) $
-      withShapeP (toList shmshn0) $ \ (Proxy @shmshn) ->
-      withShapeP (toList shpshn0) $ \ (Proxy @shpshn) ->
-        gcastWith (unsafeCoerceRefl :: Rank shmshn0 :~: Rank shmshn) $
-        gcastWith (unsafeCoerceRefl :: Rank (shp ++ shn) :~: Rank shpshn) $
+      withCastXS shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
+        withKnownShS shmshn $
+        withKnownShS shpshn $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
@@ -491,13 +489,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xappend u v = case ftkAst u of
     FTKX @shu' shu' _ -> case ftkAst v of
       FTKX @shv' shv' _ ->
-        withShapeP (toList shu') $ \ (Proxy @shu) -> case knownShS @shu of
+        withCastXS shu' $ \(shu :: ShS shu) -> case shu of
           (:$$) @mu @restu _ restu ->
-            withShapeP (toList shv') $ \ (Proxy @shv) -> case knownShS @shv of
+            withCastXS shv' $ \(shv :: ShS shv) -> case shv of
               (:$$) @mv @restv _ _ ->
                 gcastWith (unsafeCoerceRefl :: restu :~: restv) $
-                gcastWith (unsafeCoerceRefl :: Rank shu' :~: Rank shu) $
-                gcastWith (unsafeCoerceRefl :: Rank shv' :~: Rank shv) $
                 withKnownShS restu $
                 astXFromS $ astAppendS @mu @mv @restu
                                        (astSFromX @shu @shu' u)
@@ -506,10 +502,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           ZSS -> error "xappend: impossible shape"
   xslice @_ @i @n @k Proxy Proxy a = case ftkAst a of
     FTKX @sh' sh'@((:$%) @_ @rest' _ _) _ ->
-      withShapeP (toList sh') $ \ (Proxy @sh) -> case knownShS @sh of
+      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @m @rest _ rest ->
           withKnownShS rest $
-          gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank rest') $
           gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
           astXFromS @(n ': rest) @(Just n ': rest')
           . astSliceS @i @n @k . astSFromX @sh @sh' $ a
@@ -517,29 +512,28 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xreverse a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
-      withShapeP (toList sh') $ \ (Proxy @sh) -> case knownShS @sh of
+      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         _ :$$ rest ->
           withKnownShS rest $
-          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
           astXFromS @sh @sh' . astReverseS . astSFromX @sh @sh' $ a
         ZSS -> error "xreverse: impossible shape"
   xtranspose @perm perm a = case ftkAst a of
     FTKX @sh' sh' _ -> case shxPermutePrefix perm sh' of
       (sh2' :: IShX sh2') ->
         withKnownShX (ssxFromShape sh2') $
-        withShapeP (toList sh') $ \ (Proxy @sh) ->
-        withShapeP (toList sh2') $ \ (Proxy @sh2) ->
+        withCastXS sh' $ \(sh :: ShS sh) ->
+        withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+          withKnownShS sh $
+          withKnownShS sh2 $
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
-          gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
-          gcastWith (unsafeCoerceRefl :: Rank sh2' :~: Rank sh2) $
           astXFromS @sh2 . astTransposeS perm . astSFromX @sh @sh' $ a
   xreshape @_ @_ @sh2' sh2' a = case ftkAst a of
     FTKX @sh' sh' _ ->
-      withShapeP (toList sh') $ \ (Proxy @sh) ->
-      withShapeP (toList sh2') $ \ (Proxy @sh2) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
-        gcastWith (unsafeCoerceRefl :: Rank sh2' :~: Rank sh2) $
+      withCastXS sh' $ \(sh :: ShS sh) ->
+      withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+        withKnownShS sh $
+        withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
         astXFromS @sh2 @sh2' . astReshapeS . astSFromX @sh @sh' $ a
   xbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
@@ -549,15 +543,15 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- information while we are checking types in this module
     -- (which we don't yet do and we should, because we lose type information
     -- when the AST term is fully constructed, so it's too late to check then).
-  xgather @_ @shm @shn @shp shmshn0 t f = case ftkAst t of
-    FTKX @shpshn0 shpshn0 _ | SNat <- ssxRank (knownShX @shm)
-                            , SNat <- ssxRank (knownShX @shp) ->
+  xgather @_ @shm @_ @shp shmshn0 t f = case ftkAst t of
+    FTKX shpshn0 _ | SNat <- ssxRank (knownShX @shm)
+                   , SNat <- ssxRank (knownShX @shp) ->
       withKnownShX (ssxFromShape shmshn0) $
       withKnownShX (ssxFromShape shpshn0) $
-      withShapeP (toList shmshn0) $ \ (Proxy @shmshn) ->
-      withShapeP (toList shpshn0) $ \ (Proxy @shpshn) ->
-        gcastWith (unsafeCoerceRefl :: Rank (shm ++ shn) :~: Rank shmshn) $
-        gcastWith (unsafeCoerceRefl :: Rank shpshn0 :~: Rank shpshn) $
+      withCastXS shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
+        withKnownShS shmshn $
+        withKnownShS shpshn $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
@@ -574,32 +568,32 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             -- this introduces new variable names
   xcast @_ @_ @sh' a = case ftkAst a of
     FTKX sh' _ ->
-      withShapeP (toList sh') $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         astXFromS @sh @sh' . astCastS . astSFromX @sh @sh' $ a
   xfromIntegral @_ @_ @sh' a = case ftkAst a of
     FTKX sh' _ ->
-      withShapeP (toList sh') $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         astXFromS @sh @sh' . fromPrimal . astFromIntegralS
         . astSpanPrimal . astSFromX @sh @sh' $ a
   xzip @_ @_ @sh' a = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
-      withShapeP (toList sh') $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         astLetFunNoSimplify a $ \a3 ->
-        let (a31, a32) = tunpairDup a3
-        in astXFromS @sh @sh'
-           $ szip $ astPair (astSFromX @sh @sh' a31)
-                            (astSFromX @sh @sh' a32)
+          let (a31, a32) = tunpairDup a3
+          in astXFromS @sh @sh'
+             $ szip $ astPair (astSFromX @sh @sh' a31)
+                              (astSFromX @sh @sh' a32)
   xunzip @_ @_ @sh' a = case ftkAst a of
     FTKX sh' _ ->
-      withShapeP (toList sh') $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         astLetFunNoSimplify (sunzip $ astSFromX @sh @sh' a) $ \b3 ->
-        let (b31, b32) = tunpairDup b3
-        in astPair (astXFromS @sh @sh' b31)
-                   (astXFromS @sh @sh' b32)
+          let (b31, b32) = tunpairDup b3
+          in astPair (astXFromS @sh @sh' b31)
+                     (astXFromS @sh @sh' b32)
   xtoScalar = AstToScalar . astSFromX
   xfromScalar = astXFromS . astFromScalar
   xfromPrimal = fromPrimal
@@ -615,15 +609,15 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rfromS = astRFromS
   rfromX @_ @sh' a = case ftkAst a of
     FTKX sh' _ ->
-      withShapeP (toList sh') $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         astRFromS @sh $ astSFromX @sh @sh' a
   sfromR = astSFromR
   sfromX = astSFromX
   xfromR @sh' a = case ftkAst a of
-    FTKR sh2 _ ->
-      withShapeP (toList sh2) $ \ (Proxy @sh) ->
-        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank sh) $
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
         astXFromS @sh @sh' $ astSFromR @sh a
   xfromS = astXFromS
 

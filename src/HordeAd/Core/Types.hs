@@ -37,6 +37,7 @@ module HordeAd.Core.Types
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
   , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
+  , withCastRS, withCastXS
   ) where
 
 import Prelude
@@ -740,3 +741,21 @@ ssxPermutePrefix = undefined
 shxPermutePrefix :: Permutation.Perm is -> ShX sh i
                  -> ShX (Permutation.PermutePrefix is sh) i
 shxPermutePrefix = undefined
+
+withCastRS :: forall n r.
+              IShR n
+           -> (forall sh. n ~ Rank sh => ShS sh -> r)
+           -> r
+withCastRS ZSR f = f ZSS
+withCastRS (n :$: rest') f = withSNat n $ \snat ->
+  withCastRS rest' (\rest -> f (snat :$$ rest))
+
+withCastXS :: forall sh' r.
+              IShX sh'
+           -> (forall sh. Rank sh' ~ Rank sh => ShS sh -> r)
+           -> r
+withCastXS ZSX f = f ZSS
+withCastXS (Nested.SKnown snat@SNat :$% rest') f =
+  withCastXS rest' (\rest -> f (snat :$$ rest))
+withCastXS (Nested.SUnknown k :$% rest') f = withSNat k $ \snat ->
+  withCastXS rest' (\rest -> f (snat :$$ rest))
