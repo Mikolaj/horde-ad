@@ -19,6 +19,7 @@ module HordeAd.Core.AstTools
 
 import Prelude hiding (foldl')
 
+import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List (foldl')
@@ -286,7 +287,9 @@ varInAst var = \case
   AstFromVector _ vl -> any (varInAst var) $ V.toList vl
   AstSum _ _ v -> varInAst var v
   AstReplicate _ _ v -> varInAst var v
-  AstBuild1 _ (_var2, v) -> varInAst var v
+  AstBuild1 _ (var2, v) ->
+    assert (varNameToAstVarId var2 /= var) $
+    varInAst var v
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
   AstToShare v -> varInAst var v

@@ -212,7 +212,8 @@ build1V snat@SNat (var, v0) =
       , Dict <- lemTensorKindOfBuild snat stk -> traceRule $
         astTrBuild @k2 stk
         $ astReplicate snat2 stensorKind $ build1V snat (var, v)
-    Ast.AstBuild1 snat2 (var2, v2) ->
+    Ast.AstBuild1 snat2 (var2, v2) -> traceRule $
+      assert (var2 /= var) $
       build1VOccurenceUnknown snat (var, build1VOccurenceUnknown snat2 (var2, v2))
         -- happens only when testing and mixing different pipelines
     Ast.AstLet @y2 var1 u v

@@ -4779,6 +4779,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
     astReplicate snat stk <$> substitute1Ast i var v
   Ast.AstBuild1 k (var2, v) ->
+    assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
     Ast.AstBuild1 k . (var2,) <$> substitute1Ast i var v
   Ast.AstLet var2 u v ->
     case (substitute1Ast i var u, substitute1Ast i var v) of
