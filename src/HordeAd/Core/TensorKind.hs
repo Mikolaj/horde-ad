@@ -208,7 +208,7 @@ ftkToStk = \case
 
 buildFTK :: SNat k -> FullTensorKind y -> FullTensorKind (BuildTensorKind k y)
 buildFTK snat@SNat = \case
-  FTKScalar -> FTKScalar
+  FTKScalar -> FTKS (snat :$$ ZSS) FTKScalar
   FTKR sh x -> FTKR (sNatValue snat :$: sh) x
   FTKS sh x -> FTKS (snat :$$ sh) x
   FTKX sh x -> FTKX (SKnown snat :$% sh) x
@@ -220,7 +220,7 @@ razeFTK :: forall y k.
         -> FullTensorKind (BuildTensorKind k y)
         -> FullTensorKind y
 razeFTK snat@SNat stk ftk = case (stk, ftk) of
-  (STKScalar{}, FTKScalar) -> FTKScalar
+  (STKScalar{}, FTKS (_ :$$ ZSS) FTKScalar) -> FTKScalar
   (STKR{}, FTKR (_ :$: sh) x) -> FTKR sh x
   (STKR{}, FTKR ZSR _) -> error "razeFTK: impossible built tensor kind"
   (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x

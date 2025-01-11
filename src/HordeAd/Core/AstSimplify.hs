@@ -770,7 +770,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
              let ftk = FTKS knownShS x
              in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
   Ast.AstReplicate _ (STKS sh _) v -> withKnownShS sh $ astIndex v rest1
+  Ast.AstReplicate _ STKScalar{} v | ZIS <- rest1 -> astFromScalar v
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
+    STKScalar{} | ZIS <- rest1 -> astFromScalar $ astLet var2 i1 v
     STKS sh _ ->
       withKnownShS sh $
       withKnownShS (knownShS @shm1 `shsAppend` knownShS @shn) $
@@ -863,12 +865,13 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
          FTKS _ x ->
            let ftk = FTKS knownShS x
            in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
-  Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form
+  Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form, STKScalar case included
     Ast.AstIndexS v0 ix
   Ast.AstFromVector @y2 snat l | STKS{} <- stensorKind @y2 ->
     shareIx rest1 $ \ !ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromVector snat $ V.map (`astIndexRec` ix2) l)
                     (i1 :.$ ZIS)
+  Ast.AstFromVector{} -> error "astIndexKnobsS: impossible case"
   Ast.AstAppendS @m u v ->
     let ulen = AstConcrete FTKScalar $ RepN $ valueOf @m
         ix1 = i1 :.$ rest1
@@ -1498,6 +1501,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
              in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
     Ast.AstReplicate _ STKS{} v ->
       astGather @shm' @shn' @shp1' v (vars4, rest4)
+    Ast.AstReplicate _ STKScalar{} v | ZIS <- rest4 ->
+      astGather @shm' @shn' @shp1' (astFromScalar v) (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstLet var u v ->
       astLet var u (astGatherCase @shm' @shn' @shp' v (vars4, ix4))
@@ -1594,7 +1599,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
            FTKS _ x ->
              let ftk = FTKS knownShS x
              in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
-    Ast.AstFromVector{} | gatherFromNFS vars4 ix4 ->  -- normal form
+    Ast.AstFromVector{} | gatherFromNFS vars4 ix4 ->  -- normal form,
+                                                      -- STKScalar case included
       Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstFromVector @y2 snat l | STKS{} <- stensorKind @y2 ->
       -- Term rest4 is duplicated without sharing and we can't help it,
@@ -1611,6 +1617,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
        in astGather @shm' @shn' @(p1' ': shm')
                     (astFromVector snat $ V.map f l)
                     (varsFresh, i5 :.$ IxS ixFresh)
+    Ast.AstFromVector{} -> error "astGatherCase: impossible case"
     Ast.AstAppendS @m u v ->
       let ulen = AstConcrete FTKScalar $ RepN $ valueOf @m
           iu = simplifyAstInt (AstN2 MinusOp i4 ulen)

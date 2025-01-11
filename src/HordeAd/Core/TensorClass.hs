@@ -23,7 +23,6 @@ module HordeAd.Core.TensorClass
 import Prelude
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Default
 import Data.Kind (Constraint, Type)
 import Data.List (transpose)
 import Data.List.NonEmpty (NonEmpty)
@@ -135,7 +134,7 @@ class LetTensor (target :: Target) where
               -> Data.Vector.Vector (target y)
               -> target (BuildTensorKind k y)
   tfromVector snat@SNat stk v = case stk of
-    STKScalar{} -> error "tfromVector: vector of scalars"
+    STKScalar{} -> sfromVector $ V.map sfromScalar v
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rfromVector v
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -164,7 +163,7 @@ class LetTensor (target :: Target) where
        -> target (BuildTensorKind k z)
        -> target z
   tsum snat@SNat stk u = case stk of
-    STKScalar{} -> u
+    STKScalar{} -> stoScalar $ ssum u
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rsum u
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -185,7 +184,7 @@ class LetTensor (target :: Target) where
              -> target z
              -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
-    STKScalar{} -> u
+    STKScalar{} -> sreplicate $ sfromScalar u
     STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
     STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
@@ -214,7 +213,7 @@ class ShareTensor (target :: Target) where
                    -> Data.Vector.Vector (target y)
                    -> target (BuildTensorKind k y)
   tfromVectorShare snat@SNat stk v = case stk of
-    STKScalar{} -> error "tfromVectorShare: vector of scalars"
+    STKScalar{} -> sfromVector $ V.map sfromScalar v
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rfromVector v
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -235,7 +234,7 @@ class ShareTensor (target :: Target) where
                       -> target (BuildTensorKind k y)
                       -> [target y]
   tunravelToListShare snat@SNat stk u = case stk of
-    STKScalar{} -> error "tunravelToList: scalar"
+    STKScalar{} -> map stoScalar $ sunravelToList u
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       runravelToList u
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -258,7 +257,7 @@ class ShareTensor (target :: Target) where
              -> target (BuildTensorKind k z)
              -> target z
   tsumShare snat@SNat stk u = case stk of
-    STKScalar{} -> u
+    STKScalar{} -> stoScalar $ ssum u
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rsum u
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -279,7 +278,7 @@ class ShareTensor (target :: Target) where
                   -> target z
                   -> target (BuildTensorKind k z)
   treplicateShare snat@SNat stk u = case stk of
-    STKScalar{} -> u
+    STKScalar{} -> sreplicate $ sfromScalar u
     STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
     STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
@@ -300,7 +299,7 @@ class ShareTensor (target :: Target) where
                    -> target (BuildTensorKind k z) -> IntOf target
                    -> target z
   tindexBuildShare snat@SNat stk u i = case stk of
-    STKScalar{} -> u
+    STKScalar{} -> stoScalar $ sindex u (i :.$ ZIS)
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rindex u (i :.: ZIR)
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -324,8 +323,8 @@ class ShareTensor (target :: Target) where
 class ( Num (IntOf target)
       , IntegralF (IntOf target)
       , TensorSupports Num Num target
-      , TensorSupports RealFloatF Floating target
-      , TensorSupports RealFloatF RealFloatF target
+      , TensorSupports RealFloatAndFloatElt Floating target
+      , TensorSupports RealFloatAndFloatElt RealFloatF target
       , TensorSupports IntegralF IntegralF target
       , TensorSupportsR Num Num target
       , TensorSupportsR RealFloatAndFloatElt Floating target
@@ -1428,7 +1427,7 @@ class ( Num (IntOf target)
     let replStk :: STensorKindType z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
         replStk stk g = case stk of
-          STKScalar{} -> rtoScalar $ rscalar def  -- TODO: ???
+          STKScalar{} -> sbuild1 (sfromScalar . g)
           STKR SNat x | Dict <- lemTensorKindOfSTK x ->
             rbuild1 (sNatValue snat) g
           STKS sh x | Dict <- lemTensorKindOfSTK x ->

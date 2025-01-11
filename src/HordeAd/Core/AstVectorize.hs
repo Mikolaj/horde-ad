@@ -11,7 +11,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (when)
-import Data.Default
 import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
@@ -42,7 +41,6 @@ import Data.Array.Nested
   , ShS (..)
   , type (++)
   )
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   ( shCvtSX
   , shsAppend
@@ -161,26 +159,13 @@ build1V snat@SNat (var, v0) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstFromScalar v2@(Ast.AstVar _ var2)  -- TODO: make compositional
-      | varNameToAstVarId var2 == varNameToAstVarId var -> traceRule $
-        case isTensorInt v2 of
-          Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
-            -- results in smaller terms than AstSlice(AstIota), because
-            -- not turned into a concrete array so early
-          _ -> error "build1V: build variable is not an index variable"
-    Ast.AstFromScalar{} -> case astNonIndexStep v0 of
-      Ast.AstFromScalar{} ->  -- let's hope this doesn't oscillate
-        error $ "build1V: AstFromScalar: building over scalars is undefined: "
-                ++ show v0
-      v1 -> build1VOccurenceUnknown snat (var, v1)  -- last ditch effort
-    Ast.AstToScalar{} ->
-      error $ "build1V: AstToScalar: building over scalars is undefined: "
-              ++ show v0
+    Ast.AstFromScalar t -> build1V snat (var, t)
+    Ast.AstToScalar t -> build1V snat (var, t)
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
         astPair (build1VOccurenceUnknown snat (var, t1))
-                 (build1VOccurenceUnknown snat (var, t2))
+                (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 @_ @z t
       | Dict <- lemTensorKindOfBuild snat (stensorKind @z)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
@@ -192,8 +177,7 @@ build1V snat@SNat (var, v0) =
     Ast.AstVar _ var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
       then case isTensorInt v0 of
-        Just Refl -> Ast.AstToScalar $ Ast.AstConcrete (FTKS ZSS FTKScalar)
-                     $ RepN $ Nested.sscalar def  -- TODO: ???
+        Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstPrimalPart v
@@ -247,27 +231,27 @@ build1V snat@SNat (var, v0) =
       $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstN1 opCode u -> traceRule $
-      Ast.AstN1 opCode (build1V snat (var, u))
+      Ast.AstN1S opCode (build1V snat (var, u))
     Ast.AstN2 opCode u v -> traceRule $
-      Ast.AstN2 opCode (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknown snat (var, v))
+      Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
     Ast.AstR1 opCode u -> traceRule $
-      Ast.AstR1 opCode (build1V snat (var, u))
+      Ast.AstR1S opCode (build1V snat (var, u))
     Ast.AstR2 opCode u v -> traceRule $
-      Ast.AstR2 opCode (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknown snat (var, v))
+      Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
     Ast.AstI2 opCode u v -> traceRule $
-      Ast.AstI2 opCode (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknown snat (var, v))
+      Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
     Ast.AstFloor v -> traceRule $
-     Ast.AstFloor $ build1V snat (var, v)
+     Ast.AstFloorS $ build1V snat (var, v)
     Ast.AstCast v -> traceRule $
-      astCast $ build1V snat (var, v)
+      astCastS $ build1V snat (var, v)
     Ast.AstFromIntegral v -> traceRule $
-      astFromIntegral $ build1V snat (var, v)
+      astFromIntegralS $ build1V snat (var, v)
 
     Ast.AstN1R opCode u -> traceRule $
       Ast.AstN1R opCode (build1V snat (var, u))
@@ -740,7 +724,7 @@ astTrBuild
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrBuild stk t = case stk of
-  STKScalar{} -> t
+  STKScalar{} -> astTrS t
   STKR SNat stk1 | Dict <- lemTensorKindOfSTK stk1 -> astTr t
   STKS sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShS sh $ astTrS t
   STKX sh stk1 | Dict <- lemTensorKindOfSTK stk1 -> withKnownShX sh $ astTrX t
@@ -769,7 +753,7 @@ astIndexBuild :: forall y k s. AstSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat stk u i = case stk of
-  STKScalar{} -> u
+  STKScalar{} -> Ast.AstToScalar $ astIndexStepS u (i :.$ ZIS)
   STKR SNat x | Dict <- lemTensorKindOfSTK x ->
     astIndexStep u (i :.: ZIR)
   STKS sh x | Dict <- lemTensorKindOfSTK x ->

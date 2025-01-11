@@ -101,13 +101,13 @@ instance (GoodScalar r, IntegralF r, AstSpan s)
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
 
-instance (GoodScalar r, RealFloatF r, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   u / v = AstR2 DivideOp u v
   recip = AstR1 RecipOp
   fromRational r = fromPrimal . AstConcrete FTKScalar . fromRational $ r
 
-instance (GoodScalar r, RealFloatF r, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi not defined for ranked tensors"
   exp = AstR1 ExpOp
@@ -128,7 +128,7 @@ instance (GoodScalar r, RealFloatF r, AstSpan s)
   acosh = AstR1 AcoshOp
   atanh = AstR1 AtanhOp
 
-instance (GoodScalar r, RealFloatF r, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => RealFloatF (AstTensor ms s (TKScalar r)) where
   atan2F = AstR2 Atan2Op
 

@@ -29,7 +29,6 @@ import GHC.TypeLits
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import System.Random
-import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
@@ -646,8 +645,7 @@ ravel :: forall k y. TensorKind y
       => SNat k -> [RepN y]
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
-  STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) -> RepN Z0
-  STKScalar _ -> error "ravel: scalar"
+  STKScalar{} -> sfromList $ sfromScalar <$> NonEmpty.fromList t
   STKR SNat x | Dict <- lemTensorKindOfSTK x ->
     rfromList $ NonEmpty.fromList t
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -667,9 +665,7 @@ unravel :: forall k y. TensorKind y
         => SNat k -> RepN (BuildTensorKind k y)
         -> [RepN y]
 unravel k@SNat t = case stensorKind @y of
-  STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) ->
-    replicate (sNatValue k) (RepN Z0)
-  STKScalar _ -> error "unravel: scalar"
+  STKScalar{} -> map stoScalar $ sunravelToList t
   STKR SNat x | Dict <- lemTensorKindOfSTK x ->
     runravelToList t
   STKS sh x | Dict <- lemTensorKindOfSTK x ->

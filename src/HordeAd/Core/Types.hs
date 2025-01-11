@@ -235,7 +235,7 @@ instance IfDifferentiable Float where
   ifDifferentiable ra _ = ra
 
 type family BuildTensorKind k tk where
-  BuildTensorKind k (TKScalar r) = TKScalar r  -- TODO: say why on Earth
+  BuildTensorKind k (TKScalar r) = TKS '[k] r
   BuildTensorKind k (TKR2 n r) = TKR2 (1 + n) r
   BuildTensorKind k (TKS2 sh r) = TKS2 (k : sh) r
   BuildTensorKind k (TKX2 sh r) = TKX2 (Just k : sh) r
