@@ -1590,9 +1590,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
         AstXFromS @sh2 @sh2' . AstReshapeS . AstSFromX @sh @sh' $ a
-  xbuild1 @_ @n f = AstNoSimplify $ AstBuild1 (SNat @n)
-                    $ funToAstI  -- this introduces new variable names
-                    $ unAstNoSimplify . f . AstNoSimplify
+  xbuild1 @_ @n f =
+    AstNoSimplify
+    $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
   xmcast @x @_ @sh2 _ (AstNoSimplify a) = AstNoSimplify $
     (unsafeCoerce a :: AstTensor AstMethodLet s (TKX2 sh2 x))
     -- TODO: we probably need a term for xmcast to avoid losing type
