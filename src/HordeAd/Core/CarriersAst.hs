@@ -17,6 +17,7 @@ import Prelude hiding (foldl')
 import GHC.TypeLits (KnownNat)
 
 import Data.Array.Nested (KnownShS (..))
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
@@ -95,7 +96,7 @@ instance (GoodScalar r, AstSpan s)
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (GoodScalar r, IntegralF r)
+instance (GoodScalar r, IntegralF r, AstSpan s)
          => IntegralF (AstTensor ms s (TKScalar r)) where
   quotF = AstI2 QuotOp
   remF = AstI2 RemOp
@@ -179,19 +180,19 @@ instance (GoodScalar r, KnownNat n)
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (GoodScalar r, Integral r, KnownNat n)
+instance (GoodScalar r, IntegralF r, KnownNat n)
          => IntegralF (AstTensor ms s (TKR n r)) where
   quotF = AstI2R QuotOp
   remF = AstI2R RemOp
 
-instance (GoodScalar r, Differentiable r, KnownNat n)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownNat n)
          => Fractional (AstTensor ms s (TKR n r)) where
   u / v = AstR2R DivideOp u v
   recip = AstR1R RecipOp
   fromRational r = error $ "fromRational not defined for ranked tensors: "
                            ++ show r
 
-instance (GoodScalar r, Differentiable r, KnownNat n)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownNat n)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi not defined for ranked tensors"
   exp = AstR1R ExpOp
@@ -212,7 +213,7 @@ instance (GoodScalar r, Differentiable r, KnownNat n)
   acosh = AstR1R AcoshOp
   atanh = AstR1R AtanhOp
 
-instance (GoodScalar r, Differentiable r, KnownNat n)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownNat n)
          => RealFloatF (AstTensor ms s (TKR n r)) where
   atan2F = AstR2R Atan2Op
 
@@ -263,19 +264,19 @@ instance (GoodScalar r, KnownShS sh)
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (Integral r, GoodScalar r, KnownShS sh)
+instance (IntegralF r, GoodScalar r, KnownShS sh)
          => IntegralF (AstTensor ms s (TKS sh r)) where
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
-instance (GoodScalar r, Differentiable r, KnownShS sh)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh)
          => Fractional (AstTensor ms s (TKS sh r)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational r = error $ "fromRational not defined for shaped tensors: "
                            ++ show r
 
-instance (GoodScalar r, Differentiable r, KnownShS sh, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) (RepN pi)
   exp = AstR1S ExpOp
@@ -296,7 +297,7 @@ instance (GoodScalar r, Differentiable r, KnownShS sh, AstSpan s)
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (GoodScalar r, Differentiable r, KnownShS sh, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh, AstSpan s)
          => RealFloatF (AstTensor ms s (TKS sh r)) where
   atan2F = AstR2S Atan2Op
 
@@ -317,19 +318,19 @@ instance GoodScalar r
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (Integral r, GoodScalar r)
+instance (IntegralF r, GoodScalar r)
          => IntegralF (AstTensor ms s (TKX sh r)) where
   quotF = liftXFromS2 quotF
   remF = liftXFromS2 remF
 
-instance (GoodScalar r, Differentiable r)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r)
          => Fractional (AstTensor ms s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
   fromRational r = error $ "fromRational not defined for mixed tensors: "
                            ++ show r
 
-instance (GoodScalar r, Differentiable r, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
   pi = error "pi not defined for mixed tensors"
   exp = liftXFromS1 exp
@@ -350,7 +351,7 @@ instance (GoodScalar r, Differentiable r, AstSpan s)
   acosh = liftXFromS1 acosh
   atanh = liftXFromS1 atanh
 
-instance (GoodScalar r, Differentiable r, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => RealFloatF (AstTensor ms s (TKX sh r)) where
   atan2F = liftXFromS2 atan2F
 

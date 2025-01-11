@@ -113,9 +113,9 @@ type TensorSupportsX c1 c2 f =
   forall r sh. (GoodScalar r, KnownShX sh)
                => c1 r => c2 (f (TKX sh r))
 
-class (RealFloat r, Nested.FloatElt r)
+class (RealFloatF r, Nested.FloatElt r)
       => RealFloatAndFloatElt r
-instance (RealFloat r, Nested.FloatElt r)
+instance (RealFloatF r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (target :: Target) where
@@ -330,15 +330,15 @@ class ( Num (IntOf target)
       , TensorSupportsR Num Num target
       , TensorSupportsR RealFloatAndFloatElt Floating target
       , TensorSupportsR RealFloatAndFloatElt RealFloatF target
-      , TensorSupportsR Integral IntegralF target
+      , TensorSupportsR IntegralF IntegralF target
       , TensorSupportsS Num Num target
       , TensorSupportsS RealFloatAndFloatElt Floating target
       , TensorSupportsS RealFloatAndFloatElt RealFloatF target
-      , TensorSupportsS Integral IntegralF target
+      , TensorSupportsS IntegralF IntegralF target
       , TensorSupportsX Num Num target
       , TensorSupportsX RealFloatAndFloatElt Floating target
       , TensorSupportsX RealFloatAndFloatElt RealFloatF target
-      , TensorSupportsX Integral IntegralF target )
+      , TensorSupportsX IntegralF IntegralF target )
       => BaseTensor (target :: Target) where
 
   -- Ranked ops

@@ -215,7 +215,7 @@ class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
 type Differentiable r =
-  (RealFloat r, Nested.FloatElt r)
+  (RealFloatF r, Nested.FloatElt r, RealFrac r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates
@@ -354,7 +354,7 @@ type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
 
 -- TODO: move all these somewhere
 
-class IntegralF a where
+class Num a => IntegralF a where
   quotF, remF :: a -> a -> a
 
 instance IntegralF Int64 where
@@ -429,7 +429,7 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
 -- of the empty buffer anyway.
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
-fromLinearIdx :: forall n j. (Num j, IntegralF j)
+fromLinearIdx :: forall n j. IntegralF j
               => (Int -> j) -> ShR n Int -> j -> IxR n j
 fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
   where
@@ -478,7 +478,7 @@ toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
-fromLinearIdxS :: forall sh j. (Num j, IntegralF j)
+fromLinearIdxS :: forall sh j. IntegralF j
                => (Int -> j) -> ShS sh -> j -> IxS sh j
 fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
   where
@@ -512,7 +512,7 @@ toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
       go sh idx (fromInt (fromSMayNat' n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
-fromLinearIdxX :: forall sh j. (Num j, IntegralF j)
+fromLinearIdxX :: forall sh j. IntegralF j
                => (Int -> j) -> IShX sh -> j -> IxX sh j
 fromLinearIdxX fromInt = \sh lin -> snd (go sh lin)
   where

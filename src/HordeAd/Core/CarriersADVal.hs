@@ -351,7 +351,7 @@ instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (IntegralF (f z), TensorKind z, ADReadyNoLet f)
+instance (IntegralF (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
   quotF (D u _) (D v _) = dDnotShared (quotF u v) ((ZeroG $ tftk stensorKind u))
   remF (D u _) (D v _) = dDnotShared (remF u v) ((ZeroG $ tftk stensorKind u))

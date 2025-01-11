@@ -1491,7 +1491,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstReplicate snat STKS{} v | AstConcrete _ (RepN it) <- i4 ->
       let i = fromIntegral it
       in if 0 <= i && i < sNatValue snat
-         then astGather @shm' @shn' @(Tail shp') v (vars4, rest4)
+         then astGather @shm' @shn' @shp1' v (vars4, rest4)
          else case ftkAst v of
            FTKS _ x ->
              let ftk = FTKS knownShS x
@@ -1569,7 +1569,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstScatterS @shm7 @shn7 @shp7 v (vars, AstIntVar var5 :.$ ix2)
       | AstIntVar var6 <- i4, var6 == var5
       , Dict <- sixKnown ix2 ->
-          astGather @shm' @shn' @(Tail shp')
+          astGather @shm' @shn' @shp1'
                     (astScatterS @shm7 @shn7 @(Tail shp7)
                                  v (vars, ix2))
                     (vars4, rest4)
@@ -1578,7 +1578,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       , Dict <- sixKnown ix2
       , STKScalar{} <- stensorKind @r ->
           if i6 == i5
-          then astGather @shm' @shn' @(Tail shp')
+          then astGather @shm' @shn' @shp1'
                          (astScatterS @shm7 @shn7 @(Tail shp7)
                                       v (vars, ix2))
                          (vars4, rest4)
@@ -1600,7 +1600,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
       funToVarsIxS @shm' $ \ (!varsFresh, IxS !ixFresh) ->
-        let f v = astGatherRec @shm' @shn' @(Tail shp') v (vars4, rest4)
+        let f v = astGatherRec @shm' @shn' @shp1' v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
               foldr (\(i2, var2) v2 ->

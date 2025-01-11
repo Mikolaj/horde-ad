@@ -24,7 +24,7 @@ import HordeAd.Core.Types
 -- (also in sum1Inner and extremum and maybe tdot0R):
 -- LA.sumElements $ OI.toUnorderedVectorT sh t
 
-instance (Nested.PrimElt r, Integral r)
+instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
          => IntegralF (Nested.Ranked n r) where
   -- These can't be partial, because our conditionals are not lazy
   -- and so the counterfactual branches, with zeros, may get executed
@@ -40,7 +40,7 @@ instance (Nested.PrimElt r, Integral r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else quot a b) x y)))
+                          (\a b -> if b == 0 then 0 else quotF a b) x y)))
                             -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -53,10 +53,10 @@ instance (Nested.PrimElt r, Integral r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else rem a b) x y)))
+                          (\a b -> if b == 0 then 0 else remF a b) x y)))
                             -- TODO: do better somehow
 
-instance (Nested.PrimElt r, Integral r)
+instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r, KnownShS sh)
          => IntegralF (Nested.Shaped sh r) where
   quotF = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -69,7 +69,7 @@ instance (Nested.PrimElt r, Integral r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else quot a b) x y)))
+                          (\a b -> if b == 0 then 0 else quotF a b) x y)))
                             -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -82,10 +82,10 @@ instance (Nested.PrimElt r, Integral r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else rem a b) x y)))
+                          (\a b -> if b == 0 then 0 else remF a b) x y)))
                             -- TODO: do better somehow
 
-instance (Nested.PrimElt r, Integral r)
+instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
          => IntegralF (Nested.Mixed sh r) where
   quotF =   (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
@@ -97,7 +97,7 @@ instance (Nested.PrimElt r, Integral r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else quot a b) x y)))
+                          (\a b -> if b == 0 then 0 else quotF a b) x y)))
                             -- TODO: do better somehow
   remF =    (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
@@ -109,10 +109,10 @@ instance (Nested.PrimElt r, Integral r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else rem a b) x y)))
+                          (\a b -> if b == 0 then 0 else remF a b) x y)))
                             -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
          => RealFloatF (Nested.Ranked n r) where
   atan2F = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -124,9 +124,10 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+                     in V.zipWith atan2F x y)))  -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, KnownShS sh)
+instance ( Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r
+         , KnownShS sh )
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -138,9 +139,9 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r, Kno
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+                     in V.zipWith atan2F x y)))  -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
          => RealFloatF (Nested.Mixed sh r) where
   atan2F =   (Nested.Internal.Mixed.mliftNumElt2
                (flip Mixed.Internal.Arith.liftVEltwise2
@@ -151,4 +152,4 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+                     in V.zipWith atan2F x y)))  -- TODO: do better somehow
