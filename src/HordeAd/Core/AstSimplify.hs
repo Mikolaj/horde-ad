@@ -33,6 +33,7 @@ module HordeAd.Core.AstSimplify
   , astRFromS, astSFromR, astSFromX, astXFromS
   , astXNestR, astXNestS, astXNest, astXUnNestR, astXUnNestS, astXUnNest
   , astLetHVectorIn, astHApply, astLetFun
+  , astReplicate0NS
     -- * The expansion (e.g., into gather expressions) bottom-up pass
   , expandAst
     -- * The simplifying bottom-up pass
@@ -587,7 +588,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstIotaR{}
    | AstConcrete _ (RepN i) <- i1 -> case sameNat (Proxy @n) (Proxy @0) of
     Just Refl -> astFromIntegralR
-                 $ AstConcrete (FTKR ZSR FTKScalar) $ RepN $ Nested.rscalar i
+                 $ AstConcrete (FTKR ZSR FTKScalar) $ rscalar i
     _ -> error "astIndexKnobsR: rank not 0"
   Ast.AstIotaR{} -> Ast.AstIndex v0 ix
   AstN1R opCode u -> AstN1R opCode (astIndexRec u ix)
@@ -869,7 +870,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
          $ astIndexKnobsS @shm @(shn ++ '[Last (n1 : shz)]) knobs v ix
   Ast.AstIotaS | AstConcrete _ (RepN i) <- i1 -> case sameShape @shn @'[] of
     Just Refl -> astFromIntegralS
-                 $ AstConcrete (FTKS ZSS FTKScalar) $ RepN $ Nested.sscalar i
+                 $ AstConcrete (FTKS ZSS FTKScalar) $ sscalar i
     _ -> error "astIndexKnobsS: shape not []"
 -- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
 --    sfromIntegral . sfromPrimal . sfromR . rfromScalar $ interpretAstPrimal env i
@@ -2258,7 +2259,8 @@ astReplicateNS :: forall shn shp s r.
 astReplicateNS v =
   let go :: ShS shn' -> AstTensor AstMethodLet s (TKS2 (shn' ++ shp) r)
       go ZSS = v
-      go ((:$$) @k @shn2 SNat shn2) | Dict <- shsKnownShS shn2 =
+      go ((:$$) @k @shn2 SNat shn2) =
+        withKnownShS shn2 $
         withKnownShS (knownShS @shn2 `shsAppend` knownShS @shp) $
         astReplicate (SNat @k) stensorKind $ go shn2
   in go (knownShS @shn)
@@ -2279,7 +2281,8 @@ astReplicate0NS =
   let go :: ShS sh' -> AstTensor AstMethodLet s (TKS '[] r)
          -> AstTensor AstMethodLet s (TKS sh' r)
       go ZSS v = v
-      go ((:$$) SNat sh') v | Dict <- shsKnownShS sh' =
+      go ((:$$) SNat sh') v =
+        withKnownShS sh' $
         astReplicate SNat stensorKind $ go sh' v
   in go (knownShS @shn) . fromPrimal . AstConcrete (FTKS ZSS FTKScalar) . sscalar
 
@@ -2588,7 +2591,7 @@ astReshape shOut = \case
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
 astReshapeS :: forall sh sh2 r s.
-               ( KnownShS sh, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2
+               ( KnownShS sh, KnownShS sh2, Product sh ~ Product sh2
                , TensorKind r, AstSpan s )
             => AstTensor AstMethodLet s (TKS2 sh r)
             -> AstTensor AstMethodLet s (TKS2 sh2 r)
@@ -3220,7 +3223,9 @@ mapRankedShaped fRanked fShaped
     , Just Refl <- sameShape @sh3 @sh4
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
-          fRanked (mkAstVarName varId) (astRFromS @sh3 @_ @(TKScalar r3) (astReplicate0NS 0)) acc
+          fRanked (mkAstVarName varId)
+                  (astRFromS @sh3 @_ @(TKScalar r3) (astReplicate0NS 0))
+                  acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
     , Just Refl <- sameShape @sh3 @sh4
