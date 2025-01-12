@@ -217,7 +217,8 @@ testTrees =
   , testCase "4S0ScanDFwdPP" testSin0ScanDFwdPP
   , testCase "4S0ScanD1Rev2PP" testSin0ScanD1Rev2PP
   , testCase "4S0ScanDFwd2PP" testSin0ScanDFwd2PP
-  , testCase "4S0ScanD1Rev2" testSin0ScanD1Rev2
+  , testCase "4S0ScanD1Rev22PP" testSin0ScanD1Rev22PP
+  , testCase "4S0ScanD1Rev22" testSin0ScanD1Rev22
   , testCase "4S0ScanD1Rev3" testSin0ScanD1Rev3
   , testCase "4S0ScanD1Rev3PP" testSin0ScanD1Rev3PP
   , testCase "4S0ScanDFwd3PP" testSin0ScanDFwd3PP
@@ -3269,8 +3270,21 @@ testSin0ScanDFwd2PP = do
   printAstPretty IM.empty (simplifyInlineContract a1)
     @?= "let v19 = tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [5.0,7.0]) in rappend (rreplicate 1 (rscalar 1.0)) (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rscalar 1.0] (tpair ([tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0.0,0.0])], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rscalar 1.1] [v19])), [v19]))))) 0)"
 
-testSin0ScanD1Rev2 :: Assertion
-testSin0ScanD1Rev2 = do
+testSin0ScanD1Rev22PP :: Assertion
+testSin0ScanD1Rev22PP = do
+  resetVarCounter
+  let a1 = rrev2 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @2
+                 (\x0 -> rbuild1 2 $ \k ->
+       rscanZip (\x a -> sin x - rfromD (a V.! 0))
+                (V.fromList [voidFromShS @Double @'[]])
+                x0 (V.singleton $ DynamicShaped
+                    $ sconcrete (Nested.sfromListPrimLinear @Double @'[2, 2] knownShS [5, 7, 3, 4])
+                      !$ (k :.$ ZIS) )) (rscalar 1.1)
+  printAstPretty IM.empty (simplifyInlineContract a1)
+    @?= "let m27 = tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [5.0,7.0,3.0,4.0]) ; m34 = tconcrete (FTKR [3,2] FTKScalar) (rfromListLinear [3,2] [1.0,1.0,1.0,1.0,1.0,1.0]) in rsum (rproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0.0,0.0])] (tpair ([rslice 1 2 m34], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rreplicate 2 (rscalar 1.1)] [stranspose m27])), [stranspose m27]))))) 0) + rsum0 (rgather [2,1] m34 (\\[i39, i40] -> [i40, i39]))"
+
+testSin0ScanD1Rev22 :: Assertion
+testSin0ScanD1Rev22 = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [2.417297824578748] :: RepN (TKR 0 Double))
     (rev' (\x0 -> rbuild1 2 $ \k ->

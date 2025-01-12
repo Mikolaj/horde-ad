@@ -62,7 +62,9 @@ testTrees =
   , testCase "2zero11S" testZero11S
   , testCase "2CFwdZero11S" testCFwdZero11S
   , testCase "2FwdZero11S" testFwdZero11S
+  , testCase "2piecewiseLinear" testPiecewiseLinear
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
+  , testCase "2piecewiseLinear2" testPiecewiseLinear2
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
   , testCase "2overleafInt64n" testOverleafInt64n
@@ -402,6 +404,14 @@ testFwdZero11S =
           ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
+testPiecewiseLinear :: Assertion
+testPiecewiseLinear =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 2)
+    (let fT :: ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
+         fT x = ifF (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
+     in rev' @Double @0 fT (rscalar 42))
+
 testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
   resetVarCounter >> resetIdCounter
@@ -415,6 +425,14 @@ testPiecewiseLinearPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromVector (fromList [rscalar 2.0 * x1, rscalar 5.0 * x1]) ! [ifF (x1 >. rscalar 0.0) 0 1]"
 
+testPiecewiseLinear2 :: Assertion
+testPiecewiseLinear2 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 5)
+    (let fT :: ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
+         fT x = ifF (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
+     in rev' @Double @0 fT (rscalar (-42)))
+
 testPiecewiseLinear2PP :: Assertion
 testPiecewiseLinear2PP = do
   resetVarCounter
@@ -422,17 +440,11 @@ testPiecewiseLinear2PP = do
       fT :: AstTensor AstMethodLet FullSpan (TKR 0 Double)
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT x = ifF (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
-      (artifactRev, deltas) = revArtifactAdapt True fT (rscalar 42)
+      (artifactRev, _deltas) = revArtifactAdapt True fT (rscalar 42)
   printArtifactPretty renames artifactRev
     @?= "\\x3 x1 -> let x2 = ifF (x1 >. rscalar 0.0) (rscalar 2.0) (rscalar 5.0) in x2 * x3"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\x1 -> let x2 = ifF (x1 >. rscalar 0.0) (rscalar 2.0) (rscalar 5.0) in x2 * x1"
-  printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x3 x1 -> ifF (x1 >. rscalar 0.0) (rscalar 2.0) (rscalar 5.0) * x3"
-  printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> ifF (x1 >. rscalar 0.0) (rscalar 2.0) (rscalar 5.0) * x1"
-  show deltas
-    @?= "ShareG 100000005 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000002) (AstCond (AstRel GtOp (AstVar (FTKR [] FTKScalar) (AstVarId 100000001)) (AstConcrete (FTKR [] FTKScalar) (rfromListLinear [] [0.0]))) (AstConcrete (FTKR [] FTKScalar) (rfromListLinear [] [2.0])) (AstConcrete (FTKR [] FTKScalar) (rfromListLinear [] [5.0])))}) (InputG (FTKR [] FTKScalar) (InputId 0)))"
 
 overleaf :: forall r target. (BaseTensor target, GoodScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
