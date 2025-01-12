@@ -51,7 +51,7 @@ simplifyArtifactGradient art | Dict <- lemTensorKindOfAD (stensorKind @x) =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInline
-  :: forall z s.(AstSpan s, TensorKind z)
+  :: forall z s. (AstSpan s, TensorKind z)
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
   snd . inlineAst EM.empty
@@ -64,7 +64,7 @@ simplifyInline =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInlineContract
-  :: forall z s.(AstSpan s, TensorKind z)
+  :: forall z s. (AstSpan s, TensorKind z)
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
   snd . inlineAst EM.empty
