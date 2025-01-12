@@ -4129,7 +4129,8 @@ contractAst t = case t of
                                                   u (AstIntVar var2 :.: ZIR))))
     | STKR (SNat @n) _ <- stensorKind @y2
     , Just Refl <- sameNat (Proxy @n) (Proxy @0)
-    , var == var2, sNatValue snat == lengthAst u ->
+    , var == var2, sNatValue snat == lengthAst u
+    , not (varNameInAst var t2),  not (varNameInAst var u) ->
         Ast.AstMatvecmulR (contractAst u) (contractAst t2)
   Ast.AstBuild1 @y2
                 snat (var, Ast.AstSum
@@ -4141,7 +4142,8 @@ contractAst t = case t of
                                    u (((:.$) @m (AstIntVar var2) ZIS)))))
     | STKS ZSS _ <- stensorKind @y2
     , Just Refl <- geq snat (SNat @m)
-    , var == var2 ->
+    , var == var2
+    , not (varNameInAst var t2),  not (varNameInAst var u) ->
         Ast.AstMatvecmulS snat n (contractAst u) (contractAst t2)
   Ast.AstBuild1 @y2
                 snat (var, Ast.AstSum _ _
@@ -4153,7 +4155,8 @@ contractAst t = case t of
     | STKR (SNat @n) _ <- stensorKind @y2
     , Just Refl <- sameNat (Proxy @n) (Proxy @0)
     , Just Refl <- sameNat (Proxy @p) (Proxy @1)
-    , var == var2, sNatValue snat == lengthAst u ->
+    , var == var2, sNatValue snat == lengthAst u
+    , not (varNameInAst var t2),  not (varNameInAst var u) ->
         Ast.AstMatvecmulR (contractAst u) (contractAst t2)
   Ast.AstBuild1
     @y2 snat (var, Ast.AstSum _ _
@@ -4166,7 +4169,8 @@ contractAst t = case t of
     | STKS ZSS _ <- stensorKind @y2
     , n :$$ ZSS <- knownShS @sh
     , Just Refl <- geq snat (SNat @m)
-    , var == var2 ->
+    , var == var2
+    , not (varNameInAst var t2),  not (varNameInAst var u) ->
         Ast.AstMatvecmulS snat n (contractAst u) (contractAst t2)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, contractAst v)
   Ast.AstLet var u v -> astLet var (contractAst u) (contractAst v)
