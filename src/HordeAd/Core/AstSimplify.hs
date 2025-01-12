@@ -747,7 +747,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstSum snat@(SNat @n1) _ v ->
-    let perm3 = backpermCycle $ sNatValue $ shsRank $ knownShS @shm
+    let perm3 = backpermCycle $ shsLength (knownShS @shm) + 1
     in Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm3P) (Rank (n1 : shm ++ shn))
