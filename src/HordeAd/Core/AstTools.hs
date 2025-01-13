@@ -14,7 +14,7 @@ module HordeAd.Core.AstTools
   , astIsSmall
     -- * Odds and ends
   , bindsToLet
-  , liftXFromS1, liftXFromS2
+  , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   ) where
 
 import Prelude hiding (foldl')
@@ -45,6 +45,7 @@ import Data.Array.Nested.Internal.Shape
   , shCvtSX
   , shCvtXR'
   , shrInit
+  , shrRank
   , shrSize
   , shrTail
   , shsAppend
@@ -477,6 +478,37 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
   bindToLet !u (var :=> w)
     | Dict <- tensorKindFromAstVarName var =
       AstLet var w u
+
+liftRFromS1 :: forall n x ms s.
+               (forall sh. KnownShS sh
+                => AstTensor ms s (TKS2 sh x)
+                -> AstTensor ms s (TKS2 sh x))
+            -> AstTensor ms s (TKR2 n x)
+            -> AstTensor ms s (TKR2 n x)
+liftRFromS1 f (AstRFromS u) = AstRFromS (f u)
+liftRFromS1 f a = case ftkAst a of
+  FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x)
+             , SNat <- shrRank sh' ->
+    withCastRS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
+      AstRFromS @sh $ f (AstSFromR @sh a)
+
+liftRFromS2 :: forall n x ms s.
+               (forall sh. KnownShS sh
+                => AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
+                -> AstTensor ms s (TKS2 sh x))
+            -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
+            -> AstTensor ms s (TKR2 n x)
+liftRFromS2 f (AstRFromS @shu u) (AstRFromS @shv v) =
+  case sameShape @shu @shv of
+    Just Refl -> AstRFromS $ f u v
+    Nothing -> error "liftRFromS2: shapes don't agree"
+liftRFromS2 f a b  = case ftkAst a of
+  FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x)
+             , SNat <- shrRank sh' ->
+    withCastRS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
+      AstRFromS @sh $ f (AstSFromR @sh a) (AstSFromR @sh b)
 
 liftXFromS1 :: forall sh' x ms s.
                (forall sh. KnownShS sh

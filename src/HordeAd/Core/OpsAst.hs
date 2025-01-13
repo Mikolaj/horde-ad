@@ -96,9 +96,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk
         $ forwardPass hVectorPrimal var hVector in
   let (!varDt, !astDt) =
         funToAst (aDFTK $ ftkAst $ unAstRaw primalBody) id in
-  let mdt = if hasDt
-            then Just astDt
-            else Nothing
+  let mdt = if hasDt then Just astDt else Nothing
       !gradient = gradientFromDelta ftk primalBody (AstRaw <$> mdt) delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       !unPrimal = unshareAstTensor $ unAstRaw primalBody

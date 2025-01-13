@@ -14,8 +14,6 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
-import GHC.TypeLits (KnownNat)
-
 import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
@@ -135,87 +133,56 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful numeric instances for ranked AST; they are lawful modulo evaluation
 
-instance (GoodScalar r, KnownNat n)
+instance GoodScalar r
          => Num (AstTensor ms s (TKR n r)) where
-  -- The normal form has AstConcrete, if any, as the first element of the list.
-  -- All lists fully flattened and length >= 2.
-  AstSumOfList stk (AstConcrete ftk u : lu)
-    + AstSumOfList _ (AstConcrete _ v : lv) =
-        AstSumOfList stk (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfList stk lu + AstSumOfList _ (AstConcrete ftk v : lv) =
-    AstSumOfList stk (AstConcrete ftk v : lv ++ lu)
-  AstSumOfList stk lu + AstSumOfList _ lv = AstSumOfList stk (lu ++ lv)
-
-  AstConcrete ftk u + AstSumOfList stk (AstConcrete _ v : lv) =
-    AstSumOfList stk (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfList stk (AstConcrete ftk v : lv) =
-    AstSumOfList stk (AstConcrete ftk v : u : lv)
-  u + AstSumOfList stk lv = AstSumOfList stk (u : lv)
-
-  AstSumOfList stk (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfList stk (AstConcrete ftk (u + v) : lu)
-  AstSumOfList stk (AstConcrete ftk u : lu) + v =
-    AstSumOfList stk (AstConcrete ftk u : v : lu)
-  AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
-
-  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList stensorKind [AstConcrete ftk v, u]
-  u + v = AstSumOfList stensorKind [u, v]
-
-  AstConcrete ftk u - AstConcrete _ v =
-    AstConcrete ftk (u - v)  -- common in indexing
-  u - v = AstN2R MinusOp u v
-
-  AstConcrete ftk u * AstConcrete _ v =
-    AstConcrete ftk (u * v)  -- common in indexing
-  u * v = AstN2R TimesOp u v
-
-  negate (AstConcrete ftk u) = AstConcrete ftk $ negate u  -- common in indexing
-  negate u = AstN1R NegateOp u
-  abs = AstN1R AbsOp
-  signum = AstN1R SignumOp
+  (+) = liftRFromS2 (+)
+  (-) = liftRFromS2 (-)
+  (*) = liftRFromS2 (*)
+  negate = liftRFromS1 negate
+  abs = liftRFromS1 abs
+  signum = liftRFromS1 signum
   fromInteger i = error $ "fromInteger not defined for ranked tensors: "
                           ++ show i
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (GoodScalar r, IntegralF r, KnownNat n)
+instance (GoodScalar r, IntegralF r)
          => IntegralF (AstTensor ms s (TKR n r)) where
-  quotF = AstI2R QuotOp
-  remF = AstI2R RemOp
+  quotF = liftRFromS2 quotF
+  remF = liftRFromS2 remF
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownNat n)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r)
          => Fractional (AstTensor ms s (TKR n r)) where
-  u / v = AstR2R DivideOp u v
-  recip = AstR1R RecipOp
+  (/) = liftRFromS2 (/)
+  recip = liftRFromS1 recip
   fromRational r = error $ "fromRational not defined for ranked tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownNat n)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi not defined for ranked tensors"
-  exp = AstR1R ExpOp
-  log = AstR1R LogOp
-  sqrt = AstR1R SqrtOp
-  (**) = AstR2R PowerOp
-  logBase = AstR2R LogBaseOp
-  sin = AstR1R SinOp
-  cos = AstR1R CosOp
-  tan = AstR1R TanOp
-  asin = AstR1R AsinOp
-  acos = AstR1R AcosOp
-  atan = AstR1R AtanOp
-  sinh = AstR1R SinhOp
-  cosh = AstR1R CoshOp
-  tanh = AstR1R TanhOp
-  asinh = AstR1R AsinhOp
-  acosh = AstR1R AcoshOp
-  atanh = AstR1R AtanhOp
+  exp = liftRFromS1 exp
+  log = liftRFromS1 log
+  sqrt = liftRFromS1 sqrt
+  (**) = liftRFromS2 (**)
+  logBase = liftRFromS2 logBase
+  sin = liftRFromS1 sin
+  cos = liftRFromS1 cos
+  tan = liftRFromS1 tan
+  asin = liftRFromS1 asin
+  acos = liftRFromS1 acos
+  atan = liftRFromS1 atan
+  sinh = liftRFromS1 sinh
+  cosh = liftRFromS1 cosh
+  tanh = liftRFromS1 tanh
+  asinh = liftRFromS1 asinh
+  acosh = liftRFromS1 acosh
+  atanh = liftRFromS1 atanh
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownNat n)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => RealFloatF (AstTensor ms s (TKR n r)) where
-  atan2F = AstR2R Atan2Op
+  atan2F = liftRFromS2 atan2F
 
 
 -- * Unlawful numeric instances for shaped AST; they are lawful modulo evaluation
