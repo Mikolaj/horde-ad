@@ -77,6 +77,7 @@ roneHot sh v ix = case stensorKind @r of
              (shrAppend sh (rshape v)) v (const ix)
   _ -> case tftk stensorKind v of
     FTKR _ ftk2 ->
+      -- TODO: def at out of bounds
       let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                        $ zip (toList ix) (toList ix2))
                       (rindex0 v (dropIndex ix2))
@@ -99,6 +100,7 @@ soneHot v ix = case stensorKind @r of
     sscatter @_ @_ @'[] @_ @sh1 v (const ix)
   _ -> case tftk stensorKind v of
     FTKS _ ftk2 ->
+      -- TODO: def at out of bounds
       gcastWith (unsafeCoerceRefl
                  :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
       gcastWith (unsafeCoerceRefl

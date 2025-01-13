@@ -573,6 +573,7 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
                                               (Ast.AstRel LsOp i1 len) of
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
+  -- TODO: the two below are wrong, should catch out of bounds instead
   Ast.AstReplicate _ STKR{} v -> astIndex v rest1
   Ast.AstBuild1 @y2 _snat (var2, v) | STKR{} <- stensorKind @y2 ->
     astIndex (astLet var2 i1 v) rest1
@@ -793,6 +794,16 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
            FTKS _ x ->
              let ftk = FTKS knownShS x
              in fromPrimal $ AstConcrete ftk (constantTarget def ftk)
+{- TODO: this generalization of the above case slows down test 3nestedSumBuild1
+   orders of magnitude
+  Ast.AstReplicate k v ->
+    let len = AstConcrete $ Nested.rscalar $ fromIntegral k
+        zero = astReplicate0N (dropShape $ shapeAst v) 0
+    in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstRel LeqOp 0 i1)
+                                              (Ast.AstRel LsOp i1 len) of
+      AstBoolConst b -> if b then astIndex v rest1 else zero
+      bExpr -> astCond bExpr (astIndex v rest1) zero -}
+  -- TODO: the two below are wrong, should catch out of bounds instead
   Ast.AstReplicate _ (STKS sh _) v -> withKnownShS sh $ astIndex v rest1
   Ast.AstReplicate _ STKScalar{} v | ZIS <- rest1 -> astFromScalar v
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
@@ -1016,7 +1027,7 @@ astGatherStepS v (vars, ix) =
 -- either from full recursive simplification or from astGatherStep.
 astGatherKnobsR
   :: forall m n p s r.
-     (KnownNat m, KnownNat p, KnownNat n, TensorKind r, AstSpan s)
+     (KnownNat m, KnownNat n, KnownNat p, TensorKind r, AstSpan s)
   => SimplifyKnobs -> IShR (m + n) -> AstTensor AstMethodLet s (TKR2 (p + n) r)
   -> (AstVarList m, AstIxR AstMethodLet p)
   -> AstTensor AstMethodLet s (TKR2 (m + n) r)
@@ -1088,7 +1099,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
   -- and so we don't have to reduce it to expose any top redexes.
   astGatherCase
     :: forall m' n' p'.
-       (KnownNat m', KnownNat p', KnownNat n')
+       (KnownNat m', KnownNat n', KnownNat p')
     => IShR (m' + n') -> AstTensor AstMethodLet s (TKR2 (p' + n') r)
     -> (AstVarList m', AstIxR AstMethodLet p')
     -> AstTensor AstMethodLet s (TKR2 (m' + n') r)
@@ -2170,13 +2181,15 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
     Ast.AstSliceS @_ @k2 _v  | STKS _ STKScalar{} <- stk
                              , Just Refl <- sameNat (Proxy @k2) (Proxy @0) ->
       astReplicate0NS 0
+    {- TODO: this requires a check that the eliminated index is in bounds:
     Ast.AstScatter (_ :$: sh) v (vars, _ :.: ix)
       | STKR{} <- stk ->
-        astScatter sh v (vars, ix)
+        astScatter sh v (vars, ix) -}
+    {- TODO: this requires a check that the eliminated index is in bounds:
     Ast.AstScatterS @shm @shn @shp v (vars, _ :.$ ix)
       | STKS{} <- stk
       , Dict <- sixKnown ix ->
-        astScatterS @shm @shn @(Tail shp) v (vars, ix)
+        astScatterS @shm @shn @(Tail shp) v (vars, ix) -}
     Ast.AstSlice i 1 v | STKR SNat _ <- stk ->
       astIndexR v (fromIntegral i :.: ZIR)
     Ast.AstSliceS @i @k2 v  | STKS{} <- stk
@@ -2990,7 +3003,7 @@ astPrimalPart t = case t of
   Ast.AstI2R opCode u v -> Ast.AstI2R opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstCastR v -> astCastR $ astPrimalPart v
   Ast.AstIndex v ix -> astIndexR (astPrimalPart v) ix
-  Ast.AstScatter sh v (var, ix) -> astScatter sh (astPrimalPart v) (var, ix)
+  Ast.AstScatter sh v (vars, ix) -> astScatter sh (astPrimalPart v) (vars, ix)
   Ast.AstAppend x y -> astAppend (astPrimalPart x) (astPrimalPart y)
   Ast.AstSlice i k v -> astSlice i k (astPrimalPart v)
   Ast.AstReverse v -> astReverse (astPrimalPart v)
@@ -3013,9 +3026,9 @@ astPrimalPart t = case t of
   Ast.AstIndexS @shm @shn v ix ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (astPrimalPart v) ix
-  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
+  Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    astScatterS @shm @shn @shp (astPrimalPart v) (var, ix)
+    astScatterS @shm @shn @shp (astPrimalPart v) (vars, ix)
   Ast.AstAppendS x y -> astAppendS (astPrimalPart x) (astPrimalPart y)
   Ast.AstSliceS @i v -> astSliceS @i (astPrimalPart v)
   Ast.AstReverseS v -> astReverseS (astPrimalPart v)
@@ -3112,7 +3125,7 @@ astDualPart t = case t of
   Ast.AstI2R{} -> Ast.AstDualPart t
   Ast.AstCastR v -> astCastR $ astDualPart v
   Ast.AstIndex v ix -> astIndexR (astDualPart v) ix
-  Ast.AstScatter sh v (var, ix) -> astScatter sh (astDualPart v) (var, ix)
+  Ast.AstScatter sh v (vars, ix) -> astScatter sh (astDualPart v) (vars, ix)
   Ast.AstAppend x y -> astAppend (astDualPart x) (astDualPart y)
   Ast.AstSlice i k v -> astSlice i k (astDualPart v)
   Ast.AstReverse v -> astReverse (astDualPart v)
@@ -3133,9 +3146,9 @@ astDualPart t = case t of
   Ast.AstIndexS @shm @shn v ix ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (astDualPart v) ix
-  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
+  Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    astScatterS @shm @shn @shp (astDualPart v) (var, ix)
+    astScatterS @shm @shn @shp (astDualPart v) (vars, ix)
   Ast.AstAppendS x y -> astAppendS (astDualPart x) (astDualPart y)
   Ast.AstSliceS @i v -> astSliceS @i (astDualPart v)
   Ast.AstReverseS v -> astReverseS (astDualPart v)
@@ -3451,8 +3464,8 @@ expandAst t = case t of
   Ast.AstIndex v ix -> astIndexKnobsR (defaultKnobs {knobExpand = True})
                                       (expandAst v)
                                       (expandAstIxR ix)
-  Ast.AstScatter sh v (var, ix) ->
-    astScatter sh (expandAst v) (var, expandAstIxR ix)
+  Ast.AstScatter sh v (vars, ix) ->
+    astScatter sh (expandAst v) (vars, expandAstIxR ix)
   Ast.AstAppend x y -> astAppend (expandAst x) (expandAst y)
   Ast.AstSlice i k v -> astSlice i k (expandAst v)
   Ast.AstReverse v -> astReverse (expandAst v)
@@ -3525,9 +3538,9 @@ expandAst t = case t of
     astIndexKnobsS (defaultKnobs {knobExpand = True})
                    (expandAst v)
                    (expandAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
+  Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    astScatterS @shm @shn @shp (expandAst v) (var, expandAstIxS ix)
+    astScatterS @shm @shn @shp (expandAst v) (vars, expandAstIxS ix)
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS @i v -> astSliceS @i (expandAst v)
   Ast.AstReverseS v -> astReverseS (expandAst v)
@@ -3750,8 +3763,8 @@ simplifyAst t = case t of
   Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (simplifyAst a)
   Ast.AstIotaR{} -> t
   Ast.AstIndex v ix -> astIndexR (simplifyAst v) (simplifyAstIxR ix)
-  Ast.AstScatter sh v (var, ix) ->
-    astScatter sh (simplifyAst v) (var, simplifyAstIxR ix)
+  Ast.AstScatter sh v (vars, ix) ->
+    astScatter sh (simplifyAst v) (vars, simplifyAstIxR ix)
   Ast.AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
   Ast.AstSlice i k v -> astSlice i k (simplifyAst v)
   Ast.AstReverse v -> astReverse (simplifyAst v)
@@ -3779,9 +3792,9 @@ simplifyAst t = case t of
   Ast.AstIndexS @shm @shn v ix ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (simplifyAst v) (simplifyAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
+  Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    astScatterS @shm @shn @shp (simplifyAst v) (var, simplifyAstIxS ix)
+    astScatterS @shm @shn @shp (simplifyAst v) (vars, simplifyAstIxS ix)
   Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
   Ast.AstSliceS @i v -> astSliceS @i (simplifyAst v)
   Ast.AstReverseS v -> astReverseS (simplifyAst v)
@@ -4394,8 +4407,8 @@ contractAst t = case t of
   Ast.AstIndex Ast.AstIotaR{} (i :.: ZIR) ->
     astFromIntegralR $ astRFromS $ astFromScalar $ contractAstInt i
   Ast.AstIndex v ix -> astIndexR (contractAst v) (contractAstIxR ix)
-  Ast.AstScatter sh v (var, ix) ->
-    astScatter sh (contractAst v) (var, contractAstIxR ix)
+  Ast.AstScatter sh v (vars, ix) ->
+    astScatter sh (contractAst v) (vars, contractAstIxR ix)
   Ast.AstAppend x y -> astAppend (contractAst x) (contractAst y)
   Ast.AstSlice i k v -> astSlice i k (contractAst v)
   Ast.AstReverse v -> astReverse (contractAst v)
@@ -4448,9 +4461,9 @@ contractAst t = case t of
   Ast.AstIndexS @shm @shn v ix ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (contractAst v) (contractAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp v (var, ix) ->
+  Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    astScatterS @shm @shn @shp (contractAst v) (var, contractAstIxS ix)
+    astScatterS @shm @shn @shp (contractAst v) (vars, contractAstIxS ix)
   Ast.AstAppendS x y -> astAppendS (contractAst x) (contractAst y)
   Ast.AstSliceS @i v -> astSliceS @i (contractAst v)
   Ast.AstReverseS v -> astReverseS (contractAst v)

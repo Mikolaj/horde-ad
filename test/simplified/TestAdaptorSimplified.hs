@@ -1876,24 +1876,26 @@ _testConcatBuild9 =
     (rscalar 161)
     (rev' @Double @2 _concatBuild9 (rscalar 3.4))
 
-concatBuild10 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 2 r)
+concatBuild10 :: (ADReady target, GoodScalar r)
+              => target (TKR 0 r) -> target (TKR 2 r)
 concatBuild10 r =
   rbuild1 7 (\j ->
     rappend (rappend
-             (tlet (rgather1 5 (rreplicate 1 r)
-                   (\_i -> 10000 :.: ZIR)) $ \a ->
-    (rappend (rgather1 5 (rreplicate 1 r)
-                         (\_i -> (-1) :.: ZIR)) a))
-                     (rreplicate 1 (rfromIndex0 j)))
+               (tlet (rgather1 5 (rreplicate 1 r)
+                       (\_i -> 10000 :.: ZIR)) $ \a ->
+      (rappend (rgather1 5 (rreplicate 1 r)
+                 (\_i -> (-1) :.: ZIR)) a))
+                   (rreplicate 1 (rfromIndex0 j)))
             (rbuild1 13 (const r)))
 
 testConcatBuild10 :: Assertion
 testConcatBuild10 =
   assertEqualUpToEpsilon' 1e-10
-   (rscalar  91)
+    (rscalar 91)
     (rev' @Double @2 concatBuild10 (rscalar 3.4))
 
-concatBuild11 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 1 r)
+concatBuild11 :: (ADReady target, GoodScalar r)
+              => target (TKR 0 r) -> target (TKR 1 r)
 concatBuild11 r =
   rgather1 5 (rreplicate 1 r) (\_i -> (-1) :.: ZIR)
 
@@ -1903,7 +1905,8 @@ testConcatBuild11 =
     (rscalar 0)
     (rev' @Double @1 concatBuild11 (rscalar 3.4))
 
-concatBuild12 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 0 r)
+concatBuild12 :: (ADReady target, GoodScalar r)
+              => target (TKR 0 r) -> target (TKR 0 r)
 concatBuild12 r =
   rindex (rreplicate 1 r) ((-1) :.: ZIR)
 
