@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=12 #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=100 #-}
 -- | Term-simplifying combinators corresponding to the Ast constructors
 -- and complete bottom-up simplifying functions. The former
 -- simplify only on the basis of inspecting the roots of their
@@ -442,7 +442,7 @@ astNonIndexStep t = case t of
   Ast.AstXUnNestS v -> astXUnNestS v
   Ast.AstXUnNest v -> astXUnNest v
 
-  -- The below should not appear here unless via wacky tests.
+  -- These should not appear here unless via wacky tests.
   Ast.AstReplicate0NR{} -> t
   Ast.AstSum0R{} -> t
   Ast.AstDot0R{} -> t
@@ -930,14 +930,11 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       in astLet var2 i1 $ astIndexS @shm1 @shn w rest1
   Ast.AstZipS _ -> Ast.AstIndexS v0 ix
 
-  Ast.AstSFromR t | SNat <- shsRank (knownShS @shn)
-                  , SNat <- shsRank (knownShS @shm) ->
-    gcastWith (unsafeCoerceRefl
-               :: Rank shm + Rank shn :~: Rank (shm ++ shn)) $
-    astSFromR $ astIndexKnobsR knobs t (ixsToIxr ix)
-  Ast.AstSFromX _t -> error "TODO"
+  -- These conversions need to stay down.
+  Ast.AstSFromR{} -> Ast.AstIndexS v0 ix
+  Ast.AstSFromX{} -> Ast.AstIndexS v0 ix
 
-  -- The below should not appear here unless via wacky tests.
+  -- These should not appear here unless via wacky tests.
   Ast.AstReplicate0NS{} -> Ast.AstIndexS v0 ix
 -- impossible: Ast.AstSum0S{} -> Ast.AstIndexS v0 ix
 -- impossible: Ast.AstDot0S{} -> Ast.AstIndexS v0 ix
@@ -1791,22 +1788,11 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
         GTI -> gcastWith (flipCompare @rank4 @rank2) assimilatedGather
     Ast.AstZipS _v -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
-    Ast.AstSFromR{} {- @sh v -} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
-      -- TODO: this is broken
-      {-
-      let (takeSh, dropSh) = splitAt (valueOf @p') (shapeT @sh)
-      in withShapeP takeSh $ \(Proxy @p_take) ->
-         withShapeP dropSh $ \(Proxy @p_drop) ->
-         gcastWith (unsafeCoerceRefl :: sh :~: p_take ++ p_drop) $
-         gcastWith (unsafeCoerceRefl :: p_take :~: Take p' sh) $
-         gcastWith (unsafeCoerceRefl :: p_drop :~: Drop p' sh) $
-         gcastWith (unsafeCoerceRefl :: X.Rank sh :~: p' + n') $
-         astRFromS $ astGatherStepS @_ @p' @sh v
-                     ( ShapedList.listToSized $ sizedToList vars4
-                     , ShapedList.listToSized $ indexToList ix4 ) -}
+    -- These conversions need to stay down.
+    Ast.AstSFromR{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstSFromX{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
-    -- The below should not appear here unless via wacky tests.
+    -- These should not appear here unless via wacky tests.
     Ast.AstReplicate0NS{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 --    Ast.AstSum0S{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 --    Ast.AstDot0S{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
@@ -2027,6 +2013,8 @@ astLet var (Ast.AstFromPrimal (Ast.AstLetHVectorIn
         in foldr (mapRankedShaped clet clet)
                  v2 (zip vars (V.toList l3))
   in astLetHVectorIn varsN lN $ fun1DToAst shs f
+astLet var u (Ast.AstRFromS v) = astRFromS $ astLet var u v
+astLet var u (Ast.AstXFromS v) = astXFromS $ astLet var u v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -2044,6 +2032,8 @@ astCond :: TensorKind y
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
+-- TODO: astCond b (Ast.AstRFromS v) (Ast.AstRFromS w) = astRFromS $ astCond b v w
+-- TODO: astCond b (Ast.AstXFromS v) (Ast.AstXFromS w) = astXFromS $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
 astSumOfList :: AstSpan s
@@ -2134,13 +2124,24 @@ astFromVector snat l | Just Refl <- sameAstSpan @s @FullSpan =
     Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
       Ast.AstFromPrimal $ astFromVector snat l2
     Nothing -> Ast.AstFromVector snat l
+{- TODO:
+astFromVector snat l | STKR{} <- stensorKind @y =
+  let unFrom :: AstTensor AstMethodLet s (TKR2 (Rank sh) x)
+             -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
+      unFrom (Ast.AstRFromS t) = Just t
+      unFrom _ = Nothing
+  in case V.mapM unFrom l of
+    Just l2 | V.null l2 -> error "astFromVector: empty vector"
+    Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      astRFromS $ astFromVector snat l2
+    Nothing -> Ast.AstFromVector snat l -}
 astFromVector snat l = Ast.AstFromVector snat l
 
 astSum :: forall y k s. AstSpan s
        => SNat k -> STensorKindType y
        -> AstTensor AstMethodLet s (BuildTensorKind k y)
        -> AstTensor AstMethodLet s y
-astSum snat stk t0 = case (stk, ftkAst t0) of
+astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
 --  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
   (STKR{}, FTKR (0 :$: rest) FTKScalar) -> astReplicate0N rest 0
   (STKS{}, FTKS (SNat @n :$$ rest) FTKScalar)
@@ -2186,6 +2187,20 @@ astSum snat stk t0 = case (stk, ftkAst t0) of
       AstConcrete (razeFTK snat stensorKind ftk) $ tsum snat stk t
     Ast.AstFromPrimal v | Dict <- lemTensorKindOfSTK stk ->
       Ast.AstFromPrimal $ astSum snat stk v
+    Ast.AstRFromS @sh v -> case stk of
+      STKR _ x -> case knownShS @sh of
+        (:$$) snat2 rest | Just Refl <- sameNat snat snat2 ->
+          withKnownShS rest $
+          astRFromS $ astSum snat (STKS rest x) v
+        _ -> error "astSum: impossible shape"
+    Ast.AstXFromS @sh v -> case stk of
+      STKX @restx restx x -> case knownShS @sh of
+        (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
+          gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $
+          withKnownShS rest $
+          withKnownShX restx $
+          astXFromS @rest @restx $ astSum snat (STKS rest x) v
+        _ -> error "astSum: impossible shape"
     _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall k y s. AstSpan s
@@ -2219,6 +2234,10 @@ astReplicate snat@SNat stk
         gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
         astTransposeS zsuccPerm $ astReplicate snat stensorKind v
+  Ast.AstRFromS v -> case stk of
+    STKR _ x -> astRFromS $ astReplicate snat (STKS knownShS x) v
+  Ast.AstXFromS v -> case stk of
+    STKX _ x -> astXFromS $ astReplicate snat (STKS knownShS x) v
   v -> Ast.AstReplicate snat stk v
 
 astReplicateN :: forall n p s r.
@@ -2705,31 +2724,91 @@ astProjectS l p = case l of
 astRFromS :: forall sh s r. (TensorKind r, KnownShS sh)
           => AstTensor AstMethodLet s (TKS2 sh r)
           -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
-astRFromS (AstConcrete ftk t)
- | SNat <- shsRank (knownShS @sh) = case ftk of
-  FTKS _ x ->
-    let u = rfromS t
-    in AstConcrete (FTKR (rshape u) x) u
-astRFromS (Ast.AstFromPrimal v)
- | SNat <- shsRank (knownShS @sh) =
-  Ast.AstFromPrimal $ astRFromS v
 astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
 astRFromS v = Ast.AstRFromS v
 
-astSFromR :: forall sh s r. (TensorKind r, KnownShS sh, KnownNat (Rank sh))
+-- We are pushing conversions to shaped tensors down, into concrete values
+-- and towards variables, which we convert from shaped to ranked and mixed
+-- so that the conversions cancel out. Consequently, the conversions away
+-- from shaped are pushed up.
+astSFromR :: forall sh s r.
+             (TensorKind r, KnownShS sh, KnownNat (Rank sh), AstSpan s)
           => AstTensor AstMethodLet s (TKR2 (Rank sh) r)
           -> AstTensor AstMethodLet s (TKS2 sh r)
-astSFromR (AstConcrete ftk t) = case ftk of
-  FTKR _ x ->
-    let u = sfromR t
-    in AstConcrete (FTKS knownShS x) u
-astSFromR (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromR v
-astSFromR (Ast.AstRFromS @sh1 v) =
-  case sameShape @sh1 @sh of
-    Just Refl -> v
-    _ -> error "astSFromR: different ranks in SFromR(RFromS)"
-astSFromR v = Ast.AstSFromR v
+astSFromR a0 = case a0 of
+  Ast.AstProject1{} -> Ast.AstSFromR a0  -- TODO: convert arbitrary tensor?
+  Ast.AstProject2{} -> Ast.AstSFromR a0
+  Ast.AstApply{} -> Ast.AstSFromR a0
+  Ast.AstVar{} -> Ast.AstSFromR a0
+  Ast.AstPrimalPart a -> astPrimalPart $ astSFromR a
+  Ast.AstDualPart a -> astDualPart $ astSFromR a
+  Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astSFromR a
+  Ast.AstD u u' -> Ast.AstD (astSFromR u) (astSFromR u')
+  Ast.AstCond b v w -> astCond b (astSFromR v) (astSFromR w)
+  Ast.AstFromVector @y2 snat@SNat l
+   | STKR{} <- stensorKind @y2 -> case knownShS @sh of
+    (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2
+                              , SNat <- shsRank rest ->
+      withKnownShS rest $
+      astFromVector snat (V.map (astSFromR @rest) l)
+    _ -> error "astSFromR: impossible shape"
+  Ast.AstSum snat@SNat (STKR _ x) a ->
+    astSum snat (STKS knownShS x) (astSFromR a)
+  Ast.AstReplicate snat@SNat (STKR SNat x) a -> case knownShS @sh of
+    (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
+      withKnownShS rest $
+      astReplicate snat (STKS rest x) (astSFromR @rest a)
+    _ -> error "astSFromR: impossible shape"
+  Ast.AstBuild1 snat@(SNat @k) (var, v) -> case ftkAst v of
+    FTKR sh' _ | SNat <- shrRank sh' ->
+      withCastRS sh' $ \(sh2 :: ShS sh2) ->
+        gcastWith (unsafeCoerceRefl :: k ': sh2 :~: sh) $
+        withKnownShS sh2 $
+        Ast.AstBuild1 snat (var, astSFromR @sh2 v)
+  Ast.AstLet var u v ->  astLet var u (astSFromR v)
+  AstConcrete (FTKR _ x) v -> AstConcrete (FTKS knownShS x) (sfromR v)
 
+  AstSumOfList (STKR _ x) args ->
+    astSumOfList (STKS knownShS x) (map astSFromR args)
+
+  AstN1R{} -> Ast.AstSFromR a0
+  AstN2R{} -> Ast.AstSFromR a0
+  Ast.AstR1R{} -> Ast.AstSFromR a0
+  Ast.AstR2R{} -> Ast.AstSFromR a0
+  Ast.AstI2R{} -> Ast.AstSFromR a0
+  Ast.AstFloorR{} -> Ast.AstSFromR a0
+  Ast.AstFromIntegralR{} -> Ast.AstSFromR a0
+  Ast.AstCastR{} -> Ast.AstSFromR a0
+  Ast.AstMinIndexR{} -> Ast.AstSFromR a0
+  Ast.AstMaxIndexR{} -> Ast.AstSFromR a0
+  Ast.AstIotaR{} -> Ast.AstSFromR a0
+  Ast.AstIndex{} -> Ast.AstSFromR a0
+  Ast.AstScatter{} -> Ast.AstSFromR a0
+  Ast.AstAppend{} -> Ast.AstSFromR a0
+  Ast.AstSlice{} -> Ast.AstSFromR a0
+  Ast.AstReverse{} -> Ast.AstSFromR a0
+  Ast.AstTranspose{} -> Ast.AstSFromR a0
+  Ast.AstReshape{} -> Ast.AstSFromR a0
+  Ast.AstGather{} -> Ast.AstSFromR a0
+  Ast.AstZipR{} -> Ast.AstSFromR a0
+
+  Ast.AstRFromS @sh1 v ->
+    case sameShape @sh1 @sh of
+      Just Refl -> v
+      _ -> error "astSFromR: different ranks in SFromR(RFromS)"
+
+  -- These should not appear here unless via wacky tests.
+  Ast.AstReplicate0NR{} -> Ast.AstSFromR a0
+  Ast.AstSum0R{} -> Ast.AstSFromR a0
+  Ast.AstDot0R{} -> Ast.AstSFromR a0
+  Ast.AstDot1InR{} -> Ast.AstSFromR a0
+  Ast.AstMatvecmulR{} -> Ast.AstSFromR a0
+  Ast.AstMatmul2R{} -> Ast.AstSFromR a0
+
+  Ast.AstProjectR{} -> Ast.AstSFromR a0
+  Ast.AstLetHVectorIn{} -> Ast.AstSFromR a0
+
+-- TODO
 astSFromX :: forall sh sh' s r.
              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
           => AstTensor AstMethodLet s (TKX2 sh' r)
@@ -2749,11 +2828,6 @@ astXFromS :: forall sh sh' s r.
              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
           => AstTensor AstMethodLet s (TKS2 sh r)
           -> AstTensor AstMethodLet s (TKX2 sh' r)
-astXFromS (AstConcrete ftk t) = case ftk of
-  FTKS _ x ->
-    let u = xfromS t
-    in AstConcrete (FTKX (xshape u) x) u
-astXFromS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astXFromS v
 -- impossible, shapes may differ: astXFromS (Ast.AstSFromX v) = v
 astXFromS v = Ast.AstXFromS v
 
@@ -2951,8 +3025,9 @@ astPrimalPart t = case t of
   Ast.AstUnzipS v -> Ast.AstUnzipS (astPrimalPart v)
 
   Ast.AstRFromS v -> astRFromS $ astPrimalPart v
-  Ast.AstSFromR v -> astSFromR $ astPrimalPart v
-  Ast.AstSFromX v -> astSFromX $ astPrimalPart v
+  -- These conversions need to stay down.
+  Ast.AstSFromR{} -> Ast.AstPrimalPart t
+  Ast.AstSFromX{} -> Ast.AstPrimalPart t
   Ast.AstXFromS v -> astXFromS $ astPrimalPart v
 
   Ast.AstXNestR @sh1 @m v ->
@@ -3070,8 +3145,9 @@ astDualPart t = case t of
   Ast.AstUnzipS v -> Ast.AstUnzipS (astDualPart v)
 
   Ast.AstRFromS v -> astRFromS $ astDualPart v
-  Ast.AstSFromR v -> astSFromR $ astDualPart v
-  Ast.AstSFromX v -> astSFromX $ astDualPart v
+   -- These conversions need to stay down.
+  Ast.AstSFromR {} -> Ast.AstDualPart t
+  Ast.AstSFromX{} -> Ast.AstDualPart t
   Ast.AstXFromS v -> astXFromS $ astDualPart v
 
   Ast.AstXNestR @sh1 @m v ->
@@ -4089,15 +4165,15 @@ contractAst t = case t of
   Ast.AstSum snat stk@(STKS ZSS _) (Ast.AstReshapeS
                                       @_ @sh (Ast.AstReverseS t2)) ->
     contractAst (Ast.AstSum snat stk (Ast.AstReshapeS @_ @sh t2))
-  Ast.AstSum _ (STKR (SNat @n) x) (Ast.AstReshape @p _sh (Ast.AstSum _ _ t2))
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        Ast.AstSum0R (SNat @(1 + p)) x (contractAst t2)
-  Ast.AstSum _ (STKS ZSS x) (Ast.AstReshapeS @sh2 (Ast.AstSum k2@SNat _ t2)) ->
-    Ast.AstSum0S (k2 :$$ knownShS @sh2) x (contractAst t2)
-  Ast.AstSum _ (STKR (SNat @n) x) (Ast.AstSum _ _ t2)
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0)
-    , Dict <- lemTensorKindOfSTK x ->
-        Ast.AstSum0R (SNat @(2 + n)) x (contractAst t2)
+  Ast.AstSum _ (STKR (SNat' @0) x)
+             (Ast.AstReshape @n _sh (Ast.AstSum _ _ t2)) ->
+    Ast.AstSum0R (SNat @(1 + n){- ~ 2 -}) x (contractAst t2)
+  Ast.AstSum _k1 (STKS ZSS x)
+             (Ast.AstReshapeS @sh (Ast.AstSum k2@SNat _ t2)) ->
+    Ast.AstSum0S (k2 :$$ knownShS @sh {- ~ [k1] -}) x (contractAst t2)
+  Ast.AstSum _ (STKR (SNat' @0) x) (Ast.AstSum _ _ t2)
+    | Dict <- lemTensorKindOfSTK x ->
+        Ast.AstSum0R (SNat @2) x (contractAst t2)
           -- TODO: more cases are needed
   Ast.AstSum k@SNat (STKS ZSS x) (Ast.AstSum k2@SNat _ t2)
     | Dict <- lemTensorKindOfSTK x ->
@@ -4117,11 +4193,10 @@ contractAst t = case t of
                      var
                      v
                      (Ast.AstSum snat stk (Ast.AstReshapeS @sh t2)))
-  Ast.AstSum _ (STKR (SNat @n) x) (Ast.AstReshape @p _sh t2)
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
-        Ast.AstSum0R (SNat @p) x (contractAst t2)
-  Ast.AstSum _ (STKS ZSS x) (Ast.AstReshapeS @sh2 t2) ->
-    Ast.AstSum0S (knownShS @sh2) x (contractAst t2)
+  Ast.AstSum _ (STKR (SNat' @0) x) (Ast.AstReshape @n _sh t2) ->
+    Ast.AstSum0R (SNat @n) x (contractAst t2)
+  Ast.AstSum _ (STKS ZSS x) (Ast.AstReshapeS @sh t2) ->
+    Ast.AstSum0S (knownShS @sh) x (contractAst t2)
   Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
     astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->

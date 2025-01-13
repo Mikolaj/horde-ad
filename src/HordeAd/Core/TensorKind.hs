@@ -7,7 +7,7 @@ module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
   , lemTensorKindOfSTK, sameTensorKind, sameSTK
-  , lemTensorKindOfBuild, aDSTK, lemTensorKindOfAD, lemBuildOfAD
+  , buildSTK, aDSTK, lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
   , buildFTK, razeFTK, aDFTK, tftkG
     -- * Type family RepORArray
@@ -141,16 +141,14 @@ sameSTK y1 y2 = case (y1, y2) of
   (STKUntyped, STKUntyped) -> Just Refl
   _ -> Nothing
 
-lemTensorKindOfBuild :: SNat k -> STensorKindType y
-                     -> Dict TensorKind (BuildTensorKind k y)
-lemTensorKindOfBuild snat@SNat = \case
-  STKScalar{} -> Dict
-  STKR SNat x | Dict <- lemTensorKindOfSTK x -> Dict
-  STKS sh x | Dict <- lemTensorKindOfSTK x  -> withKnownShS sh Dict
-  STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfBuild snat stk1
-                       , Dict <- lemTensorKindOfBuild snat stk2 -> Dict
-  STKUntyped -> Dict
+buildSTK :: SNat k -> STensorKindType y -> STensorKindType (BuildTensorKind k y)
+buildSTK snat@SNat = \case
+  stk@(STKScalar{}) -> STKS (snat :$$ ZSS) stk
+  STKR SNat x -> STKR SNat x
+  STKS sh x -> STKS (snat :$$ sh) x
+  STKX sh x -> STKX (SKnown snat :!% sh) x
+  STKProduct stk1 stk2 -> STKProduct (buildSTK snat stk1) (buildSTK snat stk2)
+  STKUntyped -> STKUntyped
 
 aDSTK :: STensorKindType y
       -> STensorKindType (ADTensorKind y)
@@ -166,6 +164,10 @@ aDSTK = \case
   STKX sh x -> STKX sh $ aDSTK x
   STKProduct stk1 stk2 -> STKProduct (aDSTK stk1) (aDSTK stk2)
   t@STKUntyped{} -> t
+
+lemTensorKindOfBuild :: SNat k -> STensorKindType y
+                     -> Dict TensorKind (BuildTensorKind k y)
+lemTensorKindOfBuild snat = lemTensorKindOfSTK . buildSTK snat
 
 lemTensorKindOfAD :: STensorKindType y
                   -> Dict TensorKind (ADTensorKind y)
