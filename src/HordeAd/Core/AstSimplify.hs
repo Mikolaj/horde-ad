@@ -3342,10 +3342,17 @@ astLetFun :: forall y z s s2.
           => AstTensor AstMethodLet s y -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
           -> AstTensor AstMethodLet s2 z
 astLetFun a f | astIsSmall True a = f a  -- TODO: since astLetFun is now called recursively a lot, ensure astIsSmall is constant, at least except for a constant number of the recursive calls
-astLetFun a f =
-  let sh = ftkAst a
-      (var, ast) = funToAst sh f
-  in astLet var a ast  -- safe, because subsitution ruled out above
+astLetFun a f = case ftkAst a of
+  FTKR sh' x | SNat <- shrRank sh'
+             , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withCastRS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
+      let (var, ast) = funToAst (FTKS sh x) (f . astRFromS @sh)
+      in astLet var (astSFromR @sh a) ast
+           -- safe, because subsitution ruled out above
+  -- TODO: also mixed and maybe recursively product
+  ftk -> let (var, ast) = funToAst ftk f
+         in astLet var a ast  -- safe, because subsitution ruled out above
 
 astFromScalar :: (GoodScalar r, AstSpan s)
               => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)

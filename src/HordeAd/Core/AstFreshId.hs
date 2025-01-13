@@ -60,19 +60,18 @@ unsafeGetFreshAstVarName :: TensorKind y => IO (AstVarName s y)
 unsafeGetFreshAstVarName =
   mkAstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-funToAstIO :: forall y z s s2 ms. TensorKind y
-           => FullTensorKind y
+funToAstIO :: forall y z s s2 ms.
+              FullTensorKind y
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
-funToAstIO ftk f = do
+funToAstIO ftk f | Dict <- lemTensorKindOfSTK (ftkToStk ftk) = do
   freshId <- unsafeGetFreshAstVarId
   let varName = mkAstVarName freshId
       !x = f (AstVar ftk varName)
   return (varName, x)
 
-funToAst :: TensorKind y
-         => FullTensorKind y
+funToAst :: FullTensorKind y
          -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName s y, AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}

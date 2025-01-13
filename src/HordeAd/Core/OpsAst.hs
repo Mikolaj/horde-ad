@@ -1697,10 +1697,17 @@ astLetFunNoSimplify
   -> AstTensor AstMethodLet s z
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
-astLetFunNoSimplify a f =
-  let sh = ftkAst a
-      (var, ast) = funToAst sh f
-  in AstLet var a ast  -- safe, because subsitution ruled out above
+astLetFunNoSimplify a f = case ftkAst a of
+  FTKR sh' x | SNat <- shrRank sh'
+             , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withCastRS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
+      let (var, ast) = funToAst (FTKS sh x) (f . AstRFromS @sh)
+      in AstLet var (AstSFromR @sh a) ast
+           -- safe, because subsitution ruled out above
+  -- TODO: also mixed and maybe recursively product
+  ftk -> let (var, ast) = funToAst ftk f
+         in AstLet var a ast  -- safe, because subsitution ruled out above
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstTensor AstMethodLet s)
 unNoSimplifyHVector =
