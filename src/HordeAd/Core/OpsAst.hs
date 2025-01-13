@@ -229,22 +229,22 @@ instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstS
 instance (GoodScalar r, KnownNat n, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKR n r)) where
   type DValue (AstTensor AstMethodLet s (TKR n r)) = RepN (TKR n r)
-  fromDValue t = fromPrimal $ AstConcrete (FTKR (rshape t) FTKScalar) t
+  fromDValue t = fromPrimal $ astConcrete (FTKR (rshape t) FTKScalar) t
 
 instance (GoodScalar r, KnownShS sh, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKS sh r)) where
   type DValue (AstTensor AstMethodLet s (TKS sh r)) = RepN (TKS sh r)
-  fromDValue t = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) t
+  fromDValue t = fromPrimal $ astConcrete (FTKS knownShS FTKScalar) t
 
 instance (GoodScalar r, KnownNat n)
          => TermValue (AstTensor AstMethodLet FullSpan (TKR n r)) where
   type Value (AstTensor AstMethodLet FullSpan (TKR n r)) = RepN (TKR n r)
-  fromValue t = fromPrimal $ AstConcrete (FTKR (rshape t) FTKScalar) t
+  fromValue t = fromPrimal $ astConcrete (FTKR (rshape t) FTKScalar) t
 
 instance (GoodScalar r, KnownShS sh)
          => TermValue (AstTensor AstMethodLet FullSpan (TKS sh r)) where
   type Value (AstTensor AstMethodLet FullSpan (TKS sh r)) = RepN (TKS sh r)
-  fromValue t = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) t
+  fromValue t = fromPrimal $ astConcrete (FTKS knownShS FTKScalar) t
 
 {- This is needed by only one test, testSin0revhFold5S, now disabled
 and this possibly breaks the cfwdOnHVector duplicability invariant in cfwd.
@@ -789,7 +789,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDual t
   tD stk t d | Dict <- lemTensorKindOfSTK stk = astSpanD t d
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
-    fromPrimal $ AstConcrete ftk a
+    fromPrimal $ astConcrete ftk a
   dmkHVector = AstMkHVector
   tlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
