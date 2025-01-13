@@ -619,6 +619,8 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVector{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
+              Ast.AstSFromR{} -> ruleD
+              Ast.AstSFromX{} -> ruleD
               _ -> build1VOccurenceUnknown (SNat @k) (var, v)  -- not a normal form
             else build1VOccurenceUnknown (SNat @k) (var, v)  -- shortcut
        v -> traceRule $
