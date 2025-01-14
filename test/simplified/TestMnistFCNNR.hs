@@ -701,9 +701,9 @@ valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters RepN Double
 valsInitVTOPP =
   ( ( replicate 3 (RepN $ Nested.rfromList1Prim [1, 2, 3])
     , RepN $ Nested.rfromList1Prim [1, 2, 3] )
-  , ( replicate 4 (RepN $ Nested.rfromList1Prim [1, 2, 3, 4])
+  , ( replicate 4 (RepN $ Nested.rfromList1Prim [1, 2, 3])
     , RepN $ Nested.rfromList1Prim [1, 2, 3, 4] )
-  , ( replicate 5 (RepN $ Nested.rfromList1Prim [1, 2, 3, 4, 5])
+  , ( replicate 5 (RepN $ Nested.rfromList1Prim [1, 2, 3, 4])
     , RepN $ Nested.rfromList1Prim [1, 2, 3, 4, 5] ) )
 
 testVTOPP :: Assertion

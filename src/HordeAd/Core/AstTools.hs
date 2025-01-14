@@ -502,7 +502,8 @@ liftRFromS2 :: forall n x ms s.
 liftRFromS2 f (AstRFromS @shu u) (AstRFromS @shv v) =
   case sameShape @shu @shv of
     Just Refl -> AstRFromS $ f u v
-    Nothing -> error "liftRFromS2: shapes don't agree"
+    Nothing -> error $ "liftRFromS2: shapes don't agree: "
+                       ++ show (knownShS @shu) ++ " " ++ show (knownShS @shv)
 liftRFromS2 f a b  = case ftkAst a of
   FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x)
              , SNat <- shrRank sh' ->
@@ -533,7 +534,8 @@ liftXFromS2 :: forall sh' x ms s.
 liftXFromS2 f (AstXFromS @shu u) (AstXFromS @shv v) =
   case sameShape @shu @shv of
     Just Refl -> AstXFromS $ f u v
-    Nothing -> error "liftXFromS2: shapes don't agree"
+    Nothing -> error $ "liftXFromS2: shapes don't agree: "
+                       ++ show (knownShS @shu) ++ " " ++ show (knownShS @shv)
 liftXFromS2 f a b  = case ftkAst a of
   FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withKnownShX (ssxFromShape sh') $
