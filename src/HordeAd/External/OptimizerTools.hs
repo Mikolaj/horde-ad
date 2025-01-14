@@ -298,6 +298,26 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
            , p - (Nested.rreplicateScal sh (realToFrac alphat) * mANew)
                  / (sqrt vANew
                     + Nested.rreplicateScal sh (realToFrac epsilon)) )
+      updateS :: ( Floating r
+                 , Nested.NumElt r, Nested.FloatElt r, Nested.PrimElt r )
+              => Nested.Shaped sh r -> Nested.Shaped sh r
+              -> Nested.Shaped sh r -> Nested.Shaped sh r
+              -> (Nested.Shaped sh r, Nested.Shaped sh r, Nested.Shaped sh r)
+      updateS mA vA p g =
+        withKnownShS (Nested.sshape g) $
+        let sh = Nested.sshape g
+            mANew = Nested.sreplicateScal sh (realToFrac betaOne) * mA
+                    + Nested.sreplicateScal sh (realToFrac oneMinusBeta1) * g
+            vANew = Nested.sreplicateScal sh (realToFrac betaTwo) * vA
+                    + Nested.sreplicateScal sh (realToFrac oneMinusBeta2)
+                      * (g * g)
+            alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
+                             / (1 - betaOne ^ tAdamNew)
+        in ( mANew
+           , vANew
+           , p - (Nested.sreplicateScal sh (realToFrac alphat) * mANew)
+                 / (sqrt vANew
+                    + Nested.sreplicateScal sh (realToFrac epsilon)) )
       updateD :: DynamicTensor RepN -> DynamicTensor RepN
               -> DynamicTensor RepN -> DynamicTensor RepN
               -> ( DynamicTensor RepN
@@ -319,6 +339,24 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{tAdam, mAdam, vAdam}
                in ( DynamicRanked $ RepN od1
                   , DynamicRanked $ RepN od2
                   , DynamicRanked $ RepN od3 )
+             _ -> error "updateWithGradientAdam: type mismatch")
+          (emA, evA, ep)
+      updateD emA@(DynamicShaped @r1 @sh1 mA) evA@(DynamicShaped @r2 @sh2 vA)
+              ep@(DynamicShaped @r3 @sh3 p) (DynamicShaped @r4 @sh4 g) =
+        ifDifferentiable @r1
+          (case ( sameShape @sh1 @sh2
+                , sameShape @sh1 @sh3
+                , sameShape @sh1 @sh4
+                , testEquality (typeRep @r1) (typeRep @r2)
+                , testEquality (typeRep @r1) (typeRep @r3)
+                , testEquality (typeRep @r1) (typeRep @r4) ) of
+             ( Just Refl, Just Refl, Just Refl
+              ,Just Refl, Just Refl, Just Refl ) ->
+               let (od1, od2, od3) = updateS (unRepN mA) (unRepN vA)
+                                             (unRepN p) (unRepN g)
+               in ( DynamicShaped $ RepN od1
+                  , DynamicShaped $ RepN od2
+                  , DynamicShaped $ RepN od3 )
              _ -> error "updateWithGradientAdam: type mismatch")
           (emA, evA, ep)
       updateD emA evA ep _ =
