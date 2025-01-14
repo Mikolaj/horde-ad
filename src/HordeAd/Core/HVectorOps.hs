@@ -584,23 +584,35 @@ dynamicFromVoid (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
 
 fromDynamicR :: forall r n target.
                 (GoodScalar r, KnownNat n)
-             => (IShR n -> target (TKR n r)) -> DynamicTensor target
+             => (IShR n -> target (TKR n r))
+             -> (forall sh. KnownShS sh
+                 => target (TKS sh r) -> target (TKR (Rank sh) r))
+             -> DynamicTensor target
              -> target (TKR n r)
-fromDynamicR zero = \case
+fromDynamicR zero fromS = \case
   DynamicRanked @r2 @n2 t -> case sameNat (Proxy @n2) (Proxy @n) of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> t
       _ -> error $ "fromDynamicR: scalar mismatch in "
                    ++ show (typeRep @r2, typeRep @r)
     _ -> error "fromDynamicR: rank mismatch"
-  DynamicShaped{} -> error "fromDynamicR: ranked from shaped"
+  DynamicShaped @r2 @sh2 t -> case matchingRank @sh2 @n of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> fromS t
+      _ -> error "fromDynamicS: scalar mismatch"
+    _ -> error "fromDynamicS: shape mismatch"
   DynamicRankedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> let sh2 = fromList $ toList $ knownShS @sh2
                    in zero sh2
       _ -> error "fromDynamicR: scalar mismatch"
     _ -> error "fromDynamicR: shape mismatch"
-  DynamicShapedDummy{} -> error "fromDynamicR: ranked from shaped"
+  DynamicShapedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> let sh2 = fromList $ toList $ knownShS @sh2
+                   in zero sh2
+      _ -> error "fromDynamicS: scalar mismatch"
+    _ -> error "fromDynamicS: shape mismatch"
 
 fromDynamicS :: forall r sh target.
                 (GoodScalar r, KnownShS sh)

@@ -33,6 +33,7 @@ import Data.Array.Nested
   , IxX (..)
   , StaticShX(..)
   , ShX (..)
+  , ShS (..)
   , KnownShS (..)
   , KnownShX (..)
   , Rank
@@ -168,10 +169,15 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
          => AdaptableHVector (ADVal target)
                              (AsHVector (ADVal target (TKR n r))) where
   type X (AsHVector (ADVal target (TKR n r))) = TKUntyped
-  toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
+  toHVectorOf (AsHVector v) = case tftk (STKR (SNat @n)
+                                              (STKScalar $ typeRep @r)) v of
+    FTKR sh' _ ->
+      withCastRS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @_ @sh $ v
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
-      Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
+      Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
     Nothing -> Nothing
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
@@ -216,13 +222,24 @@ instance ( a ~ target (TKR n r), BaseTensor target
 -}
   type X [a] = TKUntyped
   toHVectorOf =
-    dmkHVector . V.concat
-    . map (dunHVector . toHVectorOf . DynamicRanked)
+    let toH :: target (TKR n r) -> DynamicTensor target
+        toH v = case tftk (STKR (SNat @n)
+                          (STKScalar $ typeRep @r)) v of
+          FTKR sh' _ ->
+            withCastRS sh' $ \(sh :: ShS sh) ->
+              withKnownShS sh $
+              DynamicShaped . sfromR @_ @_ @sh $ v
+    in dmkHVector . V.concat
+       . map (dunHVector . toHVectorOf . toH)
   fromHVector lInit source =
-    let f (!lAcc, !restAcc) !aInit =
-          case fromHVector (DynamicRanked aInit) restAcc of
-            Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe (dmkHVector V.empty) mrest)
-            _ -> error "fromHVector: Nothing"
+    let f (!lAcc, !restAcc) !aInit = case tftk (STKR (SNat @n)
+                                               (STKScalar $ typeRep @r)) aInit of
+          FTKR sh' _ ->
+            withCastRS sh' $ \(sh :: ShS sh) ->
+              withKnownShS sh $
+              case fromHVector (DynamicShaped $ sfromR @_ @_ @sh aInit) restAcc of
+                Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe (dmkHVector V.empty) mrest)
+                _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
         !rl = reverse l
     in Just (rl, if nullRep restAll then Nothing else Just restAll)

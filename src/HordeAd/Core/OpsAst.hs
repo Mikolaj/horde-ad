@@ -25,6 +25,7 @@ import GHC.TypeLits (KnownNat, Nat, type (+))
 import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Type.Ord (Compare)
+import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++), Product, Rank, IShR, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
@@ -207,11 +208,16 @@ instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s), AstSp
       (KnownNat n, AstSpan s)
       => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR n Double))) #-}
   type X (AsHVector (AstTensor AstMethodLet s (TKR n r))) = TKUntyped
-  toHVectorOf = dmkHVector . V.singleton . DynamicRanked . unAsHVector
+  toHVectorOf (AsHVector v) = case tftk (STKR (SNat @n)
+                                              (STKScalar $ typeRep @r)) v of
+    FTKR sh' _ ->
+      withCastRS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @_ @sh $ v
   fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
     case V.uncons $ dunHVector params of
       Just (dynamic, rest) ->
-        Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
+        Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
       Nothing -> Nothing
 
 instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstSpan s)

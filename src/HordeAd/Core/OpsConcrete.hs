@@ -30,6 +30,7 @@ import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import System.Random
 import Unsafe.Coerce (unsafeCoerce)
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
@@ -747,10 +748,15 @@ instance (GoodScalar r, KnownNat n)
       KnownNat n
       => AdaptableHVector RepN (AsHVector (RepN (TKR n Double))) #-}
   type X (AsHVector (RepN (TKR n r))) = TKUntyped
-  toHVectorOf = RepN . V.singleton . DynamicRanked . unAsHVector
+  toHVectorOf (AsHVector v) = case tftk (STKR (SNat @n)
+                                              (STKScalar $ typeRep @r)) v of
+    FTKR sh' _ ->
+      withCastRS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @_ @sh $ v
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
-      Just (AsHVector $ fromDynamicR rzero dynamic, Just $ dmkHVector rest)
+      Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
     Nothing -> Nothing
 
 instance ForgetShape (RepN (TKR n r)) where

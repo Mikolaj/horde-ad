@@ -2726,7 +2726,7 @@ astProjectR
   -> AstTensor AstMethodLet s (TKR n r)
 astProjectR l p = case l of
   Ast.AstMkHVector l3 ->
-    fromDynamicR (\sh -> astReplicate0N sh 0) (l3 V.! p)
+    fromDynamicR (\sh -> astReplicate0N sh 0) undefined (l3 V.! p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectR d2 p)
   Ast.AstLetHVectorIn vars d1 d2 ->
