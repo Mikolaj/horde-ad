@@ -302,14 +302,13 @@ fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
 fooRrev (x, y, z) =
   let fHVector :: forall f. ADReady f => f TKUntyped -> f (TKR 0 a)
       fHVector v = foo (rfromD $ dunHVector v V.! 0, rfromD $ dunHVector v V.! 1, rfromD $ dunHVector v V.! 2)
-      sh = []
-      zero = voidFromSh @a @0 sh
+      zero = voidFromShS @a @'[]
       shapes = V.fromList [zero, zero, zero]
       domsOf = rrev @g fHVector (FTKUntyped shapes)
                     (dmkHVector $ V.fromList
-                       [ DynamicRanked $ rconcrete @g $ Nested.rscalar x
-                       , DynamicRanked $ rconcrete @g $ Nested.rscalar y
-                       , DynamicRanked $ rconcrete @g $ Nested.rscalar z ])
+                       [ DynamicShaped $ sconcrete @g $ Nested.sscalar x
+                       , DynamicShaped $ sconcrete @g $ Nested.sscalar y
+                       , DynamicShaped $ sconcrete @g $ Nested.sscalar z ])
   in ( tlet @_ @TKUntyped domsOf (\v -> rfromD $ dunHVector v V.! 0)
      , tlet @_ @TKUntyped domsOf (\v -> rfromD $ dunHVector v V.! 1)
      , tlet @_ @TKUntyped domsOf (\v -> rfromD $ dunHVector v V.! 2) )
@@ -3251,7 +3250,7 @@ testSin0ScanDFwdPP = do
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
   resetVarCounter
-  let a1 = rrev2 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
+  let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
                          (V.fromList [voidFromSh @Double ZSR])
                          x0 (V.singleton $ DynamicRanked
@@ -3273,7 +3272,7 @@ testSin0ScanDFwd2PP = do
 testSin0ScanD1Rev22PP :: Assertion
 testSin0ScanD1Rev22PP = do
   resetVarCounter
-  let a1 = rrev2 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @2
+  let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @2
                  (\x0 -> rbuild1 2 $ \k ->
        rscanZip (\x a -> sin x - rfromD (a V.! 0))
                 (V.fromList [voidFromShS @Double @'[]])

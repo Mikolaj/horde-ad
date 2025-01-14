@@ -3,12 +3,11 @@
 module CrossTesting
   ( rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c
-  , rrev1, rrev2, rfwd1, srev1, sfwd1
+  , rrev1, rfwd1, srev1, sfwd1
   ) where
 
 import Prelude
 
-import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
 import Test.Tasty.HUnit hiding (assert)
 
@@ -472,20 +471,6 @@ rrev1 :: forall g r n m r3.
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
 rrev1 f u = rrev f (tftk stensorKind u) u
-
-rrev2 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
-      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
-      -> g (TKR n r)
-rrev2 f u =
-  let fHVector :: forall f. ADReady f => f TKUntyped -> f (TKR m r3)
-      fHVector v = f (rfromD $ dunHVector v V.! 0)
-      sh = rshape u
-      zero = voidFromSh @r @n sh
-      shapes = V.fromList [zero]
-      domsOf =
-        rrev @g fHVector (FTKUntyped shapes) (dmkHVector $ V.singleton $ DynamicRanked u)
-  in tlet @_ @TKUntyped domsOf (\v -> rfromD $ dunHVector v V.! 0)
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
