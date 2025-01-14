@@ -47,7 +47,7 @@ module HordeAd.Core.AstSimplify
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Control.Monad (mapAndUnzipM)
+import Control.Monad (mapAndUnzipM, mplus)
 import Data.Default
 import Data.Functor.Const
 import Data.GADT.Compare
@@ -665,11 +665,11 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
   Ast.AstCastR t -> astCastR $ astIndexKnobsR knobs t ix
   Ast.AstFromIntegralR v -> astFromIntegralR $ astIndexKnobsR knobs v ix
   AstConcrete (FTKR _ x) t ->
-    let unConst :: AstInt AstMethodLet -> Maybe [IntOf RepN]
-                -> Maybe [IntOf RepN]
-        unConst (AstConcrete _ i) (Just l) = Just $ i : l
-        unConst _ _ = Nothing
-    in case foldr unConst (Just []) ix of
+    let unConc :: AstInt AstMethodLet -> Maybe [IntOf RepN]
+               -> Maybe [IntOf RepN]
+        unConc (AstConcrete _ i) (Just l) = Just $ i : l
+        unConc _ _ = Nothing
+    in case foldr unConc (Just []) ix of
       Just ixInt ->
         let u = rindex t (fromList ixInt)
         in astConcrete (FTKR (rshape u) x) u
@@ -814,11 +814,11 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       astIndex (astLet var2 i1 v) rest1
   Ast.AstLet var u v -> astLet var u (astIndexRec v ix)
   AstConcrete (FTKS _ x) t ->
-    let unConst :: AstInt AstMethodLet -> Maybe [IntOf RepN]
-                -> Maybe [IntOf RepN]
-        unConst (AstConcrete _ i) (Just l) = Just $ i : l
-        unConst _ _ = Nothing
-    in case foldr unConst (Just []) ix of
+    let unConc :: AstInt AstMethodLet -> Maybe [IntOf RepN]
+               -> Maybe [IntOf RepN]
+        unConc (AstConcrete _ i) (Just l) = Just $ i : l
+        unConc _ _ = Nothing
+    in case foldr unConc (Just []) ix of
       Just ixInt -> astConcrete (FTKS knownShS x)
                     $ sindex @_ @_ @shm t (fromList ixInt)
         -- TODO: we'd need mapM for Index to keep this rank-typed
@@ -2133,66 +2133,74 @@ astFromVector :: forall y k s. (TensorKind y, AstSpan s)
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astFromVector snat v | Just Refl <- geq snat (SNat @1) =
   astReplicate (SNat @1) stensorKind (v V.! 0)
-astFromVector snat l | Just Refl <- sameAstSpan @s @PrimalSpan =
-  let unConst :: AstTensor AstMethodLet PrimalSpan y
-              -> Maybe (FullTensorKind y, RepN y)
-      unConst (AstConcrete ftk t) = Just (ftk, t)
-      unConst _ = Nothing
-  in case V.mapM unConst l of
-    Just l4 | V.null l4 -> error "astFromVector: empty vector"
-    Just l4 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-      let l3 = V.map snd l4
-      in astConcrete (buildFTK snat $ fst $ l4 V.! 0)
-         $ tfromVector snat stensorKind l3
-    _ -> Ast.AstFromVector snat l
-astFromVector snat l | Just Refl <- sameAstSpan @s @FullSpan =
-  let unFromPrimal :: AstTensor AstMethodLet FullSpan y
-                   -> Maybe (AstTensor AstMethodLet PrimalSpan y)
-      unFromPrimal (Ast.AstFromPrimal t) = Just t
-      unFromPrimal _ = Nothing
-  in case V.mapM unFromPrimal l of
-    Just l2 | V.null l2 -> error "astFromVector: empty vector"
-    Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-      Ast.AstFromPrimal $ astFromVector snat l2
-    Nothing -> Ast.AstFromVector snat l
-astFromVector snat@SNat l | STKR{} <- stensorKind @y =
-  let unFrom :: forall sh x. KnownShS sh
-             => AstTensor AstMethodLet s (TKR2 (Rank sh) x)
-             -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
-      unFrom (Ast.AstRFromS @sh2 t) = case sameShape @sh2 @sh of
-        Just Refl -> Just t
-        Nothing -> error "astFromVector: impossible shape"
-      unFrom _ = Nothing
-  in case V.uncons l of
-    Just (v, _) -> case ftkAst v of
-      FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-        withCastRS sh' $ \(sh :: ShS sh) ->
-          withKnownShS sh $
-          case V.mapM (unFrom @sh) l of
-            Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-              astRFromS @(k ': sh) $ astFromVector snat l2
-            Nothing -> Ast.AstFromVector snat l
-    Nothing -> error "astFromVector: empty vector"
-astFromVector snat@SNat l | STKX{} <- stensorKind @y =
-  let unFrom :: forall sh sh' x. KnownShS sh
-             => AstTensor AstMethodLet s (TKX2 sh' x)
-             -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
-      unFrom (Ast.AstXFromS @sh2 t) = case sameShape @sh2 @sh of
-        Just Refl -> Just t
-        Nothing -> error "astFromVector: impossible shape"
-      unFrom _ = Nothing
-  in case V.uncons l of
-    Just (v, _) -> case ftkAst v of
-      FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-        withCastXS sh' $ \(sh :: ShS sh) ->
-          withKnownShX (ssxFromShape sh') $
-          withKnownShS sh $
-          case V.mapM (unFrom @sh) l of
-            Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-              astXFromS @(k ': sh) $ astFromVector snat l2
-            Nothing -> Ast.AstFromVector snat l
-    Nothing -> error "astFromVector: empty vector"
-astFromVector snat l = Ast.AstFromVector snat l
+astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
+  (case sameAstSpan @s @PrimalSpan of
+     Just Refl ->
+       let unConc :: AstTensor AstMethodLet PrimalSpan y
+                  -> Maybe (FullTensorKind y, RepN y)
+           unConc (AstConcrete ftk t) = Just (ftk, t)
+           unConc _ = Nothing
+       in case V.mapM unConc l of
+         Just l4 | V.null l4 -> error "astFromVector: empty vector"
+         Just l4 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+           let l3 = V.map snd l4
+           in Just $ astConcrete (buildFTK snat $ fst $ l4 V.! 0)
+              $ tfromVector snat stensorKind l3
+         Nothing -> Nothing
+     _ -> Nothing)
+  `mplus`
+  (case sameAstSpan @s @FullSpan of
+     Just Refl ->
+       let unFromPrimal :: AstTensor AstMethodLet FullSpan y
+                        -> Maybe (AstTensor AstMethodLet PrimalSpan y)
+           unFromPrimal (Ast.AstFromPrimal t) = Just t
+           unFromPrimal _ = Nothing
+       in case V.mapM unFromPrimal l of
+         Just l2 | V.null l2 -> error "astFromVector: empty vector"
+         Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+           Just $ Ast.AstFromPrimal $ astFromVector snat l2
+         Nothing -> Nothing
+     _ -> Nothing)
+  `mplus`
+  (case stensorKind @y of
+     STKR{} ->
+       let unFrom :: forall sh x. KnownShS sh
+                  => AstTensor AstMethodLet s (TKR2 (Rank sh) x)
+                  -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
+           unFrom (Ast.AstRFromS @sh2 t) = case sameShape @sh2 @sh of
+             Just Refl -> Just t
+             Nothing -> error "astFromVector: impossible shape"
+           unFrom _ = Nothing
+       in case V.uncons l of
+         Just (v, _) -> case ftkAst v of
+           FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+             withCastRS sh' $ \(sh :: ShS sh) ->
+               withKnownShS sh $
+               case V.mapM (unFrom @sh) l of
+                 Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+                   Just $ astRFromS @(k ': sh) $ astFromVector snat l2
+                 Nothing -> Nothing
+         Nothing -> error "astFromVector: empty vector"
+     STKX{} ->
+       let unFrom :: forall sh sh' x. KnownShS sh
+                  => AstTensor AstMethodLet s (TKX2 sh' x)
+                  -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
+           unFrom (Ast.AstXFromS @sh2 t) = case sameShape @sh2 @sh of
+             Just Refl -> Just t
+             Nothing -> error "astFromVector: impossible shape"
+           unFrom _ = Nothing
+       in case V.uncons l of
+         Just (v, _) -> case ftkAst v of
+           FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+             withCastXS sh' $ \(sh :: ShS sh) ->
+               withKnownShX (ssxFromShape sh') $
+               withKnownShS sh $
+               case V.mapM (unFrom @sh) l of
+                 Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+                   Just $ astXFromS @(k ': sh) $ astFromVector snat l2
+                 Nothing -> Nothing
+         Nothing -> error "astFromVector: empty vector"
+     _ -> Nothing)
 
 astSum :: forall y k s. AstSpan s
        => SNat k -> STensorKindType y
