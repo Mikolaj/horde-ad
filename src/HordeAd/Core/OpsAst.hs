@@ -492,7 +492,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKProduct (FTKR sh' _) (FTKR _ _) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astLetFunNoSimplify a $ \a3 ->  -- TODO: why no simplify? and below
+        astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
           in astRFromS @sh
              $ AstZipS $ astPair (astSFromR @sh a31)
@@ -501,7 +501,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astLetFunNoSimplify (AstUnzipS $ astSFromR @sh a) $ \b3 ->
+        astLetFun (AstUnzipS $ astSFromR @sh a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
           in astPair (astRFromS @sh b31)
                      (astRFromS @sh b32)
@@ -724,7 +724,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astLetFunNoSimplify a $ \a3 ->
+        astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
           in astXFromS @sh @sh'
              $ AstZipS $ astPair (astSFromX @sh @sh' a31)
@@ -733,7 +733,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astLetFunNoSimplify (AstUnzipS $ astSFromX @sh @sh' a) $ \b3 ->
+        astLetFun (AstUnzipS $ astSFromX @sh @sh' a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
           in astPair (astXFromS @sh @sh' b31)
                      (astXFromS @sh @sh' b32)

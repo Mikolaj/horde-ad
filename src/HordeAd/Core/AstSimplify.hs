@@ -2051,12 +2051,20 @@ astConcrete ftk v = case ftk of
   _ -> AstConcrete ftk v
 
 astCond :: TensorKind y
-        => AstBool ms -> AstTensor ms s y -> AstTensor ms s y -> AstTensor ms s y
+        => AstBool AstMethodLet
+        -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
+        -> AstTensor AstMethodLet s y
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
--- TODO: astCond b (Ast.AstRFromS v) (Ast.AstRFromS w) = astRFromS $ astCond b v w
--- TODO: astCond b (Ast.AstXFromS v) (Ast.AstXFromS w) = astXFromS $ astCond b v w
+astCond b (Ast.AstRFromS @sh1 v) (Ast.AstRFromS @sh2 w) =
+  case sameShape @sh1 @sh2 of
+    Just Refl -> astRFromS $ astCond b v w
+    Nothing -> error "astCond: shapes don't match"
+astCond b (Ast.AstXFromS @sh1 v) (Ast.AstXFromS @sh2 w) =
+  case sameShape @sh1 @sh2 of
+    Just Refl -> astXFromS $ astCond b v w
+    Nothing -> error "astCond: shapes don't match"
 astCond b v w = Ast.AstCond b v w
 
 astSumOfList :: AstSpan s
@@ -2147,17 +2155,43 @@ astFromVector snat l | Just Refl <- sameAstSpan @s @FullSpan =
     Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
       Ast.AstFromPrimal $ astFromVector snat l2
     Nothing -> Ast.AstFromVector snat l
-{- TODO:
-astFromVector snat l | STKR{} <- stensorKind @y =
-  let unFrom :: AstTensor AstMethodLet s (TKR2 (Rank sh) x)
+astFromVector snat@SNat l | STKR{} <- stensorKind @y =
+  let unFrom :: forall sh x. KnownShS sh
+             => AstTensor AstMethodLet s (TKR2 (Rank sh) x)
              -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
-      unFrom (Ast.AstRFromS t) = Just t
+      unFrom (Ast.AstRFromS @sh2 t) = case sameShape @sh2 @sh of
+        Just Refl -> Just t
+        Nothing -> error "astFromVector: impossible shape"
       unFrom _ = Nothing
-  in case V.mapM unFrom l of
-    Just l2 | V.null l2 -> error "astFromVector: empty vector"
-    Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-      astRFromS $ astFromVector snat l2
-    Nothing -> Ast.AstFromVector snat l -}
+  in case V.uncons l of
+    Just (v, _) -> case ftkAst v of
+      FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+        withCastRS sh' $ \(sh :: ShS sh) ->
+          withKnownShS sh $
+          case V.mapM (unFrom @sh) l of
+            Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+              astRFromS @(k ': sh) $ astFromVector snat l2
+            Nothing -> Ast.AstFromVector snat l
+    Nothing -> error "astFromVector: empty vector"
+astFromVector snat@SNat l | STKX{} <- stensorKind @y =
+  let unFrom :: forall sh sh' x. KnownShS sh
+             => AstTensor AstMethodLet s (TKX2 sh' x)
+             -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
+      unFrom (Ast.AstXFromS @sh2 t) = case sameShape @sh2 @sh of
+        Just Refl -> Just t
+        Nothing -> error "astFromVector: impossible shape"
+      unFrom _ = Nothing
+  in case V.uncons l of
+    Just (v, _) -> case ftkAst v of
+      FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+        withCastXS sh' $ \(sh :: ShS sh) ->
+          withKnownShX (ssxFromShape sh') $
+          withKnownShS sh $
+          case V.mapM (unFrom @sh) l of
+            Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+              astXFromS @(k ': sh) $ astFromVector snat l2
+            Nothing -> Ast.AstFromVector snat l
+    Nothing -> error "astFromVector: empty vector"
 astFromVector snat l = Ast.AstFromVector snat l
 
 astSum :: forall y k s. AstSpan s
@@ -2857,7 +2891,8 @@ astXFromS :: forall sh sh' s r.
              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
           => AstTensor AstMethodLet s (TKS2 sh r)
           -> AstTensor AstMethodLet s (TKX2 sh' r)
--- impossible, shapes may differ: astXFromS (Ast.AstSFromX v) = v
+astXFromS (Ast.AstSFromX @_ @sh2 v)
+  | Just Refl <- testEquality (knownShX @sh2) (knownShX @sh') = v
 astXFromS v = Ast.AstXFromS v
 
 astXNestR
