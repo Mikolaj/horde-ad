@@ -36,9 +36,9 @@ import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
 import Data.Strict.Vector qualified as Data.Vector
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
+import GHC.TypeLits (KnownNat, type (+), type (<=))
 import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
@@ -127,10 +127,8 @@ dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
 dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
 
 voidFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
-voidFromVar (AstDynamicVarName @ty @rD @shD _) =
-  case testEquality (typeRep @ty) (typeRep @Nat) of
-    Just Refl -> DynamicRankedDummy @rD @shD Proxy Proxy
-    _ -> DynamicShapedDummy @rD @shD Proxy Proxy
+voidFromVar (AstDynamicVarName @_ @rD @shD _) =
+  DynamicShapedDummy @rD @shD Proxy Proxy
 
 voidFromVars :: [AstDynamicVarName] -> VoidHVector
 voidFromVars = V.fromList . map voidFromVar
