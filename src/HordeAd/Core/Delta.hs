@@ -190,12 +190,12 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
           let toDynamicTensor :: Some (RepM target)
                               -> DynamicTensor target
               toDynamicTensor (Some b) = case b of
-                MTKScalar @r t -> DynamicRanked @r @0 $ rfromScalar t
+                MTKScalar @r t -> DynamicShaped @r @'[] $ sfromScalar t
                 MTKR @y @n t | STKScalar @r _ <- stensorKind @y ->
                   DynamicRanked @r @n t
                 MTKS @y @sh t | STKScalar @r _ <- stensorKind @y ->
                   DynamicShaped @r @sh t
-                MTKScalarDummy @r -> DynamicRankedDummy @r @'[] Proxy Proxy
+                MTKScalarDummy @r -> DynamicShapedDummy @r @'[] Proxy Proxy
                 MTKRDummy shr ftk | SNat <- shrRank shr
                                   , STKScalar @r _ <- ftkToStk ftk ->
                   withCastRS shr $ \(sh :: ShS sh) ->
@@ -273,7 +273,7 @@ evalRepM = \case
   MTKScalar t -> t
   MTKR t -> t
   MTKS t -> t
-  MTKScalarDummy -> rtoScalar $ rscalar 0
+  MTKScalarDummy -> stoScalar $ sscalar 0
   MTKRDummy shr ftk -> constantTarget 0 (FTKR shr ftk)
   MTKSDummy sh ftk -> constantTarget 0 (FTKS sh ftk)
 
@@ -303,7 +303,7 @@ addRepM :: forall target y. ADReadyNoLet target
         => RepM target y -> RepM target y -> RepM target y
 addRepM a b = case (a, b) of
   (MTKScalar ta, MTKScalar tb) ->
-    MTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
+    MTKScalar $ stoScalar $ sfromScalar ta + sfromScalar tb
   (MTKR ta, MTKR tb) | STKR _ STKScalar{} <- stensorKind @y -> MTKR $ ta + tb
   (MTKR ta, MTKR tb) -> MTKR $ addTarget stensorKind ta tb
   (MTKScalarDummy, _) -> b
