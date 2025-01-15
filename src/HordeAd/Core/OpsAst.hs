@@ -1698,10 +1698,10 @@ deriving instance (RealFloatF (AstTensor AstMethodLet s y))
                   => RealFloatF (AstNoSimplify s y)
 
 astLetFunNoSimplify
-  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
-  => AstTensor AstMethodLet s x
-  -> (AstTensor AstMethodLet s x -> AstTensor AstMethodLet s z)
-  -> AstTensor AstMethodLet s z
+  :: forall y z s s2. (TensorKind z, AstSpan s)
+  => AstTensor AstMethodLet s y
+  -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
+  -> AstTensor AstMethodLet s2 z
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case ftkAst a of
@@ -1712,9 +1712,16 @@ astLetFunNoSimplify a f = case ftkAst a of
       let (var, ast) = funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x2))
       in AstLet var (AstSFromR @sh a) ast
            -- safe, because subsitution ruled out above
-  -- TODO: also mixed and maybe recursively product
-  ftk -> let (var, ast) = funToAst ftk f
-         in AstLet var a ast  -- safe, because subsitution ruled out above
+  FTKX @_ @x sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withCastXS sh' $ \(sh :: ShS sh) ->
+      withKnownShX (ssxFromShape sh') $
+      withKnownShS sh $
+      let (var, ast) = funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x))
+      in AstLet var (AstSFromX @sh a) ast
+  -- TODO: also recursively product
+  ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
+        let (var, ast) = funToAst ftk f
+        in AstLet var a ast
 
 unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstTensor AstMethodLet s)
 unNoSimplifyHVector =
@@ -2196,7 +2203,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         withKnownShS sh $
         AstNoSimplify $ AstFromS @(TKS2 sh x) $ AstSFromX @sh @sh' a
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
-  sfromX  = AstNoSimplify . AstSFromX . unAstNoSimplify
+  sfromX = AstNoSimplify . AstSFromX . unAstNoSimplify
   xfromR (AstNoSimplify a) = case ftkAst a of
     FTKR @_ @x shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->

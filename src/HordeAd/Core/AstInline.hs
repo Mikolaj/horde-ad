@@ -21,7 +21,9 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
-import Data.Array.Nested.Internal.Shape (shrRank)
+import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
+import Data.Array.Nested (ShS (..))
+import Data.Array.Nested.Internal.Shape (shrRank, withKnownShS)
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -492,13 +494,36 @@ unshareAst memo = \case
   Ast.AstBuild1 snat (var, v) ->
     let (memo1, v2) = unshareAstScoped [var] memo v
     in (memo1, Ast.AstBuild1 snat (var, v2))
-  Ast.AstShare var v | Just Refl <- sameAstSpan @s @PrimalSpan ->
+  Ast.AstShare varRaw v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
-    let astVar = Ast.AstVar (ftkAst v) var
-    in if var `DMap.member` memo
-       then (memo, astVar)  -- TODO: memoize AstVar itself
-       else let (memo1, v2) = unshareAst memo v
-            in (DMap.insert var v2 memo1, astVar)
+    case ftkAst v of
+      FTKR @_ @x sh' x | SNat <- shrRank sh'
+                       , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+        withCastRS sh' $ \(sh :: ShS sh) ->
+          withKnownShS sh $
+          let var = mkAstVarName $ varNameToAstVarId varRaw
+              astVar = Ast.AstFromS @(TKS2 sh x) $ Ast.AstVar (FTKS sh x) var
+          in if var `DMap.member` memo
+             then (memo, astVar)
+             else let (memo1, v2) = unshareAst memo (Ast.AstSFromR @sh v)
+                  in (DMap.insert var v2 memo1, astVar)
+      FTKX @_ @x sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+        withCastXS sh' $ \(sh :: ShS sh) ->
+          withKnownShX (ssxFromShape sh') $
+          withKnownShS sh $
+          let var = mkAstVarName $ varNameToAstVarId varRaw
+              astVar = Ast.AstFromS @(TKS2 sh x) $ Ast.AstVar (FTKS sh x) var
+          in if var `DMap.member` memo
+             then (memo, astVar)
+             else let (memo1, v2) = unshareAst memo (Ast.AstSFromX @sh v)
+                  in (DMap.insert var v2 memo1, astVar)
+      -- TODO: also recursively product
+      ftk -> let var = varRaw
+                 astVar = Ast.AstVar ftk var
+             in if var `DMap.member` memo
+                then (memo, astVar)  -- TODO: memoize AstVar itself
+                else let (memo1, v2) = unshareAst memo v
+                     in (DMap.insert var v2 memo1, astVar)
   Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
 
