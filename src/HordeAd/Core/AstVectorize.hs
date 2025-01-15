@@ -30,6 +30,7 @@ import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
+  , IShX
   , IxR (..)
   , IxS (..)
   , KnownShS (..)
@@ -43,6 +44,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested.Internal.Shape
   ( shCvtSX
+  , shrRank
   , shsAppend
   , shsLength
   , shsPermutePrefix
@@ -666,10 +668,21 @@ build1VOccurenceUnknownDynamic SNat (var, d) = case d of
 
 -- * Auxiliary machinery
 
-astTr :: forall n s r. (KnownNat n, TensorKind r, AstSpan s)
+astTr :: forall n s r. (TensorKind r, AstSpan s)
       => AstTensor AstMethodLet s (TKR2 (2 + n) r)
       -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
-astTr = astTranspose [1, 0]
+astTr a = case ftkAst a of
+  FTKR @_ @x sh' _  | SNat <- shrRank sh' ->
+    withCastRS sh' $ \(sh :: ShS sh) ->
+      Permutation.permFromList [1, 0] $ \(perm :: Permutation.Perm perm) ->
+        gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
+        trustMeThisIsAPermutation @perm $
+        case shsPermutePrefix perm sh of
+          (sh2 :: ShS sh2) ->
+            withKnownShS sh $
+            withKnownShS sh2 $
+            gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
+            astFromS @(TKS2 sh2 x) . astTransposeS perm . astSFromR @sh $ a
 
 astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, TensorKind r, AstSpan s)
@@ -678,11 +691,23 @@ astTrS :: forall n m sh s r.
 astTrS | SNat <- shsRank (knownShS @sh) =
   astTransposeS (Permutation.makePerm @'[1, 0])
 
-astTrX :: forall n m sh s r.
---          (KnownNat n, KnownNat m, KnownShX sh, GoodScalar r, AstSpan s)
-          AstTensor AstMethodLet s (TKX2 (Just n ': Just m ': sh) r)
-       -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': sh) r)
-astTrX = error "TODO"
+astTrX :: forall n m shx s r.
+          (KnownNat n, KnownNat m, KnownShX shx, TensorKind r, AstSpan s)
+       => AstTensor AstMethodLet s (TKX2 (Just n ': Just m ': shx) r)
+       -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': shx) r)
+astTrX a = case Permutation.makePerm @'[1, 0] of
+  (perm :: Permutation.Perm perm) -> case ftkAst a of
+    FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
+      (sh2' :: IShX sh2') ->
+        withKnownShX (ssxFromShape sh2') $
+        withCastXS sh' $ \(sh :: ShS sh) ->
+        withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+          gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
+          withKnownShS sh $
+          withKnownShS sh2 $
+          gcastWith (unsafeCoerceRefl
+                     :: Permutation.PermutePrefix perm sh :~: sh2) $
+          astFromS @(TKS2 sh2 x) . astTransposeS perm . astSFromX @sh @sh' $ a
 
 astTrDynamic :: AstSpan s
              => DynamicTensor (AstTensor AstMethodLet s)
@@ -697,6 +722,7 @@ astTrDynamic t@(DynamicShaped @_ @sh u) | SNat @n <- shsRank (knownShS @sh) =
     LTI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
                                           (knownShS @sh)) $
            DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
+             -- using astTrS here would require a few lines of type reasoning
     EQI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
                                           (knownShS @sh)) $
            DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
