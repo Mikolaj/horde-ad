@@ -459,7 +459,7 @@ build1V snat@SNat (var, v0) =
      , Refl <- lemBuildOfAD snat (stensorKind @bShs)
      , Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
       astLetFun
-        (Ast.AstMapAccumRDer
+        (astMapAccumRDer
            k5
            (buildFTK snat accShs)
            (buildFTK snat bShs)
@@ -491,7 +491,7 @@ build1V snat@SNat (var, v0) =
      , Refl <- lemBuildOfAD snat (stensorKind @bShs)
      , Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
       astLetFun
-        (Ast.AstMapAccumLDer
+        (astMapAccumLDer
            k5
            (buildFTK snat accShs)
            (buildFTK snat bShs)

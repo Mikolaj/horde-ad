@@ -861,9 +861,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ simplifyInline derivative
     in AstLambda (varP, ftk2, ast)
   dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+    astMapAccumRDer k accShs bShs eShs f df rf acc0 es
   dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+    astMapAccumLDer k accShs bShs eShs f df rf acc0 es
 
 
 -- * The AstRaw instances
@@ -1671,14 +1671,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
-  dmapAccumRDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-      AstNoVectorize $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoVectorize acc0) (unAstNoVectorize es)
-  dmapAccumLDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-      AstNoVectorize $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoVectorize acc0) (unAstNoVectorize es)
+  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    AstNoVectorize $ dmapAccumRDer Proxy k accShs bShs eShs f df rf
+                       (unAstNoVectorize acc0) (unAstNoVectorize es)
+  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    AstNoVectorize $ dmapAccumLDer Proxy k accShs bShs eShs f df rf
+                       (unAstNoVectorize acc0) (unAstNoVectorize es)
 
 
 -- * The AstNoSimplify instances
