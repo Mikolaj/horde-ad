@@ -1927,6 +1927,8 @@ astPair :: (TensorKind x, TensorKind y)
 --   Ast.AstConcrete (v1, v2)
 astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
   Ast.AstFromPrimal $ astPair v1 v2
+astPair (Ast.AstFromS v1) (Ast.AstFromS v2) =
+  Ast.AstFromS $ astPair v1 v2
 astPair v1 v2 = Ast.AstPair v1 v2
 
 -- Inlining works for this let constructor, because it has just one variable,
@@ -2243,7 +2245,7 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
                                   , Dict <- lemTensorKindOfSTK (STKS rest x) ->
           astFromS @(TKS2 rest x) $ astSum snat (STKS rest x) v
         _ -> error "astSum: impossible shape"
-      _ -> Ast.AstSum snat stk t0  -- TODO
+      _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
     _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall k y s. AstSpan s
@@ -2722,6 +2724,11 @@ astProject1 u = case u of
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
 -- TODO: Ast.AstConcrete u1 -> astConcrete $ tproject1 u1
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
+  Ast.AstFromS @y u1 -> case stensorKind @y of
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                         , Dict <- lemTensorKindOfSTK stk2 ->
+      Ast.AstFromS $ astProject1 u1
+    _ -> error "astProject1: wrong tensor kind"
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
   _ -> Ast.AstProject1 u
 
@@ -2733,6 +2740,11 @@ astProject2 u = case u of
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
+  Ast.AstFromS @y u1 -> case stensorKind @y of
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                         , Dict <- lemTensorKindOfSTK stk2 ->
+      Ast.AstFromS $ astProject2 u1
+    _ -> error "astProject2: wrong tensor kind"
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
   _ -> Ast.AstProject2 u
 
