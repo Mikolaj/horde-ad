@@ -230,14 +230,14 @@ ftkAst t = case t of
     FTKUntyped
     $ V.map (voidFromDynamicF (toList . shapeAst)) v
   AstApply v _ll -> shapeAstHFun v
-  AstMapAccumRDer @accShs @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
+  AstMapAccumRDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildFTK k bShs)
-  AstMapAccumLDer @accShs @bShs k accShs bShs _eShs _f _df _rf _acc0 _es
+      FTKProduct (ftkAst acc0) (buildFTK k bShs)
+  AstMapAccumLDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct accShs (buildFTK k bShs)
+      FTKProduct (ftkAst acc0) (buildFTK k bShs)
 
   AstReplicate0NR sh _ v -> case ftkAst v of
     FTKR _ x -> FTKR sh x
@@ -387,9 +387,9 @@ varInAst var = \case
 
   AstMkHVector l -> any (varInAstDynamic var) l
   AstApply t ll -> varInAstHFun var t || varInAst var ll
-  AstMapAccumRDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+  AstMapAccumRDer _k _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
-  AstMapAccumLDer _k _accShs _bShs _eShs _f _df _rf acc0 es ->
+  AstMapAccumLDer _k _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
 
   AstReplicate0NR _ _ v -> varInAst var v

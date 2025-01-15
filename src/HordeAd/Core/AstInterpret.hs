@@ -511,7 +511,7 @@ interpretAst !env = \case
           -- agreed, the AstApply would likely be simplified before
           -- getting interpreted
     in tApply t2 ll2
-  AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
+  AstMapAccumRDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
     | Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
     , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
@@ -520,8 +520,8 @@ interpretAst !env = \case
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in dmapAccumRDer (Proxy @target) k accShs bShs eShs f df rf acc02 es2
-  AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f0 df0 rf0 acc0 es
+    in dmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+  AstMapAccumLDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
     | Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (stensorKind @bShs)
     , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
@@ -530,7 +530,7 @@ interpretAst !env = \case
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in dmapAccumLDer (Proxy @target) k accShs bShs eShs f df rf acc02 es2
+    in dmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
 
   AstReplicate0NR sh stk v | Dict <- lemTensorKindOfSTK stk
                            , SNat <- shrRank sh ->

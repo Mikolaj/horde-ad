@@ -293,7 +293,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstMapAccumRDer
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k
-    -> FullTensorKind accShs
     -> FullTensorKind bShs
     -> FullTensorKind eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
@@ -309,7 +308,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstMapAccumLDer
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k
-    -> FullTensorKind accShs
     -> FullTensorKind bShs
     -> FullTensorKind eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)

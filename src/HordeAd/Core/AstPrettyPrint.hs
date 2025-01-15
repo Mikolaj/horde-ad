@@ -533,7 +533,7 @@ printAstAux cfg d = \case
            . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
-  AstMapAccumRDer @accShs @bShs @eShs k _accShs _bShs _eShs f df rf acc0 es
+  AstMapAccumRDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
@@ -551,7 +551,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  AstMapAccumLDer @accShs @bShs @eShs k _accShs _bShs _eShs f df rf acc0 es
+  AstMapAccumLDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)

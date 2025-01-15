@@ -860,10 +860,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet var (astProject2 astP)
           $ simplifyInline derivative
     in AstLambda (varP, ftk2, ast)
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    astMapAccumRDer k accShs bShs eShs f df rf acc0 es
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    astMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  dmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
+    astMapAccumRDer k bShs eShs f df rf acc0 es
+  dmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
+    astMapAccumLDer k bShs eShs f df rf acc0 es
 
 
 -- * The AstRaw instances
@@ -1450,14 +1450,14 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
-  dmapAccumRDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumRDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-      AstRaw $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
-  dmapAccumLDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
+      AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
+  dmapAccumLDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-      AstRaw $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
+      AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
 
 
 -- * The AstNoVectorize
@@ -2253,14 +2253,14 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
-  dmapAccumRDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
+  dmapAccumRDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-      AstNoSimplify $ AstMapAccumRDer k accShs bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
-  dmapAccumLDer @_ @bShs @eShs _ !k !accShs !bShs !eShs f df rf acc0 es
+      AstNoSimplify $ AstMapAccumRDer k bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
+  dmapAccumLDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
-      AstNoSimplify $ AstMapAccumLDer k accShs bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
+      AstNoSimplify $ AstMapAccumLDer k bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
 
 
 -- TODO: move to a better home:

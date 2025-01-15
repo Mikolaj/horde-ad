@@ -353,8 +353,8 @@ astNonIndexStep t = case t of
   Ast.AstBuild1{} -> t
   Ast.AstLet var u v -> astLet var u v
   AstConcrete ftk v -> astConcrete ftk v
---  Ast.AstMapAccumRDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
---  Ast.AstMapAccumLDer @accShs @bShs @eShs k accShs bShs eShs f df rf acc0 es
+--  Ast.AstMapAccumRDer
+--  Ast.AstMapAccumLDer
 
   AstSumOfList stk args ->
     case isTensorInt t of
@@ -2066,7 +2066,6 @@ astConcrete ftk v = case ftk of
 astMapAccumRDer
   :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
-  -> FullTensorKind accShs
   -> FullTensorKind bShs
   -> FullTensorKind eShs
   -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
@@ -2079,13 +2078,23 @@ astMapAccumRDer
   -> AstTensor ms s accShs
   -> AstTensor ms s (BuildTensorKind k eShs)
   -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
-astMapAccumRDer k accShs bShs eShs f df rf acc0 es =
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+{- TODO: this is terrible
+astMapAccumRDer k bShs eShs (AstLambda (varf, ftkf, vf))
+                            (AstLambda (vard, ftkd, vd))
+                            (AstLambda (varr, ftkr, vr))
+                (Ast.AstFromS @accShs1 @accShs2 acc0) es =
+  astFromS @(TKProduct accShs1 (BuildTensorKind k bShs)))
+           @(TKProduct accShs2 (BuildTensorKind k bShs)))
+  $ astMapAccumRDer k bShs eShs (AstLambda ...)
+                                (AstLambda ...)
+                                (AstLambda ...)
+                                acc0 es -}
+astMapAccumRDer k bShs eShs f df rf acc0 es =
+  Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es
 
 astMapAccumLDer
   :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
   => SNat k
-  -> FullTensorKind accShs
   -> FullTensorKind bShs
   -> FullTensorKind eShs
   -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
@@ -2098,8 +2107,8 @@ astMapAccumLDer
   -> AstTensor ms s accShs
   -> AstTensor ms s (BuildTensorKind k eShs)
   -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
-astMapAccumLDer k accShs bShs eShs f df rf acc0 es =
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+astMapAccumLDer k bShs eShs f df rf acc0 es =
+  Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
 
 astCond :: TensorKind y
         => AstBool AstMethodLet
@@ -3058,13 +3067,13 @@ astPrimalPart t = case t of
     astReplicate snat stk (astPrimalPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astPrimalPart v)
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
-      astMapAccumRDer k accShs bShs eShs f df rf
+      astMapAccumRDer k bShs eShs f df rf
                           (astPrimalPart acc0) (astPrimalPart es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
-      astMapAccumLDer k accShs bShs eShs f df rf
+      astMapAccumLDer k bShs eShs f df rf
                           (astPrimalPart acc0) (astPrimalPart es)
 
   AstSumOfList stk args -> astSumOfList stk (map astPrimalPart args)
@@ -3179,13 +3188,13 @@ astDualPart t = case t of
     astReplicate snat stk (astDualPart v)
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, astDualPart v)
   Ast.AstLet var u v -> astLet var u (astDualPart v)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
-      astMapAccumRDer k accShs bShs eShs f df rf
+      astMapAccumRDer k bShs eShs f df rf
                           (astDualPart acc0) (astDualPart es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
-      astMapAccumLDer k accShs bShs eShs f df rf
+      astMapAccumLDer k bShs eShs f df rf
                           (astDualPart acc0) (astDualPart es)
 
   AstSumOfList stk args -> astSumOfList stk (map astDualPart args)
@@ -3488,23 +3497,23 @@ expandAst t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, expandAst v)
   Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
   AstConcrete ftk v -> astConcrete ftk v
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
-      astMapAccumRDer k accShs bShs eShs
+      astMapAccumRDer k bShs eShs
                           (expandAstHFun f)
                           (expandAstHFun df)
                           (expandAstHFun rf)
                           (expandAst acc0)
                           (expandAst es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
-      astMapAccumLDer k accShs bShs eShs
+      astMapAccumLDer k bShs eShs
                           (expandAstHFun f)
                           (expandAstHFun df)
                           (expandAstHFun rf)
@@ -3793,23 +3802,23 @@ simplifyAst t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, simplifyAst v)
   Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
   AstConcrete ftk v -> astConcrete ftk v
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
-      astMapAccumRDer k accShs bShs eShs
+      astMapAccumRDer k bShs eShs
                           (simplifyAstHFun f)
                           (simplifyAstHFun df)
                           (simplifyAstHFun rf)
                           (simplifyAst acc0)
                           (simplifyAst es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
-      astMapAccumLDer k accShs bShs eShs
+      astMapAccumLDer k bShs eShs
                           (simplifyAstHFun f)
                           (simplifyAstHFun df)
                           (simplifyAstHFun rf)
@@ -4360,23 +4369,23 @@ contractAst t = case t of
   Ast.AstBuild1 k (var, v) -> Ast.AstBuild1 k (var, contractAst v)
   Ast.AstLet var u v -> astLet var (contractAst u) (contractAst v)
   AstConcrete ftk v -> astConcrete ftk v
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
-      astMapAccumRDer k accShs bShs eShs
+      astMapAccumRDer k bShs eShs
                           (contractAstHFun f)
                           (contractAstHFun df)
                           (contractAstHFun rf)
                           (contractAst acc0)
                           (contractAst es)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
-      astMapAccumLDer k accShs bShs eShs
+      astMapAccumLDer k bShs eShs
                           (contractAstHFun f)
                           (contractAstHFun df)
                           (contractAstHFun rf)
@@ -4977,9 +4986,9 @@ substitute1Ast i var v1 = case v1 of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
   Ast.AstConcrete{} -> Nothing
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
@@ -4987,15 +4996,15 @@ substitute1Ast i var v1 = case v1 of
            , substitute1Ast i var es ) of
         (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
         (mf, mdf, mrf, macc0, mes) ->
-          Just $ astMapAccumRDer k accShs bShs eShs
+          Just $ astMapAccumRDer k bShs eShs
                                      (fromMaybe f mf)
                                      (fromMaybe df mdf)
                                      (fromMaybe rf mrf)
                                      (fromMaybe acc0 macc0)
                                      (fromMaybe es mes)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es
+  Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
     , Dict <- lemTensorKindOfAD (ftkToStk bShs)
     , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
@@ -5003,7 +5012,7 @@ substitute1Ast i var v1 = case v1 of
            , substitute1Ast i var es ) of
         (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
         (mf, mdf, mrf, macc0, mes) ->
-          Just $ astMapAccumLDer k accShs bShs eShs
+          Just $ astMapAccumLDer k bShs eShs
                                      (fromMaybe f mf)
                                      (fromMaybe df mdf)
                                      (fromMaybe rf mrf)

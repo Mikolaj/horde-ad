@@ -442,7 +442,7 @@ build1V snat@SNat (var, v0) =
           (build1VHFun snat (var, t))
           (build1VOccurenceUnknown snat (var, ll))
     Ast.AstMapAccumRDer @accShs @bShs @eShs @k5
-                        k5@SNat accShs bShs eShs f df rf acc0 es
+                        k5@SNat bShs eShs f df rf acc0 es
      | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
      , Dict <- lemTensorKindOfBuild snat (stensorKind @eShs)
      , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @eShs)
@@ -461,7 +461,6 @@ build1V snat@SNat (var, v0) =
       astLetFun
         (astMapAccumRDer
            k5
-           (buildFTK snat accShs)
            (buildFTK snat bShs)
            (buildFTK snat eShs)
            (build1VHFun snat (var, f))
@@ -474,7 +473,7 @@ build1V snat@SNat (var, v0) =
                            (astTrBuild @k5 @k
                                        (stensorKind @bShs) (astProject2 x1bs1)))
     Ast.AstMapAccumLDer @accShs @bShs @eShs @k5
-                        k5@SNat accShs bShs eShs f df rf acc0 es
+                        k5@SNat bShs eShs f df rf acc0 es
      | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
      , Dict <- lemTensorKindOfBuild snat (stensorKind @eShs)
      , Dict <- lemTensorKindOfBuild (SNat @k5) (stensorKind @eShs)
@@ -493,7 +492,6 @@ build1V snat@SNat (var, v0) =
       astLetFun
         (astMapAccumLDer
            k5
-           (buildFTK snat accShs)
            (buildFTK snat bShs)
            (buildFTK snat eShs)
            (build1VHFun snat (var, f))

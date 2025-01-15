@@ -323,20 +323,20 @@ inlineAst memo v0 = case v0 of
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
+  Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
         (memo3, rf2) = inlineAstHFun memo2 rf
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
-    in (memo5, Ast.AstMapAccumRDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
+    in (memo5, Ast.AstMapAccumRDer k bShs eShs f2 df2 rf2 acc02 es2)
+  Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
         (memo3, rf2) = inlineAstHFun memo2 rf
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
-    in (memo5, Ast.AstMapAccumLDer k accShs bShs eShs f2 df2 rf2 acc02 es2)
+    in (memo5, Ast.AstMapAccumLDer k bShs eShs f2 df2 rf2 acc02 es2)
 
   Ast.AstReplicate0NR sh stk v ->
     second (Ast.AstReplicate0NR sh stk) (inlineAst memo v)
@@ -658,14 +658,14 @@ unshareAst memo = \case
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
-  Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc0 es ->
+  Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es
-    in (memo2, Ast.AstMapAccumRDer k accShs bShs eShs f df rf acc02 es2)
-  Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc0 es ->
+    in (memo2, Ast.AstMapAccumRDer k bShs eShs f df rf acc02 es2)
+  Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es ->
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es
-    in (memo2, Ast.AstMapAccumLDer k accShs bShs eShs f df rf acc02 es2)
+    in (memo2, Ast.AstMapAccumLDer k bShs eShs f df rf acc02 es2)
 
   Ast.AstReplicate0NR sh stk v ->
     second (Ast.AstReplicate0NR sh stk) (unshareAst memo v)
