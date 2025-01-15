@@ -411,11 +411,12 @@ build1V snat@SNat (var, v0) =
     Ast.AstUnzipS v -> traceRule $
       Ast.AstUnzipS $ build1V snat (var, v)
 
-    Ast.AstRFromS @sh1 v -> traceRule $
-      astRFromS @(k ': sh1) $ build1V snat (var, v)
+    Ast.AstFromS @y2 @z2 v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) -> traceRule $
+        astFromS $ build1V snat (var, v)
     Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
     Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
-    Ast.AstXFromS v -> traceRule $ astXFromS $ build1V snat (var, v)
 
     Ast.AstXNestR @sh1 @m v -> traceRule $
       withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
@@ -766,18 +767,10 @@ astIndexBuild snat@SNat stk u i = case stk of
     withKnownShX sh' $
     withCastXS shBuild' $ \(shBuild :: ShS shBuild) -> case shBuild of
       ZSS -> error "astIndexBuild: impossible empty shape"
-      (:$$) @_ @rest _ rest ->
+      (:$$) _ rest | Dict <- lemTensorKindOfBuild snat (STKS rest x) ->
         withKnownShS rest $
-{-      gcastWith (unsafeCoerceRefl
-                   :: Rank shBuild :~: Rank (Just k ': sh')) $
-        gcastWith (unsafeCoerceRefl
-                   :: Rank shBuild :~: 1 + Rank rest) $
-        gcastWith (unsafeCoerceRefl
-                   :: Rank (Just k ': sh') :~: 1 + Rank sh') $ -}
-        -- The above is somehow not enough and so we need this:
-        gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank sh') $
-        Ast.AstXFromS @rest @sh'
-        $ astIndexStepS (Ast.AstSFromX @shBuild @(Just k ': sh') u)
+        astFromS
+        $ astIndexStepS (astSFromX @shBuild @(Just k ': sh') u)
                         (i :.$ ZIS)
   STKProduct stk1 stk2
     | Dict <- lemTensorKindOfSTK stk1

@@ -30,7 +30,7 @@ module HordeAd.Core.AstSimplify
   , astFromIntegral, astFromIntegralR, astFromIntegralS
   , astProject1, astProject2, astProjectR, astProjectS
   , astPrimalPart, astDualPart
-  , astRFromS, astSFromR, astSFromX, astXFromS
+  , astFromS, astSFromR, astSFromX
   , astXNestR, astXNestS, astXNest, astXUnNestR, astXUnNestS, astXUnNest
   , astLetHVectorIn, astHApply, astLetFun
   , astReplicate0NS
@@ -431,10 +431,9 @@ astNonIndexStep t = case t of
   Ast.AstZipS _ -> t
   Ast.AstUnzipS _ -> t
 
-  Ast.AstRFromS v -> astRFromS v
+  Ast.AstFromS v -> astFromS v
   Ast.AstSFromR v -> astSFromR v
   Ast.AstSFromX v -> astSFromX v
-  Ast.AstXFromS v -> astXFromS v
 
   Ast.AstXNestR v -> astXNestR v
   Ast.AstXNestS v -> astXNestS v
@@ -680,14 +679,15 @@ astIndexKnobsR knobs v0 ix@(i1 :.: (rest1 :: AstIxR AstMethodLet m1)) =
     astLetHVectorIn vars l (astIndexRec v ix)
   Ast.AstZipR _ -> Ast.AstIndex v0 ix
 
-  Ast.AstRFromS @sh t ->
+  Ast.AstFromS{} -> Ast.AstIndex v0 ix
+{-  Ast.AstFromS @sh t ->
     withKnownShS (takeShS @m (knownShS @sh)) $
     withKnownShS (dropShS @m (knownShS @sh)) $
     gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
     gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
     gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
-    astRFromS $ astIndexKnobsS @(Take m sh) @(Drop m sh)
-                               knobs t (ixrToIxs ix)
+    astFromS $ astIndexKnobsS @(Take m sh) @(Drop m sh)
+                              knobs t (ixrToIxs ix) -}
 
   Ast.AstApply{} -> Ast.AstIndex v0 ix
 
@@ -942,7 +942,10 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       in astLet var2 i1 $ astIndexS @shm1 @shn w rest1
   Ast.AstZipS _ -> Ast.AstIndexS v0 ix
 
-  -- These conversions need to stay down.
+  Ast.AstFromS @y @z v -> case sameTensorKind @y @z of
+    Just Refl -> astIndex v ix -- rare, usually simplifies away earlier
+    Nothing -> error "astIndexKnobsS: wrong tensor kinds in AstFromS"
+  -- These conversions need to stay down, so this is NF, see vectorization.
   Ast.AstSFromR{} -> Ast.AstIndexS v0 ix
   Ast.AstSFromX{} -> Ast.AstIndexS v0 ix
 
@@ -1303,7 +1306,7 @@ astGatherKnobsR knobs sh0 v0 (vars0, ix0) =
       Ast.AstGather sh4 v4 (vars4, ix4)
     Ast.AstLetHVectorIn vars l v ->
       astLetHVectorIn vars l (astGatherCase sh4 v (vars4, ix4))
-    Ast.AstRFromS{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
+    Ast.AstFromS{} {- @sh v -} -> Ast.AstGather sh4 v4 (vars4, ix4)
       -- TODO: this is broken
       {-
       let (takeSh, dropSh) = splitAt (valueOf @p') (shapeT @sh)
@@ -1800,6 +1803,10 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
         GTI -> gcastWith (flipCompare @rank4 @rank2) assimilatedGather
     Ast.AstZipS _v -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
+    Ast.AstFromS @y @z v -> case sameTensorKind @y @z of
+      Just Refl -> astGatherCase @shm' @shn' @shp' v (vars4, ix4)
+        -- rare, usually simplifies away earlier
+      Nothing -> error "astGatherCase: wrong tensor kinds in AstFromS"
     -- These conversions need to stay down.
     Ast.AstSFromR{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstSFromX{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
@@ -2025,8 +2032,7 @@ astLet var (Ast.AstFromPrimal (Ast.AstLetHVectorIn
         in foldr (mapRankedShaped clet clet)
                  v2 (zip vars (V.toList l3))
   in astLetHVectorIn varsN lN $ fun1DToAst shs f
-astLet var u (Ast.AstRFromS v) = astRFromS $ astLet var u v
-astLet var u (Ast.AstXFromS v) = astXFromS $ astLet var u v
+astLet var u (Ast.AstFromS v) = astFromS $ astLet var u v
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -2046,9 +2052,13 @@ astConcrete ftk v = case ftk of
              , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withCastRS sh' $ \sh ->
       withKnownShS sh $
-      astRFromS $ AstConcrete (FTKS sh x) (sfromR v)
-  -- TODO: also mixed and maybe recursively product
-  _ -> AstConcrete ftk v
+      astFromS $ AstConcrete (FTKS sh x) (sfromR v)
+  FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    withCastXS sh' $ \sh ->
+      withKnownShS sh $
+      withKnownShX (ssxFromShape sh') $
+      astFromS $ AstConcrete (FTKS sh x) (sfromX v)
+  _ -> AstConcrete ftk v  -- product case should be too rare to care
 
 astCond :: TensorKind y
         => AstBool AstMethodLet
@@ -2057,13 +2067,9 @@ astCond :: TensorKind y
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
-astCond b (Ast.AstRFromS @sh1 v) (Ast.AstRFromS @sh2 w) =
-  case sameShape @sh1 @sh2 of
-    Just Refl -> astRFromS $ astCond b v w
-    Nothing -> error "astCond: shapes don't match"
-astCond b (Ast.AstXFromS @sh1 v) (Ast.AstXFromS @sh2 w) =
-  case sameShape @sh1 @sh2 of
-    Just Refl -> astXFromS $ astCond b v w
+astCond b (Ast.AstFromS @y1 v) (Ast.AstFromS @y2 w) =
+  case sameTensorKind @y1 @y2 of
+    Just Refl -> astFromS $ astCond b v w
     Nothing -> error "astCond: shapes don't match"
 astCond b v w = Ast.AstCond b v w
 
@@ -2162,45 +2168,22 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (case stensorKind @y of
-     STKR{} ->
-       let unFrom :: forall sh x. KnownShS sh
-                  => AstTensor AstMethodLet s (TKR2 (Rank sh) x)
-                  -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
-           unFrom (Ast.AstRFromS @sh2 t) = case sameShape @sh2 @sh of
-             Just Refl -> Just t
-             Nothing -> error "astFromVector: impossible shape"
-           unFrom _ = Nothing
-       in case V.uncons l of
-         Just (v, _) -> case ftkAst v of
-           FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-             withCastRS sh' $ \(sh :: ShS sh) ->
-               withKnownShS sh $
-               case V.mapM (unFrom @sh) l of
-                 Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-                   Just $ astRFromS @(k ': sh) $ astFromVector snat l2
-                 Nothing -> Nothing
-         Nothing -> error "astFromVector: empty vector"
-     STKX{} ->
-       let unFrom :: forall sh sh' x. KnownShS sh
-                  => AstTensor AstMethodLet s (TKX2 sh' x)
-                  -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
-           unFrom (Ast.AstXFromS @sh2 t) = case sameShape @sh2 @sh of
-             Just Refl -> Just t
-             Nothing -> error "astFromVector: impossible shape"
-           unFrom _ = Nothing
-       in case V.uncons l of
-         Just (v, _) -> case ftkAst v of
-           FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-             withCastXS sh' $ \(sh :: ShS sh) ->
-               withKnownShX (ssxFromShape sh') $
-               withKnownShS sh $
-               case V.mapM (unFrom @sh) l of
-                 Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-                   Just $ astXFromS @(k ': sh) $ astFromVector snat l2
-                 Nothing -> Nothing
-         Nothing -> error "astFromVector: empty vector"
-     _ -> Nothing)
+  (let unFrom :: forall z. TensorKind z
+              => AstTensor AstMethodLet s y
+              -> Maybe (AstTensor AstMethodLet s z)
+       unFrom (Ast.AstFromS @y2 t) = case sameTensorKind @y2 @z of
+         Just Refl -> Just t
+         Nothing -> error "astFromVector: impossible shape"
+       unFrom _ = Nothing
+   in case V.uncons l of
+     Just (Ast.AstFromS @y2 _, _) ->
+       case V.mapM (unFrom @y2) l of
+         Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y)
+                 , Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+           Just $ astFromS $ astFromVector snat l2
+         Nothing -> Nothing
+     Just{} -> Nothing
+     Nothing -> error "astFromVector: empty vector")
 
 astSum :: forall y k s. AstSpan s
        => SNat k -> STensorKindType y
@@ -2254,20 +2237,13 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
       astConcrete (razeFTK snat stensorKind ftk) $ tsum snat stk t
     Ast.AstFromPrimal v | Dict <- lemTensorKindOfSTK stk ->
       Ast.AstFromPrimal $ astSum snat stk v
-    Ast.AstRFromS @sh v -> case stk of
-      STKR _ x -> case knownShS @sh of
-        (:$$) snat2 rest | Just Refl <- sameNat snat snat2 ->
-          withKnownShS rest $
-          astRFromS $ astSum snat (STKS rest x) v
+    Ast.AstFromS @y2 v -> case stensorKind @y2 of
+      STKS @_ @x sh x | Dict <- lemTensorKindOfSTK stk -> case sh of
+        (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2
+                                  , Dict <- lemTensorKindOfSTK (STKS rest x) ->
+          astFromS @(TKS2 rest x) $ astSum snat (STKS rest x) v
         _ -> error "astSum: impossible shape"
-    Ast.AstXFromS @sh v -> case stk of
-      STKX @restx restx x -> case knownShS @sh of
-        (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
-          gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $
-          withKnownShS rest $
-          withKnownShX restx $
-          astXFromS @rest @restx $ astSum snat (STKS rest x) v
-        _ -> error "astSum: impossible shape"
+      _ -> Ast.AstSum snat stk t0  -- TODO
     _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall k y s. AstSpan s
@@ -2301,10 +2277,8 @@ astReplicate snat@SNat stk
         gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
         astTransposeS zsuccPerm $ astReplicate snat stensorKind v
-  Ast.AstRFromS v -> case stk of
-    STKR _ x -> astRFromS $ astReplicate snat (STKS knownShS x) v
-  Ast.AstXFromS v -> case stk of
-    STKX _ x -> astXFromS $ astReplicate snat (STKS knownShS x) v
+  Ast.AstFromS @y2 v | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) ->
+    astFromS $ astReplicate snat (stensorKind @y2) v
   v -> Ast.AstReplicate snat stk v
 
 astReplicateN :: forall n p s r.
@@ -2792,11 +2766,17 @@ astProjectS l p = case l of
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectS v1 p) (astProjectS v2 p)
   _ -> Ast.AstProjectS l p
 
-astRFromS :: forall sh s r. (TensorKind r, KnownShS sh)
-          => AstTensor AstMethodLet s (TKS2 sh r)
-          -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
-astRFromS (Ast.AstSFromR v) = v  -- no information lost, so no checks
-astRFromS v = Ast.AstRFromS v
+astFromS :: forall y z s. (TensorKind y, TensorKind z)
+         => AstTensor AstMethodLet s y
+         -> AstTensor AstMethodLet s z
+astFromS v | Just Refl <- sameTensorKind @y @z = v
+astFromS (Ast.AstFromScalar @r v)
+         | Just Refl <- sameTensorKind @(TKScalar r) @z = v
+astFromS (Ast.AstSFromR @sh @x v)
+         | Just Refl <- sameTensorKind @(TKR2 (Rank sh) x) @z = v
+astFromS (Ast.AstSFromX @_ @sh2 @x v)
+         | Just Refl <- sameTensorKind @(TKX2 sh2 x) @z = v
+astFromS v = Ast.AstFromS v
 
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, which we convert from shaped to ranked and mixed
@@ -2863,10 +2843,11 @@ astSFromR a0 = case a0 of
   Ast.AstGather{} -> Ast.AstSFromR a0
   Ast.AstZipR{} -> Ast.AstSFromR a0
 
-  Ast.AstRFromS @sh1 v ->
-    case sameShape @sh1 @sh of
-      Just Refl -> v
-      _ -> error "astSFromR: different ranks in SFromR(RFromS)"
+  Ast.AstFromS @y v -> case sameTensorKind @y @(TKS2 sh r) of
+    Just Refl -> v
+    _ -> error $ "astSFromR: different tensor kinds in SFromR(FromS): "
+                 ++ show (stensorKind @y) ++ " vs "
+                 ++ show (stensorKind @(TKS2 sh r))
 
   -- These should not appear here unless via wacky tests.
   Ast.AstReplicate0NR{} -> Ast.AstSFromR a0
@@ -2889,19 +2870,11 @@ astSFromX (AstConcrete ftk t) = case ftk of
     let u = sfromX t
     in astConcrete (FTKS knownShS x) u
 astSFromX (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX v
-astSFromX (Ast.AstXFromS @sh1 v) =
-  case sameShape @sh1 @sh of
+astSFromX (Ast.AstFromS @y v) =
+  case sameTensorKind @y @(TKS2 sh r) of
     Just Refl -> v
-    _ -> error "astSFromX: different shapes in SFromX(XFromS)"
+    _ -> error "astSFromX: different shapes in SFromX(FromS)"
 astSFromX v = Ast.AstSFromX v
-
-astXFromS :: forall sh sh' s r.
-             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
-          => AstTensor AstMethodLet s (TKS2 sh r)
-          -> AstTensor AstMethodLet s (TKX2 sh' r)
-astXFromS (Ast.AstSFromX @_ @sh2 v)
-  | Just Refl <- testEquality (knownShX @sh2) (knownShX @sh') = v
-astXFromS v = Ast.AstXFromS v
 
 astXNestR
   :: forall sh1 m x ms s.
@@ -3096,11 +3069,10 @@ astPrimalPart t = case t of
   Ast.AstZipS v -> Ast.AstZipS (astPrimalPart v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (astPrimalPart v)
 
-  Ast.AstRFromS v -> astRFromS $ astPrimalPart v
+  Ast.AstFromS v -> astFromS $ astPrimalPart v
   -- These conversions need to stay down.
   Ast.AstSFromR{} -> Ast.AstPrimalPart t
   Ast.AstSFromX{} -> Ast.AstPrimalPart t
-  Ast.AstXFromS v -> astXFromS $ astPrimalPart v
 
   Ast.AstXNestR @sh1 @m v ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
@@ -3216,11 +3188,10 @@ astDualPart t = case t of
   Ast.AstZipS v -> Ast.AstZipS (astDualPart v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (astDualPart v)
 
-  Ast.AstRFromS v -> astRFromS $ astDualPart v
+  Ast.AstFromS v -> astFromS $ astDualPart v
    -- These conversions need to stay down.
   Ast.AstSFromR {} -> Ast.AstDualPart t
   Ast.AstSFromX{} -> Ast.AstDualPart t
-  Ast.AstXFromS v -> astXFromS $ astDualPart v
 
   Ast.AstXNestR @sh1 @m v ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
@@ -3293,7 +3264,7 @@ mapRankedShaped fRanked fShaped
     , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
         withListSh (Proxy @sh3) $ \_ ->
           fRanked (mkAstVarName varId)
-                  (astRFromS @sh3 @_ @(TKScalar r3) (astReplicate0NS 0))
+                  (astFromS @(TKS2 sh3 (TKScalar r3)) @(TKR2 (Rank sh3) (TKScalar r3)) (astReplicate0NS 0))
                   acc
   DynamicShapedDummy @r4 @sh4 _ _
     | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
@@ -3399,18 +3370,18 @@ astLetFun :: forall y z s s2.
           -> AstTensor AstMethodLet s2 z
 astLetFun a f | astIsSmall True a = f a  -- TODO: since astLetFun is now called recursively a lot, ensure astIsSmall is constant, at least except for a constant number of the recursive calls
 astLetFun a f = case ftkAst a of
-  FTKR sh' x | SNat <- shrRank sh'
+  FTKR @_ @x sh' x | SNat <- shrRank sh'
              , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      let (var, ast) = funToAst (FTKS sh x) (f . astRFromS @sh)
+      let (var, ast) = funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x))
       in astLet var (astSFromR @sh a) ast
            -- safe, because subsitution ruled out above
   -- TODO: also mixed and maybe recursively product
   ftk -> let (var, ast) = funToAst ftk f
          in astLet var a ast  -- safe, because subsitution ruled out above
 
-astFromScalar :: (GoodScalar r, AstSpan s)
+astFromScalar :: forall r s. (GoodScalar r, AstSpan s)
               => AstTensor AstMethodLet s (TKScalar r)
               -> AstTensor AstMethodLet s (TKS '[] r)
 astFromScalar t = case t of
@@ -3426,6 +3397,9 @@ astFromScalar t = case t of
     Ast.AstI2S opCode (astFromScalar u) (astFromScalar v)
   AstSumOfList _ args -> AstSumOfList stensorKind $ map astFromScalar args
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astFromScalar v
+  Ast.AstFromS @y v -> case sameTensorKind @y @(TKS '[] r) of
+    Just Refl -> v
+    _ -> error $ "astFromScalar: unexpected tensor kinds"
   _ -> Ast.AstFromScalar t
 
 
@@ -3662,10 +3636,9 @@ expandAst t = case t of
   Ast.AstZipS v -> Ast.AstZipS (expandAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
 
-  Ast.AstRFromS v -> astRFromS $ expandAst v
+  Ast.AstFromS v -> astFromS $ expandAst v
   Ast.AstSFromR v -> astSFromR $ expandAst v
   Ast.AstSFromX v -> astSFromX $ expandAst v
-  Ast.AstXFromS v -> astXFromS $ expandAst v
 
   Ast.AstXNestR @sh1 @m v ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
@@ -3870,10 +3843,9 @@ simplifyAst t = case t of
   Ast.AstZipS v -> Ast.AstZipS (simplifyAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
 
-  Ast.AstRFromS v -> astRFromS $ simplifyAst v
+  Ast.AstFromS v -> astFromS $ simplifyAst v
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
   Ast.AstSFromX v -> astSFromX $ simplifyAst v
-  Ast.AstXFromS v -> astXFromS $ simplifyAst v
 
   Ast.AstXNestR @sh1 @m v ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
@@ -4468,8 +4440,8 @@ contractAst t = case t of
   Ast.AstMinIndexR a -> Ast.AstMinIndexR (contractAst a)
   Ast.AstMaxIndexR a -> Ast.AstMaxIndexR (contractAst a)
   Ast.AstIotaR{} -> t
-  Ast.AstIndex Ast.AstIotaR{} (i :.: ZIR) ->
-    astFromIntegralR $ astRFromS $ astFromScalar $ contractAstInt i
+--  Ast.AstIndex Ast.AstIotaR{} (i :.: ZIR) ->
+--    astFromIntegralR $ astFromS $ astFromScalar $ contractAstInt i
   Ast.AstIndex v ix -> astIndexR (contractAst v) (contractAstIxR ix)
   Ast.AstScatter sh v (vars, ix) ->
     astScatter sh (contractAst v) (vars, contractAstIxR ix)
@@ -4547,10 +4519,9 @@ contractAst t = case t of
   Ast.AstZipS v -> Ast.AstZipS (contractAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
 
-  Ast.AstRFromS v -> astRFromS $ contractAst v
+  Ast.AstFromS v -> astFromS $ contractAst v
   Ast.AstSFromR v -> astSFromR $ contractAst v
   Ast.AstSFromX v -> astSFromX $ contractAst v
-  Ast.AstXFromS v -> astXFromS $ contractAst v
 
   Ast.AstXNestR @sh1 @m v ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
@@ -5138,10 +5109,9 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstZipS v -> Ast.AstZipS <$> substitute1Ast i var v
   Ast.AstUnzipS v -> Ast.AstUnzipS <$> substitute1Ast i var v
 
-  Ast.AstRFromS v -> astRFromS <$> substitute1Ast i var v
+  Ast.AstFromS v -> astFromS <$> substitute1Ast i var v
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstSFromX v -> astSFromX <$> substitute1Ast i var v
-  Ast.AstXFromS v -> astXFromS <$> substitute1Ast i var v
 
   Ast.AstXNestR @sh1 @m v ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $

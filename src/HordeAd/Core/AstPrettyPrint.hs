@@ -494,10 +494,13 @@ printAstAux cfg d = \case
   AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
 
-  AstRFromS v -> printPrefixOp printAst cfg d "rfromS" [v]
+  AstFromS @_ @z v -> case stensorKind @z of
+    STKScalar{} -> printPrefixOp printAst cfg d "stoScalar" [v]
+    STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
+    STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
+    _ -> printPrefixOp printAst cfg d "tfromS" [v]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
-  AstXFromS v -> printPrefixOp printAst cfg d "xfromS" [v]
 
   AstXNestR @sh1 @m v ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $

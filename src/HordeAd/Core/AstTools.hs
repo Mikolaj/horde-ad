@@ -24,10 +24,11 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (sameNat, type (+))
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
   ( KnownShX (..)
@@ -176,15 +177,34 @@ ftkAst t = case t of
   AstUnzipS v -> case ftkAst v of
     FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
 
-  AstRFromS @sh v
-   | SNat <- shsRank (knownShS @sh) -> case ftkAst v of
-    FTKS _ x -> FTKR (shCastSR $ knownShS @sh) x
+  AstFromS @_ @z v ->
+    let fromS :: FullTensorKind y2 -> STensorKindType z2 -> FullTensorKind z2
+        fromS ftk stk = case (ftk, stk) of
+          _ | Just Refl <- sameSTK (ftkToStk ftk) stk -> ftk
+          (FTKS ZSS (FTKScalar @r), STKScalar tr) ->
+            case testEquality (typeRep @r) tr of
+              Just Refl -> FTKScalar
+              Nothing -> error "ftkAst: wrong tensor kinds for AstFromS"
+          (FTKS sh x, STKR nx zx) ->
+            case ( sameSTK (ftkToStk x) zx
+                 , testEquality (shsRank sh) nx ) of
+              (Just Refl, Just Refl) -> FTKR (shCastSR sh) x
+              _ -> error $ "ftkAst: wrong tensor kinds for AstFromS: "
+                           ++ show (ftkToStk x) ++ " vs " ++ show zx ++ " and "
+                           ++ show sh ++ " vs " ++ show nx
+          (FTKS sh x, STKX shx zx) ->
+            case ( sameSTK (ftkToStk x) zx
+                 , testEquality (shsRank sh) (ssxRank shx) ) of
+              (Just Refl, Just Refl) -> FTKX (shCastSX shx sh) x
+              _ -> error "ftkAst: wrong tensor kinds for AstFromS"
+          (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) ->
+            FTKProduct (fromS ftk1 stk1) (fromS ftk2 stk2)
+          _ -> error "ftkAst: wrong tensor kinds for AstFromS"
+    in fromS (ftkAst v) (stensorKind @z)
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
     FTKX _ x -> FTKS knownShS x
-  AstXFromS v -> case ftkAst v of
-    FTKS sh x -> FTKX (shCastSX knownShX sh) x
 
   AstXNestR @sh1 @m v -> case ftkAst v of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))
@@ -354,10 +374,9 @@ varInAst var = \case
   AstZipS v -> varInAst var v
   AstUnzipS v -> varInAst var v
 
-  AstRFromS v -> varInAst var v
+  AstFromS v -> varInAst var v
   AstSFromR v -> varInAst var v
   AstSFromX v -> varInAst var v
-  AstXFromS v -> varInAst var v
 
   AstXNestR v -> varInAst var v
   AstXNestS v -> varInAst var v
@@ -442,7 +461,6 @@ astIsSmall relaxed = \case
   AstTranspose _ v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstProjectR t _ -> astIsSmall relaxed t
-  AstRFromS v -> astIsSmall relaxed v
 
   AstIotaS -> True
   AstSliceS v ->
@@ -450,9 +468,9 @@ astIsSmall relaxed = \case
   AstTransposeS _perm v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
   AstProjectS t _ -> astIsSmall relaxed t
+  AstFromS v -> astIsSmall relaxed v
   AstSFromR v -> astIsSmall relaxed v
   AstSFromX v -> astIsSmall relaxed v
-  AstXFromS v -> astIsSmall relaxed v
 
   AstMkHVector v | V.length v == 1 -> case v V.! 0 of
     DynamicRanked t -> astIsSmall relaxed t
@@ -479,66 +497,105 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
     | Dict <- tensorKindFromAstVarName var =
       AstLet var w u
 
-liftRFromS1 :: forall n x ms s.
-               (forall sh. KnownShS sh
+liftRFromS1 :: forall n x ms s. TensorKind x
+            => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
-liftRFromS1 f (AstRFromS u) = AstRFromS (f u)
+liftRFromS1 f (AstFromS @yu u) =
+  case stensorKind @yu of
+    STKS @shu shu xu ->
+      withKnownShS shu $
+      case sameSTK (stensorKind @x) xu of
+        Just Refl -> AstFromS $ f u
+        _ -> error $ "liftRFromS1: tensor kinds don't agree: "
+                     ++ show (stensorKind @yu) ++ " "
+                     ++ show (stensorKind @(TKS2 shu x))
+    _ -> error "liftRFromS1: unexpected tensor kind"
 liftRFromS1 f a = case ftkAst a of
   FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x)
              , SNat <- shrRank sh' ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstRFromS @sh $ f (AstSFromR @sh a)
+      AstFromS @(TKS2 sh x) $ f (AstSFromR @sh a)
 
-liftRFromS2 :: forall n x ms s.
-               (forall sh. KnownShS sh
+liftRFromS2 :: forall n x ms s. TensorKind x
+            => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
-liftRFromS2 f (AstRFromS @shu u) (AstRFromS @shv v) =
-  case sameShape @shu @shv of
-    Just Refl -> AstRFromS $ f u v
-    Nothing -> error $ "liftRFromS2: shapes don't agree: "
-                       ++ show (knownShS @shu) ++ " " ++ show (knownShS @shv)
+liftRFromS2 f (AstFromS @yu u) (AstFromS @yv v) =
+  case (stensorKind @yu, stensorKind @yv) of
+    (STKS @shu shu xu, STKS @shv shv xv) ->
+      withKnownShS shu $
+      withKnownShS shv $
+      case ( sameShape @shu @shv
+           , sameSTK (stensorKind @x) xu
+           , sameSTK (stensorKind @x) xv ) of
+      (Just Refl, Just Refl, Just Refl) ->
+        AstFromS $ f u v
+      _ -> error $ "liftRFromS2: tensor kinds don't agree: "
+                   ++ show (stensorKind @yu) ++ " "
+                   ++ show (stensorKind @yv) ++ " "
+                   ++ show (stensorKind @(TKR2 n x))
+    _ -> error "liftRFromS2: unexpected tensor kinds"
 liftRFromS2 f a b  = case ftkAst a of
   FTKR sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x)
              , SNat <- shrRank sh' ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstRFromS @sh $ f (AstSFromR @sh a) (AstSFromR @sh b)
+      AstFromS @(TKS2 sh x) $ f (AstSFromR @sh a) (AstSFromR @sh b)
 
-liftXFromS1 :: forall sh' x ms s.
-               (forall sh. KnownShS sh
+liftXFromS1 :: forall sh' x ms s. TensorKind x
+            => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
-liftXFromS1 f (AstXFromS u) = AstXFromS (f u)
+liftXFromS1 f (AstFromS @yu u) =
+  case stensorKind @yu of
+    STKS @shu shu xu ->
+      withKnownShS shu $
+      case sameSTK (stensorKind @x) xu of
+        Just Refl -> AstFromS $ f u
+        _ -> error $ "liftXFromS1: tensor kinds don't agree: "
+                     ++ show (stensorKind @yu) ++ " "
+                     ++ show (stensorKind @(TKS2 shu x))
+    _ -> error "liftXFromS1: unexpected tensor kind"
 liftXFromS1 f a = case ftkAst a of
   FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withKnownShX (ssxFromShape sh') $
     withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstXFromS @sh @sh' $ f (AstSFromX @sh @sh' a)
+      AstFromS @(TKS2 sh x) @(TKX2 sh' x) $ f (AstSFromX @sh @sh' a)
 
-liftXFromS2 :: forall sh' x ms s.
-               (forall sh. KnownShS sh
+liftXFromS2 :: forall sh' x ms s. TensorKind x
+            => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
-liftXFromS2 f (AstXFromS @shu u) (AstXFromS @shv v) =
-  case sameShape @shu @shv of
-    Just Refl -> AstXFromS $ f u v
-    Nothing -> error $ "liftXFromS2: shapes don't agree: "
-                       ++ show (knownShS @shu) ++ " " ++ show (knownShS @shv)
+liftXFromS2 f (AstFromS @yu u) (AstFromS @yv v) =
+  case (stensorKind @yu, stensorKind @yv) of
+    (STKS @shu shu xu, STKS @shv shv xv) ->
+      withKnownShS shu $
+      withKnownShS shv $
+      case ( sameShape @shu @shv
+           , sameSTK (stensorKind @x) xu
+           , sameSTK (stensorKind @x) xv ) of
+        (Just Refl, Just Refl, Just Refl) ->
+          AstFromS $ f u v
+        _ -> error $ "liftXFromS2: tensor kinds don't agree: "
+                     ++ show (stensorKind @yu) ++ " "
+                     ++ show (stensorKind @yv) ++ " "
+                     ++ show (stensorKind @(TKS2 shu x))
+    _ -> error "liftXFromS2: unexpected tensor kinds"
 liftXFromS2 f a b  = case ftkAst a of
   FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withKnownShX (ssxFromShape sh') $
     withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstXFromS @sh @sh' $ f (AstSFromX @sh @sh' a) (AstSFromX @sh @sh' b)
+      AstFromS @(TKS2 sh x) @(TKX2 sh' x)
+      $ f (AstSFromX @sh @sh' a) (AstSFromX @sh @sh' b)

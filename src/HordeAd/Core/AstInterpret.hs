@@ -489,10 +489,9 @@ interpretAst !env = \case
   AstZipS v -> szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
 
-  AstRFromS v -> rfromS $ interpretAst env v
+  AstFromS v -> tfromS $ interpretAst env v
   AstSFromR v -> sfromR $ interpretAst env v
   AstSFromX v -> sfromX $ interpretAst env v
-  AstXFromS v -> xfromS $ interpretAst env v
 
   AstXNestR v -> xnestR knownShX $ interpretAst env v
   AstXNestS v -> xnestS knownShX $ interpretAst env v

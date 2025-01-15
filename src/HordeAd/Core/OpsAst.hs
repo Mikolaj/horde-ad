@@ -29,8 +29,8 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++), Product, Rank, IShR, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxInit, IShX, ssxFromShape, withKnownShX)
-import Data.Array.Nested.Internal.Shape (shsPermutePrefix, shrRank, shsInit, withKnownShS)
+import Data.Array.Mixed.Shape (shxRank, shxInit, IShX, ssxFromShape, withKnownShX)
+import Data.Array.Nested.Internal.Shape (shsRank, shsPermutePrefix, shrRank, shsInit, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.Adaptor
@@ -336,10 +336,11 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> unshareAstTensor . unAstRaw
       _ -> error "tunshare: used not at PrimalSpan"
+  tfromS = astFromS
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rshape = shapeAst
-  rminIndex a = case ftkAst a of
+  rminIndex @_ @r2 a = case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -348,29 +349,30 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          astRFromS @(Init sh) . fromPrimal . AstMinIndexS
+          astFromS @(TKS (Init sh) r2) . fromPrimal . AstMinIndexS
           . astSpanPrimal . astSFromR @sh $ a
         ZSS -> error "xminIndex: impossible shape"
-  rmaxIndex a = case ftkAst a of
+  rmaxIndex @_ @r2 a = case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          astRFromS @(Init sh) . fromPrimal . AstMaxIndexS
+          astFromS @(TKS (Init sh) r2) . fromPrimal . AstMaxIndexS
           . astSpanPrimal . astSFromR @sh $ a
         ZSS -> error "xmaxIndex: impossible shape"
-  rfloor a = case ftkAst a of
+  rfloor @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astRFromS @sh . fromPrimal . AstFloorS
+        astFromS @(TKS sh r2) . fromPrimal . AstFloorS
         . astSpanPrimal . astSFromR @sh $ a
 
-  riota n = withSNat n $ \(SNat @n) -> astRFromS $ fromPrimal $ AstIotaS @n
+  riota @r n =
+    withSNat n $ \(SNat @n) -> astFromS $ fromPrimal $ AstIotaS @n @r
   rindex @_ @m @n a ix = case ftkAst a of
-    FTKR shmshn _ | SNat <- shrRank shmshn ->
+    FTKR @_ @x shmshn _ | SNat <- shrRank shmshn ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
@@ -378,12 +380,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
         withKnownShS (takeShS @m (knownShS @sh)) $
         withKnownShS (dropShS @m (knownShS @sh)) $
-        astRFromS @(Drop m sh)
+        astFromS @(TKS2 (Drop m sh) x)
         $ astIndexStepS @(Take m sh) @(Drop m sh)
                         (astSFromR @sh a) (ixrToIxs ix)
   rsum v = withSNat (rlength v) $ \snat -> astSum snat stensorKind v
   rscatter @_ @m @_ @p shpshn0 t f = case ftkAst t of
-    FTKR shmshn0 _ | SNat <- shrRank shmshn0 ->
+    FTKR @_ @x shmshn0 _ | SNat <- shrRank shmshn0
+                         , SNat <- shrRank shpshn0 ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
@@ -397,7 +400,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         withKnownShS (takeShS @p (knownShS @shpshn)) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        astRFromS @shpshn
+        astFromS @(TKS2 shpshn x)
         $ astScatterS @(Take m shmshn)
                       @(Drop m shmshn)
                       @(Take p shpshn) (astSFromR @shmshn t)
@@ -414,30 +417,30 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
               (:$$) @mv @restv _ _ ->
                 gcastWith (unsafeCoerceRefl :: restu :~: restv) $
                 withKnownShS restu $
-                astRFromS $ astAppendS @mu @mv @restu
+                astFromS $ astAppendS @mu @mv @restu
                                        (astSFromR @shu u)
                                        (astSFromR @shv v)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
   rslice i n a = case ftkAst a of
-    FTKR sh' _ | SNat <- shrRank sh' ->
+    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @m @rest _ rest ->
           withKnownShS rest $
           withSNat i $ \(SNat @i) -> withSNat n $ \(SNat @n) ->
           withSNat (valueOf @m - i - n) $ \(SNat @k) ->
             gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-            astRFromS @(n ': rest) . astSliceS @i @n @k . astSFromR @sh $ a
+            astFromS @(TKS2 (n ': rest) x) . astSliceS @i @n @k . astSFromR @sh $ a
         ZSS -> error "xslice: impossible shape"
   rreverse a = case ftkAst a of
-    FTKR sh' _ | SNat <- shrRank sh' ->
+    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         _ :$$ rest ->
           withKnownShS rest $
-          astRFromS @sh . astReverseS . astSFromR @sh $ a
+          astFromS @(TKS2 sh x) . astReverseS . astSFromR @sh $ a
         ZSS -> error "xreverse: impossible shape"
   rtranspose permr a = case ftkAst a of
-    FTKR sh' _  ->
+    FTKR @_ @x sh' _  ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
           gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
@@ -447,18 +450,19 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
               withKnownShS sh $
               withKnownShS sh2 $
               gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
-              astRFromS @sh2 . astTransposeS perm . astSFromR @sh $ a
+              astFromS @(TKS2 sh2 x) . astTransposeS perm . astSFromR @sh $ a
   rreshape sh2' a = case ftkAst a of
-    FTKR sh' _ ->
+    FTKR @_ @x sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
       withCastRS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        astRFromS @sh2 . astReshapeS . astSFromR @sh $ a
+        astFromS @(TKS2 sh2 x) . astReshapeS . astSFromR @sh $ a
   rbuild1 k f = withSNat k $ \snat -> astBuild1Vectorize snat f
   rgather @_ @m @_ @p shmshn0 t f = case ftkAst t of
-    FTKR shpshn0 _ | SNat <- shrRank shpshn0 ->
+    FTKR shpshn0 _ | SNat <- shrRank shpshn0
+                   , SNat <- shrRank shmshn0 ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
@@ -472,52 +476,52 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         withKnownShS (takeShS @p (knownShS @shpshn)) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        astRFromS $ astGatherStepS @(Take m shmshn)
+        astFromS $ astGatherStepS @(Take m shmshn)
                                    @(Drop m shmshn)
                                    @(Take p shpshn) (astSFromR t)
         $ funToAstIxS (ixrToIxs . f . ixsToIxr)
             -- this introduces new variable names
-  rcast a = case ftkAst a of
+  rcast @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astRFromS @sh . astCastS . astSFromR @sh $ a
-  rfromIntegral a = case ftkAst a of
+        astFromS @(TKS sh r2) . astCastS . astSFromR @sh $ a
+  rfromIntegral @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astRFromS @sh . fromPrimal . astFromIntegralS
+        astFromS @(TKS sh r2) . fromPrimal . astFromIntegralS
         . astSpanPrimal . astSFromR @sh $ a
-  rzip a = case ftkAst a of
+  rzip @y @z a = case ftkAst a of
     FTKProduct (FTKR sh' _) (FTKR _ _) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
-          in astRFromS @sh
+          in astFromS @(TKS2 sh (TKProduct y z))
              $ AstZipS $ astPair (astSFromR @sh a31)
                                  (astSFromR @sh a32)
-  runzip a = case ftkAst a of
+  runzip @y @z a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astLetFun (AstUnzipS $ astSFromR @sh a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
-          in astPair (astRFromS @sh b31)
-                     (astRFromS @sh b32)
+          in astPair (astFromS @(TKS2 sh y) b31)
+                     (astFromS @(TKS2 sh z) b32)
   rtoScalar = AstToScalar . astSFromR
-  rfromScalar = astRFromS . astFromScalar
+  rfromScalar = astFromS . astFromScalar
 
   rfromPrimal = fromPrimal
   rprimalPart = astSpanPrimal
   rdualPart = astSpanDual
   rD u u' = astSpanD u u'
-  rScale s t = case ftkAst s of
+  rScale @r s t = case ftkAst s of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astDualPart
-        $ AstFromPrimal s * AstD (astRFromS @sh (astReplicate0NS 0)) t
+        $ AstFromPrimal s * AstD (astFromS @(TKS sh r) (astReplicate0NS 0)) t
 
   sminIndex = fromPrimal . AstMinIndexS . astSpanPrimal
   smaxIndex = fromPrimal . AstMaxIndexS . astSpanPrimal
@@ -556,7 +560,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sD u u' = astSpanD u u'
   sScale s t = astDualPart $ AstFromPrimal s * AstD (astReplicate0NS 0) t
 
-  xminIndex a = case ftkAst a of
+  xminIndex @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -565,10 +569,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          astXFromS @(Init sh) @(Init sh') . fromPrimal . AstMinIndexS @rest @n
+          astFromS @(TKS (Init sh) r2) . fromPrimal . AstMinIndexS @rest @n
           . astSpanPrimal . astSFromX @sh @sh' $ a
         ZSS -> error "xminIndex: impossible shape"
-  xmaxIndex a = case ftkAst a of
+  xmaxIndex @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -577,21 +581,21 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          astXFromS @(Init sh) @(Init sh') . fromPrimal . AstMaxIndexS @rest @n
+          astFromS @(TKS (Init sh) r2) . fromPrimal . AstMaxIndexS @rest @n
           . astSpanPrimal . astSFromX @sh @sh' $ a
         ZSS -> error "xmaxIndex: impossible shape"
-  xfloor @_ @_ @sh' a = case ftkAst a of
+  xfloor @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astXFromS @sh @sh' . fromPrimal . AstFloorS
+        astFromS @(TKS sh r2) {-@sh'-} . fromPrimal . AstFloorS
         . astSpanPrimal . astSFromX @sh @sh' $ a
 
-  xiota @n = astXFromS $ fromPrimal $ AstIotaS @n
+  xiota @n @r = astFromS $ fromPrimal $ AstIotaS @n @r
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
   xindex @_ @sh1 @sh2 a ix = case ftkAst a of
-    FTKX @sh1sh2 sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
+    FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
@@ -599,7 +603,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
         withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
-        astXFromS @(Drop (Rank sh1) sh) @sh2
+        astFromS @(TKS2 (Drop (Rank sh1) sh) x) {-@sh2-}
         $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                         (astSFromX @sh @sh1sh2 a)
                         (ixxToIxs ix)
@@ -622,7 +626,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
-        astXFromS $ astScatterS @(Take (Rank shm) shmshn)
+        astFromS $ astScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (astSFromX t)
         $ funToAstIxS (ixxToIxs . f . ixsToIxx)
@@ -638,30 +642,30 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
               (:$$) @mv @restv _ _ ->
                 gcastWith (unsafeCoerceRefl :: restu :~: restv) $
                 withKnownShS restu $
-                astXFromS $ astAppendS @mu @mv @restu
+                astFromS $ astAppendS @mu @mv @restu
                                        (astSFromX @shu @shu' u)
                                        (astSFromX @shv @shv' v)
               ZSS -> error "xappend: impossible shape"
           ZSS -> error "xappend: impossible shape"
   xslice @_ @i @n @k Proxy Proxy a = case ftkAst a of
-    FTKX @sh' sh'@((:$%) @_ @rest' _ _) _ ->
+    FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @m @rest _ rest ->
           withKnownShS rest $
           gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-          astXFromS @(n ': rest) @(Just n ': rest')
+          astFromS @(TKS2 (n ': rest) x) {-@(Just n ': rest')-}
           . astSliceS @i @n @k . astSFromX @sh @sh' $ a
         ZSS -> error "xslice: impossible shape"
   xreverse a = case ftkAst a of
-    FTKX @sh' sh' _ ->
+    FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         _ :$$ rest ->
           withKnownShS rest $
-          astXFromS @sh @sh' . astReverseS . astSFromX @sh @sh' $ a
+          astFromS @(TKS2 sh x) {-@sh'-} . astReverseS . astSFromX @sh @sh' $ a
         ZSS -> error "xreverse: impossible shape"
   xtranspose @perm perm a = case ftkAst a of
-    FTKX @sh' sh' _ -> case shxPermutePrefix perm sh' of
+    FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
       (sh2' :: IShX sh2') ->
         withKnownShX (ssxFromShape sh2') $
         withCastXS sh' $ \(sh :: ShS sh) ->
@@ -670,15 +674,15 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           withKnownShS sh2 $
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
-          astXFromS @sh2 . astTransposeS perm . astSFromX @sh @sh' $ a
-  xreshape @_ @_ @sh2' sh2' a = case ftkAst a of
-    FTKX @sh' sh' _ ->
+          astFromS @(TKS2 sh2 x) . astTransposeS perm . astSFromX @sh @sh' $ a
+  xreshape sh2' a = case ftkAst a of
+    FTKX @sh' @x sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
       withCastXS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        astXFromS @sh2 @sh2' . astReshapeS . astSFromX @sh @sh' $ a
+        astFromS @(TKS2 sh2 x) . astReshapeS . astSFromX @sh @sh' $ a
   xbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
   xmcast @x @_ @sh2 _ a =
     (unsafeCoerce a :: AstTensor AstMethodLet s (TKX2 sh2 x))
@@ -704,70 +708,68 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
-        astXFromS $ astGatherStepS @(Take (Rank shm) shmshn)
+        astFromS $ astGatherStepS @(Take (Rank shm) shmshn)
                                    @(Drop (Rank shm) shmshn)
                                    @(Take (Rank shp) shpshn) (astSFromX t)
         $ funToAstIxS (ixxToIxs . f . ixsToIxx)
             -- this introduces new variable names
-  xcast @_ @_ @sh' a = case ftkAst a of
+  xcast @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astXFromS @sh @sh' . astCastS . astSFromX @sh @sh' $ a
-  xfromIntegral @_ @_ @sh' a = case ftkAst a of
+        astFromS @(TKS sh r2) . astCastS . astSFromX @sh @sh' $ a
+  xfromIntegral @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astXFromS @sh @sh' . fromPrimal . astFromIntegralS
+        astFromS @(TKS sh r2) . fromPrimal . astFromIntegralS
         . astSpanPrimal . astSFromX @sh @sh' $ a
-  xzip @_ @_ @sh' a = case ftkAst a of
+  xzip @y @z @sh' a = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
-          in astXFromS @sh @sh'
+          in astFromS @(TKS2 sh (TKProduct y z)) {-@sh'-}
              $ AstZipS $ astPair (astSFromX @sh @sh' a31)
                                  (astSFromX @sh @sh' a32)
-  xunzip @_ @_ @sh' a = case ftkAst a of
+  xunzip @y @z @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astLetFun (AstUnzipS $ astSFromX @sh @sh' a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
-          in astPair (astXFromS @sh @sh' b31)
-                     (astXFromS @sh @sh' b32)
+          in astPair (astFromS @(TKS2 sh y) {-@sh'-} b31)
+                     (astFromS @(TKS2 sh z) {-@sh'-} b32)
   xtoScalar = AstToScalar . astSFromX
-  xfromScalar = astXFromS . astFromScalar
+  xfromScalar = astFromS . astFromScalar
   xfromPrimal = fromPrimal
   xprimalPart = astSpanPrimal
   xdualPart = astSpanDual
   xD u u' = astSpanD u u'
-  xScale s t = case ftkAst s of
-    FTKX @sh' sh' _ ->
+  xScale @r s t = case ftkAst s of
+    FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astDualPart
-        $ AstFromPrimal s * AstD (astXFromS @sh @sh' (astReplicate0NS 0)) t
+        $ AstFromPrimal s * AstD (astFromS @(TKS sh r) (astReplicate0NS 0)) t
 
   kfloor = fromPrimal . AstFloor . astSpanPrimal
   kcast = astCast
   kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
 
-  rfromS = astRFromS
   rfromX @_ @sh' a = case ftkAst a of
-    FTKX sh' _ ->
+    FTKX @_ @x sh' _ | SNat <- shxRank sh' ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astRFromS @sh $ astSFromX @sh @sh' a
+        astFromS @(TKS2 sh x) $ astSFromX @sh @sh' a
   sfromR = astSFromR
   sfromX = astSFromX
-  xfromR @sh' a = case ftkAst a of
-    FTKR shr _ ->
+  xfromR a = case ftkAst a of
+    FTKR @_ @x shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        astXFromS @sh @sh' $ astSFromR @sh a
-  xfromS = astXFromS
+        astFromS @(TKS2 sh x) $ astSFromR @sh a
 
   xnestR sh =
     withKnownShX sh $
@@ -954,7 +956,7 @@ rawHVector =
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
-  rminIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  rminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -963,30 +965,31 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          AstRFromS @(Init sh) . fromPrimal . AstMinIndexS
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMinIndexS
           . astSpanPrimalRaw . AstSFromR @sh $ a
         ZSS -> error "xminIndex: impossible shape"
-  rmaxIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  rmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          AstRFromS @(Init sh) . fromPrimal . AstMaxIndexS
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMaxIndexS
           . astSpanPrimalRaw . AstSFromR @sh $ a
         ZSS -> error "xmaxIndex: impossible shape"
-  rfloor (AstRaw a) = AstRaw $ case ftkAst a of
+  rfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRFromS @sh . fromPrimal . AstFloorS
+        AstFromS @(TKS sh r2) . fromPrimal . AstFloorS
         . astSpanPrimalRaw . AstSFromR @sh $ a
 
-  riota n = AstRaw
-            $ withSNat n $ \(SNat @n) -> AstRFromS $ fromPrimal $ AstIotaS @n
+  riota @r n =
+    AstRaw
+    $ withSNat n $ \(SNat @n) -> AstFromS $ fromPrimal $ AstIotaS @n @r
   rindex @_ @m @n (AstRaw a) ix = AstRaw $ case ftkAst a of
-    FTKR shmshn _ | SNat <- shrRank shmshn ->
+    FTKR @_ @x shmshn _ | SNat <- shrRank shmshn ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
@@ -994,13 +997,14 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
         withKnownShS (takeShS @m (knownShS @sh)) $
         withKnownShS (dropShS @m (knownShS @sh)) $
-        AstRFromS @(Drop m sh)
+        AstFromS @(TKS2 (Drop m sh) x)
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (AstSFromR @sh a) (ixrToIxs (unAstRaw <$> ix))
   rsum v = withSNat (rlength v) $ \snat ->
              AstRaw . AstSum snat stensorKind . unAstRaw $ v
   rscatter @_ @m @_ @p shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
-    FTKR shmshn0 _ | SNat <- shrRank shmshn0 ->
+    FTKR @_ @x shmshn0 _ | SNat <- shrRank shmshn0
+                         , SNat <- shrRank shpshn0 ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
@@ -1014,7 +1018,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         withKnownShS (takeShS @p (knownShS @shpshn)) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        AstRFromS @shpshn
+        AstFromS @(TKS2 shpshn x)
         $ AstScatterS @(Take m shmshn)
                       @(Drop m shmshn)
                       @(Take p shpshn) (AstSFromR @shmshn t)
@@ -1033,30 +1037,30 @@ instance AstSpan s => BaseTensor (AstRaw s) where
               (:$$) @mv @restv _ _ ->
                 gcastWith (unsafeCoerceRefl :: restu :~: restv) $
                 withKnownShS restu $
-                AstRFromS $ AstAppendS @mu @mv @restu
+                AstFromS $ AstAppendS @mu @mv @restu
                                        (AstSFromR @shu u)
                                        (AstSFromR @shv v)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
   rslice i n (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' _ | SNat <- shrRank sh' ->
+    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @m @rest _ rest ->
           withKnownShS rest $
           withSNat i $ \(SNat @i) -> withSNat n $ \(SNat @n) ->
           withSNat (valueOf @m - i - n) $ \(SNat @k) ->
             gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-            AstRFromS @(n ': rest) . AstSliceS @i @n @k . AstSFromR @sh $ a
+            AstFromS @(TKS2 (n ': rest) x) . AstSliceS @i @n @k . AstSFromR @sh $ a
         ZSS -> error "xslice: impossible shape"
   rreverse (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' _ | SNat <- shrRank sh' ->
+    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         _ :$$ rest ->
           withKnownShS rest $
-          AstRFromS @sh . AstReverseS . AstSFromR @sh $ a
+          AstFromS @(TKS2 sh x) . AstReverseS . AstSFromR @sh $ a
         ZSS -> error "xreverse: impossible shape"
   rtranspose permr (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' _  ->
+    FTKR @_ @x sh' _  ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
           gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
@@ -1066,21 +1070,22 @@ instance AstSpan s => BaseTensor (AstRaw s) where
               withKnownShS sh $
               withKnownShS sh2 $
               gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
-              AstRFromS @sh2 . AstTransposeS perm . AstSFromR @sh $ a
+              AstFromS @(TKS2 sh2 x) . AstTransposeS perm . AstSFromR @sh $ a
   rreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' _ ->
+    FTKR @_ @x sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
       withCastRS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        AstRFromS @sh2 . AstReshapeS . AstSFromR @sh $ a
+        AstFromS @(TKS2 sh2 x) . AstReshapeS . AstSFromR @sh $ a
   rbuild1 k f = withSNat k $ \snat ->
     AstRaw $ AstBuild1 snat
     $ funToAstI  -- this introduces new variable names
     $ unAstRaw . f . AstRaw
   rgather @_ @m @_ @p shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
-    FTKR shpshn0 _ | SNat <- shrRank shpshn0 ->
+    FTKR shpshn0 _ | SNat <- shrRank shpshn0
+                   , SNat <- shrRank shmshn0 ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
@@ -1094,53 +1099,53 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         withKnownShS (takeShS @p (knownShS @shpshn)) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        AstRFromS $ AstGatherS @(Take m shmshn)
-                               @(Drop m shmshn)
-                               @(Take p shpshn) (AstSFromR t)
+        AstFromS $ AstGatherS @(Take m shmshn)
+                              @(Drop m shmshn)
+                              @(Take p shpshn) (AstSFromR t)
         $ funToAstIxS (fmap unAstRaw . ixrToIxs . f . ixsToIxr . fmap AstRaw)
             -- this introduces new variable names
-  rcast (AstRaw a) = AstRaw $ case ftkAst a of
+  rcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRFromS @sh . AstCastS . AstSFromR @sh $ a
-  rfromIntegral (AstRaw a) = AstRaw $ case ftkAst a of
+        AstFromS @(TKS sh r2) . AstCastS . AstSFromR @sh $ a
+  rfromIntegral @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRFromS @sh . fromPrimal . AstFromIntegralS
+        AstFromS @(TKS sh r2) . fromPrimal . AstFromIntegralS
         . astSpanPrimalRaw . AstSFromR @sh $ a
-  rzip (AstRaw a) = AstRaw $ case ftkAst a of
+  rzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKR sh' _) (FTKR _ _) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         let (a31, a32) = tunpair $ AstRaw a
-        in AstRFromS @sh
+        in AstFromS @(TKS2 sh (TKProduct y z))
            $ AstZipS $ AstPair (AstSFromR @sh $ unAstRaw a31)
                                (AstSFromR @sh $ unAstRaw a32)
-  runzip (AstRaw a) = AstRaw $ case ftkAst a of
+  runzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         let b3 = AstUnzipS $ AstSFromR @sh a
             (b31, b32) = tunpair $ AstRaw b3
-        in AstPair (AstRFromS @sh $ unAstRaw b31)
-                   (AstRFromS @sh $ unAstRaw b32)
+        in AstPair (AstFromS @(TKS2 sh y) $ unAstRaw b31)
+                   (AstFromS @(TKS2 sh z) $ unAstRaw b32)
   rtoScalar = AstRaw . AstToScalar . AstSFromR . unAstRaw
-  rfromScalar = AstRaw . AstRFromS . AstFromScalar . unAstRaw
+  rfromScalar = AstRaw . AstFromS . AstFromScalar . unAstRaw
 
   rfromPrimal = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   rdualPart = astSpanDualRaw . unAstRaw
   rD u u' = AstRaw $ astSpanD (unAstRaw u) u'
-  rScale (AstRaw s) t = case ftkAst s of
+  rScale @r (AstRaw s) t = case ftkAst s of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstDualPart
-        $ AstFromPrimal s * AstD (AstRFromS @sh (astReplicate0NSNoSimp 0)) t
+        $ AstFromPrimal s * AstD (AstFromS @(TKS sh r) (astReplicate0NSNoSimp 0)) t
 
-  xminIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  xminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1149,10 +1154,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          AstXFromS @(Init sh) @(Init sh') . fromPrimal . AstMinIndexS @rest @n
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMinIndexS @rest @n
           . astSpanPrimalRaw . AstSFromX @sh @sh' $ a
         ZSS -> error "xminIndex: impossible shape"
-  xmaxIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  xmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1161,21 +1166,21 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          AstXFromS @(Init sh) @(Init sh') . fromPrimal . AstMaxIndexS @rest @n
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMaxIndexS @rest @n
           . astSpanPrimalRaw . AstSFromX @sh @sh' $ a
         ZSS -> error "xmaxIndex: impossible shape"
-  xfloor @_ @_ @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+  xfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstXFromS @sh @sh' . fromPrimal . AstFloorS
+        AstFromS @(TKS sh r2). fromPrimal . AstFloorS
         . astSpanPrimalRaw . AstSFromX @sh @sh' $ a
 
-  xiota @n = AstRaw $ AstXFromS $ fromPrimal $ AstIotaS @n
+  xiota @n @r = AstRaw $ AstFromS $ fromPrimal $ AstIotaS @n @r
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
   xindex @_ @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
-    FTKX @sh1sh2 sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
+    FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
@@ -1183,7 +1188,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
         withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
-        AstRaw $ AstXFromS @(Drop (Rank sh1) sh) @sh2
+        AstRaw $ AstFromS @(TKS2 (Drop (Rank sh1) sh) x) {-@sh2-}
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
                     (ixxToIxs (unAstRaw <$> ix))
@@ -1206,7 +1211,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
-        AstXFromS $ AstScatterS @(Take (Rank shm) shmshn)
+        AstFromS $ AstScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (AstSFromX t)
         $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx . fmap AstRaw)
@@ -1223,30 +1228,30 @@ instance AstSpan s => BaseTensor (AstRaw s) where
               (:$$) @mv @restv _ _ ->
                 gcastWith (unsafeCoerceRefl :: restu :~: restv) $
                 withKnownShS restu $
-                AstXFromS $ AstAppendS @mu @mv @restu
+                AstFromS $ AstAppendS @mu @mv @restu
                                        (AstSFromX @shu @shu' u)
                                        (AstSFromX @shv @shv' v)
               ZSS -> error "xappend: impossible shape"
           ZSS -> error "xappend: impossible shape"
   xslice @_ @i @n @k Proxy Proxy (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' sh'@((:$%) @_ @rest' _ _) _ ->
+    FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @m @rest _ rest ->
           withKnownShS rest $
           gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-          AstXFromS @(n ': rest) @(Just n ': rest')
+          AstFromS @(TKS2 (n ': rest) x) {-@(Just n ': rest')-}
           . AstSliceS @i @n @k . AstSFromX @sh @sh' $ a
         ZSS -> error "xslice: impossible shape"
   xreverse (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' sh' _ ->
+    FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         _ :$$ rest ->
           withKnownShS rest $
-          AstXFromS @sh @sh' . AstReverseS . AstSFromX @sh @sh' $ a
+          AstFromS @(TKS2 sh x) {-@sh'-} . AstReverseS . AstSFromX @sh @sh' $ a
         ZSS -> error "xreverse: impossible shape"
   xtranspose @perm perm (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' sh' _ -> case shxPermutePrefix perm sh' of
+    FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
       (sh2' :: IShX sh2') ->
         withKnownShX (ssxFromShape sh2') $
         withCastXS sh' $ \(sh :: ShS sh) ->
@@ -1255,15 +1260,15 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           withKnownShS sh2 $
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
-          AstXFromS @sh2 . AstTransposeS perm . AstSFromX @sh @sh' $ a
-  xreshape @_ @_ @sh2' sh2' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' sh' _ ->
+          AstFromS @(TKS2 sh2 x) . AstTransposeS perm . AstSFromX @sh @sh' $ a
+  xreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX @sh' @x sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
       withCastXS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        AstXFromS @sh2 @sh2' . AstReshapeS . AstSFromX @sh @sh' $ a
+        AstFromS @(TKS2 sh2 x) . AstReshapeS . AstSFromX @sh @sh' $ a
   xbuild1 @_ @n f = AstRaw $ AstBuild1 (SNat @n)
                     $ funToAstI  -- this introduces new variable names
                     $ unAstRaw . f . AstRaw
@@ -1291,52 +1296,52 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
-        AstXFromS $ AstGatherS @(Take (Rank shm) shmshn)
+        AstFromS $ AstGatherS @(Take (Rank shm) shmshn)
                                @(Drop (Rank shm) shmshn)
                                @(Take (Rank shp) shpshn) (AstSFromX t)
         $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx . fmap AstRaw)
             -- this introduces new variable names
-  xcast @_ @_ @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+  xcast @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstXFromS @sh @sh' . AstCastS . AstSFromX @sh @sh' $ a
-  xfromIntegral @_ @_ @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+        AstFromS @(TKS sh r2) . AstCastS . AstSFromX @sh @sh' $ a
+  xfromIntegral @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstXFromS @sh @sh' . fromPrimal . AstFromIntegralS
+        AstFromS @(TKS sh r2) . fromPrimal . AstFromIntegralS
         . astSpanPrimalRaw . AstSFromX @sh @sh' $ a
-  xzip @_ @_ @sh' (AstRaw a) = case ftkAst a of
+  xzip @y @z @sh' (AstRaw a) = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstRaw
         $ let (a31, a32) = tunpair $ AstRaw a
-          in AstXFromS @sh @sh'
+          in AstFromS @(TKS2 sh (TKProduct y z)) {-@sh'-}
              $ AstZipS $ AstPair (AstSFromX @sh @sh' $ unAstRaw a31)
                                  (AstSFromX @sh @sh' $ unAstRaw a32)
-  xunzip @_ @_ @sh' (AstRaw a) = case ftkAst a of
+  xunzip @y @z @sh' (AstRaw a) = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstRaw
         $ let b3 = AstRaw $ AstUnzipS $ AstSFromX @sh @sh' a
               (b31, b32) = tunpair b3
-          in AstPair (AstXFromS @sh @sh' $ unAstRaw b31)
-                     (AstXFromS @sh @sh' $ unAstRaw b32)
+          in AstPair (AstFromS @(TKS2 sh y) {-@sh'-} $ unAstRaw b31)
+                     (AstFromS @(TKS2 sh z) {-@sh'-} $ unAstRaw b32)
   xtoScalar = AstRaw . AstToScalar . AstSFromX . unAstRaw
-  xfromScalar = AstRaw . AstXFromS . AstFromScalar . unAstRaw
+  xfromScalar = AstRaw . AstFromS . AstFromScalar . unAstRaw
   xfromPrimal = AstRaw . fromPrimal . unAstRaw
   xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   xdualPart = astSpanDualRaw . unAstRaw
   xD u u' = AstRaw $ astSpanD (unAstRaw u) u'
-  xScale (AstRaw s) t = case ftkAst s of
-    FTKX @sh' sh' _ ->
+  xScale @r (AstRaw s) t = case ftkAst s of
+    FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstDualPart $
-        AstFromPrimal s * AstD (AstXFromS @sh @sh' (astReplicate0NSNoSimp 0)) t
+        AstFromPrimal s * AstD (AstFromS @(TKS sh r) (astReplicate0NSNoSimp 0)) t
 
   sminIndex = AstRaw . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRaw
   smaxIndex = AstRaw . fromPrimal . AstMaxIndexS . astSpanPrimalRaw . unAstRaw
@@ -1383,20 +1388,21 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   kfromIntegral = AstRaw . fromPrimal . AstFromIntegral
                   . astSpanPrimalRaw . unAstRaw
 
-  rfromS = AstRaw . AstRFromS . unAstRaw
+  rfromS @_ @sh | SNat <- shsRank (knownShS @sh) =
+    AstRaw . AstFromS . unAstRaw
   rfromX @_ @sh' (AstRaw a) = case ftkAst a of
-    FTKX sh' _ ->
+    FTKX @_ @x sh' _ | SNat <- shxRank sh' ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRaw $ AstRFromS @sh $ AstSFromX @sh @sh' a
+        AstRaw $ AstFromS @(TKS2 sh x) $ AstSFromX @sh @sh' a
   sfromR = AstRaw . AstSFromR . unAstRaw
   sfromX = AstRaw . AstSFromX . unAstRaw
-  xfromR @sh' (AstRaw a) = case ftkAst a of
-    FTKR shr _ ->
+  xfromR (AstRaw a) = case ftkAst a of
+    FTKR @_ @x shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRaw $ AstXFromS @sh @sh' $ AstSFromR @sh a
-  xfromS = AstRaw . AstXFromS . unAstRaw
+        AstRaw $ AstFromS @(TKS2 sh x) $ AstSFromR @sh a
+  xfromS = AstRaw . AstFromS . unAstRaw
 
   xnestR sh =
     withKnownShX sh $
@@ -1493,6 +1499,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
              $ astLetFun (unAstNoVectorize u)
                          (unAstNoVectorize . f . AstNoVectorize)
   toShare t = toShare $ unAstNoVectorize t
+  tfromS = AstNoVectorize . tfromS . unAstNoVectorize
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize
@@ -1624,12 +1631,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   kcast = AstNoVectorize . kcast . unAstNoVectorize
   kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
 
-  rfromS = AstNoVectorize . rfromS . unAstNoVectorize
   rfromX = AstNoVectorize . rfromX . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
   xfromR = AstNoVectorize . xfromR  . unAstNoVectorize
-  xfromS = AstNoVectorize . xfromS  . unAstNoVectorize
 
   xnestR sh =
     withKnownShX sh $
@@ -1702,11 +1707,11 @@ astLetFunNoSimplify
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case ftkAst a of
-  FTKR sh' x | SNat <- shrRank sh'
-             , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+  FTKR @_ @x2 sh' x | SNat <- shrRank sh'
+                    , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      let (var, ast) = funToAst (FTKS sh x) (f . AstRFromS @sh)
+      let (var, ast) = funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x2))
       in AstLet var (AstSFromR @sh a) ast
            -- safe, because subsitution ruled out above
   -- TODO: also mixed and maybe recursively product
@@ -1734,10 +1739,11 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
              $ astLetFunNoSimplify (unAstNoSimplify u)
                                    (unAstNoSimplify . f . AstNoSimplify)
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
+  tfromS = AstNoSimplify . AstFromS . unAstNoSimplify
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rshape = shapeAst . unAstNoSimplify
-  rminIndex (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  rminIndex @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -1746,30 +1752,31 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          AstRFromS @(Init sh) . fromPrimal . AstMinIndexS
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMinIndexS
           . astSpanPrimal . AstSFromR @sh $ a
         ZSS -> error "xminIndex: impossible shape"
-  rmaxIndex (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  rmaxIndex @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          AstRFromS @(Init sh) . fromPrimal . AstMaxIndexS
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMaxIndexS
           . astSpanPrimal . AstSFromR @sh $ a
         ZSS -> error "xmaxIndex: impossible shape"
-  rfloor (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  rfloor @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRFromS @sh . fromPrimal . AstFloorS
+        AstFromS @(TKS sh r2) . fromPrimal . AstFloorS
         . astSpanPrimal . AstSFromR @sh $ a
 
-  riota n = AstNoSimplify
-            $ withSNat n $ \(SNat @n) -> AstRFromS $ fromPrimal $ AstIotaS @n
+  riota @r n =
+    AstNoSimplify
+    $ withSNat n $ \(SNat @n) -> AstFromS $ fromPrimal $ AstIotaS @n @r
   rindex @_ @m @n (AstNoSimplify a) ix = AstNoSimplify $ case ftkAst a of
-    FTKR shmshn _ | SNat <- shrRank shmshn ->
+    FTKR @_ @x shmshn _ | SNat <- shrRank shmshn ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
@@ -1777,13 +1784,14 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
         withKnownShS (takeShS @m (knownShS @sh)) $
         withKnownShS (dropShS @m (knownShS @sh)) $
-        AstRFromS @(Drop m sh)
+        AstFromS @(TKS2 (Drop m sh) x)
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (AstSFromR @sh a) (ixrToIxs (unAstNoSimplify <$> ix))
   rsum v = withSNat (rlength v) $ \snat ->
              AstNoSimplify . AstSum snat stensorKind . unAstNoSimplify $ v
   rscatter @_ @m @_ @p shpshn0 (AstNoSimplify t) f = AstNoSimplify $ case ftkAst t of
-    FTKR shmshn0 _ | SNat <- shrRank shmshn0 ->
+    FTKR @_ @x shmshn0 _ | SNat <- shrRank shmshn0
+                         , SNat <- shrRank shpshn0 ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
@@ -1797,7 +1805,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         withKnownShS (takeShS @p (knownShS @shpshn)) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        AstRFromS @shpshn
+        AstFromS @(TKS2 shpshn x)
         $ AstScatterS @(Take m shmshn)
                       @(Drop m shmshn)
                       @(Take p shpshn) (AstSFromR @shmshn t)
@@ -1816,30 +1824,30 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
               (:$$) @mv @restv _ _ ->
                 gcastWith (unsafeCoerceRefl :: restu :~: restv) $
                 withKnownShS restu $
-                AstRFromS $ AstAppendS @mu @mv @restu
+                AstFromS $ AstAppendS @mu @mv @restu
                                        (AstSFromR @shu u)
                                        (AstSFromR @shv v)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
   rslice i n (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKR sh' _ | SNat <- shrRank sh' ->
+    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @m @rest _ rest ->
           withKnownShS rest $
           withSNat i $ \(SNat @i) -> withSNat n $ \(SNat @n) ->
           withSNat (valueOf @m - i - n) $ \(SNat @k) ->
             gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-            AstRFromS @(n ': rest) . AstSliceS @i @n @k . AstSFromR @sh $ a
+            AstFromS @(TKS2 (n ': rest) x) . AstSliceS @i @n @k . AstSFromR @sh $ a
         ZSS -> error "xslice: impossible shape"
   rreverse (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKR sh' _ | SNat <- shrRank sh' ->
+    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         _ :$$ rest ->
           withKnownShS rest $
-          AstRFromS @sh . AstReverseS . AstSFromR @sh $ a
+          AstFromS @(TKS2 sh x) . AstReverseS . AstSFromR @sh $ a
         ZSS -> error "xreverse: impossible shape"
   rtranspose permr (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKR sh' _  ->
+    FTKR @_ @x sh' _  ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
           gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
@@ -1849,20 +1857,21 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
               withKnownShS sh $
               withKnownShS sh2 $
               gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
-              AstRFromS @sh2 . AstTransposeS perm . AstSFromR @sh $ a
+              AstFromS @(TKS2 sh2 x) . AstTransposeS perm . AstSFromR @sh $ a
   rreshape sh2' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKR sh' _ ->
+    FTKR @_ @x sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
       withCastRS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        AstRFromS @sh2 . AstReshapeS . AstSFromR @sh $ a
+        AstFromS @(TKS2 sh2 x) . AstReshapeS . AstSFromR @sh $ a
   rbuild1 k f = withSNat k $ \snat ->
     AstNoSimplify
     $ astBuild1Vectorize snat (unAstNoSimplify . f . AstNoSimplify)
   rgather @_ @m @_ @p shmshn0 (AstNoSimplify t) f = AstNoSimplify $ case ftkAst t of
-    FTKR shpshn0 _ | SNat <- shrRank shpshn0 ->
+    FTKR shpshn0 _ | SNat <- shrRank shpshn0
+                   , SNat <- shrRank shmshn0 ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
@@ -1876,54 +1885,54 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         withKnownShS (takeShS @p (knownShS @shpshn)) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        AstRFromS $ AstGatherS @(Take m shmshn)
-                               @(Drop m shmshn)
-                               @(Take p shpshn) (AstSFromR t)
+        AstFromS $ AstGatherS @(Take m shmshn)
+                              @(Drop m shmshn)
+                              @(Take p shpshn) (AstSFromR t)
         $ funToAstIxS (fmap unAstNoSimplify . ixrToIxs . f . ixsToIxr . fmap AstNoSimplify)
             -- this introduces new variable names
-  rcast (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  rcast @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRFromS @sh . AstCastS . AstSFromR @sh $ a
-  rfromIntegral (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+        AstFromS @(TKS sh r2) . AstCastS . AstSFromR @sh $ a
+  rfromIntegral @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstRFromS @sh . fromPrimal . AstFromIntegralS
+        AstFromS @(TKS sh r2) . fromPrimal . AstFromIntegralS
         . astSpanPrimal . AstSFromR @sh $ a
-  rzip (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  rzip @y @z (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKProduct (FTKR sh' _) (FTKR _ _) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astLetFunNoSimplify a $ \a3 ->
           let (a31, a32) = tunpairDup a3
-          in AstRFromS @sh
+          in AstFromS @(TKS2 sh (TKProduct y z))
              $ AstZipS $ AstPair (AstSFromR @sh a31)
                                  (AstSFromR @sh a32)
-  runzip (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  runzip @y @z (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         astLetFunNoSimplify (AstUnzipS $ AstSFromR @sh a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
-          in AstPair (AstRFromS @sh b31)
-                     (AstRFromS @sh b32)
+          in AstPair (AstFromS @(TKS2 sh y) b31)
+                     (AstFromS @(TKS2 sh z) b32)
   rtoScalar = AstNoSimplify . AstToScalar . AstSFromR . unAstNoSimplify
-  rfromScalar = AstNoSimplify . AstRFromS . AstFromScalar . unAstNoSimplify
+  rfromScalar = AstNoSimplify . AstFromS . AstFromScalar . unAstNoSimplify
 
   rfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   rdualPart = astSpanDual . unAstNoSimplify
   rD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
-  rScale (AstNoSimplify s) t = case ftkAst s of
+  rScale @r (AstNoSimplify s) t = case ftkAst s of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstDualPart
-        $ AstFromPrimal s * AstD (AstRFromS @sh (astReplicate0NSNoSimp 0)) t
+        $ AstFromPrimal s * AstD (AstFromS @(TKS sh r) (astReplicate0NSNoSimp 0)) t
 
-  xminIndex (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  xminIndex @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1932,10 +1941,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          AstXFromS @(Init sh) @(Init sh') . fromPrimal . AstMinIndexS @rest @n
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMinIndexS @rest @n
           . astSpanPrimal . AstSFromX @sh @sh' $ a
         ZSS -> error "xminIndex: impossible shape"
-  xmaxIndex (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  xmaxIndex @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1944,21 +1953,21 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           withKnownShS rest $
           withKnownShS (shsInit sh) $
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          AstXFromS @(Init sh) @(Init sh') . fromPrimal . AstMaxIndexS @rest @n
+          AstFromS @(TKS (Init sh) r2) . fromPrimal . AstMaxIndexS @rest @n
           . astSpanPrimal . AstSFromX @sh @sh' $ a
         ZSS -> error "xmaxIndex: impossible shape"
-  xfloor @_ @_ @sh' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  xfloor @_ @r2 @sh' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstXFromS @sh @sh' . fromPrimal . AstFloorS
+        AstFromS @(TKS sh r2) . fromPrimal . AstFloorS
         . astSpanPrimal . AstSFromX @sh @sh' $ a
 
-  xiota @n = AstNoSimplify $ AstXFromS $ fromPrimal $ AstIotaS @n
+  xiota @n @r = AstNoSimplify $ AstFromS $ fromPrimal $ AstIotaS @n @r
   xshape t = case ftkAst $ unAstNoSimplify t of
     FTKX sh _ -> sh
   xindex @_ @sh1 @sh2 (AstNoSimplify a) ix = case ftkAst a of
-    FTKX @sh1sh2 sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
+    FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
@@ -1966,7 +1975,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
         withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
-        AstNoSimplify $ AstXFromS @(Drop (Rank sh1) sh) @sh2
+        AstNoSimplify $ AstFromS @(TKS2 (Drop (Rank sh1) sh) x) {-@sh2-}
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
                     (ixxToIxs (unAstNoSimplify <$> ix))
@@ -1990,7 +1999,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
-        AstXFromS $ AstScatterS @(Take (Rank shm) shmshn)
+        AstFromS $ AstScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (AstSFromX t)
         $ funToAstIxS (fmap unAstNoSimplify . ixxToIxs . f . ixsToIxx
@@ -2008,30 +2017,31 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
               (:$$) @mv @restv _ _ ->
                 gcastWith (unsafeCoerceRefl :: restu :~: restv) $
                 withKnownShS restu $
-                AstXFromS $ AstAppendS @mu @mv @restu
+                AstFromS $ AstAppendS @mu @mv @restu
                                        (AstSFromX @shu @shu' u)
                                        (AstSFromX @shv @shv' v)
               ZSS -> error "xappend: impossible shape"
           ZSS -> error "xappend: impossible shape"
-  xslice @_ @i @n @k Proxy Proxy (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKX @sh' sh'@((:$%) @_ @rest' _ _) _ ->
+  xslice @_ @i @n @k Proxy Proxy
+         (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+    FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @m @rest _ rest ->
           withKnownShS rest $
           gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-          AstXFromS @(n ': rest) @(Just n ': rest')
+          AstFromS @(TKS2 (n ': rest) x)
           . AstSliceS @i @n @k . AstSFromX @sh @sh' $ a
         ZSS -> error "xslice: impossible shape"
   xreverse (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKX @sh' sh' _ ->
+    FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         _ :$$ rest ->
           withKnownShS rest $
-          AstXFromS @sh @sh' . AstReverseS . AstSFromX @sh @sh' $ a
+          AstFromS @(TKS2 sh x) {-@sh'-} . AstReverseS . AstSFromX @sh @sh' $ a
         ZSS -> error "xreverse: impossible shape"
   xtranspose @perm perm (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKX @sh' sh' _ -> case shxPermutePrefix perm sh' of
+    FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
       (sh2' :: IShX sh2') ->
         withKnownShX (ssxFromShape sh2') $
         withCastXS sh' $ \(sh :: ShS sh) ->
@@ -2040,15 +2050,15 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           withKnownShS sh2 $
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
-          AstXFromS @sh2 . AstTransposeS perm . AstSFromX @sh @sh' $ a
-  xreshape @_ @_ @sh2' sh2' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
-    FTKX @sh' sh' _ ->
+          AstFromS @(TKS2 sh2 x) . AstTransposeS perm . AstSFromX @sh @sh' $ a
+  xreshape sh2' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+    FTKX @sh' @x sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
       withCastXS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        AstXFromS @sh2 @sh2' . AstReshapeS . AstSFromX @sh @sh' $ a
+        AstFromS @(TKS2 sh2 x) . AstReshapeS . AstSFromX @sh @sh' $ a
   xbuild1 @_ @n f =
     AstNoSimplify
     $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
@@ -2077,54 +2087,54 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
         withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
-        AstXFromS $ AstGatherS @(Take (Rank shm) shmshn)
+        AstFromS $ AstGatherS @(Take (Rank shm) shmshn)
                                @(Drop (Rank shm) shmshn)
                                @(Take (Rank shp) shpshn) (AstSFromX t)
         $ funToAstIxS (fmap unAstNoSimplify . ixxToIxs . f . ixsToIxx
                        . fmap AstNoSimplify)
             -- this introduces new variable names
-  xcast @_ @_ @sh' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+  xcast @_ @r2 @sh' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstXFromS @sh @sh' . AstCastS . AstSFromX @sh @sh' $ a
-  xfromIntegral @_ @_ @sh' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
+        AstFromS @(TKS sh r2) . AstCastS . AstSFromX @sh @sh' $ a
+  xfromIntegral @_ @r2 @sh' (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstXFromS @sh @sh' . fromPrimal . AstFromIntegralS
+        AstFromS @(TKS sh r2) . fromPrimal . AstFromIntegralS
         . astSpanPrimal . AstSFromX @sh @sh' $ a
-  xzip @_ @_ @sh' (AstNoSimplify a) = case ftkAst a of
+  xzip @y @z @sh' (AstNoSimplify a) = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstNoSimplify
         $ astLetFunNoSimplify a $ \a3 ->
           let (a31, a32) = tunpairDup a3
-          in AstXFromS @sh @sh'
+          in AstFromS @(TKS2 sh (TKProduct y z)) {-@sh'-}
              $ AstZipS $ AstPair (AstSFromX @sh @sh' a31)
                                  (AstSFromX @sh @sh' a32)
-  xunzip @_ @_ @sh' (AstNoSimplify a) = case ftkAst a of
+  xunzip @y @z @sh' (AstNoSimplify a) = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstNoSimplify
         $ astLetFunNoSimplify (AstUnzipS $ AstSFromX @sh @sh' a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
-          in AstPair (AstXFromS @sh @sh' b31)
-                     (AstXFromS @sh @sh' b32)
+          in AstPair (AstFromS @(TKS2 sh y) {-@(TKX2 sh' y)-} b31)
+                     (AstFromS @(TKS2 sh z) {-@(TKX2 sh' z)-} b32)
   xtoScalar = AstNoSimplify . AstToScalar . AstSFromX . unAstNoSimplify
-  xfromScalar = AstNoSimplify . AstXFromS . AstFromScalar . unAstNoSimplify
+  xfromScalar = AstNoSimplify . AstFromS . AstFromScalar . unAstNoSimplify
   xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   xdualPart = astSpanDual . unAstNoSimplify
   xD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
-  xScale (AstNoSimplify s) t = case ftkAst s of
-    FTKX @sh' sh' _ ->
+  xScale @r (AstNoSimplify s) t = case ftkAst s of
+    FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         AstDualPart
-        $ AstFromPrimal s * AstD (astXFromS @sh @sh' (astReplicate0NSNoSimp 0)) t
+        $ AstFromPrimal s * AstD (AstFromS @(TKS sh r) (astReplicate0NSNoSimp 0)) t
 
   sminIndex = AstNoSimplify . fromPrimal . AstMinIndexS
               . astSpanPrimal . unAstNoSimplify
@@ -2182,20 +2192,18 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   kfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
 
-  rfromS = AstNoSimplify . AstRFromS . unAstNoSimplify
   rfromX @_ @sh' (AstNoSimplify a) = case ftkAst a of
-    FTKX sh' _ ->
+    FTKX @_ @x sh' _ | SNat <- shxRank sh' ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstNoSimplify $ AstRFromS @sh $ AstSFromX @sh @sh' a
+        AstNoSimplify $ AstFromS @(TKS2 sh x) $ AstSFromX @sh @sh' a
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
   sfromX  = AstNoSimplify . AstSFromX . unAstNoSimplify
-  xfromR @sh' (AstNoSimplify a) = case ftkAst a of
-    FTKR shr _ ->
+  xfromR (AstNoSimplify a) = case ftkAst a of
+    FTKR @_ @x shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        AstNoSimplify $ AstXFromS @sh @sh' $ AstSFromR @sh a
-  xfromS = AstNoSimplify . AstXFromS . unAstNoSimplify
+        AstNoSimplify $ AstFromS @(TKS2 sh x) $ AstSFromR @sh a
 
   xnestR sh =
     withKnownShX sh $

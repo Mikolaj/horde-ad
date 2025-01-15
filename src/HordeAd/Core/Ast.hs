@@ -508,14 +508,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
             -> AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
 
   -- Ops that involve more than one variant of arrays.
-  AstRFromS :: (KnownShS sh, TensorKind r)
-            => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKR2 (Rank sh) r)
+  AstFromS :: (TensorKind y, TensorKind z)
+           => AstTensor ms s y -> AstTensor ms s z
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
   AstSFromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
             => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
-  AstXFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
-            => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKX2 sh' r)
 
   AstXNestR :: (KnownShX sh1, KnownNat m, TensorKind x)
             => AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)

@@ -80,7 +80,15 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtSX, shrRank, shrSize, shsAppend, shsKnownShS, shsProduct, withKnownShS)
+  ( shCvtSX
+  , shrRank
+  , shrSize
+  , shsAppend
+  , shsKnownShS
+  , shsProduct
+  , shsRank
+  , withKnownShS
+  )
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
@@ -201,6 +209,34 @@ class LetTensor (target :: Target) where
         dmkHVector
         $ replicate1HVectorF rreplicate sreplicate snat
         $ dunHVector u1
+  tfromS :: forall y z. (BaseTensor target, TensorKind y, TensorKind z)
+         => target y -> target z
+  tfromS v = case (stensorKind @y, stensorKind @z) of
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
+    (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
+      Just Refl -> stoScalar v
+      Nothing -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKR nx zx) | Dict <- lemTensorKindOfSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          rfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKX shx zx) | Dict <- lemTensorKindOfSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          withKnownShX shx $
+          xfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
+      | Dict <- lemTensorKindOfSTK stky1
+      , Dict <- lemTensorKindOfSTK stky2
+      , Dict <- lemTensorKindOfSTK stkz1
+      , Dict <- lemTensorKindOfSTK stkz2 ->
+        tlet v $ \ !u3 ->
+          tpair (tfromS (tproject1 u3)) (tfromS (tproject2 u3))
+    _ -> error "tfromS: wrong tensor kinds"
 
 class ShareTensor (target :: Target) where
   tshare :: TensorKind y
@@ -939,6 +975,9 @@ class ( Num (IntOf target)
          => target (TKS2 sh (TKProduct y z))
          -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
   stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
+  default stoScalar :: forall r. (LetTensor target, GoodScalar r)
+                    => target (TKS '[] r) -> target (TKScalar r)
+  stoScalar = tfromS
   sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
 
   -- ** No serviceable parts beyond this point ** --
@@ -1204,6 +1243,9 @@ class ( Num (IntOf target)
   -- Ops that involve more than one variant of arrays
   rfromS :: (TensorKind r, KnownShS sh)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
+  default rfromS :: forall r sh. (LetTensor target, TensorKind r, KnownShS sh)
+                 => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
+  rfromS | SNat <- shsRank (knownShS @sh) = tfromS
   rfromX :: (TensorKind r, KnownShX sh)
          => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
   sfromR :: (TensorKind r, KnownShS sh, KnownNat (Rank sh))
@@ -1214,6 +1256,9 @@ class ( Num (IntOf target)
          => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => target (TKS2 sh r) -> target (TKX2 sh' r)
+  default xfromS :: (LetTensor target, KnownShS sh, KnownShX sh', TensorKind r)
+                 => target (TKS2 sh r) -> target (TKX2 sh' r)
+  xfromS = tfromS
 
   rnest :: forall n m x.
            (TensorKind x, KnownNat m)
