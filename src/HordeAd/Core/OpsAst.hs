@@ -378,8 +378,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        withKnownShS (takeShS @m (knownShS @sh)) $
-        withKnownShS (dropShS @m (knownShS @sh)) $
+        withKnownShS (takeShS @m sh) $
+        withKnownShS (dropShS @m sh) $
         astFromS @(TKS2 (Drop m sh) x)
         $ astIndexStepS @(Take m sh) @(Drop m sh)
                         (astSFromR @sh a) (ixrToIxs ix)
@@ -395,9 +395,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
-        withKnownShS (takeShS @m (knownShS @shmshn)) $
-        withKnownShS (dropShS @m (knownShS @shmshn)) $
-        withKnownShS (takeShS @p (knownShS @shpshn)) $
+        withKnownShS (takeShS @m shmshn) $
+        withKnownShS (dropShS @m shmshn) $
+        withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         astFromS @(TKS2 shpshn x)
@@ -471,9 +471,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
-        withKnownShS (takeShS @m (knownShS @shmshn)) $
-        withKnownShS (dropShS @m (knownShS @shmshn)) $
-        withKnownShS (takeShS @p (knownShS @shpshn)) $
+        withKnownShS (takeShS @m shmshn) $
+        withKnownShS (dropShS @m shmshn) $
+        withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         astFromS $ astGatherStepS @(Take m shmshn)
@@ -601,8 +601,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
-        withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
-        withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
+        withKnownShS (takeShS @(Rank sh1) sh) $
+        withKnownShS (dropShS @(Rank sh1) sh) $
         astFromS @(TKS2 (Drop (Rank sh1) sh) x) {-@sh2-}
         $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                         (astSFromX @sh @sh1sh2 a)
@@ -623,9 +623,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         astFromS $ astScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (astSFromX t)
@@ -705,9 +705,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         astFromS $ astGatherStepS @(Take (Rank shm) shmshn)
                                    @(Drop (Rank shm) shmshn)
                                    @(Take (Rank shp) shpshn) (astSFromX t)
@@ -995,8 +995,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        withKnownShS (takeShS @m (knownShS @sh)) $
-        withKnownShS (dropShS @m (knownShS @sh)) $
+        withKnownShS (takeShS @m sh) $
+        withKnownShS (dropShS @m sh) $
         AstFromS @(TKS2 (Drop m sh) x)
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (AstSFromR @sh a) (ixrToIxs (unAstRaw <$> ix))
@@ -1013,9 +1013,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
-        withKnownShS (takeShS @m (knownShS @shmshn)) $
-        withKnownShS (dropShS @m (knownShS @shmshn)) $
-        withKnownShS (takeShS @p (knownShS @shpshn)) $
+        withKnownShS (takeShS @m shmshn) $
+        withKnownShS (dropShS @m shmshn) $
+        withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         AstFromS @(TKS2 shpshn x)
@@ -1094,9 +1094,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
-        withKnownShS (takeShS @m (knownShS @shmshn)) $
-        withKnownShS (dropShS @m (knownShS @shmshn)) $
-        withKnownShS (takeShS @p (knownShS @shpshn)) $
+        withKnownShS (takeShS @m shmshn) $
+        withKnownShS (dropShS @m shmshn) $
+        withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         AstFromS $ AstGatherS @(Take m shmshn)
@@ -1186,8 +1186,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
-        withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
-        withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
+        withKnownShS (takeShS @(Rank sh1) sh) $
+        withKnownShS (dropShS @(Rank sh1) sh) $
         AstRaw $ AstFromS @(TKS2 (Drop (Rank sh1) sh) x) {-@sh2-}
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
@@ -1208,9 +1208,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         AstFromS $ AstScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (AstSFromX t)
@@ -1293,9 +1293,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         AstFromS $ AstGatherS @(Take (Rank shm) shmshn)
                                @(Drop (Rank shm) shmshn)
                                @(Take (Rank shp) shpshn) (AstSFromX t)
@@ -1780,8 +1780,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        withKnownShS (takeShS @m (knownShS @sh)) $
-        withKnownShS (dropShS @m (knownShS @sh)) $
+        withKnownShS (takeShS @m sh) $
+        withKnownShS (dropShS @m sh) $
         AstFromS @(TKS2 (Drop m sh) x)
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (AstSFromR @sh a) (ixrToIxs (unAstNoSimplify <$> ix))
@@ -1798,9 +1798,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
-        withKnownShS (takeShS @m (knownShS @shmshn)) $
-        withKnownShS (dropShS @m (knownShS @shmshn)) $
-        withKnownShS (takeShS @p (knownShS @shpshn)) $
+        withKnownShS (takeShS @m shmshn) $
+        withKnownShS (dropShS @m shmshn) $
+        withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         AstFromS @(TKS2 shpshn x)
@@ -1878,9 +1878,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
-        withKnownShS (takeShS @m (knownShS @shmshn)) $
-        withKnownShS (dropShS @m (knownShS @shmshn)) $
-        withKnownShS (takeShS @p (knownShS @shpshn)) $
+        withKnownShS (takeShS @m shmshn) $
+        withKnownShS (dropShS @m shmshn) $
+        withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         AstFromS $ AstGatherS @(Take m shmshn)
@@ -1971,8 +1971,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
-        withKnownShS (takeShS @(Rank sh1) (knownShS @sh)) $
-        withKnownShS (dropShS @(Rank sh1) (knownShS @sh)) $
+        withKnownShS (takeShS @(Rank sh1) sh) $
+        withKnownShS (dropShS @(Rank sh1) sh) $
         AstNoSimplify $ AstFromS @(TKS2 (Drop (Rank sh1) sh) x) {-@sh2-}
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (AstSFromX @sh @sh1sh2 a)
@@ -1994,9 +1994,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         AstFromS $ AstScatterS @(Take (Rank shm) shmshn)
                                 @(Drop (Rank shm) shmshn)
                                 @(Take (Rank shp) shpshn) (AstSFromX t)
@@ -2082,9 +2082,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (dropShS @(Rank shm) (knownShS @shmshn)) $
-        withKnownShS (takeShS @(Rank shp) (knownShS @shpshn)) $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         AstFromS $ AstGatherS @(Take (Rank shm) shmshn)
                                @(Drop (Rank shm) shmshn)
                                @(Take (Rank shp) shpshn) (AstSFromX t)

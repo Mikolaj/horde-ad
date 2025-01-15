@@ -782,8 +782,14 @@ astIndexBuild :: forall y k s. AstSpan s
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat stk u i = case stk of
   STKScalar{} -> Ast.AstToScalar $ astIndexStepS u (i :.$ ZIS)
-  STKR SNat x | Dict <- lemTensorKindOfSTK x ->
-    astIndexStep u (i :.: ZIR)
+  STKR SNat x | Dict <- lemTensorKindOfSTK x -> case ftkAst u of
+    FTKR shmshn _ | SNat <- shrRank shmshn ->
+      withCastRS shmshn $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        gcastWith (unsafeCoerceRefl :: k ': Drop 1 sh :~: sh) $
+        withKnownShS (dropShS @1 sh) $
+        astFromS
+        $ astIndexStepS (astSFromR @sh u) (i :.$ ZIS)
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
     withKnownShS sh $ astIndexStepS u (i :.$ ZIS)
   STKX @sh' sh' x | Dict <- lemTensorKindOfSTK x -> case ftkAst u of
@@ -791,7 +797,7 @@ astIndexBuild snat@SNat stk u i = case stk of
     withKnownShX sh' $
     withCastXS shBuild' $ \(shBuild :: ShS shBuild) -> case shBuild of
       ZSS -> error "astIndexBuild: impossible empty shape"
-      (:$$) _ rest | Dict <- lemTensorKindOfBuild snat (STKS rest x) ->
+      (:$$) _ rest ->
         withKnownShS rest $
         astFromS
         $ astIndexStepS (astSFromX @shBuild @(Just k ': sh') u)
