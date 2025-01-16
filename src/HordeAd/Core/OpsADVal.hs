@@ -527,12 +527,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
             => Delta target (TKS2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
     dRFromS (SFromR d) = d  -- no information lost, so no checks
     dRFromS d = RFromS d
-  rfromX (D u u') = dDnotShared (rfromX u) (dRFromX u')
-   where
-    dRFromX :: (TensorKind r2, KnownShX sh2)
-            => Delta target (TKX2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
-    dRFromX (XFromR d) = d  -- no information lost, so no checks
-    dRFromX d = RFromX d
   sfromR @_ @sh (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
     dSFromR (RFromS @sh1 d) =
@@ -547,8 +541,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in SFromR(RFromS)"
     dSFromX d = SFromX d
-  xfromR @sh (D u u') | SNat <- ssxRank (knownShX @sh) =
-    dDnotShared (xfromR u) (XFromR u')
   xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
 
   xnestR @_ @m sh1 (D u u') =

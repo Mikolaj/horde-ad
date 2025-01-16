@@ -781,20 +781,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kcast = astCast
   kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
 
-  rfromX @_ @sh' a = case ftkAst a of
-    FTKX @_ @x sh' _ | SNat <- shxRank sh' ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        astFromS @(TKS2 sh x) (stensorKind @(TKR2 (Rank sh') x))
-        $ astSFromX @sh @sh' a
   sfromR = astSFromR
   sfromX = astSFromX
-  xfromR @sh' a = case ftkAst a of
-    FTKR @_ @x shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        astFromS @(TKS2 sh x) (stensorKind @(TKX2 sh' x))
-        $ astSFromR @sh a
 
   xnestR sh =
     withKnownShX sh $
@@ -1444,20 +1432,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   rfromS @x @sh | SNat <- shsRank (knownShS @sh) =
     AstRaw . AstFromS (stensorKind @(TKR2 (Rank sh) x)) . unAstRaw
-  rfromX @_ @sh' (AstRaw a) = case ftkAst a of
-    FTKX @_ @x sh' _ | SNat <- shxRank sh' ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstRaw $ AstFromS @(TKS2 sh x) (stensorKind @(TKR2 (Rank sh') x))
-        $ AstSFromX @sh @sh' a
   sfromR = AstRaw . AstSFromR . unAstRaw
   sfromX = AstRaw . AstSFromX . unAstRaw
-  xfromR @sh' (AstRaw a) = case ftkAst a of
-    FTKR @_ @x shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstRaw $ AstFromS @(TKS2 sh x) (stensorKind @(TKX2 sh' x))
-        $ AstSFromR @sh a
   xfromS @_ @sh' @x = AstRaw . AstFromS (stensorKind @(TKX2 sh' x)) . unAstRaw
 
   xnestR sh =
@@ -1687,10 +1663,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   kcast = AstNoVectorize . kcast . unAstNoVectorize
   kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
 
-  rfromX = AstNoVectorize . rfromX . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
-  xfromR = AstNoVectorize . xfromR  . unAstNoVectorize
 
   xnestR sh =
     withKnownShX sh $
@@ -2287,21 +2261,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   kfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
                   . astSpanPrimal . unAstNoSimplify
 
-  rfromX @_ @sh' (AstNoSimplify a) = case ftkAst a of
-    FTKX @_ @x sh' _ | SNat <- shxRank sh' ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstNoSimplify
-        $ AstFromS @(TKS2 sh x) (stensorKind @(TKR2 (Rank sh') x))
-        $ AstSFromX @sh @sh' a
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify
   sfromX = AstNoSimplify . AstSFromX . unAstNoSimplify
-  xfromR @sh' (AstNoSimplify a) = case ftkAst a of
-    FTKR @_ @x shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstNoSimplify $ AstFromS @(TKS2 sh x) (stensorKind @(TKX2 sh' x))
-        $ AstSFromR @sh a
 
   xnestR sh =
     withKnownShX sh $

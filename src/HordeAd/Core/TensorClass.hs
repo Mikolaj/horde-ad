@@ -1253,12 +1253,22 @@ class ( Num (IntOf target)
   rfromS | SNat <- shsRank (knownShS @sh) = tfromS
   rfromX :: (TensorKind r, KnownShX sh)
          => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
+  rfromX a = case tftk stensorKind a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        rfromS $ sfromX @_ @sh a
   sfromR :: (TensorKind r, KnownShS sh, KnownNat (Rank sh))
          => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
   sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => target (TKX2 sh' r) -> target (TKS2 sh r)
   xfromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind r)
          => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
+  xfromR a = case tftk stensorKind a of
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        xfromS @_ @sh $ sfromR a
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => target (TKS2 sh r) -> target (TKX2 sh' r)
   default xfromS :: (LetTensor target, KnownShS sh, KnownShX sh', TensorKind r)

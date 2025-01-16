@@ -658,9 +658,6 @@ data Delta :: Target -> TensorKindType -> Type where
   RFromS :: forall sh r target. (TensorKind r, KnownShS sh)
          => Delta target (TKS2 sh r)
          -> Delta target (TKR2 (Rank sh) r)
-  RFromX :: forall sh r target. (TensorKind r, KnownShX sh)
-         => Delta target (TKX2 sh r)
-         -> Delta target (TKR2 (Rank sh) r)
   SFromR :: forall sh r target.
             (KnownShS sh, KnownNat (Rank sh), TensorKind r)
          => Delta target (TKR2 (Rank sh) r)
@@ -669,9 +666,6 @@ data Delta :: Target -> TensorKindType -> Type where
             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => Delta target (TKX2 sh' r)
          -> Delta target (TKS2 sh r)
-  XFromR :: (KnownShX sh, TensorKind r, KnownNat (Rank sh))
-         => Delta target (TKR2 (Rank sh) r)
-         -> Delta target (TKX2 sh r)
   XFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => Delta target (TKS2 sh r)
          -> Delta target (TKX2 sh' r)
@@ -850,16 +844,10 @@ shapeDeltaFull = \case
   RFromS @sh d
    | SNat <- shsRank (knownShS @sh) -> case shapeDeltaFull d of
     FTKS _ x -> FTKR (shCastSR $ knownShS @sh) x
-  RFromX @sh d
-   | SNat <- ssxRank (knownShX @sh) -> case shapeDeltaFull d of
-    FTKX shx x -> FTKR (fromList $ toList shx) x
   SFromR d -> case shapeDeltaFull d of
     FTKR _ x -> FTKS knownShS x
   SFromX d -> case shapeDeltaFull d of
     FTKX _ x -> FTKS knownShS x
-  XFromR @sh d
-   | SNat <- ssxRank (knownShX @sh) -> case shapeDeltaFull d of
-    FTKR shr x -> FTKX (fromList $ toList shr) x
   XFromS d -> case shapeDeltaFull d of
     FTKS sh x -> FTKX (shCastSX knownShX sh) x
 
@@ -1469,8 +1457,6 @@ evalRevSame !s !c = \case
   RFromS (SFromR d) -> evalRevSame s c d  -- no information lost, so no checks
   RFromS @sh d | SNat <- shsRank (knownShS @sh) ->
     evalRevSame s (sfromR c) d
-  RFromX @sh d | SNat <- ssxRank (knownShX @sh) ->
-    evalRevSame s (xfromR c) d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> evalRevSame s c d
@@ -1484,8 +1470,6 @@ evalRevSame !s !c = \case
   SFromX d ->
     evalRevSame s (xfromS c) d
 -- impossible, shapes may differ: XFromS (SFromX d) -> evalRevSame s c d
-  XFromR @sh d | SNat <- ssxRank (knownShX @sh) ->
-    evalRevSame s (rfromX c) d
   XFromS d ->
     evalRevSame s (sfromX c) d
 
@@ -1868,14 +1852,11 @@ evalFwdSame params s = \case
   RFromS (SFromR d) ->
     evalFwdSame params s d  -- no information lost, so no checks
   RFromS d -> second rfromS $ evalFwdSame params s d
-  RFromX d -> second rfromX $ evalFwdSame params s d
   SFromR @sh (RFromS @sh2 d) ->
     case sameShape @sh @sh2 of
       Just Refl -> evalFwdSame params s d
       _ -> error "evalFwdSame: different shapes in SFromR(RFromS)"
   SFromR d -> second sfromR $ evalFwdSame params s d
-  XFromR @sh d | SNat <- ssxRank (knownShX @sh) ->
-    second xfromR $ evalFwdSame params s d
   XFromS d -> second xfromS $ evalFwdSame params s d
   SFromX @sh (XFromS @sh2 d) ->
     case sameShape @sh @sh2 of
