@@ -29,7 +29,7 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++), Product, Rank, IShR, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxRank, shxInit, IShX, ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape (shxInit, IShX, ssxFromShape, withKnownShX)
 import Data.Array.Nested.Internal.Shape (shsRank, shsPermutePrefix, shrRank, shsInit, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
@@ -213,7 +213,7 @@ instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s), AstSp
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @_ @sh $ v
+        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @sh $ v
   fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
     case V.uncons $ dunHVector params of
       Just (dynamic, rest) ->
@@ -947,6 +947,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
             DynamicShapedDummy @r @sh _ _ ->
               DynamicShaped @r @sh $ AstRaw $ AstProjectS hVectorOf i
       in V.imap f $ shapeAstHVector hVectorOf
+  tfromSShare @_ @z (AstRaw a) = AstRaw $ AstFromS (stensorKind @z) a
 
 astReplicate0NSNoSimp :: forall shn m s r. (KnownShS shn, GoodScalar r, AstSpan s)
                       => r -> AstTensor m s (TKS shn r)
@@ -1736,7 +1737,7 @@ astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case ftkAst a of
   ftk@(FTKR @_ @x2 sh' x) | SNat <- shrRank sh'
-                    , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+                          , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       let (var, ast) =

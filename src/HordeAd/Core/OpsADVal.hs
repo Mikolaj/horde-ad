@@ -125,9 +125,23 @@ instance ( ADReadyNoLet target, ShareTensor target
   tlet (D u u') f =
     let !var2 = tshare u
     in f (dDnotShared var2 u')
-
   toShare = id
   tunshare = id
+  -- This avoids product eta-expansions for AST instance primal,
+  -- though contangent expands anyway.
+  tfromS (D u u') = dDnotShared (tfromSShare u) (dFromS u')
+   where
+    dFromS :: forall y z. (TensorKind y, TensorKind z)
+           => Delta target y -> Delta target z
+    dFromS (SFromR @sh @x d) =
+      case sameTensorKind @z @(TKR2 (Rank sh) x) of
+        Just Refl -> d
+        Nothing -> error "dFromS: tensor kinds don't match"
+    dFromS (SFromX @_ @sh' @x d) =
+      case sameTensorKind @z @(TKX2 sh' x) of
+        Just Refl -> d
+        Nothing -> error "dFromS: tensor kinds don't match"
+    dFromS d = FromS d
 
 instance (ADReadyNoLet target, ShareTensor target)
          => ShareTensor (ADVal target) where
@@ -174,7 +188,7 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @_ @sh $ v
+        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @sh $ v
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
       Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
@@ -228,7 +242,7 @@ instance ( a ~ target (TKR n r), BaseTensor target
           FTKR sh' _ ->
             withCastRS sh' $ \(sh :: ShS sh) ->
               withKnownShS sh $
-              DynamicShaped . sfromR @_ @_ @sh $ v
+              DynamicShaped . sfromR @_ @sh $ v
     in dmkHVector . V.concat
        . map (dunHVector . toHVectorOf . toH)
   fromHVector lInit source =
@@ -237,7 +251,7 @@ instance ( a ~ target (TKR n r), BaseTensor target
           FTKR sh' _ ->
             withCastRS sh' $ \(sh :: ShS sh) ->
               withKnownShS sh $
-              case fromHVector (DynamicShaped $ sfromR @_ @_ @sh aInit) restAcc of
+              case fromHVector (DynamicShaped $ sfromR @_ @sh aInit) restAcc of
                 Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe (dmkHVector V.empty) mrest)
                 _ -> error "fromHVector: Nothing"
         (l, !restAll) = foldl' f ([], source) lInit
@@ -346,7 +360,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rzip (D u u') = dD (rzip u) (ZipR u')
   runzip (D u u') = dD (runzip u) (UnzipR u')
   rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
-  rfromScalar (D t d) = dDnotShared (rfromScalar t) (RFromS $ FromScalarG d)
+  rfromScalar (D t d) = dDnotShared (rfromScalar t) (FromS $ FromScalarG d)
 
   rfromPrimal t = fromPrimalADVal t
   rprimalPart (D u _) = u
@@ -506,7 +520,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   xzip (D u u') = dD (xzip u) (ZipX u')
   xunzip (D u u') = dD (xunzip u) (UnzipX u')
   xtoScalar (D t d) = dDnotShared (xtoScalar t) (ToScalarG $ SFromX d)
-  xfromScalar (D t d) = dDnotShared (xfromScalar t) (XFromS $ FromScalarG d)
+  xfromScalar (D t d) = dDnotShared (xfromScalar t) (FromS $ FromScalarG d)
   xfromPrimal t = fromPrimalADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'
@@ -521,27 +535,20 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let v = kfromIntegral u
     in fromPrimalADVal v
 
-  rfromS (D u u') = dDnotShared (rfromS u) (dRFromS u')
+  sfromR @sh @x (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
-    dRFromS :: (TensorKind r2, KnownShS sh2)
-            => Delta target (TKS2 sh2 r2) -> Delta target (TKR2 (Rank sh2) r2)
-    dRFromS (SFromR d) = d  -- no information lost, so no checks
-    dRFromS d = RFromS d
-  sfromR @_ @sh (D u u') = dDnotShared (sfromR u) (dSFromR u')
-   where
-    dSFromR (RFromS @sh1 d) =
-      case sameShape @sh1 @sh of
+    dSFromR (FromS @y d) =
+      case sameTensorKind @y @(TKS2 sh x) of
         Just Refl -> d
-        _ -> error "sfromR: different shapes in SFromR(RFromS)"
+        _ -> error "sfromR: different shapes in SFromR(FromS)"
     dSFromR d = SFromR d
-  sfromX @sh (D u u') = dDnotShared (sfromX u) (dSFromX u')
+  sfromX @sh @_ @x (D u u') = dDnotShared (sfromX u) (dSFromX u')
    where
-    dSFromX (XFromS @sh1 d) =
-      case sameShape @sh1 @sh of
+    dSFromX (FromS @y d) =
+      case sameTensorKind @y @(TKS2 sh x) of
         Just Refl -> d
-        _ -> error "sfromR: different shapes in SFromR(RFromS)"
+        _ -> error "sfromR: different shapes in SFromR(FromS)"
     dSFromX d = SFromX d
-  xfromS (D u u') = dDnotShared (xfromS u) (XFromS u')
 
   xnestR @_ @m sh1 (D u u') =
     withKnownShX sh1 $

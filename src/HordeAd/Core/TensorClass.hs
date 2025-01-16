@@ -358,6 +358,34 @@ class ShareTensor (target :: Target) where
     STKUntyped ->
       let lu = tunvector u
       in dmkHVector $ mapHVectorRanked10 (`rindex` (i :.: ZIR)) lu
+  tfromSShare :: forall y z. (BaseTensor target, TensorKind y, TensorKind z)
+              => target y -> target z
+  tfromSShare v = case (stensorKind @y, stensorKind @z) of
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
+    (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
+      Just Refl -> stoScalar v
+      Nothing -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKR nx zx) | Dict <- lemTensorKindOfSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          rfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKX shx zx) | Dict <- lemTensorKindOfSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          withKnownShX shx $
+          xfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
+      | Dict <- lemTensorKindOfSTK stky1
+      , Dict <- lemTensorKindOfSTK stky2
+      , Dict <- lemTensorKindOfSTK stkz1
+      , Dict <- lemTensorKindOfSTK stkz2 ->
+        let (u1, u2) = tunpair v
+        in tpair (tfromSShare u1) (tfromSShare u2)
+    _ -> error "tfromS: wrong tensor kinds"
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -1251,14 +1279,14 @@ class ( Num (IntOf target)
   default rfromS :: forall r sh. (LetTensor target, TensorKind r, KnownShS sh)
                  => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   rfromS | SNat <- shsRank (knownShS @sh) = tfromS
-  rfromX :: (TensorKind r, KnownShX sh)
+  rfromX :: (KnownShX sh, TensorKind r)
          => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
   rfromX a = case tftk stensorKind a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
-  sfromR :: (TensorKind r, KnownShS sh, KnownNat (Rank sh))
+  sfromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
          => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
   sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => target (TKX2 sh' r) -> target (TKS2 sh r)
@@ -2066,7 +2094,7 @@ mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
       let res = f $ rfromS @_ @_ @sh t
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @_ @shr res
+        DynamicShaped $ sfromR @_ @shr res
 mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked10: rank 0"
   (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
@@ -2079,7 +2107,7 @@ mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
       let res = f @r (rzero $ sNatValue k :$: sh1)
       in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @_ @shr res
+        DynamicShaped $ sfromR @_ @shr res
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

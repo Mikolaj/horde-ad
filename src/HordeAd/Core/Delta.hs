@@ -655,9 +655,8 @@ data Delta :: Target -> TensorKindType -> Type where
          => Delta target (TKX2 sh (TKProduct y z))
          -> Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
-  RFromS :: forall sh r target. (TensorKind r, KnownShS sh)
-         => Delta target (TKS2 sh r)
-         -> Delta target (TKR2 (Rank sh) r)
+  FromS :: forall y z target. (TensorKind y, TensorKind z)
+        => Delta target y -> Delta target z
   SFromR :: forall sh r target.
             (KnownShS sh, KnownNat (Rank sh), TensorKind r)
          => Delta target (TKR2 (Rank sh) r)
@@ -666,9 +665,6 @@ data Delta :: Target -> TensorKindType -> Type where
             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => Delta target (TKX2 sh' r)
          -> Delta target (TKS2 sh r)
-  XFromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
-         => Delta target (TKS2 sh r)
-         -> Delta target (TKX2 sh' r)
 
   -- The constraints about ++ in these three are needed for deriving Show.
   XNestR :: ( TensorKind x, KnownShX sh1, KnownNat m
@@ -841,15 +837,34 @@ shapeDeltaFull = \case
   UnzipX d -> case shapeDeltaFull d of
     FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
-  RFromS @sh d
-   | SNat <- shsRank (knownShS @sh) -> case shapeDeltaFull d of
-    FTKS _ x -> FTKR (shCastSR $ knownShS @sh) x
+  FromS @_ @z d ->
+    let fromS :: FullTensorKind y2 -> STensorKindType z2 -> FullTensorKind z2
+        fromS ftk stk = case (ftk, stk) of
+          _ | Just Refl <- sameSTK (ftkToStk ftk) stk -> ftk
+          (FTKS ZSS (FTKScalar @r), STKScalar tr) ->
+            case testEquality (typeRep @r) tr of
+              Just Refl -> FTKScalar
+              Nothing -> error "shapeDeltaFull: wrong tensor kinds for FromS"
+          (FTKS sh x, STKR nx zx) ->
+            case ( sameSTK (ftkToStk x) zx
+                 , testEquality (shsRank sh) nx ) of
+              (Just Refl, Just Refl) -> FTKR (shCastSR sh) x
+              _ -> error $ "shapeDeltaFull: wrong tensor kinds for FromS: "
+                           ++ show (ftkToStk x) ++ " vs " ++ show zx ++ " and "
+                           ++ show sh ++ " vs " ++ show nx
+          (FTKS sh x, STKX shx zx) ->
+            case ( sameSTK (ftkToStk x) zx
+                 , testEquality (shsRank sh) (ssxRank shx) ) of
+              (Just Refl, Just Refl) -> FTKX (shCastSX shx sh) x
+              _ -> error "shapeDeltaFull: wrong tensor kinds for FromS"
+          (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) ->
+            FTKProduct (fromS ftk1 stk1) (fromS ftk2 stk2)
+          _ -> error "shapeDeltaFull: wrong tensor kinds for FromS"
+    in fromS (shapeDeltaFull d) (stensorKind @z)
   SFromR d -> case shapeDeltaFull d of
     FTKR _ x -> FTKS knownShS x
   SFromX d -> case shapeDeltaFull d of
     FTKX _ x -> FTKS knownShS x
-  XFromS d -> case shapeDeltaFull d of
-    FTKS sh x -> FTKX (shCastSX knownShX sh) x
 
   XNestR  @_ @sh1 @m d -> case shapeDeltaFull d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))
@@ -1267,6 +1282,47 @@ evalRev !s !c d0 = case d0 of
         (dacc, des) = tunpair dacc_des
         s2 = evalRev s dacc acc0'
     in evalRev s2 des es'
+  FromS @_ @z (SFromR @sh @x d) ->
+    case sameSTK (aDSTK (stensorKind @z))
+                 (aDSTK (stensorKind @(TKR2 (Rank sh) x))) of
+      Just Refl -> evalRev s c d
+      Nothing -> error "evalRev: tensor kinds don't match"
+  FromS @_ @z (SFromX @_ @sh' @x d) ->
+    case sameSTK (aDSTK (stensorKind @z))
+                 (aDSTK (stensorKind @(TKX2 sh' x))) of
+      Just Refl -> evalRev s c d
+      Nothing -> error "evalRev: tensor kinds don't match"
+  FromS @y7 @z d -> case (stensorKind @y7, stensorKind @z) of
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev s c d
+    (STKS ZSS (STKScalar try), STKScalar trz) ->
+      case testEquality try trz of
+        Just Refl -> evalRev s c (ToScalarG d)
+        Nothing -> error "evalRev: tensor kinds don't match"
+    (STKS shy yx, STKR nx@SNat zx) | Dict <- lemTensorKindOfAD yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          evalRev s (sfromR c) d
+        _ -> error "evalRev: tensor kinds don't match"
+    (STKS shy yx, STKX shx zx) | Dict <- lemTensorKindOfAD yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          withKnownShX shx $
+          evalRev s (sfromX c) d
+        _ -> error "evalRev: tensor kinds don't match"
+    (STKProduct @y1 @y2 stky1 stky2, STKProduct @z1 @z2 stkz1 stkz2)
+      | Dict <- lemTensorKindOfSTK stky1
+      , Dict <- lemTensorKindOfSTK stky2
+      , Dict <- lemTensorKindOfSTK stkz1
+      , Dict <- lemTensorKindOfSTK stkz2
+      , Dict <- lemTensorKindOfAD stkz1
+      , Dict <- lemTensorKindOfAD stkz2 ->
+        let (c1, c2) = tunpair c
+        in evalRev (evalRev s c1 (FromS @y1 @z1 $ Project1G d))
+                   c2 (FromS @y2 @z2 $ Project2G d)
+             -- TODO: costly
+    _ -> error "evalRev: wrong tensor kinds"
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
@@ -1454,24 +1510,16 @@ evalRevSame !s !c = \case
   UnzipX d ->
     evalRevSame s (xzip c) d
 
-  RFromS (SFromR d) -> evalRevSame s c d  -- no information lost, so no checks
-  RFromS @sh d | SNat <- shsRank (knownShS @sh) ->
-    evalRevSame s (sfromR c) d
-  SFromR @sh (RFromS @sh2 d) ->
-    case sameShape @sh @sh2 of
-      Just Refl -> evalRevSame s c d
-      _ -> error "evalRevSame: different shapes in SFromR(RFromS)"
+  SFromR @sh @x (FromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+    Just Refl -> evalRevSame s c d
+    _ -> error "evalRevSame: different shapes in SFromR(FromS)"
   SFromR d ->
     evalRevSame s (rfromS c) d
-  SFromX @sh (XFromS @sh2 d) ->
-    case sameShape @sh @sh2 of
-      Just Refl -> evalRevSame s c d
-      _ -> error "evalRevSame: different shapes in SFromX(XFromS)"
+  SFromX @sh @_ @x (FromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+    Just Refl -> evalRevSame s c d
+    _ -> error "evalRevSame: different shapes in SFromX(FromS)"
   SFromX d ->
     evalRevSame s (xfromS c) d
--- impossible, shapes may differ: XFromS (SFromX d) -> evalRevSame s c d
-  XFromS d ->
-    evalRevSame s (sfromX c) d
 
   XNestR d ->
     evalRevSame s (xunNestR c) d
@@ -1720,6 +1768,19 @@ evalFwd params s d0 = case d0 of
                                            (tproject2 de_acc_e1)))
                        cacc0
                        (tpair ces (tpair q es)))
+  FromS @_ @z (SFromR @sh @x d) ->
+    case sameSTK (aDSTK (stensorKind @z))
+                 (aDSTK (stensorKind @(TKR2 (Rank sh) x))) of
+      Just Refl -> evalFwd params s d
+      Nothing -> error "evalFwd: tensor kinds don't match"
+  FromS @_ @z (SFromX @_ @sh' @x d) ->
+    case sameSTK (aDSTK (stensorKind @z))
+                 (aDSTK (stensorKind @(TKX2 sh' x))) of
+      Just Refl -> evalFwd params s d
+      Nothing -> error "evalFwd: tensor kinds don't match"
+  FromS @y2 @z d | Dict <- lemTensorKindOfAD (stensorKind @y2)
+                 , Dict <- lemTensorKindOfAD (stensorKind @z) ->
+    second tfromSShare $ evalFwd params s d
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
@@ -1849,19 +1910,13 @@ evalFwdSame params s = \case
   ZipX d -> second xzip $ evalFwdSame params s d
   UnzipX d -> second xunzip $ evalFwdSame params s d
 
-  RFromS (SFromR d) ->
-    evalFwdSame params s d  -- no information lost, so no checks
-  RFromS d -> second rfromS $ evalFwdSame params s d
-  SFromR @sh (RFromS @sh2 d) ->
-    case sameShape @sh @sh2 of
-      Just Refl -> evalFwdSame params s d
-      _ -> error "evalFwdSame: different shapes in SFromR(RFromS)"
+  SFromR @sh @x (FromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+    Just Refl -> evalFwdSame params s d
+    _ -> error "evalFwdSame: different shapes in SFromR(FromS)"
   SFromR d -> second sfromR $ evalFwdSame params s d
-  XFromS d -> second xfromS $ evalFwdSame params s d
-  SFromX @sh (XFromS @sh2 d) ->
-    case sameShape @sh @sh2 of
-      Just Refl -> evalFwdSame params s d
-      _ -> error "evalFwdSame: different shapes in SFromX(XFromS)"
+  SFromX @sh @_ @x (FromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+    Just Refl -> evalFwdSame params s d
+    _ -> error "evalFwdSame: different shapes in SFromX(FromS)"
   SFromX d -> second sfromX $ evalFwdSame params s d
 
   XNestR d -> second (xnestR knownShX) $ evalFwdSame params s d

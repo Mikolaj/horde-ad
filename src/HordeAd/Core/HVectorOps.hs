@@ -650,7 +650,7 @@ mapRanked f (DynamicShaped @_ @sh t) =
     let res = f $ rfromS @_ @_ @sh t
     in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @_ @shr res
+        DynamicShaped $ sfromR @_ @shr res
 mapRanked f (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh1 ->
     DynamicRanked @r $ f (rzero sh1)
@@ -659,7 +659,7 @@ mapRanked f (DynamicShapedDummy @r @sh _ _) =
     let res = f @r (rzero sh1)
     in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
         gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @_ @shr res
+        DynamicShaped $ sfromR @_ @shr res
 
 -- Hindler-Milner polymorphism is not great for existential types programming.
 mapHVectorRanked01
@@ -683,7 +683,7 @@ mapRanked01 f (DynamicShaped @_ @sh t) =
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
           gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-          DynamicShaped $ sfromR @_ @_ @shr res
+          DynamicShaped $ sfromR @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
 mapRanked01 f (DynamicRankedDummy @r @sh _ _) =
   withListSh (Proxy @sh) $ \sh1 ->
@@ -696,7 +696,7 @@ mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
         Just (SomeNat @n1 _) ->
           gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
           gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-          DynamicShaped $ sfromR @_ @_ @shr res
+          DynamicShaped $ sfromR @_ @shr res
         _ -> error "mapRanked01: impossible someNatVal"
 
 mapHVectorRanked11
@@ -724,7 +724,7 @@ mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
             gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-            DynamicShaped $ sfromR @_ @_ @shr res
+            DynamicShaped $ sfromR @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
 mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
   ZSS -> error "mapRanked11: rank 0"
@@ -741,7 +741,7 @@ mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
           Just (SomeNat @n1 _) ->
             gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
             gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-            DynamicShaped $ sfromR @_ @_ @shr res
+            DynamicShaped $ sfromR @_ @shr res
           _ -> error "mapRanked01: impossible someNatVal"
 
 mapHVectorShaped

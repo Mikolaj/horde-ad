@@ -3220,7 +3220,7 @@ testSin0ScanD8rev4 = do
                        (V.fromList [ DynamicRanked $ rreplicate 3 a0
                                    , DynamicShaped
                                      $ sreplicate @_ @3
-                                         (sfromR @_ @_ @'[] a0) ]))
+                                         (sfromR @_ @'[] a0) ]))
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [285.95794829475744])
     (rev' h (rscalar 1.1))

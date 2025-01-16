@@ -501,9 +501,9 @@ instance BaseTensor RepN where
 
   rfromS @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.stoRanked . unRepN
-  rfromX @r | Dict <- eltDictRep (stensorKind @r) =
+  rfromX @_ @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.mtoRanked . unRepN
-  sfromR @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromR @_ @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . flip Nested.rcastToShaped knownShS . unRepN
   sfromX @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . flip Nested.mcastToShaped knownShS . unRepN
@@ -753,7 +753,7 @@ instance (GoodScalar r, KnownNat n)
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
-        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @_ @sh $ v
+        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @sh $ v
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
       Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
