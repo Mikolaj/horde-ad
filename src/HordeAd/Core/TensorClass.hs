@@ -209,6 +209,11 @@ class LetTensor (target :: Target) where
         dmkHVector
         $ replicate1HVectorF rreplicate sreplicate snat
         $ dunHVector u1
+  -- The semantics for products is element-wise and for others it's either
+  -- identity or the domain is shaped and tfromS type-casts to the codomain
+  -- by hiding some (or none) type information (so the codomain has to be
+  -- a "subtype" of the domain) or error.
+  -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
   tfromS :: forall y z. (BaseTensor target, TensorKind y, TensorKind z)
          => target y -> target z
   tfromS v = case (stensorKind @y, stensorKind @z) of

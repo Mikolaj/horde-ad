@@ -308,7 +308,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstZipS v -> second Ast.AstZipS (inlineAst memo v)
   Ast.AstUnzipS v -> second Ast.AstUnzipS (inlineAst memo v)
 
-  Ast.AstFromS v -> second Ast.AstFromS $ inlineAst memo v
+  Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ inlineAst memo v
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
   Ast.AstSFromX v -> second Ast.AstSFromX $ inlineAst memo v
 
@@ -497,22 +497,24 @@ unshareAst memo = \case
   Ast.AstShare varRaw v | Just Refl <- sameAstSpan @s @PrimalSpan ->
     -- We assume v is the same if var is the same.
     case ftkAst v of
-      FTKR @_ @x sh' x | SNat <- shrRank sh'
-                       , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+      ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
+                             , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
         withCastRS sh' $ \(sh :: ShS sh) ->
           withKnownShS sh $
           let var = mkAstVarName $ varNameToAstVarId varRaw
-              astVar = Ast.AstFromS @(TKS2 sh x) $ Ast.AstVar (FTKS sh x) var
+              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToStk ftk)
+                       $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)
              else let (memo1, v2) = unshareAst memo (Ast.AstSFromR @sh v)
                   in (DMap.insert var v2 memo1, astVar)
-      FTKX @_ @x sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+      ftk@(FTKX @_ @x sh' x) | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
           withKnownShX (ssxFromShape sh') $
           withKnownShS sh $
           let var = mkAstVarName $ varNameToAstVarId varRaw
-              astVar = Ast.AstFromS @(TKS2 sh x) $ Ast.AstVar (FTKS sh x) var
+              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToStk ftk)
+                       $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)
              else let (memo1, v2) = unshareAst memo (Ast.AstSFromX @sh v)
@@ -666,7 +668,7 @@ unshareAst memo = \case
   Ast.AstZipS v -> second Ast.AstZipS (unshareAst memo v)
   Ast.AstUnzipS v -> second Ast.AstUnzipS (unshareAst memo v)
 
-  Ast.AstFromS v -> second Ast.AstFromS $ unshareAst memo v
+  Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ unshareAst memo v
   Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
   Ast.AstSFromX v -> second Ast.AstSFromX $ unshareAst memo v
 

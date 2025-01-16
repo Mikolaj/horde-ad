@@ -38,6 +38,7 @@ import Data.Array.Nested.Internal.Shape
   (shCvtSX, shsAppend, shsRank, withKnownShS)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -494,11 +495,12 @@ printAstAux cfg d = \case
   AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
 
-  AstFromS @_ @z v -> case stensorKind @z of
-    STKScalar{} -> printPrefixOp printAst cfg d "stoScalar" [v]
-    STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
-    STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
-    _ -> printPrefixOp printAst cfg d "tfromS" [v]
+  AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+    case stkz of
+      STKScalar{} -> printPrefixOp printAst cfg d "stoScalar" [v]
+      STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
+      STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
+      _ -> printPrefixOp printAst cfg d "tfromS" [v]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
 

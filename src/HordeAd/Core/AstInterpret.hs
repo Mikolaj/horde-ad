@@ -489,7 +489,9 @@ interpretAst !env = \case
   AstZipS v -> szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
 
-  AstFromS v -> tfromS $ interpretAst env v
+  AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v))
+                  , Dict <- lemTensorKindOfSTK stkz ->
+    tfromS $ interpretAst env v
   AstSFromR v -> sfromR $ interpretAst env v
   AstSFromX v -> sfromX $ interpretAst env v
 

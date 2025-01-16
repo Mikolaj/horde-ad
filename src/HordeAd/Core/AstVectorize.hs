@@ -413,10 +413,9 @@ build1V snat@SNat (var, v0) =
     Ast.AstUnzipS v -> traceRule $
       Ast.AstUnzipS $ build1V snat (var, v)
 
-    Ast.AstFromS @y2 @z2 v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z2) -> traceRule $
-        astFromS $ build1V snat (var, v)
+    Ast.AstFromS stkz v
+      | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) -> traceRule $
+        astFromS (buildSTK snat stkz) $ build1V snat (var, v)
     Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
     Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
 
@@ -678,11 +677,11 @@ astTr a = case ftkAst a of
         gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
         trustMeThisIsAPermutation @perm $
         case shsPermutePrefix perm sh of
-          (sh2 :: ShS sh2) ->
+          (_ :: ShS sh2) ->
             withKnownShS sh $
-            withKnownShS sh2 $
             gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
-            astFromS @(TKS2 sh2 x) . astTransposeS perm . astSFromR @sh $ a
+            astFromS @(TKS2 sh2 x) (stensorKind @(TKR2 (2 + n) r))
+            . astTransposeS perm . astSFromR @sh $ a
 
 astTrS :: forall n m sh s r.
           (KnownNat n, KnownNat m, KnownShS sh, TensorKind r, AstSpan s)
@@ -701,13 +700,14 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
       (sh2' :: IShX sh2') ->
         withKnownShX (ssxFromShape sh2') $
         withCastXS sh' $ \(sh :: ShS sh) ->
-        withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+        withCastXS sh2' $ \(_ :: ShS sh2) ->
           gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
           withKnownShS sh $
-          withKnownShS sh2 $
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
-          astFromS @(TKS2 sh2 x) . astTransposeS perm . astSFromX @sh @sh' $ a
+          astFromS @(TKS2 sh2 x)
+                   (stensorKind @(TKX2 (Just m ': Just n ': shx) r))
+          . astTransposeS perm . astSFromX @sh @sh' $ a
 
 astTrDynamic :: AstSpan s
              => DynamicTensor (AstTensor AstMethodLet s)
@@ -788,7 +788,7 @@ astIndexBuild snat@SNat stk u i = case stk of
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: k ': Drop 1 sh :~: sh) $
         withKnownShS (dropShS @1 sh) $
-        astFromS
+        astFromS (stensorKind @y)
         $ astIndexStepS (astSFromR @sh u) (i :.$ ZIS)
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
     withKnownShS sh $ astIndexStepS u (i :.$ ZIS)
@@ -799,7 +799,7 @@ astIndexBuild snat@SNat stk u i = case stk of
       ZSS -> error "astIndexBuild: impossible empty shape"
       (:$$) _ rest ->
         withKnownShS rest $
-        astFromS
+        astFromS (stensorKind @y)
         $ astIndexStepS (astSFromX @shBuild @(Just k ': sh') u)
                         (i :.$ ZIS)
   STKProduct stk1 stk2
