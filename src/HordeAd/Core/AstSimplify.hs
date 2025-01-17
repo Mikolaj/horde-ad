@@ -3678,26 +3678,30 @@ astLetFun :: forall y z s s2.
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
           -> AstTensor AstMethodLet s2 z
 astLetFun a f | astIsSmall True a = f a  -- TODO: since astLetFun is now called recursively a lot, ensure astIsSmall is constant, at least except for a constant number of the recursive calls
-astLetFun a f = case ftkAst a of
-  ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
-                         , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-    withCastRS sh' $ \(sh :: ShS sh) ->
-      withKnownShS sh $
-      let (var, ast) =
-            funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToStk ftk))
-      in astLet var (astSFromR @sh a) ast
-           -- safe, because subsitution ruled out above
-  ftk@(FTKX @_ @x sh' x) | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
-    withCastXS sh' $ \(sh :: ShS sh) ->
-      withKnownShX (ssxFromShape sh') $
-      withKnownShS sh $
-      let (var, ast) =
-            funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToStk ftk))
-      in astLet var (astSFromX @sh a) ast
-  -- TODO: also recursively product
-  ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
-        let (var, ast) = funToAst ftk f
-        in astLet var a ast
+astLetFun a f = case a of
+  Ast.AstFromS @y2 stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+    let (var, ast) = funToAst (ftkAst v) (f . astFromS @y2 stkz)
+    in astLet var v ast
+  _ -> case ftkAst a of
+    ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
+                           , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+      withCastRS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        let (var, ast) =
+              funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToStk ftk))
+        in astLet var (astSFromR @sh a) ast
+             -- safe, because subsitution ruled out above
+    ftk@(FTKX @_ @x sh' x) | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShX (ssxFromShape sh') $
+        withKnownShS sh $
+        let (var, ast) =
+              funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToStk ftk))
+        in astLet var (astSFromX @sh a) ast
+    -- TODO: also recursively product, though may be not worth it
+    ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
+          let (var, ast) = funToAst ftk f
+          in astLet var a ast
 
 astFromScalar :: forall r s. (GoodScalar r, AstSpan s)
               => AstTensor AstMethodLet s (TKScalar r)
