@@ -3048,6 +3048,10 @@ astFromS stkz (Ast.AstSFromR v)
          | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstSFromX v)
          | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
+astFromS stkz (Ast.AstFromPrimal v) | Dict <- lemTensorKindOfSTK stkz =
+  Ast.AstFromPrimal $ astFromS stkz v
+  -- the only case where we don't push up but down so that conversions
+  -- don't end up interspersed with AstFromPrimal
 astFromS stkz v = Ast.AstFromS stkz v
 
 -- Compare with tfromS.
@@ -3427,7 +3431,7 @@ astDualPart t = case t of
   Ast.AstProject2 v -> astProject2 (astDualPart v)
   Ast.AstApply v ll -> astHApply v (astDualPart ll)
   Ast.AstVar{} -> Ast.AstDualPart t
-  Ast.AstFromPrimal{}  -> Ast.AstDualPart t  -- this equals nil (not primal 0)
+  Ast.AstFromPrimal{} -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstFromVector snat l -> astFromVector snat (V.map astDualPart l)
