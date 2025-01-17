@@ -1931,7 +1931,13 @@ astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
 astPair (Ast.AstFromS stkz1 v1) (Ast.AstFromS stkz2 v2)
   | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v1))
   , Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v2)) =
-    Ast.AstFromS (STKProduct stkz1 stkz2) $ astPair v1 v2
+    astFromS (STKProduct stkz1 stkz2) $ astPair v1 v2
+astPair (Ast.AstFromS stkz1 v1) v2
+  | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v1)) =
+    astFromS (STKProduct stkz1 (ftkToStk (ftkAst v2))) $ astPair v1 v2
+astPair v1 (Ast.AstFromS stkz2 v2)
+  | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v2)) =
+    astFromS (STKProduct (ftkToStk (ftkAst v1)) stkz2) $ astPair v1 v2
 astPair v1 v2 = Ast.AstPair v1 v2
 
 -- Inlining works for this let constructor, because it has just one variable,
@@ -2781,7 +2787,7 @@ astProject1 u = case u of
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                          , Dict <- lemTensorKindOfSTK stk2 ->
-      Ast.AstFromS (stensorKind @x) $ astProject1 u1
+      astFromS (stensorKind @x) $ astProject1 u1
     _ -> error "astProject1: wrong tensor kind"
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
   _ -> Ast.AstProject1 u
@@ -2797,7 +2803,7 @@ astProject2 u = case u of
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                          , Dict <- lemTensorKindOfSTK stk2 ->
-      Ast.AstFromS (stensorKind @z) $ astProject2 u1
+      astFromS (stensorKind @z) $ astProject2 u1
     _ -> error "astProject2: wrong tensor kind"
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
   _ -> Ast.AstProject2 u
