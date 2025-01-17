@@ -221,17 +221,17 @@ class LetTensor (target :: Target) where
     (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
       Just Refl -> stoScalar v
       Nothing -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKR nx zx) | Dict <- lemTensorKindOfSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
+    (STKS shy yx, STKR zn zx) | Dict <- lemTensorKindOfSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) zn) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
           rfromS v
         _ -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKX shx zx) | Dict <- lemTensorKindOfSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
+    (STKS shy yx, STKX shz zx) | Dict <- lemTensorKindOfSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shz)) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
-          withKnownShX shx $
+          withKnownShX shz $
           xfromS v
         _ -> error "tfromS: tensor kinds don't match"
     (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
