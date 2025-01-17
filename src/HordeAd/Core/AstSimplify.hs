@@ -353,8 +353,10 @@ astNonIndexStep t = case t of
   Ast.AstBuild1{} -> t
   Ast.AstLet var u v -> astLet var u v
   AstConcrete ftk v -> astConcrete ftk v
---  Ast.AstMapAccumRDer
---  Ast.AstMapAccumLDer
+  Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es ->
+    astMapAccumRDer k bShs eShs f df rf acc0 es
+  Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es ->
+    astMapAccumLDer k bShs eShs f df rf acc0 es
 
   AstSumOfList stk args ->
     case isTensorInt t of
