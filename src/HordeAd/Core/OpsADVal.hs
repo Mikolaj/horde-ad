@@ -133,14 +133,10 @@ instance ( ADReadyNoLet target, ShareTensor target
    where
     dFromS :: forall y z. (TensorKind y, TensorKind z)
            => Delta target y -> Delta target z
-    dFromS (SFromR @sh @x d) =
-      case sameTensorKind @z @(TKR2 (Rank sh) x) of
-        Just Refl -> d
-        Nothing -> error "dFromS: tensor kinds don't match"
-    dFromS (SFromX @_ @sh' @x d) =
-      case sameTensorKind @z @(TKX2 sh' x) of
-        Just Refl -> d
-        Nothing -> error "dFromS: tensor kinds don't match"
+    dFromS (SFromR @sh @x d)
+      | Just Refl <- sameTensorKind @z @(TKR2 (Rank sh) x) = d
+    dFromS (SFromX @_ @sh' @x d)
+      | Just Refl <- sameTensorKind @z @(TKX2 sh' x) = d
     dFromS d = FromS d
 
 instance (ADReadyNoLet target, ShareTensor target)

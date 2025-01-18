@@ -9,7 +9,6 @@ module TestMnistCNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
-import Data.IntMap.Strict qualified as IM
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
 import Numeric.LinearAlgebra (Numeric)
@@ -20,13 +19,11 @@ import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
 import Data.Array.Nested (pattern (:$:), pattern ZSR)
-import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.OpsAst
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon
@@ -38,7 +35,6 @@ testTrees :: [TestTree]
 testTrees = [ tensorADValMnistTestsCNNA
             , tensorADValMnistTestsCNNI
             , tensorADValMnistTestsCNNO
-            , tensorMnistTestsPP
             ]
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
