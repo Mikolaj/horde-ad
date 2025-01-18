@@ -16,7 +16,7 @@ module HordeAd.Core.Types
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
     -- * Some fundamental constraints and types
   , GoodScalar, Differentiable, IfDifferentiable(..)
-  , BuildTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
+  , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
     -- * Type families that tensors will belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , DummyDualTarget(..)
@@ -75,7 +75,7 @@ import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (fromSMayNat', listxRank, shxSize)
-import Data.Array.Mixed.Types (Dict (..), fromSNat', unsafeCoerceRefl)
+import Data.Array.Mixed.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IShX
@@ -242,6 +242,20 @@ type family BuildTensorKind k tk where
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
   BuildTensorKind k TKUntyped = TKUntyped
+
+-- This is an inverse of BuildTensorKind.
+-- This could be more optimal
+--   RazeTensorKind (TKS2 '[m] (TKScalar r)) = TKScalar r
+-- but then we'd lose the simplifying property that razing does not
+-- change the tensor kind variant, which is important, e.g.,
+-- when rewriting AstFromS t and trying to use AstFromS of the razed t.
+type family RazeTensorKind tk where
+  RazeTensorKind (TKR2 n r) = TKR2 (n - 1) r
+  RazeTensorKind (TKS2 sh r) = TKS2 (Tail sh) r
+  RazeTensorKind (TKX2 sh r) = TKX2 (Tail sh) r
+  RazeTensorKind (TKProduct y z) =
+    TKProduct (RazeTensorKind y) (RazeTensorKind z)
+  RazeTensorKind TKUntyped = TKUntyped
 
 type family ADTensorKind tk where
   ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)

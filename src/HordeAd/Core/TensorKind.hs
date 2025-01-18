@@ -7,7 +7,7 @@ module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
   , lemTensorKindOfSTK, sameTensorKind, sameSTK
-  , buildSTK, aDSTK
+  , buildSTK, razeSTK, aDSTK
   , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
   , buildFTK, razeFTK, aDFTK, tftkG
@@ -37,7 +37,7 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, type (+))
+import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (+))
 import Type.Reflection (TypeRep, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -151,73 +151,21 @@ buildSTK snat@SNat = \case
   STKProduct stk1 stk2 -> STKProduct (buildSTK snat stk1) (buildSTK snat stk2)
   STKUntyped -> STKUntyped
 
-{- This is deranged:
-import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (+), type (-))
-razeSTK :: forall k y.
-           SNat k -> STensorKindType (BuildTensorKind k y) -> STensorKindType y
-razeSTK snat@SNat = \case
+razeSTK :: STensorKindType z -> STensorKindType (RazeTensorKind z)
+razeSTK = \case
   STKScalar{} -> error "razeSTK: impossible argument"
-  STKR @n @x snat2@SNat x ->
-    case cmpNat (SNat @1) snat2 of
-      LTI ->
-        gcastWith (unsafeCoerceRefl :: y :~: TKR2 (n - 1) x) $
-        STKR SNat x
+  STKR snat@SNat x ->
+    case cmpNat (SNat @1) snat of
+      LTI -> STKR SNat x
+      EQI -> STKR SNat x
       _ -> error "razeSTK: impossible argument"
   STKS ZSS _ -> error "razeSTK: impossible argument"
-  STKS @_ @x (_ :$$ ZSS) x@STKScalar{} ->
-    -- TODO: this should be a runtime check instead, but I don't know how
-    gcastWith (unsafeCoerceRefl :: y :~: x) $
-    x
-  STKS @_ @x ((:$$) @_ @sh _ sh) x ->
-    gcastWith (unsafeCoerceRefl :: y :~: TKS2 sh x) $
-    STKS sh x
+  STKS (_ :$$ sh) x -> STKS sh x
   STKX ZKX _ -> error "razeSTK: impossible argument"
   STKX (SUnknown _ :!% _) _ -> error "razeSTK: impossible argument"
-  STKX @_ @x ((:!%) @_ @sh (SKnown _) sh) x ->
-    gcastWith (unsafeCoerceRefl :: y :~: TKX2 sh x) $
-    STKX sh x
-  STKProduct stk1 stk2 ->
-    case ( razeSTK snat (unsafeCoerce stk1)
-         , razeSTK snat (unsafeCoerce stk2) ) of
-      (res1 :: STensorKindType y1, res2 :: STensorKindType y2) ->
-        gcastWith (unsafeCoerceRefl :: y :~: TKProduct y1 y2) $
-        STKProduct res1 res2
-  STKUntyped ->
-    gcastWith (unsafeCoerceRefl :: y :~: TKUntyped) $
-    STKUntyped
-
-razeAnySTK :: forall z y.
-              STensorKindType z -> STensorKindType y
-razeAnySTK = \case
-  STKScalar{} -> error "razeSTK: impossible argument"
-  STKR @n @x snat2@SNat x ->
-    case cmpNat (SNat @1) snat2 of
-      LTI ->
-        gcastWith (unsafeCoerceRefl :: y :~: TKR2 (n - 1) x) $
-        STKR SNat x
-      _ -> error "razeSTK: impossible argument"
-  STKS ZSS _ -> error "razeSTK: impossible argument"
-  STKS @_ @x (_ :$$ ZSS) x@STKScalar{} ->
-    -- TODO: this should be a runtime check instead, but I don't know how
-    gcastWith (unsafeCoerceRefl :: y :~: x) $
-    x
-  STKS @_ @x ((:$$) @_ @sh _ sh) x ->
-    gcastWith (unsafeCoerceRefl :: y :~: TKS2 sh x) $
-    STKS sh x
-  STKX ZKX _ -> error "razeSTK: impossible argument"
-  STKX (SUnknown _ :!% _) _ -> error "razeSTK: impossible argument"
-  STKX @_ @x ((:!%) @_ @sh (SKnown _) sh) x ->
-    gcastWith (unsafeCoerceRefl :: y :~: TKX2 sh x) $
-    STKX sh x
-  STKProduct stk1 stk2 ->
-    case (razeAnySTK stk1, razeAnySTK stk2) of
-      (res1 :: STensorKindType y1, res2 :: STensorKindType y2) ->
-        gcastWith (unsafeCoerceRefl :: y :~: TKProduct y1 y2) $
-        STKProduct res1 res2
-  STKUntyped ->
-    gcastWith (unsafeCoerceRefl :: y :~: TKUntyped) $
-    STKUntyped
--}
+  STKX (SKnown _ :!% sh) x -> STKX sh x
+  STKProduct stk1 stk2 -> STKProduct (razeSTK stk1) (razeSTK stk2)
+  STKUntyped -> STKUntyped
 
 aDSTK :: STensorKindType y
       -> STensorKindType (ADTensorKind y)

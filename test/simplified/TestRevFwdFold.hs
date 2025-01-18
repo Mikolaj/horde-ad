@@ -64,7 +64,7 @@ testTrees =
   , testCase "4S0RfwdPP1Full" testSin0RfwdPP1Full
   , testCase "4S0Rfwd3" testSin0Rfwd3
   , testCase "4S0Rfwd4" testSin0Rfwd4
-  , testCase "4S0RfwdPP4" testSin0RfwdPP4
+  , testCase "4S0RfwdPP4P" testSin0RfwdPP4P
   , testCase "4S0RfwdPP4Dual" testSin0RfwdPP4Dual
   , testCase "4S0Rfwd5" testSin0Rfwd5
   , testCase "4S0RfwdPP5" testSin0RfwdPP5
@@ -466,8 +466,8 @@ testSin0Rfwd4 = do
     (rscalar 0.8988770945225438)
     ((rfwd1 sin . rfwd1 @RepN @Double @0 @0 sin) (rscalar 1.1))
 
-testSin0RfwdPP4 :: Assertion
-testSin0RfwdPP4 = do
+testSin0RfwdPP4P :: Assertion
+testSin0RfwdPP4P = do
   let a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.0 * cos (sscalar 1.1)))"

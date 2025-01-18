@@ -199,7 +199,8 @@ ftkAst t = case t of
               _ -> error "ftkAst: wrong tensor kinds for AstFromS"
           (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) ->
             FTKProduct (fromS ftk1 stk1) (fromS ftk2 stk2)
-          _ -> error "ftkAst: wrong tensor kinds for AstFromS"
+          _ -> error $ "ftkAst: wrong tensor kinds for AstFromS: "
+                       ++ show (ftk, stk)
     in fromS (ftkAst v) stkz
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
