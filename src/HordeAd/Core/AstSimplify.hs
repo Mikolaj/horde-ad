@@ -2047,6 +2047,11 @@ astLet var (Ast.AstFromPrimal (Ast.AstLetHVectorIn
 astLet var u (Ast.AstFromS stkz v)
   | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) =
     astFromS stkz $ astLet var u v
+astLet var (Ast.AstFromS stkz a) v = case ftkAst a of
+  ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
+    let var2 = mkAstVarName (varNameToAstVarId var)
+        ast = astFromS stkz $ Ast.AstVar ftk var2
+    in astLet var2 a (substituteAst ast var v)
 astLet var u v = Ast.AstLet var u v
 
 -- A special variant to bind integer expressions inside indexes.
@@ -3604,13 +3609,7 @@ astApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
 astApply t u = case t of
   Ast.AstLambda ~(var, _ftk, v) ->
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> case u of
-        Ast.AstFromS stkz a -> case ftkAst a of
-          ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
-            let var2 = mkAstVarName (varNameToAstVarId var)
-                ast = astFromS stkz $ Ast.AstVar ftk var2
-            in astLet var2 a (substituteAst ast var v)
-        _ -> astLet var u v
+      Just Refl -> astLet var u v
       _ -> Ast.AstApply t u
 
 mapRankedShaped
