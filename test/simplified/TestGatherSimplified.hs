@@ -460,8 +460,8 @@ testGatherSimpPP33 = do
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                             (rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @10 [8, 16] t))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 649
-  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 427
+  length (show t2) @?= 779
+  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 510
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -676,7 +676,7 @@ testScatterSimpPP12 = do
   resetVarCounter
   let !t2 = scatter12 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (FTKR [7, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 786
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1082
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1160
   length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 786
 
 foo :: RealFloatF a => (a,a,a) -> a
