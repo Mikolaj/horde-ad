@@ -406,7 +406,6 @@ astNonIndexStep t = case t of
   Ast.AstUnzipR _ -> t
 
   Ast.AstFromScalar u -> astFromScalar $ astNonIndexStep u
-  Ast.AstToScalar u -> Ast.AstToScalar $ astNonIndexStep u
   AstN1S{} -> t
   AstN2S{} -> t
   Ast.AstR1S{} -> t
@@ -3356,7 +3355,6 @@ astPrimalPart t = case t of
   Ast.AstUnzipR v -> Ast.AstUnzipR (astPrimalPart v)
 
   Ast.AstFromScalar u -> astFromScalar $ astPrimalPart u
-  Ast.AstToScalar u -> Ast.AstToScalar $ astPrimalPart u
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
   AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
@@ -3478,7 +3476,6 @@ astDualPart t = case t of
   Ast.AstUnzipR v -> Ast.AstUnzipR (astDualPart v)
 
   Ast.AstFromScalar u -> astFromScalar $ astDualPart u
-  Ast.AstToScalar u -> Ast.AstToScalar $ astDualPart u
   AstN1S{} -> Ast.AstDualPart t
   AstN2S{} -> Ast.AstDualPart t
   Ast.AstR1S{} -> Ast.AstDualPart t
@@ -3605,7 +3602,7 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
                    (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
-        STKScalar _ -> Ast.AstToScalar $ astProjectS l i
+        STKScalar @r _ -> astFromS stensorKind $ astProjectS @'[] @r l i
         STKR SNat STKScalar{} -> astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astProjectS l i
         STKX sh STKScalar{}-> withKnownShX sh $ error "TODO"
@@ -3617,7 +3614,8 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar _ -> Ast.AstToScalar $ astPrimalPart $ astProjectS l i
+        STKScalar @r _ -> astFromS stensorKind
+                          $ astPrimalPart $ astProjectS @'[] @r l i
         STKR SNat STKScalar{} -> astPrimalPart $ astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astPrimalPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -3629,7 +3627,8 @@ astLetHVectorIn vars l v = case v of
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar _ -> Ast.AstToScalar $ astDualPart $ astProjectS l i
+        STKScalar @r _ -> astFromS stensorKind
+                          $ astDualPart $ astProjectS @'[] @r l i
         STKR SNat STKScalar{} -> astDualPart $ astProjectR l i
         STKS sh STKScalar{} -> withKnownShS sh $ astDualPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
@@ -3714,7 +3713,6 @@ astFromScalar :: forall r s. (GoodScalar r, AstSpan s)
               => AstTensor AstMethodLet s (TKScalar r)
               -> AstTensor AstMethodLet s (TKS '[] r)
 astFromScalar t = case t of
-  Ast.AstToScalar u -> u
   Ast.AstCond b a2 a3 -> Ast.AstCond b (astFromScalar a2) (astFromScalar a3)
   AstConcrete FTKScalar (RepN v) ->
     astConcrete (FTKS ZSS FTKScalar) $ sscalar v
@@ -3889,7 +3887,6 @@ expandAst t = case t of
   Ast.AstUnzipR v -> Ast.AstUnzipR (expandAst v)
 
   Ast.AstFromScalar u -> astFromScalar $ expandAst u
-  Ast.AstToScalar u -> Ast.AstToScalar $ expandAst u
   AstN1S opCode u -> AstN1S opCode (expandAst u)
   AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
@@ -4145,7 +4142,6 @@ simplifyAst t = case t of
   Ast.AstUnzipR v -> Ast.AstUnzipR (simplifyAst v)
 
   Ast.AstFromScalar u -> astFromScalar $ simplifyAst u
-  Ast.AstToScalar u -> Ast.AstToScalar $ simplifyAst u
   AstN1S opCode u -> AstN1S opCode (simplifyAst u)
   AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
@@ -4812,7 +4808,6 @@ contractAst t = case t of
   Ast.AstUnzipR v -> Ast.AstUnzipR (contractAst v)
 
   Ast.AstFromScalar u -> astFromScalar $ contractAst u
-  Ast.AstToScalar u -> Ast.AstToScalar $ contractAst u
   AstN1S opCode u -> AstN1S opCode (contractAst u)
   AstN2S opCode u v -> AstN2S opCode (contractAst u) (contractAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (contractAst u)
@@ -5385,7 +5380,6 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstUnzipR v -> Ast.AstUnzipR <$> substitute1Ast i var v
 
   Ast.AstFromScalar u -> astFromScalar <$> substitute1Ast i var u
-  Ast.AstToScalar u -> Ast.AstToScalar <$> substitute1Ast i var u
   Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1Ast i var u
   Ast.AstN2S opCode u v ->
     let mu = substitute1Ast i var u

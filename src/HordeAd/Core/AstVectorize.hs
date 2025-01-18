@@ -162,7 +162,6 @@ build1V snat@SNat (var, v0) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
     Ast.AstFromScalar t -> build1V snat (var, t)
-    Ast.AstToScalar t -> build1V snat (var, t)
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
@@ -781,7 +780,7 @@ astIndexBuild :: forall y k s. AstSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat stk u i = case stk of
-  STKScalar{} -> Ast.AstToScalar $ astIndexStepS u (i :.$ ZIS)
+  STKScalar{} -> astFromS stensorKind $ astIndexStepS u (i :.$ ZIS)
   STKR SNat x | Dict <- lemTensorKindOfSTK x -> case ftkAst u of
     FTKR shmshn _ | SNat <- shrRank shmshn ->
       withCastRS shmshn $ \(sh :: ShS sh) ->

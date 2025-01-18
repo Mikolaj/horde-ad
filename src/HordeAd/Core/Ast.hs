@@ -425,8 +425,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   -- Here starts the shaped part.
   AstFromScalar :: GoodScalar r
                 => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
-  AstToScalar :: GoodScalar r
-              => AstTensor ms s (TKS '[] r) -> AstTensor ms s (TKScalar r)
   AstN1S :: (GoodScalar r, KnownShS sh)
          => OpCodeNum1 -> AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
   AstN2S :: (GoodScalar r, KnownShS sh)

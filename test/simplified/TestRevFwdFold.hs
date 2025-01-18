@@ -444,14 +444,14 @@ testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "(\\x1 -> tproject1 x1 * cos (tproject2 x1)) (tpair (rscalar 1.0, rscalar 1.1))"
+    @?= "(\\x1 -> rfromS (sfromR (tproject1 x1) * cos (sfromR (tproject2 x1)))) (tfromS (tpair (sscalar 1.0, sscalar 1.1)))"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "(\\x1 -> tproject1 x1 * cos (tproject2 x1)) (tpair (rscalar 1.0, rscalar 1.1))"
+    @?= "(\\x1 -> rfromS (sfromR (tproject1 x1) * cos (sfromR (tproject2 x1)))) (tfromS (tpair (sscalar 1.0, sscalar 1.1)))"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
@@ -488,7 +488,7 @@ testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
   let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 (rfwd1 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS ((sscalar 1.0 * negate (sin (sscalar 1.1))) * sscalar 1.0)"
+    @?= "rfromS (sscalar 0.0 * cos (sscalar 1.1) + (sscalar 1.0 * negate (sin (sscalar 1.1))) * sscalar 1.0)"
 
 testSin0Rfwd3' :: Assertion
 testSin0Rfwd3' = do
