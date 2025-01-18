@@ -2075,6 +2075,7 @@ astConcrete ftk v = case ftk of
       astFromS (ftkToStk ftk) $ AstConcrete (FTKS sh x) (sfromX v)
   _ -> AstConcrete ftk v  -- product case should be too rare to care
 
+-- TODO: also push up AstFromPrimal, etc.
 astMapAccumRDer
   :: forall accShs bShs eShs k s.
      (TensorKind accShs, TensorKind bShs, TensorKind eShs)

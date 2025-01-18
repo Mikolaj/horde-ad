@@ -504,6 +504,8 @@ unshareAst memo = \case
          then (memo, astVar)
          else let (memo1, a2) = unshareAst memo v
               in (DMap.insert var a2 memo1, astVar)
+    -- The PrimalSpan check ensures there's no need to match for
+    -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case ftkAst a of
       ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
                              , Dict <- lemTensorKindOfSTK (ftkToStk x) ->

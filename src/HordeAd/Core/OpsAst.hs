@@ -1739,6 +1739,11 @@ astLetFunNoSimplify a f = case a of
   AstFromS @y2 stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     let (var, ast) = funToAst (ftkAst v) (f . AstFromS @y2 stkz)
     in AstLet var v ast
+  AstFromPrimal (AstFromS @y2 stkz vRaw)
+   | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst vRaw)) ->
+    let v = AstFromPrimal vRaw
+        (var, ast) = funToAst (ftkAst v) (f . AstFromS @y2 stkz)
+    in AstLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x2 sh' x) | SNat <- shrRank sh'
                             , Dict <- lemTensorKindOfSTK (ftkToStk x) ->

@@ -524,6 +524,10 @@ liftRFromS1 f a = case ftkAst a of
       AstFromS @(TKS2 sh x) (ftkToStk ftk)
       $ f (AstSFromR @sh a)
 
+-- We refrain from checking for AstFromPrimal (AstFromS), because that would
+-- add three more cases for little gain (arithmetic expressions are unlikely
+-- to have AstFromPrimal and especially a build-up of interspersed
+-- conversions and AstFromPrimal).
 liftRFromS2 :: forall n x ms s. TensorKind x
             => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
@@ -611,6 +615,9 @@ cAstSFromR :: forall sh ms s r.
 cAstSFromR (AstFromS _ v)
            | Just Refl <- sameSTK (ftkToStk (ftkAst v))
                                   (stensorKind @(TKS2 sh r)) = v
+cAstSFromR (AstFromPrimal (AstFromS _ v))
+           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+                                  (stensorKind @(TKS2 sh r)) = AstFromPrimal v
 cAstSFromR v = AstSFromR v
 
 cAstSFromX :: forall sh sh' ms s r.
@@ -619,4 +626,7 @@ cAstSFromX :: forall sh sh' ms s r.
 cAstSFromX (AstFromS _ v)
            | Just Refl <- sameSTK (ftkToStk (ftkAst v))
                                   (stensorKind @(TKS2 sh r)) = v
+cAstSFromX (AstFromPrimal (AstFromS _ v))
+           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+                                  (stensorKind @(TKS2 sh r)) = AstFromPrimal v
 cAstSFromX v = AstSFromX v
