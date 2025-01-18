@@ -935,7 +935,7 @@ testReluSimplerPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> tlet (v1 * rfromPrimal (rreplicate 5 (rscalar 7.0))) (\\i2 -> rfromPrimal (rgather [5] (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rprimalPart i2 ! [i3] <=. rscalar 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> rfromS (tlet (sfromR v1 * sfromR (rfromPrimal (rfromS (sreplicate (sscalar 7.0))))) (\\i2 -> sfromR (rfromPrimal (rfromS (sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rfromS (sprimalPart i2 !$ [i3]) <=. rfromS (sscalar 0.0)) 0 1])))) * i2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] (rscalar 128), rscalar 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -954,7 +954,7 @@ testReluSimplerPP3 = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> tlet (v1 * rfromPrimal (rreplicate 3 (rreplicate 4 (rscalar 7.0)))) (\\i2 -> rfromPrimal (rgather [3,4] (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. rscalar 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> rfromS (tlet (sfromR v1 * sfromR (rfromPrimal (rfromS (sreplicate (sreplicate (sscalar 7.0)))))) (\\i2 -> sfromR (rfromPrimal (rfromS (sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rfromS (sprimalPart i2 !$ [i5, i4]) <=. rfromS (sscalar 0.0)) 0 1])))) * i2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] (rscalar 128), rscalar 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -983,7 +983,7 @@ testReluSimplerPP4 = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> tlet (v1 * rfromPrimal (rreshape [3,4] (rreplicate 12 (rscalar 7.0)))) (\\i2 -> rfromPrimal (rgather [3,4] (tconcrete (FTKR [2] FTKScalar) (rfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rprimalPart i2 ! [i5, i4] <=. rscalar 0.0) 0 1])) * i2)"
+    @?= "\\v1 -> rfromS (tlet (sfromR v1 * sfromR (rfromPrimal (rfromS (sreshape (sreplicate (sscalar 7.0)))))) (\\i2 -> sfromR (rfromPrimal (rfromS (sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rfromS (sprimalPart i2 !$ [i5, i4]) <=. rfromS (sscalar 0.0)) 0 1])))) * i2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [3, 4] (rscalar 128), rscalar 42)
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -1063,7 +1063,7 @@ testReluMaxPP = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) $ reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rgather [3,4] (rfromVector (fromList [rfromPrimal (rreplicate 3 (rreplicate 4 (rscalar 0.0))), m1])) (\\[i5, i4] -> [ifF (rscalar 0.0 >=. rprimalPart m1 ! [i5, i4]) 0 1, i5, i4])"
+    @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sfromPrimal (sreplicate (sreplicate (sscalar 0.0))), sfromR m1])) (\\[i5, i4] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (sprimalPart (sfromR m1) !$ [i5, i4])) 0 1, i5, i4]))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (rreplicate0N [3, 4] (rscalar 4))
   printArtifactPretty renames (simplifyArtifact artifactRev)
@@ -1084,7 +1084,7 @@ testReluMaxPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rgather [5] (rfromVector (fromList [rfromPrimal (rreplicate 5 (rscalar 0.0)), v1 * rfromPrimal (rreplicate 5 (rscalar 7.0))])) (\\[i3] -> [ifF (rscalar 0.0 >=. rprimalPart v1 ! [i3] * rscalar 7.0) 0 1, i3])"
+    @?= "\\v1 -> rfromS (sgather (sfromVector (fromList [sfromPrimal (sreplicate (sscalar 0.0)), sfromR v1 * sfromPrimal (sreplicate (sscalar 7.0))])) (\\[i3] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (sprimalPart (sfromR v1) !$ [i3] * sscalar 7.0)) 0 1, i3]))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (rreplicate0N [5] (rscalar 128), rscalar 42)
   printArtifactPretty renames artifactRev

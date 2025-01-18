@@ -967,22 +967,6 @@ rawHVector =
       f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
   in V.map f
 
-cAstSFromR :: forall sh ms s r.
-              (KnownShS sh, KnownNat (Rank sh), TensorKind r)
-           => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
-cAstSFromR (AstFromS _ v)
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
-                                  (stensorKind @(TKS2 sh r)) = v
-cAstSFromR v = AstSFromR v
-
-cAstSFromX :: forall sh sh' ms s r.
-              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
-           => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
-cAstSFromX (AstFromS _ v)
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
-                                  (stensorKind @(TKS2 sh r)) = v
-cAstSFromX v = AstSFromX v
-
 instance AstSpan s => BaseTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
   rminIndex @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of

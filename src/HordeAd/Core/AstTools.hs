@@ -15,6 +15,7 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bindsToLet
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
+  , cAstSFromR, cAstSFromX
   ) where
 
 import Prelude hiding (foldl')
@@ -27,7 +28,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (sameNat, type (+))
+import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
@@ -548,7 +549,8 @@ liftRFromS2 f a b  = case ftkAst a of
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       AstFromS @(TKS2 sh x) (ftkToStk ftk)
-      $ f (AstSFromR @sh a) (AstSFromR @sh b)
+      $ f (cAstSFromR @sh a) (cAstSFromR @sh b)
+        -- both are not AstFromS, but one may be
 
 liftXFromS1 :: forall sh' x ms s. TensorKind x
             => (forall sh. KnownShS sh
@@ -601,4 +603,20 @@ liftXFromS2 f a b = case ftkAst a of
     withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       AstFromS @(TKS2 sh x) (ftkToStk ftk)
-      $ f (AstSFromX @sh @sh' a) (AstSFromX @sh @sh' b)
+      $ f (cAstSFromX @sh @sh' a) (cAstSFromX @sh @sh' b)
+
+cAstSFromR :: forall sh ms s r.
+              (KnownShS sh, KnownNat (Rank sh), TensorKind r)
+           => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
+cAstSFromR (AstFromS _ v)
+           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+                                  (stensorKind @(TKS2 sh r)) = v
+cAstSFromR v = AstSFromR v
+
+cAstSFromX :: forall sh sh' ms s r.
+              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
+           => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
+cAstSFromX (AstFromS _ v)
+           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+                                  (stensorKind @(TKS2 sh r)) = v
+cAstSFromX v = AstSFromX v
