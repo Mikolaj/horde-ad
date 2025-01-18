@@ -438,7 +438,7 @@ build1V snat@SNat (var, v0) =
     Ast.AstApply @x @z t ll
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
-        astHApply
+        astApply
           (build1VHFun snat (var, t))
           (build1VOccurenceUnknown snat (var, ll))
     Ast.AstMapAccumRDer @accShs @bShs @eShs @k5

@@ -814,7 +814,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     let (var, ast) = funToAst shss $ \ !ll ->
           unHFun f ll
     in AstLambda (var, shss, ast)
-  tApply t ll = astHApply t ll
+  tApply t ll = astApply t ll
   dunHVector (AstMkHVector l) = l
   dunHVector hVectorOf =
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s

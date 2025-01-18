@@ -33,7 +33,7 @@ module HordeAd.Core.AstSimplify
   , astPrimalPart, astDualPart
   , astFromS, astSFromR, astSFromX
   , astXNestR, astXNestS, astXNest, astXUnNestR, astXUnNestS, astXUnNest
-  , astLetHVectorIn, astHApply, astLetFun
+  , astLetHVectorIn, astApply, astLetFun
   , astReplicate0NS
     -- * The expansion (e.g., into gather expressions) bottom-up pass
   , expandAst
@@ -340,7 +340,7 @@ astNonIndexStep t = case t of
   Ast.AstPair t1 t2 -> astPair (astNonIndexStep t1) (astNonIndexStep t2)
   Ast.AstProject1 u -> astProject1 u
   Ast.AstProject2 u -> astProject2 u
---  Ast.AstApply v ll -> astHApply v ll
+  Ast.AstApply v ll -> astApply v ll
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
@@ -3367,7 +3367,7 @@ astPrimalPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
-  Ast.AstApply v ll -> astHApply v (astPrimalPart ll)
+  Ast.AstApply v ll -> astApply v (astPrimalPart ll)
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstFromPrimal v -> v
   Ast.AstD u _ -> u
@@ -3488,7 +3488,7 @@ astDualPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astDualPart t1) (astDualPart t2)
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
-  Ast.AstApply v ll -> astHApply v (astDualPart ll)
+  Ast.AstApply v ll -> astApply v (astDualPart ll)
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstFromPrimal{} -> Ast.AstDualPart t  -- this equals nil (not primal 0)
   Ast.AstD _ u' -> u'
@@ -3598,12 +3598,19 @@ astDualPart t = case t of
   Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
   Ast.AstProjectS l p -> astProjectS (astDualPart l) p
 
-astHApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
-          => AstHFun x y -> AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
-astHApply t u = case t of
+astApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
+         => AstHFun x y -> AstTensor AstMethodLet s x
+         -> AstTensor AstMethodLet s y
+astApply t u = case t of
   Ast.AstLambda ~(var, _ftk, v) ->
     case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astLet var u v
+      Just Refl -> case u of
+        Ast.AstFromS stkz a -> case ftkAst a of
+          ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
+            let var2 = mkAstVarName (varNameToAstVarId var)
+                ast = astFromS stkz $ Ast.AstVar ftk var2
+            in astLet var2 a (substituteAst ast var v)
+        _ -> astLet var u v
       _ -> Ast.AstApply t u
 
 mapRankedShaped
@@ -3809,7 +3816,7 @@ expandAst t = case t of
   Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
-  Ast.AstApply v ll -> astHApply (expandAstHFun v) (expandAst ll)
+  Ast.AstApply v ll -> astApply (expandAstHFun v) (expandAst ll)
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
@@ -4114,7 +4121,7 @@ simplifyAst t = case t of
   Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
-  Ast.AstApply v ll -> astHApply (simplifyAstHFun v) (simplifyAst ll)
+  Ast.AstApply v ll -> astApply (simplifyAstHFun v) (simplifyAst ll)
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
@@ -4331,7 +4338,7 @@ contractAst t = case t of
   Ast.AstPair t1 t2 -> astPair (contractAst t1) (contractAst t2)
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
-  Ast.AstApply v ll -> astHApply (contractAstHFun v) (contractAst ll)
+  Ast.AstApply v ll -> astApply (contractAstHFun v) (contractAst ll)
   Ast.AstVar{} -> t
   Ast.AstPrimalPart v -> astPrimalPart (contractAst v)
   Ast.AstDualPart v -> astDualPart (contractAst v)
@@ -5267,7 +5274,7 @@ substitute1Ast i var v1 = case v1 of
     case ( substitute1AstHFun i var t
          , substitute1Ast i var ll ) of
       (Nothing, Nothing) -> Nothing
-      (mt, mll) -> Just $ astHApply (fromMaybe t mt) (fromMaybe ll mll)
+      (mt, mll) -> Just $ astApply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstVar sh var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s @s2 of
