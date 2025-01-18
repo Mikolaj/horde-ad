@@ -3998,6 +3998,8 @@ expandAst t = case t of
     Ast.AstScatterS @_ @_ @shp _ _
      | gcompare (Permutation.permRank perm)
                 (shsRank $ knownShS @shp) == GGT -> t  -- nf
+    Ast.AstSFromR{} -> t  -- normal form
+    Ast.AstSFromX{} -> t  -- normal form
     _ ->  -- not nf, let's express all as a gather
       astTransposeAsGatherS (defaultKnobs {knobExpand = True})
                             perm  -- TODO: (normalizePermutation perm)
@@ -4017,6 +4019,8 @@ expandAst t = case t of
     Ast.AstR1S _ w | isVar w -> t  -- normal form
     Ast.AstR2S _ x y | isVar x && isVar y -> t  -- normal form
     Ast.AstScatterS{} -> t  -- normal form
+    Ast.AstSFromR{} -> t  -- normal form
+    Ast.AstSFromX{} -> t  -- normal form
     _ ->  -- not nf, let's express all as a gather
       astReshapeAsGatherS (defaultKnobs {knobExpand = True})
                           (expandAst v)

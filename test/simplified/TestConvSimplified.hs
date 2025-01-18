@@ -770,7 +770,7 @@ testTomsSlicePP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       f = codeTomsSlice
-      (artifactRev, delta) = revArtifactAdapt True f (rreshape [32, 4] t128)
+      (artifactRev, _delta) = revArtifactAdapt True f (rreshape [32, 4] t128)
   printArtifactPretty renames artifactRev
     @?= "\\x18 x1 -> let v14 = sreshape (sgather (sfromR m1) (\\[i10, i11] -> [i10, i11])) ; v15 = sreshape (sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13])) ; v16 = sfromIntegral siota ; v19 = sreplicate (ssum (v16 * ssum (stranspose (sreshape (sreplicate (sfromR x18)))))) in rfromS (sscatter (sreshape (v15 * v19)) (\\[i22, i23] -> [i22, i23]) + sscatter (sreshape (v14 * v19)) (\\[i20, i21] -> [i20, 1 + i21]))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
