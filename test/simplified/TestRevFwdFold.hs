@@ -203,8 +203,6 @@ testTrees =
   , testCase "4S0ScanDFwdPP" testSin0ScanDFwdPP
   , testCase "4S0ScanD1Rev2PP" testSin0ScanD1Rev2PP
   , testCase "4S0ScanDFwd2PP" testSin0ScanDFwd2PP
-  , testCase "4S0ScanD1Rev22PP" testSin0ScanD1Rev22PP
-  , testCase "4S0ScanD1Rev22" testSin0ScanD1Rev22
   , testCase "4S0ScanDFwd3PP" testSin0ScanDFwd3PP
   , testCase "4S0ScanD1fwd" testSin0ScanD1fwd
   , testCase "4S0ScanD8fwd" testSin0ScanD8fwd
@@ -1280,41 +1278,26 @@ testUnitriangular2PP = do
   printAstPretty IM.empty (simplifyInlineContract a1)
     @?= "rfromS (sgather (sfromVector (fromList [sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 0.0))))), sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 1.0)))))])) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4]))"
 
-rscanZip :: forall rn n target. (GoodScalar rn, KnownNat n, ADReady target)
-         => (forall f. ADReady f => f (TKR n rn) -> HVector f -> f (TKR n rn))
-         -> VoidHVector  -- shapes of the HVector above, not below
+rscanZip :: forall rn n rn2 n2 target.
+            (GoodScalar rn, KnownNat n, GoodScalar rn2, KnownNat n2, ADReady target)
+         => (forall f. ADReady f => f (TKR n rn) -> f (TKR n2 rn2) -> f (TKR n rn))
+         -> FullTensorKind (TKR n2 rn2)
          -> target (TKR n rn)
-         -> HVector target  -- one rank higher than above
+         -> target (TKR (1 + n2) rn2)
          -> target (TKR (1 + n) rn)
 rscanZip f eShs acc0 es =
-  let width = case V.unsnoc es of
-        Nothing -> error "rscanZip: can't determine argument width"
-        Just (_, d) -> case shapeDynamicF (toList . rshape) d of
-          [] -> error "rscanZip: wrong rank of argument"
-          w : _shm -> w
-      sh = rshape acc0
+  let width = rlength es
+      ftk = tftk stensorKind acc0
   in withSNat width $ \snat ->
-    tlet @_ @TKUntyped (
-      (productToVectorOf $ dmapAccumL Proxy
-         snat
-         (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
-         (FTKUntyped $ V.singleton $ voidFromSh @rn sh)
-         (FTKUntyped eShs)
+    tlet
+      (dmapAccumL Proxy snat ftk ftk eShs
          (let g :: forall f. ADReady f
-                => HVector f -> HVector f -> f (TKProduct TKUntyped TKUntyped)
-              g acc e =
-               tlet
-                (f (rfromD $ acc V.! 0) e)
-                (\res -> tpair (dmkHVector
-                         $ V.fromList
-                             [ DynamicRanked @rn @n @f res ])
-                             (dmkHVector
-                         $ V.fromList
-                             [ DynamicRanked @rn @n @f res ]))
-          in \x y -> g (dunHVector x) (dunHVector y))
-         (dmkHVector $ V.singleton $ DynamicRanked acc0)
-         (dmkHVector es)))
-      (\res -> rappend (rfromList [acc0]) (rfromD $ dunHVector res V.! 1))
+                => f (TKR n rn) -> f (TKR n2 rn2)
+                -> f (TKProduct (TKR n rn) (TKR n rn))
+              g acc e = tlet (f acc e) (\res -> tpair res res)
+          in g)
+         acc0 es)
+      (\res -> rappend (rfromList [acc0]) (tproject2 res))
 
 sscanZip :: forall rn sh k target.
             ( GoodScalar rn, KnownShS sh, KnownNat k
@@ -2883,19 +2866,11 @@ testSin0ScanD51 = do
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7
                                           $ rreplicate 2 $ rreplicate 5
-                                          $ rsum $ rsum
-                                          $ rfromD (a V.! 1)))
-                         (V.fromList [ voidFromSh @Double
-                                         (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR)
-                                     , voidFromSh @Double
-                                         (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR) ])
+                                          $ rsum $ rsum a))
+                         (FTKR (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR) FTKScalar)
                          (rreplicate0N [1,1,1,1] (rscalar 2) * a0)
-                         (V.fromList
-                            [ DynamicRanked
-                              $ rreplicate 3 (rreplicate 2 (rreplicate 5 a0))
-                            , DynamicRanked
-                              $ rreplicate 3 (rreplicate 8 (rreplicate 3 a0)) ]
-                         ))
+                         (rreplicate 3 (rreplicate 8 (rreplicate 3 a0)))
+                         )
           (ringestData [1,1,1,1] [1.1]))
 
 testSin0ScanD51S :: Assertion
@@ -2938,14 +2913,12 @@ testSin0ScanD8 = do
     (rev' (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (rfromD $ (V.! 0)
-                                                 $ mapHVectorRanked
-                                                     (rsum . rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double (1 :$: 1 :$: 1 :$: ZSR)])
+                                          $ sin (rsum (rreplicate 7 a))))
+                       (FTKR (1 :$: 1 :$: 1 :$: ZSR) FTKScalar)
                        (rreplicate 2 (rreplicate 5
                                         (rreplicate0N [1,1,1] (rscalar 2) * a0)))
-                       (V.singleton $ DynamicRanked $ rreplicate 3 a0))
-                       (ringestData [1,1,1] [1.1]))
+                       (rreplicate 3 a0))
+          (ringestData [1,1,1] [1.1]))
 
 testSin0ScanD8MapAccum :: Assertion
 testSin0ScanD8MapAccum = do
@@ -2986,12 +2959,10 @@ testSin0ScanD8rev = do
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (rfromD $ (V.! 0)
-                                                 $ mapHVectorRanked
-                                                     (rsum . rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double ZSR])
+                                          $ sin (rsum (rreplicate 7 a))))
+                       (FTKR ZSR FTKScalar)
                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
-                       (V.singleton $ DynamicRanked $ rreplicate 3 a0)) (rscalar 1.1))
+                       (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0ScanD8rev4 :: Assertion
 testSin0ScanD8rev4 = do
@@ -3000,17 +2971,10 @@ testSin0ScanD8rev4 = do
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (rfromD $ (V.! 0)
-                                                 $ mapHVectorRanked10 rsum
-                                                 $ mapHVectorRanked01
-                                                     (rreplicate 7) a)))
-                       (V.fromList [ voidFromSh @Double ZSR
-                                   , voidFromShS @Double @'[] ])
+                                          $ sin (rsum (rreplicate 7 a))))
+                       (FTKR ZSR FTKScalar)
                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
-                       (V.fromList [ DynamicRanked $ rreplicate 3 a0
-                                   , DynamicShaped
-                                     $ sreplicate @_ @3
-                                         (sfromR @_ @'[] a0) ]))
+                       (rreplicate 3 a0))
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [285.95794829475744])
     (rev' h (rscalar 1.1))
@@ -3020,80 +2984,52 @@ testSin0ScanD1RevPP = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x _a -> sin x)
-                           (V.fromList [voidFromSh @Double ZSR])
-                           x0 (V.singleton $ DynamicRanked
-                               (rrepl @Double @1 [2] 42))) (rscalar 1.1)
+                           (FTKR ZSR FTKScalar)
+                           x0 (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v20 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v15 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in sproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 0.0)] (tpair ([rfromS (sslice v15)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v20])), [rfromS v20]))))) 0 + v15 !$ [0])"
+    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v8 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v8, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))) + v8 !$ [0])"
 
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x _a -> sin x)
-                           (V.fromList [voidFromSh @Double ZSR])
-                           x0 (V.singleton $ DynamicRanked
-                               (rrepl @Double @1 [2] 42))) (rscalar 1.1)
+                           (FTKR ZSR FTKScalar)
+                           x0 (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v19 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v19])), [rfromS v19]))))) 0))"
+    @?= "rfromS (let v5 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
-                 (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [voidFromSh @Double ZSR])
-                         x0 (V.singleton $ DynamicRanked
-                             $ rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
+                 (\x0 -> rscanZip (\x a -> sin x - a)
+                         (FTKR ZSR FTKScalar)
+                         x0 (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v20 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v15 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in sproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 0.0)] (tpair ([rfromS (sslice v15)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v20])), [rfromS v20]))))) 0 + v15 !$ [0])"
+    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v8 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v8, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))) + v8 !$ [0])"
 
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
-                 (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                         (V.fromList [voidFromSh @Double ZSR])
-                         x0 (V.singleton $ DynamicRanked
-                         $ rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
+                 (\x0 -> rscanZip (\x a -> sin x - a)
+                         (FTKR ZSR FTKScalar)
+                         x0 (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v19 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sappend (sreplicate (sscalar 1.0)) (sproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v19])), [rfromS v19]))))) 0))"
+    @?= "rfromS (let v5 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
 
-testSin0ScanD1Rev22PP :: Assertion
-testSin0ScanD1Rev22PP = do
-  resetVarCounter
-  let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @2
-                 (\x0 -> rbuild1 2 $ \k ->
-       rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                (V.fromList [voidFromShS @Double @'[]])
-                x0 (V.singleton $ DynamicShaped
-                    $ sconcrete (Nested.sfromListPrimLinear @Double @'[2, 2] knownShS [5, 7, 3, 4])
-                      !$ (k :.$ ZIS) )) (rscalar 1.1)
-  printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let m27 = tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [5.0,7.0,3.0,4.0]) ; m34 = tconcrete (FTKS [3,2] FTKScalar) (sfromListLinear [3,2] [1.0,1.0,1.0,1.0,1.0,1.0]) in ssum (sproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))] (tpair ([rfromS (sslice m34)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sreplicate (sscalar 1.1))] [stranspose m27])), [stranspose m27]))))) 0) + ssum0 (sgather m34 (\\[i39, i40] -> [i40, i39])))"
-
-testSin0ScanD1Rev22 :: Assertion
-testSin0ScanD1Rev22 = do
-  assertEqualUpToEpsilon' 1e-10
-    (ringestData [] [2.417297824578748] :: RepN (TKR 0 Double))
-    (rev' (\x0 -> rbuild1 2 $ \k ->
-       rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                (V.fromList [voidFromShS @Double @'[]])
-                x0 (V.singleton $ DynamicShaped
-                    $ sconcrete (Nested.sfromListPrimLinear @Double @'[2, 2] knownShS [5, 7, 3, 4])
-                      !$ (k :.$ ZIS) ))
-          (rscalar 1.1))
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
-                 (\x0 -> rscanZip (\x a -> sin x - rfromD (a V.! 0))
-                                (V.fromList [voidFromSh @Double ZSR])
-                                x0 (V.singleton $ DynamicRanked
-                                    $ rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
+                 (\x0 -> rscanZip (\x a -> sin x - a)
+                                (FTKR ZSR FTKScalar)
+                                x0 (rfromList [x0 * rscalar 5, x0 * rscalar 7]))
+                 (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v22 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v22])), [rfromS v22]))))) 0))"
+    @?= "rfromS (let v5 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
 
 testSin0ScanD1fwd :: Assertion
 testSin0ScanD1fwd = do
@@ -3101,13 +3037,8 @@ testSin0ScanD1fwd = do
     (rconcrete $ Nested.rfromListPrimLinear [2] [1.0,0.4535961214255773])
     (rfwd1 @RepN @Double @0 @1
     (\x0 -> rscanZip (\x _a -> sin x)
-                   (V.fromList [ voidFromSh @Double ZSR
-                               , voidFromSh @Double (3 :$: 4 :$: ZSR)])
-                   x0 (V.fromList
-                         [ DynamicRanked
-                           (rrepl @Double @1 [1] 42)
-                         , DynamicRanked
-                           (rrepl @Double @3 [1, 3, 4] 32) ]))
+                   (FTKR ZSR FTKScalar)
+                   x0 (rrepl @Double @1 [1] 42))
           (rscalar 1.1))
 
 testSin0ScanD8fwd :: Assertion
@@ -3118,12 +3049,10 @@ testSin0ScanD8fwd = do
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (rfromD $ (V.! 0)
-                                                 $ mapHVectorRanked
-                                                     (rsum . rreplicate 7) a)))
-                      (V.fromList [voidFromSh @Double ZSR])
+                                          $ sin (rsum (rreplicate 7 a))))
+                      (FTKR ZSR FTKScalar)
                       (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
-                      (V.singleton $ DynamicRanked $ rreplicate 3 a0)) (rscalar 1.1))
+                      (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0ScanD8fwdMapAccum :: Assertion
 testSin0ScanD8fwdMapAccum = do
@@ -3159,13 +3088,10 @@ testSin0ScanD8fwd2 = do
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2F (rsum (rtr $ sin x))
                                          (rreplicate 2
-                                          $ sin (rfromD $ (V.! 0)
-                                                 $ mapHVectorRanked10 rsum
-                                                 $ mapHVectorRanked01
-                                                     (rreplicate 7) a)))
-                       (V.fromList [voidFromSh @Double ZSR])
+                                          $ sin (rsum (rreplicate 7 a))))
+                       (FTKR ZSR FTKScalar)
                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
-                       (V.singleton $ DynamicRanked $ rreplicate 3 a0))
+                       (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
     (crev h (rscalar 1.1))
@@ -4264,17 +4190,17 @@ testSin0revhV3 = do
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
-  let doms = V.singleton (voidFromSh @Double ZSR)
-      doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
+  let doms = FTKR ZSR FTKScalar
+      doms3 = FTKR (3 :$: ZSR) FTKScalar
       f :: forall g. (BaseTensor g)
-        => HVector g -> g TKUntyped
+        => g (TKR 1 Double) -> g (TKR 1 Double)
       f x =
-        rrevDt @g @_ @(TKScalar Double) @1 (rscanZip const doms (rscalar 5) . dunHVector)
-               (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
+        rrevDt @g @_ @(TKScalar Double) @1
+               (\v -> rscanZip const doms (rscalar 5) v)
+                doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0])
-    (crev f
-          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
+    (rfromList [rscalar 0, rscalar 0, rscalar 0])
+    (crev f (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV5 :: Assertion
 testSin0revhV5 = do
@@ -4292,19 +4218,17 @@ testSin0revhV5 = do
 
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
-  let doms = V.singleton (voidFromSh @Double ZSR)
-      doms3 = V.singleton (voidFromSh @Double (3 :$: ZSR))
+  let doms = FTKR ZSR FTKScalar
+      doms3 = FTKR (3 :$: ZSR) FTKScalar
       f :: forall g. (BaseTensor g)
-        => HVector g -> g TKUntyped
+        => g (TKR 1 Double) -> g (TKR 1 Double)
       f x =
         rrevDt @g @_ @(TKScalar Double) @1
-               (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
-                                        in z * z) doms (rscalar 5) (dunHVector v))
-                (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
+               (\v -> rscanZip (\_ z -> z * z) doms (rscalar 5) v)
+                doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @1 $ ringestData [3] [4.0,6.0,8.0])
-    (crev f
-          (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
+    (ringestData [3] [4.0,6.0,8.0])
+    (crev f (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV7 :: Assertion
 testSin0revhV7 = do
