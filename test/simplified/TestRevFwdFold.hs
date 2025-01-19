@@ -4246,14 +4246,9 @@ testSin0revhV2 = do
         rrev @g @_ @(TKScalar Double) @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
              (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
              (dmkHVector x)
-      h :: forall g.
-           (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
-        => HVector (ADVal g)
-        -> ADVal g TKUntyped
-      h = f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @0 (rscalar (-0.8912073600614354)))
-    (crev (h @RepN) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    (crev f (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
 
 testSin0revhV3 :: Assertion
 testSin0revhV3 = do
@@ -4263,14 +4258,9 @@ testSin0revhV3 = do
         srev @g @_ @(TKScalar Double) @'[] (\v -> sin (sfromD $ dunHVector v V.! 0))
              (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
              (dmkHVector x)
-      h :: forall g.
-           (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
-        => HVector (ADVal g)
-        -> ADVal g TKUntyped
-      h = f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[] (sscalar $ -0.8912073600614354))
-    (crev (h @RepN) (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
+    (crev f (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
@@ -4281,14 +4271,9 @@ testSin0revhV4 = do
       f x =
         rrevDt @g @_ @(TKScalar Double) @1 (rscanZip const doms (rscalar 5) . dunHVector)
                (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
-      h :: forall g.
-           (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
-        => HVector (ADVal g)
-        -> ADVal g TKUntyped
-      h = f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ rfromList [rscalar 0, rscalar 0, rscalar 0])
-    (crev (h @RepN)
+    (crev f
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV5 :: Assertion
@@ -4300,14 +4285,9 @@ testSin0revhV5 = do
       f x =
         srevDt @g @_ @(TKScalar Double) @'[4] (sscanZip const doms (srepl 5) . dunHVector)
                (FTKUntyped doms3) (dmkHVector x) (ingestData [1, 2, 3, 4])
-      h :: forall g.
-           (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
-        => HVector (ADVal g)
-        -> ADVal g TKUntyped
-      h = f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0])
-    (crev (h @RepN)
+    (crev f
           (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
@@ -4321,14 +4301,9 @@ testSin0revhV6 = do
                (\v -> rscanZip (\_ w -> let z = rfromD $ w V.! 0
                                         in z * z) doms (rscalar 5) (dunHVector v))
                 (FTKUntyped doms3) (dmkHVector x) (ringestData [4] [1, 2, 3, 4])
-      h :: forall g.
-           (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
-        => HVector (ADVal g)
-        -> ADVal g TKUntyped
-      h = f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicRanked @Double @1 $ ringestData [3] [4.0,6.0,8.0])
-    (crev (h @RepN)
+    (crev f
           (V.singleton $ DynamicRanked @Double @1 $ rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV7 :: Assertion
@@ -4342,14 +4317,9 @@ testSin0revhV7 = do
                (\v -> sscanZip (\_ w -> let z = sfromD $ w V.! 0
                                         in z * z) doms (srepl 5) (dunHVector v))
                (FTKUntyped doms3) (dmkHVector x) (ingestData [1, 2, 3, 4])
-      h :: forall g.
-           (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
-        => HVector (ADVal g)
-        -> ADVal g TKUntyped
-      h = f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [4.0,6.0,8.0])
-    (crev (h @RepN)
+    (crev f
           (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV8 :: Assertion
@@ -4357,14 +4327,9 @@ testSin0revhV8 = do
   let f :: forall g. BaseTensor g
         => HVector g -> g TKUntyped
       f = dmkHVector
-      h :: forall g.
-           (ADReady g, ShareTensor g, ShareTensor (PrimalOf g))
-        => HVector (ADVal g)
-        -> ADVal g TKUntyped
-      h = f
   assertEqualUpToEpsilon 1e-10
     (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [1, 1, 1])
     (crev @_ @TKUntyped
-          (h @RepN)
+          f
           (V.singleton $ DynamicShaped @Double @'[3]
            $ sreplicate @RepN @3 (sscalar 1.1)))
