@@ -157,9 +157,9 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) = do
             | SNat <- shsRank (knownShS @sh) = do
               return
                 ( DynamicRanked @r @(Rank sh)
-                                (AstProjectR astVarPrimal i)
+                                $ AstFromS stensorKind (AstProjectS @r @sh astVarPrimal i)
                 , DynamicRanked @r @(Rank sh)
-                                (AstProjectR astVar i) )
+                                $ AstFromS stensorKind (AstProjectS @r @sh astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
             return
               ( DynamicShaped @r @sh (AstProjectS astVarPrimal i)
@@ -221,11 +221,11 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk)
             | SNat <- shsRank (knownShS @sh) = do
               return
                 ( DynamicRanked @r @(Rank sh)
-                                (AstProjectR astVarPrimalD i)
+                                $ AstFromS stensorKind (AstProjectS @r @sh astVarPrimalD i)
                 , DynamicRanked @r @(Rank sh)
-                                (AstProjectR astVarPrimal i)
+                                $ AstFromS stensorKind (AstProjectS @r @sh astVarPrimal i)
                 , DynamicRanked @r @(Rank sh)
-                                (AstProjectR astVar i) )
+                                $ AstFromS stensorKind (AstProjectS @r @sh astVar i) )
           f i (DynamicShapedDummy @r @sh _ _) = do
             return
               ( DynamicShaped @r @sh (AstProjectS astVarPrimalD i)
