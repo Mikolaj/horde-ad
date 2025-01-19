@@ -2517,7 +2517,10 @@ astSum :: forall y k s. AstSpan s
        -> AstTensor AstMethodLet s y
 astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
 --  1 :$: rest -> astReshape rest t0  -- TODO: slows down the CNNO test
-  (STKR{}, FTKR (0 :$: rest) FTKScalar) -> astReplicate0N rest 0
+  (STKR{}, FTKR (0 :$: rest') (FTKScalar @r)) ->
+    withCastRS rest' $ \(rest :: ShS rest) ->
+      withKnownShS rest $
+      astFromS stk $ astReplicate0NS @rest @_ @r 0
   (STKS{}, FTKS (SNat @n :$$ rest) FTKScalar)
     | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
       withKnownShS rest
@@ -2525,8 +2528,14 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
   _ -> case t0 of
     -- Ast.AstLet var u v -> astLet var u (astSum snat v)
       -- this is problematic, because it keeps huge tensors alive for longer
-    Ast.AstReplicate snat2 (STKR SNat _) v | STKR _ STKScalar{} <- stk ->
-      v * astReplicate0N (shapeAst v) (fromInteger $ fromSNat snat2)
+    Ast.AstReplicate snat2 (STKR SNat _) v | STKR _ (STKScalar @r _) <- stk ->
+      case ftkAst v of
+        FTKR sh' _ ->
+          withCastRS sh' $ \(sh :: ShS sh) ->
+            withKnownShS sh $
+            v * astFromS stk
+                         (astReplicate0NS @sh @_ @r
+                            (fromInteger $ fromSNat snat2))
     Ast.AstReplicate snat2 (STKS sh _) v | STKS _ STKScalar{} <- stk ->
      withKnownShS sh $
      v * astReplicate0NS (fromInteger $ fromSNat snat2)
