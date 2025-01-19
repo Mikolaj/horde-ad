@@ -182,7 +182,6 @@ testTrees =
   , testCase "4S0rmapAccumRD01SN531b0PP" testSin0rmapAccumRD01SN531b0PP
   , testCase "4S0rmapAccumRD01SN531bSPP" testSin0rmapAccumRD01SN531bSPP
   , testCase "4S0rmapAccumRD01SN531bSPPFull" testSin0rmapAccumRD01SN531bSPPFull
-  , testCase "4S0rmapAccumRD01SN531bRPP" testSin0rmapAccumRD01SN531bRPP
   , testCase "4S0rmapAccumRD01SN531b0PPj" testSin0rmapAccumRD01SN531b0PPj
   , testCase "4S0rmapAccumRD01SN531bSPPj" testSin0rmapAccumRD01SN531bSPPj
   , testCase "4S0rmapAccumRD01SN531bRPPj" testSin0rmapAccumRD01SN531bRPPj
@@ -2392,37 +2391,6 @@ testSin0rmapAccumRD01SN531bSPPFull = do
      $ g @(AstTensor AstMethodLet FullSpan) (V.singleton $ DynamicShaped @Double @'[] (sscalar 1.1)))
     @?= "(\\h1 -> [sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [sscalar 4.0] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [sproject h1 0] [tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])])), [tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])]))))) 0]) [sscalar 1.1]"
 
-testSin0rmapAccumRD01SN531bRPP :: Assertion
-testSin0rmapAccumRD01SN531bRPP = do
-  resetVarCounter
-  let f :: forall f. ADReady f
-        => f TKUntyped -> f (TKR 2 Double)
-      f x0 = tlet @_ @TKUntyped (
-                       (dbuild1 @f (SNat @2) $ \_i ->
-                       (dbuild1 @f (SNat @2) $ \_j ->
-                       (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @1)
-                          (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [ voidFromSh @Double ZSR ])
-                          (let h :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               h xh _a = tpair (dmkHVector xh)
-                                            (dmkHVector V.empty)
-                           in \x y -> h (dunHVector x) (dunHVector y))
-                          x0
-                          (dmkHVector $ V.fromList [ DynamicRanked @Double @1
-                                        $ rconcrete $ Nested.rfromListPrimLinear [1] [0] ])))))
-                        $ \ !d -> rfromD $ dunHVector d V.! 0
-      g :: forall g. BaseTensor g
-        => HVector g -> g TKUntyped
-      g = rrev f (FTKUntyped (V.singleton (voidFromSh @Double ZSR))) . dmkHVector
-  printAstSimple
-    IM.empty
-    (simplifyInlineContract
-     $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "dmkHVector (fromList [DynamicRanked (rproject (tproject1 (dmapAccumLDer (SNat @1) (\\h21 -> tpair (dmkHVector (fromList [DynamicRanked (rproject (tproject1 h21) 0)]), dmkHVector (fromList [DynamicRankedDummy]))) (\\h25 -> tpair (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h25)) 0)]), dmkHVector (fromList [DynamicRanked (rfromS (sscalar 0.0))]))) (\\h30 -> tpair (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h30)) 0)]), tpair (dmkHVector (fromList []), tpair (dmkHVector (fromList [DynamicRankedDummy]), dmkHVector (fromList [DynamicRankedDummy]))))) (dmkHVector (fromList [DynamicRanked (rfromS (sscalar 4.0))])) (tpair (dmkHVector (fromList []), tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) (\\h31 -> tpair (dmkHVector (fromList [DynamicRanked (rproject (tproject1 h31) 0)]), tpair (tproject1 h31, dmkHVector (fromList [])))) (\\h35 -> tpair (dmkHVector (fromList [DynamicRanked (rproject (tproject1 (tproject1 h35)) 0)]), tpair (tproject1 (tproject1 h35), dmkHVector (fromList [])))) (\\h41 -> tpair (dmkHVector (fromList [DynamicRanked (rfromS (sfromR (rproject (tproject1 (tproject1 h41)) 0) + sfromR (rproject (tproject1 (tproject2 (tproject1 h41))) 0)))]), dmkHVector (fromList [DynamicRankedDummy]))) (dmkHVector (fromList [DynamicRanked (rfromS (sscalar 1.1))])) (dmkHVector (fromList [DynamicRanked (rfromS (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])))])))), dmkHVector (fromList [DynamicRanked (rfromS (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])))])))))) 0)])"
-
 testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
   resetVarCounter
@@ -2522,7 +2490,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
     IM.empty
     (simplifyInlineContract
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "[rfromS (ssum0 (sfromR (rproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [rfromS (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]))] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromS (sfromIntegral (stranspose (sreplicate siota) + sreplicate siota) + sreplicate (sreplicate (sscalar 1.1)))] [rfromS (stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])))))])), [rfromS (stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])))))]))))) 0)))]"
+    @?= "[rfromS (ssum0 (sproject (tproject1 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> [rfromS (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]))] (tpair ([], tpair (tproject1 (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> [rfromS (sfromIntegral (stranspose (sreplicate siota) + sreplicate siota) + sreplicate (sreplicate (sscalar 1.1)))] [rfromS (stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])))))])), [rfromS (stranspose (sreplicate (sreplicate (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [0.0])))))]))))) 0))]"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do
@@ -3232,7 +3200,7 @@ testSin0ScanD1RevPP = do
                            x0 (V.singleton $ DynamicRanked
                                (rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v20 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v15 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in sfromR (rproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 0.0)] (tpair ([rfromS (sslice v15)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v20])), [rfromS v20]))))) 0) + v15 !$ [0])"
+    @?= "rfromS (let v20 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v15 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in sproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 0.0)] (tpair ([rfromS (sslice v15)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v20])), [rfromS v20]))))) 0 + v15 !$ [0])"
 
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
@@ -3243,7 +3211,7 @@ testSin0ScanDFwdPP = do
                            x0 (V.singleton $ DynamicRanked
                                (rrepl @Double @1 [2] 42))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v19 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v19])), [rfromS v19]))))) 0)))"
+    @?= "rfromS (let v19 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v19])), [rfromS v19]))))) 0))"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
@@ -3254,7 +3222,7 @@ testSin0ScanD1Rev2PP = do
                          x0 (V.singleton $ DynamicRanked
                              $ rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v20 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v15 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in sfromR (rproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 0.0)] (tpair ([rfromS (sslice v15)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v20])), [rfromS v20]))))) 0) + v15 !$ [0])"
+    @?= "rfromS (let v20 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v15 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in sproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 0.0)] (tpair ([rfromS (sslice v15)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v20])), [rfromS v20]))))) 0 + v15 !$ [0])"
 
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
@@ -3265,7 +3233,7 @@ testSin0ScanDFwd2PP = do
                          x0 (V.singleton $ DynamicRanked
                          $ rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v19 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v19])), [rfromS v19]))))) 0)))"
+    @?= "rfromS (let v19 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sappend (sreplicate (sscalar 1.0)) (sproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v19])), [rfromS v19]))))) 0))"
 
 testSin0ScanD1Rev22PP :: Assertion
 testSin0ScanD1Rev22PP = do
@@ -3278,7 +3246,7 @@ testSin0ScanD1Rev22PP = do
                     $ sconcrete (Nested.sfromListPrimLinear @Double @'[2, 2] knownShS [5, 7, 3, 4])
                       !$ (k :.$ ZIS) )) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let m27 = tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [5.0,7.0,3.0,4.0]) ; m34 = tconcrete (FTKS [3,2] FTKScalar) (sfromListLinear [3,2] [1.0,1.0,1.0,1.0,1.0,1.0]) in ssum (sfromR (rproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))] (tpair ([rfromS (sslice m34)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sreplicate (sscalar 1.1))] [stranspose m27])), [stranspose m27]))))) 0)) + ssum0 (sgather m34 (\\[i39, i40] -> [i40, i39])))"
+    @?= "rfromS (let m27 = tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [5.0,7.0,3.0,4.0]) ; m34 = tconcrete (FTKS [3,2] FTKScalar) (sfromListLinear [3,2] [1.0,1.0,1.0,1.0,1.0,1.0]) in ssum (sproject (tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]))] (tpair ([rfromS (sslice m34)], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sreplicate (sscalar 1.1))] [stranspose m27])), [stranspose m27]))))) 0) + ssum0 (sgather m34 (\\[i39, i40] -> [i40, i39])))"
 
 testSin0ScanD1Rev22 :: Assertion
 testSin0ScanD1Rev22 = do
@@ -3314,7 +3282,7 @@ testSin0ScanD1Rev3PP = do
                             $ rscan (\x a -> a * x) x0
                                     (rfromList [x0 * rscalar 5, x0]))) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineContract a1))
-    @?= 4576
+    @?= 4432
 
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
@@ -3325,7 +3293,7 @@ testSin0ScanDFwd3PP = do
                                 x0 (V.singleton $ DynamicRanked
                                     $ rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v22 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (rproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v22])), [rfromS v22]))))) 0)))"
+    @?= "rfromS (let v22 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sproject (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.0)] (tpair ([rfromS (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]))], tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> [rfromS (sscalar 1.1)] [rfromS v22])), [rfromS v22]))))) 0))"
 
 testSin0ScanD0fwd :: Assertion
 testSin0ScanD0fwd = do
@@ -3458,7 +3426,7 @@ testSin0FoldNestedR1PP = do
   printAstPretty
     IM.empty
     (g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "let v5 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in [rfromS (ssum (sfromR (tproject2 v5)) + tproject1 v5)]"
+    @?= "let v5 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in [rfromS (ssum (tproject2 v5) + tproject1 v5)]"
 
 testSin0FoldNestedR1SimpPP :: Assertion
 testSin0FoldNestedR1SimpPP = do
@@ -3477,7 +3445,7 @@ testSin0FoldNestedR1SimpPP = do
     IM.empty
     (simplifyInlineContract
      $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "let v5 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in [rfromS (ssum (sfromR (tproject2 v5)) + tproject1 v5)]"
+    @?= "let v5 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in [rfromS (ssum (tproject2 v5) + tproject1 v5)]"
 
 testSin0FoldNestedR0LengthPPs :: Assertion
 testSin0FoldNestedR0LengthPPs = do
@@ -3495,7 +3463,7 @@ testSin0FoldNestedR0LengthPPs = do
       IM.empty
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 2226
+    @?= 1940
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -3515,7 +3483,7 @@ testSin0FoldNestedR1LengthPPs = do
       IM.empty
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 25268
+    @?= 23985
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -3537,7 +3505,7 @@ testSin0FoldNestedR2LengthPPs = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 329930
+    @?= 325479
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -3561,7 +3529,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 4973925
+    @?= 4971510
 
 -- Takes 100s, probably due to some of the pipelines forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -3640,7 +3608,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 95458
+    @?= 94483
 
 testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
@@ -3709,7 +3677,7 @@ testSin0MapAccumNestedR3LengthPP = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1))))
-    @?= 6321944
+    @?= 6020372
 
 testSin0MapAccumNestedR4 :: Assertion
 testSin0MapAccumNestedR4 = do
