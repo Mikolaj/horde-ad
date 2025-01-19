@@ -3669,33 +3669,42 @@ astLetHVectorIn vars l v = case v of
                    (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
         STKScalar @r _ -> astFromS stensorKind $ astProjectS @'[] @r l i
-        STKR SNat STKScalar{} -> astProjectR l i
+        STKR _ (STKScalar @r _) ->
+          astFromS stensorKind $ astProjectS @'[] @r l i
         STKS sh STKScalar{} -> withKnownShS sh $ astProjectS l i
         STKX sh STKScalar{}-> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
         _ -> error "TODO"
       _ -> v
-  Ast.AstPrimalPart (Ast.AstVar _ var2) ->
+  Ast.AstPrimalPart (Ast.AstVar ftk var2) ->
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
         STKScalar @r _ -> astFromS stensorKind
                           $ astPrimalPart $ astProjectS @'[] @r l i
-        STKR SNat STKScalar{} -> astPrimalPart $ astProjectR l i
+        STKR _ (STKScalar @r _) -> case ftk of
+          FTKR sh' _ ->
+            withCastRS sh' $ \(sh :: ShS sh) ->
+              withKnownShS sh $
+              astPrimalPart $ astFromS stensorKind $ astProjectS @sh @r l i
         STKS sh STKScalar{} -> withKnownShS sh $ astPrimalPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
         STKUntyped -> error "astLetHVectorIn: STKUntyped"
         _ -> error "TODO"
       _ -> v
-  Ast.AstDualPart (Ast.AstVar _ var2) ->
+  Ast.AstDualPart (Ast.AstVar ftk var2) ->
     case elemIndex (varNameToAstVarId var2)
          (map dynamicVarNameToAstVarId vars) of
       Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
         STKScalar @r _ -> astFromS stensorKind
                           $ astDualPart $ astProjectS @'[] @r l i
-        STKR SNat STKScalar{} -> astDualPart $ astProjectR l i
+        STKR _ (STKScalar @r _) -> case ftk of
+          FTKR sh' _ ->
+            withCastRS sh' $ \(sh :: ShS sh) ->
+              withKnownShS sh $
+              astDualPart $ astFromS stensorKind $ astProjectS @sh @r l i
         STKS sh STKScalar{} -> withKnownShS sh $ astDualPart $ astProjectS l i
         STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
         STKProduct{} -> error "astLetHVectorIn: STKProduct"
@@ -3736,7 +3745,7 @@ astLetHVectorIn vars l v = case v of
                      | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
                      , SNat <- shsRank (knownShS @sh3) =
                        astLet (mkAstVarName @s @(TKR (Rank sh3) r3) varId)
-                              (astProjectR l i)
+                              (astFromS stensorKind $ astProjectS @sh3 @r3 l i)
                      | otherwise =
                        astLet (mkAstVarName @s @(TKS sh3 r3) varId)
                               (astProjectS l i)
