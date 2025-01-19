@@ -227,7 +227,7 @@ instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstS
   fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
     case V.uncons $ dunHVector params of
       Just (dynamic, rest) ->
-        Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ dmkHVector rest)
+        Just (AsHVector $ fromDynamicS (srepl 0) astSFromR dynamic, Just $ dmkHVector rest)
       Nothing -> Nothing
 
 instance (GoodScalar r, KnownNat n, AstSpan s)
@@ -943,7 +943,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
           f i = \case
             DynamicRankedDummy @r @sh _ _ ->
               withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-                DynamicRanked @r @n $ AstRaw $ AstProjectR hVectorOf i
+                DynamicRanked @r @n $ AstRaw $ AstFromS stensorKind $ AstProjectS @r @sh hVectorOf i
             DynamicShapedDummy @r @sh _ _ ->
               DynamicShaped @r @sh $ AstRaw $ AstProjectS hVectorOf i
       in V.imap f $ shapeAstHVector hVectorOf
@@ -2314,7 +2314,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
             withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstProjectR hVectorOf i
+              DynamicRanked @r @n $ AstFromS stensorKind $ AstProjectS @r @sh hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ AstProjectS hVectorOf i
     in noSimplifyHVector $ V.imap f $ shapeAstHVector hVectorOf

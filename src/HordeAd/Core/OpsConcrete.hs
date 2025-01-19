@@ -779,7 +779,7 @@ instance (GoodScalar r, KnownShS sh)
   toHVectorOf = RepN . V.singleton . DynamicShaped . unAsHVector
   fromHVector _aInit params = case V.uncons $ tunvector params of
     Just (dynamic, rest) ->
-      Just (AsHVector $ fromDynamicS (srepl 0) dynamic, Just $ dmkHVector rest)
+      Just (AsHVector $ fromDynamicS (srepl 0) sfromR dynamic, Just $ dmkHVector rest)
     Nothing -> Nothing
 
 instance GoodScalar r

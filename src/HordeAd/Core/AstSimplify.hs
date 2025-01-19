@@ -3093,7 +3093,7 @@ astProjectS
   -> AstTensor AstMethodLet s (TKS sh r)
 astProjectS l p = case l of
   Ast.AstMkHVector l3 ->
-    fromDynamicS (astReplicate0NS 0) (l3 V.! p)
+    fromDynamicS (astReplicate0NS 0) astSFromR (l3 V.! p)
   Ast.AstLet var u2 d2 ->
     astLet var u2 (astProjectS d2 p)
   Ast.AstLetHVectorIn vars d1 d2 ->

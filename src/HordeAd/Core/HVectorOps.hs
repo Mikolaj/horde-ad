@@ -616,16 +616,28 @@ fromDynamicR zero fromS = \case
 
 fromDynamicS :: forall r sh target.
                 (GoodScalar r, KnownShS sh)
-             => target (TKS sh r) -> DynamicTensor target
+             => target (TKS sh r)
+             -> (forall sh2. (KnownShS sh2, KnownNat (Rank sh2))
+                 => target (TKR (Rank sh2) r) -> target (TKS sh2 r))
+             -> DynamicTensor target
              -> target (TKS sh r)
-fromDynamicS zero = \case
-  DynamicRanked{} -> error "fromDynamicS: shaped from ranked"
+fromDynamicS zero fromR = \case
+  DynamicRanked @r2 @n2 t -> case matchingRank @sh @n2 of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> fromR t
+      _ -> error $ "fromDynamicS: scalar mismatch in "
+                   ++ show (typeRep @r2, typeRep @r)
+    _ -> error "fromDynamicS: rank mismatch"
   DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> t
       _ -> error "fromDynamicS: scalar mismatch"
     _ -> error "fromDynamicS: shape mismatch"
-  DynamicRankedDummy{} -> error "fromDynamicS: shaped from ranked"
+  DynamicRankedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
+    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
+      Just Refl -> zero
+      _ -> error "fromDynamicS: scalar mismatch"
+    _ -> error "fromDynamicS: shape mismatch"
   DynamicShapedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
     Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
       Just Refl -> zero
