@@ -820,8 +820,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s
         f i = \case
           DynamicRankedDummy @r @sh _ _ ->
-            withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ astProjectR hVectorOf i
+           withListSh (Proxy @sh) $ \(_ :: IShR n) ->
+             DynamicRanked @r @n $ astFromS stensorKind
+                                 $ astProjectS @sh @r hVectorOf i
           DynamicShapedDummy @r @sh _ _ ->
             DynamicShaped @r @sh $ astProjectS hVectorOf i
     in V.imap f $ shapeAstHVector hVectorOf
@@ -1563,8 +1564,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                     $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   rcast = AstNoVectorize . rcast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
-  rzip = AstNoVectorize . AstZipR . unAstNoVectorize
-  runzip = AstNoVectorize . AstUnzipR . unAstNoVectorize
+  rzip = AstNoVectorize . rzip . unAstNoVectorize
+  runzip = AstNoVectorize . runzip . unAstNoVectorize
   rtoScalar = AstNoVectorize . rtoScalar . unAstNoVectorize
   rfromScalar = AstNoVectorize . rfromScalar . unAstNoVectorize
 
