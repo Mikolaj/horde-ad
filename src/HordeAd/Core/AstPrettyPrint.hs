@@ -25,14 +25,7 @@ import Data.Array.Mixed.Shape
   (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
 import Data.Array.Mixed.Shape qualified as X
 import Data.Array.Nested
-  ( KnownShS (..)
-  , KnownShX (..)
-  , ListR (..)
-  , ListS (..)
-  , ShR (..)
-  , ShS (..)
-  , ShX (..)
-  )
+  (KnownShS (..), KnownShX (..), ListS (..), ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   (shCvtSX, shsAppend, shsRank, withKnownShS)
@@ -257,22 +250,6 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-  AstGather _ v (ZR, ix) ->
-    showParen (d > 9)
-    $ printAst cfg 10 v
-      . showString " ! "
-      . showListWith (printAstInt cfg 0) (toList ix)
-  AstGather sh v (vars, ix) ->
-    showParen (d > 10)
-    $ showString ("rgather " ++ show sh ++ " ")
-      . printAst cfg 11 v
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (printAstIntVar cfg)
-                          (toList vars)
-           . showString " -> "
-           . showListWith (printAstInt cfg 0) (toList ix))
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
@@ -328,13 +305,6 @@ printAstAux cfg d = \case
        $ printAst cfg 7 left
          . foldr (.) id rs
 
-  AstMinIndexR a ->
-    printPrefixOp printAst cfg d "rminIndex" [a]
-  AstMaxIndexR a ->
-    printPrefixOp printAst cfg d "rmaxIndex" [a]
-  AstFloorR a ->
-    printPrefixOp printAst cfg d "rfloor" [a]
-  AstIotaR n -> showString $ "riota " ++ show n
   AstN1 opCode u -> printAstN1R printAst cfg d opCode u
   AstN2 opCode u v -> printAstN2R printAst cfg d opCode u v
   AstR1 opCode u -> printAstR1R printAst cfg d opCode u
@@ -346,50 +316,6 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "kcast" [v]
   AstFromIntegral v ->
     printPrefixOp printAst cfg d "kfromIntegral" [v]
-  AstN1R opCode u -> printAstN1R printAst cfg d opCode u
-  AstN2R opCode u v -> printAstN2R printAst cfg d opCode u v
-  AstR1R opCode u -> printAstR1R printAst cfg d opCode u
-  AstR2R opCode u v -> printAstR2R printAst cfg d opCode u v
-  AstI2R opCode u v -> printAstI2R printAst cfg d opCode u v
-  AstIndex v ix ->
-    showParen (d > 9)
-    $ printAst cfg 10 v
-      . showString " ! "
-      . showListWith (printAstInt cfg 0) (toList ix)
-  AstScatter @m sh v (ZR, ix) ->
-    showParen (d > 9)
-    $ showString ("roneHot " ++ show (takeShape @m sh) ++ " ")
-      . printAst cfg 11 v
-      . showString " "
-      . showListWith (printAstInt cfg 0) (toList ix)
-  AstScatter sh v (vars, ix) ->
-    showParen (d > 10)
-    $ showString ("rscatter " ++ show sh ++ " ")
-      . printAst cfg 11 v
-      . showString " "
-      . (showParen True
-         $ showString "\\"
-           . showListWith (printAstIntVar cfg)
-                          (toList vars)
-           . showString " -> "
-           . showListWith (printAstInt cfg 0) (toList ix))
-  AstAppend x y -> printPrefixOp printAst cfg d "rappend" [x, y]
-  AstSlice i n v -> printPrefixOp printAst cfg d
-                                  ("rslice " ++ show i ++ " " ++ show n) [v]
-  AstReverse v -> printPrefixOp printAst cfg d "rreverse" [v]
-  AstTranspose perm v ->
-    printPrefixOp printAst cfg d ("rtranspose " ++ show perm) [v]
-  AstReshape sh v ->
-    printPrefixOp printAst cfg d ("rreshape " ++ show sh) [v]
-  AstCastR v -> printPrefixOp printAst cfg d "rcast" [v]
-  AstFromIntegralR a ->
-    printPrefixOp printAst cfg d "rfromIntegral" [a]
-  AstProjectR l p ->
-    showParen (d > 10)
-    $ showString "rproject "  -- fake, no such surface syntax
-      . printAst cfg 11 l
-      . showString " "
-      . shows p
   AstLetHVectorIn vars l v ->
     if loseRoudtrip cfg
     then
@@ -413,8 +339,6 @@ printAstAux cfg d = \case
              . showString " -> "
              . printAst cfg 0 v)
         -- TODO: this does not roundtrip yet
-  AstZipR v -> printPrefixOp printAst cfg d "rzip" [v]
-  AstUnzipR v -> printPrefixOp printAst cfg d "runzip" [v]
 
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
@@ -570,22 +494,6 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  AstReplicate0NR sh stk v | Dict <- lemTensorKindOfSTK stk ->
-    printPrefixOp printAst cfg d ("rreplicate0N " ++ show sh) [v]
-  AstSum0R SNat stk v | Dict <- lemTensorKindOfSTK stk ->
-    printPrefixOp printAst cfg d "rsum0" [v]
-  AstDot0R SNat u v ->
-    printPrefixOp printAst cfg d "rdot0" [u, v]
-  AstDot1InR u v ->
-    printPrefixOp printAst cfg d "rdot1In" [u, v]
-  AstMatvecmulR u v ->
-    showParen (d > 10)
-    $ showString "rmatvecmul "
-      . printAst cfg 11 u
-      . showString " "
-      . printAst cfg 11 v
-  AstMatmul2R u v ->
-    printPrefixOp printAst cfg d "rmatmul2" [u, v]
   AstReplicate0NS _sh stk v | Dict <- lemTensorKindOfSTK stk ->
     printPrefixOp printAst cfg d "sreplicate0N" [v]
   AstSum0S sh stk v | Dict <- lemTensorKindOfSTK stk ->

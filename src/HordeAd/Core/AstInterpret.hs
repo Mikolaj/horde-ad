@@ -30,9 +30,8 @@ import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Nested (KnownShS (..), KnownShX (..), ListR (..), ListS (..))
-import Data.Array.Nested.Internal.Shape
-  (shrRank, shsAppend, shsProduct, withKnownShS)
+import Data.Array.Nested (KnownShS (..), KnownShX (..), ListS (..))
+import Data.Array.Nested.Internal.Shape (shsAppend, shsProduct, withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -251,13 +250,6 @@ interpretAst !env = \case
            in withSNat (V.length v) $ \snat ->
                 tsum snat stk $ tfromVector snat stk v
 
-  AstMinIndexR v ->
-    rminIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstMaxIndexR v ->
-    rmaxIndex $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstFloorR v ->
-    rfloor $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
-  AstIotaR n -> riota n
   AstN1 opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
@@ -298,72 +290,8 @@ interpretAst !env = \case
             t2 = interpretAst env s
         in tscaleByScalar0 t2 t1
   -}
-  AstN1R opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstN1 opCode u2
-  AstN2R opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstN2 opCode u2 v2
-  AstR1R opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstR1 opCode u2
-  AstR2R opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstR2 opCode u2 v2
-  AstI2R opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstI2F opCode u2 v2
-  AstIndex v ix ->
-    let v2 = interpretAst env v
-        ix3 = interpretAstPrimal env <$> ix
-    in rindex v2 ix3
-      -- if index is out of bounds, the operations returns with an undefined
-      -- value of the correct rank and shape; this is needed, because
-      -- vectorization can produce out of bound indexing from code where
-      -- the indexing is guarded by conditionals
-  AstScatter sh v (ZR, ix) ->
-    roneHot (takeShape sh) (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstScatter sh v (vars, ix) ->
-    let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
-    in rscatter sh t1 f2
-  AstAppend x y ->
-    let t1 = interpretAst env x
-        t2 = interpretAst env y
-    in rappend t1 t2
-  AstSlice i n v -> rslice i n (interpretAst env v)
-  AstReverse v -> rreverse (interpretAst env v)
-  AstTranspose perm v -> rtranspose perm $ interpretAst env v
-  AstReshape sh v -> rreshape sh (interpretAst env v)
-  AstGather _ v (ZR, ix) ->
-    rindex (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstGather sh v (vars, ix) ->
-    let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndex interpretAstPrimal env (vars, ix)
-    in rgather sh t1 f2
-    -- the operation accepts out of bounds indexes,
-    -- for the same reason ordinary indexing does, see above
-    -- TODO: currently we store the function on tape, because it doesn't
-    -- cause recomputation of the gradient per-cell, unlike storing the build
-    -- function on tape; for GPUs and libraries that don't understand Haskell
-    -- closures, we can check if the expressions involve tensor operations
-    -- too hard for GPUs and, if not, we can store the AST expression
-    -- on tape and translate it to whatever backend sooner or later;
-    -- and if yes, fall back to POPL pre-computation that, unfortunately,
-    -- leads to a tensor of deltas
-  AstCastR v -> rcast $ interpretAstRuntimeSpecialized env v
-  AstFromIntegralR v ->
-    rfromIntegral $ rfromPrimal $ interpretAstPrimalRuntimeSpecialized env v
+
   AstConcrete ftk a -> tconcrete ftk a
-  AstProjectR l p ->
-    let lt = interpretAst env l
-    in tlet @_ @TKUntyped lt
-         (\lw -> rfromD $ dunHVector lw V.! p)
-           -- This is awkward, but we don't need rproject nor sproject.
-           -- Most likely, the term gets simplified before interpretation anyway.
   AstLetHVectorIn @_ @_ @z2 vars l v -> case stensorKind @z2 of
     STKScalar _ ->
       let lt = interpretAst env l
@@ -409,8 +337,6 @@ interpretAst !env = \case
       in tlet @_ @TKUntyped lt
            (\lw -> interpretAst (env2 (dunHVector lw)) v)
     _ -> error "TODO"
-  AstZipR v -> rzip $ interpretAst env v
-  AstUnzipR v -> runzip $ interpretAst env v
 
   AstMinIndexS v ->
     sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
@@ -533,19 +459,6 @@ interpretAst !env = \case
         es2 = interpretAst env es
     in dmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
 
-  AstReplicate0NR sh stk v | Dict <- lemTensorKindOfSTK stk
-                           , SNat <- shrRank sh ->
-    rreplicate0N sh (interpretAst env v)
-  AstSum0R SNat stk v | Dict <- lemTensorKindOfSTK stk ->
-    rsum0 (interpretAst env v)
-  AstDot0R SNat u v ->
-    rdot0 (interpretAst env u) (interpretAst env v)
-  AstDot1InR u v ->
-    rdot1In (interpretAst env u) (interpretAst env v)
-  AstMatvecmulR u v ->
-    rmatvecmul (interpretAst env u) (interpretAst env v)
-  AstMatmul2R u v ->
-    rmatmul2 (interpretAst env u) (interpretAst env v)
   AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk
                            , SNat <- shsProduct sh ->
     withKnownShS sh $

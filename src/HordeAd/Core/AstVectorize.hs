@@ -31,14 +31,11 @@ import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IShX
-  , IxR (..)
   , IxS (..)
   , KnownShS (..)
   , KnownShX (..)
-  , ListR (..)
   , ListS (..)
   , Rank
-  , ShR (..)
   , ShS (..)
   , type (++)
   )
@@ -134,17 +131,6 @@ build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
                 astVarFresh var v0
     in build1VOccurenceUnknown snat (varFresh, v2)
 
-intBindingRefresh
-  :: IntVarName -> AstIxR AstMethodLet n
-  -> (IntVarName, AstInt AstMethodLet, AstIxR AstMethodLet n)
-{-# NOINLINE intBindingRefresh #-}
-intBindingRefresh var ix =
-  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !ix2 = substituteAstIxR  -- cheap subst, because only a renaming
-                 astVarFresh
-                 var ix
-    in (varFresh, astVarFresh, ix2)
-
 -- | The application @build1V k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's known that
 -- @var@ occurs in @v@.
@@ -156,8 +142,7 @@ build1V
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1V snat@SNat (var, v0) =
-  let k = sNatValue snat
-      bv = Ast.AstBuild1 snat (var, v0)
+  let bv = Ast.AstBuild1 snat (var, v0)
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
@@ -254,69 +239,9 @@ build1V snat@SNat (var, v0) =
       astCastS $ build1V snat (var, v)
     Ast.AstFromIntegral v -> traceRule $
       astFromIntegralS $ build1V snat (var, v)
-
-    Ast.AstN1R opCode u -> traceRule $
-      Ast.AstN1R opCode (build1V snat (var, u))
-    Ast.AstN2R opCode u v -> traceRule $
-      Ast.AstN2R opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-        -- we permit duplicated bindings, because they can't easily
-        -- be substituted into one another unlike. e.g., inside a let,
-        -- which may get inlined
-    Ast.AstR1R opCode u -> traceRule $
-      Ast.AstR1R opCode (build1V snat (var, u))
-    Ast.AstR2R opCode u v -> traceRule $
-      Ast.AstR2R opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstI2R opCode u v -> traceRule $
-      Ast.AstI2R opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstMinIndexR v -> traceRule $
-     Ast.AstMinIndexR $ build1V snat (var, v)
-    Ast.AstMaxIndexR v -> traceRule $
-     Ast.AstMaxIndexR $ build1V snat (var, v)
-    Ast.AstFloorR v -> traceRule $
-     Ast.AstFloorR $ build1V snat (var, v)
-    Ast.AstIotaR{} ->
-      error "build1V: AstIotaR can't have free index variables"
-
-    Ast.AstIndex v ix -> traceRule $ case stensorKind @y of
-      STKR _ _ ->
-        build1VIndex snat (var, v, ix)  -- @var@ is in @v@ or @ix@
-    Ast.AstScatter sh v (vars, ix) -> traceRule $
-      -- We use a refreshed var binding in the new scatter expression so as
-      -- not to duplicate the var binding from build1VOccurenceUnknown call.
-      let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
-      in astScatter (k :$: sh)
-                    (build1VOccurenceUnknown snat (var, v))
-                    (varFresh ::: vars, astVarFresh :.: ix2)
-
-    Ast.AstAppend v w -> traceRule $
-      astTr $ astAppend (astTr $ build1VOccurenceUnknown snat (var, v))
-                        (astTr $ build1VOccurenceUnknown snat (var, w))
-    Ast.AstSlice i s v -> traceRule $
-      astTr $ astSlice i s $ astTr $ build1V snat (var, v)
-    Ast.AstReverse v -> traceRule $
-      astTr $ astReverse $ astTr $ build1V snat (var, v)
-    Ast.AstTranspose perm v -> traceRule $
-      astTranspose (0 : map succ perm)  -- this perm is normalized (I think?)
-                   (build1V snat (var, v))
-    Ast.AstReshape sh v -> traceRule $
-      astReshape (k :$: sh) $ build1V snat (var, v)
-    Ast.AstGather sh v (vars, ix) -> traceRule $
-      let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix
-      in astGatherStep (k :$: sh)
-                       (build1VOccurenceUnknown snat (var, v))
-                       (varFresh ::: vars, astVarFresh :.: ix2)
-    Ast.AstCastR v -> traceRule $
-      astCastR $ build1V snat (var, v)
-    Ast.AstFromIntegralR v -> traceRule $
-      astFromIntegralR $ build1V snat (var, v)
     Ast.AstConcrete{} ->
       error "build1V: AstConcrete can't have free index variables"
 
-    Ast.AstProjectR l p -> traceRule $
-      astProjectR (build1V snat (var, l)) p
     Ast.AstLetHVectorIn @_ @_ @z vars1 l v
      | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
       -- Here substitution traverses @v@ term tree @length vars@ times.
@@ -329,10 +254,6 @@ build1V snat@SNat (var, v0) =
       in astLetHVectorIn
            varsOut (build1VOccurenceUnknown snat (var, l))
                    (build1VOccurenceUnknownRefresh snat (var, vOut))
-    Ast.AstZipR v -> traceRule $
-      Ast.AstZipR $ build1V snat (var, v)
-    Ast.AstUnzipR v -> traceRule $
-      Ast.AstUnzipR $ build1V snat (var, v)
 
     Ast.AstMinIndexS v -> traceRule $
       Ast.AstMinIndexS $ build1V snat (var, v)
@@ -504,18 +425,25 @@ build1V snat@SNat (var, v0) =
                            (astTrBuild @k5 @k
                                        (stensorKind @bShs) (astProject2 x1bs1)))
 
-    Ast.AstReplicate0NR{} -> error "build1V: term not accessible from user API"
-    Ast.AstSum0R{} -> error "build1V: term not accessible from user API"
-    Ast.AstDot0R{} -> error "build1V: term not accessible from user API"
-    Ast.AstDot1InR{} -> error "build1V: term not accessible from user API"
-    Ast.AstMatvecmulR{} -> error "build1V: term not accessible from user API"
-    Ast.AstMatmul2R{} -> error "build1V: term not accessible from user API"
     Ast.AstReplicate0NS{} -> error "build1V: term not accessible from user API"
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatvecmulS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
+
+
+-- * Vectorization of AstShaped
+
+intBindingRefreshS
+  :: IntVarName -> AstIxS AstMethodLet sh -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
+{-# NOINLINE intBindingRefreshS #-}
+intBindingRefreshS var ix =
+  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
+    let !ix2 = substituteAstIxS  -- cheap subst, because only a renaming
+                 astVarFresh
+                 var ix
+    in (varFresh, astVarFresh, ix2)
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
 -- the term @AstBuild1 snat (var, AstIndex v ix)@, where it's unknown whether
@@ -538,54 +466,6 @@ build1V snat@SNat (var, v0) =
 -- which produces large tensors, which are hard to simplify even when
 -- eventually proven unnecessary. The rule changes the index to a gather
 -- and pushes the build down the gather, getting the vectorization unstuck.
-build1VIndex
-  :: forall m n s r k.
-     (KnownNat m, KnownNat n, TensorKind r, AstSpan s)
-  => SNat k
-  -> ( IntVarName
-     , AstTensor AstMethodLet s (TKR2 (m + n) r)
-     , AstIxR AstMethodLet m )
-  -> AstTensor AstMethodLet s (TKR2 (1 + n) r)
-build1VIndex snat@SNat (var, v0, ZIR) = build1VOccurenceUnknown snat (var, v0)
-build1VIndex snat@SNat (var, v0, ix@(_ :.: _)) =
-  let k = sNatValue snat
-      traceRule = mkTraceRule "build1VIndex"
-                              (Ast.AstBuild1 snat (var, Ast.AstIndex v0 ix))
-                              v0 1
-  in if varNameInAst var v0
-     then case astIndexStep v0 ix of  -- push deeper
-       Ast.AstIndex v1 ZIR -> traceRule $
-         build1VOccurenceUnknown snat (var, v1)
-       v@(Ast.AstIndex @p v1 ix1) -> traceRule $
-         let (varFresh, astVarFresh, ix2) = intBindingRefresh var ix1
-             ruleD = astGatherStep
-                       (k :$: dropShape (shapeAst v1))
-                       (build1VOccurenceUnknown snat (var, v1))
-                       (varFresh ::: ZR, astVarFresh :.: ix2)
-         in if varNameInAst var v1
-            then case v1 of  -- try to avoid ruleD if not a normal form
-              Ast.AstFromVector{} | valueOf @p == (1 :: Int) -> ruleD
-              Ast.AstScatter{} -> ruleD
-              _ -> build1VOccurenceUnknown snat (var, v)  -- not a normal form
-            else build1VOccurenceUnknown snat (var, v)  -- shortcut
-       v -> traceRule $
-         build1VOccurenceUnknown snat (var, v)  -- peel off yet another constructor
-     else traceRule $
-            astGatherStep (k :$: dropShape (shapeAst v0)) v0 (var ::: ZR, ix)
-
-
--- * Vectorization of AstShaped
-
-intBindingRefreshS
-  :: IntVarName -> AstIxS AstMethodLet sh -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
-{-# NOINLINE intBindingRefreshS #-}
-intBindingRefreshS var ix =
-  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !ix2 = substituteAstIxS  -- cheap subst, because only a renaming
-                 astVarFresh
-                 var ix
-    in (varFresh, astVarFresh, ix2)
-
 build1VIndexS
   :: forall k p sh s r.
      ( TensorKind r, KnownNat k, KnownShS sh, KnownShS (Take p sh)

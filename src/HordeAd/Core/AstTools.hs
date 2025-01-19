@@ -46,17 +46,14 @@ import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
   , shCvtXR'
-  , shrInit
   , shrRank
   , shrSize
-  , shrTail
   , shsAppend
   , shsPermutePrefix
   , shsRank
   , shsSize
   , withKnownShS
   )
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
@@ -101,47 +98,6 @@ ftkAst t = case t of
   AstFloor{} -> FTKScalar
   AstCast{} -> FTKScalar
   AstFromIntegral{} -> FTKScalar
-
-  AstMinIndexR a -> FTKR (shrInit $ shapeAst a) FTKScalar
-  AstMaxIndexR a -> FTKR (shrInit $ shapeAst a) FTKScalar
-  AstFloorR a -> FTKR (shapeAst a) FTKScalar
-  AstIotaR n -> FTKR (n :$: ZSR) FTKScalar
-  AstN1R _opCode v -> ftkAst v
-  AstN2R _opCode v _ -> ftkAst v
-  AstR1R _opCode v -> ftkAst v
-  AstR2R _opCode v _ -> ftkAst v
-  AstI2R _opCode v _ -> ftkAst v
-  AstIndex v _ -> case ftkAst v of
-    FTKR sh x -> FTKR (dropShape sh) x
-  AstScatter sh v _ -> case ftkAst v of
-    FTKR _ x -> FTKR sh x
-  AstAppend a b -> case ftkAst a of
-    FTKR ZSR _ -> error "ftkAst: impossible pattern needlessly required"
-    FTKR (ai :$: ash) x -> case shapeAst b of
-      ZSR -> error "ftkAst: impossible pattern needlessly required"
-      bi :$: _ -> FTKR (ai + bi :$: ash) x
-  AstSlice _i n v -> case ftkAst v of
-    FTKR sh x -> FTKR (n :$: shrTail sh) x
-  AstReverse v -> ftkAst v
-  AstTranspose perm v -> case ftkAst v of
-    FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
-  AstReshape sh v -> case ftkAst v of
-    FTKR _ x -> FTKR sh x
-  AstGather sh v _ -> case ftkAst v of
-    FTKR _ x -> FTKR sh x
-  AstCastR v -> FTKR (shapeAst v) FTKScalar
-  AstFromIntegralR a -> FTKR (shapeAst a) FTKScalar
-  AstProjectR @_ @n l p -> case shapeAstHVector l V.! p of
-    DynamicRankedDummy @_ @sh _ _ | SNat <- shsRank (knownShS @sh) ->
-      case sameNat (Proxy @(Rank sh)) (Proxy @n) of
-        Just Refl -> FTKR (shCastSR $ knownShS @sh) FTKScalar
-        Nothing -> error "ftkAst: AstProjectR ill-typed"
-    DynamicShapedDummy{} -> error "ftkAst: DynamicShapedDummy"
-  AstLetHVectorIn _ _ v -> ftkAst v
-  AstZipR v -> case ftkAst v of
-    FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
-  AstUnzipR v -> case ftkAst v of
-    FTKR sh (FTKProduct y z) -> FTKProduct (FTKR sh y) (FTKR sh z)
 
   AstMinIndexS{} -> FTKS knownShS FTKScalar
   AstMaxIndexS{} -> FTKS knownShS FTKScalar
@@ -240,19 +196,6 @@ ftkAst t = case t of
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct (ftkAst acc0) (buildFTK k bShs)
 
-  AstReplicate0NR sh _ v -> case ftkAst v of
-    FTKR _ x -> FTKR sh x
-  AstSum0R _ _ v ->  case ftkAst v of
-    FTKR _ x -> FTKR ZSR x
-  AstDot0R _ _u _v -> FTKR ZSR FTKScalar
-  AstDot1InR u _v -> case ftkAst u of
-    FTKR (m :$: _) FTKScalar -> FTKR (m :$: ZSR) FTKScalar
-  AstMatvecmulR u _v -> case ftkAst u of
-    FTKR (m :$: _) FTKScalar -> FTKR (m :$: ZSR) FTKScalar
-  AstMatmul2R u v -> case (ftkAst u, ftkAst v) of
-    (FTKR (m :$: _ :$: ZSR) FTKScalar, FTKR (_ :$: p :$: ZSR) FTKScalar) ->
-      FTKR (m :$: p :$: ZSR) FTKScalar
-    _ -> error "ftkAst: impossible pattern needlessly required"
   AstReplicate0NS sh _ v -> case ftkAst v of
     FTKS _ x -> FTKS sh x
   AstSum0S _ _ v ->  case ftkAst v of
@@ -261,6 +204,8 @@ ftkAst t = case t of
   AstDot1InS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
   AstMatvecmulS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
+
+  AstLetHVectorIn _ _ v -> ftkAst v
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
@@ -327,29 +272,7 @@ varInAst var = \case
   AstCast t -> varInAst var t
   AstFromIntegral t -> varInAst var t
 
-  AstN1R _ t -> varInAst var t
-  AstN2R _ t u -> varInAst var t || varInAst var u
-  AstR1R _ t -> varInAst var t
-  AstR2R _ t u -> varInAst var t || varInAst var u
-  AstI2R _ t u -> varInAst var t || varInAst var u
-  AstMinIndexR a -> varInAst var a
-  AstMaxIndexR a -> varInAst var a
-  AstFloorR a -> varInAst var a
-  AstIotaR{} -> False
-  AstIndex v ix -> varInAst var v || varInIndex var ix
-  AstScatter _ v (_vars, ix) -> varInIndex var ix || varInAst var v
-  AstAppend v u -> varInAst var v || varInAst var u
-  AstSlice _ _ v -> varInAst var v
-  AstReverse v -> varInAst var v
-  AstTranspose _ v -> varInAst var v
-  AstReshape _ v -> varInAst var v
-  AstGather _ v (_vars, ix) -> varInIndex var ix || varInAst var v
-  AstCastR t -> varInAst var t
-  AstFromIntegralR t -> varInAst var t
-  AstProjectR l _p -> varInAst var l
   AstLetHVectorIn _vars l v -> varInAst var l || varInAst var v
-  AstZipR v -> varInAst var v
-  AstUnzipR v -> varInAst var v
 
   AstMinIndexS a -> varInAst var a
   AstMaxIndexS a -> varInAst var a
@@ -392,12 +315,6 @@ varInAst var = \case
   AstMapAccumLDer _k _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
 
-  AstReplicate0NR _ _ v -> varInAst var v
-  AstSum0R _ _ v -> varInAst var v
-  AstDot0R _ u v -> varInAst var u || varInAst var v
-  AstDot1InR u v -> varInAst var u || varInAst var v
-  AstMatvecmulR u v -> varInAst var u || varInAst var v
-  AstMatmul2R u v -> varInAst var u || varInAst var v
   AstReplicate0NS _ _ v -> varInAst var v
   AstSum0S _ _ v -> varInAst var v
   AstDot0S _ u v -> varInAst var u || varInAst var v
@@ -452,14 +369,7 @@ astIsSmall relaxed = \case
   AstConcrete (FTKS sh FTKScalar) _ -> shsSize sh <= 1
   AstConcrete (FTKX sh FTKScalar) _ -> shxSize sh <= 1
   AstConcrete{} -> False
-
-  AstIotaR{} -> True
   AstFromVector snat v | sNatValue snat == 1 -> astIsSmall relaxed $ v V.! 0
-  AstSlice _ _ v ->
-    relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
-  AstTranspose _ v ->
-    relaxed && astIsSmall relaxed v  -- often cheap and often fuses
-  AstProjectR t _ -> astIsSmall relaxed t
 
   AstIotaS -> True
   AstSliceS v ->

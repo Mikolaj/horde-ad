@@ -46,8 +46,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (IxX)
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Nested
-  ( IShR
-  , IxR
+  ( IxR
   , IxS (..)
   , KnownShS (..)
   , KnownShX
@@ -350,78 +349,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
           => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
-  -- Here starts the ranked part.
-  AstN1R :: (GoodScalar r, KnownNat n)
-         => OpCodeNum1 -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR n r)
-  AstN2R :: (GoodScalar r, KnownNat n)
-         => OpCodeNum2 -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR n r)
-         -> AstTensor ms s (TKR n r)
-  AstR1R :: (RealFloatF r, Nested.FloatElt r, GoodScalar r, KnownNat n)
-         => OpCode1 -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR n r)
-  AstR2R :: (RealFloatF r, Nested.FloatElt r, GoodScalar r, KnownNat n)
-         => OpCode2 -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR n r)
-         -> AstTensor ms s (TKR n r)
-  AstI2R :: (IntegralF r, GoodScalar r, KnownNat n)
-         => OpCodeIntegral2 -> AstTensor ms s (TKR n r)
-         -> AstTensor ms s (TKR n r)
-         -> AstTensor ms s (TKR n r)
-  AstFloorR :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
-               , KnownNat n )
-            => AstTensor ms PrimalSpan (TKR n r)
-            -> AstTensor ms PrimalSpan (TKR n r2)
-  AstFromIntegralR :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
-                   => AstTensor ms PrimalSpan (TKR n r1)
-                   -> AstTensor ms PrimalSpan (TKR n r2)
-  AstCastR :: ( GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2
-              , KnownNat n )
-           => AstTensor ms s (TKR n r1) -> AstTensor ms s (TKR n r2)
-  AstMinIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
-               => AstTensor ms PrimalSpan (TKR (1 + n) r)
-               -> AstTensor ms PrimalSpan (TKR n r2)
-  AstMaxIndexR :: (GoodScalar r, KnownNat n, GoodScalar r2)
-               => AstTensor ms PrimalSpan (TKR (1 + n) r)
-               -> AstTensor ms PrimalSpan (TKR n r2)
-  AstIotaR :: GoodScalar r => Int -> AstTensor ms PrimalSpan (TKR 1 r)
-
-  AstIndex :: forall m n r s ms. (KnownNat m, KnownNat n, TensorKind r)
-           => AstTensor ms s (TKR2 (m + n) r) -> AstIxR ms m
-           -> AstTensor ms s (TKR2 n r)
-    -- first ix is for outermost dimension; empty index means identity,
-    -- if index is out of bounds, the result is defined and is 0,
-    -- but vectorization is permitted to change the value
-  AstScatter :: forall m n p r s ms.
-                (KnownNat m, KnownNat n, KnownNat p, TensorKind r)
-             => IShR (p + n)
-             -> AstTensor ms s (TKR2 (m + n) r)
-             -> (AstVarList m, AstIxR ms p)
-             -> AstTensor ms s (TKR2 (p + n) r)
-  AstAppend :: (KnownNat n, TensorKind r)
-            => AstTensor ms s (TKR2 (1 + n) r) -> AstTensor ms s (TKR2 (1 + n) r)
-            -> AstTensor ms s (TKR2 (1 + n) r)
-  AstSlice :: (KnownNat n, TensorKind r)
-           => Int -> Int -> AstTensor ms s (TKR2 (1 + n) r)
-           -> AstTensor ms s (TKR2 (1 + n) r)
-  AstReverse :: (KnownNat n, TensorKind r)
-             => AstTensor ms s (TKR2 (1 + n) r) -> AstTensor ms s (TKR2 (1 + n) r)
-  AstTranspose :: (KnownNat n, TensorKind r)
-               => Permutation.PermR -> AstTensor ms s (TKR2 n r)
-               -> AstTensor ms s (TKR2 n r)
-  AstReshape :: (KnownNat n, KnownNat m, TensorKind r)
-             => IShR m -> AstTensor ms s (TKR2 n r) -> AstTensor ms s (TKR2 m r)
-  AstGather :: forall m n p r s ms.
-               (KnownNat m, KnownNat n, KnownNat p, TensorKind r)
-            => IShR (m + n)
-            -> AstTensor ms s (TKR2 (p + n) r)
-            -> (AstVarList m, AstIxR ms p)
-            -> AstTensor ms s (TKR2 (m + n) r)
-    -- out of bounds indexing is permitted
-  AstZipR :: (TensorKind y, TensorKind z, KnownNat n)
-          => AstTensor ms s (TKProduct (TKR2 n y) (TKR2 n z))
-          -> AstTensor ms s (TKR2 n (TKProduct y z))
-  AstUnzipR :: (TensorKind y, TensorKind z, KnownNat n)
-            => AstTensor ms s (TKR2 n (TKProduct y z))
-            -> AstTensor ms s (TKProduct (TKR2 n y) (TKR2 n z))
-
   -- Here starts the shaped part.
   AstFromScalar :: GoodScalar r
                 => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
@@ -531,27 +458,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
              -> AstTensor ms s (TKX2 (sh1 ++ sh2) x)
 
   -- Here starts the backend-specific primitives part.
-  AstReplicate0NR :: IShR n -> STensorKindType x
-                  -> AstTensor ms s (TKR2 0 x)
-                  -> AstTensor ms s (TKR2 n x)
-  AstSum0R :: SNat n -> STensorKindType x
-           -> AstTensor ms s (TKR2 n x)
-           -> AstTensor ms s (TKR2 0 x)
-  AstDot0R :: GoodScalar r
-           => SNat n
-           -> AstTensor ms s (TKR n r) -> AstTensor ms s (TKR n r)
-           -> AstTensor ms s (TKR 0 r)
-  AstDot1InR :: GoodScalar r
-             => AstTensor ms s (TKR 2 r) -> AstTensor ms s (TKR 2 r)
-             -> AstTensor ms s (TKR 1 r)
-  AstMatvecmulR :: GoodScalar r
-                => AstTensor ms s (TKR 2 r)
-                -> AstTensor ms s (TKR 1 r)
-                -> AstTensor ms s (TKR 1 r)
-  AstMatmul2R :: (GoodScalar r, Numeric r)
-              => AstTensor ms s (TKR 2 r)
-              -> AstTensor ms s (TKR 2 r)
-              -> AstTensor ms s (TKR 2 r)
   AstReplicate0NS :: ShS sh -> STensorKindType x
                   -> AstTensor ms s (TKS2 '[] x)
                   -> AstTensor ms s (TKS2 sh x)
@@ -579,8 +485,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
 
   -- Constructors slated for removal.
   AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
-  AstProjectR :: (GoodScalar r, KnownNat n)
-              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKR n r)
   AstLetHVectorIn :: forall s s2 z. (AstSpan s, TensorKind z)
                   => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
                   -> AstTensor AstMethodLet s2 z
