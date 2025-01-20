@@ -9,7 +9,6 @@ import Prelude
 
 import Control.Exception (assert)
 import Data.IntMap.Strict qualified as IM
-import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import Test.Tasty
@@ -573,43 +572,41 @@ testConv2dUnpaddedPP = do
 testConv2dUnpadded2PP :: Assertion
 testConv2dUnpadded2PP = do
   resetVarCounter
-  let f :: AstTensor AstMethodLet FullSpan TKUntyped
-        -> AstTensor AstMethodLet FullSpan TKUntyped
-      f hv = let v = dunHVector hv
-             in dmkHVector
-                $ V.singleton $ DynamicRanked @Double @4
-                $ conv2dUnpadded (rfromD $ v V.! 0) (rfromD $ v V.! 1)
-      shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
-                       , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
+  let f :: AstTensor AstMethodLet FullSpan
+                     (TKProduct (TKR 4 Double) (TKR 4 Double))
+        -> AstTensor AstMethodLet FullSpan
+                     (TKR 4 Double)
+      f v = conv2dUnpadded (tproject1 v) (tproject2 v)
+      ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
+                       (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
       (artifactRev, _) =
         revArtifactFromForwardPass
-          True (forwardPassByInterpretation f emptyEnv) (FTKUntyped shs)
+          True (forwardPassByInterpretation f emptyEnv) ftk
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)
-    @?= "\\h58 u172 u173 -> [rfromS (sscatter (sscatter (ssum (ssum (ssum (sgather (stranspose (sreplicate (sreshape (sgather (sfromVector (fromList [sgather (sfromR u173) (\\[i34, i35, i36, i37, i38, i39, i40] -> [i34 + i37, i38, i35 + i39, i36 + i40]), sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 0.0)))))))])) (\\[i41, i42, i43, i44, i45, i46, i47] -> [ifF ((0 <=. i41 + i44 &&* 2 >. i41 + i44) &&* ((0 <=. i45 &&* 2 >. i45) &&* ((0 <=. i42 + i46 &&* 2 >. i42 + i46) &&* (0 <=. i43 + i47 &&* 2 >. i43 + i47)))) 0 1, i41, i42, i43, i44, i45, i46, i47])))) * stranspose (sreplicate (sproject h58 0))) (\\[i145, i146, i147, i148, i149, i150, i151, i152] -> [remF (quotF (i152 + 2 * i151 + 4 * i150 + 8 * i148 + 8 * i149) 8) 2, remF (i152 + 2 * i151 + 4 * i150 + 8 * i148 + 8 * i149) 8, i145, i146, i147]))))) (\\[i59, i60, i61, i62, i63] -> [ifF ((0 <=. i59 + i60 &&* 2 >. i59 + i60) &&* ((0 <=. i61 &&* 2 >. i61) &&* ((0 <=. i62 &&* 2 >. i62) &&* (0 <=. i63 &&* 2 >. i63)))) 0 1, i59, i60, i61, i62, i63]) !$ [0]) (\\[i65, i66] -> [i65 + i66])), rfromS (sscatter (sscatter (ssum (sgather (stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromVector (fromList [sgather (sfromR u172) (\\[i49, i50] -> [i49 + i50]), sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 0.0)))))])) (\\[i51, i52, i53, i54, i55] -> [ifF ((0 <=. i51 + i52 &&* 2 >. i51 + i52) &&* ((0 <=. i53 &&* 2 >. i53) &&* ((0 <=. i54 &&* 2 >. i54) &&* (0 <=. i55 &&* 2 >. i55)))) 0 1, i51, i52, i53, i54, i55])))))) * stranspose (sreplicate (sproject h58 0))) (\\[i160, i161, i162, i163, i164, i165, i166, i167] -> [remF (quotF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 32) 2, remF (quotF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 16) 2, remF (quotF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 8) 2, remF (i167 + 2 * i166 + 4 * i165 + 8 * i164 + 8 * i163 + 32 * i161 + 16 * i162) 8, i160]))) (\\[i67, i68, i69, i70, i71, i72, i73] -> [ifF ((0 <=. i67 + i70 &&* 2 >. i67 + i70) &&* ((0 <=. i71 &&* 2 >. i71) &&* ((0 <=. i68 + i72 &&* 2 >. i68 + i72) &&* (0 <=. i69 + i73 &&* 2 >. i69 + i73)))) 0 1, i67, i68, i69, i70, i71, i72, i73]) !$ [0]) (\\[i75, i76, i77, i78, i79, i80, i81] -> [i75 + i78, i79, i76 + i80, i77 + i81]))]"
+    @?= "\\u56 x1 -> tfromS (tpair (sscatter (sscatter (ssum (ssum (ssum (sgather (stranspose (sreplicate (sreshape (sgather (sfromVector (fromList [sgather (sfromR (tproject2 u1)) (\\[i33, i34, i35, i36, i37, i38, i39] -> [i33 + i36, i37, i34 + i38, i35 + i39]), sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 0.0)))))))])) (\\[i40, i41, i42, i43, i44, i45, i46] -> [ifF ((0 <=. i40 + i43 &&* 2 >. i40 + i43) &&* ((0 <=. i44 &&* 2 >. i44) &&* ((0 <=. i41 + i45 &&* 2 >. i41 + i45) &&* (0 <=. i42 + i46 &&* 2 >. i42 + i46)))) 0 1, i40, i41, i42, i43, i44, i45, i46])))) * stranspose (sreplicate (sfromR u56))) (\\[i139, i140, i141, i142, i143, i144, i145, i146] -> [remF (quotF (i146 + 2 * i145 + 4 * i144 + 8 * i142 + 8 * i143) 8) 2, remF (i146 + 2 * i145 + 4 * i144 + 8 * i142 + 8 * i143) 8, i139, i140, i141]))))) (\\[i57, i58, i59, i60, i61] -> [ifF ((0 <=. i57 + i58 &&* 2 >. i57 + i58) &&* ((0 <=. i59 &&* 2 >. i59) &&* ((0 <=. i60 &&* 2 >. i60) &&* (0 <=. i61 &&* 2 >. i61)))) 0 1, i57, i58, i59, i60, i61]) !$ [0]) (\\[i63, i64] -> [i63 + i64]), sscatter (sscatter (ssum (sgather (stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromVector (fromList [sgather (sfromR (tproject1 u1)) (\\[i47, i48] -> [i47 + i48]), sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 0.0)))))])) (\\[i49, i50, i51, i52, i53] -> [ifF ((0 <=. i49 + i50 &&* 2 >. i49 + i50) &&* ((0 <=. i51 &&* 2 >. i51) &&* ((0 <=. i52 &&* 2 >. i52) &&* (0 <=. i53 &&* 2 >. i53)))) 0 1, i49, i50, i51, i52, i53])))))) * stranspose (sreplicate (sfromR u56))) (\\[i154, i155, i156, i157, i158, i159, i160, i161] -> [remF (quotF (i161 + 2 * i160 + 4 * i159 + 8 * i158 + 8 * i157 + 32 * i155 + 16 * i156) 32) 2, remF (quotF (i161 + 2 * i160 + 4 * i159 + 8 * i158 + 8 * i157 + 32 * i155 + 16 * i156) 16) 2, remF (quotF (i161 + 2 * i160 + 4 * i159 + 8 * i158 + 8 * i157 + 32 * i155 + 16 * i156) 8) 2, remF (i161 + 2 * i160 + 4 * i159 + 8 * i158 + 8 * i157 + 32 * i155 + 16 * i156) 8, i154]))) (\\[i65, i66, i67, i68, i69, i70, i71] -> [ifF ((0 <=. i65 + i68 &&* 2 >. i65 + i68) &&* ((0 <=. i69 &&* 2 >. i69) &&* ((0 <=. i66 + i70 &&* 2 >. i66 + i70) &&* (0 <=. i67 + i71 &&* 2 >. i67 + i71)))) 0 1, i65, i66, i67, i68, i69, i70, i71]) !$ [0]) (\\[i73, i74, i75, i76, i77, i78, i79] -> [i73 + i76, i77, i74 + i78, i75 + i79])))"
 
 -- This is fragile due to indexing out of bounds, see above.
 testConv2dUnpadded3PP :: Assertion
 testConv2dUnpadded3PP = do
   resetVarCounter
-  let f :: AstTensor AstMethodLet FullSpan TKUntyped
-        -> AstTensor AstMethodLet FullSpan TKUntyped
-      f hv = let v = dunHVector hv
-             in dmkHVector
-                $ V.singleton $ DynamicRanked @Double @4
-                $ conv2d (rfromD $ v V.! 0) (rfromD $ v V.! 1)
-      shs = V.fromList [ voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
-                       , voidFromSh @Double (2 :$: 2 :$: 2 :$: 2 :$: ZSR) ]
+  let f :: AstTensor AstMethodLet FullSpan
+                     (TKProduct (TKR 4 Double) (TKR 4 Double))
+        -> AstTensor AstMethodLet FullSpan
+                     (TKR 4 Double)
+      f v = conv2d (tproject1 v) (tproject2 v)
+      ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
+                       (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
       (artifactRev, _) =
         revArtifactFromForwardPass
-          True (forwardPassByInterpretation f emptyEnv) (FTKUntyped shs)
+          True (forwardPassByInterpretation f emptyEnv) ftk
   printArtifactPretty IM.empty artifactRev
-    @?= "\\h34 u44 u45 -> let w32 = stranspose (sreplicate (sreshape (sgather (sfromR u45) (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w33 = stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR u44) (\\[i30, i31] -> [i30 + i31])))))) in [rfromS (sscatter (sreshape (ssum (ssum (ssum (stranspose (w32 * sreplicate (sproject h34 0))))))) (\\[i35, i36] -> [i35 + i36])), rfromS (sscatter (sreshape (ssum (stranspose (w33 * sreplicate (sproject h34 0))))) (\\[i37, i38, i39, i40, i41, i42, i43] -> [i37 + i40, i41, i38 + i42, i39 + i43]))]"
+    @?= "\\u32 x1 -> let w30 = stranspose (sreplicate (sreshape (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27])))) ; w31 = stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29])))))) in tpair (rfromS (sscatter (sreshape (ssum (ssum (ssum (stranspose (w30 * sreplicate (sfromR u32))))))) (\\[i33, i34] -> [i33 + i34])), rfromS (sscatter (sreshape (ssum (stranspose (w31 * sreplicate (sfromR u32))))) (\\[i35, i36, i37, i38, i39, i40, i41] -> [i35 + i38, i39, i36 + i40, i37 + i41])))"
   printArtifactPretty IM.empty (simplifyArtifact artifactRev)
-    @?= "\\h34 u144 u145 -> [rfromS (sscatter (ssum (ssum (ssum (sgather (stranspose (sreplicate (sreshape (sgather (sfromR u145) (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) * stranspose (sreplicate (sproject h34 0))) (\\[i117, i118, i119, i120, i121, i122, i123, i124] -> [remF (quotF (i124 + 2 * i123 + 4 * i122 + 8 * i120 + 8 * i121) 8) 2, remF (i124 + 2 * i123 + 4 * i122 + 8 * i120 + 8 * i121) 8, i117, i118, i119]))))) (\\[i35, i36] -> [i35 + i36])), rfromS (sscatter (ssum (sgather (stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR u144) (\\[i30, i31] -> [i30 + i31])))))) * stranspose (sreplicate (sproject h34 0))) (\\[i132, i133, i134, i135, i136, i137, i138, i139] -> [remF (quotF (i139 + 2 * i138 + 4 * i137 + 8 * i136 + 8 * i135 + 32 * i133 + 16 * i134) 32) 2, remF (quotF (i139 + 2 * i138 + 4 * i137 + 8 * i136 + 8 * i135 + 32 * i133 + 16 * i134) 16) 2, remF (quotF (i139 + 2 * i138 + 4 * i137 + 8 * i136 + 8 * i135 + 32 * i133 + 16 * i134) 8) 2, remF (i139 + 2 * i138 + 4 * i137 + 8 * i136 + 8 * i135 + 32 * i133 + 16 * i134) 8, i132]))) (\\[i37, i38, i39, i40, i41, i42, i43] -> [i37 + i40, i41, i38 + i42, i39 + i43]))]"
+    @?= "\\u32 x1 -> tfromS (tpair (sscatter (ssum (ssum (ssum (sgather (stranspose (sreplicate (sreshape (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27])))) * stranspose (sreplicate (sfromR u32))) (\\[i101, i102, i103, i104, i105, i106, i107, i108] -> [remF (quotF (i108 + 2 * i107 + 4 * i106 + 8 * i104 + 8 * i105) 8) 2, remF (i108 + 2 * i107 + 4 * i106 + 8 * i104 + 8 * i105) 8, i101, i102, i103]))))) (\\[i33, i34] -> [i33 + i34]), sscatter (ssum (sgather (stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29])))))) * stranspose (sreplicate (sfromR u32))) (\\[i116, i117, i118, i119, i120, i121, i122, i123] -> [remF (quotF (i123 + 2 * i122 + 4 * i121 + 8 * i120 + 8 * i119 + 32 * i117 + 16 * i118) 32) 2, remF (quotF (i123 + 2 * i122 + 4 * i121 + 8 * i120 + 8 * i119 + 32 * i117 + 16 * i118) 16) 2, remF (quotF (i123 + 2 * i122 + 4 * i121 + 8 * i120 + 8 * i119 + 32 * i117 + 16 * i118) 8) 2, remF (i123 + 2 * i122 + 4 * i121 + 8 * i120 + 8 * i119 + 32 * i117 + 16 * i118) 8, i116]))) (\\[i35, i36, i37, i38, i39, i40, i41] -> [i35 + i38, i39, i36 + i40, i37 + i41])))"
   printArtifactPrimalPretty IM.empty artifactRev
-    @?= "\\u146 u147 -> let w32 = stranspose (sreplicate (sreshape (sgather (sfromR u147) (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) ; w33 = stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR u146) (\\[i30, i31] -> [i30 + i31])))))) in [rfromS (ssum (w32 * w33))]"
+    @?= "\\x1 -> let w30 = stranspose (sreplicate (sreshape (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27])))) ; w31 = stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29])))))) in rfromS (ssum (w30 * w31))"
   printArtifactPrimalPretty IM.empty (simplifyArtifact artifactRev)
-    @?= "\\u246 u247 -> [rfromS (ssum (stranspose (sreplicate (sreshape (sgather (sfromR u247) (\\[i22, i23, i24, i25, i26, i27, i28] -> [i22 + i25, i26, i23 + i27, i24 + i28])))) * stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR u246) (\\[i30, i31] -> [i30 + i31]))))))))]"
+    @?= "\\x1 -> rfromS (ssum (stranspose (sreplicate (sreshape (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27])))) * stranspose (sreplicate (sreplicate (sreplicate (sreshape (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29]))))))))"
 
 testCNNOPP2 :: Assertion
 testCNNOPP2 = do
