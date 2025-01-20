@@ -9,7 +9,6 @@ import Prelude
 
 import Data.IntMap.Strict qualified as IM
 import Data.Proxy (Proxy (Proxy))
-import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
@@ -213,13 +212,10 @@ testTrees =
   , testCase "4S0FoldNestedR21PP" testSin0FoldNestedR21PP
   , testCase "4S0revhV" testSin0revhV
   , testCase "4S0revhVPP" testSin0revhVPP
-  , testCase "4S0revhV2" testSin0revhV2
-  , testCase "4S0revhV3" testSin0revhV3
   , testCase "4S0revhV4" testSin0revhV4
   , testCase "4S0revhV5" testSin0revhV5
   , testCase "4S0revhV6" testSin0revhV6
   , testCase "4S0revhV7" testSin0revhV7
-  , testCase "4S0revhV8" testSin0revhV8
   ]
 
 foo :: RealFloatF a => (a, a, a) -> a
@@ -2770,52 +2766,21 @@ testSin0FoldNestedR21PP = do
 testSin0revhV :: Assertion
 testSin0revhV = do
   let f :: forall g. BaseTensor g
-        => HVector g -> g TKUntyped
-      f x =
-        rrev @g @_ @(TKScalar Double) @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
-             (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-             (dmkHVector x)
+        => g (TKR 0 Double) -> g (TKR 0 Double)
+      f x = rrev @g @_ @(TKScalar Double) @0 sin (FTKR ZSR FTKScalar) x
   assertEqualUpToEpsilon 1e-10
-    (dmkHVector $ V.singleton $ DynamicRanked @Double @0 (rscalar 0.4535961214255773))
-    (f @RepN (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
+    (rscalar 0.4535961214255773)
+    (f @RepN (rscalar 1.1))
 
 testSin0revhVPP :: Assertion
 testSin0revhVPP = do
   resetVarCounter
   let f :: forall g. BaseTensor g
-        => HVector g -> g TKUntyped
-      f x =
-        rrev @g @_ @(TKScalar Double) @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
-             (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-             (dmkHVector x)
+        => g (TKR 0 Double) -> g (TKR 0 Double)
+      f x = rrev @g @_ @(TKScalar Double) @0 sin (FTKR ZSR FTKScalar) x
   printAstSimple IM.empty (f @(AstTensor AstMethodLet PrimalSpan)
-                                    (V.singleton
-                                     $ DynamicRanked @Double @0 (rscalar 1.1)))
-    @?= "dmkHVector (fromList [DynamicRanked (rfromS (cos (sscalar 1.1) * sscalar 1.0))])"
-
-testSin0revhV2 :: Assertion
-testSin0revhV2 = do
-  let f :: forall g. BaseTensor g
-        => HVector g -> g TKUntyped
-      f x =
-        rrev @g @_ @(TKScalar Double) @0 (\v -> sin (rfromD $ dunHVector v V.! 0))
-             (FTKUntyped (V.singleton (voidFromSh @Double ZSR)))
-             (dmkHVector x)
-  assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicRanked @Double @0 (rscalar (-0.8912073600614354)))
-    (crev f (V.singleton $ DynamicRanked @Double @0 (rscalar 1.1)))
-
-testSin0revhV3 :: Assertion
-testSin0revhV3 = do
-  let f :: forall g. ADReady g
-        => HVector g -> g TKUntyped
-      f x =
-        srev @g @_ @(TKScalar Double) @'[] (\v -> sin (sfromD $ dunHVector v V.! 0))
-             (FTKUntyped $ V.singleton (voidFromShS @Double @'[]))
-             (dmkHVector x)
-  assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicShaped @Double @'[] (sscalar $ -0.8912073600614354))
-    (crev f (V.singleton $ DynamicShaped @Double @'[] (srepl 1.1)))
+                                    (rscalar 1.1))
+    @?= "rfromS (cos (sscalar 1.1) * sscalar 1.0)"
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
@@ -2872,15 +2837,3 @@ testSin0revhV7 = do
   assertEqualUpToEpsilon 1e-10
     (ingestData @_ @'[3] [4.0,6.0,8.0])
     (crev f (sreplicate @_ @3 (sscalar 1.1)))
-
-testSin0revhV8 :: Assertion
-testSin0revhV8 = do
-  let f :: forall g. BaseTensor g
-        => HVector g -> g TKUntyped
-      f = dmkHVector
-  assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [1, 1, 1])
-    (crev @_ @TKUntyped
-          f
-          (V.singleton $ DynamicShaped @Double @'[3]
-           $ sreplicate @RepN @3 (sscalar 1.1)))
