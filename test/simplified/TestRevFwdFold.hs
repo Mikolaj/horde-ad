@@ -133,7 +133,6 @@ testTrees =
   , testCase "4SUnitriangular0PP" testUnitriangular0PP
   , testCase "4SUnitriangular1PP" testUnitriangular1PP
   , testCase "4SUnitriangular2PP" testUnitriangular2PP
-  , testCase "4S0rmapAccumRD0SC" testSin0rmapAccumRD0SC
   , testCase "4S0rmapAccumRD0S" testSin0rmapAccumRD0S
   , testCase "4S0rmapAccumRD00SC" testSin0rmapAccumRD00SC
   , testCase "4S0rmapAccumRD00S0" testSin0rmapAccumRD00S0
@@ -147,9 +146,7 @@ testTrees =
   , testCase "4S0rmapAccumRD00SCall" testSin0rmapAccumRD00SCall
   , testCase "4S0rmapAccumRD00Sall0" testSin0rmapAccumRD00Sall0
   , testCase "4S0rmapAccumRD00Sall" testSin0rmapAccumRD00Sall
-  , testCase "4S0rmapAccumRD0RC" testSin0rmapAccumRD0RC
   , testCase "4S0rmapAccumRD0R" testSin0rmapAccumRD0R
-  , testCase "4S0rmapAccumRD01SC" testSin0rmapAccumRD01SC
   , testCase "4S0rmapAccumRD01SN" testSin0rmapAccumRD01SN
   , testCase "4S0rmapAccumRD01SN2" testSin0rmapAccumRD01SN2
   , testCase "4S0rmapAccumRD01SN3" testSin0rmapAccumRD01SN3
@@ -1286,33 +1283,6 @@ rscanZip f eShs acc0 es =
          acc0 es)
       (\res -> rappend (rfromList [acc0]) (tproject2 res))
 
-testSin0rmapAccumRD0SC :: Assertion
-testSin0rmapAccumRD0SC = do
-  assertEqualUpToEpsilon 1e-10
-    (srepl 1)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = (sfromD . (V.! 0))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                  -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                                          (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.singleton $ DynamicShaped x0)
-                          (dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))
-           in f) (srepl 1.1))
-
 testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
@@ -1616,30 +1586,6 @@ testSin0rmapAccumRD00Sall = do
                           (dmkHVector $ V.fromList []))) $ \_ -> srepl 3
            in f) (srepl 1.1))
 
-testSin0rmapAccumRD0RC :: Assertion
-testSin0rmapAccumRD0RC = do
-  assertEqualUpToEpsilon 1e-10
-    (rscalar 1)
-    (crev (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-               f x0 = (rfromD . (V.! 0))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
-                          (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
-                          (FTKUntyped $ V.fromList [voidFromSh @Double ZSR])
-                          (\xh _a ->
-                             let x = rfromD @Double @0 $ dunHVector xh V.! 0
-                             in tpair (dmkHVector
-                                    $ V.fromList
-                                        [ DynamicRanked $ sin x ])
-                                 (dmkHVector
-                                    $ V.fromList
-                                        [ DynamicRanked $ sin x ]))
-                          (dmkHVector $ V.singleton $ DynamicRanked x0)
-                          (dmkHVector $ V.singleton $ DynamicRanked
-                              $ rzero @f @Double (0 :$: ZSR))
-           in f) (rscalar 1.1))
-
 testSin0rmapAccumRD0R :: Assertion
 testSin0rmapAccumRD0R = do
   assertEqualUpToEpsilon' 1e-10
@@ -1663,35 +1609,6 @@ testSin0rmapAccumRD0R = do
                           (dmkHVector $ V.singleton $ DynamicRanked
                               $ rzero @f @Double (0 :$: ZSR))
            in f) (rscalar 1.1))
-
-testSin0rmapAccumRD01SC :: Assertion
-testSin0rmapAccumRD01SC = do
-  assertEqualUpToEpsilon 1e-10
-    (srepl 0.4535961214255773)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = flip (sindex0 @_ @'[1]) [0] $ (sfromD . (V.! 2))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @1)
-                          (FTKUntyped $ V.fromList [ voidFromShS @Double @'[]
-                                      , voidFromShS @Double @'[] ])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (dmkHVector
-                                    $ V.fromList
-                                        [ DynamicShaped $ sin x
-                                        , DynamicShaped $ sin x])
-                                        (dmkHVector
-                                    $ V.fromList
-                                        [ DynamicShaped $ sin x ])
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [DynamicShaped x0, DynamicShaped x0])
-                          (dmkHVector $ V.singleton $ DynamicShaped @Double @'[1] (srepl 0))
-           in f) (srepl 1.1))
 
 testSin0rmapAccumRD01SN :: Assertion
 testSin0rmapAccumRD01SN = do
