@@ -136,8 +136,8 @@ testTrees =
   , testCase "4S0rmapAccumRD0S" testSin0rmapAccumRD0S
   , testCase "4S0rmapAccumRD00SC" testSin0rmapAccumRD00SC
   , testCase "4S0rmapAccumRD00S0" testSin0rmapAccumRD00S0
--- empty tensors ambiguity:  , testCase "4S0rmapAccumRD00S" testSin0rmapAccumRD00S
--- empty tensors ambiguity:  , testCase "4S0rmapAccumRD00S7" testSin0rmapAccumRD00S7
+  , testCase "4S0rmapAccumRD00S" testSin0rmapAccumRD00S
+  , testCase "4S0rmapAccumRD00S7" testSin0rmapAccumRD00S7
   , testCase "4S0rmapAccumRD00SCacc0" testSin0rmapAccumRD00SCacc0
   , testCase "4S0rmapAccumRD00SCacc" testSin0rmapAccumRD00SCacc
   , testCase "4S0rmapAccumRD00Sacc0" testSin0rmapAccumRD00Sacc0
@@ -253,21 +253,20 @@ foo (x, y, z) =
   let w = x * sin y
   in atan2F z w + z * w
 
-fooRrev :: forall g a. (ADReady g, GoodScalar a, Differentiable a)
+fooRrev :: forall g a.
+           (ADReady g, GoodScalar a, Differentiable a, ADTensorScalar a ~ a)
         => (a, a, a) -> (g (TKR 0 a), g (TKR 0 a), g (TKR 0 a))
 fooRrev (x, y, z) =
-  let fHVector :: forall f. ADReady f => f TKUntyped -> f (TKR 0 a)
-      fHVector v = foo (rfromD $ dunHVector v V.! 0, rfromD $ dunHVector v V.! 1, rfromD $ dunHVector v V.! 2)
-      zero = voidFromShS @a @'[]
-      shapes = V.fromList [zero, zero, zero]
-      domsOf = rrev @g fHVector (FTKUntyped shapes)
-                    (dmkHVector $ V.fromList
-                       [ DynamicShaped $ sconcrete @g $ Nested.sscalar x
-                       , DynamicShaped $ sconcrete @g $ Nested.sscalar y
-                       , DynamicShaped $ sconcrete @g $ Nested.sscalar z ])
-  in ( tlet @_ @TKUntyped domsOf (\v -> rfromD $ dunHVector v V.! 0)
-     , tlet @_ @TKUntyped domsOf (\v -> rfromD $ dunHVector v V.! 1)
-     , tlet @_ @TKUntyped domsOf (\v -> rfromD $ dunHVector v V.! 2) )
+  let fHVector :: forall f. ADReady f => f (TKProduct (TKProduct (TKR 0 a) (TKR 0 a)) (TKR 0 a)) -> f (TKR 0 a)
+      fHVector v = foo (tproject1 (tproject1 v), tproject2 (tproject1 v), tproject2 v)
+      shapes = FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar)
+      domsOf = rrev @g fHVector shapes
+                    (tpair (tpair (rconcrete @g $ Nested.rscalar x)
+                                  (rconcrete @g $ Nested.rscalar y))
+                           (rconcrete @g $ Nested.rscalar z))
+  in ( tlet domsOf (\v -> tproject1 (tproject1 v))
+     , tlet domsOf (\v -> tproject2 (tproject1 v))
+     , tlet domsOf (\v -> tproject2 v) )
 
 testFooRrev :: Assertion
 testFooRrev = do
@@ -286,13 +285,13 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRrev @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty IM.empty a1
-    @?= "rfromS (let h44 = let x8 = sin (sscalar 2.2) ; x10 = sscalar 1.1 * x8 ; x11 = recip (sscalar 3.3 * sscalar 3.3 + x10 * x10) ; x17 = sin (sscalar 2.2) ; x20 = sscalar 3.3 * sscalar 1.0 ; x21 = (negate (sscalar 3.3) * x11) * sscalar 1.0 in [x8 * x21 + x17 * x20, cos (sscalar 2.2) * (sscalar 1.1 * x21) + cos (sscalar 2.2) * (sscalar 1.1 * x20), (x10 * x11) * sscalar 1.0 + (sscalar 1.1 * x17) * sscalar 1.0] in sproject h44 0)"
+    @?= "rfromS (let x11 = let x3 = sin (sscalar 2.2) ; x4 = sscalar 1.1 * x3 ; x5 = recip (sscalar 3.3 * sscalar 3.3 + x4 * x4) ; x6 = sin (sscalar 2.2) ; x8 = sscalar 3.3 * sscalar 1.0 ; x9 = (negate (sscalar 3.3) * x5) * sscalar 1.0 in tpair (tpair (x3 * x9 + x6 * x8, cos (sscalar 2.2) * (sscalar 1.1 * x9) + cos (sscalar 2.2) * (sscalar 1.1 * x8)), (x4 * x5) * sscalar 1.0 + (sscalar 1.1 * x6) * sscalar 1.0) in tproject1 (tproject1 x11))"
 
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRrev @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (tlet (sin (sscalar 2.2)) (\\x52 -> tlet (sscalar 1.1 * x52) (\\x54 -> x52 * ((negate (sscalar 3.3) * recip (sscalar 3.3 * sscalar 3.3 + x54 * x54)) * sscalar 1.0) + sin (sscalar 2.2) * (sscalar 3.3 * sscalar 1.0))))"
+    @?= "rfromS (tlet (sin (sscalar 2.2)) (\\x14 -> tlet (sscalar 1.1 * x14) (\\x15 -> x14 * ((negate (sscalar 3.3) * recip (sscalar 3.3 * sscalar 3.3 + x15 * x15)) * sscalar 1.0) + sin (sscalar 2.2) * (sscalar 3.3 * sscalar 1.0))))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -1262,52 +1261,22 @@ testUnitriangular2PP = do
   printAstPretty IM.empty (simplifyInlineContract a1)
     @?= "rfromS (sgather (sfromVector (fromList [sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 0.0))))), sreplicate (sreplicate (sreplicate (sreplicate (sreplicate (sscalar 1.0)))))])) (\\[i3, i4] -> [ifF (i3 <. i4) 0 1, i3, i4]))"
 
-rscanZip :: forall rn n rn2 n2 target.
-            (GoodScalar rn, KnownNat n, GoodScalar rn2, KnownNat n2, ADReady target)
-         => (forall f. ADReady f => f (TKR n rn) -> f (TKR n2 rn2) -> f (TKR n rn))
-         -> FullTensorKind (TKR n2 rn2)
-         -> target (TKR n rn)
-         -> target (TKR (1 + n2) rn2)
-         -> target (TKR (1 + n) rn)
-rscanZip f eShs acc0 es =
-  let width = rlength es
-      ftk = tftk stensorKind acc0
-  in withSNat width $ \snat ->
-    tlet
-      (dmapAccumL Proxy snat ftk ftk eShs
-         (let g :: forall f. ADReady f
-                => f (TKR n rn) -> f (TKR n2 rn2)
-                -> f (TKProduct (TKR n rn) (TKR n rn))
-              g acc e = tlet (f acc e) (\res -> tpair res res)
-          in g)
-         acc0 es)
-      (\res -> rappend (rfromList [acc0]) (tproject2 res))
-
 testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = (sfromD . (V.! 0))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
+              f x0 = tproject1 $ dmapAccumR (Proxy @f) (SNat @0)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                  -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                                          (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.singleton $ DynamicShaped x0)
-                          (dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))
+                                 => g (TKS '[] Double) -> g (TKS '[] Double)
+                                 -> g (TKProduct (TKS '[] Double) (TKS '[] Double))
+                               g x _a = tpair (sin x) (sin x)
+                           in g)
+                          x0
+                          (srepl 0)
            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SC :: Assertion
@@ -1315,276 +1284,216 @@ testSin0rmapAccumRD00SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
     (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = (sfromD . (V.! 0))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [])
+               f x0 = tproject1 $ dmapAccumL (Proxy @f) (SNat @0)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                                          (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.singleton $ DynamicShaped x0)
-                          (dmkHVector $ V.fromList [])
-           in f) (srepl 1.1))
+                                 => g (TKS '[] Double) -> g (TKS '[] Double)
+                                 -> g (TKProduct (TKS '[] Double) (TKS '[] Double))
+                               g x _a = tpair (sin x) (sin x)
+                           in g)
+                          x0
+                          (srepl 0)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00S0 :: Assertion
 testSin0rmapAccumRD00S0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = (sfromD . (V.! 0))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [])
+              f x0 = tproject1 $ dmapAccumL (Proxy @f) (SNat @0)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
+                          ftkUnit
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                                          (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.singleton $ DynamicShaped x0)
-                          (dmkHVector $ V.fromList [])
+                                 => g (TKS '[] Double) -> g TKUnit
+                                 -> g (TKProduct (TKS '[] Double) (TKS '[] Double))
+                               g x _a = tpair (sin x) (sin x)
+                           in g)
+                          x0
+                          (treplicate (SNat @0) stkUnit tunit)
            in f) (srepl 1.1))
 
--- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
-_testSin0rmapAccumRD00S :: Assertion
-_testSin0rmapAccumRD00S = do
+testSin0rmapAccumRD00S :: Assertion
+testSin0rmapAccumRD00S = do
   assertEqualUpToEpsilon 1e-10
-    (srepl 1)
+    (srepl 8.621412119476068e-2)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = (sfromD . (V.! 0))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [])
+              f x0 = tproject1 $ dmapAccumR (Proxy @f) (SNat @7)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
+                          ftkUnit
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                  in tpair (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                                          (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.singleton $ DynamicShaped x0)
-                          (dmkHVector $ V.fromList [])
+                                 => g (TKS '[] Double) -> g TKUnit
+                                 -> g (TKProduct (TKS '[] Double) (TKS '[] Double))
+                               g x _a = tpair (sin x) (sin x)
+                           in g)
+                          x0
+                          (treplicate (SNat @7) stkUnit tunit)
            in f) (srepl 1.1))
 
--- TODO: empty tensor/heterogeneous vector of tensors ambiguity breaks things
-_testSin0rmapAccumRD00S7 :: Assertion
-_testSin0rmapAccumRD00S7 = do
+testSin0rmapAccumRD00S7 :: Assertion
+testSin0rmapAccumRD00S7 = do
   assertEqualUpToEpsilon 1e-10
-    (srepl 1)
+    (srepl 1.4091291405664697)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Double)
-              f x0 = (sfromD . (V.! 1))
-                      $ dunHVector
-                      $ productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
-                          (FTKUntyped $ V.fromList [])
+              f x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
+                          ftkUnit
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a =
-                                 let x = sfromD @Double @'[] $ xh V.! 0
-                                 in tpair (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                                          (dmkHVector
-                                      $ V.fromList
-                                          [ DynamicShaped $ sin x ])
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.singleton $ DynamicShaped x0)
-                          (dmkHVector $ V.fromList [])
+                                 => g (TKS '[] Double) -> g TKUnit
+                                 -> g (TKProduct (TKS '[] Double) (TKS '[] Double))
+                               g x _a = tpair (sin x) (sin x)
+                           in g)
+                          x0
+                          (treplicate (SNat @7) stkUnit tunit)
            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCacc0 :: Assertion
 testSin0rmapAccumRD00SCacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f _x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @0)
+                          ftkUnit
+                          ftkUnit
+                          (FTKS ZSS FTKScalar)
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))))
-                       $ \_ -> srepl 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g (TKS '[] Double)
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (srepl 0)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCacc :: Assertion
 testSin0rmapAccumRD00SCacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+                          ftkUnit
+                          ftkUnit
+                          (FTKS ZSS FTKScalar)
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.singleton $ DynamicShaped @Double @'[7]
-                           $ sreplicate @_ @7 x0)))
-                       $ \_ -> srepl 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g (TKS '[] Double)
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (srepl 0)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sacc0 :: Assertion
 testSin0rmapAccumRD00Sacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f _x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+              f _x0 = tproject2 $ dmapAccumL (Proxy @f) (SNat @0)
+                          ftkUnit
+                          ftkUnit
+                          (FTKS ZSS FTKScalar)
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.singleton $ DynamicShaped @Double @'[0] (srepl 0))))
-                       $ \_ -> srepl 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g (TKS '[] Double)
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (srepl 0)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sacc :: Assertion
 testSin0rmapAccumRD00Sacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [voidFromShS @Double @'[]])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+              f _x0 = tproject2 $ dmapAccumL (Proxy @f) (SNat @7)
+                          ftkUnit
+                          ftkUnit
+                          (FTKS ZSS FTKScalar)
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.singleton $ DynamicShaped @Double @'[7]
-                           $ sreplicate @_ @7 x0)))
-                       $ \_ -> sscalar 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g (TKS '[] Double)
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (srepl 0)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCall0 :: Assertion
 testSin0rmapAccumRD00SCall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f _x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @0)
+                          ftkUnit
+                          ftkUnit
+                          ftkUnit
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.fromList []))) $ \_ -> sscalar 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g TKUnit
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (treplicate (SNat @0) stkUnit tunit)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCall :: Assertion
 testSin0rmapAccumRD00SCall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f _x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
+    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+                          ftkUnit
+                          ftkUnit
+                          ftkUnit
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.fromList []))) $ \_ -> srepl 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g TKUnit
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (treplicate (SNat @7) stkUnit tunit)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sall0 :: Assertion
 testSin0rmapAccumRD00Sall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f _x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @0)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+              f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @0)
+                          ftkUnit
+                          ftkUnit
+                          ftkUnit
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.fromList []))) $ \_ -> srepl 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g TKUnit
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (treplicate (SNat @0) stkUnit tunit)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sall :: Assertion
 testSin0rmapAccumRD00Sall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f _x0 = tlet @_ @TKUntyped (
-                      (productToVectorOf $ dmapAccumR (Proxy @f) (SNat @7)
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
-                          (FTKUntyped $ V.fromList [])
+    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+              f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+                          ftkUnit
+                          ftkUnit
+                          ftkUnit
                           (let g :: forall g. ADReady g
-                                 => HVector g -> HVector g
-                                 -> g (TKProduct TKUntyped TKUntyped)
-                               g xh _a = tpair (dmkHVector xh)
-                                           (dmkHVector V.empty)
-                           in \x y -> g (dunHVector x) (dunHVector y))
-                          (dmkHVector $ V.fromList [])
-                          (dmkHVector $ V.fromList []))) $ \_ -> srepl 3
-           in f) (srepl 1.1))
+                                 => g TKUnit -> g TKUnit
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (treplicate (SNat @7) stkUnit tunit)
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD0R :: Assertion
 testSin0rmapAccumRD0R = do
@@ -2728,6 +2637,27 @@ testSin0rmapAccumRD01SN7 = do
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0)
                                          , DynamicShaped @Double @'[1, 2] (sreplicate0N $ sscalar 0) ])
            in f @(ADVal RepN)) (sscalar 1.1))
+
+rscanZip :: forall rn n rn2 n2 target.
+            (GoodScalar rn, KnownNat n, GoodScalar rn2, KnownNat n2, ADReady target)
+         => (forall f. ADReady f => f (TKR n rn) -> f (TKR n2 rn2) -> f (TKR n rn))
+         -> FullTensorKind (TKR n2 rn2)
+         -> target (TKR n rn)
+         -> target (TKR (1 + n2) rn2)
+         -> target (TKR (1 + n) rn)
+rscanZip f eShs acc0 es =
+  let width = rlength es
+      ftk = tftk stensorKind acc0
+  in withSNat width $ \snat ->
+    tlet
+      (dmapAccumL Proxy snat ftk ftk eShs
+         (let g :: forall f. ADReady f
+                => f (TKR n rn) -> f (TKR n2 rn2)
+                -> f (TKProduct (TKR n rn) (TKR n rn))
+              g acc e = tlet (f acc e) (\res -> tpair res res)
+          in g)
+         acc0 es)
+      (\res -> rappend (rfromList [acc0]) (tproject2 res))
 
 testSin0ScanD51 :: Assertion
 testSin0ScanD51 = do

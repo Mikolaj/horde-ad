@@ -7,10 +7,10 @@ module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
   , lemTensorKindOfSTK, sameTensorKind, sameSTK
-  , buildSTK, razeSTK, aDSTK
+  , stkUnit, buildSTK, razeSTK, aDSTK
   , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
-  , buildFTK, razeFTK, aDFTK, tftkG
+  , ftkUnit, buildFTK, razeFTK, aDFTK, tftkG
     -- * Type family RepORArray
   , RepORArray, RepN(..), eltDictRep, showDictRep  -- only temporarily here
     -- * Misc
@@ -142,6 +142,9 @@ sameSTK y1 y2 = case (y1, y2) of
   (STKUntyped, STKUntyped) -> Just Refl
   _ -> Nothing
 
+stkUnit :: STensorKindType TKUnit
+stkUnit = STKScalar typeRep
+
 buildSTK :: SNat k -> STensorKindType y -> STensorKindType (BuildTensorKind k y)
 buildSTK snat@SNat = \case
   stk@(STKScalar{}) -> STKS (snat :$$ ZSS) stk
@@ -224,6 +227,9 @@ ftkToStk = \case
   FTKX sh x -> STKX (ssxFromShape sh) (ftkToStk x)
   FTKProduct ftk1 ftk2 -> STKProduct (ftkToStk ftk1) (ftkToStk ftk2)
   FTKUntyped{} -> STKUntyped
+
+ftkUnit :: FullTensorKind TKUnit
+ftkUnit = FTKScalar
 
 buildFTK :: SNat k -> FullTensorKind y -> FullTensorKind (BuildTensorKind k y)
 buildFTK snat@SNat = \case
