@@ -10,23 +10,11 @@ import Prelude
 import Data.IntMap.Strict qualified as IM
 import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested
-  ( IShR
-  , IxS (..)
-  , KnownShS (..)
-  , ShR (..)
-  , pattern (:$:)
-  , pattern (:.$)
-  , pattern (:.:)
-  , pattern ZIR
-  , pattern ZIS
-  , pattern ZSR
-  )
+import Data.Array.Nested (IShR, IxR (..), KnownShS (..), ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
@@ -194,7 +182,6 @@ testTrees =
   , testCase "4S0rmapAccumRD01SN6" testSin0rmapAccumRD01SN6
   , testCase "4S0rmapAccumRD01SN7" testSin0rmapAccumRD01SN7
   , testCase "4S0ScanD51" testSin0ScanD51
-  , testCase "4S0ScanD51S" testSin0ScanD51S
   , testCase "4S0ScanD8" testSin0ScanD8
   , testCase "4S0ScanD8MapAccum" testSin0ScanD8MapAccum
   , testCase "4S0ScanD8rev" testSin0ScanD8rev
@@ -1298,38 +1285,6 @@ rscanZip f eShs acc0 es =
           in g)
          acc0 es)
       (\res -> rappend (rfromList [acc0]) (tproject2 res))
-
-sscanZip :: forall rn sh k target.
-            ( GoodScalar rn, KnownShS sh, KnownNat k
-            , ADReady target )
-       => (forall f. ADReady f
-           => f (TKS sh rn) -> HVector f -> f (TKS sh rn))
-       -> VoidHVector
-       -> target (TKS sh rn)
-       -> HVector target
-       -> target (TKS (1 + k ': sh) rn)
-sscanZip f eShs acc0 es =
-  tlet @_ @TKUntyped (
-    (productToVectorOf $ dmapAccumL Proxy
-       (SNat @k)
-       (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
-       (FTKUntyped $ V.singleton $ voidFromShS @rn @sh)
-       (FTKUntyped eShs)
-       (let g :: forall f. ADReady f
-              => HVector f -> HVector f -> f (TKProduct TKUntyped TKUntyped)
-            g acc e =
-             tlet
-                (f (sfromD $ acc V.! 0) e)
-                (\res -> tpair (dmkHVector
-                         $ V.fromList
-                             [ DynamicShaped @rn @sh @f res ])
-                             (dmkHVector
-                         $ V.fromList
-                             [ DynamicShaped @rn @sh @f res ]))
-        in \x y -> g (dunHVector x) (dunHVector y))
-       (dmkHVector $ V.singleton $ DynamicShaped acc0)
-       (dmkHVector es)))
-    (\res -> sappend @_ @_ @1 (sfromList [acc0]) (sfromD $ dunHVector res V.! 1))
 
 testSin0rmapAccumRD0SC :: Assertion
 testSin0rmapAccumRD0SC = do
@@ -2873,39 +2828,6 @@ testSin0ScanD51 = do
                          )
           (ringestData [1,1,1,1] [1.1]))
 
-testSin0ScanD51S :: Assertion
-testSin0ScanD51S = do
-  assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1] [319.68688158967257] :: RepN (TKR 4 Double))
-    (rev' (let f :: forall f. ADReady f
-                 => f (TKS '[1,1,1,1] Double) -> f (TKS '[4,1,1,1,1] Double)
-               f a0 =
-                 sscanZip
-                   (let g :: forall f2. ADReady f2
-                          => f2 (TKS '[1,1,1,1] Double) -> HVector f2
-                          -> f2 (TKS '[1,1,1,1] Double)
-                        g x a =
-                          ssum
-                          $ atan2F (sin $ sreplicate @f2 @5 x)
-                                  (ssum $ sin $ ssum
-                                   $ str $ sreplicate @f2 @7
-                                   $ sreplicate @f2 @2 $ sreplicate @f2 @5
-                                   $ ssum @_ @_ @3 $ ssum @_ @_ @8
-                                   $ sfromD $ a V.! 1)
-                    in g)
-                   (V.fromList [ voidFromShS @Double
-                                                                             @'[2, 5, 1, 1, 1, 1]
-                                                                           , voidFromSh @Double
-                                                                             (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR) ])
-                   (sreplicate0N @_ @_ @[1,1,1,1] (sscalar 2) * a0)
-                   (V.fromList
-                      [ DynamicShaped
-                        $ sreplicate @f @3 (sreplicate @f @2 (sreplicate @f @5 a0))
-                      , DynamicRanked $ rfromS
-                        $ sreplicate @f @3 (sreplicate @f @8 (sreplicate @f @3 a0)) ]
-                   )
-           in rfromS . f . sfromR) (ringestData [1,1,1,1] [1.1]))
-
 testSin0ScanD8 :: Assertion
 testSin0ScanD8 = do
   assertEqualUpToEpsilon' 1e-10
@@ -4204,17 +4126,17 @@ testSin0revhV4 = do
 
 testSin0revhV5 :: Assertion
 testSin0revhV5 = do
-  let doms = V.singleton (voidFromShS @Double @'[])
-      doms3 = V.singleton (voidFromShS @Double @'[3])
+  let doms = FTKR ZSR FTKScalar
+      doms3 = FTKS (SNat @3 :$$ ZSS) FTKScalar
       f :: forall g. (BaseTensor g)
-        => HVector g -> g TKUntyped
+        => g (TKS '[3] Double) -> g (TKS '[3] Double)
       f x =
-        srevDt @g @_ @(TKScalar Double) @'[4] (sscanZip const doms (srepl 5) . dunHVector)
-               (FTKUntyped doms3) (dmkHVector x) (ingestData [1, 2, 3, 4])
+        srevDt @g @_ @(TKScalar Double)
+               (\v -> sfromR @_ @'[4] $ rscanZip const doms (rscalar 5) (rfromS v))
+                doms3 x (ingestData @_ @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [0, 0, 0])
-    (crev f
-          (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
+    (sfromList @_ @_ @3 [sscalar 0, sscalar 0, sscalar 0])
+    (crev f (sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
@@ -4232,19 +4154,17 @@ testSin0revhV6 = do
 
 testSin0revhV7 :: Assertion
 testSin0revhV7 = do
-  let doms = V.singleton (voidFromShS @Double @'[])
-      doms3 = V.singleton (voidFromShS @Double @'[3])
+  let doms = FTKR ZSR FTKScalar
+      doms3 = FTKS (SNat @3 :$$ ZSS) FTKScalar
       f :: forall g. (BaseTensor g)
-        => HVector g -> g TKUntyped
+        => g (TKS '[3] Double) -> g (TKS '[3] Double)
       f x =
-        srevDt @g @_ @(TKScalar Double) @'[4]
-               (\v -> sscanZip (\_ w -> let z = sfromD $ w V.! 0
-                                        in z * z) doms (srepl 5) (dunHVector v))
-               (FTKUntyped doms3) (dmkHVector x) (ingestData [1, 2, 3, 4])
+        srevDt @g @_ @(TKScalar Double)
+               (\v -> sfromR @_ @'[4] $ rscanZip (\_ z -> z * z) doms (rscalar 5) (rfromS v))
+                doms3 x (ingestData @_ @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
-    (V.singleton $ DynamicShaped @Double @'[3] $ ingestData [4.0,6.0,8.0])
-    (crev f
-          (V.singleton $ DynamicShaped @Double @'[3] $ sreplicate @_ @3 (sscalar 1.1)))
+    (ingestData @_ @'[3] [4.0,6.0,8.0])
+    (crev f (sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV8 :: Assertion
 testSin0revhV8 = do
