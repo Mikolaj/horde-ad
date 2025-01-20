@@ -1282,16 +1282,14 @@ evalRev !s !c d0 = case d0 of
         (dacc, des) = tunpair dacc_des
         s2 = evalRev s dacc acc0'
     in evalRev s2 des es'
-  FromS @_ @z (SFromR @sh @x d) ->
-    case sameSTK (aDSTK (stensorKind @z))
-                 (aDSTK (stensorKind @(TKR2 (Rank sh) x))) of
-      Just Refl -> evalRev s c d
-      Nothing -> error "evalRev: tensor kinds don't match"
-  FromS @_ @z (SFromX @_ @sh' @x d) ->
-    case sameSTK (aDSTK (stensorKind @z))
-                 (aDSTK (stensorKind @(TKX2 sh' x))) of
-      Just Refl -> evalRev s c d
-      Nothing -> error "evalRev: tensor kinds don't match"
+  FromS @_ @z (SFromR @sh @x d)
+    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
+                           (aDSTK (stensorKind @(TKR2 (Rank sh) x))) ->
+      evalRev s c d
+  FromS @_ @z (SFromX @_ @sh' @x d)
+    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
+                           (aDSTK (stensorKind @(TKX2 sh' x))) ->
+      evalRev s c d
   FromS @y7 @z d -> case (stensorKind @y7, stensorKind @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev s c d
     (STKS ZSS (STKScalar try), STKScalar trz) ->
