@@ -7,16 +7,18 @@ module MnistFcnnRanked1 where
 import Prelude
 
 import Control.Exception (assert)
+import Data.Kind (Type)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..), inline)
+import GHC.TypeLits (Nat)
 
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData
@@ -27,13 +29,26 @@ afcnnMnistLen1 widthHidden widthHidden2 =
   ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
   ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
 
+type ADFcnnMnist1ParametersShaped (target :: Target)
+                                  (widthHidden :: Nat)
+                                  (widthHidden2 :: Nat)
+                                  (r :: Type) =
+  ( ( target (TKS '[widthHidden, SizeMnistGlyph] r)
+    , target (TKS '[widthHidden] r) )
+  , ( target (TKS '[widthHidden2, widthHidden] r)
+    , target (TKS '[widthHidden2] r) )
+  , ( target (TKS '[SizeMnistLabel, widthHidden2] r)
+    , target (TKS '[SizeMnistLabel] r) )
+  )
+
 -- | The differentiable type of all trainable parameters of this nn.
+-- The rank 2 tensors represent lists of rank 1 tensors.
 type ADFcnnMnist1Parameters (target :: Target) r =
-  ( ( [target (TKR 1 r)]  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
+  ( ( target (TKR 2 r)  -- ^ @widthHidden@ copies, length @sizeMnistGlyphInt@
     , target (TKR 1 r) )  -- ^ length @widthHidden@
-  , ( [target (TKR 1 r)]  -- ^ @widthHidden2@ copies, length @widthHidden@
+  , ( target (TKR 2 r)  -- ^ @widthHidden2@ copies, length @widthHidden@
     , target (TKR 1 r) )  -- ^ length @widthHidden2@
-  , ( [target (TKR 1 r)]  -- ^ @sizeMnistLabelInt@ copies, length @widthHidden2@
+  , ( target (TKR 2 r)  -- ^ @sizeMnistLabelInt@ copies, length @widthHidden2@
     , target (TKR 1 r) )  -- ^ length @sizeMnistLabelInt@
   )
 
@@ -64,21 +79,22 @@ afcnnMnist1 :: (ADReady target, GoodScalar r)
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let !_A = assert (sizeMnistGlyphInt == rlength datum
-                    && length hidden == widthHidden
-                    && length hidden2 == widthHidden2) ()
+                    && rlength hidden == widthHidden
+                    && rlength hidden2 == widthHidden2) ()
 -- TODO: disabled for tests:  && length readout == sizeMnistLabelInt) ()
-      hiddenLayer1 = listMatmul1 datum hidden + bias
+      hiddenLayer1 = listMatmul1 datum (runravelToList hidden) + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
-      hiddenLayer2 = listMatmul1 nonlinearLayer1 hidden2 + bias2
+      hiddenLayer2 = listMatmul1 nonlinearLayer1 (runravelToList hidden2) + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2
-      outputLayer = listMatmul1 nonlinearLayer2 readout + biasr
+      outputLayer = listMatmul1 nonlinearLayer2 (runravelToList readout) + biasr
   in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1TensorData
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => Int -> Int -> (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist1Parameters target r
+  => Int -> Int -> (target (TKR 1 r), target (TKR 1 r))
+  -> ADFcnnMnist1Parameters target r
   -> target (TKR 0 r)
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMax1

@@ -9,11 +9,9 @@ import Prelude
 
 import Control.Monad (foldM, unless)
 import Data.IntMap.Strict qualified as IM
-import Data.List.Index (imap)
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (SomeNat (..), someNatVal)
-import Numeric.LinearAlgebra qualified as LA
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -53,37 +51,31 @@ testTrees = [ tensorADValMnistTests
 -- which side-steps vectorization.
 mnistTestCase1VTA
   :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r
+     ( target ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
-  let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
-      params1Init =
-        imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
-          $ V.map realToFrac
-          $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
-            - LA.scalar 0.5)
-          nParams1
-      -- This is a very ugly and probably unavoidable boilerplate:
-      -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
-      -- with the correct list lengths (vector lengths can be fake)
-      -- to bootstrap the adaptor machinery. Such boilerplate can be
-      -- avoided only with shapely typed tensors and scalars or when
-      -- not using adaptors.
-      emptyR = RepN $ Nested.rfromList1Prim []
-      hVectorInit = V.fromList params1Init
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
-      valsInit = ( (replicate widthHidden emptyR, emptyR)
-                 , (replicate widthHidden2 emptyR, emptyR)
-                 , (replicate sizeMnistLabelInt emptyR, emptyR) )
+  let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
+      valsInit =
+        case someNatVal $ toInteger widthHidden of
+          Just (SomeNat @widthHidden _) ->
+            case someNatVal $ toInteger widthHidden2 of
+              Just (SomeNat @widthHidden2 _) ->
+                forgetShape $ fst
+                $ randomVals
+                    @(MnistFcnnRanked1.ADFcnnMnist1ParametersShaped
+                        RepN widthHidden widthHidden2 r)
+                    1 (mkStdGen 44)
+              Nothing -> error "valsInit: impossible someNatVal error"
+          Nothing -> error "valsInit: impossible someNatVal error"
+      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length params1Init)
+                        , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
       ftest :: [MnistData r] -> HVector RepN -> r
@@ -148,37 +140,31 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase1VTI
   :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r
+     ( target ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
-  let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
-      params1Init =
-        imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
-          $ V.map realToFrac
-          $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
-            - LA.scalar 0.5)
-          nParams1
-      emptyR = RepN $ Nested.rfromList1Prim []
-      hVectorInit = V.fromList params1Init
-      -- This is a very ugly and probably unavoidable boilerplate:
-      -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
-      -- with the correct list lengths (vector lengths can be fake)
-      -- to bootstrap the adaptor machinery. Such boilerplate can be
-      -- avoided only with shapely typed tensors and scalars or when
-      -- not using adaptors.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
-      valsInit = ( (replicate widthHidden emptyR, emptyR)
-                 , (replicate widthHidden2 emptyR, emptyR)
-                 , (replicate sizeMnistLabelInt emptyR, emptyR) )
+  let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
+      valsInit =
+        case someNatVal $ toInteger widthHidden of
+          Just (SomeNat @widthHidden _) ->
+            case someNatVal $ toInteger widthHidden2 of
+              Just (SomeNat @widthHidden2 _) ->
+                forgetShape $ fst
+                $ randomVals
+                    @(MnistFcnnRanked1.ADFcnnMnist1ParametersShaped
+                        RepN widthHidden widthHidden2 r)
+                    1 (mkStdGen 44)
+              Nothing -> error "valsInit: impossible someNatVal error"
+          Nothing -> error "valsInit: impossible someNatVal error"
+      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length params1Init)
+                        , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
       ftest :: [MnistData r] -> HVector RepN -> r
@@ -260,37 +246,31 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCase1VTO
   :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r
+     ( target ~ RepN, Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
-  let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
-      params1Init =
-        imap (\i nPV ->
-          DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
-          $ V.map realToFrac
-          $ LA.randomVector (44 + nPV + i) LA.Uniform nPV
-            - LA.scalar 0.5)
-          nParams1
-      emptyR = RepN $ Nested.rfromList1Prim []
-      hVectorInit = V.fromList params1Init
-      -- This is a very ugly and probably unavoidable boilerplate:
-      -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
-      -- with the correct list lengths (vector lengths can be fake)
-      -- to bootstrap the adaptor machinery. Such boilerplate can be
-      -- avoided only with shapely typed tensors and scalars or when
-      -- not using adaptors.
-      valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
-      valsInit = ( (replicate widthHidden emptyR, emptyR)
-                 , (replicate widthHidden2 emptyR, emptyR)
-                 , (replicate sizeMnistLabelInt emptyR, emptyR) )
+  let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters target r
+      valsInit =
+        case someNatVal $ toInteger widthHidden of
+          Just (SomeNat @widthHidden _) ->
+            case someNatVal $ toInteger widthHidden2 of
+              Just (SomeNat @widthHidden2 _) ->
+                forgetShape $ fst
+                $ randomVals
+                    @(MnistFcnnRanked1.ADFcnnMnist1ParametersShaped
+                        RepN widthHidden widthHidden2 r)
+                    1 (mkStdGen 44)
+              Nothing -> error "valsInit: impossible someNatVal error"
+          Nothing -> error "valsInit: impossible someNatVal error"
+      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (length params1Init)
+                        , show (V.length hVectorInit)
                         , show (sizeHVector hVectorInit)
                         , show gamma ]
       ftest :: [MnistData r] -> HVector RepN -> r
@@ -699,11 +679,11 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
 
 valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters RepN Double
 valsInitVTOPP =
-  ( ( replicate 3 (RepN $ Nested.rfromList1Prim [1 .. fromIntegral sizeMnistGlyphInt])
+  ( ( rreplicate 3 (RepN $ Nested.rfromList1Prim [1 .. fromIntegral sizeMnistGlyphInt])
     , RepN $ Nested.rfromList1Prim [1, 2, 3] )
-  , ( replicate 4 (RepN $ Nested.rfromList1Prim [1, 2, 3])
+  , ( rreplicate 4 (RepN $ Nested.rfromList1Prim [1, 2, 3])
     , RepN $ Nested.rfromList1Prim [1, 2, 3, 4] )
-  , ( replicate 5 (RepN $ Nested.rfromList1Prim [1, 2, 3, 4])
+  , ( rreplicate 5 (RepN $ Nested.rfromList1Prim [1, 2, 3, 4])
     , RepN $ Nested.rfromList1Prim [1, 2, 3, 4, 5] ) )
 
 testVTOPP :: Assertion
