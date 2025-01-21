@@ -8,6 +8,8 @@ module HordeAd.Core.AstPrettyPrint
   , printAstDynamicVarName
     -- * Pretty-printing terms in a few useful configurations
   , printAstSimple, printAstPretty, printAstPrettyButNested
+  , printArtifactSimple, printArtifactPretty
+  , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
 
 import Prelude
@@ -713,3 +715,49 @@ printAstPrettyButNested :: (TensorKind y, AstSpan s)
                         => IntMap String -> AstTensor ms s y -> String
 printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
+
+printArtifactSimple
+  :: forall x z. (TensorKind x, TensorKind z)
+  => IntMap String
+  -> AstArtifactRev x z
+  -> String
+printArtifactSimple renames !AstArtifactRev{..}
+ | Dict <- lemTensorKindOfAD (stensorKind @x)
+ , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  let !varsPP = [ printAstVarName renames artVarDtRev
+                , printAstVarName renames artVarDomainRev ]
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstSimple renames artDerivativeRev
+
+printArtifactPretty
+  :: forall x z. (TensorKind x, TensorKind z)
+  => IntMap String
+  -> AstArtifactRev x z
+  -> String
+printArtifactPretty renames !AstArtifactRev{..}
+ | Dict <- lemTensorKindOfAD (stensorKind @x)
+ , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  let varsPP = [ printAstVarName renames artVarDtRev
+               , printAstVarName renames artVarDomainRev ]
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstPretty renames artDerivativeRev
+
+printArtifactPrimalSimple
+  :: forall x z. (TensorKind x, TensorKind z)
+  => IntMap String
+  -> AstArtifactRev x z
+  -> String
+printArtifactPrimalSimple renames !AstArtifactRev{..} =
+  let !varsPP = [printAstVarName renames artVarDomainRev]
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstSimple renames artPrimalRev
+
+printArtifactPrimalPretty
+  :: forall x z. (TensorKind x, TensorKind z)
+  => IntMap String
+  -> AstArtifactRev x z
+  -> String
+printArtifactPrimalPretty renames !AstArtifactRev{..} =
+  let !varsPP = [printAstVarName renames artVarDomainRev]
+  in "\\" ++ unwords varsPP
+          ++ " -> " ++ printAstPretty renames artPrimalRev

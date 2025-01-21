@@ -11,17 +11,14 @@ module HordeAd.Core.OpsAst
   , revArtifactFromForwardPass
   , revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
-  , printArtifactSimple, printArtifactPretty
-  , printArtifactPrimalSimple, printArtifactPrimalPretty
   ) where
 
 import Prelude
 
-import Data.IntMap.Strict (IntMap)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat, type (+))
+import GHC.TypeLits (KnownNat, type (+))
 import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Type.Ord (Compare)
@@ -39,7 +36,6 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
@@ -2335,82 +2331,3 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
       AstNoSimplify $ AstMapAccumLDer k bShs eShs f df rf (unAstNoSimplify acc0) (unAstNoSimplify es)
-
-
--- TODO: move to a better home:
-
-prettifyArtifactRev
-  :: forall x z. (TensorKind x, TensorKind z)
-  => AstArtifactRev x z
-  -> ( AstVarName PrimalSpan (ADTensorKind z)
-     , [AstDynamicVarName]
-     , AstTensor AstMethodLet PrimalSpan (ADTensorKind x)
-     , AstTensor AstMethodLet PrimalSpan z )
-prettifyArtifactRev AstArtifactRev{..} = case stensorKind @x of
- STKUntyped ->
-  fun1DToAst (shapeAstHVector artDerivativeRev) $ \ !vars1 !asts1 ->
-    let idom = AstMkHVector asts1
-        !derivative = substituteAst
-                        idom artVarDomainRev artDerivativeRev in
-    let !primal = substituteAst
-                    idom artVarDomainRev artPrimalRev
-    in (artVarDtRev, vars1, derivative, primal)
- stk ->
-   let dynvar = case stk of
-         STKR SNat (STKScalar @r _) ->
-           AstDynamicVarName @Nat @r @'[]  -- TODO: ftk
-                             (varNameToAstVarId artVarDomainRev)
-         STKS @sh sh (STKScalar @r _)-> withKnownShS sh $
-           AstDynamicVarName @Nat @r @sh
-                             (varNameToAstVarId artVarDomainRev)
-         _ -> AstDynamicVarName @Nat @Double @'[]  -- TODO: product?
-                                (varNameToAstVarId artVarDomainRev)
-   in (artVarDtRev, [dynvar], artDerivativeRev, artPrimalRev)
-
-printArtifactSimple
-  :: forall x z. (TensorKind x, TensorKind z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
-printArtifactSimple renames art | Dict <- lemTensorKindOfAD (stensorKind @x)
-                                , Dict <- lemTensorKindOfAD (stensorKind @z) =
-  let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
-  let !varsPP = printAstVarName renames varDt
-                : map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimple renames derivative
-
-printArtifactPretty
-  :: forall x z. (TensorKind x, TensorKind z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
-printArtifactPretty renames art | Dict <- lemTensorKindOfAD (stensorKind @x)
-                                , Dict <- lemTensorKindOfAD (stensorKind @z) =
-  let !(!varDt, !vars1, !derivative, _) = prettifyArtifactRev art in
-  let varsPP = printAstVarName renames varDt
-               : map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPretty renames derivative
-
-printArtifactPrimalSimple
-  :: forall x z. (TensorKind x, TensorKind z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
-printArtifactPrimalSimple renames art =
-  let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
-  let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimple renames primal
-
-printArtifactPrimalPretty
-  :: forall x z. (TensorKind x, TensorKind z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
-printArtifactPrimalPretty renames art =
-  let !(_, !vars1, _, !primal) = prettifyArtifactRev art in
-  let !varsPP = map (printAstDynamicVarNameBrief renames) vars1
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPretty renames primal
