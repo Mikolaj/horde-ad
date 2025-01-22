@@ -1,4 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Operations on the untyped product (heterogeneous vector) of tensors.
 -- In particular, adaptors for working with types of collections of tensors
 -- that are isomorphic to products.
@@ -17,14 +19,20 @@ import Prelude
 
 import Control.Exception (assert)
 import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
+import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
+import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
 
 -- import qualified Data.Array.RankedS as OR
 -- import           Data.List (foldl')
 -- import HordeAd.Core.Ast
 -- import           GHC.TypeLits (KnownNat)
+
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Nested (ListR (..))
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -154,6 +162,75 @@ instance BaseTensor target
                then Nothing
                else Just $ dmkHVector rest)
     Nothing -> Nothing
+
+type family Tups n t where
+  Tups 0 t = TKUnit
+  Tups n t = TKProduct t (Tups (n - 1) t)
+
+stkOfListR :: forall t n x.
+              STensorKindType t -> ListR n x -> STensorKindType (Tups n t)
+stkOfListR _ ZR = stensorKind
+stkOfListR stk ((:::) @n1 _ rest) =
+  gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups n1 t)) $
+  STKProduct stk (stkOfListR stk rest)
+
+instance ( BaseTensor target
+         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a)) )
+         => AdaptableHVector target (ListR n a) where
+  type X (ListR n a) = Tups n (X a)
+  toHVectorOf ZR = tunit
+  toHVectorOf ((:::) @n1 a rest)
+   | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) rest) =
+    gcastWith (unsafeCoerceRefl
+               :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
+    let a1 = toHVectorOf a
+        rest1 = toHVectorOf rest
+    in tpair a1 rest1
+  fromHVector ZR _ = Just (ZR, Nothing)
+  fromHVector ((:::) @n1 aInit restInit) a1rest1
+   | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) restInit) =
+    gcastWith (unsafeCoerceRefl
+              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $ do
+      let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
+      (a, Nothing) <- fromHVector aInit a1
+      (rest, Nothing) <- fromHVector restInit rest1
+      return (a ::: rest, Nothing)
+  fromHVectorAD ZR _ = Just (ZR, Nothing)
+  fromHVectorAD((:::) @n1 aInit restInit) a1rest1
+   | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind
+                                               @(ADTensorKind (X a))) restInit) =
+    gcastWith (unsafeCoerceRefl
+              :: ADTensorKind (Tups n1 (X a)) :~: Tups n1 (ADTensorKind (X a))) $
+    gcastWith (unsafeCoerceRefl
+              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $ do
+      let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
+      (a, Nothing) <- fromHVectorAD aInit a1
+      (rest, Nothing) <- fromHVectorAD restInit rest1
+      return (a ::: rest, Nothing)
+
+instance TermValue a => TermValue (ListR n a) where
+  type Value (ListR n a) = ListR n (Value a)
+  fromValue ZR = ZR
+  fromValue (a ::: rest) = fromValue a ::: fromValue rest
+
+instance DualNumberValue a => DualNumberValue (ListR n a) where
+  type DValue (ListR n a) = ListR n (DValue a)
+  fromDValue ZR = ZR
+  fromDValue (a ::: rest) = fromDValue a ::: fromDValue rest
+
+instance ForgetShape a => ForgetShape (ListR n a) where
+  type NoShape (ListR n a) = ListR n (NoShape a)
+  forgetShape ZR = ZR
+  forgetShape (a ::: rest) = forgetShape a ::: forgetShape rest
+
+instance (RandomHVector a, KnownNat n) => RandomHVector (ListR n a) where
+  randomVals range g = case cmpNat (Proxy @n) (Proxy @0)  of
+    LTI -> error "randomVals: impossible"
+    EQI -> (ZR, g)
+    GTI -> gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
+           let (v, g1) = randomVals range g
+               (rest, g2) = randomVals @(ListR (n - 1) a) range g1
+           in (v ::: rest, g2)
 
 instance ( BaseTensor target
          , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
