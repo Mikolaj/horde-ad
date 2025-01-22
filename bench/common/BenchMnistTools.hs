@@ -25,6 +25,13 @@ import MnistData
 import MnistFcnnRanked1 qualified
 import MnistFcnnRanked2 qualified
 
+{-
+afcnnMnistLen1 :: Int -> Int -> [Int]
+afcnnMnistLen1 widthHidden widthHidden2 =
+  replicate widthHidden sizeMnistGlyphInt ++ [widthHidden]
+  ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
+  ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
+
 -- * Using lists of vectors, which is rank 1
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
@@ -35,7 +42,7 @@ mnistTrainBench1VTA :: forall target r. (target ~ RepN, r ~ Double)
                     -> Benchmark
 mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
                     gamma = do
-  let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
+  let nParams1 = afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
           DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
@@ -66,7 +73,7 @@ mnistTestBench1VTA :: forall target r. (target ~ RepN, r ~ Double)
                    => String -> Int -> [MnistData r] -> Int -> Int
                    -> Benchmark
 mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
-  let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
+  let nParams1 = afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
           DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
@@ -117,7 +124,7 @@ mnistTrainBench1VTO :: forall target r. (target ~ RepN, r ~ Double)
                     -> Benchmark
 mnistTrainBench1VTO extraPrefix chunkLength testData widthHidden widthHidden2
                     gamma = do
-  let nParams1 = MnistFcnnRanked1.afcnnMnistLen1 widthHidden widthHidden2
+  let nParams1 = afcnnMnistLen1 widthHidden widthHidden2
       params1Init =
         imap (\i nPV ->
           DynamicRanked @r @1 $ RepN $ Nested.rfromVector (nPV :$: ZSR)
@@ -196,7 +203,7 @@ mnistBGroup1VTO xs0 chunkLength =
            -- another common width
        , mnistTrainBench1VTO "500|150 " chunkLength xs 500 150 0.02
        ]
-
+-}
 
 -- * Using matrices, which is rank 2
 

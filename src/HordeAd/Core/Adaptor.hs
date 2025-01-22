@@ -12,12 +12,12 @@ module HordeAd.Core.Adaptor
   ( AdaptableHVector(..), parseHVector, parseHVectorAD
   , TermValue(..), DualNumberValue(..)
   , ForgetShape(..), RandomHVector(..)
-  , AsHVector(..)
+  , AsHVector(..), stkOfListR
   ) where
 
 import Prelude
 
-import Control.Exception (assert)
+import Control.Exception.Assert.Sugar
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
@@ -61,11 +61,12 @@ class AdaptableHVector (target :: Target) vals where
 -- procedure where @fromHVector@ calls itself recursively for sub-values
 -- across mutliple instances.
 parseHVector
-  :: (TensorKind (X vals), AdaptableHVector target vals, BaseTensor target)
+  :: ( TensorKind (X vals), AdaptableHVector target vals, BaseTensor target
+     , Show (target (X vals)) )
   => vals -> target (X vals) -> vals
 parseHVector aInit hVector =
   case fromHVector aInit hVector of
-    Just (vals, mrest) -> assert (maybe True nullRep mrest) vals
+    Just (vals, mrest) -> assert (maybe True nullRep mrest `blame` mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 parseHVectorAD

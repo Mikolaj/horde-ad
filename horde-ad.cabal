@@ -401,7 +401,6 @@ library testCommonLibrary
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix
-      , ilist
       , ox-arrays
       , random
       , tasty >= 1.0

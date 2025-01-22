@@ -6,7 +6,7 @@
 module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKindType(..), TensorKind(..)
-  , lemTensorKindOfSTK, sameTensorKind, sameSTK
+  , withTensorKind, lemTensorKindOfSTK, sameTensorKind, sameSTK
   , stkUnit, buildSTK, razeSTK, aDSTK
   , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
@@ -36,7 +36,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
+import GHC.Exts (IsList (..), withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (+))
 import Type.Reflection (TypeRep, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
@@ -103,6 +103,9 @@ instance (TensorKind y, TensorKind z)
 
 instance TensorKind TKUntyped where
   stensorKind = STKUntyped
+
+withTensorKind :: forall y r. STensorKindType y -> (TensorKind y => r) -> r
+withTensorKind = withDict @(TensorKind y)
 
 lemTensorKindOfSTK :: STensorKindType y -> Dict TensorKind y
 lemTensorKindOfSTK = \case
