@@ -48,15 +48,15 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
       valsInit = ( (replicate widthHidden emptyR, emptyR)
                  , (replicate widthHidden2 emptyR, emptyR)
                  , (replicate sizeMnistLabelInt emptyR, emptyR) )
-      f :: MnistData r -> HVector (ADVal RepN)
+      f :: MnistData r -> ADVal RepN TKUntyped
         -> ADVal target (TKR 0 r)
       f mnist adinputs =
         MnistFcnnRanked1.afcnnMnistLoss1
           widthHidden widthHidden2
           mnist (unAsHVector
-                 $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
+                 $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength xs
-      grad c = fst $ sgd gamma f c hVectorInit
+      grad c = tunvector $ fst $ sgd gamma f c (dmkHVector hVectorInit)
       name = extraPrefix
              ++ unwords [ "v" ++ show (length nParams1)
                         , "m0" ++ " =" ++ show (sizeHVector hVectorInit) ]
@@ -161,14 +161,13 @@ mnistTrainBench1VTO extraPrefix chunkLength testData widthHidden widthHidden2
           let glyphD = DynamicRanked @r @1
                        $ RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
               labelD = DynamicRanked @r @1
-                       $ RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
+                       $ RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) label
               parametersAndInput =
                 dmkHVector
                 $ V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =
-                dunHVector
-                $ fst $ revEvalArtifact art parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradientHVector)
+                fst $ revEvalArtifact art parametersAndInput Nothing
+          in go rest (tunvector $ updateWithGradient gamma (dmkHVector parameters) gradientHVector)
         chunk = take chunkLength testData
         grad c = go c hVectorInit
     return $! grad chunk
@@ -223,13 +222,13 @@ mnistTrainBench2VTA extraPrefix chunkLength testData widthHidden widthHidden2
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
       hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
-      f :: MnistData r -> HVector (ADVal RepN)
+      f :: MnistData r -> ADVal RepN TKUntyped
         -> ADVal target (TKR 0 r)
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
-          mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
+          mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength testData
-      grad c = fst $ sgd gamma f c hVectorInit
+      grad c = tunvector $ fst $ sgd gamma f c (dmkHVector hVectorInit)
       name = extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
                         , " =" ++ show (sizeHVector hVectorInit) ]
@@ -329,14 +328,13 @@ mnistTrainBench2VTO extraPrefix chunkLength testData widthHidden widthHidden2
           let glyphD = DynamicRanked @r @1
                        $ RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
               labelD = DynamicRanked @r @1
-                       $ RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
+                       $ RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) label
               parametersAndInput =
                 dmkHVector
                 $ V.concat [parameters, V.fromList [glyphD, labelD]]
               gradientHVector =
-                dunHVector
-                $ fst $ revEvalArtifact art parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradientHVector)
+                fst $ revEvalArtifact art parametersAndInput Nothing
+          in go rest (tunvector $ updateWithGradient gamma (dmkHVector parameters) gradientHVector)
         chunk = take chunkLength testData
         grad c = go c hVectorInit
     return $! grad chunk

@@ -99,14 +99,14 @@ mnistTestCase1VTA prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal RepN)
+             let f :: MnistData r -> ADVal RepN TKUntyped
                    -> ADVal target (TKR 0 r)
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHidden widthHidden2
                      mnist (unAsHVector
-                            $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
-                 res = fst $ sgd gamma f chunk hVector
+                            $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                 res = tunvector $ fst $ sgd gamma f chunk (dmkHVector hVector)
                  trainScore = ftest chunk res
                  testScore = ftest testData res
                  lenChunk = length chunk
@@ -206,10 +206,10 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal RepN)
+             let f :: MnistData r -> ADVal RepN TKUntyped
                    -> ADVal target (TKR 0 r)
                  f (glyph, label) varInputs =
-                   let env = extendEnv var (dmkHVector varInputs) emptyEnv
+                   let env = extendEnv var varInputs emptyEnv
                        envMnist =
                          extendEnv varGlyph
                            (rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
@@ -217,7 +217,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHidden widthHidden2
                              (rconcrete $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
                    in interpretAst envMnist ast
-                 res = fst $ sgd gamma f chunk hVector
+                 res = tunvector $ fst $ sgd gamma f chunk (dmkHVector hVector)
                  trainScore = ftest chunk res
                  testScore = ftest testData res
                  lenChunk = length chunk
@@ -336,7 +336,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHidden widthHidden2
                  gradientHVector =
                    dunHVector
                    $ fst $ revEvalArtifact art parametersAndInput Nothing
-             in go rest (updateWithGradient gamma parameters gradientHVector)
+             in go rest (tunvector $ updateWithGradient gamma (dmkHVector parameters) (dmkHVector gradientHVector))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
@@ -426,12 +426,12 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal RepN)
+             let f :: MnistData r -> ADVal RepN TKUntyped
                    -> ADVal target (TKR 0 r)
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
-                 res = fst $ sgd gamma f chunk hVector
+                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                 res = tunvector $ fst $ sgd gamma f chunk (dmkHVector hVector)
                  trainScore = ftest chunk res
                  testScore = ftest testData res
                  lenChunk = length chunk
@@ -525,10 +525,10 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        -- should not print, in principle.
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> HVector (ADVal RepN)
+             let f :: MnistData r -> ADVal RepN TKUntyped
                    -> ADVal target (TKR 0 r)
                  f (glyph, label) varInputs =
-                   let env = extendEnv var (dmkHVector varInputs) emptyEnv
+                   let env = extendEnv var varInputs emptyEnv
                        envMnist =
                          extendEnv varGlyph
                            (rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph)
@@ -536,7 +536,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                              (rconcrete $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
                    in interpretAst envMnist ast
-                 res = fst $ sgd gamma f chunk hVector
+                 res = tunvector $ fst $ sgd gamma f chunk (dmkHVector hVector)
                  trainScore = ftest chunk res
                  testScore = ftest testData res
                  lenChunk = length chunk
@@ -643,7 +643,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                  gradientHVector =
                    dunHVector
                    $ fst $ revEvalArtifact art parametersAndInput Nothing
-             in go rest (updateWithGradient gamma parameters gradientHVector)
+             in go rest (tunvector $ updateWithGradient gamma (dmkHVector parameters) (dmkHVector gradientHVector))
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)

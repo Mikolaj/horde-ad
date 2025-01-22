@@ -168,7 +168,7 @@ chunksOf n = go where
   go l = let (chunk, rest) = splitAt n l
          in chunk : go rest
 
-
+{-
 {-# SPECIALIZE sgd
   :: KnownNat n
   => Double
@@ -178,6 +178,7 @@ chunksOf n = go where
   -> [MnistData Double]
   -> HVector RepN
   -> (HVector RepN, RepN (TKR n Double)) #-}
+-}
 
 {- TODO: RULE left-hand side too complicated to desugar
 

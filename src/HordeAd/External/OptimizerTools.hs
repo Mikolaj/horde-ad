@@ -24,42 +24,71 @@ import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
+import HordeAd.Core.OpsConcrete ()
+import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-updateWithGradient :: Double -> HVector RepN -> HVector RepN -> HVector RepN
-updateWithGradient gamma params gradient =
-  let updateR :: DynamicTensor RepN -> DynamicTensor RepN
-              -> DynamicTensor RepN
-      updateR i r = case (i, r) of
-        ( DynamicRanked @r1 @n1 (RepN i2)
-         ,DynamicRanked @r2 @n2 (RepN r2) ) ->
-          ifDifferentiable @r1
-            (case sameNat (Proxy @n1) (Proxy @n2) of
-               Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
-                 Just Refl ->
-                   DynamicRanked $ RepN
-                   $ i2 - Nested.rreplicateScal (Nested.rshape i2)
-                                                (realToFrac gamma)
-                          * r2
-                 _ -> error "updateWithGradient: scalar mismatch"
-               _ -> error "updateWithGradient: rank mismatch")
-          i
-        ( DynamicShaped @r1 @sh1 (RepN i2)
-         ,DynamicShaped @r2 @sh2 (RepN r2) ) ->
-          ifDifferentiable @r1
-            (case sameShape @sh1 @sh2 of
-               Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
-                 Just Refl ->
-                   DynamicShaped $ RepN
-                   $ i2 - Nested.sreplicateScal (Nested.sshape i2)
-                                                (realToFrac gamma)
-                          * r2
-                 _ -> error "updateWithGradient: scalar mismatch"
-               _ -> error "updateWithGradient: shape mismatch")
-          i
-        _ -> i   -- eval didn't update the gradient, save on computation
-  in V.zipWith updateR params gradient
+updateWithGradient :: forall y. TensorKind y
+                   => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
+updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y of
+  STKR SNat (STKScalar @r _) -> RepN $
+    case sameSTK (stensorKind @y) (aDSTK $ stensorKind @y) of
+      Just Refl ->
+        ifDifferentiable @r
+          (params - Nested.rreplicateScal (Nested.rshape params)
+                                          (realToFrac gamma)
+                    * gradient)
+          params
+      Nothing -> params
+  STKS sh (STKScalar @r _) -> withKnownShS sh $ RepN $
+    case sameSTK (stensorKind @y) (aDSTK $ stensorKind @y) of
+      Just Refl ->
+        ifDifferentiable @r
+          (params - Nested.sreplicateScal (Nested.sshape params)
+                                          (realToFrac gamma)
+                    * gradient)
+          params
+      Nothing -> params
+  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                       , Dict <- lemTensorKindOfAD stk1
+                       , Dict <- lemTensorKindOfSTK stk2
+                       , Dict <- lemTensorKindOfAD stk2 ->
+    tpair (updateWithGradient gamma (tproject1 p) (tproject1 g))
+          (updateWithGradient gamma (tproject2 p) (tproject2 g))
+  STKUntyped ->
+    let updateR :: DynamicTensor RepN -> DynamicTensor RepN
+                -> DynamicTensor RepN
+        updateR i r = case (i, r) of
+          ( DynamicRanked @r1 @n1 (RepN i2)
+           ,DynamicRanked @r2 @n2 (RepN r2) ) ->
+            ifDifferentiable @r1
+              (case sameNat (Proxy @n1) (Proxy @n2) of
+                 Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
+                   Just Refl ->
+                     DynamicRanked $ RepN
+                     $ i2 - Nested.rreplicateScal (Nested.rshape i2)
+                                                  (realToFrac gamma)
+                            * r2
+                   _ -> error "updateWithGradient: scalar mismatch"
+                 _ -> error "updateWithGradient: rank mismatch")
+            i
+          ( DynamicShaped @r1 @sh1 (RepN i2)
+           ,DynamicShaped @r2 @sh2 (RepN r2) ) ->
+            ifDifferentiable @r1
+              (case sameShape @sh1 @sh2 of
+                 Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
+                   Just Refl ->
+                     DynamicShaped $ RepN
+                     $ i2 - Nested.sreplicateScal (Nested.sshape i2)
+                                                  (realToFrac gamma)
+                            * r2
+                   _ -> error "updateWithGradient: scalar mismatch"
+                 _ -> error "updateWithGradient: shape mismatch")
+            i
+          _ -> i   -- eval didn't update the gradient, save on computation
+    in dmkHVector $ V.zipWith updateR (tunvector p) (tunvector g)
+  _ -> error "updateWithGradient: TODO"
 
 {-
 gradientIsNil :: (Eq r) => HVector RepN -> Bool

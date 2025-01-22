@@ -23,27 +23,23 @@ import HordeAd.External.OptimizerTools
 -- These functions have their SPECIALIZE pragmas in MnistData.
 
 -- | Stochastic Gradient Descent.
-sgd :: forall a z. TensorKind z
+sgd :: forall a x z. (TensorKind x, TensorKind z)
     => Double
-    -> (a -> HVector (ADVal RepN) -> ADVal RepN z)
+    -> (a -> ADVal RepN x -> ADVal RepN z)
     -> [a]  -- ^ training data
-    -> HVector RepN  -- ^ initial parameters
-    -> (HVector RepN, RepN z)
+    -> RepN x  -- ^ initial parameters
+    -> (RepN x, RepN z)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  g :: a -> ADVal RepN TKUntyped -> ADVal RepN z
-  g a = f a . tunvector
-  ftk = FTKUntyped $ voidFromHVector parameters0
-  deltaInputs :: Delta RepN TKUntyped
+  ftk = tftk stensorKind parameters0
+  deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs ftk
-  go :: [a] -> HVector RepN
-     -> (HVector RepN, RepN z)
+  go :: [a] -> RepN x -> (RepN x, RepN z)
   go [] parameters = (parameters, undefined)
   go (a : rest) !parameters =
-    let inputs :: ADVal RepN TKUntyped
-        inputs = makeADInputs (RepN parameters) deltaInputs
-        (gradients, valueNew) = crevOnADInputs Nothing (g a) inputs
-        parametersNew = updateWithGradient gamma parameters
-                        $ unRepN gradients
+    let inputs :: ADVal RepN x
+        inputs = makeADInputs parameters deltaInputs
+        (gradients, valueNew) = crevOnADInputs Nothing (f a) inputs
+        parametersNew = updateWithGradient gamma parameters gradients
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
@@ -53,7 +49,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- and specialize.
 -- | An implementation of the Adam gradient descent.
 sgdAdamDeep
-  :: forall a x z .(TensorKind x, TensorKind z)
+  :: forall a x z . (TensorKind x, TensorKind z)
   => (a -> ADVal RepN x -> ADVal RepN z)
   -> [a]
   -> RepN x
@@ -77,8 +73,7 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   ftk = tftk stensorKind parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs ftk
-  go :: [a] -> RepN x -> StateAdamDeep x
-     -> (RepN x, StateAdamDeep x)
+  go :: [a] -> RepN x -> StateAdamDeep x -> (RepN x, StateAdamDeep x)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam
    | Dict <- lemTensorKindOfAD (stensorKind @x) =
