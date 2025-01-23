@@ -16,8 +16,8 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorKind
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData
@@ -116,24 +116,24 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 convMnistTestR
   :: forall target r.
      (target ~ RepN, GoodScalar r, Numeric r, Differentiable r)
-  => ADCnnMnistParameters target r
-  -> Int
+  => Int
   -> MnistDataBatchR r
-  -> HVector RepN
+  -> ADCnnMnistParameters RepN r
   -> r
-convMnistTestR _ 0 _ _ = 0
-convMnistTestR valsInit batch_size (glyphR, labelR) testParams =
+convMnistTestR 0 _ _ = 0
+convMnistTestR batch_size (glyphR, labelR) testParams =
   let input :: target (TKR 4 r)
       input =
-        rconcrete $ Nested.rreshape [batch_size, 1, sizeMnistHeightInt, sizeMnistWidthInt]
-                                glyphR
+        rconcrete $ Nested.rreshape [ batch_size, 1
+                                    , sizeMnistHeightInt, sizeMnistWidthInt ]
+                                    glyphR
       outputR :: RepN (TKR 2 r)
       outputR =
         let nn :: ADCnnMnistParameters target r
                -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
             nn = convMnistTwoR sizeMnistHeightInt sizeMnistWidthInt
                                batch_size input
-        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
+        in nn testParams
       outputs = map (Nested.rtoVector . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
       labels = map (Nested.rtoVector . unRepN) $ runravelToList @_ @(TKScalar r)

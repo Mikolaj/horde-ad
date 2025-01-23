@@ -70,8 +70,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
       hVectorInit = toHVectorOf @RepN valsInit
-      ftk = tftk @RepN
-                       (stensorKind @(X (ADRnnMnistParameters RepN r)))
+      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches

@@ -9,8 +9,6 @@ module TestMnistCNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
-import Data.Vector.Generic qualified as V
-import GHC.TypeLits (SomeNat (..), someNatVal)
 import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
@@ -37,40 +35,47 @@ testTrees = [ tensorADValMnistTestsCNNA
             , tensorADValMnistTestsCNNO
             ]
 
+type XParams r =
+  X (MnistCnnRanked2.ADCnnMnistParameters RepN r)
+
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCaseCNNA
-  :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+  :: forall r.
+     ( Differentiable r, GoodScalar r, Numeric r, Random r
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
+mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                   miniBatchSize totalBatchSize expected =
-  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters target r
+ withSNat khInt $ \(_khSNat :: SNat kh) ->
+ withSNat kwInt $ \(_kwSNat :: SNat kw) ->
+ withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
+ withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
+  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN r
       valsInit =
-        case ( someNatVal $ toInteger kh
-             , someNatVal $ toInteger kw
-             , someNatVal $ toInteger c_out
-             , someNatVal $ toInteger n_hidden ) of
-          ( Just (SomeNat @kh _), Just (SomeNat @kw _)
-           ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
-            forgetShape $ fst
-            $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                             RepN SizeMnistHeight SizeMnistWidth
-                             kh kw c_out n_hidden r)
-                0.4 (mkStdGen 44)
-          _ -> error "impossible someNatVal error"
-      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+        forgetShape $ fst
+        $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
+                        RepN SizeMnistHeight SizeMnistWidth
+                        kh kw c_out n_hidden r)
+                     0.4 (mkStdGen 44)
+      hVectorInit :: RepN (XParams r)
+      hVectorInit = toHVectorOf @RepN valsInit
+      ftk = tftk @RepN (stensorKind @(XParams r))
+                       hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show kh, show kw, show c_out, show n_hidden
-                        , show miniBatchSize
-                        , show (V.length hVectorInit)
-                        , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
-      ftest = MnistCnnRanked2.convMnistTestR valsInit
+                        , show khInt, show kwInt, show c_outInt, show n_hiddenInt
+                        , show miniBatchSize ]
+--                        , show (V.length hVectorInit)
+--                        , show (sizeHVector hVectorInit) ]
+      ftest :: Int -> MnistDataBatchR r
+            -> RepN (XParams r)
+            -> r
+      ftest batch_size mnistData pars =
+        MnistCnnRanked2.convMnistTestR
+          batch_size mnistData (parseHVector @_ @RepN valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -80,33 +85,40 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           runBatch :: (HVector RepN, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector RepN, StateAdam)
+           runBatch :: ( RepN (XParams r)
+                       , StateAdamDeep (XParams r) )
+                    -> (Int, [MnistDataR r])
+                    -> IO ( RepN (XParams r)
+                          , StateAdamDeep (XParams r) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR 0 r)
+             let f :: MnistDataBatchR r
+                   -> ADVal RepN (XParams r)
+                   -> ADVal RepN (TKR 0 r)
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
-                     (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) (dmkHVector adinputs))
+                     (parseHVector (fromDValue valsInit) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdam f chunkR parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep f chunkR parameters stateAdam
                  !trainScore =
                    ftest (length chunk) (packBatchR chunk) parameters2
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
-             unless (n_hidden < 10) $ do
+             unless (n_hiddenInt < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector RepN, StateAdam) -> IO (HVector RepN)
+       let runEpoch :: Int
+                    -> ( RepN (XParams r)
+                       , StateAdamDeep (XParams r) )
+                    -> IO (RepN (XParams r))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (n_hidden < 10) $
+             unless (n_hiddenInt < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
@@ -114,7 +126,7 @@ mnistTestCaseCNNA prefix epochs maxBatches kh kw c_out n_hidden
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdam (voidFromHVector hVectorInit))
+       res <- runEpoch 1 (hVectorInit, initialStateAdamDeep ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -139,37 +151,41 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNI
-  :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+  :: forall r.
+     ( Differentiable r, GoodScalar r, Numeric r, Random r
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
+mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                   miniBatchSize totalBatchSize expected =
-  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters target r
+ withSNat khInt $ \(_khSNat :: SNat kh) ->
+ withSNat kwInt $ \(_kwSNat :: SNat kw) ->
+ withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
+ withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
+  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN r
       valsInit =
-        case ( someNatVal $ toInteger kh
-             , someNatVal $ toInteger kw
-             , someNatVal $ toInteger c_out
-             , someNatVal $ toInteger n_hidden ) of
-          ( Just (SomeNat @kh _), Just (SomeNat @kw _)
-           ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
-            forgetShape $ fst
-            $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
-                             RepN SizeMnistHeight SizeMnistWidth
-                             kh kw c_out n_hidden r)
-                0.4 (mkStdGen 44)
-          _ -> error "impossible someNatVal error"
-      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+        forgetShape $ fst
+        $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
+                        RepN SizeMnistHeight SizeMnistWidth
+                        kh kw c_out n_hidden r)
+                     0.4 (mkStdGen 44)
+      hVectorInit :: RepN (XParams r)
+      hVectorInit = toHVectorOf @RepN valsInit
+      ftk = tftk @RepN (stensorKind @(XParams r))
+                       hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show kh, show kw, show c_out, show n_hidden
-                        , show miniBatchSize
-                        , show (V.length hVectorInit)
-                        , show (sizeHVector hVectorInit) ]
-      ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
-      ftest = MnistCnnRanked2.convMnistTestR valsInit
+                        , show khInt, show kwInt, show c_outInt, show n_hiddenInt
+                        , show miniBatchSize ]
+--                        , show (V.length hVectorInit)
+--                        , show (sizeHVector hVectorInit) ]
+      ftest :: Int -> MnistDataBatchR r
+            -> RepN (XParams r)
+            -> r
+      ftest batch_size mnistData pars =
+        MnistCnnRanked2.convMnistTestR
+          batch_size mnistData (parseHVector @_ @RepN valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -178,8 +194,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, _, var, hVector2)
-         <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
+       (_, _, var, hVector2) <- funToAstRevIO ftk
        let testDataR = packBatchR testData
        (varGlyph, astGlyph) <-
          funToAstIO
@@ -190,37 +205,42 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
-                   (unAsHVector
-                    $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   hVector2)
-           runBatch :: (HVector RepN, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector RepN, StateAdam)
+                   (parseHVector (fromDValue valsInit) hVector2)
+           runBatch :: ( RepN (XParams r)
+                       , StateAdamDeep (XParams r) )
+                    -> (Int, [MnistDataR r])
+                    -> IO ( RepN (XParams r)
+                          , StateAdamDeep (XParams r) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r -> HVector (ADVal RepN)
-                   -> ADVal target (TKR 0 r)
+             let f :: MnistDataBatchR r
+                   -> ADVal RepN (XParams r)
+                   -> ADVal RepN (TKR 0 r)
                  f (glyph, label) varInputs =
-                   let env = extendEnv var (dmkHVector varInputs) emptyEnv
+                   let env = extendEnv var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (rconcrete glyph)
                                   $ extendEnv varLabel (rconcrete label) env
                    in interpretAst envMnist ast
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdam f chunkR parameters stateAdam
+                 res@(parameters2, _) = sgdAdamDeep f chunkR parameters stateAdam
                  !trainScore =
                    ftest (length chunk) (packBatchR chunk) parameters2
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
-             unless (n_hidden < 10) $ do
+             unless (n_hiddenInt < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector RepN, StateAdam) -> IO (HVector RepN)
+       let runEpoch :: Int
+                    -> ( RepN (XParams r)
+                       , StateAdamDeep (XParams r) )
+                    -> IO (RepN (XParams r))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (n_hidden < 10) $
+             unless (n_hiddenInt < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
@@ -228,7 +248,7 @@ mnistTestCaseCNNI prefix epochs maxBatches kh kw c_out n_hidden
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdam (voidFromHVector hVectorInit))
+       res <- runEpoch 1 (hVectorInit, initialStateAdamDeep ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -254,37 +274,40 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCaseCNNO
-  :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+  :: forall r.
+     ( Differentiable r, GoodScalar r, Numeric r, Random r
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
+mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                   miniBatchSize totalBatchSize expected =
- -- TODO: use withKnownNat when we no longer support GHC 9.4
- case ( someNatVal $ toInteger kh
-      , someNatVal $ toInteger kw
-      , someNatVal $ toInteger c_out
-      , someNatVal $ toInteger n_hidden ) of
-   ( Just (SomeNat @kh _), Just (SomeNat @kw _)
-    ,Just (SomeNat @c_out _), Just (SomeNat @n_hidden _) ) ->
-    let valsInitShaped
-          :: MnistCnnRanked2.ADCnnMnistParametersShaped
-               RepN SizeMnistHeight SizeMnistWidth
-               kh kw c_out n_hidden r
-        valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
-        valsInit :: MnistCnnRanked2.ADCnnMnistParameters target r
-        valsInit = forgetShape valsInitShaped
-        hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
-        name = prefix ++ ": "
-               ++ unwords [ show epochs, show maxBatches
-                          , show kh, show kw, show c_out, show n_hidden
-                          , show miniBatchSize
-                          , show (V.length hVectorInit)
-                          , show (sizeHVector hVectorInit) ]
-        ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
-        ftest = MnistCnnRanked2.convMnistTestR valsInit
+ withSNat khInt $ \(_khSNat :: SNat kh) ->
+ withSNat kwInt $ \(_kwSNat :: SNat kw) ->
+ withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
+ withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
+  let valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN r
+      valsInit =
+        forgetShape $ fst
+        $ randomVals @(MnistCnnRanked2.ADCnnMnistParametersShaped
+                        RepN SizeMnistHeight SizeMnistWidth
+                        kh kw c_out n_hidden r)
+                     0.4 (mkStdGen 44)
+      hVectorInit :: RepN (XParams r)
+      hVectorInit = toHVectorOf @RepN valsInit
+      ftk = tftk @RepN (stensorKind @(XParams r))
+                       hVectorInit
+      name = prefix ++ ": "
+             ++ unwords [ show epochs, show maxBatches
+                        , show khInt, show kwInt, show c_outInt, show n_hiddenInt                         , show miniBatchSize ]
+--                        , show (V.length hVectorInit)
+--                        , show (sizeHVector hVectorInit) ]
+      ftest :: Int -> MnistDataBatchR r
+            -> RepN (XParams r)
+            -> r
+      ftest batch_size mnistData pars =
+        MnistCnnRanked2.convMnistTestR
+          batch_size mnistData (parseHVector @_ @RepN valsInit pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -299,34 +322,35 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                       in ( RepN dglyph
                          , RepN dlabel )
              [] -> error "empty test data"
-           f :: (AsHVector
-                  ( MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan) r
-                  , ( AstTensor AstMethodLet FullSpan
-                        (TKR 3 r)
-                    , AstTensor AstMethodLet FullSpan
-                        (TKR 2 r) ) ))
+           f :: ( MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan) r
+                , ( AstTensor AstMethodLet FullSpan (TKR 3 r)
+                  , AstTensor AstMethodLet FullSpan (TKR 2 r) ) )
              -> AstTensor AstMethodLet FullSpan (TKR 0 r)
-           f = \ (AsHVector (pars, (glyphR, labelR))) ->
+           f = \ (pars, (glyphR, labelR)) ->
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (AsHVector (valsInit, dataInit))
+           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
            art = simplifyArtifactGradient artRaw
-           go :: [MnistDataBatchR r] -> (HVector RepN, StateAdam)
-              -> (HVector RepN, StateAdam)
+           go :: [MnistDataBatchR r]
+              -> ( RepN (XParams r)
+                 , StateAdamDeep (XParams r) )
+              -> ( RepN (XParams r)
+                 , StateAdamDeep (XParams r) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicRanked $ rconcrete glyph
-                 labelD = DynamicRanked $ rconcrete label
-                 parametersAndInput =
-                   dmkHVector
-                   $ V.concat [parameters, V.fromList [glyphD, labelD]]
-                 gradientHVector =
-                   dunHVector
-                   $ fst $ revEvalArtifact art parametersAndInput Nothing
-             in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
-                                                parameters gradientHVector)
-           runBatch :: (HVector RepN, StateAdam) -> (Int, [MnistDataR r])
-                    -> IO (HVector RepN, StateAdam)
+             let glyphD = rconcrete glyph
+                 labelD = rconcrete label
+                 parametersAndInput = tpair parameters (tpair glyphD labelD)
+                 gradient =
+                   tproject1 $ fst $ revEvalArtifact art parametersAndInput Nothing
+             in go rest (updateWithGradientAdamDeep
+                           @(XParams r)
+                           defaultArgsAdam stateAdam parameters gradient)
+           runBatch :: ( RepN (XParams r)
+                       , StateAdamDeep (XParams r) )
+                    -> (Int, [MnistDataR r])
+                    -> IO ( RepN (XParams r)
+                          , StateAdamDeep (XParams r) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -337,15 +361,18 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
-             unless (n_hidden < 10) $ do
+             unless (n_hiddenInt < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (HVector RepN, StateAdam) -> IO (HVector RepN)
+       let runEpoch :: Int
+                    -> ( RepN (XParams r)
+                       , StateAdamDeep (XParams r) )
+                    -> IO (RepN (XParams r))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (n_hidden < 10) $
+             unless (n_hiddenInt < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
@@ -353,11 +380,10 @@ mnistTestCaseCNNO prefix epochs maxBatches kh kw c_out n_hidden
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdam (voidFromHVector hVectorInit))
+       res <- runEpoch 1 (hVectorInit, initialStateAdamDeep ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
-   _ -> error "impossible someNatVal error"
 
 {-# SPECIALIZE mnistTestCaseCNNO
   :: String
