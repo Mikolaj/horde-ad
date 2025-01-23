@@ -203,7 +203,7 @@ mnistBGroup1VTO xs0 chunkLength =
            -- another common width
        , mnistTrainBench1VTO "500|150 " chunkLength xs 500 150 0.02
        ]
--}
+
 
 -- * Using matrices, which is rank 2
 
@@ -370,3 +370,4 @@ mnistBGroup2VTO xs0 chunkLength =
            -- another common width
        , mnistTrainBench2VTO "500|150 " chunkLength xs 500 150 0.02
        ]
+-}

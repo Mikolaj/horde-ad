@@ -14,10 +14,8 @@ import Numeric.LinearAlgebra (Numeric)
 import Data.Array.Nested (pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorClass
-import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData

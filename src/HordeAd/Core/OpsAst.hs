@@ -22,7 +22,6 @@ import GHC.TypeLits (KnownNat, type (+))
 import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Type.Ord (Compare)
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++), Product, Rank, IShR, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
@@ -43,7 +42,6 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal (unADValRep)
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass

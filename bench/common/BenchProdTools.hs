@@ -26,6 +26,8 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 
 import HordeAd
 
+{-
+
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
 
@@ -148,7 +150,7 @@ _rankedNoShareVecProd :: GoodScalar r
                       => Data.Vector.Vector (ADVal RepN (TKR 0 r))
                       -> ADVal RepN (TKR 0 r)
 _rankedNoShareVecProd = V.foldl1' multNotShared
-
+-}
 
 -- Until new inspection-testing is released, this is commented out.
 -- Below is a dummy to prevent warnings.

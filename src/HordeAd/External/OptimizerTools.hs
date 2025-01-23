@@ -21,7 +21,6 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
