@@ -242,9 +242,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAst memo v
-  Ast.AstProjectS l p ->
-    let (memo1, l2) = inlineAst memo l
-    in (memo1, Ast.AstProjectS l2 p)
   Ast.AstZipS v -> second Ast.AstZipS (inlineAst memo v)
   Ast.AstUnzipS v -> second Ast.AstUnzipS (inlineAst memo v)
 
@@ -259,8 +256,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ inlineAst memo v
   Ast.AstXUnNest v -> second Ast.AstXUnNest $ inlineAst memo v
 
-  Ast.AstMkHVector l ->
-    second Ast.AstMkHVector $ mapAccumR inlineAstDynamic memo l
   Ast.AstApply t ll ->
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
@@ -300,24 +295,6 @@ inlineAst memo v0 = case v0 of
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstMatmul2S m n p u2 v3)
-
-  Ast.AstLetHVectorIn vars l v ->
-    -- We don't inline, but elsewhere try to reduce to constructors that we do.
-    let (memo1, l2) = inlineAst memo l
-        (memo2, v2) = inlineAst memo1 v
-    in (memo2, Ast.AstLetHVectorIn vars l2 v2)
-
-inlineAstDynamic
-  :: AstSpan s
-  => AstMemo -> AstDynamic AstMethodLet s
-  -> (AstMemo, AstDynamic AstMethodLet s)
-inlineAstDynamic memo = \case
-  DynamicRanked w ->
-    second DynamicRanked $ inlineAst memo w
-  DynamicShaped w ->
-    second DynamicShaped $ inlineAst memo w
-  u@DynamicRankedDummy{} -> (memo, u)
-  u@DynamicShapedDummy{} -> (memo, u)
 
 inlineAstHFun
   :: AstMemo -> AstHFun x y -> (AstMemo, AstHFun x y)
@@ -541,9 +518,6 @@ unshareAst memo = \case
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ unshareAst memo v
-  Ast.AstProjectS l p ->
-    let (memo1, l2) = unshareAst memo l
-    in (memo1, Ast.AstProjectS l2 p)
   Ast.AstZipS v -> second Ast.AstZipS (unshareAst memo v)
   Ast.AstUnzipS v -> second Ast.AstUnzipS (unshareAst memo v)
 
@@ -558,8 +532,6 @@ unshareAst memo = \case
   Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ unshareAst memo v
   Ast.AstXUnNest v -> second Ast.AstXUnNest $ unshareAst memo v
 
-  Ast.AstMkHVector l ->
-    second Ast.AstMkHVector $ mapAccumR unshareAstDynamic memo l
   Ast.AstApply t ll ->
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
@@ -593,18 +565,6 @@ unshareAst memo = \case
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstMatmul2S m n p u2 v3)
-
-unshareAstDynamic
-  :: AstSpan s
-  => AstBindings -> AstDynamic AstMethodShare s
-  -> (AstBindings, AstDynamic AstMethodLet s)
-unshareAstDynamic memo = \case
-  DynamicRanked w ->
-    second DynamicRanked $ unshareAst memo w
-  DynamicShaped w ->
-    second DynamicShaped $ unshareAst memo w
-  DynamicRankedDummy p1 p2 -> (memo, DynamicRankedDummy p1 p2)
-  DynamicShapedDummy p1 p2 -> (memo, DynamicShapedDummy p1 p2)
 
 unshareAstHFun
   :: AstBindings -> AstHFun x y -> (AstBindings, AstHFun x y)

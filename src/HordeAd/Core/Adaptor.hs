@@ -20,7 +20,6 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
-import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
 
@@ -59,21 +58,22 @@ class AdaptableHVector (target :: Target) vals where
 -- procedure where @fromHVector@ calls itself recursively for sub-values
 -- across mutliple instances.
 parseHVector
-  :: ( TensorKind (X vals), AdaptableHVector target vals, BaseTensor target
+  :: forall vals target.
+     ( TensorKind (X vals), AdaptableHVector target vals
      , Show (target (X vals)) )
   => vals -> target (X vals) -> vals
 parseHVector aInit hVector =
   case fromHVector aInit hVector of
-    Just (vals, mrest) -> assert (maybe True nullRep mrest `blame` mrest) vals
+    Just (vals, mrest) -> assert (maybe True (\_ -> nullRep (stensorKind @(X vals))) mrest `blame` mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 parseHVectorAD
   :: forall vals target.
-     (TensorKind (X vals), AdaptableHVector target vals, BaseTensor target)
+     (TensorKind (X vals), AdaptableHVector target vals)
   => vals -> target (ADTensorKind (X vals)) -> vals
 parseHVectorAD aInit hVector | Dict <- lemTensorKindOfAD (stensorKind @(X vals)) =
   case fromHVectorAD aInit hVector of
-    Just (vals, mrest) -> assert (maybe True nullRep mrest) vals
+    Just (vals, mrest) -> assert (maybe True (\_ -> nullRep (stensorKind @(X vals))) mrest) vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 class TermValue vals where
@@ -104,17 +104,6 @@ class RandomHVector vals where
 
 
 -- * Basic Adaptor class instances
-
-instance BaseTensor target
-         => AdaptableHVector target (DynamicTensor target) where
-  type X (DynamicTensor target) = TKUntyped
-  toHVectorOf = dmkHVector . V.singleton
-  fromHVector _aInit v = case V.uncons $ dunHVector v of
-    Just (t, rest) ->
-      Just (t, if V.null rest
-               then Nothing
-               else Just $ dmkHVector rest)
-    Nothing -> Nothing
 
 type family Tups n t where
   Tups 0 t = TKUnit

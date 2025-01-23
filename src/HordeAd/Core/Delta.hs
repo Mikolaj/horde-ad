@@ -62,7 +62,6 @@ import Data.Strict.Vector qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
@@ -186,30 +185,6 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
             let (t1, rest1) = rebuildInputs @y1 els ftk1
                 (t2, rest2) = rebuildInputs @y2 rest1 ftk2
             in (tpair t1 t2, rest2)
-        FTKUntyped shs ->
-          let toDynamicTensor :: Some (RepM target)
-                              -> DynamicTensor target
-              toDynamicTensor (Some b) = case b of
-                MTKScalar @r t -> DynamicShaped @r @'[] $ sfromScalar t
-                MTKR @y @n t | STKScalar @r _ <- stensorKind @y ->
-                  DynamicRanked @r @n t
-                MTKS @y @sh t | STKScalar @r _ <- stensorKind @y ->
-                  DynamicShaped @r @sh t
-                MTKScalarDummy @r -> DynamicShapedDummy @r @'[] Proxy Proxy
-                MTKRDummy shr ftk | SNat <- shrRank shr
-                                  , STKScalar @r _ <- ftkToStk ftk ->
-                  withCastRS shr $ \(sh :: ShS sh) ->
-                    withKnownShS sh $
-                    DynamicRankedDummy @r @sh Proxy Proxy
-                MTKSDummy @_ @sh sh ftk | STKScalar @r _ <- ftkToStk ftk ->
-                  withKnownShS sh $
-                  DynamicShapedDummy @r @sh Proxy Proxy
-                _ -> error "rebuildInputs: unexpected type"
-              len = V.length shs
-              (els1, els2) = splitAt len els
-          in ( dmkHVector
-               $ V.fromList $ map toDynamicTensor els1
-             , els2 )
       (res, remainder) = rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2)
                          $ aDFTK parameters0
   in assert (null remainder) res
@@ -256,11 +231,6 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
               (ds1, j1) = generateDSums j ftk1 t1
               (ds2, j2) = generateDSums j1 ftk2 t2
           in (ds1 ++ ds2, j2)
-        FTKUntyped{} ->
-          let ts = tunvector t
-              len = V.length ts
-          in ( zipWith dynamicTensorToRepM [j ..] $ V.toList ts
-             , j + len )
       iMap = DMap.fromDistinctAscList $ fst
              $ generateDSums 0 (tftk stensorKind ds) ds
       s0 = DMap.empty
@@ -277,17 +247,6 @@ evalRepM = \case
   MTKRDummy shr ftk -> constantTarget 0 (FTKR shr ftk)
   MTKSDummy sh ftk -> constantTarget 0 (FTKS sh ftk)
 
-dynamicTensorToRepM
-  :: Int -> DynamicTensor target
-  -> DSum (InputId target) (RepM target)
-dynamicTensorToRepM n = \case
-  DynamicRanked t -> InputId n :=> MTKR t
-  DynamicShaped t -> InputId n :=> MTKS t
-  DynamicRankedDummy{} ->
-    error "dynamicTensorToRepM: unexpected DynamicRankedDummy"
-  DynamicShapedDummy{} ->
-    error "dynamicTensorToRepM: unexpected DynamicShapedDummy"
-
 repToM
   :: STensorKindType x -> target x
   -> RepM target x
@@ -297,7 +256,6 @@ repToM stk t = case stk of
   STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ MTKS t
   STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ error "TODO"
   STKProduct{} -> error "repToM: unexpected type"
-  STKUntyped{} -> error "repToM: unexpected type"
 
 addRepM :: forall target y. ADReadyNoLet target
         => RepM target y -> RepM target y -> RepM target y
@@ -315,9 +273,6 @@ addRepM a b = case (a, b) of
   (MTKSDummy{}, _) -> b
   (_, MTKSDummy{}) -> a
 
--- This is very similar to DynamicTensor, but the second type parameter
--- gives a peek of what's inside, which is crucial for dependent maps
--- as opposed to existential vectors.
 type role RepM nominal nominal
 data RepM target y where
   MTKScalar :: GoodScalar r
@@ -339,7 +294,6 @@ data RepM target y where
              -> RepM target (TKS2 sh x)
 
 deriving instance ( (forall y7. TensorKind y7 => Show (target y7))
-                  , Show (target TKUntyped)
                   , TensorKind y )
                   => Show (RepM target y)
 
@@ -516,8 +470,6 @@ data Delta :: Target -> TensorKindType -> Type where
   UnzipR :: (TensorKind y, TensorKind z, KnownNat n)
          => Delta target (TKR2 n (TKProduct y z))
          -> Delta target (TKProduct (TKR2 n y) (TKR2 n z))
-  RFromH :: (KnownNat n, GoodScalar r)
-         => Delta target TKUntyped -> Int -> Delta target (TKR n r)
 
   IndexS :: ( TensorKind r, KnownShS shm, KnownShS shn
             , KnownShS (shm ++ shn) )  -- needed for the Show instance
@@ -599,8 +551,6 @@ data Delta :: Target -> TensorKindType -> Type where
   UnzipS :: (TensorKind y, TensorKind z, KnownShS sh)
          => Delta target (TKS2 sh (TKProduct y z))
          -> Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
-  SFromH :: (KnownShS sh, GoodScalar r)
-         => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
 
   IndexX :: (KnownShX sh1, KnownShX sh2, KnownShX (sh1 ++ sh2), TensorKind r)
          => Delta target (TKX2 (sh1 ++ sh2) r)
@@ -688,7 +638,6 @@ data Delta :: Target -> TensorKindType -> Type where
           => Delta target (TKX2 sh1 (TKX2 sh2 x))
           -> Delta target (TKX2 (sh1 ++ sh2) x)
 
-  HToH :: HVector (Delta target) -> Delta target TKUntyped
   MapAccumR
     :: forall target k accShs bShs eShs.
        ( TensorKind accShs, TensorKind bShs, TensorKind eShs
@@ -731,7 +680,6 @@ data Delta :: Target -> TensorKindType -> Type where
     -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
 
 deriving instance ( TensorKind y
-                  , Show (target TKUntyped)
                   , Show (IntOf target)
                   , (forall y7. TensorKind y7 => Show (target y7)) )
                   => Show (Delta target y)
@@ -784,7 +732,6 @@ shapeDeltaFull = \case
     FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
   UnzipR d -> case shapeDeltaFull d of
     FTKR sh (FTKProduct y z) -> FTKProduct (FTKR sh y) (FTKR sh z)
-  RFromH d i -> FTKR (fromList $ shapeVoidDynamic (shapeDeltaH d V.! i)) FTKScalar
 
   IndexS d _ix -> case shapeDeltaFull d of
     FTKS _ x -> FTKS knownShS x
@@ -809,7 +756,6 @@ shapeDeltaFull = \case
     FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
   UnzipS d -> case shapeDeltaFull d of
     FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
-  SFromH{} -> FTKS knownShS FTKScalar
 
   IndexX @sh1 d _ix -> case shapeDeltaFull d of
     FTKX sh x -> FTKX (shxDropSSX sh (knownShX @sh1)) x
@@ -883,8 +829,6 @@ shapeDeltaFull = \case
   XUnNest d -> case shapeDeltaFull d of
     FTKX sh1 (FTKX sh2 x) -> FTKX (sh1 `shxAppend` sh2) x
 
-  HToH v ->
-    FTKUntyped $ V.map (voidFromDynamicF (toList . shapeDelta)) v
   MapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
@@ -910,11 +854,6 @@ shapeDeltaX :: forall target r sh.
             => Delta target (TKX2 sh r) -> IShX sh
 shapeDeltaX t = case shapeDeltaFull t of
   FTKX sh _ -> sh
-
-shapeDeltaH :: forall target.
-               Delta target TKUntyped -> VoidHVector
-shapeDeltaH t = case shapeDeltaFull t of
-  FTKUntyped shs -> shs
 
 
 -- * Delta expression identifiers and evaluation state
@@ -959,7 +898,7 @@ tensorKindFromInputId InputId{} = Dict
 --
 -- Data invariant:
 -- 1. keys nMap == keys dMap
--- 2. key `member` dMap == nMap!key is DynamicRanked
+-- 2. key `member` dMap == nMap!key is ...
 type role EvalState nominal
 data EvalState target = EvalState
   { iMap :: IMap target
@@ -1055,11 +994,6 @@ initEvalState ftk0 =
           let (ds1, j1) = generateDSums j ftk1
               (ds2, j2) = generateDSums j1 ftk2
           in (ds1 ++ ds2, j2)
-        FTKUntyped shs ->
-          let len = V.length shs
-          in ( zipWith fromDynamicTensor [j ..]
-               $ map dynamicFromVoid $ V.toList shs
-             , j + len )
       -- Create finite maps that hold values associated with inputs
       -- and with (possibly shared) term tree nodes.
       -- The former are usually initialized with dummy values so that it's cheap
@@ -1069,19 +1003,6 @@ initEvalState ftk0 =
       -- and especially using them as cotangent accumulators is wasteful.
       -- We take care to keep the scalar type of the dummy correct,
       -- but a shape is not preserved in a dummy, so it's not shape-correct.
-      fromDynamicTensor
-        :: forall target.
-           Int -> DynamicTensor target
-        -> DSum (InputId target) (RepM target)
-      fromDynamicTensor n b = case b of
-        DynamicRanked{} -> error "fromDynamicTensor: impossible case"
-        DynamicShaped{} -> error "fromDynamicTensor: impossible case"
-        DynamicRankedDummy @r @sh _ _ | SNat @n <- shsRank (knownShS @sh) ->
-          let shr :: IShR n
-              shr = shCastSR (knownShS @sh)
-          in InputId n :=> MTKRDummy @(TKScalar r) shr FTKScalar
-        DynamicShapedDummy @r @sh _ _ ->
-          InputId n :=> MTKSDummy @(TKScalar r) @sh knownShS FTKScalar
       iMap = DMap.fromDistinctAscList $ fst $ generateDSums 0
              $ aDFTK ftk0
       dMap = DMap.empty
@@ -1210,7 +1131,6 @@ evalRev !s !c d0 = case d0 of
     assert (case d of  -- shouold match shareDelta
               ZeroG{} -> False
               PairG{} -> False
-              HToH{} -> False
               InputG{} -> False
               ShareG{} -> False
               _ -> True)
@@ -1402,13 +1322,6 @@ evalRevSame !s !c = \case
     evalRevSame s (runzip c) d
   UnzipR d ->
     evalRevSame s (rzip c) d
-  RFromH d i ->
-    let cs = V.map dynamicFromVoid $ shapeDeltaH d
-        ci = DynamicRanked c
-    in assert (dynamicsMatch (cs V.! i) ci) $
-       evalRevSame s (dmkHVector $ cs V.// [(i, ci)]) d
-        -- should be used only with small vectors or we end up with the same
-        -- problem of summing a lot of one-hots as in indexing
 
   IndexS d ix -> evalRevSame s (soneHot c ix) d
   Sum0S @_ @sh d | SNat <- shsProduct (knownShS @sh) ->
@@ -1449,11 +1362,6 @@ evalRevSame !s !c = \case
     evalRevSame s (sunzip c) d
   UnzipS d ->
     evalRevSame s (szip c) d
-  SFromH d i ->
-    let cs = V.map dynamicFromVoid $ shapeDeltaH d
-        ci = DynamicShaped c
-    in assert (dynamicsMatch (cs V.! i) ci) $
-       evalRevSame s (dmkHVector $ cs V.// [(i, ci)]) d
 
   IndexX{} -> error "TODO"
   Sum0X d ->
@@ -1532,42 +1440,8 @@ evalRevSame !s !c = \case
   XUnNest d ->
     evalRevSame s (xnest knownShX c) d
 
-  HToH v -> evalRevHVector s (tunvector c) v
-
   d -> evalRev s c d
     -- the remaining constructors are already handled in evalRev, so let's use that
-
-evalRevDynamic
-  :: (ADReadyNoLet target, ShareTensor target)
-  => EvalState target
-  -> (DynamicTensor target, DynamicTensor (Delta target))
-  -> EvalState target
-evalRevDynamic !s3 (t, DynamicRanked @r @n d2) =
-  gcastWith (unsafeCoerceRefl :: TKR n r :~: ADTensorKind (TKR n r)) $
-    -- this is a noble lie to maintain no ADTensorKind under HVector
-    -- and at the same time re-use the new eval function also for HVector
-  evalRevSame s3 (toADTensorKindShared (stensorKind @(TKR n r)) $ rfromD t) d2
-evalRevDynamic s3 (t, DynamicShaped @r @sh d2) =
-  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  evalRevSame s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t) d2
-evalRevDynamic s3 (t, DynamicRankedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerceRefl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
-  withListSh (Proxy @sh) $ \sh2 ->
-    evalRevSame @(TKR (Rank sh) r)
-             s3 (toADTensorKindShared (stensorKind @(TKR (Rank sh) r))
-                 $ rfromD @r t)
-             (ZeroG $ FTKR sh2 FTKScalar)
-evalRevDynamic s3 (t, DynamicShapedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  evalRevSame @(TKS sh r)
-        s3 (toADTensorKindShared (stensorKind @(TKS sh r)) $ sfromD t)
-        (ZeroG $ FTKS knownShS FTKScalar)
-
-evalRevHVector
-  :: (ADReadyNoLet target, ShareTensor target)
-  => EvalState target -> HVector target -> HVector (Delta target)
-  -> EvalState target
-evalRevHVector s as as' = V.foldl' evalRevDynamic s $ V.zip as as'
 
 evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
              => EvalState target -> EvalState target
@@ -1644,30 +1518,6 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
-evalFwdDynamic
-  :: forall target. (ADReadyNoLet target, ShareTensor target)
-  => IMap target -> ADMap target -> DynamicTensor (Delta target)
-  -> (ADMap target, DynamicTensor target)
-evalFwdDynamic params s (DynamicRanked @r @n d) =
-  gcastWith (unsafeCoerceRefl :: TKR n r :~: ADTensorKind (TKR n r)) $
-  second DynamicRanked $ evalFwdSame params s d
-evalFwdDynamic params s (DynamicShaped @r @sh d) =
-  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  second DynamicShaped $ evalFwdSame params s d
-evalFwdDynamic params s (DynamicRankedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerceRefl :: TKR (Rank sh) r :~: ADTensorKind (TKR (Rank sh) r)) $
-  withListSh (Proxy @sh) $ \sh2 ->
-    second (DynamicRanked @r) $ evalFwdSame params s (ZeroG $ FTKR sh2 FTKScalar)
-evalFwdDynamic params s (DynamicShapedDummy @r @sh _ _) =
-  gcastWith (unsafeCoerceRefl :: TKS sh r :~: ADTensorKind (TKS sh r)) $
-  second (DynamicShaped @r @sh) $ evalFwdSame params s (ZeroG $ FTKS knownShS FTKScalar)
-
-evalFwdHVector
-  :: forall target. (ADReadyNoLet target, ShareTensor target)
-  => IMap target -> ADMap target -> HVector (Delta target)
-  -> (ADMap target,  HVector target)
-evalFwdHVector params = mapAccumL (evalFwdDynamic params)
-
 evalFwd
   :: forall target y.
      (ADReadyNoLet target, ShareTensor target, TensorKind y)
@@ -1838,9 +1688,6 @@ evalFwdSame params s = \case
         _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   ZipR d -> second rzip $ evalFwdSame params s d
   UnzipR d -> second runzip $ evalFwdSame params s d
-  RFromH d i ->
-    let (s2, v) = evalFwdSame params s d
-    in (s2, rfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, rfromD $ tunvector v) V.! i)
@@ -1872,9 +1719,6 @@ evalFwdSame params s = \case
         _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   ZipS d -> second szip $ evalFwdSame params s d
   UnzipS d -> second sunzip $ evalFwdSame params s d
-  SFromH d i ->
-    let (s2, v) = evalFwdSame params s d
-    in (s2, sfromD $ dunHVector v V.! i)
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, sfromD $ tunvector v V.! i)
@@ -1923,8 +1767,5 @@ evalFwdSame params s = \case
   XUnNestR d -> second xunNestR $ evalFwdSame params s d
   XUnNestS d -> second xunNestS $ evalFwdSame params s d
   XUnNest d -> second xunNest $ evalFwdSame params s d
-
-  HToH v -> second dmkHVector
-            $ evalFwdHVector params s v
 
   d -> evalFwd params s d

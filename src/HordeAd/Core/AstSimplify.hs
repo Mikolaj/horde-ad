@@ -25,11 +25,11 @@ module HordeAd.Core.AstSimplify
   , astReplicate, astAppendS, astSliceS, astReverseS
   , astTransposeS, astReshapeS, astCast, astCastS
   , astFromIntegral, astFromIntegralS
-  , astProject1, astProject2, astProjectS
+  , astProject1, astProject2
   , astPrimalPart, astDualPart
   , astFromS, astSFromR, astSFromX
   , astXNestR, astXNestS, astXNest, astXUnNestR, astXUnNestS, astXUnNest
-  , astLetHVectorIn, astApply, astLetFun
+  , astApply, astLetFun
   , astReplicate0NS
     -- * The expansion (e.g., into gather expressions) bottom-up pass
   , expandAst
@@ -49,8 +49,7 @@ import Data.Default
 import Data.Functor.Const
 import Data.GADT.Compare
 import Data.Int (Int64)
-import Data.List (dropWhileEnd, elemIndex)
-import Data.List.Index (ifoldr)
+import Data.List (dropWhileEnd)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Strict.Vector qualified as Data.Vector
@@ -131,6 +130,7 @@ import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
+import HordeAd.Core.CarriersAst ()
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsConcrete ()
@@ -364,12 +364,6 @@ astNonIndexStep t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
-
---  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
-  Ast.AstLetHVectorIn vars u v -> astLetHVectorIn vars u v
-  Ast.AstProjectS l p -> astProjectS l p
-
-  _ -> t  -- TODO
 
 astIndexS
   :: forall shm shn s r.
@@ -654,10 +648,6 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstDot1InS{} -> Ast.AstIndexS v0 ix
   Ast.AstMatvecmulS{} -> Ast.AstIndexS v0 ix
   Ast.AstMatmul2S{} -> Ast.AstIndexS v0 ix
-
-  Ast.AstProjectS{} -> Ast.AstIndexS v0 ix
-  Ast.AstLetHVectorIn vars l v ->
-    astLetHVectorIn vars l (astIndexRec v ix)
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -1181,11 +1171,6 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstMatvecmulS{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstMatmul2S{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
-    Ast.AstProjectS{} ->  -- TODO, but most likely reduced before it gets here
-      Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
-    Ast.AstLetHVectorIn vars l v ->
-      astLetHVectorIn vars l (astGatherCase @shm' @shn' @shp' v (vars4, ix4))
-
 gatherFromNFS :: forall shm n shp. KnownShS shp
               => AstVarListS shm -> AstIxS AstMethodLet (n ': shp) -> Bool
 gatherFromNFS vars (i :.$ IxS rest) =
@@ -1339,71 +1324,10 @@ astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst ( Ast.AstPair ast1 ast2) var v
-astLet var (Ast.AstLetHVectorIn varsN lN (Ast.AstPair u1 u2)) v =
-  astLetHVectorIn varsN lN
-  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (Ast.AstPair ast1 ast2) var v
 astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
-astLet var (Ast.AstFromPrimal (Ast.AstLetHVectorIn
-                               varsN lN (Ast.AstPair u1 u2))) v =
-  astLetHVectorIn varsN lN
-  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
-astLet var u@(Ast.AstMkHVector l3) v =
-  let shs = shapeAstHVector u
-      f !vars !asts =
-        let v2 = substituteAst (Ast.AstMkHVector asts)
-                               var v
-        in foldr (mapRankedShaped astLet astLet)
-                 v2 (zip vars (V.toList l3))
-  in fun1DToAst shs f
-astLet var u@(Ast.AstFromPrimal (Ast.AstMkHVector l3)) v =
-  let shs = shapeAstHVector u
-      f !vars !asts =
-        let v2 = substituteAst (Ast.AstMkHVector asts)
-                               var v
-            clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
-        in foldr (mapRankedShaped clet clet)
-                 v2 (zip vars (V.toList l3))
-  in fun1DToAst shs f
-astLet var (Ast.AstLet varN uN u@(Ast.AstMkHVector l3)) v =
-  let shs = shapeAstHVector u
-      f !vars !asts =
-        let v2 = substituteAst (Ast.AstMkHVector asts)
-                               var v
-        in foldr (mapRankedShaped astLet astLet)
-                 v2 (zip vars (V.toList l3))
-  in astLet varN uN $ fun1DToAst shs f
-astLet var (Ast.AstLetHVectorIn varsN lN u@(Ast.AstMkHVector l3)) v =
-  let shs = shapeAstHVector u
-      f !vars !asts =
-        let v2 = substituteAst (Ast.AstMkHVector asts)
-                               var v
-        in foldr (mapRankedShaped astLet astLet)
-                 v2 (zip vars (V.toList l3))
-  in astLetHVectorIn varsN lN $ fun1DToAst shs f
-astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN u@(Ast.AstMkHVector l3))) v =
-  let shs = shapeAstHVector u
-      f !vars !asts =
-        let v2 = substituteAst (Ast.AstMkHVector asts)
-                               var v
-            clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
-        in foldr (mapRankedShaped clet clet)
-                 v2 (zip vars (V.toList l3))
-  in astLet varN uN $ fun1DToAst shs f
-astLet var (Ast.AstFromPrimal (Ast.AstLetHVectorIn
-                               varsN lN u@(Ast.AstMkHVector l3))) v =
-  let shs = shapeAstHVector u
-      f !vars !asts =
-        let v2 = substituteAst (Ast.AstMkHVector asts)
-                               var v
-            clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
-        in foldr (mapRankedShaped clet clet)
-                 v2 (zip vars (V.toList l3))
-  in astLetHVectorIn varsN lN $ fun1DToAst shs f
 astLet var u (Ast.AstFromS stkz v)
   | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) =
     astFromS stkz $ astLet var u v
@@ -2207,7 +2131,6 @@ astProject1
 astProject1 u = case u of
   Ast.AstPair x _z -> x
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
-  Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject1 v)
 -- TODO: Ast.AstConcrete u1 -> astConcrete $ tproject1 u1
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
@@ -2224,7 +2147,6 @@ astProject2
 astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
-  Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
@@ -2233,21 +2155,6 @@ astProject2 u = case u of
     _ -> error "astProject2: wrong tensor kind"
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
   _ -> Ast.AstProject2 u
-
-astProjectS
-  :: forall sh r s. (KnownShS sh, GoodScalar r, AstSpan s)
-  => AstTensor AstMethodLet s TKUntyped -> Int
-  -> AstTensor AstMethodLet s (TKS sh r)
-astProjectS l p = case l of
-  Ast.AstMkHVector l3 ->
-    fromDynamicS (astReplicate0NS 0) astSFromR (l3 V.! p)
-  Ast.AstLet var u2 d2 ->
-    astLet var u2 (astProjectS d2 p)
-  Ast.AstLetHVectorIn vars d1 d2 ->
-    astLetHVectorIn vars d1 (astProjectS d2 p)
-  Ast.AstFromPrimal l1 -> Ast.AstFromPrimal $ astProjectS l1 p
-  Ast.AstCond b v1 v2 -> Ast.AstCond b (astProjectS v1 p) (astProjectS v2 p)
-  _ -> Ast.AstProjectS l p
 
 astFromS :: forall y z s.
             STensorKindType z -> AstTensor AstMethodLet s y
@@ -2351,8 +2258,6 @@ astSFromR a0 = case a0 of
     _ -> error $ "astSFromR: different tensor kinds in SFromR(FromS): "
                  ++ show (ftkToStk (ftkAst v)) ++ " vs "
                  ++ show (stensorKind @(TKS2 sh r))
-
-  Ast.AstLetHVectorIn{} -> Ast.AstSFromR a0
 
 -- TODO
 astSFromX :: forall sh sh' s r.
@@ -2573,10 +2478,6 @@ astPrimalPart t = case t of
   Ast.AstMatvecmulS{} -> Ast.AstPrimalPart t
   Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
 
-  Ast.AstMkHVector{} -> Ast.AstPrimalPart t  -- TODO
-  Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astPrimalPart v)
-  Ast.AstProjectS l p -> astProjectS (astPrimalPart l) p
-
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
 astDualPart :: TensorKind y
@@ -2668,10 +2569,6 @@ astDualPart t = case t of
   Ast.AstMatvecmulS{} -> Ast.AstDualPart t
   Ast.AstMatmul2S{} -> Ast.AstDualPart t
 
-  Ast.AstMkHVector{} -> Ast.AstDualPart t  -- TODO
-  Ast.AstLetHVectorIn vars l v -> astLetHVectorIn vars l (astDualPart v)
-  Ast.AstProjectS l p -> astProjectS (astDualPart l) p
-
 astApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
          => AstHFun x y -> AstTensor AstMethodLet s x
          -> AstTensor AstMethodLet s y
@@ -2680,146 +2577,6 @@ astApply t u = case t of
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astLet var u v
       _ -> Ast.AstApply t u
-
-mapRankedShaped
-  :: AstSpan s2
-  => (forall n r. (KnownNat n, GoodScalar r)
-      => AstVarName s (TKR n r) -> AstTensor AstMethodLet s2 (TKR n r) -> acc
-      -> acc)
-  -> (forall sh r. (KnownShS sh, GoodScalar r)
-      => AstVarName s (TKS sh r) -> AstTensor AstMethodLet s2 (TKS sh r) -> acc
-      -> acc)
-  -> (AstDynamicVarName, AstDynamic AstMethodLet s2)
-  -> acc
-  -> acc
-{-# INLINE mapRankedShaped #-}
-mapRankedShaped fRanked fShaped
-                vd@(AstDynamicVarName @ty @r3 @sh3 varId, d) acc = case d of
-  DynamicRanked @r4 @n4 v3
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-    , Just Refl <- matchingRank @sh3 @n4
-    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fRanked (mkAstVarName varId) v3 acc
-  DynamicShaped @r4 @sh4 v3
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-    , Just Refl <- sameShape @sh3 @sh4
-    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped (mkAstVarName varId) v3 acc
-  DynamicRankedDummy @r4 @sh4 _ _
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-    , Just Refl <- sameShape @sh3 @sh4
-    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        withListSh (Proxy @sh3) $ \_ ->
-          fRanked (mkAstVarName varId)
-                  (astFromS @(TKS2 sh3 (TKScalar r3)) (stensorKind @(TKR2 (Rank sh3) (TKScalar r3))) (astReplicate0NS 0))
-                  acc
-  DynamicShapedDummy @r4 @sh4 _ _
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-    , Just Refl <- sameShape @sh3 @sh4
-    , Just Refl <- testEquality (typeRep @r3) (typeRep @r4) ->
-        fShaped @sh4 @r4 (mkAstVarName varId) (astReplicate0NS 0) acc
-  _ -> error $ "mapRankedShaped: corrupted arguments"
-               `showFailure`
-               ( vd, typeRep @ty, typeRep @r3, knownShS @sh3
-               , scalarDynamic d, rankDynamic d )
-
--- Inlining doesn't work for this let constructor, because it has many
--- variables, so we try to reduce it to another for which it works.
-astLetHVectorIn
-  :: forall s s2 z. (AstSpan s, AstSpan s2, TensorKind z)
-  => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
-  -> AstTensor AstMethodLet s2 z
-  -> AstTensor AstMethodLet s2 z
-astLetHVectorIn vars l v = case v of
-  Ast.AstConcrete{} -> v
-  Ast.AstFromPrimal v0 -> Ast.AstFromPrimal $ astLetHVectorIn vars l v0
-  Ast.AstVar _ var2 ->
-    case elemIndex (varNameToAstVarId var2)
-                   (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @s2 -> case stensorKind @z of
-        STKScalar @r _ -> astFromS stensorKind $ astProjectS @'[] @r l i
-        STKR _ (STKScalar @r _) ->
-          astFromS stensorKind $ astProjectS @'[] @r l i
-        STKS sh STKScalar{} -> withKnownShS sh $ astProjectS l i
-        STKX sh STKScalar{}-> withKnownShX sh $ error "TODO"
-        STKProduct{} -> error "astLetHVectorIn: STKProduct"
-        STKUntyped -> error "astLetHVectorIn: STKUntyped"
-        _ -> error "TODO"
-      _ -> v
-  Ast.AstPrimalPart (Ast.AstVar ftk var2) ->
-    case elemIndex (varNameToAstVarId var2)
-         (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar @r _ -> astFromS stensorKind
-                          $ astPrimalPart $ astProjectS @'[] @r l i
-        STKR _ (STKScalar @r _) -> case ftk of
-          FTKR sh' _ ->
-            withCastRS sh' $ \(sh :: ShS sh) ->
-              withKnownShS sh $
-              astPrimalPart $ astFromS stensorKind $ astProjectS @sh @r l i
-        STKS sh STKScalar{} -> withKnownShS sh $ astPrimalPart $ astProjectS l i
-        STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
-        STKProduct{} -> error "astLetHVectorIn: STKProduct"
-        STKUntyped -> error "astLetHVectorIn: STKUntyped"
-        _ -> error "TODO"
-      _ -> v
-  Ast.AstDualPart (Ast.AstVar ftk var2) ->
-    case elemIndex (varNameToAstVarId var2)
-         (map dynamicVarNameToAstVarId vars) of
-      Just i | Just Refl <- sameAstSpan @s @FullSpan -> case stensorKind @z of
-        STKScalar @r _ -> astFromS stensorKind
-                          $ astDualPart $ astProjectS @'[] @r l i
-        STKR _ (STKScalar @r _) -> case ftk of
-          FTKR sh' _ ->
-            withCastRS sh' $ \(sh :: ShS sh) ->
-              withKnownShS sh $
-              astDualPart $ astFromS stensorKind $ astProjectS @sh @r l i
-        STKS sh STKScalar{} -> withKnownShS sh $ astDualPart $ astProjectS l i
-        STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
-        STKProduct{} -> error "astLetHVectorIn: STKProduct"
-        STKUntyped -> error "astLetHVectorIn: STKUntyped"
-        _ -> error "TODO"
-      _ -> v
-  _ -> case l of
-        Ast.AstMkHVector l3 ->
-          foldr (mapRankedShaped astLet astLet) v (zip vars (V.toList l3))
-        Ast.AstFromPrimal (Ast.AstMkHVector l3) ->
-          let clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
-          in foldr (mapRankedShaped clet clet)
-                   v (zip vars (V.toList l3))
-        Ast.AstLetHVectorIn varsN lN (Ast.AstMkHVector l3) ->
-          astLetHVectorIn varsN lN
-          $ foldr (mapRankedShaped astLet astLet) v (zip vars (V.toList l3))
-        Ast.AstFromPrimal (Ast.AstLetHVectorIn
-                           varsN lN (Ast.AstMkHVector l3)) ->
-          let clet varC uC vC = astLet varC (Ast.AstFromPrimal uC) vC
-          in astLetHVectorIn varsN lN
-             $ foldr (mapRankedShaped clet clet)
-                     v (zip vars (V.toList l3))
-        Ast.AstLet var2 u2 d2 ->
-          astLet var2 u2
-          $ astLetHVectorIn vars d2 v
-{- TODO: convert vars? do more generally?
-        Ast.AstFromPrimal (Ast.AstLet var2 u2 d2) ->
-          astLet var2 (Ast.AstFromPrimal u2)
-          $ astLetHVectorIn vars (Ast.AstFromPrimal d2) v
--}
-        _ ->
-          if astIsSmall True l || length vars == 1
-          then let mkLet :: Int
-                         -> AstDynamicVarName
-                         -> AstTensor AstMethodLet s2 z
-                         -> AstTensor AstMethodLet s2 z
-                   mkLet i (AstDynamicVarName @ty @r3 @sh3 varId)
-                     | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-                     , SNat <- shsRank (knownShS @sh3) =
-                       astLet (mkAstVarName @s @(TKR (Rank sh3) r3) varId)
-                              (astFromS stensorKind $ astProjectS @sh3 @r3 l i)
-                     | otherwise =
-                       astLet (mkAstVarName @s @(TKS sh3 r3) varId)
-                              (astProjectS l i)
-               in ifoldr mkLet v vars
-          else Ast.AstLetHVectorIn vars l v
 
 -- TODO: a new section for this one?
 astLetFun :: forall y z s s2.
@@ -2987,7 +2744,6 @@ expandAst t = case t of
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
     Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
     Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
-    Ast.AstProjectS Ast.AstVar{} _ -> t  -- normal form
     Ast.AstReplicate{} -> t  -- normal form
       -- TODO: this nf is silly, but right now transposes of replicates
       -- are small OR.Arrays and equivalent gathers are large OR.Arrays,
@@ -3017,7 +2773,6 @@ expandAst t = case t of
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
     Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
     Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
-    Ast.AstProjectS Ast.AstVar{} _ -> t  -- normal form
     AstSumOfList{} -> t  -- normal form
     AstN1S _ w | isVar w -> t  -- normal form
     AstN2S _ x y | isVar x && isVar y -> t  -- normal form
@@ -3064,21 +2819,6 @@ expandAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
-
-  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map expandAstDynamic l
-  Ast.AstLetHVectorIn vars l v ->
-    astLetHVectorIn vars (expandAst l) (expandAst v)
-  Ast.AstProjectS l p -> astProjectS (expandAst l) p
-
-expandAstDynamic
-  :: AstSpan s
-  => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
-expandAstDynamic (DynamicRanked u) =
-  DynamicRanked $ expandAst u
-expandAstDynamic (DynamicShaped u) =
-  DynamicShaped $ expandAst u
-expandAstDynamic u@DynamicRankedDummy{} = u
-expandAstDynamic u@DynamicShapedDummy{} = u
 
 expandAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
 expandAstHFun = \case
@@ -3236,21 +2976,6 @@ simplifyAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
-
-  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map simplifyAstDynamic l
-  Ast.AstLetHVectorIn vars l v ->
-    astLetHVectorIn vars (simplifyAst l) (simplifyAst v)
-  Ast.AstProjectS l p -> astProjectS (simplifyAst l) p
-
-simplifyAstDynamic
-  :: AstSpan s
-  => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
-simplifyAstDynamic (DynamicRanked u) =
-  DynamicRanked $ simplifyAst u
-simplifyAstDynamic (DynamicShaped u) =
-  DynamicShaped $ simplifyAst u
-simplifyAstDynamic u@DynamicRankedDummy{} = u
-simplifyAstDynamic u@DynamicShapedDummy{} = u
 
 simplifyAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
 simplifyAstHFun = \case
@@ -3673,21 +3398,6 @@ contractAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
-
-  Ast.AstMkHVector l -> Ast.AstMkHVector $ V.map contractAstDynamic l
-  Ast.AstLetHVectorIn vars l v ->
-    astLetHVectorIn vars (contractAst l) (contractAst v)
-  Ast.AstProjectS l p -> astProjectS (contractAst l) p
-
-contractAstDynamic
-  :: AstSpan s
-  => AstDynamic AstMethodLet s -> AstDynamic AstMethodLet s
-contractAstDynamic (DynamicRanked u) =
-  DynamicRanked $ contractAst u
-contractAstDynamic (DynamicShaped u) =
-  DynamicShaped $ contractAst u
-contractAstDynamic u@DynamicRankedDummy{} = u
-contractAstDynamic u@DynamicShapedDummy{} = u
 
 contractAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
 contractAstHFun = \case
@@ -4221,21 +3931,6 @@ substitute1Ast i var v1 = case v1 of
        then Just $ Ast.AstMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
 
-  Ast.AstMkHVector args ->
-    let margs = V.map (substitute1AstDynamic i var) args
-    in if V.any isJust margs
-       then Just $ Ast.AstMkHVector $ V.zipWith fromMaybe args margs
-       else Nothing
-  Ast.AstLetHVectorIn vars l v ->
-    case (substitute1Ast i var l, substitute1Ast i var v) of
-      (Nothing, Nothing) -> Nothing
-      (ml, mv) ->
-        Just $ astLetHVectorIn vars (fromMaybe l ml) (fromMaybe v mv)
-  Ast.AstProjectS l p ->
-    case substitute1Ast i var l of
-      Nothing -> Nothing
-      ml -> Just $ astProjectS (fromMaybe l ml) p
-
 substitute1AstIxS
   :: (AstSpan s2, TensorKind y)
   => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIxS AstMethodLet sh
@@ -4245,18 +3940,6 @@ substitute1AstIxS i var ix =
   in if any isJust mix
      then Just $ zipWith_IndexS fromMaybe ix mix
      else Nothing
-
-substitute1AstDynamic
-  :: (AstSpan s, AstSpan s2, TensorKind y)
-  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstDynamic AstMethodLet s
-  -> Maybe (AstDynamic AstMethodLet s)
-substitute1AstDynamic i var = \case
-  DynamicRanked t ->
-    DynamicRanked <$> substitute1Ast i var t
-  DynamicShaped t ->
-    DynamicShaped <$> substitute1Ast i var t
-  DynamicRankedDummy{} -> Nothing
-  DynamicShapedDummy{} -> Nothing
 
 substitute1AstHFun
   :: forall s2 x y z.

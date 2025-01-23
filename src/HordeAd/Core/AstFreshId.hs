@@ -4,8 +4,7 @@
 -- the impurity, though some functions are in IO and they are used
 -- with @unsafePerformIO@ outside, so some of the impurity escapes.
 module HordeAd.Core.AstFreshId
-  ( unRawHVector
-  , funToAstIO, funToAst, fun1ToAst, fun1DToAst
+  ( funToAstIO, funToAst, fun1ToAst
   , funToAstRevIO, funToAstRev
   , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
@@ -17,28 +16,16 @@ import Prelude
 
 import Control.Monad (replicateM)
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import Data.List.Index (imapM)
-import Data.Proxy (Proxy (Proxy))
-import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, Nat)
+import GHC.TypeLits (KnownNat)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Array.Nested (KnownShS (..), Rank)
+import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested.Internal.Shape (shsRank)
 
 import HordeAd.Core.Ast
-import HordeAd.Core.CarriersAst
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-
-unRawHVector :: HVector (AstRaw s) -> HVector (AstTensor AstMethodShare s)
-unRawHVector =
-  let f (DynamicRanked (AstRaw t)) = DynamicRanked t
-      f (DynamicShaped (AstRaw t)) = DynamicShaped t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -91,37 +78,6 @@ fun1ToAst :: TensorKind y
 {-# NOINLINE fun1ToAst #-}
 fun1ToAst f = unsafePerformIO $ fun1ToAstIO f
 
-fun1DToAstIO :: VoidHVector
-             -> ([AstDynamicVarName] -> HVector (AstTensor ms s) -> a)
-             -> IO a
-{-# INLINE fun1DToAstIO #-}
-fun1DToAstIO od f = do
-  (!vars, !asts) <- V.unzip <$> V.mapM dynamicToVar od
-  return $! f (V.toList vars) asts
-
-fun1DToAst :: VoidHVector
-           -> ([AstDynamicVarName] -> HVector (AstTensor ms s) -> a)
-           -> a
-{-# NOINLINE fun1DToAst #-}
-fun1DToAst od f = unsafePerformIO $ fun1DToAstIO od f
-
-dynamicToVar :: DynamicTensor VoidTensor
-             -> IO (AstDynamicVarName, DynamicTensor (AstTensor ms s))
-dynamicToVar (DynamicRankedDummy @r2 @sh2 _ _) = do
-  freshId <- unsafeGetFreshAstVarId
-  return $! withListSh (Proxy @sh2) $ \sh4 ->
-    let !varE = AstDynamicVarName @Nat @r2 @sh2 freshId
-        dynE :: AstDynamic ms s
-        !dynE = DynamicRanked @r2 (AstVar (FTKR sh4 FTKScalar) (mkAstVarName freshId))
-    in (varE, dynE)
-dynamicToVar (DynamicShapedDummy @r2 @sh2 _ _) = do
-  freshId <- unsafeGetFreshAstVarId
-  return $!
-    let !varE = AstDynamicVarName @[Nat] @r2 @sh2 freshId
-        dynE :: AstDynamic ms s
-        !dynE = DynamicShaped @r2 @sh2 (AstVar (FTKS knownShS FTKScalar) (mkAstVarName freshId))
-    in (varE, dynE)
-
 funToAstRevIO :: forall x. FullTensorKind x
               -> IO ( AstVarName PrimalSpan x
                     , AstTensor AstMethodShare PrimalSpan x
@@ -149,25 +105,6 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) = do
       return (varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
       return (varPrimal, astVarPrimal, var, astVar)
-    FTKUntyped parameters0 -> do
-      let f :: Int -> DynamicTensor VoidTensor
-            -> IO ( AstDynamic AstMethodShare PrimalSpan
-                  , AstDynamic AstMethodLet FullSpan )
-          f i (DynamicRankedDummy @r @sh _ _)
-            | SNat <- shsRank (knownShS @sh) = do
-              return
-                ( DynamicRanked @r @(Rank sh)
-                                $ AstFromS stensorKind (AstProjectS @r @sh astVarPrimal i)
-                , DynamicRanked @r @(Rank sh)
-                                $ AstFromS stensorKind (AstProjectS @r @sh astVar i) )
-          f i (DynamicShapedDummy @r @sh _ _) = do
-            return
-              ( DynamicShaped @r @sh (AstProjectS astVarPrimal i)
-              , DynamicShaped @r @sh (AstProjectS astVar i) )
-      (!astsPrimal, !asts) <- unzip <$> imapM f (V.toList parameters0)
-      let !vp = AstMkHVector $ V.fromList astsPrimal
-          !va = AstMkHVector $ V.fromList asts
-      return (varPrimal, vp, var, va)
 
 funToAstRev :: FullTensorKind x
             -> ( AstVarName PrimalSpan x
@@ -212,31 +149,6 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk)
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
     FTKProduct{} ->
       return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
-    FTKUntyped parameters0 -> do
-      let f :: Int -> DynamicTensor VoidTensor
-            -> IO ( AstDynamic AstMethodShare PrimalSpan
-                  , AstDynamic AstMethodShare PrimalSpan
-                  , AstDynamic AstMethodLet FullSpan )
-          f i (DynamicRankedDummy @r @sh _ _)
-            | SNat <- shsRank (knownShS @sh) = do
-              return
-                ( DynamicRanked @r @(Rank sh)
-                                $ AstFromS stensorKind (AstProjectS @r @sh astVarPrimalD i)
-                , DynamicRanked @r @(Rank sh)
-                                $ AstFromS stensorKind (AstProjectS @r @sh astVarPrimal i)
-                , DynamicRanked @r @(Rank sh)
-                                $ AstFromS stensorKind (AstProjectS @r @sh astVar i) )
-          f i (DynamicShapedDummy @r @sh _ _) = do
-            return
-              ( DynamicShaped @r @sh (AstProjectS astVarPrimalD i)
-              , DynamicShaped @r @sh (AstProjectS astVarPrimal i)
-              , DynamicShaped @r @sh (AstProjectS astVar i) )
-      (!astsPrimalD, !astsPrimal, !asts)
-        <- unzip3 <$> imapM f (V.toList parameters0)
-      let !vD = AstMkHVector $ V.fromList astsPrimalD
-          !vp = AstMkHVector $ V.fromList astsPrimal
-          !va = AstMkHVector $ V.fromList asts
-      return (varPrimalD, vD, varPrimal, vp, var, va)
 
 funToAstFwd :: FullTensorKind x
             -> ( AstVarName PrimalSpan (ADTensorKind x)

@@ -392,13 +392,13 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 tensorADValMnistTestsRNNO :: TestTree
 tensorADValMnistTestsRNNO = testGroup "RNN Once MNIST tests"
-  [ mnistTestCaseRNNO "RNNOD 1 epoch, 1 batch" 1 1 128 5 500
+  [ mnistTestCaseRNNO "RNNO 1 epoch, 1 batch" 1 1 128 5 500
                        (0.898 :: Double)
-  , mnistTestCaseRNNO "RNNOD artificial 1 2 3 4 5" 2 3 4 5 50
+  , mnistTestCaseRNNO "RNNO artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
-  , mnistTestCaseRNNO "RNNOD artificial 5 4 3 2 1" 5 4 3 2 49
+  , mnistTestCaseRNNO "RNNO artificial 5 4 3 2 1" 5 4 3 2 49
                        (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNO "RNNOD 1 epoch, 0 batch" 1 0 128 5 50
+  , mnistTestCaseRNNO "RNNO 1 epoch, 0 batch" 1 0 128 5 50
                        (1.0 :: Float)
   ]
 

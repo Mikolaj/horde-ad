@@ -4,8 +4,7 @@
 -- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.AstPrettyPrint
   ( -- * Pretty-printing of variables
-    printAstVarName, printAstDynamicVarNameBrief
-  , printAstDynamicVarName
+    printAstVarName
     -- * Pretty-printing terms in a few useful configurations
   , printAstSimple, printAstPretty, printAstPrettyButNested
   , printArtifactSimple, printArtifactPretty
@@ -89,7 +88,6 @@ printAstVar cfg var =
         fromInteger $ fromSNat $ X.listxRank l
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
-      rankTensorKind STKUntyped = -1
       n = rankTensorKind (stensorKind @y)
       varId = varNameToAstVarId var
       prefix = case n of
@@ -119,17 +117,6 @@ printAstVarName :: TensorKind y
                 => IntMap String -> AstVarName s y -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
-
-printAstDynamicVarNameBrief :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarNameBrief renames (AstDynamicVarName @_ @r @sh varId) =
-  printAstVarName renames (mkAstVarName @_ @(TKS sh r) varId)
-
-printAstDynamicVarName :: IntMap String -> AstDynamicVarName -> String
-printAstDynamicVarName renames var@(AstDynamicVarName @ty @r @sh _varId) =
-  printAstDynamicVarNameBrief renames var
-  ++ " @" ++ show (typeRep @ty)
-  ++ " @" ++ show (typeRep @r)
-  ++ " @" ++ show (knownShS @sh)
 
 
 -- * General pretty-printing of AST terms
@@ -217,12 +204,6 @@ printAstAux cfg d = \case
         . (showParen True
            $ showString "fromList "
              . showListWith (printAst cfg 0) (V.toList l))
-    STKUntyped ->
-      showParen (d > 10)
-      $ showString "tfromVector "
-        . (showParen True
-           $ showString "fromList "
-             . showListWith (printAst cfg 0) (V.toList l))
   AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
    case stk of
     STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
@@ -230,7 +211,6 @@ printAstAux cfg d = \case
     STKS{} -> printPrefixOp printAst cfg d "ssum" [v]
     STKX{} -> printPrefixOp printAst cfg d "xsum" [v]
     STKProduct{} -> printPrefixOp printAst cfg d "tsum" [v]
-    STKUntyped -> printPrefixOp printAst cfg d "tsum" [v]
   AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk -> case stk of
     STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
     STKR{} -> printPrefixOp printAst cfg d
@@ -240,8 +220,6 @@ printAstAux cfg d = \case
                             ("xreplicate " ++ show (sNatValue snat)) [v]
     STKProduct{} -> printPrefixOp printAst cfg d
                                   ("treplicate " ++ show (sNatValue snat)) [v]
-    STKUntyped -> printPrefixOp printAst cfg d
-                                ("treplicate " ++ show (sNatValue snat)) [v]
   AstBuild1 k (var, v) ->
     showParen (d > 10)
     $ showString "tbuild1 "
@@ -318,29 +296,6 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "kcast" [v]
   AstFromIntegral v ->
     printPrefixOp printAst cfg d "kfromIntegral" [v]
-  AstLetHVectorIn vars l v ->
-    if loseRoudtrip cfg
-    then
-      showParen (d > 10)
-      $ showString "let "
-        . showListWith (showString
-                        . printAstDynamicVarName (varRenames cfg)) vars
-        . showString " = "
-        . printAst cfg 0 l
-        . showString " in "
-        . printAst cfg 0 v
-    else
-      showParen (d > 10)
-      $ showString "tlet "
-        . printAst cfg 11 l
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . showListWith (showString
-                             . printAstDynamicVarName (varRenames cfg)) vars
-             . showString " -> "
-             . printAst cfg 0 v)
-        -- TODO: this does not roundtrip yet
 
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
@@ -411,12 +366,6 @@ printAstAux cfg d = \case
   AstCastS v -> printPrefixOp printAst cfg d "scast" [v]
   AstFromIntegralS a ->
     printPrefixOp printAst cfg d "sfromIntegral" [a]
-  AstProjectS l p ->
-    showParen (d > 10)
-    $ showString "sproject "  -- fake, no such surface syntax
-      . printAst cfg 11 l
-      . showString " "
-      . shows p
   AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
 
@@ -444,11 +393,6 @@ printAstAux cfg d = \case
   AstXUnNestS v -> printPrefixOp printAst cfg d "xunNestS" [v]
   AstXUnNest v -> printPrefixOp printAst cfg d "xunNest" [v]
 
-  AstMkHVector l ->
-    if loseRoudtrip cfg
-    then printHVectorAst cfg l
-    else showParen (d > 10)
-         $ showString "dmkHVector " . printHVectorAst cfg l
   AstApply t ll ->
     if loseRoudtrip cfg
     then showParen (d > 9)
@@ -531,33 +475,6 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
  where
   showl []     = end ++ s
   showl (y:ys) = sep ++ showx y (showl ys)
-
-printAstDynamic :: AstSpan s
-                => PrintConfig -> Int -> AstDynamic ms s -> ShowS
-printAstDynamic cfg d = \case
-  DynamicRanked v -> printPrefixOp printAst cfg d "DynamicRanked" [v]
-  DynamicShaped v -> printPrefixOp printAst cfg d "DynamicShaped" [v]
-  DynamicRankedDummy{} -> showString "DynamicRankedDummy"
-  DynamicShapedDummy{} -> showString "DynamicShapedDummy"
-
-printAstUnDynamic :: AstSpan s
-                  => PrintConfig -> Int -> AstDynamic ms s -> ShowS
-printAstUnDynamic cfg d = \case
-  DynamicRanked v -> printAst cfg d v
-  DynamicShaped v -> printAst cfg d v
-  DynamicRankedDummy{} -> showString "0"  -- not "0.0" to mark a dummy
-  DynamicShapedDummy{} -> showString "0"
-
-printHVectorAst :: forall s ms. AstSpan s
-                => PrintConfig -> HVector (AstTensor ms s) -> ShowS
-printHVectorAst cfg l =
-  if loseRoudtrip cfg
-  then
-    showListWith (printAstUnDynamic cfg 0) (V.toList l)
-  else
-    showParen True
-      $ showString "fromList "
-        . showListWith (printAstDynamic cfg 0) (V.toList l)
 
 printAstHFun :: TensorKind y
              => PrintConfig -> Int -> AstHFun x y -> ShowS

@@ -16,7 +16,6 @@ module HordeAd.Core.DeltaFreshId
 import Prelude
 
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
@@ -55,15 +54,6 @@ shareDelta d = unsafePerformIO $ do
     ZeroG{} -> d
     PairG d1 d2 -> PairG (shareDelta d1) (shareDelta d2)
       -- PairG is only a container; all work is done inside; TODO: more cases
-    HToH hv ->
-      let shareDynamic :: DynamicTensor (Delta target)
-                       -> DynamicTensor (Delta target)
-          shareDynamic t = case t of
-            DynamicRanked u -> DynamicRanked $ shareDelta u
-            DynamicShaped u -> DynamicShaped $ shareDelta u
-            DynamicRankedDummy{} -> t
-            DynamicShapedDummy{} -> t
-      in HToH $ V.map shareDynamic hv
     -- SFromR{} -> d
     -- the term inside SFromR is most likely shared already, but are we sure?
     InputG{} -> d

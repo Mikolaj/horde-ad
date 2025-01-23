@@ -14,20 +14,18 @@ import Control.Monad (when)
 import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
-import Data.List (mapAccumR)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-))
+import GHC.TypeLits (KnownNat, type (+))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
   (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
-import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IShX
@@ -46,7 +44,6 @@ import Data.Array.Nested.Internal.Shape
   , shsLength
   , shsPermutePrefix
   , shsRank
-  , shsTail
   , withKnownShS
   )
 
@@ -242,19 +239,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstConcrete{} ->
       error "build1V: AstConcrete can't have free index variables"
 
-    Ast.AstLetHVectorIn @_ @_ @z vars1 l v
-     | Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
-      -- Here substitution traverses @v@ term tree @length vars@ times.
-      --
-      -- We lose the type information surrounding var1 twice: first,
-      -- because we create a variable with one more dimension,
-      -- again, because the original variables might have been marked
-      -- with a shape and here we require a rank.
-      let (vOut, varsOut) = substProjVars @k var vars1 v
-      in astLetHVectorIn
-           varsOut (build1VOccurenceUnknown snat (var, l))
-                   (build1VOccurenceUnknownRefresh snat (var, vOut))
-
     Ast.AstMinIndexS v -> traceRule $
       Ast.AstMinIndexS $ build1V snat (var, v)
     Ast.AstMaxIndexS v -> traceRule $
@@ -327,7 +311,6 @@ build1V snat@SNat (var, v0) =
       astCastS $ build1V snat (var, v)
     Ast.AstFromIntegralS v -> traceRule $
       astFromIntegralS $ build1V snat (var, v)
-    Ast.AstProjectS l p -> traceRule $ astProjectS (build1V snat (var, l)) p
     Ast.AstZipS v -> traceRule $
       Ast.AstZipS $ build1V snat (var, v)
     Ast.AstUnzipS v -> traceRule $
@@ -353,9 +336,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstXUnNestS v -> traceRule $ astXUnNestS $ build1V snat (var, v)
     Ast.AstXUnNest v -> traceRule $ astXUnNest $ build1V snat (var, v)
 
-    Ast.AstMkHVector l -> traceRule $
-      Ast.AstMkHVector
-      $ V.map (\u -> build1VOccurenceUnknownDynamic snat (var, u)) l
     Ast.AstApply @x @z t ll
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
@@ -526,23 +506,6 @@ build1VHFun snat@SNat (var, v0) = case v0 of
       in Ast.AstLambda
            (var2, ftk2, build1VOccurenceUnknownRefresh snat (var, l2))
 
-build1VOccurenceUnknownDynamic
-  :: forall k s. AstSpan s
-  => SNat k -> (IntVarName, AstDynamic AstMethodLet s) -> AstDynamic AstMethodLet s
-build1VOccurenceUnknownDynamic SNat (var, d) = case d of
-  DynamicRanked u ->
-    DynamicRanked $ build1VOccurenceUnknown (SNat @k) (var, u)
-  DynamicShaped u ->
-    DynamicShaped $ build1VOccurenceUnknown (SNat @k) (var, u)
-  DynamicRankedDummy @r @sh _ _ -> DynamicRankedDummy @r @(k ': sh) Proxy Proxy
-  DynamicShapedDummy @r @sh _ _ -> DynamicShapedDummy @r @(k ': sh) Proxy Proxy
-{- TODO: is this faster? but fromInteger has to be avoided
-  DynamicRankedDummy @r @sh _ _ ->
-    withListSh (Proxy @sh) $ \_ ->
-      DynamicRanked @r (Ast.AstRFromS @(k ': sh) @s @r 0)
-  DynamicShapedDummy @r @sh _ _ -> DynamicShaped @r @(k ': sh) 0
--}
-
 
 -- * Auxiliary machinery
 
@@ -588,43 +551,6 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
                    (stensorKind @(TKX2 (Just m ': Just n ': shx) r))
           . astTransposeS perm . astSFromX @sh @sh' $ a
 
-astTrDynamic :: AstSpan s
-             => DynamicTensor (AstTensor AstMethodLet s)
-             -> DynamicTensor (AstTensor AstMethodLet s)
-astTrDynamic t@(DynamicRanked @_ @n1 u) =
-  case cmpNat (Proxy @2) (Proxy @n1) of
-    EQI -> DynamicRanked $ astTr @(n1 - 2) u
-    LTI -> DynamicRanked $ astTr @(n1 - 2) u
-    _ -> t
-astTrDynamic t@(DynamicShaped @_ @sh u) | SNat @n <- shsRank (knownShS @sh) =
-  case cmpNat (Proxy @2) (Proxy @n) of
-    LTI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                          (knownShS @sh)) $
-           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
-             -- using astTrS here would require a few lines of type reasoning
-    EQI -> withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                          (knownShS @sh)) $
-           DynamicShaped $ astTransposeS (Permutation.makePerm @'[1, 0]) u
-    GTI -> t
-astTrDynamic (DynamicRankedDummy p1 (Proxy @sh1)) =
-  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                 (knownShS @sh1)) $
-  DynamicRankedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
-astTrDynamic (DynamicShapedDummy p1 (Proxy @sh1)) =
-  withKnownShS (shsPermutePrefix (Permutation.makePerm @'[1, 0])
-                                 (knownShS @sh1)) $
-  DynamicShapedDummy p1 (Proxy @(Permutation.PermutePrefix '[1, 0] sh1))
-
-astTrAstHVector :: forall s. AstSpan s
-                => AstTensor AstMethodLet s TKUntyped
-                -> AstTensor AstMethodLet s TKUntyped
-astTrAstHVector t =
-  fun1DToAst (shapeAstHVector t) $ \ !vars !asts ->
-    astLetHVectorIn
-      vars
-      t
-      (Ast.AstMkHVector @_ @s $ V.map astTrDynamic asts)
-
 astTrBuild
   :: forall k1 k2 s y. (AstSpan s, KnownNat k1, KnownNat k2)
   => STensorKindType y
@@ -652,7 +578,6 @@ astTrBuild stk t = case stk of
       astLetFun t $ \ !tShared ->
         let (u1, u2) = (astProject1 tShared, astProject2 tShared)
         in astPair (astTrBuild @k1 @k2 stk1 u1) (astTrBuild @k1 @k2 stk2 u2)
-  STKUntyped -> astTrAstHVector t
 
 astIndexBuild :: forall y k s. AstSpan s
               => SNat k -> STensorKindType y
@@ -689,26 +614,6 @@ astIndexBuild snat@SNat stk u i = case stk of
       astLetFun u $ \ !u3 ->
         astPair (astIndexBuild snat stk1 (astProject1 u3) i)
                 (astIndexBuild snat stk2 (astProject2 u3) i)
-  STKUntyped -> case ftkAst u of
-    FTKUntyped shs -> fun1DToAst shs $ \ !vars !asts ->
-      let projDyn :: DynamicTensor (AstTensor AstMethodLet s)
-                  -> DynamicTensor (AstTensor AstMethodLet s)
-          projDyn (DynamicRanked @_ @n2 t) =
-              gcastWith (unsafeCoerceRefl :: Compare 1 n2 :~: LT) $
-              DynamicRanked
-              $ astIndexBuild
-                  snat (STKR (SNat @(n2 - 1)) (STKScalar typeRep)) t i
-          projDyn (DynamicShaped @_ @sh2 t) =
-              gcastWith (unsafeCoerceRefl :: sh2 :~: k ': Tail sh2) $
-              withKnownShS (shsTail (knownShS @sh2)) $
-              DynamicShaped
-              $ astIndexBuild
-                  snat (STKS (shsTail (knownShS @sh2)) (STKScalar typeRep)) t i
-          projDyn _ = error "astIndexBuild: impossible DynamicTensor cases"
-      in astLetHVectorIn
-           vars
-           u
-           (Ast.AstMkHVector $ V.map projDyn asts)
 
 substProjRep
   :: forall k s s2 y2 y.
@@ -731,33 +636,6 @@ substProjRep snat@SNat var ftk2 var1 v
           -- because they don't duplicate variables and the added var
           -- is eventually being eliminated instead of substituted for.
     in (var3, ftk3, v2)
-
-substProjDynamic :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
-                 => IntVarName -> AstTensor AstMethodLet s y
-                 -> AstDynamicVarName
-                 -> (AstTensor AstMethodLet s y, AstDynamicVarName)
-substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat) =
-    ( withListSh (Proxy @sh3) $ \sh1 ->
-        let ftk2 = FTKR sh1 (FTKScalar @r3)
-            var1 = mkAstVarName varId
-            (_, _, u) = substProjRep @_ @_ @s (SNat @k) var ftk2 var1 v3
-        in u
-    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamic var v3 (AstDynamicVarName @ty @r3 @sh3 varId)
-  | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat]) =
-    (   let ftk2 = FTKS (knownShS @sh3) (FTKScalar @r3)
-            var1 = mkAstVarName varId
-            (_, _, u) = substProjRep @_ @_ @s (SNat @k) var ftk2 var1 v3
-        in u
-    , AstDynamicVarName @ty @r3 @(k ': sh3) varId )
-substProjDynamic _ _ _ = error "substProjDynamic: unexpected type"
-
-substProjVars :: forall k s y. (KnownNat k, AstSpan s, TensorKind y)
-              => IntVarName -> [AstDynamicVarName]
-              -> AstTensor AstMethodLet s y
-              -> (AstTensor AstMethodLet s y, [AstDynamicVarName])
-substProjVars var vars v3 = mapAccumR (substProjDynamic @k var) v3 vars
 
 
 -- * Rule tracing machinery

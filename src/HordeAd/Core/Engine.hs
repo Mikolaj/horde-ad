@@ -298,13 +298,14 @@ crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
       valsH = toHVectorOf vals
   in parseHVectorAD vals $ fst $ crevOnHVector mdt g valsH
 
+{-
 {-# SPECIALIZE crevOnHVector
   :: Maybe (RepN TKUntyped)
   -> (ADVal RepN TKUntyped
       -> ADVal RepN TKUntyped)
   -> RepN TKUntyped
   -> (RepN TKUntyped, RepN TKUntyped) #-}
-
+-}
 
 -- * Old derivative adaptors, with constant and fixed inputs
 
@@ -651,6 +652,7 @@ cfwd f vals ds =
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
+{-
 {-# SPECIALIZE interpretAst
   :: AstSpan s
   => AstEnv (ADVal RepN)
@@ -666,7 +668,7 @@ cfwd f vals ds =
   => AstEnv RepN
   -> AstTensor AstMethodLet s TKUntyped
   -> RepN TKUntyped #-}
-
+-}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal RepN)
   -> AstBool AstMethodLet

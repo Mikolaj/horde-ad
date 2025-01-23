@@ -21,7 +21,7 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (fromSNat, KnownNat, sameNat)
+import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
@@ -142,8 +142,6 @@ instance (ADReadyNoLet target, ShareTensor target)
   tunpair (D u u') = let (u1, u2) = tunpair u
                          (d1, d2) = unPairG u'
                      in (dDnotShared u1 d1, dDnotShared u2 d2)
-  tunvector (D u u') = let vh = tunvector u
-                       in ahhToHVector vh u'
 
 
 -- * Base tensor instance
@@ -491,7 +489,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (PairG u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unPairGUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unPairGUnshared u')
-  dshape (D u _) = dshape u
   tftk stk (D u _) = tftk stk u
   -- Bangs are for the proper order of sharing stamps.
   tcond !stk !b !u !v =
@@ -503,13 +500,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
   tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimalADVal $ tconcrete ftk t
-  dmkHVector hv =
-    let (!as, !as') = V.unzip $ V.map unADValDynamicTensor hv
-    in dDnotShared (dmkHVector as) (HToH as')
   tlambda _ = id
   tApply (HFun f) = f
-  dbuild1 k f =
-    dmkHVector $ ravelHVector $ map (tunvector . f . fromInteger) [0 .. fromSNat k - 1]
   drev @x _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let rf :: forall f. ADReady f
            => f x
@@ -685,18 +677,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                          q es
                          df rf acc0' es'
     in dD (tpair accFin bs) dual
-
-unADValDynamicTensor
-  :: DynamicTensor (ADVal f)
-  -> (DynamicTensor f, DynamicTensor (Delta f))
-unADValDynamicTensor (DynamicRanked (D t t')) =
-  (DynamicRanked t, DynamicRanked t')
-unADValDynamicTensor (DynamicShaped (D t t')) =
-  (DynamicShaped t, DynamicShaped t')
-unADValDynamicTensor (DynamicRankedDummy p1 p2) =
-  (DynamicRankedDummy p1 p2, DynamicRankedDummy p1 p2)
-unADValDynamicTensor (DynamicShapedDummy p1 p2) =
-  (DynamicShapedDummy p1 p2, DynamicShapedDummy p1 p2)
 
 unADValRep
   :: forall y target.

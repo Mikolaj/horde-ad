@@ -9,11 +9,7 @@ module HordeAd.External.OptimizerTools
 
 import Prelude
 
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
-import Data.Vector.Generic qualified as V
-import GHC.TypeLits (sameNat)
-import Type.Reflection (typeRep)
+import Data.Type.Equality ((:~:) (Refl))
 
 import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Nested (KnownShS (..))
@@ -53,38 +49,6 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y
                        , Dict <- lemTensorKindOfAD stk2 ->
     tpair (updateWithGradient gamma (tproject1 p) (tproject1 g))
           (updateWithGradient gamma (tproject2 p) (tproject2 g))
-  STKUntyped ->
-    let updateR :: DynamicTensor RepN -> DynamicTensor RepN
-                -> DynamicTensor RepN
-        updateR i r = case (i, r) of
-          ( DynamicRanked @r1 @n1 (RepN i2)
-           ,DynamicRanked @r2 @n2 (RepN r2) ) ->
-            ifDifferentiable @r1
-              (case sameNat (Proxy @n1) (Proxy @n2) of
-                 Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
-                   Just Refl ->
-                     DynamicRanked $ RepN
-                     $ i2 - Nested.rreplicateScal (Nested.rshape i2)
-                                                  (realToFrac gamma)
-                            * r2
-                   _ -> error "updateWithGradient: scalar mismatch"
-                 _ -> error "updateWithGradient: rank mismatch")
-            i
-          ( DynamicShaped @r1 @sh1 (RepN i2)
-           ,DynamicShaped @r2 @sh2 (RepN r2) ) ->
-            ifDifferentiable @r1
-              (case sameShape @sh1 @sh2 of
-                 Just Refl -> case testEquality (typeRep @r1) (typeRep @r2) of
-                   Just Refl ->
-                     DynamicShaped $ RepN
-                     $ i2 - Nested.sreplicateScal (Nested.sshape i2)
-                                                  (realToFrac gamma)
-                            * r2
-                   _ -> error "updateWithGradient: scalar mismatch"
-                 _ -> error "updateWithGradient: shape mismatch")
-            i
-          _ -> i   -- eval didn't update the gradient, save on computation
-    in dmkHVector $ V.zipWith updateR (tunvector p) (tunvector g)
   _ -> error "updateWithGradient: TODO"
 
 {-
@@ -130,7 +94,6 @@ type family Triplify y where
   Triplify (TKS sh r) = TKProduct (TKProduct (TKS sh r) (TKS sh r)) (TKS sh r)
   Triplify (TKX sh r) = TKProduct (TKProduct (TKX sh r) (TKX sh r)) (TKX sh r)
   Triplify (TKProduct x z) = TKProduct (Triplify x) (Triplify z)
-  Triplify TKUntyped = TKUntyped  -- this it not tripled
 
 unzip3Rep
   :: STensorKindType y -> RepN (Triplify y)
@@ -143,7 +106,6 @@ unzip3Rep stk (RepN t) = case stk of
   STKProduct stk1 stk2 -> let (a1, b1, c1) = unzip3Rep stk1 $ RepN $ fst t
                               (a2, b2, c2) = unzip3Rep stk2 $ RepN $ snd t
                           in (RepN (unRepN a1, unRepN a2), RepN (unRepN b1, unRepN b2), RepN (unRepN c1, unRepN c2))
-  STKUntyped -> (RepN t, RepN t, RepN t)  -- TODO: incorrect?
   _ -> error "TODO"
 
 type role StateAdamDeep nominal
@@ -168,7 +130,6 @@ repDeepZero = \case
   FTKS sh FTKScalar -> RepN $ Nested.sreplicateScal sh 0
   FTKX sh FTKScalar -> RepN $ Nested.mreplicateScal sh 0
   FTKProduct ftk1 ftk2 -> RepN (unRepN $ repDeepZero ftk1, unRepN $ repDeepZero ftk2)
-  FTKUntyped{} -> error "repDeepZero: FTKUntyped"
   _ -> error "TODO"
 
 updateWithGradientAdamDeep
@@ -267,7 +228,6 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
           RepN
             ( unRepN $ updateProd stk1 (RepN $ fst mA) (RepN $ fst vA) (RepN $ fst p) (RepN $ fst g)
             , unRepN $ updateProd stk2 (RepN $ snd mA) (RepN $ snd vA) (RepN $ snd p) (RepN $ snd g) )
-        STKUntyped -> error "updateProd: STKUntyped"
         _ -> error "TODO"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         unzip3Rep stensorKind

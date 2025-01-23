@@ -10,23 +10,16 @@ module HordeAd.Core.HVectorOps
     roneHot, soneHot, xoneHot
     -- * Winding
   , addTarget, constantTarget
-    -- * Dynamic
-  , sizeHVector, dynamicsMatch, voidHVectorMatches
-  , voidFromDynamic, voidFromHVector, dynamicFromVoid
-  , fromDynamicR, fromDynamicS
-  , mapHVectorRanked, mapHVectorRanked01, mapHVectorRanked11, mapHVectorShaped
-  , mapRanked, mapRanked01, mapRanked11
-  , replicate1HVector, toADTensorKindShared
+    -- * Misc
+  , toADTensorKindShared
   ) where
 
 import Prelude
 
-import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
@@ -42,20 +35,10 @@ import Data.Array.Nested
   , Replicate
   , ShR (..)
   , ShS (..)
-  , pattern (:$:)
-  , pattern ZSR
   , type (++)
   )
 import Data.Array.Nested.Internal.Shape
-  ( shCvtRX
-  , shCvtSX
-  , shrAppend
-  , shrRank
-  , shsAppend
-  , shsKnownShS
-  , shsRank
-  , withKnownShS
-  )
+  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, shsRank, withKnownShS)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -144,8 +127,6 @@ data RepW target y where
   WTKProduct :: (TensorKind x, TensorKind z)
              => RepW target x -> RepW target z
              -> RepW target (TKProduct x z)
-  WTKUntyped :: HVector target
-             -> RepW target TKUntyped
 
 -- This captures the normal form of type family UnWind for full singletons.
 type role FullTensorKindW nominal
@@ -160,7 +141,6 @@ data FullTensorKindW y where
         => IShX sh -> FullTensorKindW (TKX sh r)
   WFTKProduct :: FullTensorKindW y -> FullTensorKindW z
               -> FullTensorKindW (TKProduct y z)
-  WFTKUntyped :: VoidHVector -> FullTensorKindW TKUntyped
 
 fromFTKW :: FullTensorKindW y -> FullTensorKind y
 fromFTKW = \case
@@ -169,7 +149,6 @@ fromFTKW = \case
   WFTKS sh -> FTKS sh FTKScalar
   WFTKX sh -> FTKX sh FTKScalar
   WFTKProduct ftk1 ftk2 -> FTKProduct (fromFTKW ftk1) (fromFTKW ftk2)
-  WFTKUntyped ssh -> FTKUntyped ssh
 
 addRepW :: forall y target. BaseTensor target
         => RepW target y -> RepW target y -> RepW target y
@@ -183,8 +162,6 @@ addRepW a b = case (a, b) of
   (WTKX ta, WTKX tb) -> WTKX $ ta + tb
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
-  (WTKUntyped hv1, WTKUntyped hv2) ->
-    WTKUntyped $ V.zipWith addDynamic hv1 hv2
 
 constantRepW :: forall y target. BaseTensor target
             => (forall r. GoodScalar r => r)
@@ -197,10 +174,6 @@ constantRepW r = \case
   WFTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW ftk1)
                         , Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW ftk2) ->
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
-  WFTKUntyped ssh ->  -- TODO: if r is 0, this would be cheaper with Dummy
-    WTKUntyped
-    $ mapHVectorShaped (const $ srepl @_ @_ @target r)
-    $ V.map dynamicFromVoid ssh
 
 toADTensorKindW
   :: forall y target. BaseTensor target
@@ -233,7 +206,6 @@ toADTensorKindW t = case t of
   WTKProduct @y1 @y2 t1 t2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                            , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
     WTKProduct (toADTensorKindW t1) (toADTensorKindW t2)
-  WTKUntyped{} -> t
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -270,8 +242,6 @@ type family UnWind y where
     TKProduct (UnWind (TKX2 sh1 y)) (UnWind (TKX2 sh1 z))
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
-  UnWind TKUntyped =
-    TKUntyped
 
 -- TODO: should be unused now that we removed addWindShare?
 unWindSTK :: STensorKindType y -> STensorKindType (UnWind y)
@@ -311,10 +281,6 @@ unWindSTK = \case
   STKProduct y z | Dict <- lemTensorKindOfSTK (unWindSTK y)
                  , Dict <- lemTensorKindOfSTK (unWindSTK z) ->
     STKProduct (unWindSTK y) (unWindSTK z)
-  stk@STKUntyped -> stk
-  STKR _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
-  STKS _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
-  STKX _ STKUntyped -> error "unWindSTK: TKUntyped can't be nested in arrays"
 
 unWindFTK :: FullTensorKind y -> FullTensorKindW (UnWind y)
 unWindFTK = \case
@@ -354,10 +320,6 @@ unWindFTK = \case
    | Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW $ unWindFTK y)
    , Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW $ unWindFTK z) ->
     WFTKProduct (unWindFTK y) (unWindFTK z)
-  FTKUntyped ssh -> WFTKUntyped ssh
-  FTKR _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
-  FTKS _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
-  FTKX _ FTKUntyped{} -> error "unWindFTK: TKUntyped can't be nested in arrays"
 
 -- This uses tunpairDup so to preserve sharing, `target` either has
 -- to have a ShareTensor instance or the argument has to be duplicable.
@@ -423,12 +385,6 @@ unWindTarget stk t = case stk of
                        , Dict <- lemTensorKindOfSTK (unWindSTK stk2) ->
     let (t1, t2) = tunpairDup t
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
-  STKUntyped ->
-    let vt = dunHVector t
-    in WTKUntyped vt
-  STKR _ STKUntyped -> error "unWindTarget: TKUntyped can't be nested in arrays"
-  STKS _ STKUntyped -> error "unWindTarget: TKUntyped can't be nested in arrays"
-  STKX _ STKUntyped -> error "unWindTarget: TKUntyped can't be nested in arrays"
 
 windTarget :: BaseTensor target
            => STensorKindType y -> RepW target (UnWind y) -> target y
@@ -487,13 +443,6 @@ windTarget stk t = case (stk, t) of
    , Dict <- lemTensorKindOfSTK (unWindSTK stk1)
    , Dict <- lemTensorKindOfSTK (unWindSTK stk2) ->
     tpair (windTarget stk1 t1) (windTarget stk2 t2)
-  (STKUntyped, WTKUntyped v) -> dmkHVector v
-  (STKR _ STKUntyped, _) ->
-    error "windTarget: TKUntyped can't be nested in arrays"
-  (STKS _ STKUntyped, _) ->
-    error "windTarget: TKUntyped can't be nested in arrays"
-  (STKX _ STKUntyped, _) ->
-    error "windTarget: TKUntyped can't be nested in arrays"
 
 addTarget :: BaseTensor target
           => STensorKindType y -> target y -> target y -> target y
@@ -507,279 +456,16 @@ constantTarget :: forall y target. BaseTensor target
 constantTarget r ftk =
   windTarget (ftkToStk ftk) $ constantRepW r (unWindFTK ftk)
 
+lemUnWindOfAD :: STensorKindType y
+              -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
+lemUnWindOfAD _ = unsafeCoerceRefl
+
+
+-- * Misc
+
 toADTensorKindShared  -- TODO: does not require Shared now
   :: BaseTensor target
   => STensorKindType y -> target y
   -> target (ADTensorKind y)
 toADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
   windTarget (aDSTK stk) $ toADTensorKindW $ unWindTarget stk a
-
-lemUnWindOfAD :: STensorKindType y
-              -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
-lemUnWindOfAD _ = unsafeCoerceRefl
-
-
--- * Dynamic
-
-addDynamic :: BaseTensor target
-           => DynamicTensor target -> DynamicTensor target
-           -> DynamicTensor target
-addDynamic (DynamicRanked @r1 @n1 t) (DynamicRanked @r2 @n2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameNat (Proxy @n1) (Proxy @n2) =
-    DynamicRanked $ t + t'
-addDynamic (DynamicShaped @r1 @sh1 t) (DynamicShaped @r2 @sh2 t')
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameShape @sh1 @sh2 =
-    DynamicShaped $ t + t'
-addDynamic DynamicRankedDummy{} u@DynamicRanked{} = u
-addDynamic DynamicRankedDummy{} u@DynamicRankedDummy{} = u
-addDynamic t@DynamicRanked{} DynamicRankedDummy{} = t
-addDynamic DynamicShapedDummy{} u@DynamicShaped{} = u
-addDynamic DynamicShapedDummy{} u@DynamicShapedDummy{} = u
-addDynamic t@DynamicShaped{} DynamicShapedDummy{} = t
-addDynamic _ _ = error "addDynamic: wrong arguments"  -- ++ show (t, u)
-
-sizeHVector :: forall target. BaseTensor target => HVector target -> Int
-sizeHVector = let f (DynamicRanked @r t) = rsize @target @(TKScalar r) t
-                  f (DynamicShaped @_ @sh _) = sizeT @sh
-                  f (DynamicRankedDummy _ proxy_sh) = sizeP proxy_sh
-                  f (DynamicShapedDummy _ proxy_sh) = sizeP proxy_sh
-              in V.sum . V.map f
-
-dynamicsMatch :: forall f g. (BaseTensor f, BaseTensor g)
-              => DynamicTensor f -> DynamicTensor g -> Bool
-dynamicsMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
-  (DynamicScalar @ru _, DynamicScalar @rt _) ->
-    isJust (testEquality (typeRep @rt) (typeRep @ru))
-    && shapeDynamic t == shapeDynamic @g u
-    && isDynamicRanked t == isDynamicRanked @g u
-
-voidHVectorMatches :: forall g. BaseTensor g
-                   => HVector VoidTensor -> HVector g -> Bool
-voidHVectorMatches v1 v2 =
-  let voidDynamicsMatch :: DynamicTensor VoidTensor -> DynamicTensor g -> Bool
-      voidDynamicsMatch t u = case (scalarDynamic t, scalarDynamic @g u) of
-        (DynamicScalar @ru _, DynamicScalar @rt _) ->
-          isJust (testEquality (typeRep @rt) (typeRep @ru))
-          && shapeVoidDynamic t == shapeDynamic @g u
-          && isDynamicRanked t == isDynamicRanked @g u
-  in V.length v1 == V.length v2
-     && and (V.zipWith voidDynamicsMatch v1 v2)
-
--- This is useful for when the normal main parameters to an objective
--- function are used to generate the parameter template
--- as well as when generating dummy zero parameters based on a template.
-voidFromDynamic :: BaseTensor target
-                => DynamicTensor target -> DynamicTensor VoidTensor
-voidFromDynamic = voidFromDynamicF (toList . rshape)
-
-voidFromHVector :: BaseTensor target
-                => HVector target -> VoidHVector
-voidFromHVector = V.map voidFromDynamic
-
-dynamicFromVoid :: DynamicTensor VoidTensor -> DynamicTensor target
-dynamicFromVoid (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-dynamicFromVoid (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-
-fromDynamicR :: forall r n target.
-                (GoodScalar r, KnownNat n)
-             => (IShR n -> target (TKR n r))
-             -> (forall sh. KnownShS sh
-                 => target (TKS sh r) -> target (TKR (Rank sh) r))
-             -> DynamicTensor target
-             -> target (TKR n r)
-fromDynamicR zero fromS = \case
-  DynamicRanked @r2 @n2 t -> case sameNat (Proxy @n2) (Proxy @n) of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> t
-      _ -> error $ "fromDynamicR: scalar mismatch in "
-                   ++ show (typeRep @r2, typeRep @r)
-    _ -> error "fromDynamicR: rank mismatch"
-  DynamicShaped @r2 @sh2 t -> case matchingRank @sh2 @n of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> fromS t
-      _ -> error "fromDynamicS: scalar mismatch"
-    _ -> error "fromDynamicS: shape mismatch"
-  DynamicRankedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> let sh2 = fromList $ toList $ knownShS @sh2
-                   in zero sh2
-      _ -> error "fromDynamicR: scalar mismatch"
-    _ -> error "fromDynamicR: shape mismatch"
-  DynamicShapedDummy @r2 @sh2 _ _ -> case matchingRank @sh2 @n of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> let sh2 = fromList $ toList $ knownShS @sh2
-                   in zero sh2
-      _ -> error "fromDynamicS: scalar mismatch"
-    _ -> error "fromDynamicS: shape mismatch"
-
-fromDynamicS :: forall r sh target.
-                (GoodScalar r, KnownShS sh)
-             => target (TKS sh r)
-             -> (forall sh2. (KnownShS sh2, KnownNat (Rank sh2))
-                 => target (TKR (Rank sh2) r) -> target (TKS sh2 r))
-             -> DynamicTensor target
-             -> target (TKS sh r)
-fromDynamicS zero fromR = \case
-  DynamicRanked @r2 @n2 t -> case matchingRank @sh @n2 of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> fromR t
-      _ -> error $ "fromDynamicS: scalar mismatch in "
-                   ++ show (typeRep @r2, typeRep @r)
-    _ -> error "fromDynamicS: rank mismatch"
-  DynamicShaped @r2 @sh2 t -> case sameShape @sh2 @sh of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> t
-      _ -> error "fromDynamicS: scalar mismatch"
-    _ -> error "fromDynamicS: shape mismatch"
-  DynamicRankedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> zero
-      _ -> error "fromDynamicS: scalar mismatch"
-    _ -> error "fromDynamicS: shape mismatch"
-  DynamicShapedDummy @r2 @sh2 _ _ -> case sameShape @sh2 @sh of
-    Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-      Just Refl -> zero
-      _ -> error "fromDynamicS: scalar mismatch"
-    _ -> error "fromDynamicS: shape mismatch"
-
-mapHVectorRanked
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR q rq) -> target (TKR q rq))
-  -> HVector target -> HVector target
-mapHVectorRanked f = V.map (mapRanked f)
-
-mapRanked
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR q rq) -> target (TKR q rq))
-  -> DynamicTensor target -> DynamicTensor target
-mapRanked f (DynamicRanked t) = DynamicRanked $ f t
-mapRanked f (DynamicShaped @_ @sh t) =
-  withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-    let res = f $ rfromS @_ @_ @sh t
-    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @shr res
-mapRanked f (DynamicRankedDummy @r @sh _ _) =
-  withListSh (Proxy @sh) $ \sh1 ->
-    DynamicRanked @r $ f (rzero sh1)
-mapRanked f (DynamicShapedDummy @r @sh _ _) =
-  withListSh (Proxy @sh) $ \(sh1 :: IShR n) ->
-    let res = f @r (rzero sh1)
-    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @shr res
-
--- Hindler-Milner polymorphism is not great for existential types programming.
-mapHVectorRanked01
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR q rq) -> target (TKR (1 + q) rq))
-  -> HVector target -> HVector target
-mapHVectorRanked01 f = V.map (mapRanked01 f)
-
-mapRanked01
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR q rq) -> target (TKR (1 + q) rq))
-  -> DynamicTensor target -> DynamicTensor target
-mapRanked01 f (DynamicRanked t) = DynamicRanked $ f t
-mapRanked01 f (DynamicShaped @_ @sh t) =
-  withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-    let res = f $ rfromS @_ @_ @sh t
-    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-      case someNatVal $ 1 + valueOf @n of
-        Just (SomeNat @n1 _) ->
-          gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
-          gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-          DynamicShaped $ sfromR @_ @shr res
-        _ -> error "mapRanked01: impossible someNatVal"
-mapRanked01 f (DynamicRankedDummy @r @sh _ _) =
-  withListSh (Proxy @sh) $ \sh1 ->
-    DynamicRanked @r $ f (rzero sh1)
-mapRanked01 f (DynamicShapedDummy @r @sh _ _) =
-  withListSh (Proxy @sh) $ \(sh1 :: IShR n) ->
-    let res = f @r (rzero sh1)
-    in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-      case someNatVal $ 1 + valueOf @n of
-        Just (SomeNat @n1 _) ->
-          gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
-          gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-          DynamicShaped $ sfromR @_ @shr res
-        _ -> error "mapRanked01: impossible someNatVal"
-
-mapHVectorRanked11
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR (1 + q) rq) -> target (TKR (1 + q) rq))
-  -> HVector target -> HVector target
-mapHVectorRanked11 f = V.map (mapRanked11 f)
-
-mapRanked11
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR (1 + q) rq) -> target (TKR (1 + q) rq))
-  -> DynamicTensor target -> DynamicTensor target
-mapRanked11 f (DynamicRanked t) = case rshape t of
-  ZSR -> error "mapRanked11: rank 0"
-  _ :$: _ -> DynamicRanked $ f t
-mapRanked11 f (DynamicShaped @_ @sh t) = case knownShS @sh of
-  ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 _ tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
-      let res = f $ rfromS @_ @_ @sh t
-      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        case someNatVal $ 1 + valueOf @n of
-          Just (SomeNat @n1 _) ->
-            gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-            DynamicShaped $ sfromR @_ @shr res
-          _ -> error "mapRanked01: impossible someNatVal"
-mapRanked11 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
-  ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \sh1 ->
-      DynamicRanked @r $ f (rzero $ sNatValue k :$: sh1)
-mapRanked11 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
-  ZSS -> error "mapRanked11: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
-      let res = f @r (rzero $ sNatValue k :$: sh1)
-      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        case someNatVal $ 1 + valueOf @n of
-          Just (SomeNat @n1 _) ->
-            gcastWith (unsafeCoerceRefl :: n1 :~: 1 + n) $
-            gcastWith (unsafeCoerceRefl :: Rank shr :~: n1) $
-            DynamicShaped $ sfromR @_ @shr res
-          _ -> error "mapRanked01: impossible someNatVal"
-
-mapHVectorShaped
-  :: BaseTensor target
-  => (forall rq shq. (GoodScalar rq, KnownShS shq)
-      => target (TKS shq rq) -> target (TKS shq rq))
-  -> HVector target -> HVector target
-mapHVectorShaped f = V.map (mapShaped f)
-
-mapShaped
-  :: BaseTensor target
-  => (forall rq shq. (GoodScalar rq, KnownShS shq)
-      => target (TKS shq rq) -> target (TKS shq rq))
-  -> DynamicTensor target -> DynamicTensor target
-mapShaped f (DynamicRanked @r @n t) =
-  withShapeP (toList $ rshape t) $ \(Proxy @sh) ->
-    withListSh (Proxy @sh) $ \(_ :: IShR m) ->
-      gcastWith (unsafeCoerceRefl :: n :~: m) $
-      DynamicRanked $ rfromS $ f @r @sh $ sfromR t
-mapShaped f (DynamicShaped t) = DynamicShaped $ f t
-mapShaped f (DynamicRankedDummy @r @sh _ _) =
-  withListSh (Proxy @sh) $ \_ ->
-    DynamicRanked $ rfromS $ f @r @sh (srepl 0)
-mapShaped f (DynamicShapedDummy @r @sh _ _) =
-  DynamicShaped $ f @r @sh (srepl 0)
-
-replicate1HVector :: BaseTensor target
-                  => SNat k -> HVector target -> HVector target
-replicate1HVector = replicate1HVectorF rreplicate sreplicate

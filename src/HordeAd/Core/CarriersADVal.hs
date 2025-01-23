@@ -10,21 +10,13 @@ module HordeAd.Core.CarriersADVal
   , unPairG, unPairGUnshared
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , generateDeltaInputs, makeADInputs, ahhToHVector
+  , generateDeltaInputs, makeADInputs
   ) where
 
 import Prelude
 
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
-import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, sameNat)
-import Type.Reflection (typeRep)
-
 import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
-import Data.Array.Nested (KnownShS (..), Rank)
-import Data.Array.Nested.Internal.Shape (shrRank, shsRank, withKnownShS)
+import Data.Array.Nested.Internal.Shape (shrRank, withKnownShS)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
@@ -212,15 +204,6 @@ generateDeltaInputs =
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
           in (PairG d1 d2, j2)
-        FTKUntyped shs ->
-          let f :: (Int, DynamicTensor VoidTensor) -> DynamicTensor (Delta target)
-              f (i, DynamicRankedDummy @r @sh _ _) =
-                withListSh (Proxy @sh) $ \sh ->
-                  DynamicRanked $ InputG (FTKR sh (FTKScalar @r)) (toInputId i)
-              f (i, DynamicShapedDummy @r @sh _ _) =
-                DynamicShaped $ InputG (FTKS @sh knownShS (FTKScalar @r)) (toInputId i)
-              len = V.length shs
-          in (HToH $ V.map f $ V.zip (V.enumFromN j len) shs, j + len)
   in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
@@ -231,57 +214,6 @@ makeADInputs
   :: target x -> Delta target x
   -> ADVal target x
 makeADInputs = dDnotShared  -- not dD, because generateDeltaInputs has only inputs and containers; TODO: join makeADInputs and generateDeltaInputs?
-
-ahhToHVector  -- TODO: remove?
-  :: forall target.
-     HVector target -> Delta target TKUntyped -> HVector (ADVal target)
-ahhToHVector h hNotShared' =
-  let h' = case hNotShared' of
-        HToH{} -> hNotShared'
-        _ -> shareDelta hNotShared'
-      selectDual :: Int -> DynamicTensor target -> DynamicTensor (ADVal target)
-      selectDual i d = case d of
-        DynamicRanked t -> DynamicRanked $ dDnotShared t (rFromH h' i)
-        DynamicShaped t -> DynamicShaped $ dDnotShared t (sFromH h' i)
-        DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-        DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
-  in V.imap selectDual h
-
-rFromH :: forall r n target. (GoodScalar r, KnownNat n)
-       => Delta target TKUntyped -> Int -> Delta target (TKR n r)
-rFromH (HToH hv) i = case hv V.! i of
-  DynamicRanked @r2 @n2 d
-    | Just Refl <- sameNat (Proxy @n) (Proxy @n2)
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> d
-  DynamicRankedDummy @r2 @sh _ _
-    | Just Refl <- matchingRank @sh @n
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG $ FTKR (shCastSR $ knownShS @sh) FTKScalar
-  _ -> error "rFromH: impossible case"
-rFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
-  DynamicRankedDummy @_ @sh _ _ | SNat <- shsRank (knownShS @sh) ->
-    case sameNat (Proxy @(Rank sh)) (Proxy @n) of
-      Just Refl -> ZeroG $ FTKR (shCastSR $ knownShS @sh) FTKScalar
-      Nothing -> error "rFromH: wrong rank"
-  DynamicShapedDummy{} -> error "rFromH: DynamicShapedDummy"
-rFromH d i = RFromH d i
-
-sFromH :: forall r sh target. (GoodScalar r, KnownShS sh)
-       => Delta target TKUntyped -> Int -> Delta target (TKS sh r)
-sFromH (HToH hv) i = case hv V.! i of
-  DynamicShaped @r2 @sh2 d
-    | Just Refl <- sameShape @sh @sh2
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r2) -> d
-  DynamicShapedDummy @r2 @sh3 _ _
-    | Just Refl <- sameShape @sh @sh3
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-      ZeroG $ FTKS (knownShS @sh3) FTKScalar
-  _ -> error "sFromH: impossible case"
-sFromH (ZeroG (FTKUntyped shs)) i = case shs V.! i of
-  DynamicRankedDummy{} -> error "sFromH: DynamicRankedDummy"
-  DynamicShapedDummy @_ @sh3 _ _ ->
-    ZeroG $ FTKS (fromList $ toList $ knownShS @sh3) FTKScalar
-sFromH d i = SFromH d i
 
 
 -- * Assorted instances

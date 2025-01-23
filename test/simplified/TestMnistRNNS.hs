@@ -405,12 +405,12 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSO :: TestTree
 tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
-  [ mnistTestCaseRNNSO "RNNSOD 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
+  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
                        (1 :: Double)
-  , mnistTestCaseRNNSO "RNNSOD artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
+  , mnistTestCaseRNNSO "RNNSO artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
-  , mnistTestCaseRNNSO "RNNSOD artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
+  , mnistTestCaseRNNSO "RNNSO artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
                        (0.9336734693877551 :: Double)
-  , mnistTestCaseRNNSO "RNNSOD 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
+  , mnistTestCaseRNNSO "RNNSO 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
                        (1.0 :: Float)
   ]

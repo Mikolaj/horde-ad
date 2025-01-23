@@ -19,7 +19,6 @@ module HordeAd.Core.AstInterpret
 
 import Prelude
 
-import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
@@ -292,51 +291,6 @@ interpretAst !env = \case
   -}
 
   AstConcrete ftk a -> tconcrete ftk a
-  AstLetHVectorIn @_ @_ @z2 vars l v -> case stensorKind @z2 of
-    STKScalar _ ->
-      let lt = interpretAst env l
-          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                            `blame` ( shapeVoidHVector (voidFromVars vars)
-                                    , V.toList $ V.map shapeDynamic lw
-                                    , ftkAst l
-                                    , shapeVoidHVector (dshape @target lt) )) $
-                   extendEnvHVector vars lw env
-      in rtoScalar
-         $ tlet @_ @TKUntyped lt
-             (\lw -> rfromScalar $ interpretAst (env2 (dunHVector lw)) v)
-    STKR SNat STKScalar{} ->
-      let lt = interpretAst env l
-          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                            `blame` ( shapeVoidHVector (voidFromVars vars)
-                                    , V.toList $ V.map shapeDynamic lw
-                                    , ftkAst l
-                                    , shapeVoidHVector (dshape @target lt) )) $
-                   extendEnvHVector vars lw env
-      in tlet @_ @TKUntyped lt
-           (\lw -> interpretAst (env2 (dunHVector lw)) v)
-    STKS sh STKScalar{} -> withKnownShS sh $
-      let lt = interpretAst env l
-          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                            `blame` ( shapeVoidHVector (voidFromVars vars)
-                                    , V.toList $ V.map shapeDynamic lw
-                                    , ftkAst l
-                                    , shapeVoidHVector (dshape @target lt) )) $
-                    extendEnvHVector vars lw env
-      in tlet @_ @TKUntyped lt
-           (\lw -> interpretAst (env2 (dunHVector lw)) v)
-    STKX sh STKScalar{} -> withKnownShX sh $ error "TODO"
-    STKProduct{} -> error "TODO"
-    STKUntyped ->
-      let lt = interpretAst env l
-          env2 lw = assert (voidHVectorMatches (voidFromVars vars) lw
-                            `blame` ( shapeVoidHVector (voidFromVars vars)
-                                    , V.toList $ V.map shapeDynamic lw
-                                    , ftkAst l
-                                    , shapeVoidHVector (dshape @target lt) )) $
-                    extendEnvHVector vars lw env
-      in tlet @_ @TKUntyped lt
-           (\lw -> interpretAst (env2 (dunHVector lw)) v)
-    _ -> error "TODO"
 
   AstMinIndexS v ->
     sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
@@ -407,10 +361,6 @@ interpretAst !env = \case
   AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
   AstFromIntegralS v ->
     sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstProjectS l p ->
-    let lt = interpretAst env l
-    in tlet @_ @TKUntyped lt
-         (\lw -> sfromD $ dunHVector lw V.! p)
   AstZipS v -> szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
 
@@ -427,7 +377,6 @@ interpretAst !env = \case
   AstXUnNestS v -> xunNestS $ interpretAst env v
   AstXUnNest v -> xunNest $ interpretAst env v
 
-  AstMkHVector l -> dmkHVector $ interpretAstDynamic env <$> l
   AstApply t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
@@ -476,19 +425,6 @@ interpretAst !env = \case
     smatvecmul (interpretAst env u) (interpretAst env v)
   AstMatmul2S SNat SNat SNat u v ->
     smatmul2 (interpretAst env u) (interpretAst env v)
-
-interpretAstDynamic
-  :: forall target s. (ADReady target, AstSpan s)
-  => AstEnv target
-  -> AstDynamic AstMethodLet s -> DynamicTensor target
-{-# INLINE interpretAstDynamic #-}
-interpretAstDynamic !env = \case
-  DynamicRanked w ->
-    DynamicRanked $ interpretAstRuntimeSpecialized env w
-  DynamicShaped w ->
-    DynamicShaped $ interpretAstSRuntimeSpecialized env w
-  DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-  DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
 
 interpretAstHFun
   :: forall target x y. (TensorKind x, TensorKind y)

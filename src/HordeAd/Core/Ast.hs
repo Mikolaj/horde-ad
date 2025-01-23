@@ -10,7 +10,6 @@ module HordeAd.Core.Ast
     AstSpanType(..), AstSpan(..), sameAstSpan
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId
-  , AstDynamicVarName(..), dynamicVarNameToAstVarId, voidFromVar, voidFromVars
   , AstInt, IntVarName, pattern AstIntVar, isTensorInt
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
@@ -19,7 +18,7 @@ module HordeAd.Core.Ast
   , AstBindingsCase, AstBindings
     -- * ASTs
   , AstMethodOfSharing(..), AstTensor(..)
-  , AstDynamic, AstHFun(..)
+  , AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
   ) where
@@ -33,11 +32,9 @@ import Data.GADT.Compare
 import Data.GADT.Show
 import Data.Int (Int64)
 import Data.Kind (Type)
-import Data.Proxy (Proxy (Proxy))
 import Data.Some
 import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality ((:~:) (Refl))
-import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+), type (<=))
 import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
@@ -110,27 +107,6 @@ newtype AstVarId = AstVarId Int
 
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
-
--- This can't be replaced by AstVarId. because in some places it's used
--- to record the type, scalar and shape of arguments in a HVector.
---
--- These variables have existential parameters, but there's no nesting,
--- so no special care about picking specializations at runtime is needed.
-data AstDynamicVarName where
-  AstDynamicVarName :: forall (ty :: Type) r sh.
-                       (Typeable ty, GoodScalar r, KnownShS sh)
-                    => AstVarId -> AstDynamicVarName
-deriving instance Show AstDynamicVarName
-
-dynamicVarNameToAstVarId :: AstDynamicVarName -> AstVarId
-dynamicVarNameToAstVarId (AstDynamicVarName varId) = varId
-
-voidFromVar :: AstDynamicVarName -> DynamicTensor VoidTensor
-voidFromVar (AstDynamicVarName @_ @rD @shD _) =
-  DynamicShapedDummy @rD @shD Proxy Proxy
-
-voidFromVars :: [AstDynamicVarName] -> VoidHVector
-voidFromVars = V.fromList . map voidFromVar
 
 -- TODO: remove the rank field once we have TensorKindType singletons
 type role AstVarName nominal nominal
@@ -483,18 +459,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               -> AstTensor ms s (TKS '[n, p] r)
               -> AstTensor ms s (TKS '[m, p] r)
 
-  -- Constructors slated for removal.
-  AstMkHVector :: HVector (AstTensor ms s) -> AstTensor ms s TKUntyped
-  AstLetHVectorIn :: forall s s2 z. (AstSpan s, TensorKind z)
-                  => [AstDynamicVarName] -> AstTensor AstMethodLet s TKUntyped
-                  -> AstTensor AstMethodLet s2 z
-                  -> AstTensor AstMethodLet s2 z
-  AstProjectS :: (GoodScalar r, KnownShS sh)
-              => AstTensor ms s TKUntyped -> Int -> AstTensor ms s (TKS sh r)
-
 deriving instance Show (AstTensor ms s y)
-
-type AstDynamic ms (s :: AstSpanType) = DynamicTensor (AstTensor ms s)
 
 type role AstHFun nominal nominal
 data AstHFun x z where

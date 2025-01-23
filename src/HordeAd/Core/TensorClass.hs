@@ -12,10 +12,8 @@ module HordeAd.Core.TensorClass
   ( -- * The tensor classes
     LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)
-  , tunit, rfromD, sfromD, rscalar, rrepl, ringestData
+  , tunit, rscalar, rrepl, ringestData
   , ingestData, sscalar, srepl, xscalar, xrepl, nullRep
-  , shapeDynamic, unravelHVector, ravelHVector
-  , mapHVectorRanked10, mapRanked10
     -- * The giga-constraint
   , ADReady, ADReadyNoLet
   ) where
@@ -24,7 +22,6 @@ import Prelude
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Kind (Constraint, Type)
-import Data.List (transpose)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -33,17 +30,7 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
-  ( KnownNat
-  , Nat
-  , OrderingI (..)
-  , SomeNat (..)
-  , cmpNat
-  , sameNat
-  , someNatVal
-  , type (+)
-  , type (-)
-  , type (<=)
-  )
+  (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
 import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (typeRep)
 
@@ -80,15 +67,7 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  ( shCvtSX
-  , shrRank
-  , shrSize
-  , shsAppend
-  , shsKnownShS
-  , shsProduct
-  , shsRank
-  , withKnownShS
-  )
+  (shCvtSX, shrRank, shrSize, shsAppend, shsProduct, shsRank, withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
@@ -165,7 +144,6 @@ class LetTensor (target :: Target) where
               tpair (tfromVector snat stk1 (V.fromList l1))
                     (tfromVector snat stk2 (V.fromList l2))
         in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
-    STKUntyped -> error "STKUntyped"  -- can be done, but nm
   tsum :: BaseTensor target
        => SNat k -> STensorKindType z
        -> target (BuildTensorKind k z)
@@ -186,7 +164,6 @@ class LetTensor (target :: Target) where
         tlet u $ \ !u3 ->
           tpair (tsum snat stk1 (tproject1 u3))
                 (tsum snat stk2 (tproject2 u3))
-    STKUntyped -> error "STKUntyped"  -- can be easily done, but nm
   treplicate :: BaseTensor target
              => SNat k -> STensorKindType z
              -> target z
@@ -204,11 +181,6 @@ class LetTensor (target :: Target) where
         tlet u $ \ !u3 ->
           tpair (treplicate snat stk1 (tproject1 u3))
                 (treplicate snat stk2 (tproject2 u3))
-    STKUntyped ->
-      tlet u $ \ !u1 ->
-        dmkHVector
-        $ replicate1HVectorF rreplicate sreplicate snat
-        $ dunHVector u1
   -- The semantics for products is element-wise and for others it's either
   -- identity or the domain is shaped and tfromS type-casts to the codomain
   -- by hiding some (or none) type information (so the codomain has to be
@@ -248,7 +220,6 @@ class ShareTensor (target :: Target) where
          => target y -> target y
   tunpair :: (TensorKind x, TensorKind z)
           => target (TKProduct x z) -> (target x, target z)
-  tunvector :: target TKUntyped -> HVector target
   tfromVectorShare :: forall y k. BaseTensor target
                    => SNat k -> STensorKindType y
                    -> Data.Vector.Vector (target y)
@@ -269,7 +240,6 @@ class ShareTensor (target :: Target) where
         let (v1, v2) = V.unzip $ V.map tunpair v
         in tpair (tfromVectorShare snat stk1 v1)
                  (tfromVectorShare snat stk2 v2)
-    STKUntyped -> error "STKUntyped"  -- can be done, but nm
   tunravelToListShare :: forall y k. BaseTensor target
                       => SNat k -> STensorKindType y
                       -> target (BuildTensorKind k y)
@@ -290,9 +260,6 @@ class ShareTensor (target :: Target) where
         let (u1, u2) = tunpair u
         in zipWith tpair (tunravelToListShare snat stk1 u1)
                          (tunravelToListShare snat stk2 u2)
-    STKUntyped ->
-      let lu = tunvector u
-      in map dmkHVector $ unravelHVector lu
   tsumShare :: BaseTensor target
              => SNat k -> STensorKindType z
              -> target (BuildTensorKind k z)
@@ -313,7 +280,6 @@ class ShareTensor (target :: Target) where
         let (u1, u2) = tunpair u
         in tpair (tsumShare snat stk1 u1)
                  (tsumShare snat stk2 u2)
-    STKUntyped -> error "STKUntyped"  -- can be easily done, but nm
   treplicateShare :: BaseTensor target
                   => SNat k -> STensorKindType z
                   -> target z
@@ -331,10 +297,6 @@ class ShareTensor (target :: Target) where
         let (u1, u2) = tunpair u
         in tpair (treplicateShare snat stk1 u1)
                  (treplicateShare snat stk2 u2)
-    STKUntyped ->
-      let lu = tunvector u
-      in dmkHVector
-         $ replicate1HVectorF rreplicate sreplicate snat lu
   tindexBuildShare :: BaseTensor target
                    => SNat k -> STensorKindType z
                    -> target (BuildTensorKind k z) -> IntOf target
@@ -355,9 +317,6 @@ class ShareTensor (target :: Target) where
         let (u1, u2) = tunpair u
         in tpair (tindexBuildShare snat stk1 u1 i)
                  (tindexBuildShare snat stk2 u2 i)
-    STKUntyped ->
-      let lu = tunvector u
-      in dmkHVector $ mapHVectorRanked10 (`rindex` (i :.: ZIR)) lu
   tfromSShare :: forall y z. (BaseTensor target, TensorKind y, TensorKind z)
               => target y -> target z
   tfromSShare v = case (stensorKind @y, stensorKind @z) of
@@ -1461,7 +1420,6 @@ class ( Num (IntOf target)
   tproject2 :: (TensorKind x, TensorKind z)
             => target (TKProduct x z)
             -> target z
-  dshape :: target TKUntyped -> VoidHVector
   tftk :: STensorKindType y -> target y -> FullTensorKind y
   tcond :: Boolean (BoolOf target)
         => STensorKindType y
@@ -1488,26 +1446,16 @@ class ( Num (IntOf target)
      -> PrimalOf target y -> DualOf target y
      -> target y
   tconcrete :: FullTensorKind y -> RepN y -> target y
-  dmkHVector :: HVector target -> target TKUntyped
   tlambda :: (TensorKind x, TensorKind z)
           => FullTensorKind x -> HFun x z -> HFunOf target x z
   tApply :: (TensorKind x, TensorKind z)
          => HFunOf target x z -> target x
          -> target z
-  dunHVector :: target TKUntyped -> HVector target
-  default dunHVector :: ShareTensor target => target TKUntyped -> HVector target
-  dunHVector = tunvector
-    -- ^ Warning: this operation easily breaks sharing.
-    -- The operation can't usually be implemented to preserve
-    -- sharing, because it's type signature doesn't fit the let
-    -- and share operations available.
   tunpairDup :: (TensorKind x, TensorKind z)
              => target (TKProduct x z) -> (target x, target z)
   default tunpairDup :: (ShareTensor target, TensorKind x, TensorKind z)
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
-  dbuild1 :: SNat k -> (IntOf target -> target TKUntyped)  -- sh_i
-          -> target TKUntyped  -- k ': sh_i
   tbuild1 :: forall k y. TensorKind y
           => SNat k -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
@@ -1532,7 +1480,6 @@ class ( Num (IntOf target)
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
               in tpair (replStk stk1 f1) (replStk stk2 f2)
-          STKUntyped -> dbuild1 @target snat g
     in replStk (stensorKind @y) f
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
@@ -1620,9 +1567,8 @@ class ( Num (IntOf target)
   -- unless there are floats of different resolution among the elements and,
   -- e.g., one wants to compensate for that.
   --
-  -- These methods (and tlambda) producing HFunOf is analogous to dmkHVector
-  -- producing target TKUntyped instead of HVector and it's exactly what is needed as arguments
-  -- of dmapAccumRDer
+  -- These methods (and tlambda) are exactly what is needed as arguments
+  -- of dmapAccumRDer.
   drev
     :: (TensorKind x, TensorKind z)
     => FullTensorKind x  -- shape of a and da
@@ -1861,59 +1807,6 @@ tunit :: BaseTensor target
       => target TKUnit
 tunit = rtoScalar $ rscalar Z0
 
-rfromD :: forall r n target.
-          (BaseTensor target, GoodScalar r, KnownNat n)
-       => DynamicTensor target -> target (TKR n r)
-rfromD (DynamicRanked @r2 @n2 t) = case sameNat (Proxy @n2) (Proxy @n) of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> t
-    _ -> error "rfromD: scalar mismatch"
-  _ -> error $ "rfromD: rank mismatch "
-               ++ show (valueOf @n2 :: Int, valueOf @n :: Int)
-rfromD (DynamicShaped @r2 @sh2 t) = case matchingRank @sh2 @n of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> rfromS t
-    _ -> error "rfromD: scalar mismatch"
-  _ -> error "rfromD: rank mismatch"
-rfromD (DynamicRankedDummy @r2 @sh2 _ _) =
-  withListSh (Proxy @sh2) $ \(sh1 :: IShR n2) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> rzero sh1
-        _ -> error "rfromD: scalar mismatch"
-      _ -> error "rfromD: rank mismatch"
-rfromD (DynamicShapedDummy @r2 @sh2 _ _) =
-  withListSh (Proxy @sh2) $ \(sh1 :: IShR n2) ->
-    case sameNat (Proxy @n2) (Proxy @n) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-        Just Refl -> rzero sh1
-        _ -> error "rfromD: scalar mismatch"
-      _ -> error "rfromD: rank mismatch"
-
-sfromD :: forall r sh target.
-          (BaseTensor target, GoodScalar r, KnownShS sh)
-       => DynamicTensor target -> target (TKS sh r)
-sfromD (DynamicRanked @r2 @n2 t) = case matchingRank @sh @n2 of
-  Just Refl -> case testEquality (typeRep @r2) (typeRep @r) of
-    Just Refl -> sfromR t
-    _ -> error "sfromD: scalar mismatch"
-  _ -> error "sfromD: rank mismatch"
-sfromD (DynamicShaped @r2 @sh2 t) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> t
-    _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (knownShS @sh2, knownShS @sh)
-sfromD (DynamicRankedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> srepl 0
-    _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (knownShS @sh2, knownShS @sh)
-sfromD (DynamicShapedDummy @r2 @sh2 _ _) = case sameShape @sh2 @sh of
-  Just Refl -> case testEquality (typeRep @r) (typeRep @r2) of
-    Just Refl -> srepl 0
-    _ -> error "sfromD: scalar mismatch"
-  _ -> error $ "sfromD: shape mismatch " ++ show (knownShS @sh2, knownShS @sh)
-
 rscalar :: forall r target. (TensorKind r, BaseTensor target)
         => RepORArray r -> target (TKR2 0 r)
 rscalar r | Dict <- eltDictRep (stensorKind @r) =
@@ -1958,156 +1851,14 @@ xrepl :: (KnownShX sh, GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
 xrepl sh = xconcrete . Nested.mreplicateScal sh
 
-nullRep :: forall y target. (TensorKind y, BaseTensor target)
-        => target y -> Bool
-nullRep t = case stensorKind @y of
+nullRep :: STensorKindType y -> Bool
+nullRep = \case
   STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) -> True
   STKScalar{} -> False
   STKR{} -> False
   STKS{} -> False
   STKX{} -> False
   STKProduct{} -> False
-  STKUntyped -> null $ dunHVector t
-
-shapeDynamic :: BaseTensor target
-             => DynamicTensor target -> [Int]
-shapeDynamic = shapeDynamicF (toList . rshape)
-
-unravelDynamic
-  :: forall target. BaseTensor target
-  => DynamicTensor target -> [DynamicTensor target]
-unravelDynamic (DynamicRanked @rp @p t) =
-  case someNatVal $ valueOf @p - 1 of
-    Just (SomeNat @p1 _) ->
-      gcastWith (unsafeCoerceRefl :: p :~: 1 + p1 ) $
-      map (DynamicRanked @rp @p1) $ runravelToList t
-    Nothing -> error "unravelDynamic: rank 0"
-unravelDynamic (DynamicShaped @_ @sh t) = case knownShS @sh of
-  ZSS -> error "unravelDynamic: rank 0"
-  (:$$) SNat tl | Dict <- shsKnownShS tl -> map DynamicShaped $ sunravelToList t
-unravelDynamic (DynamicRankedDummy @rp @sh _ _) =
-  withListSh (Proxy @sh) $ \(sh :: IShR p) ->
-    case someNatVal $ valueOf @p - 1 of
-      Just (SomeNat @p1 _) ->
-        gcastWith (unsafeCoerceRefl :: p :~: 1 + p1 ) $
-        map (DynamicRanked @rp @p1) $ runravelToList (rzero sh)
-      Nothing -> error "unravelDynamic: rank 0"
-unravelDynamic (DynamicShapedDummy @rp @sh _ _) = case knownShS @sh of
-  ZSS -> error "unravelDynamic: rank 0"
-  (:$$) SNat tl | Dict <- shsKnownShS tl ->
-    map DynamicShaped $ sunravelToList (srepl 0 :: target (TKS sh rp))
-
-unravelHVector
-  :: BaseTensor target
-  => HVector target  -- each tensor has outermost dimension size p
-  -> [HVector target]  -- p hVectors; each tensor of one rank lower
-unravelHVector = map V.fromList . transpose
-                 . map unravelDynamic . V.toList
-
-ravelDynamicRanked
-  :: forall target. BaseTensor target
-  => [DynamicTensor target] -> DynamicTensor target
-ravelDynamicRanked ld = case ld of
-  [] -> error "ravelDynamicRanked: empty list"
-  d : _ -> case ( someNatVal $ toInteger (length $ shapeDynamic d)
-                , scalarDynamic d ) of
-    (Just (SomeNat @p1 _), DynamicScalar @rp _) ->
-      let g :: DynamicTensor target -> target (TKR p1 rp)
-          g (DynamicRanked @rq @q t)
-            | Just Refl <- sameNat (Proxy @q) (Proxy @p1)
-            , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) = t
-          g DynamicShaped{} =
-            error "ravelDynamicRanked: DynamicShaped"
-          g (DynamicRankedDummy @rq @shq _ _)
-            | Just Refl <- matchingRank @shq @p1
-            , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) =
-                withListSh (Proxy @shq) $ \(sh :: IShR q1) ->
-                  case sameNat (Proxy @q1) (Proxy @p1) of
-                    Just Refl -> rzero @target sh
-                    Nothing -> error "ravelDynamicRanked: wrong rank"
-          g DynamicShapedDummy{} =
-            error "ravelDynamicRanked: DynamicShapedDummy"
-          g _ = error "ravelDynamicRanked: wrong scalar or rank"
-      in DynamicRanked $ rfromList $ NonEmpty.fromList $ map g ld
-    _ -> error "ravelDynamicRanked: impossible someNatVal"
-
-ravelDynamicShaped
-  :: forall target. BaseTensor target
-  => [DynamicTensor target] -> DynamicTensor target
-ravelDynamicShaped ld = case ld of
-  [] -> error "ravelDynamicShaped: empty list"
-  d : _ ->
-    withShapeP (shapeDynamic d)
-    $ \(Proxy @shp) -> case ( someNatVal $ toInteger $ length ld
-                            , scalarDynamic d ) of
-      (Just (SomeNat @p1 _), DynamicScalar @rp _) ->
-        let g :: DynamicTensor target -> target (TKS shp rp)
-            g DynamicRanked{} =
-              error "ravelDynamicShaped: DynamicRanked"
-            g (DynamicShaped @rq @shq t)
-              | Just Refl <- sameShape @shq @shp
-              , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) = t
-            g DynamicRankedDummy{} =
-              error "ravelDynamicShaped: DynamicRankedDummy"
-            g (DynamicShapedDummy @rq @shq _ _)
-              | Just Refl <- sameShape @shq @shp
-              , Just Refl <- testEquality (typeRep @rq) (typeRep @rp) = srepl 0
-            g _ = error "ravelDynamicShaped: wrong scalar or rank"
-        in DynamicShaped $ sfromList @_ @_ @p1 $ NonEmpty.fromList $ map g ld
-      _ -> error "ravelDynamicShaped: impossible someNatVal"
-
-ravelDynamic
-  :: BaseTensor target
-  => [DynamicTensor target] -> DynamicTensor target
-ravelDynamic ld = case ld of
-  [] -> error "ravelDynamic: empty list"
-  DynamicRanked{} : _ -> ravelDynamicRanked ld
-  DynamicShaped{} : _ -> ravelDynamicShaped ld
-  DynamicRankedDummy{} : _ -> ravelDynamicRanked ld
-  DynamicShapedDummy{} : _ -> ravelDynamicShaped ld
-
-ravelHVector  -- the inverse of unravelHVector
-  :: BaseTensor target
-  => [HVector target] -> HVector target
-ravelHVector = V.fromList . map ravelDynamic
-               . transpose . map V.toList
-
-mapHVectorRanked10
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR (1 + q) rq) -> target (TKR q rq))
-  -> HVector target -> HVector target
-mapHVectorRanked10 f = V.map (mapRanked10 f)
-
-mapRanked10
-  :: BaseTensor target
-  => (forall rq q. (GoodScalar rq, KnownNat q)
-      => target (TKR (1 + q) rq) -> target (TKR q rq))
-  -> DynamicTensor target -> DynamicTensor target
-mapRanked10 f (DynamicRanked t) = case rshape t of
-  ZSR -> error "mapRanked10: rank 0"
-  _ :$: _ -> DynamicRanked $ f t
-mapRanked10 f (DynamicShaped @_ @sh t) = case knownShS @sh of
-  ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 _ tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \(_ :: IShR n) ->
-      let res = f $ rfromS @_ @_ @sh t
-      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @shr res
-mapRanked10 f (DynamicRankedDummy @r @sh _ _) = case knownShS @sh of
-  ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \sh1 ->
-      DynamicRanked @r $ f (rzero $ sNatValue k :$: sh1)
-mapRanked10 f (DynamicShapedDummy @r @sh _ _) = case knownShS @sh of
-  ZSS -> error "mapRanked10: rank 0"
-  (:$$) @_ @sh0 k tl | Dict <- shsKnownShS tl ->
-    withListSh (Proxy @sh0) $ \(sh1 :: IShR n) ->
-      let res = f @r (rzero $ sNatValue k :$: sh1)
-      in withShapeP (toList $ rshape res) $ \(Proxy @shr) ->
-        gcastWith (unsafeCoerceRefl :: Rank shr :~: n) $
-        DynamicShaped $ sfromR @_ @shr res
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

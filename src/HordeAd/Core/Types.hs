@@ -196,7 +196,6 @@ type data TensorKindType =
   | TKS2 [Nat] TensorKindType
   | TKX2 [Maybe Nat] TensorKindType
   | TKProduct TensorKindType TensorKindType
-  | TKUntyped
 
 type TKR n r = TKR2 n (TKScalar r)
 type TKS sh r = TKS2 sh (TKScalar r)
@@ -241,7 +240,6 @@ type family BuildTensorKind k tk where
   BuildTensorKind k (TKX2 sh r) = TKX2 (Just k : sh) r
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
-  BuildTensorKind k TKUntyped = TKUntyped
 
 -- This is an inverse of BuildTensorKind.
 -- This could be more optimal
@@ -255,7 +253,6 @@ type family RazeTensorKind tk where
   RazeTensorKind (TKX2 sh r) = TKX2 (Tail sh) r
   RazeTensorKind (TKProduct y z) =
     TKProduct (RazeTensorKind y) (RazeTensorKind z)
-  RazeTensorKind TKUntyped = TKUntyped
 
 type family ADTensorKind tk where
   ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)
@@ -264,8 +261,6 @@ type family ADTensorKind tk where
   ADTensorKind (TKX2 sh r) = TKX2 sh (ADTensorKind r)
   ADTensorKind (TKProduct y z) =
     TKProduct (ADTensorKind y) (ADTensorKind z)
-  ADTensorKind TKUntyped = TKUntyped
-    -- TODO (unlikely): also affect the inside of HVectors
 
 type family ADTensorScalar r where
   ADTensorScalar Double = Double

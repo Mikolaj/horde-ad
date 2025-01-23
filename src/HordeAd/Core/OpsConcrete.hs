@@ -25,7 +25,7 @@ import Data.Vector.Storable qualified as VS
 import GHC.Exts (IsList (..))
 import GHC.IsList qualified as IsList
 import GHC.TypeLits
-  (fromSNat, KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import System.Random
@@ -63,10 +63,8 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
 
 import HordeAd.Core.Adaptor
-import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.CarriersConcrete ()
-import HordeAd.Core.Delta
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
@@ -84,7 +82,6 @@ instance EqF RepN where
                                  , Dict <- lemTensorKindOfSTK stk2 ->
       RepN @y1 (fst u) ==. RepN  @y1(fst v)
       && RepN @y2 (snd u) ==. RepN @y2 (snd v)
-    STKUntyped -> error "TODO"
     _ -> error "TODO"
 
 instance OrdF RepN where
@@ -99,7 +96,6 @@ instance OrdF RepN where
       RepN @y1 (fst u) <. RepN @y1 (fst v)
       && RepN @y2 (snd u) <. RepN @y2 (snd v)
         -- lexicographic ordering  -- TODO: is this standard and the same as for <=. ? as for || ?
-    STKUntyped -> error "TODO"
     _ -> error "TODO"
 
 instance LetTensor RepN where
@@ -110,7 +106,6 @@ instance LetTensor RepN where
 instance ShareTensor RepN where
   tshare = id
   tunpair (RepN (t1, t2)) = (RepN t1, RepN t2)
-  tunvector = unRepN
 
 instance BaseTensor RepN where
   rshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.rshape . unRepN
@@ -547,7 +542,6 @@ instance BaseTensor RepN where
   tpair u v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN
   tproject2 = RepN . snd . unRepN
-  dshape = voidFromHVector . unRepN
   tftk stk (RepN t) = tftkG stk t
   tcond _ b u v = if b then u else v
   tfromPrimal _ t = t
@@ -555,12 +549,8 @@ instance BaseTensor RepN where
   tdualPart _stk _t = DummyDualTarget
   tD _stk t _d = t
   tconcrete _ = id
-  dmkHVector = RepN
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tApply f x = RepN $ f $ unRepN x
-  dbuild1 k f =
-    dmkHVector $ ravelHVector $ map (tunvector . f . fromInteger)
-                                    [0 .. fromSNat k - 1]
   -- The code for drevDt and dfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
   drev @x _ftk h =
@@ -659,7 +649,6 @@ ravel k@SNat t = case stensorKind @y of
     , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
       in tpair (ravel k lt1) (ravel k lt2)
-  STKUntyped -> dmkHVector $ ravelHVector $ tunvector <$> t
 
 unravel :: forall k y. TensorKind y
         => SNat k -> RepN (BuildTensorKind k y)
@@ -680,10 +669,6 @@ unravel k@SNat t = case stensorKind @y of
       let lt1 = unravel k $ tproject1 t
           lt2 = unravel k $ tproject2 t
       in zipWith tpair lt1 lt2
-  STKUntyped ->
-    if V.null $ tunvector t
-    then replicate (sNatValue k) $ dmkHVector V.empty
-    else dmkHVector <$> unravelHVector (tunvector t)
 
 oRdmapAccumR
   :: forall k accShs bShs eShs.
@@ -778,7 +763,7 @@ instance AdaptableHVector RepN (HVector RepN) where
   fromHVector aInit params =
     let (portion, rest) = V.splitAt (V.length aInit) $ unRepN params
     in Just (portion, Just $ RepN rest)
--}
+
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
@@ -789,15 +774,7 @@ instance AdaptableHVector RepN (HVector RepN) where
   -> RepN TKUntyped #-}
 {-# SPECIALIZE evalRevFromnMap
   :: EvalState RepN -> EvalState RepN #-}
-
-instance ADReady target
-         => DualNumberValue (DynamicTensor (ADVal target)) where
-  type DValue (DynamicTensor (ADVal target)) = DynamicTensor RepN
-  fromDValue = \case
-    DynamicRanked t -> DynamicRanked $ fromPrimalADVal $ rconcrete $ unRepN t
-    DynamicShaped t -> DynamicShaped $ fromPrimalADVal $ sconcrete $ unRepN t
-    DynamicRankedDummy p1 p2 -> DynamicRankedDummy p1 p2
-    DynamicShapedDummy p1 p2 -> DynamicShapedDummy p1 p2
+-}
 
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):

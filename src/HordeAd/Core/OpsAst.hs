@@ -23,7 +23,7 @@ import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Type.Ord (Compare)
 
-import Data.Array.Nested (type (++), Product, Rank, IShR, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
+import Data.Array.Nested (type (++), Product, Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (shxInit, IShX, ssxFromShape, withKnownShX)
 import Data.Array.Nested.Internal.Shape (shsRank, shsPermutePrefix, shrRank, shsInit, withKnownShS)
@@ -766,7 +766,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
   tproject2 = astProject2
-  dshape = shapeAstHVector
   tftk _stk = ftkAst
   tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk = astCond b u v
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimal t
@@ -775,25 +774,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tD stk t d | Dict <- lemTensorKindOfSTK stk = astSpanD t d
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimal $ astConcrete ftk a
-  dmkHVector = AstMkHVector
   tlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll ->
           unHFun f ll
     in AstLambda (var, shss, ast)
   tApply t ll = astApply t ll
-  dunHVector (AstMkHVector l) = l
-  dunHVector hVectorOf =
-    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s
-        f i = \case
-          DynamicRankedDummy @r @sh _ _ ->
-           withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-             DynamicRanked @r @n $ astFromS stensorKind
-                                 $ astProjectS @sh @r hVectorOf i
-          DynamicShapedDummy @r @sh _ _ ->
-            DynamicShaped @r @sh $ astProjectS hVectorOf i
-    in V.imap f $ shapeAstHVector hVectorOf
   tunpairDup t = (tproject1 t, tproject2 t)
-  dbuild1 k f = astBuild1Vectorize k f
   -- TODO: (still) relevant?
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
@@ -902,18 +888,6 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
-  tunvector (AstRaw (AstMkHVector l)) = rawHVector l
-  tunvector t = dunHVectorRaw $ tshare t
-   where
-    dunHVectorRaw (AstRaw hVectorOf) =
-      let f :: Int -> DynamicTensor VoidTensor -> DynamicTensor (AstRaw s)
-          f i = \case
-            DynamicRankedDummy @r @sh _ _ ->
-              withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-                DynamicRanked @r @n $ AstRaw $ AstFromS stensorKind $ AstProjectS @r @sh hVectorOf i
-            DynamicShapedDummy @r @sh _ _ ->
-              DynamicShaped @r @sh $ AstRaw $ AstProjectS hVectorOf i
-      in V.imap f $ shapeAstHVector hVectorOf
   tfromSShare @_ @z (AstRaw a) = AstRaw $ AstFromS (stensorKind @z) a
 
 astReplicate0NSNoSimp :: forall shn m s r. (KnownShS shn, GoodScalar r, AstSpan s)
@@ -925,14 +899,6 @@ astReplicate0NSNoSimp =
         withKnownShS sh' $
         AstReplicate SNat stensorKind $ go sh' v
   in go (knownShS @shn) . fromPrimal . AstConcrete (FTKS ZSS FTKScalar) . sscalar
-
-rawHVector :: HVector (AstTensor AstMethodShare s) -> HVector (AstRaw s)
-rawHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstRaw t
-      f (DynamicShaped t) = DynamicShaped $ AstRaw t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   rshape = shapeAst . unAstRaw
@@ -1420,7 +1386,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  dshape = shapeAstHVector . unAstRaw
   tftk _stk = ftkAst . unAstRaw
   tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
@@ -1432,10 +1397,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tD stk t d | Dict <- lemTensorKindOfSTK stk = AstRaw $ astSpanD (unAstRaw t) d
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     AstRaw $ fromPrimal $ AstConcrete ftk a
-  dmkHVector = AstRaw . AstMkHVector . unRawHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
-  dbuild1 k f = AstRaw $ AstBuild1 k $ funToAstI (unAstRaw . f . AstRaw)
   -- TODO: (still) relevant?
   -- In this instance, these two ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
@@ -1477,22 +1440,6 @@ deriving instance Floating (AstTensor AstMethodLet s y)
                   => Floating (AstNoVectorize s y)
 deriving instance (RealFloatF (AstTensor AstMethodLet s y))
                   => RealFloatF (AstNoVectorize s y)
-
-unNoVectorizeHVector :: HVector (AstNoVectorize s) -> HVector (AstTensor AstMethodLet s)
-unNoVectorizeHVector =
-  let f (DynamicRanked (AstNoVectorize t)) = DynamicRanked t
-      f (DynamicShaped (AstNoVectorize t)) = DynamicShaped t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
-noVectorizeHVector :: HVector (AstTensor AstMethodLet s) -> HVector (AstNoVectorize s)
-noVectorizeHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstNoVectorize t
-      f (DynamicShaped t) = DynamicShaped $ AstNoVectorize t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
 
 instance AstSpan s => LetTensor (AstNoVectorize s) where
   tlet u f = AstNoVectorize
@@ -1650,7 +1597,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tpair t1 t2 = AstNoVectorize $ tpair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ tproject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
-  dshape = shapeAstHVector . unAstNoVectorize
   tftk _stk = ftkAst . unAstNoVectorize
   tcond !stk !b !u !v =
     AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1659,13 +1605,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tD stk t d = AstNoVectorize $ tD stk (unAstNoVectorize t) d
   tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
-  dmkHVector = AstNoVectorize . dmkHVector . unNoVectorizeHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
-  dunHVector = noVectorizeHVector . dunHVector . unAstNoVectorize
   tunpairDup t = (tproject1 t, tproject2 t)
-  dbuild1 k f =
-    AstNoVectorize . AstBuild1 k $ funToAstI (unAstNoVectorize . f . AstNoVectorize)
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
@@ -1731,22 +1673,6 @@ astLetFunNoSimplify a f = case a of
     ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
           let (var, ast) = funToAst ftk f
           in AstLet var a ast
-
-unNoSimplifyHVector :: HVector (AstNoSimplify s) -> HVector (AstTensor AstMethodLet s)
-unNoSimplifyHVector =
-  let f (DynamicRanked (AstNoSimplify t)) = DynamicRanked t
-      f (DynamicShaped (AstNoSimplify t)) = DynamicShaped t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
-
-noSimplifyHVector :: HVector (AstTensor AstMethodLet s) -> HVector (AstNoSimplify s)
-noSimplifyHVector =
-  let f (DynamicRanked t) = DynamicRanked $ AstNoSimplify t
-      f (DynamicShaped t) = DynamicShaped $ AstNoSimplify t
-      f (DynamicRankedDummy p1 p2) = DynamicRankedDummy p1 p2
-      f (DynamicShapedDummy p1 p2) = DynamicShapedDummy p1 p2
-  in V.map f
 
 instance AstSpan s => LetTensor (AstNoSimplify s) where
   tlet u f = AstNoSimplify
@@ -2259,7 +2185,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tpair t1 t2 = AstNoSimplify $ AstPair (unAstNoSimplify t1) (unAstNoSimplify t2)
   tproject1 t = AstNoSimplify $ AstProject1 $ unAstNoSimplify t
   tproject2 t = AstNoSimplify $ AstProject2 $ unAstNoSimplify t
-  dshape = shapeAstHVector . unAstNoSimplify
   tftk _stk = ftkAst . unAstNoSimplify
   tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
@@ -2272,24 +2197,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify $ astSpanD (unAstNoSimplify t) d
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     AstNoSimplify $ fromPrimal $ AstConcrete ftk a
-  dmkHVector = AstNoSimplify . AstMkHVector . unNoSimplifyHVector
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoSimplify $ AstApply t (unAstNoSimplify ll)
-  dunHVector (AstNoSimplify (AstMkHVector l)) = noSimplifyHVector l
-  dunHVector (AstNoSimplify hVectorOf) =
-    let f :: Int -> DynamicTensor VoidTensor -> AstDynamic AstMethodLet s
-        f i = \case
-          DynamicRankedDummy @r @sh _ _ ->
-            withListSh (Proxy @sh) $ \(_ :: IShR n) ->
-              DynamicRanked @r @n $ AstFromS stensorKind $ AstProjectS @r @sh hVectorOf i
-          DynamicShapedDummy @r @sh _ _ ->
-            DynamicShaped @r @sh $ AstProjectS hVectorOf i
-    in noSimplifyHVector $ V.imap f $ shapeAstHVector hVectorOf
   tunpairDup (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification
     (AstNoSimplify t1, AstNoSimplify t2)
   tunpairDup t = (tproject1 t, tproject2 t)
-  dbuild1 k f = AstNoSimplify $ astBuild1Vectorize
-                    k (unAstNoSimplify . f . AstNoSimplify)
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)

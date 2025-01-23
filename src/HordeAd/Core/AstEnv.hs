@@ -6,10 +6,9 @@
 module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..), emptyEnv, showsPrecAstEnv
-  , extendEnv, extendEnvHVector
-  , extendEnvD, extendEnvI
+  , extendEnv, extendEnvI
     -- * The operations for interpreting bindings
-  , interpretLambdaIHVector, interpretLambdaIndex, interpretLambdaIndexS
+  , interpretLambdaIndex, interpretLambdaIndexS
   , interpretLambdaIndexToIndex, interpretLambdaIndexToIndexS
   , interpretLambdaHsH
     -- * Interpretation of arithmetic, boolean and relation operations
@@ -20,19 +19,15 @@ module HordeAd.Core.AstEnv
 
 import Prelude
 
-import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
-import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, Nat)
+import GHC.TypeLits (KnownNat)
 import Text.Show (showListWith)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (KnownShS (..), Rank)
+import Data.Array.Nested (KnownShS (..))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorClass
@@ -79,43 +74,6 @@ extendEnv var !t !env =
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
                         var2 (AstEnvElemRep t) env
 
-extendEnvHVector :: forall target. ADReady target
-                 => [AstDynamicVarName] -> HVector target -> AstEnv target
-                 -> AstEnv target
-extendEnvHVector vars !pars !env = assert (length vars == V.length pars) $
-  foldr extendEnvD env $ zip vars (V.toList pars)
-
-extendEnvD :: forall target. ADReady target
-           => (AstDynamicVarName, DynamicTensor target)
-           -> AstEnv target
-           -> AstEnv target
-extendEnvD vd@(AstDynamicVarName @ty @r @sh varId, d) !env = case d of
-  DynamicRanked @r3 @n3 u
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-    , Just Refl <- matchingRank @sh @n3
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnv @_ @_ @(TKR n3 r) (mkAstVarName varId) u env
-  DynamicShaped @r3 @sh3 u
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-    , Just Refl <- sameShape @sh3 @sh
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnv @_ @_ @(TKS sh r) (mkAstVarName varId) u env
-  DynamicRankedDummy @r3 @sh3 _ _
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @Nat)
-    , Just Refl <- sameShape @sh3 @sh
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      withListSh (Proxy @sh) $ \sh4 ->
-        extendEnv @target @_ @(TKR (Rank sh) r) (mkAstVarName varId) (rzero sh4) env
-  DynamicShapedDummy @r3 @sh3 _ _
-    | Just Refl <- testEquality (typeRep @ty) (typeRep @[Nat])
-    , Just Refl <- sameShape @sh3 @sh
-    , Just Refl <- testEquality (typeRep @r) (typeRep @r3) ->
-      extendEnv @target @_ @(TKS sh r) (mkAstVarName varId) (srepl 0) env
-  _ -> error $ "extendEnvD: impossible type"
-               `showFailure`
-               ( vd, typeRep @ty, typeRep @r, knownShS @sh
-               , scalarDynamic d, shapeDynamic d )
-
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target
            -> AstEnv target
@@ -139,16 +97,6 @@ extendEnvVarsS vars !ix !env =
 
 
 -- * The operations for interpreting bindings
-
-interpretLambdaIHVector
-  :: forall target s ms. BaseTensor target
-  => (AstEnv target -> AstTensor ms s TKUntyped -> target TKUntyped)
-  -> AstEnv target -> (IntVarName, AstTensor ms s TKUntyped)
-  -> IntOf target
-  -> target TKUntyped
-{-# INLINE interpretLambdaIHVector #-}
-interpretLambdaIHVector f !env (!var, !ast) =
-  \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIndex
   :: forall target s r m n ms. (KnownNat m, BaseTensor target)
