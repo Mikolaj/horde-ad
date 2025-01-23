@@ -18,10 +18,8 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorClass
-import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import MnistData
@@ -144,15 +142,14 @@ convMnistTestS
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
-  -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
   -> MnistDataBatchS batch_size r
-  -> HVector RepN
+  -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
   -> r
-convMnistTestS  _ _ _ _ batch_size@SNat _ _ _
+convMnistTestS _ _ _ batch_size@SNat _ _ _
   | sNatValue batch_size == 0 = 0
 convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
-               valsInit (glyphS, labelS) testParams =
+               (glyphS, labelS) testParams =
   let input :: target (TKS '[batch_size, 1, h, w] r)
       input = sconcrete $ Nested.sreshape knownShS glyphS
       outputS :: RepN (TKS '[SizeMnistLabel, batch_size] r)
@@ -162,7 +159,7 @@ convMnistTestS kh@SNat kw@SNat
             nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
                                c_out n_hidden batch_size
                                input
-        in nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
+        in nn testParams
       outputs = map (Nested.stoVector . unRepN) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
       labels = map (Nested.stoVector . unRepN) $ sunravelToList @_ @(TKScalar r)

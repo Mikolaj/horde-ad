@@ -17,7 +17,6 @@ import Prelude
 
 import Control.Monad (foldM, unless)
 import Data.IntMap.Strict qualified as IM
-import Data.Vector.Generic qualified as V
 import GHC.TypeLits (SomeNat (..), someNatVal)
 import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
@@ -177,8 +176,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
       hVectorInit = toHVectorOf @RepN valsInit
-      ftk = tftk @RepN
-                       (stensorKind @(X (ADRnnMnistParameters RepN r)))
+      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -298,8 +296,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInit = forgetShape valsInitShaped
         hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
         hVectorInit = toHVectorOf @RepN valsInit
-        ftk = tftk @RepN
-                         (stensorKind @(X (ADRnnMnistParameters RepN r)))
+        ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
                          hVectorInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches

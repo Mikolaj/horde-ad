@@ -9,7 +9,6 @@ import Prelude
 
 import Control.Monad (foldM, unless)
 import Data.IntMap.Strict qualified as IM
-import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (SomeNat (..), someNatVal)
 import System.IO (hPutStrLn, stderr)
@@ -385,6 +384,9 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
   ]
 
 
+type XParams2 r =
+  X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r)
+
 -- * Using matrices, which is rank 2
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
@@ -392,7 +394,7 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 mnistTestCase2VTA
   :: forall r.
      ( Differentiable r, GoodScalar r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
@@ -411,15 +413,18 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+      hVectorInit :: RepN (XParams2 r)
+      hVectorInit = toHVectorOf @RepN valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (V.length hVectorInit)
-                        , show (sizeHVector hVectorInit)
+--                        , show (V.length hVectorInit)
+--                        , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> HVector RepN -> r
-      ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
+      ftest :: [MnistData r] ->  RepN (XParams2 r) -> r
+      ftest mnistData pars =
+        MnistFcnnRanked2.afcnnMnistTest2
+          mnistData (parseHVector @_ @RepN valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -429,14 +434,17 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    <$> loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
+       let runBatch :: RepN (XParams2 r)
+                    -> (Int, [MnistData r])
+                    -> IO (RepN (XParams2 r))
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> ADVal RepN TKUntyped
+             let f :: MnistData r
+                   -> ADVal RepN (XParams2 r)
                    -> ADVal RepN (TKR 0 r)
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
-                 res = tunvector $ fst $ sgd gamma f chunk (dmkHVector hVector)
+                     mnist (parseHVector (fromDValue valsInit) adinputs)
+                 res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
                  lenChunk = length chunk
@@ -445,7 +453,9 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
+       let runEpoch :: Int
+                    -> RepN (XParams2 r)
+                    -> IO (RepN (XParams2 r))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -479,7 +489,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 mnistTestCase2VTI
   :: forall r.
      ( Differentiable r, GoodScalar r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
@@ -498,15 +508,20 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         RepN widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
-      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+      hVectorInit :: RepN (XParams2 r)
+      hVectorInit = toHVectorOf @RepN valsInit
+      ftk = tftk @RepN (stensorKind @(XParams2 r))
+                       hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show (V.length hVectorInit)
-                        , show (sizeHVector hVectorInit)
+--                        , show (V.length hVectorInit)
+--                        , show (sizeHVector hVectorInit)
                         , show gamma ]
-      ftest :: [MnistData r] -> HVector RepN -> r
-      ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
+      ftest :: [MnistData r] ->  RepN (XParams2 r) -> r
+      ftest mnistData pars =
+        MnistFcnnRanked2.afcnnMnistTest2
+          mnistData (parseHVector @_ @RepN valsInit pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -514,8 +529,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, _, var, hVector2)
-         <- funToAstRevIO $ FTKUntyped $ voidFromHVector hVectorInit
+       (_, _, var, hVector2) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <-
          funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
        (varLabel, astLabel) <-
@@ -523,14 +537,15 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (astGlyph, astLabel)
-                   (unAsHVector
-                    $ parseHVector (AsHVector $ fromDValue valsInit)
-                                   hVector2)
+                   (parseHVector (fromDValue valsInit) hVector2)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
+       let runBatch :: RepN (XParams2 r)
+                    -> (Int, [MnistData r])
+                    -> IO (RepN (XParams2 r))
            runBatch !hVector (k, chunk) = do
-             let f :: MnistData r -> ADVal RepN TKUntyped
+             let f :: MnistData r
+                   -> ADVal RepN (XParams2 r)
                    -> ADVal RepN (TKR 0 r)
                  f (glyph, label) varInputs =
                    let env = extendEnv var varInputs emptyEnv
@@ -541,7 +556,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                              (rconcrete $ Nested.rfromVector (fromList [sizeMnistLabelInt]) label)
                              env
                    in interpretAst envMnist ast
-                 res = tunvector $ fst $ sgd gamma f chunk (dmkHVector hVector)
+                 res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
                  lenChunk = length chunk
@@ -550,7 +565,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
+       let runEpoch :: Int
+                    -> RepN (XParams2 r)
+                    -> IO (RepN (XParams2 r))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $
@@ -587,7 +604,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 mnistTestCase2VTO
   :: forall r.
      ( Differentiable r, GoodScalar r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
@@ -609,15 +626,18 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           -- but there is nowhere to get aInit from.
           --   parseHVector aInit hVectorInit
           forgetShape valsInitShaped
-        hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+        hVectorInit :: RepN (XParams2 r)
+        hVectorInit = toHVectorOf @RepN valsInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
                           , show widthHidden, show widthHidden2
-                          , show (V.length hVectorInit)
-                          , show (sizeHVector hVectorInit)
+--                          , show (V.length hVectorInit)
+--                          , show (sizeHVector hVectorInit)
                           , show gamma ]
-        ftest :: [MnistData r] -> HVector RepN -> r
-        ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
+        ftest :: [MnistData r] ->  RepN (XParams2 r) -> r
+        ftest mnistData pars =
+          MnistFcnnRanked2.afcnnMnistTest2
+            mnistData (parseHVector @_ @RepN valsInit pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -630,28 +650,32 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                       in ( RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) dglyph
                          , RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR) dlabel )
              [] -> error "empty test data"
-           f = \ (AsHVector (pars, (glyphR, labelR))) ->
+           f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
+                    (AstTensor AstMethodLet FullSpan) r
+                , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
+                  , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
+             -> AstTensor AstMethodLet FullSpan (TKR 0 r)
+           f = \ (pars, (glyphR, labelR)) ->
              MnistFcnnRanked2.afcnnMnistLoss2TensorData
                (glyphR, labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (AsHVector (valsInit, dataInit))
+           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
            art = simplifyArtifactGradient artRaw
-           go :: [MnistData r] -> HVector RepN -> HVector RepN
+           go :: [MnistData r]
+              -> RepN (XParams2 r)
+              -> RepN (XParams2 r)
            go [] parameters = parameters
            go ((glyph, label) : rest) !parameters =
-             let glyphD = DynamicRanked @r @1
-                          $ RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
-                 labelD = DynamicRanked @r @1
-                          $ RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
-                 parametersAndInput =
-                   dmkHVector
-                   $ V.concat [parameters, V.fromList [glyphD, labelD]]
-                 gradientHVector =
-                   dunHVector
-                   $ fst $ revEvalArtifact art parametersAndInput Nothing
-             in go rest (tunvector $ updateWithGradient gamma (dmkHVector parameters) (dmkHVector gradientHVector))
+             let glyphD = RepN $ Nested.rfromVector (sizeMnistGlyphInt :$: ZSR) glyph
+                 labelD = RepN $ Nested.rfromVector (sizeMnistLabelInt :$: ZSR)  label
+                 parametersAndInput = tpair parameters (tpair glyphD labelD)
+                 gradient =
+                   tproject1 $ fst $ revEvalArtifact art parametersAndInput Nothing
+             in go rest (updateWithGradient gamma parameters gradient)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: HVector RepN -> (Int, [MnistData r]) -> IO (HVector RepN)
+       let runBatch :: RepN (XParams2 r)
+                    -> (Int, [MnistData r])
+                    -> IO (RepN (XParams2 r))
            runBatch !hVector (k, chunk) = do
              let res = go chunk hVector
                  trainScore = ftest chunk res
@@ -662,7 +686,9 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
                hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> HVector RepN -> IO (HVector RepN)
+       let runEpoch :: Int
+                    -> RepN (XParams2 r)
+                    -> IO (RepN (XParams2 r))
            runEpoch n params | n > epochs = return params
            runEpoch n !params = do
              unless (widthHidden < 10) $

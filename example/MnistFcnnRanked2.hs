@@ -13,10 +13,8 @@ import GHC.TypeLits (Nat)
 
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorClass
-import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData
@@ -91,19 +89,18 @@ afcnnMnistLoss2 (datum, target) =
 afcnnMnistTest2
   :: forall target r.
      (target ~ RepN, GoodScalar r, Differentiable r)
-  => ADFcnnMnist2Parameters target r
-  -> [MnistData r]
-  -> HVector RepN
+  => [MnistData r]
+  -> ADFcnnMnist2Parameters target r
   -> r
-afcnnMnistTest2 _ [] _ = 0
-afcnnMnistTest2 valsInit dataList testParams =
+afcnnMnistTest2 [] _ = 0
+afcnnMnistTest2 dataList testParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = rconcrete $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
             nn :: ADFcnnMnist2Parameters target r
                -> target (TKR 1 r)
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = Nested.rtoVector $ unRepN $ nn $ unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams)
+            v = Nested.rtoVector $ unRepN $ nn testParams
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)
