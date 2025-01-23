@@ -283,127 +283,11 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 mnistTestCaseRNNSO
   :: forall width batch_size r.
      ( Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
-  => String
-  -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
-  -> TestTree
-mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
-                   totalBatchSize
-                   expected =
-    let valsInit :: ADRnnMnistParametersShaped
-                      RepN SizeMnistHeight width r
-        valsInit = fst $ randomVals 0.4 (mkStdGen 44)
-        hVectorInit = toHVectorOf @RepN $ AsHVector valsInit
-        miniBatchSize = sNatValue batch_size
-        name = prefix ++ ": "
-               ++ unwords [ show epochs, show maxBatches
-                          , show (sNatValue width), show miniBatchSize
-                          , show (V.length $ dunHVector hVectorInit)
-                          , show (sizeHVector $ dunHVector hVectorInit) ]
-        ftest :: Int -> MnistDataBatchR r -> HVector RepN -> r
-        ftest 0 _ _ = 0
-        ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == rlength @_ @(TKScalar r) (RepN glyphs)) $
-          withSNat miniBatchSize' $ \bs@SNat ->
-            let mnist = ( Nested.rcastToShaped glyphs knownShS
-                        , Nested.rcastToShaped labels knownShS )
-            in MnistRnnShaped2.rnnMnistTestS
-                 width bs mnist
-                 (unAsHVector $ parseHVector (AsHVector valsInit) (dmkHVector testParams))
-    in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- map shapeBatch
-                    <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map rankBatch . take (totalBatchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = packBatchR testData
-           dataInit = case chunksOf miniBatchSize trainData of
-             d : _ -> let (dglyph, dlabel) = packBatch d
-                      in ( RepN dglyph
-                         , RepN dlabel )
-             [] -> error "empty train data"
-           f :: (AsHVector
-                  ( ADRnnMnistParametersShaped (AstTensor AstMethodLet FullSpan)
-                      SizeMnistHeight width r
-                  , ( AstTensor AstMethodLet FullSpan
-                        (TKS '[batch_size, SizeMnistHeight, SizeMnistWidth] r)
-                    , AstTensor AstMethodLet FullSpan
-                        (TKS '[batch_size, SizeMnistLabel] r) ) ))
-             -> AstTensor AstMethodLet FullSpan (TKS '[] r)
-           f = \ (AsHVector (pars, (glyphS, labelS))) ->
-             MnistRnnShaped2.rnnMnistLossFusedS
-               width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
-           (artRaw, _) =
-             revArtifactAdapt False f (AsHVector (valsInit, dataInit))
-           art = simplifyArtifactGradient artRaw
-           go :: [MnistDataBatchS batch_size r] -> (HVector RepN, StateAdam)
-              -> (HVector RepN, StateAdam)
-           go [] (parameters, stateAdam) = (parameters, stateAdam)
-           go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = DynamicShaped $ sconcrete glyph
-                 labelD = DynamicShaped $ sconcrete label
-                 parametersAndInput =
-                   dmkHVector
-                   $ V.concat [parameters, V.fromList [glyphD, labelD]]
-                 gradientHVector =
-                   dunHVector $ fst $ revEvalArtifact art parametersAndInput Nothing
-             in go rest (updateWithGradientAdam defaultArgsAdam stateAdam
-                                                parameters gradientHVector)
-           runBatch :: (HVector RepN, StateAdam) -> (Int, [MnistDataS r])
-                    -> IO (HVector RepN, StateAdam)
-           runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let chunkS = map packBatch
-                          $ filter (\ch -> length ch == miniBatchSize)
-                          $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = go chunkS (parameters, stateAdam)
-                 smnistRFromS (glyphs, labels) =
-                   ( Nested.stoRanked glyphs
-                   , Nested.stoRanked labels )
-                 chunkDataR = packBatchR $ map smnistRFromS chunk
-                 !trainScore =
-                   ftest (length chunk) chunkDataR parameters2
-                 !testScore =
-                   ftest (totalBatchSize * maxBatches) testDataR parameters2
-                 !lenChunk = length chunk
-             unless (sNatValue width < 10) $ do
-               hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
-               hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
-             return res
-       let runEpoch :: Int -> (HVector RepN, StateAdam) -> IO (HVector RepN)
-           runEpoch n (params2, _) | n > epochs = return params2
-           runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (sNatValue width < 10) $
-               hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
-             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
-                 chunks = take maxBatches
-                          $ zip [1 ..]
-                          $ chunksOf totalBatchSize trainDataShuffled
-             res <- foldM runBatch paramsStateAdam chunks
-             runEpoch (succ n) res
-       res <- runEpoch 1 (dunHVector hVectorInit, initialStateAdam (voidFromHVector $ dunHVector $ hVectorInit))
-       let testErrorFinal =
-             1 - ftest (totalBatchSize * maxBatches) testDataR res
-       assertEqualUpToEpsilon 1e-1 expected testErrorFinal
-
-{-# SPECIALIZE mnistTestCaseRNNSO
-  :: String
-  -> Int -> Int -> SNat width -> SNat batch_size -> Int -> Double
-  -> TestTree #-}
-
--- JAX differentiation, Ast term built and differentiated only once
--- and the result interpreted with different inputs in each gradient
--- descent iteration.
-mnistTestCaseRNNSD
-  :: forall width batch_size r.
-     ( Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
-mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
+mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize
                    expected =
     let valsInit :: ADRnnMnistParametersShaped
@@ -515,29 +399,19 @@ mnistTestCaseRNNSD prefix epochs maxBatches width@SNat batch_size@SNat
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
 
-{-# SPECIALIZE mnistTestCaseRNNSD
+{-# SPECIALIZE mnistTestCaseRNNSO
   :: String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> Double
   -> TestTree #-}
 
 tensorADValMnistTestsRNNSO :: TestTree
 tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
-  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
+  [ mnistTestCaseRNNSO "RNNSOD 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
                        (1 :: Double)
---  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 500
---                       (0.898 :: Double)
-  , mnistTestCaseRNNSO "RNNSO artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
+  , mnistTestCaseRNNSO "RNNSOD artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
-  , mnistTestCaseRNNSO "RNNSO artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
+  , mnistTestCaseRNNSO "RNNSOD artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
                        (0.9336734693877551 :: Double)
-  , mnistTestCaseRNNSO "RNNSO 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
-                       (1.0 :: Float)
-  , mnistTestCaseRNNSD "RNNSOD 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
-                       (1 :: Double)
-  , mnistTestCaseRNNSD "RNNSOD artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
-                       (0.8933333 :: Float)
-  , mnistTestCaseRNNSD "RNNSOD artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
-                       (0.9336734693877551 :: Double)
-  , mnistTestCaseRNNSD "RNNSOD 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
+  , mnistTestCaseRNNSO "RNNSOD 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
                        (1.0 :: Float)
   ]
