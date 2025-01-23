@@ -125,34 +125,6 @@ instance ForgetShape a
   type NoShape [a] = [NoShape a]
   forgetShape = map forgetShape
 
-instance forall a target.
-         (X a ~ TKUntyped, AdaptableHVector target a, BaseTensor target)
-         => AdaptableHVector target (Data.Vector.Vector a) where
-  type X (Data.Vector.Vector a) = TKUntyped
-  toHVectorOf = dmkHVector . V.concatMap (dunHVector . toHVectorOf)
-  fromHVector lInit source =
-    let f (!lAcc, !restAcc) !aInit =
-          case fromHVector aInit restAcc of
-            Just (a, mrest) -> (V.snoc lAcc a, fromMaybe (dmkHVector @target V.empty) mrest)
-              -- this snoc, if the vector is long, is very costly;
-              -- a solution might be to define Value to be a list
-            _ -> error "fromHVector (Data.Vector.Vector a)"
-        (!l, !restAll) = V.foldl' f (V.empty, source) lInit
-    in Just (l, if nullRep restAll then Nothing else Just restAll)
-
-instance TermValue a => TermValue (Data.Vector.Vector a) where
-  type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
-  fromValue = V.map fromValue
-
-instance DualNumberValue a => DualNumberValue (Data.Vector.Vector a) where
-  type DValue (Data.Vector.Vector a) = Data.Vector.Vector (DValue a)
-  fromDValue = V.map fromDValue
-
-instance ForgetShape a
-         => ForgetShape (Data.Vector.Vector a) where
-  type NoShape (Data.Vector.Vector a) = Data.Vector.Vector (NoShape a)
-  forgetShape = V.map forgetShape
-
 instance BaseTensor target
          => AdaptableHVector target (DynamicTensor target) where
   type X (DynamicTensor target) = TKUntyped
