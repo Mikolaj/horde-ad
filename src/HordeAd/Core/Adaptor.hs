@@ -18,9 +18,7 @@ module HordeAd.Core.Adaptor
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
-import Data.Strict.Vector qualified as Data.Vector
 import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
@@ -106,24 +104,6 @@ class RandomHVector vals where
 
 
 -- * Basic Adaptor class instances
-
-{- This is temporarily moved to TensorADVal in order to specialize manually
-instance AdaptableHVector target a
-         => AdaptableHVector target [a] where
--}
-
-instance TermValue a => TermValue [a] where
-  type Value [a] = [Value a]
-  fromValue = map fromValue
-
-instance DualNumberValue a => DualNumberValue [a] where
-  type DValue [a] = [DValue a]
-  fromDValue = map fromDValue
-
-instance ForgetShape a
-         => ForgetShape [a] where
-  type NoShape [a] = [NoShape a]
-  forgetShape = map forgetShape
 
 instance BaseTensor target
          => AdaptableHVector target (DynamicTensor target) where

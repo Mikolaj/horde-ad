@@ -17,14 +17,7 @@ import GHC.TypeLits (KnownNat)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested
-  ( KnownShS (..)
-  , ShR (..)
-  , pattern (:$:)
-  , pattern (:.:)
-  , pattern ZIR
-  , pattern ZSR
-  )
+import Data.Array.Nested (IxR (..), KnownShS (..), ListR (..), ShR (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
@@ -644,38 +637,38 @@ testListProdPP = do
     @?= "\\x160 x161 x162 x163 -> ((x160 * x161) * x162) * x163"
 -}
 
-rankedListProdr :: (BaseTensor target, GoodScalar r)
-                => [target (TKR 0 r)] -> target (TKR 0 r)
+rankedListProdr :: forall k target r. (BaseTensor target, GoodScalar r)
+                => ListR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListProdr = foldr1 (*)
 
 testListProdrPP :: Assertion
 testListProdrPP = do
   resetVarCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListProdr
-  let (artifactRev, _deltas) = revArtifactAdapt True fT (map rscalar [1, 2, 3, 4])
+  let (artifactRev, _deltas) = revArtifactAdapt True fT (fromList $ map rscalar [1, 2, 3, 4])
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x17 h1 -> let x14 = sproject h1 2 * sproject h1 3 ; x18 = sproject h1 0 * sfromR x17 ; x19 = sproject h1 1 * x18 in [(sproject h1 1 * x14) * sfromR x17, x14 * x18, sproject h1 3 * x19, sproject h1 2 * x19]"
+    @?= "\\x4 x1 -> tfromS (let x2 = sfromR (tproject1 (tproject2 (tproject2 x1))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) ; x5 = sfromR (tproject1 x1) * sfromR x4 ; x6 = sfromR (tproject1 (tproject2 x1)) * x5 in tpair ((sfromR (tproject1 (tproject2 x1)) * x2) * sfromR x4, tpair (x2 * x5, tpair (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x6, tpair (sfromR (tproject1 (tproject2 (tproject2 x1))) * x6, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sproject h1 0 * (sproject h1 1 * (sproject h1 2 * sproject h1 3)))"
+    @?= "\\x1 -> rfromS (sfromR (tproject1 x1) * (sfromR (tproject1 (tproject2 x1)) * (sfromR (tproject1 (tproject2 (tproject2 x1))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 testListProdrLongPP :: Assertion
 testListProdrLongPP = do
   resetVarCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT :: ListR 13 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListProdr
   let (artifactRev, _) =
-        revArtifactAdapt True fT (map rscalar [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+        revArtifactAdapt True fT (fromList $ map rscalar [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
   printArtifactSimple renames artifactRev
-    @?= "\\x53 h1 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h16 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h17 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h18 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h19 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h20 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h21 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h22 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h23 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h24 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h25 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h26 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h27 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h28 -> tlet (sproject h27 11) (\\x29 -> tlet (sproject h28 12) (\\x30 -> tlet (sproject h26 10) (\\x31 -> tlet (x29 * x30) (\\x32 -> tlet (sproject h25 9) (\\x33 -> tlet (x31 * x32) (\\x34 -> tlet (sproject h24 8) (\\x35 -> tlet (x33 * x34) (\\x36 -> tlet (sproject h23 7) (\\x37 -> tlet (x35 * x36) (\\x38 -> tlet (sproject h22 6) (\\x39 -> tlet (x37 * x38) (\\x40 -> tlet (sproject h21 5) (\\x41 -> tlet (x39 * x40) (\\x42 -> tlet (sproject h20 4) (\\x43 -> tlet (x41 * x42) (\\x44 -> tlet (sproject h19 3) (\\x45 -> tlet (x43 * x44) (\\x46 -> tlet (sproject h18 2) (\\x47 -> tlet (x45 * x46) (\\x48 -> tlet (sproject h17 1) (\\x49 -> tlet (x47 * x48) (\\x50 -> tlet (sproject h16 0) (\\x51 -> tlet (x49 * x50) (\\x52 -> tlet (x51 * sfromR x53) (\\x54 -> tlet (x49 * x54) (\\x55 -> tlet (x47 * x55) (\\x56 -> tlet (x45 * x56) (\\x57 -> tlet (x43 * x57) (\\x58 -> tlet (x41 * x58) (\\x59 -> tlet (x39 * x59) (\\x60 -> tlet (x37 * x60) (\\x61 -> tlet (x35 * x61) (\\x62 -> tlet (x33 * x62) (\\x63 -> tlet (x31 * x63) (\\x64 -> dmkHVector (fromList [DynamicShaped (x52 * sfromR x53), DynamicShaped (x50 * x54), DynamicShaped (x48 * x55), DynamicShaped (x46 * x56), DynamicShaped (x44 * x57), DynamicShaped (x42 * x58), DynamicShaped (x40 * x59), DynamicShaped (x38 * x60), DynamicShaped (x36 * x61), DynamicShaped (x34 * x62), DynamicShaped (x32 * x63), DynamicShaped (x30 * x64), DynamicShaped (x29 * x64)])))))))))))))))))))))))))))))))))))))))))))))))))"
+    @?= "\\x13 x1 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))))) (\\x2 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * x2) (\\x3 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * x3) (\\x4 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * x4) (\\x5 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * x5) (\\x6 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * x6) (\\x7 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * x7) (\\x8 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * x8) (\\x9 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x9) (\\x10 -> tlet (sfromR (tproject1 (tproject2 (tproject2 x1))) * x10) (\\x11 -> tlet (sfromR (tproject1 (tproject2 x1)) * x11) (\\x12 -> tlet (sfromR (tproject1 x1) * sfromR x13) (\\x14 -> tlet (sfromR (tproject1 (tproject2 x1)) * x14) (\\x15 -> tlet (sfromR (tproject1 (tproject2 (tproject2 x1))) * x15) (\\x16 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x16) (\\x17 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * x17) (\\x18 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * x18) (\\x19 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * x19) (\\x20 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * x20) (\\x21 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * x21) (\\x22 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * x22) (\\x23 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * x23) (\\x24 -> tpair (rfromS (x12 * sfromR x13), tpair (rfromS (x11 * x14), tpair (rfromS (x10 * x15), tpair (rfromS (x9 * x16), tpair (rfromS (x8 * x17), tpair (rfromS (x7 * x18), tpair (rfromS (x6 * x19), tpair (rfromS (x5 * x20), tpair (rfromS (x4 * x21), tpair (rfromS (x3 * x22), tpair (rfromS (x2 * x23), tpair (rfromS (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))))) * x24), tpair (rfromS (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * x24), stoScalar (sscalar Z0))))))))))))))))))))))))))))))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\h1 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h16 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h17 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h18 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h19 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h20 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h21 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h22 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h23 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h24 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h25 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h26 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h27 -> tlet (dmkHVector (fromList [DynamicShaped (sproject h1 0), DynamicShaped (sproject h1 1), DynamicShaped (sproject h1 2), DynamicShaped (sproject h1 3), DynamicShaped (sproject h1 4), DynamicShaped (sproject h1 5), DynamicShaped (sproject h1 6), DynamicShaped (sproject h1 7), DynamicShaped (sproject h1 8), DynamicShaped (sproject h1 9), DynamicShaped (sproject h1 10), DynamicShaped (sproject h1 11), DynamicShaped (sproject h1 12)])) (\\h28 -> tlet (sproject h27 11) (\\x29 -> tlet (sproject h28 12) (\\x30 -> tlet (sproject h26 10) (\\x31 -> tlet (x29 * x30) (\\x32 -> tlet (sproject h25 9) (\\x33 -> tlet (x31 * x32) (\\x34 -> tlet (sproject h24 8) (\\x35 -> tlet (x33 * x34) (\\x36 -> tlet (sproject h23 7) (\\x37 -> tlet (x35 * x36) (\\x38 -> tlet (sproject h22 6) (\\x39 -> tlet (x37 * x38) (\\x40 -> tlet (sproject h21 5) (\\x41 -> tlet (x39 * x40) (\\x42 -> tlet (sproject h20 4) (\\x43 -> tlet (x41 * x42) (\\x44 -> tlet (sproject h19 3) (\\x45 -> tlet (x43 * x44) (\\x46 -> tlet (sproject h18 2) (\\x47 -> tlet (x45 * x46) (\\x48 -> tlet (sproject h17 1) (\\x49 -> tlet (x47 * x48) (\\x50 -> tlet (sproject h16 0) (\\x51 -> tlet (x49 * x50) (\\x52 -> rfromS (x51 * x52))))))))))))))))))))))))))))))))))))))"
+    @?= "\\x1 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))))) (\\x2 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * x2) (\\x3 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * x3) (\\x4 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * x4) (\\x5 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * x5) (\\x6 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * x6) (\\x7 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * x7) (\\x8 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * x8) (\\x9 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x9) (\\x10 -> tlet (sfromR (tproject1 (tproject2 (tproject2 x1))) * x10) (\\x11 -> tlet (sfromR (tproject1 (tproject2 x1)) * x11) (\\x12 -> rfromS (sfromR (tproject1 x1) * x12))))))))))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x53 h1 -> let x32 = sproject h1 11 * sproject h1 12 ; x34 = sproject h1 10 * x32 ; x36 = sproject h1 9 * x34 ; x38 = sproject h1 8 * x36 ; x40 = sproject h1 7 * x38 ; x42 = sproject h1 6 * x40 ; x44 = sproject h1 5 * x42 ; x46 = sproject h1 4 * x44 ; x48 = sproject h1 3 * x46 ; x50 = sproject h1 2 * x48 ; x54 = sproject h1 0 * sfromR x53 ; x55 = sproject h1 1 * x54 ; x56 = sproject h1 2 * x55 ; x57 = sproject h1 3 * x56 ; x58 = sproject h1 4 * x57 ; x59 = sproject h1 5 * x58 ; x60 = sproject h1 6 * x59 ; x61 = sproject h1 7 * x60 ; x62 = sproject h1 8 * x61 ; x63 = sproject h1 9 * x62 ; x64 = sproject h1 10 * x63 in [(sproject h1 1 * x50) * sfromR x53, x50 * x54, x48 * x55, x46 * x56, x44 * x57, x42 * x58, x40 * x59, x38 * x60, x36 * x61, x34 * x62, x32 * x63, sproject h1 12 * x64, sproject h1 11 * x64]"
+    @?= "\\x13 x1 -> tfromS (let x2 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))))) ; x3 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * x2 ; x4 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * x3 ; x5 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * x4 ; x6 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * x5 ; x7 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * x6 ; x8 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * x7 ; x9 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * x8 ; x10 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x9 ; x11 = sfromR (tproject1 (tproject2 (tproject2 x1))) * x10 ; x14 = sfromR (tproject1 x1) * sfromR x13 ; x15 = sfromR (tproject1 (tproject2 x1)) * x14 ; x16 = sfromR (tproject1 (tproject2 (tproject2 x1))) * x15 ; x17 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x16 ; x18 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * x17 ; x19 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * x18 ; x20 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * x19 ; x21 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * x20 ; x22 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * x21 ; x23 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * x22 ; x24 = sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * x23 in tpair ((sfromR (tproject1 (tproject2 x1)) * x11) * sfromR x13, tpair (x11 * x14, tpair (x10 * x15, tpair (x9 * x16, tpair (x8 * x17, tpair (x7 * x18, tpair (x6 * x19, tpair (x5 * x20, tpair (x4 * x21, tpair (x3 * x22, tpair (x2 * x23, tpair (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))))) * x24, tpair (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * x24, sscalar Z0))))))))))))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sproject h1 0 * (sproject h1 1 * (sproject h1 2 * (sproject h1 3 * (sproject h1 4 * (sproject h1 5 * (sproject h1 6 * (sproject h1 7 * (sproject h1 8 * (sproject h1 9 * (sproject h1 10 * (sproject h1 11 * sproject h1 12))))))))))))"
+    @?= "\\x1 -> rfromS (sfromR (tproject1 x1) * (sfromR (tproject1 (tproject2 x1)) * (sfromR (tproject1 (tproject2 (tproject2 x1))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))))))))))))))))"
 
 {- TODO: this requires a better AdaptableHVector instance for [a]
 testListProd :: Assertion
@@ -691,108 +684,108 @@ testListProdr = do
   assertEqualUpToEpsilon 1e-10
     [rscalar 24, rscalar 12, rscalar 8, rscalar 6]
     (rev @_ @(TKR 0 Double)
-         rankedListProdr [rscalar 1, rscalar 2, rscalar 3, rscalar 4])
+         (rankedListProdr @4) [rscalar 1, rscalar 2, rscalar 3, rscalar 4])
 
 rankedListSumr :: (BaseTensor target, GoodScalar r)
-                => [target (TKR 0 r)] -> target (TKR 0 r)
+               => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSumr = foldr1 (+)
 
 testListSumrPP :: Assertion
 testListSumrPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumr
   let (artifactRev, deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x11 h1 -> [sfromR x11, sfromR x11, sfromR x11, sfromR x11]"
+    @?= "\\x2 x1 -> tfromS (tpair (x2, tpair (x2, tpair (x2, tpair (x2, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sproject h1 0 + sproject h1 1 + sproject h1 2 + sproject h1 3)"
+    @?= "\\x1 -> rfromS (sfromR (tproject1 x1) + sfromR (tproject1 (tproject2 x1)) + sfromR (tproject1 (tproject2 (tproject2 x1))) + sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))"
   show deltas
-    @?= "FromS (ShareG 100000003 (AddG (InputG (FTKS [] FTKScalar) (InputId 0)) (ShareG 100000002 (AddG (InputG (FTKS [] FTKScalar) (InputId 1)) (ShareG 100000001 (AddG (InputG (FTKS [] FTKScalar) (InputId 2)) (InputG (FTKS [] FTKScalar) (InputId 3))))))))"
+    @?= "FromS (ShareG 100000003 (AddG (SFromR (InputG (FTKR [] FTKScalar) (InputId 0))) (ShareG 100000002 (AddG (SFromR (InputG (FTKR [] FTKScalar) (InputId 1))) (ShareG 100000001 (AddG (SFromR (InputG (FTKR [] FTKScalar) (InputId 2))) (SFromR (InputG (FTKR [] FTKScalar) (InputId 3)))))))))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (BaseTensor target, GoodScalar r)
-                => [target (TKR 0 r)] -> target (TKR 0 r)
+                => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2r = foldr1 (\x y -> x + rscalar 2 * y)
 
 testListSum2rPP :: Assertion
 testListSum2rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x14 h1 -> let x15 = sscalar 2.0 * sfromR x14 ; x16 = sscalar 2.0 * x15 in [sfromR x14, x15, x16, sscalar 2.0 * x16]"
+    @?= "\\x4 x1 -> tfromS (let x5 = sscalar 2.0 * sfromR x4 ; x6 = sscalar 2.0 * x5 in tpair (x4, tpair (x5, tpair (x6, tpair (sscalar 2.0 * x6, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sproject h1 0 + sscalar 2.0 * (sproject h1 1 + sscalar 2.0 * (sproject h1 2 + sscalar 2.0 * sproject h1 3)))"
+    @?= "\\x1 -> rfromS (sfromR (tproject1 x1) + sscalar 2.0 * (sfromR (tproject1 (tproject2 x1)) + sscalar 2.0 * (sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 2.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 rankedListSum22r :: (BaseTensor target, GoodScalar r)
-                 => [target (TKR 0 r)] -> target (TKR 0 r)
+                 => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum22r = foldr1 (\x y -> rscalar 2 * x + rscalar 2 * y)
 
 testListSum22rPP :: Assertion
 testListSum22rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum22r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x17 h1 -> let x18 = sscalar 2.0 * sfromR x17 ; x19 = sscalar 2.0 * x18 in [sscalar 2.0 * sfromR x17, sscalar 2.0 * x18, sscalar 2.0 * x19, sscalar 2.0 * x19]"
+    @?= "\\x4 x1 -> tfromS (let x5 = sscalar 2.0 * sfromR x4 ; x6 = sscalar 2.0 * x5 in tpair (sscalar 2.0 * sfromR x4, tpair (sscalar 2.0 * x5, tpair (sscalar 2.0 * x6, tpair (sscalar 2.0 * x6, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sscalar 2.0 * sproject h1 0 + sscalar 2.0 * (sscalar 2.0 * sproject h1 1 + sscalar 2.0 * (sscalar 2.0 * sproject h1 2 + sscalar 2.0 * sproject h1 3)))"
+    @?= "\\x1 -> rfromS (sscalar 2.0 * sfromR (tproject1 x1) + sscalar 2.0 * (sscalar 2.0 * sfromR (tproject1 (tproject2 x1)) + sscalar 2.0 * (sscalar 2.0 * sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 2.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 -- Note how this tlet did not change anything, in particular the sharing.
 rankedListSumk22r :: ( BaseTensor target, LetTensor target
                      , GoodScalar r )
-                 => [target (TKR 0 r)] -> target (TKR 0 r)
+                 =>  ListR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSumk22r = foldr1 (\x y -> tlet (rscalar 2) (\k -> k * x + k * y))
 
 testListSumk22rPP :: Assertion
 testListSumk22rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumk22r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x17 h1 -> let x18 = sscalar 2.0 * sfromR x17 ; x19 = sscalar 2.0 * x18 in [sscalar 2.0 * sfromR x17, sscalar 2.0 * x18, sscalar 2.0 * x19, sscalar 2.0 * x19]"
+    @?= "\\x4 x1 -> tfromS (let x5 = sscalar 2.0 * sfromR x4 ; x6 = sscalar 2.0 * x5 in tpair (sscalar 2.0 * sfromR x4, tpair (sscalar 2.0 * x5, tpair (sscalar 2.0 * x6, tpair (sscalar 2.0 * x6, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sscalar 2.0 * sproject h1 0 + sscalar 2.0 * (sscalar 2.0 * sproject h1 1 + sscalar 2.0 * (sscalar 2.0 * sproject h1 2 + sscalar 2.0 * sproject h1 3)))"
+    @?= "\\x1 -> rfromS (sscalar 2.0 * sfromR (tproject1 x1) + sscalar 2.0 * (sscalar 2.0 * sfromR (tproject1 (tproject2 x1)) + sscalar 2.0 * (sscalar 2.0 * sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 2.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 rankedListSum2xpyr :: (BaseTensor target, GoodScalar r)
-                   => [target (TKR 0 r)] -> target (TKR 0 r)
+                   =>  ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2xpyr = foldr1 (\x y -> rscalar 2 * (x + y))
 
 testListSum2xpyrPP :: Assertion
 testListSum2xpyrPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xpyr
   let (artifactRev, _deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x14 h1 -> let x15 = sscalar 2.0 * sfromR x14 ; x16 = sscalar 2.0 * x15 ; x17 = sscalar 2.0 * x16 in [x15, x16, x17, x17]"
+    @?= "\\x5 x1 -> tfromS (let x6 = sscalar 2.0 * sfromR x5 ; x7 = sscalar 2.0 * x6 ; x8 = sscalar 2.0 * x7 in tpair (x6, tpair (x7, tpair (x8, tpair (x8, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sscalar 2.0 * (sproject h1 0 + sscalar 2.0 * (sproject h1 1 + sscalar 2.0 * (sproject h1 2 + sproject h1 3))))"
+    @?= "\\x1 -> rfromS (sscalar 2.0 * (sfromR (tproject1 x1) + sscalar 2.0 * (sfromR (tproject1 (tproject2 x1)) + sscalar 2.0 * (sfromR (tproject1 (tproject2 (tproject2 x1))) + sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1))))))))"
 
 rankedListSum2xyr :: (BaseTensor target, GoodScalar r)
-                  => [target (TKR 0 r)] -> target (TKR 0 r)
+                  => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2xyr = foldr1 (\x y -> rscalar 2 * (x * y))
 
 testListSum2xyrPP :: Assertion
 testListSum2xyrPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xyr
   let (artifactRev, _deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x20 h1 -> let x15 = sscalar 2.0 * (sproject h1 2 * sproject h1 3) ; x21 = sscalar 2.0 * sfromR x20 ; x22 = sscalar 2.0 * (sproject h1 0 * x21) ; x23 = sscalar 2.0 * (sproject h1 1 * x22) in [(sscalar 2.0 * (sproject h1 1 * x15)) * x21, x15 * x22, sproject h1 3 * x23, sproject h1 2 * x23]"
+    @?= "\\x7 x1 -> tfromS (let x3 = sscalar 2.0 * (sfromR (tproject1 (tproject2 (tproject2 x1))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1))))) ; x8 = sscalar 2.0 * sfromR x7 ; x9 = sscalar 2.0 * (sfromR (tproject1 x1) * x8) ; x10 = sscalar 2.0 * (sfromR (tproject1 (tproject2 x1)) * x9) in tpair ((sscalar 2.0 * (sfromR (tproject1 (tproject2 x1)) * x3)) * x8, tpair (x3 * x9, tpair (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x10, tpair (sfromR (tproject1 (tproject2 (tproject2 x1))) * x10, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sscalar 2.0 * (sproject h1 0 * (sscalar 2.0 * (sproject h1 1 * (sscalar 2.0 * (sproject h1 2 * sproject h1 3))))))"
+    @?= "\\x1 -> rfromS (sscalar 2.0 * (sfromR (tproject1 x1) * (sscalar 2.0 * (sfromR (tproject1 (tproject2 x1)) * (sscalar 2.0 * (sfromR (tproject1 (tproject2 (tproject2 x1))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1))))))))))"
 
 ranked2xy :: (BaseTensor target, GoodScalar r)
           => (target (TKR 0 r), target (TKR 0 r)) -> target (TKR 0 r)
@@ -812,21 +805,21 @@ test2xyPP = do
     @?= "\\x1 -> rfromS ((sscalar 2.0 * sfromR (tproject1 x1)) * sfromR (tproject2 x1))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
-rankedListSum23r :: (BaseTensor target, GoodScalar r)
-                 => [target (TKR 0 r)] -> target (TKR 0 r)
+rankedListSum23r :: forall k target r. (BaseTensor target, GoodScalar r)
+                 => ListR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum23r = foldr1 (\x y -> rscalar 2 * x + rscalar 3 * y)
 
 testListSum23rPP :: Assertion
 testListSum23rPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKR 0 Double)] -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum23r
   let (artifactRev, _deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x17 h1 -> let x18 = sscalar 3.0 * sfromR x17 ; x19 = sscalar 3.0 * x18 in [sscalar 2.0 * sfromR x17, sscalar 2.0 * x18, sscalar 2.0 * x19, sscalar 3.0 * x19]"
+    @?= "\\x4 x1 -> tfromS (let x5 = sscalar 3.0 * sfromR x4 ; x6 = sscalar 3.0 * x5 in tpair (sscalar 2.0 * sfromR x4, tpair (sscalar 2.0 * x5, tpair (sscalar 2.0 * x6, tpair (sscalar 3.0 * x6, sscalar Z0)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\h1 -> rfromS (sscalar 2.0 * sproject h1 0 + sscalar 3.0 * (sscalar 2.0 * sproject h1 1 + sscalar 3.0 * (sscalar 2.0 * sproject h1 2 + sscalar 3.0 * sproject h1 3)))"
+    @?= "\\x1 -> rfromS (sscalar 2.0 * sfromR (tproject1 x1) + sscalar 3.0 * (sscalar 2.0 * sfromR (tproject1 (tproject2 x1)) + sscalar 3.0 * (sscalar 2.0 * sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 3.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 ranked23 :: (BaseTensor target, GoodScalar r)
          => (target (TKR 0 r), target (TKR 0 r)) -> target (TKR 0 r)
@@ -1334,8 +1327,8 @@ testBazRenumbered =
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
 fooD :: forall r. r ~ Double
-     => [ADVal RepN (TKR 0 r)] -> ADVal RepN (TKR 0 r)
-fooD [x, y, z] =
+     => ListR 3 (ADVal RepN (TKR 0 r)) -> ADVal RepN (TKR 0 r)
+fooD (x ::: y ::: z ::: ZR) =
   let w = x * sin y
   in atan2F z w + z * w
 fooD _ = error "wrong number of arguments"
@@ -1343,8 +1336,8 @@ fooD _ = error "wrong number of arguments"
 testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
-    [rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627]
-    (crev fooD [rscalar 1.1, rscalar 2.2, rscalar 3.3])
+    (fromList [rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627])
+    (crev fooD (fromList [rscalar 1.1, rscalar 2.2, rscalar 3.3]))
 
 fooBuild1 :: (ADReady target, GoodScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)

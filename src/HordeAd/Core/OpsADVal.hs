@@ -15,11 +15,9 @@ module HordeAd.Core.OpsADVal
 import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
-import Data.List (foldl')
 import Data.List.Index (imap)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
-import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -212,69 +210,6 @@ instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS sh r)) where
   type DValue (ADVal target (TKS sh r)) = RepN (TKS sh r)   -- ! not Value(shaped)
   fromDValue t = fromPrimalADVal $ sconcrete $ unRepN t
-
--- This is temporarily moved from Adaptor in order to specialize manually
-instance ( a ~ target (TKR n r), BaseTensor target
-         , GoodScalar r, KnownNat n, AdaptableHVector target a )
-         => AdaptableHVector target [a] where
-{- TODO
-  {-# SPECIALIZE instance
-      AdaptableHVector Nested.Ranked (OR.Array n Double)
-      => AdaptableHVector Nested.Ranked
-                          [OR.Array n Double] #-}
--}
-{- TODO: import loop:
-  {-# SPECIALIZE instance
-      AdaptableHVector (AstRanked s)
-                       (AstRanked s Double n)
-      => AdaptableHVector (AstRanked s)
-                          [AstRanked s Double n] #-}
--}
-  type X [a] = TKUntyped
-  toHVectorOf =
-    let toH :: target (TKR n r) -> DynamicTensor target
-        toH v = case tftk (STKR (SNat @n)
-                          (STKScalar $ typeRep @r)) v of
-          FTKR sh' _ ->
-            withCastRS sh' $ \(sh :: ShS sh) ->
-              withKnownShS sh $
-              DynamicShaped . sfromR @_ @sh $ v
-    in dmkHVector . V.concat
-       . map (dunHVector . toHVectorOf . toH)
-  fromHVector lInit source =
-    let f (!lAcc, !restAcc) !aInit = case tftk (STKR (SNat @n)
-                                               (STKScalar $ typeRep @r)) aInit of
-          FTKR sh' _ ->
-            withCastRS sh' $ \(sh :: ShS sh) ->
-              withKnownShS sh $
-              case fromHVector (DynamicShaped $ sfromR @_ @sh aInit) restAcc of
-                Just (a, mrest) -> (rfromD @r @n a : lAcc, fromMaybe (dmkHVector V.empty) mrest)
-                _ -> error "fromHVector: Nothing"
-        (l, !restAll) = foldl' f ([], source) lInit
-        !rl = reverse l
-    in Just (rl, if nullRep restAll then Nothing else Just restAll)
-    -- is the following as performant? benchmark:
-    -- > fromHVector lInit source =
-    -- >   let f = swap . flip fromHVector
-    -- >   in swap $ mapAccumL f source lInit
-
-instance ( BaseTensor target
-         , AdaptableHVector target (AsHVector a)
-         , X (AsHVector a) ~ TKUntyped )
-         => AdaptableHVector target (AsHVector [a]) where
-  type X (AsHVector [a]) = TKUntyped
-  toHVectorOf =
-    dmkHVector . V.concat
-    . map (dunHVector . toHVectorOf . AsHVector)
-    . unAsHVector
-  fromHVector (AsHVector lInit) source =
-    let f (!lAcc, !restAcc) !aInit =
-          case fromHVector (AsHVector aInit) restAcc of
-            Just (AsHVector a, mrest) -> (a : lAcc, fromMaybe (dmkHVector @target V.empty) mrest)
-            _ -> error "fromHVector: Nothing"
-        (l, !restAll) = foldl' f ([], source) lInit
-        !rl = reverse l
-    in Just (AsHVector rl, Just restAll)
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.

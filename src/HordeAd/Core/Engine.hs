@@ -34,12 +34,12 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.TensorKind
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsAst
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * Reverse derivative adaptors
