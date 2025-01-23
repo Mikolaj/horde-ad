@@ -3,8 +3,6 @@ module HordeAd.External.Optimizer
   ( sgd
   , sgdAdamDeep, sgdAdamArgsDeep
   , StateAdamDeep, initialStateAdamDeep
-  , sgdAdam, sgdAdamArgs
-  , StateAdam, initialStateAdam
   , defaultArgsAdam
   ) where
 
@@ -82,47 +80,4 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
         gradients = fst $ crevOnADInputs Nothing (f a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdamDeep argsAdam stateAdam parameters gradients
-    in go rest parametersNew stateAdamNew
-
--- We inline (possibly causing a binary blowup) until we are able to work around
--- https://gitlab.haskell.org/ghc/ghc/-/issues/23798
--- and specialize.
--- | An implementation of the Adam gradient descent.
-sgdAdam
-  :: forall a z. TensorKind z
-  => (a -> HVector (ADVal RepN) -> ADVal RepN z)
-  -> [a]
-  -> HVector RepN
-  -> StateAdam
-  -> (HVector RepN, StateAdam)
-{-# INLINE sgdAdam #-}
-sgdAdam = sgdAdamArgs defaultArgsAdam
-
-sgdAdamArgs
-  :: forall a z. TensorKind z
-  => ArgsAdam
-  -> (a -> HVector (ADVal RepN) -> ADVal RepN z)
-  -> [a]
-  -> HVector RepN
-  -> StateAdam
-  -> (HVector RepN, StateAdam)
-{-# INLINE sgdAdamArgs #-}
-sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
-  go trainingData parameters0 stateAdam0
- where
-  g :: a -> ADVal RepN TKUntyped -> ADVal RepN z
-  g a = f a . tunvector
-  ftk = FTKUntyped $ voidFromHVector parameters0
-  deltaInputs :: Delta RepN TKUntyped
-  deltaInputs = generateDeltaInputs ftk
-  go :: [a] -> HVector RepN -> StateAdam
-     -> (HVector RepN, StateAdam)
-  go [] parameters stateAdam = (parameters, stateAdam)
-  go (a : rest) !parameters !stateAdam =
-    let inputs :: ADVal RepN TKUntyped
-        inputs = makeADInputs (RepN parameters) deltaInputs
-        gradients = unRepN $ fst
-                    $ crevOnADInputs Nothing (g a) inputs
-        (parametersNew, stateAdamNew) =
-          updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
