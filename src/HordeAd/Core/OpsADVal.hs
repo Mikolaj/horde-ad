@@ -31,7 +31,6 @@ import Data.Array.Nested
   , IxX (..)
   , StaticShX(..)
   , ShX (..)
-  , ShS (..)
   , KnownShS (..)
   , KnownShX (..)
   , Rank
@@ -171,22 +170,6 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
     case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero (rshape aInit), Nothing)
-
-instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
-         , ShareTensor target, ShareTensor (PrimalOf target) )
-         => AdaptableHVector (ADVal target)
-                             (AsHVector (ADVal target (TKR n r))) where
-  type X (AsHVector (ADVal target (TKR n r))) = TKUntyped
-  toHVectorOf (AsHVector v) = case tftk (STKR (SNat @n)
-                                              (STKScalar $ typeRep @r)) v of
-    FTKR sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @sh $ v
-  fromHVector _aInit params = case V.uncons $ tunvector params of
-    Just (dynamic, rest) ->
-      Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
-    Nothing -> Nothing
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
          => DualNumberValue (ADVal target (TKR n r)) where

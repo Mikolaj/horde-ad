@@ -30,7 +30,6 @@ import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import System.Random
 import Unsafe.Coerce (unsafeCoerce)
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
@@ -742,23 +741,6 @@ instance (GoodScalar r, KnownNat n)
       Just Refl -> Just (t, Nothing)
       _ -> Just (rzero $ rshape aInit, Nothing)
 
-instance (GoodScalar r, KnownNat n)
-         => AdaptableHVector RepN (AsHVector (RepN (TKR n r))) where
-  {-# SPECIALIZE instance
-      KnownNat n
-      => AdaptableHVector RepN (AsHVector (RepN (TKR n Double))) #-}
-  type X (AsHVector (RepN (TKR n r))) = TKUntyped
-  toHVectorOf (AsHVector v) = case tftk (STKR (SNat @n)
-                                              (STKScalar $ typeRep @r)) v of
-    FTKR sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @sh $ v
-  fromHVector _aInit params = case V.uncons $ tunvector params of
-    Just (dynamic, rest) ->
-      Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
-    Nothing -> Nothing
-
 instance ForgetShape (RepN (TKR n r)) where
   type NoShape (RepN (TKR n r)) = RepN (TKR n r)
   forgetShape = id
@@ -772,15 +754,6 @@ instance (GoodScalar r, KnownShS sh)
     case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
-
-instance (GoodScalar r, KnownShS sh)
-         => AdaptableHVector RepN (AsHVector (RepN (TKS sh r))) where
-  type X (AsHVector (RepN (TKS sh r))) = TKUntyped
-  toHVectorOf = RepN . V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit params = case V.uncons $ tunvector params of
-    Just (dynamic, rest) ->
-      Just (AsHVector $ fromDynamicS (srepl 0) sfromR dynamic, Just $ dmkHVector rest)
-    Nothing -> Nothing
 
 instance GoodScalar r
          => ForgetShape (RepN (TKS sh r)) where

@@ -10,7 +10,6 @@ import Prelude
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.Delta
-import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass

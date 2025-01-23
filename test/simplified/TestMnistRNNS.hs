@@ -8,7 +8,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (foldM, unless)
-import Data.Vector.Generic qualified as V
 import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random

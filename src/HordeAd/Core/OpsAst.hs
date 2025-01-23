@@ -198,34 +198,6 @@ instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s))
       Just Refl -> Just (t, Nothing)
       _ -> Just (srepl 0, Nothing)
 
-instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s), AstSpan s)
-         => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR n r))) where
-  {-# SPECIALIZE instance
-      (KnownNat n, AstSpan s)
-      => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKR n Double))) #-}
-  type X (AsHVector (AstTensor AstMethodLet s (TKR n r))) = TKUntyped
-  toHVectorOf (AsHVector v) = case tftk (STKR (SNat @n)
-                                              (STKScalar $ typeRep @r)) v of
-    FTKR sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        dmkHVector . V.singleton . DynamicShaped . sfromR @_ @sh $ v
-  fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
-    case V.uncons $ dunHVector params of
-      Just (dynamic, rest) ->
-        Just (AsHVector $ fromDynamicR rzero rfromS dynamic, Just $ dmkHVector rest)
-      Nothing -> Nothing
-
-instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s), AstSpan s)
-         => AdaptableHVector (AstTensor AstMethodLet s) (AsHVector (AstTensor AstMethodLet s (TKS sh r))) where
-  type X (AsHVector (AstTensor AstMethodLet s (TKS sh r))) = TKUntyped
-  toHVectorOf = dmkHVector . V.singleton . DynamicShaped . unAsHVector
-  fromHVector _aInit params =  -- TODO: tlet params $ \ !params1 ->
-    case V.uncons $ dunHVector params of
-      Just (dynamic, rest) ->
-        Just (AsHVector $ fromDynamicS (srepl 0) astSFromR dynamic, Just $ dmkHVector rest)
-      Nothing -> Nothing
-
 instance (GoodScalar r, KnownNat n, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKR n r)) where
   type DValue (AstTensor AstMethodLet s (TKR n r)) = RepN (TKR n r)
