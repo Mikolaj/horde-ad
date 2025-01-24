@@ -639,11 +639,6 @@ class ( Num (IntOf target)
   rScale :: (GoodScalar r, KnownNat n)
          => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
          -> DualOf target (TKR n r)
-  -- TODO: we'd probably also need dZero, dIndex0 and others from IsPrimal,
-  -- because IsPrimal has subtly different types, operating on Deltas (Dual)
-  -- instead of on terms (DualOf) that denote Deltas
-  -- TODO: if DualOf is supposed to be user-visible, we needed
-  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
   -- Shaped ops.
   -- Integer codomain
