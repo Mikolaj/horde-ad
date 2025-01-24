@@ -20,7 +20,6 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, type (+))
 import Data.Type.Equality (gcastWith)
-import Unsafe.Coerce (unsafeCoerce)
 import Data.Type.Ord (Compare)
 
 import Data.Array.Nested (type (++), Product, Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
@@ -667,12 +666,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToStk x))
         . astReshapeS . astSFromX @sh @sh' $ a
   xbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
-  xmcast @x @_ @sh2 _ a =
-    (unsafeCoerce a :: AstTensor AstMethodLet s (TKX2 sh2 x))
-    -- TODO: we probably need a term for xmcast to avoid losing type
-    -- information while we are checking types in this module
-    -- (which we don't yet do and we should, because we lose type information
-    -- when the AST term is fully constructed, so it's too late to check then).
   xgather @_ @shm @_ @shp shmshn0 t f = case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -1239,12 +1232,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xbuild1 @_ @n f = AstRaw $ AstBuild1 (SNat @n)
                     $ funToAstI  -- this introduces new variable names
                     $ unAstRaw . f . AstRaw
-  xmcast @x @_ @sh2 _ (AstRaw a) = AstRaw $
-    (unsafeCoerce a :: AstTensor AstMethodShare s (TKX2 sh2 x))
-    -- TODO: we probably need a term for xmcast to avoid losing type
-    -- information while we are checking types in this module
-    -- (which we don't yet do and we should, because we lose type information
-    -- when the AST term is fully constructed, so it's too late to check then).
   xgather @_ @shm @_ @shp shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -1516,8 +1503,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xbuild1 @_ @n f = AstNoVectorize $ AstBuild1 (SNat @n)
                     $ funToAstI  -- this introduces new variable names
                     $ unAstNoVectorize . f . AstNoVectorize
-  xmcast sh2 =
-    AstNoVectorize . xmcast sh2 . unAstNoVectorize
   xgather @_ @shm @shn @shp sh t f =
     AstNoVectorize $ xgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
@@ -2028,12 +2013,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xbuild1 @_ @n f =
     AstNoSimplify
     $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
-  xmcast @x @_ @sh2 _ (AstNoSimplify a) = AstNoSimplify $
-    (unsafeCoerce a :: AstTensor AstMethodLet s (TKX2 sh2 x))
-    -- TODO: we probably need a term for xmcast to avoid losing type
-    -- information while we are checking types in this module
-    -- (which we don't yet do and we should, because we lose type information
-    -- when the AST term is fully constructed, so it's too late to check then).
   xgather @_ @shm @_ @shp shmshn0 (AstNoSimplify t) f = AstNoSimplify
                                                         $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)

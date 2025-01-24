@@ -423,8 +423,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     Nothing -> xfromList $ NonEmpty.map (f . fromInteger)
                          $ 0 :| [1 .. valueOf @n - 1]
       -- element-wise (POPL) version
-  xmcast sh2 (D u u') = withKnownShX sh2 $
-                        dD (xmcast sh2 u) (MCastX sh2 u')
   xgather @r @shm @shn @shp sh (D u u') f =
     withKnownShX (ssxFromShape sh) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $

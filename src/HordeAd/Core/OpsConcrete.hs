@@ -449,10 +449,6 @@ instance BaseTensor RepN where
     RepN . Nested.mreshape sh . unRepN
   xbuild1 @r f | Dict <- eltDictRep (stensorKind @r) =
     RepN $ tbuild1X (unRepN . f . RepN)
-  xmcast @x @sh1 @sh2 sh | Dict <- eltDictRep (stensorKind @x) =
-    -- TODO: a lie, for now:
-    gcastWith (unsafeCoerceRefl :: Rank sh1 :~: Rank sh2) $
-    RepN . Nested.mcast sh . unRepN
   xgather @r @shm @shn @shp sh t f =
     withKnownShX (ssxFromShape sh) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $

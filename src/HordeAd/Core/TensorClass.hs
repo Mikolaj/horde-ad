@@ -1167,8 +1167,14 @@ class ( Num (IntOf target)
   xbuild1 :: (TensorKind r, KnownNat n, KnownShX sh)
           => (IntOf target -> target (TKX2 sh r))
           -> target (TKX2 (Just n ': sh) r)
-  xmcast :: (TensorKind x, KnownShX sh)  -- TODO: Rank sh1 ~ Rank sh2)
+  xmcast :: (TensorKind x, KnownShX sh, Rank sh ~ Rank sh2)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
+  xmcast sh2 a = case tftk stensorKind a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShX sh2 $
+        withKnownShS sh $
+        xfromS $ sfromX @_ @sh a
   -- xmap and other special cases of build can be defined by the user.
   xgather :: (TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp)
           => IShX (shm ++ shn)

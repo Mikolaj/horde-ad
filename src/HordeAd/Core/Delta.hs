@@ -70,14 +70,7 @@ import Type.Reflection (typeRep)
 import Data.Array.Mixed.Permutation (permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-  ( shxAppend
-  , shxCast'
-  , shxDropSSX
-  , shxTail
-  , shxTakeSSX
-  , ssxFromShape
-  , withKnownShX
-  )
+  (shxAppend, shxDropSSX, shxTail, shxTakeSSX, ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
@@ -90,7 +83,6 @@ import Data.Array.Nested
   , ShR (..)
   , ShS (..)
   , ShX (..)
-  , StaticShX
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
@@ -585,9 +577,6 @@ data Delta :: Target -> TensorKindType -> Type where
   ReshapeX :: (TensorKind r, KnownShX sh, KnownShX sh2)
            => IShX sh2 -> Delta target (TKX2 sh r)
            -> Delta target (TKX2 sh2 r)
-  MCastX :: (TensorKind x, KnownShX sh)
-         => StaticShX sh2 -> Delta target (TKX2 sh x)
-         -> Delta target (TKX2 sh2 x)
   GatherX :: forall target r shm shn shp.
              ( TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp
              , KnownShX (shp ++ shn) )  -- needed for the Show instance
@@ -769,8 +758,6 @@ shapeDeltaFull = \case
     FTKX sh x -> FTKX (shxPermutePrefix perm sh) x
   ReshapeX sh2 d -> case shapeDeltaFull d of
     FTKX _ x -> FTKX sh2 x
-  MCastX sh2 d -> case shapeDeltaFull d of
-    FTKX sh x -> FTKX (shxCast' sh sh2) x
   GatherX sh d _ -> case shapeDeltaFull d of
     FTKX _ x -> FTKX sh x
   CastX d -> case shapeDeltaFull d of
@@ -1401,9 +1388,6 @@ evalRevSame !s !c = \case
         $ evalRevSame s (xtranspose permRev c) d
   ReshapeX _sh d ->
     evalRevSame s (xreshape (shapeDeltaX d) c) d
-  MCastX @_ @sh sh2 d ->
-    withKnownShX sh2 $
-    evalRevSame s (xmcast (knownShX @sh) c) d
   GatherX @_ @_ @shm @shn @shp _sh d f ->
     evalRevSame s (xscatter @_ @_ @shm @shn @shp (shapeDeltaX d) c f) d
   CastX @r1 @_ @sh d ->
@@ -1734,7 +1718,6 @@ evalFwdSame params s = \case
   TransposeX perm d -> second (xtranspose perm)
                        $ evalFwdSame params s d
   ReshapeX sh2 d -> second (xreshape sh2) $ evalFwdSame params s d
-  MCastX sh2 d -> second (xmcast sh2) $ evalFwdSame params s d
   GatherX @_ @_ @shm @shn @shp sh d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, xgather @_ @_ @shm @shn @shp sh t f)
