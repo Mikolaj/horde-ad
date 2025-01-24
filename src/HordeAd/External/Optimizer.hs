@@ -9,6 +9,7 @@ module HordeAd.External.Optimizer
 import Prelude
 
 import HordeAd.Core.CarriersADVal
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsConcrete ()
