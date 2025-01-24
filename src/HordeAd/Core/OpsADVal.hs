@@ -128,6 +128,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- though contangent expands anyway.
   tfromS (D u u') = dDnotShared (tfromSShare u) (dFromS u')
    where
+    -- Avoid building huge Delta terms, not only evaluating them.
     dFromS :: forall y z. (TensorKind y, TensorKind z)
            => Delta target y -> Delta target z
     dFromS (SFromR @sh @x d)
@@ -271,8 +272,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   rzip (D u u') = dD (rzip u) (ZipR u')
   runzip (D u u') = dD (runzip u) (UnzipR u')
-  rtoScalar (D t d) = dDnotShared (rtoScalar t) (ToScalarG $ SFromR d)
-  rfromScalar (D t d) = dDnotShared (rfromScalar t) (FromS $ FromScalarG d)
+  rtoScalar @r (D t d) =
+    dDnotShared (rtoScalar t) (FromS @(TKS '[] r) $ SFromR d)
+  rfromScalar (D t d) =
+    dDnotShared (rfromScalar t) (FromS $ FromScalarG d)
 
   rfromPrimal t = fromPrimalADVal t
   rprimalPart (D u _) = u
@@ -345,7 +348,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sfromIntegral (D u _) =
     let v = sfromIntegral u
     in fromPrimalADVal v
-  stoScalar (D t d) = dDnotShared (stoScalar t) (ToScalarG d)
+  stoScalar (D t d) = dDnotShared (stoScalar t) (FromS d)
   sfromScalar (D t d) = dDnotShared (sfromScalar t) (FromScalarG d)
   szip (D u u') = dD (szip u) (ZipS u')
   sunzip (D u u') = dD (sunzip u) (UnzipS u')
@@ -431,8 +434,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   xzip (D u u') = dD (xzip u) (ZipX u')
   xunzip (D u u') = dD (xunzip u) (UnzipX u')
-  xtoScalar (D t d) = dDnotShared (xtoScalar t) (ToScalarG $ SFromX d)
-  xfromScalar (D t d) = dDnotShared (xfromScalar t) (FromS $ FromScalarG d)
+  xtoScalar @r (D t d) =
+    dDnotShared (xtoScalar t) (FromS @(TKS '[] r) $ SFromX d)
+  xfromScalar (D t d) =
+    dDnotShared (xfromScalar t) (FromS $ FromScalarG d)
   xfromPrimal t = fromPrimalADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'

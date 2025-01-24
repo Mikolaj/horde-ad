@@ -373,8 +373,6 @@ data Delta :: Target -> TensorKindType -> Type where
        => Delta target (TKScalar r1) -> Delta target (TKScalar r2)
   FromScalarG :: GoodScalar r
               => Delta target (TKScalar r) -> Delta target (TKS '[] r)
-  ToScalarG :: GoodScalar r
-            => Delta target (TKS '[] r) -> Delta target (TKScalar r)
   PairG :: (TensorKind y, TensorKind z)
          => Delta target y -> Delta target z
          -> Delta target (TKProduct y z)
@@ -689,7 +687,6 @@ shapeDeltaFull :: forall target y. TensorKind y
 shapeDeltaFull = \case
   Cast{} -> FTKScalar
   FromScalarG{} -> FTKS ZSS FTKScalar
-  ToScalarG{} -> FTKScalar
   PairG t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
   Project1G v -> case shapeDeltaFull v of
     FTKProduct ftk1 _ -> ftk1
@@ -1212,9 +1209,11 @@ evalRev !s !c d0 = case d0 of
       evalRev s c d
   FromS @y7 @z d -> case (stensorKind @y7, stensorKind @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev s c d
-    (STKS ZSS (STKScalar try), STKScalar trz) ->
+    (STKS ZSS yx@(STKScalar try), STKScalar trz) ->
       case testEquality try trz of
-        Just Refl -> evalRev s c (ToScalarG d)
+        Just Refl -> case sameSTK yx (aDSTK yx) of
+          Just Refl -> evalRev s (sfromScalar c) d
+          _ -> s
         Nothing -> error "evalRev: tensor kinds don't match"
     (STKS shy yx, STKR nx@SNat zx) | Dict <- lemTensorKindOfAD yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) nx) of
@@ -1264,7 +1263,6 @@ evalRevSame !s !c = \case
     evalRev s (toADTensorKindShared (stensorKind @(TKScalar r1))
              $ kcast c) d
   FromScalarG d -> evalRevSame s (stoScalar c) d
-  ToScalarG d -> evalRevSame s (sfromScalar c) d
   InputG _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1616,16 +1614,14 @@ evalFwd params s d0 = case d0 of
                                            (tproject2 de_acc_e1)))
                        cacc0
                        (tpair ces (tpair q es)))
-  FromS @_ @z (SFromR @sh @x d) ->
-    case sameSTK (aDSTK (stensorKind @z))
-                 (aDSTK (stensorKind @(TKR2 (Rank sh) x))) of
-      Just Refl -> evalFwd params s d
-      Nothing -> error "evalFwd: tensor kinds don't match"
-  FromS @_ @z (SFromX @_ @sh' @x d) ->
-    case sameSTK (aDSTK (stensorKind @z))
-                 (aDSTK (stensorKind @(TKX2 sh' x))) of
-      Just Refl -> evalFwd params s d
-      Nothing -> error "evalFwd: tensor kinds don't match"
+  FromS @_ @z (SFromR @sh @x d)
+    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
+                           (aDSTK (stensorKind @(TKR2 (Rank sh) x))) ->
+      evalFwd params s d
+  FromS @_ @z (SFromX @_ @sh' @x d)
+    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
+                           (aDSTK (stensorKind @(TKX2 sh' x))) ->
+      evalFwd params s d
   FromS @y2 @z d | Dict <- lemTensorKindOfAD (stensorKind @y2)
                  , Dict <- lemTensorKindOfAD (stensorKind @z) ->
     second tfromSShare $ evalFwd params s d
@@ -1649,8 +1645,6 @@ evalFwdSame params s = \case
         _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   FromScalarG d -> let (s2, t) = evalFwdSame params s d
                    in (s2, sfromScalar t)
-  ToScalarG d -> let (s2, t) = evalFwdSame params s d
-                 in (s2, stoScalar t)
   InputG _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)

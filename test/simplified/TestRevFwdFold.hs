@@ -2301,7 +2301,7 @@ testSin0FoldNestedR3LengthPPs = do
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
     @?= 4973885
 
--- Takes 100s, probably due to some of the pipelines forcing all derivs.
+-- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
 _testSin0FoldNestedR4LengthPPs = do
   resetVarCounter
