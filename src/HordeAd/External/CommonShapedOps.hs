@@ -35,9 +35,9 @@ sminIndexN :: forall target sh r.
            => target (TKS sh r) -> IxSOf target sh
 sminIndexN t =
   fromLinearIdxS
-    (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
+    (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rfromS $ sminIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ stoScalar $ sminIndex (sflatten t))
 
 smaxIndexN :: forall target sh r.
               ( ADReady target, GoodScalar r
@@ -45,9 +45,9 @@ smaxIndexN :: forall target sh r.
            => target (TKS sh r) -> IxSOf target sh
 smaxIndexN t =
   fromLinearIdxS
-    (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
+    (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rfromS $ smaxIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ stoScalar $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))

@@ -25,9 +25,9 @@ import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Vector.Strict qualified as Data.Vector
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
@@ -1219,10 +1219,12 @@ class ( Num (IntOf target)
   -- Scalar ops
   kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKScalar r) -> target (TKScalar r2)
-  kcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
-        => target (TKScalar r1) -> target (TKScalar r2)
   kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                 => target (TKScalar r1) -> target (TKScalar r2)
+  kcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
+        => target (TKScalar r1) -> target (TKScalar r2)
+  kconcrete :: GoodScalar r => r -> target (TKScalar r)
+  kconcrete = tconcrete FTKScalar . RepN
 
   -- Conversions
   rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
@@ -1806,7 +1808,7 @@ class ( Num (IntOf target)
 
 tunit :: BaseTensor target
       => target TKUnit
-tunit = rtoScalar $ rscalar Z0
+tunit = kconcrete Z0
 
 rscalar :: forall r target. (TensorKind r, BaseTensor target)
         => RepORArray r -> target (TKR2 0 r)

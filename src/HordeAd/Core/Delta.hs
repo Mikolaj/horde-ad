@@ -58,10 +58,10 @@ import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
-import Data.Vector.Strict qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
@@ -235,7 +235,7 @@ evalRepM = \case
   MTKScalar t -> t
   MTKR t -> t
   MTKS t -> t
-  MTKScalarDummy -> stoScalar $ sscalar 0
+  MTKScalarDummy -> kconcrete 0
   MTKRDummy shr ftk -> constantTarget 0 (FTKR shr ftk)
   MTKSDummy sh ftk -> constantTarget 0 (FTKS sh ftk)
 
@@ -252,8 +252,7 @@ repToM stk t = case stk of
 addRepM :: forall target y. ADReadyNoLet target
         => RepM target y -> RepM target y -> RepM target y
 addRepM a b = case (a, b) of
-  (MTKScalar ta, MTKScalar tb) ->
-    MTKScalar $ stoScalar $ sfromScalar ta + sfromScalar tb
+  (MTKScalar ta, MTKScalar tb) -> MTKScalar $ ta + tb
   (MTKR ta, MTKR tb) | STKR _ STKScalar{} <- stensorKind @y -> MTKR $ ta + tb
   (MTKR ta, MTKR tb) -> MTKR $ addTarget stensorKind ta tb
   (MTKScalarDummy, _) -> b

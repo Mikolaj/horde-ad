@@ -153,10 +153,7 @@ fromFTKW = \case
 addRepW :: forall y target. BaseTensor target
         => RepW target y -> RepW target y -> RepW target y
 addRepW a b = case (a, b) of
-  (WTKScalar ta, WTKScalar tb) ->
-    WTKScalar $ rtoScalar $ rfromScalar ta + rfromScalar tb
-      -- somehow this results in shorter terms than @ta + tb@
-      -- TODO: re-evaluate once scalar term simplification is complete
+  (WTKScalar ta, WTKScalar tb) ->  WTKScalar $ ta + tb
   (WTKR ta, WTKR tb) -> WTKR $ ta + tb
   (WTKS ta, WTKS tb) -> WTKS $ ta + tb
   (WTKX ta, WTKX tb) -> WTKX $ ta + tb
@@ -167,7 +164,7 @@ constantRepW :: forall y target. BaseTensor target
             => (forall r. GoodScalar r => r)
             -> FullTensorKindW y -> RepW target y
 constantRepW r = \case
-  WFTKScalar -> WTKScalar $ rtoScalar $ rscalar r
+  WFTKScalar -> WTKScalar $ kconcrete r
   WFTKR sh | SNat <- shrRank sh -> WTKR $ rrepl (toList sh) r
   WFTKS sh -> withKnownShS sh $ WTKS $ srepl r
   WFTKX sh -> withKnownShX (ssxFromShape sh) $ WTKX $ xrepl sh r
@@ -184,7 +181,7 @@ toADTensorKindW t = case t of
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           WTKScalar $ rtoScalar $ rscalar Z0
+           WTKScalar $ kconcrete Z0
   WTKR @r v -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of

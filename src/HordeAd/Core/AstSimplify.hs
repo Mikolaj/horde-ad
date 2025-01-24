@@ -52,10 +52,10 @@ import Data.Int (Int64)
 import Data.List (dropWhileEnd)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
-import Data.Vector.Strict qualified as Data.Vector
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
+import Data.Vector.Strict qualified as Data.Vector
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
@@ -1784,8 +1784,7 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
     withCastRS rest' $ \(rest :: ShS rest) ->
       withKnownShS rest $
       astFromS stk $ astReplicate0NS @rest @_ @r 0
-  (STKS{}, FTKS (SNat @n :$$ rest) FTKScalar)
-    | Just Refl <- sameNat (Proxy @n) (Proxy @0) ->
+  (STKS{}, FTKS (SNat' @0 :$$ rest) FTKScalar) ->
       withKnownShS rest
       $ astReplicate0NS 0
   _ -> case t0 of
@@ -3325,7 +3324,12 @@ contractAst t = case t of
               TimesOp v (Ast.AstReplicate
                            (SNat @m) stk (contractAst s)))
   Ast.AstReshapeS @_ @sh (Ast.AstReplicate _ (STKS ZSS x) s) ->
-      Ast.AstReplicate0NS (knownShS @sh) x (contractAst s)
+    Ast.AstReplicate0NS (knownShS @sh) x (contractAst s)
+      -- TODO: maybe move this and others to astReshape and maybe somehow join
+      -- with astReplicate0NS and also do this in this case and others:
+      -- Ast.AstReplicate _ (STKR @m _ STKScalar{}) x
+      --    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
+      --      astReplicate0N shOut x
   Ast.AstReshapeS @_ @sh (Ast.AstLet var v (Ast.AstReplicate snat stk t2))
     | Dict <- lemTensorKindOfSTK stk ->
       Ast.AstLet

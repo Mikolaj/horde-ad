@@ -30,7 +30,7 @@ rminIndexN :: forall target n r.
               (BaseTensor target, KnownNat n, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rminIndexN t =
-  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
+  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                 (rshape t)
                 (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rminIndex (rflatten t))
 
@@ -38,7 +38,7 @@ rmaxIndexN :: forall target n r.
               (BaseTensor target, KnownNat n, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rmaxIndexN t =
-  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
+  fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                 (rshape t)
                 (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rmaxIndex (rflatten t))
 
@@ -48,7 +48,7 @@ rminimum :: forall target n r.
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in rindex0.
 rminimum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
+                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                                           (rshape t)
                                           (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rminIndex (rflatten t))
 
@@ -56,7 +56,7 @@ rmaximum :: forall target n r.
             (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . rtoScalar . rscalar . fromIntegral)
+                rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                                           (rshape t)
                                           (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rmaxIndex (rflatten t))
 

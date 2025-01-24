@@ -1716,7 +1716,7 @@ testSin0rmapAccumRD01SN531b0PP = do
     IM.empty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (sreplicate (sreplicate (tproject1 (dmapAccumRDer (SNat @0) (\\x7 -> tfromS (tpair (tproject1 x7, sscalar Z0))) (\\x8 -> tfromS (tpair (tproject1 (tproject1 x8), sscalar Z0))) (\\x13 -> tpair (tproject1 (tproject1 x13), sscalar 0.0)) (sscalar 1.1) (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] []))))))"
+    @?= "rfromS (sreplicate (sreplicate (tproject1 (dmapAccumRDer (SNat @0) (\\x7 -> tpair (tproject1 x7, Z0)) (\\x8 -> tpair (tproject1 (tproject1 x8), Z0)) (\\x13 -> tpair (tproject1 (tproject1 x13), sscalar 0.0)) (sscalar 1.1) (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] []))))))"
 
 testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
@@ -2242,7 +2242,7 @@ testSin0FoldNestedR0LengthPPs = do
       IM.empty
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 2186
+    @?= 2176
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -2259,7 +2259,7 @@ testSin0FoldNestedR1LengthPPs = do
       IM.empty
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 25228
+    @?= 24945
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -2278,7 +2278,7 @@ testSin0FoldNestedR2LengthPPs = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 329890
+    @?= 327785
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -2299,7 +2299,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 4973885
+    @?= 4954976
 
 -- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -2369,7 +2369,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 95418
+    @?= 93194
 
 testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
@@ -2760,7 +2760,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineContract a1))
-    @?= 47650
+    @?= 47054
 
 testSin0revhV :: Assertion
 testSin0revhV = do

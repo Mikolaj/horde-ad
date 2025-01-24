@@ -169,7 +169,7 @@ fooBuild2 v =
         (rindex v [rtoScalar $ rfromS $ ix - (sprimalPart . sfloor . sfromR) (rsum0 @target @(TKScalar r) @5
                                 $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001])
            -- index out of bounds; also fine
-        (sqrt $ abs $ rindex v [rtoScalar $ rfromS
+        (sqrt $ abs $ rindex v [stoScalar
                                 $ let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - sscalar 10001) `remF` sscalar 2
                                   in ifF (signum rr ==. negate (signum $ sscalar 2))
                                      (rr + sscalar 2)
@@ -220,7 +220,7 @@ fooBuild2S v = rfromS $
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
-        (sindex v ((rtoScalar $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
+        (sindex v ((stoScalar $ ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001) :.$ ZIS ))
            -- index out of bounds; also fine
         (sqrt $ abs $ sindex v ((rtoScalar $ rfromS $ let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
@@ -256,7 +256,7 @@ fooBuildNest2S v = rfromS $
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v))) - srepl 10001) :.$ ZIS))
            -- index out of bounds; also fine
 -- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))
-        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v ((rtoScalar $ rfromS $ ifF (signum (sprimalPart rr) ==. negate (signum $ srepl 2)) (sprimalPart rr + srepl 2) (sprimalPart rr)) :.$ ZIS))
+        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v ((stoScalar $ ifF (signum (sprimalPart rr) ==. negate (signum $ srepl 2)) (sprimalPart rr + srepl 2) (sprimalPart rr)) :.$ ZIS))
 
 testFooBuildNest21S :: Assertion
 testFooBuildNest21S =

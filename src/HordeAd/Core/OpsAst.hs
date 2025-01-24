@@ -737,8 +737,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                            (astReplicate0NS 0)) t
 
   kfloor = fromPrimal . AstFloor . astSpanPrimal
-  kcast = astCast
   kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
+  kcast = astCast
 
   sfromR = astSFromR
   sfromX = astSFromX
