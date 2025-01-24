@@ -33,7 +33,7 @@ import Data.GADT.Show
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Some
-import Data.Strict.Vector qualified as Data.Vector
+import Data.Vector.Strict qualified as Data.Vector
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat, type (+), type (<=))
 import Numeric.LinearAlgebra (Numeric)

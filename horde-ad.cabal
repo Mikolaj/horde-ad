@@ -178,9 +178,8 @@ library horde-ad-simplified
       , ox-arrays
       , random >= 1.3.0
       , some
-      , strict-containers
       , unboxed-ref
-      , vector
+      , vector >= 0.13.2.0
 
     if os(linux)
         -- cargo-culting this one:
@@ -238,7 +237,6 @@ library benchCommonLibrary
       , inspection-testing
       , ox-arrays
       , random
-      , strict-containers
       , vector
 
 benchmark longProdBench

@@ -58,7 +58,7 @@ import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
-import Data.Strict.Vector qualified as Data.Vector
+import Data.Vector.Strict qualified as Data.Vector
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V

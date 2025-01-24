@@ -8,7 +8,7 @@ import Prelude
 
 import Criterion.Main
 import Data.List (foldl1')
-import Data.Strict.Vector qualified as Data.Vector
+import Data.Vector.Strict qualified as Data.Vector
 import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat)
