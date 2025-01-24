@@ -20,7 +20,6 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
   (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)

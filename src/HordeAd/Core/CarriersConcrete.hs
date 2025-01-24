@@ -11,7 +11,6 @@ import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise2)
-import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
@@ -56,7 +55,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
                           (\a b -> if b == 0 then 0 else remF a b) x y)))
                             -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r, KnownShS sh)
+instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
          => IntegralF (Nested.Shaped sh r) where
   quotF = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
@@ -126,8 +125,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith atan2F x y)))  -- TODO: do better somehow
 
-instance ( Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r
-         , KnownShS sh )
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.Mixed.mliftNumElt2
