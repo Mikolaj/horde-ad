@@ -61,7 +61,7 @@ import HordeAd.Core.Types
 
 ftkAst :: forall s y ms. AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
-  AstFromScalar{} -> FTKS knownShS FTKScalar
+  AstSFromScalar{} -> FTKS knownShS FTKScalar
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
   AstProject1 v -> case ftkAst v of
     FTKProduct ftk1 _ -> ftk1
@@ -228,7 +228,7 @@ shapeAstHFun = \case
 -- to compare variables to any variable in the bindings.
 varInAst :: AstVarId -> AstTensor ms s y -> Bool
 varInAst var = \case
-  AstFromScalar t -> varInAst var t
+  AstSFromScalar t -> varInAst var t
   AstPair t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
@@ -331,7 +331,7 @@ varNameInAst var = varInAst (varNameToAstVarId var)
 
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
 astIsSmall relaxed = \case
-  AstFromScalar{} -> True
+  AstSFromScalar{} -> True
   AstPair t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
   AstProject1 t -> astIsSmall relaxed t
   AstProject2 t -> astIsSmall relaxed t

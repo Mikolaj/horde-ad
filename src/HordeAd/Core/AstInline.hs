@@ -83,7 +83,7 @@ inlineAst
   :: forall s y. AstSpan s
   => AstMemo -> AstTensor AstMethodLet s y -> (AstMemo, AstTensor AstMethodLet s y)
 inlineAst memo v0 = case v0 of
-  Ast.AstFromScalar t -> second Ast.AstFromScalar (inlineAst memo t)
+  Ast.AstSFromScalar t -> second Ast.AstSFromScalar (inlineAst memo t)
   Ast.AstPair t1 t2 ->
     let (memo2, v1) = inlineAst memo t1
         (memo3, v2) = inlineAst memo2 t2
@@ -366,7 +366,7 @@ unshareAst
   => AstBindings -> AstTensor AstMethodShare s y
   -> (AstBindings, AstTensor AstMethodLet s y)
 unshareAst memo = \case
-  Ast.AstFromScalar t -> second Ast.AstFromScalar (unshareAst memo t)
+  Ast.AstSFromScalar t -> second Ast.AstSFromScalar (unshareAst memo t)
   Ast.AstPair t1 t2 ->
     let (memo1, v1) = unshareAst memo t1
         (memo2, v2) = unshareAst memo1 t2

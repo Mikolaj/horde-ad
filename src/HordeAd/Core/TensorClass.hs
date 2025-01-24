@@ -611,8 +611,6 @@ class ( Num (IntOf target)
   runzip :: (TensorKind y, TensorKind z, KnownNat n)
          => target (TKR2 n (TKProduct y z))
          -> target (TKProduct (TKR2 n y) (TKR2 n z))
-  rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
-  rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   -- Prevents wrong shape in @0@ with ranked (but not shaped) tensors
   -- at any rank greater than zero.
   rzero :: (GoodScalar r, KnownNat n)
@@ -966,11 +964,6 @@ class ( Num (IntOf target)
   sunzip :: (TensorKind y, TensorKind z, KnownShS sh)
          => target (TKS2 sh (TKProduct y z))
          -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
-  stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
-  default stoScalar :: forall r. (LetTensor target, GoodScalar r)
-                    => target (TKS '[] r) -> target (TKScalar r)
-  stoScalar = tfromS
-  sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
 
   -- ** No serviceable parts beyond this point ** --
 
@@ -1203,8 +1196,6 @@ class ( Num (IntOf target)
   xunzip :: (TensorKind y, TensorKind z, KnownShX sh)
          => target (TKX2 sh (TKProduct y z))
          -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
-  xtoScalar :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
-  xfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
   xzero :: (GoodScalar r, KnownShX sh)
         => IShX sh -> target (TKX sh r)
   xzero sh = xrepl sh 0
@@ -1238,7 +1229,14 @@ class ( Num (IntOf target)
   kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                 => target (TKScalar r1) -> target (TKScalar r2)
 
-  -- Ops that involve more than one variant of arrays
+  -- Conversions
+  rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
+  stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
+  default stoScalar :: forall r. (LetTensor target, GoodScalar r)
+                    => target (TKS '[] r) -> target (TKScalar r)
+  stoScalar = tfromS
+  xtoScalar :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
+  rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   rfromS :: (TensorKind r, KnownShS sh)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   default rfromS :: forall r sh. (LetTensor target, TensorKind r, KnownShS sh)
@@ -1251,6 +1249,7 @@ class ( Num (IntOf target)
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
+  sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
   sfromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
          => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
   sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
@@ -1262,6 +1261,7 @@ class ( Num (IntOf target)
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
+  xfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => target (TKS2 sh r) -> target (TKX2 sh' r)
   default xfromS :: (LetTensor target, KnownShS sh, KnownShX sh', TensorKind r)

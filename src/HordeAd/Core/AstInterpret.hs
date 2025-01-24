@@ -152,7 +152,7 @@ interpretAst
   => AstEnv target
   -> AstTensor AstMethodLet s y -> target y
 interpretAst !env = \case
-  AstFromScalar t -> sfromScalar $ interpretAst env t
+  AstSFromScalar t -> sfromScalar $ interpretAst env t
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)

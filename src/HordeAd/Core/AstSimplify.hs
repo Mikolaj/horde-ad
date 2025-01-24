@@ -318,7 +318,7 @@ astNonIndexStep t = case t of
   Ast.AstFromIntegral v -> astFromIntegral v
   Ast.AstCast v -> astCast v
 
-  Ast.AstFromScalar u -> astFromScalar $ astNonIndexStep u
+  Ast.AstSFromScalar u -> astFromScalar $ astNonIndexStep u
   AstN1S{} -> t
   AstN2S{} -> t
   Ast.AstR1S{} -> t
@@ -2160,7 +2160,7 @@ astFromS :: forall y z s.
             STensorKindType z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
-astFromS stkz (Ast.AstFromScalar v)
+astFromS stkz (Ast.AstSFromScalar v)
          | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstFromS _ v) = astFromS stkz v
 astFromS stkz (Ast.AstSFromR v)
@@ -2424,7 +2424,7 @@ astPrimalPart t = case t of
   Ast.AstI2 opCode u v -> Ast.AstI2 opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstCast v -> astCast $ astPrimalPart v
 
-  Ast.AstFromScalar u -> astFromScalar $ astPrimalPart u
+  Ast.AstSFromScalar u -> astFromScalar $ astPrimalPart u
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
   AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
@@ -2517,7 +2517,7 @@ astDualPart t = case t of
   Ast.AstI2{} -> Ast.AstDualPart t
   Ast.AstCast v -> astCast $ astDualPart v
 
-  Ast.AstFromScalar u -> astFromScalar $ astDualPart u
+  Ast.AstSFromScalar u -> astFromScalar $ astDualPart u
   AstN1S{} -> Ast.AstDualPart t
   AstN2S{} -> Ast.AstDualPart t
   Ast.AstR1S{} -> Ast.AstDualPart t
@@ -2629,7 +2629,7 @@ astFromScalar t = case t of
                                    (stensorKind @(TKS '[] r)) of
     Just Refl -> v
     _ -> error $ "astFromScalar: unexpected tensor kinds"
-  _ -> Ast.AstFromScalar t
+  _ -> Ast.AstSFromScalar t
 
 
 -- * The expansion (e.g., into gather expressions) bottom-up pass
@@ -2714,7 +2714,7 @@ expandAst t = case t of
   Ast.AstFromIntegral v -> astFromIntegral $ expandAst v
   Ast.AstCast v -> astCast $ expandAst v
 
-  Ast.AstFromScalar u -> astFromScalar $ expandAst u
+  Ast.AstSFromScalar u -> astFromScalar $ expandAst u
   AstN1S opCode u -> AstN1S opCode (expandAst u)
   AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
@@ -2921,7 +2921,7 @@ simplifyAst t = case t of
   Ast.AstFromIntegral v -> astFromIntegral $ simplifyAst v
   Ast.AstCast v -> astCast $ simplifyAst v
 
-  Ast.AstFromScalar u -> astFromScalar $ simplifyAst u
+  Ast.AstSFromScalar u -> astFromScalar $ simplifyAst u
   AstN1S opCode u -> AstN1S opCode (simplifyAst u)
   AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
@@ -3333,7 +3333,7 @@ contractAst t = case t of
         (contractAst v)
         (astReshapeS @_ @sh (Ast.AstReplicate snat stk (contractAst t2)))
 
-  Ast.AstFromScalar u -> astFromScalar $ contractAst u
+  Ast.AstSFromScalar u -> astFromScalar $ contractAst u
   AstN1S opCode u -> AstN1S opCode (contractAst u)
   AstN2S opCode u v -> AstN2S opCode (contractAst u) (contractAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (contractAst u)
@@ -3365,7 +3365,7 @@ contractAst t = case t of
     sbuild @_ @_ @(Rank shm)
            (interpretLambdaIndexS
               interpretAst env
-              (vars, fromPrimal @s $ AstFromIntegralS $ AstFromScalar i)) -}
+              (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromScalar i)) -}
   Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     astGatherS @shm @shn @shp (contractAst v) (vars, contractAstIxS ix)
@@ -3824,7 +3824,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstFromIntegral v -> astFromIntegral <$> substitute1Ast i var v
   Ast.AstCast v -> astCast <$> substitute1Ast i var v
 
-  Ast.AstFromScalar u -> astFromScalar <$> substitute1Ast i var u
+  Ast.AstSFromScalar u -> astFromScalar <$> substitute1Ast i var u
   Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1Ast i var u
   Ast.AstN2S opCode u v ->
     let mu = substitute1Ast i var u

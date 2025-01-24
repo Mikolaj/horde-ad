@@ -142,7 +142,7 @@ printAst cfgOld d t =
 printAstAux :: forall s y ms. (TensorKind y, AstSpan s)
             => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
-  AstFromScalar t -> printPrefixOp printAst cfg d "sfromScalar" [t]
+  AstSFromScalar t -> printPrefixOp printAst cfg d "sfromScalar" [t]
   AstPair t1 t2 ->
     showParen (d > 10)
     $ showString "tpair ("  -- TODO

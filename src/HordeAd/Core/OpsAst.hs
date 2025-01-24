@@ -1081,7 +1081,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                     $ unAstRaw b32)
   rtoScalar = AstRaw . AstFromS stensorKind . AstSFromR @'[] . unAstRaw
   rfromScalar @r =
-    AstRaw . AstFromS (stensorKind @(TKR 0 r)) . AstFromScalar . unAstRaw
+    AstRaw . AstFromS (stensorKind @(TKR 0 r)) . AstSFromScalar . unAstRaw
 
   rfromPrimal = AstRaw . fromPrimal . unAstRaw
   rprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
@@ -1292,7 +1292,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                       $ unAstRaw b32)
   xtoScalar = AstRaw . AstFromS stensorKind . AstSFromX @'[] . unAstRaw
   xfromScalar @r = AstRaw . AstFromS (stensorKind @(TKX '[] r))
-                   . AstFromScalar . unAstRaw
+                   . AstSFromScalar . unAstRaw
   xfromPrimal = AstRaw . fromPrimal . unAstRaw
   xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
   xdualPart = astSpanDualRaw . unAstRaw
@@ -1337,7 +1337,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   szip = AstRaw . AstZipS . unAstRaw
   sunzip = AstRaw . AstUnzipS . unAstRaw
   stoScalar = AstRaw . AstFromS stensorKind . unAstRaw
-  sfromScalar = AstRaw . AstFromScalar . unAstRaw
+  sfromScalar = AstRaw . AstSFromScalar . unAstRaw
 
   sfromPrimal = AstRaw . fromPrimal . unAstRaw
   sprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
@@ -1859,7 +1859,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify . AstFromS stensorKind . AstSFromR @'[] . unAstNoSimplify
   rfromScalar @r =
     AstNoSimplify . AstFromS (stensorKind @(TKR 0 r))
-    . AstFromScalar . unAstNoSimplify
+    . AstSFromScalar . unAstNoSimplify
 
   rfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
@@ -2075,7 +2075,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xtoScalar =
     AstNoSimplify . AstFromS stensorKind . AstSFromX @'[] . unAstNoSimplify
   xfromScalar @r = AstNoSimplify . AstFromS (stensorKind @(TKX '[] r))
-                   . AstFromScalar . unAstNoSimplify
+                   . AstSFromScalar . unAstNoSimplify
   xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
   xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
   xdualPart = astSpanDual . unAstNoSimplify
@@ -2128,7 +2128,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   szip = AstNoSimplify . AstZipS . unAstNoSimplify
   sunzip = AstNoSimplify . AstUnzipS . unAstNoSimplify
   stoScalar = AstNoSimplify . AstFromS stensorKind . unAstNoSimplify
-  sfromScalar = AstNoSimplify . AstFromScalar . unAstNoSimplify
+  sfromScalar = AstNoSimplify . AstSFromScalar . unAstNoSimplify
 
   sfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
     -- exceptionally we do simplify AstFromPrimal to avoid long boring chains
