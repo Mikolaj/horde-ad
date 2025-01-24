@@ -155,7 +155,7 @@ class LetTensor (target :: Target) where
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
       withKnownShS sh $ ssum u
     STKX sh x | Dict <- lemTensorKindOfSTK x ->
-      withKnownShX sh $ undefined{-xsum-} u
+      withKnownShX sh $ xsum u
     STKProduct stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2
@@ -271,7 +271,7 @@ class ShareTensor (target :: Target) where
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
       withKnownShS sh $ ssum u
     STKX sh x | Dict <- lemTensorKindOfSTK x ->
-      withKnownShX sh $ undefined{-xsum-} u
+      withKnownShX sh $ xsum u
     STKProduct stk1 stk2
       | Dict <- lemTensorKindOfSTK stk1
       , Dict <- lemTensorKindOfSTK stk2

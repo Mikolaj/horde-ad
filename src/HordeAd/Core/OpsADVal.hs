@@ -112,6 +112,9 @@ cfwdOnHVector parameters f ds =
 
 -- * Misc instances
 
+-- This instance can be sped up by defining and simplifying all default
+-- methods (or only tfromVector?), but it probably benefits only product
+-- tensor kinds, which are probably not a bottleneck in realistic examples.
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => LetTensor (ADVal target) where
