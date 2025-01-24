@@ -51,11 +51,11 @@ shareDelta :: forall y target. TensorKind y
 shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! case d of
-    ZeroG{} -> d
-    PairG d1 d2 -> PairG (shareDelta d1) (shareDelta d2)
-      -- PairG is only a container; all work is done inside; TODO: more cases
+    DeltaZero{} -> d
+    DeltaPair d1 d2 -> DeltaPair (shareDelta d1) (shareDelta d2)
+      -- DeltaPair is only a container; all work is done inside; TODO: more cases
     -- SFromR{} -> d
     -- the term inside SFromR is most likely shared already, but are we sure?
-    InputG{} -> d
-    ShareG{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> ShareG (NodeId n) d
+    DeltaInput{} -> d
+    DeltaShare{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> DeltaShare (NodeId n) d

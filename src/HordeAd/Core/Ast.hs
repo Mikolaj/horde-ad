@@ -213,12 +213,11 @@ type AstBindings = DEnumMap (AstVarName PrimalSpan)
 
 type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 
--- | AST for ranked and shaped tensors that are meant to be differentiated.
+-- | AST for tensors that are meant to be differentiated
 type role AstTensor nominal nominal nominal
-  -- r has to be nominal, because type class arguments always are
 data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                -> Type where
-  -- Here starts the general part.
+  -- General operations, for scalar, ranked, shared and other tensors at once
   AstPair :: (TensorKind y, TensorKind z)
           => AstTensor ms s y -> AstTensor ms s z
           -> AstTensor ms s (TKProduct y z)
@@ -226,22 +225,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s x
   AstProject2 :: (TensorKind x, TensorKind z)
               => AstTensor ms s (TKProduct x z) -> AstTensor ms s z
-  AstApply :: (TensorKind x, TensorKind z)
-            => AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
-  AstVar :: TensorKind y
-         => FullTensorKind y -> AstVarName s y -> AstTensor ms s y
-  AstPrimalPart :: TensorKind y
-                => AstTensor ms FullSpan y -> AstTensor ms PrimalSpan y
-  AstDualPart :: TensorKind y
-              => AstTensor ms FullSpan y -> AstTensor ms DualSpan y
-  AstFromPrimal :: TensorKind y
-                => AstTensor ms PrimalSpan y -> AstTensor ms FullSpan y
-  AstD :: TensorKind y
-       => AstTensor ms PrimalSpan y -> AstTensor ms DualSpan y
-       -> AstTensor ms FullSpan y
-  AstCond :: TensorKind y
-          => AstBool ms -> AstTensor ms s y -> AstTensor ms s y
-          -> AstTensor ms s y
   AstFromVector :: TensorKind y
                 => SNat k -> Data.Vector.Vector (AstTensor ms s y)
                 -> AstTensor ms s (BuildTensorKind k y)
@@ -251,20 +234,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstReplicate :: SNat k -> STensorKindType y
                -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
-  AstBuild1 :: TensorKind y
-            => SNat k -> (IntVarName, AstTensor ms s y)
-            -> AstTensor ms s (BuildTensorKind k y)
-  AstLet :: (TensorKind y, TensorKind z, AstSpan s)
-         => AstVarName s y -> AstTensor AstMethodLet s y
-         -> AstTensor AstMethodLet s2 z
-         -> AstTensor AstMethodLet s2 z
-  AstShare :: TensorKind y
-           => AstVarName s y -> AstTensor AstMethodShare s y
-           -> AstTensor AstMethodShare s y
-  AstToShare :: AstTensor AstMethodLet s y
-             -> AstTensor AstMethodShare s y
-  AstConcrete :: TensorKind y
-              => FullTensorKind y -> RepN y -> AstTensor ms PrimalSpan y
   AstMapAccumRDer
     :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
     => SNat k
@@ -295,11 +264,45 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -> AstTensor ms s accShs
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
+  AstApply :: (TensorKind x, TensorKind z)
+            => AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
+  AstVar :: TensorKind y
+         => FullTensorKind y -> AstVarName s y -> AstTensor ms s y
+  AstCond :: TensorKind y
+          => AstBool ms -> AstTensor ms s y -> AstTensor ms s y
+          -> AstTensor ms s y
+  AstBuild1 :: TensorKind y
+            => SNat k -> (IntVarName, AstTensor ms s y)
+            -> AstTensor ms s (BuildTensorKind k y)
+  AstConcrete :: TensorKind y
+              => FullTensorKind y -> RepN y -> AstTensor ms PrimalSpan y
 
-  -- Extra constructors for optimization.
+  -- Sharing-related operations, mutually exclusive via AstMethodOfSharing
+  AstLet :: (TensorKind y, TensorKind z, AstSpan s)
+         => AstVarName s y -> AstTensor AstMethodLet s y
+         -> AstTensor AstMethodLet s2 z
+         -> AstTensor AstMethodLet s2 z
+  AstShare :: TensorKind y
+           => AstVarName s y -> AstTensor AstMethodShare s y
+           -> AstTensor AstMethodShare s y
+  AstToShare :: AstTensor AstMethodLet s y
+             -> AstTensor AstMethodShare s y
+
+  -- Explicit dual numbers handling, eliminated in interpretation to ADVal
+  AstPrimalPart :: TensorKind y
+                => AstTensor ms FullSpan y -> AstTensor ms PrimalSpan y
+  AstDualPart :: TensorKind y
+              => AstTensor ms FullSpan y -> AstTensor ms DualSpan y
+  AstFromPrimal :: TensorKind y
+                => AstTensor ms PrimalSpan y -> AstTensor ms FullSpan y
+  AstD :: TensorKind y
+       => AstTensor ms PrimalSpan y -> AstTensor ms DualSpan y
+       -> AstTensor ms FullSpan y
+
+  -- Extra constructors for optimization of arithmetic
   AstSumOfList :: STensorKindType y -> [AstTensor ms s y] -> AstTensor ms s y
 
-  -- Here starts the scalar part.
+  -- Scalar arithmetic
   AstN1 :: GoodScalar r
         => OpCodeNum1 -> AstTensor ms s (TKScalar r)
         -> AstTensor ms s (TKScalar r)
@@ -325,9 +328,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
           => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
-  -- Here starts the shaped part.
-  AstFromScalar :: GoodScalar r
-                => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
+  -- Shaped arithmetic
   AstN1S :: (GoodScalar r, KnownShS sh)
          => OpCodeNum1 -> AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
   AstN2S :: (GoodScalar r, KnownShS sh)
@@ -352,6 +353,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstCastS :: ( GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2
               , KnownShS sh )
            => AstTensor ms s (TKS sh r1) -> AstTensor ms s (TKS sh r2)
+
+  -- Shaped tensor operations
   AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
                   , GoodScalar r2, KnownShS (Init (n ': sh)) )
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
@@ -362,7 +365,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
   AstIotaS :: (KnownNat n, GoodScalar r)
            => AstTensor ms PrimalSpan (TKS '[n] r)
-
   AstIndexS :: forall shm shn x s ms.
                (KnownShS shm, KnownShS shn, TensorKind x)
             => AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
@@ -406,9 +408,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
             => AstTensor ms s (TKS2 sh (TKProduct y z))
             -> AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
 
-  -- Ops that involve more than one variant of arrays.
+  -- Conversions
   AstFromS :: forall y z ms s.
               STensorKindType z -> AstTensor ms s y -> AstTensor ms s z
+  AstFromScalar :: GoodScalar r
+                => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
   AstSFromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
@@ -433,7 +437,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
              => AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
              -> AstTensor ms s (TKX2 (sh1 ++ sh2) x)
 
-  -- Here starts the backend-specific primitives part.
+  -- Backend-specific primitives
   AstReplicate0NS :: ShS sh -> STensorKindType x
                   -> AstTensor ms s (TKS2 '[] x)
                   -> AstTensor ms s (TKS2 sh x)
@@ -490,7 +494,7 @@ data AstBool ms where
   AstBoolNot :: AstBool ms -> AstBool ms
   AstB2 :: OpCodeBool -> AstBool ms -> AstBool ms -> AstBool ms
   AstBoolConst :: Bool -> AstBool ms
-  -- There are existential variables here, as well.
+  -- There are existential variables here.
   AstRel :: TensorKind y
          => OpCodeRel -> AstTensor ms PrimalSpan y -> AstTensor ms PrimalSpan y
          -> AstBool ms

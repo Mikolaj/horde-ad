@@ -7,7 +7,7 @@ module HordeAd.Core.CarriersADVal
   ( -- * The main dual number type
     ADVal, pattern D, dD, dDnotShared, fromPrimalADVal
     -- * Auxiliary definitions
-  , unPairG, unPairGUnshared
+  , unDeltaPair, unDeltaPairUnshared
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , generateDeltaInputs, makeADInputs
@@ -120,27 +120,27 @@ dDnotShared = ADVal
 -- terms get an identifier. Alternatively, 'HordeAd.Core.CarriersADVal.dD'
 -- or library definitions that use it could be made smarter.
 
-unPairG :: (TensorKind x, TensorKind y)
+unDeltaPair :: (TensorKind x, TensorKind y)
         => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
-unPairG (PairG a b) = (a, b)
-unPairG (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
-unPairG d = let dShared = shareDelta d  -- TODO: more cases
-            in (Project1G dShared, Project2G dShared)
+unDeltaPair (DeltaPair a b) = (a, b)
+unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
+unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
+            in (DeltaProject1 dShared, DeltaProject2 dShared)
 
-unPairGUnshared :: (TensorKind x, TensorKind y)
+unDeltaPairUnshared :: (TensorKind x, TensorKind y)
                 => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
-unPairGUnshared (PairG a b) = (a, b)
-unPairGUnshared (ZeroG (FTKProduct ftk1 ftk2)) = (ZeroG ftk1, ZeroG ftk2)
-unPairGUnshared d = (Project1G d, Project2G d)
+unDeltaPairUnshared (DeltaPair a b) = (a, b)
+unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
+unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)
 
 dScale :: Num (f z) => f z -> Delta f z -> Delta f z
-dScale _ (ZeroG ftk) = ZeroG ftk
-dScale v u' = ScaleG v u'
+dScale _ (DeltaZero ftk) = DeltaZero ftk
+dScale v u' = DeltaScale v u'
 
 dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
-dAdd ZeroG{} w = w
-dAdd v ZeroG{} = v
-dAdd v w = AddG v w
+dAdd DeltaZero{} w = w
+dAdd v DeltaZero{} = v
+dAdd v w = DeltaAdd v w
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.
@@ -149,7 +149,7 @@ intOfShape :: forall z f. (ADReadyNoLet f, TensorKind z)
 intOfShape tsh c = constantTarget (fromIntegral c) (tftk stensorKind tsh)
 
 fromPrimalADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
-fromPrimalADVal a = dDnotShared a (ZeroG $ tftk stensorKind a)
+fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk stensorKind a)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
@@ -194,16 +194,16 @@ generateDeltaInputs
 generateDeltaInputs =
   let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
       gen j ftk| Dict <- lemTensorKindOfSTK (ftkToStk ftk) = case ftk of
-        FTKScalar -> (InputG ftk (toInputId j), j + 1)
-        FTKR sh _ | SNat <- shrRank sh -> (InputG ftk (toInputId j), j + 1)
-        FTKS sh _ -> withKnownShS sh $ (InputG ftk (toInputId j), j + 1)
+        FTKScalar -> (DeltaInput ftk (toInputId j), j + 1)
+        FTKR sh _ | SNat <- shrRank sh -> (DeltaInput ftk (toInputId j), j + 1)
+        FTKS sh _ -> withKnownShS sh $ (DeltaInput ftk (toInputId j), j + 1)
         FTKX sh _ -> withKnownShX (ssxFromShape sh)
-                     $ (InputG ftk (toInputId j), j + 1)
+                     $ (DeltaInput ftk (toInputId j), j + 1)
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
                              , Dict <- lemTensorKindOfSTK (ftkToStk ftk2) ->
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
-          in (PairG d1 d2, j2)
+          in (DeltaPair d1 d2, j2)
   in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
@@ -275,7 +275,7 @@ instance (Num (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
   negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v _) = dDnotShared (signum v) (ZeroG $ tftk stensorKind v)
+  signum (D v _) = dDnotShared (signum v) (DeltaZero $ tftk stensorKind v)
   fromInteger = fromPrimalADVal . fromInteger
 
 instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
@@ -285,8 +285,8 @@ instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
 
 instance (IntegralF (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
-  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((ZeroG $ tftk stensorKind u))
-  remF (D u _) (D v _) = dDnotShared (remF u v) ((ZeroG $ tftk stensorKind u))
+  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((DeltaZero $ tftk stensorKind u))
+  remF (D u _) (D v _) = dDnotShared (remF u v) ((DeltaZero $ tftk stensorKind u))
 
 instance (Fractional (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where

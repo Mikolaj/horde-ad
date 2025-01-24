@@ -1026,7 +1026,7 @@ class ( Num (IntOf target)
           -> target (TKX2 '[] r)
   xindex0 | Refl <- lemAppNil @sh1 = xindex
   -- The choice in BuildTensorKind makes it hard to support this one,
-  -- due to SumG and AstSum being typed with BuildTensorKind:
+  -- due to DeltaSum and AstSum being typed with BuildTensorKind:
   -- xsum :: (TensorKind r, KnownShX sh, KnownShX (mn ': sh))
   --     => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
   xsum :: (TensorKind r, KnownNat n, KnownShX sh)

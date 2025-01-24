@@ -509,7 +509,7 @@ testOverleafPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\v1 -> rfromS (ssum (sgather (sfromR v1) (\\[i3] -> [remF i3 28])))"
   show deltas
-    @?= "FromS (ShareG 100000002 (SumG (SNat @50) (STKS [] (STKScalar Double)) (ShareG 100000001 (GatherS (SFromR (InputG (FTKR [28] FTKScalar) (InputId 0))) <function>))))"
+    @?= "FromS (DeltaShareG 100000002 (DeltaSum (SNat @50) (STKS [] (STKScalar Double)) (DeltaShareG 100000001 (GatherS (SFromR (DeltaInput (FTKR [28] FTKScalar) (InputId 0))) <function>))))"
 
 foo :: RealFloatF a => (a, a, a) -> a
 foo (x, y, z) =
@@ -702,7 +702,7 @@ testListSumrPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (sfromR (tproject1 x1) + sfromR (tproject1 (tproject2 x1)) + sfromR (tproject1 (tproject2 (tproject2 x1))) + sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))"
   show deltas
-    @?= "FromS (ShareG 100000003 (AddG (SFromR (InputG (FTKR [] FTKScalar) (InputId 0))) (ShareG 100000002 (AddG (SFromR (InputG (FTKR [] FTKScalar) (InputId 1))) (ShareG 100000001 (AddG (SFromR (InputG (FTKR [] FTKScalar) (InputId 2))) (SFromR (InputG (FTKR [] FTKScalar) (InputId 3)))))))))"
+    @?= "FromS (DeltaShareG 100000003 (DeltaAdd (SFromR (DeltaInput (FTKR [] FTKScalar) (InputId 0))) (DeltaShareG 100000002 (DeltaAdd (SFromR (DeltaInput (FTKR [] FTKScalar) (InputId 1))) (DeltaShareG 100000001 (DeltaAdd (SFromR (DeltaInput (FTKR [] FTKScalar) (InputId 2))) (SFromR (DeltaInput (FTKR [] FTKScalar) (InputId 3)))))))))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (BaseTensor target, GoodScalar r)
@@ -865,7 +865,7 @@ testReluPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (rfromS (sfromR m1 !$ [i5, i6]) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m1)"
   show deltas
-    @?= "FromS (ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS (AstConcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRel LeqOp (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstIndexS (AstSFromR (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)])) (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstConcrete (FTKS [] FTKScalar) (sfromListLinear [] [0.0])))) (AstConcrete FTKScalar 0) (AstConcrete FTKScalar 1)]))}) (SFromR (InputG (FTKR [3,4] FTKScalar) (InputId 0)))))"
+    @?= "FromS (DeltaShareG 100000003 (DeltaScale (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS (AstConcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRel LeqOp (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstIndexS (AstSFromR (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)])) (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstConcrete (FTKS [] FTKScalar) (sfromListLinear [] [0.0])))) (AstConcrete FTKScalar 0) (AstConcrete FTKScalar 1)]))}) (SFromR (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0)))))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -910,7 +910,7 @@ testReluSimplerPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (sgather (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (rfromS (sfromR m1 !$ [i5, i6]) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m1)"
   show deltas
-    @?= "FromS (ShareG 100000003 (ScaleG (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS (AstConcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRel LeqOp (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstIndexS (AstSFromR (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)])) (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstConcrete (FTKS [] FTKScalar) (sfromListLinear [] [0.0])))) (AstConcrete FTKScalar 0) (AstConcrete FTKScalar 1)]))}) (SFromR (InputG (FTKR [3,4] FTKScalar) (InputId 0)))))"
+    @?= "FromS (DeltaShareG 100000003 (DeltaScale (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS (AstConcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRel LeqOp (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstIndexS (AstSFromR (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)])) (AstFromS (STKR (SNat @0) (STKScalar Double)) (AstConcrete (FTKS [] FTKScalar) (sfromListLinear [] [0.0])))) (AstConcrete FTKScalar 0) (AstConcrete FTKScalar 1)]))}) (SFromR (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0)))))"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -1059,7 +1059,7 @@ testReluMaxPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sreplicate (sreplicate (sscalar 0.0)), sfromR m1])) (\\[i6, i7] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (sfromR m1 !$ [i6, i7])) 0 1, i6, i7]))"
   show deltas
-    @?= "FromS (ShareG 100000005 (GatherS (ShareG 100000003 (FromVectorG (SNat @2) (STKS [3,4] (STKScalar Double)) [ZeroG (FTKS [3,4] FTKScalar),SFromR (InputG (FTKR [3,4] FTKScalar) (InputId 0))])) <function>))"
+    @?= "FromS (DeltaShareG 100000005 (GatherS (DeltaShareG 100000003 (DeltaFromVector (SNat @2) (STKS [3,4] (STKScalar Double)) [DeltaZero (FTKS [3,4] FTKScalar),SFromR (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0))])) <function>))"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -1580,7 +1580,7 @@ barReluMaxS
   => target (TKS sh r) -> target (TKS sh r)
 barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)
 
--- Previously the shape of FromListR[ZeroG] couldn't be determined
+-- Previously the shape of FromListR[DeltaZero] couldn't be determined
 -- in buildDerivative, so this was needed. See below that it now works fine.
 testBarReluMax3FwdS :: Assertion
 testBarReluMax3FwdS =
