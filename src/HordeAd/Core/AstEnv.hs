@@ -8,7 +8,7 @@ module HordeAd.Core.AstEnv
     AstEnv, AstEnvElem(..), emptyEnv, showsPrecAstEnv
   , extendEnv, extendEnvI
     -- * The operations for interpreting bindings
-  , interpretLambdaIndexToIndexS, interpretLambdaHsH
+  , interpretLambdaIndexToIndexS, interpretLambdaHFun
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
   , interpretAstR2F
@@ -97,15 +97,15 @@ interpretLambdaIndexToIndexS
 interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
-interpretLambdaHsH
+interpretLambdaHFun
   :: TensorKind x
   => (forall target z. ADReady target
       => AstEnv target -> AstTensor ms s z
       -> target z)
   -> (AstVarName s x, AstTensor ms s y)
   -> HFun x y
-{-# INLINE interpretLambdaHsH #-}
-interpretLambdaHsH interpret ~(var, ast) =
+{-# INLINE interpretLambdaHFun #-}
+interpretLambdaHFun interpret ~(var, ast) =
   HFun $ \ws -> interpret (extendEnv var ws emptyEnv) ast
 
 

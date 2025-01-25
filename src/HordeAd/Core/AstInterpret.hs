@@ -432,7 +432,7 @@ interpretAstHFun
   => AstEnv target -> AstHFun x y -> HFunOf target x y
 interpretAstHFun _env = \case
   AstLambda ~(var, ftk, l) ->
-    tlambda @target ftk $ interpretLambdaHsH interpretAst (var, l)
+    tlambda @target ftk $ interpretLambdaHFun interpretAst (var, l)
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
 

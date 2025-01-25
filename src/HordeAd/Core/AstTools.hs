@@ -5,7 +5,7 @@
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
-    ftkAst, shapeAst, shapeAstHFun
+    ftkAst, shapeAst
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndexS, varNameInAst
     -- * Determining if a term is too small to require sharing
@@ -179,7 +179,7 @@ ftkAst t = case t of
     FTKX sh1 (FTKX sh2 x) ->
       FTKX (sh1 `shxAppend` sh2) x
 
-  AstApply v _ll -> shapeAstHFun v
+  AstApply (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
   AstMapAccumRDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
     | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
     , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
@@ -206,10 +206,6 @@ ftkAst t = case t of
 shapeAst :: forall n s x ms. AstTensor ms s (TKR2 n x) -> IShR n
 shapeAst t = case ftkAst t of
   FTKR sh _ -> sh
-
-shapeAstHFun :: AstHFun x y -> FullTensorKind y
-shapeAstHFun = \case
-  AstLambda ~(_vvars, _, l) -> ftkAst l
 
 
 -- * Variable occurrence detection
