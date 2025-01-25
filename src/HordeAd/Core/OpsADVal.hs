@@ -173,10 +173,11 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
       Just Refl -> Just t
       _ -> Just (rzero (rshape aInit))
 
-instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
-         => DualNumberValue (ADVal target (TKR n r)) where
-  type DValue (ADVal target (TKR n r)) = RepN (TKR n r)  -- ! not Value(target)
-  fromDValue t = fromPrimalADVal $ rconcrete $ unRepN t
+instance (BaseTensor target, TensorKind y)
+         => DualNumberValue (ADVal target y) where
+  type DValue (ADVal target y) = RepN y  -- ! not DValue(target)
+  fromDValue t =
+    fromPrimalADVal $ tconcrete (tftkG (stensorKind @y) $ unRepN t) t
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target)
@@ -190,11 +191,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
       Just Refl -> Just t
       _ -> Just (srepl 0)
-
-instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
-         => DualNumberValue (ADVal target (TKS sh r)) where
-  type DValue (ADVal target (TKS sh r)) = RepN (TKS sh r)   -- ! not Value(shaped)
-  fromDValue t = fromPrimalADVal $ sconcrete $ unRepN t
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.

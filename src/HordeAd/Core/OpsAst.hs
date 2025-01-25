@@ -195,25 +195,19 @@ instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s))
       Just Refl -> Just t
       _ -> Just (srepl 0)
 
-instance (GoodScalar r, KnownNat n, AstSpan s)
-         => DualNumberValue (AstTensor AstMethodLet s (TKR n r)) where
-  type DValue (AstTensor AstMethodLet s (TKR n r)) = RepN (TKR n r)
-  fromDValue t = fromPrimal $ astConcrete (FTKR (rshape t) FTKScalar) t
+instance (TensorKind y, AstSpan s)
+         => DualNumberValue (AstTensor AstMethodLet s y) where
+  type DValue (AstTensor AstMethodLet s y) = RepN y
+         -- ! not DValue(target)
+  fromDValue t =
+    fromPrimal $ astConcrete (tftkG (stensorKind @y) $ unRepN t) t
 
-instance (GoodScalar r, KnownShS sh, AstSpan s)
-         => DualNumberValue (AstTensor AstMethodLet s (TKS sh r)) where
-  type DValue (AstTensor AstMethodLet s (TKS sh r)) = RepN (TKS sh r)
-  fromDValue t = fromPrimal $ astConcrete (FTKS knownShS FTKScalar) t
-
-instance (GoodScalar r, KnownNat n)
-         => TermValue (AstTensor AstMethodLet FullSpan (TKR n r)) where
-  type Value (AstTensor AstMethodLet FullSpan (TKR n r)) = RepN (TKR n r)
-  fromValue t = fromPrimal $ astConcrete (FTKR (rshape t) FTKScalar) t
-
-instance (GoodScalar r, KnownShS sh)
-         => TermValue (AstTensor AstMethodLet FullSpan (TKS sh r)) where
-  type Value (AstTensor AstMethodLet FullSpan (TKS sh r)) = RepN (TKS sh r)
-  fromValue t = fromPrimal $ astConcrete (FTKS knownShS FTKScalar) t
+instance TensorKind y
+         => TermValue (AstTensor AstMethodLet FullSpan y) where
+  type Value (AstTensor AstMethodLet FullSpan y) = RepN y
+         -- ! not DValue(target)
+  fromValue t =
+    fromPrimal $ astConcrete (tftkG (stensorKind @y) $ unRepN t) t
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor AstMethodLet s y
