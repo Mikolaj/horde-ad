@@ -120,7 +120,7 @@ class LetTensor (target :: Target) where
               -> Data.Vector.Vector (target y)
               -> target (BuildTensorKind k y)
   tfromVector snat@SNat stk v = case stk of
-    STKScalar{} -> sfromVector $ V.map sfromScalar v
+    STKScalar{} -> sfromVector $ V.map sfromK v
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rfromVector v
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -148,7 +148,7 @@ class LetTensor (target :: Target) where
        -> target (BuildTensorKind k z)
        -> target z
   tsum snat@SNat stk u = case stk of
-    STKScalar{} -> stoScalar $ ssum u
+    STKScalar{} -> kfromS $ ssum u
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rsum u
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -168,7 +168,7 @@ class LetTensor (target :: Target) where
              -> target z
              -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
-    STKScalar{} -> sreplicate $ sfromScalar u
+    STKScalar{} -> sreplicate $ sfromK u
     STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
     STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
@@ -190,7 +190,7 @@ class LetTensor (target :: Target) where
   tfromS v = case (stensorKind @y, stensorKind @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
-      Just Refl -> stoScalar v
+      Just Refl -> kfromS v
       Nothing -> error "tfromS: tensor kinds don't match"
     (STKS shy yx, STKR zn zx) | Dict <- lemTensorKindOfSTK yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) zn) of
@@ -224,7 +224,7 @@ class ShareTensor (target :: Target) where
                    -> Data.Vector.Vector (target y)
                    -> target (BuildTensorKind k y)
   tfromVectorShare snat@SNat stk v = case stk of
-    STKScalar{} -> sfromVector $ V.map sfromScalar v
+    STKScalar{} -> sfromVector $ V.map sfromK v
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rfromVector v
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -244,7 +244,7 @@ class ShareTensor (target :: Target) where
                       -> target (BuildTensorKind k y)
                       -> [target y]
   tunravelToListShare snat@SNat stk u = case stk of
-    STKScalar{} -> map stoScalar $ sunravelToList u
+    STKScalar{} -> map kfromS $ sunravelToList u
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       runravelToList u
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -264,7 +264,7 @@ class ShareTensor (target :: Target) where
              -> target (BuildTensorKind k z)
              -> target z
   tsumShare snat@SNat stk u = case stk of
-    STKScalar{} -> stoScalar $ ssum u
+    STKScalar{} -> kfromS $ ssum u
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rsum u
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -284,7 +284,7 @@ class ShareTensor (target :: Target) where
                   -> target z
                   -> target (BuildTensorKind k z)
   treplicateShare snat@SNat stk u = case stk of
-    STKScalar{} -> sreplicate $ sfromScalar u
+    STKScalar{} -> sreplicate $ sfromK u
     STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
     STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
@@ -301,7 +301,7 @@ class ShareTensor (target :: Target) where
                    -> target (BuildTensorKind k z) -> IntOf target
                    -> target z
   tindexBuildShare snat@SNat stk u i = case stk of
-    STKScalar{} -> stoScalar $ sindex u (i :.$ ZIS)
+    STKScalar{} -> kfromS $ sindex u (i :.$ ZIS)
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
       rindex u (i :.: ZIR)
     STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -321,7 +321,7 @@ class ShareTensor (target :: Target) where
   tfromSShare v = case (stensorKind @y, stensorKind @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
-      Just Refl -> stoScalar v
+      Just Refl -> kfromS v
       Nothing -> error "tfromS: tensor kinds don't match"
     (STKS shy yx, STKR nx zx) | Dict <- lemTensorKindOfSTK yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) nx) of
@@ -1226,13 +1226,13 @@ class ( Num (IntOf target)
   kconcrete = tconcrete FTKScalar . RepN
 
   -- Conversions
-  rtoScalar :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
-  stoScalar :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
-  default stoScalar :: forall r. (LetTensor target, GoodScalar r)
+  kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
+  kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
+  default kfromS :: forall r. (LetTensor target, GoodScalar r)
                     => target (TKS '[] r) -> target (TKScalar r)
-  stoScalar = tfromS
-  xtoScalar :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
-  rfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
+  kfromS = tfromS
+  kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
+  rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   rfromS :: (TensorKind r, KnownShS sh)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   default rfromS :: forall r sh. (LetTensor target, TensorKind r, KnownShS sh)
@@ -1245,7 +1245,7 @@ class ( Num (IntOf target)
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
-  sfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
+  sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
   sfromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
          => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
   sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
@@ -1257,7 +1257,7 @@ class ( Num (IntOf target)
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
-  xfromScalar :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
+  xfromK :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => target (TKS2 sh r) -> target (TKX2 sh' r)
   default xfromS :: (LetTensor target, KnownShS sh, KnownShX sh', TensorKind r)
@@ -1465,7 +1465,7 @@ class ( Num (IntOf target)
     let replStk :: STensorKindType z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
         replStk stk g = case stk of
-          STKScalar{} -> sbuild1 (sfromScalar . g)
+          STKScalar{} -> sbuild1 (sfromK . g)
           STKR SNat x | Dict <- lemTensorKindOfSTK x ->
             rbuild1 (sNatValue snat) g
           STKS sh x | Dict <- lemTensorKindOfSTK x ->

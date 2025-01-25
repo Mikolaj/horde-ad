@@ -644,8 +644,8 @@ data Delta :: Target -> TensorKindType -> Type where
   -- Conversions
   DeltaFromS :: forall y z target. (TensorKind y, TensorKind z)
              => Delta target y -> Delta target z
-  DeltaSFromScalar :: GoodScalar r
-                   => Delta target (TKScalar r) -> Delta target (TKS '[] r)
+  DeltaSFromK :: GoodScalar r
+              => Delta target (TKScalar r) -> Delta target (TKS '[] r)
   DeltaSFromR :: forall sh r target.
                  (KnownShS sh, KnownNat (Rank sh), TensorKind r)
               => Delta target (TKR2 (Rank sh) r)
@@ -686,7 +686,7 @@ shapeDeltaFull :: forall target y. TensorKind y
                => Delta target y -> FullTensorKind y
 shapeDeltaFull = \case
   DeltaCast{} -> FTKScalar
-  DeltaSFromScalar{} -> FTKS ZSS FTKScalar
+  DeltaSFromK{} -> FTKS ZSS FTKScalar
   DeltaPair t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
   DeltaProject1 v -> case shapeDeltaFull v of
     FTKProduct ftk1 _ -> ftk1
@@ -1210,7 +1210,7 @@ evalRev !s !c d0 = case d0 of
     (STKS ZSS yx@(STKScalar try), STKScalar trz) ->
       case testEquality try trz of
         Just Refl -> case sameSTK yx (aDSTK yx) of
-          Just Refl -> evalRev s (sfromScalar c) d
+          Just Refl -> evalRev s (sfromK c) d
           _ -> s
         Nothing -> error "evalRev: tensor kinds don't match"
     (STKS shy yx, STKR nx@SNat zx) | Dict <- lemTensorKindOfAD yx ->
@@ -1260,7 +1260,7 @@ evalRevSame !s !c = \case
   DeltaCast @r1 d ->
     evalRev s (toADTensorKindShared (stensorKind @(TKScalar r1))
                $ kcast c) d
-  DeltaSFromScalar d -> evalRevSame s (stoScalar c) d
+  DeltaSFromK d -> evalRevSame s (kfromS c) d
   DeltaInput _ftk i ->
     let cs = repToM stensorKind c
     in s {iMap = DMap.adjust (addRepM cs) i
@@ -1637,8 +1637,8 @@ evalFwdSame params s = \case
     case sameSTK (STKScalar (typeRep @r1)) (aDSTK (STKScalar (typeRep @r1))) of
       Just Refl -> second kcast $ evalFwdSame params s d
       _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
-  DeltaSFromScalar d -> let (s2, t) = evalFwdSame params s d
-                   in (s2, sfromScalar t)
+  DeltaSFromK d -> let (s2, t) = evalFwdSame params s d
+                   in (s2, sfromK t)
   DeltaInput _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalRepM dtk)

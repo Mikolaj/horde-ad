@@ -175,8 +175,8 @@ instance BaseTensor RepN where
   rfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
   rzip (RepN (a, b)) = RepN $ Nested.rzip a b
   runzip = RepN . Nested.runzip . unRepN
-  rtoScalar = RepN . Nested.runScalar . unRepN
-  rfromScalar = RepN . Nested.rscalar . unRepN
+  kfromR = RepN . Nested.runScalar . unRepN
+  rfromK = RepN . Nested.rscalar . unRepN
 
   rscaleByScalar s v =
     RepN $ liftVR (V.map (* Nested.runScalar (unRepN s))) (unRepN v)
@@ -336,8 +336,8 @@ instance BaseTensor RepN where
   sfromIntegral = RepN . liftVS (V.map fromIntegral) . unRepN
   szip (RepN (a, b)) = RepN $ Nested.szip a b
   sunzip = RepN . Nested.sunzip . unRepN
-  stoScalar = RepN . Nested.sunScalar . unRepN
-  sfromScalar = RepN . Nested.sscalar . unRepN
+  kfromS = RepN . Nested.sunScalar . unRepN
+  sfromK = RepN . Nested.sscalar . unRepN
 
   sscaleByScalar s v =
     RepN $ liftVS (V.map (* Nested.sunScalar (unRepN s))) (unRepN v)
@@ -470,8 +470,8 @@ instance BaseTensor RepN where
   xfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN
   xzip (RepN (a, b)) = RepN $ Nested.mzip a b
   xunzip = RepN . Nested.munzip . unRepN
-  xtoScalar = RepN . Nested.munScalar . unRepN
-  xfromScalar = RepN . Nested.mscalar . unRepN
+  kfromX = RepN . Nested.munScalar . unRepN
+  xfromK = RepN . Nested.mscalar . unRepN
 
   xscaleByScalar s v =
     RepN $ liftVX (V.map (* Nested.munScalar (unRepN s))) (unRepN v)
@@ -630,7 +630,7 @@ ravel :: forall k y. TensorKind y
       => SNat k -> [RepN y]
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
-  STKScalar{} -> sfromList $ sfromScalar <$> NonEmpty.fromList t
+  STKScalar{} -> sfromList $ sfromK <$> NonEmpty.fromList t
   STKR SNat x | Dict <- lemTensorKindOfSTK x ->
     rfromList $ NonEmpty.fromList t
   STKS sh x | Dict <- lemTensorKindOfSTK x ->
@@ -649,7 +649,7 @@ unravel :: forall k y. TensorKind y
         => SNat k -> RepN (BuildTensorKind k y)
         -> [RepN y]
 unravel k@SNat t = case stensorKind @y of
-  STKScalar{} -> map stoScalar $ sunravelToList t
+  STKScalar{} -> map kfromS $ sunravelToList t
   STKR SNat x | Dict <- lemTensorKindOfSTK x ->
     runravelToList t
   STKS sh x | Dict <- lemTensorKindOfSTK x ->

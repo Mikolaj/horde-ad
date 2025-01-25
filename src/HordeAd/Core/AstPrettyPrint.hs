@@ -142,7 +142,7 @@ printAst cfgOld d t =
 printAstAux :: forall s y ms. (TensorKind y, AstSpan s)
             => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
-  AstSFromScalar t -> printPrefixOp printAst cfg d "sfromScalar" [t]
+  AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
   AstPair t1 t2 ->
     showParen (d > 10)
     $ showString "tpair ("  -- TODO
@@ -376,7 +376,7 @@ printAstAux cfg d = \case
 
   AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     case stkz of
-      STKScalar{} -> printPrefixOp printAst cfg d "stoScalar" [v]
+      STKScalar{} -> printPrefixOp printAst cfg d "kfromS" [v]
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
       STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
       _ -> printPrefixOp printAst cfg d "tfromS" [v]

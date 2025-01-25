@@ -19,7 +19,7 @@ module HordeAd.Core.AstSimplify
   ( -- * The combinators for indexing and gather
     astNonIndexStep, astIndexStepS, astGatherStepS
     -- * The simplifying combinators, one for most AST constructors
-  , astFromScalar
+  , astFromK
   , astPair, astLet, astConcrete, astMapAccumRDer, astMapAccumLDer
   , astCond, astSumOfList, astFromVector, astSum, astScatterS
   , astReplicate, astAppendS, astSliceS, astReverseS
@@ -318,7 +318,7 @@ astNonIndexStep t = case t of
   Ast.AstFromIntegralK v -> astFromIntegral v
   Ast.AstCastK v -> astCast v
 
-  Ast.AstSFromScalar u -> astFromScalar $ astNonIndexStep u
+  Ast.AstSFromK u -> astFromK $ astNonIndexStep u
   AstN1S{} -> t
   AstN2S{} -> t
   Ast.AstR1S{} -> t
@@ -497,9 +497,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   -- TODO: the two below are wrong, should catch out of bounds instead
   Ast.AstReplicate _ (STKS sh _) v -> withKnownShS sh $ astIndex v rest1
-  Ast.AstReplicate _ STKScalar{} v | ZIS <- rest1 -> astFromScalar v
+  Ast.AstReplicate _ STKScalar{} v | ZIS <- rest1 -> astFromK v
   Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
-    STKScalar{} | ZIS <- rest1 -> astFromScalar $ astLet var2 i1 v
+    STKScalar{} | ZIS <- rest1 -> astFromK $ astLet var2 i1 v
     STKS sh _ ->
       withKnownShS sh $
       withKnownShS (knownShS @shm1 `shsAppend` knownShS @shn) $
@@ -576,7 +576,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
                  $ astConcrete (FTKS ZSS FTKScalar) $ sscalar i
     _ -> error "astIndexKnobsS: shape not []"
 -- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
---    sfromIntegral . sfromPrimal . sfromR . rfromScalar $ interpretAstPrimal env i
+--    sfromIntegral . sfromPrimal . sfromR . rfromK $ interpretAstPrimal env i
   Ast.AstIotaS -> Ast.AstIndexS v0 ix
   Ast.AstIndexS v (ix2 :: AstIxS AstMethodLet sh4)
    | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
@@ -902,7 +902,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstReplicate _ STKS{} v ->
       astGather @shm' @shn' @shp1' v (vars4, rest4)
     Ast.AstReplicate _ STKScalar{} v | ZIS <- rest4 ->
-      astGather @shm' @shn' @shp1' (astFromScalar v) (vars4, rest4)
+      astGather @shm' @shn' @shp1' (astFromK v) (vars4, rest4)
     Ast.AstBuild1{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstLet var u v ->
       astLet var u (astGatherCase @shm' @shn' @shp' v (vars4, ix4))
@@ -2159,7 +2159,7 @@ astFromS :: forall y z s.
             STensorKindType z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
-astFromS stkz (Ast.AstSFromScalar v)
+astFromS stkz (Ast.AstSFromK v)
          | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstFromS _ v) = astFromS stkz v
 astFromS stkz (Ast.AstSFromR v)
@@ -2181,7 +2181,7 @@ astSFrom stkz (Ast.AstFromS _ v)  -- shortcut
 astSFrom stkz v = case (stkz, ftkToStk (ftkAst v)) of
   (_, stky) | Just Refl <- sameSTK stky stkz -> v
   (STKS ZSS (STKScalar trz), STKScalar try) -> case testEquality try trz of
-    Just Refl -> astFromScalar v
+    Just Refl -> astFromK v
     Nothing -> error "astSFrom: tensor kinds don't match"
   (STKS shz zx, STKR yn@SNat yx) | Dict <- lemTensorKindOfSTK yx ->
     case (sameSTK yx zx, testEquality (shsRank shz) yn) of
@@ -2423,7 +2423,7 @@ astPrimalPart t = case t of
   Ast.AstI2K opCode u v -> Ast.AstI2K opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstCastK v -> astCast $ astPrimalPart v
 
-  Ast.AstSFromScalar u -> astFromScalar $ astPrimalPart u
+  Ast.AstSFromK u -> astFromK $ astPrimalPart u
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
   AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
@@ -2516,7 +2516,7 @@ astDualPart t = case t of
   Ast.AstI2K{} -> Ast.AstDualPart t
   Ast.AstCastK v -> astCast $ astDualPart v
 
-  Ast.AstSFromScalar u -> astFromScalar $ astDualPart u
+  Ast.AstSFromK u -> astFromK $ astDualPart u
   AstN1S{} -> Ast.AstDualPart t
   AstN2S{} -> Ast.AstDualPart t
   Ast.AstR1S{} -> Ast.AstDualPart t
@@ -2609,26 +2609,26 @@ astLetFun a f = case a of
           let (var, ast) = funToAst ftk f
           in astLet var a ast
 
-astFromScalar :: forall r s. (GoodScalar r, AstSpan s)
+astFromK :: forall r s. (GoodScalar r, AstSpan s)
               => AstTensor AstMethodLet s (TKScalar r)
               -> AstTensor AstMethodLet s (TKS '[] r)
-astFromScalar t = case t of
-  Ast.AstCond b a2 a3 -> Ast.AstCond b (astFromScalar a2) (astFromScalar a3)
+astFromK t = case t of
+  Ast.AstCond b a2 a3 -> Ast.AstCond b (astFromK a2) (astFromK a3)
   AstConcrete FTKScalar (RepN v) ->
     astConcrete (FTKS ZSS FTKScalar) $ sscalar v
-  AstN1K opCode u -> AstN1S opCode (astFromScalar u)
-  AstN2K opCode u v -> AstN2S opCode (astFromScalar u) (astFromScalar v)
--- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astFromScalar u)
--- TODO:  Ast.AstR2K opCode u v -> Ast.AstR2S opCode (astFromScalar u) (astFromScalar v)
+  AstN1K opCode u -> AstN1S opCode (astFromK u)
+  AstN2K opCode u v -> AstN2S opCode (astFromK u) (astFromK v)
+-- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astFromK u)
+-- TODO:  Ast.AstR2K opCode u v -> Ast.AstR2S opCode (astFromK u) (astFromK v)
   Ast.AstI2K opCode u v | Just Refl <- isTensorInt t ->
-    Ast.AstI2S opCode (astFromScalar u) (astFromScalar v)
-  AstSumOfList _ args -> AstSumOfList stensorKind $ map astFromScalar args
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astFromScalar v
+    Ast.AstI2S opCode (astFromK u) (astFromK v)
+  AstSumOfList _ args -> AstSumOfList stensorKind $ map astFromK args
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astFromK v
   Ast.AstFromS _ v -> case sameSTK (ftkToStk (ftkAst v))
                                    (stensorKind @(TKS '[] r)) of
     Just Refl -> v
-    _ -> error $ "astFromScalar: unexpected tensor kinds"
-  _ -> Ast.AstSFromScalar t
+    _ -> error $ "astFromK: unexpected tensor kinds"
+  _ -> Ast.AstSFromK t
 
 
 -- * The expansion (e.g., into gather expressions) bottom-up pass
@@ -2713,7 +2713,7 @@ expandAst t = case t of
   Ast.AstFromIntegralK v -> astFromIntegral $ expandAst v
   Ast.AstCastK v -> astCast $ expandAst v
 
-  Ast.AstSFromScalar u -> astFromScalar $ expandAst u
+  Ast.AstSFromK u -> astFromK $ expandAst u
   AstN1S opCode u -> AstN1S opCode (expandAst u)
   AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
@@ -2920,7 +2920,7 @@ simplifyAst t = case t of
   Ast.AstFromIntegralK v -> astFromIntegral $ simplifyAst v
   Ast.AstCastK v -> astCast $ simplifyAst v
 
-  Ast.AstSFromScalar u -> astFromScalar $ simplifyAst u
+  Ast.AstSFromK u -> astFromK $ simplifyAst u
   AstN1S opCode u -> AstN1S opCode (simplifyAst u)
   AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
@@ -3337,7 +3337,7 @@ contractAst t = case t of
         (contractAst v)
         (astReshapeS @_ @sh (Ast.AstReplicate snat stk (contractAst t2)))
 
-  Ast.AstSFromScalar u -> astFromScalar $ contractAst u
+  Ast.AstSFromK u -> astFromK $ contractAst u
   AstN1S opCode u -> AstN1S opCode (contractAst u)
   AstN2S opCode u v -> AstN2S opCode (contractAst u) (contractAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (contractAst u)
@@ -3350,7 +3350,7 @@ contractAst t = case t of
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
   Ast.AstIotaS -> t
   Ast.AstIndexS Ast.AstIotaS (i :.$ ZIS) ->
-    astFromIntegralS $ astFromScalar $ contractAstInt i
+    astFromIntegralS $ astFromK $ contractAstInt i
   Ast.AstIndexS @shm @shn v ix ->
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     astIndexS (contractAst v) (contractAstIxS ix)
@@ -3369,7 +3369,7 @@ contractAst t = case t of
     sbuild @_ @_ @(Rank shm)
            (interpretLambdaIndexS
               interpretAst env
-              (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromScalar i)) -}
+              (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
   Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     astGatherS @shm @shn @shp (contractAst v) (vars, contractAstIxS ix)
@@ -3827,7 +3827,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstFromIntegralK v -> astFromIntegral <$> substitute1Ast i var v
   Ast.AstCastK v -> astCast <$> substitute1Ast i var v
 
-  Ast.AstSFromScalar u -> astFromScalar <$> substitute1Ast i var u
+  Ast.AstSFromK u -> astFromK <$> substitute1Ast i var u
   Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1Ast i var u
   Ast.AstN2S opCode u v ->
     let mu = substitute1Ast i var u

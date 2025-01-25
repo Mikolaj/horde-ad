@@ -37,7 +37,7 @@ sminIndexN t =
   fromLinearIdxS
     (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ stoScalar $ sminIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ kfromS $ sminIndex (sflatten t))
 
 smaxIndexN :: forall target sh r.
               ( ADReady target, GoodScalar r
@@ -47,7 +47,7 @@ smaxIndexN t =
   fromLinearIdxS
     (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ stoScalar $ smaxIndex (sflatten t))
+    (tprimalPart @target (STKScalar typeRep) $ kfromS $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
@@ -61,7 +61,7 @@ smaximum t = sindex0 t (smaxIndexN t)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS '[] r)
-sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . rfromScalar
+sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . rfromK
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, GoodScalar r, KnownShS sh)
@@ -70,7 +70,7 @@ sfromIndex1 | SNat <- shsRank (knownShS @sh) =
   case sameNat (Proxy @(Rank sh)) (Proxy @0) of
     Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
     _ -> sfromR . rfromIntegral . rfromPrimal . rfromList
-         . NonEmpty.fromList . map rfromScalar . toList
+         . NonEmpty.fromList . map rfromK . toList
 
 {-
 sletIx :: forall r sh n target.

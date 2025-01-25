@@ -32,7 +32,7 @@ rminIndexN :: forall target n r.
 rminIndexN t =
   fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                 (rshape t)
-                (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rminIndex (rflatten t))
+                (tprimalPart @target (STKScalar typeRep) $ kfromR $ rminIndex (rflatten t))
 
 rmaxIndexN :: forall target n r.
               (BaseTensor target, KnownNat n, GoodScalar r)
@@ -40,7 +40,7 @@ rmaxIndexN :: forall target n r.
 rmaxIndexN t =
   fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                 (rshape t)
-                (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rmaxIndex (rflatten t))
+                (tprimalPart @target (STKScalar typeRep) $ kfromR $ rmaxIndex (rflatten t))
 
 rminimum :: forall target n r.
             (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
@@ -50,7 +50,7 @@ rminimum :: forall target n r.
 rminimum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                                           (rshape t)
-                                          (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rminIndex (rflatten t))
+                                          (tprimalPart @target (STKScalar typeRep) $ kfromR $ rminIndex (rflatten t))
 
 rmaximum :: forall target n r.
             (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
@@ -58,12 +58,12 @@ rmaximum :: forall target n r.
 rmaximum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
                                           (rshape t)
-                                          (tprimalPart @target (STKScalar typeRep) $ rtoScalar $ rmaxIndex (rflatten t))
+                                          (tprimalPart @target (STKScalar typeRep) $ kfromR $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, GoodScalar r)
             => IntOf target -> target (TKR 0 r)
-rfromIndex0 = rfromIntegral . rfromScalar . tfromPrimal (STKScalar typeRep)
+rfromIndex0 = rfromIntegral . rfromK . tfromPrimal (STKScalar typeRep)
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n
@@ -72,7 +72,7 @@ rfromIndex1 :: forall n r target.
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map rfromScalar . toList
+  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map rfromK . toList
 
 {-
 rint64FromIndex1 :: forall n target.

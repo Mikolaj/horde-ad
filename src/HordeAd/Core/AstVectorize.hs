@@ -143,7 +143,7 @@ build1V snat@SNat (var, v0) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstSFromScalar t -> build1V snat (var, t)
+    Ast.AstSFromK t -> build1V snat (var, t)
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $

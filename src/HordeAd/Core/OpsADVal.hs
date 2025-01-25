@@ -227,10 +227,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   rzip (D u u') = dD (rzip u) (DeltaZipR u')
   runzip (D u u') = dD (runzip u) (DeltaUnzipR u')
-  rtoScalar @r (D t d) =
-    dDnotShared (rtoScalar t) (DeltaFromS @(TKS '[] r) $ DeltaSFromR d)
-  rfromScalar (D t d) =
-    dDnotShared (rfromScalar t) (DeltaFromS $ DeltaSFromScalar d)
+  kfromR @r (D t d) =
+    dDnotShared (kfromR t) (DeltaFromS @(TKS '[] r) $ DeltaSFromR d)
+  rfromK (D t d) =
+    dDnotShared (rfromK t) (DeltaFromS $ DeltaSFromK d)
 
   rfromPrimal t = fromPrimalADVal t
   rprimalPart (D u _) = u
@@ -303,8 +303,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sfromIntegral (D u _) =
     let v = sfromIntegral u
     in fromPrimalADVal v
-  stoScalar (D t d) = dDnotShared (stoScalar t) (DeltaFromS d)
-  sfromScalar (D t d) = dDnotShared (sfromScalar t) (DeltaSFromScalar d)
+  kfromS (D t d) = dDnotShared (kfromS t) (DeltaFromS d)
+  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
   szip (D u u') = dD (szip u) (DeltaZipS u')
   sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
 
@@ -387,10 +387,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in fromPrimalADVal v
   xzip (D u u') = dD (xzip u) (DeltaZipX u')
   xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
-  xtoScalar @r (D t d) =
-    dDnotShared (xtoScalar t) (DeltaFromS @(TKS '[] r) $ DeltaSFromX d)
-  xfromScalar (D t d) =
-    dDnotShared (xfromScalar t) (DeltaFromS $ DeltaSFromScalar d)
+  kfromX @r (D t d) =
+    dDnotShared (kfromX t) (DeltaFromS @(TKS '[] r) $ DeltaSFromX d)
+  xfromK (D t d) =
+    dDnotShared (xfromK t) (DeltaFromS $ DeltaSFromK d)
   xfromPrimal t = fromPrimalADVal t
   xprimalPart (D u _) = u
   xdualPart (D _ u') = u'

@@ -335,14 +335,14 @@ testGatherSimpPP23 = do
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t1) @?= 349
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 637
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 641
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
   length (show t2) @?= 349
-  length (show (simplifyInlineContract @(TKR 3 Float) t2)) @?= 637
+  length (show (simplifyInlineContract @(TKR 3 Float) t2)) @?= 641
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -538,12 +538,12 @@ testScatterSimpPP1 :: Assertion
 testScatterSimpPP1 = do
   resetVarCounter
   let !t1 = scatterNested1 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (FTKR [7, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t1) @?= 417
+  length (show t1) @?= 418
   resetVarCounter
   let !t2 = scatter1 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (FTKR [7, 2] FTKScalar) (mkAstVarName . intToAstVarId $ 100000000)
-  length (show t2) @?= 563
-  length (show (simplifyInlineContract @(TKR 1 Float) t1)) @?= 417
-  length (show (simplifyInlineContract @(TKR 1 Float) t2)) @?= 563
+  length (show t2) @?= 565
+  length (show (simplifyInlineContract @(TKR 1 Float) t1)) @?= 418
+  length (show (simplifyInlineContract @(TKR 1 Float) t2)) @?= 565
 
 scatterNested2 :: forall target r. (ADReady target, GoodScalar r)
               => target (TKR 2 r) -> target (TKR 2 r)

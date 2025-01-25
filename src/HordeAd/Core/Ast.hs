@@ -411,7 +411,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   -- Conversions
   AstFromS :: forall y z ms s.
               STensorKindType z -> AstTensor ms s y -> AstTensor ms s z
-  AstSFromScalar :: GoodScalar r
+  AstSFromK :: GoodScalar r
                  => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
