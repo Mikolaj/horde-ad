@@ -1259,7 +1259,7 @@ evalRevSame !s !c = \case
   -- constraint makes it easier.
   DeltaCast @r1 d ->
     evalRev s (toADTensorKindShared (stensorKind @(TKScalar r1))
-             $ kcast c) d
+               $ kcast c) d
   DeltaSFromScalar d -> evalRevSame s (stoScalar c) d
   DeltaInput _ftk i ->
     let cs = repToM stensorKind c
@@ -1313,7 +1313,7 @@ evalRevSame !s !c = \case
     evalRevSame s (rscatter (shapeDelta d) c f) d
   DeltaCastR @r1 @_ @n d ->
     evalRevRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
-                               $ rcast c) d
+                                 $ rcast c) d
   DeltaZipR d ->
     evalRevSame s (runzip c) d
   DeltaUnzipR d ->
@@ -1633,11 +1633,10 @@ evalFwdSame
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 evalFwdSame params s = \case
-  d0@(DeltaCast @r1 d)
-    | Dict <- lemTensorKindOfAD (stensorKind @(TKScalar r1)) ->
-      case sameTensorKind @(TKScalar r1) @(ADTensorKind (TKScalar r1)) of
-        Just Refl -> second kcast $ evalFwdSame params s d
-        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+  d0@(DeltaCast @r1 d) ->
+    case sameSTK (STKScalar (typeRep @r1)) (aDSTK (STKScalar (typeRep @r1))) of
+      Just Refl -> second kcast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   DeltaSFromScalar d -> let (s2, t) = evalFwdSame params s d
                    in (s2, sfromScalar t)
   DeltaInput _ftk inputId ->
@@ -1670,11 +1669,11 @@ evalFwdSame params s = \case
   DeltaGatherR sh d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, rgather sh t f)
-  d0@(DeltaCastR @r1 @_ @n d)
-    | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r1)) ->
-      case sameTensorKind @(TKR n r1) @(ADTensorKind (TKR n r1)) of
-        Just Refl -> second rcast $ evalFwdSame params s d
-        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+  d0@(DeltaCastR @r1 @_ @n d) ->
+    case sameSTK (stensorKind @(TKR n r1))
+                 (aDSTK ((stensorKind @(TKR n r1)))) of
+      Just Refl -> second rcast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   DeltaZipR d -> second rzip $ evalFwdSame params s d
   DeltaUnzipR d -> second runzip $ evalFwdSame params s d
 -- Not needed, because we take only the i-th component of the vector,
@@ -1701,11 +1700,11 @@ evalFwdSame params s = \case
   DeltaGatherS @_ @_ @shm @shn @shp d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, sgather @_ @_ @shm @shn @shp t f)
-  d0@(DeltaCastS @r1 @_ @sh d)
-    | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r1)) ->
-      case sameTensorKind @(TKS sh r1) @(ADTensorKind (TKS sh r1)) of
-        Just Refl -> second scast $ evalFwdSame params s d
-        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+  d0@(DeltaCastS @r1 @_ @sh d) ->
+    case sameSTK (stensorKind @(TKS sh r1))
+                 (aDSTK ((stensorKind @(TKS sh r1)))) of
+      Just Refl -> second scast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   DeltaZipS d -> second szip $ evalFwdSame params s d
   DeltaUnzipS d -> second sunzip $ evalFwdSame params s d
 -- Not needed, because we take only the i-th component of the vector,
@@ -1732,11 +1731,11 @@ evalFwdSame params s = \case
   DeltaGatherX @_ @_ @shm @shn @shp sh d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, xgather @_ @_ @shm @shn @shp sh t f)
-  d0@(DeltaCastX @r1 @_ @sh d)
-    | Dict <- lemTensorKindOfAD (stensorKind @(TKX sh r1)) ->
-      case sameTensorKind @(TKX sh r1) @(ADTensorKind (TKX sh r1)) of
-        Just Refl -> second xcast $ evalFwdSame params s d
-        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+  d0@(DeltaCastX @r1 @_ @sh d) ->
+    case sameSTK (stensorKind @(TKX sh r1))
+                 (aDSTK ((stensorKind @(TKX sh r1)))) of
+      Just Refl -> second xcast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
   DeltaZipX d -> second xzip $ evalFwdSame params s d
   DeltaUnzipX d -> second xunzip $ evalFwdSame params s d
 

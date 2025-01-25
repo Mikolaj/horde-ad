@@ -489,7 +489,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
 {- TODO: this generalization of the above case slows down test 3nestedSumBuild1
    orders of magnitude
   Ast.AstReplicate k v ->
-    let len = astConcrete $ Nested.rscalar $ fromIntegral k
+    let len = astConcrete $ fromIntegral k
         zero = astReplicate0N (dropShape $ shapeAst v) 0
     in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstRel LeqOp 0 i1)
                                               (Ast.AstRel LsOp i1 len) of
@@ -3670,16 +3670,15 @@ substituteAst i var v1 =
   fromMaybe v1 $ substitute1Ast i var v1
 
 substituteAstIxS
-  :: (AstSpan s2, GoodScalar r2)
-  => AstTensor AstMethodLet s2 (TKScalar r2) -> AstVarName s2 (TKScalar r2)
-  -> AstIxS AstMethodLet sh
+  :: (AstSpan s, TensorKind y)
+  => AstTensor AstMethodLet s y -> AstVarName s y -> AstIxS AstMethodLet sh
   -> AstIxS AstMethodLet sh
 substituteAstIxS i var ix =
   fromMaybe ix $ substitute1AstIxS i var ix
 
 substituteAstBool
-  :: (AstSpan s2, TensorKind y)
-  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstBool AstMethodLet
+  :: (AstSpan s, TensorKind y)
+  => AstTensor AstMethodLet s y -> AstVarName s y -> AstBool AstMethodLet
   -> AstBool AstMethodLet
 substituteAstBool i var v1 =
   fromMaybe v1 $ substitute1AstBool i var v1

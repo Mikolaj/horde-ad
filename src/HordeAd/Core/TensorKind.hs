@@ -95,8 +95,8 @@ sameTensorKind = sameSTK (stensorKind @y1) (stensorKind @y2)
 
 sameSTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
 sameSTK y1 y2 = case (y1, y2) of
-  (STKScalar r1, STKScalar r2) ->
-    case testEquality r1 r2 of
+  (STKScalar tr1, STKScalar tr2) ->
+    case testEquality tr1 tr2 of
       Just Refl -> Just Refl
       Nothing -> Nothing
   (STKR snat1 r1, STKR snat2 r2) ->

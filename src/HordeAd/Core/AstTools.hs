@@ -60,7 +60,7 @@ import HordeAd.Core.Types
 
 ftkAst :: forall s y ms. AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
-  AstSFromScalar{} -> FTKS knownShS FTKScalar
+  AstSFromScalar{} -> FTKS ZSS FTKScalar
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
   AstProject1 v -> case ftkAst v of
     FTKProduct ftk1 _ -> ftk1

@@ -178,7 +178,12 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 a2
   AstFromVector @y2 _ l -> case stensorKind @y2 of
-    STKScalar{} -> error "AstFromVector: vector of scalars"
+    STKScalar{} ->
+      showParen (d > 10)
+      $ showString "tfromVector "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAst cfg 0) (V.toList l))
     STKR{} ->
       showParen (d > 10)
       $ showString "rfromVector "
@@ -205,13 +210,14 @@ printAstAux cfg d = \case
              . showListWith (printAst cfg 0) (V.toList l))
   AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
    case stk of
-    STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
+    STKScalar{} -> printPrefixOp printAst cfg d "tsum" [v]
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
     STKS{} -> printPrefixOp printAst cfg d "ssum" [v]
     STKX{} -> printPrefixOp printAst cfg d "xsum" [v]
     STKProduct{} -> printPrefixOp printAst cfg d "tsum" [v]
   AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk -> case stk of
-    STKScalar{} -> printAst cfg d v  -- should be simplified away anyway
+    STKScalar{} -> printPrefixOp printAst cfg d
+                                 ("treplicate " ++ show (sNatValue snat)) [v]
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d "sreplicate" [v]

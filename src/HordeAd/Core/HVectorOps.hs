@@ -153,7 +153,7 @@ fromFTKW = \case
 addRepW :: forall y target. BaseTensor target
         => RepW target y -> RepW target y -> RepW target y
 addRepW a b = case (a, b) of
-  (WTKScalar ta, WTKScalar tb) ->  WTKScalar $ ta + tb
+  (WTKScalar ta, WTKScalar tb) -> WTKScalar $ ta + tb
   (WTKR ta, WTKR tb) -> WTKR $ ta + tb
   (WTKS ta, WTKS tb) -> WTKS $ ta + tb
   (WTKX ta, WTKX tb) -> WTKX $ ta + tb

@@ -228,7 +228,7 @@ type family BuildTensorKind k tk where
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
 
 -- This is an inverse of BuildTensorKind.
--- This could be more optimal
+-- This could be more efficient
 --   RazeTensorKind (TKS2 '[m] (TKScalar r)) = TKScalar r
 -- but then we'd lose the simplifying property that razing does not
 -- change the tensor kind variant, which is important, e.g.,

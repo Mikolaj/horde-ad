@@ -272,23 +272,6 @@ interpretAst !env = \case
   AstCast v -> kcast $ interpretAst env v
   AstFromIntegral v ->
     kfromIntegral $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
-  {- TODO: revise when we handle GPUs. For now, this is done in TensorOps
-     instead and that's fine, because for one-element carriers,
-     reshape and replicate are very cheap. OTOH, this was introducing
-     ScalarR(UnScalar0 ...) into delta expressions by firing
-     in an early phase.
-  AstN2R TimesOp [v, AstReshape _ (AstReplicate @m _ s)]
-   -- TODO: also handle nested AstReplicate to prevent executing them
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
-        let t1 = interpretAst env v
-            t2 = interpretAst env s
-        in tscaleByScalar0 t2 t1
-  AstN2R TimesOp [v, AstReplicate @m _ s]
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
-        let t1 = interpretAst env v
-            t2 = interpretAst env s
-        in tscaleByScalar0 t2 t1
-  -}
 
   AstConcrete ftk a -> tconcrete ftk a
 
