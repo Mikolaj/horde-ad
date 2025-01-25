@@ -9,8 +9,7 @@
 -- that become the codomains of the reverse derivative functions
 -- and also to handle multiple arguments and results of fold-like operations.
 module HordeAd.Core.Adaptor
-  ( AdaptableHVector(..), parseHVector, parseHVectorAD
-  , TermValue(..), DualNumberValue(..)
+  ( AdaptableHVector(..), TermValue(..), DualNumberValue(..)
   , ForgetShape(..), RandomHVector(..)
   , stkOfListR
   ) where
@@ -21,11 +20,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
-
--- import qualified Data.Array.RankedS as OR
--- import           Data.List (foldl')
--- import HordeAd.Core.Ast
--- import           GHC.TypeLits (KnownNat)
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (ListR (..))
@@ -43,28 +37,14 @@ class AdaptableHVector (target :: Target) vals where
   type X vals :: TensorKindType
   toHVectorOf :: vals -> target (X vals)
     -- ^ represent a collection of tensors
-  fromHVector :: vals -> target (X vals) -> vals
+  parseHVector :: target (X vals) -> vals
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
-  fromHVectorAD :: vals -> target (ADTensorKind (X vals)) -> vals
+  parseHVectorAD :: target (ADTensorKind (X vals)) -> vals
     -- TODO: figure out and comment whether the first argument
     -- is really needed and what for (maybe only for convenience? speed?)
-
--- | Recovers a value of a collection of tensors type and asserts
--- there is no remainder. This is the main call of the recursive
--- procedure where @fromHVector@ calls itself recursively for sub-values
--- across mutliple instances.
-parseHVector
-  :: forall vals target. AdaptableHVector target vals
-  => vals -> target (X vals) -> vals
-parseHVector = fromHVector
-
-parseHVectorAD
-  :: forall vals target. AdaptableHVector target vals
-  => vals -> target (ADTensorKind (X vals)) -> vals
-parseHVectorAD = fromHVectorAD
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -116,8 +96,8 @@ instance (TensorKind y, BaseTensor target)
 -}
   type X (target y) = y
   toHVectorOf = id
-  fromHVector _aInit t = t
-  fromHVectorAD _aInit t = fromADTensorKindShared (stensorKind @y) t
+  parseHVector t = t
+  parseHVectorAD t = fromADTensorKindShared (stensorKind @y) t
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), TensorKind y)
          => DualNumberValue (target y) where
@@ -129,45 +109,51 @@ type family Tups n t where
   Tups 0 t = TKUnit
   Tups n t = TKProduct t (Tups (n - 1) t)
 
-stkOfListR :: forall t n x.
-              STensorKindType t -> ListR n x -> STensorKindType (Tups n t)
-stkOfListR _ ZR = stensorKind
-stkOfListR stk ((:::) @n1 _ rest) =
-  gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups n1 t)) $
-  STKProduct stk (stkOfListR stk rest)
+stkOfListR :: forall t n.
+              STensorKindType t -> SNat n -> STensorKindType (Tups n t)
+stkOfListR _ (SNat' @0) = stensorKind
+stkOfListR stk SNat =
+  gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
+  gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups (n - 1) t)) $
+  STKProduct stk (stkOfListR stk (SNat @(n - 1)))
 
-instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a)) )
+instance ( BaseTensor target, KnownNat n, AdaptableHVector target a
+         , TensorKind (X a), TensorKind (ADTensorKind (X a)) )
          => AdaptableHVector target (ListR n a) where
   type X (ListR n a) = Tups n (X a)
   toHVectorOf ZR = tunit
   toHVectorOf ((:::) @n1 a rest)
-   | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) rest) =
+   | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) (SNat @n1)) =
     gcastWith (unsafeCoerceRefl
                :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
     let a1 = toHVectorOf a
         rest1 = toHVectorOf rest
     in tpair a1 rest1
-  fromHVector ZR _ = ZR
-  fromHVector ((:::) @n1 aInit restInit) a1rest1
-   | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) restInit) =
-    gcastWith (unsafeCoerceRefl
-              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
-      let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
-          a = fromHVector aInit a1
-          rest = fromHVector restInit rest1
+  parseHVector tups = case SNat @n of
+    SNat' @0 -> ZR
+    _ ->
+      gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
+      gcastWith (unsafeCoerceRefl
+                 :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
+      withTensorKind (stkOfListR (stensorKind @(X a)) (SNat @(n - 1))) $
+      let (a1, rest1) = (tproject1 tups, tproject2 tups)
+          a = parseHVector a1
+          rest = parseHVector rest1
       in (a ::: rest)
-  fromHVectorAD ZR _ = ZR
-  fromHVectorAD ((:::) @n1 aInit restInit) a1rest1
-   | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind
-                                               @(ADTensorKind (X a))) restInit) =
-    gcastWith (unsafeCoerceRefl
-              :: ADTensorKind (Tups n1 (X a)) :~: Tups n1 (ADTensorKind (X a))) $
-    gcastWith (unsafeCoerceRefl
-              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
-      let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
-          a = fromHVectorAD aInit a1
-          rest = fromHVectorAD restInit rest1
+  parseHVectorAD tups = case SNat @n of
+    SNat' @0 -> ZR
+    _ ->
+      gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
+      gcastWith (unsafeCoerceRefl
+                 :: ADTensorKind (Tups (n - 1) (X a))
+                    :~: Tups (n - 1) (ADTensorKind (X a))) $
+      gcastWith (unsafeCoerceRefl
+                 :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
+      withTensorKind (stkOfListR (stensorKind
+                                    @(ADTensorKind (X a))) (SNat @(n - 1))) $
+      let (a1, rest1) = (tproject1 tups, tproject2 tups)
+          a = parseHVectorAD a1
+          rest = parseHVectorAD @_ @(ListR (n - 1) a) rest1
       in (a ::: rest)
 
 instance TermValue a => TermValue (ListR n a) where
@@ -203,21 +189,19 @@ instance ( BaseTensor target
     let a1 = toHVectorOf a
         b1 = toHVectorOf b
     in tpair a1 b1
-  fromHVector ~(aInit, bInit)
-              ab =
+  parseHVector ab =
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-        a = fromHVector aInit a1
-        b = fromHVector bInit b1
+        a = parseHVector a1
+        b = parseHVector b1
     in (a, b)
-  fromHVectorAD ~(aInit, bInit)
-              ab =
+  parseHVectorAD ab =
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-        a = fromHVectorAD aInit a1
-        b = fromHVectorAD bInit b1
+        a = parseHVectorAD a1
+        b = parseHVectorAD b1
     in (a, b)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
@@ -251,25 +235,23 @@ instance ( BaseTensor target
         b1 = toHVectorOf b
         c1 = toHVectorOf c
     in tpair (tpair a1 b1) c1
-  fromHVector ~(aInit, bInit, cInit)
-              abc =
+  parseHVector abc =
     let (a1, b1, c1) =
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-        a = fromHVector aInit a1
-        b = fromHVector bInit b1
-        c = fromHVector cInit c1
+        a = parseHVector a1
+        b = parseHVector b1
+        c = parseHVector c1
     in (a, b, c)
-  fromHVectorAD ~(aInit, bInit, cInit)
-              abc =
+  parseHVectorAD abc =
     let (a1, b1, c1) =
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-        a = fromHVectorAD aInit a1
-        b = fromHVectorAD bInit b1
-        c = fromHVectorAD cInit c1
+        a = parseHVectorAD a1
+        b = parseHVectorAD b1
+        c = parseHVectorAD c1
     in (a, b, c)
 
 instance (TermValue a, TermValue b, TermValue c)
@@ -311,29 +293,27 @@ instance ( BaseTensor target
         c1 = toHVectorOf c
         d1 = toHVectorOf d
     in  tpair (tpair a1 b1) (tpair c1 d1)
-  fromHVector ~(aInit, bInit, cInit, dInit)
-              abcd =
+  parseHVector abcd =
     let (a1, b1, c1, d1) =
           ( tproject1 (tproject1 abcd)
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-        a = fromHVector aInit a1
-        b = fromHVector bInit b1
-        c = fromHVector cInit c1
-        d = fromHVector dInit d1
+        a = parseHVector a1
+        b = parseHVector b1
+        c = parseHVector c1
+        d = parseHVector d1
     in (a, b, c, d)
-  fromHVectorAD ~(aInit, bInit, cInit, dInit)
-              abcd =
+  parseHVectorAD abcd =
     let (a1, b1, c1, d1) =
           ( tproject1 (tproject1 abcd)
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-        a = fromHVectorAD aInit a1
-        b = fromHVectorAD bInit b1
-        c = fromHVectorAD cInit c1
-        d = fromHVectorAD dInit d1
+        a = parseHVectorAD a1
+        b = parseHVectorAD b1
+        c = parseHVectorAD c1
+        d = parseHVectorAD d1
     in (a, b, c, d)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
@@ -385,33 +365,31 @@ instance ( BaseTensor target
         d1 = toHVectorOf d
         e1 = toHVectorOf e
     in tpair (tpair (tpair a1 b1) c1) (tpair d1 e1)
-  fromHVector ~(aInit, bInit, cInit, dInit, eInit)
-              abcde =
+  parseHVector abcde =
     let (a1, b1, c1, d1, e1) =
           ( tproject1 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-        a = fromHVector aInit a1
-        b = fromHVector bInit b1
-        c = fromHVector cInit c1
-        d = fromHVector dInit d1
-        e = fromHVector eInit e1
+        a = parseHVector a1
+        b = parseHVector b1
+        c = parseHVector c1
+        d = parseHVector d1
+        e = parseHVector e1
     in (a, b, c, d, e)
-  fromHVectorAD ~(aInit, bInit, cInit, dInit, eInit)
-              abcde =
+  parseHVectorAD abcde =
     let (a1, b1, c1, d1, e1) =
           ( tproject1 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-        a = fromHVectorAD aInit a1
-        b = fromHVectorAD bInit b1
-        c = fromHVectorAD cInit c1
-        d = fromHVectorAD dInit d1
-        e = fromHVectorAD eInit e1
+        a = parseHVectorAD a1
+        b = parseHVectorAD b1
+        c = parseHVectorAD c1
+        d = parseHVectorAD d1
+        e = parseHVectorAD e1
     in (a, b, c, d, e)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)

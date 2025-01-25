@@ -63,7 +63,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
  withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
-      valsInit@((l1, _), (l2, _), (l3, _)) = fst $ randomVals 1 (mkStdGen 44)
+      valsInit = fst $ randomVals 1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
@@ -74,17 +74,17 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
                                   RepN widthHidden widthHidden2 r -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in withTensorKind
-       (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) l1) $
+       (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
      withTensorKind
-       (stkOfListR (stensorKind @(TKS '[widthHidden] r)) l2) $
+       (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
      withTensorKind
-       (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) l3) $
+       (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) l1) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r)) l2) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r)) l3) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
      testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -104,10 +104,10 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
                  f mnist adinputs =
                    MnistFcnnRanked1.afcnnMnistLoss1
                      widthHiddenSNat widthHidden2SNat
-                     mnist (parseHVector (fromDValue valsInit) adinputs)
+                     mnist (parseHVector adinputs)
                  res = fst $ sgd gamma f chunk hVector
-                 trainScore = ftest chunk (parseHVector valsInit res)
-                 testScore = ftest testData (parseHVector valsInit res)
+                 trainScore = ftest chunk (parseHVector res)
+                 testScore = ftest testData (parseHVector res)
                  lenChunk = length chunk
              unless (widthHiddenInt < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -127,7 +127,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 $ toHVectorOf valsInit
-       let testErrorFinal = 1 - ftest testData (parseHVector valsInit res)
+       let testErrorFinal = 1 - ftest testData (parseHVector res)
        testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase1VTA
@@ -160,7 +160,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
  withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
-      valsInit@((l1, _), (l2, _), (l3, _)) = fst $ randomVals 1 (mkStdGen 44)
+      valsInit = fst $ randomVals 1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
@@ -168,17 +168,17 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
 --                      , show (sizeHVector hVectorInit)
                         , show gamma ]
   in withTensorKind
-       (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) l1) $
+       (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
      withTensorKind
-       (stkOfListR (stensorKind @(TKS '[widthHidden] r)) l2) $
+       (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
      withTensorKind
-       (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) l3) $
+       (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) l1) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r)) l2) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r)) l3) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
      testCase name $ do
        let hVectorInit :: RepN (XParams widthHidden widthHidden2 r)
            hVectorInit = toHVectorOf @RepN valsInit
@@ -202,7 +202,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
                    widthHiddenSNat widthHidden2SNat (astGlyph, astLabel)
-                   (parseHVector (fromDValue valsInit) hVector2)
+                   (parseHVector hVector2)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: RepN (XParams widthHidden widthHidden2 r)
@@ -222,8 +222,8 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
                              env
                    in interpretAst envMnist ast
                  res = fst $ sgd gamma f chunk hVector
-                 trainScore = ftest chunk (parseHVector valsInit res)
-                 testScore = ftest testData (parseHVector valsInit res)
+                 trainScore = ftest chunk (parseHVector res)
+                 testScore = ftest testData (parseHVector res)
                  lenChunk = length chunk
              unless (widthHiddenInt < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -243,7 +243,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 $ toHVectorOf valsInit
-       let testErrorFinal = 1 - ftest testData (parseHVector valsInit res)
+       let testErrorFinal = 1 - ftest testData (parseHVector res)
        testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase1VTI
@@ -277,7 +277,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
  withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
-      valsInit@((l1, _), (l2, _), (l3, _)) = fst $ randomVals 1 (mkStdGen 44)
+      valsInit = fst $ randomVals 1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
@@ -288,17 +288,17 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
                                   RepN widthHidden widthHidden2 r -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in withTensorKind
-       (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) l1) $
+       (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
      withTensorKind
-       (stkOfListR (stensorKind @(TKS '[widthHidden] r)) l2) $
+       (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
      withTensorKind
-       (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) l3) $
+       (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) l1) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r)) l2) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
      withTensorKind
-       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r)) l3) $
+       (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
      testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -344,8 +344,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
                     -> IO (RepN (XParams widthHidden widthHidden2 r))
            runBatch !hVector (k, chunk) = do
              let res = go chunk hVector
-                 trainScore = ftest chunk (parseHVector valsInit res)
-                 testScore = ftest testData (parseHVector valsInit res)
+                 trainScore = ftest chunk (parseHVector res)
+                 testScore = ftest testData (parseHVector res)
                  lenChunk = length chunk
              unless (widthHiddenInt < 10) $ do
                hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -365,7 +365,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
              res <- foldM runBatch params chunks
              runEpoch (succ n) res
        res <- runEpoch 1 $ toHVectorOf valsInit
-       let testErrorFinal = 1 - ftest testData (parseHVector valsInit res)
+       let testErrorFinal = 1 - ftest testData (parseHVector res)
        testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase1VTO
@@ -424,7 +424,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
       ftest :: [MnistData r] ->  RepN (XParams2 r) -> r
       ftest mnistData pars =
         MnistFcnnRanked2.afcnnMnistTest2
-          mnistData (parseHVector @_ @RepN valsInit pars)
+          mnistData (parseHVector @RepN pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -443,7 +443,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                    -> ADVal RepN (TKR 0 r)
                  f mnist adinputs =
                    MnistFcnnRanked2.afcnnMnistLoss2
-                     mnist (parseHVector (fromDValue valsInit) adinputs)
+                     mnist (parseHVector adinputs)
                  res = fst $ sgd gamma f chunk hVector
                  trainScore = ftest chunk res
                  testScore = ftest testData res
@@ -521,7 +521,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       ftest :: [MnistData r] ->  RepN (XParams2 r) -> r
       ftest mnistData pars =
         MnistFcnnRanked2.afcnnMnistTest2
-          mnistData (parseHVector @_ @RepN valsInit pars)
+          mnistData (parseHVector @RepN pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -537,7 +537,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
                    (astGlyph, astLabel)
-                   (parseHVector (fromDValue valsInit) hVector2)
+                   (parseHVector hVector2)
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: RepN (XParams2 r)
@@ -624,7 +624,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
         valsInit =
           -- This almost works and I wouldn't need forgetShape,
           -- but there is nowhere to get aInit from.
-          --   parseHVector aInit hVectorInit
+          --   parseHVector hVectorInit
           forgetShape valsInitShaped
         hVectorInit :: RepN (XParams2 r)
         hVectorInit = toHVectorOf @RepN valsInit
@@ -637,7 +637,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
         ftest :: [MnistData r] ->  RepN (XParams2 r) -> r
         ftest mnistData pars =
           MnistFcnnRanked2.afcnnMnistTest2
-            mnistData (parseHVector @_ @RepN valsInit pars)
+            mnistData (parseHVector @RepN pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

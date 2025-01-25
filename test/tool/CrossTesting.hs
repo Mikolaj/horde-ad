@@ -38,15 +38,14 @@ crevDtMaybeBoth
      , GoodScalar r, KnownNat y
      , AdaptableHVector (ADVal RepN) advals
      , AdaptableHVector (ADVal RepN) (ADVal f (TKR y r))
-     , AdaptableHVector RepN (DValue advals)
-     , DualNumberValue advals )
+     , AdaptableHVector RepN (DValue advals) )
   => Maybe (f (ADTensorKind (TKR y r)))
   -> (advals -> ADVal f (TKR y r)) -> DValue advals
   -> (f (ADTensorKind (X advals)), f (TKR y r))
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth mdt f vals =
   let g :: ADVal RepN (X advals) -> ADVal RepN (TKR y r)
-      g = toHVectorOf . f . parseHVector (fromDValue vals)
+      g = toHVectorOf . f . parseHVector
       valsH = toHVectorOf vals
   in crevOnHVector mdt g valsH
 
@@ -66,16 +65,15 @@ rev' f vals =
   let value0 = f vals
       ftk = tftk stensorKind vals
       dt = Nothing
-      valsFrom = fromDValue vals
       g :: ADVal RepN (TKR n r)
         -> ADVal RepN (TKR m r)
-      g inputs = f $ parseHVector valsFrom inputs
+      g inputs = f $ parseHVector inputs
       (gradient1, value1) = crevDtMaybeBoth dt g vals
       gradientRrev1 = rrev1 @RepN @r @n @m f vals
       g9 :: ADVal (AstRaw PrimalSpan) (TKR n r)
          -> ADVal (AstRaw PrimalSpan) (TKR m r)
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
-                  $ parseHVector (fromDValue vals) inputs
+                  $ parseHVector inputs
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation
                 False g9 ftk
@@ -103,7 +101,7 @@ rev' f vals =
         -> ADVal RepN (TKR m r)
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal RepN) fx1 fx2 gx
-                 (parseHVector valsFrom inputs)
+                 (parseHVector inputs)
       (gradient2, value2) =
         crevDtMaybeBoth dt (h id id id) vals
       (gradient3, value3) =
@@ -146,7 +144,7 @@ rev' f vals =
            -> ADVal (AstRaw PrimalSpan) (TKR m r)
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRaw PrimalSpan))
-                   fx1 fx2 gx (parseHVector (fromDValue vals) inputs)
+                   fx1 fx2 gx (parseHVector inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
                 False (hAst id id id) ftk

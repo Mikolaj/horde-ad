@@ -75,7 +75,7 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
             -> r
       ftest batch_size mnistData pars =
         MnistCnnRanked2.convMnistTestR
-          batch_size mnistData (parseHVector @_ @RepN valsInit pars)
+          batch_size mnistData (parseHVector @RepN pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -97,7 +97,7 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
-                     (parseHVector (fromDValue valsInit) adinputs)
+                     (parseHVector adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -185,7 +185,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
             -> r
       ftest batch_size mnistData pars =
         MnistCnnRanked2.convMnistTestR
-          batch_size mnistData (parseHVector @_ @RepN valsInit pars)
+          batch_size mnistData (parseHVector @RepN pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -205,7 +205,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
-                   (parseHVector (fromDValue valsInit) hVector2)
+                   (parseHVector hVector2)
            runBatch :: ( RepN (XParams r)
                        , StateAdamDeep (XParams r) )
                     -> (Int, [MnistDataR r])
@@ -307,7 +307,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
             -> r
       ftest batch_size mnistData pars =
         MnistCnnRanked2.convMnistTestR
-          batch_size mnistData (parseHVector @_ @RepN valsInit pars)
+          batch_size mnistData (parseHVector @RepN pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
