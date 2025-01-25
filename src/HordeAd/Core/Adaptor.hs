@@ -43,13 +43,13 @@ class AdaptableHVector (target :: Target) vals where
   type X vals :: TensorKindType
   toHVectorOf :: vals -> target (X vals)
     -- ^ represent a collection of tensors
-  fromHVector :: vals -> target (X vals) -> Maybe vals
+  fromHVector :: vals -> target (X vals) -> vals
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
-  fromHVectorAD :: vals -> target (ADTensorKind (X vals)) -> Maybe vals
-    -- TODO: figure out and comment  whether the first argument
+  fromHVectorAD :: vals -> target (ADTensorKind (X vals)) -> vals
+    -- TODO: figure out and comment whether the first argument
     -- is really needed and what for (maybe only for convenience? speed?)
 
 -- | Recovers a value of a collection of tensors type and asserts
@@ -59,18 +59,12 @@ class AdaptableHVector (target :: Target) vals where
 parseHVector
   :: forall vals target. AdaptableHVector target vals
   => vals -> target (X vals) -> vals
-parseHVector aInit hVector =
-  case fromHVector aInit hVector of
-    Just vals -> vals
-    Nothing -> error "parseHVector: truncated product of tensors"
+parseHVector = fromHVector
 
 parseHVectorAD
   :: forall vals target. AdaptableHVector target vals
   => vals -> target (ADTensorKind (X vals)) -> vals
-parseHVectorAD aInit hVector =
-  case fromHVectorAD aInit hVector of
-    Just vals -> vals
-    Nothing -> error "parseHVectorAD: truncated product of tensors"
+parseHVectorAD = fromHVectorAD
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -122,8 +116,8 @@ instance (TensorKind y, BaseTensor target)
 -}
   type X (target y) = y
   toHVectorOf = id
-  fromHVector _aInit t = Just t
-  fromHVectorAD _aInit t = Just $ fromADTensorKindShared (stensorKind @y) t
+  fromHVector _aInit t = t
+  fromHVectorAD _aInit t = fromADTensorKindShared (stensorKind @y) t
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), TensorKind y)
          => DualNumberValue (target y) where
@@ -154,27 +148,27 @@ instance ( BaseTensor target
     let a1 = toHVectorOf a
         rest1 = toHVectorOf rest
     in tpair a1 rest1
-  fromHVector ZR _ = Just ZR
+  fromHVector ZR _ = ZR
   fromHVector ((:::) @n1 aInit restInit) a1rest1
    | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) restInit) =
     gcastWith (unsafeCoerceRefl
-              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $ do
+              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
       let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
-      a <- fromHVector aInit a1
-      rest <- fromHVector restInit rest1
-      return (a ::: rest)
-  fromHVectorAD ZR _ = Just ZR
+          a = fromHVector aInit a1
+          rest = fromHVector restInit rest1
+      in (a ::: rest)
+  fromHVectorAD ZR _ = ZR
   fromHVectorAD ((:::) @n1 aInit restInit) a1rest1
    | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind
                                                @(ADTensorKind (X a))) restInit) =
     gcastWith (unsafeCoerceRefl
               :: ADTensorKind (Tups n1 (X a)) :~: Tups n1 (ADTensorKind (X a))) $
     gcastWith (unsafeCoerceRefl
-              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $ do
+              :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
       let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
-      a <- fromHVectorAD aInit a1
-      rest <- fromHVectorAD restInit rest1
-      return (a ::: rest)
+          a = fromHVectorAD aInit a1
+          rest = fromHVectorAD restInit rest1
+      in (a ::: rest)
 
 instance TermValue a => TermValue (ListR n a) where
   type Value (ListR n a) = ListR n (Value a)
@@ -210,21 +204,21 @@ instance ( BaseTensor target
         b1 = toHVectorOf b
     in tpair a1 b1
   fromHVector ~(aInit, bInit)
-              ab = do
+              ab =
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-    a <- fromHVector aInit a1
-    b <- fromHVector bInit b1
-    return (a, b)
+        a = fromHVector aInit a1
+        b = fromHVector bInit b1
+    in (a, b)
   fromHVectorAD ~(aInit, bInit)
-              ab = do
+              ab =
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-    a <- fromHVectorAD aInit a1
-    b <- fromHVectorAD bInit b1
-    return (a, b)
+        a = fromHVectorAD aInit a1
+        b = fromHVectorAD bInit b1
+    in (a, b)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
   type Value (a, b) = (Value a, Value b)
@@ -258,25 +252,25 @@ instance ( BaseTensor target
         c1 = toHVectorOf c
     in tpair (tpair a1 b1) c1
   fromHVector ~(aInit, bInit, cInit)
-              abc = do
+              abc =
     let (a1, b1, c1) =
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-    a <- fromHVector aInit a1
-    b <- fromHVector bInit b1
-    c <- fromHVector cInit c1
-    return (a, b, c)
+        a = fromHVector aInit a1
+        b = fromHVector bInit b1
+        c = fromHVector cInit c1
+    in (a, b, c)
   fromHVectorAD ~(aInit, bInit, cInit)
-              abc = do
+              abc =
     let (a1, b1, c1) =
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-    a <- fromHVectorAD aInit a1
-    b <- fromHVectorAD bInit b1
-    c <- fromHVectorAD cInit c1
-    return (a, b, c)
+        a = fromHVectorAD aInit a1
+        b = fromHVectorAD bInit b1
+        c = fromHVectorAD cInit c1
+    in (a, b, c)
 
 instance (TermValue a, TermValue b, TermValue c)
          => TermValue (a, b, c) where
@@ -318,29 +312,29 @@ instance ( BaseTensor target
         d1 = toHVectorOf d
     in  tpair (tpair a1 b1) (tpair c1 d1)
   fromHVector ~(aInit, bInit, cInit, dInit)
-              abcd = do
+              abcd =
     let (a1, b1, c1, d1) =
           ( tproject1 (tproject1 abcd)
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-    a <- fromHVector aInit a1
-    b <- fromHVector bInit b1
-    c <- fromHVector cInit c1
-    d <- fromHVector dInit d1
-    return (a, b, c, d)
+        a = fromHVector aInit a1
+        b = fromHVector bInit b1
+        c = fromHVector cInit c1
+        d = fromHVector dInit d1
+    in (a, b, c, d)
   fromHVectorAD ~(aInit, bInit, cInit, dInit)
-              abcd = do
+              abcd =
     let (a1, b1, c1, d1) =
           ( tproject1 (tproject1 abcd)
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-    a <- fromHVectorAD aInit a1
-    b <- fromHVectorAD bInit b1
-    c <- fromHVectorAD cInit c1
-    d <- fromHVectorAD dInit d1
-    return (a, b, c, d)
+        a = fromHVectorAD aInit a1
+        b = fromHVectorAD bInit b1
+        c = fromHVectorAD cInit c1
+        d = fromHVectorAD dInit d1
+    in (a, b, c, d)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
          => TermValue (a, b, c, d) where
@@ -392,33 +386,33 @@ instance ( BaseTensor target
         e1 = toHVectorOf e
     in tpair (tpair (tpair a1 b1) c1) (tpair d1 e1)
   fromHVector ~(aInit, bInit, cInit, dInit, eInit)
-              abcde = do
+              abcde =
     let (a1, b1, c1, d1, e1) =
           ( tproject1 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-    a <- fromHVector aInit a1
-    b <- fromHVector bInit b1
-    c <- fromHVector cInit c1
-    d <- fromHVector dInit d1
-    e <- fromHVector eInit e1
-    return (a, b, c, d, e)
+        a = fromHVector aInit a1
+        b = fromHVector bInit b1
+        c = fromHVector cInit c1
+        d = fromHVector dInit d1
+        e = fromHVector eInit e1
+    in (a, b, c, d, e)
   fromHVectorAD ~(aInit, bInit, cInit, dInit, eInit)
-              abcde = do
+              abcde =
     let (a1, b1, c1, d1, e1) =
           ( tproject1 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-    a <- fromHVectorAD aInit a1
-    b <- fromHVectorAD bInit b1
-    c <- fromHVectorAD cInit c1
-    d <- fromHVectorAD dInit d1
-    e <- fromHVectorAD eInit e1
-    return (a, b, c, d, e)
+        a = fromHVectorAD aInit a1
+        b = fromHVectorAD bInit b1
+        c = fromHVectorAD cInit c1
+        d = fromHVectorAD dInit d1
+        e = fromHVectorAD eInit e1
+    in (a, b, c, d, e)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
          => TermValue (a, b, c, d, e) where
