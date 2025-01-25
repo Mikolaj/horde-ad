@@ -249,28 +249,28 @@ interpretAst !env = \case
            in withSNat (V.length v) $ \snat ->
                 tsum snat stk $ tfromVector snat stk v
 
-  AstN1 opCode u ->
+  AstN1K opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
-  AstN2 opCode u v ->
+  AstN2K opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstN2 opCode u2 v2
-  AstR1 opCode u ->
+  AstR1K opCode u ->
     let u2 = interpretAst env u
     in interpretAstR1 opCode u2
-  AstR2 opCode u v ->
+  AstR2K opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstR2 opCode u2 v2
-  AstI2 opCode u v ->
+  AstI2K opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstFloor v ->
+  AstFloorK v ->
     kfloor $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
-  AstCast v -> kcast $ interpretAst env v
-  AstFromIntegral v ->
+  AstCastK v -> kcast $ interpretAst env v
+  AstFromIntegralK v ->
     kfromIntegral $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
 
   AstConcrete ftk a -> tconcrete ftk a

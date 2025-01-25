@@ -290,16 +290,16 @@ printAstAux cfg d = \case
        $ printAst cfg 7 left
          . foldr (.) id rs
 
-  AstN1 opCode u -> printAstN1R printAst cfg d opCode u
-  AstN2 opCode u v -> printAstN2R printAst cfg d opCode u v
-  AstR1 opCode u -> printAstR1R printAst cfg d opCode u
-  AstR2 opCode u v -> printAstR2R printAst cfg d opCode u v
-  AstI2 opCode u v -> printAstI2R printAst cfg d opCode u v
-  AstFloor v ->
+  AstN1K opCode u -> printAstN1R printAst cfg d opCode u
+  AstN2K opCode u v -> printAstN2R printAst cfg d opCode u v
+  AstR1K opCode u -> printAstR1R printAst cfg d opCode u
+  AstR2K opCode u v -> printAstR2R printAst cfg d opCode u v
+  AstI2K opCode u v -> printAstI2R printAst cfg d opCode u v
+  AstFloorK v ->
     printPrefixOp printAst cfg d "kfloor" [v]
-  AstCast v ->
+  AstCastK v ->
     printPrefixOp printAst cfg d "kcast" [v]
-  AstFromIntegral v ->
+  AstFromIntegralK v ->
     printPrefixOp printAst cfg d "kfromIntegral" [v]
 
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]

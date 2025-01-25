@@ -214,27 +214,27 @@ build1V snat@SNat (var, v0) =
       astSumOfList stensorKind
       $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
-    Ast.AstN1 opCode u -> traceRule $
+    Ast.AstN1K opCode u -> traceRule $
       Ast.AstN1S opCode (build1V snat (var, u))
-    Ast.AstN2 opCode u v -> traceRule $
+    Ast.AstN2K opCode u v -> traceRule $
       Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
-    Ast.AstR1 opCode u -> traceRule $
+    Ast.AstR1K opCode u -> traceRule $
       Ast.AstR1S opCode (build1V snat (var, u))
-    Ast.AstR2 opCode u v -> traceRule $
+    Ast.AstR2K opCode u v -> traceRule $
       Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
-    Ast.AstI2 opCode u v -> traceRule $
+    Ast.AstI2K opCode u v -> traceRule $
       Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
-    Ast.AstFloor v -> traceRule $
+    Ast.AstFloorK v -> traceRule $
      Ast.AstFloorS $ build1V snat (var, v)
-    Ast.AstCast v -> traceRule $
+    Ast.AstCastK v -> traceRule $
       astCastS $ build1V snat (var, v)
-    Ast.AstFromIntegral v -> traceRule $
+    Ast.AstFromIntegralK v -> traceRule $
       astFromIntegralS $ build1V snat (var, v)
     Ast.AstConcrete{} ->
       error "build1V: AstConcrete can't have free index variables"

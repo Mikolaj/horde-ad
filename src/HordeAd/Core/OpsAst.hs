@@ -674,7 +674,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           * AstD (astFromS @(TKS sh r) (stensorKind @(TKX sh2 r))
                            (astReplicate0NS 0)) t
 
-  kfloor = fromPrimal . AstFloor . astSpanPrimal
+  kfloor = fromPrimal . AstFloorK . astSpanPrimal
   kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
   kcast = astCast
 
@@ -1284,9 +1284,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sScale s t =
     AstDualPart $ AstFromPrimal (unAstRaw s) * AstD (astReplicate0NSNoSimp 0) t
 
-  kfloor = AstRaw . fromPrimal . AstFloor . astSpanPrimalRaw . unAstRaw
-  kcast = AstRaw . AstCast . unAstRaw
-  kfromIntegral = AstRaw . fromPrimal . AstFromIntegral
+  kfloor = AstRaw . fromPrimal . AstFloorK . astSpanPrimalRaw . unAstRaw
+  kcast = AstRaw . AstCastK . unAstRaw
+  kfromIntegral = AstRaw . fromPrimal . AstFromIntegralK
                   . astSpanPrimalRaw . unAstRaw
 
   rfromS @x @sh | SNat <- shsRank (knownShS @sh) =
@@ -2077,10 +2077,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     astDualPart
     $ AstFromPrimal (unAstNoSimplify s) * AstD (astReplicate0NSNoSimp 0) t
 
-  kfloor = AstNoSimplify . fromPrimal . AstFloor
+  kfloor = AstNoSimplify . fromPrimal . AstFloorK
            . astSpanPrimal . unAstNoSimplify
-  kcast = AstNoSimplify . AstCast . unAstNoSimplify
-  kfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegral
+  kcast = AstNoSimplify . AstCastK . unAstNoSimplify
+  kfromIntegral = AstNoSimplify . fromPrimal . AstFromIntegralK
                   . astSpanPrimal . unAstNoSimplify
 
   sfromR = AstNoSimplify . AstSFromR . unAstNoSimplify

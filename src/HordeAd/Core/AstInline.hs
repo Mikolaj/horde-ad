@@ -167,27 +167,27 @@ inlineAst memo v0 = case v0 of
     let (memo2, args2) = mapAccumR inlineAst memo args
     in (memo2, Ast.AstSumOfList stk args2)
 
-  Ast.AstN1 opCode u ->
+  Ast.AstN1K opCode u ->
     let (memo2, u2) = inlineAst memo u
-    in (memo2, Ast.AstN1 opCode u2)
-  Ast.AstN2 opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstN2 opCode u2 v3)
-  Ast.AstR1 opCode u ->
-    let (memo2, u2) = inlineAst memo u
-    in (memo2, Ast.AstR1 opCode u2)
-  Ast.AstR2 opCode u v ->
+    in (memo2, Ast.AstN1K opCode u2)
+  Ast.AstN2K opCode u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstR2 opCode u2 v3)
-  Ast.AstI2 opCode u v ->
+    in (memo3, Ast.AstN2K opCode u2 v3)
+  Ast.AstR1K opCode u ->
+    let (memo2, u2) = inlineAst memo u
+    in (memo2, Ast.AstR1K opCode u2)
+  Ast.AstR2K opCode u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstI2 opCode u2 v3)
-  Ast.AstFloor a -> second Ast.AstFloor $ inlineAst memo a
-  Ast.AstCast a -> second Ast.AstCast $ inlineAst memo a
-  Ast.AstFromIntegral a -> second Ast.AstFromIntegral $ inlineAst memo a
+    in (memo3, Ast.AstR2K opCode u2 v3)
+  Ast.AstI2K opCode u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstI2K opCode u2 v3)
+  Ast.AstFloorK a -> second Ast.AstFloorK $ inlineAst memo a
+  Ast.AstCastK a -> second Ast.AstCastK $ inlineAst memo a
+  Ast.AstFromIntegralK a -> second Ast.AstFromIntegralK $ inlineAst memo a
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
@@ -446,27 +446,27 @@ unshareAst memo = \case
     let (memo2, args2) = mapAccumR unshareAst memo args
     in (memo2, Ast.AstSumOfList stk args2)
 
-  Ast.AstN1 opCode u ->
+  Ast.AstN1K opCode u ->
     let (memo2, u2) = unshareAst memo u
-    in (memo2, Ast.AstN1 opCode u2)
-  Ast.AstN2 opCode u v ->
-    let (memo2, u2) = unshareAst memo u
-        (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstN2 opCode u2 v3)
-  Ast.AstR1 opCode u ->
-    let (memo2, u2) = unshareAst memo u
-    in (memo2, Ast.AstR1 opCode u2)
-  Ast.AstR2 opCode u v ->
+    in (memo2, Ast.AstN1K opCode u2)
+  Ast.AstN2K opCode u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstR2 opCode u2 v3)
-  Ast.AstI2 opCode u v ->
+    in (memo3, Ast.AstN2K opCode u2 v3)
+  Ast.AstR1K opCode u ->
+    let (memo2, u2) = unshareAst memo u
+    in (memo2, Ast.AstR1K opCode u2)
+  Ast.AstR2K opCode u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstI2 opCode u2 v3)
-  Ast.AstFloor a -> second Ast.AstFloor $ unshareAst memo a
-  Ast.AstCast v -> second Ast.AstCast $ unshareAst memo v
-  Ast.AstFromIntegral v -> second Ast.AstFromIntegral $ unshareAst memo v
+    in (memo3, Ast.AstR2K opCode u2 v3)
+  Ast.AstI2K opCode u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstI2K opCode u2 v3)
+  Ast.AstFloorK a -> second Ast.AstFloorK $ unshareAst memo a
+  Ast.AstCastK v -> second Ast.AstCastK $ unshareAst memo v
+  Ast.AstFromIntegralK v -> second Ast.AstFromIntegralK $ unshareAst memo v
 
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a

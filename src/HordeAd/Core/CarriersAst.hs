@@ -79,16 +79,16 @@ instance (GoodScalar r, AstSpan s)
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing
-  u - v = AstN2 MinusOp u v
+  u - v = AstN2K MinusOp u v
 
   AstConcrete ftk u * AstConcrete _ v =
     AstConcrete ftk (u * v)  -- common in indexing
-  u * v = AstN2 TimesOp u v
+  u * v = AstN2K TimesOp u v
 
   negate (AstConcrete ftk u) = AstConcrete ftk $ negate u  -- common in indexing
-  negate u = AstN1 NegateOp u
-  abs = AstN1 AbsOp
-  signum = AstN1 SignumOp
+  negate u = AstN1K NegateOp u
+  abs = AstN1K AbsOp
+  signum = AstN1K SignumOp
   fromInteger i = fromPrimal . AstConcrete FTKScalar . fromInteger $ i
 
 -- Warning: div and mod operations are very costly (simplifying them
@@ -96,39 +96,39 @@ instance (GoodScalar r, AstSpan s)
 -- they are going to work, but slowly.
 instance (GoodScalar r, IntegralF r, AstSpan s)
          => IntegralF (AstTensor ms s (TKScalar r)) where
-  quotF = AstI2 QuotOp
-  remF = AstI2 RemOp
+  quotF = AstI2K QuotOp
+  remF = AstI2K RemOp
 
 instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
-  u / v = AstR2 DivideOp u v
-  recip = AstR1 RecipOp
+  u / v = AstR2K DivideOp u v
+  recip = AstR1K RecipOp
   fromRational r = fromPrimal . AstConcrete FTKScalar . fromRational $ r
 
 instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi not defined for ranked tensors"
-  exp = AstR1 ExpOp
-  log = AstR1 LogOp
-  sqrt = AstR1 SqrtOp
-  (**) = AstR2 PowerOp
-  logBase = AstR2 LogBaseOp
-  sin = AstR1 SinOp
-  cos = AstR1 CosOp
-  tan = AstR1 TanOp
-  asin = AstR1 AsinOp
-  acos = AstR1 AcosOp
-  atan = AstR1 AtanOp
-  sinh = AstR1 SinhOp
-  cosh = AstR1 CoshOp
-  tanh = AstR1 TanhOp
-  asinh = AstR1 AsinhOp
-  acosh = AstR1 AcoshOp
-  atanh = AstR1 AtanhOp
+  exp = AstR1K ExpOp
+  log = AstR1K LogOp
+  sqrt = AstR1K SqrtOp
+  (**) = AstR2K PowerOp
+  logBase = AstR2K LogBaseOp
+  sin = AstR1K SinOp
+  cos = AstR1K CosOp
+  tan = AstR1K TanOp
+  asin = AstR1K AsinOp
+  acos = AstR1K AcosOp
+  atan = AstR1K AtanOp
+  sinh = AstR1K SinhOp
+  cosh = AstR1K CoshOp
+  tanh = AstR1K TanhOp
+  asinh = AstR1K AsinhOp
+  acosh = AstR1K AcoshOp
+  atanh = AstR1K AtanhOp
 
 instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => RealFloatF (AstTensor ms s (TKScalar r)) where
-  atan2F = AstR2 Atan2Op
+  atan2F = AstR2K Atan2Op
 
 
 -- * Unlawful numeric instances for ranked AST; they are lawful modulo evaluation

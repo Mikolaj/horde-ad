@@ -33,8 +33,8 @@ import Data.GADT.Show
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Some
-import Data.Vector.Strict qualified as Data.Vector
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (KnownNat, type (+), type (<=))
 import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
@@ -303,30 +303,30 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSumOfList :: STensorKindType y -> [AstTensor ms s y] -> AstTensor ms s y
 
   -- Scalar arithmetic
-  AstN1 :: GoodScalar r
-        => OpCodeNum1 -> AstTensor ms s (TKScalar r)
-        -> AstTensor ms s (TKScalar r)
-  AstN2 :: GoodScalar r
-        => OpCodeNum2 -> AstTensor ms s (TKScalar r)
-        -> AstTensor ms s (TKScalar r)
-        -> AstTensor ms s (TKScalar r)
-  AstR1 :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
-        => OpCode1 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
-  AstR2 :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
-        => OpCode2 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
-        -> AstTensor ms s (TKScalar r)
-  AstI2 :: (IntegralF r, GoodScalar r)
-        => OpCodeIntegral2 -> AstTensor ms s (TKScalar r)
-        -> AstTensor ms s (TKScalar r)
-        -> AstTensor ms s (TKScalar r)
-  AstFloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
-           => AstTensor ms PrimalSpan (TKScalar r)
-           -> AstTensor ms PrimalSpan (TKScalar r2)
-  AstFromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
-                  => AstTensor ms PrimalSpan (TKScalar r1)
-                  -> AstTensor ms PrimalSpan (TKScalar r2)
-  AstCast :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
-          => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
+  AstN1K :: GoodScalar r
+         => OpCodeNum1 -> AstTensor ms s (TKScalar r)
+         -> AstTensor ms s (TKScalar r)
+  AstN2K :: GoodScalar r
+         => OpCodeNum2 -> AstTensor ms s (TKScalar r)
+         -> AstTensor ms s (TKScalar r)
+         -> AstTensor ms s (TKScalar r)
+  AstR1K :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
+         => OpCode1 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
+  AstR2K :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
+         => OpCode2 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
+         -> AstTensor ms s (TKScalar r)
+  AstI2K :: (IntegralF r, GoodScalar r)
+         => OpCodeIntegral2 -> AstTensor ms s (TKScalar r)
+         -> AstTensor ms s (TKScalar r)
+         -> AstTensor ms s (TKScalar r)
+  AstFloorK :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+            => AstTensor ms PrimalSpan (TKScalar r)
+            -> AstTensor ms PrimalSpan (TKScalar r2)
+  AstFromIntegralK :: (GoodScalar r1, Integral r1, GoodScalar r2)
+                   => AstTensor ms PrimalSpan (TKScalar r1)
+                   -> AstTensor ms PrimalSpan (TKScalar r2)
+  AstCastK :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
+           => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
   -- Shaped arithmetic
   AstN1S :: (GoodScalar r, KnownShS sh)

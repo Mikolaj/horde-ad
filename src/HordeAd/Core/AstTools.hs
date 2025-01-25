@@ -87,14 +87,14 @@ ftkAst t = case t of
     [] -> error "ftkAst: AstSumOfList with no arguments"
     v : _ -> ftkAst v
 
-  AstN1{} -> FTKScalar
-  AstN2{} -> FTKScalar
-  AstR1{} -> FTKScalar
-  AstR2{} -> FTKScalar
-  AstI2{} -> FTKScalar
-  AstFloor{} -> FTKScalar
-  AstCast{} -> FTKScalar
-  AstFromIntegral{} -> FTKScalar
+  AstN1K{} -> FTKScalar
+  AstN2K{} -> FTKScalar
+  AstR1K{} -> FTKScalar
+  AstR2K{} -> FTKScalar
+  AstI2K{} -> FTKScalar
+  AstFloorK{} -> FTKScalar
+  AstCastK{} -> FTKScalar
+  AstFromIntegralK{} -> FTKScalar
 
   AstMinIndexS{} -> FTKS knownShS FTKScalar
   AstMaxIndexS{} -> FTKS knownShS FTKScalar
@@ -239,14 +239,14 @@ varInAst var = \case
 
   AstSumOfList _ l -> any (varInAst var) l
 
-  AstN1 _ t -> varInAst var t
-  AstN2 _ t u -> varInAst var t || varInAst var u
-  AstR1 _ t -> varInAst var t
-  AstR2 _ t u -> varInAst var t || varInAst var u
-  AstI2 _ t u -> varInAst var t || varInAst var u
-  AstFloor a -> varInAst var a
-  AstCast t -> varInAst var t
-  AstFromIntegral t -> varInAst var t
+  AstN1K _ t -> varInAst var t
+  AstN2K _ t u -> varInAst var t || varInAst var u
+  AstR1K _ t -> varInAst var t
+  AstR2K _ t u -> varInAst var t || varInAst var u
+  AstI2K _ t u -> varInAst var t || varInAst var u
+  AstFloorK a -> varInAst var a
+  AstCastK t -> varInAst var t
+  AstFromIntegralK t -> varInAst var t
 
   AstMinIndexS a -> varInAst var a
   AstMaxIndexS a -> varInAst var a
