@@ -5,10 +5,9 @@
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Shape calculation
-    ftkAst, shapeAst, lengthAst, shapeAstHFun
+    ftkAst, shapeAst, shapeAstHFun
     -- * Variable occurrence detection
-  , varInAst, varInAstBool, varInIndex
-  , varInIndexS, varNameInAst
+  , varInAst, varInAstBool, varInIndexS, varNameInAst
     -- * Determining if a term is too small to require sharing
   , astIsSmall
     -- * Odds and ends
@@ -26,7 +25,7 @@ import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, sameNat, type (+))
+import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
@@ -39,7 +38,7 @@ import Data.Array.Mixed.Shape
   , withKnownShX
   )
 import Data.Array.Nested
-  (IShR, KnownShS (..), MapJust, Rank, Replicate, ShR (..), ShS (..))
+  (IShR, KnownShS (..), MapJust, Rank, Replicate, ShS (..))
 import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
@@ -208,13 +207,6 @@ shapeAst :: forall n s x ms. AstTensor ms s (TKR2 n x) -> IShR n
 shapeAst t = case ftkAst t of
   FTKR sh _ -> sh
 
--- Length of the outermost dimension.
-lengthAst :: forall n s x ms. AstTensor ms s (TKR2 (1 + n) x) -> Int
-{-# INLINE lengthAst #-}
-lengthAst v1 = case shapeAst v1 of
-  ZSR -> error "lengthAst: impossible pattern needlessly required"
-  k :$: _ -> k
-
 shapeAstHFun :: AstHFun x y -> FullTensorKind y
 shapeAstHFun = \case
   AstLambda ~(_vvars, _, l) -> ftkAst l
@@ -305,9 +297,6 @@ varInAst var = \case
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
   AstMatvecmulS _ _ u v -> varInAst var u || varInAst var v
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
-
-varInIndex :: AstVarId -> AstIxR ms n -> Bool
-varInIndex var = any (varInAst var)
 
 varInIndexS :: AstVarId -> AstIxS ms sh -> Bool
 varInIndexS var = any (varInAst var)

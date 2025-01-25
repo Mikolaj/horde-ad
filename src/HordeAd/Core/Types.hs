@@ -9,8 +9,7 @@ module HordeAd.Core.Types
   , pattern SNat'
     -- * Definitions for type-level list shapes
   , slistKnown, sixKnown
-  , shapeP, sizeT, sizeP
-  , sameShape, matchingRank
+  , sizeT, sizeP, sameShape
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
@@ -104,7 +103,6 @@ import Data.Array.Nested.Internal.Shape
   , shsProduct
   , shsRank
   , shsSize
-  , shsToList
   )
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -147,9 +145,6 @@ sixKnown :: IxS sh i -> Dict KnownShS sh
 sixKnown ZIS = Dict
 sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
 
-shapeP :: forall sh. KnownShS sh => Proxy sh -> [Int]
-shapeP _ = shsToList (knownShS @sh)
-
 sizeT :: forall sh. KnownShS sh => Int
 sizeT = sNatValue $ shsProduct $ knownShS @sh
 
@@ -159,10 +154,6 @@ sizeP _ = sizeT @sh
 sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
           => Maybe (sh1 :~: sh2)
 sameShape = testEquality (knownShS @sh1) (knownShS @sh2)
-
-matchingRank :: forall sh1 n2. (KnownShS sh1, KnownNat n2)
-             => Maybe (Rank sh1 :~: n2)
-matchingRank = testEquality (shsRank $ knownShS @sh1) (SNat @n2)
 
 class Permutation.IsPermutation is => PermC is
 instance Permutation.IsPermutation is => PermC is
