@@ -709,7 +709,7 @@ oRdmapAccumL k _ bShs _ f acc0 es
         (xout, lout) = mapAccumL g acc0 (unravel k es)
     in tpair xout (ravel k lout)
 
-instance (GoodScalar r, KnownNat n)
+instance (y ~ TKR n r, TensorKind y)
          => AdaptableHVector RepN (RepN (TKR n r)) where
   {-# SPECIALIZE instance
       KnownNat n
@@ -717,24 +717,29 @@ instance (GoodScalar r, KnownNat n)
   type X (RepN (TKR n r)) = TKR n r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
-    case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
+  fromHVectorAD aInit t =
+    let stk = stensorKind @y
+    in case sameSTK stk (aDSTK stk) of
       Just Refl -> Just (t, Nothing)
-      _ -> Just (rzero $ rshape aInit, Nothing)
+      _ -> Just (constantTarget 0 $ tftkG stk (unRepN aInit), Nothing)
 
 instance ForgetShape (RepN (TKR n r)) where
   type NoShape (RepN (TKR n r)) = RepN (TKR n r)
   forgetShape = id
 
-instance (GoodScalar r, KnownShS sh)
+instance (y ~ TKS sh r, TensorKind y)
          => AdaptableHVector RepN (RepN (TKS sh r)) where
+  {-# SPECIALIZE instance
+      KnownShS sh
+      => AdaptableHVector RepN (RepN (TKS sh Double)) #-}
   type X (RepN (TKS sh r)) = TKS sh r
   toHVectorOf = id
   fromHVector _aInit t = Just (t, Nothing)
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
-    case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
+  fromHVectorAD aInit t =
+    let stk = stensorKind @y
+    in case sameSTK stk (aDSTK stk) of
       Just Refl -> Just (t, Nothing)
-      _ -> Just (srepl 0, Nothing)
+      _ -> Just (constantTarget 0 $ tftkG stk (unRepN aInit), Nothing)
 
 instance GoodScalar r
          => ForgetShape (RepN (TKS sh r)) where
@@ -753,13 +758,6 @@ instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
         arr = createRandomVector (sizeP (Proxy @sh)) g1
     in (RepN arr, g2)
 {-
-instance AdaptableHVector RepN (HVector RepN) where
-  type X (HVector RepN) = TKUntyped
-  toHVectorOf = RepN
-  fromHVector aInit params =
-    let (portion, rest) = V.splitAt (V.length aInit) $ unRepN params
-    in Just (portion, Just $ RepN rest)
-
 -- This specialization is not possible where the functions are defined,
 -- but is possible here:
 {-# SPECIALIZE gradientFromDelta
