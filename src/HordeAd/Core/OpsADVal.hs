@@ -39,9 +39,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shCvtSX, withKnownShS, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersADVal
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
@@ -149,12 +147,6 @@ instance (ADReadyNoLet target, ShareTensor target)
 
 
 -- * Base tensor instance
-
-instance (BaseTensor target, TensorKind y)
-         => DualNumberValue (ADVal target y) where
-  type DValue (ADVal target y) = RepN y  -- ! not DValue(target)
-  fromDValue t =
-    fromPrimalADVal $ tconcrete (tftkG (stensorKind @y) $ unRepN t) t
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.

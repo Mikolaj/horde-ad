@@ -30,6 +30,7 @@ import System.Random
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (ListR (..))
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -48,10 +49,6 @@ class AdaptableHVector (target :: Target) vals where
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
   fromHVectorAD :: vals -> target (ADTensorKind (X vals)) -> Maybe vals
-  default fromHVectorAD :: X vals ~ ADTensorKind (X vals)
-                        => vals -> target (ADTensorKind (X vals))
-                        -> Maybe vals
-  fromHVectorAD = fromHVector
     -- TODO: figure out and comment  whether the first argument
     -- is really needed and what for (maybe only for convenience? speed?)
 
@@ -127,6 +124,12 @@ instance (TensorKind y, BaseTensor target)
   toHVectorOf = id
   fromHVector _aInit t = Just t
   fromHVectorAD _aInit t = Just $ fromADTensorKindShared (stensorKind @y) t
+
+instance (BaseTensor target, BaseTensor (PrimalOf target), TensorKind y)
+         => DualNumberValue (target y) where
+  type DValue (target y) = RepN y
+  fromDValue t = tfromPrimal (stensorKind @y)
+                 $ tconcrete (tftkG (stensorKind @y) $ unRepN t) t
 
 type family Tups n t where
   Tups 0 t = TKUnit

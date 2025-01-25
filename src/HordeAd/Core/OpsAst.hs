@@ -172,17 +172,9 @@ instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
     -- common in indexing
   v >=. u = AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u)
 
-instance (TensorKind y, AstSpan s)
-         => DualNumberValue (AstTensor AstMethodLet s y) where
-  type DValue (AstTensor AstMethodLet s y) = RepN y
-         -- ! not DValue(target)
-  fromDValue t =
-    fromPrimal $ astConcrete (tftkG (stensorKind @y) $ unRepN t) t
-
 instance TensorKind y
          => TermValue (AstTensor AstMethodLet FullSpan y) where
   type Value (AstTensor AstMethodLet FullSpan y) = RepN y
-         -- ! not DValue(target)
   fromValue t =
     fromPrimal $ astConcrete (tftkG (stensorKind @y) $ unRepN t) t
 
