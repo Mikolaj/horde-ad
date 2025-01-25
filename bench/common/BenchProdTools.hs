@@ -8,9 +8,9 @@ import Prelude
 
 import Criterion.Main
 import Data.List (foldl1')
-import Data.Vector.Strict qualified as Data.Vector
 import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
+import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (KnownNat)
 import Test.Inspection
 
@@ -25,8 +25,6 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 --import HordeAd.Core.Adaptor
 
 import HordeAd
-
-{-
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
@@ -61,7 +59,7 @@ envProd k f allxs =
 benchProd :: r ~ Double
           => (([r], [RepN (TKR 0 r)], Data.Vector.Vector (RepN (TKR 0 r))))
           -> [Benchmark]
-benchProd ~(_l, list, _vec) =
+benchProd ~(_l, list, _vec) = [] {-
     [ bench "crev List" $ nf crevRankedListProd list
     , bench "rev List" $ nf revRankedListProd list
     , bench "r crev List" $ nf crevRankedListProdr list

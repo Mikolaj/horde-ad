@@ -94,14 +94,15 @@ mnistTestBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2 = do
              ++ unwords [ "v" ++ show (length nParams1)
                         , "m0" ++ " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ whnf score chunk
-
+-}
 mnistBGroup1VTA :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup1VTA xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer rank 1 VTA MNIST nn with samples: "
           ++ show chunkLength) $
-    (if chunkLength <= 1000
+      []
+{-    (if chunkLength <= 1000
      then
        [ mnistTestBench1VTA "30|10 " chunkLength xs 30 10  -- toy width
        , mnistTrainBench1VTA "30|10 " chunkLength xs 30 10 0.02
@@ -183,14 +184,15 @@ mnistTestBench1VTO :: forall r. r ~ Double
                    => String -> Int -> [MnistData r] -> Int -> Int
                    -> Benchmark
 mnistTestBench1VTO = mnistTestBench1VTA
-
+-}
 mnistBGroup1VTO :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup1VTO xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer rank 1 VTO MNIST nn with samples: "
           ++ show chunkLength) $
-    (if chunkLength <= 1000
+     []
+{-    (if chunkLength <= 1000
      then
        [ mnistTestBench1VTO "30|10 " chunkLength xs 30 10  -- toy width
        , mnistTrainBench1VTO "30|10 " chunkLength xs 30 10 0.02
@@ -267,14 +269,15 @@ mnistTestBench2VTA extraPrefix chunkLength testData widthHidden widthHidden2 = d
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
                         , " =" ++ show (sizeHVector hVectorInit) ]
   bench name $ whnf score chunk
-
+-}
 mnistBGroup2VTA :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup2VTA xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer rank 2 VTA MNIST nn with samples: "
           ++ show chunkLength)
-    (if chunkLength <= 1000
+    []
+{-    (if chunkLength <= 1000
      then
        [ mnistTestBench2VTA "30|10 " chunkLength xs 30 10  -- toy width
        , mnistTrainBench2VTA "30|10 " chunkLength xs 30 10 0.02
@@ -350,14 +353,15 @@ mnistTestBench2VTO :: forall r. r ~ Double
                    => String -> Int -> [MnistData r] -> Int -> Int
                    -> Benchmark
 mnistTestBench2VTO = mnistTestBench2VTA
-
+-}
 mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup2VTO xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer rank 2 VTO MNIST nn with samples: "
           ++ show chunkLength) $
-    (if chunkLength <= 1000
+    []
+{-    (if chunkLength <= 1000
      then
        [ mnistTestBench2VTO "30|10 " chunkLength xs 30 10  -- toy width
        , mnistTrainBench2VTO "30|10 " chunkLength xs 30 10 0.02
