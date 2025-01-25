@@ -93,17 +93,7 @@ funToAstRevIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) = do
       !astVarPrimal = AstVar ftk varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x
       !astVar = AstVar ftk var
-  case ftk of
-    FTKScalar{} ->
-      return (varPrimal, astVarPrimal, var, astVar)
-    FTKR{} ->
-      return (varPrimal, astVarPrimal, var, astVar)
-    FTKS{} ->
-      return (varPrimal, astVarPrimal, var, astVar)
-    FTKX{} ->
-      return (varPrimal, astVarPrimal, var, astVar)
-    FTKProduct{} ->
-      return (varPrimal, astVarPrimal, var, astVar)
+  return (varPrimal, astVarPrimal, var, astVar)
 
 funToAstRev :: FullTensorKind x
             -> ( AstVarName PrimalSpan x
@@ -137,17 +127,7 @@ funToAstFwdIO ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk)
       !astVarPrimal = AstVar ftk varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x
       !astVar = AstVar ftk var
-  case ftk of
-    FTKScalar{} ->
-      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
-    FTKR{} ->
-      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
-    FTKS{} ->
-      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
-    FTKX{} ->
-      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
-    FTKProduct{} ->
-      return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
+  return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
 
 funToAstFwd :: FullTensorKind x
             -> ( AstVarName PrimalSpan (ADTensorKind x)
