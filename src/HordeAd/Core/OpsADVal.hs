@@ -21,7 +21,7 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, sameNat)
+import GHC.TypeLits (sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
@@ -150,47 +150,11 @@ instance (ADReadyNoLet target, ShareTensor target)
 
 -- * Base tensor instance
 
-instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
-         , ShareTensor target, ShareTensor (PrimalOf target) )
-         => AdaptableHVector (ADVal target)
-                             (ADVal target (TKR n r)) where
-{- TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
-    with -O0, but not -O1
-  {-# SPECIALIZE instance
-      (KnownNat n, ADReadyNoLet Nested.Ranked)
-      => AdaptableHVector (ADVal Nested.Ranked)
-                          (ADVal Nested.Ranked Double n) #-}
-  {-# SPECIALIZE instance
-      (KnownNat n, ADReadyNoLet (AstRanked PrimalSpan))
-      => AdaptableHVector (ADVal (AstRanked PrimalSpan))
-                          (ADVal (AstRanked PrimalSpan) Double n) #-}
--}
-  type X (ADVal target (TKR n r)) = TKR n r
-  toHVectorOf = id
-  fromHVector _aInit t = Just t
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
-    case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
-      Just Refl -> Just t
-      _ -> Just (rzero (rshape aInit))
-
 instance (BaseTensor target, TensorKind y)
          => DualNumberValue (ADVal target y) where
   type DValue (ADVal target y) = RepN y  -- ! not DValue(target)
   fromDValue t =
     fromPrimalADVal $ tconcrete (tftkG (stensorKind @y) $ unRepN t) t
-
-instance ( ADReadyNoLet target, ShareTensor target
-         , ShareTensor (PrimalOf target)
-         , KnownShS sh, GoodScalar r )
-         => AdaptableHVector (ADVal target)
-                             (ADVal target (TKS sh r)) where
-  type X (ADVal target (TKS sh r)) = TKS sh r
-  toHVectorOf = id
-  fromHVector _aInit t = Just t
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
-    case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
-      Just Refl -> Just t
-      _ -> Just (srepl 0)
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.

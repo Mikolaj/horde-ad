@@ -708,37 +708,9 @@ oRdmapAccumL k _ bShs _ f acc0 es
         (xout, lout) = mapAccumL g acc0 (unravel k es)
     in tpair xout (ravel k lout)
 
-instance (y ~ TKR n r, TensorKind y)
-         => AdaptableHVector RepN (RepN (TKR n r)) where
-  {-# SPECIALIZE instance
-      KnownNat n
-      => AdaptableHVector RepN (RepN (TKR n Double)) #-}
-  type X (RepN (TKR n r)) = TKR n r
-  toHVectorOf = id
-  fromHVector _aInit t = Just t
-  fromHVectorAD aInit t =
-    let stk = stensorKind @y
-    in case sameSTK stk (aDSTK stk) of
-      Just Refl -> Just t
-      _ -> Just (constantTarget 0 $ tftkG stk (unRepN aInit))
-
 instance ForgetShape (RepN (TKR n r)) where
   type NoShape (RepN (TKR n r)) = RepN (TKR n r)
   forgetShape = id
-
-instance (y ~ TKS sh r, TensorKind y)
-         => AdaptableHVector RepN (RepN (TKS sh r)) where
-  {-# SPECIALIZE instance
-      KnownShS sh
-      => AdaptableHVector RepN (RepN (TKS sh Double)) #-}
-  type X (RepN (TKS sh r)) = TKS sh r
-  toHVectorOf = id
-  fromHVector _aInit t = Just t
-  fromHVectorAD aInit t =
-    let stk = stensorKind @y
-    in case sameSTK stk (aDSTK stk) of
-      Just Refl -> Just t
-      _ -> Just (constantTarget 0 $ tftkG stk (unRepN aInit))
 
 instance GoodScalar r
          => ForgetShape (RepN (TKS sh r)) where

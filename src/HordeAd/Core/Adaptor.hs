@@ -30,6 +30,7 @@ import System.Random
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (ListR (..))
 
+import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -53,7 +54,6 @@ class AdaptableHVector (target :: Target) vals where
   fromHVectorAD = fromHVector
     -- TODO: figure out and comment  whether the first argument
     -- is really needed and what for (maybe only for convenience? speed?)
-    -- TODO: comment why fromHVectorAD can't be computed from fromHVector
 
 -- | Recovers a value of a collection of tensors type and asserts
 -- there is no remainder. This is the main call of the recursive
@@ -103,6 +103,30 @@ class RandomHVector vals where
 
 
 -- * Basic Adaptor class instances
+
+
+instance (TensorKind y, BaseTensor target)
+         => AdaptableHVector target
+                             (target y) where
+{-
+  {-# SPECIALIZE instance
+      (KnownNat n, AstSpan s)
+      => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n Double)) #-}
+  TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
+    with -O0, but not -O1
+  {-# SPECIALIZE instance
+      (KnownNat n, ADReadyNoLet Nested.Ranked)
+      => AdaptableHVector (ADVal Nested.Ranked)
+                          (ADVal Nested.Ranked Double n) #-}
+  {-# SPECIALIZE instance
+      (KnownNat n, ADReadyNoLet (AstRanked PrimalSpan))
+      => AdaptableHVector (ADVal (AstRanked PrimalSpan))
+                          (ADVal (AstRanked PrimalSpan) Double n) #-}
+-}
+  type X (target y) = y
+  toHVectorOf = id
+  fromHVector _aInit t = Just t
+  fromHVectorAD _aInit t = Just $ fromADTensorKindShared (stensorKind @y) t
 
 type family Tups n t where
   Tups 0 t = TKUnit

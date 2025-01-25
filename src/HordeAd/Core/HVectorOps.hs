@@ -11,7 +11,7 @@ module HordeAd.Core.HVectorOps
     -- * Winding
   , addTarget, constantTarget
     -- * Misc
-  , toADTensorKindShared
+  , toADTensorKindShared, fromADTensorKindShared
   ) where
 
 import Prelude
@@ -203,6 +203,32 @@ toADTensorKindW t = case t of
   WTKProduct @y1 @y2 t1 t2 | Dict <- lemTensorKindOfAD (stensorKind @y1)
                            , Dict <- lemTensorKindOfAD (stensorKind @y2) ->
     WTKProduct (toADTensorKindW t1) (toADTensorKindW t2)
+
+fromADTensorKindW
+  :: forall y target. BaseTensor target
+  => STensorKindType y -> RepW target (ADTensorKind y) -> RepW target y
+fromADTensorKindW stk t = case (stk, t) of
+  (STKScalar @r1 _, WTKScalar @r2 _) ->
+    case testEquality (typeRep @r1) (typeRep @r2) of
+      Just Refl -> t
+      _ -> constantRepW 0 WFTKScalar
+  (STKR _ (STKScalar @r1 _), WTKR @r2 v) ->
+    case testEquality (typeRep @r1) (typeRep @r2) of
+      Just Refl -> t
+      _ -> constantRepW 0 (WFTKR (rshape v))
+  (STKS sh (STKScalar @r1 _), WTKS @r2 _) ->
+    case testEquality (typeRep @r1) (typeRep @r2) of
+      Just Refl -> t
+      _ -> constantRepW 0 (WFTKS sh)
+  (STKX _ (STKScalar @r1 _), WTKX @r2 v) ->
+    case testEquality (typeRep @r1) (typeRep @r2) of
+      Just Refl -> t
+      _ -> constantRepW 0 (WFTKX (xshape v))
+  (STKProduct stk1 stk2, WTKProduct t1 t2)
+    | Dict <- lemTensorKindOfSTK stk1
+    , Dict <- lemTensorKindOfSTK stk2 ->
+      WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
+  _ -> error "fromADTensorKindW: impossible STensorKindType"
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -466,3 +492,11 @@ toADTensorKindShared  -- TODO: does not require Shared now
   -> target (ADTensorKind y)
 toADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
   windTarget (aDSTK stk) $ toADTensorKindW $ unWindTarget stk a
+
+fromADTensorKindShared  -- TODO: does not require Shared now
+  :: BaseTensor target
+  => STensorKindType y -> target (ADTensorKind y)
+  -> target y
+fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
+  windTarget stk
+  $ fromADTensorKindW (unWindSTK stk) $ unWindTarget (aDSTK stk) a

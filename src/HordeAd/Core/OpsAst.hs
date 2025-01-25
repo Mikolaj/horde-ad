@@ -18,7 +18,7 @@ import Prelude
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, type (+))
+import GHC.TypeLits (type (+))
 import Data.Type.Equality (gcastWith)
 import Data.Type.Ord (Compare)
 
@@ -171,29 +171,6 @@ instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
   AstConcrete _ u >=. AstConcrete _ v = AstBoolConst $ u >=. v
     -- common in indexing
   v >=. u = AstRel GeqOp (astSpanPrimal v) (astSpanPrimal u)
-
-instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s))
-         => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n r)) where
-  {-# SPECIALIZE instance
-      (KnownNat n, AstSpan s)
-      => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n Double)) #-}
-  type X (AstTensor AstMethodLet s (TKR n r)) = TKR n r
-  toHVectorOf = id
-  fromHVector _aInit t = Just t
-  fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
-    case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
-      Just Refl -> Just t
-      _ -> Just (rzero (rshape aInit))
-
-instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s))
-         => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKS sh r)) where
-  type X (AstTensor AstMethodLet s (TKS sh r)) = TKS sh r
-  toHVectorOf = id
-  fromHVector _aInit t = Just t
-  fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
-    case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
-      Just Refl -> Just t
-      _ -> Just (srepl 0)
 
 instance (TensorKind y, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s y) where
