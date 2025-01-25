@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
     LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)
   , tunit, rscalar, rrepl, ringestData
-  , ingestData, sscalar, srepl, xscalar, xrepl, nullRep
+  , ingestData, sscalar, srepl, xscalar, xrepl
     -- * The giga-constraint
   , ADReady, ADReadyNoLet
   ) where
@@ -32,7 +32,6 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
 import Numeric.LinearAlgebra (Numeric)
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -1853,15 +1852,6 @@ xscalar r | Dict <- eltDictRep (stensorKind @r) =
 xrepl :: (KnownShX sh, GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
 xrepl sh = xconcrete . Nested.mreplicateScal sh
-
-nullRep :: STensorKindType y -> Bool
-nullRep = \case
-  STKScalar rep | Just Refl <- testEquality rep (typeRep @Z0) -> True
-  STKScalar{} -> False
-  STKR{} -> False
-  STKS{} -> False
-  STKX{} -> False
-  STKProduct{} -> False
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

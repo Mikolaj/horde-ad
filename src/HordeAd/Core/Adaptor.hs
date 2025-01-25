@@ -17,7 +17,6 @@ module HordeAd.Core.Adaptor
 
 import Prelude
 
-import Control.Exception.Assert.Sugar
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
@@ -42,39 +41,39 @@ class AdaptableHVector (target :: Target) vals where
   type X vals :: TensorKindType
   toHVectorOf :: vals -> target (X vals)
     -- ^ represent a collection of tensors
-  fromHVector :: vals -> target (X vals) -> Maybe (vals, Maybe (target (X vals)))
+  fromHVector :: vals -> target (X vals) -> Maybe vals
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
-  fromHVectorAD :: vals -> target (ADTensorKind (X vals)) -> Maybe (vals, Maybe (target (ADTensorKind (X vals))))
+  fromHVectorAD :: vals -> target (ADTensorKind (X vals)) -> Maybe vals
   default fromHVectorAD :: X vals ~ ADTensorKind (X vals)
                         => vals -> target (ADTensorKind (X vals))
-                        -> Maybe (vals, Maybe (target (ADTensorKind (X vals))))
+                        -> Maybe vals
   fromHVectorAD = fromHVector
+    -- TODO: figure out and comment  whether the first argument
+    -- is really needed and what for (maybe only for convenience? speed?)
+    -- TODO: comment why fromHVectorAD can't be computed from fromHVector
 
 -- | Recovers a value of a collection of tensors type and asserts
 -- there is no remainder. This is the main call of the recursive
 -- procedure where @fromHVector@ calls itself recursively for sub-values
 -- across mutliple instances.
 parseHVector
-  :: forall vals target.
-     ( TensorKind (X vals), AdaptableHVector target vals
-     , Show (target (X vals)) )
+  :: forall vals target. AdaptableHVector target vals
   => vals -> target (X vals) -> vals
 parseHVector aInit hVector =
   case fromHVector aInit hVector of
-    Just (vals, mrest) -> assert (maybe True (\_ -> nullRep (stensorKind @(X vals))) mrest `blame` mrest) vals
+    Just vals -> vals
     Nothing -> error "parseHVector: truncated product of tensors"
 
 parseHVectorAD
-  :: forall vals target.
-     (TensorKind (X vals), AdaptableHVector target vals)
+  :: forall vals target. AdaptableHVector target vals
   => vals -> target (ADTensorKind (X vals)) -> vals
-parseHVectorAD aInit hVector | Dict <- lemTensorKindOfAD (stensorKind @(X vals)) =
+parseHVectorAD aInit hVector =
   case fromHVectorAD aInit hVector of
-    Just (vals, mrest) -> assert (maybe True (\_ -> nullRep (stensorKind @(X vals))) mrest) vals
-    Nothing -> error "parseHVector: truncated product of tensors"
+    Just vals -> vals
+    Nothing -> error "parseHVectorAD: truncated product of tensors"
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -128,17 +127,17 @@ instance ( BaseTensor target
     let a1 = toHVectorOf a
         rest1 = toHVectorOf rest
     in tpair a1 rest1
-  fromHVector ZR _ = Just (ZR, Nothing)
+  fromHVector ZR _ = Just ZR
   fromHVector ((:::) @n1 aInit restInit) a1rest1
    | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) restInit) =
     gcastWith (unsafeCoerceRefl
               :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $ do
       let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
-      (a, Nothing) <- fromHVector aInit a1
-      (rest, Nothing) <- fromHVector restInit rest1
-      return (a ::: rest, Nothing)
-  fromHVectorAD ZR _ = Just (ZR, Nothing)
-  fromHVectorAD((:::) @n1 aInit restInit) a1rest1
+      a <- fromHVector aInit a1
+      rest <- fromHVector restInit rest1
+      return (a ::: rest)
+  fromHVectorAD ZR _ = Just ZR
+  fromHVectorAD ((:::) @n1 aInit restInit) a1rest1
    | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind
                                                @(ADTensorKind (X a))) restInit) =
     gcastWith (unsafeCoerceRefl
@@ -146,9 +145,9 @@ instance ( BaseTensor target
     gcastWith (unsafeCoerceRefl
               :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $ do
       let (a1, rest1) = (tproject1 a1rest1, tproject2 a1rest1)
-      (a, Nothing) <- fromHVectorAD aInit a1
-      (rest, Nothing) <- fromHVectorAD restInit rest1
-      return (a ::: rest, Nothing)
+      a <- fromHVectorAD aInit a1
+      rest <- fromHVectorAD restInit rest1
+      return (a ::: rest)
 
 instance TermValue a => TermValue (ListR n a) where
   type Value (ListR n a) = ListR n (Value a)
@@ -188,17 +187,17 @@ instance ( BaseTensor target
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-    (a, Nothing) <- fromHVector aInit a1
-    (b, Nothing) <- fromHVector bInit b1
-    return ((a, b), Nothing)
+    a <- fromHVector aInit a1
+    b <- fromHVector bInit b1
+    return (a, b)
   fromHVectorAD ~(aInit, bInit)
               ab = do
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-    (a, Nothing) <- fromHVectorAD aInit a1
-    (b, Nothing) <- fromHVectorAD bInit b1
-    return ((a, b), Nothing)
+    a <- fromHVectorAD aInit a1
+    b <- fromHVectorAD bInit b1
+    return (a, b)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
   type Value (a, b) = (Value a, Value b)
@@ -237,20 +236,20 @@ instance ( BaseTensor target
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-    (a, Nothing) <- fromHVector aInit a1
-    (b, Nothing) <- fromHVector bInit b1
-    (c, Nothing) <- fromHVector cInit c1
-    return ((a, b, c), Nothing)
+    a <- fromHVector aInit a1
+    b <- fromHVector bInit b1
+    c <- fromHVector cInit c1
+    return (a, b, c)
   fromHVectorAD ~(aInit, bInit, cInit)
               abc = do
     let (a1, b1, c1) =
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-    (a, Nothing) <- fromHVectorAD aInit a1
-    (b, Nothing) <- fromHVectorAD bInit b1
-    (c, Nothing) <- fromHVectorAD cInit c1
-    return ((a, b, c), Nothing)
+    a <- fromHVectorAD aInit a1
+    b <- fromHVectorAD bInit b1
+    c <- fromHVectorAD cInit c1
+    return (a, b, c)
 
 instance (TermValue a, TermValue b, TermValue c)
          => TermValue (a, b, c) where
@@ -298,11 +297,11 @@ instance ( BaseTensor target
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-    (a, Nothing) <- fromHVector aInit a1
-    (b, Nothing) <- fromHVector bInit b1
-    (c, Nothing) <- fromHVector cInit c1
-    (d, Nothing) <- fromHVector dInit d1
-    return ((a, b, c, d), Nothing)
+    a <- fromHVector aInit a1
+    b <- fromHVector bInit b1
+    c <- fromHVector cInit c1
+    d <- fromHVector dInit d1
+    return (a, b, c, d)
   fromHVectorAD ~(aInit, bInit, cInit, dInit)
               abcd = do
     let (a1, b1, c1, d1) =
@@ -310,11 +309,11 @@ instance ( BaseTensor target
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-    (a, Nothing) <- fromHVectorAD aInit a1
-    (b, Nothing) <- fromHVectorAD bInit b1
-    (c, Nothing) <- fromHVectorAD cInit c1
-    (d, Nothing) <- fromHVectorAD dInit d1
-    return ((a, b, c, d), Nothing)
+    a <- fromHVectorAD aInit a1
+    b <- fromHVectorAD bInit b1
+    c <- fromHVectorAD cInit c1
+    d <- fromHVectorAD dInit d1
+    return (a, b, c, d)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
          => TermValue (a, b, c, d) where
@@ -373,12 +372,12 @@ instance ( BaseTensor target
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-    (a, Nothing) <- fromHVector aInit a1
-    (b, Nothing) <- fromHVector bInit b1
-    (c, Nothing) <- fromHVector cInit c1
-    (d, Nothing) <- fromHVector dInit d1
-    (e, Nothing) <- fromHVector eInit e1
-    return ((a, b, c, d, e), Nothing)
+    a <- fromHVector aInit a1
+    b <- fromHVector bInit b1
+    c <- fromHVector cInit c1
+    d <- fromHVector dInit d1
+    e <- fromHVector eInit e1
+    return (a, b, c, d, e)
   fromHVectorAD ~(aInit, bInit, cInit, dInit, eInit)
               abcde = do
     let (a1, b1, c1, d1, e1) =
@@ -387,12 +386,12 @@ instance ( BaseTensor target
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-    (a, Nothing) <- fromHVectorAD aInit a1
-    (b, Nothing) <- fromHVectorAD bInit b1
-    (c, Nothing) <- fromHVectorAD cInit c1
-    (d, Nothing) <- fromHVectorAD dInit d1
-    (e, Nothing) <- fromHVectorAD eInit e1
-    return ((a, b, c, d, e), Nothing)
+    a <- fromHVectorAD aInit a1
+    b <- fromHVectorAD bInit b1
+    c <- fromHVectorAD cInit c1
+    d <- fromHVectorAD dInit d1
+    e <- fromHVectorAD eInit e1
+    return (a, b, c, d, e)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
          => TermValue (a, b, c, d, e) where

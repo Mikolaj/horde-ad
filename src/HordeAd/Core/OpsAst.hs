@@ -179,21 +179,21 @@ instance (GoodScalar r, KnownNat n, BaseTensor (AstTensor AstMethodLet s))
       => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n Double)) #-}
   type X (AstTensor AstMethodLet s (TKR n r)) = TKR n r
   toHVectorOf = id
-  fromHVector _aInit t = Just (t, Nothing)
+  fromHVector _aInit t = Just t
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
     case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
-      Just Refl -> Just (t, Nothing)
-      _ -> Just (rzero (rshape aInit), Nothing)
+      Just Refl -> Just t
+      _ -> Just (rzero (rshape aInit))
 
 instance (GoodScalar r, KnownShS sh, BaseTensor (AstTensor AstMethodLet s))
          => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKS sh r)) where
   type X (AstTensor AstMethodLet s (TKS sh r)) = TKS sh r
   toHVectorOf = id
-  fromHVector _aInit t = Just (t, Nothing)
+  fromHVector _aInit t = Just t
   fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
     case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
-      Just Refl -> Just (t, Nothing)
-      _ -> Just (srepl 0, Nothing)
+      Just Refl -> Just t
+      _ -> Just (srepl 0)
 
 instance (GoodScalar r, KnownNat n, AstSpan s)
          => DualNumberValue (AstTensor AstMethodLet s (TKR n r)) where
@@ -214,31 +214,6 @@ instance (GoodScalar r, KnownShS sh)
          => TermValue (AstTensor AstMethodLet FullSpan (TKS sh r)) where
   type Value (AstTensor AstMethodLet FullSpan (TKS sh r)) = RepN (TKS sh r)
   fromValue t = fromPrimal $ astConcrete (FTKS knownShS FTKScalar) t
-
-{- This is needed by only one test, testSin0revhFold5S, now disabled
-and this possibly breaks the cfwdOnHVector duplicability invariant in cfwd.
-Analyze and, if possible, remove together with toHVectorOf.
-instance AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s TKUntyped) where
-  toHVectorOf = undefined  -- impossible without losing sharing
-  toHVectorOf = id  -- but this is possible
-  fromHVector aInit params =
-    let (portion, rest) = V.splitAt (V.length $ shapeAstHVector aInit) params
-    in Just (AstMkHVector $ unRankedHVector portion, rest)
-
-instance (BaseTensor (AstTensor AstMethodLet s), AstSpan s)
-         => AdaptableHVector (AstTensor AstMethodLet s) (DynamicTensor (AstTensor AstMethodLet s)) where
-  toHVectorOf = rankedHVector . V.singleton
-  fromHVector _aInit hv = case V.uncons $ unRankedHVector hv of
-    Nothing -> Nothing
-    Just (generic, rest) ->
-      Just (generic, rankedHVector rest)
-
-instance TermValue (HVectorPseudoTensor (AstRanked FullSpan) r y) where
-  type Value (HVectorPseudoTensor (AstRanked FullSpan) r y) =
-    HVectorPseudoTensor RepN r y
-  fromValue (HVectorPseudoTensor t) =
-    AstMkHVector $ V.map fromValue t
--}
 
 astSpanPrimal :: forall s y. (AstSpan s, TensorKind y)
               => AstTensor AstMethodLet s y

@@ -167,11 +167,11 @@ instance ( KnownNat n, GoodScalar r, ADReadyNoLet target
 -}
   type X (ADVal target (TKR n r)) = TKR n r
   toHVectorOf = id
-  fromHVector _aInit t = Just (t, Nothing)
+  fromHVector _aInit t = Just t
   fromHVectorAD aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKR n r)) =
     case sameTensorKind @(TKR n r) @(ADTensorKind (TKR n r)) of
-      Just Refl -> Just (t, Nothing)
-      _ -> Just (rzero (rshape aInit), Nothing)
+      Just Refl -> Just t
+      _ -> Just (rzero (rshape aInit))
 
 instance (KnownNat n, GoodScalar r, ADReadyNoLet target)
          => DualNumberValue (ADVal target (TKR n r)) where
@@ -185,11 +185,11 @@ instance ( ADReadyNoLet target, ShareTensor target
                              (ADVal target (TKS sh r)) where
   type X (ADVal target (TKS sh r)) = TKS sh r
   toHVectorOf = id
-  fromHVector _aInit t = Just (t, Nothing)
+  fromHVector _aInit t = Just t
   fromHVectorAD _aInit t | Dict <- lemTensorKindOfAD (stensorKind @(TKS sh r)) =
     case sameTensorKind @(TKS sh r) @(ADTensorKind (TKS sh r)) of
-      Just Refl -> Just (t, Nothing)
-      _ -> Just (srepl 0, Nothing)
+      Just Refl -> Just t
+      _ -> Just (srepl 0)
 
 instance (ADReadyNoLet target, KnownShS sh, GoodScalar r)
          => DualNumberValue (ADVal target (TKS sh r)) where
