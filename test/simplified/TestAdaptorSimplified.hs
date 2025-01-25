@@ -9,7 +9,6 @@ import Prelude
 
 import Data.Int (Int64)
 import Data.IntMap.Strict qualified as IM
-import Data.List (foldl1')
 import Data.List.NonEmpty qualified as NonEmpty
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
@@ -74,10 +73,10 @@ testTrees =
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
--- TODO:  , testCase "2listProdPP" testListProdPP
+  , testCase "2listProdPP" testListProdPP
   , testCase "2listProdrPP" testListProdrPP
   , testCase "2listProdrLongPP" testListProdrLongPP
--- TODO  , testCase "2listProd" testListProd
+  , testCase "2listProd" testListProd
   , testCase "2listProdr" testListProdr
   , testCase "2listSumrPP" testListSumrPP
   , testCase "2listSum2rPP" testListSum2rPP
@@ -615,27 +614,25 @@ testFooLetPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (let z = sfromR (tproject1 (tproject1 x1)) * sin (sfromR (tproject2 (tproject1 x1))) in atan2F (sfromR (tproject2 x1)) z + sfromR (tproject2 x1) * z)"
 
-_shapedListProd :: (BaseTensor target, GoodScalar r)
-               => [target (TKS '[] r)] -> target (TKS '[] r)
-_shapedListProd = foldl1' (*)
+shapedListProd :: forall k target r. (BaseTensor target, GoodScalar r)
+               => ListR k (target (TKS '[] r)) -> target (TKS '[] r)
+shapedListProd = foldr1 (*)
 
-{- TODO: this requires a better AdaptableHVector instance for [a]
 testListProdPP :: Assertion
 testListProdPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT :: [AstTensor AstMethodLet FullSpan (TKS '[] Double)] -> AstTensor AstMethodLet FullSpan (TKS '[] Double)
+      fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKS '[] Double)) -> AstTensor AstMethodLet FullSpan (TKS '[] Double)
       fT = shapedListProd
-  let (artifactRev, _deltas) = revArtifactAdapt True fT [srepl 1, srepl 2, srepl 3, srepl 4]
+  let (artifactRev, _deltas) = revArtifactAdapt True fT (fromList $ [srepl 1, srepl 2, srepl 3, srepl 4])
   printArtifactSimple renames artifactRev
-    @?= "\\x17 x20 x21 x22 x23 -> tlet (x20 * x21) (\\x12 -> tlet (x12 * x22) (\\x15 -> tlet (x23 * x17) (\\x18 -> tlet (x22 * x18) (\\x19 -> dmkHVector (fromList [DynamicShaped (x21 * x19), DynamicShaped (x20 * x19), DynamicShaped (x12 * x18), DynamicShaped (x15 * x17)])))))"
+    @?= "\\x4 x1 -> tlet (tproject1 (tproject2 (tproject2 x1)) * tproject1 (tproject2 (tproject2 (tproject2 x1)))) (\\x2 -> tlet (tproject1 (tproject2 x1) * x2) (\\x3 -> tlet (tproject1 x1 * x4) (\\x5 -> tlet (tproject1 (tproject2 x1) * x5) (\\x6 -> tpair (x3 * x4, tpair (x2 * x5, tpair (tproject1 (tproject2 (tproject2 (tproject2 x1))) * x6, tpair (tproject1 (tproject2 (tproject2 x1)) * x6, Z0))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\x56 x57 x58 x59 -> tlet (x56 * x57) (\\x12 -> tlet (x12 * x58) (\\x15 -> x15 * x59))"
+    @?= "\\x1 -> tlet (tproject1 (tproject2 (tproject2 x1)) * tproject1 (tproject2 (tproject2 (tproject2 x1)))) (\\x2 -> tlet (tproject1 (tproject2 x1) * x2) (\\x3 -> tproject1 x1 * x3))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x17 x124 x125 x126 x127 -> let x12 = x124 * x125 ; x18 = x127 * x17 ; x19 = x126 * x18 in [x125 * x19, x124 * x19, x12 * x18, (x12 * x126) * x17]"
+    @?= "\\x4 x1 -> let x2 = tproject1 (tproject2 (tproject2 x1)) * tproject1 (tproject2 (tproject2 (tproject2 x1))) ; x5 = tproject1 x1 * x4 ; x6 = tproject1 (tproject2 x1) * x5 in tpair ((tproject1 (tproject2 x1) * x2) * x4, tpair (x2 * x5, tpair (tproject1 (tproject2 (tproject2 (tproject2 x1))) * x6, tpair (tproject1 (tproject2 (tproject2 x1)) * x6, Z0))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x160 x161 x162 x163 -> ((x160 * x161) * x162) * x163"
--}
+    @?= "\\x1 -> tproject1 x1 * (tproject1 (tproject2 x1) * (tproject1 (tproject2 (tproject2 x1)) * tproject1 (tproject2 (tproject2 (tproject2 x1)))))"
 
 rankedListProdr :: forall k target r. (BaseTensor target, GoodScalar r)
                 => ListR k (target (TKR 0 r)) -> target (TKR 0 r)
@@ -670,14 +667,12 @@ testListProdrLongPP = do
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (sfromR (tproject1 x1) * (sfromR (tproject1 (tproject2 x1)) * (sfromR (tproject1 (tproject2 (tproject2 x1))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))))))))))))))))"
 
-{- TODO: this requires a better AdaptableHVector instance for [a]
 testListProd :: Assertion
 testListProd = do
   assertEqualUpToEpsilon 1e-10
     [srepl 24, srepl 12, srepl 8, srepl 6]
     (rev @_ @(TKS '[] Double)
-         shapedListProd [srepl 1, srepl 2, srepl 3, srepl 4])
--}
+         (shapedListProd @4) [srepl 1, srepl 2, srepl 3, srepl 4])
 
 testListProdr :: Assertion
 testListProdr = do
@@ -694,7 +689,7 @@ testListSumrPP :: Assertion
 testListSumrPP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
-      fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumr
   let (artifactRev, deltas) = revArtifactAdapt True fT [rscalar 1, rscalar 2, rscalar 3, rscalar 4]
   printArtifactPretty renames (simplifyArtifact artifactRev)
