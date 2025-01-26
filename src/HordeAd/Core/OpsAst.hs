@@ -416,8 +416,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kfromR = astFromS stensorKind . astSFromR @'[]
   rfromK @r = astFromS (stensorKind @(TKR 0 r)) . astFromK
 
-  sminIndex = fromPrimal . AstMinIndexS . astSpanPrimal
-  smaxIndex = fromPrimal . AstMaxIndexS . astSpanPrimal
+  sminIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    fromPrimal . AstMinIndexS . astSpanPrimal $ a
+  smaxIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    fromPrimal . AstMaxIndexS . astSpanPrimal $ a
   sfloor = fromPrimal . AstFloorS . astSpanPrimal
 
   siota = fromPrimal $ AstIotaS
@@ -1176,8 +1180,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xfromK @r = AstRaw . AstFromS (stensorKind @(TKX '[] r))
                    . AstSFromK . unAstRaw
 
-  sminIndex = AstRaw . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRaw
-  smaxIndex = AstRaw . fromPrimal . AstMaxIndexS . astSpanPrimalRaw . unAstRaw
+  sminIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    AstRaw . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRaw $ a
+  smaxIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    AstRaw . fromPrimal . AstMaxIndexS . astSpanPrimalRaw . unAstRaw $ a
   sfloor = AstRaw . fromPrimal . AstFloorS . astSpanPrimalRaw . unAstRaw
   siota = AstRaw . fromPrimal $ AstIotaS
   sindex v ix = AstRaw $ AstIndexS (unAstRaw v) (unAstRaw <$> ix)
@@ -1913,10 +1921,14 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xfromK @r = AstNoSimplify . AstFromS (stensorKind @(TKX '[] r))
                    . AstSFromK . unAstNoSimplify
 
-  sminIndex = AstNoSimplify . fromPrimal . AstMinIndexS
-              . astSpanPrimal . unAstNoSimplify
-  smaxIndex = AstNoSimplify . fromPrimal . AstMaxIndexS
-              . astSpanPrimal . unAstNoSimplify
+  sminIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    AstNoSimplify . fromPrimal . AstMinIndexS
+                  . astSpanPrimal . unAstNoSimplify $ a
+  smaxIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    AstNoSimplify . fromPrimal . AstMaxIndexS
+                  . astSpanPrimal . unAstNoSimplify $ a
   sfloor = AstNoSimplify . fromPrimal . AstFloorS
            . astSpanPrimal . unAstNoSimplify
   siota = AstNoSimplify . fromPrimal $ AstIotaS

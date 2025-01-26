@@ -46,6 +46,7 @@ import Data.Array.Nested.Internal.Shape
   , shrRank
   , shrSize
   , shsAppend
+  , shsInit
   , shsPermutePrefix
   , shsRank
   , shsSize
@@ -96,8 +97,8 @@ ftkAst t = case t of
   AstCastK{} -> FTKScalar
   AstFromIntegralK{} -> FTKScalar
 
-  AstMinIndexS{} -> FTKS knownShS FTKScalar
-  AstMaxIndexS{} -> FTKS knownShS FTKScalar
+  AstMinIndexS @sh @n _ -> FTKS (shsInit (knownShS @(n ': sh))) FTKScalar
+  AstMaxIndexS @sh @n _ -> FTKS (shsInit (knownShS @(n ': sh))) FTKScalar
   AstFloorS{} -> FTKS knownShS FTKScalar
   AstIotaS{} -> FTKS knownShS FTKScalar
   AstN1S{} -> FTKS knownShS FTKScalar

@@ -55,7 +55,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shrRank, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
+  (shsInit, shrRank, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
@@ -188,8 +188,12 @@ instance BaseTensor RepN where
     RepN $ liftVR (V.map (* Nested.runScalar (unRepN s))) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
 
-  sminIndex = RepN . tminIndexS . unRepN
-  smaxIndex = RepN . tmaxIndexS . unRepN
+  sminIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    RepN . tminIndexS . unRepN $ a
+  smaxIndex @_ @_ @sh @n a =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
+    RepN . tmaxIndexS . unRepN $ a
   sfloor = RepN . liftVS (V.map floor) . unRepN
   siota @n = let n = valueOf @n
              in RepN $ Nested.sfromList1 SNat

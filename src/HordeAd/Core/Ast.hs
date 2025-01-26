@@ -362,12 +362,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            => AstTensor ms s (TKS sh r1) -> AstTensor ms s (TKS sh r2)
 
   -- Shaped tensor operations
-  AstMinIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
-                  , GoodScalar r2, KnownShS (Init (n ': sh)) )
+  AstMinIndexS :: (KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
-  AstMaxIndexS :: ( KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2
-                  , GoodScalar r2, KnownShS (Init (n ': sh)) )
+  AstMaxIndexS :: (KnownShS sh, KnownNat n, GoodScalar r, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
   AstIotaS :: (KnownNat n, GoodScalar r)

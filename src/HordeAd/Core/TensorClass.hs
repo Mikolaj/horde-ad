@@ -400,9 +400,9 @@ class ( Num (IntOf target)
   rlength v = case rshape v of
     ZSR -> error "rlength: impossible pattern needlessly required"
     k :$: _ -> k
-  rminIndex, rmaxIndex
+  rminIndex, rmaxIndex  -- partial
     :: (GoodScalar r, GoodScalar r2, KnownNat n)
-    => target (TKR (1 + n) r) -> target (TKR n r2)  -- partial
+    => target (TKR (1 + n) r) -> target (TKR n r2)
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
          => target (TKR n r) -> target (TKR n r2)
   riota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
@@ -697,9 +697,8 @@ class ( Num (IntOf target)
   slength :: forall r n sh. (TensorKind r, KnownNat n)
           => target (TKS2 (n ': sh) r) -> Int
   slength _ = valueOf @n
-  sminIndex, smaxIndex
-    :: ( GoodScalar r, GoodScalar r2, KnownShS sh, KnownNat n
-       , KnownShS (Init (n ': sh)) )  -- partial
+  sminIndex, smaxIndex  -- partial
+    :: (GoodScalar r, GoodScalar r2, KnownShS sh, KnownNat n)
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
   sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShS sh)
          => target (TKS sh r) -> target (TKS sh r2)

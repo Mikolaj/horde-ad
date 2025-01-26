@@ -31,12 +31,13 @@ import Data.Array.Nested
   , IxX (..)
   , StaticShX(..)
   , ShX (..)
+  , ShS (..)
   , KnownShS (..)
   , KnownShX (..)
   , Rank
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shCvtSX, withKnownShS, shsAppend)
+import Data.Array.Nested.Internal.Shape (shsInit, shCvtSX, withKnownShS, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.CarriersADVal
@@ -236,10 +237,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rfromK (D t d) =
     dDnotShared (rfromK t) (DeltaFromS $ DeltaSFromK d)
 
-  sminIndex (D u _) =
+  sminIndex @_ @_ @sh @n (D u _) =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
     let v = sminIndex u
     in fromPrimalADVal v
-  smaxIndex (D u _) =
+  smaxIndex @_ @_ @sh @n (D u _) =
+    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
     let v = smaxIndex u
     in fromPrimalADVal v
   sfloor (D u _) =
