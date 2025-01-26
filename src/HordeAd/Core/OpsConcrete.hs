@@ -183,12 +183,6 @@ instance BaseTensor RepN where
     RepN $ liftVR (V.map (* Nested.runScalar (unRepN s))) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
 
-  rfromPrimal = id
-  rprimalPart = id
-  rdualPart _ = DummyDualTarget
-  rD u _ = u
-  rScale _ _ = DummyDualTarget
-
   sminIndex = RepN . tminIndexS . unRepN
   smaxIndex = RepN . tmaxIndexS . unRepN
   sfloor = RepN . liftVS (V.map floor) . unRepN
@@ -345,12 +339,6 @@ instance BaseTensor RepN where
   sdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
 
-  sfromPrimal = id
-  sprimalPart = id
-  sdualPart _ = DummyDualTarget
-  sD u _ = u
-  sScale _ _ = DummyDualTarget
-
   xshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.mshape . unRepN
   xminIndex = RepN . tminIndexX . unRepN
   xmaxIndex = RepN . tmaxIndexX . unRepN
@@ -479,12 +467,6 @@ instance BaseTensor RepN where
   xdot1In @_ @n u v =
     RepN $ Nested.mdot1Inner (Proxy @(Just n)) (unRepN u) (unRepN v)
 
-  xfromPrimal = id
-  xprimalPart = id
-  xdualPart _ = DummyDualTarget
-  xD u _ = u
-  xScale _ _ = DummyDualTarget
-
   kfloor = RepN . floor . unRepN
   kcast = RepN . realToFrac . unRepN
   kfromIntegral = RepN . fromIntegral . unRepN
@@ -544,6 +526,7 @@ instance BaseTensor RepN where
   tprimalPart _ = id
   tdualPart _stk _t = DummyDualTarget
   tD _stk t _d = t
+  tScale _ _ _ = DummyDualTarget
   tconcrete _ = id
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tApply f x = RepN $ f $ unRepN x

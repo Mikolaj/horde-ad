@@ -423,19 +423,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kfromR = astFromS stensorKind . astSFromR @'[]
   rfromK @r = astFromS (stensorKind @(TKR 0 r)) . astFromK
 
-  rfromPrimal = fromPrimal
-  rprimalPart = astSpanPrimal
-  rdualPart = astSpanDual
-  rD u u' = astSpanD u u'
-  rScale @r @n s t = case ftkAst s of
-    FTKR sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        astDualPart
-        $ AstFromPrimal s
-          * AstD (astFromS @(TKS sh r) (stensorKind @(TKR n r))
-                           (astReplicate0NS 0)) t
-
   sminIndex = fromPrimal . AstMinIndexS . astSpanPrimal
   smaxIndex = fromPrimal . AstMaxIndexS . astSpanPrimal
   sfloor = fromPrimal . AstFloorS . astSpanPrimal
@@ -466,12 +453,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sunzip = AstUnzipS
   kfromS = astFromS stensorKind
   sfromK = astFromK
-
-  sfromPrimal = fromPrimal
-  sprimalPart = astSpanPrimal
-  sdualPart = astSpanDual
-  sD u u' = astSpanD u u'
-  sScale s t = astDualPart $ AstFromPrimal s * AstD (astReplicate0NS 0) t
 
   xminIndex @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
@@ -663,18 +644,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                      (astFromS @(TKS2 sh z) (stensorKind @(TKX2 sh' z)) b32)
   kfromX = astFromS stensorKind . astSFromX @'[]
   xfromK @r = astFromS (stensorKind @(TKX '[] r)) . astFromK
-  xfromPrimal = fromPrimal
-  xprimalPart = astSpanPrimal
-  xdualPart = astSpanDual
-  xD u u' = astSpanD u u'
-  xScale @r @sh2 s t = case ftkAst s of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        astDualPart
-        $ AstFromPrimal s
-          * AstD (astFromS @(TKS sh r) (stensorKind @(TKX sh2 r))
-                           (astReplicate0NS 0)) t
 
   kfloor = fromPrimal . AstFloorK . astSpanPrimal
   kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
@@ -822,16 +791,6 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
   tfromSShare @_ @z (AstRaw a) = AstRaw $ AstFromS (stensorKind @z) a
-
-astReplicate0NSNoSimp :: forall shn m s r. (KnownShS shn, GoodScalar r, AstSpan s)
-                      => r -> AstTensor m s (TKS shn r)
-astReplicate0NSNoSimp =
-  let go :: ShS sh' -> AstTensor m s (TKS '[] r) -> AstTensor m s (TKS sh' r)
-      go ZSS v = v
-      go ((:$$) SNat sh') v =
-        withKnownShS sh' $
-        AstReplicate SNat stensorKind $ go sh' v
-  in go (knownShS @shn) . fromPrimal . AstConcrete (FTKS ZSS FTKScalar) . sscalar
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   tconstantTarget = constantTarget
@@ -1023,19 +982,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   kfromR = AstRaw . AstFromS stensorKind . AstSFromR @'[] . unAstRaw
   rfromK @r =
     AstRaw . AstFromS (stensorKind @(TKR 0 r)) . AstSFromK . unAstRaw
-
-  rfromPrimal = AstRaw . fromPrimal . unAstRaw
-  rprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
-  rdualPart = astSpanDualRaw . unAstRaw
-  rD u u' = AstRaw $ astSpanD (unAstRaw u) u'
-  rScale @r @n (AstRaw s) t = case ftkAst s of
-    FTKR sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstDualPart
-        $ AstFromPrimal s
-          * AstD (AstFromS @(TKS sh r) (stensorKind @(TKR n r))
-                           (astReplicate0NSNoSimp 0)) t
 
   xminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
@@ -1234,18 +1180,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   kfromX = AstRaw . AstFromS stensorKind . AstSFromX @'[] . unAstRaw
   xfromK @r = AstRaw . AstFromS (stensorKind @(TKX '[] r))
                    . AstSFromK . unAstRaw
-  xfromPrimal = AstRaw . fromPrimal . unAstRaw
-  xprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
-  xdualPart = astSpanDualRaw . unAstRaw
-  xD u u' = AstRaw $ astSpanD (unAstRaw u) u'
-  xScale @r @sh2 (AstRaw s) t = case ftkAst s of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstDualPart
-        $ AstFromPrimal s
-          * AstD (AstFromS @(TKS sh r) (stensorKind @(TKX sh2 r))
-                           (astReplicate0NSNoSimp 0)) t
 
   sminIndex = AstRaw . fromPrimal . AstMinIndexS . astSpanPrimalRaw . unAstRaw
   smaxIndex = AstRaw . fromPrimal . AstMaxIndexS . astSpanPrimalRaw . unAstRaw
@@ -1279,13 +1213,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sunzip = AstRaw . AstUnzipS . unAstRaw
   kfromS = AstRaw . AstFromS stensorKind . unAstRaw
   sfromK = AstRaw . AstSFromK . unAstRaw
-
-  sfromPrimal = AstRaw . fromPrimal . unAstRaw
-  sprimalPart = AstRaw . astSpanPrimalRaw . unAstRaw
-  sdualPart = astSpanDualRaw . unAstRaw
-  sD u u' = AstRaw $ astSpanD (unAstRaw u) u'
-  sScale s t =
-    AstDualPart $ AstFromPrimal (unAstRaw s) * AstD (astReplicate0NSNoSimp 0) t
 
   kfloor = AstRaw . fromPrimal . AstFloorK . astSpanPrimalRaw . unAstRaw
   kcast = AstRaw . AstCastK . unAstRaw
@@ -1411,13 +1338,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   kfromR = AstNoVectorize . kfromR . unAstNoVectorize
   rfromK = AstNoVectorize . rfromK . unAstNoVectorize
 
-  rfromPrimal = AstNoVectorize . rfromPrimal . unAstNoVectorize
-  rprimalPart = AstNoVectorize . rprimalPart . unAstNoVectorize
-  rdualPart = rdualPart . unAstNoVectorize
-  rD u u' = AstNoVectorize $ rD (unAstNoVectorize u) u'
-  rScale s t =
-    rScale @(AstTensor AstMethodLet PrimalSpan) (unAstNoVectorize s) t
-
   xminIndex = AstNoVectorize . xminIndex . unAstNoVectorize
   xmaxIndex = AstNoVectorize . xmaxIndex . unAstNoVectorize
   xfloor = AstNoVectorize . xfloor . unAstNoVectorize
@@ -1454,12 +1374,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xunzip = AstNoVectorize . xunzip . unAstNoVectorize
   kfromX = AstNoVectorize . kfromX . unAstNoVectorize
   xfromK = AstNoVectorize . xfromK . unAstNoVectorize
-  xfromPrimal = AstNoVectorize . xfromPrimal . unAstNoVectorize
-  xprimalPart = AstNoVectorize . xprimalPart . unAstNoVectorize
-  xdualPart = xdualPart . unAstNoVectorize
-  xD u u' = AstNoVectorize $ xD (unAstNoVectorize u) u'
-  xScale s t =
-    xScale @(AstTensor AstMethodLet PrimalSpan) (unAstNoVectorize s) t
 
   sminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
   smaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
@@ -1493,13 +1407,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sunzip = AstNoVectorize . AstUnzipS . unAstNoVectorize
   kfromS = AstNoVectorize . kfromS . unAstNoVectorize
   sfromK = AstNoVectorize . sfromK . unAstNoVectorize
-
-  sfromPrimal = AstNoVectorize . sfromPrimal . unAstNoVectorize
-  sprimalPart = AstNoVectorize . sprimalPart . unAstNoVectorize
-  sdualPart = sdualPart . unAstNoVectorize
-  sD u u' = AstNoVectorize $ sD @(AstTensor AstMethodLet s) (unAstNoVectorize u) u'
-  sScale s t =
-    sScale @(AstTensor AstMethodLet PrimalSpan) (unAstNoVectorize s) t
 
   kfloor = AstNoVectorize . kfloor . unAstNoVectorize
   kcast = AstNoVectorize . kcast . unAstNoVectorize
@@ -1804,18 +1711,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify . AstFromS (stensorKind @(TKR 0 r))
     . AstSFromK . unAstNoSimplify
 
-  rfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
-  rprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
-  rdualPart = astSpanDual . unAstNoSimplify
-  rD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
-  rScale @r @n (AstNoSimplify s) t = case ftkAst s of
-    FTKR sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstDualPart
-        $ AstFromPrimal s * AstD (AstFromS @(TKS sh r) (stensorKind @(TKR n r))
-                                           (astReplicate0NSNoSimp 0)) t
-
   xminIndex @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -2019,18 +1914,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify . AstFromS stensorKind . AstSFromX @'[] . unAstNoSimplify
   xfromK @r = AstNoSimplify . AstFromS (stensorKind @(TKX '[] r))
                    . AstSFromK . unAstNoSimplify
-  xfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
-  xprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
-  xdualPart = astSpanDual . unAstNoSimplify
-  xD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
-  xScale @r @sh2 (AstNoSimplify s) t = case ftkAst s of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        AstDualPart
-        $ AstFromPrimal s
-          * AstD (AstFromS @(TKS sh r) (stensorKind @(TKX sh2 r))
-                           (astReplicate0NSNoSimp 0)) t
 
   sminIndex = AstNoSimplify . fromPrimal . AstMinIndexS
               . astSpanPrimal . unAstNoSimplify
@@ -2073,15 +1956,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   kfromS = AstNoSimplify . AstFromS stensorKind . unAstNoSimplify
   sfromK = AstNoSimplify . AstSFromK . unAstNoSimplify
 
-  sfromPrimal = AstNoSimplify . fromPrimal . unAstNoSimplify
-    -- exceptionally we do simplify AstFromPrimal to avoid long boring chains
-  sprimalPart = AstNoSimplify . astSpanPrimal . unAstNoSimplify
-  sdualPart = astSpanDual . unAstNoSimplify
-  sD u u' = AstNoSimplify $ astSpanD (unAstNoSimplify u) u'
-  sScale s t =
-    astDualPart
-    $ AstFromPrimal (unAstNoSimplify s) * AstD (astReplicate0NSNoSimp 0) t
-
   kfloor = AstNoSimplify . fromPrimal . AstFloorK
            . astSpanPrimal . unAstNoSimplify
   kcast = AstNoSimplify . AstCastK . unAstNoSimplify
@@ -2114,7 +1988,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify $ fromPrimal $ unAstNoSimplify t
   tprimalPart stk t | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ astSpanPrimal $ unAstNoSimplify t
-  tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDual $ unAstNoSimplify t
+  tdualPart stk t | Dict <- lemTensorKindOfSTK stk =
+    astSpanDual $ unAstNoSimplify t
   tD stk t d | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ astSpanD (unAstNoSimplify t) d
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =

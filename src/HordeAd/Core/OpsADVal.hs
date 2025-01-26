@@ -234,12 +234,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rfromK (D t d) =
     dDnotShared (rfromK t) (DeltaFromS $ DeltaSFromK d)
 
-  rfromPrimal t = fromPrimalADVal t
-  rprimalPart (D u _) = u
-  rdualPart (D _ u') = u'
-  rD t d = dD t d
-  rScale k = DeltaScale k
-
   sminIndex (D u _) =
     let v = sminIndex u
     in fromPrimalADVal v
@@ -309,12 +303,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
   szip (D u u') = dD (szip u) (DeltaZipS u')
   sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
-
-  sfromPrimal t = fromPrimalADVal t
-  sprimalPart (D u _) = u
-  sdualPart (D _ u') = u'
-  sD t d = dD t d
-  sScale k = DeltaScale k
 
   xminIndex (D u _) =
     let v = xminIndex u
@@ -393,11 +381,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     dDnotShared (kfromX t) (DeltaFromS @(TKS '[] r) $ DeltaSFromX d)
   xfromK (D t d) =
     dDnotShared (xfromK t) (DeltaFromS $ DeltaSFromK d)
-  xfromPrimal t = fromPrimalADVal t
-  xprimalPart (D u _) = u
-  xdualPart (D _ u') = u'
-  xD t d = dD t d
-  xScale k = DeltaScale k
 
   kfloor (D u _) =
     let v = kfloor u
@@ -458,6 +441,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'
   tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
+  tScale _ k = DeltaScale k
   tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimalADVal $ tconcrete ftk t
   tlambda _ = id

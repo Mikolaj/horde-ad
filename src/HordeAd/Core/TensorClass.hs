@@ -659,17 +659,22 @@ class ( Num (IntOf target)
   rdot1In t u = rsum $ rtr (t * u)
 
   -- Primal/dual things.
-  rfromPrimal :: (TensorKind r, KnownNat n)
-              => PrimalOf target (TKR2 n r) -> target (TKR2 n r)
   rprimalPart :: (TensorKind r, KnownNat n)
               => target (TKR2 n r) -> PrimalOf target (TKR2 n r)
+  rprimalPart = tprimalPart stensorKind
   rdualPart :: (TensorKind r, KnownNat n)
             => target (TKR2 n r) -> DualOf target (TKR2 n r)
+  rdualPart = tdualPart stensorKind
+  rfromPrimal :: (TensorKind r, KnownNat n)
+              => PrimalOf target (TKR2 n r) -> target (TKR2 n r)
+  rfromPrimal = tfromPrimal stensorKind
   rD :: (TensorKind r, KnownNat n)
      => PrimalOf target (TKR2 n r) -> DualOf target (TKR2 n r) -> target (TKR2 n r)
-  rScale :: (GoodScalar r, KnownNat n)
+  rD = tD stensorKind
+  rScale :: (GoodScalar r, KnownNat n, Num (target (TKR n r)), Num (PrimalOf target (TKR n r)))
          => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
          -> DualOf target (TKR n r)
+  rScale = tScale @target stensorKind
 
   -- Shaped ops.
   -- Integer codomain
@@ -1032,18 +1037,23 @@ class ( Num (IntOf target)
   sdot1In _ t u = ssum $ str (t * u)
 
   -- Primal/dual things.
-  sfromPrimal :: (TensorKind r, KnownShS sh)
-              => PrimalOf target (TKS2 sh r) -> target (TKS2 sh r)
   sprimalPart :: (TensorKind r, KnownShS sh)
               => target (TKS2 sh r) -> PrimalOf target (TKS2 sh r)
+  sprimalPart = tprimalPart stensorKind
   sdualPart :: (TensorKind r, KnownShS sh)
             => target (TKS2 sh r) -> DualOf target (TKS2 sh r)
+  sdualPart = tdualPart stensorKind
+  sfromPrimal :: (TensorKind r, KnownShS sh)
+              => PrimalOf target (TKS2 sh r) -> target (TKS2 sh r)
+  sfromPrimal = tfromPrimal stensorKind
   sD :: (TensorKind r, KnownShS sh)
      => PrimalOf target (TKS2 sh r) -> DualOf target (TKS2 sh r)
      -> target (TKS2 sh r)
-  sScale :: (GoodScalar r, KnownShS sh)
+  sD = tD stensorKind
+  sScale :: (GoodScalar r, KnownShS sh, Num (target (TKS sh r)), Num (PrimalOf target (TKS sh r)))
          => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
          -> DualOf target (TKS sh r)
+  sScale = tScale @target stensorKind
 
   -- Mixed ops.
   -- Integer codomain.
@@ -1268,18 +1278,23 @@ class ( Num (IntOf target)
           -> target (TKX '[Just m, Just n] r)
           -> target (TKX '[Just m] r)  -- TODO: generalize
   xdot1In t u = xsum $ xtr (t * u)
-  xfromPrimal :: (TensorKind r, KnownShX sh)
-              => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
   xprimalPart :: (TensorKind r, KnownShX sh)
               => target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
+  xprimalPart = tprimalPart stensorKind
   xdualPart :: (TensorKind r, KnownShX sh)
             => target (TKX2 sh r) -> DualOf target (TKX2 sh r)
+  xdualPart = tdualPart stensorKind
+  xfromPrimal :: (TensorKind r, KnownShX sh)
+              => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
+  xfromPrimal = tfromPrimal stensorKind
   xD :: (TensorKind r, KnownShX sh)
      => PrimalOf target (TKX2 sh r)-> DualOf target (TKX2 sh r)
      -> target (TKX2 sh r)
-  xScale :: (GoodScalar r, KnownShX sh)
+  xD = tD stensorKind
+  xScale :: (GoodScalar r, KnownShX sh, Num (target (TKX sh r)), Num (PrimalOf target (TKX sh r)))
          => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
          -> DualOf target (TKX sh r)
+  xScale = tScale @target stensorKind
 
   -- Scalar ops
   kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
@@ -1513,6 +1528,15 @@ class ( Num (IntOf target)
   tD :: STensorKindType y
      -> PrimalOf target y -> DualOf target y
      -> target y
+  tScale :: (Num (target y), Num (PrimalOf target y))
+         => STensorKindType y
+         -> PrimalOf target y -> DualOf target y
+         -> DualOf target y
+  tScale stk s t =
+    let sd = tfromPrimal @target stk s
+        ftk = tftk stk sd
+    in tdualPart stk
+       $ sd * tD stk (tprimalPart @target stk (tconstantTarget 0 ftk)) t
   tconcrete :: FullTensorKind y -> RepN y -> target y
   tlambda :: (TensorKind x, TensorKind z)
           => FullTensorKind x -> HFun x z -> HFunOf target x z
