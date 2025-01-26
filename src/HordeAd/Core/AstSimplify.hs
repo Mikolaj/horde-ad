@@ -282,7 +282,7 @@ astNonIndexStep t = case t of
   Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
   Ast.AstDualPart v -> astDualPart v
   Ast.AstFromPrimal{} -> t
-  Ast.AstD{} -> t
+  Ast.AstFromDual{} -> t
   Ast.AstCond a b c -> astCond a b c
   Ast.AstFromVector snat l -> astFromVector snat l
   Ast.AstSum snat stk v -> astSum snat stk v
@@ -443,8 +443,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstPrimalPart{} -> Ast.AstIndexS v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndexS v0 ix
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astIndex v ix
-  Ast.AstD u u' ->
-    shareIx ix $ \ !ix2 -> Ast.AstD (astIndexRec u ix2) (astIndexRec u' ix2)
+  Ast.AstFromDual v -> Ast.AstFromDual $ astIndex v ix
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
   Ast.AstFromVector @y2 snat l | AstConcrete _ (RepN it) <- i1
@@ -697,9 +696,10 @@ flipCompare = unsafeCoerceRefl
 
 isVar :: AstTensor AstMethodLet s y -> Bool
 isVar Ast.AstVar{} = True
-isVar (Ast.AstFromPrimal Ast.AstVar{}) = True
 isVar (Ast.AstPrimalPart Ast.AstVar{}) = True
 isVar (Ast.AstDualPart Ast.AstVar{}) = True
+isVar (Ast.AstFromPrimal Ast.AstVar{}) = True
+isVar (Ast.AstFromDual Ast.AstVar{}) = True
 isVar _ = False
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
@@ -817,20 +817,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstDualPart{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstFromPrimal v ->
       Ast.AstFromPrimal $ astGather @shm' @shn' @shp' v (vars4, ix4)
-    Ast.AstD u u' ->
-      -- Term ix4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use tlet.
-      -- Also, the sharing would be dissolved by the substitution, anyway,
-      -- and the same subsitution would be unsound with sharing.
-      funToVarsIxS @shm' $ \ (!varsFresh, IxS !ixFresh) ->
-        -- This subst doesn't currently break sharing, because it's a rename.
-        let subst i =
-              foldr (\(i2, var2) v2 -> substituteAst i2 var2 v2)
-                    i
-                    (toList $ zipSizedS ixFresh vars4)
-            ix5 = fmap subst ix4
-        in Ast.AstD (astGatherRec @shm' @shn' @shp' u (vars4, ix4))
-                    (astGatherRec @shm' @shn' @shp' u' (varsFresh, ix5))
+    Ast.AstFromDual v ->
+      Ast.AstFromDual $ astGather @shm' @shn' @shp' v (vars4, ix4)
     Ast.AstCond b v w ->
       astCond b (astGather @shm' @shn' @shp' v (vars4, ix4))
                 (astGather @shm' @shn' @shp' w (vars4, ix4))
@@ -2223,7 +2211,7 @@ astSFromR a0 = case a0 of
   Ast.AstPrimalPart a -> astPrimalPart $ astSFromR a
   Ast.AstDualPart a -> astDualPart $ astSFromR a
   Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astSFromR a
-  Ast.AstD u u' -> Ast.AstD (astSFromR u) (astSFromR u')
+  Ast.AstFromDual a -> Ast.AstFromDual $ astSFromR a
   Ast.AstCond b v w -> astCond b (astSFromR v) (astSFromR w)
   Ast.AstFromVector @y2 snat@SNat l
    | STKR{} <- stensorKind @y2 -> case knownShS @sh of
@@ -2396,7 +2384,9 @@ astPrimalPart t = case t of
   Ast.AstApply v ll -> astApply v (astPrimalPart ll)
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstFromPrimal v -> v
-  Ast.AstD u _ -> u
+  Ast.AstFromDual v ->
+    let ftk = ftkAst v
+    in astConcrete ftk $ tconstantTarget 0 ftk
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstFromVector snat l -> astFromVector snat (V.map astPrimalPart l)
   Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
@@ -2488,8 +2478,8 @@ astDualPart t = case t of
   Ast.AstProject2 v -> astProject2 (astDualPart v)
   Ast.AstApply v ll -> astApply v (astDualPart ll)
   Ast.AstVar{} -> Ast.AstDualPart t
-  Ast.AstFromPrimal{} -> Ast.AstDualPart t  -- this equals nil (not primal 0)
-  Ast.AstD _ u' -> u'
+  Ast.AstFromPrimal{} -> Ast.AstDualPart t
+  Ast.AstFromDual v -> v
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstFromVector snat l -> astFromVector snat (V.map astDualPart l)
   Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
@@ -2651,7 +2641,7 @@ expandAst t = case t of
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal (expandAst v)
-  Ast.AstD u u' -> Ast.AstD (expandAst u) (expandAst u')
+  Ast.AstFromDual v -> Ast.AstFromDual (expandAst v)
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
   Ast.AstFromVector snat l -> astFromVector snat (V.map expandAst l)
@@ -2863,7 +2853,7 @@ simplifyAst t = case t of
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal (simplifyAst v)
-  Ast.AstD u u' -> Ast.AstD (simplifyAst u) (simplifyAst u')
+  Ast.AstFromDual v -> Ast.AstFromDual (simplifyAst v)
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstFromVector snat l -> astFromVector snat (V.map simplifyAst l)
@@ -3030,7 +3020,7 @@ contractAst t = case t of
   Ast.AstPrimalPart v -> astPrimalPart (contractAst v)
   Ast.AstDualPart v -> astDualPart (contractAst v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal (contractAst v)
-  Ast.AstD u u' -> Ast.AstD (contractAst u) (contractAst u')
+  Ast.AstFromDual v -> Ast.AstFromDual (contractAst v)
   Ast.AstCond b a2 a3 ->
     astCond (contractAstBool b) (contractAst a2) (contractAst a3)
   Ast.AstFromVector snat l -> astFromVector snat (V.map contractAst l)
@@ -3725,10 +3715,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
   Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
   Ast.AstFromPrimal a -> Ast.AstFromPrimal <$> substitute1Ast i var a
-  Ast.AstD x y ->
-    case (substitute1Ast i var x, substitute1Ast i var y) of
-      (Nothing, Nothing) -> Nothing
-      (mx, my) -> Just $ Ast.AstD (fromMaybe x mx) (fromMaybe y my)
+  Ast.AstFromDual a -> Ast.AstFromDual <$> substitute1Ast i var a
   Ast.AstCond b v w ->
     case ( substitute1AstBool i var b
          , substitute1Ast i var v

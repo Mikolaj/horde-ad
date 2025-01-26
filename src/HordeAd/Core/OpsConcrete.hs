@@ -101,6 +101,7 @@ instance LetTensor RepN where
   tlet = (&)
   toShare = id
   tunshare = id
+  tD _stk t DummyDualTarget{} = t
 
 instance ShareTensor RepN where
   tshare = id
@@ -108,6 +109,8 @@ instance ShareTensor RepN where
 
 instance BaseTensor RepN where
   tconstantTarget = constantTarget
+  taddTarget = addTarget
+
   rshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.rshape . unRepN
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
@@ -522,11 +525,11 @@ instance BaseTensor RepN where
   tproject2 = RepN . snd . unRepN
   tftk stk (RepN t) = tftkG stk t
   tcond _ b u v = if b then u else v
-  tfromPrimal _ t = t
   tprimalPart _ = id
   tdualPart stk t = DummyDualTarget (tftk stk t)
-  tD _stk t _d = t
-  tScale _stk _s t = t
+  tfromPrimal _ t = t
+  tfromDual _ (DummyDualTarget ftk) = constantTarget 0 ftk
+  tScale _ _ t = t
   tconcrete _ = id
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tApply f x = RepN $ f $ unRepN x

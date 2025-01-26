@@ -40,7 +40,7 @@ module HordeAd.Core.Delta
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
     -- * Abstract syntax trees of the delta expressions
-  , Delta(..)
+  , Delta(..), shapeDeltaFull
     -- * Delta expression identifiers
   , NodeId (..), InputId, toInputId
     -- * Exported to be specialized elsewhere

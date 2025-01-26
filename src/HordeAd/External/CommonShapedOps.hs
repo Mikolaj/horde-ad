@@ -108,22 +108,22 @@ logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let y0 = recip (sprimalPart @target (srepl 1) + exp (- sprimalPart d))
   in tlet (sfromPrimal y0)  -- we don't have tletPrimal
      $ \y1 -> let y = sprimalPart y1
-              in sD y (sScale @target (y * (sprimalPart @target (srepl 1) - y)) $ sdualPart d)
+              in tD stensorKind y (sScale @target (y * (sprimalPart @target (srepl 1) - y)) $ sdualPart d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 squareS :: forall target r sh.
-           ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS sh r))
-           , GoodScalar r )
+           ( KnownShS sh, BaseTensor target, LetTensor target
+           , Num (PrimalOf target (TKS sh r)), GoodScalar r )
        => target (TKS sh r) -> target (TKS sh r)
 squareS d = let u = sprimalPart d
                 u' = sdualPart d
-            in sD (u * u) (sScale @target (2 * u) u')
+            in tD stensorKind (u * u) (sScale @target (2 * u) u')
 
 squaredDifferenceS
   :: forall target sh r.
-     ( KnownShS sh, BaseTensor target, Num (PrimalOf target (TKS sh r))
-     , GoodScalar r )
+     ( KnownShS sh, BaseTensor target, LetTensor target
+     , Num (PrimalOf target (TKS sh r)), GoodScalar r )
   => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS sh r)
 squaredDifferenceS targ res = squareS $ res - sfromPrimal targ
 
@@ -158,7 +158,7 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
           in sscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
   in tlet (sfromPrimal softMaxU') $ \softMaxU ->
-    sD (negate $ log (sprimalPart softMaxU) `sdot0` target)
+    tD stensorKind (negate $ log (sprimalPart softMaxU) `sdot0` target)
          -- TODO: avoid: log . exp
        (sdualPart $ (softMaxU - sfromPrimal target) `sdot0` d)
          -- TODO: probably defining sDot0 would lead to a faster

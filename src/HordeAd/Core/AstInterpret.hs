@@ -91,8 +91,8 @@ interpretAstPrimal
   -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
-  AstPrimalPart (AstD u _) -> interpretAstPrimal env u
   AstPrimalPart (AstFromPrimal u) -> interpretAstPrimal env u
+  AstPrimalPart (AstFromDual u) -> tconstantTarget 0 (ftkAst u)
   AstCond @y2 b a1 a2 ->
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
@@ -106,7 +106,7 @@ interpretAstDual
   => AstEnv target
   -> AstTensor AstMethodLet DualSpan y -> DualOf target y
 interpretAstDual !env v1 = case v1 of
-  AstDualPart (AstD _ u') -> interpretAstDual env u'
+  AstDualPart (AstFromDual u) -> interpretAstDual env u
   _ ->
     tdualPart (stensorKind @y) (interpretAst env v1)
 
@@ -196,8 +196,7 @@ interpretAst !env = \case
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
   AstFromPrimal @y2 a -> tfromPrimal (stensorKind @y2) (interpretAstPrimal env a)
-  AstD @y2 u u' ->
-   tD (stensorKind @y2) (interpretAstPrimal env u) (interpretAstDual env u')
+  AstFromDual @y2 a -> tfromDual (stensorKind @y2) (interpretAstDual env a)
   AstCond @y2 b a1 a2 ->
     let c = interpretAstBool env b
     in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)

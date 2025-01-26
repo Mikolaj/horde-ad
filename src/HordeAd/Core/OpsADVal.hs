@@ -137,6 +137,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     dFromS (DeltaSFromX @_ @sh' @x d)
       | Just Refl <- sameTensorKind @z @(TKX2 sh' x) = d
     dFromS d = DeltaFromS d
+  tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
 
 instance (ADReadyNoLet target, ShareTensor target)
          => ShareTensor (ADVal target) where
@@ -158,7 +159,8 @@ instance (ADReadyNoLet target, ShareTensor target)
 instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
          => BaseTensor (ADVal target) where
   tconstantTarget = constantTarget
-  
+  taddTarget = addTarget
+
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u
@@ -437,10 +439,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tcond !stk !b !u !v =
     let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
     in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'
-  tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
+  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
+    dDnotShared (constantTarget 0 (shapeDeltaFull t)) t
   tScale _ k = DeltaScale k
   tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimalADVal $ tconcrete ftk t

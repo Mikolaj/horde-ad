@@ -70,7 +70,7 @@ ftkAst t = case t of
   AstPrimalPart a -> ftkAst a
   AstDualPart a -> ftkAst a
   AstFromPrimal a -> ftkAst a
-  AstD u _ -> ftkAst u
+  AstFromDual a -> ftkAst a
   AstCond _b v _w -> ftkAst v
   AstFromVector snat l -> case V.toList l of
     [] -> error "ftkAst: empty vector"
@@ -224,7 +224,7 @@ varInAst var = \case
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
   AstFromPrimal v -> varInAst var v
-  AstD u u' -> varInAst var u || varInAst var u'
+  AstFromDual v -> varInAst var v
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstFromVector _ vl -> any (varInAst var) $ V.toList vl
   AstSum _ _ v -> varInAst var v
@@ -324,6 +324,7 @@ astIsSmall relaxed = \case
   AstPrimalPart v -> astIsSmall relaxed v
   AstDualPart v -> astIsSmall relaxed v
   AstFromPrimal v -> astIsSmall relaxed v
+  AstFromDual v -> astIsSmall relaxed v
   AstReplicate _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
   AstConcrete FTKScalar _ -> True

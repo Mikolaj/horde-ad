@@ -198,14 +198,6 @@ astSpanDual t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDual t | Just Refl <- sameAstSpan @s @FullSpan = astDualPart t
 astSpanDual _ = error "a spuriuos case for pattern match coverage"
 
-astSpanD :: forall s y ms. (AstSpan s, TensorKind y)
-         => AstTensor ms PrimalSpan y -> AstTensor ms DualSpan y
-         -> AstTensor ms s y
-astSpanD u _ | Just Refl <- sameAstSpan @s @PrimalSpan = u
-astSpanD _ u' | Just Refl <- sameAstSpan @s @DualSpan = u'
-astSpanD u u' | Just Refl <- sameAstSpan @s @FullSpan = AstD u u'
-astSpanD _ _ = error "a spuriuos case for pattern match coverage"
-
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
 -- Due to how the Ast instance of Tensor is defined above, vectorization
@@ -244,6 +236,7 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tconstantTarget = constantTarget
+  taddTarget = addTarget
   rshape = shapeAst
   rminIndex @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
@@ -670,10 +663,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject2 = astProject2
   tftk _stk = ftkAst
   tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk = astCond b u v
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimal t
   tprimalPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanPrimal t
   tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDual t
-  tD stk t d | Dict <- lemTensorKindOfSTK stk = astSpanD t d
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimal t
+  tfromDual stk t | Dict <- lemTensorKindOfSTK stk = fromDual t
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimal $ astConcrete ftk a
   tlambda shss f =
@@ -783,9 +776,10 @@ instance AstSpan s => ShareTensor (AstRaw s) where
     u | astIsSmall True u -> t
     AstShare{} -> t
     AstVar{} -> t
-    AstFromPrimal(AstVar{}) -> t
     AstPrimalPart(AstVar{}) -> t
     AstDualPart(AstVar{}) -> t
+    AstFromPrimal(AstVar{}) -> t
+    AstFromDual(AstVar{}) -> t
     u -> AstRaw $ fun1ToAst $ \ !var -> AstShare var u
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
@@ -794,6 +788,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   tconstantTarget = constantTarget
+  taddTarget = addTarget
   rshape = shapeAst . unAstRaw
   rminIndex @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
@@ -1244,12 +1239,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tftk _stk = ftkAst . unAstRaw
   tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
-    AstRaw $ fromPrimal $ unAstRaw t
   tprimalPart stk t | Dict <- lemTensorKindOfSTK stk =
     AstRaw $ astSpanPrimalRaw $ unAstRaw t
   tdualPart stk t | Dict <- lemTensorKindOfSTK stk = astSpanDualRaw $ unAstRaw t
-  tD stk t d | Dict <- lemTensorKindOfSTK stk = AstRaw $ astSpanD (unAstRaw t) d
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
+    AstRaw $ fromPrimal $ unAstRaw t
+  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
+    AstRaw $ fromDual t
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     AstRaw $ fromPrimal $ AstConcrete ftk a
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
@@ -1305,6 +1301,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tconstantTarget = constantTarget
+  taddTarget = addTarget
   rshape = rshape . unAstNoVectorize
   rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
   rmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
@@ -1437,7 +1434,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tprimalPart stk t = AstNoVectorize $ tprimalPart stk $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
-  tD stk t d = AstNoVectorize $ tD stk (unAstNoVectorize t) d
+  tfromDual stk t = AstNoVectorize $ tfromDual stk t
   tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
@@ -1517,6 +1514,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tconstantTarget = constantTarget
+  taddTarget = addTarget
   rshape = shapeAst . unAstNoSimplify
   rminIndex @_ @r2 @n (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
@@ -1984,14 +1982,14 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tftk _stk = ftkAst . unAstNoSimplify
   tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
-    AstNoSimplify $ fromPrimal $ unAstNoSimplify t
   tprimalPart stk t | Dict <- lemTensorKindOfSTK stk =
     AstNoSimplify $ astSpanPrimal $ unAstNoSimplify t
   tdualPart stk t | Dict <- lemTensorKindOfSTK stk =
     astSpanDual $ unAstNoSimplify t
-  tD stk t d | Dict <- lemTensorKindOfSTK stk =
-    AstNoSimplify $ astSpanD (unAstNoSimplify t) d
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
+    AstNoSimplify $ fromPrimal $ unAstNoSimplify t
+  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
+    AstNoSimplify $ fromDual t
   tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     AstNoSimplify $ fromPrimal $ AstConcrete ftk a
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)

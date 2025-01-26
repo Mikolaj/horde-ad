@@ -77,15 +77,23 @@ type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 
 class Typeable s => AstSpan (s :: AstSpanType) where
   fromPrimal :: TensorKind y => AstTensor ms PrimalSpan y -> AstTensor ms s y
+  fromDual :: TensorKind y => AstTensor ms DualSpan y -> AstTensor ms s y
 
 instance AstSpan PrimalSpan where
   fromPrimal = id
+  fromDual t = AstPrimalPart $ AstFromDual t  -- this primal zero
+    -- AstTools is split off, so ftkAst can'be used here,
+    -- so the following is brought here via simplification later on:
+    -- let ftk = ftkAst t
+    -- in AstConcrete ftk $ tconstantTarget 0 ftk
 
 instance AstSpan DualSpan where
-  fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is nil (not primal 0)
+  fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
+  fromDual = id
 
 instance AstSpan FullSpan where
   fromPrimal = AstFromPrimal
+  fromDual = AstFromDual
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
@@ -295,9 +303,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               => AstTensor ms FullSpan y -> AstTensor ms DualSpan y
   AstFromPrimal :: TensorKind y
                 => AstTensor ms PrimalSpan y -> AstTensor ms FullSpan y
-  AstD :: TensorKind y
-       => AstTensor ms PrimalSpan y -> AstTensor ms DualSpan y
-       -> AstTensor ms FullSpan y
+  AstFromDual :: TensorKind y
+              => AstTensor ms DualSpan y -> AstTensor ms FullSpan y
 
   -- Extra constructors for optimization of arithmetic
   AstSumOfList :: STensorKindType y -> [AstTensor ms s y] -> AstTensor ms s y

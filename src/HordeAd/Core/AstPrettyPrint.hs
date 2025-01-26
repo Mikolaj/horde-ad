@@ -154,21 +154,41 @@ printAstAux cfg d = \case
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
   AstVar _sh var -> printAstVar cfg var
   AstPrimalPart a -> case stensorKind @y of
+    STKR{} -> printPrefixOp printAst cfg d "rprimalPart" [a]
     STKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
-    _      -> printPrefixOp printAst cfg d "rprimalPart" [a]
+    STKX{} -> printPrefixOp printAst cfg d "xprimalPart" [a]
+    _      -> printPrefixOp printAst cfg d "tprimalPart" [a]
   AstDualPart a -> case stensorKind @y of
+    STKR{} -> printPrefixOp printAst cfg d "rdualPart" [a]
     STKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
-    _      -> printPrefixOp printAst cfg d "rdualPart" [a]
+    STKX{} -> printPrefixOp printAst cfg d "xdualPart" [a]
+    _      -> printPrefixOp printAst cfg d "tdualPart" [a]
   AstFromPrimal a -> case stensorKind @y of
+    STKR{} -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "rfromPrimal" [a]
     STKS{} -> if loseRoudtrip cfg
               then printAst cfg d a
               else printPrefixOp printAst cfg d "sfromPrimal" [a]
+    STKX{} -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "xfromPrimal" [a]
     _      -> if loseRoudtrip cfg
               then printAst cfg d a
-              else printPrefixOp printAst cfg d "rfromPrimal" [a]
-  AstD u u' -> case stensorKind @y of
-    STKS{} -> printPrefixBinaryOp printAst printAst cfg d "sD" u u'
-    _      -> printPrefixBinaryOp printAst printAst cfg d "rD" u u'
+              else printPrefixOp printAst cfg d "tfromPrimal" [a]
+  AstFromDual a -> case stensorKind @y of
+    STKR{} -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "rfromDual" [a]
+    STKS{} -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "sfromDual" [a]
+    STKX{} -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "xfromDual" [a]
+    _      -> if loseRoudtrip cfg
+              then printAst cfg d a
+              else printPrefixOp printAst cfg d "tfromDual" [a]
   AstCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
@@ -579,17 +599,6 @@ printPrefixOp :: (PrintConfig -> Int -> a -> ShowS)
 {-# INLINE printPrefixOp #-}
 printPrefixOp pr cfg d funcname args =
   let rs = map (\arg -> showString " " . pr cfg 11 arg) args
-  in showParen (d > 10)
-     $ showString funcname
-       . foldr (.) id rs
-
-printPrefixBinaryOp :: (PrintConfig -> Int -> a -> ShowS)
-                    -> (PrintConfig -> Int -> b -> ShowS)
-                    -> PrintConfig -> Int -> String -> a -> b
-                    -> ShowS
-{-# INLINE printPrefixBinaryOp #-}
-printPrefixBinaryOp pra prb cfg d funcname a b =
-  let rs = [showString " " . pra cfg 11 a, showString " " . prb cfg 11 b]
   in showParen (d > 10)
      $ showString funcname
        . foldr (.) id rs

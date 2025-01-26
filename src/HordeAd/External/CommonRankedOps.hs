@@ -102,7 +102,7 @@ scale :: forall target r n.
 scale a d = rfromPrimal @target a * d
 -- This should be faster, but is slower. This may be caused by the lets repeated
 -- both in primal part and the D constructor.
--- scale a d = rD (a * rprimalPart d) (rScale @r a (rdualPart d))
+-- scale a d = tD stensorKind (a * rprimalPart d) (rScale @r a (rdualPart d))
 
 relu, reluLeaky
   :: forall target n r.
@@ -127,22 +127,23 @@ logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
       y0 = recip (rreplicate0N sh (rscalar 1) + exp (- rprimalPart @target d))
   in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
      $ \y1 -> let y = rprimalPart @target y1
-              in rD y (rScale @target (y * (rreplicate0N sh (rscalar 1) - y))
+              in tD stensorKind y (rScale @target (y * (rreplicate0N sh (rscalar 1) - y))
                        $ rdualPart @target d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
 square :: forall target r n.
-          ( BaseTensor target, KnownNat n, Num (PrimalOf target (TKR n r))
-          , GoodScalar r )
+          ( BaseTensor target, LetTensor target
+          , KnownNat n, Num (PrimalOf target (TKR n r)), GoodScalar r )
        => target (TKR n r) -> target (TKR n r)
 square d = let u = rprimalPart @target d
                u' = rdualPart @target d
-           in rD (u * u) (rScale @target (2 * u) u')
+           in tD stensorKind (u * u) (rScale @target (2 * u) u')
 
 squaredDifference
   :: forall target n r.
-     (BaseTensor target, KnownNat n, Num (PrimalOf target (TKR n r)), GoodScalar r)
+     ( BaseTensor target, LetTensor target
+     , KnownNat n, Num (PrimalOf target (TKR n r)), GoodScalar r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
 squaredDifference targ res = square @target $ res - rfromPrimal @target targ
 
@@ -175,7 +176,7 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
           in rscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
   in tlet (rfromPrimal @target softMaxU') $ \softMaxU ->
-    rD (negate $ log (rprimalPart @target softMaxU) `rdot0` target)
+    tD stensorKind (negate $ log (rprimalPart @target softMaxU) `rdot0` target)
          -- TODO: avoid: log . exp
        (rdualPart @target $ (softMaxU - rfromPrimal @target target) `rdot0` d)
          -- TODO: probably defining tDot0 would lead to a faster

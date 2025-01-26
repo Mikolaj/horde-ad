@@ -172,10 +172,9 @@ build1V snat@SNat (var, v0) =
     Ast.AstFromPrimal v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
       traceRule $
         Ast.AstFromPrimal $ build1V snat (var, v)
-    Ast.AstD u u' | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+    Ast.AstFromDual v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
       traceRule $
-        Ast.AstD (build1VOccurenceUnknown snat (var, u))
-                 (build1VOccurenceUnknown snat (var, u'))
+        Ast.AstFromDual $ build1V snat (var, v)
     Ast.AstCond b u v -> traceRule $
       let uv = astFromVector (SNat @2) (V.fromList [u, v])
           t = astIndexBuild (SNat @2) (stensorKind @y) uv (astCond b 0 1)

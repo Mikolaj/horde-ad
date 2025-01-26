@@ -113,10 +113,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ inlineAst memo a
-  Ast.AstD u u' ->
-    let (memo1, t1) = inlineAst memo u
-        (memo2, t2) = inlineAst memo1 u'
-    in (memo2, Ast.AstD t1 t2)
+  Ast.AstFromDual a -> second Ast.AstFromDual $ inlineAst memo a
   Ast.AstCond b a2 a3 ->
     -- This is a place where our inlining may increase code size
     -- by enlarging both branches due to not considering number of syntactic
@@ -377,10 +374,7 @@ unshareAst memo = \case
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ unshareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ unshareAst memo a
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ unshareAst memo a
-  Ast.AstD u u' ->
-    let (memo1, t1) = unshareAst memo u
-        (memo2, t2) = unshareAst memo1 u'
-    in (memo2, Ast.AstD t1 t2)
+  Ast.AstFromDual a -> second Ast.AstFromDual $ unshareAst memo a
   Ast.AstCond b a2 a3 ->
     let (memo1, b1) = unshareAstBool memo b
         (memo2, t2) = unshareAst memo1 a2

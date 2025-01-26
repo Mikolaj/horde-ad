@@ -221,6 +221,14 @@ class LetTensor (target :: Target) where
         tlet v $ \ !u3 ->
           tpair (tfromS (tproject1 u3)) (tfromS (tproject2 u3))
     _ -> error "tfromS: wrong tensor kinds"
+  tD :: BaseTensor target
+     => STensorKindType y -> PrimalOf target y -> DualOf target y
+     -> target y
+  tD stk p d | Dict <- lemTensorKindOfSTK stk =
+    -- Lets needed, because raddTarget requires duplicable arguments.
+    tlet (tfromPrimal stk p) $ \pShared ->
+    tlet (tfromDual stk d) $ \dShared ->
+      taddTarget stk pShared dShared
 
 class ShareTensor (target :: Target) where
   tshare :: TensorKind y
@@ -375,9 +383,11 @@ class ( Num (IntOf target)
       , TensorSupportsX IntegralF IntegralF target )
       => BaseTensor (target :: Target) where
 
-  -- A method needed only to split off the module that defines it.
+  -- Methods needed only to split off the module that defines it.
   tconstantTarget
     :: (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
+  -- The arguments need to be duplicable.
+  taddTarget :: STensorKindType y -> target y -> target y -> target y
 
   -- Ranked ops
   -- Integer codomain.
@@ -668,9 +678,6 @@ class ( Num (IntOf target)
   rfromPrimal :: (TensorKind r, KnownNat n)
               => PrimalOf target (TKR2 n r) -> target (TKR2 n r)
   rfromPrimal = tfromPrimal stensorKind
-  rD :: (TensorKind r, KnownNat n)
-     => PrimalOf target (TKR2 n r) -> DualOf target (TKR2 n r) -> target (TKR2 n r)
-  rD = tD stensorKind
   rScale :: ( GoodScalar r, KnownNat n
             , Num (target (TKR n r)), Num (PrimalOf target (TKR n r)) )
          => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
@@ -1047,10 +1054,6 @@ class ( Num (IntOf target)
   sfromPrimal :: (TensorKind r, KnownShS sh)
               => PrimalOf target (TKS2 sh r) -> target (TKS2 sh r)
   sfromPrimal = tfromPrimal stensorKind
-  sD :: (TensorKind r, KnownShS sh)
-     => PrimalOf target (TKS2 sh r) -> DualOf target (TKS2 sh r)
-     -> target (TKS2 sh r)
-  sD = tD stensorKind
   sScale :: (GoodScalar r, KnownShS sh, Num (target (TKS sh r)), Num (PrimalOf target (TKS sh r)))
          => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
          -> DualOf target (TKS sh r)
@@ -1288,10 +1291,6 @@ class ( Num (IntOf target)
   xfromPrimal :: (TensorKind r, KnownShX sh)
               => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
   xfromPrimal = tfromPrimal stensorKind
-  xD :: (TensorKind r, KnownShX sh)
-     => PrimalOf target (TKX2 sh r)-> DualOf target (TKX2 sh r)
-     -> target (TKX2 sh r)
-  xD = tD stensorKind
   xScale :: (GoodScalar r, KnownShX sh, Num (target (TKX sh r)), Num (PrimalOf target (TKX sh r)))
          => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
          -> DualOf target (TKX sh r)
@@ -1517,27 +1516,24 @@ class ( Num (IntOf target)
   maxF :: (Boolean (BoolOf target), OrdF target, TensorKind y)
        => target y -> target y -> target y
   maxF u v = ifF (u >=. v) u v
-  tfromPrimal :: STensorKindType y
-              -> PrimalOf target y
-              -> target y
   tprimalPart :: STensorKindType y
               -> target y
               -> PrimalOf target y
   tdualPart :: STensorKindType y
             -> target y
             -> DualOf target y
-  tD :: STensorKindType y
-     -> PrimalOf target y -> DualOf target y
-     -> target y
+  tfromPrimal :: STensorKindType y
+              -> PrimalOf target y
+              -> target y
+  tfromDual :: STensorKindType y
+            -> DualOf target y
+            -> target y
   tScale :: (Num (target y), Num (PrimalOf target y))
          => STensorKindType y
          -> PrimalOf target y -> DualOf target y
          -> DualOf target y
   tScale stk s t =
-    let sd = tfromPrimal @target stk s
-        ftk = tftk stk sd
-    in tdualPart stk
-       $ sd * tD stk (tprimalPart @target stk (tconstantTarget 0 ftk)) t
+    tdualPart stk $ tfromPrimal @target stk s * tfromDual stk t
   tconcrete :: FullTensorKind y -> RepN y -> target y
   tlambda :: (TensorKind x, TensorKind z)
           => FullTensorKind x -> HFun x z -> HFunOf target x z
