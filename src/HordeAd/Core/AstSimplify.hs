@@ -23,8 +23,8 @@ module HordeAd.Core.AstSimplify
   , astPair, astLet, astConcrete, astMapAccumRDer, astMapAccumLDer
   , astCond, astSumOfList, astFromVector, astSum, astScatterS
   , astReplicate, astAppendS, astSliceS, astReverseS
-  , astTransposeS, astReshapeS, astCast, astCastS
-  , astFromIntegral, astFromIntegralS
+  , astTransposeS, astReshapeS, astCastK, astCastS
+  , astFromIntegralK, astFromIntegralS
   , astProject1, astProject2
   , astPrimalPart, astDualPart
   , astFromS, astSFromR, astSFromX
@@ -315,8 +315,8 @@ astNonIndexStep t = case t of
       Just Refl -> contractAstIntegralOp2 opCode u v
       _ -> t
   Ast.AstFloorK{} -> t
-  Ast.AstFromIntegralK v -> astFromIntegral v
-  Ast.AstCastK v -> astCast v
+  Ast.AstFromIntegralK v -> astFromIntegralK v
+  Ast.AstCastK v -> astCastK v
 
   Ast.AstSFromK u -> astFromK $ astNonIndexStep u
   AstN1S{} -> t
@@ -2116,15 +2116,15 @@ astReshapeS = \case
          Just Refl -> v
          _ -> Ast.AstReshapeS v
 
-astCast :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
-        => AstTensor AstMethodLet s (TKScalar r1)
-        -> AstTensor AstMethodLet s (TKScalar r2)
-astCast (AstConcrete FTKScalar t) = astConcrete FTKScalar $ kcast t
-astCast (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCast v
-astCast (Ast.AstFromDual v) = Ast.AstFromDual $ astCast v
-astCast (Ast.AstCastK v) = astCast v
-astCast (Ast.AstFromIntegralK v) = astFromIntegral v
-astCast v = Ast.AstCastK v
+astCastK :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
+         => AstTensor AstMethodLet s (TKScalar r1)
+         -> AstTensor AstMethodLet s (TKScalar r2)
+astCastK (AstConcrete FTKScalar t) = astConcrete FTKScalar $ kcast t
+astCastK (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastK v
+astCastK (Ast.AstFromDual v) = Ast.AstFromDual $ astCastK v
+astCastK (Ast.AstCastK v) = astCastK v
+astCastK (Ast.AstFromIntegralK v) = astFromIntegralK v
+astCastK v = Ast.AstCastK v
 
 astCastS :: ( KnownShS sh, GoodScalar r1, GoodScalar r2, RealFrac r1
             , RealFrac r2 )
@@ -2138,12 +2138,12 @@ astCastS (Ast.AstCastS v) = astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astCastS v = Ast.AstCastS v
 
-astFromIntegral :: (GoodScalar r1, GoodScalar r2, Integral r1)
+astFromIntegralK :: (GoodScalar r1, GoodScalar r2, Integral r1)
                 => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
                 -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
-astFromIntegral (AstConcrete FTKScalar t) = astConcrete FTKScalar $ kfromIntegral t
-astFromIntegral (Ast.AstFromIntegralK v) = astFromIntegral v
-astFromIntegral v = Ast.AstFromIntegralK v
+astFromIntegralK (AstConcrete FTKScalar t) = astConcrete FTKScalar $ kfromIntegral t
+astFromIntegralK (Ast.AstFromIntegralK v) = astFromIntegralK v
+astFromIntegralK v = Ast.AstFromIntegralK v
 
 astFromIntegralS :: (KnownShS sh, GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
@@ -2477,7 +2477,7 @@ astPrimalPart t = case t of
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPrimalPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2K opCode u v -> Ast.AstI2K opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstCastK v -> astCast $ astPrimalPart v
+  Ast.AstCastK v -> astCastK $ astPrimalPart v
 
   Ast.AstSFromK u -> astFromK $ astPrimalPart u
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
@@ -2570,7 +2570,7 @@ astDualPart t = case t of
   Ast.AstR1K{} -> Ast.AstDualPart t
   Ast.AstR2K{} -> Ast.AstDualPart t
   Ast.AstI2K{} -> Ast.AstDualPart t
-  Ast.AstCastK v -> astCast $ astDualPart v
+  Ast.AstCastK v -> astCastK $ astDualPart v
 
   Ast.AstSFromK u -> astFromK $ astDualPart u
   AstN1S{} -> Ast.AstDualPart t
@@ -2767,8 +2767,8 @@ expandAst t = case t of
       Just Refl -> contractAstIntegralOp2 opCode (expandAst u) (expandAst v)
       _ -> Ast.AstI2K opCode (expandAst u) (expandAst v)
   Ast.AstFloorK a -> Ast.AstFloorK (expandAst a)
-  Ast.AstFromIntegralK v -> astFromIntegral $ expandAst v
-  Ast.AstCastK v -> astCast $ expandAst v
+  Ast.AstFromIntegralK v -> astFromIntegralK $ expandAst v
+  Ast.AstCastK v -> astCastK $ expandAst v
 
   Ast.AstSFromK u -> astFromK $ expandAst u
   AstN1S opCode u -> AstN1S opCode (expandAst u)
@@ -2976,8 +2976,8 @@ simplifyAst t = case t of
       Just Refl -> contractAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
       _ -> Ast.AstI2K opCode (simplifyAst u) (simplifyAst v)
   Ast.AstFloorK a -> Ast.AstFloorK (simplifyAst a)
-  Ast.AstFromIntegralK v -> astFromIntegral $ simplifyAst v
-  Ast.AstCastK v -> astCast $ simplifyAst v
+  Ast.AstFromIntegralK v -> astFromIntegralK $ simplifyAst v
+  Ast.AstCastK v -> astCastK $ simplifyAst v
 
   Ast.AstSFromK u -> astFromK $ simplifyAst u
   AstN1S opCode u -> AstN1S opCode (simplifyAst u)
@@ -3342,8 +3342,8 @@ contractAst t = case t of
       Just Refl -> contractAstIntegralOp2 opCode (contractAst u) (contractAst v)
       _ -> Ast.AstI2K opCode (contractAst u) (contractAst v)
   Ast.AstFloorK a -> Ast.AstFloorK (contractAst a)
-  Ast.AstFromIntegralK v -> astFromIntegral $ contractAst v
-  Ast.AstCastK v -> astCast $ contractAst v
+  Ast.AstFromIntegralK v -> astFromIntegralK $ contractAst v
+  Ast.AstCastK v -> astCastK $ contractAst v
 
   AstN2S TimesOp v (Ast.AstLet var u
                       (Ast.AstReshapeS @_ @sh
@@ -3880,8 +3880,8 @@ substitute1Ast i var v1 = case v1 of
          _ -> Ast.AstI2K opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstFloorK a -> Ast.AstFloorK <$> substitute1Ast i var a
-  Ast.AstFromIntegralK v -> astFromIntegral <$> substitute1Ast i var v
-  Ast.AstCastK v -> astCast <$> substitute1Ast i var v
+  Ast.AstFromIntegralK v -> astFromIntegralK <$> substitute1Ast i var v
+  Ast.AstCastK v -> astCastK <$> substitute1Ast i var v
 
   Ast.AstSFromK u -> astFromK <$> substitute1Ast i var u
   Ast.AstN1S opCode u -> Ast.AstN1S opCode  <$> substitute1Ast i var u
