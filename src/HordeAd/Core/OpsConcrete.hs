@@ -140,12 +140,12 @@ instance BaseTensor RepN where
   rfromList @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.rfromListOuter . NonEmpty.map unRepN
       -- TODO: make this strict
-  rfromList0N @r sh | Dict <- eltDictRep (stensorKind @r) =
-    RepN . tfromList0NR sh . map unRepN
+  rfromListLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
+    RepN . tfromListLinearR sh . map unRepN
   rfromVector @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
   rfromVector0N @r sh | Dict <- eltDictRep (stensorKind @r) =
-    RepN . tfromList0NR sh . V.toList . V.map unRepN
+    RepN . tfromListLinearR sh . V.toList . V.map unRepN
   runravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.rtoListOuter . unRepN
   rreplicate @r k | Dict <- eltDictRep (stensorKind @r) =
@@ -270,13 +270,13 @@ instance BaseTensor RepN where
   sfromList @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.map unRepN
       -- TODO: make this strict
-  sfromList0N @r | Dict <- eltDictRep (stensorKind @r) =
-    RepN . tfromList0NS . map unRepN
+  sfromListLinear @r | Dict <- eltDictRep (stensorKind @r) =
+    RepN . tfromListLinearS . map unRepN
   sfromVector @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . V.map unRepN
   sfromVector0N @r | Dict <- eltDictRep (stensorKind @r) =
-    RepN . tfromList0NS . V.toList . V.map unRepN
+    RepN . tfromListLinearS . V.toList . V.map unRepN
   sunravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.stoListOuter . unRepN
   sreplicate @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
@@ -415,14 +415,14 @@ instance BaseTensor RepN where
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.map unRepN
       -- TODO: make this strict
-  xfromList0N @r sh | Dict <- eltDictRep (stensorKind @r) =
-    RepN . tfromList0NX sh . map unRepN
+  xfromListLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
+    RepN . tfromListLinearX sh . map unRepN
   xfromVector @r @n @sh | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList
     . V.map unRepN
   xfromVector0N @r sh | Dict <- eltDictRep (stensorKind @r) =
-    RepN . tfromList0NX sh . V.toList . V.map unRepN
+    RepN . tfromListLinearX sh . V.toList . V.map unRepN
   xunravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.mtoListOuter . unRepN
   xreplicate @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
@@ -765,7 +765,7 @@ updateNR arr upd = case stensorKind @x of
                                shNested ((RepN . fromIntegral) i)) upd of
           Just u -> rnest (SNat @0) u
           Nothing -> v
-    in runNest $ rfromList0N shNested
+    in runNest $ rfromListLinear shNested
        $ imap f $ runravelToList $ rflatten arrNested
 
 tminIndexR
@@ -938,10 +938,10 @@ tscatterZ1R sh t f = case tftk stensorKind t of
     in foldr (addTarget stensorKind) zero lu
 
 -- TODO: make this strict
-tfromList0NR
+tfromListLinearR
   :: Nested.KnownElt r
   => IShR n -> [Nested.Ranked 0 r] -> Nested.Ranked n r
-tfromList0NR sh l = case NonEmpty.nonEmpty l of
+tfromListLinearR sh l = case NonEmpty.nonEmpty l of
   Nothing -> Nested.rreshape sh Nested.remptyArray
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
@@ -1030,7 +1030,7 @@ updateNS arr upd = case stensorKind @r of
                                  shNested ((RepN . fromIntegral) i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v
-      in sunNest @_ @(Take n sh) $ sfromList0N
+      in sunNest @_ @(Take n sh) $ sfromListLinear
          $ imap f $ sunravelToList $ sflatten arrNested
 
 tminIndexS
@@ -1178,14 +1178,14 @@ tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
       in foldr (addTarget stensorKind) zero lu
 
 -- TODO: make this strict
-tfromList0NS
+tfromListLinearS
   :: forall r sh. (Nested.KnownElt r, KnownShS sh, KnownNat (Nested.Product sh))
   => [Nested.Shaped '[] r] -> Nested.Shaped sh r
-tfromList0NS l = case NonEmpty.nonEmpty l of
+tfromListLinearS l = case NonEmpty.nonEmpty l of
   Nothing -> case sameNat (Proxy @(Nested.Product sh)) (Proxy @0) of
     Just Refl -> Nested.sreshape (knownShS @sh)
                  $ Nested.semptyArray (knownShS @sh)
-    Nothing -> error "tfromList0NS: empty list, but not shape"
+    Nothing -> error "tfromListLinearS: empty list, but not shape"
   Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
 
 tbuild1S
@@ -1256,7 +1256,7 @@ updateNX arr upd = case stensorKind @r of
             Just u -> xnest (knownShX @'[]) u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
-           xunNest @_ @(Take n sh) $ xfromList0N shNested
+           xunNest @_ @(Take n sh) $ xfromListLinear shNested
            $ imap f $ xunravelToList
            $ RepN $ Nested.mcast (Nested.SKnown snat :!% ZKX)
            $ unRepN $ xflatten arrNested
@@ -1379,13 +1379,13 @@ tscatterZ1X sh t f =
           lu = imap g lt
       in foldr (addTarget stensorKind) zero lu
 
-tfromList0NX
+tfromListLinearX
   :: forall r sh. Nested.KnownElt r
   => IShX sh -> [Nested.Mixed '[] r] -> Nested.Mixed sh r
-tfromList0NX sh l = case NonEmpty.nonEmpty l of
+tfromListLinearX sh l = case NonEmpty.nonEmpty l of
   Nothing -> if shxSize sh == 0
              then Nested.mreshape sh $ Nested.memptyArray sh
-             else error "tfromList0NS: empty list, but not shape"
+             else error "tfromListLinearS: empty list, but not shape"
   Just nl -> Nested.mfromListLinear sh $ NonEmpty.map Nested.munScalar nl
 
 tbuild1X

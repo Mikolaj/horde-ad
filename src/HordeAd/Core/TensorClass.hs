@@ -484,9 +484,9 @@ class ( Num (IntOf target)
             => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
-  rfromList0N :: (TensorKind r, KnownNat n)
+  rfromListLinear :: (TensorKind r, KnownNat n)
               => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
-  rfromList0N sh = rfromVector0N sh . V.fromList
+  rfromListLinear sh = rfromVector0N sh . V.fromList
   -- This is morally non-empty strict vectors:
   rfromVector :: (TensorKind r, KnownNat n)
               => Data.Vector.Vector (target (TKR2 n r))
@@ -787,9 +787,9 @@ class ( Num (IntOf target)
   sfromList :: (TensorKind r, KnownNat n, KnownShS sh)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
-  sfromList0N :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+  sfromListLinear :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
               => [target (TKS2 '[] r)] -> target (TKS2 sh r)
-  sfromList0N = sfromVector0N . V.fromList
+  sfromListLinear = sfromVector0N . V.fromList
   -- This is morally non-empty strict vectors:
   sfromVector :: (TensorKind r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (target (TKS2 sh r))
@@ -1151,9 +1151,9 @@ class ( Num (IntOf target)
   xfromList = xfromVector
               . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
-  xfromList0N :: (TensorKind r, KnownShX sh)
+  xfromListLinear :: (TensorKind r, KnownShX sh)
               => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
-  xfromList0N sh = xfromVector0N sh . V.fromList
+  xfromListLinear sh = xfromVector0N sh . V.fromList
   xfromVector :: (TensorKind r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX2 sh r))
               -> target (TKX2 (Just n ': sh) r)
