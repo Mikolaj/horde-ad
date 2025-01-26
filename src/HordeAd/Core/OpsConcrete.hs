@@ -524,9 +524,9 @@ instance BaseTensor RepN where
   tcond _ b u v = if b then u else v
   tfromPrimal _ t = t
   tprimalPart _ = id
-  tdualPart _stk _t = DummyDualTarget
+  tdualPart stk t = DummyDualTarget (tftk stk t)
   tD _stk t _d = t
-  tScale _ _ _ = DummyDualTarget
+  tScale _stk _s t = t
   tconcrete _ = id
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tApply f x = RepN $ f $ unRepN x

@@ -671,7 +671,8 @@ class ( Num (IntOf target)
   rD :: (TensorKind r, KnownNat n)
      => PrimalOf target (TKR2 n r) -> DualOf target (TKR2 n r) -> target (TKR2 n r)
   rD = tD stensorKind
-  rScale :: (GoodScalar r, KnownNat n, Num (target (TKR n r)), Num (PrimalOf target (TKR n r)))
+  rScale :: ( GoodScalar r, KnownNat n
+            , Num (target (TKR n r)), Num (PrimalOf target (TKR n r)) )
          => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
          -> DualOf target (TKR n r)
   rScale = tScale @target stensorKind

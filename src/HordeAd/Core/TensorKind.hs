@@ -11,6 +11,7 @@ module HordeAd.Core.TensorKind
   , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
   , ftkUnit, buildFTK, razeFTK, aDFTK
+  , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..), EqF(..), OrdF(..)
   ) where
@@ -235,6 +236,10 @@ aDFTK = \case
   FTKS sh x -> FTKS sh $ aDFTK x
   FTKX sh x -> FTKX sh $ aDFTK x
   FTKProduct ftk1 ftk2 -> FTKProduct (aDFTK ftk1) (aDFTK ftk2)
+
+type role DummyDualTarget nominal
+type DummyDualTarget :: Target
+data DummyDualTarget y = DummyDualTarget (FullTensorKind y)
 
 
 -- * Generic types of booleans and related class definitions

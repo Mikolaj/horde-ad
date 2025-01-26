@@ -18,7 +18,6 @@ module HordeAd.Core.Types
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
     -- * Type families that tensors will belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
-  , DummyDualTarget(..)
   , IxROf, IxSOf, IxXOf
     -- * Misc
   , IntegralF(..), RealFloatF(..)
@@ -322,10 +321,6 @@ type family PrimalOf (f :: Target) :: Target
 type family DualOf (f :: Target) :: Target
 
 type family ShareOf (f :: Target) :: Target
-
-type role DummyDualTarget representational
-type DummyDualTarget :: Target
-data DummyDualTarget y = DummyDualTarget
 
 -- TODO: move this comment elsewhere?
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
