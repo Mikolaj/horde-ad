@@ -66,7 +66,15 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtSX, shrRank, shrSize, shsAppend, shsProduct, shsRank, withKnownShS)
+  ( shCvtSX
+  , shrAppend
+  , shrRank
+  , shrSize
+  , shsAppend
+  , shsProduct
+  , shsRank
+  , withKnownShS
+  )
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
@@ -402,6 +410,26 @@ class ( Num (IntOf target)
   rindex0 :: (TensorKind r, KnownNat m)
           => target (TKR2 m r) -> IxROf target m -> target (TKR2 0 r)
   rindex0 = rindex
+  roneHot :: forall r m n.
+             ( TensorKind r, KnownNat m, KnownNat n
+             , BoolOf (PrimalOf target) ~ BoolOf target
+             , EqF (PrimalOf target) )
+          => IShR m -> target (TKR2 n r) -> IxROf target m
+          -> target (TKR2 (m + n) r)
+  roneHot sh v ix = case stensorKind @r of
+    STKScalar{} ->
+      rscatter @_ @_ @0
+               (shrAppend sh (rshape v)) v (const ix)
+    _ -> case tftk stensorKind v of
+      FTKR _ ftk2 ->
+        -- TODO: def at out of bounds
+        let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                         $ zip (toList ix) (toList ix2))
+                        (rindex0 v (dropIndex ix2))
+                        (tconstantTarget 0 (FTKR ZSR ftk2))
+        in rbuild (shrAppend sh (rshape v)) f
+           -- TODO: if this is used often, maybe express this as the gather that
+           -- would come out of vectorization, making sure it simplifies well
   rsum :: (TensorKind r, KnownNat n)
        => target (TKR2 (1 + n) r) -> target (TKR2 n r)
   -- This op (and it's Delta constructor) is worthwhile, because flattening
@@ -680,6 +708,34 @@ class ( Num (IntOf target)
           => target (TKS2 sh1 r) -> IxSOf target sh1
           -> target (TKS2 '[] r)
   sindex0 | Refl <- lemAppNil @sh1 = sindex
+  soneHot :: forall r sh1 sh2.
+             ( TensorKind r, KnownShS sh1, KnownShS sh2
+             , KnownShS (sh1 ++ sh2)
+             , BoolOf (PrimalOf target) ~ BoolOf target
+             , EqF (PrimalOf target) )
+          => target (TKS2 sh2 r) -> IxSOf target sh1
+          -> target (TKS2 (sh1 ++ sh2) r)
+  soneHot v ix = case stensorKind @r of
+    STKScalar{} | SNat <- shsRank (knownShS @sh1) ->
+      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+      gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+      sscatter @_ @_ @'[] @_ @sh1 v (const ix)
+    _ -> case tftk stensorKind v of
+      FTKS _ ftk2 ->
+        -- TODO: def at out of bounds
+        gcastWith (unsafeCoerceRefl
+                   :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
+        gcastWith (unsafeCoerceRefl
+                   :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+        withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
+        gcastWith (unsafeCoerceRefl :: rankSh1 :~: Rank sh1) $
+           let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                         $ zip (toList ix) (toList ix2))
+                        (sindex0 v (dropIxS @(Rank sh1) ix2))
+                        (tconstantTarget 0 (FTKS ZSS ftk2))
+        in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
   ssum :: (TensorKind r, KnownNat n, KnownShS sh)
        => target (TKS2 (n ': sh) r) -> target (TKS2 sh r)
   ssum0 :: forall r sh. (TensorKind r, KnownShS sh)
@@ -1016,6 +1072,12 @@ class ( Num (IntOf target)
           => target (TKX2 sh1 r) -> IxXOf target sh1
           -> target (TKX2 '[] r)
   xindex0 | Refl <- lemAppNil @sh1 = xindex
+  xoneHot :: forall r sh1 sh2.
+--             ( BaseTensor target, GoodScalar r, KnownShX sh1, KnownShX sh2
+--             , KnownShX (sh1 ++ sh2) )
+             IShX sh1 -> target (TKX sh2 r) -> IxXOf target sh1
+          -> target (TKX (sh1 ++ sh2) r)
+  xoneHot = error "TODO"
   -- The choice in BuildTensorKind makes it hard to support this one,
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
   -- xsum :: (TensorKind r, KnownShX sh, KnownShX (mn ': sh))

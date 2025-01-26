@@ -6,17 +6,14 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.HVectorOps
-  ( -- * One-hots
-    roneHot, soneHot, xoneHot
-    -- * Winding
-  , addTarget, constantTarget
+  ( -- * Winding
+    addTarget, constantTarget
     -- * Misc
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
 import Prelude
 
-import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
@@ -31,80 +28,16 @@ import Data.Array.Nested
   , KnownShS (..)
   , KnownShX (..)
   , MapJust
-  , Rank
   , Replicate
-  , ShR (..)
   , ShS (..)
   , type (++)
   )
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, shsRank, withKnownShS)
+  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, withKnownShS)
 
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-
--- * One-hots
-
--- These use constantTarget, so can't be defined in TensorClass.
-
-roneHot :: forall r m n target.
-           ( BaseTensor target, TensorKind r, KnownNat m, KnownNat n
-           , BoolOf (PrimalOf target) ~ BoolOf target
-           , EqF (PrimalOf target) )
-        => IShR m -> target (TKR2 n r) -> IxROf target m
-        -> target (TKR2 (m + n) r)
-roneHot sh v ix = case stensorKind @r of
-  STKScalar{} ->
-    rscatter @_ @_ @0
-             (shrAppend sh (rshape v)) v (const ix)
-  _ -> case tftk stensorKind v of
-    FTKR _ ftk2 ->
-      -- TODO: def at out of bounds
-      let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                       $ zip (toList ix) (toList ix2))
-                      (rindex0 v (dropIndex ix2))
-                      (constantTarget 0 (FTKR ZSR ftk2))
-      in rbuild (shrAppend sh (rshape v)) f
-         -- TODO: if this is used often, maybe express this as the gather that
-         -- would come out of vectorization, making sure it simplifies well
-
-soneHot :: forall r sh1 sh2 target.
-           ( BaseTensor target, TensorKind r, KnownShS sh1, KnownShS sh2
-           , KnownShS (sh1 ++ sh2)
-           , BoolOf (PrimalOf target) ~ BoolOf target
-           , EqF (PrimalOf target) )
-        => target (TKS2 sh2 r) -> IxSOf target sh1
-        -> target (TKS2 (sh1 ++ sh2) r)
-soneHot v ix = case stensorKind @r of
-  STKScalar{} | SNat <- shsRank (knownShS @sh1) ->
-    gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
-    gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-    sscatter @_ @_ @'[] @_ @sh1 v (const ix)
-  _ -> case tftk stensorKind v of
-    FTKS _ ftk2 ->
-      -- TODO: def at out of bounds
-      gcastWith (unsafeCoerceRefl
-                 :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-      gcastWith (unsafeCoerceRefl
-                 :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-      gcastWith (unsafeCoerceRefl
-                 :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-      withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-      gcastWith (unsafeCoerceRefl :: rankSh1 :~: Rank sh1) $
-         let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                       $ zip (toList ix) (toList ix2))
-                      (sindex0 v (dropIxS @(Rank sh1) ix2))
-                      (constantTarget 0 (FTKS ZSS ftk2))
-      in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
-
-xoneHot :: forall r sh1 sh2 target.
---           ( BaseTensor target, GoodScalar r, KnownShX sh1, KnownShX sh2
---           , KnownShX (sh1 ++ sh2) )
-           IShX sh1 -> target (TKX sh2 r) -> IxXOf target sh1
-        -> target (TKX (sh1 ++ sh2) r)
-xoneHot = error "TODO"
-
 
 -- * Winding
 
