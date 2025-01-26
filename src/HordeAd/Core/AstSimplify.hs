@@ -1262,6 +1262,8 @@ astPair :: (TensorKind x, TensorKind y)
 --   Ast.AstConcrete (v1, v2)
 astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
   Ast.AstFromPrimal $ astPair v1 v2
+astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
+  Ast.AstFromDual $ astPair v1 v2
 astPair (Ast.AstFromS stkz1 v1) (Ast.AstFromS stkz2 v2)
   | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v1))
   , Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v2)) =
@@ -1284,6 +1286,7 @@ astLet _var _u v@Ast.AstConcrete{} = v
 astLet var u v | astIsSmall True u =
   substituteAst u var v
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
+astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
 astLet var u v@(Ast.AstVar _ var2) =
   case sameAstSpan @s @s2 of
     Just Refl -> case geq var2 var of
@@ -1308,6 +1311,9 @@ astLet var (Ast.AstPair u1 u2) v =
 astLet var (Ast.AstFromPrimal (Ast.AstPair u1 u2)) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
     substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
+astLet var (Ast.AstFromDual (Ast.AstPair u1 u2)) v =
+  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+    substituteAst (Ast.AstFromDual (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
@@ -1316,6 +1322,10 @@ astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
+astLet var (Ast.AstFromDual (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
+  astLet varN uN
+  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+      substituteAst (Ast.AstFromDual (Ast.AstPair ast1 ast2)) var v
 astLet var u (Ast.AstFromS stkz v)
   | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) =
     astFromS stkz $ astLet var u v
@@ -1663,6 +1673,8 @@ astCond :: TensorKind y
 astCond (AstBoolConst b) v w = if b then v else w
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
+astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
+  Ast.AstFromDual $ astCond b v w
 astCond b (Ast.AstFromS stkzv v) (Ast.AstFromS _ w) =
   case sameSTK (ftkToStk (ftkAst v)) (ftkToStk (ftkAst w)) of
     Just Refl | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
@@ -1708,6 +1720,9 @@ astScatterS v (Const var ::$ (vars :: AstVarListS sh3), ix)
 astScatterS (Ast.AstFromPrimal v) (vars, ix) =
   withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
   Ast.AstFromPrimal $ astScatterS @shm @shn @shp v (vars, ix)
+astScatterS (Ast.AstFromDual v) (vars, ix) =
+  withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+  Ast.AstFromDual $ astScatterS @shm @shn @shp v (vars, ix)
 astScatterS v (vars, ix) = Ast.AstScatterS @shm @shn @shp v (vars, ix)
 
 astFromVector :: forall y k s. (TensorKind y, AstSpan s)
@@ -1741,6 +1756,19 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
          Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
            Just $ Ast.AstFromPrimal $ astFromVector snat l2
+         Nothing -> Nothing
+     _ -> Nothing)
+  `mplus`
+  (case sameAstSpan @s @FullSpan of
+     Just Refl ->
+       let unFromDual :: AstTensor AstMethodLet FullSpan y
+                        -> Maybe (AstTensor AstMethodLet DualSpan y)
+           unFromDual (Ast.AstFromDual t) = Just t
+           unFromDual _ = Nothing
+       in case V.mapM unFromDual l of
+         Just l2 | V.null l2 -> error "astFromVector: empty vector"
+         Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+           Just $ Ast.AstFromDual $ astFromVector snat l2
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
@@ -1813,6 +1841,8 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
       astConcrete (razeFTK snat stensorKind ftk) $ tsum snat stk t
     Ast.AstFromPrimal v | Dict <- lemTensorKindOfSTK stk ->
       Ast.AstFromPrimal $ astSum snat stk v
+    Ast.AstFromDual v | Dict <- lemTensorKindOfSTK stk ->
+      Ast.AstFromDual $ astSum snat stk v
     Ast.AstFromS _ v -> case ftkToStk (ftkAst v) of
       STKS @_ @x sh x | Dict <- lemTensorKindOfSTK stk -> case sh of
         (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
@@ -1832,6 +1862,7 @@ astReplicate snat@SNat stk
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
 --  AstConcrete t -> astConcrete $ treplicateR k t
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
+  Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
 {- TODO: these may be counterproductive with many gathers and their fusion
          though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside replicate and only move
@@ -1887,6 +1918,8 @@ astAppendS (AstConcrete (FTKS _ x) u) (AstConcrete _ v) =
   astConcrete (FTKS knownShS x) $ sappend u v
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppendS u v
+astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
+  Ast.AstFromDual $ astAppendS u v
 astAppendS (Ast.AstFromVector @y2 (SNat @k1) l1)
            (Ast.AstFromVector @y3 (SNat @k2) l2)
   | STKS{} <- stensorKind @y2
@@ -1902,6 +1935,7 @@ astSliceS :: forall i n k sh s r.
 astSliceS (AstConcrete (FTKS _ ftk2) t) =
   astConcrete (FTKS knownShS ftk2) $ sslice (Proxy @i) (Proxy @n) t
 astSliceS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS @i @n v
+astSliceS (Ast.AstFromDual v) = Ast.AstFromDual $ astSliceS @i @n v
 astSliceS v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
             , Just Refl <- sameNat (Proxy @k) (Proxy @0) = v
 astSliceS (Ast.AstReplicate _ snat@STKS{} v) =
@@ -1942,6 +1976,7 @@ astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, TensorKind r, AstSpan 
             -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (AstConcrete ftk t) = astConcrete ftk $ sreverse t
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
+astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
 astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
 astReverseS (Ast.AstFromVector snat l) =
   astFromVector snat $ V.reverse l
@@ -2041,6 +2076,9 @@ astTransposeS perm t = case perm of
   Ast.AstFromPrimal v ->
     withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
     Ast.AstFromPrimal $ astTransposeS perm v
+  Ast.AstFromDual v ->
+    withKnownShS (shsPermutePrefix perm (knownShS @sh)) $
+    Ast.AstFromDual $ astTransposeS perm v
   u -> Ast.AstTransposeS @perm perm u  -- TODO
 
 -- Beware, this does not do full simplification, which often requires
@@ -2073,6 +2111,7 @@ astReshapeS = \case
   AstConcrete (FTKS _ x) t -> astConcrete (FTKS knownShS x)
                               $ sreshape t
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS v
+  Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS v
   v -> case sameShape @sh @sh2 of
          Just Refl -> v
          _ -> Ast.AstReshapeS v
@@ -2082,6 +2121,7 @@ astCast :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
         -> AstTensor AstMethodLet s (TKScalar r2)
 astCast (AstConcrete FTKScalar t) = astConcrete FTKScalar $ kcast t
 astCast (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCast v
+astCast (Ast.AstFromDual v) = Ast.AstFromDual $ astCast v
 astCast (Ast.AstCastK v) = astCast v
 astCast (Ast.AstFromIntegralK v) = astFromIntegral v
 astCast v = Ast.AstCastK v
@@ -2093,6 +2133,7 @@ astCastS :: ( KnownShS sh, GoodScalar r1, GoodScalar r2, RealFrac r1
 astCastS (AstConcrete (FTKS sh FTKScalar) t) =
   astConcrete (FTKS sh FTKScalar) $ scast t
 astCastS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastS v
+astCastS (Ast.AstFromDual v) = Ast.AstFromDual $ astCastS v
 astCastS (Ast.AstCastS v) = astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astCastS v = Ast.AstCastS v
@@ -2120,6 +2161,7 @@ astProject1 u = case u of
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
 -- TODO: Ast.AstConcrete u1 -> astConcrete $ tproject1 u1
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
+  Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                          , Dict <- lemTensorKindOfSTK stk2 ->
@@ -2135,6 +2177,7 @@ astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
+  Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
     STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                          , Dict <- lemTensorKindOfSTK stk2 ->
@@ -2158,6 +2201,8 @@ astFromS stkz (Ast.AstFromPrimal v) | Dict <- lemTensorKindOfSTK stkz =
   Ast.AstFromPrimal $ astFromS stkz v
   -- the only case where we don't push up but down so that conversions
   -- don't end up interspersed with AstFromPrimal
+astFromS stkz (Ast.AstFromDual v) | Dict <- lemTensorKindOfSTK stkz =
+  Ast.AstFromDual $ astFromS stkz v
 astFromS stkz v = Ast.AstFromS stkz v
 
 -- Compare with tfromS.
@@ -2256,6 +2301,7 @@ astSFromX (AstConcrete ftk t) = case ftk of
     let u = sfromX t
     in astConcrete (FTKS knownShS x) u
 astSFromX (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX v
+astSFromX (Ast.AstFromDual v) = Ast.AstFromDual $ astSFromX v
 astSFromX (Ast.AstFromS _ v) = case sameSTK (ftkToStk (ftkAst v))
                                             (stensorKind @(TKS2 sh r)) of
     Just Refl -> v
@@ -2274,6 +2320,9 @@ astXNestR t = case t of
   Ast.AstFromPrimal u ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     Ast.AstFromPrimal $ astXNestR u
+  Ast.AstFromDual u ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    Ast.AstFromDual $ astXNestR u
   Ast.AstCond b v1 v2 ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     Ast.AstCond b (astXNestR v1) (astXNestR v2)  -- TODO: ??
@@ -2294,6 +2343,10 @@ astXNestS t = case t of
     withKnownShX (knownShX @sh1
                   `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
     Ast.AstFromPrimal $ astXNestS u
+  Ast.AstFromDual u ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    Ast.AstFromDual $ astXNestS u
   Ast.AstCond b v1 v2 ->
     withKnownShX (knownShX @sh1
                   `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
@@ -2312,6 +2365,9 @@ astXNest t = case t of
   Ast.AstFromPrimal u ->
     withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
     Ast.AstFromPrimal $ astXNest u
+  Ast.AstFromDual u ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    Ast.AstFromDual $ astXNest u
   Ast.AstCond b v1 v2 ->
     withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
     Ast.AstCond b (astXNest v1) (astXNest v2)  -- TODO: ??
@@ -2329,6 +2385,9 @@ astXUnNestR t = case t of
   Ast.AstFromPrimal u ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     Ast.AstFromPrimal $ astXUnNestR u
+  Ast.AstFromDual u ->
+    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+    Ast.AstFromDual $ astXUnNestR u
   Ast.AstCond b v1 v2 ->
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     Ast.AstCond b (astXUnNestR v1) (astXUnNestR v2)  -- TODO: ??
@@ -2349,6 +2408,10 @@ astXUnNestS t = case t of
     withKnownShX (knownShX @sh1
                   `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
     Ast.AstFromPrimal $ astXUnNestS u
+  Ast.AstFromDual u ->
+    withKnownShX (knownShX @sh1
+                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    Ast.AstFromDual $ astXUnNestS u
   Ast.AstCond b v1 v2 ->
     withKnownShX (knownShX @sh1
                   `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
@@ -2368,6 +2431,9 @@ astXUnNest t = case t of
   Ast.AstFromPrimal u ->
     withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
     Ast.AstFromPrimal $ astXUnNest u
+  Ast.AstFromDual u ->
+    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+    Ast.AstFromDual $ astXUnNest u
   Ast.AstCond b v1 v2 ->
     withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
     Ast.AstCond b (astXUnNest v1) (astXUnNest v2)  -- TODO: ??
@@ -2478,7 +2544,7 @@ astDualPart t = case t of
   Ast.AstProject2 v -> astProject2 (astDualPart v)
   Ast.AstApply v ll -> astApply v (astDualPart ll)
   Ast.AstVar{} -> Ast.AstDualPart t
-  Ast.AstFromPrimal{} -> Ast.AstDualPart t
+  Ast.AstFromPrimal{} -> Ast.AstDualPart t  -- TODO: replace t with something small
   Ast.AstFromDual v -> v
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstFromVector snat l -> astFromVector snat (V.map astDualPart l)
@@ -2614,6 +2680,7 @@ astFromK t = case t of
     Ast.AstI2S opCode (astFromK u) (astFromK v)
   AstSumOfList _ args -> AstSumOfList stensorKind $ map astFromK args
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astFromK v
+  Ast.AstFromDual v -> Ast.AstFromDual $ astFromK v
   Ast.AstFromS _ v -> case sameSTK (ftkToStk (ftkAst v))
                                    (stensorKind @(TKS '[] r)) of
     Just Refl -> v
@@ -2728,9 +2795,10 @@ expandAst t = case t of
   Ast.AstReverseS v -> astReverseS (expandAst v)
   Ast.AstTransposeS perm v -> case v of
     Ast.AstVar{} -> t  -- normal form
-    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromDual Ast.AstVar{} -> t  -- normal form
     Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
     Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
     Ast.AstReplicate{} -> t  -- normal form
@@ -2757,9 +2825,10 @@ expandAst t = case t of
         -- this is expensive but the only way to guarantee full simplification
   Ast.AstReshapeS v -> case v of
     Ast.AstVar{} -> t  -- normal form
-    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
+    Ast.AstFromDual Ast.AstVar{} -> t  -- normal form
     Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
     Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
     AstSumOfList{} -> t  -- normal form
