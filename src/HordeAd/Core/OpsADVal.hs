@@ -157,6 +157,8 @@ instance (ADReadyNoLet target, ShareTensor target)
 -- in tests. None others are used anywhere.
 instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
          => BaseTensor (ADVal target) where
+  tconstantTarget = constantTarget
+  
   rshape (D u _) = rshape u
   rminIndex (D u _) =
     let v = rminIndex u

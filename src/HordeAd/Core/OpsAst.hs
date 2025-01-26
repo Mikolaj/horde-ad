@@ -46,6 +46,7 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.HVectorOps
 
 -- * Symbolic reverse and forward derivative computation
 
@@ -242,6 +243,7 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
   tfromS @_ @z = astFromS (stensorKind @z)
 
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
+  tconstantTarget = constantTarget
   rshape = shapeAst
   rminIndex @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
@@ -832,6 +834,7 @@ astReplicate0NSNoSimp =
   in go (knownShS @shn) . fromPrimal . AstConcrete (FTKS ZSS FTKScalar) . sscalar
 
 instance AstSpan s => BaseTensor (AstRaw s) where
+  tconstantTarget = constantTarget
   rshape = shapeAst . unAstRaw
   rminIndex @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
@@ -1374,6 +1377,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
   tfromS = AstNoVectorize . tfromS . unAstNoVectorize
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
+  tconstantTarget = constantTarget
   rshape = rshape . unAstNoVectorize
   rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
   rmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
@@ -1605,6 +1609,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
   tfromS @_ @z = AstNoSimplify . AstFromS (stensorKind @z) . unAstNoSimplify
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
+  tconstantTarget = constantTarget
   rshape = shapeAst . unAstNoSimplify
   rminIndex @_ @r2 @n (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->

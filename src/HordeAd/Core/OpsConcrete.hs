@@ -107,6 +107,7 @@ instance ShareTensor RepN where
   tunpair (RepN (t1, t2)) = (RepN t1, RepN t2)
 
 instance BaseTensor RepN where
+  tconstantTarget = constantTarget
   rshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.rshape . unRepN
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN

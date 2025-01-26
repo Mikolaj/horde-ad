@@ -367,6 +367,10 @@ class ( Num (IntOf target)
       , TensorSupportsX IntegralF IntegralF target )
       => BaseTensor (target :: Target) where
 
+  -- A method needed only to split off the module that defines it.
+  tconstantTarget
+    :: (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
+
   -- Ranked ops
   -- Integer codomain.
   rshape :: TensorKind r => target (TKR2 n r) -> IShR n
