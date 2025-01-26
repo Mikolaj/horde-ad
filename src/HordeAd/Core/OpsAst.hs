@@ -639,8 +639,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xfromK @r = astFromS (stensorKind @(TKX '[] r)) . astFromK
 
   kfloor = fromPrimal . AstFloorK . astSpanPrimal
-  kfromIntegral = fromPrimal . astFromIntegral . astSpanPrimal
-  kcast = astCast
+  kfromIntegral = fromPrimal . astFromIntegralK . astSpanPrimal
+  kcast = astCastK
 
   sfromR = astSFromR
   sfromX = astSFromX

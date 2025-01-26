@@ -126,6 +126,8 @@ instance BaseTensor RepN where
       let l = runravelToList t
           sh = shrTail $ rshape t
       in foldr (addTarget stensorKind) (constantTarget 0 (FTKR sh x)) l
+        -- RepN has a ShareTensor instance, so addTarget arguments
+        -- don't need to be duplicable
   rsum0 t = case tftk stensorKind t of
     FTKR _ FTKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t

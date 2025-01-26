@@ -255,6 +255,8 @@ addRepM a b = case (a, b) of
   (MTKScalar ta, MTKScalar tb) -> MTKScalar $ ta + tb
   (MTKR ta, MTKR tb) | STKR _ STKScalar{} <- stensorKind @y -> MTKR $ ta + tb
   (MTKR ta, MTKR tb) -> MTKR $ addTarget stensorKind ta tb
+    -- target has a ShareTensor instance, so ta and tb don't need
+    -- to be duplicable
   (MTKScalarDummy, _) -> b
   (_, MTKScalarDummy) -> a
   (MTKRDummy{}, _) -> b
@@ -1132,6 +1134,8 @@ evalRev !s !c d0 = case d0 of
     $ case DMap.lookup n $ nMap s of
         Just _ ->
           let addc x = RepAD $ addTarget stensorKind c (unRepAD x)
+            -- target has a ShareTensor instance, so addTarget arguments
+            -- don't need to be duplicable
           in s {dMap = DMap.adjust addc n $ dMap s}
         Nothing ->
           let cd = RepAD c
