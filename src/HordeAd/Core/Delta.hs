@@ -837,7 +837,7 @@ shapeDeltaFull = \case
 shapeDelta :: forall target r n.
               (TensorKind r, KnownNat n)
            => Delta target (TKR2 n r) -> IShR n
-shapeDelta t = case shapeDeltaFull t of
+shapeDelta d = case shapeDeltaFull d of
   FTKR sh _ -> sh
 
 lengthDelta :: forall target r n.
@@ -1364,7 +1364,9 @@ evalRevSame !s !c = \case
   DeltaUnzipS d ->
     evalRevSame s (szip c) d
 
-  DeltaIndexX{} -> error "TODO"
+  DeltaIndexX @sh1 @sh2 d ix -> case shapeDeltaFull d of
+    FTKX sh _ -> evalRevSame s (xoneHot (shxTakeSSX (Proxy @sh2) sh
+                                                    (knownShX @sh1)) c ix) d
   DeltaSum0X d ->
     evalRevSame s (xreplicate0N (shapeDeltaX d) c) d
   DeltaDot0X v vd ->

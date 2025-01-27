@@ -29,7 +29,8 @@ module HordeAd.Core.Types
   , ixsRank, ssxRank
   , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
   , takeShape, dropShape, splitAt_Shape
-  , splitAt_SizedS, dropIxS, takeShS, dropShS, takeShX, dropShX
+  , splitAt_SizedS, dropIxS, takeShS, dropShS
+  , takeShX, dropShX, takeIxX, dropIxX
   , listsTakeLen, listsDropLen, shsDropLen
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
@@ -95,14 +96,7 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Shape
-  ( listsDropLenPerm
-  , listsRank
-  , shrSize
-  , shsLength
-  , shsProduct
-  , shsRank
-  , shsSize
-  )
+  (listsDropLenPerm, listsRank, shrSize, shsLength, shsProduct, shsSize)
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -641,6 +635,14 @@ takeShX sh0 = fromList $ take (valueOf @len) $ toList sh0
 dropShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
         => IShX sh -> IShX (Drop len sh)
 dropShX sh0 = fromList $ drop (valueOf @len) $ toList sh0
+
+takeIxX :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
+        => IxX sh i -> IxX (Take len sh) i
+takeIxX sh0 = fromList $ take (valueOf @len) $ toList sh0
+
+dropIxX :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+        => IxX sh i -> IxX (Drop len sh) i
+dropIxX sh0 = fromList $ drop (valueOf @len) $ toList sh0
 
 listsTakeLen :: forall f g sh1 sh2.
                 ListS sh1 f -> ListS sh2 g -> ListS (TakeLen sh1 sh2) g
