@@ -1604,7 +1604,7 @@ testSin0rmapAccumRD01SN51 = do
                                              (sindex0 @_ @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3)))
-                                         (sbuild1 @_ @_ @4 $ \i ->
+                                         (sbuild1 @_ @4 $ \i ->
                                              (tproject2 $ tproject1 a)
                                              - sin x1 / sreplicate @_ @3
                                                      (srepl 1 + sfromIndex0 i))

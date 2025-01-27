@@ -195,9 +195,11 @@ instance BaseTensor RepN where
     withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
     RepN . tmaxIndexS . unRepN $ a
   sfloor = RepN . liftVS (V.map floor) . unRepN
-  siota @n = let n = valueOf @n
-             in RepN $ Nested.sfromList1 SNat
-                $ NonEmpty.map fromInteger $ NonEmpty.fromList [0 .. n - 1]
+  siota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
+    Nothing -> case sameNat (Proxy @n) (Proxy @0) of
+      Just Refl -> RepN $ Nested.semptyArray ZSS
+      Nothing -> error "siota: wrong rank"
+    Just l -> RepN $ Nested.sfromList1 SNat $ NonEmpty.map fromInteger l
   sindex = tindexZS
   sindex0 = tindex0S
   ssum t = case tftk stensorKind t of
@@ -298,7 +300,7 @@ instance BaseTensor RepN where
     RepN . Nested.stranspose perm . unRepN
   sreshape @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.sreshape knownShS . unRepN
-  sbuild1 @r f | Dict <- eltDictRep (stensorKind @r) =
+  sbuild1 @_ @_ @r f | Dict <- eltDictRep (stensorKind @r) =
     RepN $ tbuild1S (unRepN . f . RepN)
   smap0N @r1 @r @sh f v = case (stensorKind @r1, stensorKind @r) of
     (STKScalar{}, STKScalar{}) ->
@@ -444,7 +446,7 @@ instance BaseTensor RepN where
     RepN . Nested.mtranspose perm . unRepN
   xreshape @r sh | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.mreshape sh . unRepN
-  xbuild1 @r f | Dict <- eltDictRep (stensorKind @r) =
+  xbuild1 @_ @_ @r f | Dict <- eltDictRep (stensorKind @r) =
     RepN $ tbuild1X (unRepN . f . RepN)
   xgather @r @shm @shn @shp sh t f =
     withKnownShX (ssxFromShape sh) $
@@ -950,12 +952,13 @@ tfromListLinearR sh l = case NonEmpty.nonEmpty l of
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
 tbuild1R
-  :: forall n r. Nested.Elt r
+  :: forall r n. (Nested.KnownElt r, KnownNat n)
   => Int -> (Int64 -> Nested.Ranked n r) -> Nested.Ranked (1 + n) r
-tbuild1R k f =
-  Nested.rfromListOuter
-  $ NonEmpty.map f
-  $ NonEmpty.fromList [0 .. fromIntegral k - 1]  -- hope this fuses
+tbuild1R k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
+  Nothing -> case sameNat (Proxy @n) (Proxy @0) of
+    Just Refl -> Nested.remptyArray
+    Nothing -> error "rbuild1: shape ambiguity"
+  Just l -> Nested.rfromListOuter $ NonEmpty.map f l  -- hope this fuses
 
 tmap0NR
   :: (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1193,13 +1196,12 @@ tfromListLinearS l = case NonEmpty.nonEmpty l of
   Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
 
 tbuild1S
-  :: forall n sh r. (KnownNat n, Nested.Elt r)
-  => (Int64 -> Nested.Shaped sh r) -> Nested.Shaped (n ': sh) r
-tbuild1S f =
-  let k = valueOf @n
-  in Nested.sfromListOuter SNat
-     $ NonEmpty.map f
-     $ NonEmpty.fromList [0 .. k - 1]  -- hope this fuses
+  :: forall k sh r. (KnownNat k, KnownShS sh, Nested.KnownElt r)
+  => (Int64 -> Nested.Shaped sh r) -> Nested.Shaped (k ': sh) r
+tbuild1S f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
+  Nothing -> gcastWith (unsafeCoerceRefl :: k :~: 0) $
+             Nested.semptyArray knownShS
+  Just l -> Nested.sfromListOuter SNat $ NonEmpty.map f l  -- hope this fuses
 
 tmap0NS
   :: forall r1 r sh. (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1393,13 +1395,16 @@ tfromListLinearX sh l = case NonEmpty.nonEmpty l of
   Just nl -> Nested.mfromListLinear sh $ NonEmpty.map Nested.munScalar nl
 
 tbuild1X
-  :: forall r n sh. (Nested.Elt r, KnownNat n, KnownShX sh)
+  :: forall k sh r. (KnownNat k, KnownShX sh, Nested.KnownElt r)
   => (Int64 -> Nested.Mixed sh r)
-  -> Nested.Mixed (Just n ': sh) r
-tbuild1X f =
-  Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX)
-  $ Nested.mfromListOuter $ NonEmpty.map f
-  $ NonEmpty.fromList [0 .. valueOf @n - 1]  -- hope this fuses
+  -> Nested.Mixed (Just k ': sh) r
+tbuild1X f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
+  Nothing -> case testEquality (knownShX @sh) ZKX of
+    Just Refl -> gcastWith (unsafeCoerceRefl :: k :~: 0) $
+                 Nested.memptyArray ZSX
+    Nothing -> error "xbuild1: shape ambiguity"
+  Just l -> Nested.mcast (Nested.SKnown (SNat @k) :!% knownShX)
+            $ Nested.mfromListOuter $ NonEmpty.map f l  -- hope this fuses
 
 tgatherZ1X
   :: forall r n2 shn shp.
@@ -1413,4 +1418,4 @@ tgatherZ1X SNat t f =
     STKScalar{} ->  -- optimized
       xfromList $ NonEmpty.map (\i -> t `xindex` f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
-    _ -> xbuild1 @_ @_ @n2 (\ix -> t `xindex` f ix)
+    _ -> xbuild1 @_ @n2 (\ix -> t `xindex` f ix)

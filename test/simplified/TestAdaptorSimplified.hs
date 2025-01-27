@@ -16,7 +16,16 @@ import GHC.TypeLits (KnownNat)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested (IxR (..), KnownShS (..), ListR (..), ShR (..))
+import Data.Array.Nested
+  ( IxR (..)
+  , IxS (..)
+  , IxX (..)
+  , KnownShS (..)
+  , ListR (..)
+  , SMayNat (..)
+  , ShR (..)
+  , ShX (..)
+  )
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
@@ -1897,9 +1906,9 @@ testConcatBuild12 =
     (rscalar 0)
     (rev' @Double @0 concatBuild12 (rscalar 3.4))
 
-emptyArgs :: forall target r. (ADReady target, GoodScalar r) -- , Differentiable r)
+emptyArgs :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)
-emptyArgs _t =
+emptyArgs t =
   emptyTensor
 --  - rfromListLinear (rshape @target @r emptyTensor) []
   - rreshape @target @_ @1 [0] emptyTensor
@@ -1913,9 +1922,34 @@ emptyArgs _t =
 --  - rsum (rfromListLinear (0 :$: rshape @target @r emptyTensor) [])
 --  * rsum (rfromList [rsum (rfromListLinear (0 :$: rshape @target @r emptyTensor) [])])
 --  * rflatten (rtr (rgather1 0 t (const ZIR)))
---  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
-  -- - rsum (rbuild @target @r @2 (0 :$: 0 :$: ZSR) (const 73))
-  -- - rsum (rbuild @target @r @1 (0 :$: 0 :$: ZSR) (const $ rfromList []))
+  + rbuild1 0 (\i -> t ! (i :.: ZIR))
+  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
+  + rbuild @target @(TKScalar r) @1 (0 :$: ZSR) (const $ rscalar 73)
+  - rsum (rbuild @target @(TKScalar r) @0 (0 :$: 0 :$: ZSR)
+                 (const (rreplicate 1 emptyTensor)))
+  + rfromS
+      (sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
+       + sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
+                              !$ (fromIntegral (rrank t) `quotF` i :.$ ZIS)
+                              / sfromIndex0 i)
+       + sbuild @target @(TKScalar r) @1 (const $ sscalar 73)
+       - ssum (sbuild @target @(TKScalar r) @0
+                      (const (sreplicate @_ @1 (sfromR emptyTensor)))))
+  + rfromX
+      (xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
+                            `xindex` (i :.% ZIX))
+       + xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
+                              `xindex`
+                              (fromIntegral (rrank t) `quotF` i :.% ZIX)
+                              / xfromIndex0 i)
+       + xbuild @target @(TKScalar r) @1 (SKnown (SNat @0) :$% ZSX)
+                (const $ xscalar 73)
+       - xsum (xbuild @target @(TKScalar r) @0 (SKnown (SNat @0)
+                                                :$% SKnown (SNat @0)
+                                                :$% ZSX)
+                      (const (xreplicate (xfromR emptyTensor)))))
+  -- - rsum (rbuild @target @(TKScalar r) @2 (0 :$: 0 :$: ZSR) (const 73))
+  -- - rsum (rbuild @target @(TKScalar r) @1 (0 :$: 0 :$: ZSR) (const emptyTensor))
        -- these two fail and rightly so; TODO: make them fail earlier
  where
   emptyTensor :: target (TKR 1 r)
@@ -1931,7 +1965,7 @@ testEmptyArgs1 :: Assertion
 testEmptyArgs1 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1] [0])
-    (rev' @Double @1 emptyArgs (ringestData [1] [0.24]))
+    (rev' @Float @1 emptyArgs (ringestData [1] [0.24]))
 
 testEmptyArgs4 :: Assertion
 testEmptyArgs4 =

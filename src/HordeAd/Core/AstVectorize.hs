@@ -65,7 +65,7 @@ import HordeAd.Core.Types
 -- If no @AstBuild1@ terms occur in @v@, the resulting term won't
 -- have any, either.
 build1Vectorize
-  :: forall k y s. (AstSpan s, TensorKind y)
+  :: forall y k s. (TensorKind y, AstSpan s)
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y) -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize snat@SNat (var, v0)
@@ -98,7 +98,7 @@ build1Vectorize snat@SNat (var, v0)
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
-  :: forall k y s. (AstSpan s, TensorKind y)
+  :: forall y k s. (TensorKind y, AstSpan s)
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y) -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1VOccurenceUnknown snat@SNat (var, v00)
   | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
@@ -119,7 +119,7 @@ build1VOccurenceUnknown snat@SNat (var, v00)
 -- and break our invariants that we need for simplified handling of bindings
 -- when rewriting terms.
 build1VOccurenceUnknownRefresh
-  :: (AstSpan s, TensorKind y)
+  :: forall y k s. (TensorKind y, AstSpan s)
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y) -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
@@ -135,7 +135,7 @@ build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
 -- We can't simplify the argument term here, because it may eliminate
 -- the index variable. We simplify only in 'build1VOccurenceUnknown'.
 build1V
-  :: forall k s y. (AstSpan s, TensorKind y)
+  :: forall y k s. (TensorKind y, AstSpan s)
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1V snat@SNat (var, v0) =
@@ -415,7 +415,8 @@ build1V snat@SNat (var, v0) =
 -- * Vectorization of AstShaped
 
 intBindingRefreshS
-  :: IntVarName -> AstIxS AstMethodLet sh -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
+  :: IntVarName -> AstIxS AstMethodLet sh
+  -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->

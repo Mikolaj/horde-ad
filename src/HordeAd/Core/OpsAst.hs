@@ -205,7 +205,7 @@ astSpanDual _ = error "a spuriuos case for pattern match coverage"
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize
-  :: (AstSpan s, TensorKind z)
+  :: (TensorKind z, AstSpan s)
   => SNat k -> (AstInt AstMethodLet -> AstTensor AstMethodLet s z)
   -> AstTensor AstMethodLet s (BuildTensorKind k z)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
@@ -439,7 +439,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sreverse = astReverseS
   stranspose perm = astTransposeS perm
   sreshape = astReshapeS
-  sbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
+  sbuild1 @k f = astBuild1Vectorize (SNat @k) f
   sgather @_ @shm @shn @shp t f =
     astGatherStepS @shm @shn @shp t
     $ funToAstIxS f
@@ -583,7 +583,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
         astFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToStk x))
         . astReshapeS . astSFromX @sh @sh' $ a
-  xbuild1 @_ @n f = astBuild1Vectorize (SNat @n) f
+  xbuild1 @k f = astBuild1Vectorize (SNat @k) f
   xgather @_ @shm @_ @shp shmshn0 t f = case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -1115,9 +1115,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
         AstFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToStk x))
         . AstReshapeS . AstSFromX @sh @sh' $ a
-  xbuild1 @_ @n f = AstRaw $ AstBuild1 (SNat @n)
-                    $ funToAstI  -- this introduces new variable names
-                    $ unAstRaw . f . AstRaw
+  xbuild1 @k f = AstRaw $ AstBuild1 (SNat @k)
+                 $ funToAstI  -- this introduces new variable names
+                 $ unAstRaw . f . AstRaw
   xgather @_ @shm @_ @shp shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -1202,9 +1202,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sreverse = AstRaw . AstReverseS . unAstRaw
   stranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   sreshape = AstRaw . AstReshapeS . unAstRaw
-  sbuild1 @_ @n f = AstRaw $ AstBuild1 (SNat @n)
-                    $ funToAstI  -- this introduces new variable names
-                    $ unAstRaw . f . AstRaw
+  sbuild1 @k f = AstRaw $ AstBuild1 (SNat @k)
+                 $ funToAstI  -- this introduces new variable names
+                 $ unAstRaw . f . AstRaw
   sgather @_ @shm @shn @shp t f =
     AstRaw $ AstGatherS @shm @shn @shp (unAstRaw t)
            $ funToAstIxS (fmap unAstRaw . f . fmap AstRaw)
@@ -1367,9 +1367,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xtranspose perm =
     AstNoVectorize . xtranspose perm . unAstNoVectorize
   xreshape sh = AstNoVectorize . xreshape sh . unAstNoVectorize
-  xbuild1 @_ @n f = AstNoVectorize $ AstBuild1 (SNat @n)
-                    $ funToAstI  -- this introduces new variable names
-                    $ unAstNoVectorize . f . AstNoVectorize
+  xbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k)
+                 $ funToAstI  -- this introduces new variable names
+                 $ unAstNoVectorize . f . AstNoVectorize
   xgather @_ @shm @shn @shp sh t f =
     AstNoVectorize $ xgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
@@ -1400,9 +1400,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   stranspose perm =
     AstNoVectorize . stranspose perm . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
-  sbuild1 @_ @n f = AstNoVectorize $ AstBuild1 (SNat @n)
-                    $ funToAstI  -- this introduces new variable names
-                    $ unAstNoVectorize . f . AstNoVectorize
+  sbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k)
+                 $ funToAstI  -- this introduces new variable names
+                 $ unAstNoVectorize . f . AstNoVectorize
   sgather @_ @shm @shn @shp t f =
     AstNoVectorize $ sgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
@@ -1854,9 +1854,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
         AstFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToStk x))
         . AstReshapeS . AstSFromX @sh @sh' $ a
-  xbuild1 @_ @n f =
+  xbuild1 @k f =
     AstNoSimplify
-    $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
+    $ astBuild1Vectorize (SNat @k) (unAstNoSimplify . f . AstNoSimplify)
   xgather @_ @shm @_ @shp shmshn0 (AstNoSimplify t) f = AstNoSimplify
                                                         $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
@@ -1950,9 +1950,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   stranspose perm =
     AstNoSimplify . AstTransposeS perm . unAstNoSimplify
   sreshape = AstNoSimplify . AstReshapeS . unAstNoSimplify
-  sbuild1 @_ @n f =
+  sbuild1 @k f =
     AstNoSimplify
-    $ astBuild1Vectorize (SNat @n) (unAstNoSimplify . f . AstNoSimplify)
+    $ astBuild1Vectorize (SNat @k) (unAstNoSimplify . f . AstNoSimplify)
   sgather @_ @shm @shn @shp t f =
     AstNoSimplify $ AstGatherS @shm @shn @shp (unAstNoSimplify t)
                   $ funToAstIxS

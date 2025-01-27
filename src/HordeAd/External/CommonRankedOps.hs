@@ -281,3 +281,8 @@ maxPool2dUnpadded ksize stride arr =
                                  , fromIntegral stride * iBw ]
       in rmaximum arrt
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+
+xfromIndex0 :: forall r target.
+               (BaseTensor target, GoodScalar r)
+            => IntOf target -> target (TKX '[] r)
+xfromIndex0 = xfromIntegral . xfromK . tfromPrimal (STKScalar typeRep)

@@ -546,7 +546,8 @@ class ( Num (IntOf target)
           in rbuild1 k g
     in buildSh (takeShape @m @n sh0) f0
   rbuild1 :: (TensorKind r, KnownNat n)  -- this form needs less typeapps
-          => Int -> (IntOf target -> target (TKR2 n r)) -> target (TKR2 (1 + n) r)
+          => Int -> (IntOf target -> target (TKR2 n r))
+          -> target (TKR2 (1 + n) r)
   rmap :: (TensorKind r, TensorKind r2, KnownNat m, KnownNat n)
        => (target (TKR2 n r) -> target (TKR2 n r2))
        -> target (TKR2 (m + n) r) -> target (TKR2 (m + n) r2)
@@ -865,9 +866,9 @@ class ( Num (IntOf target)
             in sbuild1 g
     in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (knownShS @(Take m sh)) (knownShS @sh)
-  sbuild1 :: (TensorKind r, KnownNat n, KnownShS sh)
+  sbuild1 :: (KnownNat k, KnownShS sh, TensorKind r)
           => (IntOf target -> target (TKS2 sh r))
-          -> target (TKS2 (n ': sh) r)
+          -> target (TKS2 (k ': sh) r)
   smap :: forall r r2 m sh.
           ( TensorKind r, TensorKind r2, KnownNat m
           , KnownShS sh, KnownShS (Take m sh), KnownShS (Drop m sh) )
@@ -1117,7 +1118,7 @@ class ( Num (IntOf target)
        withKnownShX (mn :!% ZKX) $
        withSNat (fromSMayNat' mm) $ \(SNat @n) ->
          xmcast (mu :!% ZKX)
-         $ xbuild1 @_ @_ @n @'[] (\i -> xdot0 v (u `xindex` (i :.% ZIX)))
+         $ xbuild1 @_ @n @'[] (\i -> xdot0 v (u `xindex` (i :.% ZIX)))
   -- TODO: when we switch to singletons, generalize this to non-Just types
   -- or split into ranked-style and shaped-style variants or provide
   -- convenient ways to lift ranked and shaped operations into mixed.
@@ -1226,13 +1227,13 @@ class ( Num (IntOf target)
             withKnownShX (ssxFromShape sh2m) $
             let g i = buildSh sh2 sh2m (f . (i :.%))
             in withSNat (fromSMayNat' k) $ \(SNat @n) ->
-                 xmcast (ssxFromShape sh1m) $ xbuild1 @_ @_ @n g
+                 xmcast (ssxFromShape sh1m) $ xbuild1 @_ @n g
     in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) sh0
                              (knownShX @(Take m sh))) sh0 f0
-  xbuild1 :: (TensorKind r, KnownNat n, KnownShX sh)
+  xbuild1 :: (KnownNat k, KnownShX sh, TensorKind r)
           => (IntOf target -> target (TKX2 sh r))
-          -> target (TKX2 (Just n ': sh) r)
+          -> target (TKX2 (Just k ': sh) r)
   xmcast :: (TensorKind x, KnownShX sh, Rank sh ~ Rank sh2)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
   xmcast sh2 a = case tftk stensorKind a of
@@ -1544,7 +1545,8 @@ class ( Num (IntOf target)
   default tunpairDup :: (ShareTensor target, TensorKind x, TensorKind z)
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
-  tbuild1 :: forall k y. TensorKind y
+  tbuild1 :: forall y k. TensorKind y
+               -- y comes first, because k easy to set via SNat
           => SNat k -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
   tbuild1 snat@SNat f =
@@ -1556,7 +1558,7 @@ class ( Num (IntOf target)
             rbuild1 (sNatValue snat) g
           STKS sh x | Dict <- lemTensorKindOfSTK x ->
             withKnownShS sh $ sbuild1 g
-          STKX sh  x | Dict <- lemTensorKindOfSTK x ->
+          STKX sh x | Dict <- lemTensorKindOfSTK x ->
             withKnownShX sh $ xbuild1 g
           STKProduct @z1 @z2 stk1 stk2
             | Dict <- lemTensorKindOfSTK stk1

@@ -212,8 +212,8 @@ fooBuild2S
      (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
-  sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
-                                 ix = sfromR $ rfromK ix' in
+  sbuild1 @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
+                              ix = sfromR $ rfromK ix' in
     ifF (ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
@@ -243,8 +243,8 @@ fooBuildNest2S
      (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuildNest2S v = rfromS $
-  sbuild1 @_ @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
-                                 ix = sfromR $ rfromK ix' in
+  sbuild1 @_ @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
+                              ix = sfromR $ rfromK ix' in
     ifF (ix - (sunNest @_ @'[] @'[] . tprimalPart stensorKind . snest knownShS . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]
              $ sreplicate0N @_ @_ @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @target @(TKScalar r) @[5,12,11,9,4]

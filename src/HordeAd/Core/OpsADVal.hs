@@ -16,10 +16,9 @@ import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
 import Data.List.Index (imap)
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 import Type.Reflection (typeRep)
@@ -39,8 +38,10 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsInit, shCvtSX, withKnownShS, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.CarriersADVal
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.TensorClass
@@ -211,14 +212,12 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rreshape @_ @n @m sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (DeltaReshapeR sh u')
-  rbuild1 @r @n 0 _ = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> case stensorKind @r of
-      STKScalar{} -> rconcrete Nested.remptyArray
-      _ -> error "rbuild1: empty nested array"
-    Nothing -> error "rbuild1: shape ambiguity"
-  rbuild1 k f = rfromList $ NonEmpty.map (f . fromIntegral)
-                          $ 0 :| [1 .. k - 1]
-    -- element-wise (POPL) version
+  rbuild1 @r @n k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
+    Nothing -> case sameNat (Proxy @n) (Proxy @0) of
+      Just Refl | Dict <- eltDictRep (stensorKind @r) ->
+        rconcrete Nested.remptyArray
+      Nothing -> error "rbuild1: shape ambiguity"
+    Just l -> rfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
   rgather sh (D u u') f =
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
@@ -286,14 +285,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sreshape @_ @sh @sh2 t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (DeltaReshapeS u')
-  sbuild1 @r @n @sh f = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> case stensorKind @r of
-      STKScalar{} ->
-        sconcrete $ Nested.semptyArray (knownShS @sh)
-      _ -> error "sbuild1: empty nested array"
-    Nothing -> sfromList $ NonEmpty.map (f . fromInteger)
-                         $ 0 :| [1 .. valueOf @n - 1]
-      -- element-wise (POPL) version
+  sbuild1 @k @_ @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
+    Nothing | Dict <- eltDictRep (stensorKind @r) ->
+      gcastWith (unsafeCoerceRefl :: k :~: 0) $
+      sconcrete $ Nested.semptyArray knownShS
+    Just l -> sfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
   sgather @r @shm @shn @shp (D u u') f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
@@ -361,15 +357,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
    case testEquality (knownShX @sh) (ssxFromShape sh) of
     Just Refl | sh == xshape u -> t
     _ -> dD (xreshape sh u) (DeltaReshapeX sh u')
-  xbuild1 @r @n @sh f = case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> case stensorKind @r of
-      STKScalar{} -> case knownShX @sh of
-        ZKX -> xconcrete $ Nested.memptyArray ZSX
-        _ -> error "xbuild1: empty nested array"
-      _ -> error "xbuild1: shape ambiguity"
-    Nothing -> xfromList $ NonEmpty.map (f . fromInteger)
-                         $ 0 :| [1 .. valueOf @n - 1]
-      -- element-wise (POPL) version
+  xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
+    Nothing -> case testEquality (knownShX @sh) ZKX of
+      Just Refl | Dict <- eltDictRep (stensorKind @r) ->
+        gcastWith (unsafeCoerceRefl :: k :~: 0) $
+        xconcrete $ Nested.memptyArray ZSX
+      Nothing -> error "xbuild1: shape ambiguity"
+    Just l -> xfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
   xgather @r @shm @shn @shp sh (D u u') f =
     withKnownShX (ssxFromShape sh) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $

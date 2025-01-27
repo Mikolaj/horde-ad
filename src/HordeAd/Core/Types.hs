@@ -754,7 +754,7 @@ shCastSX ((:!%) @_ @restx (Nested.SKnown snat1) restx)
   gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
   if sNatValue snat1 == sNatValue snat2
   then Nested.SKnown snat1 :$% shCastSX restx rest
-  else error "shCastSX: shapes don't match"
+  else error $ "shCastSX: shapes don't match: " ++ show (snat1, snat2)
 shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
          ((:$$) @_ @rest snat2 rest) =
   gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
