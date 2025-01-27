@@ -35,7 +35,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go [] parameters = (parameters, undefined)
   go (a : rest) !parameters =
     let inputs :: ADVal RepN x
-        inputs = makeADInputs parameters deltaInputs
+        inputs = dDnotShared parameters deltaInputs
         (gradients, valueNew) = crevOnADInputs Nothing (f a) inputs
         parametersNew = updateWithGradient gamma parameters gradients
     in if null rest
@@ -76,7 +76,7 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   go (a : rest) !parameters !stateAdam
    | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let inputs :: ADVal RepN x
-        inputs = makeADInputs parameters deltaInputs
+        inputs = dDnotShared parameters deltaInputs
         gradients = fst $ crevOnADInputs Nothing (f a) inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdamDeep argsAdam stateAdam parameters gradients

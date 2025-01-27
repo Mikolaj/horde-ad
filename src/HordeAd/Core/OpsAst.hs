@@ -62,7 +62,7 @@ forwardPassByInterpretation
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit hVectorPrimal var hVector =
   let deltaInputs = generateDeltaInputs $ ftkAst hVectorPrimal
-      varInputs = makeADInputs (AstRaw hVectorPrimal) deltaInputs
+      varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit
   in interpretAst env ast

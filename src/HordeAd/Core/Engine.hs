@@ -169,7 +169,7 @@ forwardPassByApplication
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g hVectorPrimal _var _hVector =
   let deltaInputs = generateDeltaInputs $ ftkAst hVectorPrimal
-      varInputs = makeADInputs (AstRaw hVectorPrimal) deltaInputs
+      varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
   in g varInputs
 
 revEvalArtifact

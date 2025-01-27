@@ -10,7 +10,7 @@ module HordeAd.Core.CarriersADVal
   , unDeltaPair, unDeltaPairUnshared
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
-  , generateDeltaInputs, makeADInputs
+  , generateDeltaInputs
   ) where
 
 import Prelude
@@ -209,11 +209,6 @@ generateDeltaInputs =
 {-# SPECIALIZE generateDeltaInputs
   :: HVector (FlipR OR.Array) -> HVector (Delta (FlipR OR.Array)) #-}
 -}
-
-makeADInputs
-  :: target x -> Delta target x
-  -> ADVal target x
-makeADInputs = dDnotShared  -- not dD, because generateDeltaInputs has only inputs and containers; TODO: join makeADInputs and generateDeltaInputs?
 
 
 -- * Assorted instances

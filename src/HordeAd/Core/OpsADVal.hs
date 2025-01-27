@@ -80,7 +80,7 @@ crevOnHVector
 crevOnHVector mdt f parameters =
   let deltaInputs = generateDeltaInputs
                     $ tftk (stensorKind @x) parameters
-      inputs = makeADInputs parameters deltaInputs
+      inputs = dDnotShared parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
 cfwdOnADInputs
@@ -106,7 +106,7 @@ cfwdOnHVector
 cfwdOnHVector parameters f ds =
   let deltaInputs = generateDeltaInputs
                     $ tftk (stensorKind @x) parameters
-      inputs = makeADInputs parameters deltaInputs
+      inputs = dDnotShared parameters deltaInputs
   in cfwdOnADInputs inputs f ds
 
 

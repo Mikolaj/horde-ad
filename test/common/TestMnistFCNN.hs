@@ -371,7 +371,7 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         unitVarianceRange = sqrt 12 / 2
         (g1, g2) = (seed + 5, seed + 13)
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
-        inputs = makeADInputs parameters deltaInputs
+        inputs = dDnotShared parameters deltaInputs
         (directionalDerivative, valueNew) =
           slowFwdOnADInputs inputs fBatch direction
         gammaDirectional = gamma * directionalDerivative
@@ -488,7 +488,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
         (_, _, _, direction@(HVector dparams0 dparams1 dparams2 dparamsX)) =
           initializerFixed g1 unitVarianceRange nParameters
         inputs =
-          makeADInputs
+          dDnotShared
             (HVector (coerce domains0) (coerce domains1) (coerce domains2)
                      ( unsafeCoerce domainsX))
             (V.convert dparams0, dparams1, dparams2, dparamsX)
