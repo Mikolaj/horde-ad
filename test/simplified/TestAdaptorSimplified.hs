@@ -24,7 +24,9 @@ import Data.Array.Nested
   , ListR (..)
   , SMayNat (..)
   , ShR (..)
+  , ShS (..)
   , ShX (..)
+  , StaticShX (..)
   )
 import Data.Array.Nested qualified as Nested
 
@@ -1906,21 +1908,35 @@ testConcatBuild12 =
     (rscalar 0)
     (rev' @Double @0 concatBuild12 (rscalar 3.4))
 
+-- TODO: copy-paste a variant of emptyArgs with r not GoodScalar
+-- or maybe generalize emptyArgs and then in half of the tests do TKScalar
 emptyArgs :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)
 emptyArgs t =
   emptyTensor
---  - rfromListLinear (rshape @target @r emptyTensor) []
+  - rfromListLinear (rshape @target @(TKScalar r) emptyTensor) []
+  + rconcrete Nested.remptyArray
+  - rsum (rfromListLinear (0 :$: rshape @target @(TKScalar r) emptyTensor) [])
+  * rsum (rconcrete $ Nested.rreshape (0 :$: 0 :$: ZSR) Nested.remptyArray)
+  * rconcrete (Nested.rsumOuter1 $ Nested.rfromListOuter
+               $ NonEmpty.fromList [Nested.remptyArray])
+  * rsum (rconcrete $ Nested.rfromListOuter
+          $ NonEmpty.fromList [Nested.remptyArray])
+  * rsum (rfromList [rconcrete Nested.remptyArray])
+  * rsum (rfromList [emptyTensor])
+  * rsum (rfromList [rsum (rfromListLinear
+                             (0 :$: rshape @target @(TKScalar r)
+                                      emptyTensor) [])])
+  - rindex (rfromListLinear (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
+  - rindex (rfromListLinear (0 :$: rshape @target @(TKScalar r)
+                                     emptyTensor) []) (42 :.: ZIR)
   - rreshape @target @_ @1 [0] emptyTensor
+  - rsum (rreshape @target @_ @1 [0, 0] emptyTensor)
+-- TODO:
 --  - rgather1 0 emptyTensor (:.: ZIR)
 --  - rsum (rgather1 0 emptyTensor (const ZIR))
---  - rsum (rgather @target @r @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
---  - rsum (rgather @target @r @2 @0 @1 [0, 0] emptyTensor (const [0]))
-  - rsum (rreshape @target @_ @1 [0, 0] emptyTensor)
---  - rindex (rfromListLinear (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
---  - rindex (rfromListLinear (0 :$: rshape @target @r emptyTensor) []) (42 :.: ZIR)
---  - rsum (rfromListLinear (0 :$: rshape @target @r emptyTensor) [])
---  * rsum (rfromList [rsum (rfromListLinear (0 :$: rshape @target @r emptyTensor) [])])
+--  - rsum (rgather @target @(TKScalar r) @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
+--  - rsum (rgather @target @(TKScalar r) @2 @0 @1 [0, 0] emptyTensor (const [0]))
 --  * rflatten (rtr (rgather1 0 t (const ZIR)))
   + rbuild1 0 (\i -> t ! (i :.: ZIR))
   + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
@@ -1928,7 +1944,22 @@ emptyArgs t =
   - rsum (rbuild @target @(TKScalar r) @0 (0 :$: 0 :$: ZSR)
                  (const (rreplicate 1 emptyTensor)))
   + rfromS
-      (sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
+      (sfromListLinear []
+       + sconcrete (Nested.semptyArray ZSS)
+       - ssum @_ @_ @0 (sfromListLinear [])
+       * ssum @_ @_ @0 (sconcrete $ Nested.semptyArray (SNat @0 :$$ ZSS))
+       * sconcrete (Nested.ssumOuter1 $ Nested.sfromListOuter (SNat @1)
+                    $ NonEmpty.fromList [Nested.semptyArray ZSS])
+       * ssum @_ @_ @1 (sconcrete $ Nested.sfromListOuter SNat
+                        $ NonEmpty.fromList [Nested.semptyArray ZSS])
+       * ssum @_ @_ @1 (sfromList [sconcrete $ Nested.semptyArray ZSS])
+       * ssum @_ @_ @1 (sfromList [sfromR @_ @'[0] emptyTensor])
+       * ssum @_ @_ @1 (sfromList [ssum @_ @_ @0 (sfromListLinear [])])
+       - sindex @_ @_ @'[0] (sfromListLinear []) (42 :.$ ZIS)
+       - sindex @_ @_ @'[0] (sfromListLinear []) (42 :.$ ZIS)
+       - sreshape @target @_ @_ @'[0] (sfromR @_ @'[0] emptyTensor)
+       - ssum (sreshape @target @_ @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
+       * sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
        + sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
                               !$ (fromIntegral (rrank t) `quotF` i :.$ ZIS)
                               / sfromIndex0 i)
@@ -1936,7 +1967,39 @@ emptyArgs t =
        - ssum (sbuild @target @(TKScalar r) @0
                       (const (sreplicate @_ @1 (sfromR emptyTensor)))))
   + rfromX
-      (xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
+      (xfromListLinear (SKnown (SNat @0) :$% ZSX) []
+       + xconcrete (Nested.memptyArray ZSX)
+       - xsum @_ @_ @0 (xfromListLinear
+                          (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX) [])
+       * xsum @_ @_ @0 (xconcrete
+                        $ Nested.memptyArray (SKnown (SNat @0) :$% ZSX))
+       * xconcrete (Nested.msumOuter1 $ Nested.mfromListOuter
+                    $ NonEmpty.fromList [Nested.memptyArray ZSX])
+       * xsum @_ @_ @1 (xconcrete
+                        $ Nested.mcast
+                            (SKnown (SNat @1) :!% SKnown (SNat @0) :!% ZKX)
+                        $ Nested.mfromListOuter
+                        $ NonEmpty.fromList [Nested.memptyArray ZSX])
+       * xsum @_ @_ @1 (xfromList [xconcrete $ Nested.memptyArray ZSX])
+       * xsum @_ @_ @1 (xfromList [xfromR @_ @'[Just 0] emptyTensor])
+       * xsum @_ @_ @1 (xfromList [xsum @_ @_ @0
+                                     (xfromListLinear
+                                        (SKnown (SNat @0)
+                                         :$% xshape @target @(TKScalar r)
+                                               (xfromR @_ @'[Just 0]
+                                                  emptyTensor)) [])])
+       - xindex @_ @_ @'[Just 0] (xfromListLinear
+                                    (SKnown (SNat @0)
+                                     :$% SKnown (SNat @0)
+                                     :$% ZSX) []) (42 :.% ZIX)
+       - xindex @_ @_ @'[Just 0] (xfromListLinear
+                                    (SKnown (SNat @0)
+                                     :$% xshape @target @(TKScalar r)
+                                             (xfromR @_ @'[Just 0]
+                                                emptyTensor)) []) (42 :.% ZIX)
+       - xreshape (SKnown (SNat @0) :$% ZSX) (xfromR @_ @'[Just 0] emptyTensor)
+       - xsum (xreshape (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX) (xfromR @_ @'[Just 0] emptyTensor))
+       * xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
                             `xindex` (i :.% ZIX))
        + xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
                               `xindex`

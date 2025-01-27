@@ -486,16 +486,19 @@ class ( Num (IntOf target)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
   rfromListLinear :: (TensorKind r, KnownNat n)
-              => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
+                  => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
   rfromListLinear sh = rfromVectorLinear sh . V.fromList
   -- This is morally non-empty strict vectors:
   rfromVector :: (TensorKind r, KnownNat n)
               => Data.Vector.Vector (target (TKR2 n r))
               -> target (TKR2 (1 + n) r)
-  rfromVectorLinear :: (TensorKind r, KnownNat n)
-                => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
-                -> target (TKR2 n r)
-  rfromVectorLinear sh = rreshape sh . rfromVector
+  rfromVectorLinear :: forall r n. (TensorKind r, KnownNat n)
+                    => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
+                    -> target (TKR2 n r)
+  rfromVectorLinear sh v | Dict <- eltDictRep (stensorKind @r) =
+    if V.null v
+    then rreshape sh $ rconcrete Nested.remptyArray
+    else rreshape sh $ rfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
@@ -787,18 +790,21 @@ class ( Num (IntOf target)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
   sfromListLinear :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
-              => [target (TKS2 '[] r)] -> target (TKS2 sh r)
+                  => [target (TKS2 '[] r)] -> target (TKS2 sh r)
   sfromListLinear = sfromVectorLinear . V.fromList
   -- This is morally non-empty strict vectors:
   sfromVector :: (TensorKind r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (target (TKS2 sh r))
               -> target (TKS2 (n ': sh) r)
   sfromVectorLinear :: forall r sh.
-                   (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
-                => Data.Vector.Vector (target (TKS2 '[] r))
-                -> target (TKS2 sh r)
-  sfromVectorLinear =
-    sreshape @_ @r @'[Nested.Product sh] @sh . sfromVector
+                       (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+                    => Data.Vector.Vector (target (TKS2 '[] r))
+                    -> target (TKS2 sh r)
+  sfromVectorLinear v | Dict <- eltDictRep (stensorKind @r) =
+    if V.null v
+    then gcastWith (unsafeCoerceRefl :: Nested.Product sh :~: 0) $
+         sreshape $ sconcrete $ Nested.semptyArray ZSS
+    else sreshape @_ @r @'[Nested.Product sh] @sh $ sfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
@@ -1171,16 +1177,19 @@ class ( Num (IntOf target)
               . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
   xfromListLinear :: (TensorKind r, KnownShX sh)
-              => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
+                  => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
   xfromListLinear sh = xfromVectorLinear sh . V.fromList
   xfromVector :: (TensorKind r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX2 sh r))
               -> target (TKX2 (Just n ': sh) r)
-  xfromVectorLinear :: (TensorKind r, KnownShX sh)
-                => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
-                -> target (TKX2 sh r)
-  xfromVectorLinear sh = withSNat (shxSize sh) $ \(SNat @n) ->
-    xreshape @_ @_ @'[Just n] sh . xfromVector
+  xfromVectorLinear :: forall r sh. (TensorKind r, KnownShX sh)
+                    => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
+                    -> target (TKX2 sh r)
+  xfromVectorLinear sh v | Dict <- eltDictRep (stensorKind @r) =
+    if V.null v
+    then xreshape sh $ xconcrete $ Nested.memptyArray ZSX
+    else withSNat (shxSize sh) $ \(SNat @n) ->
+           xreshape @_ @_ @'[Just n] sh $ xfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
