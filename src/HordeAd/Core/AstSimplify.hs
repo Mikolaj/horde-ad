@@ -1851,7 +1851,7 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
       _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
     _ -> Ast.AstSum snat stk t0
 
-astReplicate :: forall k y s. AstSpan s
+astReplicate :: forall y k s. AstSpan s
              => SNat k -> STensorKindType y
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
@@ -1908,7 +1908,8 @@ astReplicate0NS =
       go ((:$$) SNat sh') v =
         withKnownShS sh' $
         astReplicate SNat stensorKind $ go sh' v
-  in go (knownShS @shn) . fromPrimal . astConcrete (FTKS ZSS FTKScalar) . sscalar
+  in go (knownShS @shn)
+     . fromPrimal . astConcrete (FTKS ZSS FTKScalar) . sscalar
 
 astAppendS :: (KnownNat m, KnownNat n, KnownShS sh, TensorKind r, AstSpan s)
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)

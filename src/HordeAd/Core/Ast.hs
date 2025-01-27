@@ -236,10 +236,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstFromVector :: TensorKind y
                 => SNat k -> Data.Vector.Vector (AstTensor ms s y)
                 -> AstTensor ms s (BuildTensorKind k y)
-  AstSum :: SNat k -> STensorKindType y
+  AstSum :: forall y k ms s.
+            SNat k -> STensorKindType y
          -> AstTensor ms s (BuildTensorKind k y)
          -> AstTensor ms s y
-  AstReplicate :: SNat k -> STensorKindType y
+  AstReplicate :: forall y k ms s.
+                  SNat k -> STensorKindType y
                -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
   AstMapAccumRDer

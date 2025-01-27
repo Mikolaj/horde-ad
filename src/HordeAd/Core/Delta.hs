@@ -375,7 +375,8 @@ data Delta :: Target -> TensorKindType -> Type where
                   -> Data.Vector.Vector (Delta target y)
                   -> Delta target (BuildTensorKind k y)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  DeltaSum :: TensorKind (BuildTensorKind k y)  -- needed for the Show instance
+  DeltaSum :: forall y k target.
+              TensorKind (BuildTensorKind k y)  -- needed for the Show instance
            => SNat k -> STensorKindType y
            -> Delta target (BuildTensorKind k y)
            -> Delta target y

@@ -151,7 +151,7 @@ class LetTensor (target :: Target) where
               tpair (tfromVector snat stk1 (V.fromList l1))
                     (tfromVector snat stk2 (V.fromList l2))
         in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
-  tsum :: BaseTensor target
+  tsum :: forall z k. BaseTensor target
        => SNat k -> STensorKindType z
        -> target (BuildTensorKind k z)
        -> target z
@@ -171,7 +171,7 @@ class LetTensor (target :: Target) where
         tlet u $ \ !u3 ->
           tpair (tsum snat stk1 (tproject1 u3))
                 (tsum snat stk2 (tproject2 u3))
-  treplicate :: BaseTensor target
+  treplicate :: forall z k. BaseTensor target
              => SNat k -> STensorKindType z
              -> target z
              -> target (BuildTensorKind k z)
@@ -275,10 +275,10 @@ class ShareTensor (target :: Target) where
         let (u1, u2) = tunpair u
         in zipWith tpair (tunravelToListShare snat stk1 u1)
                          (tunravelToListShare snat stk2 u2)
-  tsumShare :: BaseTensor target
-             => SNat k -> STensorKindType z
-             -> target (BuildTensorKind k z)
-             -> target z
+  tsumShare :: forall z k. BaseTensor target
+            => SNat k -> STensorKindType z
+            -> target (BuildTensorKind k z)
+            -> target z
   tsumShare snat@SNat stk u = case stk of
     STKScalar{} -> kfromS $ ssum u
     STKR SNat x | Dict <- lemTensorKindOfSTK x ->
@@ -312,7 +312,7 @@ class ShareTensor (target :: Target) where
         let (u1, u2) = tunpair u
         in tpair (treplicateShare snat stk1 u1)
                  (treplicateShare snat stk2 u2)
-  tindexBuildShare :: BaseTensor target
+  tindexBuildShare :: forall z k. BaseTensor target
                    => SNat k -> STensorKindType z
                    -> target (BuildTensorKind k z) -> IntOf target
                    -> target z
@@ -809,8 +809,8 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKS2 sh r)
         f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. slength t - 1]
-  sreplicate :: (KnownNat n, KnownShS sh, TensorKind r)
-             => target (TKS2 sh r) -> target (TKS2 (n ': sh) r)
+  sreplicate :: (KnownNat k, KnownShS sh, TensorKind r)
+             => target (TKS2 sh r) -> target (TKS2 (k ': sh) r)
   sreplicate0N :: forall r sh.
                   (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
                => target (TKS2 '[] r) -> target (TKS2 sh r)
@@ -1171,8 +1171,8 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKX2 sh r)
         f i = xindex t (fromIntegral i :.% ZIX)
     in map f [0 .. xlength t - 1]
-  xreplicate :: (KnownNat n, KnownShX sh, TensorKind r)
-             => target (TKX2 sh r) -> target (TKX2 (Just n ': sh) r)
+  xreplicate :: (KnownNat k, KnownShX sh, TensorKind r)
+             => target (TKX2 sh r) -> target (TKX2 (Just k ': sh) r)
   xreplicate0N :: (TensorKind r, KnownShX sh)
                => IShX sh -> target (TKX2 '[] r) -> target (TKX2 sh r)
   xreplicate0N sh = withSNat (shxSize sh) $ \ (SNat @k) ->
