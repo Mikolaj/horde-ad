@@ -1,13 +1,15 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Operations on the untyped product (heterogeneous vector) of tensors.
--- In particular, adaptors for working with types of collections of tensors
--- that are isomorphic to products.
+-- | Adaptors for working with types of collections of tensors
+-- that are isomorphic to products, that is, tuples, sized lists
+-- and user types of statically known size, as long as they have
+-- the proper instances defined.
 --
--- This is necessary as a representation of the domains of objective functions
--- that become the codomains of the reverse derivative functions
--- and also to handle multiple arguments and results of fold-like operations.
+-- The collectionsare necessary as a representation of the domains
+-- of objective functions that become the codomains of the reverse
+-- derivative functions and also to handle multiple arguments
+-- and results of fold-like operations.
 module HordeAd.Core.Adaptor
   ( AdaptableHVector(..), TermValue(..), DualNumberValue(..)
   , ForgetShape(..), RandomHVector(..)
@@ -43,8 +45,6 @@ class AdaptableHVector (target :: Target) vals where
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
   parseHVectorAD :: target (ADTensorKind (X vals)) -> vals
-    -- TODO: figure out and comment whether the first argument
-    -- is really needed and what for (maybe only for convenience? speed?)
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -77,8 +77,7 @@ class RandomHVector vals where
 
 
 instance (TensorKind y, BaseTensor target)
-         => AdaptableHVector target
-                             (target y) where
+         => AdaptableHVector target (target y) where
 {-
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)

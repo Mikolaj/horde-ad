@@ -14,8 +14,8 @@ module HordeAd.Core.Ast
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxR, AstVarList, AstIxS, AstVarListS, AstIndexX
-    -- * AstBindingsCase and AstBindings
-  , AstBindingsCase, AstBindings
+    -- * AstBindings
+  , AstBindings
     -- * ASTs
   , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
@@ -116,7 +116,6 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
--- TODO: remove the rank field once we have TensorKindType singletons
 type role AstVarName nominal nominal
 data AstVarName :: AstSpanType -> TensorKindType -> Type where
   AstVarName :: forall s y. TensorKind y => AstVarId -> AstVarName s y
@@ -184,7 +183,6 @@ type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
 type AstInt ms = IntOf (AstTensor ms FullSpan)
 -- ~ AstTensor ms PrimalSpan (TKScalar Int64)
 
--- TODO: type IntVarNameF = AstVarName PrimalSpan Int64
 type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
@@ -209,9 +207,7 @@ type AstVarListS sh = ListS sh (Const IntVarName)
 type AstIndexX ms sh = IxX sh (AstInt ms)
 
 
--- * AstBindingsCase and AstBindings
-
-type AstBindingsCase y = AstTensor AstMethodLet PrimalSpan y
+-- * AstBindings
 
 type AstBindings = DEnumMap (AstVarName PrimalSpan)
                             (AstTensor AstMethodLet PrimalSpan)

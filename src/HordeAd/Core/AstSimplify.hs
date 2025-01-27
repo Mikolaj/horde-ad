@@ -246,7 +246,7 @@ astReshapeAsGatherS knobs v | Refl <- lemAppNil @sh2
 -- * Permutation operations
 
 --  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
--- TODO: port to shaped permutations and then re-enable and replace the below
+-- TODO: port to shaped permutations and then remove the Hack suffix
 normalizePermutationHack :: Permutation.PermR -> Permutation.PermR
 normalizePermutationHack perm =
   map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
@@ -2160,7 +2160,7 @@ astProject1
 astProject1 u = case u of
   Ast.AstPair x _z -> x
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
--- TODO: Ast.AstConcrete u1 -> astConcrete $ tproject1 u1
+  Ast.AstConcrete (FTKProduct ftk1 _) v -> astConcrete ftk1 $ tproject1 v
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
@@ -2177,6 +2177,7 @@ astProject2
 astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
+  Ast.AstConcrete (FTKProduct _ ftk2) v -> astConcrete ftk2 $ tproject2 v
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
@@ -3069,7 +3070,6 @@ simplifyAstBool t = case t of
 -- is not written in a compositional style nor close to it,
 -- but it's instead defined in an ad-hoc way based on benchmarks.
 --
--- TODO: Move some of this to simplifyAst.
 -- TODO: Generalize some of the extra term constructors and the rules.
 
 contractAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet

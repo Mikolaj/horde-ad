@@ -69,7 +69,7 @@ dDnotShared = ADVal
 -- * Auxiliary definitions
 
 -- TODO: maybe create a separate module of Delta smart constructors
--- and then use the followign haddocks for the module:
+-- and then use the following haddocks for the module:
 --
 -- | The impurity in this module, stemming from the use of this operation
 -- under @unsafePerformIO@, is thread-safe, admits parallel tests
@@ -121,14 +121,14 @@ dDnotShared = ADVal
 -- or library definitions that use it could be made smarter.
 
 unDeltaPair :: (TensorKind x, TensorKind y)
-        => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+            => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unDeltaPair (DeltaPair a b) = (a, b)
 unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
             in (DeltaProject1 dShared, DeltaProject2 dShared)
 
 unDeltaPairUnshared :: (TensorKind x, TensorKind y)
-                => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+                    => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unDeltaPairUnshared (DeltaPair a b) = (a, b)
 unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)

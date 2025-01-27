@@ -145,7 +145,7 @@ printAstAux cfg d = \case
   AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
   AstPair t1 t2 ->
     showParen (d > 10)
-    $ showString "tpair ("  -- TODO
+    $ showString "tpair ("
       . printAst cfg 0 t1
       . showString ", "
       . printAst cfg 0 t2

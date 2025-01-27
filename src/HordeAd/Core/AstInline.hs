@@ -344,10 +344,7 @@ unshareAstScoped vars0 memo0 v0 =
         let (memoLocal, memoGlobal) = DMap.partition (varsOccur vars) memo
         in if DMap.null memoLocal
            then (memoLocal, memoGlobal)
-           else -- TODO: we probably need to include all variables from
-                -- the HVector case, not only the first variable
-                -- that represents them
-                let vars2 = map (\(Some var) -> varNameToAstVarId var)
+           else let vars2 = map (\(Some var) -> varNameToAstVarId var)
                                 (DMap.keys memoLocal)
                     (memoLocal2, memoGlobal2) = closeOccurs vars2 memoGlobal
                 in (DMap.union memoLocal memoLocal2, memoGlobal2)
