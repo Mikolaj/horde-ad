@@ -14,7 +14,6 @@ import Control.Monad (when)
 import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
-import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
@@ -27,8 +26,7 @@ import Data.Array.Mixed.Shape
   (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
-  ( IShR
-  , IShX
+  ( IShX
   , IxS (..)
   , KnownShS (..)
   , KnownShX (..)
@@ -265,14 +263,12 @@ build1V snat@SNat (var, v0) =
                         (build1VOccurenceUnknown snat (var, v))
 
     Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case stensorKind @y of
-     STKS @sh _ _ ->
+     STKS @sh _ _ | SNat <- shsRank (knownShS @sh1) ->
       withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
       gcastWith (unsafeCoerceRefl
                  :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
       gcastWith (unsafeCoerceRefl
                  :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
-      withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-      gcastWith (unsafeCoerceRefl :: rankSh1 :~: Rank sh1) $
       build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstScatterS @shm @shn @shp v (vars, ix) -> traceRule $
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $

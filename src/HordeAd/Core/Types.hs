@@ -21,7 +21,7 @@ module HordeAd.Core.Types
   , IxROf, IxSOf, IxXOf
     -- * Misc
   , IntegralF(..), RealFloatF(..)
-  , withListSh, backpermutePrefixList
+  , backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
@@ -372,18 +372,6 @@ instance {-# OVERLAPPABLE #-} Integral r => IntegralF r where
 instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatF r where
   atan2F = atan2
 -}
-
--- All three shape representations denote the same shape.
--- TODO: this can probably be retired when we have conversions
--- from ShS to ShR, etc.
-withListSh
-  :: KnownShS sh
-  => Proxy sh
-  -> (forall n. (KnownNat n, Rank sh ~ n)
-      => IShR n -> a)
-  -> a
-withListSh (Proxy @sh) f | SNat <- shsRank (knownShS @sh) =
-  f $ shCastSR $ knownShS @sh
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l

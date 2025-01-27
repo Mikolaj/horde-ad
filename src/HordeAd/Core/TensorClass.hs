@@ -734,7 +734,7 @@ class ( Num (IntOf target)
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
       sscatter @_ @_ @'[] @_ @sh1 v (const ix)
     _ -> case tftk stensorKind v of
-      FTKS _ ftk2 ->
+      FTKS _ ftk2 | SNat <- shsRank (knownShS @sh1) ->
         -- TODO: def at out of bounds
         gcastWith (unsafeCoerceRefl
                    :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
@@ -742,9 +742,7 @@ class ( Num (IntOf target)
                    :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
         gcastWith (unsafeCoerceRefl
                    :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-        withListSh (Proxy @sh1) $ \(_ :: IShR rankSh1) ->
-        gcastWith (unsafeCoerceRefl :: rankSh1 :~: Rank sh1) $
-           let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+        let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                          $ zip (toList ix) (toList ix2))
                         (sindex0 v (dropIxS @(Rank sh1) ix2))
                         (tconstantTarget 0 (FTKS ZSS ftk2))
