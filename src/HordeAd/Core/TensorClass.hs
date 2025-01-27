@@ -486,15 +486,15 @@ class ( Num (IntOf target)
     -- going through strict vectors, because laziness is risky with impurity
   rfromListLinear :: (TensorKind r, KnownNat n)
               => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
-  rfromListLinear sh = rfromVector0N sh . V.fromList
+  rfromListLinear sh = rfromVectorLinear sh . V.fromList
   -- This is morally non-empty strict vectors:
   rfromVector :: (TensorKind r, KnownNat n)
               => Data.Vector.Vector (target (TKR2 n r))
               -> target (TKR2 (1 + n) r)
-  rfromVector0N :: (TensorKind r, KnownNat n)
+  rfromVectorLinear :: (TensorKind r, KnownNat n)
                 => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
                 -> target (TKR2 n r)
-  rfromVector0N sh = rreshape sh . rfromVector
+  rfromVectorLinear sh = rreshape sh . rfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
@@ -789,16 +789,16 @@ class ( Num (IntOf target)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
   sfromListLinear :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
               => [target (TKS2 '[] r)] -> target (TKS2 sh r)
-  sfromListLinear = sfromVector0N . V.fromList
+  sfromListLinear = sfromVectorLinear . V.fromList
   -- This is morally non-empty strict vectors:
   sfromVector :: (TensorKind r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (target (TKS2 sh r))
               -> target (TKS2 (n ': sh) r)
-  sfromVector0N :: forall r sh.
+  sfromVectorLinear :: forall r sh.
                    (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
                 => Data.Vector.Vector (target (TKS2 '[] r))
                 -> target (TKS2 sh r)
-  sfromVector0N =
+  sfromVectorLinear =
     sreshape @_ @r @'[Nested.Product sh] @sh . sfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
@@ -1153,14 +1153,14 @@ class ( Num (IntOf target)
     -- going through strict vectors, because laziness is risky with impurity
   xfromListLinear :: (TensorKind r, KnownShX sh)
               => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
-  xfromListLinear sh = xfromVector0N sh . V.fromList
+  xfromListLinear sh = xfromVectorLinear sh . V.fromList
   xfromVector :: (TensorKind r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX2 sh r))
               -> target (TKX2 (Just n ': sh) r)
-  xfromVector0N :: (TensorKind r, KnownShX sh)
+  xfromVectorLinear :: (TensorKind r, KnownShX sh)
                 => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
                 -> target (TKX2 sh r)
-  xfromVector0N sh = withSNat (shxSize sh) $ \(SNat @n) ->
+  xfromVectorLinear sh = withSNat (shxSize sh) $ \(SNat @n) ->
     xreshape @_ @_ @'[Just n] sh . xfromVector
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured

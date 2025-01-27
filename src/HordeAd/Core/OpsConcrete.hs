@@ -144,7 +144,7 @@ instance BaseTensor RepN where
     RepN . tfromListLinearR sh . map unRepN
   rfromVector @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
-  rfromVector0N @r sh | Dict <- eltDictRep (stensorKind @r) =
+  rfromVectorLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
     RepN . tfromListLinearR sh . V.toList . V.map unRepN
   runravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.rtoListOuter . unRepN
@@ -281,7 +281,7 @@ instance BaseTensor RepN where
   sfromVector @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . V.map unRepN
-  sfromVector0N @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromVectorLinear @r | Dict <- eltDictRep (stensorKind @r) =
     RepN . tfromListLinearS . V.toList . V.map unRepN
   sunravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.stoListOuter . unRepN
@@ -427,7 +427,7 @@ instance BaseTensor RepN where
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList
     . V.map unRepN
-  xfromVector0N @r sh | Dict <- eltDictRep (stensorKind @r) =
+  xfromVectorLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
     RepN . tfromListLinearX sh . V.toList . V.map unRepN
   xunravelToList @r | Dict <- eltDictRep (stensorKind @r) =
     map RepN . Nested.mtoListOuter . unRepN
