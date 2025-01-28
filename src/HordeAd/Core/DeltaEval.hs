@@ -131,13 +131,13 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
 
 -- * Auxiliary datatypes for Delta evaluation
 
-type ADMap target = DEnumMap (NodeId target) (RepAD target)
+type ADMap target = DEnumMap (NodeId target) (Cotangent target)
 
 type IMap target = DEnumMap (InputId target) (RepM target)
 
-type role RepAD nominal nominal
-newtype RepAD target y =
-  RepAD {unRepAD :: target (ADTensorKind y)}
+type role Cotangent nominal nominal
+newtype Cotangent target y =
+  Cotangent {unCotangent :: target (ADTensorKind y)}
 
 type role RepM nominal nominal
 data RepM target y where
@@ -523,12 +523,12 @@ evalRev !s !c d0 = case d0 of
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
-          let addc x = RepAD $ addTarget stensorKind c (unRepAD x)
+          let addc x = Cotangent $ addTarget stensorKind c (unCotangent x)
             -- target has a ShareTensor instance, so addTarget arguments
             -- don't need to be duplicable
           in s {dMap = DMap.adjust addc n $ dMap s}
         Nothing ->
-          let cd = RepAD c
+          let cd = Cotangent c
           in s { nMap = DMap.insert n d $ nMap s
                , dMap = DMap.insert n cd $ dMap s }
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
@@ -858,18 +858,18 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
           errorMissing = error $ "evalRevFromnMap: missing cotangent " ++ show n
           s3 = case stensorKind @y of
             STKR @n SNat (STKScalar @r _) -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalRevRuntimeSpecialized @n @r s2 c d
+              Just (Cotangent c) -> evalRevRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
             STKS @sh sh (STKScalar @r _) ->
               withKnownShS sh $ case DMap.lookup n dMap of
-                Just (RepAD c) -> evalSRuntimeSpecialized @sh @r s2 c d
+                Just (Cotangent c) -> evalSRuntimeSpecialized @sh @r s2 c d
                 Nothing -> errorMissing
             STKX @sh sh (STKScalar @r _) ->
               withKnownShX sh $ case DMap.lookup n dMap of
-                Just (RepAD c) -> evalXRuntimeSpecialized @sh @r s2 c d
+                Just (Cotangent c) -> evalXRuntimeSpecialized @sh @r s2 c d
                 Nothing -> errorMissing
             _ -> case DMap.lookup n dMap of
-              Just (RepAD c) -> evalRev s2 c d
+              Just (Cotangent c) -> evalRev s2 c d
               Nothing -> errorMissing
       in evalRevFromnMap s3
     Nothing -> s  -- loop ends
@@ -954,11 +954,11 @@ evalFwd params s d0 = case d0 of
       Nothing -> error "evalFwd: missing input"
   DeltaShare n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     case DMap.lookup n s of
-      Just e1 -> (s, unRepAD e1)
+      Just e1 -> (s, unCotangent e1)
       Nothing ->
         let (s2, cRaw) = evalFwd params s d
             cShared = tshare cRaw
-            cd = RepAD cShared
+            cd = Cotangent cShared
               -- cRaw is shared, because it's put into the map and then
               -- potentially looked up many times, so it'd get duplicated
             s3 = DMap.insert n cd s2
