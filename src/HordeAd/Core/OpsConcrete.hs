@@ -28,8 +28,8 @@ import GHC.TypeLits
   (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
-import System.Random
 import Unsafe.Coerce (unsafeCoerce)
+import System.Random
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
@@ -70,32 +70,44 @@ import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-instance EqF RepN where
-  (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
-  RepN u ==. RepN v = case stensorKind @y of
-    STKScalar _ -> u == v
-    STKR SNat STKScalar{} -> u == v
-    STKS sh STKScalar{} -> withKnownShS sh $ u == v
-    STKX sh STKScalar{} -> withKnownShX sh $ u == v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-      RepN @y1 (fst u) ==. RepN @y1 (fst v)
-      && RepN @y2 (snd u) ==. RepN @y2 (snd v)
-    _ -> error "TODO"
+-- * Orphan adaptor instances
 
-instance OrdF RepN where
-  (<.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
-  RepN u <. RepN v = case stensorKind @y of
-    STKScalar _ -> u < v
-    STKR SNat STKScalar{} -> u < v
-    STKS sh STKScalar{} -> withKnownShS sh $ u < v
-    STKX sh STKScalar{} -> withKnownShX sh $ u < v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
-      RepN @y1 (fst u) <. RepN @y1 (fst v)
-      && RepN @y2 (snd u) <. RepN @y2 (snd v)
-        -- lexicographic ordering  -- TODO: is this standard and the same as for <=. ? as for || ?
-    _ -> error "TODO"
+instance ForgetShape (RepN (TKR n r)) where
+  type NoShape (RepN (TKR n r)) = RepN (TKR n r)
+  forgetShape = id
+
+instance GoodScalar r
+         => ForgetShape (RepN (TKS sh r)) where
+  type NoShape (RepN (TKS sh r)) = RepN (TKR (Rank sh) r)  -- key case
+  forgetShape = RepN . Nested.stoRanked . unRepN
+
+instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
+         => RandomHVector (RepN (TKS sh r)) where
+  randomVals @g range g =
+    let createRandomVector :: Int -> g -> Nested.Shaped sh r
+        createRandomVector n seed =
+          unRepN (srepl (2 * realToFrac range))
+          * (Nested.sfromVector knownShS (V.fromListN n (randoms seed))
+             - unRepN (srepl 0.5))
+        (g1, g2) = splitGen g
+        arr = createRandomVector (sizeP (Proxy @sh)) g1
+    in (RepN arr, g2)
+
+{-
+-- This specialization is not possible where the functions are defined,
+-- but is possible here:
+{-# SPECIALIZE gradientFromDelta
+  :: FullTensorKind TKUntyped
+  -> RepN TKUntyped
+  -> Maybe (RepN TKUntyped)
+  -> Delta RepN TKUntyped
+  -> RepN TKUntyped #-}
+{-# SPECIALIZE evalRevFromnMap
+  :: EvalState RepN -> EvalState RepN #-}
+-}
+
+
+-- * Tensor classes instance
 
 instance LetTensor RepN where
   tlet = (&)
@@ -574,52 +586,8 @@ instance BaseTensor RepN where
   dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRdmapAccumL k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
 
-instance Eq (RepORArray y) => Eq (RepN y) where
-  RepN u == RepN v = u == v
 
-instance Ord (RepORArray y) => Ord (RepN y) where
-  RepN u <= RepN v = u <= v
-
-instance Num (RepORArray y) => Num (RepN y) where
-  RepN t + RepN u = RepN $ t + u
-  RepN t - RepN u = RepN $ t - u
-  RepN t * RepN u = RepN $ t * u
-  negate (RepN t) = RepN $ negate t
-  abs (RepN t) = RepN $ abs t
-  signum (RepN t) = RepN $ signum t
-  fromInteger = RepN . fromInteger
-
-instance IntegralF (RepORArray y) => IntegralF (RepN y) where
-  quotF (RepN t) (RepN u) = RepN $ quotF t u
-  remF (RepN t) (RepN u) = RepN $ remF t u
-
-instance Fractional (RepORArray y) => Fractional (RepN y) where
-  RepN u / RepN v = RepN $ u / v
-  recip (RepN t) = RepN $ recip t
-  fromRational = RepN . fromRational
-
-instance Floating (RepORArray y) => Floating (RepN y) where
-  pi = RepN pi
-  exp (RepN t) = RepN $ exp t
-  log (RepN t) = RepN $ log t
-  sqrt (RepN t) = RepN $ sqrt t
-  (**) (RepN t) (RepN u) = RepN $ (**) t u
-  logBase (RepN t) (RepN u) = RepN $ logBase t u
-  sin (RepN t) = RepN $ sin t
-  cos (RepN t) = RepN $ cos t
-  tan (RepN t) = RepN $ tan t
-  asin (RepN t) = RepN $ asin t
-  acos (RepN t) = RepN $ acos t
-  atan (RepN t) = RepN $ atan t
-  sinh (RepN t) = RepN $ sinh t
-  cosh (RepN t) = RepN $ cosh t
-  tanh (RepN t) = RepN $ tanh t
-  asinh (RepN t) = RepN $ asinh t
-  acosh (RepN t) = RepN $ acosh t
-  atanh (RepN t) = RepN $ atanh t
-
-instance RealFloatF (RepORArray y) => RealFloatF (RepN y) where
-  atan2F (RepN t) (RepN u) = RepN $ atan2F t u
+-- * MapAccum internal definitions
 
 ravel :: forall k y. TensorKind y
       => SNat k -> [RepN y]
@@ -703,38 +671,8 @@ oRdmapAccumL k _ bShs _ f acc0 es
         (xout, lout) = mapAccumL g acc0 (unravel k es)
     in tpair xout (ravel k lout)
 
-instance ForgetShape (RepN (TKR n r)) where
-  type NoShape (RepN (TKR n r)) = RepN (TKR n r)
-  forgetShape = id
 
-instance GoodScalar r
-         => ForgetShape (RepN (TKS sh r)) where
-  type NoShape (RepN (TKS sh r)) = RepN (TKR (Rank sh) r)  -- key case
-  forgetShape = RepN . Nested.stoRanked . unRepN
-
-instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
-         => RandomHVector (RepN (TKS sh r)) where
-  randomVals @g range g =
-    let createRandomVector :: Int -> g -> Nested.Shaped sh r
-        createRandomVector n seed =
-          unRepN (srepl (2 * realToFrac range))
-          * (Nested.sfromVector knownShS (V.fromListN n (randoms seed))
-             - unRepN (srepl 0.5))
-        (g1, g2) = splitGen g
-        arr = createRandomVector (sizeP (Proxy @sh)) g1
-    in (RepN arr, g2)
-{-
--- This specialization is not possible where the functions are defined,
--- but is possible here:
-{-# SPECIALIZE gradientFromDelta
-  :: FullTensorKind TKUntyped
-  -> RepN TKUntyped
-  -> Maybe (RepN TKUntyped)
-  -> Delta RepN TKUntyped
-  -> RepN TKUntyped #-}
-{-# SPECIALIZE evalRevFromnMap
-  :: EvalState RepN -> EvalState RepN #-}
--}
+-- * Ranked internal definitions
 
 -- TODO: check what the following did in tsum0R and if worth emulating
 -- (also in sum1Inner and extremum and maybe tdot0R):
@@ -745,8 +683,9 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0R (t * u) -}
 
-
--- * Internal definitions
+-- TODO: check what the following did in tsum0R and if worth emulating
+-- (also in sum1Inner and extremum and maybe tdot0R):
+-- LA.sumElements $ OI.toUnorderedVectorT sh t
 
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
@@ -1005,6 +944,9 @@ tgatherZ1R k t f = case stensorKind @r of
                              (NonEmpty.fromList [0 .. fromIntegral k - 1])
   _ -> rbuild1 k (\ix -> t ! f ix)
 
+
+-- * Shaped internal definitions
+
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
@@ -1233,6 +1175,9 @@ tgatherZ1S t f =
       sfromList $ NonEmpty.map (\i -> t !$ f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
     _ -> sbuild1 (\ix -> t !$ f ix)
+
+
+-- * Mixed internal definitions
 
 updateNX :: forall n sh r.
             (TensorKind r, KnownShX (Drop n sh), KnownShX (Take n sh))

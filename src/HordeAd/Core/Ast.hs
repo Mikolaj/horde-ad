@@ -176,12 +176,10 @@ data AstArtifactFwd x z = AstArtifactFwd
   , artPrimalFwd     :: AstTensor AstMethodLet PrimalSpan z
   }
 
-type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
-
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
-type AstInt ms = IntOf (AstTensor ms FullSpan)
--- ~ AstTensor ms PrimalSpan (TKScalar Int64)
+type AstInt ms = AstTensor ms PrimalSpan (TKScalar Int64)
+-- ~ IntOf (AstTensor ms FullSpan)
 
 type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
 
@@ -213,7 +211,7 @@ type AstBindings = DEnumMap (AstVarName PrimalSpan)
                             (AstTensor AstMethodLet PrimalSpan)
 
 
--- * ASTs
+-- * AST
 
 type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 

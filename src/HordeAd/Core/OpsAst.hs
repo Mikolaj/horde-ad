@@ -144,8 +144,6 @@ fwdProduceArtifact f envInit =
 
 -- These boolean instances are unlawful; they are lawful modulo evaluation.
 
-type instance BoolOf (AstTensor AstMethodLet s) = AstBool AstMethodLet
-
 instance AstSpan s => EqF (AstTensor AstMethodLet s) where
   AstConcrete _ u ==. AstConcrete _ v = AstBoolConst $ u ==. v
     -- common in indexing
@@ -723,6 +721,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   dmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumLDer k bShs eShs f df rf acc0 es
 
+
 -- * The AstRaw instances
 
 astSpanPrimalRaw :: forall s y. (AstSpan s, TensorKind y)
@@ -743,8 +742,6 @@ astSpanDualRaw t | Just Refl <- sameAstSpan @s @DualSpan = t
 astSpanDualRaw t | Just Refl <- sameAstSpan @s @FullSpan = AstDualPart t
 astSpanDualRaw _ = error "a spuriuos case for pattern match coverage"
 
-type instance BoolOf (AstRaw s) = AstBool AstMethodShare
-
 instance AstSpan s => EqF (AstRaw s) where
   AstRaw v ==. AstRaw u = AstRel EqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
   AstRaw v /=. AstRaw u = AstRel NeqOp (astSpanPrimalRaw v) (astSpanPrimalRaw u)
@@ -757,13 +754,13 @@ instance AstSpan s => OrdF (AstRaw s) where
 deriving instance Eq (AstRaw s y)
 deriving instance Ord (AstRaw s y)
 deriving instance Num (AstTensor AstMethodShare s y) => Num (AstRaw s y)
-deriving instance (IntegralF (AstTensor AstMethodShare s y))
+deriving instance IntegralF (AstTensor AstMethodShare s y)
                   => IntegralF (AstRaw s y)
 deriving instance Fractional (AstTensor AstMethodShare s y)
                   => Fractional (AstRaw s y)
 deriving instance Floating (AstTensor AstMethodShare s y)
                   => Floating (AstRaw s y)
-deriving instance (RealFloatF (AstTensor AstMethodShare s y))
+deriving instance RealFloatF (AstTensor AstMethodShare s y)
                   => RealFloatF (AstRaw s y)
 
 instance AstSpan s => ShareTensor (AstRaw s) where
@@ -1273,9 +1270,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
 
 
--- * The AstNoVectorize
-
-type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
+-- * AstNoVectorize instances
 
 deriving instance AstSpan s => EqF (AstNoVectorize s)
 deriving instance AstSpan s => OrdF (AstNoVectorize s)
@@ -1449,9 +1444,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
 
 
--- * The AstNoSimplify instances
-
-type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
+-- * AstNoSimplify instances
 
 deriving instance AstSpan s => EqF (AstNoSimplify s)
 deriving instance AstSpan s => OrdF (AstNoSimplify s)

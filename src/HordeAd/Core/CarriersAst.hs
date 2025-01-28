@@ -24,8 +24,9 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- * Basic type family instances
+-- * Type family instances for AstTensor
 
+type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
 type instance DualOf (AstTensor ms s) = AstTensor ms DualSpan
 type instance ShareOf (AstTensor ms s) = AstRaw s
 
@@ -39,6 +40,11 @@ type instance ShareOf (AstTensor ms s) = AstRaw s
 -- of the instances, especially after applied to arguments that are terms.
 type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z  -- TODO: PrimalSpan
 
+type instance BoolOf (AstTensor AstMethodLet s) = AstBool AstMethodLet
+
+
+-- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
+
 -- These are, unfortunately, required by some numeric instances.
 instance Eq (AstTensor ms s y) where
   (==) = error "AST requires that EqF be used instead"
@@ -46,9 +52,6 @@ instance Eq (AstTensor ms s y) where
 
 instance Ord (AstTensor ms s y) where
   (<=) = error "AST requires that OrdF be used instead"
-
-
--- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
 
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
@@ -269,7 +272,7 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh, AstSpan s)
   atan2F = AstR2S Atan2Op
 
 
--- mixed
+-- * Unlawful numeric instances for mixed AST; they are lawful modulo evaluation
 
 instance GoodScalar r
          => Num (AstTensor ms s (TKX sh r)) where
@@ -335,22 +338,7 @@ instance Boolean (AstBool ms) where
   b ||* c = AstB2 OrOp b c
 
 
--- * The AstRaw, AstNoVectorize and AstNoSimplify definitions
-
-type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
-type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
-type instance ShareOf (AstRaw s) = AstRaw s
-type instance HFunOf (AstRaw s) x y = AstHFun x y
-
-type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
-type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
-type instance ShareOf (AstNoVectorize s) = AstRaw s
-type instance HFunOf (AstNoVectorize s) x z = AstHFun x z
-
-type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
-type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
-type instance ShareOf (AstNoSimplify s) = AstRaw s
-type instance HFunOf (AstNoSimplify s) x z = AstHFun x z
+-- * AstRaw, AstNoVectorize and AstNoSimplify definitions
 
 type role AstRaw nominal nominal
 newtype AstRaw s y =
@@ -366,3 +354,27 @@ type role AstNoSimplify nominal nominal
 newtype AstNoSimplify s y =
   AstNoSimplify {unAstNoSimplify :: AstTensor AstMethodLet s y}
  deriving Show
+
+
+-- * AstRaw, AstNoVectorize and AstNoSimplify type family instances
+
+type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
+type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
+type instance ShareOf (AstRaw s) = AstRaw s
+type instance HFunOf (AstRaw s) x y = AstHFun x y
+type instance BoolOf (AstRaw s) = AstBool AstMethodShare
+
+type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
+type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
+type instance ShareOf (AstNoVectorize s) = AstRaw s
+type instance HFunOf (AstNoVectorize s) x z = AstHFun x z
+type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
+
+type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
+type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
+type instance ShareOf (AstNoSimplify s) = AstRaw s
+type instance HFunOf (AstNoSimplify s) x z = AstHFun x z
+type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
+
+
+-- * AstRaw, AstNoVectorize and AstNoSimplify other instances
