@@ -12,7 +12,9 @@ module HordeAd.Core.AstInline
 import Prelude
 
 import Control.Arrow (second)
+import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Dependent.Sum (DSum (..))
 import Data.EnumMap.Strict qualified as EM
 import Data.List (mapAccumR)
 import Data.Some
@@ -320,6 +322,23 @@ inlineAstBool memo v0 = case v0 of
 
 
 -- * The translates global sharing to normal lets
+
+type AstBindings = DEnumMap (AstVarName PrimalSpan)
+                            (AstTensor AstMethodLet PrimalSpan)
+
+bindsToLet :: forall s y. TensorKind y
+           => AstTensor AstMethodLet s y -> AstBindings
+           -> AstTensor AstMethodLet s y
+{-# INLINE bindsToLet #-}  -- help list fusion
+bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
+ where
+  bindToLet :: AstTensor AstMethodLet s y
+            -> DSum (AstVarName PrimalSpan)
+                    (AstTensor AstMethodLet PrimalSpan)
+            -> AstTensor AstMethodLet s y
+  bindToLet !u (var :=> w)
+    | Dict <- tensorKindFromAstVarName var =
+      Ast.AstLet var w u
 
 unshareAstTensor :: TensorKind y
                  => AstTensor AstMethodShare PrimalSpan y

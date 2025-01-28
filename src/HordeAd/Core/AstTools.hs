@@ -11,7 +11,6 @@ module HordeAd.Core.AstTools
     -- * Determining if a term is too small to require sharing
   , astIsSmall
     -- * Odds and ends
-  , bindsToLet
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstSFromR, cAstSFromX
   ) where
@@ -19,9 +18,6 @@ module HordeAd.Core.AstTools
 import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
-import Data.Dependent.EnumMap.Strict qualified as DMap
-import Data.Dependent.Sum (DSum (..))
-import Data.List (foldl')
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -348,20 +344,6 @@ astIsSmall relaxed = \case
 
 
 -- * Odds and ends
-
-bindsToLet :: forall s y. TensorKind y
-           => AstTensor AstMethodLet s y -> AstBindings
-           -> AstTensor AstMethodLet s y
-{-# INLINE bindsToLet #-}  -- help list fusion
-bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
- where
-  bindToLet :: AstTensor AstMethodLet s y
-            -> DSum (AstVarName PrimalSpan)
-                    (AstTensor AstMethodLet PrimalSpan)
-            -> AstTensor AstMethodLet s y
-  bindToLet !u (var :=> w)
-    | Dict <- tensorKindFromAstVarName var =
-      AstLet var w u
 
 liftRFromS1 :: forall n x ms s. TensorKind x
             => (forall sh. KnownShS sh

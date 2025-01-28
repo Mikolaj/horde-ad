@@ -14,8 +14,6 @@ module HordeAd.Core.Ast
   , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxR, AstVarList, AstIxS, AstVarListS, AstIndexX
-    -- * AstBindings
-  , AstBindings
     -- * ASTs
   , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
@@ -25,7 +23,6 @@ module HordeAd.Core.Ast
 
 import Prelude hiding (foldl')
 
-import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
 import Data.GADT.Compare
@@ -211,12 +208,6 @@ type AstIxS ms sh = IxS sh (AstInt ms)
 type AstVarListS sh = ListS sh (Const IntVarName)
 
 type AstIndexX ms sh = IxX sh (AstInt ms)
-
-
--- * AstBindings
-
-type AstBindings = DEnumMap (AstVarName PrimalSpan)
-                            (AstTensor AstMethodLet PrimalSpan)
 
 
 -- * AST
