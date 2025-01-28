@@ -8,8 +8,7 @@
 -- instances defined in "TensorADVal" but may also be used standalone.
 module HordeAd.Core.OpsAst
   ( forwardPassByInterpretation
-  , revArtifactFromForwardPass
-  , revProduceArtifact
+  , revArtifactFromForwardPass, revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
   ) where
 
@@ -141,30 +140,6 @@ fwdProduceArtifact f envInit =
 
 
 -- * AstTensor instances
-
--- These boolean instances are unlawful; they are lawful modulo evaluation.
-
-instance AstSpan s => EqF (AstTensor AstMethodLet s) where
-  AstConcrete _ u ==. AstConcrete _ v = AstBoolConst $ u ==. v
-    -- common in indexing
-  v ==. u = AstRel EqOp (primalPart v) (primalPart u)
-  AstConcrete _ u /=. AstConcrete _ v = AstBoolConst $ u /=. v
-    -- common in indexing
-  v /=. u = AstRel NeqOp (primalPart v) (primalPart u)
-
-instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
-  AstConcrete _ u <. AstConcrete _ v = AstBoolConst $ u <. v
-    -- common in indexing
-  v <. u = AstRel LsOp (primalPart v) (primalPart u)
-  AstConcrete _ u <=. AstConcrete _ v = AstBoolConst $ u <=. v
-    -- common in indexing
-  v <=. u = AstRel LeqOp (primalPart v) (primalPart u)
-  AstConcrete _ u >. AstConcrete _ v = AstBoolConst $ u >. v
-    -- common in indexing
-  v >. u = AstRel GtOp (primalPart v) (primalPart u)
-  AstConcrete _ u >=. AstConcrete _ v = AstBoolConst $ u >=. v
-    -- common in indexing
-  v >=. u = AstRel GeqOp (primalPart v) (primalPart u)
 
 instance TensorKind y
          => TermValue (AstTensor AstMethodLet FullSpan y) where
@@ -703,28 +678,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astMapAccumLDer k bShs eShs f df rf acc0 es
 
 
--- * The AstRaw instances
-
-instance AstSpan s => EqF (AstRaw s) where
-  AstRaw v ==. AstRaw u = AstRel EqOp (primalPart v) (primalPart u)
-  AstRaw v /=. AstRaw u = AstRel NeqOp (primalPart v) (primalPart u)
-instance AstSpan s => OrdF (AstRaw s) where
-  v <. u = AstRel LsOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
-  v <=. u = AstRel LeqOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
-  v >. u = AstRel GtOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
-  v >=. u = AstRel GeqOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
-
-deriving instance Eq (AstRaw s y)
-deriving instance Ord (AstRaw s y)
-deriving instance Num (AstTensor AstMethodShare s y) => Num (AstRaw s y)
-deriving instance IntegralF (AstTensor AstMethodShare s y)
-                  => IntegralF (AstRaw s y)
-deriving instance Fractional (AstTensor AstMethodShare s y)
-                  => Fractional (AstRaw s y)
-deriving instance Floating (AstTensor AstMethodShare s y)
-                  => Floating (AstRaw s y)
-deriving instance RealFloatF (AstTensor AstMethodShare s y)
-                  => RealFloatF (AstRaw s y)
+-- * AstRaw instances
 
 instance AstSpan s => ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
@@ -1235,20 +1189,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
 -- * AstNoVectorize instances
 
-deriving instance AstSpan s => EqF (AstNoVectorize s)
-deriving instance AstSpan s => OrdF (AstNoVectorize s)
-deriving instance Eq (AstNoVectorize s y)
-deriving instance Ord (AstNoVectorize s y)
-deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoVectorize s y)
-deriving instance (IntegralF (AstTensor AstMethodLet s y))
-                  => IntegralF (AstNoVectorize s y)
-deriving instance Fractional (AstTensor AstMethodLet s y)
-                  => Fractional (AstNoVectorize s y)
-deriving instance Floating (AstTensor AstMethodLet s y)
-                  => Floating (AstNoVectorize s y)
-deriving instance (RealFloatF (AstTensor AstMethodLet s y))
-                  => RealFloatF (AstNoVectorize s y)
-
 instance AstSpan s => LetTensor (AstNoVectorize s) where
   tlet u f = AstNoVectorize
              $ astLetFun (unAstNoVectorize u)
@@ -1408,20 +1348,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
 
 -- * AstNoSimplify instances
-
-deriving instance AstSpan s => EqF (AstNoSimplify s)
-deriving instance AstSpan s => OrdF (AstNoSimplify s)
-deriving instance Eq (AstNoSimplify s y)
-deriving instance Ord (AstNoSimplify s y)
-deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoSimplify s y)
-deriving instance (IntegralF (AstTensor AstMethodLet s y))
-                  => IntegralF (AstNoSimplify s y)
-deriving instance Fractional (AstTensor AstMethodLet s y)
-                  => Fractional (AstNoSimplify s y)
-deriving instance Floating (AstTensor AstMethodLet s y)
-                  => Floating (AstNoSimplify s y)
-deriving instance (RealFloatF (AstTensor AstMethodLet s y))
-                  => RealFloatF (AstNoSimplify s y)
 
 astLetFunNoSimplify
   :: forall y z s s2. (TensorKind z, AstSpan s)

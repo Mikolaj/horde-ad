@@ -158,7 +158,7 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
                      in V.zipWith atan2F x y)))  -- TODO: do better somehow
 
 
--- * RepORArray and its operations and instances
+-- * RepORArray and its operations
 
 type family RepORArray (y :: TensorKindType) where
   RepORArray (TKScalar r) = r

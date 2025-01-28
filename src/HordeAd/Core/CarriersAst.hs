@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | AST of the code built using the @RankedTensor@ and related classes.
@@ -337,6 +337,28 @@ instance Boolean (AstBool ms) where
   b &&* c = AstB2 AndOp b c
   b ||* c = AstB2 OrOp b c
 
+instance AstSpan s => EqF (AstTensor AstMethodLet s) where
+  AstConcrete _ u ==. AstConcrete _ v = AstBoolConst $ u ==. v
+    -- common in indexing
+  v ==. u = AstRel EqOp (primalPart v) (primalPart u)
+  AstConcrete _ u /=. AstConcrete _ v = AstBoolConst $ u /=. v
+    -- common in indexing
+  v /=. u = AstRel NeqOp (primalPart v) (primalPart u)
+
+instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
+  AstConcrete _ u <. AstConcrete _ v = AstBoolConst $ u <. v
+    -- common in indexing
+  v <. u = AstRel LsOp (primalPart v) (primalPart u)
+  AstConcrete _ u <=. AstConcrete _ v = AstBoolConst $ u <=. v
+    -- common in indexing
+  v <=. u = AstRel LeqOp (primalPart v) (primalPart u)
+  AstConcrete _ u >. AstConcrete _ v = AstBoolConst $ u >. v
+    -- common in indexing
+  v >. u = AstRel GtOp (primalPart v) (primalPart u)
+  AstConcrete _ u >=. AstConcrete _ v = AstBoolConst $ u >=. v
+    -- common in indexing
+  v >=. u = AstRel GeqOp (primalPart v) (primalPart u)
+
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions
 
@@ -378,3 +400,52 @@ type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify other instances
+
+instance AstSpan s => EqF (AstRaw s) where
+  AstRaw v ==. AstRaw u = AstRel EqOp (primalPart v) (primalPart u)
+  AstRaw v /=. AstRaw u = AstRel NeqOp (primalPart v) (primalPart u)
+instance AstSpan s => OrdF (AstRaw s) where
+  v <. u = AstRel LsOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
+  v <=. u = AstRel LeqOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
+  v >. u = AstRel GtOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
+  v >=. u = AstRel GeqOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
+
+deriving instance Eq (AstRaw s y)
+deriving instance Ord (AstRaw s y)
+deriving instance Num (AstTensor AstMethodShare s y) => Num (AstRaw s y)
+deriving instance IntegralF (AstTensor AstMethodShare s y)
+                  => IntegralF (AstRaw s y)
+deriving instance Fractional (AstTensor AstMethodShare s y)
+                  => Fractional (AstRaw s y)
+deriving instance Floating (AstTensor AstMethodShare s y)
+                  => Floating (AstRaw s y)
+deriving instance RealFloatF (AstTensor AstMethodShare s y)
+                  => RealFloatF (AstRaw s y)
+
+deriving instance AstSpan s => EqF (AstNoVectorize s)
+deriving instance AstSpan s => OrdF (AstNoVectorize s)
+deriving instance Eq (AstNoVectorize s y)
+deriving instance Ord (AstNoVectorize s y)
+deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoVectorize s y)
+deriving instance (IntegralF (AstTensor AstMethodLet s y))
+                  => IntegralF (AstNoVectorize s y)
+deriving instance Fractional (AstTensor AstMethodLet s y)
+                  => Fractional (AstNoVectorize s y)
+deriving instance Floating (AstTensor AstMethodLet s y)
+                  => Floating (AstNoVectorize s y)
+deriving instance (RealFloatF (AstTensor AstMethodLet s y))
+                  => RealFloatF (AstNoVectorize s y)
+
+deriving instance AstSpan s => EqF (AstNoSimplify s)
+deriving instance AstSpan s => OrdF (AstNoSimplify s)
+deriving instance Eq (AstNoSimplify s y)
+deriving instance Ord (AstNoSimplify s y)
+deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoSimplify s y)
+deriving instance (IntegralF (AstTensor AstMethodLet s y))
+                  => IntegralF (AstNoSimplify s y)
+deriving instance Fractional (AstTensor AstMethodLet s y)
+                  => Fractional (AstNoSimplify s y)
+deriving instance Floating (AstTensor AstMethodLet s y)
+                  => Floating (AstNoSimplify s y)
+deriving instance (RealFloatF (AstTensor AstMethodLet s y))
+                  => RealFloatF (AstNoSimplify s y)
