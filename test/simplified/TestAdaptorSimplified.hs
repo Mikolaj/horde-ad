@@ -2122,7 +2122,7 @@ fblowupPP = do
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet (sscalar 0.499999985 * sfromR x7) (\\x8 -> rfromS (soneHot (recip x3 * x8) [0] + soneHot ((negate x2 / (x3 * x3)) * x8) [1] + soneHot (recip x5 * x8) [0] + soneHot ((negate x4 / (x5 * x5)) * x8) [1]))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet ((x2 / x3 + x4 / x5) - sscalar 0.0) (\\x6 -> rfromS (sscalar 0.499999985 * x6 - sscalar 0.0))))))"
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet ((x2 / x3 + x4 / x5) - sfromIntegral (sscalar 0)) (\\x6 -> rfromS (sscalar 0.499999985 * x6 - sfromIntegral (sscalar 0)))))))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -2133,7 +2133,7 @@ fblowupLetPP = do
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (sscalar 0.499999985 * sfromR x7) (\\x8 -> tlet (x8 + x8) (\\x9 -> rfromS (soneHot (recip x4 * x9) [0] + soneHot ((negate x3 / (x4 * x4)) * x9) [1])))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet ((x5 + x5) - sscalar 0.0) (\\x6 -> rfromS (sscalar 0.499999985 * x6 - sscalar 0.0)))))"
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet ((x5 + x5) - sfromIntegral (sscalar 0)) (\\x6 -> rfromS (sscalar 0.499999985 * x6 - sfromIntegral (sscalar 0))))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
