@@ -22,8 +22,8 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
 import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
-import Data.Array.Nested (ShS (..))
-import Data.Array.Nested.Internal.Shape (shrRank, withKnownShS)
+import Data.Array.Nested (KnownShS (..), ShS (..))
+import Data.Array.Nested.Internal.Shape (shrRank, shsSize, withKnownShS)
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -217,7 +217,8 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (toList ix)
-        count = fromIntegral $ sizeT @shp * sizeT @shn
+        count = fromIntegral
+                $ shsSize (knownShS @shp) * shsSize (knownShS @shn)
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstScatterS @shm @shn @shp v2 (vars, fromList ix2))
   Ast.AstAppendS x y ->
@@ -233,7 +234,8 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty
                                   (toList ix)
-        count = fromIntegral $ sizeT @shm * sizeT @shn
+        count = fromIntegral
+                $ shsSize (knownShS @shm) * shsSize (knownShS @shn)
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
     in (memo2, Ast.AstGatherS @shm @shn @shp v2 (vars, fromList ix2))
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v

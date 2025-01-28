@@ -8,7 +8,7 @@ module HordeAd.Core.Types
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
   , pattern SNat'
     -- * Definitions for type-level list shapes
-  , sizeT, sizeP, sameShape
+  , sameShape
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
@@ -96,7 +96,7 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Shape
-  (listsDropLenPerm, listsRank, shrSize, shsLength, shsProduct, shsSize)
+  (listsDropLenPerm, listsRank, shrSize, shsLength, shsSize)
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -125,12 +125,6 @@ matchSNat p m@SNat = sameNat p m
 
 
 -- * Definitions for type-level list shapes
-
-sizeT :: forall sh. KnownShS sh => Int
-sizeT = sNatValue $ shsProduct $ knownShS @sh
-
-sizeP :: forall sh. KnownShS sh => Proxy sh -> Int
-sizeP _ = sizeT @sh
 
 sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
           => Maybe (sh1 :~: sh2)

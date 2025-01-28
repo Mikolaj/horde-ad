@@ -315,7 +315,7 @@ instance BaseTensor RepN where
     case stensorKind @r of
       STKScalar{} ->  -- optimized
         let shm = knownShS @shm
-            s = sizeT @shm
+            s = shsSize shm
             l = [ Nested.stoVector $ unRepN
                   $ sindex @_ @_ @_ @shn
                       t (f (fmap RepN

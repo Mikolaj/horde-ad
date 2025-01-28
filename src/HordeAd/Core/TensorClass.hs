@@ -74,6 +74,7 @@ import Data.Array.Nested.Internal.Shape
   , shsAppend
   , shsProduct
   , shsRank
+  , shsSize
   , withKnownShS
   )
 
@@ -698,7 +699,7 @@ class ( Num (IntOf target)
         => target (TKS2 sh r) -> Int
   srank _ = valueOf @(Rank sh)
   ssize :: forall sh r. (TensorKind r, KnownShS sh) => target (TKS2 sh r) -> Int
-  ssize _ = sizeT @sh
+  ssize _ = shsSize (knownShS @sh)
   slength :: forall r n sh. (TensorKind r, KnownNat n)
           => target (TKS2 (n ': sh) r) -> Int
   slength _ = valueOf @n
