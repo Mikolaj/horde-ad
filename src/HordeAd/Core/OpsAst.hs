@@ -15,7 +15,7 @@ module HordeAd.Core.OpsAst
 import Prelude
 
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (type (+))
 import Data.Type.Equality (gcastWith)
@@ -184,6 +184,9 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
       _ -> error "tunshare: used not at PrimalSpan"
   tfromS @_ @z = astFromS (stensorKind @z)
 
+-- The checks and error messages in these function result in complete
+-- shape-checking of the ranked and mixed user code (shaped is already
+-- fully checked by Haskell).
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tconstantTarget = constantTarget
   taddTarget = addTarget
@@ -200,7 +203,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS @(TKS (Init sh) r2) (stensorKind @(TKR n r2))
           . fromPrimal . AstMinIndexS . primalPart . astSFromR @sh $ a
-        ZSS -> error "xminIndex: impossible shape"
+        ZSS -> error "xminIndex: impossible empty shape"
   rmaxIndex @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
@@ -210,7 +213,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS @(TKS (Init sh) r2) (stensorKind @(TKR n r2))
           . fromPrimal . AstMaxIndexS . primalPart . astSFromR @sh $ a
-        ZSS -> error "xmaxIndex: impossible shape"
+        ZSS -> error "xmaxIndex: impossible empty shape"
   rfloor @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -241,20 +244,24 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        gcastWith (unsafeCoerceRefl
-                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
         withKnownShS (takeShS @m shmshn) $
         withKnownShS (dropShS @m shmshn) $
         withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        astFromS @(TKS2 shpshn x) (STKR (shrRank shpshn0) (ftkToStk x))
-        $ astScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                      (astSFromR @shmshn t)
-        $ funToAstIxS (ixrToIxs . f . ixsToIxr)
-            -- this introduces new variable names
+        gcastWith (unsafeCoerceRefl
+                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
+        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+          Just Refl ->
+            astFromS @(TKS2 shpshn x) (STKR (shrRank shpshn0) (ftkToStk x))
+            $ astScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
+                          (astSFromR @shmshn t)
+            $ funToAstIxS (ixrToIxs . f . ixsToIxr)
+                -- this introduces new variable names
+          _ -> error $ "rscatter: shapes don't match: "
+                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
   rfromVector l = withSNat (V.length l) $ \snat -> astFromVector snat l
   rreplicate k = withSNat k $ \snat -> astReplicate snat stensorKind
   rappend @r @n u v = case ftkAst u of
@@ -320,20 +327,24 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        gcastWith (unsafeCoerceRefl
-                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
         withKnownShS (takeShS @m shmshn) $
         withKnownShS (dropShS @m shmshn) $
         withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        astFromS (STKR (shrRank shmshn0) (ftkToStk x))
-        $ astGatherStepS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                         (astSFromR t)
-        $ funToAstIxS (ixrToIxs . f . ixsToIxr)
-            -- this introduces new variable names
+        gcastWith (unsafeCoerceRefl
+                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
+        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+          Just Refl ->
+            astFromS (STKR (shrRank shmshn0) (ftkToStk x))
+            $ astGatherStepS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
+                             (astSFromR t)
+            $ funToAstIxS (ixrToIxs . f . ixsToIxr)
+                -- this introduces new variable names
+          _ -> error $ "rgather: shapes don't match: "
+                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
   rcast @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
