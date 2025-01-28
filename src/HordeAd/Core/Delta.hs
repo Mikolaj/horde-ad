@@ -42,7 +42,7 @@ module HordeAd.Core.Delta
     -- * AST of delta expressions
   , Delta(..)
     -- * Delta tensor kind derivation
-  , shapeDeltaFull, lengthDelta, shapeDelta, shapeDeltaX
+  , ftkDelta, lengthDelta, shapeDelta, shapeDeltaX
   ) where
 
 import Prelude
@@ -514,102 +514,102 @@ deriving instance ( TensorKind y
                   => Show (Delta target y)
 
 
--- * Delta tensor kind derivation
+-- * Full tensor kind calculation of delta expressions
 
-shapeDeltaFull :: forall target y. TensorKind y
+ftkDelta :: forall target y. TensorKind y
                => Delta target y -> FullTensorKind y
-shapeDeltaFull = \case
+ftkDelta = \case
   DeltaCast{} -> FTKScalar
   DeltaSFromK{} -> FTKS ZSS FTKScalar
-  DeltaPair t1 t2 -> FTKProduct (shapeDeltaFull t1) (shapeDeltaFull t2)
-  DeltaProject1 v -> case shapeDeltaFull v of
+  DeltaPair t1 t2 -> FTKProduct (ftkDelta t1) (ftkDelta t2)
+  DeltaProject1 v -> case ftkDelta v of
     FTKProduct ftk1 _ -> ftk1
-  DeltaProject2 v -> case shapeDeltaFull v of
+  DeltaProject2 v -> case ftkDelta v of
     FTKProduct _ ftk2 -> ftk2
   DeltaFromVector snat _ l -> case V.toList l of
-    [] -> error "shapeDeltaFull: empty vector"
-    d : _ -> buildFTK snat (shapeDeltaFull d)
-  DeltaSum snat stk d -> razeFTK snat stk (shapeDeltaFull d)
-  DeltaReplicate snat _ d -> buildFTK snat (shapeDeltaFull d)
+    [] -> error "ftkDelta: empty vector"
+    d : _ -> buildFTK snat (ftkDelta d)
+  DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
+  DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
   DeltaInput ftk _ -> ftk
-  DeltaShare _ d -> shapeDeltaFull d
+  DeltaShare _ d -> ftkDelta d
   DeltaZero ftk -> ftk
-  DeltaScale _ d -> shapeDeltaFull d
-  DeltaAdd d _ -> shapeDeltaFull d
+  DeltaScale _ d -> ftkDelta d
+  DeltaAdd d _ -> ftkDelta d
 
-  DeltaIndexR d _ -> case shapeDeltaFull d of
+  DeltaIndexR d _ -> case ftkDelta d of
     FTKR sh x -> FTKR (dropShape sh) x
-  DeltaSum0R d -> case shapeDeltaFull d of
+  DeltaSum0R d -> case ftkDelta d of
     FTKR _ x -> FTKR ZSR x
   DeltaDot0R{} -> FTKR ZSR FTKScalar
-  DeltaScatterR sh d _ -> case shapeDeltaFull d of
+  DeltaScatterR sh d _ -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
-  DeltaAppendR a b -> case shapeDeltaFull a of
-    FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
-    FTKR (ai :$: ash) x -> case shapeDeltaFull b of
-      FTKR ZSR _ -> error "shapeDeltaFull: impossible pattern needlessly required"
+  DeltaAppendR a b -> case ftkDelta a of
+    FTKR ZSR _ -> error "ftkDelta: impossible pattern needlessly required"
+    FTKR (ai :$: ash) x -> case ftkDelta b of
+      FTKR ZSR _ -> error "ftkDelta: impossible pattern needlessly required"
       FTKR (bi :$: _) _ -> FTKR (ai + bi :$: ash) x
-  DeltaSliceR _ n d -> case shapeDeltaFull d of
+  DeltaSliceR _ n d -> case ftkDelta d of
     FTKR sh x -> FTKR (n :$: shrTail sh) x
-  DeltaReverseR d -> shapeDeltaFull d
-  DeltaTransposeR perm d -> case shapeDeltaFull d of
+  DeltaReverseR d -> ftkDelta d
+  DeltaTransposeR perm d -> case ftkDelta d of
     FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
-  DeltaReshapeR sh d -> case shapeDeltaFull d of
+  DeltaReshapeR sh d -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
-  DeltaGatherR sh d _ -> case shapeDeltaFull d of
+  DeltaGatherR sh d _ -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
   DeltaCastR d -> FTKR (shapeDelta d) FTKScalar
-  DeltaZipR d -> case shapeDeltaFull d of
+  DeltaZipR d -> case ftkDelta d of
     FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
-  DeltaUnzipR d -> case shapeDeltaFull d of
+  DeltaUnzipR d -> case ftkDelta d of
     FTKR sh (FTKProduct y z) -> FTKProduct (FTKR sh y) (FTKR sh z)
 
-  DeltaIndexS d _ix -> case shapeDeltaFull d of
+  DeltaIndexS d _ix -> case ftkDelta d of
     FTKS _ x -> FTKS knownShS x
-  DeltaSum0S d -> case shapeDeltaFull d of
+  DeltaSum0S d -> case ftkDelta d of
     FTKS _ x -> FTKS ZSS x
   DeltaDot0S{} -> FTKS ZSS FTKScalar
-  DeltaScatterS @_ @_ @_ @shn @shp d _ -> case shapeDeltaFull d of
+  DeltaScatterS @_ @_ @_ @shn @shp d _ -> case ftkDelta d of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
-  DeltaAppendS a _ -> case shapeDeltaFull a of
+  DeltaAppendS a _ -> case ftkDelta a of
     FTKS _ x -> FTKS knownShS x
-  DeltaSliceS d -> case shapeDeltaFull d of
+  DeltaSliceS d -> case ftkDelta d of
     FTKS _ x -> FTKS knownShS x
-  DeltaReverseS d -> shapeDeltaFull d
-  DeltaTransposeS @_ @sh2 perm d -> case shapeDeltaFull d of
+  DeltaReverseS d -> ftkDelta d
+  DeltaTransposeS @_ @sh2 perm d -> case ftkDelta d of
     FTKS _ x -> FTKS (shsPermutePrefix perm (knownShS @sh2)) x
-  DeltaReshapeS d -> case shapeDeltaFull d of
+  DeltaReshapeS d -> case ftkDelta d of
     FTKS _ x -> FTKS knownShS x
-  DeltaGatherS @_ @_ @shm @shn d _ -> case shapeDeltaFull d of
+  DeltaGatherS @_ @_ @shm @shn d _ -> case ftkDelta d of
     FTKS _ x -> FTKS (knownShS @shm `shsAppend` knownShS @shn) x
   DeltaCastS{} -> FTKS knownShS FTKScalar
-  DeltaZipS d -> case shapeDeltaFull d of
+  DeltaZipS d -> case ftkDelta d of
     FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
-  DeltaUnzipS d -> case shapeDeltaFull d of
+  DeltaUnzipS d -> case ftkDelta d of
     FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
 
-  DeltaIndexX @sh1 d _ix -> case shapeDeltaFull d of
+  DeltaIndexX @sh1 d _ix -> case ftkDelta d of
     FTKX sh x -> FTKX (shxDropSSX sh (knownShX @sh1)) x
-  DeltaSum0X d -> case shapeDeltaFull d of
+  DeltaSum0X d -> case ftkDelta d of
     FTKX _ x -> FTKX ZSX x
   DeltaDot0X{} -> FTKX ZSX FTKScalar
-  DeltaScatterX sh d _ -> case shapeDeltaFull d of
+  DeltaScatterX sh d _ -> case ftkDelta d of
     FTKX _ x -> FTKX sh x
-  DeltaAppendX a _ -> shapeDeltaFull a
-  DeltaSliceX @_ @_ @n d -> case shapeDeltaFull d of
+  DeltaAppendX a _ -> ftkDelta a
+  DeltaSliceX @_ @_ @n d -> case ftkDelta d of
     FTKX sh x -> FTKX (Nested.SKnown (SNat @n) :$% shxTail sh) x
-  DeltaReverseX d -> shapeDeltaFull d
-  DeltaTransposeX perm d -> case shapeDeltaFull d of
+  DeltaReverseX d -> ftkDelta d
+  DeltaTransposeX perm d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxPermutePrefix perm sh) x
-  DeltaReshapeX sh2 d -> case shapeDeltaFull d of
+  DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX _ x -> FTKX sh2 x
-  DeltaGatherX sh d _ -> case shapeDeltaFull d of
+  DeltaGatherX sh d _ -> case ftkDelta d of
     FTKX _ x -> FTKX sh x
-  DeltaCastX d -> case shapeDeltaFull d of
+  DeltaCastX d -> case ftkDelta d of
     FTKX sh FTKScalar -> FTKX sh FTKScalar
-  DeltaZipX d -> case shapeDeltaFull d of
+  DeltaZipX d -> case ftkDelta d of
     FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
-  DeltaUnzipX d -> case shapeDeltaFull d of
+  DeltaUnzipX d -> case ftkDelta d of
     FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   DeltaFromS @_ @z d ->
@@ -619,43 +619,43 @@ shapeDeltaFull = \case
           (FTKS ZSS (FTKScalar @r), STKScalar tr) ->
             case testEquality (typeRep @r) tr of
               Just Refl -> FTKScalar
-              Nothing -> error "shapeDeltaFull: wrong tensor kinds for DeltaFromS"
+              Nothing -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
           (FTKS sh x, STKR nx zx) ->
             case ( sameSTK (ftkToStk x) zx
                  , testEquality (shsRank sh) nx ) of
               (Just Refl, Just Refl) -> FTKR (shCastSR sh) x
-              _ -> error $ "shapeDeltaFull: wrong tensor kinds for DeltaFromS: "
+              _ -> error $ "ftkDelta: wrong tensor kinds for DeltaFromS: "
                            ++ show (ftkToStk x) ++ " vs " ++ show zx ++ " and "
                            ++ show sh ++ " vs " ++ show nx
           (FTKS sh x, STKX shx zx) ->
             case ( sameSTK (ftkToStk x) zx
                  , testEquality (shsRank sh) (ssxRank shx) ) of
               (Just Refl, Just Refl) -> FTKX (shCastSX shx sh) x
-              _ -> error "shapeDeltaFull: wrong tensor kinds for DeltaFromS"
+              _ -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
           (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) ->
             FTKProduct (fromS ftk1 stk1) (fromS ftk2 stk2)
-          _ -> error "shapeDeltaFull: wrong tensor kinds for DeltaFromS"
-    in fromS (shapeDeltaFull d) (stensorKind @z)
-  DeltaSFromR d -> case shapeDeltaFull d of
+          _ -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
+    in fromS (ftkDelta d) (stensorKind @z)
+  DeltaSFromR d -> case ftkDelta d of
     FTKR _ x -> FTKS knownShS x
-  DeltaSFromX d -> case shapeDeltaFull d of
+  DeltaSFromX d -> case ftkDelta d of
     FTKX _ x -> FTKS knownShS x
 
-  DeltaXNestR  @_ @sh1 @m d -> case shapeDeltaFull d of
+  DeltaXNestR  @_ @sh1 @m d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))
                                   sh (knownShX @sh1))
                       (FTKR (shCvtXR' (shxDropSSX sh (knownShX @sh1))) x)
-  DeltaXNestS @_ @sh1 @sh2 d -> case shapeDeltaFull d of
+  DeltaXNestS @_ @sh1 @sh2 d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh (knownShX @sh1))
                                   (FTKS knownShS x)
-  DeltaXNest @_ @sh1 @sh2 d -> case shapeDeltaFull d of
+  DeltaXNest @_ @sh1 @sh2 d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @sh2) sh (knownShX @sh1))
                       (FTKX (shxDropSSX sh (knownShX @sh1)) x)
-  DeltaXUnNestR d -> case shapeDeltaFull d of
+  DeltaXUnNestR d -> case ftkDelta d of
     FTKX sh1 (FTKR sh2 x) -> FTKX (sh1 `shxAppend` shCvtRX sh2) x
-  DeltaXUnNestS d -> case shapeDeltaFull d of
+  DeltaXUnNestS d -> case ftkDelta d of
     FTKX sh1 (FTKS sh2 x) -> FTKX (sh1 `shxAppend` shCvtSX sh2) x
-  DeltaXUnNest d -> case shapeDeltaFull d of
+  DeltaXUnNest d -> case ftkDelta d of
     FTKX sh1 (FTKX sh2 x) -> FTKX (sh1 `shxAppend` sh2) x
 
   DeltaMapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
@@ -668,7 +668,7 @@ shapeDeltaFull = \case
 shapeDelta :: forall target r n.
               (TensorKind r, KnownNat n)
            => Delta target (TKR2 n r) -> IShR n
-shapeDelta d = case shapeDeltaFull d of
+shapeDelta d = case ftkDelta d of
   FTKR sh _ -> sh
 
 lengthDelta :: forall target r n.
@@ -681,5 +681,5 @@ lengthDelta d = case shapeDelta d of
 shapeDeltaX :: forall target r sh.
                (TensorKind r, KnownShX sh)
             => Delta target (TKX2 sh r) -> IShX sh
-shapeDeltaX t = case shapeDeltaFull t of
+shapeDeltaX t = case ftkDelta t of
   FTKX sh _ -> sh

@@ -436,7 +436,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
   tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
-    dDnotShared (constantTarget 0 (shapeDeltaFull t)) t
+    dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale _ k = DeltaScale k
   tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
     fromPrimalADVal $ tconcrete ftk t

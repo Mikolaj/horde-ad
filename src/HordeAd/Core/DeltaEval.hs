@@ -456,7 +456,7 @@ evalRev !s !c d0 = case d0 of
     in evalRev (evalRev s c1 d1) c2 d2
   DeltaProject1 @_ @z d | Dict <- lemTensorKindOfAD (stensorKind @y)
                     , Dict <- lemTensorKindOfAD (stensorKind @z) ->
-    case shapeDeltaFull d of
+    case ftkDelta d of
       FTKProduct _ ftk2 ->
         let zero = constantTarget 0 $ aDFTK ftk2
         in evalRev s (tpair c zero) d
@@ -464,7 +464,7 @@ evalRev !s !c d0 = case d0 of
     -- at the price of complicating or duplicating the code slightly more
   DeltaProject2 @x d | Dict <- lemTensorKindOfAD (stensorKind @y)
                  , Dict <- lemTensorKindOfAD (stensorKind @x) ->
-    case shapeDeltaFull d of
+    case ftkDelta d of
       FTKProduct ftk1 _ ->
         let zero = constantTarget 0 $ aDFTK ftk1
         in evalRev s (tpair zero c) d
@@ -747,7 +747,7 @@ evalRevSame !s !c = \case
   DeltaUnzipS d ->
     evalRevSame s (szip c) d
 
-  DeltaIndexX @sh1 @sh2 d ix -> case shapeDeltaFull d of
+  DeltaIndexX @sh1 @sh2 d ix -> case ftkDelta d of
     FTKX sh _ -> evalRevSame s (xoneHot (shxTakeSSX (Proxy @sh2) sh
                                                     (knownShX @sh1)) c ix) d
   DeltaSum0X d ->
@@ -1014,7 +1014,7 @@ evalFwd params s d0 = case d0 of
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
       case sameTensorKind @y @(ADTensorKind y) of
         Just Refl -> evalFwdSame params s d0
-        _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+        _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
 
 evalFwdSame
   :: forall target y.
@@ -1026,7 +1026,7 @@ evalFwdSame params s = \case
   d0@(DeltaCast @r1 d) ->
     case sameSTK (STKScalar (typeRep @r1)) (aDSTK (STKScalar (typeRep @r1))) of
       Just Refl -> second kcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaSFromK d -> let (s2, t) = evalFwdSame params s d
                    in (s2, sfromK t)
   DeltaInput _ftk inputId ->
@@ -1063,7 +1063,7 @@ evalFwdSame params s = \case
     case sameSTK (stensorKind @(TKR n r1))
                  (aDSTK ((stensorKind @(TKR n r1)))) of
       Just Refl -> second rcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaZipR d -> second rzip $ evalFwdSame params s d
   DeltaUnzipR d -> second runzip $ evalFwdSame params s d
 -- Not needed, because we take only the i-th component of the vector,
@@ -1094,7 +1094,7 @@ evalFwdSame params s = \case
     case sameSTK (stensorKind @(TKS sh r1))
                  (aDSTK ((stensorKind @(TKS sh r1)))) of
       Just Refl -> second scast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaZipS d -> second szip $ evalFwdSame params s d
   DeltaUnzipS d -> second sunzip $ evalFwdSame params s d
 -- Not needed, because we take only the i-th component of the vector,
@@ -1125,7 +1125,7 @@ evalFwdSame params s = \case
     case sameSTK (stensorKind @(TKX sh r1))
                  (aDSTK ((stensorKind @(TKX sh r1)))) of
       Just Refl -> second xcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ shapeDeltaFull d0)
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaZipX d -> second xzip $ evalFwdSame params s d
   DeltaUnzipX d -> second xunzip $ evalFwdSame params s d
 

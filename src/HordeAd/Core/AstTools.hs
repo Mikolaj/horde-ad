@@ -52,7 +52,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- * Shape calculation
+-- * Full tensor kind calculation
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
