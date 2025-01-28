@@ -30,7 +30,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsSize)
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVectorOps
+import HordeAd.Core.Unwind
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types

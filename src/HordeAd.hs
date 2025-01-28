@@ -12,7 +12,7 @@ module HordeAd
   , module HordeAd.Core.CarriersConcrete
   , module HordeAd.Core.Engine
   , module HordeAd.Core.TensorKind
-  , module HordeAd.Core.HVectorOps
+  , module HordeAd.Core.Unwind
   , module HordeAd.Core.OpsADVal
   , module HordeAd.Core.Ops
   , module HordeAd.Core.Types
@@ -31,7 +31,7 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
-import HordeAd.Core.HVectorOps
+import HordeAd.Core.Unwind
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind

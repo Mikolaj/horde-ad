@@ -132,7 +132,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst ()
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVectorOps
+import HordeAd.Core.Unwind
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind

@@ -24,7 +24,7 @@ import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
   (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
-import HordeAd.Core.HVectorOps
+import HordeAd.Core.Unwind
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind

@@ -62,7 +62,7 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.HVectorOps
+import HordeAd.Core.Unwind
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind

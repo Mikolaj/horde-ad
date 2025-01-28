@@ -5,10 +5,8 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
-module HordeAd.Core.HVectorOps
-  ( -- * Winding
-    addTarget, constantTarget
-    -- * Misc
+module HordeAd.Core.Unwind
+  ( addTarget, constantTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -39,7 +37,7 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- * Winding
+-- * Winding and unwinding
 
 -- This captures the normal form of type family UnWind and also
 -- corresponds to the portion of ox-arrays that has Num defined.
@@ -399,6 +397,9 @@ windTarget stk t = case (stk, t) of
    , Dict <- lemTensorKindOfSTK (unWindSTK stk2) ->
     tpair (windTarget stk1 t1) (windTarget stk2 t2)
 
+
+-- * Operations defined using unwinding
+
 addTarget :: BaseTensor target
           => STensorKindType y -> target y -> target y -> target y
 addTarget stk a b =
@@ -414,9 +415,6 @@ constantTarget r ftk =
 lemUnWindOfAD :: STensorKindType y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
 lemUnWindOfAD _ = unsafeCoerceRefl
-
-
--- * Misc
 
 toADTensorKindShared  -- TODO: does not require Shared now
   :: BaseTensor target
