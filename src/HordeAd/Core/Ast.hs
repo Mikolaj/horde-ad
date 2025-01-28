@@ -78,6 +78,8 @@ type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 class Typeable s => AstSpan (s :: AstSpanType) where
   fromPrimal :: TensorKind y => AstTensor ms PrimalSpan y -> AstTensor ms s y
   fromDual :: TensorKind y => AstTensor ms DualSpan y -> AstTensor ms s y
+  primalPart :: TensorKind y => AstTensor ms s y -> AstTensor ms PrimalSpan y
+  dualPart :: TensorKind y => AstTensor ms s y -> AstTensor ms DualSpan y
 
 instance AstSpan PrimalSpan where
   fromPrimal = id
@@ -86,14 +88,20 @@ instance AstSpan PrimalSpan where
     -- so the following is brought here via simplification later on:
     -- let ftk = ftkAst t
     -- in AstConcrete ftk $ tconstantTarget 0 ftk
+  primalPart t = t
+  dualPart t = AstDualPart $ AstFromPrimal t  -- this is dual zero
 
 instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
   fromDual = id
+  primalPart t = AstPrimalPart $ AstFromDual t  -- this primal zero, see above
+  dualPart t = t
 
 instance AstSpan FullSpan where
   fromPrimal = AstFromPrimal
   fromDual = AstFromDual
+  primalPart = AstPrimalPart
+  dualPart = AstDualPart
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
