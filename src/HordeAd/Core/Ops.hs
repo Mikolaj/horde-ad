@@ -1923,12 +1923,12 @@ rscalar r | Dict <- eltDictRep (stensorKind @r) =
   in tconcrete (tftkG (STKR (SNat @0) (stensorKind @r)) a) (RepN a)
 
 rrepl :: (GoodScalar r, KnownNat n, BaseTensor target)
-      => [Int] -> r -> target (TKR n r)
-rrepl sh = rconcrete . Nested.rreplicateScal (fromList sh)
+      => IShR n -> r -> target (TKR n r)
+rrepl sh = rconcrete . Nested.rreplicateScal sh
 
 ringestData :: (GoodScalar r, KnownNat n, BaseTensor target)
-            => [Int] -> [r] -> target (TKR n r)
-ringestData sh l = rconcrete $ Nested.rfromListPrimLinear (fromList sh) l
+            => IShR n -> [r] -> target (TKR n r)
+ringestData sh l = rconcrete $ Nested.rfromListPrimLinear sh l
 
 sscalar :: forall r target. (TensorKind r, BaseTensor target)
         => RepORArray r -> target (TKS2 '[] r)
@@ -1961,8 +1961,8 @@ xrepl :: (KnownShX sh, GoodScalar r, BaseTensor target)
 xrepl sh = xconcrete . Nested.mreplicateScal sh
 
 xingestData :: (GoodScalar r, KnownShX sh, BaseTensor target)
-            => [Int] -> [r] -> target (TKX sh r)
-xingestData sh l = xconcrete $ Nested.mfromListPrimLinear (fromList sh) l
+            => IShX sh -> [r] -> target (TKX sh r)
+xingestData sh l = xconcrete $ Nested.mfromListPrimLinear sh l
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

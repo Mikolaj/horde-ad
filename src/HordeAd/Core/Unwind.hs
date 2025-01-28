@@ -13,7 +13,6 @@ module HordeAd.Core.Unwind
 import Prelude
 
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
 import Type.Reflection (typeRep)
 
@@ -96,7 +95,7 @@ constantRepW :: forall y target. BaseTensor target
             -> FullTensorKindW y -> RepW target y
 constantRepW r = \case
   WFTKScalar -> WTKScalar $ kconcrete r
-  WFTKR sh | SNat <- shrRank sh -> WTKR $ rrepl (toList sh) r
+  WFTKR sh | SNat <- shrRank sh -> WTKR $ rrepl sh r
   WFTKS sh -> withKnownShS sh $ WTKS $ srepl r
   WFTKX sh -> withKnownShX (ssxFromShape sh) $ WTKX $ xrepl sh r
   WFTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk $ fromFTKW ftk1)
@@ -118,7 +117,7 @@ toADTensorKindW t = case t of
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           WTKR $ rrepl @_ @_ @target (toList $ rshape v) Z0
+           WTKR $ rrepl @_ @_ @target (rshape v) Z0
   WTKS @r _ -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
