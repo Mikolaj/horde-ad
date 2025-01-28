@@ -4,7 +4,7 @@
 -- | An assortment of operations working on AST of the code to be differentiated
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
-  ( -- * Full tensor kind calculation
+  ( -- * Full tensor kind derivation
     ftkAst
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndexS, varNameInAst
@@ -52,7 +52,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- * Full tensor kind calculation
+-- * Full tensor kind derivation
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate

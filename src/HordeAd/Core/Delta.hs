@@ -41,8 +41,8 @@ module HordeAd.Core.Delta
     NodeId(..), InputId(..), toInputId, tensorKindFromInputId
     -- * AST of delta expressions
   , Delta(..)
-    -- * Delta tensor kind derivation
-  , ftkDelta, lengthDelta
+    -- * Full tensor kind derivation for delta expressions
+  , ftkDelta
   ) where
 
 import Prelude
@@ -89,11 +89,12 @@ type role NodeId nominal nominal
 data NodeId :: Target -> TensorKindType -> Type where
   NodeId :: forall target y. TensorKind y => Int -> NodeId target y
 
+-- No Eq instance to limit hacks outside this module.
+
 instance Show (NodeId target y) where
   showsPrec d (NodeId n) =
     showsPrec d n  -- less verbose, more readable
 
-  -- No Eq instance to limit hacks outside this module.
 instance DMap.Enum1 (NodeId target) where
   type Enum1Info (NodeId target) = Some (Dict TensorKind)
   fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
@@ -514,7 +515,7 @@ deriving instance ( TensorKind y
                   => Show (Delta target y)
 
 
--- * Full tensor kind calculation of delta expressions
+-- * Full tensor kind derivation for delta expressions
 
 ftkDelta :: forall target y. TensorKind y
          => Delta target y -> FullTensorKind y
@@ -665,10 +666,3 @@ ftkDelta = \case
   DeltaMapAccumL @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
-
-lengthDelta :: forall target r n.
-               (TensorKind r, KnownNat n)
-            => Delta target (TKR2 (1 + n) r) -> Int
-lengthDelta d = case ftkDelta d of
-  FTKR ZSR _ -> error "lengthDelta: impossible pattern needlessly required"
-  FTKR (k :$: _) _ -> k

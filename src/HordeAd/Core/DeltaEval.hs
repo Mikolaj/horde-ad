@@ -680,18 +680,23 @@ evalRevSame !s !c = \case
       evalRevSame s (rgather sh c f) d
   DeltaAppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
-                   k = lengthDelta d
+                   k = case ftkDelta d of
+                     FTKR ZSR _ -> error "evalRevSame: impossible pattern needlessly required"
+                     FTKR (len :$: _) _ -> len
                    s2 = evalRevSame s (rslice 0 k cShared) d
                in evalRevSame s2 (rslice k (n - k) cShared) e
     ZSR -> error "evalRevSame: impossible pattern needlessly required"
   DeltaSliceR i n d -> case tftk (stensorKind @y) c of
     FTKR (n' :$: rest) x ->
       assert (n' == n `blame` (n', n)) $
-      evalRevSame s
+      let l = case ftkDelta d of
+            FTKR ZSR _ -> error "evalRevSame: impossible pattern needlessly required"
+            FTKR (len :$: _) _ -> len
+      in evalRevSame s
                (rconcat $ NonEmpty.fromList
                   [ constantTarget 0 (FTKR (i :$: rest) x)
                   , c
-                  , constantTarget 0 (FTKR (lengthDelta d - i - n :$: rest) x) ])
+                  , constantTarget 0 (FTKR (l - i - n :$: rest) x) ])
                d
     FTKR ZSR _ -> error "evalRevSame: impossible pattern needlessly required"
   DeltaReverseR d -> evalRevSame s (rreverse c) d
