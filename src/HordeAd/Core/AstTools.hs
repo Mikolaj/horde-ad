@@ -4,8 +4,8 @@
 -- | An assortment of operations working on AST of the code to be differentiated
 -- or resulting from the differentiation.
 module HordeAd.Core.AstTools
-  ( -- * Shape calculation
-    ftkAst, shapeAst
+  ( -- * Full tensor kind calculation
+    ftkAst
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndexS, varNameInAst
     -- * Determining if a term is too small to require sharing
@@ -33,8 +33,7 @@ import Data.Array.Mixed.Shape
   , ssxFromShape
   , withKnownShX
   )
-import Data.Array.Nested
-  (IShR, KnownShS (..), MapJust, Rank, Replicate, ShS (..))
+import Data.Array.Nested (KnownShS (..), MapJust, Rank, Replicate, ShS (..))
 import Data.Array.Nested.Internal.Shape
   ( shCvtRX
   , shCvtSX
@@ -55,6 +54,11 @@ import HordeAd.Core.Types
 
 -- * Shape calculation
 
+-- This is cheap and dirty. We don't shape-check the terms and we don't
+-- unify or produce (partial) results with variables. Instead, we investigate
+-- only one path and fail if it doesn't contain enough information
+-- to determine shape. If we don't switch to @Data.Array.Shaped@
+-- or revert to fully dynamic shapes, we need to redo this with more rigour.
 ftkAst :: forall s y ms. AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
   AstSFromK{} -> FTKS ZSS FTKScalar
@@ -194,15 +198,6 @@ ftkAst t = case t of
   AstDot1InS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
   AstMatvecmulS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
-
--- This is cheap and dirty. We don't shape-check the terms and we don't
--- unify or produce (partial) results with variables. Instead, we investigate
--- only one path and fail if it doesn't contain enough information
--- to determine shape. If we don't switch to @Data.Array.Shaped@
--- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: forall n s x ms. AstTensor ms s (TKR2 n x) -> IShR n
-shapeAst t = case ftkAst t of
-  FTKR sh _ -> sh
 
 
 -- * Variable occurrence detection

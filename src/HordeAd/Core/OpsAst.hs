@@ -187,7 +187,8 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tconstantTarget = constantTarget
   taddTarget = addTarget
-  rshape = shapeAst
+  rshape t = case ftkAst t of
+    FTKR sh _ -> sh
   rminIndex @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
@@ -701,7 +702,8 @@ instance AstSpan s => ShareTensor (AstRaw s) where
 instance AstSpan s => BaseTensor (AstRaw s) where
   tconstantTarget = constantTarget
   taddTarget = addTarget
-  rshape = shapeAst . unAstRaw
+  rshape t = case ftkAst $ unAstRaw t of
+    FTKR sh _ -> sh
   rminIndex @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1397,7 +1399,8 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tconstantTarget = constantTarget
   taddTarget = addTarget
-  rshape = shapeAst . unAstNoSimplify
+  rshape t = case ftkAst $ unAstNoSimplify t of
+    FTKR sh _ -> sh
   rminIndex @_ @r2 @n (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
