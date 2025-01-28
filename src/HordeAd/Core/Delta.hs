@@ -42,7 +42,7 @@ module HordeAd.Core.Delta
     -- * AST of delta expressions
   , Delta(..)
     -- * Delta tensor kind derivation
-  , ftkDelta, lengthDelta, shapeDelta, shapeDeltaX
+  , ftkDelta, lengthDelta, shapeDelta
   ) where
 
 import Prelude
@@ -517,7 +517,7 @@ deriving instance ( TensorKind y
 -- * Full tensor kind calculation of delta expressions
 
 ftkDelta :: forall target y. TensorKind y
-               => Delta target y -> FullTensorKind y
+         => Delta target y -> FullTensorKind y
 ftkDelta = \case
   DeltaCast{} -> FTKScalar
   DeltaSFromK{} -> FTKS ZSS FTKScalar
@@ -677,9 +677,3 @@ lengthDelta :: forall target r n.
 lengthDelta d = case shapeDelta d of
   ZSR -> error "lengthDelta: impossible pattern needlessly required"
   k :$: _ -> k
-
-shapeDeltaX :: forall target r sh.
-               (TensorKind r, KnownShX sh)
-            => Delta target (TKX2 sh r) -> IShX sh
-shapeDeltaX t = case ftkDelta t of
-  FTKX sh _ -> sh

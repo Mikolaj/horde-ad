@@ -73,10 +73,10 @@ import Data.Array.Nested.Internal.Shape
   (shrRank, shsPermutePrefix, shsProduct, shsRank, withKnownShS)
 
 import HordeAd.Core.Delta
-import HordeAd.Core.Unwind
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Unwind
 
 -- * Computing derivatives from delta expressions
 
@@ -750,15 +750,17 @@ evalRevSame !s !c = \case
   DeltaIndexX @sh1 @sh2 d ix -> case ftkDelta d of
     FTKX sh _ -> evalRevSame s (xoneHot (shxTakeSSX (Proxy @sh2) sh
                                                     (knownShX @sh1)) c ix) d
-  DeltaSum0X d ->
-    evalRevSame s (xreplicate0N (shapeDeltaX d) c) d
+  DeltaSum0X d -> case ftkDelta d of
+    FTKX sh _ -> evalRevSame s (xreplicate0N sh c) d
   DeltaDot0X v vd ->
     evalRevSame s (v * xreplicate0N (xshape v) c) vd
       -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
-  DeltaScatterX @_ @_ @shm @shn @shp _sh d f ->
-    evalRevSame s (xgather @_ @_ @shm @shn @shp (shapeDeltaX d) c f) d
-  DeltaAppendX d e -> case (shapeDeltaX d, shapeDeltaX e) of
-    (shd@(Nested.SUnknown m :$% rest), she@(Nested.SUnknown n :$% _)) ->
+  DeltaScatterX @_ @_ @shm @shn @shp _sh d f -> case ftkDelta d of
+    FTKX sh _ ->
+      evalRevSame s (xgather @_ @_ @shm @shn @shp sh c f) d
+  DeltaAppendX d e -> case (ftkDelta d, ftkDelta e) of
+    ( FTKX shd@(Nested.SUnknown m :$% rest) _
+     ,FTKX she@(Nested.SUnknown n :$% _) _ ) ->
       withSNat m $ \(SNat @m) -> withSNat n $ \(SNat @n) ->
       let cShared =
             tshare $ xmcast (ssxFromShape
@@ -787,10 +789,11 @@ evalRevSame !s !c = \case
         $ gcastWith (unsafeCoerceRefl
                      :: Rank permR :~: Rank perm)
         $ evalRevSame s (xtranspose permRev c) d
-  DeltaReshapeX _sh d ->
-    evalRevSame s (xreshape (shapeDeltaX d) c) d
-  DeltaGatherX @_ @_ @shm @shn @shp _sh d f ->
-    evalRevSame s (xscatter @_ @_ @shm @shn @shp (shapeDeltaX d) c f) d
+  DeltaReshapeX _sh d -> case ftkDelta d of
+    FTKX sh _ -> evalRevSame s (xreshape sh c) d
+  DeltaGatherX @_ @_ @shm @shn @shp _sh d f -> case ftkDelta d of
+    FTKX sh _ ->
+      evalRevSame s (xscatter @_ @_ @shm @shn @shp sh c f) d
   DeltaCastX @r1 @_ @sh d ->
     evalXRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKX sh r1))
                                $ xcast c) d
