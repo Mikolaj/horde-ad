@@ -29,7 +29,6 @@ import GHC.TypeLits
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import Unsafe.Coerce (unsafeCoerce)
-import System.Random
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
@@ -62,36 +61,12 @@ import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-
--- * Orphan adaptor instances
-
-instance ForgetShape (RepN (TKR n r)) where
-  type NoShape (RepN (TKR n r)) = RepN (TKR n r)
-  forgetShape = id
-
-instance GoodScalar r
-         => ForgetShape (RepN (TKS sh r)) where
-  type NoShape (RepN (TKS sh r)) = RepN (TKR (Rank sh) r)  -- key case
-  forgetShape = RepN . Nested.stoRanked . unRepN
-
-instance (KnownShS sh, GoodScalar r, Fractional r, Random r)
-         => RandomHVector (RepN (TKS sh r)) where
-  randomVals @g range g =
-    let createRandomVector :: Int -> g -> Nested.Shaped sh r
-        createRandomVector n seed =
-          unRepN (srepl (2 * realToFrac range))
-          * (Nested.sfromVector knownShS (V.fromListN n (randoms seed))
-             - unRepN (srepl 0.5))
-        (g1, g2) = splitGen g
-        arr = createRandomVector (sizeP (Proxy @sh)) g1
-    in (RepN arr, g2)
 
 {-
 -- This specialization is not possible where the functions are defined,

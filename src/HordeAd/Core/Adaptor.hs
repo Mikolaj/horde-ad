@@ -22,9 +22,12 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
+import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Nested (ListR (..))
+import Data.Array.Nested (ListR (..), KnownShS (..), Rank)
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape (shsSize)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
@@ -75,7 +78,6 @@ class RandomHVector vals where
 
 -- * Basic Adaptor class instances
 
-
 instance (TensorKind y, BaseTensor target)
          => AdaptableHVector target (target y) where
 {-
@@ -103,6 +105,36 @@ instance (BaseTensor target, BaseTensor (PrimalOf target), TensorKind y)
   type DValue (target y) = RepN y
   fromDValue t = tfromPrimal (stensorKind @y)
                  $ tconcrete (tftkG (stensorKind @y) $ unRepN t) t
+
+instance ForgetShape (target (TKR n r)) where
+  type NoShape (target (TKR n r)) = target (TKR n r)
+  forgetShape = id
+
+instance (KnownShS sh, GoodScalar r, BaseTensor target)
+         => ForgetShape (target (TKS sh r)) where
+  type NoShape (target (TKS sh r)) = target (TKR (Rank sh) r)
+  forgetShape = rfromS
+
+instance ForgetShape (target (TKX sh r)) where
+  type NoShape (target (TKX sh r)) = target (TKX sh r)
+  forgetShape = id
+
+instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
+         , BaseTensor target )
+         => RandomHVector (target (TKS sh r)) where
+  randomVals @g range g =
+    let createRandomVector :: Int -> g -> target (TKS sh r)
+        createRandomVector n seed =
+          srepl (2 * realToFrac range)
+          * (sconcrete
+               (Nested.sfromVector knownShS (V.fromListN n (randoms seed)))
+             - srepl 0.5)
+        (g1, g2) = splitGen g
+        arr = createRandomVector (shsSize (knownShS @sh)) g1
+    in (arr, g2)
+
+
+-- * Compound instances
 
 type family Tups n t where
   Tups 0 t = TKUnit
