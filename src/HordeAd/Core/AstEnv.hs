@@ -27,7 +27,7 @@ import Type.Reflection (typeRep)
 import Data.Array.Nested (KnownShS (..))
 
 import HordeAd.Core.Ast
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

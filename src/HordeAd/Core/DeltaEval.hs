@@ -74,7 +74,7 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Delta
 import HordeAd.Core.HVectorOps
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

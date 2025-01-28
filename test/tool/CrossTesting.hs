@@ -26,7 +26,7 @@ import HordeAd.Core.Engine
   (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

@@ -35,7 +35,7 @@ import Data.Array.Nested.Internal.Shape (shsAppend, shsProduct, withKnownShS)
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstTools
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

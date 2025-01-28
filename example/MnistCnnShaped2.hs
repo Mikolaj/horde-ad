@@ -19,7 +19,7 @@ import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
 import MnistData

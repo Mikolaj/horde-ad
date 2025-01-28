@@ -25,7 +25,7 @@ import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsRank)
 
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

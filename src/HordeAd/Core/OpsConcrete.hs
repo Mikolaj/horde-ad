@@ -64,7 +64,7 @@ import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDr
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

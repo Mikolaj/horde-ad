@@ -8,7 +8,7 @@
 -- and dual numbers operations added in. This is a part of the high-level
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
-module HordeAd.Core.TensorClass
+module HordeAd.Core.Ops
   ( -- * The tensor classes
     LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)

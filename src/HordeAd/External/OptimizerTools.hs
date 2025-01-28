@@ -18,7 +18,7 @@ import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.OpsConcrete ()
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

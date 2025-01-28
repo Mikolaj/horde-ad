@@ -2,7 +2,7 @@
 -- | The implementation of reverse derivative and (forward) derivative
 -- calculation for an objective function on values of complicated
 -- types (e.g., with tuple domains) expressed using the tensor classes.
--- Together with "HordeAd.Core.TensorClass", this forms the basic
+-- Together with "HordeAd.Core.Ops", this forms the basic
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.Engine
   ( -- * Reverse derivative adaptors
@@ -38,7 +38,7 @@ import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsAst
 import HordeAd.Core.OpsConcrete ()
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

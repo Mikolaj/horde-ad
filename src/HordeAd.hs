@@ -14,7 +14,7 @@ module HordeAd
   , module HordeAd.Core.TensorKind
   , module HordeAd.Core.HVectorOps
   , module HordeAd.Core.OpsADVal
-  , module HordeAd.Core.TensorClass
+  , module HordeAd.Core.Ops
   , module HordeAd.Core.Types
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
@@ -33,7 +33,7 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
 import HordeAd.Core.HVectorOps
 import HordeAd.Core.OpsADVal
-import HordeAd.Core.TensorClass
+import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
