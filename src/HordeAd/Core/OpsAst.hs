@@ -1194,14 +1194,15 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
 instance AstSpan s => LetTensor (AstNoVectorize s) where
   tlet u f = AstNoVectorize
-             $ astLetFun (unAstNoVectorize u)
-                         (unAstNoVectorize . f . AstNoVectorize)
+             $ tlet (unAstNoVectorize u)
+                    (unAstNoVectorize . f . AstNoVectorize)
   toShare t = toShare $ unAstNoVectorize t
   tfromS = AstNoVectorize . tfromS . unAstNoVectorize
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
-  tconstantTarget = constantTarget
-  taddTarget = addTarget
+  tconstantTarget r ftk = AstNoVectorize $ tconstantTarget r ftk
+  taddTarget stk a b = AstNoVectorize $ taddTarget stk (unAstNoVectorize a)
+                                                       (unAstNoVectorize b)
   rshape = rshape . unAstNoVectorize
   rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
   rmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
@@ -1227,7 +1228,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     $ unAstNoVectorize . f . AstNoVectorize
   rgather sh t f =
     AstNoVectorize $ rgather sh (unAstNoVectorize t)
-                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
+                   $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   rcast = AstNoVectorize . rcast . unAstNoVectorize
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
   rzip = AstNoVectorize . rzip . unAstNoVectorize
@@ -1240,8 +1241,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xfloor = AstNoVectorize . xfloor . unAstNoVectorize
 
   xiota @n = AstNoVectorize $ xiota @_ @n
-  xshape t = case ftkAst $ unAstNoVectorize t of
-    FTKX sh _ -> sh
+  xshape = xshape . unAstNoVectorize
   xindex v ix =
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   xsum = AstNoVectorize . xsum . unAstNoVectorize
@@ -1300,8 +1300,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   scast = AstNoVectorize . scast . unAstNoVectorize
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
-  szip = AstNoVectorize . AstZipS . unAstNoVectorize
-  sunzip = AstNoVectorize . AstUnzipS . unAstNoVectorize
+  szip = AstNoVectorize . szip . unAstNoVectorize
+  sunzip = AstNoVectorize . sunzip . unAstNoVectorize
   kfromS = AstNoVectorize . kfromS . unAstNoVectorize
   sfromK = AstNoVectorize . sfromK . unAstNoVectorize
 
@@ -1313,19 +1313,17 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
 
   xnestR sh =
-    withKnownShX sh $
-    AstNoVectorize . xnestR sh . unAstNoVectorize
+    withKnownShX sh $ AstNoVectorize . xnestR sh . unAstNoVectorize
   xnestS sh =
-    withKnownShX sh $
-    AstNoVectorize . xnestS sh . unAstNoVectorize
+    withKnownShX sh $ AstNoVectorize . xnestS sh . unAstNoVectorize
   xnest sh =
-    withKnownShX sh $
-    AstNoVectorize . xnest sh . unAstNoVectorize
+    withKnownShX sh $ AstNoVectorize . xnest sh . unAstNoVectorize
   xunNestR = AstNoVectorize . xunNestR . unAstNoVectorize
   xunNestS = AstNoVectorize . xunNestS . unAstNoVectorize
   xunNest = AstNoVectorize . xunNest . unAstNoVectorize
 
-  tpair t1 t2 = AstNoVectorize $ tpair (unAstNoVectorize t1) (unAstNoVectorize t2)
+  tpair t1 t2 =
+    AstNoVectorize $ tpair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ tproject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
   tftk _stk = ftkAst . unAstNoVectorize
@@ -1338,7 +1336,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
-  tunpairDup t = (tproject1 t, tproject2 t)
+  tunpairDup a = let (b, c) =  tunpairDup $ unAstNoVectorize a
+                 in (AstNoVectorize b, AstNoVectorize c)
   drev = drev @(AstTensor AstMethodLet PrimalSpan)
   drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
   dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
