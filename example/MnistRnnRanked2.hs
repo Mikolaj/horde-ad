@@ -53,7 +53,7 @@ zeroStateR
   => IShR n -> (target (TKR n r)  -- state
                     -> a)
   -> a
-zeroStateR sh f = f (rzero sh)
+zeroStateR sh f = f (rrepl sh 0)
 
 unrollLastR :: forall target state c w r n.
                (BaseTensor target, GoodScalar r, KnownNat n)

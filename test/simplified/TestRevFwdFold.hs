@@ -451,7 +451,7 @@ testSin0Fold0 = do
     (rscalar 1.0 :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\x _a -> sin x)
-                            x0 (rzero @f @Double (0 :$: ZSR))
+                            x0 (rrepl @Double (0 :$: ZSR) 0)
            in f) (rscalar 1.1))
 
 testSin0Fold0ForComparison :: Assertion
@@ -896,7 +896,7 @@ testSin0Scan0 = do
     (rscalar 1)
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
                f x0 = rscan (\x _a -> sin x)
-                            x0 (rzero @f @Double (0 :$: ZSR))
+                            x0 (rrepl @Double (0 :$: ZSR) 0)
            in f) (rscalar 1.1))
 
 testSin0Scan1 :: Assertion
@@ -1143,7 +1143,7 @@ testSin0Scan0fwd = do
     (rfwd1 @RepN @Double @0 @1
     (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
          f x0 = rscan (\x _a -> sin x)
-                      x0 (rzero @f @Double (0 :$: ZSR))
+                      x0 (rrepl @Double (0 :$: ZSR) 0)
      in f) (rscalar 1.1))
 
 testSin0Scan1fwd :: Assertion

@@ -131,13 +131,13 @@ testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon 1e-4
     (rconcrete $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @_ @(TKR 4 Double) conv2dB (rzero [2, 2, 2, 2]))
+    (rev @_ @(TKR 4 Double) conv2dB (rrepl [2, 2, 2, 2] 0))
 
 testKonstG0Tiny1 :: Assertion
 testKonstG0Tiny1 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [-0.2])
-    (rev' @Double @4 conv2d1 (rzero [1, 1, 1, 1]))
+    (rev' @Double @4 conv2d1 (rrepl [1, 1, 1, 1] 0))
 
 testKonstG0TinyS :: Assertion
 testKonstG0TinyS =
@@ -151,13 +151,13 @@ testKonstG0TinyA :: Assertion
 testKonstG0TinyA =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 2, 1, 1] [-0.2,25.0003])
-    (rev' @Double @4 conv2dA (rzero [1, 2, 1, 1]))
+    (rev' @Double @4 conv2dA (rrepl [1, 2, 1, 1] 0))
 
 testKonstG0LittleA :: Assertion
 testKonstG0LittleA =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])
-    (rev' @Double @4 conv2dA (rzero [2, 2, 2, 2]))
+    (rev' @Double @4 conv2dA (rrepl [2, 2, 2, 2] 0))
 
 
 -- * A laborious version
@@ -212,13 +212,13 @@ testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
   assertEqualUpToEpsilon 1e-4
     (rconcrete $ Nested.rfromListPrimLinear [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev @_ @(TKR 4 Double) conv2dBLaborious (rzero [2, 2, 2, 2]))
+    (rev @_ @(TKR 4 Double) conv2dBLaborious (rrepl [2, 2, 2, 2] 0))
 
 testReplicate0Tiny1Laborious :: Assertion
 testReplicate0Tiny1Laborious =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [-0.2])
-    (rev' @Double @4 conv2d1Laborious (rzero [1, 1, 1, 1]))
+    (rev' @Double @4 conv2d1Laborious (rrepl [1, 1, 1, 1] 0))
 
 testReplicate0TinySLaborious :: Assertion
 testReplicate0TinySLaborious =
@@ -232,13 +232,13 @@ testReplicate0TinyALaborious :: Assertion
 testReplicate0TinyALaborious =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 2, 1, 1] [-0.2,25.0003])
-    (rev' @Double @4 conv2dALaborious (rzero [1, 2, 1, 1]))
+    (rev' @Double @4 conv2dALaborious (rrepl [1, 2, 1, 1] 0))
 
 testReplicate0LittleALaborious :: Assertion
 testReplicate0LittleALaborious =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])
-    (rev' @Double @4 conv2dALaborious (rzero [2, 2, 2, 2]))
+    (rev' @Double @4 conv2dALaborious (rrepl [2, 2, 2, 2] 0))
 
 -- with data t16
 
