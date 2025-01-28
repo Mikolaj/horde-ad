@@ -55,6 +55,7 @@ import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.Kind (Type)
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
@@ -1302,7 +1303,7 @@ evalRevSame !s !c = \case
     FTKR (n' :$: rest) x ->
       assert (n' == n `blame` (n', n)) $
       evalRevSame s
-               (rconcat
+               (rconcat $ NonEmpty.fromList
                   [ constantTarget 0 (FTKR (i :$: rest) x)
                   , c
                   , constantTarget 0 (FTKR (lengthDelta d - i - n :$: rest) x) ])
@@ -1388,7 +1389,7 @@ evalRevSame !s !c = \case
     FTKX (_ :$% rest) x ->
       evalRevSame s
         (xmcast (ssxFromShape $ Nested.SKnown (SNat @(i + n + k)) :$% rest)
-         $ xconcat
+         $ xconcat $ NonEmpty.fromList
           [ constantTarget 0 (FTKX (Nested.SUnknown (valueOf @i) :$% rest) x)
           , xmcast (ssxFromShape $ Nested.SUnknown (valueOf @n) :$% rest) c
           , constantTarget 0 (FTKX (Nested.SUnknown (valueOf @k) :$% rest) x) ])

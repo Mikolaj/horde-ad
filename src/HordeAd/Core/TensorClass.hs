@@ -518,7 +518,7 @@ class ( Num (IntOf target)
           => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
           -> target (TKR2 (1 + n) r)
   rconcat :: (TensorKind r, KnownNat n)
-          => [target (TKR2 (1 + n) r)] -> target (TKR2 (1 + n) r)
+          => NonEmpty (target (TKR2 (1 + n) r)) -> target (TKR2 (1 + n) r)
   rconcat = foldr1 rappend
   rslice :: (TensorKind r, KnownNat n)
          => Int -> Int -> target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
@@ -1210,8 +1210,9 @@ class ( Num (IntOf target)
           => target (TKX2 (Nothing ': sh) r) -> target (TKX2 (Nothing ': sh) r)
           -> target (TKX2 (Nothing ': sh) r)
   xconcat :: (TensorKind r, KnownShX sh)
-          => [target (TKX2 (Nothing ': sh) r)] -> target (TKX2 (Nothing ': sh) r)
-  xconcat = foldr1 xappend  -- TODO: NonEmpty; also elsewhere
+          => NonEmpty (target (TKX2 (Nothing ': sh) r))
+          -> target (TKX2 (Nothing ': sh) r)
+  xconcat = foldr1 xappend
   xslice :: (TensorKind r, KnownNat i, KnownNat n, KnownNat k, KnownShX sh)
          => Proxy i -> Proxy n
          -> target (TKX2 (Just (i + n + k) ': sh) r)
