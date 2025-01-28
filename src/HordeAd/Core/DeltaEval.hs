@@ -100,7 +100,7 @@ gradientFromDelta !parameters0 value !mdt deltaTopLevel =
   in assert (null remainder) res
 
 showsPrec_iMap
-  :: (forall y. TensorKind y => Show (RepM target y))
+  :: (forall y. TensorKind y => Show (TensorOrZero target y))
   => Int -> IMap target -> ShowS
 showsPrec_iMap d demap =
   showParen (d > 10) $
@@ -112,7 +112,7 @@ showsPrec_iMap d demap =
         (DMap.toList demap)
 
 show_iMap
-  :: (forall y. TensorKind y => Show (RepM target y))
+  :: (forall y. TensorKind y => Show (TensorOrZero target y))
   => IMap target -> String
 show_iMap iMap = showsPrec_iMap 0 iMap ""
 
@@ -133,39 +133,43 @@ derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x
 
 type ADMap target = DEnumMap (NodeId target) (Cotangent target)
 
-type IMap target = DEnumMap (InputId target) (RepM target)
+type IMap target = DEnumMap (InputId target) (TensorOrZero target)
 
 type role Cotangent nominal nominal
 newtype Cotangent target y =
   Cotangent {unCotangent :: target (ADTensorKind y)}
 
-type role RepM nominal nominal
-data RepM target y where
+-- This is a tensor representation where, as much as feasible,
+-- zero tensors are marked specially in order to be cheap to detect
+-- (as opposed to require traversing large terms or checking that
+-- each cell of a huge array is zero or both).
+type role TensorOrZero nominal nominal
+data TensorOrZero target y where
   MTKScalar :: GoodScalar r
             => target (TKScalar r)
-            -> RepM target (TKScalar r)
+            -> TensorOrZero target (TKScalar r)
   MTKR :: (TensorKind r, KnownNat n)
        => target (TKR2 n r)
-       -> RepM target (TKR2 n r)
+       -> TensorOrZero target (TKR2 n r)
   MTKS :: (TensorKind r, KnownShS sh)
        => target (TKS2 sh r)
-       -> RepM target (TKS2 sh r)
+       -> TensorOrZero target (TKS2 sh r)
   MTKScalarDummy :: GoodScalar r
-                 => RepM target (TKScalar r)
+                 => TensorOrZero target (TKScalar r)
   MTKRDummy :: forall x n target.
                IShR n -> FullTensorKind x
-            -> RepM target (TKR2 n x)
+            -> TensorOrZero target (TKR2 n x)
   MTKSDummy  :: forall x sh target.
                 ShS sh -> FullTensorKind x
-             -> RepM target (TKS2 sh x)
+             -> TensorOrZero target (TKS2 sh x)
 
 deriving instance ( (forall y7. TensorKind y7 => Show (target y7))
                   , TensorKind y )
-                  => Show (RepM target y)
+                  => Show (TensorOrZero target y)
 
-evalRepM :: forall target x. ADReadyNoLet target
-         => RepM target x -> target x
-evalRepM = \case
+evalTensorOrZero :: forall target x. ADReadyNoLet target
+         => TensorOrZero target x -> target x
+evalTensorOrZero = \case
   MTKScalar t -> t
   MTKR t -> t
   MTKS t -> t
@@ -175,7 +179,7 @@ evalRepM = \case
 
 repToM
   :: STensorKindType x -> target x
-  -> RepM target x
+  -> TensorOrZero target x
 repToM stk t = case stk of
   STKScalar{} -> MTKScalar t
   STKR SNat x | Dict <- lemTensorKindOfSTK x -> MTKR t
@@ -183,9 +187,9 @@ repToM stk t = case stk of
   STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ error "TODO"
   STKProduct{} -> error "repToM: unexpected type"
 
-addRepM :: forall target y. ADReadyNoLet target
-        => RepM target y -> RepM target y -> RepM target y
-addRepM a b = case (a, b) of
+addTensorOrZero :: forall target y. ADReadyNoLet target
+        => TensorOrZero target y -> TensorOrZero target y -> TensorOrZero target y
+addTensorOrZero a b = case (a, b) of
   (MTKScalar ta, MTKScalar tb) -> MTKScalar $ ta + tb
   (MTKR ta, MTKR tb) | STKR _ STKScalar{} <- stensorKind @y -> MTKR $ ta + tb
   (MTKR ta, MTKR tb) -> MTKR $ addTarget stensorKind ta tb
@@ -202,9 +206,9 @@ addRepM a b = case (a, b) of
 
 -- Matches generateDSumsDummy.
 rebuildInputs :: forall ady target. ADReadyNoLet target
-              => [Some (RepM target)] -> EvalState target
+              => [Some (TensorOrZero target)] -> EvalState target
               -> FullTensorKind ady
-              -> (target ady, [Some (RepM target)])
+              -> (target ady, [Some (TensorOrZero target)])
 rebuildInputs els s2 = \case
   FTKScalar @r -> case els of
     Some mt@(MTKScalar @r2 t) : rest ->
@@ -213,8 +217,8 @@ rebuildInputs els s2 = \case
         _ -> error $ "gradientFromDelta: wrong type: " ++ show mt
     Some mt@(MTKScalarDummy @r2) : rest
       | Just Refl <- testEquality (typeRep @r) (typeRep @r2) ->
-        (evalRepM mt, rest)
-    _ -> error $ "gradientFromDelta: illegal RepM: "
+        (evalTensorOrZero mt, rest)
+    _ -> error $ "gradientFromDelta: illegal TensorOrZero: "
                  ++ show_iMap (iMap s2)
   FTKR @n sh x | SNat <- shrRank sh
                , Dict <- lemTensorKindOfSTK (ftkToStk x) -> case els of
@@ -230,8 +234,8 @@ rebuildInputs els s2 = \case
       | SNat <- shrRank sh2
       , Just Refl <- sameNat (Proxy @n) (Proxy @n2)  -- TODO: compare sh
       , Just Refl <- sameSTK (ftkToStk x) (ftkToStk x2) ->  -- TODO: compare ftk
-        (evalRepM mt, rest)
-    _ -> error $ "gradientFromDelta: illegal RepM: "
+        (evalTensorOrZero mt, rest)
+    _ -> error $ "gradientFromDelta: illegal TensorOrZero: "
                  ++ show_iMap (iMap s2)
   FTKS @sh sh x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
     withKnownShS sh $ case els of
@@ -246,8 +250,8 @@ rebuildInputs els s2 = \case
       Some mt@(MTKSDummy sh2 x2) : rest
         | Just Refl <- testEquality sh sh2
         , Just Refl <- sameSTK (ftkToStk x) (ftkToStk x2) ->
-          (evalRepM mt, rest)
-      _ -> error $ "gradientFromDelta: illegal RepM: "
+          (evalTensorOrZero mt, rest)
+      _ -> error $ "gradientFromDelta: illegal TensorOrZero: "
                    ++ show_iMap (iMap s2)
   FTKX{} -> error "TODO"
   FTKProduct @y1 @y2 ftk1 ftk2
@@ -259,7 +263,7 @@ rebuildInputs els s2 = \case
 
 -- Matches generateDeltaInputs.
 generateDSumsDummy :: Int -> FullTensorKind y
-                   -> ([DSum (InputId target) (RepM target)], Int)
+                   -> ([DSum (InputId target) (TensorOrZero target)], Int)
 generateDSumsDummy j ftk  = case ftk of
   FTKScalar @r -> ([InputId j :=> MTKScalarDummy @r], j + 1)
   FTKR shr x | SNat <- shrRank shr
@@ -277,7 +281,7 @@ generateDSumsDummy j ftk  = case ftk of
 -- Matches generateDeltaInputs.
 generateDSums :: ShareTensor target
               => Int -> FullTensorKind y -> target y
-              -> ([DSum (InputId target) (RepM target)], Int)
+              -> ([DSum (InputId target) (TensorOrZero target)], Int)
 generateDSums j ftk t = case ftk of
   FTKScalar @r -> ([InputId j :=> MTKScalar @r t], j + 1)
   FTKR sh x | SNat <- shrRank sh
@@ -657,7 +661,7 @@ evalRevSame !s !c = \case
   DeltaSFromK d -> evalRevSame s (kfromS c) d
   DeltaInput _ftk i ->
     let cs = repToM stensorKind c
-    in s {iMap = DMap.adjust (addRepM cs) i
+    in s {iMap = DMap.adjust (addTensorOrZero cs) i
                  $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
@@ -950,7 +954,7 @@ evalFwd params s d0 = case d0 of
     in (s2, treplicateShare snat (aDSTK stk) t)
   DeltaInput _ftk inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, toADTensorKindShared stensorKind $ evalRepM dtk)
+      Just dtk -> (s, toADTensorKindShared stensorKind $ evalTensorOrZero dtk)
       Nothing -> error "evalFwd: missing input"
   DeltaShare n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
     case DMap.lookup n s of
@@ -1050,7 +1054,7 @@ evalFwdSame params s = \case
                    in (s2, sfromK t)
   DeltaInput _ftk inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, evalRepM dtk)
+      Just dtk -> (s, evalTensorOrZero dtk)
       Nothing -> error "evalFwdSame: missing input"
   -- See the comment about these three in evalRevSame.
   DeltaZero ftk -> (s, constantTarget 0 $ aDFTK ftk)
