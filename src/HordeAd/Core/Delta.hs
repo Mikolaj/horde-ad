@@ -38,7 +38,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Delta identifiers
-    NodeId(..), InputId(..), toInputId, tensorKindFromInputId
+    NodeId(..), InputId, pattern InputId, toInputId, tensorKindFromInputId
     -- * AST of delta expressions
   , Delta(..)
     -- * Full tensor kind derivation for delta expressions
@@ -112,8 +112,9 @@ instance DMap.Enum1 (InputId target) where
   toEnum1 n (Some @_ @a Dict) = Some $ InputId @target @a n
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-toInputId :: TensorKind y => Int -> InputId f y
-toInputId i = assert (i >= 0) $ InputId i
+toInputId :: FullTensorKind y -> Int -> InputId f y
+toInputId ftk i | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
+  assert (i >= 0) $ InputId i
 
 tensorKindFromInputId :: InputId f y -> Dict TensorKind y
 tensorKindFromInputId InputId{} = Dict

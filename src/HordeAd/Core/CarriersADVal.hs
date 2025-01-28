@@ -15,15 +15,12 @@ module HordeAd.Core.CarriersADVal
 
 import Prelude
 
-import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
-import Data.Array.Nested.Internal.Shape (shrRank, withKnownShS)
-
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
-import HordeAd.Core.Unwind
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Unwind
 
 -- * The main dual number type
 
@@ -194,16 +191,12 @@ generateDeltaInputs
 generateDeltaInputs =
   let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
       gen j ftk| Dict <- lemTensorKindOfSTK (ftkToStk ftk) = case ftk of
-        FTKScalar -> (DeltaInput ftk (toInputId j), j + 1)
-        FTKR sh _ | SNat <- shrRank sh -> (DeltaInput ftk (toInputId j), j + 1)
-        FTKS sh _ -> withKnownShS sh $ (DeltaInput ftk (toInputId j), j + 1)
-        FTKX sh _ -> withKnownShX (ssxFromShape sh)
-                     $ (DeltaInput ftk (toInputId j), j + 1)
         FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
                              , Dict <- lemTensorKindOfSTK (ftkToStk ftk2) ->
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
           in (DeltaPair d1 d2, j2)
+        _ -> (DeltaInput ftk (toInputId ftk j), j + 1)
   in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
