@@ -1883,7 +1883,7 @@ testSin0rmapAccumRD01SN55acc = do
                                 in tpair tunit
                                      (tpair
                                         (tpair
-                                           (ingestData [0.1, 0.2, 0.3]
+                                           (singestData [0.1, 0.2, 0.3]
                                             - sin x - tproject2 a)
                                            (srepl 1 - sreplicate @_ @7
                                                  (ssum
@@ -1900,7 +1900,7 @@ testSin0rmapAccumRD01SN55acc = do
                                                  (sin x / sreplicate0N (sscalar 3)))))
                            in g)
                           tunit
-                          (tpair (ingestData [-0.1, 0.23])
+                          (tpair (singestData [-0.1, 0.23])
                                  (sfromListLinear
                                     [sindex0 x0 [1], sscalar (-0.01), sscalar (-0.3), ssum x0, sscalar 0.5, sscalar 1.3]))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
@@ -2804,7 +2804,7 @@ testSin0revhV5 = do
       f x =
         srevDt @g @_ @(TKScalar Double)
                (\v -> sfromR @_ @'[4] $ rscanZip const doms (rscalar 5) (rfromS v))
-                doms3 x (ingestData @_ @'[4] [1, 2, 3, 4])
+                doms3 x (singestData @_ @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (sfromList @_ @_ @3 [sscalar 0, sscalar 0, sscalar 0])
     (crev f (sreplicate @_ @3 (sscalar 1.1)))
@@ -2832,7 +2832,7 @@ testSin0revhV7 = do
       f x =
         srevDt @g @_ @(TKScalar Double)
                (\v -> sfromR @_ @'[4] $ rscanZip (\_ z -> z * z) doms (rscalar 5) (rfromS v))
-                doms3 x (ingestData @_ @'[4] [1, 2, 3, 4])
+                doms3 x (singestData @_ @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
-    (ingestData @_ @'[3] [4.0,6.0,8.0])
+    (singestData @_ @'[3] [4.0,6.0,8.0])
     (crev f (sreplicate @_ @3 (sscalar 1.1)))

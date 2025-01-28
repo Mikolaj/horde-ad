@@ -12,8 +12,10 @@ module HordeAd.Core.Ops
   ( -- * The tensor classes
     LetTensor(..), ShareTensor(..), BaseTensor(..)
   , HFun(..)
-  , tunit, rscalar, rrepl, ringestData
-  , ingestData, sscalar, srepl, xscalar, xrepl
+  , tunit
+  , rscalar, rrepl, ringestData
+  , sscalar, srepl, singestData
+  , xscalar, xrepl, xingestData
     -- * The giga-constraint
   , ADReady, ADReadyNoLet
   ) where
@@ -1941,10 +1943,6 @@ ringestData :: (GoodScalar r, KnownNat n, BaseTensor target)
             => [Int] -> [r] -> target (TKR n r)
 ringestData sh l = rconcrete $ Nested.rfromListPrimLinear (fromList sh) l
 
-ingestData :: (GoodScalar r, KnownShS sh, BaseTensor target)
-           => [r] -> target (TKS sh r)
-ingestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
-
 sscalar :: forall r target. (TensorKind r, BaseTensor target)
         => RepORArray r -> target (TKS2 '[] r)
 sscalar r | Dict <- eltDictRep (stensorKind @r) =
@@ -1961,6 +1959,10 @@ srepl = sconcrete . Nested.sreplicateScal knownShS
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated fromPrimals as small
 
+singestData :: (GoodScalar r, KnownShS sh, BaseTensor target)
+            => [r] -> target (TKS sh r)
+singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
+
 xscalar :: forall r target. (TensorKind r, BaseTensor target)
         => RepORArray r -> target (TKX2 '[] r)
 xscalar r | Dict <- eltDictRep (stensorKind @r) =
@@ -1970,6 +1972,10 @@ xscalar r | Dict <- eltDictRep (stensorKind @r) =
 xrepl :: (KnownShX sh, GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
 xrepl sh = xconcrete . Nested.mreplicateScal sh
+
+xingestData :: (GoodScalar r, KnownShX sh, BaseTensor target)
+            => [Int] -> [r] -> target (TKX sh r)
+xingestData sh l = xconcrete $ Nested.mfromListPrimLinear (fromList sh) l
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.
