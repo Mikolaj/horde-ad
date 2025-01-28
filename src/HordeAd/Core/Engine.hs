@@ -61,8 +61,8 @@ import HordeAd.Core.Types
 rev
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableHVector RepN (Value astvals) )
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Value astvals
@@ -80,8 +80,8 @@ rev f vals = revDtMaybe f vals Nothing
 revDt
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableHVector RepN (Value astvals) )
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> RepN (ADTensorKind z)
@@ -92,8 +92,8 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 revDtMaybe
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableHVector RepN (Value astvals) )
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Maybe (RepN (ADTensorKind z))
@@ -103,16 +103,16 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
-        f $ parseHVector hvShared
-      valsH = toHVectorOf vals0
+        f $ fromTarget hvShared
+      valsH = toTarget vals0
       voidH = tftk stensorKind valsH
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in parseHVectorAD $ fst $ revEvalArtifact artifact valsH mdt
+  in fromTargetAD $ fst $ revEvalArtifact artifact valsH mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
-     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableHVector RepN (Value astvals)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget RepN (Value astvals)
      , TermValue astvals )
   => (astvals -> AstTensor AstMethodLet FullSpan n Double)
   -> Value astvals
@@ -123,8 +123,8 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
 revArtifactAdapt
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableHVector RepN (Value astvals) )
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget RepN (Value astvals) )
   => Bool
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
@@ -133,15 +133,15 @@ revArtifactAdapt hasDt f vals0 =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
-        f $ parseHVector hvShared
-      valsH = toHVectorOf @RepN vals0
+        f $ fromTarget hvShared
+      valsH = toTarget @RepN vals0
       voidH = tftk stensorKind valsH
   in revProduceArtifact hasDt g emptyEnv voidH
 {- TODO
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
-     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableHVector RepN (Value astvals)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget RepN (Value astvals)
      , TermValue astvals )
   => Bool -> (astvals -> AstTensor AstMethodLet FullSpan n Double) -> Value astvals
   -> (AstArtifactRev TKUntyped (TKR n Double), Delta (AstRaw PrimalSpan) (TKR n Double)) #-}
@@ -205,8 +205,8 @@ fwd
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), TensorKind (X astvals)
      , TensorKind z
-     , AdaptableHVector (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableHVector RepN (Value astvals) )
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Value astvals  -- morally (ADTensorKind astvals)
@@ -214,11 +214,11 @@ fwd
 fwd f vals ds =
   let g :: AstTensor AstMethodLet FullSpan (X astvals) -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
-        f $ parseHVector hvShared
-      valsH = toHVectorOf vals
+        f $ fromTarget hvShared
+      valsH = toTarget vals
       voidH = tftk stensorKind valsH
       artifact = fst $ fwdProduceArtifact g emptyEnv voidH
-      dsH = toHVectorOf ds
+      dsH = toTarget ds
   in fst $ fwdEvalArtifact @_ @z artifact valsH
          $ toADTensorKindShared stensorKind dsH
 
@@ -253,8 +253,8 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds
 crev
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal RepN) advals
-     , AdaptableHVector RepN (DValue advals) )
+     , AdaptableTarget (ADVal RepN) advals
+     , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
   -> DValue advals
   -> DValue advals
@@ -265,8 +265,8 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal RepN) advals
-     , AdaptableHVector RepN (DValue advals) )
+     , AdaptableTarget (ADVal RepN) advals
+     , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
   -> DValue advals
   -> RepN (ADTensorKind z)
@@ -277,8 +277,8 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal RepN) advals
-     , AdaptableHVector RepN (DValue advals) )
+     , AdaptableTarget (ADVal RepN) advals
+     , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
   -> DValue advals
   -> Maybe (RepN (ADTensorKind z))
@@ -286,9 +286,9 @@ crevDtMaybe
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
-      g = f . parseHVector
-      valsH = toHVectorOf vals
-  in parseHVectorAD $ fst $ crevOnHVector mdt g valsH
+      g = f . fromTarget
+      valsH = toTarget vals
+  in fromTargetAD $ fst $ crevOnHVector mdt g valsH
 
 {-
 {-# SPECIALIZE crevOnHVector
@@ -305,17 +305,17 @@ crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
 cfwd
   :: forall advals z.
      ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
-     , AdaptableHVector (ADVal RepN) advals
-     , AdaptableHVector RepN (DValue advals) )
+     , AdaptableTarget (ADVal RepN) advals
+     , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
   -> RepN (ADTensorKind z)
 cfwd f vals ds =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
-      g = f . parseHVector
-      valsH = toHVectorOf vals
-      dsH = toHVectorOf ds
+      g = f . fromTarget
+      valsH = toTarget vals
+      dsH = toTarget ds
   in fst $ cfwdOnHVector valsH g $ toADTensorKindShared stensorKind dsH
 
 

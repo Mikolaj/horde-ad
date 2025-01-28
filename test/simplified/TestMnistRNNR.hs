@@ -64,11 +64,11 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
             forgetShape $ fst
-            $ randomVals @(ADRnnMnistParametersShaped
+            $ randomValue @(ADRnnMnistParametersShaped
                              RepN width r)
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
-      hVectorInit = toHVectorOf @RepN valsInit
+      hVectorInit = toTarget @RepN valsInit
       ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
@@ -81,7 +81,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
             -> r
       ftest batch_size mnistData pars =
         MnistRnnRanked2.rnnMnistTestR
-          batch_size mnistData (parseHVector @RepN pars)
+          batch_size mnistData (fromTarget @RepN pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -103,7 +103,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
-                     (parseHVector @(ADVal RepN) adinputs)
+                     (fromTarget @(ADVal RepN) adinputs)
                  chunkR = map packBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
@@ -171,11 +171,11 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
           Nothing -> error "impossible someNatVal error"
           Just (SomeNat @width _) ->
             forgetShape $ fst
-            $ randomVals @(ADRnnMnistParametersShaped
+            $ randomValue @(ADRnnMnistParametersShaped
                              RepN width r)
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
-      hVectorInit = toHVectorOf @RepN valsInit
+      hVectorInit = toTarget @RepN valsInit
       ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
@@ -188,7 +188,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
             -> r
       ftest batch_size mnistData pars =
         MnistRnnRanked2.rnnMnistTestR
-          batch_size mnistData (parseHVector @RepN pars)
+          batch_size mnistData (fromTarget @RepN pars)
   in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -208,7 +208,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
-                   (parseHVector hVector)
+                   (fromTarget hVector)
            runBatch :: ( RepN (X (ADRnnMnistParameters RepN r))
                        , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
                     -> (Int, [MnistDataR r])
@@ -291,11 +291,11 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
   Just (SomeNat @width _) ->
     let valsInitShaped
           :: ADRnnMnistParametersShaped RepN width r
-        valsInitShaped = fst $ randomVals 0.4 (mkStdGen 44)
+        valsInitShaped = fst $ randomValue 0.4 (mkStdGen 44)
         valsInit :: ADRnnMnistParameters target r
         valsInit = forgetShape valsInitShaped
         hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
-        hVectorInit = toHVectorOf @RepN valsInit
+        hVectorInit = toTarget @RepN valsInit
         ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
                          hVectorInit
         name = prefix ++ ": "
@@ -308,7 +308,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
               -> r
         ftest batch_size mnistData pars =
           MnistRnnRanked2.rnnMnistTestR
-            batch_size mnistData (parseHVector @RepN pars)
+            batch_size mnistData (fromTarget @RepN pars)
     in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"

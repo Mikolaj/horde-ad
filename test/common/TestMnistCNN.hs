@@ -399,8 +399,8 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
       valsInit
         :: Value (ADConvMnistParameters kheight_minus_1 kwidth_minus_1
                                         out_channels n_hidden 'ADModeGradient r)
-      valsInit = fst $ randomVals range seed
-      parametersInit = toHVectorOf valsInit
+      valsInit = fst $ randomValue range seed
+      parametersInit = toTarget valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue n_hidden :: Int)
@@ -470,7 +470,7 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
 -- * An old version of the variant of @convMnistCNN@ with shaped tensors
 
 -- This one depends on convMnistLenS (flen) for random generation
--- of the initial parameters instead of on randomVals.
+-- of the initial parameters instead of on randomValue.
 
 convMnistTestCaseCNNO
   :: forall kheight_minus_1 kwidth_minus_1 n_hidden out_channels
@@ -799,7 +799,7 @@ comparisonTests volume =
                   let valsInit
                         :: Value (ADConvMnistParameters 4 4 c_out n_hidden
                                                         'ADModeGradient r)
-                      valsInit = fst $ randomVals (1 :: Double) (mkStdGen 1)
+                      valsInit = fst $ randomValue (1 :: Double) (mkStdGen 1)
                   in convMnistLossFusedS
                        (SNat @4) (SNat @4)
                        c_out n_hidden

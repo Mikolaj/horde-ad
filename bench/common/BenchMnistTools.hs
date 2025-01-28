@@ -61,7 +61,7 @@ mnistTrainBench1VTA extraPrefix chunkLength xs widthHidden widthHidden2
         MnistFcnnRanked1.afcnnMnistLoss1
           widthHidden widthHidden2
           mnist (unAsHVector
-                 $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+                 $ fromTarget (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength xs
       grad c = tunvector $ fst $ sgd gamma f c (dmkHVector hVectorInit)
       name = extraPrefix
@@ -153,8 +153,8 @@ mnistTrainBench1VTO extraPrefix chunkLength testData widthHidden widthHidden2
             (glyphR, labelR) pars
         g :: AstTensor AstMethodLet FullSpan TKUntyped
           -> AstTensor AstMethodLet FullSpan TKUntyped
-        g !hv = toHVectorOf $ AsHVector $ f
-                $ unAsHVector $ parseHVector (AsHVector $ fromValue (valsInit, dataInit)) hv
+        g !hv = toTarget $ AsHVector $ f
+                $ unAsHVector $ fromTarget (AsHVector $ fromValue (valsInit, dataInit)) hv
         (artRaw, _) = revProduceArtifact False g emptyEnv
                         (FTKUntyped $ voidFromHVector
                          $ hVectorInit
@@ -224,18 +224,18 @@ mnistTrainBench2VTA extraPrefix chunkLength testData widthHidden widthHidden2
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
                 forgetShape $ fst
-                $ randomVals
+                $ randomValue
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         RepN widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+      hVectorInit = dunHVector $ toTarget $ AsHVector valsInit
       f :: MnistData r -> ADVal RepN TKUntyped
         -> ADVal target (TKR 0 r)
       f mnist adinputs =
         MnistFcnnRanked2.afcnnMnistLoss2
-          mnist (unAsHVector $ parseHVector (AsHVector $ fromDValue valsInit) adinputs)
+          mnist (unAsHVector $ fromTarget (AsHVector $ fromDValue valsInit) adinputs)
       chunk = take chunkLength testData
       grad c = tunvector $ fst $ sgd gamma f c (dmkHVector hVectorInit)
       name = extraPrefix
@@ -254,13 +254,13 @@ mnistTestBench2VTA extraPrefix chunkLength testData widthHidden widthHidden2 = d
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
                 forgetShape $ fst
-                $ randomVals
+                $ randomValue
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         RepN widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+      hVectorInit = dunHVector $ toTarget $ AsHVector valsInit
       ftest :: [MnistData r] -> HVector RepN -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2 valsInit
       chunk = take chunkLength testData
@@ -311,13 +311,13 @@ mnistTrainBench2VTO extraPrefix chunkLength testData widthHidden widthHidden2
             case someNatVal $ toInteger widthHidden2 of
               Just (SomeNat @widthHidden2 _) ->
                 forgetShape $ fst
-                $ randomVals
+                $ randomValue
                     @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                         RepN widthHidden widthHidden2 r)
                     1 (mkStdGen 44)
               Nothing -> error "valsInit: impossible someNatVal error"
           Nothing -> error "valsInit: impossible someNatVal error"
-      hVectorInit = dunHVector $ toHVectorOf $ AsHVector valsInit
+      hVectorInit = dunHVector $ toTarget $ AsHVector valsInit
       name = extraPrefix
              ++ unwords [ "v0 m" ++ show (V.length hVectorInit)
                         , " =" ++ show (sizeHVector hVectorInit) ]

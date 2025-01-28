@@ -11,8 +11,8 @@
 -- derivative functions and also to handle multiple arguments
 -- and results of fold-like operations.
 module HordeAd.Core.Adaptor
-  ( AdaptableHVector(..), TermValue(..), DualNumberValue(..)
-  , ForgetShape(..), RandomHVector(..)
+  ( AdaptableTarget(..), TermValue(..), DualNumberValue(..)
+  , ForgetShape(..), RandomValue(..)
   , stkOfListR
   ) where
 
@@ -38,16 +38,16 @@ import HordeAd.Core.Types
 -- * Adaptor classes
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class AdaptableHVector (target :: Target) vals where
+class AdaptableTarget (target :: Target) vals where
   type X vals :: TensorKindType
-  toHVectorOf :: vals -> target (X vals)
+  toTarget :: vals -> target (X vals)
     -- ^ represent a collection of tensors
-  parseHVector :: target (X vals) -> vals
+  fromTarget :: target (X vals) -> vals
     -- ^ recovers a collection of tensors from its canonical representation,
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
-  parseHVectorAD :: target (ADTensorKind (X vals)) -> vals
+  fromTargetAD :: target (ADTensorKind (X vals)) -> vals
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -72,33 +72,33 @@ class ForgetShape vals where
   forgetShape :: vals -> NoShape vals
 
 -- | A helper class for randomly generating initial parameters.
-class RandomHVector vals where
-  randomVals :: SplitGen g => Double -> g -> (vals, g)
+class RandomValue vals where
+  randomValue :: SplitGen g => Double -> g -> (vals, g)
 
 
--- * Basic Adaptor class instances
+-- * Base instances
 
 instance (TensorKind y, BaseTensor target)
-         => AdaptableHVector target (target y) where
+         => AdaptableTarget target (target y) where
 {-
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
-      => AdaptableHVector (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n Double)) #-}
+      => AdaptableTarget (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n Double)) #-}
   TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
     with -O0, but not -O1
   {-# SPECIALIZE instance
       (KnownNat n, ADReadyNoLet Nested.Ranked)
-      => AdaptableHVector (ADVal Nested.Ranked)
+      => AdaptableTarget (ADVal Nested.Ranked)
                           (ADVal Nested.Ranked Double n) #-}
   {-# SPECIALIZE instance
       (KnownNat n, ADReadyNoLet (AstRanked PrimalSpan))
-      => AdaptableHVector (ADVal (AstRanked PrimalSpan))
+      => AdaptableTarget (ADVal (AstRanked PrimalSpan))
                           (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
   type X (target y) = y
-  toHVectorOf = id
-  parseHVector t = t
-  parseHVectorAD t = fromADTensorKindShared (stensorKind @y) t
+  toTarget = id
+  fromTarget t = t
+  fromTargetAD t = fromADTensorKindShared (stensorKind @y) t
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), TensorKind y)
          => DualNumberValue (target y) where
@@ -121,8 +121,8 @@ instance ForgetShape (target (TKX sh r)) where
 
 instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
          , BaseTensor target )
-         => RandomHVector (target (TKS sh r)) where
-  randomVals @g range g =
+         => RandomValue (target (TKS sh r)) where
+  randomValue @g range g =
     let createRandomVector :: Int -> g -> target (TKS sh r)
         createRandomVector n seed =
           srepl (2 * realToFrac range)
@@ -148,19 +148,19 @@ stkOfListR stk SNat =
   gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups (n - 1) t)) $
   STKProduct stk (stkOfListR stk (SNat @(n - 1)))
 
-instance ( BaseTensor target, KnownNat n, AdaptableHVector target a
+instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
          , TensorKind (X a), TensorKind (ADTensorKind (X a)) )
-         => AdaptableHVector target (ListR n a) where
+         => AdaptableTarget target (ListR n a) where
   type X (ListR n a) = Tups n (X a)
-  toHVectorOf ZR = tunit
-  toHVectorOf ((:::) @n1 a rest)
+  toTarget ZR = tunit
+  toTarget ((:::) @n1 a rest)
    | Dict <- lemTensorKindOfSTK (stkOfListR (stensorKind @(X a)) (SNat @n1)) =
     gcastWith (unsafeCoerceRefl
                :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
-    let a1 = toHVectorOf a
-        rest1 = toHVectorOf rest
+    let a1 = toTarget a
+        rest1 = toTarget rest
     in tpair a1 rest1
-  parseHVector tups = case SNat @n of
+  fromTarget tups = case SNat @n of
     SNat' @0 -> ZR
     _ ->
       gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
@@ -168,10 +168,10 @@ instance ( BaseTensor target, KnownNat n, AdaptableHVector target a
                  :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
       withTensorKind (stkOfListR (stensorKind @(X a)) (SNat @(n - 1))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
-          a = parseHVector a1
-          rest = parseHVector rest1
+          a = fromTarget a1
+          rest = fromTarget rest1
       in (a ::: rest)
-  parseHVectorAD tups = case SNat @n of
+  fromTargetAD tups = case SNat @n of
     SNat' @0 -> ZR
     _ ->
       gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
@@ -183,8 +183,8 @@ instance ( BaseTensor target, KnownNat n, AdaptableHVector target a
       withTensorKind (stkOfListR (stensorKind
                                     @(ADTensorKind (X a))) (SNat @(n - 1))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
-          a = parseHVectorAD a1
-          rest = parseHVectorAD @_ @(ListR (n - 1) a) rest1
+          a = fromTargetAD a1
+          rest = fromTargetAD @_ @(ListR (n - 1) a) rest1
       in (a ::: rest)
 
 instance TermValue a => TermValue (ListR n a) where
@@ -202,37 +202,37 @@ instance ForgetShape a => ForgetShape (ListR n a) where
   forgetShape ZR = ZR
   forgetShape (a ::: rest) = forgetShape a ::: forgetShape rest
 
-instance (RandomHVector a, KnownNat n) => RandomHVector (ListR n a) where
-  randomVals range g = case cmpNat (Proxy @n) (Proxy @0)  of
-    LTI -> error "randomVals: impossible"
+instance (RandomValue a, KnownNat n) => RandomValue (ListR n a) where
+  randomValue range g = case cmpNat (Proxy @n) (Proxy @0)  of
+    LTI -> error "randomValue: impossible"
     EQI -> (ZR, g)
     GTI -> gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
-           let (v, g1) = randomVals range g
-               (rest, g2) = randomVals @(ListR (n - 1) a) range g1
+           let (v, g1) = randomValue range g
+               (rest, g2) = randomValue @(ListR (n - 1) a) range g1
            in (v ::: rest, g2)
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b)) )
-         => AdaptableHVector target (a, b) where
+         , AdaptableTarget target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableTarget target b, TensorKind (X b), TensorKind (ADTensorKind (X b)) )
+         => AdaptableTarget target (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
-  toHVectorOf (a, b) =
-    let a1 = toHVectorOf a
-        b1 = toHVectorOf b
+  toTarget (a, b) =
+    let a1 = toTarget a
+        b1 = toTarget b
     in tpair a1 b1
-  parseHVector ab =
+  fromTarget ab =
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-        a = parseHVector a1
-        b = parseHVector b1
+        a = fromTarget a1
+        b = fromTarget b1
     in (a, b)
-  parseHVectorAD ab =
+  fromTargetAD ab =
     let (a1, b1) =
           ( tproject1 ab
           , tproject2 ab )
-        a = parseHVectorAD a1
-        b = parseHVectorAD b1
+        a = fromTargetAD a1
+        b = fromTargetAD b1
     in (a, b)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
@@ -248,41 +248,41 @@ instance ( ForgetShape a
   type NoShape (a, b) = (NoShape a, NoShape b)
   forgetShape (a, b) = (forgetShape a, forgetShape b)
 
-instance ( RandomHVector a
-         , RandomHVector b ) => RandomHVector (a, b) where
-  randomVals range g =
-    let (v1, g1) = randomVals range g
-        (v2, g2) = randomVals range g1
+instance ( RandomValue a
+         , RandomValue b ) => RandomValue (a, b) where
+  randomValue range g =
+    let (v1, g1) = randomValue range g
+        (v2, g2) = randomValue range g1
     in ((v1, v2), g2)
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c)) )
-         => AdaptableHVector target (a, b, c) where
+         , AdaptableTarget target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableTarget target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableTarget target c, TensorKind (X c), TensorKind (ADTensorKind (X c)) )
+         => AdaptableTarget target (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
-  toHVectorOf (a, b, c) =
-    let a1 = toHVectorOf a
-        b1 = toHVectorOf b
-        c1 = toHVectorOf c
+  toTarget (a, b, c) =
+    let a1 = toTarget a
+        b1 = toTarget b
+        c1 = toTarget c
     in tpair (tpair a1 b1) c1
-  parseHVector abc =
+  fromTarget abc =
     let (a1, b1, c1) =
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-        a = parseHVector a1
-        b = parseHVector b1
-        c = parseHVector c1
+        a = fromTarget a1
+        b = fromTarget b1
+        c = fromTarget c1
     in (a, b, c)
-  parseHVectorAD abc =
+  fromTargetAD abc =
     let (a1, b1, c1) =
           ( tproject1 (tproject1 abc)
           , tproject2 (tproject1 abc)
           , tproject2 abc )
-        a = parseHVectorAD a1
-        b = parseHVectorAD b1
-        c = parseHVectorAD c1
+        a = fromTargetAD a1
+        b = fromTargetAD b1
+        c = fromTargetAD c1
     in (a, b, c)
 
 instance (TermValue a, TermValue b, TermValue c)
@@ -301,50 +301,50 @@ instance ( ForgetShape a
   type NoShape (a, b, c) = (NoShape a, NoShape b, NoShape c)
   forgetShape (a, b, c) = (forgetShape a, forgetShape b, forgetShape c)
 
-instance ( RandomHVector a
-         , RandomHVector b
-         , RandomHVector c ) => RandomHVector (a, b, c) where
-  randomVals range g =
-    let (v1, g1) = randomVals range g
-        (v2, g2) = randomVals range g1
-        (v3, g3) = randomVals range g2
+instance ( RandomValue a
+         , RandomValue b
+         , RandomValue c ) => RandomValue (a, b, c) where
+  randomValue range g =
+    let (v1, g1) = randomValue range g
+        (v2, g2) = randomValue range g1
+        (v3, g3) = randomValue range g2
     in ((v1, v2, v3), g3)
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
-         , AdaptableHVector target d, TensorKind (X d), TensorKind (ADTensorKind (X d)) )
-         => AdaptableHVector target (a, b, c, d) where
+         , AdaptableTarget target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableTarget target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableTarget target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
+         , AdaptableTarget target d, TensorKind (X d), TensorKind (ADTensorKind (X d)) )
+         => AdaptableTarget target (a, b, c, d) where
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
-  toHVectorOf (a, b, c, d) =
-    let a1 = toHVectorOf a
-        b1 = toHVectorOf b
-        c1 = toHVectorOf c
-        d1 = toHVectorOf d
+  toTarget (a, b, c, d) =
+    let a1 = toTarget a
+        b1 = toTarget b
+        c1 = toTarget c
+        d1 = toTarget d
     in  tpair (tpair a1 b1) (tpair c1 d1)
-  parseHVector abcd =
+  fromTarget abcd =
     let (a1, b1, c1, d1) =
           ( tproject1 (tproject1 abcd)
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-        a = parseHVector a1
-        b = parseHVector b1
-        c = parseHVector c1
-        d = parseHVector d1
+        a = fromTarget a1
+        b = fromTarget b1
+        c = fromTarget c1
+        d = fromTarget d1
     in (a, b, c, d)
-  parseHVectorAD abcd =
+  fromTargetAD abcd =
     let (a1, b1, c1, d1) =
           ( tproject1 (tproject1 abcd)
           , tproject2 (tproject1 abcd)
           , tproject1 (tproject2 abcd)
           , tproject2 (tproject2 abcd) )
-        a = parseHVectorAD a1
-        b = parseHVectorAD b1
-        c = parseHVectorAD c1
-        d = parseHVectorAD d1
+        a = fromTargetAD a1
+        b = fromTargetAD b1
+        c = fromTargetAD c1
+        d = fromTargetAD d1
     in (a, b, c, d)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
@@ -369,58 +369,58 @@ instance ( ForgetShape a
   forgetShape (a, b, c, d) =
     (forgetShape a, forgetShape b, forgetShape c, forgetShape d)
 
-instance ( RandomHVector a
-         , RandomHVector b
-         , RandomHVector c
-         , RandomHVector d ) => RandomHVector (a, b, c, d) where
-  randomVals range g =
-    let (v1, g1) = randomVals range g
-        (v2, g2) = randomVals range g1
-        (v3, g3) = randomVals range g2
-        (v4, g4) = randomVals range g3
+instance ( RandomValue a
+         , RandomValue b
+         , RandomValue c
+         , RandomValue d ) => RandomValue (a, b, c, d) where
+  randomValue range g =
+    let (v1, g1) = randomValue range g
+        (v2, g2) = randomValue range g1
+        (v3, g3) = randomValue range g2
+        (v4, g4) = randomValue range g3
     in ((v1, v2, v3, v4), g4)
 
 instance ( BaseTensor target
-         , AdaptableHVector target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
-         , AdaptableHVector target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
-         , AdaptableHVector target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
-         , AdaptableHVector target d, TensorKind (X d), TensorKind (ADTensorKind (X d))
-         , AdaptableHVector target e, TensorKind (X e), TensorKind (ADTensorKind (X e)) )
-         => AdaptableHVector target (a, b, c, d, e) where
+         , AdaptableTarget target a, TensorKind (X a), TensorKind (ADTensorKind (X a))
+         , AdaptableTarget target b, TensorKind (X b), TensorKind (ADTensorKind (X b))
+         , AdaptableTarget target c, TensorKind (X c), TensorKind (ADTensorKind (X c))
+         , AdaptableTarget target d, TensorKind (X d), TensorKind (ADTensorKind (X d))
+         , AdaptableTarget target e, TensorKind (X e), TensorKind (ADTensorKind (X e)) )
+         => AdaptableTarget target (a, b, c, d, e) where
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))
-  toHVectorOf (a, b, c, d, e) =
-    let a1 = toHVectorOf a
-        b1 = toHVectorOf b
-        c1 = toHVectorOf c
-        d1 = toHVectorOf d
-        e1 = toHVectorOf e
+  toTarget (a, b, c, d, e) =
+    let a1 = toTarget a
+        b1 = toTarget b
+        c1 = toTarget c
+        d1 = toTarget d
+        e1 = toTarget e
     in tpair (tpair (tpair a1 b1) c1) (tpair d1 e1)
-  parseHVector abcde =
+  fromTarget abcde =
     let (a1, b1, c1, d1, e1) =
           ( tproject1 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-        a = parseHVector a1
-        b = parseHVector b1
-        c = parseHVector c1
-        d = parseHVector d1
-        e = parseHVector e1
+        a = fromTarget a1
+        b = fromTarget b1
+        c = fromTarget c1
+        d = fromTarget d1
+        e = fromTarget e1
     in (a, b, c, d, e)
-  parseHVectorAD abcde =
+  fromTargetAD abcde =
     let (a1, b1, c1, d1, e1) =
           ( tproject1 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 (tproject1 abcde))
           , tproject2 (tproject1 abcde)
           , tproject1 (tproject2 abcde)
           , tproject2 (tproject2 abcde) )
-        a = parseHVectorAD a1
-        b = parseHVectorAD b1
-        c = parseHVectorAD c1
-        d = parseHVectorAD d1
-        e = parseHVectorAD e1
+        a = fromTargetAD a1
+        b = fromTargetAD b1
+        c = fromTargetAD c1
+        d = fromTargetAD d1
+        e = fromTargetAD e1
     in (a, b, c, d, e)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
@@ -447,15 +447,15 @@ instance ( ForgetShape a
   forgetShape (a, b, c, d, e) =
     (forgetShape a, forgetShape b, forgetShape c, forgetShape d, forgetShape e)
 
-instance ( RandomHVector a
-         , RandomHVector b
-         , RandomHVector c
-         , RandomHVector d
-         , RandomHVector e ) => RandomHVector (a, b, c, d, e) where
-  randomVals range g =
-    let (v1, g1) = randomVals range g
-        (v2, g2) = randomVals range g1
-        (v3, g3) = randomVals range g2
-        (v4, g4) = randomVals range g3
-        (v5, g5) = randomVals range g4
+instance ( RandomValue a
+         , RandomValue b
+         , RandomValue c
+         , RandomValue d
+         , RandomValue e ) => RandomValue (a, b, c, d, e) where
+  randomValue range g =
+    let (v1, g1) = randomValue range g
+        (v2, g2) = randomValue range g1
+        (v3, g3) = randomValue range g2
+        (v4, g4) = randomValue range g3
+        (v5, g5) = randomValue range g4
     in ((v1, v2, v3, v4, v5), g5)
