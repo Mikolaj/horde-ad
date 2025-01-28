@@ -39,6 +39,7 @@ import HordeAd.Core.AstVectorize
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.DeltaEval
 import HordeAd.Core.Delta
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass

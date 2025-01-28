@@ -144,6 +144,7 @@ library horde-ad-simplified
                       HordeAd.Core.CarriersAst
                       HordeAd.Core.CarriersConcrete
                       HordeAd.Core.Delta
+                      HordeAd.Core.DeltaEval
                       HordeAd.Core.DeltaFreshId
                       HordeAd.Core.Engine
                       HordeAd.Core.HVectorOps
