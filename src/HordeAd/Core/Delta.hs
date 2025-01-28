@@ -42,7 +42,7 @@ module HordeAd.Core.Delta
     -- * AST of delta expressions
   , Delta(..)
     -- * Delta tensor kind derivation
-  , ftkDelta, lengthDelta, shapeDelta
+  , ftkDelta, lengthDelta
   ) where
 
 import Prelude
@@ -558,7 +558,8 @@ ftkDelta = \case
     FTKR _ x -> FTKR sh x
   DeltaGatherR sh d _ -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
-  DeltaCastR d -> FTKR (shapeDelta d) FTKScalar
+  DeltaCastR d -> case ftkDelta d of
+    FTKR sh _ -> FTKR sh FTKScalar
   DeltaZipR d -> case ftkDelta d of
     FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
   DeltaUnzipR d -> case ftkDelta d of
@@ -665,15 +666,9 @@ ftkDelta = \case
     | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
 
-shapeDelta :: forall target r n.
-              (TensorKind r, KnownNat n)
-           => Delta target (TKR2 n r) -> IShR n
-shapeDelta d = case ftkDelta d of
-  FTKR sh _ -> sh
-
 lengthDelta :: forall target r n.
                (TensorKind r, KnownNat n)
             => Delta target (TKR2 (1 + n) r) -> Int
-lengthDelta d = case shapeDelta d of
-  ZSR -> error "lengthDelta: impossible pattern needlessly required"
-  k :$: _ -> k
+lengthDelta d = case ftkDelta d of
+  FTKR ZSR _ -> error "lengthDelta: impossible pattern needlessly required"
+  FTKR (k :$: _) _ -> k

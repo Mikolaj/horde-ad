@@ -667,14 +667,17 @@ evalRevSame !s !c = \case
   DeltaAdd d e -> let cShared = tshare c
               in evalRevSame (evalRevSame s cShared d) cShared e
 
-  DeltaIndexR d ix -> evalRevSame s (roneHot (takeShape $ shapeDelta d) c ix) d
-  DeltaSum0R d ->
-    evalRevSame s (rreplicate0N (shapeDelta d) c) d
+  DeltaIndexR d ix -> case ftkDelta d of
+    FTKR sh _ | SNat <- shrRank sh ->
+      evalRevSame s (roneHot (takeShape sh) c ix) d
+  DeltaSum0R d -> case ftkDelta d of
+    FTKR sh _ -> evalRevSame s (rreplicate0N sh c) d
   DeltaDot0R v vd ->
     evalRevSame s (v * rreplicate0N (rshape v) c) vd
       -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
-  DeltaScatterR _sh d f ->
-    evalRevSame s (rgather (shapeDelta d) c f) d
+  DeltaScatterR _sh d f -> case ftkDelta d of
+    FTKR sh _ | SNat <- shrRank sh ->
+      evalRevSame s (rgather sh c f) d
   DeltaAppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
                    k = lengthDelta d
@@ -695,10 +698,12 @@ evalRevSame !s !c = \case
   DeltaTransposeR perm d ->
     let permR = permRInverse perm
     in evalRevSame s (rtranspose permR c) d
-  DeltaReshapeR _sh d ->
-    evalRevSame s (rreshape (shapeDelta d) c) d
-  DeltaGatherR _sh d f ->
-    evalRevSame s (rscatter (shapeDelta d) c f) d
+  DeltaReshapeR _sh d -> case ftkDelta d of
+    FTKR sh _ | SNat <- shrRank sh ->
+      evalRevSame s (rreshape sh c) d
+  DeltaGatherR _sh d f-> case ftkDelta d of
+    FTKR sh _ | SNat <- shrRank sh ->
+      evalRevSame s (rscatter sh c f) d
   DeltaCastR @r1 @_ @n d ->
     evalRevRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
                                  $ rcast c) d
