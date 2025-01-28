@@ -41,7 +41,6 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.OpsADVal (unADValRep)
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorClass
 import HordeAd.Core.TensorKind
@@ -86,9 +85,7 @@ revArtifactFromForwardPass hasDt forwardPass ftk
       !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRev ftk in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(!primalBody, !delta) =
-        unADValRep (stensorKind @z)
-        $ forwardPass hVectorPrimal var hVector in
+      !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
   let (!varDt, !astDt) =
         funToAst (aDFTK $ ftkAst $ unAstRaw primalBody) id in
   let mdt = if hasDt then Just astDt else Nothing
@@ -124,9 +121,7 @@ fwdArtifactFromForwardPass forwardPass ftk
  , Dict <- lemTensorKindOfAD (stensorKind @z) =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd ftk in
-  let !(!primalBody, !delta) =
-        unADValRep (stensorKind @z)
-        $ forwardPass hVectorPrimal var hVector in
+  let !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
   let !derivative = derivativeFromDelta @x delta (AstRaw hVectorD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
@@ -683,8 +678,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  -- The limitation of AstRaw as a newtype make it impossible
-  -- to switch the tests from AstTensor to AstRaw.
   drev @x ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x) =
     -- we don't have an AST constructor to hold it, so we compute
     --
@@ -1262,8 +1255,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- In this instance, these two ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  -- The limitation of AstRaw as a newtype make it impossible
-  -- to switch the tests from AstTensor to AstRaw.
   --
   -- TODO: dupe?
   -- These three methods are called at this type in delta evaluation via

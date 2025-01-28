@@ -8,8 +8,7 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.OpsADVal
-  ( unADValRep
-  , crevOnADInputs, crevOnHVector, cfwdOnHVector
+  ( crevOnADInputs, crevOnHVector, cfwdOnHVector
   ) where
 
 import Prelude hiding (foldl')
@@ -64,7 +63,7 @@ crevOnADInputs
 crevOnADInputs mdt f inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
-      !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
+      !(D v delta) = f inputs in
   let parameters0 = tftk (stensorKind @x) inputs
       !gradient = gradientFromDelta parameters0 v mdt delta
   in (gradient, v)
@@ -92,7 +91,7 @@ cfwdOnADInputs
   -> (target (ADTensorKind z), target z)
 {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs inputs f ds =
-  let !(!v, !delta) = unADValRep (stensorKind @z) $ f inputs in
+  let !(D v delta) = f inputs in
   let !derivative = derivativeFromDelta @x delta ds
   in (derivative, v)
 
@@ -110,7 +109,7 @@ cfwdOnHVector parameters f ds =
   in cfwdOnADInputs inputs f ds
 
 
--- * Misc instances
+-- * Instances
 
 -- This instance can be sped up by defining and simplifying all default
 -- methods (or only tfromVector?), but it probably benefits only product
@@ -147,9 +146,6 @@ instance (ADReadyNoLet target, ShareTensor target)
   tunpair (D u u') = let (u1, u2) = tunpair u
                          (d1, d2) = unDeltaPair u'
                      in (dDnotShared u1 d1, dDnotShared u2 d2)
-
-
--- * Base tensor instance
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
@@ -195,7 +191,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in dD (rscatter sh u g) (DeltaScatterR sh u' g)
 
   rfromVector lu = withSNat (V.length lu) $ \snat ->
-    -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
     dD (rfromVector $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector snat stensorKind $ V.map (\(D _ u') -> u') lu)
   runravelToList (D u u') =
@@ -490,9 +485,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
    , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
-    let (acc0, acc0') = unADValRep stensorKind acc0D
-        (esNotShared, es') = unADValRep stensorKind esD
-        es = tshare esNotShared
+    let !(D acc0 acc0') = acc0D in
+    let !(D esNotShared es') = esD in
+    let es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
           => f (TKProduct accShs eShs)
@@ -560,9 +555,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
    , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
-    let (acc0, acc0') = unADValRep stensorKind acc0D
-        (esNotShared, es') = unADValRep stensorKind esD
-        es = tshare esNotShared
+    let !(D acc0 acc0') = acc0D in
+    let !(D esNotShared es') = esD in
+    let es = tshare esNotShared
         codomainShs = FTKProduct accShs bShs
         g :: forall f. ADReady f
           => f (TKProduct accShs eShs)
@@ -621,10 +616,3 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                               q es
                               df rf acc0' es'
     in dD (tpair accFin bs) dual
-
-unADValRep
-  :: forall y target.
-     STensorKindType y
-  -> ADVal target y
-  -> (target y, Delta target y)
-unADValRep _stk (D p d) = (p, d)

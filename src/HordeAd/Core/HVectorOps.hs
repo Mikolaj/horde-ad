@@ -199,7 +199,6 @@ type family UnWind y where
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
 
--- TODO: should be unused now that we removed addWindShare?
 unWindSTK :: STensorKindType y -> STensorKindType (UnWind y)
 unWindSTK = \case
   stk@STKScalar{} -> stk

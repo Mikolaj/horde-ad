@@ -8,7 +8,6 @@ module HordeAd.Core.Types
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
   , pattern SNat'
     -- * Definitions for type-level list shapes
-  , slistKnown, sixKnown
   , sizeT, sizeP, sameShape
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
@@ -37,6 +36,7 @@ module HordeAd.Core.Types
   , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
+  , slistKnown, sixKnown
   ) where
 
 import Prelude
@@ -125,18 +125,6 @@ matchSNat p m@SNat = sameNat p m
 
 
 -- * Definitions for type-level list shapes
-
--- TODO: this can probably be retired when we have conversions
--- from ShS to ShR, etc.
-slistKnown :: ListS sh i -> Dict KnownShS sh
-slistKnown ZS = Dict
-slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
-
--- TODO: this can probably be retired when we have conversions
--- from ShS to ShR, etc.
-sixKnown :: IxS sh i -> Dict KnownShS sh
-sixKnown ZIS = Dict
-sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
 
 sizeT :: forall sh. KnownShS sh => Int
 sizeT = sNatValue $ shsProduct $ knownShS @sh
@@ -751,7 +739,7 @@ shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
   Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
 shCastSX _ _ = error "shCastSX: shapes don't match"
 
--- TODO; more typed, ensure ranks match, use singletons instead of constraints,
+-- TODO; make more typed, ensure ranks match, use singletons instead of constraints,
 -- give better names and do the same for ListS, etc.
 ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
          => IxR (Rank sh) i -> IxS sh i
@@ -765,3 +753,15 @@ ixxToIxs = fromList . toList
 ixsToIxx :: (KnownShS sh, KnownShX sh')
          => IxS sh i -> IxX sh' i
 ixsToIxx = fromList . toList
+
+-- TODO: this can be retired when we have a conversion from ListS to ShS;
+-- then we'd just do withKnownShS (listsToShS l)
+slistKnown :: ListS sh i -> Dict KnownShS sh
+slistKnown ZS = Dict
+slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
+
+-- TODO: this can be retired when we have a conversion from IxS to ShS
+-- then we'd just do withKnownShS (ixsToShS l)
+sixKnown :: IxS sh i -> Dict KnownShS sh
+sixKnown ZIS = Dict
+sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict

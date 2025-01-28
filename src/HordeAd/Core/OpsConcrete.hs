@@ -79,7 +79,7 @@ instance EqF RepN where
     STKX sh STKScalar{} -> withKnownShX sh $ u == v
     STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                                  , Dict <- lemTensorKindOfSTK stk2 ->
-      RepN @y1 (fst u) ==. RepN  @y1(fst v)
+      RepN @y1 (fst u) ==. RepN @y1 (fst v)
       && RepN @y2 (snd u) ==. RepN @y2 (snd v)
     _ -> error "TODO"
 
