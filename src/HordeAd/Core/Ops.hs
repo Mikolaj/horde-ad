@@ -1321,7 +1321,7 @@ class ( Num (IntOf target)
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
   default kfromS :: forall r. (LetTensor target, GoodScalar r)
-                    => target (TKS '[] r) -> target (TKScalar r)
+                 => target (TKS '[] r) -> target (TKScalar r)
   kfromS = tfromS
   kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
   rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)

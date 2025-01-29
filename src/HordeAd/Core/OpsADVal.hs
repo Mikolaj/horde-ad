@@ -160,24 +160,15 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tconstantTarget = constantTarget
   taddTarget = addTarget
 
+  -- Ranked ops
   rshape (D u _) = rshape u
-  rminIndex (D u _) =
-    let v = rminIndex u
-    in fromPrimalADVal v
-  rmaxIndex (D u _) =
-    let v = rmaxIndex u
-    in fromPrimalADVal v
-  rfloor (D u _) =
-    let v = rfloor u
-    in fromPrimalADVal v
-
-  riota = fromPrimalADVal . riota
-  -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
-  -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
-  -- dimension affected.
-  rindex (D u u') i =
-    let ix = tprimalPart (STKScalar typeRep) <$> i
-    in dD (rindex u ix) (DeltaIndexR u' ix)
+  rfromVector lu = withSNat (V.length lu) $ \snat ->
+    dD (rfromVector $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVector snat stensorKind $ V.map (\(D _ u') -> u') lu)
+  runravelToList (D u u') =
+    let lu = runravelToList u
+        f i ui = dD ui (DeltaIndexR u' (fromIntegral i :.: ZIR))
+    in imap f lu
   rsum (D u u') = withSNat (rlength u) $ \snat ->
     dD (rsum u) (DeltaSum snat stensorKind u')
   rsum0 (D u u') = dD (rsum0 u) (DeltaSum0R u')
@@ -186,20 +177,39 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let !u = tshare ue in
     let !v = tshare ve
     in dD (rdot0 u v) (DeltaAdd (DeltaDot0R v u') (DeltaDot0R u v'))
+  rreplicate k (D u u') = withSNat k $ \snat ->
+    dD (rreplicate k u) (DeltaReplicate snat stensorKind u')
+  -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
+  -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
+  -- dimension affected.
+  rindex (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (rindex u ix) (DeltaIndexR u' ix)
   rscatter sh (D u u') f =
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (rscatter sh u g) (DeltaScatterR sh u' g)
-
-  rfromVector lu = withSNat (V.length lu) $ \snat ->
-    dD (rfromVector $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector snat stensorKind $ V.map (\(D _ u') -> u') lu)
-  runravelToList (D u u') =
-    let lu = runravelToList u
-        f i ui = dD ui (DeltaIndexR u' (fromIntegral i :.: ZIR))
-    in imap f lu
-  rreplicate k (D u u') = withSNat k $ \snat ->
-    dD (rreplicate k u) (DeltaReplicate snat stensorKind u')
+  rgather sh (D u u') f =
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    in dD (rgather sh u g) (DeltaGatherR sh u' g)
+      -- note how f is not interpreted as a function on dual numbers
+      -- but just on integers and so no cotangents for results of application
+      -- of f have to be computed and stored in contangent maps later on
+  rfloor (D u _) =
+    let v = rfloor u
+    in fromPrimalADVal v
+  rfromIntegral (D u _) =
+    let v = rfromIntegral u
+    in fromPrimalADVal v
+  rcast (D u u') = dD (rcast u) (DeltaCastR u')
+  rminIndex (D u _) =
+    let v = rminIndex u
+    in fromPrimalADVal v
+  rmaxIndex (D u _) =
+    let v = rmaxIndex u
+    in fromPrimalADVal v
+  riota = fromPrimalADVal . riota
   rappend (D u u') (D v v') =
     dD (rappend u v) (DeltaAppendR u' v')
   rslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
@@ -208,30 +218,53 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   rreshape @_ @n @m sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
     Just Refl | sh == rshape u -> t
     _ -> dD (rreshape sh u) (DeltaReshapeR sh u')
+  rzip (D u u') = dD (rzip u) (DeltaZipR u')
+  runzip (D u u') = dD (runzip u) (DeltaUnzipR u')
   rbuild1 @r @n k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl | Dict <- eltDictRep (stensorKind @r) ->
         rconcrete Nested.remptyArray
       Nothing -> error "rbuild1: shape ambiguity"
     Just l -> rfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
-  rgather sh (D u u') f =
+
+  -- Shaped ops
+  sfromVector @_ @k lu = assert (length lu == valueOf @k) $
+    dD (sfromVector $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVector (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
+  sunravelToList (D u u') =
+    let lu = sunravelToList u
+        f i ui = dD ui (DeltaIndexS u' (fromIntegral i :.$ ZIS))
+    in imap f lu
+  ssum (D u u') = dD (ssum u) (DeltaSum SNat stensorKind u')
+  ssum0 (D u u') = dD (ssum0 u) (DeltaSum0S u')
+  sdot0 (D ue u') (D ve v') =
+    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (sdot0 u v) (DeltaAdd (DeltaDot0S v u') (DeltaDot0S u v'))
+  sreplicate (D u u') = dD (sreplicate u) (DeltaReplicate SNat stensorKind u')
+  sindex (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (sindex u ix) (DeltaIndexS u' ix)
+  sscatter @r @shm @shn @shp (D u u') f =
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (rgather sh u g) (DeltaGatherR sh u' g)
-      -- note how f is not interpreted as a function on dual numbers
-      -- but just on integers and so no cotangents for results of application
-      -- of f have to be computed and stored in contangent maps later on
-  rcast (D u u') = dD (rcast u) (DeltaCastR u')
-  rfromIntegral (D u _) =
-    let v = rfromIntegral u
+    in dD (sscatter @_ @r @shm @shn @shp u g) (DeltaScatterS @_ @r @shm @shn @shp u' g)
+  sgather @r @shm @shn @shp (D u u') f =
+    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    in dD (sgather @_ @r @shm @shn @shp u g) (DeltaGatherS @_ @r @shm @shn @shp u' g)
+  sfloor (D u _) =
+    let v = sfloor u
     in fromPrimalADVal v
-  rzip (D u u') = dD (rzip u) (DeltaZipR u')
-  runzip (D u u') = dD (runzip u) (DeltaUnzipR u')
-  kfromR @r (D t d) =
-    dDnotShared (kfromR t) (DeltaFromS @(TKS '[] r) $ DeltaSFromR d)
-  rfromK (D t d) =
-    dDnotShared (rfromK t) (DeltaFromS $ DeltaSFromK d)
-
+  sfromIntegral (D u _) =
+    let v = sfromIntegral u
+    in fromPrimalADVal v
+  scast (D u u') = dD (scast u) (DeltaCastS u')
   sminIndex @_ @_ @sh @n (D u _) =
     withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
     let v = sminIndex u
@@ -240,36 +273,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
     let v = smaxIndex u
     in fromPrimalADVal v
-  sfloor (D u _) =
-    let v = sfloor u
-    in fromPrimalADVal v
-
   siota = fromPrimalADVal siota
-  sindex (D u u') i =
-    let ix = tprimalPart (STKScalar typeRep) <$> i
-    in dD (sindex u ix) (DeltaIndexS u' ix)
-  ssum (D u u') = dD (ssum u) (DeltaSum SNat stensorKind u')
-  ssum0 (D u u') = dD (ssum0 u) (DeltaSum0S u')
-  sdot0 (D ue u') (D ve v') =
-    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !u = tshare ue in
-    let !v = tshare ve
-    in dD (sdot0 u v) (DeltaAdd (DeltaDot0S v u') (DeltaDot0S u v'))
-  sscatter @r @shm @shn @shp (D u u') f =
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (sscatter @_ @r @shm @shn @shp u g) (DeltaScatterS @_ @r @shm @shn @shp u' g)
-
-  sfromVector @_ @k lu = assert (length lu == valueOf @k) $
-    dD (sfromVector $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
-  sunravelToList (D u u') =
-    let lu = sunravelToList u
-        f i ui = dD ui (DeltaIndexS u' (fromIntegral i :.$ ZIS))
-    in imap f lu
-  sreplicate (D u u') = dD (sreplicate u) (DeltaReplicate SNat stensorKind u')
   sappend (D u u') (D v v') =
     dD (sappend u v) (DeltaAppendS u' v')
   sslice @_ @i i_proxy n_proxy (D u u') =
@@ -281,56 +285,16 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   sreshape @_ @sh @sh2 t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (DeltaReshapeS u')
+  szip (D u u') = dD (szip u) (DeltaZipS u')
+  sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
   sbuild1 @k @_ @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing | Dict <- eltDictRep (stensorKind @r) ->
       gcastWith (unsafeCoerceRefl :: k :~: 0) $
       sconcrete $ Nested.semptyArray knownShS
     Just l -> sfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
-  sgather @r @shm @shn @shp (D u u') f =
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (sgather @_ @r @shm @shn @shp u g) (DeltaGatherS @_ @r @shm @shn @shp u' g)
-  scast (D u u') = dD (scast u) (DeltaCastS u')
-  sfromIntegral (D u _) =
-    let v = sfromIntegral u
-    in fromPrimalADVal v
-  kfromS (D t d) = dDnotShared (kfromS t) (DeltaFromS d)
-  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
-  szip (D u u') = dD (szip u) (DeltaZipS u')
-  sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
 
-  xminIndex (D u _) =
-    let v = xminIndex u
-    in fromPrimalADVal v
-  xmaxIndex (D u _) =
-    let v = xmaxIndex u
-    in fromPrimalADVal v
-  xfloor (D u _) =
-    let v = xfloor u
-    in fromPrimalADVal v
-
+  -- Mixed ops
   xshape (D u _) = xshape u
-  xiota = fromPrimalADVal xiota
-  xindex (D u u') i =
-    let ix = tprimalPart (STKScalar typeRep) <$> i
-    in dD (xindex u ix) (DeltaIndexX u' ix)
-  xsum (D u u') = dD (xsum u) (DeltaSum SNat stensorKind u')
-  xsum0 (D u u') = dD (xsum0 u) (DeltaSum0X u')
-  xdot0 (D ue u') (D ve v') =
-    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
-    let !u = tshare ue in
-    let !v = tshare ve
-    in dD (xdot0 u v) (DeltaAdd (DeltaDot0X v u') (DeltaDot0X u v'))
-  xscatter @r @shm @shn @shp sh (D u u') f =
-    withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
-    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (xscatter @_ @r @shm @shn @shp sh u g)
-          (DeltaScatterX @_ @r @shm @shn @shp sh u' g)
-
   xfromVector @_ @k lu = assert (length lu == valueOf @k) $  -- TODO: Move these assertions to the base instances, that is concrete and AST
     dD (xfromVector $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector (SNat @k) stensorKind $ V.map (\(D _ u') -> u') lu)
@@ -338,14 +302,50 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     let lu = xunravelToList u
         f i ui = dD ui (DeltaIndexX u' (fromIntegral i :.% ZIX))
     in imap f lu
+  xsum (D u u') = dD (xsum u) (DeltaSum SNat stensorKind u')
+  xsum0 (D u u') = dD (xsum0 u) (DeltaSum0X u')
+  xdot0 (D ue u') (D ve v') =
+    -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (xdot0 u v) (DeltaAdd (DeltaDot0X v u') (DeltaDot0X u v'))
   xreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat stensorKind u')
+  xindex (D u u') i =
+    let ix = tprimalPart (STKScalar typeRep) <$> i
+    in dD (xindex u ix) (DeltaIndexX u' ix)
+  xscatter @r @shm @shn @shp sh (D u u') f =
+    withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
+    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    in dD (xscatter @_ @r @shm @shn @shp sh u g)
+          (DeltaScatterX @_ @r @shm @shn @shp sh u' g)
+  xgather @r @shm @shn @shp sh (D u u') f =
+    withKnownShX (ssxFromShape sh) $
+    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
+    let g x = tprimalPart (STKScalar typeRep)
+              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    in dD (xgather @_ @r @shm @shn @shp sh u g) (DeltaGatherX @_ @r @shm @shn @shp sh u' g)
+  xfloor (D u _) =
+    let v = xfloor u
+    in fromPrimalADVal v
+  xfromIntegral (D u _) =
+    let v = xfromIntegral u
+    in fromPrimalADVal v
+  xcast (D u u') = dD (xcast u) (DeltaCastX u')
+  xminIndex (D u _) =
+    let v = xminIndex u
+    in fromPrimalADVal v
+  xmaxIndex (D u _) =
+    let v = xmaxIndex u
+    in fromPrimalADVal v
+  xiota = fromPrimalADVal xiota
   xappend (D u u') (D v v') =
     dD (xappend u v) (DeltaAppendX u' v')
   xslice @_ @i i_proxy n_proxy (D u u') =
     dD (xslice i_proxy n_proxy u) (DeltaSliceX @target @i u')
   xreverse (D u u') = withKnownShX (ssxFromShape $ xshape u) $
                       dD (xreverse u) (DeltaReverseX u')
-
   xtranspose @_ @_ @sh perm (D u u') =
     withKnownShX (ssxPermutePrefix perm (knownShX @sh)) $
     dD (xtranspose perm u) (DeltaTransposeX @_ @_ @_ @target perm u')
@@ -353,6 +353,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
    case testEquality (knownShX @sh) (ssxFromShape sh) of
     Just Refl | sh == xshape u -> t
     _ -> dD (xreshape sh u) (DeltaReshapeX sh u')
+  xzip (D u u') = dD (xzip u) (DeltaZipX u')
+  xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
   xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing -> case testEquality (knownShX @sh) ZKX of
       Just Refl | Dict <- eltDictRep (stensorKind @r) ->
@@ -360,31 +362,25 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         xconcrete $ Nested.memptyArray ZSX
       Nothing -> error "xbuild1: shape ambiguity"
     Just l -> xfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
-  xgather @r @shm @shn @shp sh (D u u') f =
-    withKnownShX (ssxFromShape sh) $
-    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (xgather @_ @r @shm @shn @shp sh u g) (DeltaGatherX @_ @r @shm @shn @shp sh u' g)
-  xcast (D u u') = dD (xcast u) (DeltaCastX u')
-  xfromIntegral (D u _) =
-    let v = xfromIntegral u
-    in fromPrimalADVal v
-  xzip (D u u') = dD (xzip u) (DeltaZipX u')
-  xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
-  kfromX @r (D t d) =
-    dDnotShared (kfromX t) (DeltaFromS @(TKS '[] r) $ DeltaSFromX d)
-  xfromK (D t d) =
-    dDnotShared (xfromK t) (DeltaFromS $ DeltaSFromK d)
 
+  -- Scalar ops
   kfloor (D u _) =
     let v = kfloor u
     in fromPrimalADVal v
-  kcast (D u u') = dD (kcast u) (DeltaCastK u')
   kfromIntegral (D u _) =
     let v = kfromIntegral u
     in fromPrimalADVal v
+  kcast (D u u') = dD (kcast u) (DeltaCastK u')
 
+  -- Conversions
+  kfromR @r (D t d) =
+    dDnotShared (kfromR t) (DeltaFromS @(TKS '[] r) $ DeltaSFromR d)
+  kfromS (D t d) = dDnotShared (kfromS t) (DeltaFromS d)
+  kfromX @r (D t d) =
+    dDnotShared (kfromX t) (DeltaFromS @(TKS '[] r) $ DeltaSFromX d)
+  rfromK (D t d) =
+    dDnotShared (rfromK t) (DeltaFromS $ DeltaSFromK d)
+  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
   sfromR @sh @x (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
     dSFromR (DeltaFromS @y d) =
@@ -399,7 +395,10 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
     dSFromX d = DeltaSFromX d
+  xfromK (D t d) =
+    dDnotShared (xfromK t) (DeltaFromS $ DeltaSFromK d)
 
+  -- Nesting/unnesting
   xnestR @_ @m sh1 (D u u') =
     withKnownShX sh1 $
     withKnownShX (sh1 `ssxAppend` ssxReplicate (SNat @m)) $
@@ -412,7 +411,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     withKnownShX sh1 $
     withKnownShX (sh1 `ssxAppend` knownShX @sh2) $
     dD (xnest sh1 u) (DeltaXNest u')
-
   xunNestR @sh1 @m (D u u') =
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     dD (xunNestR u) (DeltaXUnNestR u')
@@ -424,59 +422,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
     dD (xunNest u) (DeltaXUnNest u')
 
+  -- General operations that don't require LetTensor nor ShareTensor
+  tftk stk (D u _) = tftk stk u
+  tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
+    fromPrimalADVal $ tconcrete ftk t
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
-  tftk stk (D u _) = tftk stk u
-  -- Bangs are for the proper order of sharing stamps.
-  tcond !stk !b !u !v =
-    let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
-    in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
-  tprimalPart _stk (D u _) = u
-  tdualPart _stk (D _ u') = u'
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
-  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
-    dDnotShared (constantTarget 0 (ftkDelta t)) t
-  tScale _ k = DeltaScale k
-  tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
-    fromPrimalADVal $ tconcrete ftk t
-  tlambda _ = id
-  tApply (HFun f) = f
-  drev @x _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
-    let rf :: forall f. ADReady f
-           => f x
-           -> f (ADTensorKind x)
-        -- This computes the derivative of g again for each new a.
-        rf !a = tlet a $ \ !aShared ->
-          tunshare $ fst $ crevOnHVector
-                             Nothing
-                             (unHFun h @(ADVal (ShareOf f)))
-                             (toShare aShared)
-    in HFun rf
-  drevDt @x @z _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
-                      , Dict <- lemTensorKindOfAD (stensorKind @z) =
-    let rf :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind z) x)
-           -> f (ADTensorKind x)
-        -- This computes the derivative of g again for each new db and a.
-        rf !db_a = tlet db_a $ \ !db_aShared ->
-          tunshare $ fst $ crevOnHVector
-                             (Just $ toShare $ tproject1 db_aShared)
-                             (unHFun h @(ADVal (ShareOf f)))
-                             (toShare $ tproject2 db_aShared)
-    in HFun rf
-  dfwd @x @z _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
-                    , Dict <- lemTensorKindOfAD (stensorKind @z) =
-    let df :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind x) x)
-           -> f (ADTensorKind z)
-        -- This computes the derivative of g again for each new da and a.
-        df !da_a = tlet da_a $ \ !da_aShared ->
-          tunshare $ fst $ cfwdOnHVector
-                             (toShare $ tproject2 da_aShared)
-                             (unHFun h @(ADVal (ShareOf f)))
-                             (toShare $ tproject1 da_aShared)
-    in HFun df
   dmapAccumRDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
@@ -617,3 +569,50 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                               q es
                               df rf acc0' es'
     in dD (tpair accFin bs) dual
+  tApply (HFun f) = f
+  tlambda _ = id
+  -- Bangs are for the proper order of sharing stamps.
+  tcond !stk !b !u !v =
+    let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
+    in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
+  tprimalPart _stk (D u _) = u
+  tdualPart _stk (D _ u') = u'
+  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
+  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
+    dDnotShared (constantTarget 0 (ftkDelta t)) t
+  tScale _ k = DeltaScale k
+  drev @x _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
+    let rf :: forall f. ADReady f
+           => f x
+           -> f (ADTensorKind x)
+        -- This computes the derivative of g again for each new a.
+        rf !a = tlet a $ \ !aShared ->
+          tunshare $ fst $ crevOnHVector
+                             Nothing
+                             (unHFun h @(ADVal (ShareOf f)))
+                             (toShare aShared)
+    in HFun rf
+  drevDt @x @z _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
+                      , Dict <- lemTensorKindOfAD (stensorKind @z) =
+    let rf :: forall f. ADReady f
+           => f (TKProduct (ADTensorKind z) x)
+           -> f (ADTensorKind x)
+        -- This computes the derivative of g again for each new db and a.
+        rf !db_a = tlet db_a $ \ !db_aShared ->
+          tunshare $ fst $ crevOnHVector
+                             (Just $ toShare $ tproject1 db_aShared)
+                             (unHFun h @(ADVal (ShareOf f)))
+                             (toShare $ tproject2 db_aShared)
+    in HFun rf
+  dfwd @x @z _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
+                    , Dict <- lemTensorKindOfAD (stensorKind @z) =
+    let df :: forall f. ADReady f
+           => f (TKProduct (ADTensorKind x) x)
+           -> f (ADTensorKind z)
+        -- This computes the derivative of g again for each new da and a.
+        df !da_a = tlet da_a $ \ !da_aShared ->
+          tunshare $ fst $ cfwdOnHVector
+                             (toShare $ tproject2 da_aShared)
+                             (unHFun h @(ADVal (ShareOf f)))
+                             (toShare $ tproject1 da_aShared)
+    in HFun df
