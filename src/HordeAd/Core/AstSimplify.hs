@@ -1038,18 +1038,20 @@ astDualPart t = case t of
 
   AstSumOfList stk args -> astSumOfList stk (map astDualPart args)
 
-  AstN1K{} -> Ast.AstDualPart t  -- stuck; the ops are not defined on dual part
-  AstN2K{} -> Ast.AstDualPart t  --   TODO: but the types would be fine?
-  Ast.AstR1K{} -> Ast.AstDualPart t
-  Ast.AstR2K{} -> Ast.AstDualPart t
-  Ast.AstI2K{} -> Ast.AstDualPart t
+  AstN1K opCode u -> AstN1K opCode (astDualPart u)
+  AstN2K opCode u v -> AstN2K opCode (astDualPart u) (astDualPart v)
+  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astDualPart u)
+  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astDualPart u) (astDualPart v)
+  Ast.AstI2K opCode u v -> Ast.AstI2K opCode (astDualPart u) (astDualPart v)
   Ast.AstCastK v -> astCastK $ astDualPart v
 
-  AstN1S{} -> Ast.AstDualPart t
-  AstN2S{} -> Ast.AstDualPart t
-  Ast.AstR1S{} -> Ast.AstDualPart t
-  Ast.AstR2S{} -> Ast.AstDualPart t
-  Ast.AstI2S{} -> Ast.AstDualPart t
+  AstN1S opCode u -> AstN1S opCode (astDualPart u)
+  AstN2S opCode u v -> AstN2S opCode (astDualPart u) (astDualPart v)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astDualPart u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astDualPart u)
+                                             (astDualPart v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astDualPart u)
+                                             (astDualPart v)
   Ast.AstCastS v -> astCastS $ astDualPart v
 
   Ast.AstIndexS @shm @shn v ix ->
