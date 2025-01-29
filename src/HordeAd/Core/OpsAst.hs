@@ -1140,7 +1140,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   kfromS = AstRaw . AstFromS stensorKind . unAstRaw
   rfromS @x @sh | SNat <- shsRank (knownShS @sh) =
     AstRaw . AstFromS (stensorKind @(TKR2 (Rank sh) x)) . unAstRaw
-  sfromK = AstRaw . AstSFromK . unAstRaw
+  sfromK = AstRaw . cAstSFromK . unAstRaw
   sfromR = AstRaw . cAstSFromR . unAstRaw
   sfromX = AstRaw . cAstSFromX . unAstRaw
   xfromS @_ @sh' @x = AstRaw . AstFromS (stensorKind @(TKX2 sh' x)) . unAstRaw

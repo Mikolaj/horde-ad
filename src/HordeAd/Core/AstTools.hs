@@ -12,7 +12,7 @@ module HordeAd.Core.AstTools
   , astIsSmall
     -- * Odds and ends
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
-  , cAstSFromR, cAstSFromX
+  , cAstSFromK, cAstSFromR, cAstSFromX
   ) where
 
 import Prelude hiding (foldl')
@@ -457,7 +457,17 @@ liftXFromS2 f a b = case ftkAst a of
       AstFromS @(TKS2 sh x) (ftkToStk ftk)
       $ f (cAstSFromX @sh @sh' a) (cAstSFromX @sh @sh' b)
 
-cAstSFromR :: forall sh ms s r.
+cAstSFromK :: forall r ms s. GoodScalar r
+           => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
+cAstSFromK (AstFromS _ v)
+           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+                                  (stensorKind @(TKS '[] r)) = v
+cAstSFromK (AstFromPrimal (AstFromS _ v))
+           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+                                  (stensorKind @(TKS '[] r)) = AstFromPrimal v
+cAstSFromK v = AstSFromK v
+
+cAstSFromR :: forall sh r ms s.
               (KnownShS sh, KnownNat (Rank sh), TensorKind r)
            => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromR (AstFromS _ v)
@@ -468,7 +478,7 @@ cAstSFromR (AstFromPrimal (AstFromS _ v))
                                   (stensorKind @(TKS2 sh r)) = AstFromPrimal v
 cAstSFromR v = AstSFromR v
 
-cAstSFromX :: forall sh sh' ms s r.
+cAstSFromX :: forall sh sh' r ms s.
               (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromX (AstFromS _ v)
