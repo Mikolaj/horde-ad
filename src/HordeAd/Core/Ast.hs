@@ -413,6 +413,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSFromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
             => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 
+  -- Nesting/unnesting
   AstXNestR :: (KnownShX sh1, KnownNat m, TensorKind x)
             => AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
             -> AstTensor ms s (TKX2 sh1 (TKR2 m x))

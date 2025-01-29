@@ -68,6 +68,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Lemmas
 import Data.Array.Nested.Internal.Shape
   ( shCvtSX
   , shrAppend
@@ -1398,7 +1399,7 @@ class ( Num (IntOf target)
          => ShS sh1 -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
          -> target (TKS2 sh1 (TKR2 m x))
   snestR sh1 =
-    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (lemRankMapJust sh1) $
     withKnownShS sh1 $
     withKnownShX (ssxFromShape (shCvtSX sh1)) $
     sfromX . xnestR (ssxFromShape (shCvtSX sh1))
@@ -1407,7 +1408,7 @@ class ( Num (IntOf target)
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
         -> target (TKS2 sh1 (TKS2 sh2 x))
   snest sh1 =
-    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (lemRankMapJust sh1) $
     gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1 ++ MapJust sh2)
                                     :~: Rank (sh1 ++ sh2)) $
     withKnownShS sh1 $
@@ -1421,7 +1422,7 @@ class ( Num (IntOf target)
          => ShS sh1 -> target (TKX2 (MapJust sh1 ++ sh2) x)
          -> target (TKS2 sh1 (TKX2 sh2 x))
   snestX sh1 =
-    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (lemRankMapJust sh1) $
     withKnownShS sh1 $
     withKnownShX (ssxFromShape (shCvtSX sh1)) $
     sfromX . xnest (ssxFromShape (shCvtSX sh1))
@@ -1471,14 +1472,14 @@ class ( Num (IntOf target)
            => target (TKS2 sh1 (TKR2 m x))
            -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
   sunNestR =
-    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (lemRankMapJust (knownShS @sh1)) $
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
     xunNestR . xfromS @_ @_ @(MapJust sh1)
   sunNest :: forall sh1 sh2 x.
              (TensorKind x, KnownShS sh1, KnownShS sh2)
           => target (TKS2 sh1 (TKS2 sh2 x)) -> target (TKS2 (sh1 ++ sh2) x)
   sunNest =
-    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (lemRankMapJust (knownShS @sh1)) $
     gcastWith (unsafeCoerceRefl
                :: Rank (MapJust sh1 ++ MapJust sh2) :~: Rank (sh1 ++ sh2)) $
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
@@ -1491,7 +1492,7 @@ class ( Num (IntOf target)
            => target (TKS2 sh1 (TKX2 sh2 x))
            -> target (TKX2 (MapJust sh1 ++ sh2) x)
   sunNestX =
-    gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1) :~: Rank sh1) $
+    gcastWith (lemRankMapJust (knownShS @sh1)) $
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))
                   `ssxAppend` knownShX @sh2) $

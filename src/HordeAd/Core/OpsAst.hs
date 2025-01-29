@@ -653,15 +653,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sfromX = astSFromX
 
   -- Nesting/unnesting
-  xnestR sh =
-    withKnownShX sh $
-    astXNestR
-  xnestS sh =
-    withKnownShX sh $
-    astXNestS
-  xnest sh =
-    withKnownShX sh $
-    astXNest
+  xnestR sh = withKnownShX sh $ astXNestR
+  xnestS sh = withKnownShX sh $ astXNestS
+  xnest sh = withKnownShX sh $ astXNest
   xunNestR = astXUnNestR
   xunNestS = astXUnNestS
   xunNest = astXUnNest
@@ -1247,15 +1241,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xfromS @_ @sh' @x = AstRaw . AstFromS (stensorKind @(TKX2 sh' x)) . unAstRaw
 
   -- Nesting/unnesting
-  xnestR sh =
-    withKnownShX sh $
-    AstRaw . AstXNestR . unAstRaw
-  xnestS sh =
-    withKnownShX sh $
-    AstRaw . AstXNestS . unAstRaw
-  xnest sh =
-    withKnownShX sh $
-    AstRaw . AstXNest . unAstRaw
+  xnestR sh = withKnownShX sh $ AstRaw . AstXNestR . unAstRaw
+  xnestS sh = withKnownShX sh $ AstRaw . AstXNestS . unAstRaw
+  xnest sh = withKnownShX sh $ AstRaw . AstXNest . unAstRaw
   xunNestR = AstRaw . AstXUnNestR . unAstRaw
   xunNestS = AstRaw . AstXUnNestS . unAstRaw
   xunNest = AstRaw . AstXUnNest . unAstRaw
