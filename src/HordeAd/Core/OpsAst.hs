@@ -22,7 +22,7 @@ import Data.Type.Equality (gcastWith)
 import Data.Type.Ord (Compare)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (type (++), Product, Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
+import Data.Array.Nested (type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (shxInit, IShX, ssxFromShape, withKnownShX)
 import Data.Array.Nested.Internal.Shape (shsProduct, shsRank, shsPermutePrefix, shrRank, shsInit, withKnownShS)
@@ -680,8 +680,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astMapAccumLDer k bShs eShs f df rf acc0 es
   tApply t ll = astApply t ll
   tlambda shss f =
-    let (var, ast) = funToAst shss $ \ !ll ->
-          unHFun f ll
+    let (var, ast) = funToAst shss $ \ !ll -> unHFun f ll
     in AstLambda (var, shss, ast)
   tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk = astCond b u v
   tprimalPart stk t | Dict <- lemTensorKindOfSTK stk = primalPart t
@@ -785,21 +784,25 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        gcastWith (unsafeCoerceRefl
-                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
         withKnownShS (takeShS @m shmshn) $
         withKnownShS (dropShS @m shmshn) $
         withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        AstFromS @(TKS2 shpshn x) (STKR (shrRank shpshn0) (ftkToStk x))
-        $ AstScatterS @(Take m shmshn)
-                      @(Drop m shmshn)
-                      @(Take p shpshn) (AstSFromR @shmshn t)
-        $ funToAstIxS (fmap unAstRaw . ixrToIxs . f . ixsToIxr . fmap AstRaw)
-            -- this introduces new variable names
+        gcastWith (unsafeCoerceRefl
+                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
+        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+          Just Refl ->
+            AstFromS @(TKS2 shpshn x) (STKR (shrRank shpshn0) (ftkToStk x))
+            $ AstScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
+                          (AstSFromR @shmshn t)
+            $ funToAstIxS (fmap unAstRaw . ixrToIxs . f . ixsToIxr
+                           . fmap AstRaw)
+                -- this introduces new variable names
+          _ -> error $ "rscatter: shapes don't match: "
+                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
   rgather @_ @m @_ @p shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR shpshn0 x | SNat <- shrRank shpshn0
                    , SNat <- shrRank shmshn0 ->
@@ -807,20 +810,25 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        gcastWith (unsafeCoerceRefl
-                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take p shpshn ++ Drop m shmshn :~: shpshn) $
         withKnownShS (takeShS @m shmshn) $
         withKnownShS (dropShS @m shmshn) $
         withKnownShS (takeShS @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
-        AstFromS (STKR (shrRank shmshn0) (ftkToStk x))
-        $ AstGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                     (AstSFromR t)
-        $ funToAstIxS (fmap unAstRaw . ixrToIxs . f . ixsToIxr . fmap AstRaw)
-            -- this introduces new variable names
+        gcastWith (unsafeCoerceRefl
+                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
+        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+          Just Refl ->
+            AstFromS (STKR (shrRank shmshn0) (ftkToStk x))
+            $ AstGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
+                         (AstSFromR t)
+            $ funToAstIxS (fmap unAstRaw . ixrToIxs . f . ixsToIxr
+                           . fmap AstRaw)
+                -- this introduces new variable names
+          _ -> error $ "rgather: shapes don't match: "
+                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
   rfloor @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -869,26 +877,33 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKR shu' _ | SNat <- shrRank shu' -> case ftkAst v of
       FTKR shv' _ ->
         withCastRS shu' $ \(shu :: ShS shu) -> case shu of
-          (:$$) @mu @restu _ restu ->
+          _ :$$ restu ->
             withCastRS shv' $ \(shv :: ShS shv) -> case shv of
-              (:$$) @mv @restv _ _ ->
-                gcastWith (unsafeCoerceRefl :: restu :~: restv) $
-                withKnownShS restu $
-                AstFromS (stensorKind @(TKR2 (1 + n) r))
-                $ AstAppendS @mu @mv @restu (AstSFromR @shu u)
-                                            (AstSFromR @shv v)
+              _ :$$ restv ->
+                case testEquality restu restv of
+                  Just Refl ->
+                    withKnownShS restu $
+                    AstFromS (stensorKind @(TKR2 (1 + n) r))
+                    $ AstAppendS (AstSFromR @shu u) (AstSFromR @shv v)
+                  _ -> error $ "rappend: shapes don't match: "
+                               ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
   rslice @r @n1 i n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @m @rest _ rest ->
+        (:$$) @m @rest msnat rest ->
           withKnownShS rest $
           withSNat i $ \(SNat @i) -> withSNat n $ \(SNat @n) ->
-          withSNat (valueOf @m - i - n) $ \(SNat @k) ->
-            gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-            AstFromS @(TKS2 (n ': rest) x) (stensorKind @(TKR2 (1 + n1) r))
-            . AstSliceS @i @n @k . AstSFromR @sh $ a
+            case cmpNat (Proxy @(i + n)) msnat of
+              GTI -> error $ "rslice: argument tensor too narrow: "
+                             ++ show (i, n, sNatValue msnat)
+              EQI ->
+                AstFromS @(TKS2 (n ': rest) x) (stensorKind @(TKR2 (1 + n1) r))
+                . AstSliceS @i @n @(m - (i + n)) . AstSFromR @sh $ a
+              LTI ->
+                AstFromS @(TKS2 (n ': rest) x) (stensorKind @(TKR2 (1 + n1) r))
+                . AstSliceS @i @n @(m - (i + n)) . AstSFromR @sh $ a
         ZSS -> error "xslice: impossible shape"
   rreverse  @r @n(AstRaw a) = AstRaw $ case ftkAst a of
     FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
@@ -902,24 +917,40 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKR @_ @x sh' _  ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
-          gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
-          trustMeThisIsAPermutation @perm $
-          case shsPermutePrefix perm sh of
-            (sh2 :: ShS sh2) ->
-              withKnownShS sh $
-              withKnownShS sh2 $
-              gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
-              AstFromS @(TKS2 sh2 x) (stensorKind @(TKR2 n r))
-              . AstTransposeS perm . AstSFromR @sh $ a
+          let result :: AstTensor AstMethodShare s (TKR2 n r)
+              result =
+                -- A noble lie, partially verified down below.
+                -- A pity there's no LTE.
+                gcastWith (unsafeCoerceRefl
+                           :: Compare (Rank perm) (Rank sh) :~: LT) $
+                trustMeThisIsAPermutation @perm $
+                case shsPermutePrefix perm sh of
+                  (sh2 :: ShS sh2) ->
+                    gcastWith (Permutation.lemRankPermute (Proxy @sh) perm) $
+                    withKnownShS sh $
+                    withKnownShS sh2 $
+                    AstFromS @(TKS2 sh2 x) (stensorKind @(TKR2 n r))
+                    . AstTransposeS perm . AstSFromR @sh $ a
+          in case (Permutation.permRank perm, shsRank sh) of
+            (psnat@SNat, shsnat@SNat) ->
+              -- TODO: why is the above needed? define cmpSNat?
+              case cmpNat (Permutation.permRank perm) (shsRank sh) of
+                GTI -> error $ "rtranspose: rank mismatch: "
+                               ++ show (sNatValue psnat, sNatValue shsnat)
+                EQI -> result
+                LTI -> result
   rreshape @r @_ @m sh2' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR @_ @x sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
       withCastRS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
-        gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        AstFromS @(TKS2 sh2 x) (stensorKind @(TKR2 m r))
-        . AstReshapeS . AstSFromR @sh $ a
+        case testEquality (shsProduct sh) (shsProduct sh2) of
+          Just Refl -> AstFromS @(TKS2 sh2 x) (stensorKind @(TKR2 m r))
+                       . AstReshapeS . AstSFromR @sh $ a
+          _ -> error $ "rreshape: tensor size mismatch: "
+                       ++ show ( sNatValue (shsProduct sh)
+                               , sNatValue (shsProduct sh2) )
   rzip @y @z @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKR sh' _) (FTKR _ _) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -1010,21 +1041,28 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
         gcastWith (unsafeCoerceRefl
-                   :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
+                   :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) shmshn) $
-        withKnownShS (dropShS @(Rank shm) shmshn) $
-        withKnownShS (takeShS @(Rank shp) shpshn) $
-        AstFromS (STKX (ssxFromShape shpshn0) (ftkToStk x))
-        $ AstScatterS @(Take (Rank shm) shmshn)
-                      @(Drop (Rank shm) shmshn)
-                      @(Take (Rank shp) shpshn) (AstSFromX t)
-        $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx . fmap AstRaw)
-            -- this introduces new variable names
+        case testEquality (dropShS @(Rank shp) shpshn)
+                          (dropShS @(Rank shm) shmshn) of
+          Just Refl ->
+            AstFromS (STKX (ssxFromShape shpshn0) (ftkToStk x))
+            $ AstScatterS @(Take (Rank shm) shmshn)
+                          @(Drop (Rank shm) shmshn)
+                          @(Take (Rank shp) shpshn) (AstSFromX t)
+            $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx
+                           . fmap AstRaw)
+                -- this introduces new variable names
+          _ -> error $ "xscatter: shapes don't match: "
+                       ++ show ( dropShS @(Rank shp) shpshn
+                               , dropShS @(Rank shm) shmshn )
   xgather @_ @shm @_ @shp shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -1034,21 +1072,28 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
+        withKnownShS (takeShS @(Rank shm) shmshn) $
+        withKnownShS (dropShS @(Rank shm) shmshn) $
+        withKnownShS (takeShS @(Rank shp) shpshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
         gcastWith (unsafeCoerceRefl
-                   :: Take (Rank shp) shpshn ++ Drop (Rank shm) shmshn
+                   :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        withKnownShS (takeShS @(Rank shm) shmshn) $
-        withKnownShS (dropShS @(Rank shm) shmshn) $
-        withKnownShS (takeShS @(Rank shp) shpshn) $
-        AstFromS (STKX (ssxFromShape shmshn0) (ftkToStk x))
-        $ AstGatherS @(Take (Rank shm) shmshn)
-                     @(Drop (Rank shm) shmshn)
-                     @(Take (Rank shp) shpshn) (AstSFromX t)
-        $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx . fmap AstRaw)
-            -- this introduces new variable names
+        case testEquality (dropShS @(Rank shp) shpshn)
+                          (dropShS @(Rank shm) shmshn) of
+          Just Refl ->
+            AstFromS (STKX (ssxFromShape shmshn0) (ftkToStk x))
+            $ AstGatherS @(Take (Rank shm) shmshn)
+                         @(Drop (Rank shm) shmshn)
+                         @(Take (Rank shp) shpshn) (AstSFromX t)
+            $ funToAstIxS (fmap unAstRaw . ixxToIxs . f . ixsToIxx
+                           . fmap AstRaw)
+                -- this introduces new variable names
+          _ -> error $ "xgather: shapes don't match: "
+                       ++ show ( dropShS @(Rank shp) shpshn
+                               , dropShS @(Rank shm) shmshn )
   xfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -1100,25 +1145,32 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKX @shu' shu' _ -> case ftkAst v of
       FTKX @shv' shv' _ ->
         withCastXS shu' $ \(shu :: ShS shu) -> case shu of
-          (:$$) @mu @restu _ restu ->
+          _ :$$ restu ->
             withCastXS shv' $ \(shv :: ShS shv) -> case shv of
-              (:$$) @mv @restv _ _ ->
-                gcastWith (unsafeCoerceRefl :: restu :~: restv) $
-                withKnownShS restu $
-                AstFromS (stensorKind @(TKX2 (Nothing ': sh) r))
-                $ AstAppendS @mu @mv @restu (AstSFromX @shu @shu' u)
-                                            (AstSFromX @shv @shv' v)
+              _ :$$ restv ->
+                case testEquality restu restv of
+                  Just Refl ->
+                    withKnownShS restu $
+                    AstFromS (stensorKind @(TKX2 (Nothing ': sh) r))
+                    $ AstAppendS (AstSFromX @shu @shu' u)
+                                 (AstSFromX @shv @shv' v)
+                  _ -> error $ "xappend: shapes don't match: "
+                               ++ show (restu, restv)
               ZSS -> error "xappend: impossible shape"
           ZSS -> error "xappend: impossible shape"
   xslice @r @i @n @k @sh2 Proxy Proxy (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @m @rest _ rest ->
+        (:$$) @_ @rest msnat rest ->
           withKnownShS rest $
-          gcastWith (unsafeCoerceRefl :: i + n + k :~: m) $
-          AstFromS @(TKS2 (n ': rest) x)
-                   (stensorKind @(TKX2 (Just n ': sh2) r))
-          . AstSliceS @i @n @k . AstSFromX @sh @sh' $ a
+          case sameNat (Proxy @(i + n + k)) msnat of
+            Just Refl ->
+              AstFromS @(TKS2 (n ': rest) x)
+                       (stensorKind @(TKX2 (Just n ': sh2) r))
+              . AstSliceS @i @n @k . AstSFromX @sh @sh' $ a
+            _ -> error $ "xslice: argument tensor too narrow: "
+                         ++ show ( valueOf @i :: Int, valueOf @n :: Int
+                                 , valueOf @k :: Int, sNatValue msnat )
         ZSS -> error "xslice: impossible shape"
   xreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh' _ ->
@@ -1147,9 +1199,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS sh2' $ \(sh2 :: ShS sh2) ->
         withKnownShS sh $
         withKnownShS sh2 $
-        gcastWith (unsafeCoerceRefl :: Product sh :~: Product sh2) $
-        AstFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToStk x))
-        . AstReshapeS . AstSFromX @sh @sh' $ a
+        case testEquality (shsProduct sh) (shsProduct sh2) of
+          Just Refl ->
+            AstFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToStk x))
+            . AstReshapeS . AstSFromX @sh @sh' $ a
+          _ -> error $ "xreshape: tensor size mismatch: "
+                       ++ show ( sNatValue (shsProduct sh)
+                               , sNatValue (shsProduct sh2) )
   xzip @y @z @sh' (AstRaw a) = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
