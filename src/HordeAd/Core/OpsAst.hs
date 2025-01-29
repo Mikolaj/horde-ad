@@ -603,14 +603,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kcast = astCastK
 
   -- Conversions
-  kfromR = astFromS stensorKind . astSFromR @'[]
-  kfromS = astFromS stensorKind
-  kfromX = astFromS stensorKind . astSFromX @'[]
-  rfromK @r = astFromS (stensorKind @(TKR 0 r)) . astSFromK
   sfromK = astSFromK
   sfromR = astSFromR
   sfromX = astSFromX
-  xfromK @r = astFromS (stensorKind @(TKX '[] r)) . astSFromK
 
   -- Nesting/unnesting
   xnestR sh =
@@ -902,9 +897,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                     $ unAstRaw b31)
                    (AstFromS @(TKS2 sh z) (stensorKind @(TKR2 n z))
                     $ unAstRaw b32)
-  kfromR = AstRaw . AstFromS stensorKind . AstSFromR @'[] . unAstRaw
-  rfromK @r =
-    AstRaw . AstFromS (stensorKind @(TKR 0 r)) . AstSFromK . unAstRaw
 
   xminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
@@ -1100,9 +1092,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                       $ unAstRaw b31)
                      (AstFromS @(TKS2 sh z) (stensorKind @(TKX2 sh' z))
                       $ unAstRaw b32)
-  kfromX = AstRaw . AstFromS stensorKind . AstSFromX @'[] . unAstRaw
-  xfromK @r = AstRaw . AstFromS (stensorKind @(TKX '[] r))
-                   . AstSFromK . unAstRaw
 
   sminIndex @_ @_ @sh @n a =
     withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
@@ -1247,8 +1236,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
   rzip = AstNoVectorize . rzip . unAstNoVectorize
   runzip = AstNoVectorize . runzip . unAstNoVectorize
-  kfromR = AstNoVectorize . kfromR . unAstNoVectorize
-  rfromK = AstNoVectorize . rfromK . unAstNoVectorize
 
   xminIndex = AstNoVectorize . xminIndex . unAstNoVectorize
   xmaxIndex = AstNoVectorize . xmaxIndex . unAstNoVectorize
@@ -1283,8 +1270,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xfromIntegral = AstNoVectorize . xfromIntegral . unAstNoVectorize
   xzip = AstNoVectorize . xzip . unAstNoVectorize
   xunzip = AstNoVectorize . xunzip . unAstNoVectorize
-  kfromX = AstNoVectorize . kfromX . unAstNoVectorize
-  xfromK = AstNoVectorize . xfromK . unAstNoVectorize
 
   sminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
   smaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
@@ -1316,7 +1301,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
   szip = AstNoVectorize . szip . unAstNoVectorize
   sunzip = AstNoVectorize . sunzip . unAstNoVectorize
-  kfromS = AstNoVectorize . kfromS . unAstNoVectorize
   sfromK = AstNoVectorize . sfromK . unAstNoVectorize
 
   kfloor = AstNoVectorize . kfloor . unAstNoVectorize
@@ -1601,11 +1585,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           let (b31, b32) = tunpairDup b3
           in AstPair (AstFromS @(TKS2 sh y) (stensorKind @(TKR2 n y)) b31)
                      (AstFromS @(TKS2 sh z) (stensorKind @(TKR2 n z)) b32)
-  kfromR =
-    AstNoSimplify . AstFromS stensorKind . AstSFromR @'[] . unAstNoSimplify
-  rfromK @r =
-    AstNoSimplify . AstFromS (stensorKind @(TKR 0 r))
-    . AstSFromK . unAstNoSimplify
 
   xminIndex @_ @r2 (AstNoSimplify a) = AstNoSimplify $ case ftkAst a of
     FTKX @sh' sh' _ ->
@@ -1806,10 +1785,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
           let (b31, b32) = tunpairDup b3
           in AstPair (AstFromS @(TKS2 sh y) (stensorKind @(TKX2 sh' y)) b31)
                      (AstFromS @(TKS2 sh z) (stensorKind @(TKX2 sh' z)) b32)
-  kfromX =
-    AstNoSimplify . AstFromS stensorKind . AstSFromX @'[] . unAstNoSimplify
-  xfromK @r = AstNoSimplify . AstFromS (stensorKind @(TKX '[] r))
-                   . AstSFromK . unAstNoSimplify
 
   sminIndex @_ @_ @sh @n a =
     withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
@@ -1853,7 +1828,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                   . primalPart . unAstNoSimplify
   szip = AstNoSimplify . AstZipS . unAstNoSimplify
   sunzip = AstNoSimplify . AstUnzipS . unAstNoSimplify
-  kfromS = AstNoSimplify . AstFromS stensorKind . unAstNoSimplify
   sfromK = AstNoSimplify . AstSFromK . unAstNoSimplify
 
   kfloor = AstNoSimplify . fromPrimal . AstFloorK

@@ -1319,12 +1319,15 @@ class ( Num (IntOf target)
 
   -- Conversions
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
+  kfromR = kfromS . sfromR
   kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
   default kfromS :: forall r. (LetTensor target, GoodScalar r)
                  => target (TKS '[] r) -> target (TKScalar r)
   kfromS = tfromS
   kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
+  kfromX = kfromS . sfromX
   rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
+  rfromK = rfromS . sfromK
   rfromS :: (TensorKind r, KnownShS sh)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   default rfromS :: forall r sh. (LetTensor target, TensorKind r, KnownShS sh)
@@ -1343,6 +1346,7 @@ class ( Num (IntOf target)
   sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
          => target (TKX2 sh' r) -> target (TKS2 sh r)
   xfromK :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
+  xfromK = xfromS . sfromK
   xfromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind r)
          => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
   xfromR a = case tftk stensorKind a of

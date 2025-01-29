@@ -373,13 +373,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   kcast (D u u') = dD (kcast u) (DeltaCastK u')
 
   -- Conversions
-  kfromR @r (D t d) =
-    dDnotShared (kfromR t) (DeltaFromS @(TKS '[] r) $ DeltaSFromR d)
-  kfromS (D t d) = dDnotShared (kfromS t) (DeltaFromS d)
-  kfromX @r (D t d) =
-    dDnotShared (kfromX t) (DeltaFromS @(TKS '[] r) $ DeltaSFromX d)
-  rfromK (D t d) =
-    dDnotShared (rfromK t) (DeltaFromS $ DeltaSFromK d)
   sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
   sfromR @sh @x (D u u') = dDnotShared (sfromR u) (dSFromR u')
    where
@@ -395,8 +388,6 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         Just Refl -> d
         _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
     dSFromX d = DeltaSFromX d
-  xfromK (D t d) =
-    dDnotShared (xfromK t) (DeltaFromS $ DeltaSFromK d)
 
   -- Nesting/unnesting
   xnestR @_ @m sh1 (D u u') =
