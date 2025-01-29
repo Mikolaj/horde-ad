@@ -61,28 +61,38 @@ import HordeAd.Core.Types
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 ftkAst :: forall s y ms. AstTensor ms s y -> FullTensorKind y
 ftkAst t = case t of
-  AstSFromK{} -> FTKS ZSS FTKScalar
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
   AstProject1 v -> case ftkAst v of
     FTKProduct ftk1 _ -> ftk1
   AstProject2 v -> case ftkAst v of
     FTKProduct _ ftk2 -> ftk2
-  AstVar ftk _var -> ftk
-  AstPrimalPart a -> ftkAst a
-  AstDualPart a -> ftkAst a
-  AstFromPrimal a -> ftkAst a
-  AstFromDual a -> ftkAst a
-  AstCond _b v _w -> ftkAst v
   AstFromVector snat l -> case V.toList l of
     [] -> error "ftkAst: empty vector"
     v : _ -> buildFTK snat (ftkAst v)
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
+  AstMapAccumRDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+      FTKProduct (ftkAst acc0) (buildFTK k bShs)
+  AstMapAccumLDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
+    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
+    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+      FTKProduct (ftkAst acc0) (buildFTK k bShs)
+  AstApply (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
+  AstVar ftk _var -> ftk
+  AstCond _b v _w -> ftkAst v
   AstBuild1 snat (_var, v) -> buildFTK snat (ftkAst v)
+  AstConcrete ftk _ -> ftk
+
   AstLet _ _ v -> ftkAst v
   AstShare _ v -> ftkAst v
   AstToShare v -> ftkAst v
-  AstConcrete ftk _ -> ftk
+
+  AstPrimalPart a -> ftkAst a
+  AstDualPart a -> ftkAst a
+  AstFromPrimal a -> ftkAst a
+  AstFromDual a -> ftkAst a
 
   AstSumOfList _ args -> case args of
     [] -> error "ftkAst: AstSumOfList with no arguments"
@@ -94,22 +104,27 @@ ftkAst t = case t of
   AstR2K{} -> FTKScalar
   AstI2K{} -> FTKScalar
   AstFloorK{} -> FTKScalar
-  AstCastK{} -> FTKScalar
   AstFromIntegralK{} -> FTKScalar
+  AstCastK{} -> FTKScalar
 
-  AstMinIndexS @sh @n _ -> FTKS (shsInit (knownShS @(n ': sh))) FTKScalar
-  AstMaxIndexS @sh @n _ -> FTKS (shsInit (knownShS @(n ': sh))) FTKScalar
-  AstFloorS{} -> FTKS knownShS FTKScalar
-  AstIotaS{} -> FTKS knownShS FTKScalar
   AstN1S{} -> FTKS knownShS FTKScalar
   AstN2S{} -> FTKS knownShS FTKScalar
   AstR1S{} -> FTKS knownShS FTKScalar
   AstR2S{} -> FTKS knownShS FTKScalar
   AstI2S{} -> FTKS knownShS FTKScalar
+  AstFloorS{} -> FTKS knownShS FTKScalar
+  AstFromIntegralS{} -> FTKS knownShS FTKScalar
+  AstCastS{} -> FTKS knownShS FTKScalar
+
   AstIndexS v _ix -> case ftkAst v of
     FTKS _sh1sh2 x -> FTKS knownShS x
   AstScatterS @_ @shn @shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (knownShS @shp `shsAppend` knownShS @shn) x
+  AstGatherS @shm @shn v _ -> case ftkAst v of
+    FTKS _ x -> FTKS (knownShS @shm `shsAppend` knownShS @shn) x
+  AstMinIndexS @sh @n _ -> FTKS (shsInit (knownShS @(n ': sh))) FTKScalar
+  AstMaxIndexS @sh @n _ -> FTKS (shsInit (knownShS @(n ': sh))) FTKScalar
+  AstIotaS{} -> FTKS knownShS FTKScalar
   AstAppendS a _ -> case ftkAst a of
     FTKS _ x -> FTKS knownShS x
   AstSliceS a -> case ftkAst a of
@@ -121,10 +136,6 @@ ftkAst t = case t of
       FTKS knownShS x
   AstReshapeS v -> case ftkAst v of
     FTKS _ x -> FTKS knownShS x
-  AstGatherS @shm @shn v _ -> case ftkAst v of
-    FTKS _ x -> FTKS (knownShS @shm `shsAppend` knownShS @shn) x
-  AstCastS{} -> FTKS knownShS FTKScalar
-  AstFromIntegralS{} -> FTKS knownShS FTKScalar
   AstZipS v -> case ftkAst v of
     FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
   AstUnzipS v -> case ftkAst v of
@@ -155,6 +166,7 @@ ftkAst t = case t of
           _ -> error $ "ftkAst: wrong tensor kinds for AstFromS: "
                        ++ show (ftk, stk)
     in fromS (ftkAst v) stkz
+  AstSFromK{} -> FTKS ZSS FTKScalar
   AstSFromR v -> case ftkAst v of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
@@ -180,16 +192,6 @@ ftkAst t = case t of
     FTKX sh1 (FTKX sh2 x) ->
       FTKX (sh1 `shxAppend` sh2) x
 
-  AstApply (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
-  AstMapAccumRDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct (ftkAst acc0) (buildFTK k bShs)
-  AstMapAccumLDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
-      FTKProduct (ftkAst acc0) (buildFTK k bShs)
-
   AstReplicate0NS sh _ v -> case ftkAst v of
     FTKS _ x -> FTKS sh x
   AstSum0S _ _ v ->  case ftkAst v of
@@ -208,26 +210,32 @@ ftkAst t = case t of
 -- to compare variables to any variable in the bindings.
 varInAst :: AstVarId -> AstTensor ms s y -> Bool
 varInAst var = \case
-  AstSFromK t -> varInAst var t
   AstPair t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
+  AstFromVector _ vl -> any (varInAst var) $ V.toList vl
+  AstSum _ _ v -> varInAst var v
+  AstReplicate _ _ v -> varInAst var v
+  AstMapAccumRDer _k _bShs _eShs _f _df _rf acc0 es ->
+    varInAst var acc0 || varInAst var es
+  AstMapAccumLDer _k _bShs _eShs _f _df _rf acc0 es ->
+    varInAst var acc0 || varInAst var es
+  AstApply t ll -> varInAstHFun var t || varInAst var ll
   AstVar _ var2 -> var == varNameToAstVarId var2
+  AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
+  AstBuild1 _ (var2, v) ->
+    assert (varNameToAstVarId var2 /= var) $
+    varInAst var v
+  AstConcrete{} -> False
+
+  AstLet _var2 u v -> varInAst var u || varInAst var v
+  AstShare _ v -> varInAst var v
+  AstToShare v -> varInAst var v
+
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
   AstFromPrimal v -> varInAst var v
   AstFromDual v -> varInAst var v
-  AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
-  AstFromVector _ vl -> any (varInAst var) $ V.toList vl
-  AstSum _ _ v -> varInAst var v
-  AstReplicate _ _ v -> varInAst var v
-  AstBuild1 _ (var2, v) ->
-    assert (varNameToAstVarId var2 /= var) $
-    varInAst var v
-  AstLet _var2 u v -> varInAst var u || varInAst var v
-  AstShare _ v -> varInAst var v
-  AstToShare v -> varInAst var v
-  AstConcrete{} -> False
 
   AstSumOfList _ l -> any (varInAst var) l
 
@@ -237,32 +245,34 @@ varInAst var = \case
   AstR2K _ t u -> varInAst var t || varInAst var u
   AstI2K _ t u -> varInAst var t || varInAst var u
   AstFloorK a -> varInAst var a
-  AstCastK t -> varInAst var t
   AstFromIntegralK t -> varInAst var t
+  AstCastK t -> varInAst var t
 
-  AstMinIndexS a -> varInAst var a
-  AstMaxIndexS a -> varInAst var a
-  AstFloorS a -> varInAst var a
-  AstIotaS -> False
   AstN1S _ t -> varInAst var t
   AstN2S _ t u -> varInAst var t || varInAst var u
   AstR1S _ t -> varInAst var t
   AstR2S _ t u -> varInAst var t || varInAst var u
   AstI2S _ t u -> varInAst var t || varInAst var u
+  AstFloorS a -> varInAst var a
+  AstFromIntegralS a -> varInAst var a
+  AstCastS t -> varInAst var t
+
   AstIndexS v ix -> varInAst var v || varInIndexS var ix
   AstScatterS v (_vars, ix) -> varInIndexS var ix || varInAst var v
+  AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAst var v
+  AstMinIndexS a -> varInAst var a
+  AstMaxIndexS a -> varInAst var a
+  AstIotaS -> False
   AstAppendS v u -> varInAst var v || varInAst var u
   AstSliceS v -> varInAst var v
   AstReverseS v -> varInAst var v
   AstTransposeS _perm v -> varInAst var v
   AstReshapeS v -> varInAst var v
-  AstGatherS v (_vars, ix) -> varInIndexS var ix || varInAst var v
-  AstCastS t -> varInAst var t
-  AstFromIntegralS a -> varInAst var a
   AstZipS v -> varInAst var v
   AstUnzipS v -> varInAst var v
 
   AstFromS _ v -> varInAst var v
+  AstSFromK t -> varInAst var t
   AstSFromR v -> varInAst var v
   AstSFromX v -> varInAst var v
 
@@ -272,12 +282,6 @@ varInAst var = \case
   AstXUnNestR v -> varInAst var v
   AstXUnNestS v -> varInAst var v
   AstXUnNest v -> varInAst var v
-
-  AstApply t ll -> varInAstHFun var t || varInAst var ll
-  AstMapAccumRDer _k _bShs _eShs _f _df _rf acc0 es ->
-    varInAst var acc0 || varInAst var es
-  AstMapAccumLDer _k _bShs _eShs _f _df _rf acc0 es ->
-    varInAst var acc0 || varInAst var es
 
   AstReplicate0NS _ _ v -> varInAst var v
   AstSum0S _ _ v -> varInAst var v
@@ -308,30 +312,32 @@ varNameInAst var = varInAst (varNameToAstVarId var)
 
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
 astIsSmall relaxed = \case
-  AstSFromK{} -> True
   AstPair t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
   AstProject1 t -> astIsSmall relaxed t
   AstProject2 t -> astIsSmall relaxed t
-  AstVar{} -> True
-  AstPrimalPart v -> astIsSmall relaxed v
-  AstDualPart v -> astIsSmall relaxed v
-  AstFromPrimal v -> astIsSmall relaxed v
-  AstFromDual v -> astIsSmall relaxed v
+  AstFromVector snat v | sNatValue snat == 1 -> astIsSmall relaxed $ v V.! 0
   AstReplicate _ _ v ->
     relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
+  AstVar{} -> True
   AstConcrete FTKScalar _ -> True
   AstConcrete (FTKR sh FTKScalar) _ -> shrSize sh <= 1
   AstConcrete (FTKS sh FTKScalar) _ -> shsSize sh <= 1
   AstConcrete (FTKX sh FTKScalar) _ -> shxSize sh <= 1
   AstConcrete{} -> False
-  AstFromVector snat v | sNatValue snat == 1 -> astIsSmall relaxed $ v V.! 0
+
+  AstPrimalPart v -> astIsSmall relaxed v
+  AstDualPart v -> astIsSmall relaxed v
+  AstFromPrimal v -> astIsSmall relaxed v
+  AstFromDual v -> astIsSmall relaxed v
 
   AstIotaS -> True
   AstSliceS v ->
     relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
   AstTransposeS _perm v ->
     relaxed && astIsSmall relaxed v  -- often cheap and often fuses
+
   AstFromS _ v -> astIsSmall relaxed v
+  AstSFromK{} -> True
   AstSFromR v -> astIsSmall relaxed v
   AstSFromX v -> astIsSmall relaxed v
 

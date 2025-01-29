@@ -376,7 +376,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           in astPair (astFromS @(TKS2 sh y) (stensorKind @(TKR2 n y)) b31)
                      (astFromS @(TKS2 sh z) (stensorKind @(TKR2 n z)) b32)
   kfromR = astFromS stensorKind . astSFromR @'[]
-  rfromK @r = astFromS (stensorKind @(TKR 0 r)) . astFromK
+  rfromK @r = astFromS (stensorKind @(TKR 0 r)) . astSFromK
 
   sminIndex @_ @_ @sh @n a =
     withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
@@ -411,7 +411,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   szip = AstZipS
   sunzip = AstUnzipS
   kfromS = astFromS stensorKind
-  sfromK = astFromK
+  sfromK = astSFromK
 
   xminIndex @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
@@ -602,7 +602,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           in astPair (astFromS @(TKS2 sh y) (stensorKind @(TKX2 sh' y)) b31)
                      (astFromS @(TKS2 sh z) (stensorKind @(TKX2 sh' z)) b32)
   kfromX = astFromS stensorKind . astSFromX @'[]
-  xfromK @r = astFromS (stensorKind @(TKX '[] r)) . astFromK
+  xfromK @r = astFromS (stensorKind @(TKX '[] r)) . astSFromK
 
   kfloor = fromPrimal . AstFloorK . primalPart
   kfromIntegral = fromPrimal . astFromIntegralK . primalPart
@@ -698,8 +698,8 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   -- but it can only ever be used for PrimalSpan.
   tshare t = case unAstRaw t of
     u | astIsSmall True u -> t
-    AstShare{} -> t
     AstVar{} -> t
+    AstShare{} -> t
     AstPrimalPart(AstVar{}) -> t
     AstDualPart(AstVar{}) -> t
     AstFromPrimal(AstVar{}) -> t

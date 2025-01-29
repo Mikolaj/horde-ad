@@ -476,7 +476,8 @@ class ( Num (IntOf target)
                => IShR n -> target (TKR2 0 r) -> target (TKR2 n r)
   rreplicate0N sh = rreshape sh . rreplicate (shrSize sh)
   -- First index is for outermost dimension; empty index means identity,
-  -- index ouf of bounds produces zero (but beware of vectorization).
+  -- if index is out of bounds, the result is defined and is 0,
+  -- but vectorization is permitted to change the value.
   rindex, (!) :: (TensorKind r, KnownNat m, KnownNat n)
               => target (TKR2 (m + n) r) -> IxROf target m -> target (TKR2 n r)
   infixl 9 !

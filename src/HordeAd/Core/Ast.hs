@@ -361,9 +361,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                (KnownShS shm, KnownShS shn, TensorKind x)
             => AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
-    -- first ix is for outermost dimension; empty index means identity,
-    -- if index is out of bounds, the result is defined and is 0,
-    -- but vectorization is permitted to change the value
   AstScatterS :: forall shm shn shp r s ms.
                  (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r)
               => AstTensor ms s (TKS2 (shm ++ shn) r)
@@ -399,8 +396,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstReshapeS :: ( KnownShS sh, KnownShS sh2
                  , Nested.Product sh ~ Nested.Product sh2, TensorKind r)
               => AstTensor ms s (TKS2 sh r) -> AstTensor ms s (TKS2 sh2 r)
-    -- beware that the order of type arguments is different than in orthotope
-    -- and than the order of value arguments in the ranked version
   AstZipS :: (TensorKind y, TensorKind z, KnownShS sh)
           => AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
           -> AstTensor ms s (TKS2 sh (TKProduct y z))

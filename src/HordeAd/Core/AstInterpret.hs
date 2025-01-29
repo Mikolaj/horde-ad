@@ -151,10 +151,57 @@ interpretAst
   => AstEnv target
   -> AstTensor AstMethodLet s y -> target y
 interpretAst !env = \case
-  AstSFromK t -> sfromK $ interpretAst env t
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
+  AstFromVector snat l ->
+    let l2 = V.map (interpretAst env) l
+    in tfromVector snat stensorKind l2
+  AstSum snat stk v -> tsum snat stk $ interpretAst env v
+    -- TODO: recognize when sum0 may be used instead, which is much cheaper
+    -- or should I do that in Delta instead? no, because tsum0R
+    -- is cheaper, too
+  AstReplicate snat stk v ->
+    treplicate snat stk (interpretAst env v)
+  -- The following can't be, in general, so partially evaluated, because v
+  -- may contain variables that the evironment sends to terms,
+  -- not to concrete numbers (and so Primal a is not equal to a).
+  -- However, this matters only for POPL AD, not JAX AD and also it matters
+  -- only with no vectorization of, at least, constant (primal-only) terms.
+  -- AstBuild1 k (var, AstFromPrimal v) ->
+  --   tconcrete
+  --   $ OR.ravel . ORB.fromVector [k] . V.generate k
+  --   $ interpretLambdaI interpretAstPrimal env (var, v)
+  AstMapAccumRDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
+        acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+    in dmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+  AstMapAccumLDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
+    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
+    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
+        acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+    in dmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+  AstApply t ll ->
+    let t2 = interpretAstHFun env t
+          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
+          -- FullSpan terms
+        ll2 = interpretAst env ll
+          -- these are, perhaps, FullSpan terms, interpreted in the same
+          -- as above so that the mixture becomes compatible; if the spans
+          -- agreed, the AstApply would likely be simplified before
+          -- getting interpreted
+    in tApply t2 ll2
   AstVar @y2 _sh var ->
    let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
@@ -166,6 +213,29 @@ interpretAst !env = \case
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
 -- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
+  AstCond @y2 b a1 a2 ->
+    let c = interpretAstBool env b
+    in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
+  AstBuild1 snat (var, v) ->
+    let f i = interpretAst (extendEnvI var i env) v
+    in tbuild1 snat f
+  AstConcrete ftk a -> tconcrete ftk a
+
+  AstLet @y2 var u v -> case stensorKind @y2 of
+    -- We assume there are no nested lets with the same variable.
+    STKR _ STKScalar{} ->
+      let t = interpretAstRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in tlet t (\w -> interpretAst (env2 w) v)
+    STKS _ STKScalar{} ->
+      let t = interpretAstSRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in tlet t (\w -> interpretAst (env2 w) v)
+    _ ->
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in tlet t (\w -> interpretAst (env2 w) v)
+
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @target@ must
     -- be morally the primal part of a dual numbers type that is the codomain
@@ -197,44 +267,6 @@ interpretAst !env = \case
     -- Consequently, the result is a dual part, despite the appearances.
   AstFromPrimal @y2 a -> tfromPrimal (stensorKind @y2) (interpretAstPrimal env a)
   AstFromDual @y2 a -> tfromDual (stensorKind @y2) (interpretAstDual env a)
-  AstCond @y2 b a1 a2 ->
-    let c = interpretAstBool env b
-    in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
-  AstFromVector snat l ->
-    let l2 = V.map (interpretAst env) l
-    in tfromVector snat stensorKind l2
-  AstSum snat stk v -> tsum snat stk $ interpretAst env v
-    -- TODO: recognize when sum0 may be used instead, which is much cheaper
-    -- or should I do that in Delta instead? no, because tsum0R
-    -- is cheaper, too
-  AstReplicate snat stk v ->
-    treplicate snat stk (interpretAst env v)
-  -- The following can't be, in general, so partially evaluated, because v
-  -- may contain variables that the evironment sends to terms,
-  -- not to concrete numbers (and so Primal a is not equal to a).
-  -- However, this matters only for POPL AD, not JAX AD and also it matters
-  -- only with no vectorization of, at least, constant (primal-only) terms.
-  -- AstBuild1 k (var, AstFromPrimal v) ->
-  --   tconcrete
-  --   $ OR.ravel . ORB.fromVector [k] . V.generate k
-  --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  AstBuild1 snat (var, v) ->
-    let f i = interpretAst (extendEnvI var i env) v
-    in tbuild1 snat f
-  AstLet @y2 var u v -> case stensorKind @y2 of
-    -- We assume there are no nested lets with the same variable.
-    STKR _ STKScalar{} ->
-      let t = interpretAstRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    STKS _ STKScalar{} ->
-      let t = interpretAstSRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    _ ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
 
   AstSumOfList stk args ->
     let args2 = interpretAst env <$> args
@@ -267,19 +299,10 @@ interpretAst !env = \case
     in interpretAstI2F opCode u2 v2
   AstFloorK v ->
     kfloor $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
-  AstCastK v -> kcast $ interpretAst env v
   AstFromIntegralK v ->
     kfromIntegral $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
+  AstCastK v -> kcast $ interpretAst env v
 
-  AstConcrete ftk a -> tconcrete ftk a
-
-  AstMinIndexS v ->
-    sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstMaxIndexS v ->
-    smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstFloorS v ->
-    sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstIotaS -> siota
   AstN1S opCode u ->
     let u2 = interpretAst env u
     in interpretAstN1 opCode u2
@@ -298,6 +321,12 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
+  AstFloorS v ->
+    sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstFromIntegralS v ->
+    sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
+
   AstIndexS @sh1 @sh2 v ix ->
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
     let v2 = interpretAst env v
@@ -314,14 +343,6 @@ interpretAst !env = \case
     let t1 = interpretAst env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
     in sscatter @_ @_ @shm @shn @shp t1 f2
-  AstAppendS x y ->
-    let t1 = interpretAst env x
-        t2 = interpretAst env y
-    in sappend t1 t2
-  AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
-  AstReverseS v -> sreverse (interpretAst env v)
-  AstTransposeS perm v -> stranspose perm $ interpretAst env v
-  AstReshapeS v -> sreshape (interpretAst env v)
   AstGatherS @_ @shn @shp v (ZS, ix) ->
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
@@ -339,15 +360,26 @@ interpretAst !env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
-  AstFromIntegralS v ->
-    sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstMinIndexS v ->
+    sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstMaxIndexS v ->
+    smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstIotaS -> siota
+  AstAppendS x y ->
+    let t1 = interpretAst env x
+        t2 = interpretAst env y
+    in sappend t1 t2
+  AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
+  AstReverseS v -> sreverse (interpretAst env v)
+  AstTransposeS perm v -> stranspose perm $ interpretAst env v
+  AstReshapeS v -> sreshape (interpretAst env v)
   AstZipS v -> szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
 
   AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v))
                   , Dict <- lemTensorKindOfSTK stkz ->
     tfromS $ interpretAst env v
+  AstSFromK t -> sfromK $ interpretAst env t
   AstSFromR v -> sfromR $ interpretAst env v
   AstSFromX v -> sfromX $ interpretAst env v
 
@@ -357,37 +389,6 @@ interpretAst !env = \case
   AstXUnNestR v -> xunNestR $ interpretAst env v
   AstXUnNestS v -> xunNestS $ interpretAst env v
   AstXUnNest v -> xunNest $ interpretAst env v
-
-  AstApply t ll ->
-    let t2 = interpretAstHFun env t
-          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
-          -- FullSpan terms
-        ll2 = interpretAst env ll
-          -- these are, perhaps, FullSpan terms, interpreted in the same
-          -- as above so that the mixture becomes compatible; if the spans
-          -- agreed, the AstApply would likely be simplified before
-          -- getting interpreted
-    in tApply t2 ll2
-  AstMapAccumRDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
-    let f = interpretAstHFun env f0
-        df = interpretAstHFun env df0
-        rf = interpretAstHFun env rf0
-        acc02 = interpretAst env acc0
-        es2 = interpretAst env es
-    in dmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
-  AstMapAccumLDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
-    let f = interpretAstHFun env f0
-        df = interpretAstHFun env df0
-        rf = interpretAstHFun env rf0
-        acc02 = interpretAst env acc0
-        es2 = interpretAst env es
-    in dmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
 
   AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk
                            , SNat <- shsProduct sh ->

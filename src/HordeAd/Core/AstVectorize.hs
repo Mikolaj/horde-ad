@@ -55,6 +55,8 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
+-- * The top-level wrapper
+
 -- | The application @build1Vectorize k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, that is, rewrites it to a term
 -- with the same value, but not containing the outermost @AstBuild1@
@@ -91,6 +93,9 @@ build1Vectorize snat@SNat (var, v0)
                    `swith`( ftkAst startTerm
                           , ftkAst endTerm) ) ()
   return endTerm
+
+
+-- * Vectorization
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
@@ -141,7 +146,6 @@ build1V snat@SNat (var, v0) =
       traceRule | Dict <- lemTensorKindOfBuild snat (stensorKind @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
-    Ast.AstSFromK t -> build1V snat (var, t)
     Ast.AstPair @x @z t1 t2
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
@@ -155,28 +159,6 @@ build1V snat@SNat (var, v0) =
       | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
       , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
         astProject2 (build1V snat (var, t))
-    Ast.AstVar _ var2 -> traceRule $
-      if varNameToAstVarId var2 == varNameToAstVarId var
-      then case isTensorInt v0 of
-        Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
-        _ -> error "build1V: build variable is not an index variable"
-      else error "build1V: AstVar can't contain other free variables"
-    Ast.AstPrimalPart v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
-        astPrimalPart $ build1V snat (var, v)
-    Ast.AstDualPart v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
-        astDualPart $ build1V snat (var, v)
-    Ast.AstFromPrimal v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-      traceRule $
-        Ast.AstFromPrimal $ build1V snat (var, v)
-    Ast.AstFromDual v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
-      traceRule $
-        Ast.AstFromDual $ build1V snat (var, v)
-    Ast.AstCond b u v -> traceRule $
-      let uv = astFromVector (SNat @2) (V.fromList [u, v])
-          t = astIndexBuild (SNat @2) (stensorKind @y) uv (astCond b 0 1)
-      in build1VOccurenceUnknown snat (var, t)
     Ast.AstFromVector @y2 snat1@(SNat @k1) l
      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2) -> traceRule $
       astTrBuild @k1 @k (stensorKind @y2)
@@ -192,151 +174,6 @@ build1V snat@SNat (var, v0) =
       , Dict <- lemTensorKindOfBuild snat stk -> traceRule $
         astTrBuild @k2 stk
         $ astReplicate snat2 stensorKind $ build1V snat (var, v)
-    Ast.AstBuild1 snat2 (var2, v2) -> traceRule $
-      assert (var2 /= var) $
-      build1VOccurenceUnknown snat (var, build1VOccurenceUnknown snat2 (var2, v2))
-        -- happens only when testing and mixing different pipelines
-    Ast.AstLet @y2 var1 u v
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
-        let ftk2 = ftkAst u
-            (var3, _ftk3, v2) =
-              substProjRep snat var ftk2 var1 v
-        in astLet var3 (build1VOccurenceUnknown snat (var, u))
-                       (build1VOccurenceUnknownRefresh snat (var, v2))
-             -- ensures no duplicated bindings, see below
-
-    Ast.AstSumOfList stk args
-     | Dict <- lemTensorKindOfBuild snat stk -> traceRule $
-      astSumOfList stensorKind
-      $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
-
-    Ast.AstN1K opCode u -> traceRule $
-      Ast.AstN1S opCode (build1V snat (var, u))
-    Ast.AstN2K opCode u v -> traceRule $
-      Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-        -- we permit duplicated bindings, because they can't easily
-        -- be substituted into one another unlike. e.g., inside a let,
-        -- which may get inlined
-    Ast.AstR1K opCode u -> traceRule $
-      Ast.AstR1S opCode (build1V snat (var, u))
-    Ast.AstR2K opCode u v -> traceRule $
-      Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstI2K opCode u v -> traceRule $
-      Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstFloorK v -> traceRule $
-     Ast.AstFloorS $ build1V snat (var, v)
-    Ast.AstCastK v -> traceRule $
-      astCastS $ build1V snat (var, v)
-    Ast.AstFromIntegralK v -> traceRule $
-      astFromIntegralS $ build1V snat (var, v)
-    Ast.AstConcrete{} ->
-      error "build1V: AstConcrete can't have free index variables"
-
-    Ast.AstMinIndexS v -> traceRule $
-      Ast.AstMinIndexS $ build1V snat (var, v)
-    Ast.AstMaxIndexS v -> traceRule $
-      Ast.AstMaxIndexS $ build1V snat (var, v)
-    Ast.AstFloorS v -> traceRule $
-      Ast.AstFloorS $ build1V snat (var, v)
-    Ast.AstIotaS ->
-      error "build1V: AstIotaS can't have free index variables"
-
-    Ast.AstN1S opCode u -> traceRule $
-      Ast.AstN1S opCode (build1V snat (var, u))
-    Ast.AstN2S opCode u v -> traceRule $
-      Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-        -- we permit duplicated bindings, because they can't easily
-        -- be substituted into one another unlike. e.g., inside a let,
-        -- which may get inlined
-    Ast.AstR1S opCode u -> traceRule $
-      Ast.AstR1S opCode (build1V snat (var, u))
-    Ast.AstR2S opCode u v -> traceRule $
-      Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-    Ast.AstI2S opCode u v -> traceRule $
-      Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
-                        (build1VOccurenceUnknown snat (var, v))
-
-    Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case stensorKind @y of
-     STKS @sh _ _ | SNat <- shsRank (knownShS @sh1) ->
-      withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-      gcastWith (unsafeCoerceRefl
-                 :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
-      gcastWith (unsafeCoerceRefl
-                 :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
-      build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
-    Ast.AstScatterS @shm @shn @shp v (vars, ix) -> traceRule $
-      withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-      let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
-      in astScatterS @(k ': shm) @shn @(k ': shp)
-                     (build1VOccurenceUnknown snat (var, v))
-                     (Const varFresh ::$ vars, astVarFresh :.$ ix2)
-    Ast.AstAppendS v w -> traceRule $
-      astTrS $ astAppendS (astTrS $ build1VOccurenceUnknown snat (var, v))
-                          (astTrS $ build1VOccurenceUnknown snat (var, w))
-    Ast.AstSliceS @i v -> traceRule $
-      astTrS $ astSliceS @i $ astTrS $ build1V snat (var, v)
-    Ast.AstReverseS v -> traceRule $
-      astTrS $ astReverseS $ astTrS $ build1V snat (var, v)
-    Ast.AstTransposeS @perm @sh1 perm v -> traceRule $ case stensorKind @y of
-     STKS @sh _ _ ->
-      let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
-          zsuccPerm = Permutation.permShift1 perm
-      in
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
-        gcastWith (unsafeCoerceRefl
-                   :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
-        trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
-        $ astTransposeS zsuccPerm $ build1V snat (var, v)
-    Ast.AstReshapeS v -> traceRule $
-      astReshapeS $ build1V snat (var, v)
-    Ast.AstGatherS @shm @shn @shp v (vars, ix) -> traceRule $
-      withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-      let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
-      in astGatherStepS @(k ': shm) @shn @(k ': shp)
-                        (build1VOccurenceUnknown snat (var, v))
-                        (Const varFresh ::$ vars, astVarFresh :.$ ix2)
-    Ast.AstCastS v -> traceRule $
-      astCastS $ build1V snat (var, v)
-    Ast.AstFromIntegralS v -> traceRule $
-      astFromIntegralS $ build1V snat (var, v)
-    Ast.AstZipS v -> traceRule $
-      Ast.AstZipS $ build1V snat (var, v)
-    Ast.AstUnzipS v -> traceRule $
-      Ast.AstUnzipS $ build1V snat (var, v)
-
-    Ast.AstFromS stkz v
-      | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) -> traceRule $
-        astFromS (buildSTK snat stkz) $ build1V snat (var, v)
-    Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
-    Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
-
-    Ast.AstXNestR @sh1 @m v -> traceRule $
-      withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-        astXNestR $ build1V snat (var, v)
-    Ast.AstXNestS @sh1 @sh2 v -> traceRule $
-      withKnownShX (knownShX @sh1
-                    `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-      astXNestS $ build1V snat (var, v)
-    Ast.AstXNest  @sh1 @sh2 v -> traceRule $
-      withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-       astXNest $ build1V snat (var, v)
-    Ast.AstXUnNestR v -> traceRule $ astXUnNestR $ build1V snat (var, v)
-    Ast.AstXUnNestS v -> traceRule $ astXUnNestS $ build1V snat (var, v)
-    Ast.AstXUnNest v -> traceRule $ astXUnNest $ build1V snat (var, v)
-
-    Ast.AstApply @x @z t ll
-      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
-      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
-        astApply
-          (build1VHFun snat (var, t))
-          (build1VOccurenceUnknown snat (var, ll))
     Ast.AstMapAccumRDer @accShs @bShs @eShs @k5
                         k5@SNat bShs eShs f df rf acc0 es
      | Dict <- lemTensorKindOfBuild snat (stensorKind @accShs)
@@ -399,6 +236,174 @@ build1V snat@SNat (var, v0) =
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrBuild @k5 @k
                                        (stensorKind @bShs) (astProject2 x1bs1)))
+    Ast.AstApply @x @z t ll
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @x)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @z) -> traceRule $
+        astApply
+          (build1VHFun snat (var, t))
+          (build1VOccurenceUnknown snat (var, ll))
+    Ast.AstVar _ var2 -> traceRule $
+      if varNameToAstVarId var2 == varNameToAstVarId var
+      then case isTensorInt v0 of
+        Just Refl -> fromPrimal @s $ Ast.AstIotaS @k
+        _ -> error "build1V: build variable is not an index variable"
+      else error "build1V: AstVar can't contain other free variables"
+    Ast.AstCond b u v -> traceRule $
+      let uv = astFromVector (SNat @2) (V.fromList [u, v])
+          t = astIndexBuild (SNat @2) (stensorKind @y) uv (astCond b 0 1)
+      in build1VOccurenceUnknown snat (var, t)
+    Ast.AstBuild1 snat2 (var2, v2) -> traceRule $
+      assert (var2 /= var) $
+      build1VOccurenceUnknown snat (var, build1VOccurenceUnknown snat2 (var2, v2))
+        -- happens only when testing and mixing different pipelines
+    Ast.AstConcrete{} ->
+      error "build1V: AstConcrete can't have free index variables"
+
+    Ast.AstLet @y2 var1 u v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @y2)
+      , Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
+        let ftk2 = ftkAst u
+            (var3, _ftk3, v2) =
+              substProjRep snat var ftk2 var1 v
+        in astLet var3 (build1VOccurenceUnknown snat (var, u))
+                       (build1VOccurenceUnknownRefresh snat (var, v2))
+             -- ensures no duplicated bindings, see below
+
+    Ast.AstPrimalPart v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
+        astPrimalPart $ build1V snat (var, v)
+    Ast.AstDualPart v
+      | Dict <- lemTensorKindOfBuild snat (stensorKind @y) -> traceRule $
+        astDualPart $ build1V snat (var, v)
+    Ast.AstFromPrimal v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      traceRule $
+        Ast.AstFromPrimal $ build1V snat (var, v)
+    Ast.AstFromDual v | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+      traceRule $
+        Ast.AstFromDual $ build1V snat (var, v)
+
+    Ast.AstSumOfList stk args
+     | Dict <- lemTensorKindOfBuild snat stk -> traceRule $
+      astSumOfList stensorKind
+      $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
+
+    Ast.AstN1K opCode u -> traceRule $
+      Ast.AstN1S opCode (build1V snat (var, u))
+    Ast.AstN2K opCode u v -> traceRule $
+      Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
+        -- we permit duplicated bindings, because they can't easily
+        -- be substituted into one another unlike. e.g., inside a let,
+        -- which may get inlined
+    Ast.AstR1K opCode u -> traceRule $
+      Ast.AstR1S opCode (build1V snat (var, u))
+    Ast.AstR2K opCode u v -> traceRule $
+      Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
+    Ast.AstI2K opCode u v -> traceRule $
+      Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
+    Ast.AstFloorK v -> traceRule $
+     Ast.AstFloorS $ build1V snat (var, v)
+    Ast.AstFromIntegralK v -> traceRule $
+      astFromIntegralS $ build1V snat (var, v)
+    Ast.AstCastK v -> traceRule $
+      astCastS $ build1V snat (var, v)
+
+    Ast.AstN1S opCode u -> traceRule $
+      Ast.AstN1S opCode (build1V snat (var, u))
+    Ast.AstN2S opCode u v -> traceRule $
+      Ast.AstN2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
+        -- we permit duplicated bindings, because they can't easily
+        -- be substituted into one another unlike. e.g., inside a let,
+        -- which may get inlined
+    Ast.AstR1S opCode u -> traceRule $
+      Ast.AstR1S opCode (build1V snat (var, u))
+    Ast.AstR2S opCode u v -> traceRule $
+      Ast.AstR2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
+    Ast.AstI2S opCode u v -> traceRule $
+      Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
+                        (build1VOccurenceUnknown snat (var, v))
+    Ast.AstFloorS v -> traceRule $
+      Ast.AstFloorS $ build1V snat (var, v)
+    Ast.AstFromIntegralS v -> traceRule $
+      astFromIntegralS $ build1V snat (var, v)
+    Ast.AstCastS v -> traceRule $
+      astCastS $ build1V snat (var, v)
+
+    Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case stensorKind @y of
+     STKS @sh _ _ | SNat <- shsRank (knownShS @sh1) ->
+      withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+      gcastWith (unsafeCoerceRefl
+                 :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
+      gcastWith (unsafeCoerceRefl
+                 :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
+      build1VIndexS @k @(Rank sh1) (var, v, ix)  -- @var@ is in @v@ or @ix@
+    Ast.AstScatterS @shm @shn @shp v (vars, ix) -> traceRule $
+      withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+      let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
+      in astScatterS @(k ': shm) @shn @(k ': shp)
+                     (build1VOccurenceUnknown snat (var, v))
+                     (Const varFresh ::$ vars, astVarFresh :.$ ix2)
+    Ast.AstGatherS @shm @shn @shp v (vars, ix) -> traceRule $
+      withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+      let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
+      in astGatherStepS @(k ': shm) @shn @(k ': shp)
+                        (build1VOccurenceUnknown snat (var, v))
+                        (Const varFresh ::$ vars, astVarFresh :.$ ix2)
+    Ast.AstMinIndexS v -> traceRule $
+      Ast.AstMinIndexS $ build1V snat (var, v)
+    Ast.AstMaxIndexS v -> traceRule $
+      Ast.AstMaxIndexS $ build1V snat (var, v)
+    Ast.AstIotaS ->
+      error "build1V: AstIotaS can't have free index variables"
+    Ast.AstAppendS v w -> traceRule $
+      astTrS $ astAppendS (astTrS $ build1VOccurenceUnknown snat (var, v))
+                          (astTrS $ build1VOccurenceUnknown snat (var, w))
+    Ast.AstSliceS @i v -> traceRule $
+      astTrS $ astSliceS @i $ astTrS $ build1V snat (var, v)
+    Ast.AstReverseS v -> traceRule $
+      astTrS $ astReverseS $ astTrS $ build1V snat (var, v)
+    Ast.AstTransposeS @perm @sh1 perm v -> traceRule $ case stensorKind @y of
+     STKS @sh _ _ ->
+      let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
+          zsuccPerm = Permutation.permShift1 perm
+      in
+        gcastWith (unsafeCoerceRefl
+                   :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
+        trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
+        $ astTransposeS zsuccPerm $ build1V snat (var, v)
+    Ast.AstReshapeS v -> traceRule $
+      astReshapeS $ build1V snat (var, v)
+    Ast.AstZipS v -> traceRule $
+      Ast.AstZipS $ build1V snat (var, v)
+    Ast.AstUnzipS v -> traceRule $
+      Ast.AstUnzipS $ build1V snat (var, v)
+
+    Ast.AstFromS stkz v
+      | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) -> traceRule $
+        astFromS (buildSTK snat stkz) $ build1V snat (var, v)
+    Ast.AstSFromK t -> build1V snat (var, t)
+    Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
+    Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
+
+    Ast.AstXNestR @sh1 @m v -> traceRule $
+      withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
+        astXNestR $ build1V snat (var, v)
+    Ast.AstXNestS @sh1 @sh2 v -> traceRule $
+      withKnownShX (knownShX @sh1
+                    `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+      astXNestS $ build1V snat (var, v)
+    Ast.AstXNest  @sh1 @sh2 v -> traceRule $
+      withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+       astXNest $ build1V snat (var, v)
+    Ast.AstXUnNestR v -> traceRule $ astXUnNestR $ build1V snat (var, v)
+    Ast.AstXUnNestS v -> traceRule $ astXUnNestS $ build1V snat (var, v)
+    Ast.AstXUnNest v -> traceRule $ astXUnNest $ build1V snat (var, v)
 
     Ast.AstReplicate0NS{} -> error "build1V: term not accessible from user API"
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
@@ -406,9 +411,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatvecmulS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
-
-
--- * Vectorization of AstShaped
 
 intBindingRefreshS
   :: IntVarName -> AstIxS AstMethodLet sh
@@ -483,9 +485,6 @@ build1VIndexS (var, v0, ix@(_ :.$ _)) =
      else traceRule $
             astGatherStepS v0 (Const var ::$ ZS, ix)
 
-
--- * Vectorization of others
-
 build1VHFun
   :: forall k x y. (TensorKind x, TensorKind y)
   => SNat k -> (IntVarName, AstHFun x y)
@@ -503,7 +502,7 @@ build1VHFun snat@SNat (var, v0) = case v0 of
            (var2, ftk2, build1VOccurenceUnknownRefresh snat (var, l2))
 
 
--- * Auxiliary machinery
+-- * Auxiliary operations
 
 astTr :: forall n s r. (TensorKind r, AstSpan s)
       => AstTensor AstMethodLet s (TKR2 (2 + n) r)
