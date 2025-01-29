@@ -412,53 +412,6 @@ evalRev !s !c d0 = case d0 of
     evalRev s (treplicateShare snat (aDSTK stk) c) d
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     evalRev s (tsumShare snat (aDSTK stk) c) d
-  DeltaShare n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
-    -- In this context, by construction, @d@ is the dual component
-    -- of a dual number term. Let's say that, at this point, evaluation
-    -- considers position (node) p out of possibly multiple positions
-    -- at which that dual number resides in the whole term tree
-    -- of the dual number representation of the objective function.
-    -- (Equivalently, considers edges p, one of many leading to the only
-    -- node with identifier @n@ in the DAG representing the term).
-    -- If so, the @c@ argument of @eval0@ is the cotangent
-    -- contribution for position p, that is, the partial derivative
-    -- of the objective function with respect to position p.
-    --
-    -- If there are indeed multiple such positions (the term is shared)
-    -- then, over the course of evaluation, cotangent contributions
-    -- of them all are gradually accumulated in the finite
-    -- maps and eventually their total sum represents the total
-    -- influence of the objective function's subcomputation
-    -- (more precisely, subgraph of the data flow graph in question)
-    -- corresponding to the shared term @DeltaShare n d@. This total
-    -- influence over the objective function's behaviour is called
-    -- in short the cotangent of the node identifier @n@.
-    -- In other words, the cotangent of @n@ is the sum,
-    -- over all positions (edges) q in the global delta-expression DAG
-    -- that are a reference to node @n@, of the partial derivative
-    -- of the objective function with respect to the subcomputation
-    -- corresponding to @q@ (meaning, subcomputations denoted by
-    -- Haskell terms whose dual components are @Share n ...@).
-    --
-    -- For @Input@ terms, the eventual lists of cotangents end up
-    -- in the cells of the gradient vectors that are the final
-    -- result of the evaluation.
-    assert (case d of  -- shouold match shareDelta
-              DeltaZero{} -> False
-              DeltaPair{} -> False
-              DeltaInput{} -> False
-              DeltaShare{} -> False
-              _ -> True)
-    $ case DMap.lookup n $ nMap s of
-        Just _ ->
-          let addc x = Cotangent $ addTarget stensorKind c (unCotangent x)
-            -- target has a ShareTensor instance, so addTarget arguments
-            -- don't need to be duplicable
-          in s {dMap = DMap.adjust addc n $ dMap s}
-        Nothing ->
-          let cd = Cotangent c
-          in s { nMap = DMap.insert n d $ nMap s
-               , dMap = DMap.insert n cd $ dMap s }
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
             q es
@@ -519,6 +472,55 @@ evalRev !s !c d0 = case d0 of
         (dacc, des) = tunpair dacc_des
         s2 = evalRev s dacc acc0'
     in evalRev s2 des es'
+
+  DeltaShare n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
+    -- In this context, by construction, @d@ is the dual component
+    -- of a dual number term. Let's say that, at this point, evaluation
+    -- considers position (node) p out of possibly multiple positions
+    -- at which that dual number resides in the whole term tree
+    -- of the dual number representation of the objective function.
+    -- (Equivalently, considers edges p, one of many leading to the only
+    -- node with identifier @n@ in the DAG representing the term).
+    -- If so, the @c@ argument of @eval0@ is the cotangent
+    -- contribution for position p, that is, the partial derivative
+    -- of the objective function with respect to position p.
+    --
+    -- If there are indeed multiple such positions (the term is shared)
+    -- then, over the course of evaluation, cotangent contributions
+    -- of them all are gradually accumulated in the finite
+    -- maps and eventually their total sum represents the total
+    -- influence of the objective function's subcomputation
+    -- (more precisely, subgraph of the data flow graph in question)
+    -- corresponding to the shared term @DeltaShare n d@. This total
+    -- influence over the objective function's behaviour is called
+    -- in short the cotangent of the node identifier @n@.
+    -- In other words, the cotangent of @n@ is the sum,
+    -- over all positions (edges) q in the global delta-expression DAG
+    -- that are a reference to node @n@, of the partial derivative
+    -- of the objective function with respect to the subcomputation
+    -- corresponding to @q@ (meaning, subcomputations denoted by
+    -- Haskell terms whose dual components are @Share n ...@).
+    --
+    -- For @Input@ terms, the eventual lists of cotangents end up
+    -- in the cells of the gradient vectors that are the final
+    -- result of the evaluation.
+    assert (case d of  -- shouold match shareDelta
+              DeltaZero{} -> False
+              DeltaPair{} -> False
+              DeltaInput{} -> False
+              DeltaShare{} -> False
+              _ -> True)
+    $ case DMap.lookup n $ nMap s of
+        Just _ ->
+          let addc x = Cotangent $ addTarget stensorKind c (unCotangent x)
+            -- target has a ShareTensor instance, so addTarget arguments
+            -- don't need to be duplicable
+          in s {dMap = DMap.adjust addc n $ dMap s}
+        Nothing ->
+          let cd = Cotangent c
+          in s { nMap = DMap.insert n d $ nMap s
+               , dMap = DMap.insert n cd $ dMap s }
+
   DeltaFromS @_ @z (DeltaSFromR @sh @x d)
     | Just Refl <- sameSTK (aDSTK (stensorKind @z))
                            (aDSTK (stensorKind @(TKR2 (Rank sh) x))) ->
@@ -579,10 +581,6 @@ evalRevSame !s !c = \case
   -- (and the DeltaInput constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
-  DeltaCast @r1 d ->
-    evalRev s (toADTensorKindShared (stensorKind @(TKScalar r1))
-               $ kcast c) d
-  DeltaSFromK d -> evalRevSame s (kfromS c) d
   DeltaInput _ftk i ->
     let cs = Tensor stensorKind c
     in s {iMap = DMap.adjust (addTensorOrZero cs) i
@@ -592,6 +590,7 @@ evalRevSame !s !c = \case
     -- Note that we can't express sharing by inserting DeltaShare constructors
     -- into iMap, because often sharing needs to work across many
     -- iMap keys. That's why global sharing is used.
+
   -- By placing these here, we force their derivatives to be zeroed
   -- whenever they are called on non-base types, which they should not ever be.
   -- This is ensured by the types of the three constructors, assuming that
@@ -601,17 +600,27 @@ evalRevSame !s !c = \case
   DeltaAdd d e -> let cShared = tshare c
               in evalRevSame (evalRevSame s cShared d) cShared e
 
-  DeltaIndexR d ix -> case ftkDelta d of
-    FTKR sh _ | SNat <- shrRank sh ->
-      evalRevSame s (roneHot (takeShape sh) c ix) d
+  DeltaCast @r1 d ->
+    evalRev s (toADTensorKindShared (stensorKind @(TKScalar r1))
+               $ kcast c) d
+
+  DeltaCastR @r1 @_ @n d ->
+    evalRevRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
+                                 $ rcast c) d
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh _ -> evalRevSame s (rreplicate0N sh c) d
   DeltaDot0R v vd ->
     evalRevSame s (v * rreplicate0N (rshape v) c) vd
       -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
+  DeltaIndexR d ix -> case ftkDelta d of
+    FTKR sh _ | SNat <- shrRank sh ->
+      evalRevSame s (roneHot (takeShape sh) c ix) d
   DeltaScatterR _sh d f -> case ftkDelta d of
     FTKR sh _ | SNat <- shrRank sh ->
       evalRevSame s (rgather sh c f) d
+  DeltaGatherR _sh d f-> case ftkDelta d of
+    FTKR sh _ | SNat <- shrRank sh ->
+      evalRevSame s (rscatter sh c f) d
   DeltaAppendR d e -> case rshape c of
     n :$: _ -> let cShared = tshare c
                    k = case ftkDelta d of
@@ -640,25 +649,24 @@ evalRevSame !s !c = \case
   DeltaReshapeR _sh d -> case ftkDelta d of
     FTKR sh _ | SNat <- shrRank sh ->
       evalRevSame s (rreshape sh c) d
-  DeltaGatherR _sh d f-> case ftkDelta d of
-    FTKR sh _ | SNat <- shrRank sh ->
-      evalRevSame s (rscatter sh c f) d
-  DeltaCastR @r1 @_ @n d ->
-    evalRevRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKR n r1))
-                                 $ rcast c) d
   DeltaZipR d ->
     evalRevSame s (runzip c) d
   DeltaUnzipR d ->
     evalRevSame s (rzip c) d
 
-  DeltaIndexS d ix -> evalRevSame s (soneHot c ix) d
+  DeltaCastS @r1 @_ @sh d ->
+    evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
+                               $ scast c) d
   DeltaSum0S @_ @sh d | SNat <- shsProduct (knownShS @sh) ->
     evalRevSame s (sreplicate0N c) d
   DeltaDot0S @_ @sh v vd | SNat <- shsProduct (knownShS @sh) ->
     evalRevSame s (v * sreplicate0N c) vd
       -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
+  DeltaIndexS d ix -> evalRevSame s (soneHot c ix) d
   DeltaScatterS @_ @_ @shm @shn @shp d f ->
     evalRevSame s (sgather @_ @_ @shm @shn @shp c f) d
+  DeltaGatherS @_ @_ @shm @shn @shp d f ->
+    evalRevSame s (sscatter @_ @_ @shm @shn @shp c f) d
   DeltaAppendS @_ @_ @m d e ->
     let cShared = tshare c
         s2 = evalRevSame s (sslice (Proxy @0) Proxy cShared) d
@@ -681,27 +689,28 @@ evalRevSame !s !c = \case
         $ evalRevSame s (stranspose permRev c) d
   DeltaReshapeS d ->
     evalRevSame s (sreshape c) d
-  DeltaGatherS @_ @_ @shm @shn @shp d f ->
-    evalRevSame s (sscatter @_ @_ @shm @shn @shp c f) d
-  DeltaCastS @r1 @_ @sh d ->
-    evalSRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKS sh r1))
-                               $ scast c) d
   DeltaZipS d ->
     evalRevSame s (sunzip c) d
   DeltaUnzipS d ->
     evalRevSame s (szip c) d
 
-  DeltaIndexX @sh1 @sh2 d ix -> case ftkDelta d of
-    FTKX sh _ -> evalRevSame s (xoneHot (shxTakeSSX (Proxy @sh2) sh
-                                                    (knownShX @sh1)) c ix) d
+  DeltaCastX @r1 @_ @sh d ->
+    evalXRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKX sh r1))
+                               $ xcast c) d
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh _ -> evalRevSame s (xreplicate0N sh c) d
   DeltaDot0X v vd ->
     evalRevSame s (v * xreplicate0N (xshape v) c) vd
       -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
+  DeltaIndexX @sh1 @sh2 d ix -> case ftkDelta d of
+    FTKX sh _ -> evalRevSame s (xoneHot (shxTakeSSX (Proxy @sh2) sh
+                                                    (knownShX @sh1)) c ix) d
   DeltaScatterX @_ @_ @shm @shn @shp _sh d f -> case ftkDelta d of
     FTKX sh _ ->
       evalRevSame s (xgather @_ @_ @shm @shn @shp sh c f) d
+  DeltaGatherX @_ @_ @shm @shn @shp _sh d f -> case ftkDelta d of
+    FTKX sh _ ->
+      evalRevSame s (xscatter @_ @_ @shm @shn @shp sh c f) d
   DeltaAppendX d e -> case (ftkDelta d, ftkDelta e) of
     ( FTKX shd@(Nested.SUnknown m :$% rest) _
      ,FTKX she@(Nested.SUnknown n :$% _) _ ) ->
@@ -735,17 +744,12 @@ evalRevSame !s !c = \case
         $ evalRevSame s (xtranspose permRev c) d
   DeltaReshapeX _sh d -> case ftkDelta d of
     FTKX sh _ -> evalRevSame s (xreshape sh c) d
-  DeltaGatherX @_ @_ @shm @shn @shp _sh d f -> case ftkDelta d of
-    FTKX sh _ ->
-      evalRevSame s (xscatter @_ @_ @shm @shn @shp sh c f) d
-  DeltaCastX @r1 @_ @sh d ->
-    evalXRuntimeSpecialized s (toADTensorKindShared (stensorKind @(TKX sh r1))
-                               $ xcast c) d
   DeltaZipX d ->
     evalRevSame s (xunzip c) d
   DeltaUnzipX d ->
     evalRevSame s (xzip c) d
 
+  DeltaSFromK d -> evalRevSame s (kfromS c) d
   DeltaSFromR @sh @x (DeltaFromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
     Just Refl -> evalRevSame s c d
     _ -> error "evalRevSame: different shapes in DeltaSFromR(DeltaFromS)"
@@ -876,22 +880,6 @@ evalFwd params s d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
     in (s2, treplicateShare snat (aDSTK stk) t)
-  DeltaInput _ftk inputId ->
-    case DMap.lookup inputId params of
-      Just dtk -> (s, toADTensorKindShared stensorKind $ evalTensorOrZero dtk)
-      Nothing -> error "evalFwd: missing input"
-  DeltaShare n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
-    case DMap.lookup n s of
-      Just e1 -> (s, unCotangent e1)
-      Nothing ->
-        let (s2, cRaw) = evalFwd params s d
-            cShared = tshare cRaw
-            cd = Cotangent cShared
-              -- cRaw is shared, because it's put into the map and then
-              -- potentially looked up many times, so it'd get duplicated
-            s3 = DMap.insert n cd s2
-        in (s3, cShared)
-
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
             q es
@@ -946,6 +934,24 @@ evalFwd params s d0 = case d0 of
                                            (tproject2 de_acc_e1)))
                        cacc0
                        (tpair ces (tpair q es)))
+
+  DeltaShare n d | Dict <- lemTensorKindOfAD (stensorKind @y) ->
+    case DMap.lookup n s of
+      Just e1 -> (s, unCotangent e1)
+      Nothing ->
+        let (s2, cRaw) = evalFwd params s d
+            cShared = tshare cRaw
+            cd = Cotangent cShared
+              -- cRaw is shared, because it's put into the map and then
+              -- potentially looked up many times, so it'd get duplicated
+            s3 = DMap.insert n cd s2
+        in (s3, cShared)
+  DeltaInput _ftk inputId ->
+    case DMap.lookup inputId params of
+      Just dtk -> (s, toADTensorKindShared stensorKind $ evalTensorOrZero dtk)
+      Nothing -> error "evalFwd: missing input"
+
+
   DeltaFromS @_ @z (DeltaSFromR @sh @x d)
     | Just Refl <- sameSTK (aDSTK (stensorKind @z))
                            (aDSTK (stensorKind @(TKR2 (Rank sh) x))) ->
@@ -970,16 +976,11 @@ evalFwdSame
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 evalFwdSame params s = \case
-  d0@(DeltaCast @r1 d) ->
-    case sameSTK (STKScalar (typeRep @r1)) (aDSTK (STKScalar (typeRep @r1))) of
-      Just Refl -> second kcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
-  DeltaSFromK d -> let (s2, t) = evalFwdSame params s d
-                   in (s2, sfromK t)
   DeltaInput _ftk inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalTensorOrZero dtk)
       Nothing -> error "evalFwdSame: missing input"
+
   -- See the comment about these three in evalRevSame.
   DeltaZero ftk -> (s, constantTarget 0 $ aDFTK ftk)
   DeltaScale k d -> second (* k) $ evalFwdSame params s d
@@ -987,14 +988,27 @@ evalFwdSame params s = \case
                       (s3, u) = evalFwdSame params s2 e
                   in (s3, t + u)
 
-  DeltaIndexR d ix -> second (`rindex` ix) $ evalFwdSame params s d
+  d0@(DeltaCast @r1 d) ->
+    case sameSTK (STKScalar (typeRep @r1)) (aDSTK (STKScalar (typeRep @r1))) of
+      Just Refl -> second kcast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
+
+  d0@(DeltaCastR @r1 @_ @n d) ->
+    case sameSTK (stensorKind @(TKR n r1))
+                 (aDSTK ((stensorKind @(TKR n r1)))) of
+      Just Refl -> second rcast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaSum0R (DeltaZero (FTKR _ x)) -> (s, constantTarget 0 (FTKR ZSR x))
   DeltaSum0R d -> second rsum0 $ evalFwdSame params s d
   DeltaDot0R _ DeltaZero{} -> (s, rscalar 0)
   DeltaDot0R v d -> second (rdot0 v) $ evalFwdSame params s d
+  DeltaIndexR d ix -> second (`rindex` ix) $ evalFwdSame params s d
   DeltaScatterR sh d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, rscatter sh t f)
+  DeltaGatherR sh d f ->
+    let (s2, t) = evalFwdSame params s d
+    in (s2, rgather sh t f)
   DeltaAppendR d e ->
     let (s2, t) = evalFwdSame params s d
         (s3, u) = evalFwdSame params s2 e
@@ -1003,28 +1017,28 @@ evalFwdSame params s = \case
   DeltaReverseR d -> second rreverse $ evalFwdSame params s d
   DeltaTransposeR perm d -> second (rtranspose perm) $ evalFwdSame params s d
   DeltaReshapeR sh d -> second (rreshape sh) $ evalFwdSame params s d
-  DeltaGatherR sh d f ->
-    let (s2, t) = evalFwdSame params s d
-    in (s2, rgather sh t f)
-  d0@(DeltaCastR @r1 @_ @n d) ->
-    case sameSTK (stensorKind @(TKR n r1))
-                 (aDSTK ((stensorKind @(TKR n r1)))) of
-      Just Refl -> second rcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaZipR d -> second rzip $ evalFwdSame params s d
   DeltaUnzipR d -> second runzip $ evalFwdSame params s d
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, rfromD $ tunvector v) V.! i)
 
-  DeltaIndexS d ix -> second (`sindex` ix) $ evalFwdSame params s d
+  d0@(DeltaCastS @r1 @_ @sh d) ->
+    case sameSTK (stensorKind @(TKS sh r1))
+                 (aDSTK ((stensorKind @(TKS sh r1)))) of
+      Just Refl -> second scast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaSum0S (DeltaZero (FTKS _ x)) -> (s, constantTarget 0 (FTKS ZSS x))
   DeltaSum0S d -> second ssum0 $ evalFwdSame params s d
   DeltaDot0S _ DeltaZero{} -> (s, srepl 0)
   DeltaDot0S v d -> second (sdot0 v) $ evalFwdSame params s d
+  DeltaIndexS d ix -> second (`sindex` ix) $ evalFwdSame params s d
   DeltaScatterS @_ @_ @shm @shn @shp d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, sscatter @_ @_ @shm @shn @shp t f)
+  DeltaGatherS @_ @_ @shm @shn @shp d f ->
+    let (s2, t) = evalFwdSame params s d
+    in (s2, sgather @_ @_ @shm @shn @shp t f)
   DeltaAppendS d e ->
     let (s2, t) = evalFwdSame params s d
         (s3, u) = evalFwdSame params s2 e
@@ -1034,28 +1048,28 @@ evalFwdSame params s = \case
   DeltaTransposeS perm d -> second (stranspose perm)
                        $ evalFwdSame params s d
   DeltaReshapeS d -> second sreshape $ evalFwdSame params s d
-  DeltaGatherS @_ @_ @shm @shn @shp d f ->
-    let (s2, t) = evalFwdSame params s d
-    in (s2, sgather @_ @_ @shm @shn @shp t f)
-  d0@(DeltaCastS @r1 @_ @sh d) ->
-    case sameSTK (stensorKind @(TKS sh r1))
-                 (aDSTK ((stensorKind @(TKS sh r1)))) of
-      Just Refl -> second scast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaZipS d -> second szip $ evalFwdSame params s d
   DeltaUnzipS d -> second sunzip $ evalFwdSame params s d
 -- Not needed, because we take only the i-th component of the vector,
 -- so v is not copied.
 --  in (s2, sfromD $ tunvector v V.! i)
 
-  DeltaIndexX d ix -> second (`xindex` ix) $ evalFwdSame params s d
+  d0@(DeltaCastX @r1 @_ @sh d) ->
+    case sameSTK (stensorKind @(TKX sh r1))
+                 (aDSTK ((stensorKind @(TKX sh r1)))) of
+      Just Refl -> second xcast $ evalFwdSame params s d
+      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaSum0X (DeltaZero (FTKX _ x)) -> (s, constantTarget 0 (FTKX ZSX x))
   DeltaSum0X d -> second xsum0 $ evalFwdSame params s d
   DeltaDot0X _ DeltaZero{} -> (s, xrepl ZSX 0)
   DeltaDot0X v d -> second (xdot0 v) $ evalFwdSame params s d
+  DeltaIndexX d ix -> second (`xindex` ix) $ evalFwdSame params s d
   DeltaScatterX @_ @_ @shm @shn @shp sh d f ->
     let (s2, t) = evalFwdSame params s d
     in (s2, xscatter @_ @_ @shm @shn @shp sh t f)
+  DeltaGatherX @_ @_ @shm @shn @shp sh d f ->
+    let (s2, t) = evalFwdSame params s d
+    in (s2, xgather @_ @_ @shm @shn @shp sh t f)
   DeltaAppendX d e ->
     let (s2, t) = evalFwdSame params s d
         (s3, u) = evalFwdSame params s2 e
@@ -1065,17 +1079,11 @@ evalFwdSame params s = \case
   DeltaTransposeX perm d -> second (xtranspose perm)
                        $ evalFwdSame params s d
   DeltaReshapeX sh2 d -> second (xreshape sh2) $ evalFwdSame params s d
-  DeltaGatherX @_ @_ @shm @shn @shp sh d f ->
-    let (s2, t) = evalFwdSame params s d
-    in (s2, xgather @_ @_ @shm @shn @shp sh t f)
-  d0@(DeltaCastX @r1 @_ @sh d) ->
-    case sameSTK (stensorKind @(TKX sh r1))
-                 (aDSTK ((stensorKind @(TKX sh r1)))) of
-      Just Refl -> second xcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
   DeltaZipX d -> second xzip $ evalFwdSame params s d
   DeltaUnzipX d -> second xunzip $ evalFwdSame params s d
 
+  DeltaSFromK d -> let (s2, t) = evalFwdSame params s d
+                   in (s2, sfromK t)
   DeltaSFromR @sh @x (DeltaFromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
     Just Refl -> evalFwdSame params s d
     _ -> error "evalFwdSame: different shapes in DeltaSFromR(DeltaFromS)"
