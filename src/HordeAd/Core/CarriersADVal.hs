@@ -5,15 +5,22 @@
 -- | Dual numbers and arithmetic operations on them.
 module HordeAd.Core.CarriersADVal
   ( -- * The main dual number type
-    ADVal, pattern D, dD, dDnotShared, fromPrimalADVal
+    ADVal, pattern D, dD, dDnotShared
     -- * Auxiliary definitions
-  , unDeltaPair, unDeltaPairUnshared
+  , unDeltaPair, unDeltaPairUnshared, dScale, dAdd
+  , dFromS, dSFromR, dSFromX
+  , fromPrimalADVal
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
 --  , addParameters, dotParameters
   , generateDeltaInputs
   ) where
 
 import Prelude
+
+import Data.Type.Equality ((:~:) (Refl))
+import GHC.TypeLits (KnownNat)
+
+import Data.Array.Nested (KnownShS (..), KnownShX (..), Rank)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
@@ -122,12 +129,14 @@ unDeltaPair :: (TensorKind x, TensorKind y)
 unDeltaPair (DeltaPair a b) = (a, b)
 unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
-            in (DeltaProject1 dShared, DeltaProject2 dShared)
+                in (DeltaProject1 dShared, DeltaProject2 dShared)
 
 unDeltaPairUnshared :: (TensorKind x, TensorKind y)
-                    => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+                    => Delta target (TKProduct x y)
+                    -> (Delta target x, Delta target y)
 unDeltaPairUnshared (DeltaPair a b) = (a, b)
-unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
+unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) =
+  (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)
 
 dScale :: Num (f z) => f z -> Delta f z -> Delta f z
@@ -138,6 +147,35 @@ dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
 dAdd DeltaZero{} w = w
 dAdd v DeltaZero{} = v
 dAdd v w = DeltaAdd v w
+
+-- Avoids building huge Delta terms, not only evaluating them.
+dFromS :: forall y z target. (TensorKind y, TensorKind z)
+       => Delta target y -> Delta target z
+dFromS (DeltaSFromR @sh @x d)
+  | Just Refl <- sameTensorKind @z @(TKR2 (Rank sh) x) = d
+dFromS (DeltaSFromX @_ @sh' @x d)
+  | Just Refl <- sameTensorKind @z @(TKX2 sh' x) = d
+dFromS d = DeltaFromS d
+
+dSFromR :: forall sh x target.
+           (KnownShS sh, KnownNat (Rank sh), TensorKind x)
+        => Delta target (TKR2 (Rank sh) x)
+        -> Delta target (TKS2 sh x)
+dSFromR (DeltaFromS @y d) =
+  case sameTensorKind @y @(TKS2 sh x) of
+    Just Refl -> d
+    _ -> error "sfromR: different shapes in DeltaSFromR(DeltaFromS)"
+dSFromR d = DeltaSFromR d
+
+dSFromX :: forall sh sh' x target.
+           (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind x)
+        => Delta target (TKX2 sh' x)
+        -> Delta target (TKS2 sh x)
+dSFromX (DeltaFromS @y d) =
+  case sameTensorKind @y @(TKS2 sh x) of
+    Just Refl -> d
+    _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
+dSFromX d = DeltaSFromX d
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.

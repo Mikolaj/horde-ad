@@ -32,7 +32,6 @@ import Data.Array.Nested
   , ShS (..)
   , KnownShS (..)
   , KnownShX (..)
-  , Rank
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsInit, shCvtSX, withKnownShS, shsAppend)
@@ -130,15 +129,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- This avoids product eta-expansions for AST instance primal,
   -- though contangent expands anyway.
   tfromS (D u u') = dDnotShared (tfromSShare u) (dFromS u')
-   where
-    -- Avoid building huge Delta terms, not only evaluating them.
-    dFromS :: forall y z. (TensorKind y, TensorKind z)
-           => Delta target y -> Delta target z
-    dFromS (DeltaSFromR @sh @x d)
-      | Just Refl <- sameTensorKind @z @(TKR2 (Rank sh) x) = d
-    dFromS (DeltaSFromX @_ @sh' @x d)
-      | Just Refl <- sameTensorKind @z @(TKX2 sh' x) = d
-    dFromS d = DeltaFromS d
   tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
 
 instance (ADReadyNoLet target, ShareTensor target)
@@ -176,7 +166,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (rdot0 u v) (DeltaAdd (DeltaDot0R v u') (DeltaDot0R u v'))
+    in dD (rdot0 u v) (dAdd (DeltaDot0R v u') (DeltaDot0R u v'))
   rreplicate k (D u u') = withSNat k $ \snat ->
     dD (rreplicate k u) (DeltaReplicate snat stensorKind u')
   -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
@@ -241,7 +231,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (sdot0 u v) (DeltaAdd (DeltaDot0S v u') (DeltaDot0S u v'))
+    in dD (sdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   sreplicate (D u u') = dD (sreplicate u) (DeltaReplicate SNat stensorKind u')
   sindex (D u u') i =
     let ix = tprimalPart (STKScalar typeRep) <$> i
@@ -251,13 +241,15 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (sscatter @_ @r @shm @shn @shp u g) (DeltaScatterS @_ @r @shm @shn @shp u' g)
+    in dD (sscatter @_ @r @shm @shn @shp u g)
+          (DeltaScatterS @_ @r @shm @shn @shp u' g)
   sgather @r @shm @shn @shp (D u u') f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (sgather @_ @r @shm @shn @shp u g) (DeltaGatherS @_ @r @shm @shn @shp u' g)
+    in dD (sgather @_ @r @shm @shn @shp u g)
+          (DeltaGatherS @_ @r @shm @shn @shp u' g)
   sfloor (D u _) =
     let v = sfloor u
     in fromPrimalADVal v
@@ -308,7 +300,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (xdot0 u v) (DeltaAdd (DeltaDot0X v u') (DeltaDot0X u v'))
+    in dD (xdot0 u v) (dAdd (DeltaDot0X v u') (DeltaDot0X u v'))
   xreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat stensorKind u')
   xindex (D u u') i =
     let ix = tprimalPart (STKScalar typeRep) <$> i
@@ -325,7 +317,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
     let g x = tprimalPart (STKScalar typeRep)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
-    in dD (xgather @_ @r @shm @shn @shp sh u g) (DeltaGatherX @_ @r @shm @shn @shp sh u' g)
+    in dD (xgather @_ @r @shm @shn @shp sh u g)
+          (DeltaGatherX @_ @r @shm @shn @shp sh u' g)
   xfloor (D u _) =
     let v = xfloor u
     in fromPrimalADVal v
@@ -374,20 +367,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   -- Conversions
   sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
-  sfromR @sh @x (D u u') = dDnotShared (sfromR u) (dSFromR u')
-   where
-    dSFromR (DeltaFromS @y d) =
-      case sameTensorKind @y @(TKS2 sh x) of
-        Just Refl -> d
-        _ -> error "sfromR: different shapes in DeltaSFromR(DeltaFromS)"
-    dSFromR d = DeltaSFromR d
-  sfromX @sh @_ @x (D u u') = dDnotShared (sfromX u) (dSFromX u')
-   where
-    dSFromX (DeltaFromS @y d) =
-      case sameTensorKind @y @(TKS2 sh x) of
-        Just Refl -> d
-        _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
-    dSFromX d = DeltaSFromX d
+  sfromR (D u u') = dDnotShared (sfromR u) (dSFromR u')
+  sfromX (D u u') = dDnotShared (sfromX u) (dSFromX u')
 
   -- Nesting/unnesting
   xnestR @_ @m sh1 (D u u') =
@@ -571,7 +552,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
   tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
     dDnotShared (constantTarget 0 (ftkDelta t)) t
-  tScale _ k = DeltaScale k
+  tScale _ k = dScale k
   drev @x _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
     let rf :: forall f. ADReady f
            => f x
