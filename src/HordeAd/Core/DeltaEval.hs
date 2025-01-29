@@ -600,7 +600,7 @@ evalRevSame !s !c = \case
   DeltaAdd d e -> let cShared = tshare c
               in evalRevSame (evalRevSame s cShared d) cShared e
 
-  DeltaCast @r1 d ->
+  DeltaCastK @r1 d ->
     evalRev s (toADTensorKindShared (stensorKind @(TKScalar r1))
                $ kcast c) d
 
@@ -988,7 +988,7 @@ evalFwdSame params s = \case
                       (s3, u) = evalFwdSame params s2 e
                   in (s3, t + u)
 
-  d0@(DeltaCast @r1 d) ->
+  d0@(DeltaCastK @r1 d) ->
     case sameSTK (STKScalar (typeRep @r1)) (aDSTK (STKScalar (typeRep @r1))) of
       Just Refl -> second kcast $ evalFwdSame params s d
       _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)

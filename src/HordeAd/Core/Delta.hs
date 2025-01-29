@@ -269,8 +269,8 @@ data Delta :: Target -> TensorKindType -> Type where
            => Delta target y -> Delta target y -> Delta target y
 
   -- Scalar arithmetic
-  DeltaCast :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
-            => Delta target (TKScalar r1) -> Delta target (TKScalar r2)
+  DeltaCastK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
+             => Delta target (TKScalar r1) -> Delta target (TKScalar r2)
 
   -- Ranked tensor operations
   DeltaCastR :: ( GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2
@@ -545,7 +545,7 @@ ftkDelta = \case
   DeltaScale _ d -> ftkDelta d
   DeltaAdd d _ -> ftkDelta d
 
-  DeltaCast{} -> FTKScalar
+  DeltaCastK{} -> FTKScalar
 
   DeltaCastR d -> case ftkDelta d of
     FTKR sh _ -> FTKR sh FTKScalar

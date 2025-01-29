@@ -380,7 +380,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   kfloor (D u _) =
     let v = kfloor u
     in fromPrimalADVal v
-  kcast (D u u') = dD (kcast u) (DeltaCast u')
+  kcast (D u u') = dD (kcast u) (DeltaCastK u')
   kfromIntegral (D u _) =
     let v = kfromIntegral u
     in fromPrimalADVal v
