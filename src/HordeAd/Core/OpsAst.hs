@@ -77,20 +77,20 @@ revArtifactFromForwardPass
   -> FullTensorKind x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revArtifactFromForwardPass #-}
-revArtifactFromForwardPass hasDt forwardPass ftk
+revArtifactFromForwardPass hasDt forwardPass xftk
  | Dict <- lemTensorKindOfAD (stensorKind @x)
  , Dict <- lemTensorKindOfAD (stensorKind @z) =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
-      !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRev ftk in
+      !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRev xftk in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
-  let (!varDt, !astDt) =
-        funToAst (aDFTK $ ftkAst $ unAstRaw primalBody) id in
+  let zftk = ftkAst $ unAstRaw primalBody
+      (!varDt, !astDt) = funToAst (aDFTK zftk) id in
   let mdt = if hasDt then Just astDt else Nothing
-      !gradient = gradientFromDelta ftk primalBody (AstRaw <$> mdt) delta
+      !gradient = gradientFromDelta xftk zftk (AstRaw <$> mdt) delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal

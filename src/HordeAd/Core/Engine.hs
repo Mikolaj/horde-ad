@@ -34,13 +34,13 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.Unwind
+import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsAst
 import HordeAd.Core.OpsConcrete ()
-import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Unwind
 
 -- * Reverse derivative adaptors
 
@@ -104,10 +104,10 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
-      valsH = toTarget vals0
-      voidH = tftk stensorKind valsH
-      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv voidH
-  in fromTargetAD $ fst $ revEvalArtifact artifact valsH mdt
+      valsTarget = toTarget vals0
+      ftk = tftk stensorKind valsTarget
+      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv ftk
+  in fromTargetAD $ fst $ revEvalArtifact artifact valsTarget mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
@@ -134,9 +134,9 @@ revArtifactAdapt hasDt f vals0 =
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
-      valsH = toTarget @RepN vals0
-      voidH = tftk stensorKind valsH
-  in revProduceArtifact hasDt g emptyEnv voidH
+      valsTarget = toTarget @RepN vals0
+      ftk = tftk stensorKind valsTarget
+  in revProduceArtifact hasDt g emptyEnv ftk
 {- TODO
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
@@ -215,12 +215,12 @@ fwd f vals ds =
   let g :: AstTensor AstMethodLet FullSpan (X astvals) -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
-      valsH = toTarget vals
-      voidH = tftk stensorKind valsH
-      artifact = fst $ fwdProduceArtifact g emptyEnv voidH
-      dsH = toTarget ds
-  in fst $ fwdEvalArtifact @_ @z artifact valsH
-         $ toADTensorKindShared stensorKind dsH
+      valsTarget = toTarget vals
+      ftk = tftk stensorKind valsTarget
+      artifact = fst $ fwdProduceArtifact g emptyEnv ftk
+      dsTarget = toTarget ds
+  in fst $ fwdEvalArtifact @_ @z artifact valsTarget
+         $ toADTensorKindShared stensorKind dsTarget
 
 fwdEvalArtifact
   :: forall x z. TensorKind x
@@ -287,8 +287,8 @@ crevDtMaybe
 crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
-      valsH = toTarget vals
-  in fromTargetAD $ fst $ crevOnHVector mdt g valsH
+      valsTarget = toTarget vals
+  in fromTargetAD $ fst $ crevOnHVector mdt g valsTarget
 
 {-
 {-# SPECIALIZE crevOnHVector
@@ -314,9 +314,10 @@ cfwd
 cfwd f vals ds =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
-      valsH = toTarget vals
-      dsH = toTarget ds
-  in fst $ cfwdOnHVector valsH g $ toADTensorKindShared stensorKind dsH
+      valsTarget = toTarget vals
+      dsTarget = toTarget ds
+  in fst $ cfwdOnHVector valsTarget g
+     $ toADTensorKindShared stensorKind dsTarget
 
 
 

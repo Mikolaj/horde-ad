@@ -120,6 +120,22 @@ instance (RealFloatF r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (target :: Target) where
+  twidth :: STensorKindType y -> Int
+  twidth stk = case stk of
+    STKScalar{} -> 1
+    STKR{} -> 1
+    STKS{} -> 1
+    STKX{} -> 1
+    STKProduct stk1 stk2 -> twidth @target stk1 + twidth @target stk2
+  tsize :: BaseTensor target => STensorKindType y -> target y -> Int
+  tsize stk a = case stk of
+    STKScalar{} -> 1
+    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rsize a
+    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ ssize a
+    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xsize a
+    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
+                         , Dict <- lemTensorKindOfSTK stk2 ->
+      tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
   tlet :: (TensorKind x, TensorKind z)
        => target x
        -> (target x -> target z)

@@ -84,12 +84,12 @@ gradientFromDelta
   :: forall x z target.
      (ADReadyNoLet target, ShareTensor target, TensorKind z)
   => FullTensorKind x
-  -> target z
+  -> FullTensorKind z
   -> Maybe (target (ADTensorKind z))
   -> Delta target z
   -> target (ADTensorKind x)
-gradientFromDelta !parameters0 value !mdt deltaTopLevel =
-  let oneAtF = constantTarget 1 $ aDFTK $ tftk (stensorKind @z) value
+gradientFromDelta !parameters0 zftk !mdt deltaTopLevel =
+  let oneAtF = constantTarget 1 $ aDFTK zftk
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalRev s0 dt deltaTopLevel
@@ -121,12 +121,13 @@ derivativeFromDelta
      ( ADReadyNoLet target, ShareTensor target, TensorKind x, TensorKind z )
   => Delta target z -> target (ADTensorKind x)
   -> target (ADTensorKind z)
-derivativeFromDelta deltaTopLevel ds | Dict <- lemTensorKindOfAD (stensorKind @x) =
-  let iMap = DMap.fromDistinctAscList $ fst
-             $ generateDSums 0 (tftk stensorKind ds) ds
-      s0 = DMap.empty
-      !(!_s2, !c) = evalFwd iMap s0 deltaTopLevel
-  in c
+derivativeFromDelta deltaTopLevel ds
+  | Dict <- lemTensorKindOfAD (stensorKind @x) =
+    let iMap = DMap.fromDistinctAscList $ fst
+               $ generateDSums 0 (tftk stensorKind ds) ds
+        s0 = DMap.empty
+        !(!_s2, !c) = evalFwd iMap s0 deltaTopLevel
+    in c
 
 
 -- * Auxiliary datatypes for Delta evaluation

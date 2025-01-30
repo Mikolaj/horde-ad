@@ -65,7 +65,8 @@ crevOnADInputs mdt f inputs =
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
   let parameters0 = tftk (stensorKind @x) inputs
-      !gradient = gradientFromDelta parameters0 v mdt delta
+      zftk = tftk (stensorKind @z) v
+      !gradient = gradientFromDelta parameters0 zftk mdt delta
   in (gradient, v)
 
 crevOnHVector
