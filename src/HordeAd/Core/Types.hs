@@ -36,7 +36,7 @@ module HordeAd.Core.Types
   , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
-  , slistKnown, sixKnown
+  , slistKnown, sixKnown, listrToNonEmpty
   ) where
 
 import Prelude
@@ -45,10 +45,12 @@ import Control.DeepSeq (NFData (..))
 import Data.Array.Internal.RankedS qualified as RS
 import Data.Coerce (coerce)
 import Data.Default
+import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (sort)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
@@ -96,7 +98,14 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Shape
-  (listsDropLenPerm, listsRank, shrSize, shsLength, shsSize)
+  ( listrHead
+  , listrTail
+  , listsDropLenPerm
+  , listsRank
+  , shrSize
+  , shsLength
+  , shsSize
+  )
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -759,3 +768,6 @@ slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
 sixKnown :: IxS sh i -> Dict KnownShS sh
 sixKnown ZIS = Dict
 sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
+
+listrToNonEmpty :: ListR (n + 1) i -> NonEmpty i
+listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)

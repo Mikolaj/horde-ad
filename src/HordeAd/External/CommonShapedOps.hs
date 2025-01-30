@@ -181,7 +181,8 @@ maxPool1S v =
           Nothing -> error "maxPool1S: impossible someNatVal error"
   in sfromList $ NonEmpty.fromList $ map maxOfSlice l
 
-softMax1S :: ( KnownShS sh, KnownNat (Nested.Product sh)
+softMax1S :: forall target sh r.
+             ( KnownShS sh, KnownNat (Nested.Product sh)
              , BaseTensor target, LetTensor target
              , GoodScalar r, Differentiable r )
           => target (TKS sh r) -> target (TKS sh r)

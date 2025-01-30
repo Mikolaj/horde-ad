@@ -23,6 +23,7 @@ module HordeAd.Core.Ops
 import Prelude
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Foldable qualified as Foldable
 import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -58,6 +59,7 @@ import Data.Array.Nested
   , IxX (..)
   , KnownShS (..)
   , KnownShX (..)
+  , ListR (..)
   , MapJust
   , Rank
   , Replicate
@@ -70,7 +72,8 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Lemmas
 import Data.Array.Nested.Internal.Shape
-  ( shCvtSX
+  ( listrRank
+  , shCvtSX
   , shrAppend
   , shrRank
   , shrSize
@@ -129,8 +132,7 @@ class LetTensor (target :: Target) where
            -> target y
   tunshare = error "tunshare: this instance should never be used"
   tfromVector :: forall y k. BaseTensor target
-              => SNat k -> STensorKindType y
-              -> Data.Vector.Vector (target y)
+              => SNat k -> STensorKindType y -> Data.Vector.Vector (target y)
               -> target (BuildTensorKind k y)
   tfromVector snat@SNat stk v = case stk of
     STKScalar{} -> sfromVector $ V.map sfromK v
@@ -156,6 +158,11 @@ class LetTensor (target :: Target) where
               tpair (tfromVector snat stk1 (V.fromList l1))
                     (tfromVector snat stk2 (V.fromList l2))
         in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
+  tfromListR :: forall y k. BaseTensor target
+             => STensorKindType y -> ListR k (target y)
+             -> target (BuildTensorKind k y)
+  tfromListR stk l =
+    tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
   tsum :: forall z k. BaseTensor target
        => SNat k -> STensorKindType z
        -> target (BuildTensorKind k z)
