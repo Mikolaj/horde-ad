@@ -6,7 +6,7 @@
 module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKind(..), TensorKind(..)
-  , withTensorKind, lemTensorKindOfSTK, sameTensorKind, sameSTK
+  , withTensorKind, lemTensorKindOfSTK, sameKnownSTS, sameSTK
   , stkUnit, buildSTK, razeSTK, aDSTK
   , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
@@ -90,9 +90,9 @@ lemTensorKindOfSTK = \case
   STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
                        , Dict <- lemTensorKindOfSTK stk2 -> Dict
 
-sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2)
+sameKnownSTS :: forall y1 y2. (TensorKind y1, TensorKind y2)
                => Maybe (y1 :~: y2)
-sameTensorKind = sameSTK (stensorKind @y1) (stensorKind @y2)
+sameKnownSTS = sameSTK (stensorKind @y1) (stensorKind @y2)
 
 sameSTK :: STensorKind y1' -> STensorKind y2' -> Maybe (y1' :~: y2')
 sameSTK y1 y2 = case (y1, y2) of

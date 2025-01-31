@@ -565,7 +565,7 @@ evalRev !s !c d0 = case d0 of
     _ -> error "evalRev: wrong tensor kinds"
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
-      case sameTensorKind @y @(ADTensorKind y) of
+      case sameKnownSTS @y @(ADTensorKind y) of
         Just Refl -> evalRevSame s c d0
         _ -> s  -- the constructors remaining here have y that is a non-TKProduct
                 -- so if y is equal to ADTensorKind y, the latter has
@@ -751,12 +751,12 @@ evalRevSame !s !c = \case
     evalRevSame s (xzip c) d
 
   DeltaSFromK d -> evalRevSame s (kfromS c) d
-  DeltaSFromR @sh @x (DeltaFromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+  DeltaSFromR @sh @x (DeltaFromS @y2 d) -> case sameKnownSTS @y2 @(TKS2 sh x) of
     Just Refl -> evalRevSame s c d
     _ -> error "evalRevSame: different shapes in DeltaSFromR(DeltaFromS)"
   DeltaSFromR d ->
     evalRevSame s (rfromS c) d
-  DeltaSFromX @sh @_ @x (DeltaFromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+  DeltaSFromX @sh @_ @x (DeltaFromS @y2 d) -> case sameKnownSTS @y2 @(TKS2 sh x) of
     Just Refl -> evalRevSame s c d
     _ -> error "evalRevSame: different shapes in DeltaSFromX(DeltaFromS)"
   DeltaSFromX d ->
@@ -966,7 +966,7 @@ evalFwd params s d0 = case d0 of
     second tfromSShare $ evalFwd params s d
 
   _ | Dict <- lemTensorKindOfAD (stensorKind @y) ->
-      case sameTensorKind @y @(ADTensorKind y) of
+      case sameKnownSTS @y @(ADTensorKind y) of
         Just Refl -> evalFwdSame params s d0
         _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
 
@@ -1085,11 +1085,11 @@ evalFwdSame params s = \case
 
   DeltaSFromK d -> let (s2, t) = evalFwdSame params s d
                    in (s2, sfromK t)
-  DeltaSFromR @sh @x (DeltaFromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+  DeltaSFromR @sh @x (DeltaFromS @y2 d) -> case sameKnownSTS @y2 @(TKS2 sh x) of
     Just Refl -> evalFwdSame params s d
     _ -> error "evalFwdSame: different shapes in DeltaSFromR(DeltaFromS)"
   DeltaSFromR d -> second sfromR $ evalFwdSame params s d
-  DeltaSFromX @sh @_ @x (DeltaFromS @y2 d) -> case sameTensorKind @y2 @(TKS2 sh x) of
+  DeltaSFromX @sh @_ @x (DeltaFromS @y2 d) -> case sameKnownSTS @y2 @(TKS2 sh x) of
     Just Refl -> evalFwdSame params s d
     _ -> error "evalFwdSame: different shapes in DeltaSFromX(DeltaFromS)"
   DeltaSFromX d -> second sfromX $ evalFwdSame params s d

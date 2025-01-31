@@ -169,7 +169,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
       updateProd stk (RepN mA) (RepN vA) (RepN p) (RepN g)
        | Dict <- lemTensorKindOfAD stk = case stk of
         STKScalar @r _ ->
-          case sameTensorKind @y2 @(ADTensorKind y2) of
+          case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =
@@ -184,7 +184,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKR SNat (STKScalar @r _) ->
-          case sameTensorKind @y2 @(ADTensorKind y2) of
+          case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) = updateR mA vA p g
@@ -192,7 +192,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKS sh (STKScalar @r _) -> withKnownShS sh $
-          case sameTensorKind @y2 @(ADTensorKind y2) of
+          case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =
@@ -207,7 +207,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKX sh (STKScalar @r _) -> withKnownShX sh $
-          case sameTensorKind @y2 @(ADTensorKind y2) of
+          case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
                 (let (mAN, vAN, pN) =

@@ -3634,7 +3634,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstVar sh var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s @s2 of
-        Just Refl -> case sameTensorKind @y @z of
+        Just Refl -> case sameKnownSTS @y @z of
           Just Refl ->
             assert (ftkAst i == sh `blame` (ftkAst i, sh, i))
             Just i

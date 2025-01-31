@@ -132,7 +132,7 @@ instance Show (AstVarName s y) where
 instance GEq (AstVarName s) where
   geq (AstVarName @_ @y1 varId1) (AstVarName @_ @y2 varId2) =
     case varId1 == varId2 of
-      True | Just Refl <- sameTensorKind @y1 @y2 -> Just Refl
+      True | Just Refl <- sameKnownSTS @y1 @y2 -> Just Refl
       True -> error "geq: different types of same AstVarName"
       False -> Nothing
 
@@ -140,7 +140,7 @@ instance GCompare (AstVarName s) where
   gcompare (AstVarName @_ @y1 varId1) (AstVarName @_ @y2 varId2) =
     case compare varId1 varId2 of
        LT -> GLT
-       EQ | Just Refl <- sameTensorKind @y1 @y2 -> GEQ
+       EQ | Just Refl <- sameKnownSTS @y1 @y2 -> GEQ
        EQ -> error "gcompare: different types of same AstVarName"
        GT -> GGT
 
@@ -193,7 +193,7 @@ isTensorInt :: forall s y ms. (AstSpan s, TensorKind y)
             => AstTensor ms s y
             -> Maybe (AstTensor ms s y :~: AstInt ms)
 isTensorInt _ = case ( sameAstSpan @s @PrimalSpan
-                     , sameTensorKind @y @(TKScalar Int64) ) of
+                     , sameKnownSTS @y @(TKScalar Int64) ) of
                   (Just Refl, Just Refl) -> Just Refl
                   _ -> Nothing
 

@@ -152,9 +152,9 @@ dAdd v w = DeltaAdd v w
 dFromS :: forall y z target. (TensorKind y, TensorKind z)
        => Delta target y -> Delta target z
 dFromS (DeltaSFromR @sh @x d)
-  | Just Refl <- sameTensorKind @z @(TKR2 (Rank sh) x) = d
+  | Just Refl <- sameKnownSTS @z @(TKR2 (Rank sh) x) = d
 dFromS (DeltaSFromX @_ @sh' @x d)
-  | Just Refl <- sameTensorKind @z @(TKX2 sh' x) = d
+  | Just Refl <- sameKnownSTS @z @(TKX2 sh' x) = d
 dFromS d = DeltaFromS d
 
 dSFromR :: forall sh x target.
@@ -162,7 +162,7 @@ dSFromR :: forall sh x target.
         => Delta target (TKR2 (Rank sh) x)
         -> Delta target (TKS2 sh x)
 dSFromR (DeltaFromS @y d) =
-  case sameTensorKind @y @(TKS2 sh x) of
+  case sameKnownSTS @y @(TKS2 sh x) of
     Just Refl -> d
     _ -> error "sfromR: different shapes in DeltaSFromR(DeltaFromS)"
 dSFromR d = DeltaSFromR d
@@ -172,7 +172,7 @@ dSFromX :: forall sh sh' x target.
         => Delta target (TKX2 sh' x)
         -> Delta target (TKS2 sh x)
 dSFromX (DeltaFromS @y d) =
-  case sameTensorKind @y @(TKS2 sh x) of
+  case sameKnownSTS @y @(TKS2 sh x) of
     Just Refl -> d
     _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
 dSFromX d = DeltaSFromX d
