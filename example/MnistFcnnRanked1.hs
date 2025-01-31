@@ -7,7 +7,6 @@ module MnistFcnnRanked1 where
 import Prelude
 
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, Nat)
 
 import Data.Array.Nested (ListR (..))
@@ -88,14 +87,12 @@ afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
 afcnnMnistLoss1
   :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat widthHidden -> SNat widthHidden2
-  -> MnistData r
+  -> MnistDataLinearR r
   -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r
   -> target (TKR 0 r)
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
-  let datum1 = rconcrete
-               $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
-      target1 = rconcrete
-                $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
+  let datum1 = rconcrete datum
+      target1 = rconcrete target
   in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
@@ -104,20 +101,19 @@ afcnnMnistTest1
   :: forall target widthHidden widthHidden2 r.
      (target ~ RepN, GoodScalar r, Differentiable r)
   => SNat widthHidden -> SNat widthHidden2
-  -> [MnistData r]
+  -> [MnistDataLinearR r]
   -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r
   -> r
 afcnnMnistTest1 _ _ [] _ = 0
 afcnnMnistTest1 widthHidden widthHidden2 dataList testParams =
-  let matchesLabels :: MnistData r -> Bool
+  let matchesLabels :: MnistDataLinearR r -> Bool
       matchesLabels (glyph, label) =
-        let glyph1 = rconcrete
-                     $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
+        let glyph1 = rconcrete glyph
             nn :: ADFcnnMnist1Parameters target widthHidden widthHidden2 r
                -> target (TKR 1 r)
             nn = afcnnMnist1 logisticS softMax1S
                              widthHidden widthHidden2 (sfromR glyph1)
             v = Nested.rtoVector $ unRepN $ nn testParams
-        in V.maxIndex v == V.maxIndex label
+        in V.maxIndex v == V.maxIndex (Nested.rtoVector label)
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

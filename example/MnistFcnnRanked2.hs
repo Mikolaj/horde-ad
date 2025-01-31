@@ -7,7 +7,7 @@ module MnistFcnnRanked2 where
 import Prelude
 
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..), inline)
+import GHC.Exts (inline)
 import GHC.TypeLits (Nat)
 
 import Data.Array.Nested qualified as Nested
@@ -75,13 +75,11 @@ afcnnMnistLoss2TensorData (datum, target) adparams =
 -- to the concrete data format.
 afcnnMnistLoss2
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => MnistData r -> ADFcnnMnist2Parameters target r
+  => MnistDataLinearR r -> ADFcnnMnist2Parameters target r
   -> target (TKR 0 r)
 afcnnMnistLoss2 (datum, target) =
-  let datum1 = rconcrete
-               $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) datum
-      target1 = rconcrete
-                $ Nested.rfromVector (fromList [sizeMnistLabelInt]) target
+  let datum1 = rconcrete datum
+      target1 = rconcrete target
   in afcnnMnistLoss2TensorData (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
@@ -89,19 +87,18 @@ afcnnMnistLoss2 (datum, target) =
 afcnnMnistTest2
   :: forall target r.
      (target ~ RepN, GoodScalar r, Differentiable r)
-  => [MnistData r]
+  => [MnistDataLinearR r]
   -> ADFcnnMnist2Parameters target r
   -> r
 afcnnMnistTest2 [] _ = 0
 afcnnMnistTest2 dataList testParams =
-  let matchesLabels :: MnistData r -> Bool
+  let matchesLabels :: MnistDataLinearR r -> Bool
       matchesLabels (glyph, label) =
-        let glyph1 = rconcrete
-                     $ Nested.rfromVector (fromList [sizeMnistGlyphInt]) glyph
+        let glyph1 = rconcrete glyph
             nn :: ADFcnnMnist2Parameters target r
                -> target (TKR 1 r)
             nn = inline afcnnMnist2 logistic softMax1 glyph1
             v = Nested.rtoVector $ unRepN $ nn testParams
-        in V.maxIndex v == V.maxIndex label
+        in V.maxIndex v == V.maxIndex (Nested.rtoVector label)
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

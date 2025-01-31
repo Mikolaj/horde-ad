@@ -70,6 +70,10 @@ type LengthTestData = 10000 :: Nat
 -- a simple default in tutorial.
 type MnistData r = (Vector r, Vector r)
 
+type MnistDataLinearR r =
+  ( Nested.Ranked 1 r
+  , Nested.Ranked 1 r )
+
 type MnistDataR r =
   ( Nested.Ranked 2 r
   , Nested.Ranked 1 r )
@@ -85,6 +89,14 @@ type MnistDataS r =
 type MnistDataBatchS batch_size r =
   ( Nested.Shaped '[batch_size, SizeMnistHeight, SizeMnistWidth] r
   , Nested.Shaped '[batch_size, SizeMnistLabel] r )
+
+mkMnistDataLinearR :: Nested.PrimElt r
+                   => MnistData r -> MnistDataLinearR r
+mkMnistDataLinearR (input, target) =
+  ( Nested.rfromVector
+      (sizeMnistGlyphInt :$: ZSR) input
+  , Nested.rfromVector
+      (sizeMnistLabelInt :$: ZSR) target )
 
 mkMnistDataR :: Nested.PrimElt r
              => MnistData r -> MnistDataR r
