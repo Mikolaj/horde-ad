@@ -122,20 +122,17 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
 
 revArtifactAdapt
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget RepN (Value astvals) )
+     ( TensorKind (X astvals), TensorKind z
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals )
   => Bool
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> Value astvals
+  -> FullTensorKind (X astvals)
   -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
-revArtifactAdapt hasDt f vals0 =
+revArtifactAdapt hasDt f ftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
-      valsTarget = toTarget @RepN vals0
-      ftk = tftk stensorKind valsTarget
   in revProduceArtifact hasDt g emptyEnv ftk
 {- TODO
 {-# SPECIALIZE revArtifactAdapt
@@ -143,7 +140,7 @@ revArtifactAdapt hasDt f vals0 =
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals)
      , TermValue astvals )
-  => Bool -> (astvals -> AstTensor AstMethodLet FullSpan n Double) -> Value astvals
+  => Bool -> (astvals -> AstTensor AstMethodLet FullSpan n Double) -> FullTensorKind (X astvals)
   -> (AstArtifactRev TKUntyped (TKR n Double), Delta (AstRaw PrimalSpan) (TKR n Double)) #-}
 -}
 

@@ -25,7 +25,7 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
-import Data.Array.Nested (pattern (:$:), pattern ZSR)
+import Data.Array.Nested (ShR (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
@@ -318,18 +318,20 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           dataInit = case chunksOf miniBatchSize testData of
-             d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN dglyph
-                         , RepN dlabel )
-             [] -> error "empty test data"
+           ftkData = FTKProduct (FTKR (miniBatchSize
+                                       :$: sizeMnistHeightInt
+                                       :$: sizeMnistWidthInt
+                                       :$: ZSR) FTKScalar)
+                                (FTKR (miniBatchSize
+                                       :$: sizeMnistLabelInt
+                                       :$: ZSR) FTKScalar)
            f :: ( ADRnnMnistParameters (AstTensor AstMethodLet FullSpan) r
                 , (AstTensor AstMethodLet FullSpan (TKR 3 r), AstTensor AstMethodLet FullSpan (TKR 2 r)) )
              -> AstTensor AstMethodLet FullSpan (TKR 0 r)
            f = \ (pars, (glyphR, labelR)) ->
              MnistRnnRanked2.rnnMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> ( RepN (X (ADRnnMnistParameters RepN r))
@@ -446,11 +448,12 @@ testRNNOPP = do
                    $ AstReplicate (SNat @1) stensorKind
                        (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
-                                                      Double
+                                      Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
-      (artifactRev, _) =
-        revArtifactAdapt True afcnn2T (valsInitRNNOPP 1 sizeMnistHeightI)
+      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN Double)))
+                       (toTarget @RepN $ valsInitRNNOPP 1 sizeMnistHeightI)
+      (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
     @?= "\\m12 m1 -> let m3 = tconcrete (FTKS [2,1] FTKScalar) (sfromListLinear [2,1] [0.0,0.0]) ; t4 = stranspose (sreplicate (sslice m3)) ; m5 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))))) * stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0))))) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t4)) ; t6 = stranspose (sreplicate (sslice m3)) ; m7 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))))) * stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0))))) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t6)) ; t8 = stranspose (sreplicate m7) ; t9 = stranspose (sreplicate (sslice m3)) ; m10 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject2 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) * t8) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1)))))) * t9)) ; t11 = stranspose (sreplicate (sslice (sappend m5 m10))) ; m13 = sappend (tconcrete (FTKS [1,1] FTKScalar) (sfromListLinear [1,1] [0.0])) (sappend (ssum (stranspose (stranspose (sreplicate (sfromR (tproject1 (tproject2 m1)))) * sreplicate (sfromR m12)))) (tconcrete (FTKS [0,1] FTKScalar) (sfromListLinear [0,1] []))) ; m14 = (tconcrete (FTKS [1,1] FTKScalar) (sfromListLinear [1,1] [1.0]) - m10 * m10) * sslice m13 ; t15 = sreplicate m14 ; t16 = sreplicate m14 ; m17 = (tconcrete (FTKS [1,1] FTKScalar) (sfromListLinear [1,1] [1.0]) - m7 * m7) * ssum (stranspose (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) * t16)) ; t18 = sreplicate m17 ; m19 = (tconcrete (FTKS [1,1] FTKScalar) (sfromListLinear [1,1] [1.0]) - m5 * m5) * sslice m13 ; t20 = sreplicate m19 in tpair (tpair (tpair (tpair (rfromS (ssum (stranspose (stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0)))) * sreplicate m19)) + ssum (stranspose (stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0)))) * sreplicate m17))), rfromS (ssum (stranspose (t4 * t20)) + ssum (stranspose (t6 * t18)))), rfromS (ssum (stranspose m19) + ssum (stranspose m17))), tpair (tpair (rfromS (ssum (stranspose (t8 * t16))), rfromS (ssum (stranspose (t9 * t15)))), rfromS (ssum (stranspose m14)))), tpair (rfromS (ssum (stranspose (t11 * sreplicate (sfromR m12)))), rfromS (ssum (stranspose (sfromR m12)))))"
   printArtifactPrimalPretty renames artifactRev
@@ -475,8 +478,9 @@ testRNNOPP2 = do
                                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
-      (artifactRev, _) =
-        revArtifactAdapt True afcnn2T (valsInitRNNOPP 2 sizeMnistHeightI)
+      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN Double)))
+                       (toTarget @RepN $ valsInitRNNOPP 2 sizeMnistHeightI)
+      (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
     @?= "\\m21 m1 -> let m4 = tconcrete (FTKS [4,2] FTKScalar) (sfromListLinear [4,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]) ; t5 = stranspose (sreplicate (sslice m4)) ; m6 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))))) * stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0))))) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t5)) ; t7 = stranspose (sreplicate (sslice m4)) ; m8 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))))) * stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0))))) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t7)) ; t9 = stranspose (sreplicate m8) ; t10 = stranspose (sreplicate (sslice m4)) ; m11 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject2 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) * t9) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1)))))) * t10)) ; m12 = sappend m6 m11 ; t13 = stranspose (sreplicate (sslice m12)) ; m14 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))))) * stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0))))) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t13)) ; t15 = stranspose (sreplicate (sslice m12)) ; m16 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))))) * stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0))))) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t15)) ; t17 = stranspose (sreplicate m16) ; t18 = stranspose (sreplicate (sslice m12)) ; m19 = tanh (stranspose (sreplicate (sfromR (tproject2 (tproject2 (tproject1 m1))))) + ssum (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) * t17) + ssum (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1)))))) * t18)) ; t20 = stranspose (sreplicate (sslice (sappend m14 m19))) ; m22 = sappend (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])) (sappend (ssum (stranspose (stranspose (sreplicate (sfromR (tproject1 (tproject2 m1)))) * sreplicate (sfromR m21)))) (tconcrete (FTKS [0,2] FTKScalar) (sfromListLinear [0,2] []))) ; m23 = (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m19 * m19) * sslice m22 ; t24 = sreplicate m23 ; t25 = sreplicate m23 ; m26 = (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m16 * m16) * ssum (stranspose (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) * t25)) ; t27 = sreplicate m26 ; m28 = (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m14 * m14) * sslice m22 ; t29 = sreplicate m28 ; m30 = sappend (tconcrete (FTKS [0,2] FTKScalar) (sfromListLinear [0,2] [])) (sappend (ssum (stranspose (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t29))) (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + sappend (tconcrete (FTKS [0,2] FTKScalar) (sfromListLinear [0,2] [])) (sappend (ssum (stranspose (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) * t27))) (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + sappend (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])) (sappend (ssum (stranspose (stranspose (sreplicate (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1)))))) * t24))) (tconcrete (FTKS [0,2] FTKScalar) (sfromListLinear [0,2] []))) ; m31 = (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m11 * m11) * sslice m30 ; t32 = sreplicate m31 ; t33 = sreplicate m31 ; m34 = (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m8 * m8) * ssum (stranspose (stranspose (sreplicate (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) * t33)) ; t35 = sreplicate m34 ; m36 = (tconcrete (FTKS [2,2] FTKScalar) (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) - m6 * m6) * sslice m30 ; t37 = sreplicate m36 in tpair (tpair (tpair (tpair (rfromS (ssum (stranspose (stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0)))) * sreplicate m36)) + ssum (stranspose (stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0)))) * sreplicate m34)) + ssum (stranspose (stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0)))) * sreplicate m28)) + ssum (stranspose (stranspose (sreplicate (sreplicate (sreplicate (sscalar 7.0)))) * sreplicate m26))), rfromS (ssum (stranspose (t5 * t37)) + ssum (stranspose (t7 * t35)) + ssum (stranspose (t13 * t29)) + ssum (stranspose (t15 * t27)))), rfromS (ssum (stranspose m36) + ssum (stranspose m34) + ssum (stranspose m28) + ssum (stranspose m26))), tpair (tpair (rfromS (ssum (stranspose (t9 * t33)) + ssum (stranspose (t17 * t25))), rfromS (ssum (stranspose (t10 * t32)) + ssum (stranspose (t18 * t24)))), rfromS (ssum (stranspose m31) + ssum (stranspose m23)))), tpair (rfromS (ssum (stranspose (t20 * sreplicate (sfromR m21)))), rfromS (ssum (stranspose (sfromR m21)))))"
   printArtifactPrimalPretty renames artifactRev

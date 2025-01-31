@@ -1068,7 +1068,7 @@ testSin0Scan1Rev2PPA = do
                  True
                  (\x0 -> rscan @_ @(TKScalar Double) (\x a -> sin x - a) x0
                            (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7])))
-                 (rscalar 1.1)
+                 (FTKR ZSR FTKScalar)
   printArtifactPretty IM.empty (simplifyArtifact art)
     @?= "\\v5 x1 -> rfromS (let v2 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sfromR v5 !$ [0] + tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice (sfromR v5), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> x1 v2)), v2)))))"
 
@@ -1079,7 +1079,7 @@ testSin0Scan1Rev2PPForComparison = do
         revArtifactAdapt
                  True
                  (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0])
-                 (rscalar 1.1)
+                 (FTKR ZSR FTKScalar)
   printArtifactPretty @_ @(TKR 1 Double) IM.empty (simplifyArtifact art)
     @?= "\\v3 x1 -> rfromS (cos (sfromR x1) * (cos (sin (sfromR x1) - sscalar 5.0) * sfromR v3 !$ [0]) + cos (sfromR x1) * sfromR v3 !$ [1] + sfromR v3 !$ [2])"
 

@@ -317,11 +317,13 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           dataInit = case chunksOf miniBatchSize testData of
-             d : _ -> let (dglyph, dlabel) = packBatchR d
-                      in ( RepN dglyph
-                         , RepN dlabel )
-             [] -> error "empty test data"
+           ftkData = FTKProduct (FTKR (miniBatchSize
+                                       :$: sizeMnistHeightInt
+                                       :$: sizeMnistWidthInt
+                                       :$: ZSR) FTKScalar)
+                                (FTKR (miniBatchSize
+                                       :$: sizeMnistLabelInt
+                                       :$: ZSR) FTKScalar)
            f :: ( MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan) r
                 , ( AstTensor AstMethodLet FullSpan (TKR 3 r)
                   , AstTensor AstMethodLet FullSpan (TKR 2 r) ) )
@@ -329,7 +331,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            f = \ (pars, (glyphR, labelR)) ->
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> ( RepN (XParams r)

@@ -15,7 +15,7 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
-import Data.Array.Nested (KnownShS (..))
+import Data.Array.Nested (KnownShS (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
@@ -323,11 +323,13 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        testData <- map rankBatch . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = packBatchR testData
-           dataInit = case chunksOf miniBatchSize trainData of
-             d : _ -> let (dglyph, dlabel) = packBatch d
-                      in ( RepN dglyph
-                         , RepN dlabel )
-             [] -> error "empty train data"
+           ftkData = FTKProduct (FTKS (batch_size
+                                       :$$ sizeMnistHeight
+                                       :$$ sizeMnistWidth
+                                       :$$ ZSS) FTKScalar)
+                                (FTKS (batch_size
+                                       :$$ sizeMnistLabel
+                                       :$$ ZSS) FTKScalar)
            f :: ( ADRnnMnistParametersShaped (AstTensor AstMethodLet FullSpan)
                     SizeMnistHeight width r
                 , ( AstTensor AstMethodLet FullSpan
@@ -338,7 +340,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
            f = \ (pars, (glyphS, labelS)) ->
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
-           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchS batch_size r]
               -> ( RepN (XParams width r)

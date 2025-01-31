@@ -321,6 +321,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
       valsInit = fst $ randomValue 1 (mkStdGen 44)
       targetInit :: RepN (XParams widthHidden widthHidden2 r)
       targetInit = toTarget @RepN valsInit
+      ftk = tftk @RepN (stensorKind @(XParams widthHidden widthHidden2 r))
+                       targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
@@ -339,13 +341,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- take (batchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let dataInit = case testData of
-             d : _ -> let (dglyph, dlabel) = d
-                      in ( RepN $ Nested.rfromVector
-                                    (sizeMnistGlyphInt :$: ZSR) dglyph
-                         , RepN $ Nested.rfromVector
-                                    (sizeMnistLabelInt :$: ZSR) dlabel )
-             [] -> error "empty test data"
+       let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
+                                (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
            f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
                     (AstTensor AstMethodLet FullSpan)
                     widthHidden widthHidden2 r
@@ -356,7 +353,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
              MnistFcnnRanked1.afcnnMnistLoss1TensorData
                widthHiddenSNat widthHidden2SNat
                (glyphR, labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+           (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
            art = simplifyArtifactGradient artRaw
            go :: [MnistData r]
               -> RepN (XParams widthHidden widthHidden2 r)
@@ -666,6 +663,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                       1 (mkStdGen 44)
       targetInit :: RepN (XParams2 r)
       targetInit = toTarget @RepN valsInit
+      ftk = tftk @RepN (stensorKind @(XParams2 r))
+                       targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -676,20 +675,16 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       ftest :: [MnistData r] -> MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
             -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2
-  in testCase name $ do
+  in
+   testCase name $ do
      hPutStrLn stderr $
        printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
               prefix epochs maxBatches
      trainData <- loadMnistData trainGlyphsPath trainLabelsPath
      testData <- take (batchSize * maxBatches)
                  <$> loadMnistData testGlyphsPath testLabelsPath
-     let dataInit = case testData of
-           d : _ -> let (dglyph, dlabel) = d
-                    in ( RepN $ Nested.rfromVector
-                                  (sizeMnistGlyphInt :$: ZSR) dglyph
-                       , RepN $ Nested.rfromVector
-                                  (sizeMnistLabelInt :$: ZSR) dlabel )
-           [] -> error "empty test data"
+     let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
+                              (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
          f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
                   (AstTensor AstMethodLet FullSpan) r
               , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
@@ -698,7 +693,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
          f = \ (pars, (glyphR, labelR)) ->
            MnistFcnnRanked2.afcnnMnistLoss2TensorData
              (glyphR, labelR) pars
-         (artRaw, _) = revArtifactAdapt False f (valsInit, dataInit)
+         (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
          art = simplifyArtifactGradient artRaw
          go :: [MnistData r]
             -> RepN (XParams2 r)
@@ -806,7 +801,9 @@ testVTOPP = do
       afcnn2T =
         MnistFcnnRanked1.afcnnMnist1 id id
                                      (SNat @3) (SNat @4) (sfromR blackGlyph)
-      (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVTOPP
+      ftk = tftk @RepN (stensorKind @(XParams 3 4 Double))
+                       (toTarget @RepN valsInitVTOPP)
+      (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
     @?= "\\v6 v1 -> let v4 = sfromVector (fromList [ssum (tproject1 (tproject1 (tproject1 (tproject1 v1))) * sreplicate (sscalar 7.0)), ssum (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1)))) * sreplicate (sscalar 7.0)), ssum (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) * sreplicate (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v5 = sfromVector (fromList [ssum (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v4), ssum (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v4), ssum (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v4), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v4)]) + tproject2 (tproject2 (tproject1 v1)) ; v7 = sreplicate (sfromR v6 !$ [9]) ; v8 = sreplicate (sfromR v6 !$ [8]) ; v9 = sreplicate (sfromR v6 !$ [7]) ; v10 = sreplicate (sfromR v6 !$ [6]) ; v11 = sreplicate (sfromR v6 !$ [5]) ; v12 = sreplicate (sfromR v6 !$ [4]) ; v13 = sreplicate (sfromR v6 !$ [3]) ; v14 = sreplicate (sfromR v6 !$ [2]) ; v15 = sreplicate (sfromR v6 !$ [1]) ; v16 = sreplicate (sfromR v6 !$ [0]) ; v17 = tproject1 (tproject1 (tproject2 v1)) * v16 + tproject1 (tproject2 (tproject1 (tproject2 v1))) * v15 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v14 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v13 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v12 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v11 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v10 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v9 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v8 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v7 ; v18 = sreplicate (v17 !$ [3]) ; v19 = sreplicate (v17 !$ [2]) ; v20 = sreplicate (v17 !$ [1]) ; v21 = sreplicate (v17 !$ [0]) ; v22 = tproject1 (tproject1 (tproject2 (tproject1 v1))) * v21 + tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v20 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v19 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v18 in tpair (tpair (tpair (tpair (sreplicate (sscalar 7.0) * sreplicate (v22 !$ [0]), tpair (sreplicate (sscalar 7.0) * sreplicate (v22 !$ [1]), tpair (sreplicate (sscalar 7.0) * sreplicate (v22 !$ [2]), Z0))), v22), tpair (tpair (v4 * v21, tpair (v4 * v20, tpair (v4 * v19, tpair (v4 * v18, Z0)))), v17)), tpair (tpair (v5 * v16, tpair (v5 * v15, tpair (v5 * v14, tpair (v5 * v13, tpair (v5 * v12, tpair (v5 * v11, tpair (v5 * v10, tpair (v5 * v9, tpair (v5 * v8, tpair (v5 * v7, Z0)))))))))), sfromR v6))"
   printArtifactPrimalPretty renames artifactRev
@@ -829,8 +826,9 @@ testVTOPPNonLin = do
       afcnn2TnonLin =
         MnistFcnnRanked1.afcnnMnist1 logisticS softMax1S
                                      (SNat @3) (SNat @4) (sfromR blackGlyph)
-      (artifactRevnonLin, _) =
-        revArtifactAdapt True afcnn2TnonLin valsInitVTOPP
+      ftk = tftk @RepN (stensorKind @(XParams 3 4 Double))
+                       (toTarget @RepN valsInitVTOPP)
+      (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk
   printArtifactPretty renames artifactRevnonLin
     @?= "\\v32 v1 -> let v11 = sfromVector (fromList [ssum (tproject1 (tproject1 (tproject1 (tproject1 v1))) * sreplicate (sscalar 7.0)), ssum (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1)))) * sreplicate (sscalar 7.0)), ssum (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) * sreplicate (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v12 = exp (negate v11) ; v13 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) + v12 ; v14 = recip v13 ; v15 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) - v14 ; v16 = v14 * v15 ; v18 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [0.0,0.0,0.0]) ; v19 = v14 + v18 ; v20 = sfromVector (fromList [ssum (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v19), ssum (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v19), ssum (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v19), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v19)]) + tproject2 (tproject2 (tproject1 v1)) ; v21 = exp (negate v20) ; v22 = tconcrete (FTKS [4] FTKScalar) (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + v21 ; v23 = recip v22 ; v24 = tconcrete (FTKS [4] FTKScalar) (sfromListLinear [4] [1.0,1.0,1.0,1.0]) - v23 ; v25 = v23 * v24 ; v27 = tconcrete (FTKS [4] FTKScalar) (sfromListLinear [4] [0.0,0.0,0.0,0.0]) ; v28 = v23 + v27 ; v29 = exp (sfromVector (fromList [ssum (tproject1 (tproject1 (tproject2 v1)) * v28), ssum (tproject1 (tproject2 (tproject1 (tproject2 v1))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v28), ssum (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v28)]) + tproject2 (tproject2 v1)) ; x30 = ssum v29 ; v31 = sreplicate (recip x30) ; v33 = v29 * (sreplicate (negate (recip (x30 * x30)) * ssum (v29 * sfromR v32)) + v31 * sfromR v32) ; v34 = sreplicate (v33 !$ [9]) ; v35 = sreplicate (v33 !$ [8]) ; v36 = sreplicate (v33 !$ [7]) ; v37 = sreplicate (v33 !$ [6]) ; v38 = sreplicate (v33 !$ [5]) ; v39 = sreplicate (v33 !$ [4]) ; v40 = sreplicate (v33 !$ [3]) ; v41 = sreplicate (v33 !$ [2]) ; v42 = sreplicate (v33 !$ [1]) ; v43 = sreplicate (v33 !$ [0]) ; v44 = v25 * (tproject1 (tproject1 (tproject2 v1)) * v43 + tproject1 (tproject2 (tproject1 (tproject2 v1))) * v42 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v41 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v40 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v39 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v38 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v37 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v36 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v35 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v34) ; v45 = sreplicate (v44 !$ [3]) ; v46 = sreplicate (v44 !$ [2]) ; v47 = sreplicate (v44 !$ [1]) ; v48 = sreplicate (v44 !$ [0]) ; v49 = v16 * (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v48 + tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v47 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v46 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v45) in tpair (tpair (tpair (tpair (sreplicate (sscalar 7.0) * sreplicate (v49 !$ [0]), tpair (sreplicate (sscalar 7.0) * sreplicate (v49 !$ [1]), tpair (sreplicate (sscalar 7.0) * sreplicate (v49 !$ [2]), Z0))), v49), tpair (tpair (v19 * v48, tpair (v19 * v47, tpair (v19 * v46, tpair (v19 * v45, Z0)))), v44)), tpair (tpair (v28 * v43, tpair (v28 * v42, tpair (v28 * v41, tpair (v28 * v40, tpair (v28 * v39, tpair (v28 * v38, tpair (v28 * v37, tpair (v28 * v36, tpair (v28 * v35, tpair (v28 * v34, Z0)))))))))), v33))"
   printArtifactPrimalPretty renames artifactRevnonLin
@@ -863,7 +861,9 @@ testVT2OPP = do
                    (AstTensor AstMethodLet FullSpan) Double
               -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
-      (artifactRev, _) = revArtifactAdapt True afcnn2T valsInitVT2OPP
+      ftk = tftk @RepN (stensorKind @(XParams2 Double))
+                       (toTarget @RepN valsInitVT2OPP)
+      (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
     @?= "\\v7 m1 -> let m5 = stranspose (sreplicate (scast (ssum (stranspose (sreplicate (sreplicate (sscalar 7.0))) * stranspose (sfromR (tproject1 (tproject1 (tproject1 m1))))) + sfromR (tproject2 (tproject1 (tproject1 m1)))))) ; m6 = stranspose (sreplicate (scast (ssum (m5 * stranspose (sfromR (tproject1 (tproject2 (tproject1 m1)))))) + sfromR (tproject2 (tproject2 (tproject1 m1))))) ; v8 = ssum (stranspose (stranspose (sfromR (tproject1 (tproject2 m1))) * sreplicate (sfromR v7))) ; m9 = sreplicate (scast v8) ; v10 = scast (ssum (stranspose (stranspose (sfromR (tproject1 (tproject2 (tproject1 m1)))) * m9))) in tpair (tpair (tpair (rfromS (stranspose (stranspose (sreplicate (sreplicate (sscalar 7.0))) * sreplicate v10)), rfromS v10), tpair (rfromS (stranspose (m5 * m9)), rfromS v8)), tpair (rfromS (stranspose (m6 * sreplicate (sfromR v7))), rfromS (sfromR v7)))"
   printArtifactPrimalPretty renames artifactRev
@@ -910,8 +910,9 @@ testVT2OPPNonLin2 = do
                          (AstTensor AstMethodLet FullSpan) Double
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
-  let (artifactRevnonLin, _) =
-        revArtifactAdapt True afcnn2TnonLin valsInitVT2OPP
+      ftk = tftk @RepN (stensorKind @(XParams2 Double))
+                       (toTarget @RepN valsInitVT2OPP)
+      (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk
   printArtifactPretty renames artifactRevnonLin
     @?= "\\v33 m1 -> let v12 = ssum (stranspose (sreplicate (sreplicate (sscalar 7.0))) * stranspose (sfromR (tproject1 (tproject1 (tproject1 m1))))) + sfromR (tproject2 (tproject1 (tproject1 m1))) ; v13 = exp (negate v12) ; v14 = sreplicate (sscalar 1.0) + v13 ; v15 = recip v14 ; v16 = sreplicate (sscalar 1.0) - v15 ; v17 = v15 * v16 ; v19 = tconcrete (FTKS [4] FTKScalar) (sfromListLinear [4] [0.0,0.0,0.0,0.0]) ; m20 = stranspose (sreplicate (scast (v15 + v19))) ; v21 = scast (ssum (m20 * stranspose (sfromR (tproject1 (tproject2 (tproject1 m1)))))) + sfromR (tproject2 (tproject2 (tproject1 m1))) ; v22 = exp (negate v21) ; v23 = sreplicate (sscalar 1.0) + v22 ; v24 = recip v23 ; v25 = sreplicate (sscalar 1.0) - v24 ; v26 = v24 * v25 ; v28 = tconcrete (FTKS [5] FTKScalar) (sfromListLinear [5] [0.0,0.0,0.0,0.0,0.0]) ; m29 = stranspose (sreplicate (v24 + v28)) ; v30 = exp (ssum (m29 * stranspose (sfromR (tproject1 (tproject2 m1)))) + sfromR (tproject2 (tproject2 m1))) ; x31 = ssum v30 ; v32 = sreplicate (recip x31) ; v34 = v30 * (sreplicate (negate (recip (x31 * x31)) * ssum (v30 * sfromR v33)) + v32 * sfromR v33) ; m35 = sreplicate v34 ; v36 = ssum (stranspose (stranspose (sfromR (tproject1 (tproject2 m1))) * m35)) ; v37 = v26 * v36 ; m38 = sreplicate (scast v37) ; v39 = scast (ssum (stranspose (stranspose (sfromR (tproject1 (tproject2 (tproject1 m1)))) * m38))) ; v40 = v17 * v39 in tpair (tpair (tpair (rfromS (stranspose (stranspose (sreplicate (sreplicate (sscalar 7.0))) * sreplicate v40)), rfromS v40), tpair (rfromS (stranspose (m20 * m38)), rfromS v37)), tpair (rfromS (stranspose (m29 * m35)), rfromS v34))"
   printArtifactPrimalPretty renames artifactRevnonLin
