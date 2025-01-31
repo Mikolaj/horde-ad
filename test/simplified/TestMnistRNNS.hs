@@ -80,11 +80,11 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
-       trainData <- map shapeBatch
+       trainData <- map mkMnistDataS
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map rankBatch . take (totalBatchSize * maxBatches)
+       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = packBatchR testData
+       let testDataR = mkMnistDataBatchR testData
            runBatch :: ( RepN (XParams width r)
                        , StateAdamDeep (XParams width r) )
                     -> (Int, [MnistDataS r])
@@ -98,14 +98,14 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (sconcrete glyphS, sconcrete labelS)
                      (fromTarget @(ADVal RepN) adinputs)
-                 chunkS = map packBatch
+                 chunkS = map mkMnistDataBatchS
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
                    ( Nested.stoRanked glyphs
                    , Nested.stoRanked labels )
-                 chunkDataR = packBatchR $ map smnistRFromS chunk
+                 chunkDataR = mkMnistDataBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
                  !testScore =
@@ -192,12 +192,12 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
-       trainData <- map shapeBatch
+       trainData <- map mkMnistDataS
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map rankBatch . take (totalBatchSize * maxBatches)
+       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, _, var, hVector) <- funToAstRevIO ftk
-       let testDataR = packBatchR testData
+       let testDataR = mkMnistDataBatchR testData
        (varGlyph, astGlyph) <-
          funToAstIO (FTKS knownShS FTKScalar {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-}) id
        (varLabel, astLabel) <-
@@ -220,14 +220,14 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                        envMnist = extendEnv varGlyph (sconcrete glyph)
                                   $ extendEnv varLabel (sconcrete label) env
                    in interpretAst envMnist ast
-                 chunkS = map packBatch
+                 chunkS = map mkMnistDataBatchS
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchS batch_size r) @(XParams width r) f chunkS parameters stateAdam
                  smnistRFromS (glyphs, labels) =
                    ( Nested.stoRanked glyphs
                    , Nested.stoRanked labels )
-                 chunkDataR = packBatchR $ map smnistRFromS chunk
+                 chunkDataR = mkMnistDataBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
                  !testScore =
@@ -318,11 +318,11 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
-       trainData <- map shapeBatch
+       trainData <- map mkMnistDataS
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map rankBatch . take (totalBatchSize * maxBatches)
+       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = packBatchR testData
+       let testDataR = mkMnistDataBatchR testData
            ftkData = FTKProduct (FTKS (batch_size
                                        :$$ sizeMnistHeight
                                        :$$ sizeMnistWidth
@@ -363,14 +363,14 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                     -> IO ( RepN (XParams width r)
                           , StateAdamDeep (XParams width r) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let chunkS = map packBatch
+             let chunkS = map mkMnistDataBatchS
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = go chunkS (parameters, stateAdam)
                  smnistRFromS (glyphs, labels) =
                    ( Nested.stoRanked glyphs
                    , Nested.stoRanked labels )
-                 chunkDataR = packBatchR $ map smnistRFromS chunk
+                 chunkDataR = mkMnistDataBatchR $ map smnistRFromS chunk
                  !trainScore =
                    ftest (length chunk) chunkDataR parameters2
                  !testScore =

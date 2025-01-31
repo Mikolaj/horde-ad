@@ -80,11 +80,11 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
-       trainData <- map rankBatch
+       trainData <- map mkMnistDataR
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map rankBatch . take (totalBatchSize * maxBatches)
+       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = packBatchR testData
+       let testDataR = mkMnistDataBatchR testData
            runBatch :: ( RepN (XParams r)
                        , StateAdamDeep (XParams r) )
                     -> (Int, [MnistDataR r])
@@ -98,12 +98,12 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
                      (fromTarget adinputs)
-                 chunkR = map packBatchR
+                 chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdamDeep f chunkR parameters stateAdam
                  !trainScore =
-                   ftest (length chunk) (packBatchR chunk) parameters2
+                   ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
@@ -190,12 +190,12 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
-       trainData <- map rankBatch
+       trainData <- map mkMnistDataR
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map rankBatch . take (totalBatchSize * maxBatches)
+       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        (_, _, var, hVector2) <- funToAstRevIO ftk
-       let testDataR = packBatchR testData
+       let testDataR = mkMnistDataBatchR testData
        (varGlyph, astGlyph) <-
          funToAstIO
            (FTKR (miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) FTKScalar)
@@ -220,12 +220,12 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                        envMnist = extendEnv varGlyph (rconcrete glyph)
                                   $ extendEnv varLabel (rconcrete label) env
                    in interpretAst envMnist ast
-                 chunkR = map packBatchR
+                 chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = sgdAdamDeep f chunkR parameters stateAdam
                  !trainScore =
-                   ftest (length chunk) (packBatchR chunk) parameters2
+                   ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk
@@ -312,11 +312,11 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
-       trainData <- map rankBatch
+       trainData <- map mkMnistDataR
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map rankBatch . take (totalBatchSize * maxBatches)
+       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = packBatchR testData
+       let testDataR = mkMnistDataBatchR testData
            ftkData = FTKProduct (FTKR (miniBatchSize
                                        :$: sizeMnistHeightInt
                                        :$: sizeMnistWidthInt
@@ -354,12 +354,12 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                     -> IO ( RepN (XParams r)
                           , StateAdamDeep (XParams r) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let chunkR = map packBatchR
+             let chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = go chunkR (parameters, stateAdam)
                  !trainScore =
-                   ftest (length chunk) (packBatchR chunk) parameters2
+                   ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
                  !testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
                  !lenChunk = length chunk

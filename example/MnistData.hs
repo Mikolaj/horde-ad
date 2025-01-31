@@ -86,35 +86,35 @@ type MnistDataBatchR r =
   ( Nested.Ranked 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
   , Nested.Ranked 2 r )  -- [batch_size, SizeMnistLabel]
 
-shapeBatch :: Nested.PrimElt r
-           => MnistData r -> MnistDataS r
-shapeBatch (input, target) =
+mkMnistDataS :: Nested.PrimElt r
+             => MnistData r -> MnistDataS r
+mkMnistDataS (input, target) =
   (Nested.sfromVector knownShS input, Nested.sfromVector knownShS target)
-{-# SPECIALIZE shapeBatch :: MnistData Double -> MnistDataS Double #-}
-{-# SPECIALIZE shapeBatch :: MnistData Float -> MnistDataS Float #-}
+{-# SPECIALIZE mkMnistDataS :: MnistData Double -> MnistDataS Double #-}
+{-# SPECIALIZE mkMnistDataS :: MnistData Float -> MnistDataS Float #-}
 
-packBatch :: forall batch_size r. (Nested.Elt r, KnownNat batch_size)
-          => [MnistDataS r] -> MnistDataBatchS batch_size r
-packBatch l =
+mkMnistDataBatchS :: forall batch_size r. (Nested.Elt r, KnownNat batch_size)
+                  => [MnistDataS r] -> MnistDataBatchS batch_size r
+mkMnistDataBatchS l =
   let (inputs, targets) = unzip l
   in ( Nested.sfromListOuter (SNat @batch_size)
        $ NonEmpty.fromList inputs
      , Nested.sfromListOuter (SNat @batch_size)
        $ NonEmpty.fromList targets )
-{-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
-{-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
+{-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
+{-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
 
-rankBatch :: Nested.PrimElt r
-          => MnistData r -> MnistDataR r
-rankBatch (input, target) =
+mkMnistDataR :: Nested.PrimElt r
+             => MnistData r -> MnistDataR r
+mkMnistDataR (input, target) =
   ( Nested.rfromVector
       (sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) input
   , Nested.rfromVector
       (sizeMnistLabelInt :$: ZSR) target )
 
-packBatchR :: Nested.Elt r
-           => [MnistDataR r] -> MnistDataBatchR r
-packBatchR l =
+mkMnistDataBatchR :: Nested.Elt r
+                  => [MnistDataR r] -> MnistDataBatchR r
+mkMnistDataBatchR l =
   let (inputs, targets) = unzip l
   in ( Nested.rfromListOuter $ NonEmpty.fromList inputs
      , Nested.rfromListOuter $ NonEmpty.fromList targets )

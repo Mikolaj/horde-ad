@@ -428,23 +428,23 @@ convMnistTestCaseCNNT kheight_minus_1@SNat kwidth_minus_1@SNat
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                               prefix epochs maxBatches
-    trainData <- map shapeBatch
+    trainData <- map mkMnistDataS
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- take 100  -- TODO: reduced for now, because too slow
-                . map shapeBatch
+                . map mkMnistDataS
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let testDataS = packBatch @100 testData  -- TODO: @LengthTestData
+    let testDataS = mkMnistDataBatchS @100 testData  -- TODO: @LengthTestData
         -- There is some visual feedback, because some of these take long.
         runBatch :: HVector r
                  -> (Int, [MnistDataS r])
                  -> IO (HVector r)
         runBatch !parameters (k, chunk) = do
-          let chunkS = map (packBatch @batch_size)
+          let chunkS = map (mkMnistDataBatchS @batch_size)
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
               res = fst $ sgd gamma ftrain chunkS parameters
               !trainScore = ftest (SNat @(10 * batch_size))
-                                  (packBatch @(10 * batch_size) chunk)
+                                  (mkMnistDataBatchS @(10 * batch_size) chunk)
                                   res
               !testScore = ftest (SNat @100) testDataS res
               !lenChunk = length chunk
@@ -538,24 +538,24 @@ convMnistTestCaseCNNO kheight_minus_1@SNat kwidth_minus_1@SNat
                         , show batchSize
                         , show nParamsX, show totalParams
                         , show gamma, show range ]
-      packBatchS :: [( OS.Array '[in_height, in_width] r
+      mkMnistDataBatchSS :: [( OS.Array '[in_height, in_width] r
                     , OS.Array '[SizeMnistLabel] r )]
                 -> ( OS.Array '[batch_size, in_height, in_width] r
                    , OS.Array '[batch_size, SizeMnistLabel] r )
-      packBatchS l =
+      mkMnistDataBatchSS l =
         let (inputs, targets) = unzip l
         in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
-      shapeBatchS :: MnistData r
+      mkMnistDataSS :: MnistData r
                   -> ( OS.Array '[in_height, in_width] r
                      , OS.Array '[SizeMnistLabel] r )
-      shapeBatchS (input, target) = (OS.fromVector input, OS.fromVector target)
+      mkMnistDataSS (input, target) = (OS.fromVector input, OS.fromVector target)
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
            prefix epochs maxBatches
-    trainData <- map shapeBatchS
+    trainData <- map mkMnistDataSS
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- take 100  -- TODO: reduced for now, because too slow
-                . map shapeBatchS
+                . map mkMnistDataSS
                 <$> loadMnistData testGlyphsPath testLabelsPath
      -- There is some visual feedback, because some of these take long.
     let runBatch :: HVector r
@@ -567,7 +567,7 @@ convMnistTestCaseCNNO kheight_minus_1@SNat kwidth_minus_1@SNat
                                 in_height in_width
                                 out_channels
                                 n_hidden batch_size
-              chunkS = map packBatchS
+              chunkS = map mkMnistDataBatchSS
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
               res = fst $ sgd gamma f chunkS parameters
@@ -791,7 +791,7 @@ comparisonTests volume =
                                         sizeMnistHeight sizeMnistWidth
                  )
                    (SNat @1)
-                   (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
+                   (mkMnistDataBatchS @1 [mkMnistDataS $ first LA.flatten mnistData])
             fS adinputs =
               withSNat num_hidden  -- reverse order than args below
               $ withSNat depth
@@ -804,7 +804,7 @@ comparisonTests volume =
                        (SNat @4) (SNat @4)
                        c_out n_hidden
                        (SNat @1)
-                       (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
+                       (mkMnistDataBatchS @1 [mkMnistDataS $ first LA.flatten mnistData])
                        (parseADInputs valsInit adinputs)
             paramsToT (HVector p0 p1 p2 _) =
               let qX = V.fromList
