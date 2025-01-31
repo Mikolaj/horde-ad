@@ -136,7 +136,7 @@ toADTensorKindW t = case t of
 
 fromADTensorKindW
   :: forall y target. BaseTensor target
-  => STensorKindType y -> RepW target (ADTensorKind y) -> RepW target y
+  => STensorKind y -> RepW target (ADTensorKind y) -> RepW target y
 fromADTensorKindW stk t = case (stk, t) of
   (STKScalar @r1 _, WTKScalar @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
@@ -158,7 +158,7 @@ fromADTensorKindW stk t = case (stk, t) of
     | Dict <- lemTensorKindOfSTK stk1
     , Dict <- lemTensorKindOfSTK stk2 ->
       WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
-  _ -> error "fromADTensorKindW: impossible STensorKindType"
+  _ -> error "fromADTensorKindW: impossible STensorKind"
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -196,7 +196,7 @@ type family UnWind y where
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
 
-unWindSTK :: STensorKindType y -> STensorKindType (UnWind y)
+unWindSTK :: STensorKind y -> STensorKind (UnWind y)
 unWindSTK = \case
   stk@STKScalar{} -> stk
   stk@(STKR _ STKScalar{}) -> stk
@@ -281,7 +281,7 @@ unWindFTK = \case
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
 unWindTarget :: BaseTensor target
-             => STensorKindType y -> target y -> RepW target (UnWind y)
+             => STensorKind y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
   STKScalar{} -> WTKScalar t
   STKR SNat STKScalar{} -> WTKR t
@@ -339,7 +339,7 @@ unWindTarget stk t = case stk of
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
 
 windTarget :: BaseTensor target
-           => STensorKindType y -> RepW target (UnWind y) -> target y
+           => STensorKind y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
   (STKScalar{}, WTKScalar v) -> v
   (STKR _ STKScalar{}, WTKR v) -> v
@@ -400,7 +400,7 @@ windTarget stk t = case (stk, t) of
 -- * Operations defined using unwinding
 
 addTarget :: BaseTensor target
-          => STensorKindType y -> target y -> target y -> target y
+          => STensorKind y -> target y -> target y -> target y
 addTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
@@ -411,20 +411,20 @@ constantTarget :: forall y target. BaseTensor target
 constantTarget r ftk =
   windTarget (ftkToStk ftk) $ constantRepW r (unWindFTK ftk)
 
-lemUnWindOfAD :: STensorKindType y
+lemUnWindOfAD :: STensorKind y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
 lemUnWindOfAD _ = unsafeCoerceRefl
 
 toADTensorKindShared  -- TODO: does not require Shared now
   :: BaseTensor target
-  => STensorKindType y -> target y
+  => STensorKind y -> target y
   -> target (ADTensorKind y)
 toADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
   windTarget (aDSTK stk) $ toADTensorKindW $ unWindTarget stk a
 
 fromADTensorKindShared  -- TODO: does not require Shared now
   :: BaseTensor target
-  => STensorKindType y -> target (ADTensorKind y)
+  => STensorKind y -> target (ADTensorKind y)
   -> target y
 fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
   windTarget stk

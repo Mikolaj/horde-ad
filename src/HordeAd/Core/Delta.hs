@@ -201,17 +201,17 @@ data Delta :: Target -> TensorKindType -> Type where
   DeltaProject2 :: (TensorKind x, TensorKind z)
                 => Delta target (TKProduct x z) -> Delta target z
   DeltaFromVector :: TensorKind y  -- needed for the Show instance
-                  => SNat k -> STensorKindType y
+                  => SNat k -> STensorKind y
                   -> Data.Vector.Vector (Delta target y)
                   -> Delta target (BuildTensorKind k y)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   DeltaSum :: forall y k target.
               TensorKind (BuildTensorKind k y)  -- needed for the Show instance
-           => SNat k -> STensorKindType y
+           => SNat k -> STensorKind y
            -> Delta target (BuildTensorKind k y)
            -> Delta target y
   DeltaReplicate :: TensorKind y  -- needed for the Show instance
-                 => SNat k -> STensorKindType y
+                 => SNat k -> STensorKind y
                  -> Delta target y
                  -> Delta target (BuildTensorKind k y)
     -- ^ Copy the given tensor along the new, outermost dimension.
@@ -624,7 +624,7 @@ ftkDelta = \case
     FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   DeltaFromS @_ @z d ->
-    let fromS :: FullTensorKind y2 -> STensorKindType z2 -> FullTensorKind z2
+    let fromS :: FullTensorKind y2 -> STensorKind z2 -> FullTensorKind z2
         fromS ftk stk = case (ftk, stk) of
           _ | Just Refl <- sameSTK (ftkToStk ftk) stk -> ftk
           (FTKS ZSS (FTKScalar @r), STKScalar tr) ->

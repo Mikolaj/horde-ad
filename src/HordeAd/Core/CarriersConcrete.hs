@@ -167,9 +167,9 @@ type family RepORArray (y :: TensorKindType) where
   RepORArray (TKX2 sh x) = Nested.Mixed sh (RepORArray x)
   RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
 
-tftkG :: STensorKindType y -> RepORArray y -> FullTensorKind y
+tftkG :: STensorKind y -> RepORArray y -> FullTensorKind y
 tftkG stk t =
-  let repackShapeTree :: STensorKindType y -> Mixed.ShapeTree (RepORArray y)
+  let repackShapeTree :: STensorKind y -> Mixed.ShapeTree (RepORArray y)
                       -> FullTensorKind y
       repackShapeTree stk0 tree = case stk0 of
         STKScalar _ -> FTKScalar
@@ -199,7 +199,7 @@ tftkG stk t =
       FTKProduct (tftkG stk1 (fst t))
                  (tftkG stk2 (snd t))
 
-eltDictRep :: STensorKindType y -> Dict Nested.KnownElt (RepORArray y)
+eltDictRep :: STensorKind y -> Dict Nested.KnownElt (RepORArray y)
 eltDictRep = \case
     STKScalar{} -> Dict
     STKR SNat x | Dict <- eltDictRep x -> Dict
@@ -208,7 +208,7 @@ eltDictRep = \case
     STKProduct stk1 stk2 | Dict <- eltDictRep stk1
                          , Dict <- eltDictRep stk2 -> Dict
 
-showDictRep :: STensorKindType y -> Dict Show (RepORArray y)
+showDictRep :: STensorKind y -> Dict Show (RepORArray y)
 showDictRep = \case
     STKScalar{} -> Dict
     STKR _ x | Dict <- showDictRep x
@@ -220,7 +220,7 @@ showDictRep = \case
     STKProduct stk1 stk2 | Dict <- showDictRep stk1
                          , Dict <- showDictRep stk2 -> Dict
 
-nfdataDictRep :: STensorKindType y -> Dict NFData (RepORArray y)
+nfdataDictRep :: STensorKind y -> Dict NFData (RepORArray y)
 nfdataDictRep = \case
     STKScalar{} -> Dict
     STKR _ x | Dict <- nfdataDictRep x

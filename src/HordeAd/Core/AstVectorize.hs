@@ -530,7 +530,7 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
 
 astTrBuild
   :: forall k1 k2 s y. (AstSpan s, KnownNat k1, KnownNat k2)
-  => STensorKindType y
+  => STensorKind y
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrBuild stk t = case stk of
@@ -557,7 +557,7 @@ astTrBuild stk t = case stk of
         in astPair (astTrBuild @k1 @k2 stk1 u1) (astTrBuild @k1 @k2 stk2 u2)
 
 astIndexBuild :: forall y k s. AstSpan s
-              => SNat k -> STensorKindType y
+              => SNat k -> STensorKind y
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y

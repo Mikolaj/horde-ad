@@ -141,7 +141,7 @@ type family Tups n t where
   Tups n t = TKProduct t (Tups (n - 1) t)
 
 stkOfListR :: forall t n.
-              STensorKindType t -> SNat n -> STensorKindType (Tups n t)
+              STensorKind t -> SNat n -> STensorKind (Tups n t)
 stkOfListR _ (SNat' @0) = stensorKind
 stkOfListR stk SNat =
   gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $

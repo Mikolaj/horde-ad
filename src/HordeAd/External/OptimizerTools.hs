@@ -96,7 +96,7 @@ type family Triplify y where
   Triplify (TKProduct x z) = TKProduct (Triplify x) (Triplify z)
 
 unzip3Rep
-  :: STensorKindType y -> RepN (Triplify y)
+  :: STensorKind y -> RepN (Triplify y)
   -> (RepN y, RepN y, RepN y)
 unzip3Rep stk (RepN t) = case stk of
   STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
@@ -162,7 +162,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                  / (sqrt vANew
                     + Nested.rreplicateScal sh (realToFrac epsilon)) )
       updateProd :: forall y2.
-                    STensorKindType y2
+                    STensorKind y2
                  -> RepN y2 -> RepN y2
                  -> RepN y2 -> RepN (ADTensorKind y2)
                  -> RepN (Triplify y2)

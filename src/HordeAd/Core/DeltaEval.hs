@@ -147,7 +147,7 @@ newtype Cotangent target y =
 -- It also makes (an insignificant) case of addTensorOrZero cheaper.
 type role TensorOrZero nominal nominal
 data TensorOrZero target y =
-    Tensor (STensorKindType y) (target y)
+    Tensor (STensorKind y) (target y)
   | Zero (FullTensorKind y)
   deriving Show
 

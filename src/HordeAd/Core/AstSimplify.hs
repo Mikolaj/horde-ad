@@ -375,7 +375,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (let unFrom :: STensorKindType x
+  (let unFrom :: STensorKind x
               -> AstTensor AstMethodLet s y
               -> Maybe (AstTensor AstMethodLet s x)
        unFrom stkx (Ast.AstFromS _ t) =
@@ -394,7 +394,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
      Nothing -> error "astFromVector: empty vector")
 
 astSum :: forall y k s. AstSpan s
-       => SNat k -> STensorKindType y
+       => SNat k -> STensorKind y
        -> AstTensor AstMethodLet s (BuildTensorKind k y)
        -> AstTensor AstMethodLet s y
 astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
@@ -455,7 +455,7 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
     _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall y k s. AstSpan s
-             => SNat k -> STensorKindType y
+             => SNat k -> STensorKind y
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astReplicate snat@SNat stk
@@ -585,7 +585,7 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
       esShsFrom = ftkAst esFrom
       esShsFromStk = ftkToStk esShsFrom
   in case razeSTK esShsFromStk of
-    (eShsFromStk :: STensorKindType eShsFrom)
+    (eShsFromStk :: STensorKind eShsFrom)
      | Dict <- lemTensorKindOfSTK eShsFromStk
      , Dict <- lemTensorKindOfAD eShsFromStk ->
       gcastWith (unsafeCoerceRefl
@@ -737,7 +737,7 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
       esShsFrom = ftkAst esFrom
       esShsFromStk = ftkToStk esShsFrom
   in case razeSTK esShsFromStk of
-    (eShsFromStk :: STensorKindType eShsFrom)
+    (eShsFromStk :: STensorKind eShsFrom)
      | Dict <- lemTensorKindOfSTK eShsFromStk
      , Dict <- lemTensorKindOfAD eShsFromStk ->
       gcastWith (unsafeCoerceRefl
@@ -1077,7 +1077,7 @@ astDualPart t = case t of
   Ast.AstMatmul2S{} -> Ast.AstDualPart t
 
 astSumOfList :: AstSpan s
-             => STensorKindType y
+             => STensorKind y
              -> [AstTensor AstMethodLet s y]
              -> AstTensor AstMethodLet s y
 astSumOfList stk l = case stk of
@@ -2230,7 +2230,7 @@ astUnNestS t = case t of
   _ -> Ast.AstUnNestS t
 
 astFromS :: forall y z s.
-            STensorKindType z -> AstTensor AstMethodLet s y
+            STensorKind z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstFromPrimal v) | Dict <- lemTensorKindOfSTK stkz =
@@ -2250,7 +2250,7 @@ astFromS stkz v = Ast.AstFromS stkz v
 
 -- Compare with tfromS.
 astSFrom :: forall y z s. AstSpan s
-         => STensorKindType z -> AstTensor AstMethodLet s y
+         => STensorKind z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astSFrom stkz (Ast.AstFromS _ v)  -- shortcut
          | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v

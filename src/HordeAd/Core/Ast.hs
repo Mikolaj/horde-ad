@@ -228,11 +228,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                 => SNat k -> Data.Vector.Vector (AstTensor ms s y)
                 -> AstTensor ms s (BuildTensorKind k y)
   AstSum :: forall y k ms s.
-            SNat k -> STensorKindType y
+            SNat k -> STensorKind y
          -> AstTensor ms s (BuildTensorKind k y)
          -> AstTensor ms s y
   AstReplicate :: forall y k ms s.
-                  SNat k -> STensorKindType y
+                  SNat k -> STensorKind y
                -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
   AstMapAccumRDer
@@ -300,7 +300,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               => AstTensor ms DualSpan y -> AstTensor ms FullSpan y
 
   -- Extra constructors for optimization of arithmetic
-  AstSumOfList :: STensorKindType y -> [AstTensor ms s y] -> AstTensor ms s y
+  AstSumOfList :: STensorKind y -> [AstTensor ms s y] -> AstTensor ms s y
 
   -- Scalar arithmetic
   AstN1K :: GoodScalar r
@@ -409,7 +409,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
 
   -- Conversions
   AstFromS :: forall y z ms s.
-              STensorKindType z -> AstTensor ms s y -> AstTensor ms s z
+              STensorKind z -> AstTensor ms s y -> AstTensor ms s z
   AstSFromK :: GoodScalar r
             => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
   AstSFromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
@@ -418,10 +418,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
             => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 
   -- Backend-specific primitives
-  AstReplicate0NS :: ShS sh -> STensorKindType x
+  AstReplicate0NS :: ShS sh -> STensorKind x
                   -> AstTensor ms s (TKS2 '[] x)
                   -> AstTensor ms s (TKS2 sh x)
-  AstSum0S :: ShS sh -> STensorKindType x
+  AstSum0S :: ShS sh -> STensorKind x
            -> AstTensor ms s (TKS2 sh x)
            -> AstTensor ms s (TKS2 '[] x)
   AstDot0S :: GoodScalar r

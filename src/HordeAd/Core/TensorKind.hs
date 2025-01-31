@@ -5,7 +5,7 @@
 -- | Various singletons for tensors and their associated constraints and lemmas.
 module HordeAd.Core.TensorKind
   ( -- * Singletons
-    STensorKindType(..), TensorKind(..)
+    STensorKind(..), TensorKind(..)
   , withTensorKind, lemTensorKindOfSTK, sameTensorKind, sameSTK
   , stkUnit, buildSTK, razeSTK, aDSTK
   , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
@@ -44,20 +44,20 @@ import HordeAd.Core.Types
 
 -- * Singletons
 
-type role STensorKindType nominal
-data STensorKindType y where
+type role STensorKind nominal
+data STensorKind y where
   STKScalar :: GoodScalar r
-            => TypeRep r -> STensorKindType (TKScalar r)
-  STKR :: SNat n -> STensorKindType x -> STensorKindType (TKR2 n x)
-  STKS :: ShS sh -> STensorKindType x -> STensorKindType (TKS2 sh x)
-  STKX :: StaticShX sh -> STensorKindType x -> STensorKindType (TKX2 sh x)
-  STKProduct :: STensorKindType y -> STensorKindType z
-             -> STensorKindType (TKProduct y z)
+            => TypeRep r -> STensorKind (TKScalar r)
+  STKR :: SNat n -> STensorKind x -> STensorKind (TKR2 n x)
+  STKS :: ShS sh -> STensorKind x -> STensorKind (TKS2 sh x)
+  STKX :: StaticShX sh -> STensorKind x -> STensorKind (TKX2 sh x)
+  STKProduct :: STensorKind y -> STensorKind z
+             -> STensorKind (TKProduct y z)
 
-deriving instance Show (STensorKindType y)
+deriving instance Show (STensorKind y)
 
 class TensorKind (y :: TensorKindType) where
-  stensorKind :: STensorKindType y
+  stensorKind :: STensorKind y
 
 instance GoodScalar r => TensorKind (TKScalar r) where
   stensorKind = STKScalar typeRep
@@ -78,10 +78,10 @@ instance (TensorKind y, TensorKind z)
          => TensorKind (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
-withTensorKind :: forall y r. STensorKindType y -> (TensorKind y => r) -> r
+withTensorKind :: forall y r. STensorKind y -> (TensorKind y => r) -> r
 withTensorKind = withDict @(TensorKind y)
 
-lemTensorKindOfSTK :: STensorKindType y -> Dict TensorKind y
+lemTensorKindOfSTK :: STensorKind y -> Dict TensorKind y
 lemTensorKindOfSTK = \case
   STKScalar _ -> Dict
   STKR SNat x | Dict <- lemTensorKindOfSTK x -> Dict
@@ -94,7 +94,7 @@ sameTensorKind :: forall y1 y2. (TensorKind y1, TensorKind y2)
                => Maybe (y1 :~: y2)
 sameTensorKind = sameSTK (stensorKind @y1) (stensorKind @y2)
 
-sameSTK :: STensorKindType y1' -> STensorKindType y2' -> Maybe (y1' :~: y2')
+sameSTK :: STensorKind y1' -> STensorKind y2' -> Maybe (y1' :~: y2')
 sameSTK y1 y2 = case (y1, y2) of
   (STKScalar tr1, STKScalar tr2) ->
     case testEquality tr1 tr2 of
@@ -117,10 +117,10 @@ sameSTK y1 y2 = case (y1, y2) of
     _ -> Nothing
   _ -> Nothing
 
-stkUnit :: STensorKindType TKUnit
+stkUnit :: STensorKind TKUnit
 stkUnit = STKScalar typeRep
 
-buildSTK :: SNat k -> STensorKindType y -> STensorKindType (BuildTensorKind k y)
+buildSTK :: SNat k -> STensorKind y -> STensorKind (BuildTensorKind k y)
 buildSTK snat@SNat = \case
   stk@(STKScalar{}) -> STKS (snat :$$ ZSS) stk
   STKR SNat x -> STKR SNat x
@@ -128,7 +128,7 @@ buildSTK snat@SNat = \case
   STKX sh x -> STKX (SKnown snat :!% sh) x
   STKProduct stk1 stk2 -> STKProduct (buildSTK snat stk1) (buildSTK snat stk2)
 
-razeSTK :: STensorKindType z -> STensorKindType (RazeTensorKind z)
+razeSTK :: STensorKind z -> STensorKind (RazeTensorKind z)
 razeSTK = \case
   STKScalar{} -> error "razeSTK: impossible argument"
   STKR snat@SNat x ->
@@ -143,8 +143,8 @@ razeSTK = \case
   STKX (SKnown _ :!% sh) x -> STKX sh x
   STKProduct stk1 stk2 -> STKProduct (razeSTK stk1) (razeSTK stk2)
 
-aDSTK :: STensorKindType y
-      -> STensorKindType (ADTensorKind y)
+aDSTK :: STensorKind y
+      -> STensorKind (ADTensorKind y)
 aDSTK = \case
   t@(STKScalar @r tr) -> case testEquality tr (typeRep @Double) of
     Just Refl -> t
@@ -157,15 +157,15 @@ aDSTK = \case
   STKX sh x -> STKX sh $ aDSTK x
   STKProduct stk1 stk2 -> STKProduct (aDSTK stk1) (aDSTK stk2)
 
-lemTensorKindOfBuild :: SNat k -> STensorKindType y
+lemTensorKindOfBuild :: SNat k -> STensorKind y
                      -> Dict TensorKind (BuildTensorKind k y)
 lemTensorKindOfBuild snat = lemTensorKindOfSTK . buildSTK snat
 
-lemTensorKindOfAD :: STensorKindType y
+lemTensorKindOfAD :: STensorKind y
                   -> Dict TensorKind (ADTensorKind y)
 lemTensorKindOfAD = lemTensorKindOfSTK . aDSTK
 
-lemBuildOfAD :: SNat k -> STensorKindType y
+lemBuildOfAD :: SNat k -> STensorKind y
              -> BuildTensorKind k (ADTensorKind y)
                 :~: ADTensorKind (BuildTensorKind k y)
 lemBuildOfAD snat@SNat = \case
@@ -189,7 +189,7 @@ data FullTensorKind y where
 deriving instance Show (FullTensorKind y)
 deriving instance Eq (FullTensorKind y)
 
-ftkToStk :: FullTensorKind y -> STensorKindType y
+ftkToStk :: FullTensorKind y -> STensorKind y
 ftkToStk = \case
   FTKScalar -> STKScalar typeRep
   FTKR sh x -> STKR (shrRank sh) (ftkToStk x)
@@ -209,7 +209,7 @@ buildFTK snat@SNat = \case
   FTKProduct ftk1 ftk2 -> FTKProduct (buildFTK snat ftk1) (buildFTK snat ftk2)
 
 razeFTK :: forall y k.
-           SNat k -> STensorKindType y
+           SNat k -> STensorKind y
         -> FullTensorKind (BuildTensorKind k y)
         -> FullTensorKind y
 razeFTK snat@SNat stk ftk = case (stk, ftk) of

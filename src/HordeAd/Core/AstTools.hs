@@ -135,7 +135,7 @@ ftkAst t = case t of
     FTKS _ (FTKS _ x) -> FTKS (knownShS @sh1 `shsAppend` knownShS @sh2) x
 
   AstFromS stkz v ->
-    let fromS :: FullTensorKind y2 -> STensorKindType z2 -> FullTensorKind z2
+    let fromS :: FullTensorKind y2 -> STensorKind z2 -> FullTensorKind z2
         fromS ftk stk = case (ftk, stk) of
           _ | Just Refl <- sameSTK (ftkToStk ftk) stk -> ftk
           (FTKS ZSS (FTKScalar @r), STKScalar tr) ->

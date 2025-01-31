@@ -76,7 +76,7 @@ printAstVarId prefix cfg var =
 
 printAstVar :: forall s y. TensorKind y => PrintConfig -> AstVarName s y -> ShowS
 printAstVar cfg var =
-  let rankTensorKind :: STensorKindType x -> Int
+  let rankTensorKind :: STensorKind x -> Int
       rankTensorKind (STKScalar _) = 0
       rankTensorKind (STKR snat _) = fromInteger $ fromSNat snat
       rankTensorKind (STKS sh _) = fromInteger $ fromSNat $ shsRank sh

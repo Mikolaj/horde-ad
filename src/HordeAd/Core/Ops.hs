@@ -120,14 +120,14 @@ instance (RealFloatF r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (target :: Target) where
-  twidth :: STensorKindType y -> Int
+  twidth :: STensorKind y -> Int
   twidth stk = case stk of
     STKScalar{} -> 1
     STKR{} -> 1
     STKS{} -> 1
     STKX{} -> 1
     STKProduct stk1 stk2 -> twidth @target stk1 + twidth @target stk2
-  tsize :: BaseTensor target => STensorKindType y -> target y -> Int
+  tsize :: BaseTensor target => STensorKind y -> target y -> Int
   tsize stk a = case stk of
     STKScalar{} -> 1
     STKR SNat x | Dict <- lemTensorKindOfSTK x -> rsize a
@@ -148,7 +148,7 @@ class LetTensor (target :: Target) where
            -> target y
   tunshare = error "tunshare: this instance should never be used"
   tfromVector :: forall y k. BaseTensor target
-              => SNat k -> STensorKindType y -> Data.Vector.Vector (target y)
+              => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
               -> target (BuildTensorKind k y)
   tfromVector snat@SNat stk v = case stk of
     STKScalar{} -> sfromVector $ V.map sfromK v
@@ -175,12 +175,12 @@ class LetTensor (target :: Target) where
                     (tfromVector snat stk2 (V.fromList l2))
         in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
   tfromListR :: forall y k. BaseTensor target
-             => STensorKindType y -> ListR k (target y)
+             => STensorKind y -> ListR k (target y)
              -> target (BuildTensorKind k y)
   tfromListR stk l =
     tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
   tsum :: forall z k. BaseTensor target
-       => SNat k -> STensorKindType z
+       => SNat k -> STensorKind z
        -> target (BuildTensorKind k z)
        -> target z
   tsum snat@SNat stk u = case stk of
@@ -200,7 +200,7 @@ class LetTensor (target :: Target) where
           tpair (tsum snat stk1 (tproject1 u3))
                 (tsum snat stk2 (tproject2 u3))
   treplicate :: forall z k. BaseTensor target
-             => SNat k -> STensorKindType z
+             => SNat k -> STensorKind z
              -> target z
              -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
@@ -250,7 +250,7 @@ class LetTensor (target :: Target) where
           tpair (tfromS (tproject1 u3)) (tfromS (tproject2 u3))
     _ -> error "tfromS: wrong tensor kinds"
   tD :: BaseTensor target
-     => STensorKindType y -> PrimalOf target y -> DualOf target y
+     => STensorKind y -> PrimalOf target y -> DualOf target y
      -> target y
   tD stk p d | Dict <- lemTensorKindOfSTK stk =
     -- Lets needed, because raddTarget requires duplicable arguments.
@@ -264,7 +264,7 @@ class ShareTensor (target :: Target) where
   tunpair :: (TensorKind x, TensorKind z)
           => target (TKProduct x z) -> (target x, target z)
   tfromVectorShare :: forall y k. BaseTensor target
-                   => SNat k -> STensorKindType y
+                   => SNat k -> STensorKind y
                    -> Data.Vector.Vector (target y)
                    -> target (BuildTensorKind k y)
   tfromVectorShare snat@SNat stk v = case stk of
@@ -284,7 +284,7 @@ class ShareTensor (target :: Target) where
         in tpair (tfromVectorShare snat stk1 v1)
                  (tfromVectorShare snat stk2 v2)
   tunravelToListShare :: forall y k. BaseTensor target
-                      => SNat k -> STensorKindType y
+                      => SNat k -> STensorKind y
                       -> target (BuildTensorKind k y)
                       -> [target y]
   tunravelToListShare snat@SNat stk u = case stk of
@@ -304,7 +304,7 @@ class ShareTensor (target :: Target) where
         in zipWith tpair (tunravelToListShare snat stk1 u1)
                          (tunravelToListShare snat stk2 u2)
   tsumShare :: forall z k. BaseTensor target
-            => SNat k -> STensorKindType z
+            => SNat k -> STensorKind z
             -> target (BuildTensorKind k z)
             -> target z
   tsumShare snat@SNat stk u = case stk of
@@ -324,7 +324,7 @@ class ShareTensor (target :: Target) where
         in tpair (tsumShare snat stk1 u1)
                  (tsumShare snat stk2 u2)
   treplicateShare :: BaseTensor target
-                  => SNat k -> STensorKindType z
+                  => SNat k -> STensorKind z
                   -> target z
                   -> target (BuildTensorKind k z)
   treplicateShare snat@SNat stk u = case stk of
@@ -341,7 +341,7 @@ class ShareTensor (target :: Target) where
         in tpair (treplicateShare snat stk1 u1)
                  (treplicateShare snat stk2 u2)
   tindexBuildShare :: forall z k. BaseTensor target
-                   => SNat k -> STensorKindType z
+                   => SNat k -> STensorKind z
                    -> target (BuildTensorKind k z) -> IntOf target
                    -> target z
   tindexBuildShare snat@SNat stk u i = case stk of
@@ -415,7 +415,7 @@ class ( Num (IntOf target)
   tconstantTarget
     :: (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
   -- The arguments need to be duplicable
-  taddTarget :: STensorKindType y -> target y -> target y -> target y
+  taddTarget :: STensorKind y -> target y -> target y -> target y
 
   -- Ranked ops
   -- A number suffix in the name may indicate the rank of the codomain,
@@ -1534,7 +1534,7 @@ class ( Num (IntOf target)
           => target (TKX2 sh1 (TKX2 sh2 x)) -> target (TKX2 (sh1 ++ sh2) x)
 
   -- General operations that don't require LetTensor nor ShareTensor
-  tftk :: STensorKindType y -> target y -> FullTensorKind y
+  tftk :: STensorKind y -> target y -> FullTensorKind y
   tconcrete :: FullTensorKind y -> RepN y -> target y
   tpair :: (TensorKind x, TensorKind z)
          => target x -> target z
@@ -1772,7 +1772,7 @@ class ( Num (IntOf target)
   tlambda :: (TensorKind x, TensorKind z)
           => FullTensorKind x -> HFun x z -> HFunOf target x z
   tcond :: Boolean (BoolOf target)
-        => STensorKindType y
+        => STensorKind y
         -> BoolOf target -> target y -> target y -> target y
   ifF :: (Boolean (BoolOf target), TensorKind y)
       => BoolOf target -> target y -> target y -> target y
@@ -1788,7 +1788,7 @@ class ( Num (IntOf target)
           => SNat k -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
   tbuild1 snat@SNat f =
-    let replStk :: STensorKindType z -> (IntOf target -> target z)
+    let replStk :: STensorKind z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
         replStk stk g = case stk of
           STKScalar{} -> sbuild1 (sfromK . g)
@@ -1810,20 +1810,20 @@ class ( Num (IntOf target)
               in tpair (replStk stk1 f1) (replStk stk2 f2)
     in replStk (stensorKind @y) f
 
-  tprimalPart :: STensorKindType y
+  tprimalPart :: STensorKind y
               -> target y
               -> PrimalOf target y
-  tdualPart :: STensorKindType y
+  tdualPart :: STensorKind y
             -> target y
             -> DualOf target y
-  tfromPrimal :: STensorKindType y
+  tfromPrimal :: STensorKind y
               -> PrimalOf target y
               -> target y
-  tfromDual :: STensorKindType y
+  tfromDual :: STensorKind y
             -> DualOf target y
             -> target y
   tScale :: (Num (target y), Num (PrimalOf target y))
-         => STensorKindType y
+         => STensorKind y
          -> PrimalOf target y -> DualOf target y
          -> DualOf target y
   tScale stk s t =
