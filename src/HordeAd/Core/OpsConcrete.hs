@@ -247,7 +247,7 @@ instance BaseTensor RepN where
             in updateNS @(Rank shp) zero
                $ map (second $ RepN . Nested.sfromVector knownShS)
                $ M.assocs ivs
-          FTKS _ x | Dict <- eltDictRep (ftkToStk x) ->
+          FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
             withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
             gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
             gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
@@ -400,7 +400,7 @@ instance BaseTensor RepN where
         in updateNX @(Rank shp) zero
            $ map (second $ RepN . Nested.mfromVector shDropP)
            $ M.assocs ivs
-      FTKX _ x | Dict <- eltDictRep (ftkToStk x) ->
+      FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
         let zero = constantTarget 0 (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
             s = shxSize shm
@@ -826,7 +826,7 @@ tscatterZR sh t f
     in updateNR zero
        $ map (second $ RepN . Nested.rfromVector shDropP)
        $ M.assocs ivs
-  FTKR _ x | Dict <- showDictRep (ftkToStk x) ->
+  FTKR _ x | Dict <- showDictRep (ftkToSTK x) ->
     let zero = constantTarget 0 (FTKR sh x)
         (shm, _) = splitAt_Shape @m $ rshape t
         s = shrSize shm

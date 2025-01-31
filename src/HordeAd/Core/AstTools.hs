@@ -137,20 +137,20 @@ ftkAst t = case t of
   AstFromS stkz v ->
     let fromS :: FullTensorKind y2 -> STensorKind z2 -> FullTensorKind z2
         fromS ftk stk = case (ftk, stk) of
-          _ | Just Refl <- sameSTK (ftkToStk ftk) stk -> ftk
+          _ | Just Refl <- sameSTK (ftkToSTK ftk) stk -> ftk
           (FTKS ZSS (FTKScalar @r), STKScalar tr) ->
             case testEquality (typeRep @r) tr of
               Just Refl -> FTKScalar
               Nothing -> error "ftkAst: wrong tensor kinds for AstFromS"
           (FTKS sh x, STKR nx zx) ->
-            case ( sameSTK (ftkToStk x) zx
+            case ( sameSTK (ftkToSTK x) zx
                  , testEquality (shsRank sh) nx ) of
               (Just Refl, Just Refl) -> FTKR (shCastSR sh) x
               _ -> error $ "ftkAst: wrong tensor kinds for AstFromS: "
-                           ++ show (ftkToStk x) ++ " vs " ++ show zx ++ " and "
+                           ++ show (ftkToSTK x) ++ " vs " ++ show zx ++ " and "
                            ++ show sh ++ " vs " ++ show nx
           (FTKS sh x, STKX shx zx) ->
-            case ( sameSTK (ftkToStk x) zx
+            case ( sameSTK (ftkToSTK x) zx
                  , testEquality (shsRank sh) (ssxRank shx) ) of
               (Just Refl, Just Refl) -> FTKX (shCastSX shx sh) x
               _ -> error "ftkAst: wrong tensor kinds for AstFromS"
@@ -324,7 +324,7 @@ liftRFromS1 :: forall n x ms s. KnownSTK x
 liftRFromS1 f (AstFromS stkz@(STKR snat@SNat x) u) = case ftkAst u of
   FTKS shu xu ->
     withKnownShS shu $
-    case sameSTK x (ftkToStk xu) of
+    case sameSTK x (ftkToSTK xu) of
       Just Refl -> case f u of
         AstSFromR @sh a
           | Just Refl <- sameNat (SNat @(Rank sh)) snat -> a
@@ -337,7 +337,7 @@ liftRFromS1 f a = case ftkAst a of
   ftk@(FTKR sh' _) | SNat <- shrRank sh' ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstFromS @(TKS2 sh x) (ftkToStk ftk)
+      AstFromS @(TKS2 sh x) (ftkToSTK ftk)
       $ f (AstSFromR @sh a)
 
 -- We refrain from checking for AstFromPrimal (AstFromS), because that would
@@ -354,8 +354,8 @@ liftRFromS2 f (AstFromS stkz@(STKR snat@SNat x) u) (AstFromS _ v) =
   case (ftkAst u, ftkAst v) of
     (ftku@(FTKS shu _), ftkv) ->
       withKnownShS shu $
-      case ( sameSTK (ftkToStk ftku) (STKS shu x)
-           , sameSTK (ftkToStk ftkv) (STKS shu x) ) of
+      case ( sameSTK (ftkToSTK ftku) (STKS shu x)
+           , sameSTK (ftkToSTK ftkv) (STKS shu x) ) of
       (Just Refl, Just Refl) -> case f u v of
         AstSFromR @sh a
           | Just Refl <- sameNat (SNat @(Rank sh)) snat -> a
@@ -368,7 +368,7 @@ liftRFromS2 f a b  = case ftkAst a of
   ftk@(FTKR sh' _) | SNat <- shrRank sh' ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstFromS @(TKS2 sh x) (ftkToStk ftk)
+      AstFromS @(TKS2 sh x) (ftkToSTK ftk)
       $ f (cAstSFromR @sh a) (cAstSFromR @sh b)
         -- both are not AstFromS, but one may be
 
@@ -381,7 +381,7 @@ liftXFromS1 :: forall sh' x ms s. KnownSTK x
 liftXFromS1 f (AstFromS stkz@(STKX shx x) u) = case ftkAst u of
   FTKS shu xu ->
     withKnownShS shu $
-    case sameSTK x (ftkToStk xu) of
+    case sameSTK x (ftkToSTK xu) of
       Just Refl -> case f u of
         AstSFromX @_ @shx2 a
           | Just Refl <- testEquality shx (knownShX @shx2) -> a
@@ -394,7 +394,7 @@ liftXFromS1 f a = case ftkAst a of
     withKnownShX (ssxFromShape sh') $
     withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstFromS @(TKS2 sh x) (ftkToStk ftk)
+      AstFromS @(TKS2 sh x) (ftkToSTK ftk)
       $ f (AstSFromX @sh @sh' a)
 
 liftXFromS2 :: forall sh' x ms s. KnownSTK x
@@ -407,8 +407,8 @@ liftXFromS2 f (AstFromS stkz@(STKX shx x) u) (AstFromS _ v) =
   case (ftkAst u, ftkAst v) of
     (ftku@(FTKS shu _), ftkv) ->
       withKnownShS shu $
-      case ( sameSTK (ftkToStk ftku) (STKS shu x)
-           , sameSTK (ftkToStk ftkv) (STKS shu x) ) of
+      case ( sameSTK (ftkToSTK ftku) (STKS shu x)
+           , sameSTK (ftkToSTK ftkv) (STKS shu x) ) of
         (Just Refl, Just Refl) -> case f u v of
           AstSFromX @_ @shx2 a
             | Just Refl <- testEquality shx (knownShX @shx2) -> a
@@ -422,16 +422,16 @@ liftXFromS2 f a b = case ftkAst a of
     withKnownShX (ssxFromShape sh') $
     withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstFromS @(TKS2 sh x) (ftkToStk ftk)
+      AstFromS @(TKS2 sh x) (ftkToSTK ftk)
       $ f (cAstSFromX @sh @sh' a) (cAstSFromX @sh @sh' b)
 
 cAstSFromK :: forall r ms s. GoodScalar r
            => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
 cAstSFromK (AstFromS _ v)
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+           | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
                                   (stensorKind @(TKS '[] r)) = v
 cAstSFromK (AstFromPrimal (AstFromS _ v))
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+           | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
                                   (stensorKind @(TKS '[] r)) = AstFromPrimal v
 cAstSFromK v = AstSFromK v
 
@@ -439,10 +439,10 @@ cAstSFromR :: forall sh r ms s.
               (KnownShS sh, KnownNat (Rank sh), KnownSTK r)
            => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromR (AstFromS _ v)
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+           | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
                                   (stensorKind @(TKS2 sh r)) = v
 cAstSFromR (AstFromPrimal (AstFromS _ v))
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+           | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
                                   (stensorKind @(TKS2 sh r)) = AstFromPrimal v
 cAstSFromR v = AstSFromR v
 
@@ -450,9 +450,9 @@ cAstSFromX :: forall sh sh' r ms s.
               (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK r)
            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromX (AstFromS _ v)
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+           | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
                                   (stensorKind @(TKS2 sh r)) = v
 cAstSFromX (AstFromPrimal (AstFromS _ v))
-           | Just Refl <- sameSTK (ftkToStk (ftkAst v))
+           | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
                                   (stensorKind @(TKS2 sh r)) = AstFromPrimal v
 cAstSFromX v = AstSFromX v

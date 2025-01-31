@@ -51,7 +51,7 @@ funToAstIO :: forall y z s s2 ms.
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
-funToAstIO ftk f | Dict <- lemKnownSTK (ftkToStk ftk) = do
+funToAstIO ftk f | Dict <- lemKnownSTK (ftkToSTK ftk) = do
   freshId <- unsafeGetFreshAstVarId
   let varName = mkAstVarName freshId
       !x = f (AstVar ftk varName)
@@ -83,7 +83,7 @@ funToAstRevIO :: forall x. FullTensorKind x
                     , AstVarName FullSpan x
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstRevIO #-}
-funToAstRevIO ftk | Dict <- lemKnownSTK (ftkToStk ftk) = do
+funToAstRevIO ftk | Dict <- lemKnownSTK (ftkToSTK ftk) = do
   freshId <- unsafeGetFreshAstVarId
   let varPrimal :: AstVarName PrimalSpan x
       varPrimal = mkAstVarName freshId
@@ -111,8 +111,8 @@ funToAstFwdIO :: forall x. FullTensorKind x
                     , AstVarName FullSpan x
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstFwdIO #-}
-funToAstFwdIO ftk | Dict <- lemKnownSTK (ftkToStk ftk)
-                  , Dict <- lemKnownSTKOfAD (ftkToStk ftk) = do
+funToAstFwdIO ftk | Dict <- lemKnownSTK (ftkToSTK ftk)
+                  , Dict <- lemKnownSTKOfAD (ftkToSTK ftk) = do
   freshIdDs <- unsafeGetFreshAstVarId
   freshId <- unsafeGetFreshAstVarId
   let varPrimalD :: AstVarName PrimalSpan (ADTensorKind x)

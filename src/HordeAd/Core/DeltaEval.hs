@@ -175,25 +175,25 @@ rebuildInputs :: forall ady target. ADReadyNoLet target
               -> (target ady, [Some (TensorOrZero target)])
 rebuildInputs els s2 ftk = case ftk of
   FTKProduct @y1 @y2 ftk1 ftk2
-   | Dict <- lemKnownSTK (ftkToStk ftk1)
-   , Dict <- lemKnownSTK (ftkToStk ftk2) ->
+   | Dict <- lemKnownSTK (ftkToSTK ftk1)
+   , Dict <- lemKnownSTK (ftkToSTK ftk2) ->
       let (t1, rest1) = rebuildInputs @y1 els s2 ftk1
           (t2, rest2) = rebuildInputs @y2 rest1 s2 ftk2
       in (tpair t1 t2, rest2)
   _ -> case els of
     Some tz@(Tensor stk t) : rest ->
-      case sameSTK stk (ftkToStk ftk) of
+      case sameSTK stk (ftkToSTK ftk) of
         Just Refl -> (t, rest)
         _ | Dict <- lemKnownSTK stk ->
           error $ "rebuildInputs: wrong Tensor type: "
                   ++ show (tz, show_iMap (iMap s2))
     Some tz@(Zero ftk2) : rest ->
-      case sameSTK (ftkToStk ftk2) (ftkToStk ftk) of
+      case sameSTK (ftkToSTK ftk2) (ftkToSTK ftk) of
         Just Refl -> (constantTarget 0 ftk, rest)
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
           -- and maybe use elsewhere, too.
-        _ | Dict <- lemKnownSTK (ftkToStk ftk2) ->
+        _ | Dict <- lemKnownSTK (ftkToSTK ftk2) ->
           error $ "rebuildInputs: wrong Zero type: "
                   ++ show (tz, show_iMap (iMap s2))
     _ -> error $ "rebuildInputs: illegal TensorOrZero: "
@@ -207,7 +207,7 @@ generateDSumsDummy j ftk  = case ftk of
     let (ds1, j1) = generateDSumsDummy j ftk1
         (ds2, j2) = generateDSumsDummy j1 ftk2
     in (ds1 ++ ds2, j2)
-  _ | Dict <- lemKnownSTK (ftkToStk ftk) ->
+  _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
     ([InputId j :=> Zero ftk], j + 1)
 
 -- Matches generateDeltaInputs.
@@ -215,14 +215,14 @@ generateDSums :: ShareTensor target
               => Int -> FullTensorKind y -> target y
               -> ([DSum (InputId target) (TensorOrZero target)], Int)
 generateDSums j ftk t = case ftk of
-  FTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToStk ftk1)
-                       , Dict <- lemKnownSTK (ftkToStk ftk2) ->
+  FTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToSTK ftk1)
+                       , Dict <- lemKnownSTK (ftkToSTK ftk2) ->
     let (t1, t2) = tunpair t
         (ds1, j1) = generateDSums j ftk1 t1
         (ds2, j2) = generateDSums j1 ftk2 t2
     in (ds1 ++ ds2, j2)
-  _ | Dict <- lemKnownSTK (ftkToStk ftk) ->
-    ([InputId j :=> Tensor (ftkToStk ftk) t], j + 1)
+  _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
+    ([InputId j :=> Tensor (ftkToSTK ftk) t], j + 1)
 
 -- * Delta evaluation state
 

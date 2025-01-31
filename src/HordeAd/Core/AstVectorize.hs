@@ -381,7 +381,7 @@ build1V snat@SNat (var, v0) =
     Ast.AstUnNestS v -> traceRule $ astUnNestS $ build1V snat (var, v)
 
     Ast.AstFromS stkz v
-      | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) -> traceRule $
+      | Dict <- lemKnownSTK (ftkToSTK (ftkAst v)) -> traceRule $
         astFromS (buildSTK snat stkz) $ build1V snat (var, v)
     Ast.AstSFromK t -> build1V snat (var, t)
     Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
@@ -607,7 +607,7 @@ substProjRep snat@SNat var ftk2 var1 v
         ftk3 = buildFTK snat ftk2
         astVar3 = Ast.AstVar ftk3 var3
         v2 = substituteAst
-               (astIndexBuild snat (ftkToStk ftk2) astVar3 (Ast.AstIntVar var))
+               (astIndexBuild snat (ftkToSTK ftk2) astVar3 (Ast.AstIntVar var))
                var1 v
           -- The subsitutions of projections don't break sharing,
           -- because they don't duplicate variables and the added var

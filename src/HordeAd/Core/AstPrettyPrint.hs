@@ -444,7 +444,7 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "snestS" [v]
   AstUnNestS v -> printPrefixOp printAst cfg d "sunNestS" [v]
 
-  AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
+  AstFromS stkz v | Dict <- lemKnownSTK (ftkToSTK (ftkAst v)) ->
     case stkz of
       STKScalar{} -> printPrefixOp printAst cfg d "kfromS" [v]
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]

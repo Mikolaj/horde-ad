@@ -113,7 +113,7 @@ instance DMap.Enum1 (InputId target) where
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 toInputId :: FullTensorKind y -> Int -> InputId f y
-toInputId ftk i | Dict <- lemKnownSTK (ftkToStk ftk) =
+toInputId ftk i | Dict <- lemKnownSTK (ftkToSTK ftk) =
   assert (i >= 0) $ InputId i
 
 tensorKindFromInputId :: InputId f y -> Dict KnownSTK y
@@ -626,20 +626,20 @@ ftkDelta = \case
   DeltaFromS @_ @z d ->
     let fromS :: FullTensorKind y2 -> STensorKind z2 -> FullTensorKind z2
         fromS ftk stk = case (ftk, stk) of
-          _ | Just Refl <- sameSTK (ftkToStk ftk) stk -> ftk
+          _ | Just Refl <- sameSTK (ftkToSTK ftk) stk -> ftk
           (FTKS ZSS (FTKScalar @r), STKScalar tr) ->
             case testEquality (typeRep @r) tr of
               Just Refl -> FTKScalar
               Nothing -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
           (FTKS sh x, STKR nx zx) ->
-            case ( sameSTK (ftkToStk x) zx
+            case ( sameSTK (ftkToSTK x) zx
                  , testEquality (shsRank sh) nx ) of
               (Just Refl, Just Refl) -> FTKR (shCastSR sh) x
               _ -> error $ "ftkDelta: wrong tensor kinds for DeltaFromS: "
-                           ++ show (ftkToStk x) ++ " vs " ++ show zx ++ " and "
+                           ++ show (ftkToSTK x) ++ " vs " ++ show zx ++ " and "
                            ++ show sh ++ " vs " ++ show nx
           (FTKS sh x, STKX shx zx) ->
-            case ( sameSTK (ftkToStk x) zx
+            case ( sameSTK (ftkToSTK x) zx
                  , testEquality (shsRank sh) (ssxRank shx) ) of
               (Just Refl, Just Refl) -> FTKX (shCastSX shx sh) x
               _ -> error "ftkDelta: wrong tensor kinds for DeltaFromS"

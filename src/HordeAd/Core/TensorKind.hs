@@ -9,7 +9,7 @@ module HordeAd.Core.TensorKind
   , withKnownSTK, lemKnownSTK, sameKnownSTS, sameSTK
   , stkUnit, buildSTK, razeSTK, aDSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD
-  , FullTensorKind(..), ftkToStk
+  , FullTensorKind(..), ftkToSTK
   , ftkUnit, buildFTK, razeFTK, aDFTK
   , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
@@ -189,13 +189,13 @@ data FullTensorKind y where
 deriving instance Show (FullTensorKind y)
 deriving instance Eq (FullTensorKind y)
 
-ftkToStk :: FullTensorKind y -> STensorKind y
-ftkToStk = \case
+ftkToSTK :: FullTensorKind y -> STensorKind y
+ftkToSTK = \case
   FTKScalar -> STKScalar typeRep
-  FTKR sh x -> STKR (shrRank sh) (ftkToStk x)
-  FTKS sh x -> STKS sh (ftkToStk x)
-  FTKX sh x -> STKX (ssxFromShape sh) (ftkToStk x)
-  FTKProduct ftk1 ftk2 -> STKProduct (ftkToStk ftk1) (ftkToStk ftk2)
+  FTKR sh x -> STKR (shrRank sh) (ftkToSTK x)
+  FTKS sh x -> STKS sh (ftkToSTK x)
+  FTKX sh x -> STKX (ssxFromShape sh) (ftkToSTK x)
+  FTKProduct ftk1 ftk2 -> STKProduct (ftkToSTK ftk1) (ftkToSTK ftk2)
 
 ftkUnit :: FullTensorKind TKUnit
 ftkUnit = FTKScalar

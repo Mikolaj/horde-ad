@@ -416,7 +416,7 @@ unshareAst memo = \case
 
   -- We assume v is the same if var is the same.
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
-    Ast.AstFromS @y2 stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
+    Ast.AstFromS @y2 stkz v | Dict <- lemKnownSTK (ftkToSTK (ftkAst v)) ->
       let var = mkAstVarName $ varNameToAstVarId varRaw
           astVar = Ast.AstFromS @y2 stkz
                    $ Ast.AstVar (ftkAst v) var
@@ -428,22 +428,22 @@ unshareAst memo = \case
     -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case ftkAst a of
       ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
-                             , Dict <- lemKnownSTK (ftkToStk x) ->
+                             , Dict <- lemKnownSTK (ftkToSTK x) ->
         withCastRS sh' $ \(sh :: ShS sh) ->
           withKnownShS sh $
           let var = mkAstVarName $ varNameToAstVarId varRaw
-              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToStk ftk)
+              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk)
                        $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)
              else let (memo1, a2) = unshareAst memo (Ast.AstSFromR @sh a)
                   in (DMap.insert var a2 memo1, astVar)
-      ftk@(FTKX @_ @x sh' x) | Dict <- lemKnownSTK (ftkToStk x) ->
+      ftk@(FTKX @_ @x sh' x) | Dict <- lemKnownSTK (ftkToSTK x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
           withKnownShX (ssxFromShape sh') $
           withKnownShS sh $
           let var = mkAstVarName $ varNameToAstVarId varRaw
-              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToStk ftk)
+              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk)
                        $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)

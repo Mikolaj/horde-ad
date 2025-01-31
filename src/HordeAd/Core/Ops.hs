@@ -1788,9 +1788,9 @@ class ( Num (IntOf target)
           => SNat k -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
   tbuild1 snat@SNat f =
-    let replStk :: STensorKind z -> (IntOf target -> target z)
+    let replSTK :: STensorKind z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
-        replStk stk g = case stk of
+        replSTK stk g = case stk of
           STKScalar{} -> sbuild1 (sfromK . g)
           STKR SNat x | Dict <- lemKnownSTK x ->
             rbuild1 (sNatValue snat) g
@@ -1807,8 +1807,8 @@ class ( Num (IntOf target)
                   f2 i = tproject2 @_ @z1 @z2 $ g i
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
-              in tpair (replStk stk1 f1) (replStk stk2 f2)
-    in replStk (stensorKind @y) f
+              in tpair (replSTK stk1 f1) (replSTK stk2 f2)
+    in replSTK (stensorKind @y) f
 
   tprimalPart :: STensorKind y
               -> target y

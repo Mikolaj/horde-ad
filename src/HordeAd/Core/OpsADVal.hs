@@ -398,7 +398,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk (D u _) = tftk stk u
-  tconcrete ftk t | Dict <- lemKnownSTK (ftkToStk ftk) =
+  tconcrete ftk t | Dict <- lemKnownSTK (ftkToSTK ftk) =
     fromPrimalADVal $ tconcrete ftk t
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')

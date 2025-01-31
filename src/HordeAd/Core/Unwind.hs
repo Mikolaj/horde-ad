@@ -98,8 +98,8 @@ constantRepW r = \case
   WFTKR sh | SNat <- shrRank sh -> WTKR $ rrepl sh r
   WFTKS sh -> withKnownShS sh $ WTKS $ srepl r
   WFTKX sh -> withKnownShX (ssxFromShape sh) $ WTKX $ xrepl sh r
-  WFTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToStk $ fromFTKW ftk1)
-                        , Dict <- lemKnownSTK (ftkToStk $ fromFTKW ftk2) ->
+  WFTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToSTK $ fromFTKW ftk1)
+                        , Dict <- lemKnownSTK (ftkToSTK $ fromFTKW ftk2) ->
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
 
 toADTensorKindW
@@ -269,8 +269,8 @@ unWindFTK = \case
     withKnownShX (ssxFromShape sh1) $
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
   FTKProduct y z
-   | Dict <- lemKnownSTK (ftkToStk $ fromFTKW $ unWindFTK y)
-   , Dict <- lemKnownSTK (ftkToStk $ fromFTKW $ unWindFTK z) ->
+   | Dict <- lemKnownSTK (ftkToSTK $ fromFTKW $ unWindFTK y)
+   , Dict <- lemKnownSTK (ftkToSTK $ fromFTKW $ unWindFTK z) ->
     WFTKProduct (unWindFTK y) (unWindFTK z)
 
 -- This uses tunpairDup so to preserve sharing, `target` either has
@@ -409,7 +409,7 @@ addTarget stk a b =
 constantTarget :: forall y target. BaseTensor target
                => (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
 constantTarget r ftk =
-  windTarget (ftkToStk ftk) $ constantRepW r (unWindFTK ftk)
+  windTarget (ftkToSTK ftk) $ constantRepW r (unWindFTK ftk)
 
 lemUnWindOfAD :: STensorKind y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
