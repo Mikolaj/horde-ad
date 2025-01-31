@@ -67,13 +67,13 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
@@ -177,13 +177,13 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
@@ -308,13 +308,13 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
   withKnownSTK
-    (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
+    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r

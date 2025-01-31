@@ -89,14 +89,14 @@ gradientFromDelta
   -> Delta target z
   -> target (ADTensorKind x)
 gradientFromDelta !parameters0 zftk !mdt deltaTopLevel =
-  let oneAtF = constantTarget 1 $ aDFTK zftk
+  let oneAtF = constantTarget 1 $ adFTK zftk
       dt = fromMaybe oneAtF mdt
       s0 = initEvalState parameters0
       s1 = evalRev s0 dt deltaTopLevel
       s2 = evalRevFromnMap s1
       (res, remainder) =
         rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2) s2
-        $ aDFTK parameters0
+        $ adFTK parameters0
   in assert (null remainder) res
 
 showsPrec_iMap
@@ -320,7 +320,7 @@ initEvalState ftk0 =
       -- We take care to keep the scalar type of the dummy correct,
       -- but a shape is not preserved in a dummy, so it's not shape-correct.
       iMap = DMap.fromDistinctAscList
-             $ fst $ generateDSumsDummy 0 $ aDFTK ftk0
+             $ fst $ generateDSumsDummy 0 $ adFTK ftk0
       dMap = DMap.empty
       nMap = DMap.empty
   in EvalState {..}
@@ -393,7 +393,7 @@ evalRev !s !c d0 = case d0 of
                     , Dict <- lemKnownSTKOfAD (stensorKind @z) ->
     case ftkDelta d of
       FTKProduct _ ftk2 ->
-        let zero = constantTarget 0 $ aDFTK ftk2
+        let zero = constantTarget 0 $ adFTK ftk2
         in evalRev s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
@@ -401,18 +401,18 @@ evalRev !s !c d0 = case d0 of
                  , Dict <- lemKnownSTKOfAD (stensorKind @x) ->
     case ftkDelta d of
       FTKProduct ftk1 _ ->
-        let zero = constantTarget 0 $ aDFTK ftk1
+        let zero = constantTarget 0 $ adFTK ftk1
         in evalRev s (tpair zero c) d
   DeltaFromVector snat stk ld | Refl <- lemBuildOfAD snat stk
                           , Dict <- lemKnownSTKOfAD (stensorKind @y) ->
     let cShared = tshare c
-        cxs = tunravelToListShare snat (aDSTK stk) cShared
+        cxs = tunravelToListShare snat (adSTK stk) cShared
     in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
        $ zip cxs (V.toList ld)
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalRev s (treplicateShare snat (aDSTK stk) c) d
+    evalRev s (treplicateShare snat (adSTK stk) c) d
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalRev s (tsumShare snat (aDSTK stk) c) d
+    evalRev s (tsumShare snat (adSTK stk) c) d
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
             q es
@@ -426,9 +426,9 @@ evalRev !s !c d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (stensorKind @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDFTK accShs
-        bShsAD = aDFTK bShs
-        eShsAD = aDFTK eShs
+    let accShsAD = adFTK accShs
+        bShsAD = adFTK bShs
+        eShsAD = adFTK eShs
         (c0, crest) = tunpair c
         dacc_des =
           dmapAccumL (Proxy @target)
@@ -456,9 +456,9 @@ evalRev !s !c d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (stensorKind @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDFTK accShs
-        bShsAD = aDFTK bShs
-        eShsAD = aDFTK eShs
+    let accShsAD = adFTK accShs
+        bShsAD = adFTK bShs
+        eShsAD = adFTK eShs
         (c0, crest) = tunpair c
         dacc_des =
           dmapAccumR (Proxy @target)
@@ -523,18 +523,18 @@ evalRev !s !c d0 = case d0 of
                , dMap = DMap.insert n cd $ dMap s }
 
   DeltaFromS @_ @z (DeltaSFromR @sh @x d)
-    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
-                           (aDSTK (stensorKind @(TKR2 (Rank sh) x))) ->
+    | Just Refl <- sameSTK (adSTK (stensorKind @z))
+                           (adSTK (stensorKind @(TKR2 (Rank sh) x))) ->
       evalRev s c d
   DeltaFromS @_ @z (DeltaSFromX @_ @sh' @x d)
-    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
-                           (aDSTK (stensorKind @(TKX2 sh' x))) ->
+    | Just Refl <- sameSTK (adSTK (stensorKind @z))
+                           (adSTK (stensorKind @(TKX2 sh' x))) ->
       evalRev s c d
   DeltaFromS @y7 @z d -> case (stensorKind @y7, stensorKind @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev s c d
     (STKS ZSS yx@(STKScalar try), STKScalar trz) ->
       case testEquality try trz of
-        Just Refl -> case sameSTK yx (aDSTK yx) of
+        Just Refl -> case sameSTK yx (adSTK yx) of
           Just Refl -> evalRev s (sfromK c) d
           _ -> s
         Nothing -> error "evalRev: tensor kinds don't match"
@@ -874,13 +874,13 @@ evalFwd params s d0 = case d0 of
     in (s2, tproject2 v)
   DeltaFromVector snat stk lsd | Refl <- lemBuildOfAD snat stk ->
     let (s2, l) = mapAccumL (evalFwd params) s lsd
-    in (s2, tfromVectorShare snat (aDSTK stk) l)
+    in (s2, tfromVectorShare snat (adSTK stk) l)
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
-    in (s2, tsumShare snat (aDSTK stk) t)
+    in (s2, tsumShare snat (adSTK stk) t)
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
-    in (s2, treplicateShare snat (aDSTK stk) t)
+    in (s2, treplicateShare snat (adSTK stk) t)
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
             k accShs bShs eShs
             q es
@@ -894,9 +894,9 @@ evalFwd params s d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (stensorKind @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDFTK accShs
-        bShsAD = aDFTK bShs
-        eShsAD = aDFTK eShs
+    let accShsAD = adFTK accShs
+        bShsAD = adFTK bShs
+        eShsAD = adFTK eShs
         (s2, cacc0) = evalFwd params s acc0'
         (s3, ces) = evalFwd params s2 es'
     in (s3, dmapAccumR (Proxy @target)
@@ -921,9 +921,9 @@ evalFwd params s d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (stensorKind @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (stensorKind @bShs)
    , Refl <- lemBuildOfAD k (stensorKind @eShs) ->
-    let accShsAD = aDFTK accShs
-        bShsAD = aDFTK bShs
-        eShsAD = aDFTK eShs
+    let accShsAD = adFTK accShs
+        bShsAD = adFTK bShs
+        eShsAD = adFTK eShs
         (s2, cacc0) = evalFwd params s acc0'
         (s3, ces) = evalFwd params s2 es'
     in (s3, dmapAccumL (Proxy @target)
@@ -954,12 +954,12 @@ evalFwd params s d0 = case d0 of
 
 
   DeltaFromS @_ @z (DeltaSFromR @sh @x d)
-    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
-                           (aDSTK (stensorKind @(TKR2 (Rank sh) x))) ->
+    | Just Refl <- sameSTK (adSTK (stensorKind @z))
+                           (adSTK (stensorKind @(TKR2 (Rank sh) x))) ->
       evalFwd params s d
   DeltaFromS @_ @z (DeltaSFromX @_ @sh' @x d)
-    | Just Refl <- sameSTK (aDSTK (stensorKind @z))
-                           (aDSTK (stensorKind @(TKX2 sh' x))) ->
+    | Just Refl <- sameSTK (adSTK (stensorKind @z))
+                           (adSTK (stensorKind @(TKX2 sh' x))) ->
       evalFwd params s d
   DeltaFromS @y2 @z d | Dict <- lemKnownSTKOfAD (stensorKind @y2)
                  , Dict <- lemKnownSTKOfAD (stensorKind @z) ->
@@ -968,7 +968,7 @@ evalFwd params s d0 = case d0 of
   _ | Dict <- lemKnownSTKOfAD (stensorKind @y) ->
       case sameKnownSTS @y @(ADTensorKind y) of
         Just Refl -> evalFwdSame params s d0
-        _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
+        _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
 
 evalFwdSame
   :: forall target y.
@@ -983,22 +983,22 @@ evalFwdSame params s = \case
       Nothing -> error "evalFwdSame: missing input"
 
   -- See the comment about these three in evalRevSame.
-  DeltaZero ftk -> (s, constantTarget 0 $ aDFTK ftk)
+  DeltaZero ftk -> (s, constantTarget 0 $ adFTK ftk)
   DeltaScale k d -> second (* k) $ evalFwdSame params s d
   DeltaAdd d e -> let (s2, t) = evalFwdSame params s d
                       (s3, u) = evalFwdSame params s2 e
                   in (s3, t + u)
 
   d0@(DeltaCastK @r1 d) ->
-    case sameSTK (STKScalar (typeRep @r1)) (aDSTK (STKScalar (typeRep @r1))) of
+    case sameSTK (STKScalar (typeRep @r1)) (adSTK (STKScalar (typeRep @r1))) of
       Just Refl -> second kcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
+      _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
 
   d0@(DeltaCastR @r1 @_ @n d) ->
     case sameSTK (stensorKind @(TKR n r1))
-                 (aDSTK ((stensorKind @(TKR n r1)))) of
+                 (adSTK ((stensorKind @(TKR n r1)))) of
       Just Refl -> second rcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
+      _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
   DeltaSum0R (DeltaZero (FTKR _ x)) -> (s, constantTarget 0 (FTKR ZSR x))
   DeltaSum0R d -> second rsum0 $ evalFwdSame params s d
   DeltaDot0R _ DeltaZero{} -> (s, rscalar 0)
@@ -1026,9 +1026,9 @@ evalFwdSame params s = \case
 
   d0@(DeltaCastS @r1 @_ @sh d) ->
     case sameSTK (stensorKind @(TKS sh r1))
-                 (aDSTK ((stensorKind @(TKS sh r1)))) of
+                 (adSTK ((stensorKind @(TKS sh r1)))) of
       Just Refl -> second scast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
+      _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
   DeltaSum0S (DeltaZero (FTKS _ x)) -> (s, constantTarget 0 (FTKS ZSS x))
   DeltaSum0S d -> second ssum0 $ evalFwdSame params s d
   DeltaDot0S _ DeltaZero{} -> (s, srepl 0)
@@ -1057,9 +1057,9 @@ evalFwdSame params s = \case
 
   d0@(DeltaCastX @r1 @_ @sh d) ->
     case sameSTK (stensorKind @(TKX sh r1))
-                 (aDSTK ((stensorKind @(TKX sh r1)))) of
+                 (adSTK ((stensorKind @(TKX sh r1)))) of
       Just Refl -> second xcast $ evalFwdSame params s d
-      _ -> (s, constantTarget 0 $ aDFTK $ ftkDelta d0)
+      _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
   DeltaSum0X (DeltaZero (FTKX _ x)) -> (s, constantTarget 0 (FTKX ZSX x))
   DeltaSum0X d -> second xsum0 $ evalFwdSame params s d
   DeltaDot0X _ DeltaZero{} -> (s, xrepl ZSX 0)

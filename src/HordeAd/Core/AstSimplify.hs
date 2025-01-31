@@ -531,14 +531,14 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                     subbed
       vard2 = mkAstVarName (varNameToAstVarId vard)
       ftkd2 = FTKProduct
-                (aDFTK $ FTKProduct accShsFrom eShs)
+                (adFTK $ FTKProduct accShsFrom eShs)
                 (FTKProduct accShsFrom eShs)
       astd2 = Ast.AstVar ftkd2 vard2
       vd2 =
         let subbed =
               substituteAst
                 (astPair (astPair (astFromS @(ADTensorKind accShsFrom)
-                                     (aDSTK accShsSTK)
+                                     (adSTK accShsSTK)
                                      (astProject1 (astProject1 astd2)))
                                   (astProject2 (astProject1 astd2)))
                          (astPair (astFromS @accShsFrom accShsSTK
@@ -546,18 +546,18 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                                   (astProject2 (astProject2 astd2))))
                 vard vd
         in astSFrom @(ADTensorKind (TKProduct accShs bShs))
-                    (aDSTK $ STKProduct accShsFromSTK (ftkToSTK bShs))
+                    (adSTK $ STKProduct accShsFromSTK (ftkToSTK bShs))
                     subbed
       varr2 = mkAstVarName (varNameToAstVarId varr)
       ftkr2 = FTKProduct
-                (aDFTK $ FTKProduct accShsFrom bShs)
+                (adFTK $ FTKProduct accShsFrom bShs)
                 (FTKProduct accShsFrom eShs)
       astr2 = Ast.AstVar ftkr2 varr2
       vr2 =
         let subbed =
               substituteAst
                 (astPair (astPair (astFromS @(ADTensorKind accShsFrom)
-                                     (aDSTK accShsSTK)
+                                     (adSTK accShsSTK)
                                      (astProject1 (astProject1 astr2)))
                                   (astProject2 (astProject1 astr2)))
                          (astPair (astFromS @accShsFrom accShsSTK
@@ -565,7 +565,7 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                                   (astProject2 (astProject2 astr2))))
                 varr vr
         in astSFrom @(ADTensorKind (TKProduct accShs eShs))
-                    (aDSTK $ STKProduct accShsFromSTK (ftkToSTK eShs))
+                    (adSTK $ STKProduct accShsFromSTK (ftkToSTK eShs))
                     subbed
   in astFromS @(TKProduct accShsFrom (BuildTensorKind k bShs))
               (STKProduct accShsSTK (buildSTK k (ftkToSTK bShs)))
@@ -604,7 +604,7 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
             in subbed
           vard2 = mkAstVarName (varNameToAstVarId vard)
           ftkd2 = FTKProduct
-                    (aDFTK $ FTKProduct accShs eShsFrom)
+                    (adFTK $ FTKProduct accShs eShsFrom)
                     (FTKProduct accShs eShsFrom)
           astd2 = Ast.AstVar ftkd2 vard2
           vd2 =
@@ -612,7 +612,7 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                   substituteAst
                     (astPair (astPair (astProject1 (astProject1 astd2))
                                       (astFromS @(ADTensorKind eShsFrom)
-                                         (aDSTK (ftkToSTK eShs))
+                                         (adSTK (ftkToSTK eShs))
                                          (astProject2 (astProject1 astd2))))
                              (astPair (astProject1 (astProject2 astd2))
                                       (astFromS @eShsFrom (ftkToSTK eShs)
@@ -621,7 +621,7 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
             in subbed
           varr2 = mkAstVarName (varNameToAstVarId varr)
           ftkr2 = FTKProduct
-                    (aDFTK $ FTKProduct accShs bShs)
+                    (adFTK $ FTKProduct accShs bShs)
                     (FTKProduct accShs eShsFrom)
           astr2 = Ast.AstVar ftkr2 varr2
           vr2 =
@@ -633,7 +633,7 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                                          (astProject2 (astProject2 astr2)))))
                     varr vr
             in astSFrom @(ADTensorKind (TKProduct accShs eShs))
-                        (aDSTK $ STKProduct accShsSTK eShsFromSTK)
+                        (adSTK $ STKProduct accShsSTK eShsFromSTK)
                         subbed
       in astMapAccumRDer k bShs eShsFrom (AstLambda (varf2, ftkf2, vf2))
                                          (AstLambda (vard2, ftkd2, vd2))
@@ -683,14 +683,14 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                     subbed
       vard2 = mkAstVarName (varNameToAstVarId vard)
       ftkd2 = FTKProduct
-                (aDFTK $ FTKProduct accShsFrom eShs)
+                (adFTK $ FTKProduct accShsFrom eShs)
                 (FTKProduct accShsFrom eShs)
       astd2 = Ast.AstVar ftkd2 vard2
       vd2 =
         let subbed =
               substituteAst
                 (astPair (astPair (astFromS @(ADTensorKind accShsFrom)
-                                     (aDSTK accShsSTK)
+                                     (adSTK accShsSTK)
                                      (astProject1 (astProject1 astd2)))
                                   (astProject2 (astProject1 astd2)))
                          (astPair (astFromS @accShsFrom accShsSTK
@@ -698,18 +698,18 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                                   (astProject2 (astProject2 astd2))))
                 vard vd
         in astSFrom @(ADTensorKind (TKProduct accShs bShs))
-                    (aDSTK $ STKProduct accShsFromSTK (ftkToSTK bShs))
+                    (adSTK $ STKProduct accShsFromSTK (ftkToSTK bShs))
                     subbed
       varr2 = mkAstVarName (varNameToAstVarId varr)
       ftkr2 = FTKProduct
-                (aDFTK $ FTKProduct accShsFrom bShs)
+                (adFTK $ FTKProduct accShsFrom bShs)
                 (FTKProduct accShsFrom eShs)
       astr2 = Ast.AstVar ftkr2 varr2
       vr2 =
         let subbed =
               substituteAst
                 (astPair (astPair (astFromS @(ADTensorKind accShsFrom)
-                                     (aDSTK accShsSTK)
+                                     (adSTK accShsSTK)
                                      (astProject1 (astProject1 astr2)))
                                   (astProject2 (astProject1 astr2)))
                          (astPair (astFromS @accShsFrom accShsSTK
@@ -717,7 +717,7 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                                   (astProject2 (astProject2 astr2))))
                 varr vr
         in astSFrom @(ADTensorKind (TKProduct accShs eShs))
-                    (aDSTK $ STKProduct accShsFromSTK (ftkToSTK eShs))
+                    (adSTK $ STKProduct accShsFromSTK (ftkToSTK eShs))
                     subbed
   in astFromS @(TKProduct accShsFrom (BuildTensorKind k bShs))
               (STKProduct accShsSTK (buildSTK k (ftkToSTK bShs)))
@@ -756,7 +756,7 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
             in subbed
           vard2 = mkAstVarName (varNameToAstVarId vard)
           ftkd2 = FTKProduct
-                    (aDFTK $ FTKProduct accShs eShsFrom)
+                    (adFTK $ FTKProduct accShs eShsFrom)
                     (FTKProduct accShs eShsFrom)
           astd2 = Ast.AstVar ftkd2 vard2
           vd2 =
@@ -764,7 +764,7 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                   substituteAst
                     (astPair (astPair (astProject1 (astProject1 astd2))
                                       (astFromS @(ADTensorKind eShsFrom)
-                                         (aDSTK (ftkToSTK eShs))
+                                         (adSTK (ftkToSTK eShs))
                                          (astProject2 (astProject1 astd2))))
                              (astPair (astProject1 (astProject2 astd2))
                                       (astFromS @eShsFrom (ftkToSTK eShs)
@@ -773,7 +773,7 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
             in subbed
           varr2 = mkAstVarName (varNameToAstVarId varr)
           ftkr2 = FTKProduct
-                    (aDFTK $ FTKProduct accShs bShs)
+                    (adFTK $ FTKProduct accShs bShs)
                     (FTKProduct accShs eShsFrom)
           astr2 = Ast.AstVar ftkr2 varr2
           vr2 =
@@ -785,7 +785,7 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                                          (astProject2 (astProject2 astr2)))))
                     varr vr
             in astSFrom @(ADTensorKind (TKProduct accShs eShs))
-                        (aDSTK $ STKProduct accShsSTK eShsFromSTK)
+                        (adSTK $ STKProduct accShsSTK eShsFromSTK)
                         subbed
       in astMapAccumLDer k bShs eShsFrom (AstLambda (varf2, ftkf2, vf2))
                                          (AstLambda (vard2, ftkd2, vd2))

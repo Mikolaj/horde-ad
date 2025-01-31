@@ -178,7 +178,7 @@ revEvalArtifact
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt
  | Dict <- lemKnownSTKOfAD (stensorKind @z) =
-  let oneAtF = constantTarget 1 $ aDFTK $ ftkAst artPrimalRev
+  let oneAtF = constantTarget 1 $ adFTK $ ftkAst artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = extendEnv artVarDtRev dt env
@@ -228,7 +228,7 @@ fwdEvalArtifact
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds
  | Dict <- lemKnownSTKOfAD (stensorKind @x) =
-  if aDFTK (tftk (stensorKind @x) parameters)
+  if adFTK (tftk (stensorKind @x) parameters)
      == tftk (stensorKind @(ADTensorKind x)) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env

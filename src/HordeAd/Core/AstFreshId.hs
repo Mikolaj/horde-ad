@@ -122,7 +122,7 @@ funToAstFwdIO ftk | Dict <- lemKnownSTK (ftkToSTK ftk)
       var :: AstVarName FullSpan x
       var = mkAstVarName freshId
       astVarPrimalD :: AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
-      !astVarPrimalD = AstVar (aDFTK ftk) varPrimalD
+      !astVarPrimalD = AstVar (adFTK ftk) varPrimalD
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
       !astVarPrimal = AstVar ftk varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x

@@ -457,11 +457,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                           (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
                           (tlambda @target
-                             (FTKProduct (aDFTK (FTKProduct accShs eShs))
+                             (FTKProduct (adFTK (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
                           (tlambda @target
-                             (FTKProduct (aDFTK (FTKProduct accShs codomainShs))
+                             (FTKProduct (adFTK (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
                           acc0 es
@@ -527,11 +527,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                           (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
                           (tlambda @target
-                             (FTKProduct (aDFTK (FTKProduct accShs eShs))
+                             (FTKProduct (adFTK (FTKProduct accShs eShs))
                                          (FTKProduct accShs eShs))
                            $ HFun dg)
                           (tlambda @target
-                             (FTKProduct (aDFTK (FTKProduct accShs codomainShs))
+                             (FTKProduct (adFTK (FTKProduct accShs codomainShs))
                                          (FTKProduct accShs eShs))
                            $ HFun rg)
                           acc0 es

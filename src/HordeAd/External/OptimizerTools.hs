@@ -26,7 +26,7 @@ updateWithGradient :: forall y. KnownSTK y
                    => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
 updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y of
   STKR SNat (STKScalar @r _) -> RepN $
-    case sameSTK (stensorKind @y) (aDSTK $ stensorKind @y) of
+    case sameSTK (stensorKind @y) (adSTK $ stensorKind @y) of
       Just Refl ->
         ifDifferentiable @r
           (params - Nested.rreplicateScal (Nested.rshape params)
@@ -35,7 +35,7 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y
           params
       Nothing -> params
   STKS sh (STKScalar @r _) -> withKnownShS sh $ RepN $
-    case sameSTK (stensorKind @y) (aDSTK $ stensorKind @y) of
+    case sameSTK (stensorKind @y) (adSTK $ stensorKind @y) of
       Just Refl ->
         ifDifferentiable @r
           (params - Nested.sreplicateScal (Nested.sshape params)

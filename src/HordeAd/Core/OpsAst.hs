@@ -88,7 +88,7 @@ revArtifactFromForwardPass hasDt forwardPass xftk
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
   let zftk = ftkAst $ unAstRaw primalBody
-      (!varDt, !astDt) = funToAst (aDFTK zftk) id in
+      (!varDt, !astDt) = funToAst (adFTK zftk) id in
   let mdt = if hasDt then Just astDt else Nothing
       !gradient = gradientFromDelta xftk zftk (AstRaw <$> mdt) delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
@@ -794,7 +794,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = aDFTK $ ftkAst primal
+        ftkz = adFTK $ ftkAst primal
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDt (astProject1 astP)
@@ -807,7 +807,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactFwd varDs var derivative _primal, _delta) =
           fwdProduceArtifact (unHFun f) emptyEnv ftkx
-        ftk2 = FTKProduct (aDFTK ftkx) ftkx
+        ftk2 = FTKProduct (adFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet varDs (astProject1 astP)
           $ astLet var (astProject2 astP)

@@ -420,7 +420,7 @@ toADTensorKindShared  -- TODO: does not require Shared now
   => STensorKind y -> target y
   -> target (ADTensorKind y)
 toADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
-  windTarget (aDSTK stk) $ toADTensorKindW $ unWindTarget stk a
+  windTarget (adSTK stk) $ toADTensorKindW $ unWindTarget stk a
 
 fromADTensorKindShared  -- TODO: does not require Shared now
   :: BaseTensor target
@@ -428,4 +428,4 @@ fromADTensorKindShared  -- TODO: does not require Shared now
   -> target y
 fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
   windTarget stk
-  $ fromADTensorKindW (unWindSTK stk) $ unWindTarget (aDSTK stk) a
+  $ fromADTensorKindW (unWindSTK stk) $ unWindTarget (adSTK stk) a

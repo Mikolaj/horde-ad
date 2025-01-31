@@ -7,10 +7,10 @@ module HordeAd.Core.TensorKind
   ( -- * Singletons
     STensorKind(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTS, sameSTK
-  , stkUnit, buildSTK, razeSTK, aDSTK
+  , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToSTK
-  , ftkUnit, buildFTK, razeFTK, aDFTK
+  , ftkUnit, buildFTK, razeFTK, adFTK
   , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..), EqF(..), OrdF(..)
@@ -143,19 +143,19 @@ razeSTK = \case
   STKX (SKnown _ :!% sh) x -> STKX sh x
   STKProduct stk1 stk2 -> STKProduct (razeSTK stk1) (razeSTK stk2)
 
-aDSTK :: STensorKind y
+adSTK :: STensorKind y
       -> STensorKind (ADTensorKind y)
-aDSTK = \case
+adSTK = \case
   t@(STKScalar @r tr) -> case testEquality tr (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality tr (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            STKScalar (typeRep @Z0)
-  STKR sh x -> STKR sh $ aDSTK x
-  STKS sh x -> STKS sh $ aDSTK x
-  STKX sh x -> STKX sh $ aDSTK x
-  STKProduct stk1 stk2 -> STKProduct (aDSTK stk1) (aDSTK stk2)
+  STKR sh x -> STKR sh $ adSTK x
+  STKS sh x -> STKS sh $ adSTK x
+  STKX sh x -> STKX sh $ adSTK x
+  STKProduct stk1 stk2 -> STKProduct (adSTK stk1) (adSTK stk2)
 
 lemKnownSTKOfBuild :: SNat k -> STensorKind y
                      -> Dict KnownSTK (BuildTensorKind k y)
@@ -163,7 +163,7 @@ lemKnownSTKOfBuild snat = lemKnownSTK . buildSTK snat
 
 lemKnownSTKOfAD :: STensorKind y
                   -> Dict KnownSTK (ADTensorKind y)
-lemKnownSTKOfAD = lemKnownSTK . aDSTK
+lemKnownSTKOfAD = lemKnownSTK . adSTK
 
 lemBuildOfAD :: SNat k -> STensorKind y
              -> BuildTensorKind k (ADTensorKind y)
@@ -223,19 +223,19 @@ razeFTK snat@SNat stk ftk = case (stk, ftk) of
     , Dict <- lemKnownSTK stk2 ->
       FTKProduct (razeFTK snat stk1 ftk1) (razeFTK snat stk2 ftk2)
 
-aDFTK :: FullTensorKind y
+adFTK :: FullTensorKind y
       -> FullTensorKind (ADTensorKind y)
-aDFTK = \case
+adFTK = \case
   t@(FTKScalar @r) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            FTKScalar @Z0
-  FTKR sh x -> FTKR sh $ aDFTK x
-  FTKS sh x -> FTKS sh $ aDFTK x
-  FTKX sh x -> FTKX sh $ aDFTK x
-  FTKProduct ftk1 ftk2 -> FTKProduct (aDFTK ftk1) (aDFTK ftk2)
+  FTKR sh x -> FTKR sh $ adFTK x
+  FTKS sh x -> FTKS sh $ adFTK x
+  FTKX sh x -> FTKX sh $ adFTK x
+  FTKProduct ftk1 ftk2 -> FTKProduct (adFTK ftk1) (adFTK ftk2)
 
 type role DummyDualTarget nominal
 type DummyDualTarget :: Target
