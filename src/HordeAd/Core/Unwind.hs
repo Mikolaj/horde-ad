@@ -130,8 +130,8 @@ toADTensorKindW t = case t of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
            WTKX $ xrepl @_ @_ @target (xshape v) Z0
-  WTKProduct @y1 @y2 t1 t2 | Dict <- lemKnownSTKOfAD (stensorKind @y1)
-                           , Dict <- lemKnownSTKOfAD (stensorKind @y2) ->
+  WTKProduct @y1 @y2 t1 t2 | Dict <- lemKnownSTKOfAD (knownSTK @y1)
+                           , Dict <- lemKnownSTKOfAD (knownSTK @y2) ->
     WTKProduct (toADTensorKindW t1) (toADTensorKindW t2)
 
 fromADTensorKindW

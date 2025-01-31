@@ -41,7 +41,7 @@ listMatmul1
 listMatmul1 x0 weights = tlet x0 $ \x ->
   let f :: target (TKS '[w1] r) -> target (TKS '[] r)
       f v = v `sdot0` x
-  in tfromListR stensorKind $ f <$> weights
+  in tfromListR knownSTK $ f <$> weights
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.

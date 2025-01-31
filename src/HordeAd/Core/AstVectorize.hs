@@ -61,7 +61,7 @@ build1Vectorize
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y) -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize snat@SNat (var, v0)
- | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) = unsafePerformIO $ do
+ | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat (var, v0)
@@ -96,7 +96,7 @@ build1VOccurenceUnknown
   :: forall y k s. (KnownSTK y, AstSpan s)
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y) -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1VOccurenceUnknown snat@SNat (var, v00)
-  | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) =
+  | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) =
     let v0 = astNonIndexStep v00
           -- Almost surely the term will be transformed, so it can just
           -- as well we one-step simplified first (many steps if redexes
@@ -106,7 +106,7 @@ build1VOccurenceUnknown snat@SNat (var, v00)
     in if varNameInAst var v0
        then build1V snat (var, v0)
        else traceRule $
-         astReplicate snat stensorKind v0
+         astReplicate snat knownSTK v0
 
 -- This is used to avoid biding the same variable twice in the code,
 -- (unless in very safe situations, e.g., different branches
@@ -135,54 +135,54 @@ build1V
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1V snat@SNat (var, v0) =
   let bv = Ast.AstBuild1 snat (var, v0)
-      traceRule | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) =
+      traceRule | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) =
         mkTraceRule "build1V" bv v0 1
   in case v0 of
     Ast.AstPair @x @z t1 t2
-      | Dict <- lemKnownSTKOfBuild snat (stensorKind @x)
-      , Dict <- lemKnownSTKOfBuild snat (stensorKind @z) -> traceRule $
+      | Dict <- lemKnownSTKOfBuild snat (knownSTK @x)
+      , Dict <- lemKnownSTKOfBuild snat (knownSTK @z) -> traceRule $
         astPair (build1VOccurenceUnknown snat (var, t1))
                 (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 @_ @z t
-      | Dict <- lemKnownSTKOfBuild snat (stensorKind @z)
-      , Dict <- lemKnownSTKOfBuild snat (stensorKind @y) -> traceRule $
+      | Dict <- lemKnownSTKOfBuild snat (knownSTK @z)
+      , Dict <- lemKnownSTKOfBuild snat (knownSTK @y) -> traceRule $
         astProject1 (build1V snat (var, t))
     Ast.AstProject2 @x t
-      | Dict <- lemKnownSTKOfBuild snat (stensorKind @x)
-      , Dict <- lemKnownSTKOfBuild snat (stensorKind @y) -> traceRule $
+      | Dict <- lemKnownSTKOfBuild snat (knownSTK @x)
+      , Dict <- lemKnownSTKOfBuild snat (knownSTK @y) -> traceRule $
         astProject2 (build1V snat (var, t))
     Ast.AstFromVector @y2 snat1@(SNat @k1) l
-     | Dict <- lemKnownSTKOfBuild snat (stensorKind @y2) -> traceRule $
-      astTrBuild @k1 @k (stensorKind @y2)
+     | Dict <- lemKnownSTKOfBuild snat (knownSTK @y2) -> traceRule $
+      astTrBuild @k1 @k (knownSTK @y2)
       $ astFromVector snat1 (V.map (\v ->
           build1VOccurenceUnknown snat (var, v)) l)
     Ast.AstSum (SNat @k1) stk v
       | Dict <- lemKnownSTKOfBuild (SNat @k1) stk
       , Dict <- lemKnownSTKOfBuild (SNat @k) stk -> traceRule $
-         astSum (SNat @k1) stensorKind
+         astSum (SNat @k1) knownSTK
          $ astTrBuild @k @k1 stk $ build1V snat (var, v)
     Ast.AstReplicate snat2@(SNat @k2) stk v
       | Dict <- lemKnownSTK stk
       , Dict <- lemKnownSTKOfBuild snat stk -> traceRule $
         astTrBuild @k2 stk
-        $ astReplicate snat2 stensorKind $ build1V snat (var, v)
+        $ astReplicate snat2 knownSTK $ build1V snat (var, v)
     Ast.AstMapAccumRDer @accShs @bShs @eShs @k5
                         k5@SNat bShs eShs f df rf acc0 es
-     | Dict <- lemKnownSTKOfBuild snat (stensorKind @accShs)
-     , Dict <- lemKnownSTKOfBuild snat (stensorKind @eShs)
-     , Dict <- lemKnownSTKOfBuild (SNat @k5) (stensorKind @eShs)
-     , Dict <- lemKnownSTKOfBuild snat (stensorKind @bShs)
-     , Dict <- lemKnownSTKOfBuild (SNat @k5) (stensorKind @bShs)
+     | Dict <- lemKnownSTKOfBuild snat (knownSTK @accShs)
+     , Dict <- lemKnownSTKOfBuild snat (knownSTK @eShs)
+     , Dict <- lemKnownSTKOfBuild (SNat @k5) (knownSTK @eShs)
+     , Dict <- lemKnownSTKOfBuild snat (knownSTK @bShs)
+     , Dict <- lemKnownSTKOfBuild (SNat @k5) (knownSTK @bShs)
      , Dict <- lemKnownSTKOfBuild
-                         snat (stensorKind @(BuildTensorKind k5 bShs))
+                         snat (knownSTK @(BuildTensorKind k5 bShs))
      , Dict <- lemKnownSTKOfBuild
-                         (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
-     , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
-     , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
-     , Dict <- lemKnownSTKOfAD (stensorKind @eShs)
-     , Refl <- lemBuildOfAD snat (stensorKind @accShs)
-     , Refl <- lemBuildOfAD snat (stensorKind @bShs)
-     , Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
+                         (SNat @k5) (knownSTK @(BuildTensorKind k bShs))
+     , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
+     , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
+     , Dict <- lemKnownSTKOfAD (knownSTK @eShs)
+     , Refl <- lemBuildOfAD snat (knownSTK @accShs)
+     , Refl <- lemBuildOfAD snat (knownSTK @bShs)
+     , Refl <- lemBuildOfAD snat (knownSTK @eShs) -> traceRule $
       astLetFun
         (astMapAccumRDer
            k5
@@ -192,28 +192,28 @@ build1V snat@SNat (var, v0) =
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrBuild @k @k5 (stensorKind @eShs)
+           (astTrBuild @k @k5 (knownSTK @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrBuild @k5 @k
-                                       (stensorKind @bShs) (astProject2 x1bs1)))
+                                       (knownSTK @bShs) (astProject2 x1bs1)))
     Ast.AstMapAccumLDer @accShs @bShs @eShs @k5
                         k5@SNat bShs eShs f df rf acc0 es
-     | Dict <- lemKnownSTKOfBuild snat (stensorKind @accShs)
-     , Dict <- lemKnownSTKOfBuild snat (stensorKind @eShs)
-     , Dict <- lemKnownSTKOfBuild (SNat @k5) (stensorKind @eShs)
-     , Dict <- lemKnownSTKOfBuild snat (stensorKind @bShs)
-     , Dict <- lemKnownSTKOfBuild (SNat @k5) (stensorKind @bShs)
+     | Dict <- lemKnownSTKOfBuild snat (knownSTK @accShs)
+     , Dict <- lemKnownSTKOfBuild snat (knownSTK @eShs)
+     , Dict <- lemKnownSTKOfBuild (SNat @k5) (knownSTK @eShs)
+     , Dict <- lemKnownSTKOfBuild snat (knownSTK @bShs)
+     , Dict <- lemKnownSTKOfBuild (SNat @k5) (knownSTK @bShs)
      , Dict <- lemKnownSTKOfBuild
-                         snat (stensorKind @(BuildTensorKind k5 bShs))
+                         snat (knownSTK @(BuildTensorKind k5 bShs))
      , Dict <- lemKnownSTKOfBuild
-                         (SNat @k5) (stensorKind @(BuildTensorKind k bShs))
-     , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
-     , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
-     , Dict <- lemKnownSTKOfAD (stensorKind @eShs)
-     , Refl <- lemBuildOfAD snat (stensorKind @accShs)
-     , Refl <- lemBuildOfAD snat (stensorKind @bShs)
-     , Refl <- lemBuildOfAD snat (stensorKind @eShs) -> traceRule $
+                         (SNat @k5) (knownSTK @(BuildTensorKind k bShs))
+     , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
+     , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
+     , Dict <- lemKnownSTKOfAD (knownSTK @eShs)
+     , Refl <- lemBuildOfAD snat (knownSTK @accShs)
+     , Refl <- lemBuildOfAD snat (knownSTK @bShs)
+     , Refl <- lemBuildOfAD snat (knownSTK @eShs) -> traceRule $
       astLetFun
         (astMapAccumLDer
            k5
@@ -223,14 +223,14 @@ build1V snat@SNat (var, v0) =
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrBuild @k @k5 (stensorKind @eShs)
+           (astTrBuild @k @k5 (knownSTK @eShs)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrBuild @k5 @k
-                                       (stensorKind @bShs) (astProject2 x1bs1)))
+                                       (knownSTK @bShs) (astProject2 x1bs1)))
     Ast.AstApply @x @z t ll
-      | Dict <- lemKnownSTKOfBuild snat (stensorKind @x)
-      , Dict <- lemKnownSTKOfBuild snat (stensorKind @z) -> traceRule $
+      | Dict <- lemKnownSTKOfBuild snat (knownSTK @x)
+      , Dict <- lemKnownSTKOfBuild snat (knownSTK @z) -> traceRule $
         astApply
           (build1VHFun snat (var, t))
           (build1VOccurenceUnknown snat (var, ll))
@@ -242,7 +242,7 @@ build1V snat@SNat (var, v0) =
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $
       let uv = astFromVector (SNat @2) (V.fromList [u, v])
-          t = astIndexBuild (SNat @2) (stensorKind @y) uv (astCond b 0 1)
+          t = astIndexBuild (SNat @2) (knownSTK @y) uv (astCond b 0 1)
       in build1VOccurenceUnknown snat (var, t)
     Ast.AstBuild1 snat2 (var2, v2) -> traceRule $
       assert (var2 /= var) $
@@ -252,8 +252,8 @@ build1V snat@SNat (var, v0) =
       error "build1V: AstConcrete can't have free index variables"
 
     Ast.AstLet @y2 var1 u v
-      | Dict <- lemKnownSTKOfBuild snat (stensorKind @y2)
-      , Dict <- lemKnownSTKOfBuild snat (stensorKind @y) -> traceRule $
+      | Dict <- lemKnownSTKOfBuild snat (knownSTK @y2)
+      , Dict <- lemKnownSTKOfBuild snat (knownSTK @y) -> traceRule $
         let ftk2 = ftkAst u
             (var3, _ftk3, v2) =
               substProjRep snat var ftk2 var1 v
@@ -262,21 +262,21 @@ build1V snat@SNat (var, v0) =
              -- ensures no duplicated bindings, see below
 
     Ast.AstPrimalPart v
-      | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) -> traceRule $
+      | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) -> traceRule $
         astPrimalPart $ build1V snat (var, v)
     Ast.AstDualPart v
-      | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) -> traceRule $
+      | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) -> traceRule $
         astDualPart $ build1V snat (var, v)
-    Ast.AstFromPrimal v | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
+    Ast.AstFromPrimal v | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) ->
       traceRule $
         Ast.AstFromPrimal $ build1V snat (var, v)
-    Ast.AstFromDual v | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
+    Ast.AstFromDual v | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) ->
       traceRule $
         Ast.AstFromDual $ build1V snat (var, v)
 
     Ast.AstSumOfList stk args
      | Dict <- lemKnownSTKOfBuild snat stk -> traceRule $
-      astSumOfList stensorKind
+      astSumOfList knownSTK
       $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstN1K opCode u -> traceRule $
@@ -325,7 +325,7 @@ build1V snat@SNat (var, v0) =
     Ast.AstCastS v -> traceRule $
       astCastS $ build1V snat (var, v)
 
-    Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case stensorKind @y of
+    Ast.AstIndexS @sh1 @sh2 v ix -> traceRule $ case knownSTK @y of
      STKS @sh _ _ | SNat <- shsRank (knownShS @sh1) ->
       withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
       gcastWith (unsafeCoerceRefl
@@ -358,7 +358,7 @@ build1V snat@SNat (var, v0) =
       astTrS $ astSliceS @i $ astTrS $ build1V snat (var, v)
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1V snat (var, v)
-    Ast.AstTransposeS @perm @sh1 perm v -> traceRule $ case stensorKind @y of
+    Ast.AstTransposeS @perm @sh1 perm v -> traceRule $ case knownSTK @y of
      STKS @sh _ _ ->
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
           zsuccPerm = Permutation.permShift1 perm
@@ -473,7 +473,7 @@ build1VHFun
   -> AstHFun (BuildTensorKind k x) (BuildTensorKind k y)
 build1VHFun snat@SNat (var, v0) = case v0 of
   Ast.AstLambda ~(var1, ftk, l)
-    | Dict <- lemKnownSTKOfBuild snat (stensorKind @x) ->
+    | Dict <- lemKnownSTKOfBuild snat (knownSTK @x) ->
       -- This handles the case of l having free variables beyond var1,
       -- which is not possible for lambdas used in folds, etc.
       -- But note that, due to substProjVars, l2 has var occurences,
@@ -499,7 +499,7 @@ astTr a = case ftkAst a of
           (_ :: ShS sh2) ->
             withKnownShS sh $
             gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
-            astFromS @(TKS2 sh2 x) (stensorKind @(TKR2 (2 + n) r))
+            astFromS @(TKS2 sh2 x) (knownSTK @(TKR2 (2 + n) r))
             . astTransposeS perm . astSFromR @sh $ a
 
 astTrS :: forall n m sh s r.
@@ -525,7 +525,7 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
           astFromS @(TKS2 sh2 x)
-                   (stensorKind @(TKX2 (Just m ': Just n ': shx) r))
+                   (knownSTK @(TKX2 (Just m ': Just n ': shx) r))
           . astTransposeS perm . astSFromX @sh @sh' $ a
 
 astTrBuild
@@ -543,15 +543,15 @@ astTrBuild stk t = case stk of
     , Dict <- lemKnownSTKOfBuild (SNat @k1) stk1
     , Dict <- lemKnownSTKOfBuild (SNat @k2) stk1
     , Dict <- lemKnownSTKOfBuild
-                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z1))
+                        (SNat @k1) (knownSTK @(BuildTensorKind k2 z1))
     , Dict <- lemKnownSTKOfBuild
-                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z1))
+                        (SNat @k2) (knownSTK @(BuildTensorKind k1 z1))
     , Dict <- lemKnownSTKOfBuild (SNat @k1) stk2
     , Dict <- lemKnownSTKOfBuild (SNat @k2) stk2
     , Dict <- lemKnownSTKOfBuild
-                        (SNat @k1) (stensorKind @(BuildTensorKind k2 z2))
+                        (SNat @k1) (knownSTK @(BuildTensorKind k2 z2))
     , Dict <- lemKnownSTKOfBuild
-                        (SNat @k2) (stensorKind @(BuildTensorKind k1 z2)) ->
+                        (SNat @k2) (knownSTK @(BuildTensorKind k1 z2)) ->
       astLetFun t $ \ !tShared ->
         let (u1, u2) = (astProject1 tShared, astProject2 tShared)
         in astPair (astTrBuild @k1 @k2 stk1 u1) (astTrBuild @k1 @k2 stk2 u2)
@@ -562,14 +562,14 @@ astIndexBuild :: forall y k s. AstSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat stk u i = case stk of
-  STKScalar{} -> astFromS stensorKind $ astIndexStepS u (i :.$ ZIS)
+  STKScalar{} -> astFromS knownSTK $ astIndexStepS u (i :.$ ZIS)
   STKR SNat x | Dict <- lemKnownSTK x -> case ftkAst u of
     FTKR shmshn _ | SNat <- shrRank shmshn ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         withKnownShS sh $
         gcastWith (unsafeCoerceRefl :: k ': Drop 1 sh :~: sh) $
         withKnownShS (dropShS @1 sh) $
-        astFromS (stensorKind @y)
+        astFromS (knownSTK @y)
         $ astIndexStepS (astSFromR @sh u) (i :.$ ZIS)
   STKS sh x | Dict <- lemKnownSTK x ->
     withKnownShS sh $ astIndexStepS u (i :.$ ZIS)
@@ -580,7 +580,7 @@ astIndexBuild snat@SNat stk u i = case stk of
       ZSS -> error "astIndexBuild: impossible empty shape"
       (:$$) _ rest ->
         withKnownShS rest $
-        astFromS (stensorKind @y)
+        astFromS (knownSTK @y)
         $ astIndexStepS (astSFromX @shBuild @(Just k ': sh') u)
                         (i :.$ ZIS)
   STKProduct stk1 stk2
@@ -601,7 +601,7 @@ substProjRep
      , FullTensorKind (BuildTensorKind k y2)
      , AstTensor AstMethodLet s y )
 substProjRep snat@SNat var ftk2 var1 v
-  | Dict <- lemKnownSTKOfBuild snat (stensorKind @y2) =
+  | Dict <- lemKnownSTKOfBuild snat (knownSTK @y2) =
     let var3 :: AstVarName s2 (BuildTensorKind k y2)
         var3 = mkAstVarName (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
         ftk3 = buildFTK snat ftk2

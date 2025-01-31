@@ -99,13 +99,13 @@ revDtMaybe
   -> Maybe (RepN (ADTensorKind z))
   -> Value astvals  -- morally (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
-revDtMaybe f vals0 mdt | Dict <- lemKnownSTKOfAD (stensorKind @(X astvals)) =
+revDtMaybe f vals0 mdt | Dict <- lemKnownSTKOfAD (knownSTK @(X astvals)) =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals0
-      ftk = tftk stensorKind valsTarget
+      ftk = tftk knownSTK valsTarget
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv ftk
   in fromTargetAD $ fst $ revEvalArtifact artifact valsTarget mdt
 {- TODO
@@ -177,7 +177,7 @@ revEvalArtifact
   -> (RepN (ADTensorKind x), RepN z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt
- | Dict <- lemKnownSTKOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (knownSTK @z) =
   let oneAtF = constantTarget 1 $ adFTK $ ftkAst artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
@@ -213,11 +213,11 @@ fwd f vals ds =
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals
-      ftk = tftk stensorKind valsTarget
+      ftk = tftk knownSTK valsTarget
       artifact = fst $ fwdProduceArtifact g emptyEnv ftk
       dsTarget = toTarget ds
   in fst $ fwdEvalArtifact @_ @z artifact valsTarget
-         $ toADTensorKindShared stensorKind dsTarget
+         $ toADTensorKindShared knownSTK dsTarget
 
 fwdEvalArtifact
   :: forall x z. KnownSTK x
@@ -227,9 +227,9 @@ fwdEvalArtifact
   -> (RepN (ADTensorKind z), RepN z)
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds
- | Dict <- lemKnownSTKOfAD (stensorKind @x) =
-  if adFTK (tftk (stensorKind @x) parameters)
-     == tftk (stensorKind @(ADTensorKind x)) ds then
+ | Dict <- lemKnownSTKOfAD (knownSTK @x) =
+  if adFTK (tftk (knownSTK @x) parameters)
+     == tftk (knownSTK @(ADTensorKind x)) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
         envD = extendEnv artVarDsFwd ds env
         derivative = interpretAst envD artDerivativeFwd
@@ -281,7 +281,7 @@ crevDtMaybe
   -> Maybe (RepN (ADTensorKind z))
   -> DValue advals  -- morally (ADTensorKind advals)
 {-# INLINE crevDtMaybe #-}
-crevDtMaybe f vals mdt | Dict <- lemKnownSTKOfAD (stensorKind @(X advals)) =
+crevDtMaybe f vals mdt | Dict <- lemKnownSTKOfAD (knownSTK @(X advals)) =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
       valsTarget = toTarget vals
@@ -314,7 +314,7 @@ cfwd f vals ds =
       valsTarget = toTarget vals
       dsTarget = toTarget ds
   in fst $ cfwdOnHVector valsTarget g
-     $ toADTensorKindShared stensorKind dsTarget
+     $ toADTensorKindShared knownSTK dsTarget
 
 
 

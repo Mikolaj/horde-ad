@@ -57,26 +57,26 @@ data STensorKind y where
 deriving instance Show (STensorKind y)
 
 class KnownSTK (y :: TensorKindType) where
-  stensorKind :: STensorKind y
+  knownSTK :: STensorKind y
 
 instance GoodScalar r => KnownSTK (TKScalar r) where
-  stensorKind = STKScalar typeRep
+  knownSTK = STKScalar typeRep
 
 instance (KnownSTK x, KnownNat n)
          => KnownSTK (TKR2 n x) where
-  stensorKind = STKR SNat stensorKind
+  knownSTK = STKR SNat knownSTK
 
 instance (KnownSTK x, KnownShS sh)
          => KnownSTK (TKS2 sh x) where
-  stensorKind = STKS knownShS stensorKind
+  knownSTK = STKS knownShS knownSTK
 
 instance (KnownSTK x, KnownShX sh)
          => KnownSTK (TKX2 sh x) where
-  stensorKind = STKX knownShX stensorKind
+  knownSTK = STKX knownShX knownSTK
 
 instance (KnownSTK y, KnownSTK z)
          => KnownSTK (TKProduct y z) where
-  stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
+  knownSTK = STKProduct (knownSTK @y) (knownSTK @z)
 
 withKnownSTK :: forall y r. STensorKind y -> (KnownSTK y => r) -> r
 withKnownSTK = withDict @(KnownSTK y)
@@ -92,7 +92,7 @@ lemKnownSTK = \case
 
 sameKnownSTS :: forall y1 y2. (KnownSTK y1, KnownSTK y2)
                => Maybe (y1 :~: y2)
-sameKnownSTS = sameSTK (stensorKind @y1) (stensorKind @y2)
+sameKnownSTS = sameSTK (knownSTK @y1) (knownSTK @y2)
 
 sameSTK :: STensorKind y1' -> STensorKind y2' -> Maybe (y1' :~: y2')
 sameSTK y1 y2 = case (y1, y2) of

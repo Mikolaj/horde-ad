@@ -243,10 +243,10 @@ type role RepN nominal
 newtype RepN y = RepN {unRepN :: RepORArray y}
 
 instance KnownSTK y => Show (RepN y) where
-  showsPrec d (RepN t) | Dict <- showDictRep (stensorKind @y) = showsPrec d t
+  showsPrec d (RepN t) | Dict <- showDictRep (knownSTK @y) = showsPrec d t
 
 instance KnownSTK y => NFData (RepN y) where
-  rnf (RepN t) | Dict <- nfdataDictRep (stensorKind @y) = rnf t
+  rnf (RepN t) | Dict <- nfdataDictRep (knownSTK @y) = rnf t
 
 type instance BoolOf RepN = Bool
 
@@ -260,7 +260,7 @@ type instance ShareOf RepN = RepN
 
 instance EqF RepN where
   (==.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
-  RepN u ==. RepN v = case stensorKind @y of
+  RepN u ==. RepN v = case knownSTK @y of
     STKScalar _ -> u == v
     STKR SNat STKScalar{} -> u == v
     STKS sh STKScalar{} -> withKnownShS sh $ u == v
@@ -273,7 +273,7 @@ instance EqF RepN where
 
 instance OrdF RepN where
   (<.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
-  RepN u <. RepN v = case stensorKind @y of
+  RepN u <. RepN v = case knownSTK @y of
     STKScalar _ -> u < v
     STKR SNat STKScalar{} -> u < v
     STKS sh STKScalar{} -> withKnownShS sh $ u < v

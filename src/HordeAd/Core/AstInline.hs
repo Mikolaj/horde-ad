@@ -39,14 +39,14 @@ import HordeAd.Core.Types
 
 simplifyArtifact :: forall x z. (KnownSTK x, KnownSTK z)
                  => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifact art | Dict <- lemKnownSTKOfAD (stensorKind @x) =
+simplifyArtifact art | Dict <- lemKnownSTKOfAD (knownSTK @x) =
   let !der = simplifyInlineContract $ artDerivativeRev art in
   let !prim = simplifyInlineContract $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
 simplifyArtifactGradient :: forall x z. KnownSTK x
                          => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactGradient art | Dict <- lemKnownSTKOfAD (stensorKind @x) =
+simplifyArtifactGradient art | Dict <- lemKnownSTKOfAD (knownSTK @x) =
   art { artDerivativeRev =
         simplifyInlineContract $ artDerivativeRev art }
 

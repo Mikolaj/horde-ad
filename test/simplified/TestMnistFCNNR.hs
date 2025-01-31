@@ -61,19 +61,19 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
+    (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
@@ -84,8 +84,8 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
                         , show $ twidth @RepN
-                          $ stensorKind @(XParams widthHidden widthHidden2 r)
-                        , show (tsize stensorKind targetInit)
+                          $ knownSTK @(XParams widthHidden widthHidden2 r)
+                        , show (tsize knownSTK targetInit)
                         , show gamma ]
       ftest :: [MnistData r] -> MnistFcnnRanked1.ADFcnnMnist1Parameters
                                   RepN widthHidden widthHidden2 r
@@ -171,33 +171,33 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
+    (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
       targetInit :: RepN (XParams widthHidden widthHidden2 r)
       targetInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(XParams widthHidden widthHidden2 r))
+      ftk = tftk @RepN (knownSTK @(XParams widthHidden widthHidden2 r))
                        targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
                         , show $ twidth @RepN
-                          $ stensorKind @(XParams widthHidden widthHidden2 r)
-                        , show (tsize stensorKind targetInit)
+                          $ knownSTK @(XParams widthHidden widthHidden2 r)
+                        , show (tsize knownSTK targetInit)
                         , show gamma ]
       ftest :: [MnistData r] -> MnistFcnnRanked1.ADFcnnMnist1Parameters
                                   RepN widthHidden widthHidden2 r
@@ -302,33 +302,33 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
+    (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
   withKnownSTK
-    (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
   withKnownSTK
-    (adSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
+    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
       targetInit :: RepN (XParams widthHidden widthHidden2 r)
       targetInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(XParams widthHidden widthHidden2 r))
+      ftk = tftk @RepN (knownSTK @(XParams widthHidden widthHidden2 r))
                        targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
                         , show $ twidth @RepN
-                          $ stensorKind @(XParams widthHidden widthHidden2 r)
-                        , show (tsize stensorKind targetInit)
+                          $ knownSTK @(XParams widthHidden widthHidden2 r)
+                        , show (tsize knownSTK targetInit)
                         , show gamma ]
       ftest :: [MnistData r] -> MnistFcnnRanked1.ADFcnnMnist1Parameters
                                   RepN widthHidden widthHidden2 r
@@ -451,8 +451,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show $ twidth @RepN
-                          $ stensorKind @(XParams2 r)
-                        , show (tsize stensorKind targetInit)
+                          $ knownSTK @(XParams2 r)
+                        , show (tsize knownSTK targetInit)
                         , show gamma ]
       ftest :: [MnistData r] -> MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
             -> r
@@ -543,14 +543,14 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                       1 (mkStdGen 44)
       targetInit :: RepN (XParams2 r)
       targetInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(XParams2 r))
+      ftk = tftk @RepN (knownSTK @(XParams2 r))
                        targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show $ twidth @RepN
-                          $ stensorKind @(XParams2 r)
-                        , show (tsize stensorKind targetInit)
+                          $ knownSTK @(XParams2 r)
+                        , show (tsize knownSTK targetInit)
                         , show gamma ]
       ftest :: [MnistData r] -> MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
             -> r
@@ -663,14 +663,14 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                       1 (mkStdGen 44)
       targetInit :: RepN (XParams2 r)
       targetInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(XParams2 r))
+      ftk = tftk @RepN (knownSTK @(XParams2 r))
                        targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show $ twidth @RepN
-                          $ stensorKind @(XParams2 r)
-                        , show (tsize stensorKind targetInit)
+                          $ knownSTK @(XParams2 r)
+                        , show (tsize knownSTK targetInit)
                         , show gamma ]
       ftest :: [MnistData r] -> MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
             -> r
@@ -791,7 +791,7 @@ testVTOPP :: Assertion
 testVTOPP = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = treplicate (SNat @SizeMnistGlyph) stensorKind
+      blackGlyph = treplicate (SNat @SizeMnistGlyph) knownSTK
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters
@@ -800,7 +800,7 @@ testVTOPP = do
       afcnn2T =
         MnistFcnnRanked1.afcnnMnist1 id id
                                      (SNat @3) (SNat @4) (sfromR blackGlyph)
-      ftk = tftk @RepN (stensorKind @(XParams 3 4 Double))
+      ftk = tftk @RepN (knownSTK @(XParams 3 4 Double))
                        (toTarget @RepN valsInitVTOPP)
       (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
@@ -816,7 +816,7 @@ testVTOPPNonLin :: Assertion
 testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = treplicate (SNat @SizeMnistGlyph) stensorKind
+      blackGlyph = treplicate (SNat @SizeMnistGlyph) knownSTK
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
@@ -825,7 +825,7 @@ testVTOPPNonLin = do
       afcnn2TnonLin =
         MnistFcnnRanked1.afcnnMnist1 logisticS softMax1S
                                      (SNat @3) (SNat @4) (sfromR blackGlyph)
-      ftk = tftk @RepN (stensorKind @(XParams 3 4 Double))
+      ftk = tftk @RepN (knownSTK @(XParams 3 4 Double))
                        (toTarget @RepN valsInitVTOPP)
       (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk
   printArtifactPretty renames artifactRevnonLin
@@ -853,14 +853,14 @@ testVT2OPP :: Assertion
 testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = treplicate (SNat @3) stensorKind
+      blackGlyph = treplicate (SNat @3) knownSTK
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstTensor AstMethodLet FullSpan) Double
               -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
-      ftk = tftk @RepN (stensorKind @(XParams2 Double))
+      ftk = tftk @RepN (knownSTK @(XParams2 Double))
                        (toTarget @RepN valsInitVT2OPP)
       (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
@@ -876,7 +876,7 @@ testVT2OPPNonLin :: Assertion
 testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = treplicate (SNat @3) stensorKind
+      blackGlyph = treplicate (SNat @3) knownSTK
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
@@ -902,14 +902,14 @@ testVT2OPPNonLin2 :: Assertion
 testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
-      blackGlyph = treplicate (SNat @3) stensorKind
+      blackGlyph = treplicate (SNat @3) knownSTK
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
-      ftk = tftk @RepN (stensorKind @(XParams2 Double))
+      ftk = tftk @RepN (knownSTK @(XParams2 Double))
                        (toTarget @RepN valsInitVT2OPP)
       (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk
   printArtifactPretty renames artifactRevnonLin

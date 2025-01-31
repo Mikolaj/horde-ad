@@ -1981,7 +1981,7 @@ rscanZip :: forall rn n rn2 n2 target.
          -> target (TKR (1 + n) rn)
 rscanZip f eShs acc0 es =
   let width = rlength es
-      ftk = tftk stensorKind acc0
+      ftk = tftk knownSTK acc0
   in withSNat width $ \snat ->
     tlet
       (dmapAccumL Proxy snat ftk ftk eShs

@@ -223,7 +223,7 @@ class LetTensor (target :: Target) where
   -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
   tfromS :: forall y z. (BaseTensor target, KnownSTK y, KnownSTK z)
          => target y -> target z
-  tfromS v = case (stensorKind @y, stensorKind @z) of
+  tfromS v = case (knownSTK @y, knownSTK @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
       Just Refl -> kfromS v
@@ -362,7 +362,7 @@ class ShareTensor (target :: Target) where
                  (tindexBuildShare snat stk2 u2 i)
   tfromSShare :: forall y z. (BaseTensor target, KnownSTK y, KnownSTK z)
               => target y -> target z
-  tfromSShare v = case (stensorKind @y, stensorKind @z) of
+  tfromSShare v = case (knownSTK @y, knownSTK @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
       Just Refl -> kfromS v
@@ -433,7 +433,7 @@ class ( Num (IntOf target)
 
   rconcrete :: (KnownSTK r, KnownNat n)
             => Nested.Ranked n (RepORArray r) -> target (TKR2 n r)
-  rconcrete a = tconcrete (tftkG (STKR SNat stensorKind) a) (RepN a)
+  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
   rfromList :: (KnownSTK r, KnownNat n)
             => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
@@ -448,7 +448,7 @@ class ( Num (IntOf target)
   rfromVectorLinear :: forall r n. (KnownSTK r, KnownNat n)
                     => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
                     -> target (TKR2 n r)
-  rfromVectorLinear sh v | Dict <- eltDictRep (stensorKind @r) =
+  rfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
     if V.null v
     then rreshape sh $ rconcrete Nested.remptyArray
     else rreshape sh $ rfromVector v
@@ -515,11 +515,11 @@ class ( Num (IntOf target)
              , EqF (PrimalOf target) )
           => IShR m -> target (TKR2 n r) -> IxROf target m
           -> target (TKR2 (m + n) r)
-  roneHot sh v ix = case stensorKind @r of
+  roneHot sh v ix = case knownSTK @r of
     STKScalar{} ->
       rscatter @_ @_ @0
                (shrAppend sh (rshape v)) v (const ix)
-    _ -> case tftk stensorKind v of
+    _ -> case tftk knownSTK v of
       FTKR _ ftk2 ->
         -- TODO: def at out of bounds
         let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
@@ -690,21 +690,21 @@ class ( Num (IntOf target)
 
   rprimalPart :: (KnownSTK r, KnownNat n)
               => target (TKR2 n r) -> PrimalOf target (TKR2 n r)
-  rprimalPart = tprimalPart stensorKind
+  rprimalPart = tprimalPart knownSTK
   rdualPart :: (KnownSTK r, KnownNat n)
             => target (TKR2 n r) -> DualOf target (TKR2 n r)
-  rdualPart = tdualPart stensorKind
+  rdualPart = tdualPart knownSTK
   rfromPrimal :: (KnownSTK r, KnownNat n)
               => PrimalOf target (TKR2 n r) -> target (TKR2 n r)
-  rfromPrimal = tfromPrimal stensorKind
+  rfromPrimal = tfromPrimal knownSTK
   rfromDual :: (KnownSTK r, KnownNat n)
             => DualOf target (TKR2 n r) -> target (TKR2 n r)
-  rfromDual = tfromDual stensorKind
+  rfromDual = tfromDual knownSTK
   rScale :: ( GoodScalar r, KnownNat n
             , Num (target (TKR n r)), Num (PrimalOf target (TKR n r)) )
          => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
          -> DualOf target (TKR n r)
-  rScale = tScale @target stensorKind
+  rScale = tScale @target knownSTK
 
   -- Shaped ops
   sshape :: forall sh r. (KnownSTK r, KnownShS sh)
@@ -721,7 +721,7 @@ class ( Num (IntOf target)
 
   sconcrete :: (KnownSTK r, KnownShS sh)
             => Nested.Shaped sh (RepORArray r) -> target (TKS2 sh r)
-  sconcrete a = tconcrete (tftkG (STKS knownShS stensorKind) a) (RepN a)
+  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
   sfromList :: (KnownSTK r, KnownNat n, KnownShS sh)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
@@ -736,7 +736,7 @@ class ( Num (IntOf target)
                        (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
                     => Data.Vector.Vector (target (TKS2 '[] r))
                     -> target (TKS2 sh r)
-  sfromVectorLinear v | Dict <- eltDictRep (stensorKind @r) =
+  sfromVectorLinear v | Dict <- eltDictRep (knownSTK @r) =
     if V.null v
     then gcastWith (unsafeCoerceRefl :: Nested.Product sh :~: 0) $
          sreshape $ sconcrete $ Nested.semptyArray ZSS
@@ -802,12 +802,12 @@ class ( Num (IntOf target)
              , EqF (PrimalOf target) )
           => target (TKS2 sh2 r) -> IxSOf target sh1
           -> target (TKS2 (sh1 ++ sh2) r)
-  soneHot v ix | SNat <- shsRank (knownShS @sh1) = case stensorKind @r of
+  soneHot v ix | SNat <- shsRank (knownShS @sh1) = case knownSTK @r of
     STKScalar{} ->
       gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
       sscatter @_ @_ @'[] @_ @sh1 v (const ix)
-    _ -> case tftk stensorKind v of
+    _ -> case tftk knownSTK v of
       FTKS _ ftk2 ->
         -- TODO: def at out of bounds
         gcastWith (unsafeCoerceRefl
@@ -1058,20 +1058,20 @@ class ( Num (IntOf target)
 
   sprimalPart :: (KnownSTK r, KnownShS sh)
               => target (TKS2 sh r) -> PrimalOf target (TKS2 sh r)
-  sprimalPart = tprimalPart stensorKind
+  sprimalPart = tprimalPart knownSTK
   sdualPart :: (KnownSTK r, KnownShS sh)
             => target (TKS2 sh r) -> DualOf target (TKS2 sh r)
-  sdualPart = tdualPart stensorKind
+  sdualPart = tdualPart knownSTK
   sfromPrimal :: (KnownSTK r, KnownShS sh)
               => PrimalOf target (TKS2 sh r) -> target (TKS2 sh r)
-  sfromPrimal = tfromPrimal stensorKind
+  sfromPrimal = tfromPrimal knownSTK
   sfromDual :: (KnownSTK r, KnownShS sh)
             => DualOf target (TKS2 sh r) -> target (TKS2 sh r)
-  sfromDual = tfromDual stensorKind
+  sfromDual = tfromDual knownSTK
   sScale :: (GoodScalar r, KnownShS sh, Num (target (TKS sh r)), Num (PrimalOf target (TKS sh r)))
          => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
          -> DualOf target (TKS sh r)
-  sScale = tScale @target stensorKind
+  sScale = tScale @target knownSTK
 
   -- Mixed ops
   xshape :: KnownSTK r => target (TKX2 sh r) -> IShX sh
@@ -1086,7 +1086,7 @@ class ( Num (IntOf target)
 
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
-  xmcast sh2 a = case tftk stensorKind a of
+  xmcast sh2 a = case tftk knownSTK a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShX sh2 $
@@ -1094,7 +1094,7 @@ class ( Num (IntOf target)
         xfromS $ sfromX @_ @sh a
   xconcrete :: (KnownSTK r, KnownShX sh)
             => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
-  xconcrete a = tconcrete (tftkG (STKX knownShX stensorKind) a) (RepN a)
+  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
   xfromList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
             => NonEmpty (target (TKX2 sh r)) -> target (TKX2 (Just n ': sh) r)
   xfromList = xfromVector
@@ -1109,7 +1109,7 @@ class ( Num (IntOf target)
   xfromVectorLinear :: forall r sh. (KnownSTK r, KnownShX sh)
                     => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
                     -> target (TKX2 sh r)
-  xfromVectorLinear sh v | Dict <- eltDictRep (stensorKind @r) =
+  xfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
     if V.null v
     then xreshape sh $ xconcrete $ Nested.memptyArray ZSX
     else withSNat (shxSize sh) $ \(SNat @n) ->
@@ -1191,12 +1191,12 @@ class ( Num (IntOf target)
              , EqF (PrimalOf target) )
           => IShX sh1 -> target (TKX2 sh2 r) -> IxXOf target sh1
           -> target (TKX2 (sh1 ++ sh2) r)
-  xoneHot sh1 v ix | SNat <- ssxRank (knownShX @sh1) = case stensorKind @r of
+  xoneHot sh1 v ix | SNat <- ssxRank (knownShX @sh1) = case knownSTK @r of
     STKScalar{} ->
       gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
       xscatter @_ @_ @'[] @_ @sh1 (shxAppend sh1 (xshape v)) v (const ix)
-    _ -> case tftk stensorKind v of
+    _ -> case tftk knownSTK v of
       FTKX _ ftk2 ->
         -- TODO: def at out of bounds
         gcastWith (unsafeCoerceRefl
@@ -1316,20 +1316,20 @@ class ( Num (IntOf target)
 
   xprimalPart :: (KnownSTK r, KnownShX sh)
               => target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
-  xprimalPart = tprimalPart stensorKind
+  xprimalPart = tprimalPart knownSTK
   xdualPart :: (KnownSTK r, KnownShX sh)
             => target (TKX2 sh r) -> DualOf target (TKX2 sh r)
-  xdualPart = tdualPart stensorKind
+  xdualPart = tdualPart knownSTK
   xfromPrimal :: (KnownSTK r, KnownShX sh)
               => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
-  xfromPrimal = tfromPrimal stensorKind
+  xfromPrimal = tfromPrimal knownSTK
   xfromDual :: (KnownSTK r, KnownShX sh)
             => DualOf target (TKX2 sh r) -> target (TKX2 sh r)
-  xfromDual = tfromDual stensorKind
+  xfromDual = tfromDual knownSTK
   xScale :: (GoodScalar r, KnownShX sh, Num (target (TKX sh r)), Num (PrimalOf target (TKX sh r)))
          => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
          -> DualOf target (TKX sh r)
-  xScale = tScale @target stensorKind
+  xScale = tScale @target knownSTK
 
   -- Scalar ops
   kconcrete :: GoodScalar r => r -> target (TKScalar r)
@@ -1359,7 +1359,7 @@ class ( Num (IntOf target)
   rfromS | SNat <- shsRank (knownShS @sh) = tfromS
   rfromX :: (KnownShX sh, KnownSTK r)
          => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
-  rfromX a = case tftk stensorKind a of
+  rfromX a = case tftk knownSTK a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
@@ -1373,7 +1373,7 @@ class ( Num (IntOf target)
   xfromK = xfromS . sfromK
   xfromR :: (KnownShX sh, KnownNat (Rank sh), KnownSTK r)
          => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
-  xfromR a = case tftk stensorKind a of
+  xfromR a = case tftk knownSTK a of
     FTKR shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
@@ -1560,10 +1560,10 @@ class ( Num (IntOf target)
     -> target (TKR2 n rn)
   rfold f acc0 es =
     let shm :: IShR m
-        (width, shm, xm) = case tftk stensorKind es of
+        (width, shm, xm) = case tftk knownSTK es of
           FTKR (width2 :$: shm2) x2 -> (width2, shm2, x2)
           FTKR ZSR _ -> error "rfold: impossible pattern needlessly required"
-        (sh, x) = case tftk stensorKind acc0 of
+        (sh, x) = case tftk knownSTK acc0 of
           FTKR sh2 x2 -> (sh2, x2)
     in withSNat width $ \snat ->
       tproject1
@@ -1589,10 +1589,10 @@ class ( Num (IntOf target)
     -> target (TKR2 (1 + n) rn)
   rscan f acc0 es =
     let shm :: IShR m
-        (width, shm, xm) = case tftk stensorKind es of
+        (width, shm, xm) = case tftk knownSTK es of
           FTKR (width2 :$: shm2) x2 -> (width2, shm2, x2)
           FTKR ZSR _ -> error "rfold: impossible pattern needlessly required"
-        (sh, x) = case tftk stensorKind acc0 of
+        (sh, x) = case tftk knownSTK acc0 of
           FTKR sh2 x2 -> (sh2, x2)
     in withSNat width $ \snat ->
       let bs =
@@ -1619,9 +1619,9 @@ class ( Num (IntOf target)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 sh rn)
   sfold f acc0 es =
-    let xm = case tftk stensorKind es of
+    let xm = case tftk knownSTK es of
           FTKS _ x2 -> x2
-        x = case tftk stensorKind acc0 of
+        x = case tftk knownSTK acc0 of
           FTKS _ x2 -> x2
     in tproject1
       (dmapAccumL (Proxy @target)
@@ -1644,9 +1644,9 @@ class ( Num (IntOf target)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 (1 + k ': sh) rn)
   sscan f acc0 es =
-    let xm = case tftk stensorKind es of
+    let xm = case tftk knownSTK es of
           FTKS _ x2 -> x2
-        x = case tftk stensorKind acc0 of
+        x = case tftk knownSTK acc0 of
           FTKS _ x2 -> x2
         bs =
           tproject2
@@ -1776,7 +1776,7 @@ class ( Num (IntOf target)
         -> BoolOf target -> target y -> target y -> target y
   ifF :: (Boolean (BoolOf target), KnownSTK y)
       => BoolOf target -> target y -> target y -> target y
-  ifF = tcond stensorKind
+  ifF = tcond knownSTK
   minF :: (Boolean (BoolOf target), OrdF target, KnownSTK y)
        => target y -> target y -> target y
   minF u v = ifF (u <=. v) u v
@@ -1808,7 +1808,7 @@ class ( Num (IntOf target)
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
               in tpair (replSTK stk1 f1) (replSTK stk2 f2)
-    in replSTK (stensorKind @y) f
+    in replSTK (knownSTK @y) f
 
   tprimalPart :: STensorKind y
               -> target y
@@ -1851,7 +1851,7 @@ class ( Num (IntOf target)
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  rrev f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x) =
+  rrev f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x) =
     \ !es -> tApply (drev @target ftk $ HFun f) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
@@ -1862,8 +1862,8 @@ class ( Num (IntOf target)
          -> target x
          -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  rrevDt f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
-               , Dict <- lemKnownSTKOfAD (stensorKind @(TKR2 n r)) =
+  rrevDt f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
+               , Dict <- lemKnownSTKOfAD (knownSTK @(TKR2 n r)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   rfwd :: forall x r n.
@@ -1873,8 +1873,8 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR2 n r))
-  rfwd f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
-             , Dict <- lemKnownSTKOfAD (stensorKind @(TKR2 n r)) =
+  rfwd f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
+             , Dict <- lemKnownSTKOfAD (knownSTK @(TKR2 n r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
   srev :: forall x r sh.
@@ -1884,7 +1884,7 @@ class ( Num (IntOf target)
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  srev f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x) =
+  srev f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x) =
     \ !es -> tApply (drev @target ftk $ HFun f) es
   srevDt :: forall x r sh.
             (KnownSTK x, KnownSTK r, KnownShS sh)
@@ -1893,8 +1893,8 @@ class ( Num (IntOf target)
          -> target x
          -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  srevDt f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
-               , Dict <- lemKnownSTKOfAD (stensorKind @(TKS2 sh r)) =
+  srevDt f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
+               , Dict <- lemKnownSTKOfAD (knownSTK @(TKS2 sh r)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   sfwd :: forall x r sh.
@@ -1904,8 +1904,8 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS2 sh r))
-  sfwd f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
-             , Dict <- lemKnownSTKOfAD (stensorKind @(TKS2 sh r)) =
+  sfwd f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
+             , Dict <- lemKnownSTKOfAD (knownSTK @(TKS2 sh r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
   -- If the result of the argument function is not a scalar,
@@ -1941,9 +1941,9 @@ tunit = kconcrete Z0
 
 rscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKR2 0 r)
-rscalar r | Dict <- eltDictRep (stensorKind @r) =
+rscalar r | Dict <- eltDictRep (knownSTK @r) =
   let a = Nested.rscalar r
-  in tconcrete (tftkG (STKR (SNat @0) (stensorKind @r)) a) (RepN a)
+  in tconcrete (tftkG (STKR (SNat @0) (knownSTK @r)) a) (RepN a)
 
 rrepl :: (GoodScalar r, KnownNat n, BaseTensor target)
       => IShR n -> r -> target (TKR n r)
@@ -1955,9 +1955,9 @@ ringestData sh l = rconcrete $ Nested.rfromListPrimLinear sh l
 
 sscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKS2 '[] r)
-sscalar r | Dict <- eltDictRep (stensorKind @r) =
+sscalar r | Dict <- eltDictRep (knownSTK @r) =
   let a = Nested.sscalar r
-  in tconcrete (tftkG (STKS ZSS (stensorKind @r)) a) (RepN a)
+  in tconcrete (tftkG (STKS ZSS (knownSTK @r)) a) (RepN a)
 
 srepl :: (KnownShS sh, GoodScalar r, BaseTensor target)
       => r -> target (TKS sh r)
@@ -1975,9 +1975,9 @@ singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
 xscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKX2 '[] r)
-xscalar r | Dict <- eltDictRep (stensorKind @r) =
+xscalar r | Dict <- eltDictRep (knownSTK @r) =
   let a = Nested.mscalar r
-  in tconcrete (tftkG (STKX ZKX (stensorKind @r)) a) (RepN a)
+  in tconcrete (tftkG (STKX ZKX (knownSTK @r)) a) (RepN a)
 
 xrepl :: (KnownShX sh, GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)

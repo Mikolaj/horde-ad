@@ -96,10 +96,10 @@ interpretAstPrimal !env v1 = case v1 of
   AstCond @y2 b a1 a2 ->
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
-    in tcond (stensorKind @y2) c
+    in tcond (knownSTK @y2) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
   _ ->
-    tprimalPart (stensorKind @y) (interpretAst env v1)
+    tprimalPart (knownSTK @y) (interpretAst env v1)
 
 interpretAstDual
   :: forall target y. (ADReady target, KnownSTK y)
@@ -108,7 +108,7 @@ interpretAstDual
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstFromDual u) -> interpretAstDual env u
   _ ->
-    tdualPart (stensorKind @y) (interpretAst env v1)
+    tdualPart (knownSTK @y) (interpretAst env v1)
 
 interpretAstRuntimeSpecialized
   :: forall target n s r.
@@ -156,7 +156,7 @@ interpretAst !env = \case
   AstProject2 t -> tproject2 (interpretAst env t)
   AstFromVector snat l ->
     let l2 = V.map (interpretAst env) l
-    in tfromVector snat stensorKind l2
+    in tfromVector snat knownSTK l2
   AstSum snat stk v -> tsum snat stk $ interpretAst env v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
@@ -173,9 +173,9 @@ interpretAst !env = \case
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstMapAccumRDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemKnownSTKOfAD (stensorKind @accShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
+    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
@@ -183,9 +183,9 @@ interpretAst !env = \case
         es2 = interpretAst env es
     in dmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
   AstMapAccumLDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemKnownSTKOfAD (stensorKind @accShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
+    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
@@ -207,21 +207,21 @@ interpretAst !env = \case
    in case DMap.lookup var2 env of
     Just (AstEnvElemRep t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
-      assert (tftk (stensorKind @y2) t == _sh
-              `blame` (_sh, tftk (stensorKind @y2) t, var, t))
+      assert (tftk (knownSTK @y2) t == _sh
+              `blame` (_sh, tftk (knownSTK @y2) t, var, t))
 #endif
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
 -- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstCond @y2 b a1 a2 ->
     let c = interpretAstBool env b
-    in tcond (stensorKind @y2) c (interpretAst env a1) (interpretAst env a2)
+    in tcond (knownSTK @y2) c (interpretAst env a1) (interpretAst env a2)
   AstBuild1 snat (var, v) ->
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat f
   AstConcrete ftk a -> tconcrete ftk a
 
-  AstLet @y2 var u v -> case stensorKind @y2 of
+  AstLet @y2 var u v -> case knownSTK @y2 of
     -- We assume there are no nested lets with the same variable.
     STKR _ STKScalar{} ->
       let t = interpretAstRuntimeSpecialized env u
@@ -265,8 +265,8 @@ interpretAst !env = \case
     -- be morally the dual part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
-  AstFromPrimal @y2 a -> tfromPrimal (stensorKind @y2) (interpretAstPrimal env a)
-  AstFromDual @y2 a -> tfromDual (stensorKind @y2) (interpretAstDual env a)
+  AstFromPrimal @y2 a -> tfromPrimal (knownSTK @y2) (interpretAstPrimal env a)
+  AstFromDual @y2 a -> tfromDual (knownSTK @y2) (interpretAstDual env a)
 
   AstSumOfList stk args ->
     let args2 = interpretAst env <$> args
@@ -423,7 +423,7 @@ interpretAstBool !env = \case
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
   AstRel @y3 opCodeRel arg1 arg2 ->
-    case stensorKind @y3 of
+    case knownSTK @y3 of
       STKR SNat STKScalar{} ->
         let r1 = interpretAstPrimalRuntimeSpecialized env arg1
             r2 = interpretAstPrimalRuntimeSpecialized env arg2

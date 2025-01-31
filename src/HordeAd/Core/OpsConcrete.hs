@@ -99,28 +99,28 @@ instance BaseTensor RepN where
   taddTarget = addTarget
 
   -- Ranked ops
-  rshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.rshape . unRepN
-  rfromList @r | Dict <- eltDictRep (stensorKind @r) =
+  rshape @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unRepN
+  rfromList @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rfromListOuter . NonEmpty.map unRepN
       -- TODO: make this strict
-  rfromListLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
+  rfromListLinear @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromListLinearR sh . map unRepN
-  rfromVector @r | Dict <- eltDictRep (stensorKind @r) =
+  rfromVector @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
-  rfromVectorLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
+  rfromVectorLinear @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromListLinearR sh . V.toList . V.map unRepN
-  runravelToList @r | Dict <- eltDictRep (stensorKind @r) =
+  runravelToList @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.rtoListOuter . unRepN
-  rsum t = case tftk stensorKind t of
+  rsum t = case tftk knownSTK t of
     FTKR _ FTKScalar ->  -- optimized
       RepN . Nested.rsumOuter1 . unRepN $ t
     FTKR _ x ->
       let l = runravelToList t
           sh = shrTail $ rshape t
-      in foldr (addTarget stensorKind) (constantTarget 0 (FTKR sh x)) l
+      in foldr (addTarget knownSTK) (constantTarget 0 (FTKR sh x)) l
         -- RepN has a ShareTensor instance, so addTarget arguments
         -- don't need to be duplicable
-  rsum0 t = case tftk stensorKind t of
+  rsum0 t = case tftk knownSTK t of
     FTKR _ FTKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
     FTKR _ _ ->
@@ -130,9 +130,9 @@ instance BaseTensor RepN where
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   rscaleByScalar s v =
     RepN $ liftVR (V.map (* Nested.runScalar (unRepN s))) (unRepN v)
-  rreplicate @r k | Dict <- eltDictRep (stensorKind @r) =
+  rreplicate @r k | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate (k :$: ZSR) . unRepN
-  rreplicate0N @r sh | Dict <- eltDictRep (stensorKind @r) =
+  rreplicate0N @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate sh . unRepN
   rindex = tindexZR
   rindex0 = tindex0R
@@ -147,26 +147,26 @@ instance BaseTensor RepN where
   rmaxIndex = RepN . tmaxIndexR . unRepN
   riota n = RepN $ Nested.rfromList1 $ NonEmpty.map fromInteger
             $ NonEmpty.fromList [0 .. fromIntegral n - 1]
-  rappend @r u v | Dict <- eltDictRep (stensorKind @r) =
+  rappend @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.rappend (unRepN u) (unRepN v)
-  rslice @r i n | Dict <- eltDictRep (stensorKind @r) =
+  rslice @r i n | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rslice i n . unRepN
-  rreverse @r | Dict <- eltDictRep (stensorKind @r) =
+  rreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rrev1 . unRepN
-  rtranspose @r perm | Dict <- eltDictRep (stensorKind @r) =
+  rtranspose @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rtranspose perm . unRepN
-  rreshape @r sh | Dict <- eltDictRep (stensorKind @r) =
+  rreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreshape sh . unRepN
   rzip (RepN (a, b)) = RepN $ Nested.rzip a b
   runzip = RepN . Nested.runzip . unRepN
-  rbuild1 @r k f | Dict <- eltDictRep (stensorKind @r) =
+  rbuild1 @r k f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1R k (unRepN . f . RepN)
-  rmap0N @r @r1 f t = case (stensorKind @r1, stensorKind @r) of
+  rmap0N @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
     (STKScalar{}, STKScalar{}) -> RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
     _ ->  -- TODO: how to call the default implementation?
       rbuild (rshape t) (f . rindex0 t)
   rzipWith0N @r1 @r2 @r f t u =
-    case (stensorKind @r1, stensorKind @r2, stensorKind @r) of
+    case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar{}, STKScalar{}, STKScalar{}) ->
         RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
                            (unRepN t) (unRepN u)
@@ -174,26 +174,26 @@ instance BaseTensor RepN where
         rbuild (rshape u) (\ix -> f (rindex0 t ix) (rindex0 u ix))
 
   -- Shaped ops
-  sfromList @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromList @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.map unRepN
       -- TODO: make this strict
-  sfromListLinear @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromListLinear @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromListLinearS . map unRepN
-  sfromVector @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromVector @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . V.map unRepN
-  sfromVectorLinear @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromVectorLinear @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromListLinearS . V.toList . V.map unRepN
-  sunravelToList @r | Dict <- eltDictRep (stensorKind @r) =
+  sunravelToList @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.stoListOuter . unRepN
-  ssum t = case tftk stensorKind t of
+  ssum t = case tftk knownSTK t of
     FTKS _ FTKScalar ->  -- optimized
       RepN . Nested.ssumOuter1 . unRepN $ t
     FTKS _ x ->
       let l = sunravelToList t
           sh = shsTail $ sshape t
-      in foldr (addTarget stensorKind) (constantTarget 0 (FTKS sh x)) l
-  ssum0 @_ @sh t | SNat <- shsProduct (knownShS @sh)  = case tftk stensorKind t of
+      in foldr (addTarget knownSTK) (constantTarget 0 (FTKS sh x)) l
+  ssum0 @_ @sh t | SNat <- shsProduct (knownShS @sh)  = case tftk knownSTK t of
     FTKS _ FTKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
     FTKS _ _ ->
@@ -205,10 +205,10 @@ instance BaseTensor RepN where
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   sscaleByScalar s v =
     RepN $ liftVS (V.map (* Nested.sunScalar (unRepN s))) (unRepN v)
-  sreplicate @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
+  sreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
   sreplicate0N @r @sh | Refl <- lemAppNil @sh
-                      , Dict <- eltDictRep (stensorKind @r) =
+                      , Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreplicate (knownShS @sh) . unRepN
   sindex = tindexZS
   sindex0 = tindex0S
@@ -225,7 +225,7 @@ instance BaseTensor RepN where
     case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
       SNat ->
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-        case tftk stensorKind t of
+        case tftk knownSTK t of
           FTKS _ x@FTKScalar ->  -- optimized
             withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
             gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
@@ -258,7 +258,7 @@ instance BaseTensor RepN where
                   let ix2 = f $ fmap RepN ix
                   in if ixInBounds (map unRepN $ toList $ ix2)
                                    (toList $ knownShS @(shp ++ shn))
-                     then M.insertWith (addTarget stensorKind) ix2
+                     then M.insertWith (addTarget knownSTK) ix2
                             (RepN
                              $ tindexNS @_ @shm @shn (unRepN t) ix)
                      else id
@@ -275,7 +275,7 @@ instance BaseTensor RepN where
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-    case stensorKind @r of
+    case knownSTK @r of
       STKScalar{} ->  -- optimized
         let shm = knownShS @shm
             s = shsSize shm
@@ -302,21 +302,21 @@ instance BaseTensor RepN where
       Just Refl -> RepN $ Nested.semptyArray ZSS
       Nothing -> error "siota: wrong rank"
     Just l -> RepN $ Nested.sfromList1 SNat $ NonEmpty.map fromInteger l
-  sappend @r u v | Dict <- eltDictRep (stensorKind @r) =
+  sappend @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.sappend (unRepN u) (unRepN v)
-  sslice @r @i _ _ | Dict <- eltDictRep (stensorKind @r) =
+  sslice @r @i _ _ | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sslice (SNat @i) SNat . unRepN
-  sreverse @r | Dict <- eltDictRep (stensorKind @r) =
+  sreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.srev1 . unRepN
-  stranspose @_ @r perm | Dict <- eltDictRep (stensorKind @r) =
+  stranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stranspose perm . unRepN
-  sreshape @r | Dict <- eltDictRep (stensorKind @r) =
+  sreshape @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreshape knownShS . unRepN
   szip (RepN (a, b)) = RepN $ Nested.szip a b
   sunzip = RepN . Nested.sunzip . unRepN
-  sbuild1 @_ @_ @r f | Dict <- eltDictRep (stensorKind @r) =
+  sbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1S (unRepN . f . RepN)
-  smap0N @r1 @r @sh f v = case (stensorKind @r1, stensorKind @r) of
+  smap0N @r1 @r @sh f v = case (knownSTK @r1, knownSTK @r) of
     (STKScalar{}, STKScalar{}) ->
       RepN $ tmap0NS (unRepN . f . RepN) (unRepN v)
     _ ->  -- TODO: how to call the default implementation?
@@ -324,7 +324,7 @@ instance BaseTensor RepN where
       $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
       $ sbuild @RepN @r @(Rank sh) (f . sindex0 v)
   szipWith0N @r1 @r2 @r @sh f t u =
-    case (stensorKind @r1, stensorKind @r2, stensorKind @r) of
+    case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar{}, STKScalar{}, STKScalar{}) ->
         RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
                            (unRepN t) (unRepN u)
@@ -334,30 +334,30 @@ instance BaseTensor RepN where
         $ sbuild @RepN @_ @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
 
   -- Shaped ops
-  xshape @r | Dict <- eltDictRep (stensorKind @r) = Nested.mshape . unRepN
-  xfromList @r @n @sh | Dict <- eltDictRep (stensorKind @r) =
+  xshape @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
+  xfromList @r @n @sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.map unRepN
       -- TODO: make this strict
-  xfromListLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
+  xfromListLinear @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromListLinearX sh . map unRepN
-  xfromVector @r @n @sh | Dict <- eltDictRep (stensorKind @r) =
+  xfromVector @r @n @sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList
     . V.map unRepN
-  xfromVectorLinear @r sh | Dict <- eltDictRep (stensorKind @r) =
+  xfromVectorLinear @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromListLinearX sh . V.toList . V.map unRepN
-  xunravelToList @r | Dict <- eltDictRep (stensorKind @r) =
+  xunravelToList @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.mtoListOuter . unRepN
-  xsum t = case tftk stensorKind t of
+  xsum t = case tftk knownSTK t of
     FTKX _ FTKScalar ->  -- optimized
       RepN . Nested.msumOuter1 . unRepN $ t
     FTKX _ x ->
       let l = xunravelToList t
           sh = shxTail $ xshape t
-      in foldr (addTarget stensorKind) (constantTarget 0 (FTKX sh x)) l
+      in foldr (addTarget knownSTK) (constantTarget 0 (FTKX sh x)) l
   xsum0 t =
-   case tftk stensorKind t of
+   case tftk knownSTK t of
     FTKX _ FTKScalar ->  -- optimized
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
     FTKX _ _ -> withSNat (shxSize $ xshape t) $ \snat ->
@@ -369,10 +369,10 @@ instance BaseTensor RepN where
   xmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
   xscaleByScalar s v =
     RepN $ liftVX (V.map (* Nested.munScalar (unRepN s))) (unRepN v)
-  xreplicate @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
+  xreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unRepN
   xreplicate0N @r @sh sh | Refl <- lemAppNil @sh
-                         , Dict <- eltDictRep (stensorKind @r) =
+                         , Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate sh . unRepN
   xindex = tindexZX
   xindex0 = tindex0X
@@ -381,7 +381,7 @@ instance BaseTensor RepN where
     withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-    case tftk stensorKind t of
+    case tftk knownSTK t of
       FTKX _ x@FTKScalar ->  -- optimized
         let zero = constantTarget 0 (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
@@ -407,7 +407,7 @@ instance BaseTensor RepN where
             g ix =
               let ix2 = f $ fmap RepN ix
               in if ixInBounds (map unRepN $ toList $ ix2) (toList sh)
-                 then M.insertWith (addTarget stensorKind) ix2
+                 then M.insertWith (addTarget knownSTK) ix2
                         (RepN
                          $ tindexNX @_ @shm @shn (unRepN t) ix)
                  else id
@@ -422,7 +422,7 @@ instance BaseTensor RepN where
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-    case stensorKind @r of
+    case knownSTK @r of
       STKScalar{} ->  -- optimized
         let shm = shxTakeSSX (Proxy @shn) sh (knownShX @shm)
             s = shxSize shm
@@ -444,19 +444,19 @@ instance BaseTensor RepN where
                  t = Nested.mfromList1 $ NonEmpty.map fromInteger
                      $ NonEmpty.fromList [0 .. n - 1]
              in RepN $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX) t
-  xappend @r u v | Dict <- eltDictRep (stensorKind @r) =
+  xappend @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.mappend (unRepN u) (unRepN v)
-  xslice @r @i _ _ | Dict <- eltDictRep (stensorKind @r) =
+  xslice @r @i _ _ | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mslice (SNat @i) SNat . unRepN
-  xreverse @r | Dict <- eltDictRep (stensorKind @r) =
+  xreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mrev1 . unRepN
-  xtranspose @_ @r perm | Dict <- eltDictRep (stensorKind @r) =
+  xtranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mtranspose perm . unRepN
-  xreshape @r sh | Dict <- eltDictRep (stensorKind @r) =
+  xreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreshape sh . unRepN
   xzip (RepN (a, b)) = RepN $ Nested.mzip a b
   xunzip = RepN . Nested.munzip . unRepN
-  xbuild1 @_ @_ @r f | Dict <- eltDictRep (stensorKind @r) =
+  xbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1X (unRepN . f . RepN)
 
   -- Scalar ops
@@ -469,37 +469,37 @@ instance BaseTensor RepN where
   kfromS = RepN . Nested.sunScalar . unRepN
   kfromX = RepN . Nested.munScalar . unRepN
   rfromK = RepN . Nested.rscalar . unRepN
-  rfromS @r | Dict <- eltDictRep (stensorKind @r) =
+  rfromS @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stoRanked . unRepN
-  rfromX @_ @r | Dict <- eltDictRep (stensorKind @r) =
+  rfromX @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mtoRanked . unRepN
   sfromK = RepN . Nested.sscalar . unRepN
-  sfromR @_ @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromR @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . flip Nested.rcastToShaped knownShS . unRepN
-  sfromX @_ @_ @r | Dict <- eltDictRep (stensorKind @r) =
+  sfromX @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . flip Nested.mcastToShaped knownShS . unRepN
   xfromK = RepN . Nested.mscalar . unRepN
-  xfromR @sh @r | Dict <- eltDictRep (stensorKind @r) =
+  xfromR @sh @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rcastToMixed (knownShX @sh) . unRepN
-  xfromS @_ @sh' @r | Dict <- eltDictRep (stensorKind @r) =
+  xfromS @_ @sh' @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.scastToMixed (knownShX @sh') . unRepN
 
   -- Nesting/unnesting
-  xnestR @sh1 @m @x sh | Dict <- eltDictRep (stensorKind @x) =
+  xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN
     . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing)
                                                       (RepORArray x))
                     -> Nested.Mixed sh1 (Nested.Ranked m (RepORArray x)))
     . Nested.mnest sh
     . unRepN
-  xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (stensorKind @x) =
+  xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN
     . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Mixed (MapJust sh2)
                                                       (RepORArray x))
                     -> Nested.Mixed sh1 (Nested.Shaped sh2 (RepORArray x)))
     . Nested.mnest sh
     . unRepN
-  xnest @_ @_ @x sh | Dict <- eltDictRep (stensorKind @x) =
+  xnest @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN . Nested.mnest sh . unRepN
   xunNestR @sh1 @m @x =
     RepN
@@ -570,7 +570,7 @@ instance BaseTensor RepN where
 ravel :: forall k y. KnownSTK y
       => SNat k -> [RepN y]
       -> RepN (BuildTensorKind k y)
-ravel k@SNat t = case stensorKind @y of
+ravel k@SNat t = case knownSTK @y of
   STKScalar{} -> sfromList $ sfromK <$> NonEmpty.fromList t
   STKR SNat x | Dict <- lemKnownSTK x ->
     rfromList $ NonEmpty.fromList t
@@ -581,15 +581,15 @@ ravel k@SNat t = case stensorKind @y of
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemKnownSTK stk1
     , Dict <- lemKnownSTK stk2
-    , Dict <- lemKnownSTKOfBuild k (stensorKind @y1)
-    , Dict <- lemKnownSTKOfBuild k (stensorKind @y2) ->
+    , Dict <- lemKnownSTKOfBuild k (knownSTK @y1)
+    , Dict <- lemKnownSTKOfBuild k (knownSTK @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
       in tpair (ravel k lt1) (ravel k lt2)
 
 unravel :: forall k y. KnownSTK y
         => SNat k -> RepN (BuildTensorKind k y)
         -> [RepN y]
-unravel k@SNat t = case stensorKind @y of
+unravel k@SNat t = case knownSTK @y of
   STKScalar{} -> map kfromS $ sunravelToList t
   STKR SNat x | Dict <- lemKnownSTK x ->
     runravelToList t
@@ -600,8 +600,8 @@ unravel k@SNat t = case stensorKind @y of
   STKProduct @y1 @y2 stk1 stk2
     | Dict <- lemKnownSTK stk1
     , Dict <- lemKnownSTK stk2
-    , Dict <- lemKnownSTKOfBuild k (stensorKind @y1)
-    , Dict <- lemKnownSTKOfBuild k (stensorKind @y2) ->
+    , Dict <- lemKnownSTKOfBuild k (knownSTK @y1)
+    , Dict <- lemKnownSTKOfBuild k (knownSTK @y2) ->
       let lt1 = unravel k $ tproject1 t
           lt2 = unravel k $ tproject2 t
       in zipWith tpair lt1 lt2
@@ -619,8 +619,8 @@ oRdmapAccumR
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumR k _ bShs _ f acc0 es
- | Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
+ | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (knownSTK @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -641,8 +641,8 @@ oRdmapAccumL
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumL k _ bShs _ f acc0 es
- | Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
+ | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (knownSTK @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -671,7 +671,7 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
 updateNR :: forall n m x. (KnownNat n, KnownNat m, KnownSTK x)
          => RepN (TKR2 (n + m) x) -> [(IxROf RepN n, RepN (TKR2 m x))]
          -> RepN (TKR2 (n + m) x)
-updateNR arr upd = case stensorKind @x of
+updateNR arr upd = case knownSTK @x of
   STKScalar{} ->  -- optimized
     let values = Nested.rtoVector $ unRepN arr
         sh = rshape arr
@@ -755,10 +755,10 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
 tindexZR
   :: forall r m n. (KnownSTK r, KnownNat m, KnownNat n)
   => RepN (TKR2 (m + n) r) -> IxROf RepN m -> RepN (TKR2 n r)
-tindexZR v ixRepN | Dict <- showDictRep (stensorKind @r)
-                  , Dict <- eltDictRep (stensorKind @r) =
+tindexZR v ixRepN | Dict <- showDictRep (knownSTK @r)
+                  , Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
-  in case tftk stensorKind v of
+  in case tftk knownSTK v of
     FTKR sh x | SNat <- shrRank sh ->
      if ixInBounds (toList ix) (toList sh)
      then RepN $ tindexNR (unRepN v) ix
@@ -767,9 +767,9 @@ tindexZR v ixRepN | Dict <- showDictRep (stensorKind @r)
 tindex0R
   :: forall r m. (KnownSTK r, KnownNat m)
   => RepN (TKR2 m r) -> IxROf RepN m -> RepN (TKR2 0 r)
-tindex0R v ixRepN | Dict <- eltDictRep (stensorKind @r) =
+tindex0R v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
-  in case tftk stensorKind v of
+  in case tftk knownSTK v of
     FTKR sh x ->
      if ixInBounds (toList ix) (toList sh)
      then rscalar $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
@@ -810,7 +810,7 @@ tscatterZR :: forall m p n r.
            -> (IxROf RepN m -> IxROf RepN p)
            -> RepN (TKR2 (p + n) r)
 tscatterZR sh t f
- | Dict <- eltDictRep (stensorKind @r) = case tftk stensorKind t of
+ | Dict <- eltDictRep (knownSTK @r) = case tftk knownSTK t of
   FTKR _ x@FTKScalar ->  -- optimized
     let zero = constantTarget 0 (FTKR sh x)
         (shm, shDropP) = splitAt_Shape @m $ rshape t
@@ -833,7 +833,7 @@ tscatterZR sh t f
         g ix =
           let ix2 = f $ fmap RepN ix
           in if ixInBounds (map unRepN $ toList ix2) (toList sh)
-             then M.insertWith (addTarget stensorKind) ix2
+             then M.insertWith (addTarget knownSTK) ix2
                                (RepN $ unRepN t `tindexNR` ix)
              else id
         ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
@@ -849,7 +849,7 @@ tscatterZ1R :: (KnownSTK r, KnownNat p, KnownNat n)
             => IShR (p + n) -> RepN (TKR2 (1 + n) r)
             -> (IntOf RepN -> IxROf RepN p)
             -> RepN (TKR2 (p + n) r)
-tscatterZ1R sh t f = case tftk stensorKind t of
+tscatterZ1R sh t f = case tftk knownSTK t of
   FTKR _ x ->
     let zero = constantTarget 0 (FTKR sh x)
         lt = runravelToList t
@@ -858,7 +858,7 @@ tscatterZ1R sh t f = case tftk stensorKind t of
                     then updateNR zero [(ix2, ti)]
                     else zero
         lu = imap g lt
-    in foldr (addTarget stensorKind) zero lu
+    in foldr (addTarget knownSTK) zero lu
 
 -- TODO: make this strict
 tfromListLinearR
@@ -901,7 +901,7 @@ tgatherZR :: forall m p n r.
           => IShR (m + n) -> RepN (TKR2 (p + n) r)
           -> (IxROf RepN m -> IxROf RepN p)
           -> RepN (TKR2 (m + n) r)
-tgatherZR sh t f = case stensorKind @r of
+tgatherZR sh t f = case knownSTK @r of
   STKScalar{} ->  -- optimized
     let shm = takeShape @m sh
         s = shrSize shm
@@ -916,7 +916,7 @@ tgatherZ1R :: forall p n r.
            => Int -> RepN (TKR2 (p + n) r)
            -> (IntOf RepN -> IxROf RepN p)
            -> RepN (TKR2 (1 + n) r)
-tgatherZ1R k t f = case stensorKind @r of
+tgatherZ1R k t f = case knownSTK @r of
   STKScalar{} ->  -- optimized
     rfromList $ NonEmpty.map (\i -> t `rindex` f (RepN i))
                              (NonEmpty.fromList [0 .. fromIntegral k - 1])
@@ -934,7 +934,7 @@ updateNS :: forall n sh r.
          => RepN (TKS2 sh r)
          -> [(IxSOf RepN (Take n sh), RepN (TKS2 (Drop n sh) r))]
          -> RepN (TKS2 sh r)
-updateNS arr upd = case stensorKind @r of
+updateNS arr upd = case knownSTK @r of
   STKScalar{} ->
     let values = Nested.stoVector $ unRepN arr
         sh = knownShS @sh
@@ -1040,10 +1040,10 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 tindexZS
   :: forall r sh1 sh2. (KnownSTK r, KnownShS sh1, KnownShS sh2)
   => RepN (TKS2 (sh1 ++ sh2) r) -> IxSOf RepN sh1 -> RepN (TKS2 sh2 r)
-tindexZS v ixRepN | Dict <- eltDictRep (stensorKind @r) =
+tindexZS v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
   in withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-     case tftk stensorKind v of
+     case tftk knownSTK v of
        FTKS sh x ->
          if ixInBounds (toList ix) (toList sh)
          then RepN $ tindexNS (unRepN v) ix
@@ -1052,9 +1052,9 @@ tindexZS v ixRepN | Dict <- eltDictRep (stensorKind @r) =
 tindex0S
   :: forall r sh. (KnownSTK r, KnownShS sh)
   => RepN (TKS2 sh r) -> IxSOf RepN sh -> RepN (TKS2 '[] r)
-tindex0S v ixRepN | Dict <- eltDictRep (stensorKind @r) =
+tindex0S v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
-  in case tftk stensorKind v of
+  in case tftk knownSTK v of
     FTKS sh x ->
       if ixInBounds (toList ix) (toList sh)
       then sscalar $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
@@ -1089,7 +1089,7 @@ tscatterZ1S
   -> (IntOf RepN -> IxSOf RepN shp)
   -> RepN (TKS2 (shp ++ shn) r)
 tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
-  SNat -> case tftk stensorKind t of
+  SNat -> case tftk knownSTK t of
     FTKS _ x ->
       withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
@@ -1102,7 +1102,7 @@ tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
                       then updateNS @(Rank shp) zero [(ix2, ti)]
                       else zero
           lu = imap g lt
-      in foldr (addTarget stensorKind) zero lu
+      in foldr (addTarget knownSTK) zero lu
 
 -- TODO: make this strict
 tfromListLinearS
@@ -1148,7 +1148,7 @@ tgatherZ1S
   -> RepN (TKS2 (n2 ': shn) r)
 tgatherZ1S t f =
   withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-  case stensorKind @r of
+  case knownSTK @r of
     STKScalar{} ->  -- optimized
       sfromList $ NonEmpty.map (\i -> t !$ f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
@@ -1162,7 +1162,7 @@ updateNX :: forall n sh r.
          => RepN (TKX2 sh r)
          -> [(IxXOf RepN (Take n sh), RepN (TKX2 (Drop n sh) r))]
          -> RepN (TKX2 sh r)
-updateNX arr upd = case stensorKind @r of
+updateNX arr upd = case knownSTK @r of
   STKScalar{} ->
     let values = Nested.mtoVector $ unRepN arr
         sh = xshape arr
@@ -1175,7 +1175,7 @@ updateNX arr upd = case stensorKind @r of
                                  fromIntegral sh ix
           in V.concat [V.take i t, v, V.drop (i + V.length v) t]
     in RepN $ Nested.mfromVector (xshape arr) (foldl' f values upd)
-  _ | Dict <- eltDictRep (stensorKind @r) ->
+  _ | Dict <- eltDictRep (knownSTK @r) ->
       gcastWith (unsafeCoerceRefl :: sh :~: Take n sh ++ Drop n sh) $
       let arrNested = xnest (knownShX @(Take n sh)) arr
           shNested = xshape arrNested
@@ -1256,10 +1256,10 @@ tindexNX v ix = Nested.mindexPartial v (fmap fromIntegral ix)
 tindexZX
   :: forall r sh1 sh2. (KnownSTK r, KnownShX sh1, KnownShX sh2)
   => RepN (TKX2 (sh1 ++ sh2) r) -> IxXOf RepN sh1 -> RepN (TKX2 sh2 r)
-tindexZX v ixRepN | Dict <- eltDictRep (stensorKind @r) =
+tindexZX v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
   in withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-     case tftk stensorKind v of
+     case tftk knownSTK v of
        FTKX sh x ->
          if ixInBounds (toList ix) (toList sh)
          then RepN $ tindexNX (unRepN v) ix
@@ -1268,9 +1268,9 @@ tindexZX v ixRepN | Dict <- eltDictRep (stensorKind @r) =
 tindex0X
   :: forall r sh. (KnownSTK r, KnownShX sh)
   => RepN (TKX2 sh r) -> IxXOf RepN sh -> RepN (TKX2 '[] r)
-tindex0X v ixRepN | Dict <- eltDictRep (stensorKind @r) =
+tindex0X v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
-  in case tftk stensorKind v of
+  in case tftk knownSTK v of
     FTKX sh x ->
       if ixInBounds (toList ix) (toList sh)
       then xscalar $ Nested.mindex (unRepN v) (fmap fromIntegral ix)
@@ -1294,7 +1294,7 @@ tscatterZ1X
   -> (IntOf RepN -> IxXOf RepN shp)
   -> RepN (TKX2 (shp ++ shn) r)
 tscatterZ1X sh t f =
-  case tftk stensorKind t of
+  case tftk knownSTK t of
     FTKX _ x ->
       withKnownShX (ssxFromShape sh) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
@@ -1306,7 +1306,7 @@ tscatterZ1X sh t f =
                       then updateNX @(Rank shp) zero [(ix2, ti)]
                       else zero
           lu = imap g lt
-      in foldr (addTarget stensorKind) zero lu
+      in foldr (addTarget knownSTK) zero lu
 
 tfromListLinearX
   :: forall r sh. Nested.KnownElt r
@@ -1337,7 +1337,7 @@ tgatherZ1X
   -> RepN (TKX2 (Just n2 ': shn) r)
 tgatherZ1X SNat t f =
   withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
-  case stensorKind @r of
+  case knownSTK @r of
     STKScalar{} ->  -- optimized
       xfromList $ NonEmpty.map (\i -> t `xindex` f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])

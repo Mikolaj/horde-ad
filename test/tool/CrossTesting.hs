@@ -64,7 +64,7 @@ rev' :: forall r m n v a w.
         , RepN (TKR n r), w, w, w )
 rev' f vals =
   let value0 = f vals
-      ftk = tftk stensorKind vals
+      ftk = tftk knownSTK vals
       dt = Nothing
       g :: ADVal RepN (TKR n r)
         -> ADVal RepN (TKR m r)
@@ -198,7 +198,7 @@ rev' f vals =
       cderivative = cfwd f vals vals
       derivative = fwd f vals vals
       derivativeRfwd1 = rfwd1ds @RepN @r @n @m @r f vals
-                        $ toADTensorKindShared stensorKind vals
+                        $ toADTensorKindShared knownSTK vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradientRrev1, gradient2, gradient3
@@ -251,7 +251,7 @@ assertEqualUpToEpsilon'
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1 ) = do
-  let expected = toADTensorKindShared stensorKind expected'
+  let expected = toADTensorKindShared knownSTK expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -330,7 +330,7 @@ assertEqualUpToEpsilon'
   -- and a similar property stated mathematically is in Lemma 1 in
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
-                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared stensorKind vals))
+                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared knownSTK vals))
   {- TODO: this most probably leaks gigabytes of strings from one test case
   -- to another in -O0 mode, leading to OOMs, so it's disabled for now.
   -- We could also try to stream the strings and compare on the fly.
@@ -379,7 +379,7 @@ assertEqualUpToEpsilonShort
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1 ) = do
-  let expected = toADTensorKindShared stensorKind expected'
+  let expected = toADTensorKindShared knownSTK expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -436,7 +436,7 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared stensorKind vals))
+                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared knownSTK vals))
   {- disabled, see above
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"
@@ -469,14 +469,14 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
-rrev1 f u = rrev f (tftk stensorKind u) u
+rrev1 f u = rrev f (tftk knownSTK u) u
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
         => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
         -> g (ADTensorKind (TKR n r))
         -> g (ADTensorKind (TKR m r3))
-rfwd1ds f u ds = rfwd f (tftk stensorKind u) u ds
+rfwd1ds f u ds = rfwd f (tftk knownSTK u) u ds
 
 rfwd1 :: forall g r n m r3.
          ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
@@ -490,11 +490,11 @@ srev1 :: forall g r sh sh2 r3.
          , ADTensorKind (TKS sh2 r3) ~ TKS sh2 r3 )
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
-srev1 f u = srev f (tftk stensorKind u) u
+srev1 f u = srev f (tftk knownSTK u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
          , GoodScalar r3, KnownShS sh, KnownShS sh2 )
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh2 r3))
-sfwd1 f u = sfwd f (tftk stensorKind u) u (srepl @_ @(ADTensorScalar r) 1)
+sfwd1 f u = sfwd f (tftk knownSTK u) u (srepl @_ @(ADTensorScalar r) 1)

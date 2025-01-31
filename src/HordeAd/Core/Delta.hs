@@ -532,10 +532,10 @@ ftkDelta = \case
   DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
   DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
   DeltaMapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
-    | Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) ->
+    | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
   DeltaMapAccumL @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
-    | Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) ->
+    | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) ->
       FTKProduct accShs (buildFTK k bShs)
 
   DeltaShare _ d -> ftkDelta d
@@ -646,7 +646,7 @@ ftkDelta = \case
           (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) ->
             FTKProduct (fromS ftk1 stk1) (fromS ftk2 stk2)
           _ -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
-    in fromS (ftkDelta d) (stensorKind @z)
+    in fromS (ftkDelta d) (knownSTK @z)
   DeltaSFromK{} -> FTKS ZSS FTKScalar
   DeltaSFromR d -> case ftkDelta d of
     FTKR _ x -> FTKS knownShS x

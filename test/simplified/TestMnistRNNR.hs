@@ -69,7 +69,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
       hVectorInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
+      ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -176,7 +176,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                 0.4 (mkStdGen 44)
       hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
       hVectorInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
+      ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
                        hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -296,7 +296,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
         valsInit = forgetShape valsInitShaped
         hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
         hVectorInit = toTarget @RepN valsInit
-        ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN r)))
+        ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
                          hVectorInit
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
@@ -443,15 +443,15 @@ testRNNOPP = do
       batch_size = 1
       sizeMnistHeightI = 1
       blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR 3 Double)
-      blackGlyph = AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @1) stensorKind
+      blackGlyph = AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @1) knownSTK
                        (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
-      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN Double)))
+      ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN Double)))
                        (toTarget @RepN $ valsInitRNNOPP 1 sizeMnistHeightI)
       (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
@@ -470,15 +470,15 @@ testRNNOPP2 = do
       batch_size = 2
       sizeMnistHeightI = 2
       blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR 3 Double)
-      blackGlyph = AstReplicate (SNat @2) stensorKind
-                   $ AstReplicate (SNat @2) stensorKind
-                   $ AstReplicate (SNat @2) stensorKind
+      blackGlyph = AstReplicate (SNat @2) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
                        (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       afcnn2T = MnistRnnRanked2.rnnMnistZeroR batch_size blackGlyph
-      ftk = tftk @RepN (stensorKind @(X (ADRnnMnistParameters RepN Double)))
+      ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN Double)))
                        (toTarget @RepN $ valsInitRNNOPP 2 sizeMnistHeightI)
       (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev

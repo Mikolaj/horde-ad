@@ -62,7 +62,7 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                      0.4 (mkStdGen 44)
       hVectorInit :: RepN (XParams r)
       hVectorInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(XParams r))
+      ftk = tftk @RepN (knownSTK @(XParams r))
                        hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -172,7 +172,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                      0.4 (mkStdGen 44)
       hVectorInit :: RepN (XParams r)
       hVectorInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(XParams r))
+      ftk = tftk @RepN (knownSTK @(XParams r))
                        hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -295,7 +295,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                      0.4 (mkStdGen 44)
       hVectorInit :: RepN (XParams r)
       hVectorInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (stensorKind @(XParams r))
+      ftk = tftk @RepN (knownSTK @(XParams r))
                        hVectorInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -419,10 +419,10 @@ testCNNOPP = do
       sizeMnistWidthI = 4  -- 4; to make weightsDense empty and so speedup
       sizeMnistHeightI = 4  -- 4; to make weightsDense empty and so speedup
       blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR 4 Double)
-      blackGlyph = AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @4) stensorKind
-                   $ AstReplicate (SNat @4) stensorKind
+      blackGlyph = AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @4) knownSTK
+                   $ AstReplicate (SNat @4) knownSTK
                        (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       valsInit :: MnistCnnRanked2.ADCnnMnistParameters RepN Double
       valsInit =

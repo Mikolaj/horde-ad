@@ -108,7 +108,7 @@ logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let y0 = recip (sprimalPart @target (srepl 1) + exp (- sprimalPart d))
   in tlet (sfromPrimal y0)  -- we don't have tletPrimal
      $ \y1 -> let y = sprimalPart y1
-              in tD stensorKind y (sScale @target (y * (sprimalPart @target (srepl 1) - y)) $ sdualPart d)
+              in tD knownSTK y (sScale @target (y * (sprimalPart @target (srepl 1) - y)) $ sdualPart d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
@@ -118,7 +118,7 @@ squareS :: forall target r sh.
        => target (TKS sh r) -> target (TKS sh r)
 squareS d = let u = sprimalPart d
                 u' = sdualPart d
-            in tD stensorKind (u * u) (sScale @target (2 * u) u')
+            in tD knownSTK (u * u) (sScale @target (2 * u) u')
 
 squaredDifferenceS
   :: forall target sh r.
@@ -158,7 +158,7 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
           in sscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
   in tlet (sfromPrimal softMaxU') $ \softMaxU ->
-    tD stensorKind (negate $ log (sprimalPart softMaxU) `sdot0` target)
+    tD knownSTK (negate $ log (sprimalPart softMaxU) `sdot0` target)
          -- TODO: avoid: log . exp
        (sdualPart $ (softMaxU - sfromPrimal target) `sdot0` d)
          -- TODO: probably defining sDot0 would lead to a faster

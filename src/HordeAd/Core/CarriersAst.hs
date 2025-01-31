@@ -77,8 +77,8 @@ instance (GoodScalar r, AstSpan s)
   AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList stensorKind [AstConcrete ftk v, u]
-  u + v = AstSumOfList stensorKind [u, v]
+  u + AstConcrete ftk v = AstSumOfList knownSTK [AstConcrete ftk v, u]
+  u + v = AstSumOfList knownSTK [u, v]
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing
@@ -214,8 +214,8 @@ instance (GoodScalar r, KnownShS sh)
   AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList stensorKind [AstConcrete ftk v, u]
-  u + v = AstSumOfList stensorKind [u, v]
+  u + AstConcrete ftk v = AstSumOfList knownSTK [AstConcrete ftk v, u]
+  u + v = AstSumOfList knownSTK [u, v]
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing

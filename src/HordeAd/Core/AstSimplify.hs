@@ -307,7 +307,7 @@ astProject1 u = case u of
   Ast.AstFromS _ u1 -> case ftkToSTK (ftkAst u1) of
     STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
                          , Dict <- lemKnownSTK stk2 ->
-      astFromS (stensorKind @x) $ astProject1 u1
+      astFromS (knownSTK @x) $ astProject1 u1
     _ -> error "astProject1: wrong tensor kind"
   _ -> Ast.AstProject1 u
 
@@ -324,7 +324,7 @@ astProject2 u = case u of
   Ast.AstFromS _ u1 -> case ftkToSTK (ftkAst u1) of
     STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
                          , Dict <- lemKnownSTK stk2 ->
-      astFromS (stensorKind @z) $ astProject2 u1
+      astFromS (knownSTK @z) $ astProject2 u1
     _ -> error "astProject2: wrong tensor kind"
   _ -> Ast.AstProject2 u
 
@@ -332,7 +332,7 @@ astFromVector :: forall y k s. (KnownSTK y, AstSpan s)
               => SNat k -> Data.Vector.Vector (AstTensor AstMethodLet s y)
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astFromVector snat v | Just Refl <- geq snat (SNat @1) =
-  astReplicate (SNat @1) stensorKind (v V.! 0)
+  astReplicate (SNat @1) knownSTK (v V.! 0)
 astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
   (case sameAstSpan @s @PrimalSpan of
      Just Refl ->
@@ -342,10 +342,10 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
            unConc _ = Nothing
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
-         Just l4 | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
+         Just l4 | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) ->
            let l3 = V.map snd l4
            in Just $ astConcrete (buildFTK snat $ fst $ l4 V.! 0)
-              $ tfromVector snat stensorKind l3
+              $ tfromVector snat knownSTK l3
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
@@ -357,7 +357,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
            unFromPrimal _ = Nothing
        in case V.mapM unFromPrimal l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
+         Just l2 | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) ->
            Just $ Ast.AstFromPrimal $ astFromVector snat l2
          Nothing -> Nothing
      _ -> Nothing)
@@ -370,7 +370,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
            unFromDual _ = Nothing
        in case V.mapM unFromDual l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
+         Just l2 | Dict <- lemKnownSTKOfBuild snat (knownSTK @y) ->
            Just $ Ast.AstFromDual $ astFromVector snat l2
          Nothing -> Nothing
      _ -> Nothing)
@@ -427,7 +427,7 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
      withKnownShS sh $
      v * astReplicate0NS (fromInteger $ fromSNat snat2)
     AstConcrete ftk t | Dict <- lemKnownSTK stk ->
-      astConcrete (razeFTK snat stensorKind ftk) $ tsum snat stk t
+      astConcrete (razeFTK snat knownSTK ftk) $ tsum snat stk t
     -- Ast.AstLet var u v -> astLet var u (astSum snat v)
       -- this is problematic, because it keeps huge tensors alive for longer
     Ast.AstFromPrimal v | Dict <- lemKnownSTK stk ->
@@ -479,7 +479,7 @@ astReplicate snat@SNat stk
                    :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-        astTransposeS zsuccPerm $ astReplicate snat stensorKind v
+        astTransposeS zsuccPerm $ astReplicate snat knownSTK v
 {- see the previous comment
   Ast.AstReshape sh v ->
     AstReshape (k :$: sh) $ astReplicate k v
@@ -1201,7 +1201,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstProject1{} -> Ast.AstIndexS v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS v0 ix
   Ast.AstFromVector @y2 snat l | AstConcrete _ (RepN it) <- i1
-                               , STKS{} <- stensorKind @y2 ->
+                               , STKS{} <- knownSTK @y2 ->
     let i = fromIntegral it
     in if 0 <= i && i < sNatValue snat
        then astIndex (l V.! i) rest1
@@ -1211,7 +1211,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
            in fromPrimal $ astConcrete ftk (constantTarget def ftk)
   Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form, STKScalar case included
     Ast.AstIndexS v0 ix
-  Ast.AstFromVector @y2 snat l | STKS{} <- stensorKind @y2 ->
+  Ast.AstFromVector @y2 snat l | STKS{} <- knownSTK @y2 ->
     shareIx rest1 $ \ !ix2 ->
       Ast.AstIndexS @'[in1] @shn (astFromVector snat $ V.map (`astIndexRec` ix2) l)
                     (i1 :.$ ZIS)
@@ -1226,7 +1226,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
                     :: Permutation.PermutePrefix perm3P (n1 : (shm ++ shn))
                        :~: shm ++ (n1 : shn)) $
          trustMeThisIsAPermutation @perm3P $
-         astSum snat stensorKind
+         astSum snat knownSTK
          $ astIndex @shm @(n1 : shn)
                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
                     ix
@@ -1255,7 +1255,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstVar{} -> Ast.AstIndexS v0 ix
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 -> astCond b (astIndexRec v ix2) (astIndexRec w ix2)
-  Ast.AstBuild1 @y2 _snat (var2, v) -> case stensorKind @y2 of
+  Ast.AstBuild1 @y2 _snat (var2, v) -> case knownSTK @y2 of
     STKScalar{} | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
     STKS sh _ ->
       withKnownShS sh $
@@ -1281,7 +1281,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
 
   AstSumOfList _ args ->
     shareIx ix $ \ !ix2 ->
-      astSumOfList stensorKind (map (`astIndexRec` ix2) args)
+      astSumOfList knownSTK (map (`astIndexRec` ix2) args)
 
   AstN1S opCode u -> AstN1S opCode (astIndexRec u ix)
   AstN2S opCode u v ->
@@ -1306,7 +1306,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
         astIndex (astScatterS @shm7 @shn7 @(Tail shp7) v (vars, ix2)) rest1
   Ast.AstScatterS @shm7 @shn7 @shp7 v (vars, AstConcrete _ i5 :.$ ix2)
     | AstConcrete _ i6 <- i1, Dict <- sixKnown ix2
-    , STKScalar{} <- stensorKind @r ->
+    , STKScalar{} <- knownSTK @r ->
         if i6 == i5
         then astIndex (astScatterS @shm7 @shn7 @(Tail shp7) v (vars, ix2)) rest1
         else astReplicate0NS @shn 0
@@ -1446,14 +1446,14 @@ astScatterS v (ZS, ZIS) = v
 astScatterS _v (_vars, (:.$) @k (AstConcrete _ (RepN it)) _ix)
   | let i = fromIntegral it
   , not (0 <= i && i < valueOf @k)
-  , STKScalar{} <- stensorKind @r =
+  , STKScalar{} <- knownSTK @r =
       astReplicate0NS def
 -- else update (rzero sh 0) [AstConcreteS it] (astScatter ...) -}
 astScatterS v (Const var ::$ (vars :: AstVarListS sh3), ix)
   | not $ varNameToAstVarId var `varInIndexS` ix
   , Dict <- slistKnown vars =
       withKnownShS (knownShS @sh3 `shsAppend` knownShS @shn) $
-      astScatterS @sh3 @shn @shp (astSum SNat stensorKind v) (vars, ix)
+      astScatterS @sh3 @shn @shp (astSum SNat knownSTK v) (vars, ix)
 -- astScatterS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterS (Ast.AstFromPrimal v) (vars, ix) =
   withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
@@ -1553,7 +1553,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
            then Ast.AstGatherS @shm @shn @shp v0 (vars0, ix0)
            else withKnownShS sh' $
                 withKnownShS (knownShS @sh' `shsAppend` knownShS @shn) $
-                astReplicate k stensorKind
+                astReplicate k knownSTK
                              (astGatherKnobsS @(Tail shm) @shn @shp
                                               knobs v0 (vars, ix0))
        where
@@ -1609,7 +1609,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstProject1{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstFromVector @y2 snat l | AstConcrete _ (RepN it) <- i4
-                                 , STKS{} <- stensorKind @y2 ->
+                                 , STKS{} <- knownSTK @y2 ->
       let i = fromIntegral it
       in if 0 <= i && i < sNatValue snat
          then astGather @shm' @shn' @shp1' (l V.! i) (vars4, rest4)
@@ -1620,7 +1620,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstFromVector{} | gatherFromNFS vars4 ix4 ->  -- normal form,
                                                       -- STKScalar case included
       Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
-    Ast.AstFromVector @y2 snat l | STKS{} <- stensorKind @y2 ->
+    Ast.AstFromVector @y2 snat l | STKS{} <- knownSTK @y2 ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
       funToVarsIxS @shm' $ \ (!varsFresh, IxS !ixFresh) ->
@@ -1660,7 +1660,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
          let innerGather =
                astGather @shm' @(n1 : shn') @shp'
                          (astTransposeS perm3S v) (vars4, ix4)
-         in astSum snat stensorKind
+         in astSum snat knownSTK
             $ if not (knobExpand knobs)
                  || length perm4 <= shsLength (knownShS @shm')
               then astTransposeS perm4S innerGather
@@ -1732,7 +1732,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     Ast.AstScatterS @shm7 @shn7 @shp7 v (vars, AstConcrete _ i5 :.$ ix2)
       | AstConcrete _ i6 <- i4
       , Dict <- sixKnown ix2
-      , STKScalar{} <- stensorKind @r ->
+      , STKScalar{} <- knownSTK @r ->
           if i6 == i5
           then astGather @shm' @shn' @shp1'
                          (astScatterS @shm7 @shn7 @(Tail shp7)
@@ -1984,8 +1984,8 @@ astAppendS :: (KnownNat m, KnownNat n, KnownShS sh, KnownSTK r, AstSpan s)
            -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) r)
 astAppendS (Ast.AstFromVector @y2 (SNat @k1) l1)
            (Ast.AstFromVector @y3 (SNat @k2) l2)
-  | STKS{} <- stensorKind @y2
-  , STKS{} <- stensorKind @y3 =
+  | STKS{} <- knownSTK @y2
+  , STKS{} <- knownSTK @y3 =
     astFromVector (SNat @(k1 + k2)) $ l1 V.++ l2
 astAppendS (AstConcrete (FTKS _ x) u) (AstConcrete _ v) =
   astConcrete (FTKS knownShS x) $ sappend u v
@@ -2000,7 +2000,7 @@ astSliceS :: forall i n k sh s r.
              , AstSpan s )
           => AstTensor AstMethodLet s (TKS2 (i + n + k ': sh) r)
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
-astSliceS (Ast.AstFromVector @y2 _ l) | STKS{} <- stensorKind @y2 =
+astSliceS (Ast.AstFromVector @y2 _ l) | STKS{} <- knownSTK @y2 =
   astFromVector (SNat @n) $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS (Ast.AstReplicate _ snat@STKS{} v) =
   astReplicate (SNat @n) snat v
@@ -2078,7 +2078,7 @@ astTransposeS perm t = case perm of
                  :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh)
                     :~: n : Permutation.PermutePrefix perm sh) $
       trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-      astSum snat stensorKind $ astTransposeS zsuccP v
+      astSum snat knownSTK $ astTransposeS zsuccP v
   AstConcrete (FTKS sh x) v ->
     let shPerm = Nested.Internal.Shape.shsPermutePrefix perm sh
     in withKnownShS shPerm $
@@ -2164,7 +2164,7 @@ astReshapeS :: forall sh sh2 r s.
 astReshapeS = \case
   Ast.AstFromVector @y2 snat l
    | Just Refl <- geq snat (SNat @1)
-   , STKS sh3 _ <- stensorKind @y2
+   , STKS sh3 _ <- knownSTK @y2
    , Just Refl <- testEquality (snat :$$ sh3) (knownShS @sh) ->
     withKnownShS sh3 $
     astReshapeS (l V.! 0)
@@ -2292,7 +2292,7 @@ astSFromK t = case t of
     astConcrete (FTKS ZSS FTKScalar) $ sscalar v
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSFromK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v
-  AstSumOfList _ args -> AstSumOfList stensorKind $ map astSFromK args
+  AstSumOfList _ args -> AstSumOfList knownSTK $ map astSFromK args
   AstN1K opCode u -> AstN1S opCode (astSFromK u)
   AstN2K opCode u v -> AstN2S opCode (astSFromK u) (astSFromK v)
 -- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astSFromK u)
@@ -2300,7 +2300,7 @@ astSFromK t = case t of
   Ast.AstI2K opCode u v | Just Refl <- isTensorInt t ->
     Ast.AstI2S opCode (astSFromK u) (astSFromK v)
   Ast.AstFromS _ v -> case sameSTK (ftkToSTK (ftkAst v))
-                                   (stensorKind @(TKS '[] r)) of
+                                   (knownSTK @(TKS '[] r)) of
     Just Refl -> v
     _ -> error $ "astSFromK: unexpected tensor kinds"
   _ -> Ast.AstSFromK t
@@ -2317,7 +2317,7 @@ astSFromR a0 = case a0 of
   Ast.AstProject1{} -> Ast.AstSFromR a0  -- TODO: convert arbitrary tensor?
   Ast.AstProject2{} -> Ast.AstSFromR a0
   Ast.AstFromVector @y2 snat@SNat l
-   | STKR{} <- stensorKind @y2 -> case knownShS @sh of
+   | STKR{} <- knownSTK @y2 -> case knownShS @sh of
     (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2
                               , SNat <- shsRank rest ->
       withKnownShS rest $
@@ -2352,11 +2352,11 @@ astSFromR a0 = case a0 of
     astSumOfList (STKS knownShS x) (map astSFromR args)
 
   Ast.AstFromS _ v -> case sameSTK (ftkToSTK (ftkAst v))
-                                   (stensorKind @(TKS2 sh r)) of
+                                   (knownSTK @(TKS2 sh r)) of
     Just Refl -> v
     _ -> error $ "astSFromR: different tensor kinds in SFromR(FromS): "
                  ++ show (ftkToSTK (ftkAst v)) ++ " vs "
-                 ++ show (stensorKind @(TKS2 sh r))
+                 ++ show (knownSTK @(TKS2 sh r))
 
 -- TODO
 astSFromX :: forall sh sh' s r.
@@ -2370,7 +2370,7 @@ astSFromX (AstConcrete ftk t) = case ftk of
 astSFromX (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX v
 astSFromX (Ast.AstFromDual v) = Ast.AstFromDual $ astSFromX v
 astSFromX (Ast.AstFromS _ v) = case sameSTK (ftkToSTK (ftkAst v))
-                                            (stensorKind @(TKS2 sh r)) of
+                                            (knownSTK @(TKS2 sh r)) of
     Just Refl -> v
     _ -> error "astSFromX: different shapes in SFromX(FromS)"
 astSFromX v = Ast.AstSFromX v
@@ -2420,7 +2420,7 @@ astReplicateNS v =
       go ((:$$) @k @shn2 SNat shn2) =
         withKnownShS shn2 $
         withKnownShS (knownShS @shn2 `shsAppend` knownShS @shp) $
-        astReplicate (SNat @k) stensorKind $ go shn2
+        astReplicate (SNat @k) knownSTK $ go shn2
   in go (knownShS @shn)
 
 astReplicate0NS :: forall shn s r. (KnownShS shn, GoodScalar r, AstSpan s)
@@ -2431,7 +2431,7 @@ astReplicate0NS =
       go ZSS v = v
       go ((:$$) SNat sh') v =
         withKnownShS sh' $
-        astReplicate SNat stensorKind $ go sh' v
+        astReplicate SNat knownSTK $ go sh' v
   in go (knownShS @shn)
      . fromPrimal . astConcrete (FTKS ZSS FTKScalar) . sscalar
 
@@ -2557,7 +2557,7 @@ expandAst t = case t of
     astReplicate snat stk (expandAst v)
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       astMapAccumRDer k bShs eShs
@@ -2568,7 +2568,7 @@ expandAst t = case t of
                       (expandAst es)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       astMapAccumLDer k bShs eShs
@@ -2731,7 +2731,7 @@ expandAstBool t = case t of
     contractAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel @y3 opCodeRel arg1 arg2 ->
-    case stensorKind @y3 of
+    case knownSTK @y3 of
       STKScalar{} ->
         contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
           -- Because the scalar tensors sometimes represent indexes,
@@ -2764,7 +2764,7 @@ simplifyAst t = case t of
     astReplicate snat stk (simplifyAst v)
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       astMapAccumRDer k bShs eShs
@@ -2775,7 +2775,7 @@ simplifyAst t = case t of
                       (simplifyAst es)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       astMapAccumLDer k bShs eShs
@@ -2881,7 +2881,7 @@ simplifyAstBool t = case t of
     contractAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel @y3 opCodeRel arg1 arg2 ->
-    case stensorKind @y3 of
+    case knownSTK @y3 of
       STKScalar{} ->
         contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
           -- Because the scalar tensors sometimes represent indexes,
@@ -3094,7 +3094,7 @@ contractAst t = case t of
     astReplicate snat stk (contractAst v)
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       astMapAccumRDer k bShs eShs
@@ -3105,7 +3105,7 @@ contractAst t = case t of
                       (contractAst es)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       astMapAccumLDer k bShs eShs
@@ -3127,7 +3127,7 @@ contractAst t = case t of
                                 t2
                                 (Ast.AstIndexS
                                    u (((:.$) @m (AstIntVar var2) ZIS)))))
-    | STKS ZSS _ <- stensorKind @y2
+    | STKS ZSS _ <- knownSTK @y2
     , Just Refl <- geq snat (SNat @m)
     , var == var2
     , not (varNameInAst var t2),  not (varNameInAst var u) ->
@@ -3140,7 +3140,7 @@ contractAst t = case t of
                                t2
                                (Ast.AstIndexS
                                   u (((:.$) @m (AstIntVar var2) ZIS))))))
-    | STKS ZSS _ <- stensorKind @y2
+    | STKS ZSS _ <- knownSTK @y2
     , n :$$ ZSS <- knownShS @sh
     , Just Refl <- geq snat (SNat @m)
     , var == var2
@@ -3299,7 +3299,7 @@ contractAstBool t = case t of
     contractAstB2 opCodeBool (contractAstBool arg1) (contractAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel @y3 opCodeRel arg1 arg2 ->
-    case stensorKind @y3 of
+    case knownSTK @y3 of
       STKScalar{} ->
         contractRelOp opCodeRel (contractAst arg1) (contractAst arg2)
       _ -> Ast.AstRel opCodeRel (contractAst arg1) (contractAst arg2)
@@ -3420,7 +3420,7 @@ contractAstPlusOp
   (Ast.AstI2K RemOp (AstN1K NegateOp (Ast.AstVar _ var)) (AstConcrete _ v))
   | var == var' && v == v' = 0
 
-contractAstPlusOp u v = AstSumOfList stensorKind [u, v]
+contractAstPlusOp u v = AstSumOfList knownSTK [u, v]
 
 addConstToList :: RepN (TKScalar Int64) -> [AstInt AstMethodLet]
                -> AstInt AstMethodLet
@@ -3428,11 +3428,11 @@ addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
 addConstToList a [i] =
   if unRepN a == 0
   then i
-  else AstSumOfList stensorKind [AstConcrete FTKScalar a, i]
+  else AstSumOfList knownSTK [AstConcrete FTKScalar a, i]
 addConstToList a l =
   if unRepN a == 0
-  then AstSumOfList stensorKind l
-  else AstSumOfList stensorKind (AstConcrete FTKScalar a : l)
+  then AstSumOfList knownSTK l
+  else AstSumOfList knownSTK (AstConcrete FTKScalar a : l)
 
 contractAstNumOp1 :: OpCodeNum1 -> AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstNumOp1 NegateOp (AstConcrete ftk u) = AstConcrete ftk $ negate u
@@ -3596,7 +3596,7 @@ substitute1Ast i var v1 = case v1 of
     astReplicate snat stk <$> substitute1Ast i var v
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
@@ -3612,7 +3612,7 @@ substitute1Ast i var v1 = case v1 of
                                  (fromMaybe es mes)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
     , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
@@ -3640,9 +3640,9 @@ substitute1Ast i var v1 = case v1 of
             Just i
           _ -> error $ "substitute1Ast: kind of the variable "
                        ++ show var2 ++ ": "
-                       ++ show (stensorKind @y, sh)
+                       ++ show (knownSTK @y, sh)
                        ++ ", payload kind: "
-                       ++ show (stensorKind @z, ftkAst i)
+                       ++ show (knownSTK @z, ftkAst i)
                        ++ ", payload: " ++ show i
         _ -> error "substitute1Ast: span"
     else Nothing
@@ -3843,7 +3843,7 @@ substitute1AstBool i var = \case
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then case stensorKind @y3 of
+       then case knownSTK @y3 of
          STKScalar{} ->
            Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
                                           (fromMaybe arg2 mr2)

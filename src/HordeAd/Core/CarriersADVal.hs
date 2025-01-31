@@ -181,10 +181,10 @@ dSFromX d = DeltaSFromX d
 -- in particular in case of numeric literals and also for forward derivative.
 intOfShape :: forall z f. (ADReadyNoLet f, KnownSTK z)
            => f z -> Int -> f z
-intOfShape tsh c = constantTarget (fromIntegral c) (tftk stensorKind tsh)
+intOfShape tsh c = constantTarget (fromIntegral c) (tftk knownSTK tsh)
 
 fromPrimalADVal :: (KnownSTK z, BaseTensor f) => f z -> ADVal f z
-fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk stensorKind a)
+fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
@@ -301,7 +301,7 @@ instance (Num (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
   negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v _) = dDnotShared (signum v) (DeltaZero $ tftk stensorKind v)
+  signum (D v _) = dDnotShared (signum v) (DeltaZero $ tftk knownSTK v)
   fromInteger = fromPrimalADVal . fromInteger
 
 instance (Real (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
@@ -311,8 +311,8 @@ instance (Real (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
 
 instance (IntegralF (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
-  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((DeltaZero $ tftk stensorKind u))
-  remF (D u _) (D v _) = dDnotShared (remF u v) ((DeltaZero $ tftk stensorKind u))
+  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((DeltaZero $ tftk knownSTK u))
+  remF (D u _) (D v _) = dDnotShared (remF u v) ((DeltaZero $ tftk knownSTK u))
 
 instance (Fractional (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where

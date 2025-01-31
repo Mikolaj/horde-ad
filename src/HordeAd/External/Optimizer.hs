@@ -28,7 +28,7 @@ sgd :: forall a x z. (KnownSTK x, KnownSTK z)
     -> RepN x  -- ^ initial parameters
     -> (RepN x, RepN z)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  ftk = tftk stensorKind parameters0
+  ftk = tftk knownSTK parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs ftk
   go :: [a] -> RepN x -> (RepN x, RepN z)
@@ -68,13 +68,13 @@ sgdAdamArgsDeep
 sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  ftk = tftk stensorKind parameters0
+  ftk = tftk knownSTK parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs ftk
   go :: [a] -> RepN x -> StateAdamDeep x -> (RepN x, StateAdamDeep x)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam
-   | Dict <- lemKnownSTKOfAD (stensorKind @x) =
+   | Dict <- lemKnownSTKOfAD (knownSTK @x) =
     let inputs :: ADVal RepN x
         inputs = dDnotShared parameters deltaInputs
         gradients = fst $ crevOnADInputs Nothing (f a) inputs

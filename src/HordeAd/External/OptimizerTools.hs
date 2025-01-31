@@ -24,9 +24,9 @@ import HordeAd.Core.Types
 
 updateWithGradient :: forall y. KnownSTK y
                    => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
-updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y of
+updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
   STKR SNat (STKScalar @r _) -> RepN $
-    case sameSTK (stensorKind @y) (adSTK $ stensorKind @y) of
+    case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
       Just Refl ->
         ifDifferentiable @r
           (params - Nested.rreplicateScal (Nested.rshape params)
@@ -35,7 +35,7 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y
           params
       Nothing -> params
   STKS sh (STKScalar @r _) -> withKnownShS sh $ RepN $
-    case sameSTK (stensorKind @y) (adSTK $ stensorKind @y) of
+    case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
       Just Refl ->
         ifDifferentiable @r
           (params - Nested.sreplicateScal (Nested.sshape params)
@@ -230,8 +230,8 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
             , unRepN $ updateProd stk2 (RepN $ snd mA) (RepN $ snd vA) (RepN $ snd p) (RepN $ snd g) )
         _ -> error "TODO"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
-        unzip3Rep stensorKind
-        $ updateProd stensorKind mAdamR vAdamR paramsR gradientR
+        unzip3Rep knownSTK
+        $ updateProd knownSTK mAdamR vAdamR paramsR gradientR
   in ( paramsRNew
      , StateAdamDeep
          { tAdamDeep = tAdamNew

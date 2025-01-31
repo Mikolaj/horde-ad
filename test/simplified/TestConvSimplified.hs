@@ -638,10 +638,10 @@ rmaximum2 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
 testCNNOPP3 :: Assertion
 testCNNOPP3 = do
   let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      blackGlyph = AstFromPrimal $ AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @2) stensorKind
-                   $ AstReplicate (SNat @2) stensorKind
+      blackGlyph = AstFromPrimal $ AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
                        (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3 blackGlyph
@@ -688,10 +688,10 @@ testCNNOPP4 :: Assertion
 testCNNOPP4 = do
   resetVarCounter
   let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      blackGlyph = AstFromPrimal $ AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @1) stensorKind
-                   $ AstReplicate (SNat @2) stensorKind
-                   $ AstReplicate (SNat @2) stensorKind
+      blackGlyph = AstFromPrimal $ AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @1) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
                        (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded4 $ conv2dUnpadded4 blackGlyph

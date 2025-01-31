@@ -84,7 +84,7 @@ printAstVar cfg var =
         fromInteger $ fromSNat $ listxRank l
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
-      n = rankTensorKind (stensorKind @y)
+      n = rankTensorKind (knownSTK @y)
       varId = varNameToAstVarId var
       prefix = case n of
         -1 -> "h"
@@ -148,7 +148,7 @@ printAstAux cfg d = \case
       . showString ")"
   AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
-  AstFromVector @y2 _ l -> case stensorKind @y2 of
+  AstFromVector @y2 _ l -> case knownSTK @y2 of
     STKScalar{} ->
       showParen (d > 10)
       $ showString "tfromVector "
@@ -197,10 +197,10 @@ printAstAux cfg d = \case
     STKProduct{} -> printPrefixOp printAst cfg d
                                   ("treplicate " ++ show (sNatValue snat)) [v]
   AstMapAccumRDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
-   | Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
-   , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
-   , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
-   , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
+   | Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
+   , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
+   , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
+   , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "
       . showParen True (shows k)
@@ -215,10 +215,10 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 es
   AstMapAccumLDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
-   | Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
-   , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
-   , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
-   , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
+   | Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
+   , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
+   , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
+   , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
       . showParen True (shows k)
@@ -311,17 +311,17 @@ printAstAux cfg d = \case
       . printAst cfg 11 v
   AstToShare v -> printAstAux cfg d v  -- ignored
 
-  AstPrimalPart a -> case stensorKind @y of
+  AstPrimalPart a -> case knownSTK @y of
     STKR{} -> printPrefixOp printAst cfg d "rprimalPart" [a]
     STKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
     STKX{} -> printPrefixOp printAst cfg d "xprimalPart" [a]
     _      -> printPrefixOp printAst cfg d "tprimalPart" [a]
-  AstDualPart a -> case stensorKind @y of
+  AstDualPart a -> case knownSTK @y of
     STKR{} -> printPrefixOp printAst cfg d "rdualPart" [a]
     STKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
     STKX{} -> printPrefixOp printAst cfg d "xdualPart" [a]
     _      -> printPrefixOp printAst cfg d "tdualPart" [a]
-  AstFromPrimal a -> case stensorKind @y of
+  AstFromPrimal a -> case knownSTK @y of
     STKR{} -> if loseRoudtrip cfg
               then printAst cfg d a
               else printPrefixOp printAst cfg d "rfromPrimal" [a]
@@ -334,7 +334,7 @@ printAstAux cfg d = \case
     _      -> if loseRoudtrip cfg
               then printAst cfg d a
               else printPrefixOp printAst cfg d "tfromPrimal" [a]
-  AstFromDual a -> case stensorKind @y of
+  AstFromDual a -> case knownSTK @y of
     STKR{} -> if loseRoudtrip cfg
               then printAst cfg d a
               else printPrefixOp printAst cfg d "rfromDual" [a]
@@ -642,8 +642,8 @@ printArtifactSimple
   -> AstArtifactRev x z
   -> String
 printArtifactSimple renames !AstArtifactRev{..}
- | Dict <- lemKnownSTKOfAD (stensorKind @x)
- , Dict <- lemKnownSTKOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (knownSTK @x)
+ , Dict <- lemKnownSTKOfAD (knownSTK @z) =
   let !varsPP = [ printAstVarName renames artVarDtRev
                 , printAstVarName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
@@ -655,8 +655,8 @@ printArtifactPretty
   -> AstArtifactRev x z
   -> String
 printArtifactPretty renames !AstArtifactRev{..}
- | Dict <- lemKnownSTKOfAD (stensorKind @x)
- , Dict <- lemKnownSTKOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (knownSTK @x)
+ , Dict <- lemKnownSTKOfAD (knownSTK @z) =
   let varsPP = [ printAstVarName renames artVarDtRev
                , printAstVarName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP

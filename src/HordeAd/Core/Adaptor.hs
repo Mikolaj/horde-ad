@@ -98,13 +98,13 @@ instance (KnownSTK y, BaseTensor target)
   type X (target y) = y
   toTarget = id
   fromTarget t = t
-  fromTargetAD t = fromADTensorKindShared (stensorKind @y) t
+  fromTargetAD t = fromADTensorKindShared (knownSTK @y) t
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), KnownSTK y)
          => DualNumberValue (target y) where
   type DValue (target y) = RepN y
-  fromDValue t = tfromPrimal (stensorKind @y)
-                 $ tconcrete (tftkG (stensorKind @y) $ unRepN t) t
+  fromDValue t = tfromPrimal (knownSTK @y)
+                 $ tconcrete (tftkG (knownSTK @y) $ unRepN t) t
 
 instance ForgetShape (target (TKR n r)) where
   type NoShape (target (TKR n r)) = target (TKR n r)
@@ -142,7 +142,7 @@ type family Tups n t where
 
 stkOfListR :: forall t n.
               STensorKind t -> SNat n -> STensorKind (Tups n t)
-stkOfListR _ (SNat' @0) = stensorKind
+stkOfListR _ (SNat' @0) = knownSTK
 stkOfListR stk SNat =
   gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
   gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups (n - 1) t)) $
@@ -154,7 +154,7 @@ instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
   type X (ListR n a) = Tups n (X a)
   toTarget ZR = tunit
   toTarget ((:::) @n1 a rest)
-   | Dict <- lemKnownSTK (stkOfListR (stensorKind @(X a)) (SNat @n1)) =
+   | Dict <- lemKnownSTK (stkOfListR (knownSTK @(X a)) (SNat @n1)) =
     gcastWith (unsafeCoerceRefl
                :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
     let a1 = toTarget a
@@ -166,7 +166,7 @@ instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
       gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
       gcastWith (unsafeCoerceRefl
                  :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
-      withKnownSTK (stkOfListR (stensorKind @(X a)) (SNat @(n - 1))) $
+      withKnownSTK (stkOfListR (knownSTK @(X a)) (SNat @(n - 1))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
           a = fromTarget a1
           rest = fromTarget rest1
@@ -180,7 +180,7 @@ instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
                     :~: Tups (n - 1) (ADTensorKind (X a))) $
       gcastWith (unsafeCoerceRefl
                  :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
-      withKnownSTK (stkOfListR (stensorKind
+      withKnownSTK (stkOfListR (knownSTK
                                     @(ADTensorKind (X a))) (SNat @(n - 1))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
           a = fromTargetAD a1

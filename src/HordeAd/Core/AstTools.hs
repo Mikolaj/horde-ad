@@ -61,12 +61,12 @@ ftkAst t = case t of
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstMapAccumRDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
-    | Dict <- lemKnownSTKOfBuild k (stensorKind @accShs)
-    , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) ->
+    | Dict <- lemKnownSTKOfBuild k (knownSTK @accShs)
+    , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) ->
       FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstMapAccumLDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
-    | Dict <- lemKnownSTKOfBuild k (stensorKind @accShs)
-    , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) ->
+    | Dict <- lemKnownSTKOfBuild k (knownSTK @accShs)
+    , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) ->
       FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstApply (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
   AstVar ftk _var -> ftk
@@ -429,10 +429,10 @@ cAstSFromK :: forall r ms s. GoodScalar r
            => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
 cAstSFromK (AstFromS _ v)
            | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
-                                  (stensorKind @(TKS '[] r)) = v
+                                  (knownSTK @(TKS '[] r)) = v
 cAstSFromK (AstFromPrimal (AstFromS _ v))
            | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
-                                  (stensorKind @(TKS '[] r)) = AstFromPrimal v
+                                  (knownSTK @(TKS '[] r)) = AstFromPrimal v
 cAstSFromK v = AstSFromK v
 
 cAstSFromR :: forall sh r ms s.
@@ -440,10 +440,10 @@ cAstSFromR :: forall sh r ms s.
            => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromR (AstFromS _ v)
            | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
-                                  (stensorKind @(TKS2 sh r)) = v
+                                  (knownSTK @(TKS2 sh r)) = v
 cAstSFromR (AstFromPrimal (AstFromS _ v))
            | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
-                                  (stensorKind @(TKS2 sh r)) = AstFromPrimal v
+                                  (knownSTK @(TKS2 sh r)) = AstFromPrimal v
 cAstSFromR v = AstSFromR v
 
 cAstSFromX :: forall sh sh' r ms s.
@@ -451,8 +451,8 @@ cAstSFromX :: forall sh sh' r ms s.
            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromX (AstFromS _ v)
            | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
-                                  (stensorKind @(TKS2 sh r)) = v
+                                  (knownSTK @(TKS2 sh r)) = v
 cAstSFromX (AstFromPrimal (AstFromS _ v))
            | Just Refl <- sameSTK (ftkToSTK (ftkAst v))
-                                  (stensorKind @(TKS2 sh r)) = AstFromPrimal v
+                                  (knownSTK @(TKS2 sh r)) = AstFromPrimal v
 cAstSFromX v = AstSFromX v
