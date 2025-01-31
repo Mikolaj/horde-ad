@@ -204,73 +204,73 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
             -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- take (batchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, _, var, varAst) <- funToAstRevIO ftk
-       (varGlyph, astGlyph) <-
-         funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
-       (varLabel, astLabel) <-
-         funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
-           ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
-                   widthHiddenSNat widthHidden2SNat (astGlyph, astLabel)
-                   (fromTarget varAst)
-           f :: MnistData r
-             -> ADVal RepN (XParams widthHidden widthHidden2 r)
-             -> ADVal RepN (TKR 0 r)
-           f (glyph, label) varInputs =
-             let env = extendEnv var varInputs emptyEnv
-                 envMnist =
-                   extendEnv varGlyph
-                     (rconcrete
-                      $ Nested.rfromVector
-                          (fromList [sizeMnistGlyphInt]) glyph)
-                   $ extendEnv varLabel
-                       (rconcrete
-                        $ Nested.rfromVector
-                            (fromList [sizeMnistLabelInt]) label)
-                       env
-             in interpretAst envMnist ast
-       -- Mimic how backprop tests and display it, even though tests
-       -- should not print, in principle.
-       let runBatch :: RepN (XParams widthHidden widthHidden2 r)
-                    -> (Int, [MnistData r])
-                    -> IO (RepN (XParams widthHidden widthHidden2 r))
-           runBatch !params (k, chunk) = do
-             let res = fst $ sgd gamma f chunk params
-                 trainScore = ftest chunk (fromTarget res)
-                 testScore = ftest testData (fromTarget res)
-                 lenChunk = length chunk
-             unless (widthHiddenInt < 10) $ do
-               hPutStrLn stderr $
-                 printf "\n%s: (Batch %d with %d points)"
-                        prefix k lenChunk
-               hPutStrLn stderr $
-                 printf "%s: Training error:   %.2f%%"
-                        prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $
-                 printf "%s: Validation error: %.2f%%"
-                        prefix ((1 - testScore ) * 100)
-             return res
-       let runEpoch :: Int
-                    -> RepN (XParams widthHidden widthHidden2 r)
-                    -> IO (RepN (XParams widthHidden widthHidden2 r))
-           runEpoch n params | n > epochs = return params
-           runEpoch n !params = do
-             unless (widthHiddenInt < 10) $
-               hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
-             let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
-                 chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-             res <- foldM runBatch params chunks
-             runEpoch (succ n) res
-       res <- runEpoch 1 targetInit
-       let testErrorFinal = 1 - ftest testData (fromTarget res)
-       testErrorFinal @?~ expected
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- take (batchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    (_, _, var, varAst) <- funToAstRevIO ftk
+    (varGlyph, astGlyph) <-
+      funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
+    (varLabel, astLabel) <-
+      funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
+    let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
+        ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
+                widthHiddenSNat widthHidden2SNat (astGlyph, astLabel)
+                (fromTarget varAst)
+        f :: MnistData r
+          -> ADVal RepN (XParams widthHidden widthHidden2 r)
+          -> ADVal RepN (TKR 0 r)
+        f (glyph, label) varInputs =
+          let env = extendEnv var varInputs emptyEnv
+              envMnist =
+                extendEnv varGlyph
+                  (rconcrete
+                   $ Nested.rfromVector
+                       (fromList [sizeMnistGlyphInt]) glyph)
+                $ extendEnv varLabel
+                    (rconcrete
+                     $ Nested.rfromVector
+                         (fromList [sizeMnistLabelInt]) label)
+                    env
+          in interpretAst envMnist ast
+    -- Mimic how backprop tests and display it, even though tests
+    -- should not print, in principle.
+    let runBatch :: RepN (XParams widthHidden widthHidden2 r)
+                 -> (Int, [MnistData r])
+                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+        runBatch !params (k, chunk) = do
+          let res = fst $ sgd gamma f chunk params
+              trainScore = ftest chunk (fromTarget res)
+              testScore = ftest testData (fromTarget res)
+              lenChunk = length chunk
+          unless (widthHiddenInt < 10) $ do
+            hPutStrLn stderr $
+              printf "\n%s: (Batch %d with %d points)"
+                     prefix k lenChunk
+            hPutStrLn stderr $
+              printf "%s: Training error:   %.2f%%"
+                     prefix ((1 - trainScore) * 100)
+            hPutStrLn stderr $
+              printf "%s: Validation error: %.2f%%"
+                     prefix ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int
+                 -> RepN (XParams widthHidden widthHidden2 r)
+                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+        runEpoch n params | n > epochs = return params
+        runEpoch n !params = do
+          unless (widthHiddenInt < 10) $
+            hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
+          res <- foldM runBatch params chunks
+          runEpoch (succ n) res
+    res <- runEpoch 1 targetInit
+    let testErrorFinal = 1 - ftest testData (fromTarget res)
+    testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase1VTI
   :: String
@@ -335,75 +335,75 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
             -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- take (batchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
-                                (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
-           f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
-                    (AstTensor AstMethodLet FullSpan)
-                    widthHidden widthHidden2 r
-                , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
-                  , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
-             -> AstTensor AstMethodLet FullSpan (TKR 0 r)
-           f = \ (pars, (glyphR, labelR)) ->
-             MnistFcnnRanked1.afcnnMnistLoss1TensorData
-               widthHiddenSNat widthHidden2SNat
-               (glyphR, labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
-           art = simplifyArtifactGradient artRaw
-           go :: [MnistData r]
-              -> RepN (XParams widthHidden widthHidden2 r)
-              -> RepN (XParams widthHidden widthHidden2 r)
-           go [] parameters = parameters
-           go ((glyph, label) : rest) !parameters =
-             let glyphD = RepN $ Nested.rfromVector
-                                   (sizeMnistGlyphInt :$: ZSR) glyph
-                 labelD = RepN $ Nested.rfromVector
-                                   (sizeMnistLabelInt :$: ZSR) label
-                 parametersAndInput = tpair parameters (tpair glyphD labelD)
-                 gradient = tproject1 $ fst
-                            $ revEvalArtifact art parametersAndInput Nothing
-             in go rest (updateWithGradient gamma parameters gradient)
-       -- Mimic how backprop tests and display it, even though tests
-       -- should not print, in principle.
-       let runBatch :: RepN (XParams widthHidden widthHidden2 r)
-                    -> (Int, [MnistData r])
-                    -> IO (RepN (XParams widthHidden widthHidden2 r))
-           runBatch !params (k, chunk) = do
-             let res = go chunk params
-                 trainScore = ftest chunk (fromTarget res)
-                 testScore = ftest testData (fromTarget res)
-                 lenChunk = length chunk
-             unless (widthHiddenInt < 10) $ do
-               hPutStrLn stderr $
-                 printf "\n%s: (Batch %d with %d points)"
-                        prefix k lenChunk
-               hPutStrLn stderr $
-                 printf "%s: Training error:   %.2f%%"
-                        prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $
-                 printf "%s: Validation error: %.2f%%"
-                        prefix ((1 - testScore ) * 100)
-             return res
-       let runEpoch :: Int
-                    -> RepN (XParams widthHidden widthHidden2 r)
-                    -> IO (RepN (XParams widthHidden widthHidden2 r))
-           runEpoch n params | n > epochs = return params
-           runEpoch n !params = do
-             unless (widthHiddenInt < 10) $
-               hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
-             let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
-                 chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-             res <- foldM runBatch params chunks
-             runEpoch (succ n) res
-       res <- runEpoch 1 targetInit
-       let testErrorFinal = 1 - ftest testData (fromTarget res)
-       testErrorFinal @?~ expected
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- take (batchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
+                             (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
+        f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
+                 (AstTensor AstMethodLet FullSpan)
+                 widthHidden widthHidden2 r
+             , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
+               , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
+          -> AstTensor AstMethodLet FullSpan (TKR 0 r)
+        f = \ (pars, (glyphR, labelR)) ->
+          MnistFcnnRanked1.afcnnMnistLoss1TensorData
+            widthHiddenSNat widthHidden2SNat
+            (glyphR, labelR) pars
+        (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+        art = simplifyArtifactGradient artRaw
+        go :: [MnistData r]
+           -> RepN (XParams widthHidden widthHidden2 r)
+           -> RepN (XParams widthHidden widthHidden2 r)
+        go [] parameters = parameters
+        go ((glyph, label) : rest) !parameters =
+          let glyphD = RepN $ Nested.rfromVector
+                                (sizeMnistGlyphInt :$: ZSR) glyph
+              labelD = RepN $ Nested.rfromVector
+                                (sizeMnistLabelInt :$: ZSR) label
+              parametersAndInput = tpair parameters (tpair glyphD labelD)
+              gradient = tproject1 $ fst
+                         $ revEvalArtifact art parametersAndInput Nothing
+          in go rest (updateWithGradient gamma parameters gradient)
+    -- Mimic how backprop tests and display it, even though tests
+    -- should not print, in principle.
+    let runBatch :: RepN (XParams widthHidden widthHidden2 r)
+                 -> (Int, [MnistData r])
+                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+        runBatch !params (k, chunk) = do
+          let res = go chunk params
+              trainScore = ftest chunk (fromTarget res)
+              testScore = ftest testData (fromTarget res)
+              lenChunk = length chunk
+          unless (widthHiddenInt < 10) $ do
+            hPutStrLn stderr $
+              printf "\n%s: (Batch %d with %d points)"
+                     prefix k lenChunk
+            hPutStrLn stderr $
+              printf "%s: Training error:   %.2f%%"
+                     prefix ((1 - trainScore) * 100)
+            hPutStrLn stderr $
+              printf "%s: Validation error: %.2f%%"
+                     prefix ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int
+                 -> RepN (XParams widthHidden widthHidden2 r)
+                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+        runEpoch n params | n > epochs = return params
+        runEpoch n !params = do
+          unless (widthHiddenInt < 10) $
+            hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
+          res <- foldM runBatch params chunks
+          runEpoch (succ n) res
+    res <- runEpoch 1 targetInit
+    let testErrorFinal = 1 - ftest testData (fromTarget res)
+    testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase1VTO
   :: String
@@ -458,54 +458,54 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
             -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2
   in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- take (batchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       let f :: MnistData r
-             -> ADVal RepN (XParams2 r)
-             -> ADVal RepN (TKR 0 r)
-           f mnist adinputs =
-             MnistFcnnRanked2.afcnnMnistLoss2
-               mnist (fromTarget adinputs)
-       -- Mimic how backprop tests and display it, even though tests
-       -- should not print, in principle.
-       let runBatch :: RepN (XParams2 r)
-                    -> (Int, [MnistData r])
-                    -> IO (RepN (XParams2 r))
-           runBatch !params (k, chunk) = do
-             let res = fst $ sgd gamma f chunk params
-                 trainScore = ftest chunk (fromTarget res)
-                 testScore = ftest testData (fromTarget res)
-                 lenChunk = length chunk
-             unless (widthHidden < 10) $ do
-               hPutStrLn stderr $
-                 printf "\n%s: (Batch %d with %d points)"
-                        prefix k lenChunk
-               hPutStrLn stderr $
-                 printf "%s: Training error:   %.2f%%"
-                        prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $
-                 printf "%s: Validation error: %.2f%%"
-                        prefix ((1 - testScore ) * 100)
-             return res
-       let runEpoch :: Int
-                    -> RepN (XParams2 r)
-                    -> IO (RepN (XParams2 r))
-           runEpoch n params | n > epochs = return params
-           runEpoch n !params = do
-             unless (widthHidden < 10) $
-               hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
-             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
-                 chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-             res <- foldM runBatch params chunks
-             runEpoch (succ n) res
-       res <- runEpoch 1 targetInit
-       let testErrorFinal = 1 - ftest testData (fromTarget res)
-       testErrorFinal @?~ expected
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- take (batchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    let f :: MnistData r
+          -> ADVal RepN (XParams2 r)
+          -> ADVal RepN (TKR 0 r)
+        f mnist adinputs =
+          MnistFcnnRanked2.afcnnMnistLoss2
+            mnist (fromTarget adinputs)
+    -- Mimic how backprop tests and display it, even though tests
+    -- should not print, in principle.
+    let runBatch :: RepN (XParams2 r)
+                 -> (Int, [MnistData r])
+                 -> IO (RepN (XParams2 r))
+        runBatch !params (k, chunk) = do
+          let res = fst $ sgd gamma f chunk params
+              trainScore = ftest chunk (fromTarget res)
+              testScore = ftest testData (fromTarget res)
+              lenChunk = length chunk
+          unless (widthHidden < 10) $ do
+            hPutStrLn stderr $
+              printf "\n%s: (Batch %d with %d points)"
+                     prefix k lenChunk
+            hPutStrLn stderr $
+              printf "%s: Training error:   %.2f%%"
+                     prefix ((1 - trainScore) * 100)
+            hPutStrLn stderr $
+              printf "%s: Validation error: %.2f%%"
+                     prefix ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int
+                 -> RepN (XParams2 r)
+                 -> IO (RepN (XParams2 r))
+        runEpoch n params | n > epochs = return params
+        runEpoch n !params = do
+          unless (widthHidden < 10) $
+            hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
+          res <- foldM runBatch params chunks
+          runEpoch (succ n) res
+    res <- runEpoch 1 targetInit
+    let testErrorFinal = 1 - ftest testData (fromTarget res)
+    testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase2VTA
   :: String
@@ -556,73 +556,73 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
             -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2
   in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- take (batchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, _, var, varAst) <- funToAstRevIO ftk
-       (varGlyph, astGlyph) <-
-         funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
-       (varLabel, astLabel) <-
-         funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
-           ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                   (astGlyph, astLabel)
-                   (fromTarget varAst)
-           f :: MnistData r
-             -> ADVal RepN (XParams2 r)
-             -> ADVal RepN (TKR 0 r)
-           f (glyph, label) varInputs =
-             let env = extendEnv var varInputs emptyEnv
-                 envMnist =
-                   extendEnv varGlyph
-                     (rconcrete
-                      $ Nested.rfromVector
-                          (fromList [sizeMnistGlyphInt]) glyph)
-                   $ extendEnv varLabel
-                       (rconcrete
-                        $ Nested.rfromVector
-                            (fromList [sizeMnistLabelInt]) label)
-                       env
-             in interpretAst envMnist ast
-       -- Mimic how backprop tests and display it, even though tests
-       -- should not print, in principle.
-       let runBatch :: RepN (XParams2 r)
-                    -> (Int, [MnistData r])
-                    -> IO (RepN (XParams2 r))
-           runBatch !params (k, chunk) = do
-             let res = fst $ sgd gamma f chunk params
-                 trainScore = ftest chunk (fromTarget res)
-                 testScore = ftest testData (fromTarget res)
-                 lenChunk = length chunk
-             unless (widthHidden < 10) $ do
-               hPutStrLn stderr $
-                 printf "\n%s: (Batch %d with %d points)"
-                        prefix k lenChunk
-               hPutStrLn stderr $
-                 printf "%s: Training error:   %.2f%%"
-                        prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $
-                 printf "%s: Validation error: %.2f%%"
-                        prefix ((1 - testScore ) * 100)
-             return res
-       let runEpoch :: Int
-                    -> RepN (XParams2 r)
-                    -> IO (RepN (XParams2 r))
-           runEpoch n params | n > epochs = return params
-           runEpoch n !params = do
-             unless (widthHidden < 10) $
-               hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
-             let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
-                 chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-             res <- foldM runBatch params chunks
-             runEpoch (succ n) res
-       res <- runEpoch 1 targetInit
-       let testErrorFinal = 1 - ftest testData (fromTarget res)
-       testErrorFinal @?~ expected
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- take (batchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    (_, _, var, varAst) <- funToAstRevIO ftk
+    (varGlyph, astGlyph) <-
+      funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
+    (varLabel, astLabel) <-
+      funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
+    let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
+        ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
+                (astGlyph, astLabel)
+                (fromTarget varAst)
+        f :: MnistData r
+          -> ADVal RepN (XParams2 r)
+          -> ADVal RepN (TKR 0 r)
+        f (glyph, label) varInputs =
+          let env = extendEnv var varInputs emptyEnv
+              envMnist =
+                extendEnv varGlyph
+                  (rconcrete
+                   $ Nested.rfromVector
+                       (fromList [sizeMnistGlyphInt]) glyph)
+                $ extendEnv varLabel
+                    (rconcrete
+                     $ Nested.rfromVector
+                         (fromList [sizeMnistLabelInt]) label)
+                    env
+          in interpretAst envMnist ast
+    -- Mimic how backprop tests and display it, even though tests
+    -- should not print, in principle.
+    let runBatch :: RepN (XParams2 r)
+                 -> (Int, [MnistData r])
+                 -> IO (RepN (XParams2 r))
+        runBatch !params (k, chunk) = do
+          let res = fst $ sgd gamma f chunk params
+              trainScore = ftest chunk (fromTarget res)
+              testScore = ftest testData (fromTarget res)
+              lenChunk = length chunk
+          unless (widthHidden < 10) $ do
+            hPutStrLn stderr $
+              printf "\n%s: (Batch %d with %d points)"
+                     prefix k lenChunk
+            hPutStrLn stderr $
+              printf "%s: Training error:   %.2f%%"
+                     prefix ((1 - trainScore) * 100)
+            hPutStrLn stderr $
+              printf "%s: Validation error: %.2f%%"
+                     prefix ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int
+                 -> RepN (XParams2 r)
+                 -> IO (RepN (XParams2 r))
+        runEpoch n params | n > epochs = return params
+        runEpoch n !params = do
+          unless (widthHidden < 10) $
+            hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
+          res <- foldM runBatch params chunks
+          runEpoch (succ n) res
+    res <- runEpoch 1 targetInit
+    let testErrorFinal = 1 - ftest testData (fromTarget res)
+    testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase2VTI
   :: String
@@ -675,75 +675,74 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       ftest :: [MnistData r] -> MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
             -> r
       ftest = MnistFcnnRanked2.afcnnMnistTest2
-  in
-   testCase name $ do
-     hPutStrLn stderr $
-       printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-              prefix epochs maxBatches
-     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-     testData <- take (batchSize * maxBatches)
-                 <$> loadMnistData testGlyphsPath testLabelsPath
-     let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
-                              (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
-         f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
-                  (AstTensor AstMethodLet FullSpan) r
-              , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
-                , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
-           -> AstTensor AstMethodLet FullSpan (TKR 0 r)
-         f = \ (pars, (glyphR, labelR)) ->
-           MnistFcnnRanked2.afcnnMnistLoss2TensorData
-             (glyphR, labelR) pars
-         (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
-         art = simplifyArtifactGradient artRaw
-         go :: [MnistData r]
-            -> RepN (XParams2 r)
-            -> RepN (XParams2 r)
-         go [] parameters = parameters
-         go ((glyph, label) : rest) !parameters =
-           let glyphD = RepN $ Nested.rfromVector
-                                 (sizeMnistGlyphInt :$: ZSR) glyph
-               labelD = RepN $ Nested.rfromVector
-                                 (sizeMnistLabelInt :$: ZSR)  label
-               parametersAndInput = tpair parameters (tpair glyphD labelD)
-               gradient = tproject1 $ fst
-                          $ revEvalArtifact art parametersAndInput Nothing
-           in go rest (updateWithGradient gamma parameters gradient)
-     -- Mimic how backprop tests and display it, even though tests
-     -- should not print, in principle.
-     let runBatch :: RepN (XParams2 r)
-                  -> (Int, [MnistData r])
-                  -> IO (RepN (XParams2 r))
-         runBatch !params (k, chunk) = do
-           let res = go chunk params
-               trainScore = ftest chunk (fromTarget res)
-               testScore = ftest testData (fromTarget res)
-               lenChunk = length chunk
-           unless (widthHidden < 10) $ do
-             hPutStrLn stderr $
-               printf "\n%s: (Batch %d with %d points)"
-                      prefix k lenChunk
-             hPutStrLn stderr $
-               printf "%s: Training error:   %.2f%%"
-                      prefix ((1 - trainScore) * 100)
-             hPutStrLn stderr $
-               printf "%s: Validation error: %.2f%%"
-                      prefix ((1 - testScore ) * 100)
-           return res
-     let runEpoch :: Int
-                  -> RepN (XParams2 r)
-                  -> IO (RepN (XParams2 r))
-         runEpoch n params | n > epochs = return params
-         runEpoch n !params = do
-           unless (widthHidden < 10) $
-             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
-           let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
-               chunks = take maxBatches
-                        $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
-           res <- foldM runBatch params chunks
-           runEpoch (succ n) res
-     res <- runEpoch 1 targetInit
-     let testErrorFinal = 1 - ftest testData (fromTarget res)
-     testErrorFinal @?~ expected
+  in testCase name $ do
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- take (batchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
+                             (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
+        f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
+                 (AstTensor AstMethodLet FullSpan) r
+             , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
+               , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
+          -> AstTensor AstMethodLet FullSpan (TKR 0 r)
+        f = \ (pars, (glyphR, labelR)) ->
+          MnistFcnnRanked2.afcnnMnistLoss2TensorData
+            (glyphR, labelR) pars
+        (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+        art = simplifyArtifactGradient artRaw
+        go :: [MnistData r]
+           -> RepN (XParams2 r)
+           -> RepN (XParams2 r)
+        go [] parameters = parameters
+        go ((glyph, label) : rest) !parameters =
+          let glyphD = RepN $ Nested.rfromVector
+                                (sizeMnistGlyphInt :$: ZSR) glyph
+              labelD = RepN $ Nested.rfromVector
+                                (sizeMnistLabelInt :$: ZSR)  label
+              parametersAndInput = tpair parameters (tpair glyphD labelD)
+              gradient = tproject1 $ fst
+                         $ revEvalArtifact art parametersAndInput Nothing
+          in go rest (updateWithGradient gamma parameters gradient)
+    -- Mimic how backprop tests and display it, even though tests
+    -- should not print, in principle.
+    let runBatch :: RepN (XParams2 r)
+                 -> (Int, [MnistData r])
+                 -> IO (RepN (XParams2 r))
+        runBatch !params (k, chunk) = do
+          let res = go chunk params
+              trainScore = ftest chunk (fromTarget res)
+              testScore = ftest testData (fromTarget res)
+              lenChunk = length chunk
+          unless (widthHidden < 10) $ do
+            hPutStrLn stderr $
+              printf "\n%s: (Batch %d with %d points)"
+                     prefix k lenChunk
+            hPutStrLn stderr $
+              printf "%s: Training error:   %.2f%%"
+                     prefix ((1 - trainScore) * 100)
+            hPutStrLn stderr $
+              printf "%s: Validation error: %.2f%%"
+                     prefix ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int
+                 -> RepN (XParams2 r)
+                 -> IO (RepN (XParams2 r))
+        runEpoch n params | n > epochs = return params
+        runEpoch n !params = do
+          unless (widthHidden < 10) $
+            hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 1) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..] $ chunksOf batchSize trainDataShuffled
+          res <- foldM runBatch params chunks
+          runEpoch (succ n) res
+    res <- runEpoch 1 targetInit
+    let testErrorFinal = 1 - ftest testData (fromTarget res)
+    testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCase2VTO
   :: String
