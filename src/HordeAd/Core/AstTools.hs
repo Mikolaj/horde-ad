@@ -18,27 +18,16 @@ module HordeAd.Core.AstTools
 import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
-import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
-  ( KnownShX (..)
-  , shxAppend
-  , shxDropSSX
-  , shxSize
-  , shxTakeSSX
-  , ssxFromShape
-  , withKnownShX
-  )
-import Data.Array.Nested (KnownShS (..), MapJust, Rank, Replicate, ShS (..))
+  (KnownShX (..), shxSize, ssxFromShape, withKnownShX)
+import Data.Array.Nested (KnownShS (..), Rank, ShS (..))
 import Data.Array.Nested.Internal.Shape
-  ( shCvtRX
-  , shCvtSX
-  , shCvtXR'
-  , shrRank
+  ( shrRank
   , shrSize
   , shsAppend
   , shsInit
@@ -140,6 +129,10 @@ ftkAst t = case t of
     FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
   AstUnzipS v -> case ftkAst v of
     FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
+  AstNestS @sh1 @sh2 v -> case ftkAst v of
+    FTKS _ x -> FTKS (knownShS @sh1) (FTKS (knownShS @sh2) x)
+  AstUnNestS @sh1 @sh2 v -> case ftkAst v of
+    FTKS _ (FTKS _ x) -> FTKS (knownShS @sh1 `shsAppend` knownShS @sh2) x
 
   AstFromS stkz v ->
     let fromS :: FullTensorKind y2 -> STensorKindType z2 -> FullTensorKind z2
@@ -171,26 +164,6 @@ ftkAst t = case t of
     FTKR _ x -> FTKS knownShS x
   AstSFromX v -> case ftkAst v of
     FTKX _ x -> FTKS knownShS x
-
-  AstXNestR @sh1 @m v -> case ftkAst v of
-    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing))
-                                  sh (knownShX @sh1))
-                      (FTKR (shCvtXR' (shxDropSSX sh (knownShX @sh1))) x)
-  AstXNestS @sh1 @sh2 v -> case ftkAst v of
-    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh (knownShX @sh1))
-                                  (FTKS knownShS x)
-  AstXNest @sh1 @sh2 v -> case ftkAst v of
-    FTKX sh x -> FTKX (shxTakeSSX (Proxy @sh2) sh (knownShX @sh1))
-                      (FTKX (shxDropSSX sh (knownShX @sh1)) x)
-  AstXUnNestR v -> case ftkAst v of
-    FTKX sh1 (FTKR sh2 x) ->
-      FTKX (sh1 `shxAppend` shCvtRX sh2) x
-  AstXUnNestS v -> case ftkAst v of
-    FTKX sh1 (FTKS sh2 x) ->
-      FTKX (sh1 `shxAppend` shCvtSX sh2) x
-  AstXUnNest v -> case ftkAst v of
-    FTKX sh1 (FTKX sh2 x) ->
-      FTKX (sh1 `shxAppend` sh2) x
 
   AstReplicate0NS sh _ v -> case ftkAst v of
     FTKS _ x -> FTKS sh x
@@ -270,18 +243,13 @@ varInAst var = \case
   AstReshapeS v -> varInAst var v
   AstZipS v -> varInAst var v
   AstUnzipS v -> varInAst var v
+  AstNestS v -> varInAst var v
+  AstUnNestS v -> varInAst var v
 
   AstFromS _ v -> varInAst var v
   AstSFromK t -> varInAst var t
   AstSFromR v -> varInAst var v
   AstSFromX v -> varInAst var v
-
-  AstXNestR v -> varInAst var v
-  AstXNestS v -> varInAst var v
-  AstXNest v -> varInAst var v
-  AstXUnNestR v -> varInAst var v
-  AstXUnNestS v -> varInAst var v
-  AstXUnNest v -> varInAst var v
 
   AstReplicate0NS _ _ v -> varInAst var v
   AstSum0S _ _ v -> varInAst var v

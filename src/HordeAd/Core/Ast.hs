@@ -46,9 +46,7 @@ import Data.Array.Nested
   , KnownShX
   , ListR
   , ListS (..)
-  , MapJust
   , Rank
-  , Replicate
   , ShS (..)
   , type (++)
   )
@@ -402,6 +400,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstUnzipS :: (TensorKind y, TensorKind z, KnownShS sh)
             => AstTensor ms s (TKS2 sh (TKProduct y z))
             -> AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
+  AstNestS :: (KnownShS sh1, KnownShS sh2, TensorKind x)
+           => AstTensor ms s (TKS2 (sh1 ++ sh2) x)
+           -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
+  AstUnNestS :: (KnownShS sh1, KnownShS sh2, TensorKind x)
+             => AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
+             -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)
 
   -- Conversions
   AstFromS :: forall y z ms s.
@@ -412,26 +416,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
             => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
   AstSFromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
             => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
-
-  -- Nesting/unnesting
-  AstXNestR :: (KnownShX sh1, KnownNat m, TensorKind x)
-            => AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
-            -> AstTensor ms s (TKX2 sh1 (TKR2 m x))
-  AstXNestS :: (KnownShX sh1, KnownShS sh2, TensorKind x)
-            => AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
-            -> AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
-  AstXNest :: (KnownShX sh1, KnownShX sh2, TensorKind x)
-           => AstTensor ms s (TKX2 (sh1 ++ sh2) x)
-           -> AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
-  AstXUnNestR :: (KnownShX sh1, KnownNat m, TensorKind x)
-              => AstTensor ms s (TKX2 sh1 (TKR2 m x))
-              -> AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
-  AstXUnNestS :: (KnownShX sh1, KnownShS sh2, TensorKind x)
-              => AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
-              -> AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
-  AstXUnNest :: (KnownShX sh1, KnownShX sh2, TensorKind x)
-             => AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
-             -> AstTensor ms s (TKX2 (sh1 ++ sh2) x)
 
   -- Backend-specific primitives
   AstReplicate0NS :: ShS sh -> STensorKindType x

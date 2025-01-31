@@ -21,14 +21,11 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
-import Data.Array.Mixed.Shape
-  (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
-import Data.Array.Mixed.Shape qualified as X
+import Data.Array.Mixed.Shape (StaticShX (..), listxRank)
 import Data.Array.Nested
-  (KnownShS (..), KnownShX (..), ListS (..), ShR (..), ShS (..), ShX (..))
+  (KnownShS (..), ListS (..), ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
-  (shCvtSX, shsAppend, shsRank, withKnownShS)
+import Data.Array.Nested.Internal.Shape (shsAppend, shsRank, withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
@@ -83,8 +80,8 @@ printAstVar cfg var =
       rankTensorKind (STKScalar _) = 0
       rankTensorKind (STKR snat _) = fromInteger $ fromSNat snat
       rankTensorKind (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
-      rankTensorKind (STKX (X.StaticShX l) _) =
-        fromInteger $ fromSNat $ X.listxRank l
+      rankTensorKind (STKX (StaticShX l) _) =
+        fromInteger $ fromSNat $ listxRank l
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
       n = rankTensorKind (stensorKind @y)
@@ -442,6 +439,10 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "sreshape" [v]
   AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
+  AstNestS @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    printPrefixOp printAst cfg d "snestS" [v]
+  AstUnNestS v -> printPrefixOp printAst cfg d "sunNestS" [v]
 
   AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     case stkz of
@@ -452,20 +453,6 @@ printAstAux cfg d = \case
   AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
-
-  AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    printPrefixOp printAst cfg d "xnestR" [v]
-  AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    printPrefixOp printAst cfg d "xnestS" [v]
-  AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    printPrefixOp printAst cfg d "xnest" [v]
-  AstXUnNestR v -> printPrefixOp printAst cfg d "xunNestR" [v]
-  AstXUnNestS v -> printPrefixOp printAst cfg d "xunNestS" [v]
-  AstXUnNest v -> printPrefixOp printAst cfg d "xunNest" [v]
 
   AstReplicate0NS _sh stk v | Dict <- lemTensorKindOfSTK stk ->
     printPrefixOp printAst cfg d "sreplicate0N" [v]

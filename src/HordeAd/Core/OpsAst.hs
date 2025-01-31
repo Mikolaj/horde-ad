@@ -24,8 +24,8 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxInit, IShX, ssxFromShape, withKnownShX)
-import Data.Array.Nested.Internal.Shape (shsProduct, shsRank, shsPermutePrefix, shrRank, shsInit, withKnownShS)
+import Data.Array.Mixed.Shape (ssxAppend, ssxReplicate, shxInit, IShX, ssxFromShape, withKnownShX)
+import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shsPermutePrefix, shrRank, shsInit, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.Adaptor
@@ -653,12 +653,100 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sfromX = astSFromX
 
   -- Nesting/unnesting
-  xnestR sh = withKnownShX sh $ astXNestR
-  xnestS sh = withKnownShX sh $ astXNestS
-  xnest sh = withKnownShX sh $ astXNest
-  xunNestR = astXUnNestR
-  xunNestS = astXUnNestS
-  xunNest = astXUnNest
+  xnestR @sh1' @m @x sh1' a = case ftkAst a of
+    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
+        withKnownShX (ssxFromShape sh1sh2') $
+        withKnownShS sh1sh2 $
+        withKnownShS (takeShS @(Rank sh1') sh1sh2) $
+        withKnownShS (dropShS @(Rank sh1') sh1sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1') sh1sh2 ++ Drop (Rank sh1') sh1sh2
+                      :~: sh1sh2) $
+        (unsafeCoerce
+           :: AstTensor AstMethodLet s
+                (TKX2 sh1' (TKS2 (Drop (Rank sh1') sh1sh2) x))
+           -> AstTensor AstMethodLet s (TKX2 sh1' (TKR2 m x)))
+        $ astFromS @(TKS2 (Take (Rank sh1') sh1sh2)
+                          (TKS2 (Drop (Rank sh1') sh1sh2) x))
+                   (STKX sh1' (STKS knownShS (ftkToStk x)))
+        $ astNestS @(Take (Rank sh1') sh1sh2) @(Drop (Rank sh1') sh1sh2)
+        $ astSFromX @sh1sh2 a
+  xnestS @sh1' @sh2 @x sh1' a = case ftkAst a of
+    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
+        withKnownShX (ssxFromShape sh1sh2') $
+        withKnownShS sh1sh2 $
+        withKnownShS (takeShS @(Rank sh1') sh1sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1') sh1sh2 ++ sh2
+                      :~: sh1sh2) $
+        astFromS @(TKS2 (Take (Rank sh1') sh1sh2) (TKS2 sh2 x))
+                 (STKX sh1' (STKS knownShS (ftkToStk x)))
+        $ astNestS @(Take (Rank sh1') sh1sh2) @sh2
+        $ astSFromX @sh1sh2 a
+  xnest @sh1' @sh2' @x sh1' a = case ftkAst a of
+    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
+        withKnownShX (ssxFromShape sh1sh2') $
+        withKnownShS sh1sh2 $
+        withKnownShS (takeShS @(Rank sh1') sh1sh2) $
+        withKnownShS (dropShS @(Rank sh1') sh1sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1') sh1sh2 ++ Drop (Rank sh1') sh1sh2
+                      :~: sh1sh2) $
+        (unsafeCoerce
+           :: AstTensor AstMethodLet s
+                (TKX2 sh1' (TKS2 (Drop (Rank sh1') sh1sh2) x))
+           -> AstTensor AstMethodLet s (TKX2 sh1' (TKX2 sh2' x)))
+        $ astFromS @(TKS2 (Take (Rank sh1') sh1sh2)
+                          (TKS2 (Drop (Rank sh1') sh1sh2) x))
+                   (STKX sh1' (STKS knownShS (ftkToStk x)))
+        $ astNestS @(Take (Rank sh1') sh1sh2) @(Drop (Rank sh1') sh1sh2)
+        $ astSFromX @sh1sh2 a
+  xunNestR @sh1' @m @x a = case ftkAst a of
+    FTKX sh1' y -> case y of
+      FTKR sh2' x ->
+        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
+        withCastRS sh2' $ \(sh2 :: ShS sh2) ->
+          withKnownShS sh1 $
+          withKnownShS sh2 $
+          astFromS @(TKS2 (sh1 ++ sh2) x)
+                   (STKX (ssxFromShape sh1' `ssxAppend` ssxReplicate (SNat @m))
+                         (ftkToStk x))
+          $ astUnNestS @sh1 @sh2
+          $ astSFromX @sh1
+          $ (unsafeCoerce
+             :: AstTensor AstMethodLet s (TKX2 sh1' (TKR2 m x))
+             -> AstTensor AstMethodLet s (TKX2 sh1' (TKS2 sh2 x)))
+            a
+  xunNestS @_ @sh2 @x a = case ftkAst a of
+    FTKX sh1' y -> case y of
+      FTKS _ x ->
+        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
+          withKnownShS sh1 $
+          astFromS @(TKS2 (sh1 ++ sh2) x)
+                   (STKX (ssxFromShape sh1'
+                          `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2)))
+                         (ftkToStk x))
+          $ astUnNestS @sh1 @sh2
+          $ astSFromX @sh1 a
+  xunNest @sh1' @sh2' @x a = case ftkAst a of
+    FTKX sh1' y -> case y of
+      FTKX sh2' x ->
+        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
+        withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+          withKnownShS sh1 $
+          withKnownShS sh2 $
+          astFromS @(TKS2 (sh1 ++ sh2) x)
+                   (STKX (ssxFromShape sh1' `ssxAppend` (knownShX @sh2'))
+                         (ftkToStk x))
+          $ astUnNestS @sh1 @sh2
+          $ astSFromX @sh1
+          $ (unsafeCoerce
+             :: AstTensor AstMethodLet s (TKX2 sh1' (TKX2 sh2' x))
+             -> AstTensor AstMethodLet s (TKX2 sh1' (TKS2 sh2 x)))
+            a
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
@@ -1241,12 +1329,100 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xfromS @_ @sh' @x = AstRaw . AstFromS (stensorKind @(TKX2 sh' x)) . unAstRaw
 
   -- Nesting/unnesting
-  xnestR sh = withKnownShX sh $ AstRaw . AstXNestR . unAstRaw
-  xnestS sh = withKnownShX sh $ AstRaw . AstXNestS . unAstRaw
-  xnest sh = withKnownShX sh $ AstRaw . AstXNest . unAstRaw
-  xunNestR = AstRaw . AstXUnNestR . unAstRaw
-  xunNestS = AstRaw . AstXUnNestS . unAstRaw
-  xunNest = AstRaw . AstXUnNest . unAstRaw
+  xnestR @sh1' @m @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
+        withKnownShX (ssxFromShape sh1sh2') $
+        withKnownShS sh1sh2 $
+        withKnownShS (takeShS @(Rank sh1') sh1sh2) $
+        withKnownShS (dropShS @(Rank sh1') sh1sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1') sh1sh2 ++ Drop (Rank sh1') sh1sh2
+                      :~: sh1sh2) $
+        (unsafeCoerce
+           :: AstTensor AstMethodShare s
+                (TKX2 sh1' (TKS2 (Drop (Rank sh1') sh1sh2) x))
+           -> AstTensor AstMethodShare s (TKX2 sh1' (TKR2 m x)))
+        $ AstFromS @(TKS2 (Take (Rank sh1') sh1sh2)
+                          (TKS2 (Drop (Rank sh1') sh1sh2) x))
+                   (STKX sh1' (STKS knownShS (ftkToStk x)))
+        $ AstNestS @(Take (Rank sh1') sh1sh2) @(Drop (Rank sh1') sh1sh2)
+        $ AstSFromX @sh1sh2 a
+  xnestS @sh1' @sh2 @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
+        withKnownShX (ssxFromShape sh1sh2') $
+        withKnownShS sh1sh2 $
+        withKnownShS (takeShS @(Rank sh1') sh1sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1') sh1sh2 ++ sh2
+                      :~: sh1sh2) $
+        AstFromS @(TKS2 (Take (Rank sh1') sh1sh2) (TKS2 sh2 x))
+                 (STKX sh1' (STKS knownShS (ftkToStk x)))
+        $ AstNestS @(Take (Rank sh1') sh1sh2) @sh2
+        $ AstSFromX @sh1sh2 a
+  xnest @sh1' @sh2' @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
+        withKnownShX (ssxFromShape sh1sh2') $
+        withKnownShS sh1sh2 $
+        withKnownShS (takeShS @(Rank sh1') sh1sh2) $
+        withKnownShS (dropShS @(Rank sh1') sh1sh2) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank sh1') sh1sh2 ++ Drop (Rank sh1') sh1sh2
+                      :~: sh1sh2) $
+        (unsafeCoerce
+           :: AstTensor AstMethodShare s
+                (TKX2 sh1' (TKS2 (Drop (Rank sh1') sh1sh2) x))
+           -> AstTensor AstMethodShare s (TKX2 sh1' (TKX2 sh2' x)))
+        $ AstFromS @(TKS2 (Take (Rank sh1') sh1sh2)
+                          (TKS2 (Drop (Rank sh1') sh1sh2) x))
+                   (STKX sh1' (STKS knownShS (ftkToStk x)))
+        $ AstNestS @(Take (Rank sh1') sh1sh2) @(Drop (Rank sh1') sh1sh2)
+        $ AstSFromX @sh1sh2 a
+  xunNestR @sh1' @m @x (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1' y -> case y of
+      FTKR sh2' x ->
+        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
+        withCastRS sh2' $ \(sh2 :: ShS sh2) ->
+          withKnownShS sh1 $
+          withKnownShS sh2 $
+          AstFromS @(TKS2 (sh1 ++ sh2) x)
+                   (STKX (ssxFromShape sh1' `ssxAppend` ssxReplicate (SNat @m))
+                         (ftkToStk x))
+          $ AstUnNestS @sh1 @sh2
+          $ AstSFromX @sh1
+          $ (unsafeCoerce
+             :: AstTensor AstMethodShare s (TKX2 sh1' (TKR2 m x))
+             -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
+            a
+  xunNestS @_ @sh2 @x (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1' y -> case y of
+      FTKS _ x ->
+        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
+          withKnownShS sh1 $
+          AstFromS @(TKS2 (sh1 ++ sh2) x)
+                   (STKX (ssxFromShape sh1'
+                          `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2)))
+                         (ftkToStk x))
+          $ AstUnNestS @sh1 @sh2
+          $ AstSFromX @sh1 a
+  xunNest @sh1' @sh2' @x (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1' y -> case y of
+      FTKX sh2' x ->
+        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
+        withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+          withKnownShS sh1 $
+          withKnownShS sh2 $
+          AstFromS @(TKS2 (sh1 ++ sh2) x)
+                   (STKX (ssxFromShape sh1' `ssxAppend` (knownShX @sh2'))
+                         (ftkToStk x))
+          $ AstUnNestS @sh1 @sh2
+          $ AstSFromX @sh1
+          $ (unsafeCoerce
+             :: AstTensor AstMethodShare s (TKX2 sh1' (TKX2 sh2' x))
+             -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
+            a
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst . unAstRaw

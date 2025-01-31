@@ -29,7 +29,7 @@ import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Nested (KnownShS (..), KnownShX (..), ListS (..))
+import Data.Array.Nested (KnownShS (..), ListS (..))
 import Data.Array.Nested.Internal.Shape (shsAppend, shsProduct, withKnownShS)
 
 import HordeAd.Core.Ast
@@ -375,6 +375,8 @@ interpretAst !env = \case
   AstReshapeS v -> sreshape (interpretAst env v)
   AstZipS v -> szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
+  AstNestS v -> snest knownShS $ interpretAst env v
+  AstUnNestS v -> sunNest $ interpretAst env v
 
   AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v))
                   , Dict <- lemTensorKindOfSTK stkz ->
@@ -382,13 +384,6 @@ interpretAst !env = \case
   AstSFromK t -> sfromK $ interpretAst env t
   AstSFromR v -> sfromR $ interpretAst env v
   AstSFromX v -> sfromX $ interpretAst env v
-
-  AstXNestR v -> xnestR knownShX $ interpretAst env v
-  AstXNestS v -> xnestS knownShX $ interpretAst env v
-  AstXNest v -> xnest knownShX $ interpretAst env v
-  AstXUnNestR v -> xunNestR $ interpretAst env v
-  AstXUnNestS v -> xunNestS $ interpretAst env v
-  AstXUnNest v -> xunNest $ interpretAst env v
 
   AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk
                            , SNat <- shsProduct sh ->

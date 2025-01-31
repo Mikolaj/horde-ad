@@ -32,10 +32,9 @@ module HordeAd.Core.AstSimplify
 
   , astIndexStepS, astScatterS, astGatherStepS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
+  , astNestS, astUnNestS
 
   , astFromS, astSFromK, astSFromR, astSFromX
-
-  , astXNestR, astXNestS, astXNest, astXUnNestR, astXUnNestS, astXUnNest
 
     -- * Helper combinators
   , astLetFun, astReplicate0NS
@@ -86,18 +85,15 @@ import Type.Reflection (typeRep)
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
-  (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
+import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (Init, Last, Tail, unsafeCoerceRefl)
 import Data.Array.Nested
   ( IxS (..)
   , KnownShS (..)
   , KnownShX (..)
   , ListS (..)
-  , MapJust
   , Product
   , Rank
-  , Replicate
   , ShR (..)
   , ShS (..)
   , type (++)
@@ -974,6 +970,10 @@ astPrimalPart t = case t of
   Ast.AstReshapeS v -> astReshapeS (astPrimalPart v)
   Ast.AstZipS v -> Ast.AstZipS (astPrimalPart v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (astPrimalPart v)
+  Ast.AstNestS @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ astPrimalPart v
+  Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
 
   Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ astPrimalPart v
@@ -981,20 +981,6 @@ astPrimalPart t = case t of
   Ast.AstSFromK{} -> Ast.AstPrimalPart t
   Ast.AstSFromR{} -> Ast.AstPrimalPart t
   Ast.AstSFromX{} -> Ast.AstPrimalPart t
-
-  Ast.AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astXNestR $ astPrimalPart v
-  Ast.AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astXNestS $ astPrimalPart v
-  Ast.AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astXNest $ astPrimalPart v
-  Ast.AstXUnNestR v -> astXUnNestR $ astPrimalPart v
-  Ast.AstXUnNestS v -> astXUnNestS $ astPrimalPart v
-  Ast.AstXUnNest v -> astXUnNest $ astPrimalPart v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstReplicate0NS{} -> Ast.AstPrimalPart t
@@ -1070,6 +1056,10 @@ astDualPart t = case t of
   Ast.AstReshapeS v -> astReshapeS (astDualPart v)
   Ast.AstZipS v -> Ast.AstZipS (astDualPart v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (astDualPart v)
+  Ast.AstNestS @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ astDualPart v
+  Ast.AstUnNestS v -> astUnNestS $ astDualPart v
 
   Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ astDualPart v
@@ -1077,20 +1067,6 @@ astDualPart t = case t of
   Ast.AstSFromK{} -> Ast.AstDualPart t
   Ast.AstSFromR{} -> Ast.AstDualPart t
   Ast.AstSFromX{} -> Ast.AstDualPart t
-
-  Ast.AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astXNestR $ astDualPart v
-  Ast.AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astXNestS $ astDualPart v
-  Ast.AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astXNest $ astDualPart v
-  Ast.AstXUnNestR v -> astXUnNestR $ astDualPart v
-  Ast.AstXUnNestS v -> astXUnNestS $ astDualPart v
-  Ast.AstXUnNest v -> astXUnNest $ astDualPart v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstReplicate0NS{} -> Ast.AstDualPart t
@@ -1421,6 +1397,8 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
        astIndex @(Permutation.PermutePrefix perm shm) v ix2
   Ast.AstReshapeS v -> astIndex (astReshapeAsGatherS knobs v) ix
   Ast.AstZipS _ -> Ast.AstIndexS v0 ix
+  Ast.AstNestS _ -> Ast.AstIndexS v0 ix
+  Ast.AstUnNestS _ -> Ast.AstIndexS v0 ix
 
   Ast.AstFromS stkz v -> case sameSTK (ftkToStk (ftkAst v)) stkz of
     Just Refl -> astIndex v ix -- rare, usually simplifies away earlier
@@ -1625,7 +1603,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
   astGatherCase v4 (_, ZIS) = astReplicateNS @shm' @shn' v4  -- not really possible
   astGatherCase v4 ( vars4
                    , ix4@((:.$) @p1' @shp1' i4 rest4) )
-                | Dict <- shsKnownShS (knownShS @shm' `shsAppend` knownShS @shn')
+                | Dict <- shsKnownShS (knownShS @shm'
+                                       `shsAppend` knownShS @shn')
                 , Dict <- sixKnown rest4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
@@ -1963,6 +1942,8 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
       then astGather @shm' @shn' @shp' (astReshapeAsGatherS knobs v) (vars4, ix4)
       else Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
     Ast.AstZipS _v -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+    Ast.AstNestS _v -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
+    Ast.AstUnNestS _v -> Ast.AstGatherS @shm' @shn' @shp' v4 (vars4, ix4)
 
     Ast.AstFromS stkz v -> case sameSTK (ftkToStk (ftkAst v)) stkz of
       Just Refl -> astGatherCase @shm' @shn' @shp' v (vars4, ix4)
@@ -2207,6 +2188,47 @@ astReshapeS = \case
          Just Refl -> v
          _ -> Ast.AstReshapeS v
 
+astNestS
+  :: forall sh1 sh2 x ms s.
+     (TensorKind x, KnownShS sh1, KnownShS sh2, AstSpan s)
+  => AstTensor ms s (TKS2 (sh1 ++ sh2) x)
+  -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
+astNestS t = case t of
+  Ast.AstCond b v1 v2 ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstCond b (astNestS v1) (astNestS v2)  -- TODO: ??
+  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astLet var u2 (astNestS d2)
+  Ast.AstFromPrimal u ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstFromPrimal $ astNestS u
+  Ast.AstFromDual u ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstFromDual $ astNestS u
+  _ -> Ast.AstNestS t
+
+astUnNestS
+  :: forall sh1 sh2 x ms s.
+     (TensorKind x, KnownShS sh1, KnownShS sh2, AstSpan s)
+  => AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
+  -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)
+astUnNestS t = case t of
+  Ast.AstCond b v1 v2 ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
+  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astLet var u2 (astUnNestS d2)
+  Ast.AstFromPrimal u ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstFromPrimal $ astUnNestS u
+  Ast.AstFromDual u ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    Ast.AstFromDual $ astUnNestS u
+--  Ast.AstNestS u -> u
+  _ -> Ast.AstUnNestS t
+
 astFromS :: forall y z s.
             STensorKindType z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
@@ -2353,138 +2375,6 @@ astSFromX (Ast.AstFromS _ v) = case sameSTK (ftkToStk (ftkAst v))
     _ -> error "astSFromX: different shapes in SFromX(FromS)"
 astSFromX v = Ast.AstSFromX v
 
-astXNestR
-  :: forall sh1 m x ms s.
-     (TensorKind x, KnownShX sh1, KnownNat m, AstSpan s)
-  => AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
-  -> AstTensor ms s (TKX2 sh1 (TKR2 m x))
-astXNestR t = case t of
-  Ast.AstCond b v1 v2 ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    Ast.AstCond b (astXNestR v1) (astXNestR v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astLet var u2 (astXNestR d2)
-  Ast.AstFromPrimal u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    Ast.AstFromPrimal $ astXNestR u
-  Ast.AstFromDual u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    Ast.AstFromDual $ astXNestR u
--- TODO: when sh agrees:  Ast.AstUnNestS u -> u
-  _ -> Ast.AstXNestR t
-
-astXNestS
-  :: forall sh1 sh2 x ms s.
-     (TensorKind x, KnownShX sh1, KnownShS sh2, AstSpan s)
-  => AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
-  -> AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
-astXNestS t = case t of
-  Ast.AstCond b v1 v2 ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    Ast.AstCond b (astXNestS v1) (astXNestS v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astLet var u2 (astXNestS d2)
-  Ast.AstFromPrimal u ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    Ast.AstFromPrimal $ astXNestS u
-  Ast.AstFromDual u ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    Ast.AstFromDual $ astXNestS u
-  _ -> Ast.AstXNestS t
-
-astXNest
-  :: forall sh1 sh2 x ms s.
-     (TensorKind x, KnownShX sh1, KnownShX sh2, AstSpan s)
-  => AstTensor ms s (TKX2 (sh1 ++ sh2) x)
-  -> AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
-astXNest t = case t of
-  Ast.AstCond b v1 v2 ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    Ast.AstCond b (astXNest v1) (astXNest v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astLet var u2 (astXNest d2)
-  Ast.AstFromPrimal u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    Ast.AstFromPrimal $ astXNest u
-  Ast.AstFromDual u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    Ast.AstFromDual $ astXNest u
-  _ -> Ast.AstXNest t
-
-astXUnNestR
-  :: forall sh1 m x ms s.
-     (TensorKind x, KnownShX sh1, KnownNat m, AstSpan s)
-  => AstTensor ms s (TKX2 sh1 (TKR2 m x))
-  -> AstTensor ms s (TKX2 (sh1 ++ Replicate m Nothing) x)
-astXUnNestR t = case t of
-  Ast.AstCond b v1 v2 ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    Ast.AstCond b (astXUnNestR v1) (astXUnNestR v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astLet var u2 (astXUnNestR d2)
-  Ast.AstFromPrimal u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    Ast.AstFromPrimal $ astXUnNestR u
-  Ast.AstFromDual u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    Ast.AstFromDual $ astXUnNestR u
---  Ast.AstNestS u -> u
-  _ -> Ast.AstXUnNestR t
-
-astXUnNestS
-  :: forall sh1 sh2 x ms s.
-     (TensorKind x, KnownShX sh1, KnownShS sh2, AstSpan s)
-  => AstTensor ms s (TKX2 sh1 (TKS2 sh2 x))
-  -> AstTensor ms s (TKX2 (sh1 ++ MapJust sh2) x)
-astXUnNestS t = case t of
-  Ast.AstCond b v1 v2 ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    Ast.AstCond b (astXUnNestS v1) (astXUnNestS v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astLet var u2 (astXUnNestS d2)
-  Ast.AstFromPrimal u ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    Ast.AstFromPrimal $ astXUnNestS u
-  Ast.AstFromDual u ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    Ast.AstFromDual $ astXUnNestS u
---  Ast.AstNestS u -> u
-  _ -> Ast.AstXUnNestS t
-
-astXUnNest
-  :: forall sh1 sh2 x ms s.
-     (TensorKind x, KnownShX sh1, KnownShX sh2, AstSpan s)
-  => AstTensor ms s (TKX2 sh1 (TKX2 sh2 x))
-  -> AstTensor ms s (TKX2 (sh1 ++ sh2) x)
-astXUnNest t = case t of
-  Ast.AstCond b v1 v2 ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    Ast.AstCond b (astXUnNest v1) (astXUnNest v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astLet var u2 (astXUnNest d2)
-  Ast.AstFromPrimal u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    Ast.AstFromPrimal $ astXUnNest u
-  Ast.AstFromDual u ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    Ast.AstFromDual $ astXUnNest u
---  Ast.AstNestS u -> u
-  _ -> Ast.AstXUnNest t
-
 
 -- * Helper combinators
 
@@ -2628,18 +2518,13 @@ astNonIndexStep t = case t of
   Ast.AstReshapeS v -> astReshapeS v
   Ast.AstZipS _ -> t
   Ast.AstUnzipS _ -> t
+  Ast.AstNestS v -> astNestS v
+  Ast.AstUnNestS v -> astUnNestS v
 
   Ast.AstFromS stkz v -> astFromS stkz v
   Ast.AstSFromK u -> astSFromK $ astNonIndexStep u
   Ast.AstSFromR v -> astSFromR v
   Ast.AstSFromX v -> astSFromX v
-
-  Ast.AstXNestR v -> astXNestR v
-  Ast.AstXNestS v -> astXNestS v
-  Ast.AstXNest v -> astXNest v
-  Ast.AstXUnNestR v -> astXUnNestR v
-  Ast.AstXUnNestS v -> astXUnNestS v
-  Ast.AstXUnNest v -> astXUnNest v
 
   -- These should not appear here unless via wacky tests.
   Ast.AstReplicate0NS{} -> t
@@ -2814,26 +2699,16 @@ expandAst t = case t of
         -- this is expensive but the only way to guarantee full simplification
   Ast.AstZipS v -> Ast.AstZipS (expandAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
+  Ast.AstNestS @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ expandAst v
+  Ast.AstUnNestS v -> astUnNestS $ expandAst v
 
   Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ expandAst v
   Ast.AstSFromK u -> astSFromK $ expandAst u
   Ast.AstSFromR v -> astSFromR $ expandAst v
   Ast.AstSFromX v -> astSFromX $ expandAst v
-
-  Ast.AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astXNestR $ expandAst v
-  Ast.AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astXNestS $ expandAst v
-  Ast.AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astXNest $ expandAst v
-  Ast.AstXUnNestR v -> astXUnNestR $ expandAst v
-  Ast.AstXUnNestS v -> astXUnNestS $ expandAst v
-  Ast.AstXUnNest v -> astXUnNest $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstReplicate0NS{} -> t
@@ -2974,26 +2849,16 @@ simplifyAst t = case t of
   Ast.AstReshapeS v -> astReshapeS $ simplifyAst v
   Ast.AstZipS v -> Ast.AstZipS (simplifyAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
+  Ast.AstNestS @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ simplifyAst v
+  Ast.AstUnNestS v -> astUnNestS $ simplifyAst v
 
   Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ simplifyAst v
   Ast.AstSFromK u -> astSFromK $ simplifyAst u
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
   Ast.AstSFromX v -> astSFromX $ simplifyAst v
-
-  Ast.AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astXNestR $ simplifyAst v
-  Ast.AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astXNestS $ simplifyAst v
-  Ast.AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astXNest $ simplifyAst v
-  Ast.AstXUnNestR v -> astXUnNestR $ simplifyAst v
-  Ast.AstXUnNestS v -> astXUnNestS $ simplifyAst v
-  Ast.AstXUnNest v -> astXUnNest $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstReplicate0NS{} -> t
@@ -3402,26 +3267,16 @@ contractAst t = case t of
   Ast.AstReshapeS v -> astReshapeS $ contractAst v
   Ast.AstZipS v -> Ast.AstZipS (contractAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
+  Ast.AstNestS @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS $ contractAst v
+  Ast.AstUnNestS v -> astUnNestS $ contractAst v
 
   Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ contractAst v
   Ast.AstSFromK u -> astSFromK $ contractAst u
   Ast.AstSFromR v -> astSFromR $ contractAst v
   Ast.AstSFromX v -> astSFromX $ contractAst v
-
-  Ast.AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astXNestR $ contractAst v
-  Ast.AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astXNestS $ contractAst v
-  Ast.AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astXNest $ contractAst v
-  Ast.AstXUnNestR v -> astXUnNestR $ contractAst v
-  Ast.AstXUnNestS v -> astXUnNestS $ contractAst v
-  Ast.AstXUnNest v -> astXUnNest $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstReplicate0NS{} -> t
@@ -3910,26 +3765,16 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstReshapeS v -> astReshapeS <$> substitute1Ast i var v
   Ast.AstZipS v -> Ast.AstZipS <$> substitute1Ast i var v
   Ast.AstUnzipS v -> Ast.AstUnzipS <$> substitute1Ast i var v
+  Ast.AstNestS @sh1 @sh2 v ->
+    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+    astNestS <$> substitute1Ast i var v
+  Ast.AstUnNestS v -> astUnNestS <$> substitute1Ast i var v
 
   Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz <$> substitute1Ast i var v
   Ast.AstSFromK u -> astSFromK <$> substitute1Ast i var u
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstSFromX v -> astSFromX <$> substitute1Ast i var v
-
-  Ast.AstXNestR @sh1 @m v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    astXNestR <$> substitute1Ast i var v
-  Ast.AstXNestS @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    astXNestS <$> substitute1Ast i var v
-  Ast.AstXNest @sh1 @sh2 v ->
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    astXNest <$> substitute1Ast i var v
-  Ast.AstXUnNestR v -> astXUnNestR <$> substitute1Ast i var v
-  Ast.AstXUnNestS v -> astXUnNestS <$> substitute1Ast i var v
-  Ast.AstXUnNest v -> astXUnNest <$> substitute1Ast i var v
 
   Ast.AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk ->
     Ast.AstReplicate0NS sh stk <$> substitute1Ast i var v

@@ -265,18 +265,13 @@ inlineAst memo v0 = case v0 of
   Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAst memo v)
   Ast.AstZipS v -> second Ast.AstZipS (inlineAst memo v)
   Ast.AstUnzipS v -> second Ast.AstUnzipS (inlineAst memo v)
+  Ast.AstNestS v -> second Ast.AstNestS $ inlineAst memo v
+  Ast.AstUnNestS v -> second Ast.AstUnNestS $ inlineAst memo v
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ inlineAst memo v
   Ast.AstSFromK t -> second Ast.AstSFromK (inlineAst memo t)
   Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
   Ast.AstSFromX v -> second Ast.AstSFromX $ inlineAst memo v
-
-  Ast.AstXNestR v -> second Ast.AstXNestR $ inlineAst memo v
-  Ast.AstXNestS v -> second Ast.AstXNestS $ inlineAst memo v
-  Ast.AstXNest v -> second Ast.AstXNest $ inlineAst memo v
-  Ast.AstXUnNestR v -> second Ast.AstXUnNestR $ inlineAst memo v
-  Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ inlineAst memo v
-  Ast.AstXUnNest v -> second Ast.AstXUnNest $ inlineAst memo v
 
   Ast.AstReplicate0NS sh stk v ->
     second (Ast.AstReplicate0NS sh stk) (inlineAst memo v)
@@ -553,13 +548,8 @@ unshareAst memo = \case
   Ast.AstSFromK t -> second Ast.AstSFromK (unshareAst memo t)
   Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
   Ast.AstSFromX v -> second Ast.AstSFromX $ unshareAst memo v
-
-  Ast.AstXNestR v -> second Ast.AstXNestR $ unshareAst memo v
-  Ast.AstXNestS v -> second Ast.AstXNestS $ unshareAst memo v
-  Ast.AstXNest v -> second Ast.AstXNest $ unshareAst memo v
-  Ast.AstXUnNestR v -> second Ast.AstXUnNestR $ unshareAst memo v
-  Ast.AstXUnNestS v -> second Ast.AstXUnNestS $ unshareAst memo v
-  Ast.AstXUnNest v -> second Ast.AstXUnNest $ unshareAst memo v
+  Ast.AstNestS v -> second Ast.AstNestS $ unshareAst memo v
+  Ast.AstUnNestS v -> second Ast.AstUnNestS $ unshareAst memo v
 
   Ast.AstReplicate0NS sh stk v ->
     second (Ast.AstReplicate0NS sh stk) (unshareAst memo v)

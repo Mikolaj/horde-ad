@@ -22,8 +22,7 @@ import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
-  (ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
+import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShX
@@ -36,14 +35,7 @@ import Data.Array.Nested
   , type (++)
   )
 import Data.Array.Nested.Internal.Shape
-  ( shCvtSX
-  , shrRank
-  , shsAppend
-  , shsLength
-  , shsPermutePrefix
-  , shsRank
-  , withKnownShS
-  )
+  (shrRank, shsAppend, shsLength, shsPermutePrefix, shsRank, withKnownShS)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -383,6 +375,10 @@ build1V snat@SNat (var, v0) =
       Ast.AstZipS $ build1V snat (var, v)
     Ast.AstUnzipS v -> traceRule $
       Ast.AstUnzipS $ build1V snat (var, v)
+    Ast.AstNestS @sh1 @sh2 v -> traceRule $
+      withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+      astNestS $ build1V snat (var, v)
+    Ast.AstUnNestS v -> traceRule $ astUnNestS $ build1V snat (var, v)
 
     Ast.AstFromS stkz v
       | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) -> traceRule $
@@ -390,20 +386,6 @@ build1V snat@SNat (var, v0) =
     Ast.AstSFromK t -> build1V snat (var, t)
     Ast.AstSFromR v -> traceRule $ astSFromR $ build1V snat (var, v)
     Ast.AstSFromX v -> traceRule $ astSFromX $ build1V snat (var, v)
-
-    Ast.AstXNestR @sh1 @m v -> traceRule $
-      withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-        astXNestR $ build1V snat (var, v)
-    Ast.AstXNestS @sh1 @sh2 v -> traceRule $
-      withKnownShX (knownShX @sh1
-                    `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-      astXNestS $ build1V snat (var, v)
-    Ast.AstXNest  @sh1 @sh2 v -> traceRule $
-      withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-       astXNest $ build1V snat (var, v)
-    Ast.AstXUnNestR v -> traceRule $ astXUnNestR $ build1V snat (var, v)
-    Ast.AstXUnNestS v -> traceRule $ astXUnNestS $ build1V snat (var, v)
-    Ast.AstXUnNest v -> traceRule $ astXUnNest $ build1V snat (var, v)
 
     Ast.AstReplicate0NS{} -> error "build1V: term not accessible from user API"
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
