@@ -70,6 +70,14 @@ type LengthTestData = 10000 :: Nat
 -- a simple default in tutorial.
 type MnistData r = (Vector r, Vector r)
 
+type MnistDataR r =
+  ( Nested.Ranked 2 r
+  , Nested.Ranked 1 r )
+
+type MnistDataBatchR r =
+  ( Nested.Ranked 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
+  , Nested.Ranked 2 r )  -- [batch_size, SizeMnistLabel]
+
 type MnistDataS r =
   ( Nested.Shaped '[SizeMnistHeight, SizeMnistWidth] r
   , Nested.Shaped '[SizeMnistLabel] r )
@@ -78,13 +86,20 @@ type MnistDataBatchS batch_size r =
   ( Nested.Shaped '[batch_size, SizeMnistHeight, SizeMnistWidth] r
   , Nested.Shaped '[batch_size, SizeMnistLabel] r )
 
-type MnistDataR r =
-  ( Nested.Ranked 2 r
-  , Nested.Ranked 1 r )
+mkMnistDataR :: Nested.PrimElt r
+             => MnistData r -> MnistDataR r
+mkMnistDataR (input, target) =
+  ( Nested.rfromVector
+      (sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) input
+  , Nested.rfromVector
+      (sizeMnistLabelInt :$: ZSR) target )
 
-type MnistDataBatchR r =
-  ( Nested.Ranked 3 r  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
-  , Nested.Ranked 2 r )  -- [batch_size, SizeMnistLabel]
+mkMnistDataBatchR :: Nested.Elt r
+                  => [MnistDataR r] -> MnistDataBatchR r
+mkMnistDataBatchR l =
+  let (inputs, targets) = unzip l
+  in ( Nested.rfromListOuter $ NonEmpty.fromList inputs
+     , Nested.rfromListOuter $ NonEmpty.fromList targets )
 
 mkMnistDataS :: Nested.PrimElt r
              => MnistData r -> MnistDataS r
@@ -103,21 +118,6 @@ mkMnistDataBatchS l =
        $ NonEmpty.fromList targets )
 {-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
 {-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
-
-mkMnistDataR :: Nested.PrimElt r
-             => MnistData r -> MnistDataR r
-mkMnistDataR (input, target) =
-  ( Nested.rfromVector
-      (sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) input
-  , Nested.rfromVector
-      (sizeMnistLabelInt :$: ZSR) target )
-
-mkMnistDataBatchR :: Nested.Elt r
-                  => [MnistDataR r] -> MnistDataBatchR r
-mkMnistDataBatchR l =
-  let (inputs, targets) = unzip l
-  in ( Nested.rfromListOuter $ NonEmpty.fromList inputs
-     , Nested.rfromListOuter $ NonEmpty.fromList targets )
 
 readMnistData :: forall r. (VS.Storable r, Fractional r)
               => LBS.ByteString -> LBS.ByteString -> [MnistData r]
