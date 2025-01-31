@@ -439,14 +439,11 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
-  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
-      valsInit =
+  let targetInit =
         forgetShape $ fst
-        $ randomValue @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                          RepN widthHidden widthHidden2 r)
+        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   RepN widthHidden widthHidden2 r)))
                       1 (mkStdGen 44)
-      targetInit :: RepN (XParams2 r)
-      targetInit = toTarget @RepN valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -535,14 +532,11 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
-  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
-      valsInit =
+  let targetInit =
         forgetShape $ fst
-        $ randomValue @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                          RepN widthHidden widthHidden2 r)
+        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   RepN widthHidden widthHidden2 r)))
                       1 (mkStdGen 44)
-      targetInit :: RepN (XParams2 r)
-      targetInit = toTarget @RepN valsInit
       ftk = tftk @RepN (knownSTK @(XParams2 r))
                        targetInit
       name = prefix ++ ": "
@@ -655,14 +649,11 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
-  let valsInit :: MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r
-      valsInit =
+  let targetInit =
         forgetShape $ fst
-        $ randomValue @(MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                          RepN widthHidden widthHidden2 r)
+        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   RepN widthHidden widthHidden2 r)))
                       1 (mkStdGen 44)
-      targetInit :: RepN (XParams2 r)
-      targetInit = toTarget @RepN valsInit
       ftk = tftk @RepN (knownSTK @(XParams2 r))
                        targetInit
       name = prefix ++ ": "

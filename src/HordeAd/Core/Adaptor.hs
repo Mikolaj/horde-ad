@@ -106,6 +106,10 @@ instance (BaseTensor target, BaseTensor (PrimalOf target), KnownSTK y)
   fromDValue t = tfromPrimal (knownSTK @y)
                  $ tconcrete (tftkG (knownSTK @y) $ unRepN t) t
 
+instance ForgetShape (target (TKScalar r)) where
+  type NoShape (target (TKScalar r)) = target (TKScalar r)
+  forgetShape = id
+
 instance ForgetShape (target (TKR n r)) where
   type NoShape (target (TKR n r)) = target (TKR n r)
   forgetShape = id
@@ -118,6 +122,13 @@ instance (KnownShS sh, GoodScalar r, BaseTensor target)
 instance ForgetShape (target (TKX sh r)) where
   type NoShape (target (TKX sh r)) = target (TKX sh r)
   forgetShape = id
+
+instance (GoodScalar r, Fractional r, Random r, BaseTensor target)
+         => RandomValue (target (TKScalar r)) where
+  randomValue range g =
+    let (r, g2) = random g
+        m = 2 * realToFrac range * (r - 0.5)
+    in (kconcrete m, g2)
 
 instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
          , BaseTensor target )
@@ -135,6 +146,37 @@ instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
 
 
 -- * Compound instances
+
+type family NoShapeTensorKind tk where
+  NoShapeTensorKind (TKScalar r) = TKScalar r
+  NoShapeTensorKind (TKR2 n r) = TKR2 n r
+  NoShapeTensorKind (TKS2 sh r) = TKR2 (Rank sh) r
+  NoShapeTensorKind (TKX2 sh r) = TKX2 sh r
+  NoShapeTensorKind (TKProduct y z) =
+    TKProduct (NoShapeTensorKind y) (NoShapeTensorKind z)
+
+instance ( KnownSTK a, KnownSTK b
+         , KnownSTK (NoShapeTensorKind a), KnownSTK (NoShapeTensorKind b)
+         , ForgetShape (target a)
+         , ForgetShape (target b)
+         , target (NoShapeTensorKind a) ~ NoShape (target a)
+         , target (NoShapeTensorKind b) ~ NoShape (target b)
+         , BaseTensor target, LetTensor target )
+         => ForgetShape (target (TKProduct a b)) where
+  type NoShape (target (TKProduct a b)) =
+    target (TKProduct (NoShapeTensorKind a) (NoShapeTensorKind b))
+  forgetShape ab =
+    tlet ab $ \abShared ->
+      tpair (forgetShape (tproject1 abShared))
+            (forgetShape (tproject2 abShared))
+
+instance ( RandomValue (target a), RandomValue (target b), BaseTensor target
+         , KnownSTK a, KnownSTK b )
+         => RandomValue (target (TKProduct a b)) where
+  randomValue range g =
+    let (v1, g1) = randomValue range g
+        (v2, g2) = randomValue range g1
+    in (tpair v1 v2, g2)
 
 type family Tups n t where
   Tups 0 t = TKUnit
