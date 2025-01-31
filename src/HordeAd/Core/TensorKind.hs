@@ -9,8 +9,8 @@ module HordeAd.Core.TensorKind
   , withKnownSTK, lemKnownSTK, sameKnownSTS, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD
-  , FullTensorKind(..), ftkToSTK
-  , ftkUnit, buildFTK, razeFTK, adFTK
+  , FullTensorKind(..), KnownFTK(..)
+  , ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK
   , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..), EqF(..), OrdF(..)
@@ -188,6 +188,20 @@ data FullTensorKind y where
 
 deriving instance Show (FullTensorKind y)
 deriving instance Eq (FullTensorKind y)
+
+class KnownFTK (y :: TensorKindType) where
+  knownFTK :: FullTensorKind y
+
+instance GoodScalar r => KnownFTK (TKScalar r) where
+  knownFTK = FTKScalar
+
+instance (KnownFTK x, KnownShS sh)
+         => KnownFTK (TKS2 sh x) where
+  knownFTK = FTKS knownShS knownFTK
+
+instance (KnownFTK y, KnownFTK z)
+         => KnownFTK (TKProduct y z) where
+  knownFTK = FTKProduct (knownFTK @y) (knownFTK @z)
 
 ftkToSTK :: FullTensorKind y -> STensorKind y
 ftkToSTK = \case
