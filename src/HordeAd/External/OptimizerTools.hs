@@ -10,6 +10,7 @@ module HordeAd.External.OptimizerTools
 import Prelude
 
 import Data.Type.Equality ((:~:) (Refl))
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Nested (KnownShS (..))
@@ -17,14 +18,24 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.Ops
+import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 updateWithGradient :: forall y. KnownSTK y
                    => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
 updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
+  STKScalar @r _ -> RepN $
+    case sameSTK (knownSTK @y) (STKScalar @Z0 typeRep) of
+      Just Refl -> params
+      _ -> error "TODO: unexpected"
+           $ case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
+        Just Refl ->
+          ifDifferentiable @r
+            (params - realToFrac gamma * gradient)
+            params
+        Nothing -> params
   STKR SNat (STKScalar @r _) -> RepN $
     case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
       Just Refl ->
