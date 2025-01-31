@@ -37,16 +37,16 @@ import HordeAd.Core.Types
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifact :: forall x z. (TensorKind x, TensorKind z)
+simplifyArtifact :: forall x z. (KnownSTK x, KnownSTK z)
                  => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifact art | Dict <- lemTensorKindOfAD (stensorKind @x) =
+simplifyArtifact art | Dict <- lemKnownSTKOfAD (stensorKind @x) =
   let !der = simplifyInlineContract $ artDerivativeRev art in
   let !prim = simplifyInlineContract $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
-simplifyArtifactGradient :: forall x z. TensorKind x
+simplifyArtifactGradient :: forall x z. KnownSTK x
                          => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactGradient art | Dict <- lemTensorKindOfAD (stensorKind @x) =
+simplifyArtifactGradient art | Dict <- lemKnownSTKOfAD (stensorKind @x) =
   art { artDerivativeRev =
         simplifyInlineContract $ artDerivativeRev art }
 
@@ -55,7 +55,7 @@ simplifyArtifactGradient art | Dict <- lemTensorKindOfAD (stensorKind @x) =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInline
-  :: forall z s. (AstSpan s, TensorKind z)
+  :: forall z s. (AstSpan s, KnownSTK z)
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
   snd . inlineAst EM.empty
@@ -68,7 +68,7 @@ simplifyInline =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInlineContract
-  :: forall z s. (AstSpan s, TensorKind z)
+  :: forall z s. (AstSpan s, KnownSTK z)
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
   snd . inlineAst EM.empty
@@ -323,7 +323,7 @@ inlineAstBool memo v0 = case v0 of
 type AstBindings = DEnumMap (AstVarName PrimalSpan)
                             (AstTensor AstMethodLet PrimalSpan)
 
-bindsToLet :: forall s y. TensorKind y
+bindsToLet :: forall s y. KnownSTK y
            => AstTensor AstMethodLet s y -> AstBindings
            -> AstTensor AstMethodLet s y
 {-# INLINE bindsToLet #-}  -- help list fusion
@@ -337,7 +337,7 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
     | Dict <- tensorKindFromAstVarName var =
       Ast.AstLet var w u
 
-unshareAstTensor :: TensorKind y
+unshareAstTensor :: KnownSTK y
                  => AstTensor AstMethodShare PrimalSpan y
                  -> AstTensor AstMethodLet PrimalSpan y
 unshareAstTensor tShare =
@@ -348,7 +348,7 @@ unshareAstTensor tShare =
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
 unshareAstScoped
-  :: forall z s. (TensorKind z, AstSpan s)
+  :: forall z s. (KnownSTK z, AstSpan s)
   => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s z
   -> (AstBindings, AstTensor AstMethodLet s z)
 unshareAstScoped vars0 memo0 v0 =
@@ -416,7 +416,7 @@ unshareAst memo = \case
 
   -- We assume v is the same if var is the same.
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
-    Ast.AstFromS @y2 stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+    Ast.AstFromS @y2 stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
       let var = mkAstVarName $ varNameToAstVarId varRaw
           astVar = Ast.AstFromS @y2 stkz
                    $ Ast.AstVar (ftkAst v) var
@@ -428,7 +428,7 @@ unshareAst memo = \case
     -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case ftkAst a of
       ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
-                             , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+                             , Dict <- lemKnownSTK (ftkToStk x) ->
         withCastRS sh' $ \(sh :: ShS sh) ->
           withKnownShS sh $
           let var = mkAstVarName $ varNameToAstVarId varRaw
@@ -438,7 +438,7 @@ unshareAst memo = \case
              then (memo, astVar)
              else let (memo1, a2) = unshareAst memo (Ast.AstSFromR @sh a)
                   in (DMap.insert var a2 memo1, astVar)
-      ftk@(FTKX @_ @x sh' x) | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+      ftk@(FTKX @_ @x sh' x) | Dict <- lemKnownSTK (ftkToStk x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
           withKnownShX (ssxFromShape sh') $
           withKnownShS sh $

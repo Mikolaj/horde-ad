@@ -51,7 +51,7 @@ import HordeAd.Core.Types
 
 crevOnADInputs
   :: forall x z target.
-     ( TensorKind x, TensorKind z, ADReadyNoLet target
+     ( KnownSTK x, KnownSTK z, ADReadyNoLet target
      , ShareTensor target, ShareTensor (PrimalOf target) )
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
@@ -71,7 +71,7 @@ crevOnADInputs mdt f inputs =
 
 crevOnHVector
   :: forall x z target.
-     ( TensorKind x, TensorKind z, ADReadyNoLet target
+     ( KnownSTK x, KnownSTK z, ADReadyNoLet target
      , ShareTensor target, ShareTensor (PrimalOf target) )
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
@@ -85,7 +85,7 @@ crevOnHVector mdt f parameters =
 
 cfwdOnADInputs
   :: forall x z target.
-     (TensorKind x, TensorKind z, ADReadyNoLet target, ShareTensor target)
+     (KnownSTK x, KnownSTK z, ADReadyNoLet target, ShareTensor target)
   => ADVal target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
@@ -98,7 +98,7 @@ cfwdOnADInputs inputs f ds =
 
 cfwdOnHVector
   :: forall x z target.
-     (TensorKind x, TensorKind z, ADReadyNoLet target, ShareTensor target)
+     (KnownSTK x, KnownSTK z, ADReadyNoLet target, ShareTensor target)
   => target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
@@ -118,7 +118,7 @@ cfwdOnHVector parameters f ds =
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => LetTensor (ADVal target) where
-  tlet :: forall x z. TensorKind x
+  tlet :: forall x z. KnownSTK x
        => ADVal target x
        -> (ADVal target x -> ADVal target z)
        -> ADVal target z
@@ -130,7 +130,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- This avoids product eta-expansions for AST instance primal,
   -- though contangent expands anyway.
   tfromS (D u u') = dDnotShared (tfromSShare u) (dFromS u')
-  tD stk t d | Dict <- lemTensorKindOfSTK stk = dD t d
+  tD stk t d | Dict <- lemKnownSTK stk = dD t d
 
 instance (ADReadyNoLet target, ShareTensor target)
          => ShareTensor (ADVal target) where
@@ -398,20 +398,20 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk (D u _) = tftk stk u
-  tconcrete ftk t | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
+  tconcrete ftk t | Dict <- lemKnownSTK (ftkToStk ftk) =
     fromPrimalADVal $ tconcrete ftk t
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
   dmapAccumRDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
-   | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
+   | Dict <- lemKnownSTKOfBuild k (stensorKind @accShs)
+   , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @eShs) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let es = tshare esNotShared
@@ -475,13 +475,13 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in dD (tpair accFin bs) dual
   dmapAccumLDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
-   | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @bShs)
-   , Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs) =
+   | Dict <- lemKnownSTKOfBuild k (stensorKind @accShs)
+   , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @eShs) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let es = tshare esNotShared
@@ -551,11 +551,11 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
   tprimalPart _stk (D u _) = u
   tdualPart _stk (D _ u') = u'
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimalADVal t
-  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
+  tfromPrimal stk t | Dict <- lemKnownSTK stk = fromPrimalADVal t
+  tfromDual stk t | Dict <- lemKnownSTK stk =
     dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale _ k = dScale k
-  drev @x _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x) =
+  drev @x _ftk h | Dict <- lemKnownSTKOfAD (stensorKind @x) =
     let rf :: forall f. ADReady f
            => f x
            -> f (ADTensorKind x)
@@ -566,8 +566,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare aShared)
     in HFun rf
-  drevDt @x @z _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
-                      , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  drevDt @x @z _ftk h | Dict <- lemKnownSTKOfAD (stensorKind @x)
+                      , Dict <- lemKnownSTKOfAD (stensorKind @z) =
     let rf :: forall f. ADReady f
            => f (TKProduct (ADTensorKind z) x)
            -> f (ADTensorKind x)
@@ -578,8 +578,8 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject2 db_aShared)
     in HFun rf
-  dfwd @x @z _ftk h | Dict <- lemTensorKindOfAD (stensorKind @x)
-                    , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  dfwd @x @z _ftk h | Dict <- lemKnownSTKOfAD (stensorKind @x)
+                    , Dict <- lemKnownSTKOfAD (stensorKind @z) =
     let df :: forall f. ADReady f
            => f (TKProduct (ADTensorKind x) x)
            -> f (ADTensorKind z)

@@ -60,7 +60,7 @@ import HordeAd.Core.Unwind
 -- from different levels of differentiation if it's done multiple times.
 rev
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals), KnownSTK z
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -79,7 +79,7 @@ rev f vals = revDtMaybe f vals Nothing
 -- tensor codomain.
 revDt
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals), KnownSTK z
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -91,7 +91,7 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), TensorKind (X astvals), TensorKind z
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals), KnownSTK z
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -99,7 +99,7 @@ revDtMaybe
   -> Maybe (RepN (ADTensorKind z))
   -> Value astvals  -- morally (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
-revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
+revDtMaybe f vals0 mdt | Dict <- lemKnownSTKOfAD (stensorKind @(X astvals)) =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
@@ -122,7 +122,7 @@ revDtMaybe f vals0 mdt | Dict <- lemTensorKindOfAD (stensorKind @(X astvals)) =
 
 revArtifactAdapt
   :: forall astvals z.
-     ( TensorKind (X astvals), TensorKind z
+     ( KnownSTK (X astvals), KnownSTK z
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals )
   => Bool
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -145,7 +145,7 @@ revArtifactAdapt hasDt f ftk =
 -}
 
 revProduceArtifactWithoutInterpretation
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => Bool
   -> (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
@@ -170,14 +170,14 @@ forwardPassByApplication g hVectorPrimal _var _hVector =
   in g varInputs
 
 revEvalArtifact
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => AstArtifactRev x z
   -> RepN x
   -> Maybe (RepN (ADTensorKind z))
   -> (RepN (ADTensorKind x), RepN z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt
- | Dict <- lemTensorKindOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (stensorKind @z) =
   let oneAtF = constantTarget 1 $ aDFTK $ ftkAst artPrimalRev
       dt = fromMaybe oneAtF mdt
       env = extendEnv artVarDomainRev parameters emptyEnv
@@ -200,8 +200,8 @@ revEvalArtifact AstArtifactRev{..} parameters mdt
 -- may fail at runtime if it contains lists or vectors of tensors, etc.
 fwd
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), TensorKind (X astvals)
-     , TensorKind z
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
+     , KnownSTK z
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -220,14 +220,14 @@ fwd f vals ds =
          $ toADTensorKindShared stensorKind dsTarget
 
 fwdEvalArtifact
-  :: forall x z. TensorKind x
+  :: forall x z. KnownSTK x
   => AstArtifactFwd x z
   -> RepN x
   -> RepN (ADTensorKind x)
   -> (RepN (ADTensorKind z), RepN z)
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds
- | Dict <- lemTensorKindOfAD (stensorKind @x) =
+ | Dict <- lemKnownSTKOfAD (stensorKind @x) =
   if aDFTK (tftk (stensorKind @x) parameters)
      == tftk (stensorKind @(ADTensorKind x)) ds then
     let env = extendEnv artVarDomainFwd parameters emptyEnv
@@ -249,7 +249,7 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall advals z.
-     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
@@ -261,7 +261,7 @@ crev f vals = crevDtMaybe f vals Nothing
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall advals z.
-     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
@@ -273,7 +273,7 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
 crevDtMaybe
   :: forall advals z.
-     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
@@ -281,7 +281,7 @@ crevDtMaybe
   -> Maybe (RepN (ADTensorKind z))
   -> DValue advals  -- morally (ADTensorKind advals)
 {-# INLINE crevDtMaybe #-}
-crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
+crevDtMaybe f vals mdt | Dict <- lemKnownSTKOfAD (stensorKind @(X advals)) =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
       valsTarget = toTarget vals
@@ -301,7 +301,7 @@ crevDtMaybe f vals mdt | Dict <- lemTensorKindOfAD (stensorKind @(X advals)) =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall advals z.
-     ( X advals ~ X (DValue advals), TensorKind (X advals), TensorKind z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)

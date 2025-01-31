@@ -130,20 +130,20 @@ class LetTensor (target :: Target) where
   tsize :: BaseTensor target => STensorKind y -> target y -> Int
   tsize stk a = case stk of
     STKScalar{} -> 1
-    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rsize a
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ ssize a
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xsize a
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                         , Dict <- lemTensorKindOfSTK stk2 ->
+    STKR SNat x | Dict <- lemKnownSTK x -> rsize a
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssize a
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsize a
+    STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
+                         , Dict <- lemKnownSTK stk2 ->
       tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
-  tlet :: (TensorKind x, TensorKind z)
+  tlet :: (KnownSTK x, KnownSTK z)
        => target x
        -> (target x -> target z)
        -> target z
-  toShare :: TensorKind y
+  toShare :: KnownSTK y
           => target y
           -> ShareOf target y
-  tunshare :: TensorKind y
+  tunshare :: KnownSTK y
            => ShareOf target y
            -> target y
   tunshare = error "tunshare: this instance should never be used"
@@ -152,17 +152,17 @@ class LetTensor (target :: Target) where
               -> target (BuildTensorKind k y)
   tfromVector snat@SNat stk v = case stk of
     STKScalar{} -> sfromVector $ V.map sfromK v
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    STKR SNat x | Dict <- lemKnownSTK x ->
       rfromVector v
-    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    STKS sh x | Dict <- lemKnownSTK x ->
       withKnownShS sh $ sfromVector v
-    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xfromVector v
     STKProduct @y1 @y2 stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         let f :: ([target y1] -> [target y2] -> target (BuildTensorKind k y))
               -> target y
               -> ([target y1] -> [target y2] -> target (BuildTensorKind k y))
@@ -185,17 +185,17 @@ class LetTensor (target :: Target) where
        -> target z
   tsum snat@SNat stk u = case stk of
     STKScalar{} -> kfromS $ ssum u
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    STKR SNat x | Dict <- lemKnownSTK x ->
       rsum u
-    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    STKS sh x | Dict <- lemKnownSTK x ->
       withKnownShS sh $ ssum u
-    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xsum u
     STKProduct stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         tlet u $ \ !u3 ->
           tpair (tsum snat stk1 (tproject1 u3))
                 (tsum snat stk2 (tproject2 u3))
@@ -205,14 +205,14 @@ class LetTensor (target :: Target) where
              -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
     STKScalar{} -> sreplicate $ sfromK u
-    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
+    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sreplicate u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
     STKProduct stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         tlet u $ \ !u3 ->
           tpair (treplicate snat stk1 (tproject1 u3))
                 (treplicate snat stk2 (tproject2 u3))
@@ -221,20 +221,20 @@ class LetTensor (target :: Target) where
   -- by hiding some (or none) type information (so the codomain has to be
   -- a "subtype" of the domain) or error.
   -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
-  tfromS :: forall y z. (BaseTensor target, TensorKind y, TensorKind z)
+  tfromS :: forall y z. (BaseTensor target, KnownSTK y, KnownSTK z)
          => target y -> target z
   tfromS v = case (stensorKind @y, stensorKind @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
       Just Refl -> kfromS v
       Nothing -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKR zn zx) | Dict <- lemTensorKindOfSTK yx ->
+    (STKS shy yx, STKR zn zx) | Dict <- lemKnownSTK yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) zn) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
           rfromS v
         _ -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKX shz zx) | Dict <- lemTensorKindOfSTK yx ->
+    (STKS shy yx, STKX shz zx) | Dict <- lemKnownSTK yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shz)) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
@@ -242,26 +242,26 @@ class LetTensor (target :: Target) where
           xfromS v
         _ -> error "tfromS: tensor kinds don't match"
     (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
-      | Dict <- lemTensorKindOfSTK stky1
-      , Dict <- lemTensorKindOfSTK stky2
-      , Dict <- lemTensorKindOfSTK stkz1
-      , Dict <- lemTensorKindOfSTK stkz2 ->
+      | Dict <- lemKnownSTK stky1
+      , Dict <- lemKnownSTK stky2
+      , Dict <- lemKnownSTK stkz1
+      , Dict <- lemKnownSTK stkz2 ->
         tlet v $ \ !u3 ->
           tpair (tfromS (tproject1 u3)) (tfromS (tproject2 u3))
     _ -> error "tfromS: wrong tensor kinds"
   tD :: BaseTensor target
      => STensorKind y -> PrimalOf target y -> DualOf target y
      -> target y
-  tD stk p d | Dict <- lemTensorKindOfSTK stk =
+  tD stk p d | Dict <- lemKnownSTK stk =
     -- Lets needed, because raddTarget requires duplicable arguments.
     tlet (tfromPrimal stk p) $ \pShared ->
     tlet (tfromDual stk d) $ \dShared ->
       taddTarget stk pShared dShared
 
 class ShareTensor (target :: Target) where
-  tshare :: TensorKind y
+  tshare :: KnownSTK y
          => target y -> target y
-  tunpair :: (TensorKind x, TensorKind z)
+  tunpair :: (KnownSTK x, KnownSTK z)
           => target (TKProduct x z) -> (target x, target z)
   tfromVectorShare :: forall y k. BaseTensor target
                    => SNat k -> STensorKind y
@@ -269,17 +269,17 @@ class ShareTensor (target :: Target) where
                    -> target (BuildTensorKind k y)
   tfromVectorShare snat@SNat stk v = case stk of
     STKScalar{} -> sfromVector $ V.map sfromK v
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    STKR SNat x | Dict <- lemKnownSTK x ->
       rfromVector v
-    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    STKS sh x | Dict <- lemKnownSTK x ->
       withKnownShS sh $ sfromVector v
-    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xfromVector v
     STKProduct stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         let (v1, v2) = V.unzip $ V.map tunpair v
         in tpair (tfromVectorShare snat stk1 v1)
                  (tfromVectorShare snat stk2 v2)
@@ -289,17 +289,17 @@ class ShareTensor (target :: Target) where
                       -> [target y]
   tunravelToListShare snat@SNat stk u = case stk of
     STKScalar{} -> map kfromS $ sunravelToList u
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    STKR SNat x | Dict <- lemKnownSTK x ->
       runravelToList u
-    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    STKS sh x | Dict <- lemKnownSTK x ->
       withKnownShS sh $ sunravelToList u
-    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xunravelToList u
     STKProduct stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         let (u1, u2) = tunpair u
         in zipWith tpair (tunravelToListShare snat stk1 u1)
                          (tunravelToListShare snat stk2 u2)
@@ -309,17 +309,17 @@ class ShareTensor (target :: Target) where
             -> target z
   tsumShare snat@SNat stk u = case stk of
     STKScalar{} -> kfromS $ ssum u
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    STKR SNat x | Dict <- lemKnownSTK x ->
       rsum u
-    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    STKS sh x | Dict <- lemKnownSTK x ->
       withKnownShS sh $ ssum u
-    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xsum u
     STKProduct stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         let (u1, u2) = tunpair u
         in tpair (tsumShare snat stk1 u1)
                  (tsumShare snat stk2 u2)
@@ -329,14 +329,14 @@ class ShareTensor (target :: Target) where
                   -> target (BuildTensorKind k z)
   treplicateShare snat@SNat stk u = case stk of
     STKScalar{} -> sreplicate $ sfromK u
-    STKR SNat x | Dict <- lemTensorKindOfSTK x -> rreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh $ sreplicate u
-    STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh $ xreplicate u
+    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sreplicate u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
     STKProduct stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         let (u1, u2) = tunpair u
         in tpair (treplicateShare snat stk1 u1)
                  (treplicateShare snat stk2 u2)
@@ -346,34 +346,34 @@ class ShareTensor (target :: Target) where
                    -> target z
   tindexBuildShare snat@SNat stk u i = case stk of
     STKScalar{} -> kfromS $ sindex u (i :.$ ZIS)
-    STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+    STKR SNat x | Dict <- lemKnownSTK x ->
       rindex u (i :.: ZIR)
-    STKS sh x | Dict <- lemTensorKindOfSTK x ->
+    STKS sh x | Dict <- lemKnownSTK x ->
       withKnownShS sh $ sindex u (i :.$ ZIS)
-    STKX sh x | Dict <- lemTensorKindOfSTK x ->
+    STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xindex u (i :.% ZIX)
     STKProduct stk1 stk2
-      | Dict <- lemTensorKindOfSTK stk1
-      , Dict <- lemTensorKindOfSTK stk2
-      , Dict <- lemTensorKindOfBuild snat stk1
-      , Dict <- lemTensorKindOfBuild snat stk2 ->
+      | Dict <- lemKnownSTK stk1
+      , Dict <- lemKnownSTK stk2
+      , Dict <- lemKnownSTKOfBuild snat stk1
+      , Dict <- lemKnownSTKOfBuild snat stk2 ->
         let (u1, u2) = tunpair u
         in tpair (tindexBuildShare snat stk1 u1 i)
                  (tindexBuildShare snat stk2 u2 i)
-  tfromSShare :: forall y z. (BaseTensor target, TensorKind y, TensorKind z)
+  tfromSShare :: forall y z. (BaseTensor target, KnownSTK y, KnownSTK z)
               => target y -> target z
   tfromSShare v = case (stensorKind @y, stensorKind @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar try), STKScalar trz) -> case testEquality try trz of
       Just Refl -> kfromS v
       Nothing -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKR nx zx) | Dict <- lemTensorKindOfSTK yx ->
+    (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTK yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) nx) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
           rfromS v
         _ -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKX shx zx) | Dict <- lemTensorKindOfSTK yx ->
+    (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTK yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
@@ -381,10 +381,10 @@ class ShareTensor (target :: Target) where
           xfromS v
         _ -> error "tfromS: tensor kinds don't match"
     (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
-      | Dict <- lemTensorKindOfSTK stky1
-      , Dict <- lemTensorKindOfSTK stky2
-      , Dict <- lemTensorKindOfSTK stkz1
-      , Dict <- lemTensorKindOfSTK stkz2 ->
+      | Dict <- lemKnownSTK stky1
+      , Dict <- lemKnownSTK stky2
+      , Dict <- lemKnownSTK stkz1
+      , Dict <- lemKnownSTK stkz2 ->
         let (u1, u2) = tunpair v
         in tpair (tfromSShare u1) (tfromSShare u2)
     _ -> error "tfromS: wrong tensor kinds"
@@ -421,31 +421,31 @@ class ( Num (IntOf target)
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
   -- by 1 dimension.
-  rshape :: TensorKind r => target (TKR2 n r) -> IShR n
-  rrank :: forall r n. (TensorKind r, KnownNat n) => target (TKR2 n r) -> Int
+  rshape :: KnownSTK r => target (TKR2 n r) -> IShR n
+  rrank :: forall r n. (KnownSTK r, KnownNat n) => target (TKR2 n r) -> Int
   rrank _ = valueOf @n
-  rsize :: TensorKind r => target (TKR2 n r) -> Int
+  rsize :: KnownSTK r => target (TKR2 n r) -> Int
   rsize = shrSize . rshape
-  rlength :: TensorKind r => target (TKR2 (1 + n) r) -> Int
+  rlength :: KnownSTK r => target (TKR2 (1 + n) r) -> Int
   rlength v = case rshape v of
     ZSR -> error "rlength: impossible pattern needlessly required"
     k :$: _ -> k
 
-  rconcrete :: (TensorKind r, KnownNat n)
+  rconcrete :: (KnownSTK r, KnownNat n)
             => Nested.Ranked n (RepORArray r) -> target (TKR2 n r)
   rconcrete a = tconcrete (tftkG (STKR SNat stensorKind) a) (RepN a)
-  rfromList :: (TensorKind r, KnownNat n)
+  rfromList :: (KnownSTK r, KnownNat n)
             => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
-  rfromListLinear :: (TensorKind r, KnownNat n)
+  rfromListLinear :: (KnownSTK r, KnownNat n)
                   => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
   rfromListLinear sh = rfromVectorLinear sh . V.fromList
   -- This is morally non-empty strict vectors:
-  rfromVector :: (TensorKind r, KnownNat n)
+  rfromVector :: (KnownSTK r, KnownNat n)
               => Data.Vector.Vector (target (TKR2 n r))
               -> target (TKR2 (1 + n) r)
-  rfromVectorLinear :: forall r n. (TensorKind r, KnownNat n)
+  rfromVectorLinear :: forall r n. (KnownSTK r, KnownNat n)
                     => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
                     -> target (TKR2 n r)
   rfromVectorLinear sh v | Dict <- eltDictRep (stensorKind @r) =
@@ -455,17 +455,17 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  runravelToList :: forall r n. (TensorKind r, KnownNat n)
+  runravelToList :: forall r n. (KnownSTK r, KnownNat n)
                  => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
   runravelToList t =
     let f :: Int -> target (TKR2 n r)
         f i = rindex t (fromIntegral i :.: ZIR)
     in map f [0 .. rlength t - 1]
-  rsum :: (TensorKind r, KnownNat n)
+  rsum :: (KnownSTK r, KnownNat n)
        => target (TKR2 (1 + n) r) -> target (TKR2 n r)
   -- This op (and it's Delta constructor) is worthwhile, because flattening
   -- is O(n) sometimes, unlike transpose, etc.
-  rsum0 :: (TensorKind r, KnownNat n)
+  rsum0 :: (KnownSTK r, KnownNat n)
         => target (TKR2 n r) -> target (TKR2 0 r)
   rsum0 = rsum . rflatten
   rdot0 :: (GoodScalar r, KnownNat n)
@@ -494,23 +494,23 @@ class ( Num (IntOf target)
   rscaleByScalar :: (GoodScalar r, KnownNat n)
                  => target (TKR 0 r) -> target (TKR n r) -> target (TKR n r)
   rscaleByScalar s v = v * rreplicate0N (rshape v) s
-  rreplicate :: (TensorKind r, KnownNat n)
+  rreplicate :: (KnownSTK r, KnownNat n)
              => Int -> target (TKR2 n r) -> target (TKR2 (1 + n) r)
-  rreplicate0N :: (TensorKind r, KnownNat n)
+  rreplicate0N :: (KnownSTK r, KnownNat n)
                => IShR n -> target (TKR2 0 r) -> target (TKR2 n r)
   rreplicate0N sh = rreshape sh . rreplicate (shrSize sh)
   -- First index is for outermost dimension; empty index means identity,
   -- if index is out of bounds, the result is defined and is 0,
   -- but vectorization is permitted to change the value.
-  rindex, (!) :: (TensorKind r, KnownNat m, KnownNat n)
+  rindex, (!) :: (KnownSTK r, KnownNat m, KnownNat n)
               => target (TKR2 (m + n) r) -> IxROf target m -> target (TKR2 n r)
   infixl 9 !
   (!) = rindex  -- prefix form better when type applications are necessary
-  rindex0 :: (TensorKind r, KnownNat m)
+  rindex0 :: (KnownSTK r, KnownNat m)
           => target (TKR2 m r) -> IxROf target m -> target (TKR2 0 r)
   rindex0 = rindex
   roneHot :: forall r m n.
-             ( TensorKind r, KnownNat m, KnownNat n
+             ( KnownSTK r, KnownNat m, KnownNat n
              , BoolOf (PrimalOf target) ~ BoolOf target
              , EqF (PrimalOf target) )
           => IShR m -> target (TKR2 n r) -> IxROf target m
@@ -529,21 +529,21 @@ class ( Num (IntOf target)
         in rbuild (shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
            -- would come out of vectorization, making sure it simplifies well
-  rscatter :: (TensorKind r, KnownNat m, KnownNat n, KnownNat p)
+  rscatter :: (KnownSTK r, KnownNat m, KnownNat n, KnownNat p)
            => IShR (p + n) -> target (TKR2 (m + n) r)
            -> (IxROf target m -> IxROf target p)
            -> target (TKR2 (p + n) r)
-  rscatter1 :: forall r n p. (TensorKind r, KnownNat n, KnownNat p)
+  rscatter1 :: forall r n p. (KnownSTK r, KnownNat n, KnownNat p)
             => IShR (p + n) -> target (TKR2 (1 + n) r)
             -> (IntOf target -> IxROf target p)
             -> target (TKR2 (p + n) r)
   rscatter1 sh v f = rscatter @target @r @1 sh v
                               (\(i :.: ZIR) -> f i)
-  rgather :: (TensorKind r, KnownNat m, KnownNat n, KnownNat p)
+  rgather :: (KnownSTK r, KnownNat m, KnownNat n, KnownNat p)
           => IShR (m + n) -> target (TKR2 (p + n) r)
           -> (IxROf target m -> IxROf target p)
           -> target (TKR2 (m + n) r)
-  rgather1 :: forall r n p. (TensorKind r, KnownNat n, KnownNat p)
+  rgather1 :: forall r n p. (KnownSTK r, KnownNat n, KnownNat p)
            => Int -> target (TKR2 (p + n) r)
            -> (IntOf target -> IxROf target p)
            -> target (TKR2 (1 + n) r)
@@ -560,39 +560,39 @@ class ( Num (IntOf target)
     :: (GoodScalar r, GoodScalar r2, KnownNat n)
     => target (TKR (1 + n) r) -> target (TKR n r2)
   riota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
-  rappend :: (TensorKind r, KnownNat n)
+  rappend :: (KnownSTK r, KnownNat n)
           => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
           -> target (TKR2 (1 + n) r)
-  rconcat :: (TensorKind r, KnownNat n)
+  rconcat :: (KnownSTK r, KnownNat n)
           => NonEmpty (target (TKR2 (1 + n) r)) -> target (TKR2 (1 + n) r)
   rconcat = foldr1 rappend
-  rslice :: (TensorKind r, KnownNat n)
+  rslice :: (KnownSTK r, KnownNat n)
          => Int -> Int -> target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-  runcons :: (TensorKind r, KnownNat n)
+  runcons :: (KnownSTK r, KnownNat n)
           => target (TKR2 (1 + n) r)
           -> Maybe (target (TKR2 n r), target (TKR2 (1 + n) r))
   runcons v = case rshape v of
                 ZSR -> Nothing
                 len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
-  rreverse :: (TensorKind r, KnownNat n)
+  rreverse :: (KnownSTK r, KnownNat n)
            => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-  rtr :: (TensorKind r, KnownNat n)
+  rtr :: (KnownSTK r, KnownNat n)
       => target (TKR2 (2 + n) r) -> target (TKR2 (2 + n) r)
   rtr = rtranspose [1, 0]
-  rtranspose :: (TensorKind r, KnownNat n)
+  rtranspose :: (KnownSTK r, KnownNat n)
              => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
-  rflatten :: (TensorKind r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
+  rflatten :: (KnownSTK r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (rsize u :$: ZSR) u
-  rreshape :: (TensorKind r, KnownNat n, KnownNat m)
+  rreshape :: (KnownSTK r, KnownNat n, KnownNat m)
            => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
-  rzip :: (TensorKind y, TensorKind z, KnownNat n)
+  rzip :: (KnownSTK y, KnownSTK z, KnownNat n)
        => target (TKProduct (TKR2 n y) (TKR2 n z))
        -> target (TKR2 n (TKProduct y z))
-  runzip :: (TensorKind y, TensorKind z, KnownNat n)
+  runzip :: (KnownSTK y, KnownSTK z, KnownNat n)
          => target (TKR2 n (TKProduct y z))
          -> target (TKProduct (TKR2 n y) (TKR2 n z))
 
-  rbuild :: forall r m n. (TensorKind r, KnownNat m, KnownNat n)
+  rbuild :: forall r m n. (KnownSTK r, KnownNat m, KnownNat n)
          => IShR (m + n) -> (IxROf target m -> target (TKR2 n r))
          -> target (TKR2 (m + n) r)
   rbuild sh0 f0 =
@@ -603,59 +603,59 @@ class ( Num (IntOf target)
           let g i = buildSh sh (\ix -> f (i :.: ix))
           in rbuild1 k g
     in buildSh (takeShape @m @n sh0) f0
-  rbuild1 :: (TensorKind r, KnownNat n)  -- this form needs less typeapps
+  rbuild1 :: (KnownSTK r, KnownNat n)  -- this form needs less typeapps
           => Int -> (IntOf target -> target (TKR2 n r))
           -> target (TKR2 (1 + n) r)
-  rmap :: (TensorKind r, TensorKind r2, KnownNat m, KnownNat n)
+  rmap :: (KnownSTK r, KnownSTK r2, KnownNat m, KnownNat n)
        => (target (TKR2 n r) -> target (TKR2 n r2))
        -> target (TKR2 (m + n) r) -> target (TKR2 (m + n) r2)
   rmap f v = rbuild (rshape v) (\ix -> f (v ! ix))
-  rmap1 :: (TensorKind r, TensorKind r2, KnownNat n)
+  rmap1 :: (KnownSTK r, KnownSTK r2, KnownNat n)
         => (target (TKR2 n r) -> target (TKR2 n r2))
         -> target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r2)
   rmap1 f u = rbuild1 (rlength u) (\i -> f (u ! [i]))
-  rmap0N :: (TensorKind r, TensorKind r1, KnownNat n)
+  rmap0N :: (KnownSTK r, KnownSTK r1, KnownNat n)
          => (target (TKR2 0 r1) -> target (TKR2 0 r)) -> target (TKR2 n r1)
          -> target (TKR2 n r)
   rmap0N f v = rbuild (rshape v) (f . rindex0 v)
-  rzipWith :: ( TensorKind r1, TensorKind r2, TensorKind r
+  rzipWith :: ( KnownSTK r1, KnownSTK r2, KnownSTK r
               , KnownNat m, KnownNat n1, KnownNat n2, KnownNat n )
            => IShR (m + n)
            -> (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n r))
            -> target (TKR2 (m + n1) r1) -> target (TKR2 (m + n2) r2)
            -> target (TKR2 (m + n) r)
   rzipWith sh f u v = rbuild sh (\ix -> f (u ! ix) (v ! ix))
-  rzipWith1 :: ( TensorKind r1, TensorKind r2, TensorKind r
+  rzipWith1 :: ( KnownSTK r1, KnownSTK r2, KnownSTK r
                , KnownNat n1, KnownNat n2, KnownNat n )
             => (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n r))
             -> target (TKR2 (1 + n1) r1) -> target (TKR2 (1 + n2) r2) -> target (TKR2 (1 + n) r)
   rzipWith1 f u v = rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]))
-  rzipWith0N :: (TensorKind r1, TensorKind r2, TensorKind r, KnownNat n)
+  rzipWith0N :: (KnownSTK r1, KnownSTK r2, KnownSTK r, KnownNat n)
              => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r))
              -> target (TKR2 n r1) -> target (TKR2 n r2) -> target (TKR2 n r)
   rzipWith0N f u v = rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix))
-  rzipWith3 :: ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r
+  rzipWith3 :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
                , KnownNat m, KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n )
             => IShR (m + n)
             -> (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n3 r3) -> target (TKR2 n r))
             -> target (TKR2 (m + n1) r1) -> target (TKR2 (m + n2) r2) -> target (TKR2 (m + n3) r3)
             -> target (TKR2 (m + n) r)
   rzipWith3 sh f u v w = rbuild sh (\ix -> f (u ! ix) (v ! ix) (w ! ix))
-  rzipWith31 :: ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r
+  rzipWith31 :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
                 , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n )
              => (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n3 r3) -> target (TKR2 n r))
              -> target (TKR2 (1 + n1) r1) -> target (TKR2 (1 + n2) r2) -> target (TKR2 (1 + n3) r3)
              -> target (TKR2 (1 + n) r)
   rzipWith31 f u v w =
     rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]))
-  rzipWith30N :: ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r
+  rzipWith30N :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
                  , KnownNat n )
               => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r3) -> target (TKR2 0 r))
               -> target (TKR2 n r1) -> target (TKR2 n r2) -> target (TKR2 n r3) -> target (TKR2 n r)
   rzipWith30N f u v w =
     rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix))
-  rzipWith4 :: ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r4
-               , TensorKind r, KnownNat m
+  rzipWith4 :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
+               , KnownSTK r, KnownNat m
                , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n4
                , KnownNat n )
             => IShR (m + n)
@@ -666,8 +666,8 @@ class ( Num (IntOf target)
             -> target (TKR2 (m + n) r)
   rzipWith4 sh f u v w x =
     rbuild sh (\ix -> f (u ! ix) (v ! ix) (w ! ix) (x ! ix))
-  rzipWith41 :: ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r4
-                , TensorKind r
+  rzipWith41 :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
+                , KnownSTK r
                 , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n4
                 , KnownNat n )
              => (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n3 r3) -> target (TKR2 n4 r4)
@@ -677,8 +677,8 @@ class ( Num (IntOf target)
              -> target (TKR2 (1 + n) r)
   rzipWith41 f u v w x =
     rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]) (x ! [i]))
-  rzipWith40N :: ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r4
-                 , TensorKind r
+  rzipWith40N :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
+                 , KnownSTK r
                  , KnownNat n )
               => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r3) -> target (TKR2 0 r4)
                   -> target (TKR2 0 r))
@@ -688,16 +688,16 @@ class ( Num (IntOf target)
     rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix)
                                 (rindex0 x ix))
 
-  rprimalPart :: (TensorKind r, KnownNat n)
+  rprimalPart :: (KnownSTK r, KnownNat n)
               => target (TKR2 n r) -> PrimalOf target (TKR2 n r)
   rprimalPart = tprimalPart stensorKind
-  rdualPart :: (TensorKind r, KnownNat n)
+  rdualPart :: (KnownSTK r, KnownNat n)
             => target (TKR2 n r) -> DualOf target (TKR2 n r)
   rdualPart = tdualPart stensorKind
-  rfromPrimal :: (TensorKind r, KnownNat n)
+  rfromPrimal :: (KnownSTK r, KnownNat n)
               => PrimalOf target (TKR2 n r) -> target (TKR2 n r)
   rfromPrimal = tfromPrimal stensorKind
-  rfromDual :: (TensorKind r, KnownNat n)
+  rfromDual :: (KnownSTK r, KnownNat n)
             => DualOf target (TKR2 n r) -> target (TKR2 n r)
   rfromDual = tfromDual stensorKind
   rScale :: ( GoodScalar r, KnownNat n
@@ -707,33 +707,33 @@ class ( Num (IntOf target)
   rScale = tScale @target stensorKind
 
   -- Shaped ops
-  sshape :: forall sh r. (TensorKind r, KnownShS sh)
+  sshape :: forall sh r. (KnownSTK r, KnownShS sh)
          => target (TKS2 sh r) -> ShS sh
   sshape _ = knownShS @sh
-  srank :: forall sh r. (TensorKind r, KnownNat (Rank sh))
+  srank :: forall sh r. (KnownSTK r, KnownNat (Rank sh))
         => target (TKS2 sh r) -> Int
   srank _ = valueOf @(Rank sh)
-  ssize :: forall sh r. (TensorKind r, KnownShS sh) => target (TKS2 sh r) -> Int
+  ssize :: forall sh r. (KnownSTK r, KnownShS sh) => target (TKS2 sh r) -> Int
   ssize _ = shsSize (knownShS @sh)
-  slength :: forall r n sh. (TensorKind r, KnownNat n)
+  slength :: forall r n sh. (KnownSTK r, KnownNat n)
           => target (TKS2 (n ': sh) r) -> Int
   slength _ = valueOf @n
 
-  sconcrete :: (TensorKind r, KnownShS sh)
+  sconcrete :: (KnownSTK r, KnownShS sh)
             => Nested.Shaped sh (RepORArray r) -> target (TKS2 sh r)
   sconcrete a = tconcrete (tftkG (STKS knownShS stensorKind) a) (RepN a)
-  sfromList :: (TensorKind r, KnownNat n, KnownShS sh)
+  sfromList :: (KnownSTK r, KnownNat n, KnownShS sh)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
-  sfromListLinear :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+  sfromListLinear :: (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
                   => [target (TKS2 '[] r)] -> target (TKS2 sh r)
   sfromListLinear = sfromVectorLinear . V.fromList
   -- This is morally non-empty strict vectors:
-  sfromVector :: (TensorKind r, KnownNat n, KnownShS sh)
+  sfromVector :: (KnownSTK r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (target (TKS2 sh r))
               -> target (TKS2 (n ': sh) r)
   sfromVectorLinear :: forall r sh.
-                       (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+                       (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
                     => Data.Vector.Vector (target (TKS2 '[] r))
                     -> target (TKS2 sh r)
   sfromVectorLinear v | Dict <- eltDictRep (stensorKind @r) =
@@ -744,15 +744,15 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  sunravelToList :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
+  sunravelToList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShS sh)
                  => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
   sunravelToList t =
     let f :: Int -> target (TKS2 sh r)
         f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. slength t - 1]
-  ssum :: (TensorKind r, KnownNat n, KnownShS sh)
+  ssum :: (KnownSTK r, KnownNat n, KnownShS sh)
        => target (TKS2 (n ': sh) r) -> target (TKS2 sh r)
-  ssum0 :: forall r sh. (TensorKind r, KnownShS sh)
+  ssum0 :: forall r sh. (KnownSTK r, KnownShS sh)
         => target (TKS2 sh r) -> target (TKS2 '[] r)
   ssum0 | SNat <- shsProduct (knownShS @sh) = ssum . sflatten
   sdot0 :: forall r sh. (GoodScalar r, KnownShS sh)
@@ -778,25 +778,25 @@ class ( Num (IntOf target)
     :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
     => target (TKS '[] r) -> target (TKS sh r) -> target (TKS sh r)
   sscaleByScalar s v = v * sreplicate0N s
-  sreplicate :: (KnownNat k, KnownShS sh, TensorKind r)
+  sreplicate :: (KnownNat k, KnownShS sh, KnownSTK r)
              => target (TKS2 sh r) -> target (TKS2 (k ': sh) r)
   sreplicate0N :: forall r sh.
-                  (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+                  (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
                => target (TKS2 '[] r) -> target (TKS2 sh r)
   sreplicate0N = sreshape @target @r @'[Nested.Product sh] @sh
                  . sreplicate @target @(Nested.Product sh)
-  sindex, (!$) :: ( TensorKind r, KnownShS shm, KnownShS shn
+  sindex, (!$) :: ( KnownSTK r, KnownShS shm, KnownShS shn
                   , KnownShS (shm ++ shn) )
                => target (TKS2 (shm ++ shn) r) -> IxSOf target shm
                -> target (TKS2 shn r)
   infixl 9 !$
   (!$) = sindex  -- prefix form better when type applications are necessary
-  sindex0 :: forall sh1 r. (KnownShS sh1, TensorKind r)
+  sindex0 :: forall sh1 r. (KnownShS sh1, KnownSTK r)
           => target (TKS2 sh1 r) -> IxSOf target sh1
           -> target (TKS2 '[] r)
   sindex0 | Refl <- lemAppNil @sh1 = sindex
   soneHot :: forall r sh1 sh2.
-             ( TensorKind r, KnownShS sh1, KnownShS sh2
+             ( KnownSTK r, KnownShS sh1, KnownShS sh2
              , KnownShS (sh1 ++ sh2)
              , BoolOf (PrimalOf target) ~ BoolOf target
              , EqF (PrimalOf target) )
@@ -822,25 +822,25 @@ class ( Num (IntOf target)
                         (tconstantTarget 0 (FTKS ZSS ftk2))
         in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
   sscatter
-    :: (TensorKind r, KnownShS shm, KnownShS shn, KnownShS shp)
+    :: (KnownSTK r, KnownShS shm, KnownShS shn, KnownShS shp)
     => target (TKS2 (shm ++ shn) r)
     -> (IxSOf target shm -> IxSOf target shp)
     -> target (TKS2 (shp ++ shn) r)
   sscatter1
     :: forall r n2 shn shp.
-       (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+       (KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
     => target (TKS2 (n2 ': shn) r)
     -> (IntOf target -> IxSOf target shp)
     -> target (TKS2 (shp ++ shn) r)
   sscatter1 v f = sscatter @_ @r @'[n2] v (\(i :.$ _) -> f i)
   sgather
-    :: (TensorKind r, KnownShS shm, KnownShS shn, KnownShS shp)
+    :: (KnownSTK r, KnownShS shm, KnownShS shn, KnownShS shp)
     => target (TKS2 (shp ++ shn) r)
     -> (IxSOf target shm -> IxSOf target shp)
     -> target (TKS2 (shm ++ shn) r)
   sgather1
     :: forall r n2 shn shp.
-       (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+       (KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
     => target (TKS2 (shp ++ shn) r)
     -> (IntOf target -> IxSOf target shp)
     -> target (TKS2 (n2 ': shn) r)
@@ -858,13 +858,13 @@ class ( Num (IntOf target)
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
   siota :: (KnownNat n, GoodScalar r)
         => target (TKS '[n] r)  -- from 0 to n - 1
-  sappend :: (TensorKind r, KnownNat m, KnownNat n, KnownShS sh)
+  sappend :: (KnownSTK r, KnownNat m, KnownNat n, KnownShS sh)
           => target (TKS2 (m ': sh) r) -> target (TKS2 (n ': sh) r)
           -> target (TKS2 ((m + n) ': sh) r)
-  sslice :: (TensorKind r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
+  sslice :: (KnownSTK r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
          => Proxy i -> Proxy n
          -> target (TKS2 (i + n + k ': sh) r) -> target (TKS2 (n ': sh) r)
-  suncons :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
+  suncons :: forall r n sh. (KnownSTK r, KnownNat n, KnownShS sh)
           => target (TKS2 (n ': sh) r)
           -> Maybe (target (TKS2 sh r), target (TKS2 (n - 1 ': sh) r))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
@@ -873,32 +873,32 @@ class ( Num (IntOf target)
     LTI -> Just ( v !$ (0 :.$ ZIS)
                 , sslice @_ @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
-  sreverse :: (TensorKind r, KnownNat n, KnownShS sh)
+  sreverse :: (KnownSTK r, KnownNat n, KnownShS sh)
            => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
-  str :: ( TensorKind r, KnownNat n, KnownNat m, KnownShS sh
+  str :: ( KnownSTK r, KnownNat n, KnownNat m, KnownShS sh
          , KnownNat (Rank sh) )
       => target (TKS2 (n ': m ': sh) r) -> target (TKS2 (m ': n ': sh) r)
   str = stranspose (Permutation.makePerm @'[1, 0])
-  stranspose :: ( PermC perm, TensorKind r, KnownShS sh
+  stranspose :: ( PermC perm, KnownSTK r, KnownShS sh
                 , Rank perm <= Rank sh  )
              => Permutation.Perm perm -> target (TKS2 sh r)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
-  sflatten :: (TensorKind r, KnownShS sh, KnownNat (Nested.Product sh))
+  sflatten :: (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
   sflatten = sreshape
-  sreshape :: ( TensorKind r, KnownShS sh, KnownShS sh2
+  sreshape :: ( KnownSTK r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2 )
            => target (TKS2 sh r) -> target (TKS2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  szip :: (TensorKind y, TensorKind z, KnownShS sh)
+  szip :: (KnownSTK y, KnownSTK z, KnownShS sh)
        => target (TKProduct (TKS2 sh y) (TKS2 sh z))
        -> target (TKS2 sh (TKProduct y z))
-  sunzip :: (TensorKind y, TensorKind z, KnownShS sh)
+  sunzip :: (KnownSTK y, KnownSTK z, KnownShS sh)
          => target (TKS2 sh (TKProduct y z))
          -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
 
-  sbuild :: forall r m sh. (TensorKind r, KnownShS sh, KnownShS (Take m sh))
+  sbuild :: forall r m sh. (KnownSTK r, KnownShS sh, KnownShS (Take m sh))
          => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) r))
          -> target (TKS2 sh r)
   sbuild =
@@ -915,11 +915,11 @@ class ( Num (IntOf target)
             in sbuild1 g
     in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (knownShS @(Take m sh)) (knownShS @sh)
-  sbuild1 :: (KnownNat k, KnownShS sh, TensorKind r)
+  sbuild1 :: (KnownNat k, KnownShS sh, KnownSTK r)
           => (IntOf target -> target (TKS2 sh r))
           -> target (TKS2 (k ': sh) r)
   smap :: forall r r2 m sh.
-          ( TensorKind r, TensorKind r2, KnownNat m
+          ( KnownSTK r, KnownSTK r2, KnownNat m
           , KnownShS sh, KnownShS (Take m sh), KnownShS (Drop m sh) )
        => (target (TKS2 (Drop m sh) r) -> target (TKS2 (Drop m sh) r2))
        -> target (TKS2 sh r) -> target (TKS2 sh r2)
@@ -927,12 +927,12 @@ class ( Num (IntOf target)
                         :: sh :~: Take m sh ++ Drop m sh)
              $ sbuild (\ix -> f (v !$ ix))
   smap1 :: forall r sh n r2.
-           (TensorKind r, TensorKind r2, KnownNat n, KnownShS sh)
+           (KnownSTK r, KnownSTK r2, KnownNat n, KnownShS sh)
         => (target (TKS2 sh r) -> target (TKS2 sh r2))
         -> target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r2)
   smap1 f u = sbuild1 (\i -> f (u !$ (i :.$ ZIS)))
   smap0N :: forall r1 r sh.
-            (TensorKind r1, TensorKind r, KnownShS sh)
+            (KnownSTK r1, KnownSTK r, KnownShS sh)
          => (target (TKS2 '[] r1) -> target (TKS2 '[] r)) -> target (TKS2 sh r1)
          -> target (TKS2 sh r)
   smap0N f v =
@@ -940,7 +940,7 @@ class ( Num (IntOf target)
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @r @(Rank sh) (f . sindex0 v)
   szipWith :: forall r1 r2 r m sh1 sh2 sh.
-              ( TensorKind r1, TensorKind r2, TensorKind r
+              ( KnownSTK r1, KnownSTK r2, KnownSTK r
               , KnownNat m, KnownShS sh1, KnownShS sh2, KnownShS sh
               , KnownShS (Take m sh), KnownShS (Drop m sh1)
               , KnownShS (Drop m sh2), KnownShS (Drop m sh)
@@ -952,7 +952,7 @@ class ( Num (IntOf target)
            -> target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh r)
   szipWith f u v = sbuild (\ix -> f (u !$ ix) (v !$ ix))
   szipWith1 :: forall r1 r2 r n sh1 sh2 sh.
-               ( TensorKind r1, TensorKind r2, TensorKind r
+               ( KnownSTK r1, KnownSTK r2, KnownSTK r
                , KnownNat n, KnownShS sh1, KnownShS sh2, KnownShS sh )
             => (target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh r))
             -> target (TKS2 (n ': sh1) r1) -> target (TKS2 (n ': sh2) r2)
@@ -960,7 +960,7 @@ class ( Num (IntOf target)
   szipWith1 f u v = sbuild1 (\i -> f (u !$ (i :.$ ZIS))
                                      (v !$ (i :.$ ZIS)))
   szipWith0N :: forall r1 r2 r sh.
-                (TensorKind r1, TensorKind r2, TensorKind r, KnownShS sh)
+                (KnownSTK r1, KnownSTK r2, KnownSTK r, KnownShS sh)
              => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r))
              -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r)
   szipWith0N f u v =
@@ -968,7 +968,7 @@ class ( Num (IntOf target)
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
     $ sbuild @target @_ @(Rank sh) (\ix -> f (sindex0 u ix) (sindex0 v ix))
   szipWith3 :: forall r1 r2 r3 r m sh1 sh2 sh3 sh.
-               ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r
+               ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
                , KnownNat m
                , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh
                , KnownShS (Take m sh), KnownShS (Drop m sh1)
@@ -984,7 +984,7 @@ class ( Num (IntOf target)
             -> target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh3 r3) -> target (TKS2 sh r)
   szipWith3 f u v w = sbuild (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix))
   szipWith31 :: forall r1 r2 r3 r n sh1 sh2 sh3 sh.
-                ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r
+                ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
                 , KnownNat n
                 , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh )
              => (target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh3 r3) -> target (TKS2 sh r))
@@ -995,7 +995,7 @@ class ( Num (IntOf target)
                                         (v !$ (i :.$ ZIS))
                                         (w !$ (i :.$ ZIS)))
   szipWith30N :: forall r1 r2 r3 r sh.
-                 ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r
+                 ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
                  , KnownShS sh, KnownNat (Rank sh) )
               => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r3)
                   -> target (TKS2 '[] r))
@@ -1007,8 +1007,8 @@ class ( Num (IntOf target)
                                                 (sindex0 v ix)
                                                 (sindex0 w ix))
   szipWith4 :: forall r1 r2 r3 r4 r m sh1 sh2 sh3 sh4 sh.
-               ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r4
-               , TensorKind r, KnownNat m
+               ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
+               , KnownSTK r, KnownNat m
                , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh4
                , KnownShS sh
                , KnownShS (Take m sh), KnownShS (Drop m sh1)
@@ -1028,8 +1028,8 @@ class ( Num (IntOf target)
   szipWith4 f u v w x =
     sbuild (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix) (x !$ ix))
   szipWith41 :: forall r1 r2 r3 r4 r n sh1 sh2 sh3 sh4 sh.
-                ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r4
-                , TensorKind r, KnownNat n
+                ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
+                , KnownSTK r, KnownNat n
                 , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh4
                 , KnownShS sh )
              => (target (TKS2 sh1 r1) -> target (TKS2 sh2 r2) -> target (TKS2 sh3 r3)
@@ -1042,8 +1042,8 @@ class ( Num (IntOf target)
                                           (w !$ (i :.$ ZIS))
                                           (x !$ (i :.$ ZIS)))
   szipWith40N :: forall r1 r2 r3 sh r4 r.
-                 ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r4
-                 , TensorKind r, KnownShS sh, KnownNat (Rank sh) )
+                 ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
+                 , KnownSTK r, KnownShS sh, KnownNat (Rank sh) )
               => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r3)
                   -> target (TKS2 '[] r4) -> target (TKS2 '[] r))
               -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r3) -> target (TKS2 sh r4)
@@ -1056,16 +1056,16 @@ class ( Num (IntOf target)
                                                 (sindex0 w ix)
                                                 (sindex0 x ix))
 
-  sprimalPart :: (TensorKind r, KnownShS sh)
+  sprimalPart :: (KnownSTK r, KnownShS sh)
               => target (TKS2 sh r) -> PrimalOf target (TKS2 sh r)
   sprimalPart = tprimalPart stensorKind
-  sdualPart :: (TensorKind r, KnownShS sh)
+  sdualPart :: (KnownSTK r, KnownShS sh)
             => target (TKS2 sh r) -> DualOf target (TKS2 sh r)
   sdualPart = tdualPart stensorKind
-  sfromPrimal :: (TensorKind r, KnownShS sh)
+  sfromPrimal :: (KnownSTK r, KnownShS sh)
               => PrimalOf target (TKS2 sh r) -> target (TKS2 sh r)
   sfromPrimal = tfromPrimal stensorKind
-  sfromDual :: (TensorKind r, KnownShS sh)
+  sfromDual :: (KnownSTK r, KnownShS sh)
             => DualOf target (TKS2 sh r) -> target (TKS2 sh r)
   sfromDual = tfromDual stensorKind
   sScale :: (GoodScalar r, KnownShS sh, Num (target (TKS sh r)), Num (PrimalOf target (TKS sh r)))
@@ -1074,17 +1074,17 @@ class ( Num (IntOf target)
   sScale = tScale @target stensorKind
 
   -- Mixed ops
-  xshape :: TensorKind r => target (TKX2 sh r) -> IShX sh
-  xrank :: forall r sh. (TensorKind r, KnownNat (Rank sh))
+  xshape :: KnownSTK r => target (TKX2 sh r) -> IShX sh
+  xrank :: forall r sh. (KnownSTK r, KnownNat (Rank sh))
         => target (TKX2 sh r) -> Int
   xrank _ = valueOf @(Rank sh)
-  xsize :: TensorKind r => target (TKX2 sh r) -> Int
+  xsize :: KnownSTK r => target (TKX2 sh r) -> Int
   xsize = shxSize . xshape
-  xlength :: TensorKind r => target (TKX2 (mn ': sh) r) -> Int
+  xlength :: KnownSTK r => target (TKX2 (mn ': sh) r) -> Int
   xlength v = case xshape v of
     mn :$% _ -> fromSMayNat' mn
 
-  xmcast :: (TensorKind x, KnownShX sh, Rank sh ~ Rank sh2)
+  xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
   xmcast sh2 a = case tftk stensorKind a of
     FTKX sh' _ ->
@@ -1092,21 +1092,21 @@ class ( Num (IntOf target)
         withKnownShX sh2 $
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
-  xconcrete :: (TensorKind r, KnownShX sh)
+  xconcrete :: (KnownSTK r, KnownShX sh)
             => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
   xconcrete a = tconcrete (tftkG (STKX knownShX stensorKind) a) (RepN a)
-  xfromList :: forall r n sh. (TensorKind r, KnownNat n, KnownShX sh)
+  xfromList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
             => NonEmpty (target (TKX2 sh r)) -> target (TKX2 (Just n ': sh) r)
   xfromList = xfromVector
               . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
-  xfromListLinear :: (TensorKind r, KnownShX sh)
+  xfromListLinear :: (KnownSTK r, KnownShX sh)
                   => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
   xfromListLinear sh = xfromVectorLinear sh . V.fromList
-  xfromVector :: (TensorKind r, KnownNat n, KnownShX sh)
+  xfromVector :: (KnownSTK r, KnownNat n, KnownShX sh)
               => Data.Vector.Vector (target (TKX2 sh r))
               -> target (TKX2 (Just n ': sh) r)
-  xfromVectorLinear :: forall r sh. (TensorKind r, KnownShX sh)
+  xfromVectorLinear :: forall r sh. (KnownSTK r, KnownShX sh)
                     => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
                     -> target (TKX2 sh r)
   xfromVectorLinear sh v | Dict <- eltDictRep (stensorKind @r) =
@@ -1117,7 +1117,7 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  xunravelToList :: forall r n sh. (TensorKind r, KnownNat n, KnownShX sh)
+  xunravelToList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
                  => target (TKX2 (Just n ': sh) r) -> [target (TKX2 sh r)]
   xunravelToList t =
     let f :: Int -> target (TKX2 sh r)
@@ -1125,11 +1125,11 @@ class ( Num (IntOf target)
     in map f [0 .. xlength t - 1]
   -- The choice in BuildTensorKind makes it hard to support this one,
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
-  -- xsum :: (TensorKind r, KnownShX sh, KnownShX (mn ': sh))
+  -- xsum :: (KnownSTK r, KnownShX sh, KnownShX (mn ': sh))
   --     => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
-  xsum :: (TensorKind r, KnownNat n, KnownShX sh)
+  xsum :: (KnownSTK r, KnownNat n, KnownShX sh)
        => target (TKX2 (Just n ': sh) r) -> target (TKX2 sh r)
-  xsum0 :: (TensorKind r, KnownShX sh)
+  xsum0 :: (KnownSTK r, KnownShX sh)
         => target (TKX2 sh r) -> target (TKX2 '[] r)
   xsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
     xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
@@ -1170,22 +1170,22 @@ class ( Num (IntOf target)
     :: (GoodScalar r, KnownShX sh)
     => target (TKX '[] r) -> target (TKX sh r) -> target (TKX sh r)
   xscaleByScalar s v = v * xreplicate0N (xshape v) s
-  xreplicate :: (KnownNat k, KnownShX sh, TensorKind r)
+  xreplicate :: (KnownNat k, KnownShX sh, KnownSTK r)
              => target (TKX2 sh r) -> target (TKX2 (Just k ': sh) r)
-  xreplicate0N :: (TensorKind r, KnownShX sh)
+  xreplicate0N :: (KnownSTK r, KnownShX sh)
                => IShX sh -> target (TKX2 '[] r) -> target (TKX2 sh r)
   xreplicate0N sh = withSNat (shxSize sh) $ \ (SNat @k) ->
     xreshape sh . xreplicate @_ @k
-  xindex :: ( TensorKind r, KnownShX sh1, KnownShX sh2
+  xindex :: ( KnownSTK r, KnownShX sh1, KnownShX sh2
             , KnownShX (sh1 ++ sh2) )
          => target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
          -> target (TKX2 sh2 r)
-  xindex0 :: forall r sh1. (TensorKind r, KnownShX sh1)
+  xindex0 :: forall r sh1. (KnownSTK r, KnownShX sh1)
           => target (TKX2 sh1 r) -> IxXOf target sh1
           -> target (TKX2 '[] r)
   xindex0 | Refl <- lemAppNil @sh1 = xindex
   xoneHot :: forall r sh1 sh2.
-             ( TensorKind r, KnownShX sh1, KnownShX sh2
+             ( KnownSTK r, KnownShX sh1, KnownShX sh2
              , KnownShX (sh1 ++ sh2)
              , BoolOf (PrimalOf target) ~ BoolOf target
              , EqF (PrimalOf target) )
@@ -1210,25 +1210,25 @@ class ( Num (IntOf target)
                         (xindex0 v (dropIxX @(Rank sh1) ix2))
                         (tconstantTarget 0 (FTKX ZSX ftk2))
         in xbuild @_ @_ @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
-  xscatter :: (TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp)
+  xscatter :: (KnownSTK r, KnownShX shm, KnownShX shn, KnownShX shp)
            => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) r)
            -> (IxXOf target shm -> IxXOf target shp)
            -> target (TKX2 (shp ++ shn) r)
   -- TODO: when we switch to singletons, generalize this to non-Just types.
   xscatter1 :: forall r n2 shn shp.
-               (TensorKind r, KnownNat n2, KnownShX shn, KnownShX shp)
+               (KnownSTK r, KnownNat n2, KnownShX shn, KnownShX shp)
             => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) r)
             -> (IntOf target -> IxXOf target shp)
             -> target (TKX2 (shp ++ shn) r)
   xscatter1 sh v f = xscatter @_ @r @'[Just n2] @_ @shp sh v
                               (\(i :.% _) -> f i)
-  xgather :: (TensorKind r, KnownShX shm, KnownShX shn, KnownShX shp)
+  xgather :: (KnownSTK r, KnownShX shm, KnownShX shn, KnownShX shp)
           => IShX (shm ++ shn)
           -> target (TKX2 (shp ++ shn) r)
           -> (IxXOf target shm -> IxXOf target shp)
           -> target (TKX2 (shm ++ shn) r)
   xgather1 :: forall r n2 shn shp.
-              (TensorKind r, KnownNat n2, KnownShX shn, KnownShX shp)
+              (KnownSTK r, KnownNat n2, KnownShX shn, KnownShX shp)
            => SNat n2 -> target (TKX2 (shp ++ shn) r)
            -> (IntOf target -> IxXOf target shp)
            -> target (TKX2 (Just n2 ': shn) r)
@@ -1247,18 +1247,18 @@ class ( Num (IntOf target)
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
   xiota :: (KnownNat n, GoodScalar r)
         => target (TKX '[Just n] r)  -- from 0 to n - 1
-  xappend :: (TensorKind r, KnownShX sh)
+  xappend :: (KnownSTK r, KnownShX sh)
           => target (TKX2 (Nothing ': sh) r) -> target (TKX2 (Nothing ': sh) r)
           -> target (TKX2 (Nothing ': sh) r)
-  xconcat :: (TensorKind r, KnownShX sh)
+  xconcat :: (KnownSTK r, KnownShX sh)
           => NonEmpty (target (TKX2 (Nothing ': sh) r))
           -> target (TKX2 (Nothing ': sh) r)
   xconcat = foldr1 xappend
-  xslice :: (TensorKind r, KnownNat i, KnownNat n, KnownNat k, KnownShX sh)
+  xslice :: (KnownSTK r, KnownNat i, KnownNat n, KnownNat k, KnownShX sh)
          => Proxy i -> Proxy n
          -> target (TKX2 (Just (i + n + k) ': sh) r)
          -> target (TKX2 (Just n ': sh) r)
-  xuncons :: forall r n sh. (TensorKind r, KnownNat n, KnownShX sh)
+  xuncons :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
           => target (TKX2 (Just n ': sh) r)
           -> Maybe (target (TKX2 sh r), target (TKX2 (Just (n - 1) ': sh) r))
   xuncons v = case cmpNat (Proxy @1) (Proxy @n) of
@@ -1267,31 +1267,31 @@ class ( Num (IntOf target)
     LTI -> Just ( v `xindex` (0 :.% ZIX)
                 , xslice @_ @r @1 @(n - 1) @0 Proxy Proxy v )
     _ -> Nothing
-  xreverse :: (TensorKind r, KnownShX sh)
+  xreverse :: (KnownSTK r, KnownShX sh)
            => target (TKX2 (mn ': sh) r) -> target (TKX2 (mn ': sh) r)
-  xtr :: ( TensorKind r, KnownNat n, KnownNat m, KnownShX sh
+  xtr :: ( KnownSTK r, KnownNat n, KnownNat m, KnownShX sh
          , KnownNat (Rank sh) )
       => target (TKX2 (Just n ': Just m ': sh) r)
       -> target (TKX2 (Just m ': Just n ': sh) r)
   xtr = xtranspose (Permutation.makePerm @'[1, 0])
-  xtranspose :: ( PermC perm, TensorKind r, KnownShX sh
+  xtranspose :: ( PermC perm, KnownSTK r, KnownShX sh
                 , Rank perm <= Rank sh  )
              => Permutation.Perm perm -> target (TKX2 sh r)
              -> target (TKX2 (Permutation.PermutePrefix perm sh) r)
-  xflatten :: (TensorKind r, KnownShX sh)
+  xflatten :: (KnownSTK r, KnownShX sh)
            => target (TKX2 sh r) -> target (TKX2 '[Nothing] r)
   xflatten u = xreshape (Nested.SUnknown (xsize u) :$% ZSX) u
-  xreshape :: (TensorKind r, KnownShX sh, KnownShX sh2)
+  xreshape :: (KnownSTK r, KnownShX sh, KnownShX sh2)
            => IShX sh2 -> target (TKX2 sh r) -> target (TKX2 sh2 r)
-  xzip :: (TensorKind y, TensorKind z, KnownShX sh)
+  xzip :: (KnownSTK y, KnownSTK z, KnownShX sh)
        => target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> target (TKX2 sh (TKProduct y z))
-  xunzip :: (TensorKind y, TensorKind z, KnownShX sh)
+  xunzip :: (KnownSTK y, KnownSTK z, KnownShX sh)
          => target (TKX2 sh (TKProduct y z))
          -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
   xbuild :: forall r m sh.
-            (TensorKind r, KnownShX sh, KnownShX (Take m sh))
+            (KnownSTK r, KnownShX sh, KnownShX (Take m sh))
          => IShX sh
          -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) r))
          -> target (TKX2 sh r)
@@ -1309,21 +1309,21 @@ class ( Num (IntOf target)
     in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) sh0
                              (knownShX @(Take m sh))) sh0 f0
-  xbuild1 :: (KnownNat k, KnownShX sh, TensorKind r)
+  xbuild1 :: (KnownNat k, KnownShX sh, KnownSTK r)
           => (IntOf target -> target (TKX2 sh r))
           -> target (TKX2 (Just k ': sh) r)
   -- xmap and other special cases of build can be defined by the user.
 
-  xprimalPart :: (TensorKind r, KnownShX sh)
+  xprimalPart :: (KnownSTK r, KnownShX sh)
               => target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
   xprimalPart = tprimalPart stensorKind
-  xdualPart :: (TensorKind r, KnownShX sh)
+  xdualPart :: (KnownSTK r, KnownShX sh)
             => target (TKX2 sh r) -> DualOf target (TKX2 sh r)
   xdualPart = tdualPart stensorKind
-  xfromPrimal :: (TensorKind r, KnownShX sh)
+  xfromPrimal :: (KnownSTK r, KnownShX sh)
               => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
   xfromPrimal = tfromPrimal stensorKind
-  xfromDual :: (TensorKind r, KnownShX sh)
+  xfromDual :: (KnownSTK r, KnownShX sh)
             => DualOf target (TKX2 sh r) -> target (TKX2 sh r)
   xfromDual = tfromDual stensorKind
   xScale :: (GoodScalar r, KnownShX sh, Num (target (TKX sh r)), Num (PrimalOf target (TKX sh r)))
@@ -1352,12 +1352,12 @@ class ( Num (IntOf target)
   kfromX = kfromS . sfromX
   rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   rfromK = rfromS . sfromK
-  rfromS :: (TensorKind r, KnownShS sh)
+  rfromS :: (KnownSTK r, KnownShS sh)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
-  default rfromS :: forall r sh. (LetTensor target, TensorKind r, KnownShS sh)
+  default rfromS :: forall r sh. (LetTensor target, KnownSTK r, KnownShS sh)
                  => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   rfromS | SNat <- shsRank (knownShS @sh) = tfromS
-  rfromX :: (KnownShX sh, TensorKind r)
+  rfromX :: (KnownShX sh, KnownSTK r)
          => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
   rfromX a = case tftk stensorKind a of
     FTKX sh' _ ->
@@ -1365,28 +1365,28 @@ class ( Num (IntOf target)
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
-  sfromR :: (KnownShS sh, KnownNat (Rank sh), TensorKind r)
+  sfromR :: (KnownShS sh, KnownNat (Rank sh), KnownSTK r)
          => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
-  sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
+  sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK r)
          => target (TKX2 sh' r) -> target (TKS2 sh r)
   xfromK :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
   xfromK = xfromS . sfromK
-  xfromR :: (KnownShX sh, KnownNat (Rank sh), TensorKind r)
+  xfromR :: (KnownShX sh, KnownNat (Rank sh), KnownSTK r)
          => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
   xfromR a = case tftk stensorKind a of
     FTKR shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
-  xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
+  xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK r)
          => target (TKS2 sh r) -> target (TKX2 sh' r)
-  default xfromS :: (LetTensor target, KnownShS sh, KnownShX sh', TensorKind r)
+  default xfromS :: (LetTensor target, KnownShS sh, KnownShX sh', KnownSTK r)
                  => target (TKS2 sh r) -> target (TKX2 sh' r)
   xfromS = tfromS
 
   -- Nesting/unnesting
   rnest :: forall n m x.
-           (TensorKind x, KnownNat m)
+           (KnownSTK x, KnownNat m)
         => SNat n -> target (TKR2 (n + m) x)
         -> target (TKR2 n (TKR2 m x))
   rnest n@SNat =
@@ -1402,7 +1402,7 @@ class ( Num (IntOf target)
   -- Some of these operations have akward type signatures, but these
   -- are the most type-safe or the strongest versions of the typing possible.
   rnestS :: forall n sh2 x.
-            (TensorKind x, KnownShS sh2)
+            (KnownSTK x, KnownShS sh2)
          => SNat n -> target (TKX2 (Replicate n Nothing ++ MapJust sh2) x)
          -> target (TKR2 n (TKS2 sh2 x))
   rnestS n@SNat =
@@ -1410,7 +1410,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxReplicate n) $
     rfromX . xnestS (ssxReplicate n)
   rnestX :: forall n sh2 x.
-            (TensorKind x, KnownShX sh2)
+            (KnownSTK x, KnownShX sh2)
          => SNat n -> target (TKX2 (Replicate n Nothing ++ sh2) x)
          -> target (TKR2 n (TKX2 sh2 x))
   rnestX n@SNat =
@@ -1418,7 +1418,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxReplicate n) $
     rfromX . xnest (ssxReplicate n)
   snestR :: forall sh1 m x.
-            (TensorKind x, KnownNat m)
+            (KnownSTK x, KnownNat m)
          => ShS sh1 -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
          -> target (TKS2 sh1 (TKR2 m x))
   snestR sh1 =
@@ -1427,7 +1427,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxFromShape (shCvtSX sh1)) $
     sfromX . xnestR (ssxFromShape (shCvtSX sh1))
   snest :: forall sh1 sh2 x.
-           (TensorKind x, KnownShS sh2)
+           (KnownSTK x, KnownShS sh2)
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
         -> target (TKS2 sh1 (TKS2 sh2 x))
   snest sh1 =
@@ -1441,7 +1441,7 @@ class ( Num (IntOf target)
                   `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
     sfromX . xnestS (ssxFromShape (shCvtSX sh1)) . xfromS
   snestX :: forall sh1 sh2 x.
-            (TensorKind x, KnownShX sh2)
+            (KnownSTK x, KnownShX sh2)
          => ShS sh1 -> target (TKX2 (MapJust sh1 ++ sh2) x)
          -> target (TKS2 sh1 (TKX2 sh2 x))
   snestX sh1 =
@@ -1451,20 +1451,20 @@ class ( Num (IntOf target)
     sfromX . xnest (ssxFromShape (shCvtSX sh1))
   -- These three are primitives; the others are defined from them.
   xnestR :: forall sh1 m x.
-            (TensorKind x, KnownNat m)
+            (KnownSTK x, KnownNat m)
          => StaticShX sh1 -> target (TKX2 (sh1 ++ Replicate m Nothing) x)
          -> target (TKX2 sh1 (TKR2 m x))
   xnestS :: forall sh1 sh2 x.
-            (TensorKind x, KnownShS sh2)
+            (KnownSTK x, KnownShS sh2)
          => StaticShX sh1 -> target (TKX2 (sh1 ++ MapJust sh2) x)
          -> target (TKX2 sh1 (TKS2 sh2 x))
   xnest :: forall sh1 sh2 x.
-           (TensorKind x, KnownShX sh2)
+           (KnownSTK x, KnownShX sh2)
         => StaticShX sh1 -> target (TKX2 (sh1 ++ sh2) x)
         -> target (TKX2 sh1 (TKX2 sh2 x))
 
   runNest :: forall n m x.
-             (TensorKind x, KnownNat n, KnownNat m)
+             (KnownSTK x, KnownNat n, KnownNat m)
           => target (TKR2 n (TKR2 m x)) -> target (TKR2 (n + m) x)
   runNest =
     gcastWith (unsafeCoerceRefl :: Rank (Replicate n (Nothing @Nat)) :~: n) $
@@ -1474,7 +1474,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxReplicate (SNat @n) `ssxAppend` ssxReplicate (SNat @m)) $
     rfromX . xunNestR . xfromR @_ @(Replicate n Nothing)
   runNestS :: forall n sh2 x.
-              (TensorKind x, KnownNat n, KnownShS sh2)
+              (KnownSTK x, KnownNat n, KnownShS sh2)
            => target (TKR2 n (TKS2 sh2 x))
            -> target (TKX2 (Replicate n Nothing ++ MapJust sh2) x)
   runNestS =
@@ -1482,7 +1482,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxReplicate (SNat @n)) $
     xunNestS . xfromR @_ @(Replicate n Nothing)
   runNestX :: forall n sh2 x.
-              (TensorKind x, KnownNat n, KnownShX sh2)
+              (KnownSTK x, KnownNat n, KnownShX sh2)
            => target (TKR2 n (TKX2 sh2 x))
            -> target (TKX2 (Replicate n Nothing ++ sh2) x)
   runNestX =
@@ -1491,7 +1491,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxReplicate (SNat @n) `ssxAppend` knownShX @sh2) $
     xunNest . xfromR @_ @(Replicate n Nothing)
   sunNestR :: forall sh1 m x.
-              (TensorKind x, KnownShS sh1, KnownNat m)
+              (KnownSTK x, KnownShS sh1, KnownNat m)
            => target (TKS2 sh1 (TKR2 m x))
            -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
   sunNestR =
@@ -1499,7 +1499,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
     xunNestR . xfromS @_ @_ @(MapJust sh1)
   sunNest :: forall sh1 sh2 x.
-             (TensorKind x, KnownShS sh1, KnownShS sh2)
+             (KnownSTK x, KnownShS sh1, KnownShS sh2)
           => target (TKS2 sh1 (TKS2 sh2 x)) -> target (TKS2 (sh1 ++ sh2) x)
   sunNest =
     gcastWith (lemRankMapJust (knownShS @sh1)) $
@@ -1511,7 +1511,7 @@ class ( Num (IntOf target)
                   `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
     sfromX . xunNestS . xfromS @_ @_ @(MapJust sh1)
   sunNestX :: forall sh1 sh2 x.
-              (TensorKind x, KnownShS sh1, KnownShX sh2)
+              (KnownSTK x, KnownShS sh1, KnownShX sh2)
            => target (TKS2 sh1 (TKX2 sh2 x))
            -> target (TKX2 (MapJust sh1 ++ sh2) x)
   sunNestX =
@@ -1522,38 +1522,38 @@ class ( Num (IntOf target)
     xunNest . xfromS @_ @_ @(MapJust sh1)
   -- These three are primitives; the others are defined from them.
   xunNestR :: forall sh1 m x.
-              (KnownShX sh1, KnownNat m, TensorKind x)
+              (KnownShX sh1, KnownNat m, KnownSTK x)
            => target (TKX2 sh1 (TKR2 m x))
            -> target (TKX2 (sh1 ++ Replicate m Nothing) x)
   xunNestS :: forall sh1 sh2 x.
-              (KnownShX sh1, KnownShS sh2, TensorKind x)
+              (KnownShX sh1, KnownShS sh2, KnownSTK x)
            => target (TKX2 sh1 (TKS2 sh2 x))
            -> target (TKX2 (sh1 ++ MapJust sh2) x)
   xunNest :: forall sh1 sh2 x.
-             (KnownShX sh1, KnownShX sh2, TensorKind x)
+             (KnownShX sh1, KnownShX sh2, KnownSTK x)
           => target (TKX2 sh1 (TKX2 sh2 x)) -> target (TKX2 (sh1 ++ sh2) x)
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk :: STensorKind y -> target y -> FullTensorKind y
   tconcrete :: FullTensorKind y -> RepN y -> target y
-  tpair :: (TensorKind x, TensorKind z)
+  tpair :: (KnownSTK x, KnownSTK z)
          => target x -> target z
          -> target (TKProduct x z)
-  tproject1 :: (TensorKind x, TensorKind z)
+  tproject1 :: (KnownSTK x, KnownSTK z)
             => target (TKProduct x z)
             -> target x
-  tproject2 :: (TensorKind x, TensorKind z)
+  tproject2 :: (KnownSTK x, KnownSTK z)
             => target (TKProduct x z)
             -> target z
-  tunpairDup :: (TensorKind x, TensorKind z)
+  tunpairDup :: (KnownSTK x, KnownSTK z)
              => target (TKProduct x z) -> (target x, target z)
-  default tunpairDup :: (ShareTensor target, TensorKind x, TensorKind z)
+  default tunpairDup :: (ShareTensor target, KnownSTK x, KnownSTK z)
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
   -- | A strict left fold.
   rfold
     :: forall rn rm n m.
-       (TensorKind rn, TensorKind rm, KnownNat n, KnownNat m)
+       (KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m)
     => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
     -> target (TKR2 n rn)  -- ^ initial value
     -> target (TKR2 (1 + m) rm)  -- ^ iteration is over the outermost dimension
@@ -1582,7 +1582,7 @@ class ( Num (IntOf target)
   -- | A strict left scan.
   rscan
     :: forall rn rm n m.
-       (TensorKind rn, TensorKind rm, KnownNat n, KnownNat m)
+       (KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m)
     => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
     -> target (TKR2 n rn)
     -> target (TKR2 (1 + m) rm)
@@ -1613,7 +1613,7 @@ class ( Num (IntOf target)
   -- | A strict left fold.
   sfold
     :: forall rn rm sh shm k.
-       (TensorKind rn, TensorKind rm, KnownShS sh, KnownShS shm, KnownNat k)
+       (KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm, KnownNat k)
     => (forall f. ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
     -> target (TKS2 sh rn)
     -> target (TKS2 (k ': shm) rm)
@@ -1638,7 +1638,7 @@ class ( Num (IntOf target)
          es)
   sscan
     :: forall rn rm sh shm k.
-       (TensorKind rn, TensorKind rm, KnownShS sh, KnownShS shm, KnownNat k)
+       (KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm, KnownNat k)
     => (forall f. ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
     -> target (TKS2 sh rn)
     -> target (TKS2 (k ': shm) rm)
@@ -1679,7 +1679,7 @@ class ( Num (IntOf target)
   -- > in ... (dmapAccumRDer f df rf ...) ... (dmapAccumLDer f df rf ...)
   dmapAccumR
     :: forall k accShs bShs eShs.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs
@@ -1704,7 +1704,7 @@ class ( Num (IntOf target)
                      (drevDt @target shs $ HFun fl)
                      acc0 es
   dmapAccumRDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    :: (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs  -- ^ shapes of acc, the accumulator
@@ -1725,7 +1725,7 @@ class ( Num (IntOf target)
   -- | A strict left mapAccum.
   dmapAccumL
     :: forall k accShs bShs eShs.
-       (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+       (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs
@@ -1750,7 +1750,7 @@ class ( Num (IntOf target)
                      (drevDt @target shs $ HFun fl)
                      acc0 es
   dmapAccumLDer
-    :: (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+    :: (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
     => Proxy target
     -> SNat k
     -> FullTensorKind accShs
@@ -1766,24 +1766,24 @@ class ( Num (IntOf target)
     -> target accShs
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
-  tApply :: (TensorKind x, TensorKind z)
+  tApply :: (KnownSTK x, KnownSTK z)
          => HFunOf target x z -> target x
          -> target z
-  tlambda :: (TensorKind x, TensorKind z)
+  tlambda :: (KnownSTK x, KnownSTK z)
           => FullTensorKind x -> HFun x z -> HFunOf target x z
   tcond :: Boolean (BoolOf target)
         => STensorKind y
         -> BoolOf target -> target y -> target y -> target y
-  ifF :: (Boolean (BoolOf target), TensorKind y)
+  ifF :: (Boolean (BoolOf target), KnownSTK y)
       => BoolOf target -> target y -> target y -> target y
   ifF = tcond stensorKind
-  minF :: (Boolean (BoolOf target), OrdF target, TensorKind y)
+  minF :: (Boolean (BoolOf target), OrdF target, KnownSTK y)
        => target y -> target y -> target y
   minF u v = ifF (u <=. v) u v
-  maxF :: (Boolean (BoolOf target), OrdF target, TensorKind y)
+  maxF :: (Boolean (BoolOf target), OrdF target, KnownSTK y)
        => target y -> target y -> target y
   maxF u v = ifF (u >=. v) u v
-  tbuild1 :: forall y k. TensorKind y
+  tbuild1 :: forall y k. KnownSTK y
                -- y comes first, because k easy to set via SNat
           => SNat k -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
@@ -1792,17 +1792,17 @@ class ( Num (IntOf target)
                 -> target (BuildTensorKind k z)
         replStk stk g = case stk of
           STKScalar{} -> sbuild1 (sfromK . g)
-          STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+          STKR SNat x | Dict <- lemKnownSTK x ->
             rbuild1 (sNatValue snat) g
-          STKS sh x | Dict <- lemTensorKindOfSTK x ->
+          STKS sh x | Dict <- lemKnownSTK x ->
             withKnownShS sh $ sbuild1 g
-          STKX sh x | Dict <- lemTensorKindOfSTK x ->
+          STKX sh x | Dict <- lemKnownSTK x ->
             withKnownShX sh $ xbuild1 g
           STKProduct @z1 @z2 stk1 stk2
-            | Dict <- lemTensorKindOfSTK stk1
-            , Dict <- lemTensorKindOfSTK stk2
-            , Dict <- lemTensorKindOfBuild snat stk1
-            , Dict <- lemTensorKindOfBuild snat stk2 ->
+            | Dict <- lemKnownSTK stk1
+            , Dict <- lemKnownSTK stk2
+            , Dict <- lemKnownSTKOfBuild snat stk1
+            , Dict <- lemKnownSTKOfBuild snat stk2 ->
               let f1 i = tproject1 @_ @z1 @z2 $ g i
                   f2 i = tproject2 @_ @z1 @z2 $ g i
                     -- TODO: looks expensive, but hard to do better,
@@ -1846,66 +1846,66 @@ class ( Num (IntOf target)
   -- so it's awkward to put the methods into @BaseTensor@,
   -- which shouldn't know about lets, etc.
   rrev :: forall x r n.
-          (TensorKind x, TensorKind r, KnownNat n)
+          (KnownSTK x, KnownSTK r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  rrev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
+  rrev f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x) =
     \ !es -> tApply (drev @target ftk $ HFun f) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n.
-            (TensorKind x, TensorKind r, KnownNat n)
+            (KnownSTK x, KnownSTK r, KnownNat n)
          => (forall f. ADReady f => f x -> f (TKR2 n r))
          -> FullTensorKind x
          -> target x
          -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  rrevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-               , Dict <- lemTensorKindOfAD (stensorKind @(TKR2 n r)) =
+  rrevDt f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
+               , Dict <- lemKnownSTKOfAD (stensorKind @(TKR2 n r)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   rfwd :: forall x r n.
-          (TensorKind x, TensorKind r, KnownNat n)
+          (KnownSTK x, KnownSTK r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR2 n r))
-  rfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-             , Dict <- lemTensorKindOfAD (stensorKind @(TKR2 n r)) =
+  rfwd f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
+             , Dict <- lemKnownSTKOfAD (stensorKind @(TKR2 n r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
   srev :: forall x r sh.
-          ( TensorKind x, TensorKind r, KnownShS sh
+          ( KnownSTK x, KnownSTK r, KnownShS sh
           , ADTensorKind (TKS2 sh r) ~ TKS2 sh r )
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  srev f ftk | Dict <- lemTensorKindOfAD (stensorKind @x) =
+  srev f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x) =
     \ !es -> tApply (drev @target ftk $ HFun f) es
   srevDt :: forall x r sh.
-            (TensorKind x, TensorKind r, KnownShS sh)
+            (KnownSTK x, KnownSTK r, KnownShS sh)
          => (forall f. ADReady f => f x -> f (TKS2 sh r))
          -> FullTensorKind x
          -> target x
          -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  srevDt f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-               , Dict <- lemTensorKindOfAD (stensorKind @(TKS2 sh r)) =
+  srevDt f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
+               , Dict <- lemKnownSTKOfAD (stensorKind @(TKS2 sh r)) =
     \ !es !dt -> tApply (drevDt @target ftk $ HFun f)
                         (tpair dt es)
   sfwd :: forall x r sh.
-          (TensorKind x, TensorKind r, KnownShS sh)
+          (KnownSTK x, KnownSTK r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS2 sh r))
-  sfwd f ftk | Dict <- lemTensorKindOfAD (stensorKind @x)
-             , Dict <- lemTensorKindOfAD (stensorKind @(TKS2 sh r)) =
+  sfwd f ftk | Dict <- lemKnownSTKOfAD (stensorKind @x)
+             , Dict <- lemKnownSTKOfAD (stensorKind @(TKS2 sh r)) =
     \ !es !ds -> tApply (dfwd @target ftk $ HFun f)
                         (tpair ds es)
   -- If the result of the argument function is not a scalar,
@@ -1918,18 +1918,18 @@ class ( Num (IntOf target)
   -- These methods (and tlambda) are exactly what is needed as arguments
   -- of dmapAccumRDer.
   drev
-    :: (TensorKind x, TensorKind z)
+    :: (KnownSTK x, KnownSTK z)
     => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target x (ADTensorKind x)  -- a |-> da
   drevDt
-    :: (TensorKind x, TensorKind z)
+    :: (KnownSTK x, KnownSTK z)
     => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
                  -- [db, a] |-> da
   dfwd
-    :: (TensorKind x, TensorKind z)
+    :: (KnownSTK x, KnownSTK z)
     => FullTensorKind x  -- shape of a and da
     -> HFun x z  -- a |-> b
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
@@ -1939,7 +1939,7 @@ tunit :: BaseTensor target
       => target TKUnit
 tunit = kconcrete Z0
 
-rscalar :: forall r target. (TensorKind r, BaseTensor target)
+rscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKR2 0 r)
 rscalar r | Dict <- eltDictRep (stensorKind @r) =
   let a = Nested.rscalar r
@@ -1953,7 +1953,7 @@ ringestData :: (GoodScalar r, KnownNat n, BaseTensor target)
             => IShR n -> [r] -> target (TKR n r)
 ringestData sh l = rconcrete $ Nested.rfromListPrimLinear sh l
 
-sscalar :: forall r target. (TensorKind r, BaseTensor target)
+sscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKS2 '[] r)
 sscalar r | Dict <- eltDictRep (stensorKind @r) =
   let a = Nested.sscalar r
@@ -1973,7 +1973,7 @@ singestData :: (GoodScalar r, KnownShS sh, BaseTensor target)
             => [r] -> target (TKS sh r)
 singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
-xscalar :: forall r target. (TensorKind r, BaseTensor target)
+xscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKX2 '[] r)
 xscalar r | Dict <- eltDictRep (stensorKind @r) =
   let a = Nested.mscalar r
@@ -2035,11 +2035,11 @@ type ADReadyClasses target =
   )
 
 -- This is illegal:
--- type AllTargetShow target = forall y. TensorKind y => Show (target y)
+-- type AllTargetShow target = forall y. KnownSTK y => Show (target y)
 
 type AllTargetShow :: Target -> Constraint
-class (forall y. TensorKind y => Show (target y))
+class (forall y. KnownSTK y => Show (target y))
       => AllTargetShow target where
 instance
-      (forall y. TensorKind y => Show (target y))
+      (forall y. KnownSTK y => Show (target y))
       => AllTargetShow target where

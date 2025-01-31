@@ -47,7 +47,7 @@ emptyEnv :: AstEnv target
 emptyEnv = DMap.empty
 
 showsPrecAstEnv
-  :: (forall y. TensorKind y => Show (target y))
+  :: (forall y. KnownSTK y => Show (target y))
   => Int -> AstEnv target -> ShowS
 showsPrecAstEnv d demap =
   showParen (d > 10) $
@@ -61,7 +61,7 @@ showsPrecAstEnv d demap =
 -- An informal invariant: if s is FullSpan, target is dual numbers,
 -- and if s is PrimalSpan, target is their primal part.
 -- The same for all functions below.
-extendEnv :: forall target s y. TensorKind y
+extendEnv :: forall target s y. KnownSTK y
           => AstVarName s y -> target y -> AstEnv target
           -> AstEnv target
 extendEnv var !t !env =
@@ -98,7 +98,7 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 interpretLambdaHFun
-  :: TensorKind x
+  :: KnownSTK x
   => (forall target z. ADReady target
       => AstEnv target -> AstTensor ms s z
       -> target z)
@@ -174,7 +174,7 @@ interpretAstB2 :: Boolean b
 interpretAstB2 AndOp u v = u &&* v
 interpretAstB2 OrOp u v = u ||* v
 
-interpretAstRelOp :: (EqF f, OrdF f, TensorKind y)
+interpretAstRelOp :: (EqF f, OrdF f, KnownSTK y)
                   => OpCodeRel -> f y -> f y -> BoolOf f
 {-# INLINE interpretAstRelOp #-}
 interpretAstRelOp EqOp u v = u ==. v

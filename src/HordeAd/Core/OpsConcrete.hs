@@ -567,48 +567,48 @@ instance BaseTensor RepN where
 
 -- * MapAccum internal definitions
 
-ravel :: forall k y. TensorKind y
+ravel :: forall k y. KnownSTK y
       => SNat k -> [RepN y]
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case stensorKind @y of
   STKScalar{} -> sfromList $ sfromK <$> NonEmpty.fromList t
-  STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+  STKR SNat x | Dict <- lemKnownSTK x ->
     rfromList $ NonEmpty.fromList t
-  STKS sh x | Dict <- lemTensorKindOfSTK x ->
+  STKS sh x | Dict <- lemKnownSTK x ->
     withKnownShS sh $ sfromList $ NonEmpty.fromList t
-  STKX sh x | Dict <- lemTensorKindOfSTK x ->
+  STKX sh x | Dict <- lemKnownSTK x ->
     withKnownShX sh $ xfromList $ NonEmpty.fromList t
   STKProduct @y1 @y2 stk1 stk2
-    | Dict <- lemTensorKindOfSTK stk1
-    , Dict <- lemTensorKindOfSTK stk2
-    , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
+    | Dict <- lemKnownSTK stk1
+    , Dict <- lemKnownSTK stk2
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @y1)
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @y2) ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
       in tpair (ravel k lt1) (ravel k lt2)
 
-unravel :: forall k y. TensorKind y
+unravel :: forall k y. KnownSTK y
         => SNat k -> RepN (BuildTensorKind k y)
         -> [RepN y]
 unravel k@SNat t = case stensorKind @y of
   STKScalar{} -> map kfromS $ sunravelToList t
-  STKR SNat x | Dict <- lemTensorKindOfSTK x ->
+  STKR SNat x | Dict <- lemKnownSTK x ->
     runravelToList t
-  STKS sh x | Dict <- lemTensorKindOfSTK x ->
+  STKS sh x | Dict <- lemKnownSTK x ->
     withKnownShS sh $ sunravelToList t
-  STKX sh x | Dict <- lemTensorKindOfSTK x ->
+  STKX sh x | Dict <- lemKnownSTK x ->
     withKnownShX sh $ xunravelToList t
   STKProduct @y1 @y2 stk1 stk2
-    | Dict <- lemTensorKindOfSTK stk1
-    , Dict <- lemTensorKindOfSTK stk2
-    , Dict <- lemTensorKindOfBuild k (stensorKind @y1)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @y2) ->
+    | Dict <- lemKnownSTK stk1
+    , Dict <- lemKnownSTK stk2
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @y1)
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @y2) ->
       let lt1 = unravel k $ tproject1 t
           lt2 = unravel k $ tproject2 t
       in zipWith tpair lt1 lt2
 
 oRdmapAccumR
   :: forall k accShs bShs eShs.
-     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+     (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
   => SNat k
   -> FullTensorKind accShs
   -> FullTensorKind bShs
@@ -619,7 +619,7 @@ oRdmapAccumR
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumR k _ bShs _ f acc0 es
- | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) = case sNatValue k of
+ | Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) = case sNatValue k of
   0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
@@ -630,7 +630,7 @@ oRdmapAccumR k _ bShs _ f acc0 es
 
 oRdmapAccumL
   :: forall k accShs bShs eShs.
-     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+     (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
   => SNat k
   -> FullTensorKind accShs
   -> FullTensorKind bShs
@@ -641,7 +641,7 @@ oRdmapAccumL
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
 oRdmapAccumL k _ bShs _ f acc0 es
- | Dict <- lemTensorKindOfBuild k (stensorKind @bShs) = case sNatValue k of
+ | Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) = case sNatValue k of
   0 -> tpair acc0 (treplicate k (stensorKind @bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
@@ -668,7 +668,7 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNR :: forall n m x. (KnownNat n, KnownNat m, TensorKind x)
+updateNR :: forall n m x. (KnownNat n, KnownNat m, KnownSTK x)
          => RepN (TKR2 (n + m) x) -> [(IxROf RepN n, RepN (TKR2 m x))]
          -> RepN (TKR2 (n + m) x)
 updateNR arr upd = case stensorKind @x of
@@ -753,7 +753,7 @@ tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
 -}
 
 tindexZR
-  :: forall r m n. (TensorKind r, KnownNat m, KnownNat n)
+  :: forall r m n. (KnownSTK r, KnownNat m, KnownNat n)
   => RepN (TKR2 (m + n) r) -> IxROf RepN m -> RepN (TKR2 n r)
 tindexZR v ixRepN | Dict <- showDictRep (stensorKind @r)
                   , Dict <- eltDictRep (stensorKind @r) =
@@ -765,7 +765,7 @@ tindexZR v ixRepN | Dict <- showDictRep (stensorKind @r)
      else constantTarget def (FTKR (dropShape @m sh) x)
 
 tindex0R
-  :: forall r m. (TensorKind r, KnownNat m)
+  :: forall r m. (KnownSTK r, KnownNat m)
   => RepN (TKR2 m r) -> IxROf RepN m -> RepN (TKR2 0 r)
 tindex0R v ixRepN | Dict <- eltDictRep (stensorKind @r) =
   let ix = fmap unRepN ixRepN
@@ -805,7 +805,7 @@ tmatmul2R t u =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
-              (KnownNat p, KnownNat m, KnownNat n, TensorKind r)
+              (KnownNat p, KnownNat m, KnownNat n, KnownSTK r)
            => IShR (p + n) -> RepN (TKR2 (m + n) r)
            -> (IxROf RepN m -> IxROf RepN p)
            -> RepN (TKR2 (p + n) r)
@@ -845,7 +845,7 @@ tscatterZR sh t f
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatterZ1R :: (TensorKind r, KnownNat p, KnownNat n)
+tscatterZ1R :: (KnownSTK r, KnownNat p, KnownNat n)
             => IShR (p + n) -> RepN (TKR2 (1 + n) r)
             -> (IntOf RepN -> IxROf RepN p)
             -> RepN (TKR2 (p + n) r)
@@ -897,7 +897,7 @@ tzipWith0NR f =
 -- The semantics of the operation permits index out of bounds
 -- and the result of such indexing is def.
 tgatherZR :: forall m p n r.
-             (KnownNat m, KnownNat p, KnownNat n, TensorKind r)
+             (KnownNat m, KnownNat p, KnownNat n, KnownSTK r)
           => IShR (m + n) -> RepN (TKR2 (p + n) r)
           -> (IxROf RepN m -> IxROf RepN p)
           -> RepN (TKR2 (m + n) r)
@@ -912,7 +912,7 @@ tgatherZR sh t f = case stensorKind @r of
   _ -> rbuild sh (\ix -> t ! f ix)
 
 tgatherZ1R :: forall p n r.
-              (KnownNat p, KnownNat n, TensorKind r)
+              (KnownNat p, KnownNat n, KnownSTK r)
            => Int -> RepN (TKR2 (p + n) r)
            -> (IntOf RepN -> IxROf RepN p)
            -> RepN (TKR2 (1 + n) r)
@@ -929,7 +929,7 @@ tgatherZ1R k t f = case stensorKind @r of
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
 updateNS :: forall n sh r.
-            ( TensorKind r, KnownShS sh, KnownShS (Drop n sh)
+            ( KnownSTK r, KnownShS sh, KnownShS (Drop n sh)
             , KnownShS (Take n sh) )
          => RepN (TKS2 sh r)
          -> [(IxSOf RepN (Take n sh), RepN (TKS2 (Drop n sh) r))]
@@ -1038,7 +1038,7 @@ tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
 -- the type-level shape, which we catch in the @ixInBounds@
 -- and return def, so it's fine. Similarly in gather and scatter.
 tindexZS
-  :: forall r sh1 sh2. (TensorKind r, KnownShS sh1, KnownShS sh2)
+  :: forall r sh1 sh2. (KnownSTK r, KnownShS sh1, KnownShS sh2)
   => RepN (TKS2 (sh1 ++ sh2) r) -> IxSOf RepN sh1 -> RepN (TKS2 sh2 r)
 tindexZS v ixRepN | Dict <- eltDictRep (stensorKind @r) =
   let ix = fmap unRepN ixRepN
@@ -1050,7 +1050,7 @@ tindexZS v ixRepN | Dict <- eltDictRep (stensorKind @r) =
          else constantTarget def (FTKS knownShS x)
 
 tindex0S
-  :: forall r sh. (TensorKind r, KnownShS sh)
+  :: forall r sh. (KnownSTK r, KnownShS sh)
   => RepN (TKS2 sh r) -> IxSOf RepN sh -> RepN (TKS2 '[] r)
 tindex0S v ixRepN | Dict <- eltDictRep (stensorKind @r) =
   let ix = fmap unRepN ixRepN
@@ -1084,7 +1084,7 @@ tmatmul2S t u =
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S
   :: forall r n2 shn shp.
-     (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+     (KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
   => RepN (TKS2 (n2 ': shn) r)
   -> (IntOf RepN -> IxSOf RepN shp)
   -> RepN (TKS2 (shp ++ shn) r)
@@ -1142,7 +1142,7 @@ tzipWith0NS f =
 
 tgatherZ1S
   :: forall r n2 shn shp.
-     (TensorKind r, KnownNat n2, KnownShS shn, KnownShS shp)
+     (KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
   => RepN (TKS2 (shp ++ shn) r)
   -> (IntOf RepN -> IxSOf RepN shp)
   -> RepN (TKS2 (n2 ': shn) r)
@@ -1158,7 +1158,7 @@ tgatherZ1S t f =
 -- * Mixed internal definitions
 
 updateNX :: forall n sh r.
-            (TensorKind r, KnownShX (Drop n sh), KnownShX (Take n sh))
+            (KnownSTK r, KnownShX (Drop n sh), KnownShX (Take n sh))
          => RepN (TKX2 sh r)
          -> [(IxXOf RepN (Take n sh), RepN (TKX2 (Drop n sh) r))]
          -> RepN (TKX2 sh r)
@@ -1254,7 +1254,7 @@ tindexNX
 tindexNX v ix = Nested.mindexPartial v (fmap fromIntegral ix)
 
 tindexZX
-  :: forall r sh1 sh2. (TensorKind r, KnownShX sh1, KnownShX sh2)
+  :: forall r sh1 sh2. (KnownSTK r, KnownShX sh1, KnownShX sh2)
   => RepN (TKX2 (sh1 ++ sh2) r) -> IxXOf RepN sh1 -> RepN (TKX2 sh2 r)
 tindexZX v ixRepN | Dict <- eltDictRep (stensorKind @r) =
   let ix = fmap unRepN ixRepN
@@ -1266,7 +1266,7 @@ tindexZX v ixRepN | Dict <- eltDictRep (stensorKind @r) =
          else constantTarget def (FTKX (shxDropSSX sh (knownShX @sh1)) x)
 
 tindex0X
-  :: forall r sh. (TensorKind r, KnownShX sh)
+  :: forall r sh. (KnownSTK r, KnownShX sh)
   => RepN (TKX2 sh r) -> IxXOf RepN sh -> RepN (TKX2 '[] r)
 tindex0X v ixRepN | Dict <- eltDictRep (stensorKind @r) =
   let ix = fmap unRepN ixRepN
@@ -1289,7 +1289,7 @@ tmatmul2X t u =
 
 tscatterZ1X
   :: forall r n2 shn shp.
-     (TensorKind r, KnownNat n2, KnownShX shn, KnownShX shp)
+     (KnownSTK r, KnownNat n2, KnownShX shn, KnownShX shp)
   => IShX (shp ++ shn) -> RepN (TKX2 (Just n2 ': shn) r)
   -> (IntOf RepN -> IxXOf RepN shp)
   -> RepN (TKX2 (shp ++ shn) r)
@@ -1331,7 +1331,7 @@ tbuild1X f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
 
 tgatherZ1X
   :: forall r n2 shn shp.
-     (TensorKind r, KnownShX shn, KnownShX shp)
+     (KnownSTK r, KnownShX shn, KnownShX shp)
   => SNat n2 -> RepN (TKX2 (shp ++ shn) r)
   -> (IntOf RepN -> IxXOf RepN shp)
   -> RepN (TKX2 (Just n2 ': shn) r)

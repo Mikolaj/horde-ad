@@ -51,7 +51,7 @@ import HordeAd.Core.Unwind
 -- * Symbolic reverse and forward derivative computation
 
 forwardPassByInterpretation
-  :: forall x z. TensorKind x
+  :: forall x z. KnownSTK x
   => (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
@@ -68,7 +68,7 @@ forwardPassByInterpretation g envInit hVectorPrimal var hVector =
   in interpretAst env ast
 
 revArtifactFromForwardPass
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => Bool
   -> (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
@@ -78,8 +78,8 @@ revArtifactFromForwardPass
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass xftk
- | Dict <- lemTensorKindOfAD (stensorKind @x)
- , Dict <- lemTensorKindOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (stensorKind @x)
+ , Dict <- lemKnownSTKOfAD (stensorKind @z) =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -97,7 +97,7 @@ revArtifactFromForwardPass hasDt forwardPass xftk
      , delta )
 
 revProduceArtifact
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => Bool
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
@@ -109,7 +109,7 @@ revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 fwdArtifactFromForwardPass
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
@@ -118,8 +118,8 @@ fwdArtifactFromForwardPass
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass ftk
- | Dict <- lemTensorKindOfAD (stensorKind @x)
- , Dict <- lemTensorKindOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (stensorKind @x)
+ , Dict <- lemKnownSTKOfAD (stensorKind @z) =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd ftk in
   let !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
@@ -130,7 +130,7 @@ fwdArtifactFromForwardPass forwardPass ftk
      , delta )
 
 fwdProduceArtifact
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
@@ -143,7 +143,7 @@ fwdProduceArtifact f envInit =
 
 -- * AstTensor instances
 
-instance TensorKind y
+instance KnownSTK y
          => TermValue (AstTensor AstMethodLet FullSpan y) where
   type Value (AstTensor AstMethodLet FullSpan y) = RepN y
   fromValue t =
@@ -156,7 +156,7 @@ instance TensorKind y
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize
-  :: (TensorKind z, AstSpan s)
+  :: (KnownSTK z, AstSpan s)
   => SNat k -> (AstInt AstMethodLet -> AstTensor AstMethodLet s z)
   -> AstTensor AstMethodLet s (BuildTensorKind k z)
 astBuild1Vectorize k f = build1Vectorize k $ funToAstI f
@@ -750,7 +750,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
-  tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
+  tconcrete ftk a | Dict <- lemKnownSTK (ftkToStk ftk) =
     fromPrimal $ astConcrete ftk a
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
@@ -764,16 +764,16 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll -> unHFun f ll
     in AstLambda (var, shss, ast)
-  tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk = astCond b u v
-  tprimalPart stk t | Dict <- lemTensorKindOfSTK stk = primalPart t
-  tdualPart stk t | Dict <- lemTensorKindOfSTK stk = dualPart t
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk = fromPrimal t
-  tfromDual stk t | Dict <- lemTensorKindOfSTK stk = fromDual t
+  tcond !stk !b !u !v | Dict <- lemKnownSTK stk = astCond b u v
+  tprimalPart stk t | Dict <- lemKnownSTK stk = primalPart t
+  tdualPart stk t | Dict <- lemKnownSTK stk = dualPart t
+  tfromPrimal stk t | Dict <- lemKnownSTK stk = fromPrimal t
+  tfromDual stk t | Dict <- lemKnownSTK stk = fromDual t
   -- TODO: (still) relevant?
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  drev @x ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x) =
+  drev @x ftkx f | Dict <- lemKnownSTKOfAD (stensorKind @x) =
     -- we don't have an AST constructor to hold it, so we compute
     --
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -788,8 +788,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astLet var astP
           $ simplifyInline gradient
     in AstLambda (varP, ftkx, ast)
-  drevDt @x @z ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
-                      , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  drevDt @x @z ftkx f | Dict <- lemKnownSTKOfAD (stensorKind @x)
+                      , Dict <- lemKnownSTKOfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev varDt var gradient primal, _delta) =
@@ -801,8 +801,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet var (astProject2 astP)
           $ simplifyInline gradient
     in AstLambda (varP, ftk2, ast)
-  dfwd @x @z ftkx f | Dict <- lemTensorKindOfAD (stensorKind @x)
-                    , Dict <- lemTensorKindOfAD (stensorKind @z) =
+  dfwd @x @z ftkx f | Dict <- lemKnownSTKOfAD (stensorKind @x)
+                    , Dict <- lemKnownSTKOfAD (stensorKind @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactFwd varDs var derivative _primal, _delta) =
@@ -1426,29 +1426,29 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst . unAstRaw
-  tconcrete ftk a | Dict <- lemTensorKindOfSTK (ftkToStk ftk) =
+  tconcrete ftk a | Dict <- lemKnownSTK (ftkToStk ftk) =
     AstRaw $ fromPrimal $ AstConcrete ftk a
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
   dmapAccumRDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+    | Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) =
       AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
   dmapAccumLDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) =
+    | Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) =
       AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
   tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
-  tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
+  tcond !stk !b !u !v | Dict <- lemKnownSTK stk =
     AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
-  tprimalPart stk t | Dict <- lemTensorKindOfSTK stk =
+  tprimalPart stk t | Dict <- lemKnownSTK stk =
     AstRaw $ primalPart $ unAstRaw t
-  tdualPart stk t | Dict <- lemTensorKindOfSTK stk = dualPart $ unAstRaw t
-  tfromPrimal stk t | Dict <- lemTensorKindOfSTK stk =
+  tdualPart stk t | Dict <- lemKnownSTK stk = dualPart $ unAstRaw t
+  tfromPrimal stk t | Dict <- lemKnownSTK stk =
     AstRaw $ fromPrimal $ unAstRaw t
-  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
+  tfromDual stk t | Dict <- lemKnownSTK stk =
     AstRaw $ fromDual t
   -- TODO: (still) relevant?
   -- In this instance, these two ops are only used for some rare tests that
@@ -1627,31 +1627,31 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 -- * AstNoSimplify instances
 
 astLetFunNoSimplify
-  :: forall y z s s2. (TensorKind z, AstSpan s)
+  :: forall y z s s2. (KnownSTK z, AstSpan s)
   => AstTensor AstMethodLet s y
   -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
   -> AstTensor AstMethodLet s2 z
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
-  AstFromS @y2 stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  AstFromS @y2 stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     let (var, ast) = funToAst (ftkAst v) (f . AstFromS @y2 stkz)
     in AstLet var v ast
   AstFromPrimal (AstFromS @y2 stkz vRaw)
-   | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst vRaw)) ->
+   | Dict <- lemKnownSTK (ftkToStk (ftkAst vRaw)) ->
     let v = AstFromPrimal vRaw
         (var, ast) = funToAst (ftkAst v) (f . AstFromS @y2 stkz)
     in AstLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x2 sh' x) | SNat <- shrRank sh'
-                            , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+                            , Dict <- lemKnownSTK (ftkToStk x) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         let (var, ast) =
               funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x2) (ftkToStk ftk))
         in AstLet var (AstSFromR @sh a) ast
              -- safe, because subsitution ruled out above
-    ftk@(FTKX @_ @x sh' x) | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    ftk@(FTKX @_ @x sh' x) | Dict <- lemKnownSTK (ftkToStk x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShX (ssxFromShape sh') $
         withKnownShS sh $
@@ -1659,7 +1659,7 @@ astLetFunNoSimplify a f = case a of
               funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x) (ftkToStk ftk))
         in AstLet var (AstSFromX @sh a) ast
     -- TODO: also recursively product, though may be not worth it
-    ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
+    ftk | Dict <- lemKnownSTK (ftkToStk ftk) ->
           let (var, ast) = funToAst ftk f
           in AstLet var a ast
 
@@ -1699,11 +1699,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     (AstNoSimplify t1, AstNoSimplify t2)
   tunpairDup t = (tproject1 t, tproject2 t)
   -- These three have tricky types, so we repaat the AstRaw definitions:
-  tcond !stk !b !u !v | Dict <- lemTensorKindOfSTK stk =
+  tcond !stk !b !u !v | Dict <- lemKnownSTK stk =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
-  tdualPart stk t | Dict <- lemTensorKindOfSTK stk =
+  tdualPart stk t | Dict <- lemKnownSTK stk =
     dualPart $ unAstNoSimplify t
-  tfromDual stk t | Dict <- lemTensorKindOfSTK stk =
+  tfromDual stk t | Dict <- lemKnownSTK stk =
     AstNoSimplify $ fromDual t
 
   -- All the following implementations piggy-back on AstRaw implementations.

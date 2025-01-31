@@ -86,7 +86,7 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall target y. (ADReady target, TensorKind y)
+  :: forall target y. (ADReady target, KnownSTK y)
   => AstEnv target
   -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
@@ -102,7 +102,7 @@ interpretAstPrimal !env v1 = case v1 of
     tprimalPart (stensorKind @y) (interpretAst env v1)
 
 interpretAstDual
-  :: forall target y. (ADReady target, TensorKind y)
+  :: forall target y. (ADReady target, KnownSTK y)
   => AstEnv target
   -> AstTensor AstMethodLet DualSpan y -> DualOf target y
 interpretAstDual !env v1 = case v1 of
@@ -173,9 +173,9 @@ interpretAst !env = \case
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstMapAccumRDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    | Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
@@ -183,9 +183,9 @@ interpretAst !env = \case
         es2 = interpretAst env es
     in dmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
   AstMapAccumLDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+    | Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
@@ -378,18 +378,18 @@ interpretAst !env = \case
   AstNestS v -> snest knownShS $ interpretAst env v
   AstUnNestS v -> sunNest $ interpretAst env v
 
-  AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v))
-                  , Dict <- lemTensorKindOfSTK stkz ->
+  AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v))
+                  , Dict <- lemKnownSTK stkz ->
     tfromS $ interpretAst env v
   AstSFromK t -> sfromK $ interpretAst env t
   AstSFromR v -> sfromR $ interpretAst env v
   AstSFromX v -> sfromX $ interpretAst env v
 
-  AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk
+  AstReplicate0NS sh stk v | Dict <- lemKnownSTK stk
                            , SNat <- shsProduct sh ->
     withKnownShS sh $
     sreplicate0N (interpretAst env v)
-  AstSum0S sh stk v | Dict <- lemTensorKindOfSTK stk
+  AstSum0S sh stk v | Dict <- lemKnownSTK stk
                     , SNat <- shsProduct sh ->
     withKnownShS sh $
     ssum0 (interpretAst env v)
@@ -404,7 +404,7 @@ interpretAst !env = \case
     smatmul2 (interpretAst env u) (interpretAst env v)
 
 interpretAstHFun
-  :: forall target x y. (TensorKind x, TensorKind y)
+  :: forall target x y. (KnownSTK x, KnownSTK y)
   => BaseTensor target
   => AstEnv target -> AstHFun x y -> HFunOf target x y
 interpretAstHFun _env = \case

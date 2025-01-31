@@ -21,7 +21,7 @@ import HordeAd.External.OptimizerTools
 -- These functions have their SPECIALIZE pragmas in MnistData.
 
 -- | Stochastic Gradient Descent.
-sgd :: forall a x z. (TensorKind x, TensorKind z)
+sgd :: forall a x z. (KnownSTK x, KnownSTK z)
     => Double
     -> (a -> ADVal RepN x -> ADVal RepN z)
     -> [a]  -- ^ training data
@@ -47,7 +47,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- and specialize.
 -- | An implementation of the Adam gradient descent.
 sgdAdamDeep
-  :: forall a x z . (TensorKind x, TensorKind z)
+  :: forall a x z . (KnownSTK x, KnownSTK z)
   => (a -> ADVal RepN x -> ADVal RepN z)
   -> [a]
   -> RepN x
@@ -57,7 +57,7 @@ sgdAdamDeep
 sgdAdamDeep = sgdAdamArgsDeep defaultArgsAdam
 
 sgdAdamArgsDeep
-  :: forall a x z. (TensorKind x, TensorKind z)
+  :: forall a x z. (KnownSTK x, KnownSTK z)
   => ArgsAdam
   -> (a -> ADVal RepN x -> ADVal RepN z)
   -> [a]
@@ -74,7 +74,7 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
   go :: [a] -> RepN x -> StateAdamDeep x -> (RepN x, StateAdamDeep x)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam
-   | Dict <- lemTensorKindOfAD (stensorKind @x) =
+   | Dict <- lemKnownSTKOfAD (stensorKind @x) =
     let inputs :: ADVal RepN x
         inputs = dDnotShared parameters deltaInputs
         gradients = fst $ crevOnADInputs Nothing (f a) inputs

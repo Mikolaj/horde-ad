@@ -56,7 +56,7 @@ deriving instance (Show (f z), Show (Delta f z))
 -- of the dual number is an AST term or not).
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: forall f z. TensorKind z
+dD :: forall f z. KnownSTK z
    => f z -> Delta f z -> ADVal f z
 dD !a !dual = dDnotShared a (shareDelta dual)
 
@@ -124,14 +124,14 @@ dDnotShared = ADVal
 -- terms get an identifier. Alternatively, 'HordeAd.Core.CarriersADVal.dD'
 -- or library definitions that use it could be made smarter.
 
-unDeltaPair :: (TensorKind x, TensorKind y)
+unDeltaPair :: (KnownSTK x, KnownSTK y)
             => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unDeltaPair (DeltaPair a b) = (a, b)
 unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
                 in (DeltaProject1 dShared, DeltaProject2 dShared)
 
-unDeltaPairUnshared :: (TensorKind x, TensorKind y)
+unDeltaPairUnshared :: (KnownSTK x, KnownSTK y)
                     => Delta target (TKProduct x y)
                     -> (Delta target x, Delta target y)
 unDeltaPairUnshared (DeltaPair a b) = (a, b)
@@ -149,7 +149,7 @@ dAdd v DeltaZero{} = v
 dAdd v w = DeltaAdd v w
 
 -- Avoids building huge Delta terms, not only evaluating them.
-dFromS :: forall y z target. (TensorKind y, TensorKind z)
+dFromS :: forall y z target. (KnownSTK y, KnownSTK z)
        => Delta target y -> Delta target z
 dFromS (DeltaSFromR @sh @x d)
   | Just Refl <- sameKnownSTS @z @(TKR2 (Rank sh) x) = d
@@ -158,7 +158,7 @@ dFromS (DeltaSFromX @_ @sh' @x d)
 dFromS d = DeltaFromS d
 
 dSFromR :: forall sh x target.
-           (KnownShS sh, KnownNat (Rank sh), TensorKind x)
+           (KnownShS sh, KnownNat (Rank sh), KnownSTK x)
         => Delta target (TKR2 (Rank sh) x)
         -> Delta target (TKS2 sh x)
 dSFromR (DeltaFromS @y d) =
@@ -168,7 +168,7 @@ dSFromR (DeltaFromS @y d) =
 dSFromR d = DeltaSFromR d
 
 dSFromX :: forall sh sh' x target.
-           (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind x)
+           (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK x)
         => Delta target (TKX2 sh' x)
         -> Delta target (TKS2 sh x)
 dSFromX (DeltaFromS @y d) =
@@ -179,18 +179,18 @@ dSFromX d = DeltaSFromX d
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.
-intOfShape :: forall z f. (ADReadyNoLet f, TensorKind z)
+intOfShape :: forall z f. (ADReadyNoLet f, KnownSTK z)
            => f z -> Int -> f z
 intOfShape tsh c = constantTarget (fromIntegral c) (tftk stensorKind tsh)
 
-fromPrimalADVal :: (TensorKind z, BaseTensor f) => f z -> ADVal f z
+fromPrimalADVal :: (KnownSTK z, BaseTensor f) => f z -> ADVal f z
 fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk stensorKind a)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
-ensureToplevelSharing :: TensorKind z => ADVal f z -> ADVal f z
+ensureToplevelSharing :: KnownSTK z => ADVal f z -> ADVal f z
 ensureToplevelSharing (D u u') = dD u u'
 
 scaleNotShared :: Num (f z)
@@ -228,9 +228,9 @@ generateDeltaInputs
      FullTensorKind x -> Delta target x
 generateDeltaInputs =
   let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
-      gen j ftk| Dict <- lemTensorKindOfSTK (ftkToStk ftk) = case ftk of
-        FTKProduct ftk1 ftk2 | Dict <- lemTensorKindOfSTK (ftkToStk ftk1)
-                             , Dict <- lemTensorKindOfSTK (ftkToStk ftk2) ->
+      gen j ftk| Dict <- lemKnownSTK (ftkToStk ftk) = case ftk of
+        FTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToStk ftk1)
+                             , Dict <- lemKnownSTK (ftkToStk ftk2) ->
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
           in (DeltaPair d1 d2, j2)
@@ -278,7 +278,7 @@ instance Eq (ADVal f z) where
 instance Ord (ADVal f z) where
   (<=) = error "AST requires that OrdB be used instead"
 
-instance (Num (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Num (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
@@ -304,17 +304,17 @@ instance (Num (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
   signum (D v _) = dDnotShared (signum v) (DeltaZero $ tftk stensorKind v)
   fromInteger = fromPrimalADVal . fromInteger
 
-instance (Real (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Real (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (IntegralF (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (IntegralF (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
   quotF (D u _) (D v _) = dDnotShared (quotF u v) ((DeltaZero $ tftk stensorKind u))
   remF (D u _) (D v _) = dDnotShared (remF u v) ((DeltaZero $ tftk stensorKind u))
 
-instance (Fractional (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Fractional (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -339,7 +339,7 @@ instance (Fractional (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = fromPrimalADVal . fromRational
 
-instance (Floating (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -398,13 +398,13 @@ instance (Floating (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
                     in dD (atanh u)
                           (dScale (recip (intOfShape u 1 - u * u)) u')
 
-instance (RealFrac (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (RealFrac (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Fractional (f z), RealFloatF (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (Fractional (f z), RealFloatF (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => RealFloatF (ADVal f z) where
   atan2F (D ue u') (D ve v') =
     let !u = tshare ue in
@@ -412,7 +412,7 @@ instance (Fractional (f z), RealFloatF (f z), TensorKind z, ShareTensor f, ADRea
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance (RealFloat (f z), TensorKind z, ShareTensor f, ADReadyNoLet f)
+instance (RealFloat (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => RealFloat (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance

@@ -22,7 +22,7 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-updateWithGradient :: forall y. TensorKind y
+updateWithGradient :: forall y. KnownSTK y
                    => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
 updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y of
   STKR SNat (STKScalar @r _) -> RepN $
@@ -43,10 +43,10 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case stensorKind @y
                     * gradient)
           params
       Nothing -> params
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                       , Dict <- lemTensorKindOfAD stk1
-                       , Dict <- lemTensorKindOfSTK stk2
-                       , Dict <- lemTensorKindOfAD stk2 ->
+  STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
+                       , Dict <- lemKnownSTKOfAD stk1
+                       , Dict <- lemKnownSTK stk2
+                       , Dict <- lemKnownSTKOfAD stk2 ->
     tpair (updateWithGradient gamma (tproject1 p) (tproject1 g))
           (updateWithGradient gamma (tproject2 p) (tproject2 g))
   _ -> error "updateWithGradient: TODO"
@@ -133,7 +133,7 @@ repDeepZero = \case
   _ -> error "TODO"
 
 updateWithGradientAdamDeep
-  :: TensorKind y
+  :: KnownSTK y
   => ArgsAdam -> StateAdamDeep y -> RepN y -> RepN (ADTensorKind y)
   -> (RepN y, StateAdamDeep y)
 updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
@@ -167,7 +167,7 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
                  -> RepN y2 -> RepN (ADTensorKind y2)
                  -> RepN (Triplify y2)
       updateProd stk (RepN mA) (RepN vA) (RepN p) (RepN g)
-       | Dict <- lemTensorKindOfAD stk = case stk of
+       | Dict <- lemKnownSTKOfAD stk = case stk of
         STKScalar @r _ ->
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->

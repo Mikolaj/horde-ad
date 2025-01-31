@@ -74,7 +74,7 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: forall s y. TensorKind y => PrintConfig -> AstVarName s y -> ShowS
+printAstVar :: forall s y. KnownSTK y => PrintConfig -> AstVarName s y -> ShowS
 printAstVar cfg var =
   let rankTensorKind :: STensorKind x -> Int
       rankTensorKind (STKScalar _) = 0
@@ -100,7 +100,7 @@ printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
 
 printAstVarFromLet
-  :: forall s y ms. (AstSpan s, TensorKind y)
+  :: forall s y ms. (AstSpan s, KnownSTK y)
   => AstTensor ms s y -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarFromLet u cfg var =
   if representsIntIndex cfg
@@ -109,7 +109,7 @@ printAstVarFromLet u cfg var =
     _ -> printAstVar cfg var
   else printAstVar cfg var
 
-printAstVarName :: TensorKind y
+printAstVarName :: KnownSTK y
                 => IntMap String -> AstVarName s y -> String
 printAstVarName renames var =
   printAstVar (defaulPrintConfig False renames) var ""
@@ -122,7 +122,7 @@ printAstInt cfgOld d t =
   let cfg = cfgOld {representsIntIndex = True}
   in printAst cfg d t
 
-printAst :: forall s y ms. (TensorKind y, AstSpan s)
+printAst :: forall s y ms. (KnownSTK y, AstSpan s)
          => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
@@ -136,7 +136,7 @@ printAst cfgOld d t =
   else printAstAux cfgOld d t
 
 -- Precedences used are as in Haskell.
-printAstAux :: forall s y ms. (TensorKind y, AstSpan s)
+printAstAux :: forall s y ms. (KnownSTK y, AstSpan s)
             => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
   AstPair t1 t2 ->
@@ -179,14 +179,14 @@ printAstAux cfg d = \case
         . (showParen True
            $ showString "fromList "
              . showListWith (printAst cfg 0) (V.toList l))
-  AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+  AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
    case stk of
     STKScalar{} -> printPrefixOp printAst cfg d "tsum" [v]
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
     STKS{} -> printPrefixOp printAst cfg d "ssum" [v]
     STKX{} -> printPrefixOp printAst cfg d "xsum" [v]
     STKProduct{} -> printPrefixOp printAst cfg d "tsum" [v]
-  AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk -> case stk of
+  AstReplicate snat stk v | Dict <- lemKnownSTK stk -> case stk of
     STKScalar{} -> printPrefixOp printAst cfg d
                                  ("treplicate " ++ show (sNatValue snat)) [v]
     STKR{} -> printPrefixOp printAst cfg d
@@ -197,10 +197,10 @@ printAstAux cfg d = \case
     STKProduct{} -> printPrefixOp printAst cfg d
                                   ("treplicate " ++ show (sNatValue snat)) [v]
   AstMapAccumRDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
-   | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+   | Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumRDer "
       . showParen True (shows k)
@@ -215,10 +215,10 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 es
   AstMapAccumLDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
-   | Dict <- lemTensorKindOfBuild k (stensorKind @eShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @bShs)
-   , Dict <- lemTensorKindOfAD (stensorKind @eShs) ->
+   | Dict <- lemKnownSTKOfBuild k (stensorKind @eShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @bShs)
+   , Dict <- lemKnownSTKOfAD (stensorKind @eShs) ->
     showParen (d > 10)
     $ showString "dmapAccumLDer "
       . showParen True (shows k)
@@ -444,7 +444,7 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "snestS" [v]
   AstUnNestS v -> printPrefixOp printAst cfg d "sunNestS" [v]
 
-  AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     case stkz of
       STKScalar{} -> printPrefixOp printAst cfg d "kfromS" [v]
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
@@ -454,9 +454,9 @@ printAstAux cfg d = \case
   AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
 
-  AstReplicate0NS _sh stk v | Dict <- lemTensorKindOfSTK stk ->
+  AstReplicate0NS _sh stk v | Dict <- lemKnownSTK stk ->
     printPrefixOp printAst cfg d "sreplicate0N" [v]
-  AstSum0S sh stk v | Dict <- lemTensorKindOfSTK stk ->
+  AstSum0S sh stk v | Dict <- lemKnownSTK stk ->
     withKnownShS sh $
     printPrefixOp printAst cfg d "ssum0" [v]
   AstDot0S sh u v ->
@@ -490,7 +490,7 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
   showl []     = end ++ s
   showl (y:ys) = sep ++ showx y (showl ys)
 
-printAstHFun :: TensorKind y
+printAstHFun :: KnownSTK y
              => PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFun cfg d = \case
   AstLambda (var, _, l) ->
@@ -510,7 +510,7 @@ printAstHFun cfg d = \case
            . showString " -> "
            . printAst cfg 0 l
 
-printAstHFunOneUnignore :: TensorKind y
+printAstHFunOneUnignore :: KnownSTK y
                         => PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
   AstLambda (var, _, l) ->
@@ -623,47 +623,47 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstSimple :: (TensorKind y, AstSpan s)
+printAstSimple :: (KnownSTK y, AstSpan s)
                => IntMap String -> AstTensor ms s y -> String
 printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPretty :: (TensorKind y, AstSpan s)
+printAstPretty :: (KnownSTK y, AstSpan s)
                => IntMap String -> AstTensor ms s y -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
-printAstPrettyButNested :: (TensorKind y, AstSpan s)
+printAstPrettyButNested :: (KnownSTK y, AstSpan s)
                         => IntMap String -> AstTensor ms s y -> String
 printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
 printArtifactSimple
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => IntMap String
   -> AstArtifactRev x z
   -> String
 printArtifactSimple renames !AstArtifactRev{..}
- | Dict <- lemTensorKindOfAD (stensorKind @x)
- , Dict <- lemTensorKindOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (stensorKind @x)
+ , Dict <- lemKnownSTKOfAD (stensorKind @z) =
   let !varsPP = [ printAstVarName renames artVarDtRev
                 , printAstVarName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimple renames artDerivativeRev
 
 printArtifactPretty
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => IntMap String
   -> AstArtifactRev x z
   -> String
 printArtifactPretty renames !AstArtifactRev{..}
- | Dict <- lemTensorKindOfAD (stensorKind @x)
- , Dict <- lemTensorKindOfAD (stensorKind @z) =
+ | Dict <- lemKnownSTKOfAD (stensorKind @x)
+ , Dict <- lemKnownSTKOfAD (stensorKind @z) =
   let varsPP = [ printAstVarName renames artVarDtRev
                , printAstVarName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames artDerivativeRev
 
 printArtifactPrimalSimple
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => IntMap String
   -> AstArtifactRev x z
   -> String
@@ -673,7 +673,7 @@ printArtifactPrimalSimple renames !AstArtifactRev{..} =
           ++ " -> " ++ printAstSimple renames artPrimalRev
 
 printArtifactPrimalPretty
-  :: forall x z. (TensorKind x, TensorKind z)
+  :: forall x z. (KnownSTK x, KnownSTK z)
   => IntMap String
   -> AstArtifactRev x z
   -> String

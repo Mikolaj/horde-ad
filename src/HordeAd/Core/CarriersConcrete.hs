@@ -194,8 +194,8 @@ tftkG stk t =
     STKX _ stk1 | Dict <- eltDictRep stk1 ->
       FTKX (Nested.mshape t) $ repackShapeTree stk1
       $ snd $ Mixed.mshapeTree t
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                         , Dict <- lemTensorKindOfSTK stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
+                         , Dict <- lemKnownSTK stk2 ->
       FTKProduct (tftkG stk1 (fst t))
                  (tftkG stk2 (snd t))
 
@@ -242,10 +242,10 @@ nfdataDictRep = \case
 type role RepN nominal
 newtype RepN y = RepN {unRepN :: RepORArray y}
 
-instance TensorKind y => Show (RepN y) where
+instance KnownSTK y => Show (RepN y) where
   showsPrec d (RepN t) | Dict <- showDictRep (stensorKind @y) = showsPrec d t
 
-instance TensorKind y => NFData (RepN y) where
+instance KnownSTK y => NFData (RepN y) where
   rnf (RepN t) | Dict <- nfdataDictRep (stensorKind @y) = rnf t
 
 type instance BoolOf RepN = Bool
@@ -259,27 +259,27 @@ type instance DualOf RepN = DummyDualTarget
 type instance ShareOf RepN = RepN
 
 instance EqF RepN where
-  (==.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
+  (==.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
   RepN u ==. RepN v = case stensorKind @y of
     STKScalar _ -> u == v
     STKR SNat STKScalar{} -> u == v
     STKS sh STKScalar{} -> withKnownShS sh $ u == v
     STKX sh STKScalar{} -> withKnownShX sh $ u == v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemKnownSTK stk1
+                                 , Dict <- lemKnownSTK stk2 ->
       RepN @y1 (fst u) ==. RepN @y1 (fst v)
       && RepN @y2 (snd u) ==. RepN @y2 (snd v)
     _ -> error "TODO"
 
 instance OrdF RepN where
-  (<.) :: forall y. TensorKind y => RepN y -> RepN y -> Bool
+  (<.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
   RepN u <. RepN v = case stensorKind @y of
     STKScalar _ -> u < v
     STKR SNat STKScalar{} -> u < v
     STKS sh STKScalar{} -> withKnownShS sh $ u < v
     STKX sh STKScalar{} -> withKnownShX sh $ u < v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                                 , Dict <- lemTensorKindOfSTK stk2 ->
+    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemKnownSTK stk1
+                                 , Dict <- lemKnownSTK stk2 ->
       RepN @y1 (fst u) <. RepN @y1 (fst v)
       && RepN @y2 (snd u) <. RepN @y2 (snd v)
         -- lexicographic ordering  -- TODO: is this standard and the same as for <=. ? as for || ?

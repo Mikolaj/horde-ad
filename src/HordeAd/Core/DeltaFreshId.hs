@@ -45,7 +45,7 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-shareDelta :: forall y target. TensorKind y
+shareDelta :: forall y target. KnownSTK y
            => Delta target y -> Delta target y
 {-# NOINLINE shareDelta #-}
 shareDelta d = unsafePerformIO $ do

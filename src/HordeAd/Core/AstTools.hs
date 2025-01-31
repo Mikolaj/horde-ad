@@ -61,12 +61,12 @@ ftkAst t = case t of
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstMapAccumRDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+    | Dict <- lemKnownSTKOfBuild k (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) ->
       FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstMapAccumLDer @accShs @bShs k bShs _eShs _f _df _rf acc0 _es
-    | Dict <- lemTensorKindOfBuild k (stensorKind @accShs)
-    , Dict <- lemTensorKindOfBuild k (stensorKind @bShs) ->
+    | Dict <- lemKnownSTKOfBuild k (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfBuild k (stensorKind @bShs) ->
       FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstApply (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
   AstVar ftk _var -> ftk
@@ -314,7 +314,7 @@ astIsSmall relaxed = \case
 
 -- * Odds and ends
 
-liftRFromS1 :: forall n x ms s. TensorKind x
+liftRFromS1 :: forall n x ms s. KnownSTK x
             => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
@@ -344,7 +344,7 @@ liftRFromS1 f a = case ftkAst a of
 -- add three more cases for little gain (arithmetic expressions are unlikely
 -- to have AstFromPrimal and especially a build-up of interspersed
 -- conversions and AstFromPrimal).
-liftRFromS2 :: forall n x ms s. TensorKind x
+liftRFromS2 :: forall n x ms s. KnownSTK x
             => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
@@ -372,7 +372,7 @@ liftRFromS2 f a b  = case ftkAst a of
       $ f (cAstSFromR @sh a) (cAstSFromR @sh b)
         -- both are not AstFromS, but one may be
 
-liftXFromS1 :: forall sh' x ms s. TensorKind x
+liftXFromS1 :: forall sh' x ms s. KnownSTK x
             => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
@@ -397,7 +397,7 @@ liftXFromS1 f a = case ftkAst a of
       AstFromS @(TKS2 sh x) (ftkToStk ftk)
       $ f (AstSFromX @sh @sh' a)
 
-liftXFromS2 :: forall sh' x ms s. TensorKind x
+liftXFromS2 :: forall sh' x ms s. KnownSTK x
             => (forall sh. KnownShS sh
                 => AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
@@ -436,7 +436,7 @@ cAstSFromK (AstFromPrimal (AstFromS _ v))
 cAstSFromK v = AstSFromK v
 
 cAstSFromR :: forall sh r ms s.
-              (KnownShS sh, KnownNat (Rank sh), TensorKind r)
+              (KnownShS sh, KnownNat (Rank sh), KnownSTK r)
            => AstTensor ms s (TKR2 (Rank sh) r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromR (AstFromS _ v)
            | Just Refl <- sameSTK (ftkToStk (ftkAst v))
@@ -447,7 +447,7 @@ cAstSFromR (AstFromPrimal (AstFromS _ v))
 cAstSFromR v = AstSFromR v
 
 cAstSFromX :: forall sh sh' r ms s.
-              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
+              (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK r)
            => AstTensor ms s (TKX2 sh' r) -> AstTensor ms s (TKS2 sh r)
 cAstSFromX (AstFromS _ v)
            | Just Refl <- sameSTK (ftkToStk (ftkAst v))

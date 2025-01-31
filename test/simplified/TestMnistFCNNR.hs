@@ -60,19 +60,19 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
                   gamma batchSize expected =
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
@@ -170,19 +170,19 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
                   gamma batchSize expected =
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
@@ -301,19 +301,19 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
                   gamma batchSize expected =
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
-  withTensorKind
+  withKnownSTK
     (stkOfListR (stensorKind @(TKS '[widthHidden2] r)) (SNat @SizeMnistLabel)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden] r))
                         (SNat @widthHidden2)) $
-  withTensorKind
+  withKnownSTK
     (aDSTK $ stkOfListR (stensorKind @(TKS '[widthHidden2] r))
                         (SNat @SizeMnistLabel)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters

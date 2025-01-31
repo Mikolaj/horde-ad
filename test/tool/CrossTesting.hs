@@ -35,7 +35,7 @@ import EqEpsilon
 
 crevDtMaybeBoth
   :: forall r y f advals.
-     ( f ~ RepN, X advals ~ X (DValue advals), TensorKind (X advals)
+     ( f ~ RepN, X advals ~ X (DValue advals), KnownSTK (X advals)
      , GoodScalar r, KnownNat y
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget (ADVal RepN) (ADVal f (TKR y r))

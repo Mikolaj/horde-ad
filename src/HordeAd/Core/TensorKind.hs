@@ -5,10 +5,10 @@
 -- | Various singletons for tensors and their associated constraints and lemmas.
 module HordeAd.Core.TensorKind
   ( -- * Singletons
-    STensorKind(..), TensorKind(..)
-  , withTensorKind, lemTensorKindOfSTK, sameKnownSTS, sameSTK
+    STensorKind(..), KnownSTK(..)
+  , withKnownSTK, lemKnownSTK, sameKnownSTS, sameSTK
   , stkUnit, buildSTK, razeSTK, aDSTK
-  , lemTensorKindOfBuild, lemTensorKindOfAD, lemBuildOfAD
+  , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD
   , FullTensorKind(..), ftkToStk
   , ftkUnit, buildFTK, razeFTK, aDFTK
   , DummyDualTarget(..)
@@ -56,41 +56,41 @@ data STensorKind y where
 
 deriving instance Show (STensorKind y)
 
-class TensorKind (y :: TensorKindType) where
+class KnownSTK (y :: TensorKindType) where
   stensorKind :: STensorKind y
 
-instance GoodScalar r => TensorKind (TKScalar r) where
+instance GoodScalar r => KnownSTK (TKScalar r) where
   stensorKind = STKScalar typeRep
 
-instance (TensorKind x, KnownNat n)
-         => TensorKind (TKR2 n x) where
+instance (KnownSTK x, KnownNat n)
+         => KnownSTK (TKR2 n x) where
   stensorKind = STKR SNat stensorKind
 
-instance (TensorKind x, KnownShS sh)
-         => TensorKind (TKS2 sh x) where
+instance (KnownSTK x, KnownShS sh)
+         => KnownSTK (TKS2 sh x) where
   stensorKind = STKS knownShS stensorKind
 
-instance (TensorKind x, KnownShX sh)
-         => TensorKind (TKX2 sh x) where
+instance (KnownSTK x, KnownShX sh)
+         => KnownSTK (TKX2 sh x) where
   stensorKind = STKX knownShX stensorKind
 
-instance (TensorKind y, TensorKind z)
-         => TensorKind (TKProduct y z) where
+instance (KnownSTK y, KnownSTK z)
+         => KnownSTK (TKProduct y z) where
   stensorKind = STKProduct (stensorKind @y) (stensorKind @z)
 
-withTensorKind :: forall y r. STensorKind y -> (TensorKind y => r) -> r
-withTensorKind = withDict @(TensorKind y)
+withKnownSTK :: forall y r. STensorKind y -> (KnownSTK y => r) -> r
+withKnownSTK = withDict @(KnownSTK y)
 
-lemTensorKindOfSTK :: STensorKind y -> Dict TensorKind y
-lemTensorKindOfSTK = \case
+lemKnownSTK :: STensorKind y -> Dict KnownSTK y
+lemKnownSTK = \case
   STKScalar _ -> Dict
-  STKR SNat x | Dict <- lemTensorKindOfSTK x -> Dict
-  STKS sh x | Dict <- lemTensorKindOfSTK x -> withKnownShS sh Dict
-  STKX sh x | Dict <- lemTensorKindOfSTK x -> withKnownShX sh Dict
-  STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                       , Dict <- lemTensorKindOfSTK stk2 -> Dict
+  STKR SNat x | Dict <- lemKnownSTK x -> Dict
+  STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh Dict
+  STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh Dict
+  STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
+                       , Dict <- lemKnownSTK stk2 -> Dict
 
-sameKnownSTS :: forall y1 y2. (TensorKind y1, TensorKind y2)
+sameKnownSTS :: forall y1 y2. (KnownSTK y1, KnownSTK y2)
                => Maybe (y1 :~: y2)
 sameKnownSTS = sameSTK (stensorKind @y1) (stensorKind @y2)
 
@@ -157,13 +157,13 @@ aDSTK = \case
   STKX sh x -> STKX sh $ aDSTK x
   STKProduct stk1 stk2 -> STKProduct (aDSTK stk1) (aDSTK stk2)
 
-lemTensorKindOfBuild :: SNat k -> STensorKind y
-                     -> Dict TensorKind (BuildTensorKind k y)
-lemTensorKindOfBuild snat = lemTensorKindOfSTK . buildSTK snat
+lemKnownSTKOfBuild :: SNat k -> STensorKind y
+                     -> Dict KnownSTK (BuildTensorKind k y)
+lemKnownSTKOfBuild snat = lemKnownSTK . buildSTK snat
 
-lemTensorKindOfAD :: STensorKind y
-                  -> Dict TensorKind (ADTensorKind y)
-lemTensorKindOfAD = lemTensorKindOfSTK . aDSTK
+lemKnownSTKOfAD :: STensorKind y
+                  -> Dict KnownSTK (ADTensorKind y)
+lemKnownSTKOfAD = lemKnownSTK . aDSTK
 
 lemBuildOfAD :: SNat k -> STensorKind y
              -> BuildTensorKind k (ADTensorKind y)
@@ -219,8 +219,8 @@ razeFTK snat@SNat stk ftk = case (stk, ftk) of
   (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x
   (STKX{}, FTKX (_ :$% sh) x) -> FTKX sh x
   (STKProduct stk1 stk2, FTKProduct ftk1 ftk2)
-    | Dict <- lemTensorKindOfSTK stk1
-    , Dict <- lemTensorKindOfSTK stk2 ->
+    | Dict <- lemKnownSTK stk1
+    , Dict <- lemKnownSTK stk2 ->
       FTKProduct (razeFTK snat stk1 ftk1) (razeFTK snat stk2 ftk2)
 
 aDFTK :: FullTensorKind y
@@ -249,13 +249,13 @@ type family BoolOf (t :: Target) :: Type
 infix 4 ==., /=.
 class Boolean (BoolOf f) => EqF (f :: Target) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
-  (==.), (/=.) :: TensorKind y => f y -> f y -> BoolOf f
+  (==.), (/=.) :: KnownSTK y => f y -> f y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
 class Boolean (BoolOf f) => OrdF (f :: Target) where
   -- The existential variables here are handled in instances, e.g., via AstRel.
-  (<.), (<=.), (>.), (>=.) :: TensorKind y => f y -> f y -> BoolOf f
+  (<.), (<=.), (>.), (>=.) :: KnownSTK y => f y -> f y -> BoolOf f
   u >. v = v <. u
   u >=. v = notB (u <. v)
   u <=. v = v >=. u

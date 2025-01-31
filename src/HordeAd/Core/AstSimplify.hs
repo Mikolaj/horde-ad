@@ -159,7 +159,7 @@ defaultKnobs = SimplifyKnobs False False
 -- and nesting with reshape and gather they don't fuse, which is when
 -- this function is invoked.
 astTransposeAsGatherS
-  :: forall perm sh s r. (TensorKind r, KnownShS sh, AstSpan s)
+  :: forall perm sh s r. (KnownSTK r, KnownShS sh, AstSpan s)
   => SimplifyKnobs -> Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 {-# NOINLINE astTransposeAsGatherS #-}
@@ -228,7 +228,7 @@ astTransposeAsGatherS knobs perm v =
 -- where term size blowup can't be avoided, because the index has to be
 -- normalized between each reshape.
 astReshapeAsGatherS
-  :: forall sh sh2 r s. (TensorKind r, KnownShS sh, KnownShS sh2, AstSpan s)
+  :: forall sh sh2 r s. (KnownSTK r, KnownShS sh, KnownShS sh2, AstSpan s)
   => SimplifyKnobs -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 sh2 r)
 {-# NOINLINE astReshapeAsGatherS #-}
@@ -272,7 +272,7 @@ permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 
 -- * The simplifying combinators, one for almost each AST constructor
 
-astPair :: (TensorKind x, TensorKind y)
+astPair :: (KnownSTK x, KnownSTK y)
          => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s (TKProduct x y)
 -- TODO, but maybe not the best idea?:
@@ -283,19 +283,19 @@ astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
 astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
   Ast.AstFromDual $ astPair v1 v2
 astPair (Ast.AstFromS stkz1 v1) (Ast.AstFromS stkz2 v2)
-  | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v1))
-  , Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v2)) =
+  | Dict <- lemKnownSTK (ftkToStk (ftkAst v1))
+  , Dict <- lemKnownSTK (ftkToStk (ftkAst v2)) =
     astFromS (STKProduct stkz1 stkz2) $ astPair v1 v2
 astPair (Ast.AstFromS stkz1 v1) v2
-  | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v1)) =
+  | Dict <- lemKnownSTK (ftkToStk (ftkAst v1)) =
     astFromS (STKProduct stkz1 (ftkToStk (ftkAst v2))) $ astPair v1 v2
 astPair v1 (Ast.AstFromS stkz2 v2)
-  | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v2)) =
+  | Dict <- lemKnownSTK (ftkToStk (ftkAst v2)) =
     astFromS (STKProduct (ftkToStk (ftkAst v1)) stkz2) $ astPair v1 v2
 astPair v1 v2 = Ast.AstPair v1 v2
 
 astProject1
-  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
+  :: forall x z s. (KnownSTK x, KnownSTK z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
   Ast.AstPair x _z -> x
@@ -305,14 +305,14 @@ astProject1 u = case u of
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                         , Dict <- lemTensorKindOfSTK stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
+                         , Dict <- lemKnownSTK stk2 ->
       astFromS (stensorKind @x) $ astProject1 u1
     _ -> error "astProject1: wrong tensor kind"
   _ -> Ast.AstProject1 u
 
 astProject2
-  :: forall x z s. (TensorKind x, TensorKind z, AstSpan s)
+  :: forall x z s. (KnownSTK x, KnownSTK z, AstSpan s)
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s z
 astProject2 u = case u of
   Ast.AstPair _x z -> z
@@ -322,13 +322,13 @@ astProject2 u = case u of
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
   Ast.AstFromS _ u1 -> case ftkToStk (ftkAst u1) of
-    STKProduct stk1 stk2 | Dict <- lemTensorKindOfSTK stk1
-                         , Dict <- lemTensorKindOfSTK stk2 ->
+    STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
+                         , Dict <- lemKnownSTK stk2 ->
       astFromS (stensorKind @z) $ astProject2 u1
     _ -> error "astProject2: wrong tensor kind"
   _ -> Ast.AstProject2 u
 
-astFromVector :: forall y k s. (TensorKind y, AstSpan s)
+astFromVector :: forall y k s. (KnownSTK y, AstSpan s)
               => SNat k -> Data.Vector.Vector (AstTensor AstMethodLet s y)
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astFromVector snat v | Just Refl <- geq snat (SNat @1) =
@@ -342,7 +342,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
            unConc _ = Nothing
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
-         Just l4 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+         Just l4 | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
            let l3 = V.map snd l4
            in Just $ astConcrete (buildFTK snat $ fst $ l4 V.! 0)
               $ tfromVector snat stensorKind l3
@@ -357,7 +357,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
            unFromPrimal _ = Nothing
        in case V.mapM unFromPrimal l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+         Just l2 | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
            Just $ Ast.AstFromPrimal $ astFromVector snat l2
          Nothing -> Nothing
      _ -> Nothing)
@@ -370,7 +370,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
            unFromDual _ = Nothing
        in case V.mapM unFromDual l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 | Dict <- lemTensorKindOfBuild snat (stensorKind @y) ->
+         Just l2 | Dict <- lemKnownSTKOfBuild snat (stensorKind @y) ->
            Just $ Ast.AstFromDual $ astFromVector snat l2
          Nothing -> Nothing
      _ -> Nothing)
@@ -386,7 +386,7 @@ astFromVector snat@SNat l = fromMaybe (Ast.AstFromVector snat l) $
    in case V.uncons l of
      Just (Ast.AstFromS stkz v, _) ->
        case V.mapM (unFrom (ftkToStk (ftkAst v))) l of
-         Just l2 | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+         Just l2 | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
            Just $ astFromS (buildSTK snat stkz)
                 $ astFromVector snat l2
          Nothing -> Nothing
@@ -426,13 +426,13 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
     Ast.AstReplicate snat2 (STKS sh _) v | STKS _ STKScalar{} <- stk ->
      withKnownShS sh $
      v * astReplicate0NS (fromInteger $ fromSNat snat2)
-    AstConcrete ftk t | Dict <- lemTensorKindOfSTK stk ->
+    AstConcrete ftk t | Dict <- lemKnownSTK stk ->
       astConcrete (razeFTK snat stensorKind ftk) $ tsum snat stk t
     -- Ast.AstLet var u v -> astLet var u (astSum snat v)
       -- this is problematic, because it keeps huge tensors alive for longer
-    Ast.AstFromPrimal v | Dict <- lemTensorKindOfSTK stk ->
+    Ast.AstFromPrimal v | Dict <- lemKnownSTK stk ->
       Ast.AstFromPrimal $ astSum snat stk v
-    Ast.AstFromDual v | Dict <- lemTensorKindOfSTK stk ->
+    Ast.AstFromDual v | Dict <- lemKnownSTK stk ->
       Ast.AstFromDual $ astSum snat stk v
     Ast.AstSliceS @_ @k2 _v  | STKS _ STKScalar{} <- stk
                              , Just Refl <- sameNat (Proxy @k2) (Proxy @0) ->
@@ -447,7 +447,7 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
       astIndexS v (valueOf @i :.$ ZIS)
     Ast.AstReverseS v | STKS{} <- stk -> astSum snat stk v
     Ast.AstFromS _ v -> case ftkToStk (ftkAst v) of
-      STKS @_ @x sh x | Dict <- lemTensorKindOfSTK stk -> case sh of
+      STKS @_ @x sh x | Dict <- lemKnownSTK stk -> case sh of
         (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
           astFromS @(TKS2 rest x) stk $ astSum snat (STKS rest x) v
         _ -> error "astSum: impossible shape"
@@ -459,7 +459,7 @@ astReplicate :: forall y k s. AstSpan s
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astReplicate snat@SNat stk
- | Dict <- lemTensorKindOfBuild snat stk = \case
+ | Dict <- lemKnownSTKOfBuild snat stk = \case
 -- This allocates a big tensor too early, while it's still possible
 -- a projection reduces this away. The cost to AD should not be too high.
 -- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
@@ -485,14 +485,14 @@ astReplicate snat@SNat stk
     AstReshape (k :$: sh) $ astReplicate k v
 -}
   Ast.AstFromS stkz v
-    | Dict <- lemTensorKindOfBuild snat (ftkToStk (ftkAst v)) ->
+    | Dict <- lemKnownSTKOfBuild snat (ftkToStk (ftkAst v)) ->
       astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToStk (ftkAst v)) v
   v -> Ast.AstReplicate snat stk v
 
 -- TODO: also push up AstFromPrimal, etc.
 astMapAccumRDer
   :: forall accShs bShs eShs k s.
-     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+     (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
   => SNat k
   -> FullTensorKind bShs
   -> FullTensorKind eShs
@@ -510,11 +510,11 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                             (AstLambda (vard, _ftkd, vd))
                             (AstLambda (varr, _ftkr, vr))
                 (Ast.AstFromS @accShsFrom accShsStk acc0From) es
-  | Dict <- lemTensorKindOfSTK (ftkToStk $ ftkAst acc0From)
-  , Dict <- lemTensorKindOfAD (ftkToStk $ ftkAst acc0From)
-  , Dict <- lemTensorKindOfAD accShsStk
-  , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-  , Dict <- lemTensorKindOfAD (ftkToStk eShs) =
+  | Dict <- lemKnownSTK (ftkToStk $ ftkAst acc0From)
+  , Dict <- lemKnownSTKOfAD (ftkToStk $ ftkAst acc0From)
+  , Dict <- lemKnownSTKOfAD accShsStk
+  , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+  , Dict <- lemKnownSTKOfAD (ftkToStk eShs) =
   let accShsFrom = ftkAst acc0From
       accShsFromStk = ftkToStk accShsFrom
       varf2 = mkAstVarName (varNameToAstVarId varf)
@@ -577,17 +577,17 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                             (AstLambda (vard, _ftkd, vd))
                             (AstLambda (varr, _ftkr, vr))
                 acc0 (Ast.AstFromS @esShsFrom _esShsStk esFrom)
-  | Dict <- lemTensorKindOfAD (ftkToStk $ ftkAst acc0)
-  , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-  , Dict <- lemTensorKindOfAD (ftkToStk eShs) =
+  | Dict <- lemKnownSTKOfAD (ftkToStk $ ftkAst acc0)
+  , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+  , Dict <- lemKnownSTKOfAD (ftkToStk eShs) =
   let accShs = ftkAst acc0
       accShsStk = ftkToStk accShs
       esShsFrom = ftkAst esFrom
       esShsFromStk = ftkToStk esShsFrom
   in case razeSTK esShsFromStk of
     (eShsFromStk :: STensorKind eShsFrom)
-     | Dict <- lemTensorKindOfSTK eShsFromStk
-     , Dict <- lemTensorKindOfAD eShsFromStk ->
+     | Dict <- lemKnownSTK eShsFromStk
+     , Dict <- lemKnownSTKOfAD eShsFromStk ->
       gcastWith (unsafeCoerceRefl
                  :: BuildTensorKind k eShsFrom :~: esShsFrom) $
       let eShsFrom = razeFTK k eShsFromStk esShsFrom
@@ -644,7 +644,7 @@ astMapAccumRDer k bShs eShs f df rf acc0 es =
 
 astMapAccumLDer
   :: forall accShs bShs eShs k s.
-     (TensorKind accShs, TensorKind bShs, TensorKind eShs)
+     (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
   => SNat k
   -> FullTensorKind bShs
   -> FullTensorKind eShs
@@ -662,11 +662,11 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                             (AstLambda (vard, _ftkd, vd))
                             (AstLambda (varr, _ftkr, vr))
                 (Ast.AstFromS @accShsFrom accShsStk acc0From) es
-  | Dict <- lemTensorKindOfSTK (ftkToStk $ ftkAst acc0From)
-  , Dict <- lemTensorKindOfAD (ftkToStk $ ftkAst acc0From)
-  , Dict <- lemTensorKindOfAD accShsStk
-  , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-  , Dict <- lemTensorKindOfAD (ftkToStk eShs) =
+  | Dict <- lemKnownSTK (ftkToStk $ ftkAst acc0From)
+  , Dict <- lemKnownSTKOfAD (ftkToStk $ ftkAst acc0From)
+  , Dict <- lemKnownSTKOfAD accShsStk
+  , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+  , Dict <- lemKnownSTKOfAD (ftkToStk eShs) =
   let accShsFrom = ftkAst acc0From
       accShsFromStk = ftkToStk accShsFrom
       varf2 = mkAstVarName (varNameToAstVarId varf)
@@ -729,17 +729,17 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
                             (AstLambda (vard, _ftkd, vd))
                             (AstLambda (varr, _ftkr, vr))
                 acc0 (Ast.AstFromS @esShsFrom _esShsStk esFrom)
-  | Dict <- lemTensorKindOfAD (ftkToStk $ ftkAst acc0)
-  , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-  , Dict <- lemTensorKindOfAD (ftkToStk eShs) =
+  | Dict <- lemKnownSTKOfAD (ftkToStk $ ftkAst acc0)
+  , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+  , Dict <- lemKnownSTKOfAD (ftkToStk eShs) =
   let accShs = ftkAst acc0
       accShsStk = ftkToStk accShs
       esShsFrom = ftkAst esFrom
       esShsFromStk = ftkToStk esShsFrom
   in case razeSTK esShsFromStk of
     (eShsFromStk :: STensorKind eShsFrom)
-     | Dict <- lemTensorKindOfSTK eShsFromStk
-     , Dict <- lemTensorKindOfAD eShsFromStk ->
+     | Dict <- lemKnownSTK eShsFromStk
+     , Dict <- lemKnownSTKOfAD eShsFromStk ->
       gcastWith (unsafeCoerceRefl
                  :: BuildTensorKind k eShsFrom :~: esShsFrom) $
       let eShsFrom = razeFTK k eShsFromStk esShsFrom
@@ -794,7 +794,7 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, _ftkf, vf))
 astMapAccumLDer k bShs eShs f df rf acc0 es =
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
 
-astApply :: forall s x y. (AstSpan s, TensorKind x, TensorKind y)
+astApply :: forall s x y. (AstSpan s, KnownSTK x, KnownSTK y)
          => AstHFun x y -> AstTensor AstMethodLet s x
          -> AstTensor AstMethodLet s y
 astApply t u = case t of
@@ -803,7 +803,7 @@ astApply t u = case t of
       Just Refl -> astLet var u v
       _ -> Ast.AstApply t u
 
-astCond :: TensorKind y
+astCond :: KnownSTK y
         => AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
@@ -814,20 +814,20 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   Ast.AstFromDual $ astCond b v w
 astCond b (Ast.AstFromS stkzv v) (Ast.AstFromS _ w) =
   case sameSTK (ftkToStk (ftkAst v)) (ftkToStk (ftkAst w)) of
-    Just Refl | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+    Just Refl | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
       astFromS stkzv $ astCond b v w
     Nothing -> error "astCond: shapes don't match"
 astCond b v w = Ast.AstCond b v w
 
-astConcrete :: TensorKind y
+astConcrete :: KnownSTK y
             => FullTensorKind y -> RepN y -> AstTensor AstMethodLet PrimalSpan y
 astConcrete ftk v = case ftk of
   FTKR sh' x | SNat <- shrRank sh'
-             , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+             , Dict <- lemKnownSTK (ftkToStk x) ->
     withCastRS sh' $ \sh ->
       withKnownShS sh $
       astFromS (ftkToStk ftk) $ AstConcrete (FTKS sh x) (sfromR v)
-  FTKX sh' x | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+  FTKX sh' x | Dict <- lemKnownSTK (ftkToStk x) ->
     withCastXS sh' $ \sh ->
       withKnownShS sh $
       withKnownShX (ssxFromShape sh') $
@@ -836,7 +836,7 @@ astConcrete ftk v = case ftk of
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
-astLet :: forall y z s s2. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
+astLet :: forall y z s s2. (AstSpan s, AstSpan s2, KnownSTK y, KnownSTK z)
        => AstVarName s y -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z
        -> AstTensor AstMethodLet s2 z
@@ -885,10 +885,10 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
 astLet var u (Ast.AstFromS stkz v)
-  | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) =
+  | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) =
     astFromS stkz $ astLet var u v
 astLet var (Ast.AstFromS stkz a) v = case ftkAst a of
-  ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
+  ftk | Dict <- lemKnownSTK (ftkToStk ftk) ->
     let var2 = mkAstVarName (varNameToAstVarId var)
         ast = astFromS stkz $ Ast.AstVar ftk var2
     in astLet var2 a (substituteAst ast var v)
@@ -904,7 +904,7 @@ astLetInt :: IntVarName -> AstInt AstMethodLet -> AstInt AstMethodLet
 astLetInt var u v | var `varNameInAst` v = astLet var u v
 astLetInt _ _ v = v
 
-astPrimalPart :: TensorKind y
+astPrimalPart :: KnownSTK y
               => AstTensor AstMethodLet FullSpan y
               -> AstTensor AstMethodLet PrimalSpan y
 astPrimalPart t = case t of
@@ -912,16 +912,16 @@ astPrimalPart t = case t of
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
   Ast.AstProject2 v -> astProject2 (astPrimalPart v)
   Ast.AstFromVector snat l -> astFromVector snat (V.map astPrimalPart l)
-  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+  Ast.AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
     astSum snat stk (astPrimalPart v)
-  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstReplicate snat stk v | Dict <- lemKnownSTK stk ->
     astReplicate snat stk (astPrimalPart v)
   Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs) ->
       astMapAccumRDer k bShs eShs f df rf
                       (astPrimalPart acc0) (astPrimalPart es)
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs) ->
       astMapAccumLDer k bShs eShs f df rf
                       (astPrimalPart acc0) (astPrimalPart es)
   Ast.AstApply v ll -> astApply v (astPrimalPart ll)
@@ -975,7 +975,7 @@ astPrimalPart t = case t of
     astNestS $ astPrimalPart v
   Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
 
-  Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  Ast.AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ astPrimalPart v
   -- These conversions need to stay down.
   Ast.AstSFromK{} -> Ast.AstPrimalPart t
@@ -992,7 +992,7 @@ astPrimalPart t = case t of
 
 -- Note how this can't be pushed down, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
-astDualPart :: TensorKind y
+astDualPart :: KnownSTK y
             => AstTensor AstMethodLet FullSpan y
             -> AstTensor AstMethodLet DualSpan y
 astDualPart t = case t of
@@ -1000,16 +1000,16 @@ astDualPart t = case t of
   Ast.AstProject1 v -> astProject1 (astDualPart v)
   Ast.AstProject2 v -> astProject2 (astDualPart v)
   Ast.AstFromVector snat l -> astFromVector snat (V.map astDualPart l)
-  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+  Ast.AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
     astSum snat stk (astDualPart v)
-  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstReplicate snat stk v | Dict <- lemKnownSTK stk ->
     astReplicate snat stk (astDualPart v)
   Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs) ->
       astMapAccumRDer k bShs eShs f df rf
                           (astDualPart acc0) (astDualPart es)
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs) ->
       astMapAccumLDer k bShs eShs f df rf
                       (astDualPart acc0) (astDualPart es)
   Ast.AstApply v ll -> astApply v (astDualPart ll)
@@ -1061,7 +1061,7 @@ astDualPart t = case t of
     astNestS $ astDualPart v
   Ast.AstUnNestS v -> astUnNestS $ astDualPart v
 
-  Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  Ast.AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ astDualPart v
    -- These conversions need to stay down.
   Ast.AstSFromK{} -> Ast.AstDualPart t
@@ -1085,7 +1085,7 @@ astSumOfList stk l = case stk of
   STKR SNat STKScalar{} -> foldr1 (+) l
   STKS sh STKScalar{} -> withKnownShS sh $ foldr1 (+) l
   STKX sh STKScalar{} -> withKnownShX sh $ foldr1 (+) l
-  _ | Dict <- lemTensorKindOfSTK stk ->
+  _ | Dict <- lemKnownSTK stk ->
     let v = V.fromList l
     in withSNat (V.length v) $ \snat ->
       astSum snat stk $ astFromVector snat v
@@ -1129,14 +1129,14 @@ astCastS v = Ast.AstCastS v
 
 astIndexS
   :: forall shm shn s r.
-     (KnownShS shm, KnownShS shn, TensorKind r, AstSpan s)
+     (KnownShS shm, KnownShS shn, KnownSTK r, AstSpan s)
   => AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexS = astIndexKnobsS defaultKnobs
 
 astIndexStepS
   :: forall shm shn s r.
-     (KnownShS shm, KnownShS shn, TensorKind r, AstSpan s)
+     (KnownShS shm, KnownShS shn, KnownSTK r, AstSpan s)
   => AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexStepS v ix =
@@ -1155,7 +1155,7 @@ astIndexStepS v ix =
 -- either from full recursive simplification or from astIndexStep.
 astIndexKnobsS
   :: forall shm shn s r.
-     (KnownShS shm, KnownShS shn, TensorKind r, AstSpan s)
+     (KnownShS shm, KnownShS shn, KnownSTK r, AstSpan s)
   => SimplifyKnobs
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
   -> AstIxS AstMethodLet shm
@@ -1419,7 +1419,7 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
 -- so it's probably more efficient. Use this instead of tletIx
 -- or design something even better.
-shareIx :: (TensorKind y, IsList indexType, Item indexType ~ AstInt AstMethodLet)
+shareIx :: (KnownSTK y, IsList indexType, Item indexType ~ AstInt AstMethodLet)
         => indexType
         -> (indexType -> AstTensor AstMethodLet s y)
         -> AstTensor AstMethodLet s y
@@ -1436,7 +1436,7 @@ shareIx ix f = unsafePerformIO $ do
 
 -- TODO: fuse scatters, scatter and sum, perhaps more (fromList?)
 astScatterS :: forall shm shn shp r s .
-               (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r, AstSpan s)
+               (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK r, AstSpan s)
             => AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
             -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
@@ -1465,7 +1465,7 @@ astScatterS v (vars, ix) = Ast.AstScatterS @shm @shn @shp v (vars, ix)
 
 astGatherS
   :: forall shm shn shp r s.
-     (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r, AstSpan s)
+     (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK r, AstSpan s)
   => AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
@@ -1473,7 +1473,7 @@ astGatherS = astGatherKnobsS @shm @shn @shp defaultKnobs
 
 astGatherStepS
   :: forall shm shn shp r s.
-     (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r, AstSpan s)
+     (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK r, AstSpan s)
   => AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
@@ -1507,7 +1507,7 @@ isVar _ = False
 -- either from full recursive simplification or from astGatherStep.
 astGatherKnobsS
   :: forall shm shn shp r s.
-     (KnownShS shm, KnownShS shn, KnownShS shp, TensorKind r, AstSpan s)
+     (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK r, AstSpan s)
   => SimplifyKnobs
   -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
@@ -1575,7 +1575,7 @@ astGatherKnobsS knobs v0 (vars0, ix0) =
     else astIndexKnobsS knobs v2 ix2
   astGatherRec, astGather
     :: forall shm' shn' shp' s' r'.
-       (KnownShS shm', KnownShS shn', KnownShS shp', AstSpan s', TensorKind r')
+       (KnownShS shm', KnownShS shn', KnownShS shp', AstSpan s', KnownSTK r')
     => AstTensor AstMethodLet s' (TKS2 (shp' ++ shn') r')
     -> (AstVarListS shm', AstIxS AstMethodLet shp')
     -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
@@ -1978,7 +1978,7 @@ gatherFromNFS vars (i :.$ IxS rest) =
                        && not (any (`varNameInAst` i) $ toList varsPM)
           Nothing -> False
 
-astAppendS :: (KnownNat m, KnownNat n, KnownShS sh, TensorKind r, AstSpan s)
+astAppendS :: (KnownNat m, KnownNat n, KnownShS sh, KnownSTK r, AstSpan s)
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) r)
@@ -1996,7 +1996,7 @@ astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
 astAppendS u v = Ast.AstAppendS u v
 
 astSliceS :: forall i n k sh s r.
-             ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, TensorKind r
+             ( KnownNat i, KnownNat n, KnownNat k, KnownShS sh, KnownSTK r
              , AstSpan s )
           => AstTensor AstMethodLet s (TKS2 (i + n + k ': sh) r)
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -2039,7 +2039,7 @@ astSliceS v = Ast.AstSliceS @i v
        $ map fromIntegral [i :: Int .. i + n - 1]
 -}
 
-astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, TensorKind r, AstSpan s)
+astReverseS :: forall n sh s r. (KnownNat n, KnownShS sh, KnownSTK r, AstSpan s)
             => AstTensor AstMethodLet s (TKS2 (n ': sh) r)
             -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (Ast.AstFromVector snat l) =
@@ -2061,7 +2061,7 @@ astReverseS v = Ast.AstReverseS v
 -- if full simplification is required.
 astTransposeS :: forall perm sh s r.
                  ( PermC perm, KnownShS sh, Rank perm <= Rank sh
-                 , TensorKind r, AstSpan s )
+                 , KnownSTK r, AstSpan s )
               => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
               -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 astTransposeS perm t = case perm of
@@ -2158,7 +2158,7 @@ astTransposeS perm t = case perm of
 -- if full simplification is required.
 astReshapeS :: forall sh sh2 r s.
                ( KnownShS sh, KnownShS sh2, Product sh ~ Product sh2
-               , TensorKind r, AstSpan s )
+               , KnownSTK r, AstSpan s )
             => AstTensor AstMethodLet s (TKS2 sh r)
             -> AstTensor AstMethodLet s (TKS2 sh2 r)
 astReshapeS = \case
@@ -2190,7 +2190,7 @@ astReshapeS = \case
 
 astNestS
   :: forall sh1 sh2 x ms s.
-     (TensorKind x, KnownShS sh1, KnownShS sh2, AstSpan s)
+     (KnownSTK x, KnownShS sh1, KnownShS sh2, AstSpan s)
   => AstTensor ms s (TKS2 (sh1 ++ sh2) x)
   -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
 astNestS t = case t of
@@ -2210,7 +2210,7 @@ astNestS t = case t of
 
 astUnNestS
   :: forall sh1 sh2 x ms s.
-     (TensorKind x, KnownShS sh1, KnownShS sh2, AstSpan s)
+     (KnownSTK x, KnownShS sh1, KnownShS sh2, AstSpan s)
   => AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
   -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)
 astUnNestS t = case t of
@@ -2233,11 +2233,11 @@ astFromS :: forall y z s.
             STensorKind z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
-astFromS stkz (Ast.AstFromPrimal v) | Dict <- lemTensorKindOfSTK stkz =
+astFromS stkz (Ast.AstFromPrimal v) | Dict <- lemKnownSTK stkz =
   Ast.AstFromPrimal $ astFromS stkz v
   -- the only case where we don't push up but down so that conversions
   -- don't end up interspersed with AstFromPrimal
-astFromS stkz (Ast.AstFromDual v) | Dict <- lemTensorKindOfSTK stkz =
+astFromS stkz (Ast.AstFromDual v) | Dict <- lemKnownSTK stkz =
   Ast.AstFromDual $ astFromS stkz v
 astFromS stkz (Ast.AstSFromK v)
          | Just Refl <- sameSTK (ftkToStk (ftkAst v)) stkz = v
@@ -2259,13 +2259,13 @@ astSFrom stkz v = case (stkz, ftkToStk (ftkAst v)) of
   (STKS ZSS (STKScalar trz), STKScalar try) -> case testEquality try trz of
     Just Refl -> astSFromK v
     Nothing -> error "astSFrom: tensor kinds don't match"
-  (STKS shz zx, STKR yn@SNat yx) | Dict <- lemTensorKindOfSTK yx ->
+  (STKS shz zx, STKR yn@SNat yx) | Dict <- lemKnownSTK yx ->
     case (sameSTK yx zx, testEquality (shsRank shz) yn) of
       (Just Refl, Just Refl) ->
         withKnownShS shz $
         astSFromR v
       _ -> error "astSFrom: tensor kinds don't match"
-  (STKS shz zx, STKX shy yx) | Dict <- lemTensorKindOfSTK yx ->
+  (STKS shz zx, STKX shy yx) | Dict <- lemKnownSTK yx ->
     case (sameSTK yx zx, testEquality (shsRank shz) (ssxRank shy)) of
       (Just Refl, Just Refl) ->
         withKnownShS shz $
@@ -2273,10 +2273,10 @@ astSFrom stkz v = case (stkz, ftkToStk (ftkAst v)) of
         astSFromX v
       _ -> error "astSFrom: tensor kinds don't match"
   (STKProduct stkz1 stkz2, STKProduct stky1 stky2)
-    | Dict <- lemTensorKindOfSTK stky1
-    , Dict <- lemTensorKindOfSTK stky2
-    , Dict <- lemTensorKindOfSTK stkz1
-    , Dict <- lemTensorKindOfSTK stkz2 ->
+    | Dict <- lemKnownSTK stky1
+    , Dict <- lemKnownSTK stky2
+    , Dict <- lemKnownSTK stkz1
+    , Dict <- lemKnownSTK stkz2 ->
       -- TODO: this is bad, we are introducing let with a non-shaped variable
       astLetFun v $ \ !u3 ->
         astPair (astSFrom stkz1 (astProject1 u3))
@@ -2310,7 +2310,7 @@ astSFromK t = case t of
 -- so that the conversions cancel out. Consequently, the conversions away
 -- from shaped are pushed up.
 astSFromR :: forall sh s r.
-             (TensorKind r, KnownShS sh, KnownNat (Rank sh), AstSpan s)
+             (KnownSTK r, KnownShS sh, KnownNat (Rank sh), AstSpan s)
           => AstTensor AstMethodLet s (TKR2 (Rank sh) r)
           -> AstTensor AstMethodLet s (TKS2 sh r)
 astSFromR a0 = case a0 of
@@ -2360,7 +2360,7 @@ astSFromR a0 = case a0 of
 
 -- TODO
 astSFromX :: forall sh sh' s r.
-             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', TensorKind r)
+             (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK r)
           => AstTensor AstMethodLet s (TKX2 sh' r)
           -> AstTensor AstMethodLet s (TKS2 sh r)
 astSFromX (AstConcrete ftk t) = case ftk of
@@ -2380,25 +2380,25 @@ astSFromX v = Ast.AstSFromX v
 
 -- TODO: a new section for this one?
 astLetFun :: forall y z s s2.
-             (TensorKind z, AstSpan s, AstSpan s2)
+             (KnownSTK z, AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
           -> AstTensor AstMethodLet s2 z
 astLetFun a f | astIsSmall True a = f a  -- TODO: since astLetFun is now called recursively a lot, ensure astIsSmall is constant, at least except for a constant number of the recursive calls
 astLetFun a f = case a of
-  Ast.AstFromS @y2 stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  Ast.AstFromS @y2 stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     let (var, ast) = funToAst (ftkAst v) (f . astFromS @y2 stkz)
     in astLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
-                           , Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+                           , Dict <- lemKnownSTK (ftkToStk x) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         let (var, ast) =
               funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToStk ftk))
         in astLet var (astSFromR @sh a) ast
              -- safe, because subsitution ruled out above
-    ftk@(FTKX @_ @x sh' x) | Dict <- lemTensorKindOfSTK (ftkToStk x) ->
+    ftk@(FTKX @_ @x sh' x) | Dict <- lemKnownSTK (ftkToStk x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShX (ssxFromShape sh') $
         withKnownShS sh $
@@ -2406,12 +2406,12 @@ astLetFun a f = case a of
               funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToStk ftk))
         in astLet var (astSFromX @sh a) ast
     -- TODO: also recursively product, though may be not worth it
-    ftk | Dict <- lemTensorKindOfSTK (ftkToStk ftk) ->
+    ftk | Dict <- lemKnownSTK (ftkToStk ftk) ->
           let (var, ast) = funToAst ftk f
           in astLet var a ast
 
 astReplicateNS :: forall shn shp s r.
-                  (KnownShS shn, KnownShS shp, TensorKind r, AstSpan s)
+                  (KnownShS shn, KnownShS shp, KnownSTK r, AstSpan s)
                => AstTensor AstMethodLet s (TKS2 shp r)
                -> AstTensor AstMethodLet s (TKS2 (shn ++ shp) r)
 astReplicateNS v =
@@ -2442,7 +2442,7 @@ astReplicate0NS =
 -- (many steps if guaranteed net beneficial). Terms representing integers
 -- and and AstBool terms are simplified as much as possible.
 astNonIndexStep
-  :: (AstSpan s, TensorKind y)
+  :: (AstSpan s, KnownSTK y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 astNonIndexStep t = case t of
   Ast.AstPair t1 t2 -> astPair (astNonIndexStep t1) (astNonIndexStep t2)
@@ -2544,22 +2544,22 @@ expandAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
 expandAstIxS = fmap expandAstInt
 
 expandAst
-  :: forall s y. (AstSpan s, TensorKind y)
+  :: forall s y. (AstSpan s, KnownSTK y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 expandAst t = case t of
   Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
   Ast.AstFromVector snat l -> astFromVector snat (V.map expandAst l)
-  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+  Ast.AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
     astSum snat stk (expandAst v)
-  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstReplicate snat stk v | Dict <- lemKnownSTK stk ->
     astReplicate snat stk (expandAst v)
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       astMapAccumRDer k bShs eShs
                       (expandAstHFun f)
                       (expandAstHFun df)
@@ -2567,10 +2567,10 @@ expandAst t = case t of
                       (expandAst acc0)
                       (expandAst es)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       astMapAccumLDer k bShs eShs
                       (expandAstHFun f)
                       (expandAstHFun df)
@@ -2704,7 +2704,7 @@ expandAst t = case t of
     astNestS $ expandAst v
   Ast.AstUnNestS v -> astUnNestS $ expandAst v
 
-  Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  Ast.AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ expandAst v
   Ast.AstSFromK u -> astSFromK $ expandAst u
   Ast.AstSFromR v -> astSFromR $ expandAst v
@@ -2718,7 +2718,7 @@ expandAst t = case t of
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
 
-expandAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
+expandAstHFun :: KnownSTK y => AstHFun x y -> AstHFun x y
 expandAstHFun = \case
   Ast.AstLambda ~(vvars, ftk, l) ->
     Ast.AstLambda (vvars, ftk, expandAst l)
@@ -2751,22 +2751,22 @@ simplifyAstIxS = fmap simplifyAstInt
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
 simplifyAst
-  :: forall s y. (AstSpan s, TensorKind y)
+  :: forall s y. (AstSpan s, KnownSTK y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 simplifyAst t = case t of
   Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
   Ast.AstFromVector snat l -> astFromVector snat (V.map simplifyAst l)
-  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+  Ast.AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
     astSum snat stk (simplifyAst v)
-  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstReplicate snat stk v | Dict <- lemKnownSTK stk ->
     astReplicate snat stk (simplifyAst v)
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       astMapAccumRDer k bShs eShs
                       (simplifyAstHFun f)
                       (simplifyAstHFun df)
@@ -2774,10 +2774,10 @@ simplifyAst t = case t of
                       (simplifyAst acc0)
                       (simplifyAst es)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       astMapAccumLDer k bShs eShs
                       (simplifyAstHFun f)
                       (simplifyAstHFun df)
@@ -2854,7 +2854,7 @@ simplifyAst t = case t of
     astNestS $ simplifyAst v
   Ast.AstUnNestS v -> astUnNestS $ simplifyAst v
 
-  Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  Ast.AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ simplifyAst v
   Ast.AstSFromK u -> astSFromK $ simplifyAst u
   Ast.AstSFromR v -> astSFromR $ simplifyAst v
@@ -2868,7 +2868,7 @@ simplifyAst t = case t of
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
 
-simplifyAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
+simplifyAstHFun :: KnownSTK y => AstHFun x y -> AstHFun x y
 simplifyAstHFun = \case
   Ast.AstLambda ~(vvars, ftk, l) ->
     Ast.AstLambda (vvars, ftk, simplifyAst l)
@@ -2910,7 +2910,7 @@ contractAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
 contractAstIxS = fmap contractAstInt
 
 contractAst
-  :: forall s y. (AstSpan s, TensorKind y)
+  :: forall s y. (AstSpan s, KnownSTK y)
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 contractAst t = case t of
   Ast.AstPair t1 t2 -> astPair (contractAst t1) (contractAst t2)
@@ -2920,7 +2920,7 @@ contractAst t = case t of
   Ast.AstSum snat stk (AstN2S TimesOp
                          (Ast.AstLet vart vt (Ast.AstTransposeS tperm t2))
                          (Ast.AstTransposeS uperm u))
-   | Dict <- lemTensorKindOfSTK stk ->
+   | Dict <- lemKnownSTK stk ->
       (Ast.AstLet
          vart
          (contractAst vt)
@@ -2932,7 +2932,7 @@ contractAst t = case t of
   Ast.AstSum snat stk (AstN2S TimesOp
                          (Ast.AstTransposeS tperm t2)
                          (Ast.AstLet varu vu (Ast.AstTransposeS uperm u)))
-   | Dict <- lemTensorKindOfSTK stk ->
+   | Dict <- lemKnownSTK stk ->
       (Ast.AstLet
          varu
          (contractAst vu)
@@ -2944,7 +2944,7 @@ contractAst t = case t of
   Ast.AstSum snat stk (AstN2S TimesOp
                          (Ast.AstLet vart vt (Ast.AstTransposeS tperm t2))
                          (Ast.AstLet varu vu (Ast.AstTransposeS uperm u)))
-   | Dict <- lemTensorKindOfSTK stk ->
+   | Dict <- lemKnownSTK stk ->
       (Ast.AstLet
          vart
          (contractAst vt)
@@ -3075,28 +3075,28 @@ contractAst t = case t of
              (Ast.AstReshapeS @sh (Ast.AstSum k2@SNat _ t2)) ->
     Ast.AstSum0S (k2 :$$ knownShS @sh {- ~ [k1] -}) x (contractAst t2)
   Ast.AstSum k@SNat (STKS ZSS x) (Ast.AstSum k2@SNat _ t2)
-    | Dict <- lemTensorKindOfSTK x ->
+    | Dict <- lemKnownSTK x ->
         Ast.AstSum0S (k2 :$$ k :$$ ZSS) x (contractAst t2)
           -- TODO: more cases are needed
-  Ast.AstSum snat stk (Ast.AstLet var v t2) | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstSum snat stk (Ast.AstLet var v t2) | Dict <- lemKnownSTK stk ->
     contractAst (Ast.AstLet var v (Ast.AstSum snat stk t2))
   Ast.AstSum snat stk (Ast.AstReshapeS @sh (Ast.AstLet var v t2))
-    | Dict <- lemTensorKindOfSTK stk ->
+    | Dict <- lemKnownSTK stk ->
       contractAst (Ast.AstLet
                      var
                      v
                      (Ast.AstSum snat stk (Ast.AstReshapeS @sh t2)))
   Ast.AstSum _ (STKS ZSS x) (Ast.AstReshapeS @sh t2) ->
     Ast.AstSum0S (knownShS @sh) x (contractAst t2)
-  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+  Ast.AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
     astSum snat stk (contractAst v)
-  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstReplicate snat stk v | Dict <- lemKnownSTK stk ->
     astReplicate snat stk (contractAst v)
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       astMapAccumRDer k bShs eShs
                       (contractAstHFun f)
                       (contractAstHFun df)
@@ -3104,10 +3104,10 @@ contractAst t = case t of
                       (contractAst acc0)
                       (contractAst es)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       astMapAccumLDer k bShs eShs
                       (contractAstHFun f)
                       (contractAstHFun df)
@@ -3184,7 +3184,7 @@ contractAst t = case t of
                       (Ast.AstReshapeS @_ @sh
                          (Ast.AstReplicate (SNat @m) stk s)))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v)
-    , Dict <- lemTensorKindOfSTK stk ->
+    , Dict <- lemKnownSTK stk ->
         -- The varNameInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
@@ -3200,7 +3200,7 @@ contractAst t = case t of
                       (Ast.AstLet
                          var u (Ast.AstReplicate (SNat @m) stk s)))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v)
-    , Dict <- lemTensorKindOfSTK stk ->
+    , Dict <- lemKnownSTK stk ->
         Ast.AstLet
           var
           (contractAst u)
@@ -3210,7 +3210,7 @@ contractAst t = case t of
                              (SNat @m) stk (contractAst s))))
   AstN2S TimesOp v (Ast.AstLet var u (Ast.AstReplicate (SNat @m) stk s))
     | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v)
-    , Dict <- lemTensorKindOfSTK stk ->
+    , Dict <- lemKnownSTK stk ->
         Ast.AstLet
           var
           (contractAst u)
@@ -3259,7 +3259,7 @@ contractAst t = case t of
       --    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
       --      astReplicate0N shOut x
   Ast.AstReshapeS @_ @sh (Ast.AstLet var v (Ast.AstReplicate snat stk t2))
-    | Dict <- lemTensorKindOfSTK stk ->
+    | Dict <- lemKnownSTK stk ->
       Ast.AstLet
         var
         (contractAst v)
@@ -3272,7 +3272,7 @@ contractAst t = case t of
     astNestS $ contractAst v
   Ast.AstUnNestS v -> astUnNestS $ contractAst v
 
-  Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  Ast.AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz $ contractAst v
   Ast.AstSFromK u -> astSFromK $ contractAst u
   Ast.AstSFromR v -> astSFromR $ contractAst v
@@ -3286,7 +3286,7 @@ contractAst t = case t of
   Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
 
-contractAstHFun :: TensorKind y => AstHFun x y -> AstHFun x y
+contractAstHFun :: KnownSTK y => AstHFun x y -> AstHFun x y
 contractAstHFun = \case
   Ast.AstLambda ~(vvars, ftk, l) ->
     Ast.AstLambda (vvars, ftk, contractAst l)
@@ -3545,7 +3545,7 @@ contractAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
 
 -- * Substitution wrappers
 
-substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
+substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2, KnownSTK y, KnownSTK z)
               => AstTensor AstMethodLet s2 z -> AstVarName s2 z
               -> AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet s y
@@ -3553,14 +3553,14 @@ substituteAst i var v1 =
   fromMaybe v1 $ substitute1Ast i var v1
 
 substituteAstIxS
-  :: (AstSpan s, TensorKind y)
+  :: (AstSpan s, KnownSTK y)
   => AstTensor AstMethodLet s y -> AstVarName s y -> AstIxS AstMethodLet sh
   -> AstIxS AstMethodLet sh
 substituteAstIxS i var ix =
   fromMaybe ix $ substitute1AstIxS i var ix
 
 substituteAstBool
-  :: (AstSpan s, TensorKind y)
+  :: (AstSpan s, KnownSTK y)
   => AstTensor AstMethodLet s y -> AstVarName s y -> AstBool AstMethodLet
   -> AstBool AstMethodLet
 substituteAstBool i var v1 =
@@ -3574,7 +3574,7 @@ substituteAstBool i var v1 =
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
 substitute1Ast :: forall s s2 y z.
-                  (AstSpan s, AstSpan s2, TensorKind y, TensorKind z)
+                  (AstSpan s, AstSpan s2, KnownSTK y, KnownSTK z)
                => AstTensor AstMethodLet s2 z -> AstVarName s2 z
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
@@ -3590,15 +3590,15 @@ substitute1Ast i var v1 = case v1 of
     in if V.any isJust margs
        then Just $ astFromVector snat $ V.zipWith fromMaybe args margs
        else Nothing
-  Ast.AstSum snat stk v | Dict <- lemTensorKindOfBuild snat stk ->
+  Ast.AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
     astSum snat stk <$> substitute1Ast i var v
-  Ast.AstReplicate snat stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstReplicate snat stk v | Dict <- lemKnownSTK stk ->
     astReplicate snat stk <$> substitute1Ast i var v
   Ast.AstMapAccumRDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
            , substitute1AstHFun i var rf, substitute1Ast i var acc0
            , substitute1Ast i var es ) of
@@ -3611,10 +3611,10 @@ substitute1Ast i var v1 = case v1 of
                                  (fromMaybe acc0 macc0)
                                  (fromMaybe es mes)
   Ast.AstMapAccumLDer @accShs k bShs eShs f df rf acc0 es
-    | Dict <- lemTensorKindOfBuild k (ftkToStk eShs)
-    , Dict <- lemTensorKindOfAD (stensorKind @accShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk bShs)
-    , Dict <- lemTensorKindOfAD (ftkToStk eShs) ->
+    | Dict <- lemKnownSTKOfBuild k (ftkToStk eShs)
+    , Dict <- lemKnownSTKOfAD (stensorKind @accShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToStk eShs) ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
            , substitute1AstHFun i var rf, substitute1Ast i var acc0
            , substitute1Ast i var es ) of
@@ -3770,15 +3770,15 @@ substitute1Ast i var v1 = case v1 of
     astNestS <$> substitute1Ast i var v
   Ast.AstUnNestS v -> astUnNestS <$> substitute1Ast i var v
 
-  Ast.AstFromS stkz v | Dict <- lemTensorKindOfSTK (ftkToStk (ftkAst v)) ->
+  Ast.AstFromS stkz v | Dict <- lemKnownSTK (ftkToStk (ftkAst v)) ->
     astFromS stkz <$> substitute1Ast i var v
   Ast.AstSFromK u -> astSFromK <$> substitute1Ast i var u
   Ast.AstSFromR v -> astSFromR <$> substitute1Ast i var v
   Ast.AstSFromX v -> astSFromX <$> substitute1Ast i var v
 
-  Ast.AstReplicate0NS sh stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstReplicate0NS sh stk v | Dict <- lemKnownSTK stk ->
     Ast.AstReplicate0NS sh stk <$> substitute1Ast i var v
-  Ast.AstSum0S sh stk v | Dict <- lemTensorKindOfSTK stk ->
+  Ast.AstSum0S sh stk v | Dict <- lemKnownSTK stk ->
     withKnownShS sh $
     Ast.AstSum0S sh stk <$> substitute1Ast i var v
   Ast.AstDot0S sh u v ->
@@ -3808,7 +3808,7 @@ substitute1Ast i var v1 = case v1 of
        else Nothing
 
 substitute1AstIxS
-  :: (AstSpan s2, TensorKind y)
+  :: (AstSpan s2, KnownSTK y)
   => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIxS AstMethodLet sh
   -> Maybe (AstIxS AstMethodLet sh)
 substitute1AstIxS i var ix =
@@ -3824,7 +3824,7 @@ substitute1AstHFun
 substitute1AstHFun _i _var = \case
   Ast.AstLambda{} -> Nothing  -- no outside free variables
 
-substitute1AstBool :: (AstSpan s2, TensorKind y)
+substitute1AstBool :: (AstSpan s2, KnownSTK y)
                    => AstTensor AstMethodLet s2 y -> AstVarName s2 y
                    -> AstBool AstMethodLet
                    -> Maybe (AstBool AstMethodLet)
