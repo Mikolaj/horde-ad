@@ -22,6 +22,7 @@ import HordeAd.Core.Ops
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Unwind
 
 updateWithGradient :: forall y. KnownSTK y
                    => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
@@ -126,22 +127,13 @@ data StateAdam y = StateAdam
   , vAdam :: RepN y
   }
 
+-- TODO: introduce and use something like TensorOrZero
 initialStateAdam :: FullTensorKind y -> StateAdam y
 initialStateAdam ftk =
   StateAdam { tAdam = 0
-                , mAdam = repDeepZero ftk
-                , vAdam = repDeepZero ftk
+                , mAdam = constantTarget 0 ftk
+                , vAdam = constantTarget 0 ftk
                 }
-
--- TODO: introduce and use dummies
-repDeepZero :: FullTensorKind y -> RepN y
-repDeepZero = \case
-  FTKScalar -> RepN 0
-  FTKR sh FTKScalar -> RepN $ Nested.rreplicateScal sh 0
-  FTKS sh FTKScalar -> RepN $ Nested.sreplicateScal sh 0
-  FTKX sh FTKScalar -> RepN $ Nested.mreplicateScal sh 0
-  FTKProduct ftk1 ftk2 -> RepN (unRepN $ repDeepZero ftk1, unRepN $ repDeepZero ftk2)
-  _ -> error "TODO"
 
 updateWithGradientAdam
   :: KnownSTK y
