@@ -6,8 +6,10 @@ module TestMnistRNNS
 
 import Prelude
 
-import Control.Exception.Assert.Sugar
 import Control.Monad (foldM, unless)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
+import GHC.TypeLits (KnownNat, sameNat)
 import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
@@ -16,7 +18,6 @@ import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
 import Data.Array.Nested (KnownShS (..), ShS (..))
-import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -59,26 +60,23 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                         , show $ twidth @RepN
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
-      ftest :: Int -> MnistDataBatchR r
-            -> RepN (XParams width r)
+      ftest :: forall batch_size2. KnownNat batch_size2
+            => MnistDataBatchS batch_size2 r -> RepN (XParams width r)
             -> r
-      ftest 0 _ _ = 0
-      ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == rlength @_ @(TKScalar r) (RepN glyphs)) $
-        withSNat miniBatchSize' $ \bs@SNat ->
-          let mnist = ( Nested.rcastToShaped glyphs knownShS
-                      , Nested.rcastToShaped labels knownShS )
-          in MnistRnnShaped2.rnnMnistTestS
-               width bs mnist (fromTarget @RepN testParams)
+      ftest _ _ | Just Refl <- sameNat (Proxy @0) (Proxy @batch_size2) = 0
+      ftest mnist testParams =
+        MnistRnnShaped2.rnnMnistTestS
+          width (SNat @batch_size2) mnist (fromTarget @RepN testParams)
   in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- map mkMnistDataS
-                    <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = mkMnistDataBatchR testData
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- map mkMnistDataS
+                 <$> loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- map mkMnistDataS . take (totalBatchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
+       let testDataS = mkMnistDataBatchS @lenTestData testData
            f :: MnistDataBatchS batch_size r
              -> ADVal RepN (XParams width r)
              -> ADVal RepN (TKScalar r)
@@ -99,14 +97,9 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    sgdAdam @(MnistDataBatchS batch_size r)
                                @(XParams width r)
                                f chunkS parameters stateAdam
-                 smnistRFromS (glyphs, labels) =
-                   ( Nested.stoRanked glyphs
-                   , Nested.stoRanked labels )
-                 chunkDataR = mkMnistDataBatchR $ map smnistRFromS chunk
-                 trainScore =
-                   ftest (length chunk) chunkDataR parameters2
-                 testScore =
-                   ftest (totalBatchSize * maxBatches) testDataR parameters2
+                 trainScore = withSNat (length chunk) $ \(SNat @len) ->
+                   ftest @len (mkMnistDataBatchS chunk) parameters2
+                 testScore = ftest @lenTestData testDataS parameters2
                  lenChunk = length chunk
              unless (sNatValue width < 10) $ do
                hPutStrLn stderr $
@@ -136,8 +129,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
            ftk = tftk @RepN (knownSTK @(XParams width r))
                       targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
-       let testErrorFinal =
-             1 - ftest (totalBatchSize * maxBatches) testDataR res
+       let testErrorFinal = 1 - ftest @lenTestData testDataS res
        testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCaseRNNSA
@@ -177,27 +169,23 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                         , show $ twidth @RepN
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
-      ftest :: Int -> MnistDataBatchR r
-            -> RepN (XParams width r)
+      ftest :: forall batch_size2. KnownNat batch_size2
+            => MnistDataBatchS batch_size2 r -> RepN (XParams width r)
             -> r
-      ftest 0 _ _ = 0
-      ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == rlength @_ @(TKScalar r) (RepN glyphs)) $
-        assert (miniBatchSize' == rlength @_ @(TKScalar r) (RepN labels)) $
-        withSNat miniBatchSize' $ \bs@SNat ->
-          let mnist = ( Nested.rcastToShaped glyphs knownShS
-                      , Nested.rcastToShaped labels knownShS )
-          in MnistRnnShaped2.rnnMnistTestS
-               width bs mnist (fromTarget @RepN testParams)
+      ftest _ _ | Just Refl <- sameNat (Proxy @0) (Proxy @batch_size2) = 0
+      ftest mnist testParams =
+        MnistRnnShaped2.rnnMnistTestS
+          width (SNat @batch_size2) mnist (fromTarget @RepN testParams)
   in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- map mkMnistDataS
-                    <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = mkMnistDataBatchR testData
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- map mkMnistDataS
+                 <$> loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- map mkMnistDataS . take (totalBatchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
+       let testDataS = mkMnistDataBatchS @lenTestData testData
            ftk = tftk @RepN (knownSTK @(XParams width r))
                       targetInit
        (_, _, var, varAst) <- funToAstRevIO ftk
@@ -228,15 +216,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    sgdAdam @(MnistDataBatchS batch_size r)
                                @(XParams width r)
                                f chunkS parameters stateAdam
-                 smnistRFromS (glyphs, labels) =
-                   ( Nested.stoRanked glyphs
-                   , Nested.stoRanked labels )
-                 chunkDataR = mkMnistDataBatchR $ map smnistRFromS chunk
-                 !trainScore =
-                   ftest (length chunk) chunkDataR parameters2
-                 !testScore =
-                   ftest (totalBatchSize * maxBatches) testDataR parameters2
-                 !lenChunk = length chunk
+                 trainScore = withSNat (length chunk) $ \(SNat @len) ->
+                   ftest @len (mkMnistDataBatchS chunk) parameters2
+                 testScore = ftest @lenTestData testDataS parameters2
+                 lenChunk = length chunk
              unless (sNatValue width < 10) $ do
                hPutStrLn stderr $
                  printf "\n%s: (Batch %d with %d points)"
@@ -263,8 +246,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
-       let testErrorFinal =
-             1 - ftest (totalBatchSize * maxBatches) testDataR res
+       let testErrorFinal = 1 - ftest @lenTestData testDataS res
        testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCaseRNNSI
@@ -274,10 +256,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSI :: TestTree
 tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
-  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
-                       (1 :: Double)
---  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
---                       (0.84 :: Double)
+  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
+                       (0.9 :: Double)
   , mnistTestCaseRNNSI "RNNSI artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNSI "RNNSI artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
@@ -307,27 +287,23 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                         , show $ twidth @RepN
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
-      ftest :: Int -> MnistDataBatchR r
-            -> RepN (XParams width r)
+      ftest :: forall batch_size2. KnownNat batch_size2
+            => MnistDataBatchS batch_size2 r -> RepN (XParams width r)
             -> r
-      ftest 0 _ _ = 0
-      ftest miniBatchSize' (glyphs, labels) testParams =
-        assert (miniBatchSize' == rlength @_ @(TKScalar r) (RepN glyphs)) $
-        withSNat miniBatchSize' $ \bs@SNat ->
-          let mnist = ( Nested.rcastToShaped glyphs knownShS
-                      , Nested.rcastToShaped labels knownShS )
-          in MnistRnnShaped2.rnnMnistTestS
-               width bs mnist
-               (fromTarget @RepN testParams)
+      ftest _ _ | Just Refl <- sameNat (Proxy @0) (Proxy @batch_size2) = 0
+      ftest mnist testParams =
+        MnistRnnShaped2.rnnMnistTestS
+          width (SNat @batch_size2) mnist (fromTarget @RepN testParams)
   in testCase name $ do
-       hPutStrLn stderr $
-         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-                prefix epochs maxBatches
-       trainData <- map mkMnistDataS
-                    <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-       let testDataR = mkMnistDataBatchR testData
+    hPutStrLn stderr $
+      printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+             prefix epochs maxBatches
+    trainData <- map mkMnistDataS
+                 <$> loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- map mkMnistDataS . take (totalBatchSize * maxBatches)
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
+       let testDataS = mkMnistDataBatchS @lenTestData testData
            ftk = tftk @RepN (knownSTK @(XParams width r))
                       targetInit
            ftkData = FTKProduct (FTKS (batch_size
@@ -373,14 +349,9 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = go chunkS (parameters, stateAdam)
-                 smnistRFromS (glyphs, labels) =
-                   ( Nested.stoRanked glyphs
-                   , Nested.stoRanked labels )
-                 chunkDataR = mkMnistDataBatchR $ map smnistRFromS chunk
-                 trainScore =
-                   ftest (length chunk) chunkDataR parameters2
-                 testScore =
-                   ftest (totalBatchSize * maxBatches) testDataR parameters2
+                 trainScore = withSNat (length chunk) $ \(SNat @len) ->
+                   ftest @len (mkMnistDataBatchS chunk) parameters2
+                 testScore = ftest @lenTestData testDataS parameters2
                  lenChunk = length chunk
              unless (sNatValue width < 10) $ do
                hPutStrLn stderr $
@@ -408,8 +379,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
-       let testErrorFinal =
-             1 - ftest (totalBatchSize * maxBatches) testDataR res
+       let testErrorFinal = 1 - ftest @lenTestData testDataS res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
 
 {-# SPECIALIZE mnistTestCaseRNNSO
@@ -419,7 +389,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSO :: TestTree
 tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
-  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @32) (SNat @5) 2
+  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
                        (1 :: Double)
   , mnistTestCaseRNNSO "RNNSO artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
