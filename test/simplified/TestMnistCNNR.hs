@@ -303,7 +303,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
       ftest batch_size mnistData pars =
         MnistCnnRanked2.convMnistTestR
           batch_size mnistData (fromTarget @RepN pars)
-    in testCase name $ do
+  in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches

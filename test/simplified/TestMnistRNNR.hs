@@ -296,23 +296,23 @@ mnistTestCaseRNNO
 mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
   withSNat width $ \(SNat @width) ->
-    let targetInit =
-          forgetShape $ fst
-          $ randomValue @(RepN (X (ADRnnMnistParametersShaped RepN width r)))
-                        0.4 (mkStdGen 44)
-        name = prefix ++ ": "
-               ++ unwords [ show epochs, show maxBatches
-                          , show width, show miniBatchSize
-                          , show $ twidth @RepN
-                            $ knownSTK @(X (ADRnnMnistParameters RepN r))
-                          , show (tsize knownSTK targetInit) ]
-        ftest :: Int -> MnistDataBatchR r
-              -> RepN (X (ADRnnMnistParameters RepN r))
-              -> r
-        ftest batch_size mnistData pars =
-          MnistRnnRanked2.rnnMnistTestR
-            batch_size mnistData (fromTarget @RepN pars)
-    in testCase name $ do
+  let targetInit =
+        forgetShape $ fst
+        $ randomValue @(RepN (X (ADRnnMnistParametersShaped RepN width r)))
+                      0.4 (mkStdGen 44)
+      name = prefix ++ ": "
+             ++ unwords [ show epochs, show maxBatches
+                        , show width, show miniBatchSize
+                        , show $ twidth @RepN
+                          $ knownSTK @(X (ADRnnMnistParameters RepN r))
+                        , show (tsize knownSTK targetInit) ]
+      ftest :: Int -> MnistDataBatchR r
+            -> RepN (X (ADRnnMnistParameters RepN r))
+            -> r
+      ftest batch_size mnistData pars =
+        MnistRnnRanked2.rnnMnistTestR
+          batch_size mnistData (fromTarget @RepN pars)
+  in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches

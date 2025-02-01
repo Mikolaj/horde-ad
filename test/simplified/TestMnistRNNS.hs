@@ -49,8 +49,7 @@ mnistTestCaseRNNSA
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
 mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
-                   totalBatchSize
-                   expected =
+                   totalBatchSize expected =
   let targetInit =
         fst $ randomValue @(RepN (XParams width r)) 0.4 (mkStdGen 44)
       miniBatchSize = sNatValue batch_size
@@ -298,30 +297,29 @@ mnistTestCaseRNNSO
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
 mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
-                   totalBatchSize
-                   expected =
-    let targetInit =
-          fst $ randomValue @(RepN (XParams width r)) 0.4 (mkStdGen 44)
-        miniBatchSize = sNatValue batch_size
-        name = prefix ++ ": "
-               ++ unwords [ show epochs, show maxBatches
-                          , show (sNatValue width), show miniBatchSize
-                          , show $ twidth @RepN
-                            $ knownSTK @(XParams width r)
-                          , show (tsize knownSTK targetInit) ]
-        ftest :: Int -> MnistDataBatchR r
-              -> RepN (XParams width r)
-              -> r
-        ftest 0 _ _ = 0
-        ftest miniBatchSize' (glyphs, labels) testParams =
-          assert (miniBatchSize' == rlength @_ @(TKScalar r) (RepN glyphs)) $
-          withSNat miniBatchSize' $ \bs@SNat ->
-            let mnist = ( Nested.rcastToShaped glyphs knownShS
-                        , Nested.rcastToShaped labels knownShS )
-            in MnistRnnShaped2.rnnMnistTestS
-                 width bs mnist
-                 (fromTarget @RepN testParams)
-    in testCase name $ do
+                   totalBatchSize expected =
+  let targetInit =
+        fst $ randomValue @(RepN (XParams width r)) 0.4 (mkStdGen 44)
+      miniBatchSize = sNatValue batch_size
+      name = prefix ++ ": "
+             ++ unwords [ show epochs, show maxBatches
+                        , show (sNatValue width), show miniBatchSize
+                        , show $ twidth @RepN
+                          $ knownSTK @(XParams width r)
+                        , show (tsize knownSTK targetInit) ]
+      ftest :: Int -> MnistDataBatchR r
+            -> RepN (XParams width r)
+            -> r
+      ftest 0 _ _ = 0
+      ftest miniBatchSize' (glyphs, labels) testParams =
+        assert (miniBatchSize' == rlength @_ @(TKScalar r) (RepN glyphs)) $
+        withSNat miniBatchSize' $ \bs@SNat ->
+          let mnist = ( Nested.rcastToShaped glyphs knownShS
+                      , Nested.rcastToShaped labels knownShS )
+          in MnistRnnShaped2.rnnMnistTestS
+               width bs mnist
+               (fromTarget @RepN testParams)
+  in testCase name $ do
        hPutStrLn stderr $
          printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                 prefix epochs maxBatches
