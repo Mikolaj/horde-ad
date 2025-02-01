@@ -21,6 +21,7 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps (lossSoftMaxCrossEntropyS)
 import MnistData
@@ -124,7 +125,7 @@ rnnMnistLossFusedS
   -> ( PrimalOf target (TKS '[batch_size, h, w] r)
      , PrimalOf target (TKS '[batch_size, SizeMnistLabel] r) )
   -> ADRnnMnistParametersShaped target h out_width r
-  -> target (TKS '[] r)
+  -> target (TKScalar r)
 rnnMnistLossFusedS out_width@SNat
                    batch_size@SNat
                    (glyphS, labelS) adparameters =
@@ -135,7 +136,8 @@ rnnMnistLossFusedS out_width@SNat
                              xs adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in sfromPrimal (recip $ srepl $ fromInteger $ fromSNat batch_size) * loss
+  in tfromPrimal knownSTK
+                 (recip $ kconcrete $ fromInteger $ fromSNat batch_size) * loss
 
 rnnMnistTestS
   :: forall target h w out_width batch_size r.

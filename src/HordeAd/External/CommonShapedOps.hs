@@ -131,8 +131,8 @@ lossCrossEntropyVS :: ( KnownShS sh, BaseTensor target, GoodScalar r
                       , Differentiable r )
                    => target (TKS sh r)
                    -> target (TKS sh r)
-                   -> target (TKS '[] r)
-lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
+                   -> target (TKScalar r)
+lossCrossEntropyVS targ res = kfromS $ negate $ log res `sdot0` targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
@@ -142,7 +142,7 @@ lossSoftMaxCrossEntropyS
      ( ADReady target, ADReady (PrimalOf target)
      , GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh)
      , Differentiable r )
-  => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
+  => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
 lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
@@ -157,8 +157,9 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
               recipSum = recip sumExpU
           in sscaleByScalar recipSum expU
                -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (sfromPrimal softMaxU') $ \softMaxU ->
-    tD knownSTK (negate $ log (sprimalPart softMaxU) `sdot0` target)
+  in tlet (sfromPrimal softMaxU') $ \softMaxU -> kfromS $
+    tD knownSTK
+       (negate $ log (sprimalPart softMaxU) `sdot0` target)
          -- TODO: avoid: log . exp
        (sdualPart $ (softMaxU - sfromPrimal target) `sdot0` d)
          -- TODO: probably defining sDot0 would lead to a faster

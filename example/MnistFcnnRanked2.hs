@@ -65,7 +65,7 @@ afcnnMnist2 factivationHidden factivationOutput
 afcnnMnistLoss2TensorData
   :: (ADReady target, GoodScalar r, Differentiable r)
   => (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist2Parameters target r
-  -> target (TKR 0 r)
+  -> target (TKScalar r)
 afcnnMnistLoss2TensorData (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
   in lossCrossEntropyV target result
@@ -76,7 +76,7 @@ afcnnMnistLoss2TensorData (datum, target) adparams =
 afcnnMnistLoss2
   :: (ADReady target, GoodScalar r, Differentiable r)
   => MnistDataLinearR r -> ADFcnnMnist2Parameters target r
-  -> target (TKR 0 r)
+  -> target (TKScalar r)
 afcnnMnistLoss2 (datum, target) =
   let datum1 = rconcrete datum
       target1 = rconcrete target

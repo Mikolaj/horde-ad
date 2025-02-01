@@ -75,7 +75,7 @@ afcnnMnistLoss1TensorData
   => SNat widthHidden -> SNat widthHidden2
   -> (target (TKR 1 r), target (TKR 1 r))
   -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r
-  -> target (TKR 0 r)
+  -> target (TKScalar r)
 afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
   let result = afcnnMnist1 logisticS softMax1S
                            widthHidden widthHidden2 (sfromR datum) adparams
@@ -89,7 +89,7 @@ afcnnMnistLoss1
   => SNat widthHidden -> SNat widthHidden2
   -> MnistDataLinearR r
   -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r
-  -> target (TKR 0 r)
+  -> target (TKScalar r)
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
   let datum1 = rconcrete datum
       target1 = rconcrete target

@@ -99,7 +99,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r
                    -> ADVal RepN (X (ADRnnMnistParameters RepN r))
-                   -> ADVal target (TKR 0 r)
+                   -> ADVal target (TKScalar r)
                  f (glyphR, labelR) adinputs =
                    MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
@@ -205,7 +205,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            id
        (varLabel, astLabel) <-
          funToAstIO (FTKR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) FTKScalar) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
+       let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
                    (fromTarget hVector)
@@ -217,7 +217,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r
                    -> ADVal RepN (X (ADRnnMnistParameters RepN r))
-                   -> ADVal target (TKR 0 r)
+                   -> ADVal target (TKScalar r)
                  f (glyph, label) varInputs =
                    let env = extendEnv @(ADVal RepN) @_ @(X (ADRnnMnistParameters RepN r)) var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (rconcrete glyph)
@@ -327,7 +327,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                                        :$: ZSR) FTKScalar)
            f :: ( ADRnnMnistParameters (AstTensor AstMethodLet FullSpan) r
                 , (AstTensor AstMethodLet FullSpan (TKR 3 r), AstTensor AstMethodLet FullSpan (TKR 2 r)) )
-             -> AstTensor AstMethodLet FullSpan (TKR 0 r)
+             -> AstTensor AstMethodLet FullSpan (TKScalar r)
            f = \ (pars, (glyphR, labelR)) ->
              MnistRnnRanked2.rnnMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
@@ -446,7 +446,9 @@ testRNNOPP = do
       blackGlyph = AstReplicate (SNat @1) knownSTK
                    $ AstReplicate (SNat @1) knownSTK
                    $ AstReplicate (SNat @1) knownSTK
-                       (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+                       (AstConcrete (FTKR ZSR FTKScalar)
+                                    (RepN $ Nested.rscalar 7)
+                        :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)

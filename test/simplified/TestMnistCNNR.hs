@@ -93,7 +93,7 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r
                    -> ADVal RepN (XParams r)
-                   -> ADVal RepN (TKR 0 r)
+                   -> ADVal RepN (TKScalar r)
                  f (glyphR, labelR) adinputs =
                    MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (rconcrete glyphR, rconcrete labelR)
@@ -202,7 +202,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            id
        (varLabel, astLabel) <-
          funToAstIO (FTKR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) FTKScalar) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKR 0 r)
+       let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
            ast = MnistCnnRanked2.convMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
                    (fromTarget hVector2)
@@ -214,7 +214,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchR r
                    -> ADVal RepN (XParams r)
-                   -> ADVal RepN (TKR 0 r)
+                   -> ADVal RepN (TKScalar r)
                  f (glyph, label) varInputs =
                    let env = extendEnv var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (rconcrete glyph)
@@ -327,7 +327,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            f :: ( MnistCnnRanked2.ADCnnMnistParameters (AstTensor AstMethodLet FullSpan) r
                 , ( AstTensor AstMethodLet FullSpan (TKR 3 r)
                   , AstTensor AstMethodLet FullSpan (TKR 2 r) ) )
-             -> AstTensor AstMethodLet FullSpan (TKR 0 r)
+             -> AstTensor AstMethodLet FullSpan (TKScalar r)
            f = \ (pars, (glyphR, labelR)) ->
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars

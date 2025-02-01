@@ -93,7 +93,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
                    -> ADVal RepN (XParams width r)
-                   -> ADVal RepN (TKS '[] r)
+                   -> ADVal RepN (TKScalar r)
                  f (glyphS, labelS) adinputs =
                    MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (sconcrete glyphS, sconcrete labelS)
@@ -202,7 +202,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
          funToAstIO (FTKS knownShS FTKScalar {-@'[batch_size, SizeMnistHeight, SizeMnistWidth]-}) id
        (varLabel, astLabel) <-
          funToAstIO (FTKS knownShS FTKScalar {-@'[batch_size, SizeMnistLabel]-}) id
-       let ast :: AstTensor AstMethodLet FullSpan (TKS '[] r)
+       let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
            ast = MnistRnnShaped2.rnnMnistLossFusedS
                    width batch_size (astGlyph, astLabel)
                    (fromTarget hVector)
@@ -214,7 +214,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let f :: MnistDataBatchS batch_size r
                    -> ADVal RepN (XParams width r)
-                   -> ADVal RepN (TKS '[] r)
+                   -> ADVal RepN (TKScalar r)
                  f (glyph, label) varInputs =
                    let env = extendEnv @(ADVal RepN) @_ @(XParams width r) var varInputs emptyEnv
                        envMnist = extendEnv varGlyph (sconcrete glyph)
@@ -336,7 +336,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                       (TKS '[batch_size, SizeMnistHeight, SizeMnistWidth] r)
                   , AstTensor AstMethodLet FullSpan
                       (TKS '[batch_size, SizeMnistLabel] r) ) )
-             -> AstTensor AstMethodLet FullSpan (TKS '[] r)
+             -> AstTensor AstMethodLet FullSpan (TKScalar r)
            f = \ (pars, (glyphS, labelS)) ->
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
