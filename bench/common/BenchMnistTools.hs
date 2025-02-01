@@ -51,7 +51,7 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
   in do
     let f :: MnistDataLinearR r
           -> ADVal RepN (XParams widthHidden widthHidden2 r)
-          -> ADVal RepN (TKR 0 r)
+          -> ADVal RepN (TKScalar r)
         f mnist adinputs =
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
@@ -165,7 +165,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
                  widthHidden widthHidden2 r
              , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
                , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
-          -> AstTensor AstMethodLet FullSpan (TKR 0 r)
+          -> AstTensor AstMethodLet FullSpan (TKScalar r)
         f = \ (pars, (glyphR, labelR)) ->
           MnistFcnnRanked1.afcnnMnistLoss1TensorData
             widthHiddenSNat widthHidden2SNat
@@ -243,7 +243,7 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
                       1 (mkStdGen 44)
   in do
     let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r)
-          -> ADVal RepN (TKR 0 r)
+          -> ADVal RepN (TKScalar r)
         f mnist adinputs = MnistFcnnRanked2.afcnnMnistLoss2
                              mnist (fromTarget adinputs)
         chunk = take batchSize xs
@@ -330,7 +330,7 @@ mnistTrainBench2VTO prefix widthHidden widthHidden2
                  (AstTensor AstMethodLet FullSpan) r
              , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
                , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
-          -> AstTensor AstMethodLet FullSpan (TKR 0 r)
+          -> AstTensor AstMethodLet FullSpan (TKScalar r)
         f (pars, (glyphR, labelR)) =
           MnistFcnnRanked2.afcnnMnistLoss2TensorData
             (glyphR, labelR) pars
