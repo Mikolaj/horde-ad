@@ -66,11 +66,12 @@ convMnistLayerR ker input bias =
 convMnistTwoR
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
   => Int -> Int -> Int
-  -> PrimalOf target (TKR 4 r)  -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
-                          -- ^ input images
+  -> PrimalOf target (TKR 4 r)
+       -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
+       -- ^ input images
   -> ADCnnMnistParameters target r
   -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
-                 -- ^ classification
+                       -- ^ classification
 convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
@@ -81,7 +82,7 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
       c_out = rlength bias1
       m1 = rreshape (batch_size
                      :$: c_out * (sizeMnistHeightI `div` 4)
-                              * (sizeMnistWidthI `div` 4)
+                               * (sizeMnistWidthI `div` 4)
                      :$: ZSR)
                     t2
       m2 = rtr m1
@@ -92,9 +93,11 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
      + rtr (rreplicate batch_size biasesReadout)
 
 convMnistLossFusedR
-  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r, Differentiable r)
+  ::  (ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r
+     , Differentiable r )
   => Int
-  -> ( PrimalOf target (TKR 3 r)  -- [batch_size, SizeMnistHeight, SizeMnistWidth]
+  -> ( PrimalOf target (TKR 3 r)
+         -- [batch_size, SizeMnistHeight, SizeMnistWidth]
      , PrimalOf target (TKR 2 r) )  -- [batch_size, SizeMnistLabel]
   -> ADCnnMnistParameters target r  -- kh kw c_out n_hidden
   -> target (TKR 0 r)
@@ -135,7 +138,7 @@ convMnistTestR batch_size (glyphR, labelR) testParams =
       outputs = map (Nested.rtoVector . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
       labels = map (Nested.rtoVector . unRepN) $ runravelToList @_ @(TKScalar r)
-               $ RepN labelR
+               $ rconcrete labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

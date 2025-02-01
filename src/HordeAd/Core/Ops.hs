@@ -488,8 +488,9 @@ class ( Num (IntOf target)
 -- rmatmul2 m1 m2 = rmap1 (rmatvecmul (rtr m2)) m1
 -- rmatmul2 m1 m2 = rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
   rmatmul2 m1 m2 = case rshape m2 of
-    _ :$: width2 :$: ZSR -> rsum (rtranspose [2,1,0] (rreplicate width2 m1)
-                                  * rtranspose [1,0] (rreplicate (rlength m1) m2))
+    _ :$: width2 :$: ZSR ->
+      rsum (rtranspose [2,1,0] (rreplicate width2 m1)
+            * rtranspose [1,0] (rreplicate (rlength m1) m2))
     _ -> error "rmatmul2: impossible pattern needlessly required"
   rscaleByScalar :: (GoodScalar r, KnownNat n)
                  => target (TKR 0 r) -> target (TKR n r) -> target (TKR n r)

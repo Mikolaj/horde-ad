@@ -16,7 +16,7 @@ import GHC.TypeLits (KnownNat, Nat, fromSNat, type (*))
 import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Nested (IxS (..), KnownShS (..), pattern (:.$), pattern ZIS)
+import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
@@ -54,10 +54,7 @@ unrollLastS :: forall target state c w r n sh.
 unrollLastS f s0 xs w =
   let g :: (c, state) -> target (TKS sh r) -> (c, state)
       g (_, !s) x = f s x w
-      projections :: [target (TKS sh r)]
-      projections = map (\i -> sindex xs (fromIntegral i :.$ ZIS))
-                        [0 .. (valueOf @n :: Int)- 1]
-  in foldl' g (undefined, s0) projections
+  in foldl' g (undefined, s0) (sunravelToList xs)
 
 rnnMnistLayerS
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
@@ -153,7 +150,8 @@ rnnMnistTestS
 rnnMnistTestS out_width@SNat batch_size@SNat
               (glyphS, labelS) testParams =
   let -- input :: PrimalOf target (TKS '[sizeMnistW, sizeMnistH, batch_size] r)
-      input = sconcrete $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) glyphS
+      input = sconcrete
+              $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) glyphS
       outputS :: RepN (TKS '[SizeMnistLabel, batch_size] r)
       outputS =
         let nn :: ADRnnMnistParametersShaped target h out_width r
@@ -166,7 +164,7 @@ rnnMnistTestS out_width@SNat batch_size@SNat
       outputs = map (Nested.stoVector . unRepN) $ sunravelToList
                 $ stranspose (Permutation.makePerm @'[1, 0]) outputS
       labels = map (Nested.stoVector . unRepN) $ sunravelToList @_ @(TKScalar r)
-               $ RepN labelS
+               $ sconcrete labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

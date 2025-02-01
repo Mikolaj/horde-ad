@@ -12,8 +12,7 @@ import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, type (+))
 import Numeric.LinearAlgebra (Numeric)
 
-import Data.Array.Nested
-  (IShR, pattern (:$:), pattern (:.:), pattern ZIR, pattern ZSR)
+import Data.Array.Nested (IShR, ShR (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
@@ -62,11 +61,7 @@ unrollLastR :: forall target state c w r n.
 unrollLastR f s0 xs w =
   let g :: (c, state) -> target (TKR n r) -> (c, state)
       g (_, !s) x = f s x w
-      projections :: [target (TKR n r)]
-      projections = case rshape xs of
-        len :$: _ -> map (\i -> rindex xs (fromIntegral i :.: ZIR)) [0 .. len - 1]
-        ZSR -> error "impossible pattern needlessly required"
-  in foldl' g (undefined, s0) projections
+  in foldl' g (undefined, s0) (runravelToList xs)
 
 rnnMnistLayerR
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
@@ -117,7 +112,8 @@ rnnMnistZeroR batch_size xs
   _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
-  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r, Differentiable r)
+  :: ( ADReady target, ADReady (PrimalOf target), GoodScalar r
+     , Numeric r, Differentiable r )
   => Int
   -> (PrimalOf target (TKR 3 r), PrimalOf target (TKR 2 r))  -- batch_size
   -> ADRnnMnistParameters target r  -- SizeMnistHeight out_width
@@ -149,7 +145,7 @@ rnnMnistTestR batch_size (glyphR, labelR) testParams =
       outputs = map (Nested.rtoVector . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
       labels = map (Nested.rtoVector . unRepN) $ runravelToList @_ @(TKScalar r)
-               $ RepN labelR
+               $ rconcrete labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
