@@ -220,8 +220,6 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
               envMnist = extendEnv varGlyph (rconcrete glyph)
                          $ extendEnv varLabel (rconcrete label) env
           in interpretAst envMnist ast
-    -- Mimic how backprop tests and display it, even though tests
-    -- should not print, in principle.
     let runBatch :: RepN (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams widthHidden widthHidden2 r))
@@ -347,8 +345,6 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradient)
-    -- Mimic how backprop tests and display it, even though tests
-    -- should not print, in principle.
     let runBatch :: RepN (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams widthHidden widthHidden2 r))
@@ -440,8 +436,6 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
           -> ADVal RepN (TKScalar r)
         f mnist adinputs = MnistFcnnRanked2.afcnnMnistLoss2
                              mnist (fromTarget adinputs)
-    -- Mimic how backprop tests and display it, even though tests
-    -- should not print, in principle.
     let runBatch :: RepN (XParams2 r) -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams2 r))
         runBatch !params (k, chunk) = do
@@ -541,8 +535,6 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
               envMnist = extendEnv varGlyph (rconcrete glyph)
                          $ extendEnv varLabel (rconcrete label) env
           in interpretAst envMnist ast
-    -- Mimic how backprop tests and display it, even though tests
-    -- should not print, in principle.
     let runBatch :: RepN (XParams2 r) -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams2 r))
         runBatch !params (k, chunk) = do
@@ -649,8 +641,6 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradient)
-    -- Mimic how backprop tests and display it, even though tests
-    -- should not print, in principle.
     let runBatch :: RepN (XParams2 r) -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams2 r))
         runBatch !params (k, chunk) = do

@@ -3,7 +3,7 @@
 -- optimization pipelines.
 --
 -- *Not* LSTM.
--- Doesn't train without Adam, regardless of whether mini-batch sgd. It does
+-- Doesn't train without Adam, regardless of whether mini-batches used. It does
 -- train with Adam, but only after very carefully tweaking initialization.
 -- This is extremely sensitive to initial parameters, more than to anything
 -- else. Probably, gradient is vanishing if parameters are initialized
@@ -17,7 +17,6 @@ import Prelude
 
 import Control.Monad (foldM, unless)
 import Data.IntMap.Strict qualified as IM
-import GHC.TypeLits (SomeNat (..), someNatVal)
 import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
@@ -50,32 +49,25 @@ testTrees = [ tensorADValMnistTestsRNNA
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCaseRNNA
-  :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall r.
+     ( Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
-  let valsInit :: ADRnnMnistParameters target r
-      valsInit =
-        case someNatVal $ toInteger width of
-          Nothing -> error "impossible someNatVal error"
-          Just (SomeNat @width _) ->
-            forgetShape $ fst
-            $ randomValue @(ADRnnMnistParametersShaped
-                             RepN width r)
-                0.4 (mkStdGen 44)
-      hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
-      hVectorInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
-                       hVectorInit
+  withSNat width $ \(SNat @width) ->
+  let targetInit =
+        forgetShape $ fst
+        $ randomValue @(RepN (X (ADRnnMnistParametersShaped RepN width r)))
+                      0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show width, show miniBatchSize ]
---                        , show (V.length hVectorInit)
---                        , show (sizeHVector hVectorInit) ]
+                        , show width, show miniBatchSize
+                        , show $ twidth @RepN
+                          $ knownSTK @(X (ADRnnMnistParameters RepN r))
+                        , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r
             -> RepN (X (ADRnnMnistParameters RepN r))
             -> r
@@ -91,32 +83,41 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = mkMnistDataBatchR testData
+           f :: MnistDataBatchR r
+             -> ADVal RepN (X (ADRnnMnistParameters RepN r))
+             -> ADVal RepN (TKScalar r)
+           f (glyphR, labelR) adinputs =
+             MnistRnnRanked2.rnnMnistLossFusedR
+               miniBatchSize (rconcrete glyphR, rconcrete labelR)
+               (fromTarget @(ADVal RepN) adinputs)
            runBatch :: ( RepN (X (ADRnnMnistParameters RepN r))
                        , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
                     -> (Int, [MnistDataR r])
                     -> IO ( RepN (X (ADRnnMnistParameters RepN r))
                           , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r
-                   -> ADVal RepN (X (ADRnnMnistParameters RepN r))
-                   -> ADVal target (TKScalar r)
-                 f (glyphR, labelR) adinputs =
-                   MnistRnnRanked2.rnnMnistLossFusedR
-                     miniBatchSize (rconcrete glyphR, rconcrete labelR)
-                     (fromTarget @(ADVal RepN) adinputs)
-                 chunkR = map mkMnistDataBatchR
+             let chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters RepN r)) f chunkR parameters stateAdam
-                 !trainScore =
+                 res@(parameters2, _) =
+                   sgdAdamDeep @(MnistDataBatchR r)
+                               @(X (ADRnnMnistParameters RepN r))
+                               f chunkR parameters stateAdam
+                 trainScore =
                    ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
-                 !testScore =
+                 testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
-                 !lenChunk = length chunk
+                 lenChunk = length chunk
              unless (width < 10) $ do
-               hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
-               hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+               hPutStrLn stderr $
+                 printf "\n%s: (Batch %d with %d points)"
+                        prefix k lenChunk
+               hPutStrLn stderr $
+                 printf "%s: Training error:   %.2f%%"
+                        prefix ((1 - trainScore) * 100)
+               hPutStrLn stderr $
+                 printf "%s: Validation error: %.2f%%"
+                        prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
                     -> ( RepN (X (ADRnnMnistParameters RepN r))
@@ -132,7 +133,9 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdamDeep ftk)
+           ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
+                      targetInit
+       res <- runEpoch 1 (targetInit, initialStateAdamDeep ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -157,32 +160,25 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNI
-  :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall r.
+     ( Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
-  let valsInit :: ADRnnMnistParameters target r
-      valsInit =
-        case someNatVal $ toInteger width of
-          Nothing -> error "impossible someNatVal error"
-          Just (SomeNat @width _) ->
-            forgetShape $ fst
-            $ randomValue @(ADRnnMnistParametersShaped
-                             RepN width r)
-                0.4 (mkStdGen 44)
-      hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
-      hVectorInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
-                       hVectorInit
+  withSNat width $ \(SNat @width) ->
+  let targetInit =
+        forgetShape $ fst
+        $ randomValue @(RepN (X (ADRnnMnistParametersShaped RepN width r)))
+                      0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show width, show miniBatchSize ]
---                        , show (V.length hVectorInit)
---                        , show (sizeHVector hVectorInit) ]
+                        , show width, show miniBatchSize
+                        , show $ twidth @RepN
+                          $ knownSTK @(X (ADRnnMnistParameters RepN r))
+                        , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r
             -> RepN (X (ADRnnMnistParameters RepN r))
             -> r
@@ -197,45 +193,59 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                     <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
-       (_, _, var, hVector) <- funToAstRevIO ftk
        let testDataR = mkMnistDataBatchR testData
+           ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
+                      targetInit
+       (_, _, var, varAst) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <-
-         funToAstIO
-           (FTKR (miniBatchSize :$: sizeMnistHeightInt :$: sizeMnistWidthInt :$: ZSR) FTKScalar)
-           id
+         funToAstIO (FTKR (miniBatchSize
+                           :$: sizeMnistHeightInt
+                           :$: sizeMnistWidthInt
+                           :$: ZSR) FTKScalar) id
        (varLabel, astLabel) <-
-         funToAstIO (FTKR (miniBatchSize :$: sizeMnistLabelInt :$: ZSR) FTKScalar) id
+         funToAstIO (FTKR (miniBatchSize
+                           :$: sizeMnistLabelInt
+                           :$: ZSR) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
            ast = MnistRnnRanked2.rnnMnistLossFusedR
                    miniBatchSize (astGlyph, astLabel)
-                   (fromTarget hVector)
+                   (fromTarget varAst)
+           f :: MnistDataBatchR r
+              -> ADVal RepN (X (ADRnnMnistParameters RepN r))
+              -> ADVal RepN (TKScalar r)
+           f (glyph, label) varInputs =
+             let env = extendEnv var varInputs emptyEnv
+                 envMnist = extendEnv varGlyph (rconcrete glyph)
+                            $ extendEnv varLabel (rconcrete label) env
+             in interpretAst envMnist ast
            runBatch :: ( RepN (X (ADRnnMnistParameters RepN r))
                        , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
                     -> (Int, [MnistDataR r])
                     -> IO ( RepN (X (ADRnnMnistParameters RepN r))
                           , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
-             let f :: MnistDataBatchR r
-                   -> ADVal RepN (X (ADRnnMnistParameters RepN r))
-                   -> ADVal target (TKScalar r)
-                 f (glyph, label) varInputs =
-                   let env = extendEnv @(ADVal RepN) @_ @(X (ADRnnMnistParameters RepN r)) var varInputs emptyEnv
-                       envMnist = extendEnv varGlyph (rconcrete glyph)
-                                  $ extendEnv varLabel (rconcrete label) env
-                   in interpretAst envMnist ast
-                 chunkR = map mkMnistDataBatchR
+             let chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
-                 res@(parameters2, _) = sgdAdamDeep @(MnistDataBatchR r) @(X (ADRnnMnistParameters RepN r)) f chunkR parameters stateAdam
-                 !trainScore =
+                 res@(parameters2, _) =
+                   sgdAdamDeep @(MnistDataBatchR r)
+                               @(X (ADRnnMnistParameters RepN r))
+                               f chunkR parameters stateAdam
+                 trainScore =
                    ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
-                 !testScore =
+                 testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
-                 !lenChunk = length chunk
+                 lenChunk = length chunk
              unless (width < 10) $ do
-               hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
-               hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+               hPutStrLn stderr $
+                 printf "\n%s: (Batch %d with %d points)"
+                        prefix k lenChunk
+               hPutStrLn stderr $
+                 printf "%s: Training error:   %.2f%%"
+                        prefix ((1 - trainScore) * 100)
+               hPutStrLn stderr $
+                 printf "%s: Validation error: %.2f%%"
+                        prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
                     -> ( RepN (X (ADRnnMnistParameters RepN r))
@@ -251,7 +261,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdamDeep ftk)
+       res <- runEpoch 1 (targetInit, initialStateAdamDeep ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -277,32 +287,25 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
 mnistTestCaseRNNO
-  :: forall target r.
-     ( target ~ RepN, Differentiable r, GoodScalar r, Numeric r, Random r
+  :: forall r.
+     ( Differentiable r, GoodScalar r, Numeric r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
- -- TODO: use withKnownNat when we no longer support GHC 9.4
- case someNatVal $ toInteger width of
-  Nothing -> error "impossible someNatVal error"
-  Just (SomeNat @width _) ->
-    let valsInitShaped
-          :: ADRnnMnistParametersShaped RepN width r
-        valsInitShaped = fst $ randomValue 0.4 (mkStdGen 44)
-        valsInit :: ADRnnMnistParameters target r
-        valsInit = forgetShape valsInitShaped
-        hVectorInit :: RepN (X (ADRnnMnistParameters RepN r))
-        hVectorInit = toTarget @RepN valsInit
-        ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
-                         hVectorInit
+  withSNat width $ \(SNat @width) ->
+    let targetInit =
+          forgetShape $ fst
+          $ randomValue @(RepN (X (ADRnnMnistParametersShaped RepN width r)))
+                        0.4 (mkStdGen 44)
         name = prefix ++ ": "
                ++ unwords [ show epochs, show maxBatches
-                          , show width, show miniBatchSize ]
---                          , show (V.length hVectorInit)
---                          , show (sizeHVector hVectorInit) ]
+                          , show width, show miniBatchSize
+                          , show $ twidth @RepN
+                            $ knownSTK @(X (ADRnnMnistParameters RepN r))
+                          , show (tsize knownSTK targetInit) ]
         ftest :: Int -> MnistDataBatchR r
               -> RepN (X (ADRnnMnistParameters RepN r))
               -> r
@@ -318,6 +321,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = mkMnistDataBatchR testData
+           ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
+                      targetInit
            ftkData = FTKProduct (FTKR (miniBatchSize
                                        :$: sizeMnistHeightInt
                                        :$: sizeMnistWidthInt
@@ -326,7 +331,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                                        :$: sizeMnistLabelInt
                                        :$: ZSR) FTKScalar)
            f :: ( ADRnnMnistParameters (AstTensor AstMethodLet FullSpan) r
-                , (AstTensor AstMethodLet FullSpan (TKR 3 r), AstTensor AstMethodLet FullSpan (TKR 2 r)) )
+                , ( AstTensor AstMethodLet FullSpan (TKR 3 r)
+                  , AstTensor AstMethodLet FullSpan (TKR 2 r) ) )
              -> AstTensor AstMethodLet FullSpan (TKScalar r)
            f = \ (pars, (glyphR, labelR)) ->
              MnistRnnRanked2.rnnMnistLossFusedR
@@ -340,11 +346,10 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                  , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
-             let glyphD = rconcrete glyph
-                 labelD = rconcrete label
-                 parametersAndInput = tpair parameters (tpair glyphD labelD)
-                 gradient =
-                   tproject1 $ fst $ revEvalArtifact art parametersAndInput Nothing
+             let parametersAndInput =
+                   tpair parameters (tpair (rconcrete glyph) (rconcrete label))
+                 gradient = tproject1 $ fst
+                            $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdamDeep
                            @(X (ADRnnMnistParameters RepN r))
                            defaultArgsAdam stateAdam parameters gradient)
@@ -358,15 +363,21 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) = go chunkR (parameters, stateAdam)
-                 !trainScore =
+                 trainScore =
                    ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
-                 !testScore =
+                 testScore =
                    ftest (totalBatchSize * maxBatches) testDataR parameters2
-                 !lenChunk = length chunk
+                 lenChunk = length chunk
              unless (width < 10) $ do
-               hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
-               hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
-               hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+               hPutStrLn stderr $
+                 printf "\n%s: (Batch %d with %d points)"
+                        prefix k lenChunk
+               hPutStrLn stderr $
+                 printf "%s: Training error:   %.2f%%"
+                        prefix ((1 - trainScore) * 100)
+               hPutStrLn stderr $
+                 printf "%s: Validation error: %.2f%%"
+                        prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
                     -> ( RepN (X (ADRnnMnistParameters RepN r))
@@ -382,7 +393,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (hVectorInit, initialStateAdamDeep ftk)
+       res <- runEpoch 1 (targetInit, initialStateAdamDeep ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
@@ -420,7 +431,8 @@ valsInitRNNOPP out_width sizeMnistHeightI =
       $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
     , RepN
-      $ Nested.rfromListPrimLinear [out_width] (map fromIntegral [0 .. out_width - 1]) )
+      $ Nested.rfromListPrimLinear [out_width]
+                                   (map fromIntegral [0 .. out_width - 1]) )
   , ( RepN
       $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
@@ -428,7 +440,8 @@ valsInitRNNOPP out_width sizeMnistHeightI =
       $ Nested.rfromListPrimLinear [out_width, out_width]
                     (map fromIntegral [0 .. out_width * out_width - 1])
     , RepN
-      $ Nested.rfromListPrimLinear [out_width] (map fromIntegral [0 .. out_width - 1]) )
+      $ Nested.rfromListPrimLinear [out_width]
+                                   (map fromIntegral [0 .. out_width - 1]) )
   , ( RepN
        $ Nested.rfromListPrimLinear [sizeMnistLabelInt, out_width]
                     (map fromIntegral [0 .. sizeMnistLabelInt * out_width - 1])
@@ -475,7 +488,9 @@ testRNNOPP2 = do
       blackGlyph = AstReplicate (SNat @2) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
-                       (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+                       (AstConcrete (FTKR ZSR FTKScalar)
+                                    (RepN $ Nested.rscalar 7)
+                        :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double
               -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
