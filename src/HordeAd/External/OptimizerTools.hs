@@ -3,8 +3,8 @@ module HordeAd.External.OptimizerTools
   ( updateWithGradient
 --  , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
-  , StateAdamDeep(..), initialStateAdamDeep
-  , updateWithGradientAdamDeep
+  , StateAdam(..), initialStateAdam
+  , updateWithGradientAdam
   ) where
 
 import Prelude
@@ -119,18 +119,18 @@ unzip3Rep stk (RepN t) = case stk of
                           in (RepN (unRepN a1, unRepN a2), RepN (unRepN b1, unRepN b2), RepN (unRepN c1, unRepN c2))
   _ -> error "TODO"
 
-type role StateAdamDeep nominal
-data StateAdamDeep y = StateAdamDeep
-  { tAdamDeep :: Int  -- iteration count
-  , mAdamDeep :: RepN y
-  , vAdamDeep :: RepN y
+type role StateAdam nominal
+data StateAdam y = StateAdam
+  { tAdam :: Int  -- iteration count
+  , mAdam :: RepN y
+  , vAdam :: RepN y
   }
 
-initialStateAdamDeep :: FullTensorKind y -> StateAdamDeep y
-initialStateAdamDeep ftk =
-  StateAdamDeep { tAdamDeep = 0
-                , mAdamDeep = repDeepZero ftk
-                , vAdamDeep = repDeepZero ftk
+initialStateAdam :: FullTensorKind y -> StateAdam y
+initialStateAdam ftk =
+  StateAdam { tAdam = 0
+                , mAdam = repDeepZero ftk
+                , vAdam = repDeepZero ftk
                 }
 
 -- TODO: introduce and use dummies
@@ -143,14 +143,14 @@ repDeepZero = \case
   FTKProduct ftk1 ftk2 -> RepN (unRepN $ repDeepZero ftk1, unRepN $ repDeepZero ftk2)
   _ -> error "TODO"
 
-updateWithGradientAdamDeep
+updateWithGradientAdam
   :: KnownSTK y
-  => ArgsAdam -> StateAdamDeep y -> RepN y -> RepN (ADTensorKind y)
-  -> (RepN y, StateAdamDeep y)
-updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
-  let mAdamR = mAdamDeep
-      vAdamR = vAdamDeep
-      tAdamNew = tAdamDeep + 1
+  => ArgsAdam -> StateAdam y -> RepN y -> RepN (ADTensorKind y)
+  -> (RepN y, StateAdam y)
+updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
+  let mAdamR = mAdam
+      vAdamR = vAdam
+      tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
       updateR :: ( Fractional r
@@ -244,9 +244,9 @@ updateWithGradientAdamDeep ArgsAdam{..} StateAdamDeep{..} paramsR gradientR =
         unzip3Rep knownSTK
         $ updateProd knownSTK mAdamR vAdamR paramsR gradientR
   in ( paramsRNew
-     , StateAdamDeep
-         { tAdamDeep = tAdamNew
-         , mAdamDeep = mAdamRNew
-         , vAdamDeep = vAdamRNew
+     , StateAdam
+         { tAdam = tAdamNew
+         , mAdam = mAdamRNew
+         , vAdam = vAdamRNew
          }
      )

@@ -1,8 +1,8 @@
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.External.Optimizer
   ( sgd
-  , sgdAdamDeep, sgdAdamArgsDeep
-  , StateAdamDeep, initialStateAdamDeep
+  , sgdAdam, sgdAdamArgs
+  , StateAdam, initialStateAdam
   , defaultArgsAdam
   ) where
 
@@ -46,32 +46,32 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/23798
 -- and specialize.
 -- | An implementation of the Adam gradient descent.
-sgdAdamDeep
+sgdAdam
   :: forall a x z . (KnownSTK x, KnownSTK z)
   => (a -> ADVal RepN x -> ADVal RepN z)
   -> [a]
   -> RepN x
-  -> StateAdamDeep x
-  -> (RepN x, StateAdamDeep x)
-{-# INLINE sgdAdamDeep #-}
-sgdAdamDeep = sgdAdamArgsDeep defaultArgsAdam
+  -> StateAdam x
+  -> (RepN x, StateAdam x)
+{-# INLINE sgdAdam #-}
+sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgsDeep
+sgdAdamArgs
   :: forall a x z. (KnownSTK x, KnownSTK z)
   => ArgsAdam
   -> (a -> ADVal RepN x -> ADVal RepN z)
   -> [a]
   -> RepN x
-  -> StateAdamDeep x
-  -> (RepN x, StateAdamDeep x)
-{-# INLINE sgdAdamArgsDeep #-}
-sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
+  -> StateAdam x
+  -> (RepN x, StateAdam x)
+{-# INLINE sgdAdamArgs #-}
+sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   ftk = tftk knownSTK parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs ftk
-  go :: [a] -> RepN x -> StateAdamDeep x -> (RepN x, StateAdamDeep x)
+  go :: [a] -> RepN x -> StateAdam x -> (RepN x, StateAdam x)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam
    | Dict <- lemKnownSTKOfAD (knownSTK @x) =
@@ -79,5 +79,5 @@ sgdAdamArgsDeep argsAdam f trainingData !parameters0 !stateAdam0 =
         inputs = dDnotShared parameters deltaInputs
         gradients = fst $ crevOnADInputs Nothing (f a) inputs
         (parametersNew, stateAdamNew) =
-          updateWithGradientAdamDeep argsAdam stateAdam parameters gradients
+          updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

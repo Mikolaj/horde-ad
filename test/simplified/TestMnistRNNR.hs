@@ -91,16 +91,16 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                miniBatchSize (rconcrete glyphR, rconcrete labelR)
                (fromTarget @(ADVal RepN) adinputs)
            runBatch :: ( RepN (X (ADRnnMnistParameters RepN r))
-                       , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                       , StateAdam (X (ADRnnMnistParameters RepN r)) )
                     -> (Int, [MnistDataR r])
                     -> IO ( RepN (X (ADRnnMnistParameters RepN r))
-                          , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                          , StateAdam (X (ADRnnMnistParameters RepN r)) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) =
-                   sgdAdamDeep @(MnistDataBatchR r)
+                   sgdAdam @(MnistDataBatchR r)
                                @(X (ADRnnMnistParameters RepN r))
                                f chunkR parameters stateAdam
                  trainScore =
@@ -121,7 +121,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
              return res
        let runEpoch :: Int
                     -> ( RepN (X (ADRnnMnistParameters RepN r))
-                       , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                       , StateAdam (X (ADRnnMnistParameters RepN r)) )
                     -> IO (RepN (X (ADRnnMnistParameters RepN r)))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
@@ -135,7 +135,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
              runEpoch (succ n) res
            ftk = tftk @RepN (knownSTK @(X (ADRnnMnistParameters RepN r)))
                       targetInit
-       res <- runEpoch 1 (targetInit, initialStateAdamDeep ftk)
+       res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -219,16 +219,16 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                             $ extendEnv varLabel (rconcrete label) env
              in interpretAst envMnist ast
            runBatch :: ( RepN (X (ADRnnMnistParameters RepN r))
-                       , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                       , StateAdam (X (ADRnnMnistParameters RepN r)) )
                     -> (Int, [MnistDataR r])
                     -> IO ( RepN (X (ADRnnMnistParameters RepN r))
-                          , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                          , StateAdam (X (ADRnnMnistParameters RepN r)) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
                           $ chunksOf miniBatchSize chunk
                  res@(parameters2, _) =
-                   sgdAdamDeep @(MnistDataBatchR r)
+                   sgdAdam @(MnistDataBatchR r)
                                @(X (ADRnnMnistParameters RepN r))
                                f chunkR parameters stateAdam
                  trainScore =
@@ -249,7 +249,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
              return res
        let runEpoch :: Int
                     -> ( RepN (X (ADRnnMnistParameters RepN r))
-                       , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                       , StateAdam (X (ADRnnMnistParameters RepN r)) )
                     -> IO (RepN (X (ADRnnMnistParameters RepN r)))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
@@ -261,7 +261,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (targetInit, initialStateAdamDeep ftk)
+       res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
@@ -341,23 +341,23 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> ( RepN (X (ADRnnMnistParameters RepN r))
-                 , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                 , StateAdam (X (ADRnnMnistParameters RepN r)) )
               -> ( RepN (X (ADRnnMnistParameters RepN r))
-                 , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                 , StateAdam (X (ADRnnMnistParameters RepN r)) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let parametersAndInput =
                    tpair parameters (tpair (rconcrete glyph) (rconcrete label))
                  gradient = tproject1 $ fst
                             $ revEvalArtifact art parametersAndInput Nothing
-             in go rest (updateWithGradientAdamDeep
+             in go rest (updateWithGradientAdam
                            @(X (ADRnnMnistParameters RepN r))
                            defaultArgsAdam stateAdam parameters gradient)
            runBatch :: ( RepN (X (ADRnnMnistParameters RepN r))
-                       , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                       , StateAdam (X (ADRnnMnistParameters RepN r)) )
                     -> (Int, [MnistDataR r])
                     -> IO ( RepN (X (ADRnnMnistParameters RepN r))
-                          , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                          , StateAdam (X (ADRnnMnistParameters RepN r)) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkR = map mkMnistDataBatchR
                           $ filter (\ch -> length ch == miniBatchSize)
@@ -381,7 +381,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              return res
        let runEpoch :: Int
                     -> ( RepN (X (ADRnnMnistParameters RepN r))
-                       , StateAdamDeep (X (ADRnnMnistParameters RepN r)) )
+                       , StateAdam (X (ADRnnMnistParameters RepN r)) )
                     -> IO (RepN (X (ADRnnMnistParameters RepN r)))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
@@ -393,7 +393,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (targetInit, initialStateAdamDeep ftk)
+       res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
