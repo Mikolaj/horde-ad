@@ -1330,7 +1330,6 @@ fooD :: forall r. r ~ Double
 fooD (x ::: y ::: z ::: ZR) =
   let w = x * sin y
   in atan2F z w + z * w
-fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
 testFooD =

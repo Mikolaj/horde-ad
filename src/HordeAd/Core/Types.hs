@@ -384,7 +384,6 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
     go :: ShR (m1 + n) Int -> IxR m1 j -> j -> j
     go sh ZIR tensidx = fromInt (shrSize sh) * tensidx
     go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt n * tensidx + i)
-    go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index. Here we require an index pointing at a scalar.
@@ -744,7 +743,6 @@ shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
          ((:$$) @_ @rest snat2 rest) =
   gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
   Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
-shCastSX _ _ = error "shCastSX: shapes don't match"
 
 -- TODO; make more typed, ensure ranks match, use singletons instead of constraints,
 -- give better names and do the same for ListS, etc.

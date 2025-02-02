@@ -428,7 +428,6 @@ class ( Num (IntOf target)
   rsize = shrSize . rshape
   rlength :: KnownSTK r => target (TKR2 (1 + n) r) -> Int
   rlength v = case rshape v of
-    ZSR -> error "rlength: impossible pattern needlessly required"
     k :$: _ -> k
 
   rconcrete :: (KnownSTK r, KnownNat n)
@@ -492,7 +491,6 @@ class ( Num (IntOf target)
     _ :$: width2 :$: ZSR ->
       rsum (rtranspose [2,1,0] (rreplicate width2 m1)
             * rtranspose [1,0] (rreplicate (rlength m1) m2))
-    _ -> error "rmatmul2: impossible pattern needlessly required"
   rscaleByScalar :: (GoodScalar r, KnownNat n)
                  => target (TKR 0 r) -> target (TKR n r) -> target (TKR n r)
   rscaleByScalar s v = v * rreplicate0N (rshape v) s
@@ -574,7 +572,6 @@ class ( Num (IntOf target)
           => target (TKR2 (1 + n) r)
           -> Maybe (target (TKR2 n r), target (TKR2 (1 + n) r))
   runcons v = case rshape v of
-                ZSR -> Nothing
                 len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
   rreverse :: (KnownSTK r, KnownNat n)
            => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)

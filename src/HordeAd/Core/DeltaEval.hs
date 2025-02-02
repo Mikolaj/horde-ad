@@ -629,7 +629,6 @@ evalRevSame !s !c = \case
                      FTKR (len :$: _) _ -> len
                    s2 = evalRevSame s (rslice 0 k cShared) d
                in evalRevSame s2 (rslice k (n - k) cShared) e
-    ZSR -> error "evalRevSame: impossible pattern needlessly required"
   DeltaSliceR i n d -> case tftk (knownSTK @y) c of
     FTKR (n' :$: rest) x ->
       assert (n' == n `blame` (n', n)) $

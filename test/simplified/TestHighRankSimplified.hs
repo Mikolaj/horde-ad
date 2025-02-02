@@ -117,7 +117,6 @@ fooD :: forall r n. (RealFloatF (ADVal RepN (TKR n r)))
 fooD (x ::: y ::: z ::: ZR) =
   let w = x * sin y
   in atan2F z w + z * w
-fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
 testFooD =

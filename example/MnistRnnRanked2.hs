@@ -75,7 +75,6 @@ rnnMnistLayerR s x (wX, wS, b) = case rshape s of
     let y = wX `rmatmul2` x + wS `rmatmul2` s
             + rtr (rreplicate batch_size b)
     in tanh y
-  _ -> error "rnnMnistLayerR: wrong shape of the state"
 
 rnnMnistTwoR
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
@@ -95,7 +94,6 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
               vec2 = rnnMnistLayerR s2 vec1 (wX2, wS2, b2)
           in rappend vec1 vec2
     in (rslice out_width out_width s3, s3)
-  _ -> error "rnnMnistTwoR: wrong shape of the state"
 
 rnnMnistZeroR
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
@@ -110,7 +108,6 @@ rnnMnistZeroR batch_size xs
         (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR) xs
                                   ((wX, wS, b), (wX2, wS2, b2))
     in w3 `rmatmul2` out + rtr (rreplicate batch_size b3)
-  _ -> error "rnnMnistZeroR: wrong shape"
 
 rnnMnistLossFusedR
   :: ( ADReady target, ADReady (PrimalOf target), GoodScalar r

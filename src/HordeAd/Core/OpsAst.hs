@@ -541,7 +541,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
           . fromPrimal . AstMinIndexS @rest @n
           . primalPart . astSFromX @sh @sh' $ a
-        ZSS -> error "xminIndex: impossible shape"
   xmaxIndex @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -554,7 +553,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
           . fromPrimal . AstMaxIndexS @rest @n
           . primalPart . astSFromX @sh @sh' $ a
-        ZSS -> error "xmaxIndex: impossible shape"
   xiota @n @r = astFromS (knownSTK @(TKX '[Just n] r))
                 $ fromPrimal $ AstIotaS @n @r
   xappend @r @sh u v = case ftkAst u of
@@ -572,8 +570,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                                  (astSFromX @shv @shv' v)
                   _ -> error $ "xappend: shapes don't match: "
                                ++ show (restu, restv)
-              ZSS -> error "xappend: impossible shape"
-          ZSS -> error "xappend: impossible shape"
   xslice @r @i @n @k @sh2 Proxy Proxy a = case ftkAst a of
     FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -587,7 +583,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             _ -> error $ "xslice: argument tensor too narrow: "
                          ++ show ( valueOf @i :: Int, valueOf @n :: Int
                                  , valueOf @k :: Int, sNatValue msnat )
-        ZSS -> error "xslice: impossible shape"
   xreverse a = case ftkAst a of
     FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -596,7 +591,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           withKnownShS rest $
           astFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
           . astReverseS . astSFromX @sh @sh' $ a
-        ZSS -> error "xreverse: impossible shape"
   xtranspose @perm perm a = case ftkAst a of
     FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
       (sh2' :: IShX sh2') ->
@@ -1207,7 +1201,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           AstFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
           . fromPrimal . AstMinIndexS @rest @n
           . primalPart . AstSFromX @sh @sh' $ a
-        ZSS -> error "xminIndex: impossible shape"
   xmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -1220,7 +1213,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           AstFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
           . fromPrimal . AstMaxIndexS @rest @n
           . primalPart . AstSFromX @sh @sh' $ a
-        ZSS -> error "xmaxIndex: impossible shape"
   xiota @n @r = AstRaw $ AstFromS (knownSTK @(TKX '[Just n] r))
                 $ fromPrimal $ AstIotaS @n @r
   xappend @r @sh (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
@@ -1238,8 +1230,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                  (AstSFromX @shv @shv' v)
                   _ -> error $ "xappend: shapes don't match: "
                                ++ show (restu, restv)
-              ZSS -> error "xappend: impossible shape"
-          ZSS -> error "xappend: impossible shape"
   xslice @r @i @n @k @sh2 Proxy Proxy (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1253,7 +1243,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
             _ -> error $ "xslice: argument tensor too narrow: "
                          ++ show ( valueOf @i :: Int, valueOf @n :: Int
                                  , valueOf @k :: Int, sNatValue msnat )
-        ZSS -> error "xslice: impossible shape"
   xreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -1262,7 +1251,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           withKnownShS rest $
           AstFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
           . AstReverseS . AstSFromX @sh @sh' $ a
-        ZSS -> error "xreverse: impossible shape"
   xtranspose @perm perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
       (sh2' :: IShX sh2') ->

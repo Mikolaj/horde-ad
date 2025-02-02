@@ -577,7 +577,6 @@ astIndexBuild snat@SNat stk u i = case stk of
    FTKX shBuild' _->
     withKnownShX sh' $
     withCastXS shBuild' $ \(shBuild :: ShS shBuild) -> case shBuild of
-      ZSS -> error "astIndexBuild: impossible empty shape"
       (:$$) _ rest ->
         withKnownShS rest $
         astFromS (knownSTK @y)
