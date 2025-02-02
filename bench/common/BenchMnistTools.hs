@@ -1,18 +1,27 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | A set of benchmarks using fully connected MNIST neural networks.
 module BenchMnistTools where
 
 import Prelude
 
+import Control.DeepSeq (NFData (..))
 import Criterion.Main
+import Data.Default qualified as Default
+import GHC.Exts (WithDict)
+import GHC.TypeLits (KnownNat)
+import Numeric.LinearAlgebra (Numeric)
 import System.Random
+import Test.Inspection
+import Type.Reflection (Typeable)
 
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.External.OptimizerTools
 
-import Data.Array.Nested (pattern (:$:), pattern ZSR)
+import Data.Array.Nested (ShR (..))
+import Data.Array.Nested qualified as Nested
 
 import MnistData
 import MnistFcnnRanked1 qualified
@@ -381,3 +390,6 @@ mnistBGroup2VTO xs0 chunkLength =
            -- another common width
        , mnistTrainBench2VTO "500|150 " 500 150 0.02 chunkLength xs
        ]
+
+-- TODO: not enough specialized
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''RealFrac, ''Nested.FloatElt, ''RealFloatF, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''KnownSTK, ''Boolean, ''EqF, ''OrdF, ''AllTargetShow, ''BaseTensor, ''KnownNat, ''ShareTensor, ''LetTensor, ''Nested.Storable, ''SplitGen, ''RandomGen, ''Nested.KnownShS, ''Nested.KnownShX, ''AdaptableTarget, ''AstSpan, ''WithDict, ''PermC, ''IntegralF, ''Integral, ''Numeric, ''Monoid, ''Fractional, ''Random]

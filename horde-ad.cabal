@@ -235,6 +235,7 @@ library benchCommonLibrary
       , criterion
       , deepseq
       , data-default
+      , hmatrix
       , inspection-testing
       , ox-arrays
       , random

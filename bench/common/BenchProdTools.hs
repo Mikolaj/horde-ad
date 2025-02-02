@@ -13,6 +13,7 @@ import Data.Default qualified as Default
 import Data.List (foldl1')
 import GHC.Exts (IsList (..), WithDict)
 import GHC.TypeLits (KnownNat)
+import Numeric.LinearAlgebra (Numeric)
 import Test.Inspection
 import Type.Reflection (Typeable)
 
@@ -209,4 +210,10 @@ revRankedTProd = rev rankedTProd
 -- to the existential variables in AstRanked that show up, e.g., when
 -- pattern matching on that type, dictionaries seen in the datatype
 -- constructors.
+{-
 inspect $ hasNoTypeClassesExcept 'revRankedTProd [''KnownNat, ''KnownSTK, ''BaseTensor, ''GoodScalar, ''AstSpan, ''Num, ''Show, ''Ord, ''Typeable, ''IfDifferentiable, ''Eq, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Nested.KnownShS, ''Boolean, ''EqF, ''OrdF, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''(~), ''Nested.Storable, ''Nested.KnownShX, ''WithDict, ''RealFrac, ''PermC]
+-}
+
+{- with --ghc-options="-fpolymorphic-specialisation"
+additional classes appear (at the end): -}
+inspect $ hasNoTypeClassesExcept 'revRankedTProd [''KnownNat, ''KnownSTK, ''BaseTensor, ''GoodScalar, ''AstSpan, ''Num, ''Show, ''Ord, ''Typeable, ''IfDifferentiable, ''Eq, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Nested.KnownShS, ''Boolean, ''EqF, ''OrdF, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''(~), ''Nested.Storable, ''Nested.KnownShX, ''WithDict, ''RealFrac, ''PermC, ''RealFloatF, ''Nested.FloatElt, ''IntegralF, ''Integral, ''Numeric, ''IsList]
