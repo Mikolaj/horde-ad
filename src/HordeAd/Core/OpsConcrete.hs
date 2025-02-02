@@ -530,14 +530,14 @@ instance BaseTensor RepN where
   sscan f x0 as =
     sfromList $ NonEmpty.fromList $ scanl' f x0 (sunravelToList as)
   -- The eta-expansion below is needed for typing.
-  dmapAccumR _ k accShs bShs eShs f acc0 es =
-    oRdmapAccumR k accShs bShs eShs f acc0 es
-  dmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumR k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
-  dmapAccumL _ k accShs bShs eShs f acc0 es =
-    oRdmapAccumL k accShs bShs eShs f acc0 es
-  dmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRdmapAccumL k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
+  tmapAccumR _ k accShs bShs eShs f acc0 es =
+    oRtmapAccumR k accShs bShs eShs f acc0 es
+  tmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
+    oRtmapAccumR k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
+  tmapAccumL _ k accShs bShs eShs f acc0 es =
+    oRtmapAccumL k accShs bShs eShs f acc0 es
+  tmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
+    oRtmapAccumL k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
   tApply f x = RepN $ f $ unRepN x
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tcond _ b u v = if b then u else v
@@ -546,18 +546,18 @@ instance BaseTensor RepN where
   tfromPrimal _ t = t
   tfromDual _ (DummyDualTarget ftk) = constantTarget 0 ftk
   tScale _ _ t = t
-  -- The code for drevDt and dfwd in this instance is similar as for the
+  -- The code for trevDt and tfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
-  drev @x _ftk h =
+  trev @x _ftk h =
     let rf :: RepORArray x -> RepORArray (ADTensorKind x)
         rf !a = unRepN $ fst $ crevOnHVector Nothing (unHFun h) (RepN a)
     in rf
-  drevDt @x @z _ftk h =
+  trevDt @x @z _ftk h =
     let rf :: RepORArray (TKProduct (ADTensorKind z) x) -> RepORArray (ADTensorKind x)
         rf !db_a = unRepN $ fst
                    $ crevOnHVector (Just $ RepN $ fst db_a) (unHFun h) (RepN $ snd db_a)
     in rf
-  dfwd @x @z _shs h =
+  tfwd @x @z _shs h =
     let df :: RepORArray (TKProduct (ADTensorKind x) x)
           -> RepORArray (ADTensorKind z)
         df !da_a = unRepN $ fst
@@ -606,7 +606,7 @@ unravel k@SNat t = case knownSTK @y of
           lt2 = unravel k $ tproject2 t
       in zipWith tpair lt1 lt2
 
-oRdmapAccumR
+oRtmapAccumR
   :: forall k accShs bShs eShs.
      (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
   => SNat k
@@ -618,7 +618,7 @@ oRdmapAccumR
   -> RepN accShs
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
-oRdmapAccumR k _ bShs _ f acc0 es
+oRtmapAccumR k _ bShs _ f acc0 es
  | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) = case sNatValue k of
   0 -> tpair acc0 (treplicate k (knownSTK @bShs) (constantTarget 0 bShs))
   _ ->
@@ -628,7 +628,7 @@ oRdmapAccumR k _ bShs _ f acc0 es
     in tpair xout (ravel k lout)
       -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
 
-oRdmapAccumL
+oRtmapAccumL
   :: forall k accShs bShs eShs.
      (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
   => SNat k
@@ -640,7 +640,7 @@ oRdmapAccumL
   -> RepN accShs
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
-oRdmapAccumL k _ bShs _ f acc0 es
+oRtmapAccumL k _ bShs _ f acc0 es
  | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) = case sNatValue k of
   0 -> tpair acc0 (treplicate k (knownSTK @bShs) (constantTarget 0 bShs))
   _ ->

@@ -181,7 +181,7 @@ interpretAst !env = \case
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in dmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+    in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
   AstMapAccumLDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
     | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
     , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
@@ -191,7 +191,7 @@ interpretAst !env = \case
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in dmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+    in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
   AstApply t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,

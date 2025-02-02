@@ -431,7 +431,7 @@ evalRev !s !c d0 = case d0 of
         eShsAD = adFTK eShs
         (c0, crest) = tunpair c
         dacc_des =
-          dmapAccumL (Proxy @target)
+          tmapAccumL (Proxy @target)
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx db_acc_e ->
@@ -461,7 +461,7 @@ evalRev !s !c d0 = case d0 of
         eShsAD = adFTK eShs
         (c0, crest) = tunpair c
         dacc_des =
-          dmapAccumR (Proxy @target)
+          tmapAccumR (Proxy @target)
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx db_acc_e ->
@@ -899,7 +899,7 @@ evalFwd params s d0 = case d0 of
         eShsAD = adFTK eShs
         (s2, cacc0) = evalFwd params s acc0'
         (s3, ces) = evalFwd params s2 es'
-    in (s3, dmapAccumR (Proxy @target)
+    in (s3, tmapAccumR (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc de_acc_e ->
@@ -926,7 +926,7 @@ evalFwd params s d0 = case d0 of
         eShsAD = adFTK eShs
         (s2, cacc0) = evalFwd params s acc0'
         (s3, ces) = evalFwd params s2 es'
-    in (s3, dmapAccumL (Proxy @target)
+    in (s3, tmapAccumL (Proxy @target)
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc de_acc_e ->

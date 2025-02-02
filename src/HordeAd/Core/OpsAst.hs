@@ -756,9 +756,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   tunpairDup t = (tproject1 t, tproject2 t)
-  dmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
+  tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumRDer k bShs eShs f df rf acc0 es
-  dmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
+  tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumLDer k bShs eShs f df rf acc0 es
   tApply t ll = astApply t ll
   tlambda shss f =
@@ -773,7 +773,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  drev @x ftkx f | Dict <- lemKnownSTKOfAD (knownSTK @x) =
+  trev @x ftkx f | Dict <- lemKnownSTKOfAD (knownSTK @x) =
     -- we don't have an AST constructor to hold it, so we compute
     --
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -788,7 +788,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astLet var astP
           $ simplifyInline gradient
     in AstLambda (varP, ftkx, ast)
-  drevDt @x @z ftkx f | Dict <- lemKnownSTKOfAD (knownSTK @x)
+  trevDt @x @z ftkx f | Dict <- lemKnownSTKOfAD (knownSTK @x)
                       , Dict <- lemKnownSTKOfAD (knownSTK @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -801,7 +801,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet var (astProject2 astP)
           $ simplifyInline gradient
     in AstLambda (varP, ftk2, ast)
-  dfwd @x @z ftkx f | Dict <- lemKnownSTKOfAD (knownSTK @x)
+  tfwd @x @z ftkx f | Dict <- lemKnownSTKOfAD (knownSTK @x)
                     , Dict <- lemKnownSTKOfAD (knownSTK @z) =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -1431,11 +1431,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  dmapAccumRDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
+  tmapAccumRDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
     , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) =
       AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
-  dmapAccumLDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
+  tmapAccumLDer @_ @bShs @eShs _ !k _ !bShs !eShs f df rf acc0 es
     | Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
     , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) =
       AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
@@ -1457,11 +1457,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   --
   -- TODO: dupe?
   -- These three methods are called at this type in delta evaluation via
-  -- dmapAccumR and dmapAccumL, they have to work. We could refrain from
+  -- tmapAccumR and tmapAccumL, they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
-  drev = drev @(AstTensor AstMethodLet PrimalSpan)
-  drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
-  dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
+  trev = trev @(AstTensor AstMethodLet PrimalSpan)
+  trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
+  tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
 
 -- * AstNoVectorize instances
@@ -1605,11 +1605,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
   tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
                  in (AstNoVectorize b, AstNoVectorize c)
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstNoVectorize $ dmapAccumRDer Proxy k accShs bShs eShs f df rf
+  tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    AstNoVectorize $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstNoVectorize $ dmapAccumLDer Proxy k accShs bShs eShs f df rf
+  tmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    AstNoVectorize $ tmapAccumLDer Proxy k accShs bShs eShs f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
   tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
@@ -1619,9 +1619,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tfromDual stk t = AstNoVectorize $ tfromDual stk t
-  drev = drev @(AstTensor AstMethodLet PrimalSpan)
-  drevDt = drevDt @(AstTensor AstMethodLet PrimalSpan)
-  dfwd = dfwd @(AstTensor AstMethodLet PrimalSpan)
+  trev = trev @(AstTensor AstMethodLet PrimalSpan)
+  trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
+  tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
 
 -- * AstNoSimplify instances
@@ -1826,16 +1826,16 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
-  dmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    wAstNoSimplify $ dmapAccumRDer Proxy k accShs bShs eShs f df rf
+  tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    wAstNoSimplify $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
-  dmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    wAstNoSimplify $ dmapAccumLDer Proxy k accShs bShs eShs f df rf
+  tmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
+    wAstNoSimplify $ tmapAccumLDer Proxy k accShs bShs eShs f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
   tApply t ll = wAstNoSimplify $ tApply t (wunAstNoSimplify ll)
   tlambda = tlambda @(AstRaw PrimalSpan)
   tprimalPart stk t = wAstNoSimplify $ tprimalPart stk $ wunAstNoSimplify t
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
-  drev = drev @(AstRaw PrimalSpan)
-  drevDt = drevDt @(AstRaw PrimalSpan)
-  dfwd = dfwd @(AstRaw PrimalSpan)
+  trev = trev @(AstRaw PrimalSpan)
+  trevDt = trevDt @(AstRaw PrimalSpan)
+  tfwd = tfwd @(AstRaw PrimalSpan)

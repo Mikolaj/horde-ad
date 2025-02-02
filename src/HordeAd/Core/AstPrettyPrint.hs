@@ -202,7 +202,7 @@ printAstAux cfg d = \case
    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
     showParen (d > 10)
-    $ showString "dmapAccumRDer "
+    $ showString "tmapAccumRDer "
       . showParen True (shows k)
       . showString " "
       . printAstHFun cfg 10 f
@@ -220,7 +220,7 @@ printAstAux cfg d = \case
    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
     showParen (d > 10)
-    $ showString "dmapAccumLDer "
+    $ showString "tmapAccumLDer "
       . showParen True (shows k)
       . showString " "
       . printAstHFun cfg 10 f

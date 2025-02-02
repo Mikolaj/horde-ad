@@ -179,7 +179,7 @@ crevRankedNotSharedLtProd =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
   crev rankedNotSharedLtProd
 
--- A potential further speedup would be to use dmapAccumL with TKS
+-- A potential further speedup would be to use tmapAccumL with TKS
 -- and TKScalar, but I don't think we'd gain much, especially for rev.
 -- Another variant, with foldl1' and indexing, would be a disaster.
 -- We can define sproduct if this benchmark ends up used anywhere,

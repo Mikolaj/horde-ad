@@ -487,7 +487,7 @@ testSin0FoldB1PP = do
                            (rscalar 5) (rreplicate 1 x0)
               in f) (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "rsum (tproject2 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 5.0) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1))))))"
+    @?= "rsum (tproject2 (tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 5.0) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1))))))"
 
 testSin0FoldB2 :: Assertion
 testSin0FoldB2 = do
@@ -779,7 +779,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @_ @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty IM.empty a1
-    @?= "rfromS (let v5 = dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (tconcrete (FTKS [5] FTKScalar) (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0])) (tpair (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sscalar 1.1)) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in ssum (tproject1 v5) + ssum (tproject2 v5))"
+    @?= "rfromS (let v5 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (tconcrete (FTKS [5] FTKScalar) (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0])) (tpair (tconcrete (FTKS [1] FTKScalar) (sfromListLinear [1] [Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sscalar 1.1)) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in ssum (tproject1 v5) + ssum (tproject2 v5))"
 
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
@@ -1023,7 +1023,7 @@ testSin0Scan1RevPP1 = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v3 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v6 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in v6 !$ [0] + tproject1 (dmapAccumRDer (SNat @2) (\\x9 -> tfromS (tpair (cos (sfromR (tproject1 (tproject2 (tproject2 x9)))) * (sscalar 0.0 + tproject1 (tproject2 x9) + tproject1 x9), sscalar 0.0))) (\\x17 -> tfromS (tpair ((sfromR (tproject1 (tproject2 (tproject2 (tproject1 x17)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))))) * (sscalar 0.0 + tproject1 (tproject2 (tproject2 x17)) + tproject1 (tproject2 x17)) + (tproject1 (tproject2 (tproject1 x17)) + tproject1 (tproject1 x17)) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))), sscalar 0.0))) (\\x33 -> tfromS (let x34 = let x31 = sscalar 0.0 + tproject1 (tproject1 x33) ; x32 = cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33))))) * x31 in tpair (x32, tpair (x32, tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33)))))) * ((sscalar 0.0 + tproject1 (tproject2 (tproject2 x33)) + tproject1 (tproject2 x33)) * x31), sscalar 0.0))) in tpair (tproject1 x34, tpair (tproject1 (tproject2 x34), tpair (tproject1 (tproject2 (tproject2 x34)), tproject2 (tproject2 (tproject2 x34))))))) (sscalar 0.0) (tpair (sslice v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\x36 -> tfromS (let x39 = sin (tproject1 x36) in tpair (x39, tpair (tproject1 x36, x39)))) (\\x42 -> tfromS (let x49 = tproject1 (tproject1 x42) * cos (tproject1 (tproject2 x42)) in tpair (x49, tpair (tproject1 (tproject1 x42), x49)))) (\\x52 -> tpair (cos (tproject1 (tproject2 x52)) * (sscalar 0.0 + sfromR (tproject2 (tproject2 (tproject1 x52))) + tproject1 (tproject1 x52)) + sfromR (tproject1 (tproject2 (tproject1 x52))), sscalar 0.0)) (sscalar 1.1) v3)), v3)))))"
+    @?= "rfromS (let v3 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v6 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in v6 !$ [0] + tproject1 (tmapAccumRDer (SNat @2) (\\x9 -> tfromS (tpair (cos (sfromR (tproject1 (tproject2 (tproject2 x9)))) * (sscalar 0.0 + tproject1 (tproject2 x9) + tproject1 x9), sscalar 0.0))) (\\x17 -> tfromS (tpair ((sfromR (tproject1 (tproject2 (tproject2 (tproject1 x17)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))))) * (sscalar 0.0 + tproject1 (tproject2 (tproject2 x17)) + tproject1 (tproject2 x17)) + (tproject1 (tproject2 (tproject1 x17)) + tproject1 (tproject1 x17)) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))), sscalar 0.0))) (\\x33 -> tfromS (let x34 = let x31 = sscalar 0.0 + tproject1 (tproject1 x33) ; x32 = cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33))))) * x31 in tpair (x32, tpair (x32, tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33)))))) * ((sscalar 0.0 + tproject1 (tproject2 (tproject2 x33)) + tproject1 (tproject2 x33)) * x31), sscalar 0.0))) in tpair (tproject1 x34, tpair (tproject1 (tproject2 x34), tpair (tproject1 (tproject2 (tproject2 x34)), tproject2 (tproject2 (tproject2 x34))))))) (sscalar 0.0) (tpair (sslice v6, tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) (\\x36 -> tfromS (let x39 = sin (tproject1 x36) in tpair (x39, tpair (tproject1 x36, x39)))) (\\x42 -> tfromS (let x49 = tproject1 (tproject1 x42) * cos (tproject1 (tproject2 x42)) in tpair (x49, tpair (tproject1 (tproject1 x42), x49)))) (\\x52 -> tpair (cos (tproject1 (tproject2 x52)) * (sscalar 0.0 + sfromR (tproject2 (tproject2 (tproject1 x52))) + tproject1 (tproject1 x52)) + sfromR (tproject1 (tproject2 (tproject1 x52))), sscalar 0.0)) (sscalar 1.1) v3)), v3)))))"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -1040,7 +1040,7 @@ testSin0ScanFwdPP = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) (\\x9 -> tfromS (let x16 = tproject1 x9 * cos (sfromR (tproject1 (tproject2 (tproject2 x9)))) in tpair (x16, x16))) (\\x18 -> tfromS (let x25 = tproject1 (tproject1 x18) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x18))))) + (sfromR (tproject1 (tproject2 (tproject2 (tproject1 x18)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x18))))))) * tproject1 (tproject2 x18) in tpair (x25, x25))) (\\x33 -> tfromS (let x32 = sscalar 0.0 + sfromR (tproject2 (tproject1 x33)) + tproject1 (tproject1 x33) in tpair (cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33))))) * x32, tpair (sscalar 0.0, tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33)))))) * (tproject1 (tproject2 x33) * x32), sscalar 0.0))))) (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\x44 -> tfromS (let x47 = sin (tproject1 x44) in tpair (x47, tpair (tproject1 x44, x47)))) (\\x50 -> tfromS (let x51 = tproject1 (tproject1 x50) * cos (tproject1 (tproject2 x50)) in tpair (x51, tpair (tproject1 (tproject1 x50), x51)))) (\\x54 -> tpair (cos (tproject1 (tproject2 x54)) * (sscalar 0.0 + sfromR (tproject2 (tproject2 (tproject1 x54))) + tproject1 (tproject1 x54)) + sfromR (tproject1 (tproject2 (tproject1 x54))), sscalar 0.0)) (sscalar 1.1) v4)), v4)))))))"
+    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (tmapAccumLDer (SNat @2) (\\x9 -> tfromS (let x16 = tproject1 x9 * cos (sfromR (tproject1 (tproject2 (tproject2 x9)))) in tpair (x16, x16))) (\\x18 -> tfromS (let x25 = tproject1 (tproject1 x18) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x18))))) + (sfromR (tproject1 (tproject2 (tproject2 (tproject1 x18)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x18))))))) * tproject1 (tproject2 x18) in tpair (x25, x25))) (\\x33 -> tfromS (let x32 = sscalar 0.0 + sfromR (tproject2 (tproject1 x33)) + tproject1 (tproject1 x33) in tpair (cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33))))) * x32, tpair (sscalar 0.0, tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x33)))))) * (tproject1 (tproject2 x33) * x32), sscalar 0.0))))) (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) (\\x44 -> tfromS (let x47 = sin (tproject1 x44) in tpair (x47, tpair (tproject1 x44, x47)))) (\\x50 -> tfromS (let x51 = tproject1 (tproject1 x50) * cos (tproject1 (tproject2 x50)) in tpair (x51, tpair (tproject1 (tproject1 x50), x51)))) (\\x54 -> tpair (cos (tproject1 (tproject2 x54)) * (sscalar 0.0 + sfromR (tproject2 (tproject2 (tproject1 x54))) + tproject1 (tproject1 x54)) + sfromR (tproject1 (tproject2 (tproject1 x54))), sscalar 0.0)) (sscalar 1.1) v4)), v4)))))))"
 
 testSin0ScanFwdPPFull :: Assertion
 testSin0ScanFwdPPFull = do
@@ -1049,7 +1049,7 @@ testSin0ScanFwdPPFull = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPrettyButNested IM.empty (simplifyInlineContract a1)
-    @?= "(\\x1 -> rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sfromR (tproject1 x1))) (sfromR (tproject2 (dmapAccumLDer (SNat @2) (\\x9 -> tfromS (let x16 = sfromR (tproject1 x9) * cos (sfromR (tproject1 (tproject2 (tproject2 x9)))) in tpair (x16, x16))) (\\x17 -> tfromS (let x24 = sfromR (tproject1 (tproject1 x17)) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))) + (sfromR (tproject1 (tproject2 (tproject2 (tproject1 x17)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))))) * sfromR (tproject1 (tproject2 x17)) in tpair (x24, x24))) (\\x31 -> tfromS (let x30 = sscalar 0.0 + sfromR (tproject2 (tproject1 x31)) + sfromR (tproject1 (tproject1 x31)) in tpair (cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x31))))) * x30, tpair (sscalar 0.0, tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x31)))))) * (sfromR (tproject1 (tproject2 x31)) * x30), sscalar 0.0))))) (tproject1 x1) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) (\\x37 -> tfromS (let x40 = sin (sfromR (tproject1 x37)) in tpair (x40, tpair (tproject1 x37, x40)))) (\\x42 -> tfromS (let x43 = sfromR (tproject1 (tproject1 x42)) * cos (sfromR (tproject1 (tproject2 x42))) in tpair (x43, tpair (tproject1 (tproject1 x42), x43)))) (\\x45 -> tfromS (tpair (cos (sfromR (tproject1 (tproject2 x45))) * (sscalar 0.0 + sfromR (tproject2 (tproject2 (tproject1 x45))) + sfromR (tproject1 (tproject1 x45))) + sfromR (tproject1 (tproject2 (tproject1 x45))), sscalar 0.0))) (tproject2 x1) v4)), v4)))))))) (tfromS (tpair (sscalar 1.0, sscalar 1.1)))"
+    @?= "(\\x1 -> rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sfromR (tproject1 x1))) (sfromR (tproject2 (tmapAccumLDer (SNat @2) (\\x9 -> tfromS (let x16 = sfromR (tproject1 x9) * cos (sfromR (tproject1 (tproject2 (tproject2 x9)))) in tpair (x16, x16))) (\\x17 -> tfromS (let x24 = sfromR (tproject1 (tproject1 x17)) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))) + (sfromR (tproject1 (tproject2 (tproject2 (tproject1 x17)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x17))))))) * sfromR (tproject1 (tproject2 x17)) in tpair (x24, x24))) (\\x31 -> tfromS (let x30 = sscalar 0.0 + sfromR (tproject2 (tproject1 x31)) + sfromR (tproject1 (tproject1 x31)) in tpair (cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x31))))) * x30, tpair (sscalar 0.0, tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x31)))))) * (sfromR (tproject1 (tproject2 x31)) * x30), sscalar 0.0))))) (tproject1 x1) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) (\\x37 -> tfromS (let x40 = sin (sfromR (tproject1 x37)) in tpair (x40, tpair (tproject1 x37, x40)))) (\\x42 -> tfromS (let x43 = sfromR (tproject1 (tproject1 x42)) * cos (sfromR (tproject1 (tproject2 x42))) in tpair (x43, tpair (tproject1 (tproject1 x42), x43)))) (\\x45 -> tfromS (tpair (cos (sfromR (tproject1 (tproject2 x45))) * (sscalar 0.0 + sfromR (tproject2 (tproject2 (tproject1 x45))) + sfromR (tproject1 (tproject1 x45))) + sfromR (tproject1 (tproject2 (tproject1 x45))), sscalar 0.0))) (tproject2 x1) v4)), v4)))))))) (tfromS (tpair (sscalar 1.0, sscalar 1.1)))"
 
 testSin0Scan1Rev2PP1 :: Assertion
 testSin0Scan1Rev2PP1 = do
@@ -1058,7 +1058,7 @@ testSin0Scan1Rev2PP1 = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v3 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v6 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in v6 !$ [0] + tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v3)), v3)))))"
+    @?= "rfromS (let v3 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v6 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in v6 !$ [0] + tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v6, tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v3)), v3)))))"
 
 testSin0Scan1Rev2PPA :: Assertion
 testSin0Scan1Rev2PPA = do
@@ -1070,7 +1070,7 @@ testSin0Scan1Rev2PPA = do
                            (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7])))
                  (FTKR ZSR FTKScalar)
   printArtifactPretty IM.empty (simplifyArtifact art)
-    @?= "\\v5 x1 -> rfromS (let v2 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sfromR v5 !$ [0] + tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice (sfromR v5), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> x1 v2)), v2)))))"
+    @?= "\\v5 x1 -> rfromS (let v2 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sfromR v5 !$ [0] + tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice (sfromR v5), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> x1 v2)), v2)))))"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
@@ -1103,7 +1103,7 @@ testSin0Scan1Rev3PP0 = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v3 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) ; v6 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) ; v7 = dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v6, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v3)), v3))) in v6 !$ [0] + sscalar 5.0 * tproject2 v7 !$ [0] + sscalar 7.0 * tproject2 v7 !$ [1] + tproject1 v7)"
+    @?= "rfromS (let v3 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) ; v6 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) ; v7 = tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v6, tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v3)), v3))) in v6 !$ [0] + sscalar 5.0 * tproject2 v7 !$ [0] + sscalar 7.0 * tproject2 v7 !$ [1] + tproject1 v7)"
 
 
 testSin0Scan1Rev3PPForComparison :: Assertion
@@ -1121,7 +1121,7 @@ testSin0ScanFwd3PP = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v4 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))))))"
+    @?= "rfromS (let v4 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))))))"
 
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
@@ -1235,7 +1235,7 @@ testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = tproject1 $ dmapAccumR (Proxy @f) (SNat @0)
+              f x0 = tproject1 $ tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
@@ -1253,7 +1253,7 @@ testSin0rmapAccumRD00SC = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
     (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = tproject1 $ dmapAccumL (Proxy @f) (SNat @0)
+               f x0 = tproject1 $ tmapAccumL (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
@@ -1271,7 +1271,7 @@ testSin0rmapAccumRD00S0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = tproject1 $ dmapAccumL (Proxy @f) (SNat @0)
+              f x0 = tproject1 $ tmapAccumL (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1289,7 +1289,7 @@ testSin0rmapAccumRD00S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 8.621412119476068e-2)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = tproject1 $ dmapAccumR (Proxy @f) (SNat @7)
+              f x0 = tproject1 $ tmapAccumR (Proxy @f) (SNat @7)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1307,7 +1307,7 @@ testSin0rmapAccumRD00S7 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1.4091291405664697)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Double)
-              f x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+              f x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1325,7 +1325,7 @@ testSin0rmapAccumRD00SCacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @0)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1343,7 +1343,7 @@ testSin0rmapAccumRD00SCacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1361,7 +1361,7 @@ testSin0rmapAccumRD00Sacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-              f _x0 = tproject2 $ dmapAccumL (Proxy @f) (SNat @0)
+              f _x0 = tproject2 $ tmapAccumL (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1379,7 +1379,7 @@ testSin0rmapAccumRD00Sacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-              f _x0 = tproject2 $ dmapAccumL (Proxy @f) (SNat @7)
+              f _x0 = tproject2 $ tmapAccumL (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1397,7 +1397,7 @@ testSin0rmapAccumRD00SCall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @0)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1415,7 +1415,7 @@ testSin0rmapAccumRD00SCall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-               f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1433,7 +1433,7 @@ testSin0rmapAccumRD00Sall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-              f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @0)
+              f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1451,7 +1451,7 @@ testSin0rmapAccumRD00Sall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-              f _x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @7)
+              f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1469,7 +1469,7 @@ testSin0rmapAccumRD0R = do
   assertEqualUpToEpsilon' 1e-10
     (rscalar 1)
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-               f x0 = tproject1 $ dmapAccumR (Proxy @f) (SNat @0)
+               f x0 = tproject1 $ tmapAccumR (Proxy @f) (SNat @0)
                           (FTKR ZSR FTKScalar)
                           (FTKR ZSR FTKScalar)
                           (FTKR ZSR FTKScalar)
@@ -1488,7 +1488,7 @@ testSin0rmapAccumRD01SN = do
     (rscalar 0.4535961214255773)
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[1] Double)
-               f x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @1)
+               f x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @1)
                           (FTKProduct (FTKS ZSS FTKScalar) (FTKS ZSS FTKScalar))
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
@@ -1512,7 +1512,7 @@ testSin0rmapAccumRD01SN3 = do
     (rscalar 0.4535961214255773)
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[1, 3] Double)
-               f x0 = tproject2 $ dmapAccumR (Proxy @f) (SNat @1)
+               f x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @1)
                           (FTKS ZSS FTKScalar)
                           (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                           (FTKS (SNat @2 :$$ ZSS) FTKScalar)
@@ -1534,7 +1534,7 @@ testSin0rmapAccumRD01SN5 = do
     (rscalar 0.4535961214255773)
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[1, 3] Double)
-               f x0 = tproject2 $ tproject2 $ dmapAccumR (Proxy @f) (SNat @1)
+               f x0 = tproject2 $ tproject2 $ tmapAccumR (Proxy @f) (SNat @1)
                           (FTKS ZSS FTKScalar)
                           (FTKProduct (FTKS (SNat @3 :$$ ZSS) FTKScalar) (FTKS (SNat @3 :$$ ZSS) FTKScalar))
                           (FTKProduct (FTKProduct (FTKS (SNat @2 :$$ ZSS) FTKScalar) (FTKS (SNat @2 :$$ ZSS) FTKScalar))
@@ -1576,7 +1576,7 @@ testSin0rmapAccumRD01SN51 = do
                                + ssum0 @_ @_ @'[6, 5, 4, 3]
                                    (tproject2 res))
                       $ tbuild1 @f (SNat @6) $ \j ->
-                         dmapAccumR (Proxy @f) (SNat @5)
+                         tmapAccumR (Proxy @f) (SNat @5)
                           (FTKProduct (FTKS ZSS FTKScalar)
                                       (FTKS (SNat @3 :$$ ZSS) FTKScalar))
                           (FTKS (SNat @4 :$$ SNat @3 :$$ ZSS) FTKScalar)
@@ -1627,7 +1627,7 @@ testSin0rmapAccumRD01SN531a = do
                                - (tproject2 res))
                       $ tbuild1 @f (SNat @2) $ \i ->
                        (tbuild1 @f (SNat @2) $ \j ->
-                         dmapAccumR (Proxy @f) (SNat @2)
+                         tmapAccumR (Proxy @f) (SNat @2)
                           (FTKProduct (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                                       (FTKS (SNat @6 :$$ ZSS) FTKScalar))
                           (FTKS (SNat @3 :$$ ZSS) FTKScalar)
@@ -1679,7 +1679,7 @@ testSin0rmapAccumRD01SN531b0 = do
                f x0 = rfromS $ tproject1
                       $ tbuild1 @f (SNat @2) $ \_i ->
                        (tbuild1 @f (SNat @2) $ \_j ->
-                         dmapAccumR (Proxy @f) (SNat @0)
+                         tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
                           (FTKR ZSR FTKScalar)
@@ -1701,7 +1701,7 @@ testSin0rmapAccumRD01SN531b0PP = do
       f x0 = rfromS $ tproject1
                       $ tbuild1 @f (SNat @2) $ \_i ->
                        (tbuild1 @f (SNat @2) $ \_j ->
-                         dmapAccumR (Proxy @f) (SNat @0)
+                         tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
                           (FTKR ZSR FTKScalar)
@@ -1716,7 +1716,7 @@ testSin0rmapAccumRD01SN531b0PP = do
     IM.empty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (sreplicate (sreplicate (tproject1 (dmapAccumRDer (SNat @0) (\\x7 -> tpair (tproject1 x7, Z0)) (\\x8 -> tpair (tproject1 (tproject1 x8), Z0)) (\\x13 -> tpair (tproject1 (tproject1 x13), sscalar 0.0)) (sscalar 1.1) (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] []))))))"
+    @?= "rfromS (sreplicate (sreplicate (tproject1 (tmapAccumRDer (SNat @0) (\\x7 -> tpair (tproject1 x7, Z0)) (\\x8 -> tpair (tproject1 (tproject1 x8), Z0)) (\\x13 -> tpair (tproject1 (tproject1 x13), sscalar 0.0)) (sscalar 1.1) (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] []))))))"
 
 testSin0rmapAccumRD01SN531b0PPj :: Assertion
 testSin0rmapAccumRD01SN531b0PPj = do
@@ -1726,7 +1726,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
       f x0 = tlet (
                        (tbuild1 @f (SNat @2) $ \i ->
                        (tbuild1 @f (SNat @2) $ \j ->
-                       (dmapAccumR (Proxy @f) (SNat @0)
+                       (tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
                           (FTKR ZSR FTKScalar)
@@ -1742,7 +1742,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
     IM.empty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (tproject1 (dmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (stranspose (sreplicate siota) + sreplicate siota)) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
+    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (stranspose (sreplicate siota) + sreplicate siota)) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -1752,7 +1752,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
       f x0 = tlet (
                        (tbuild1 @f (SNat @2) $ \i ->
                        (tbuild1 @f (SNat @2) $ \j ->
-                       (dmapAccumR (Proxy @f) (SNat @1)
+                       (tmapAccumR (Proxy @f) (SNat @1)
                           (FTKR ZSR FTKScalar)
                           ftkUnit
                           (FTKR ZSR FTKScalar)
@@ -1768,7 +1768,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
     IM.empty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (tproject1 (dmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (stranspose (sreplicate siota) + sreplicate siota)) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
+    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (stranspose (sreplicate siota) + sreplicate siota)) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do
@@ -1780,7 +1780,7 @@ testSin0rmapAccumRD01SN531c = do
                                - tproject2 res)
                       $ tbuild1 @f (SNat @2) $ \i ->
                        (tbuild1 @f (SNat @2) $ \j ->
-                       (dmapAccumR (Proxy @f) (SNat @2)
+                       (tmapAccumR (Proxy @f) (SNat @2)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
@@ -1804,7 +1804,7 @@ testSin0rmapAccumRD01SN531Slice = do
                f x0 = tproject1
                       $ tbuild1 @f (SNat @2) $ \_i ->
                        (tbuild1 @f (SNat @2) $ \_j ->
-                       (dmapAccumR (Proxy @f) (SNat @1)
+                       (tmapAccumR (Proxy @f) (SNat @1)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
                           ftkUnit
@@ -1827,7 +1827,7 @@ testSin0rmapAccumRD01SN55 = do
                f x0 = (\res -> sreplicate @_ @5 (tproject1 res)
                                * (tproject1 $ tproject2 res)
                                + (tproject2 $ tproject2 res))
-                      $ dmapAccumL (Proxy @f) (SNat @5)
+                      $ tmapAccumL (Proxy @f) (SNat @5)
                           (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                           (FTKProduct (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                                       (FTKS (SNat @3 :$$ ZSS) FTKScalar))
@@ -1863,7 +1863,7 @@ testSin0rmapAccumRD01SN55acc = do
                                          $ ssum @_ @_ @7
                                          $ str (tproject2 $ tproject1 $ tproject2 res))
                                - (tproject2 $ tproject2 res))
-                      $ dmapAccumR (Proxy @f) (SNat @2)
+                      $ tmapAccumR (Proxy @f) (SNat @2)
                           ftkUnit
                           (FTKProduct (FTKProduct (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                                                   (FTKS (SNat @7 :$$ ZSS) FTKScalar))
@@ -1912,7 +1912,7 @@ testSin0rmapAccumRD01SN58 = do
     (cfwd (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[5] Double)
                f x0 = tproject2
-                      $ dmapAccumR (Proxy @f) (SNat @5)
+                      $ tmapAccumR (Proxy @f) (SNat @5)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
@@ -1935,7 +1935,7 @@ testSin0rmapAccumRD01SN7 = do
                  => f (TKS '[] Double) -> f (TKProduct (TKS '[] Double)
                                                  (TKProduct (TKS '[1, 3] Double)
                                                             (TKS '[1, 3] Double)))
-               f x0 = dmapAccumR (Proxy @f) (SNat @1)
+               f x0 = tmapAccumR (Proxy @f) (SNat @1)
                           (FTKS ZSS FTKScalar)
                           (FTKProduct (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                                       (FTKS (SNat @3 :$$ ZSS) FTKScalar))
@@ -1984,7 +1984,7 @@ rscanZip f eShs acc0 es =
       ftk = tftk knownSTK acc0
   in withSNat width $ \snat ->
     tlet
-      (dmapAccumL Proxy snat ftk ftk eShs
+      (tmapAccumL Proxy snat ftk ftk eShs
          (let g :: forall f. ADReady f
                 => f (TKR n rn) -> f (TKR n2 rn2)
                 -> f (TKProduct (TKR n rn) (TKR n rn))
@@ -2029,7 +2029,7 @@ testSin0ScanD8MapAccum = do
     (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR 3 Double))
     (rev'
        (\a0 -> tproject2
-               $ dmapAccumR Proxy (SNat @4)
+               $ tmapAccumR Proxy (SNat @4)
                    (FTKR (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZSR) FTKScalar)
                    (FTKR (2 :$: 5 :$: 1 :$: 1 :$: 1 :$: ZSR) FTKScalar)
                    (FTKR (1 :$: 1 :$: 1 :$: ZSR) FTKScalar)
@@ -2084,7 +2084,7 @@ testSin0ScanD1RevPP = do
                            (FTKR ZSR FTKScalar)
                            x0 (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v8 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v8, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))) + v8 !$ [0])"
+    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) ; v8 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v8, tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))) + v8 !$ [0])"
 
 testSin0ScanDFwdPP :: Assertion
 testSin0ScanDFwdPP = do
@@ -2094,7 +2094,7 @@ testSin0ScanDFwdPP = do
                            (FTKR ZSR FTKScalar)
                            x0 (rrepl @Double @1 [2] 42)) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v5 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
+    @?= "rfromS (let v5 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [42.0,42.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
 
 testSin0ScanD1Rev2PP :: Assertion
 testSin0ScanD1Rev2PP = do
@@ -2104,7 +2104,7 @@ testSin0ScanD1Rev2PP = do
                          (FTKR ZSR FTKScalar)
                          x0 (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v8 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in tproject1 (dmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v8, tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))) + v8 !$ [0])"
+    @?= "rfromS (let v4 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) ; v8 = tconcrete (FTKS [3] FTKScalar) (sfromListLinear [3] [1.0,1.0,1.0]) in tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice v8, tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v4)), v4)))) + v8 !$ [0])"
 
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
@@ -2114,7 +2114,7 @@ testSin0ScanDFwd2PP = do
                          (FTKR ZSR FTKScalar)
                          x0 (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v5 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
+    @?= "rfromS (let v5 = tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [5.0,7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,0.0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
 
 
 testSin0ScanDFwd3PP :: Assertion
@@ -2126,7 +2126,7 @@ testSin0ScanDFwd3PP = do
                                 x0 (rfromList [x0 * rscalar 5, x0 * rscalar 7]))
                  (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "rfromS (let v5 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
+    @?= "rfromS (let v5 = sfromVector (fromList [sscalar 1.1 * sscalar 5.0, sscalar 1.1 * sscalar 7.0]) in sappend (sreplicate (sscalar 1.0)) (sfromR (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sfromVector (fromList [sscalar 1.0 * sscalar 5.0, sscalar 1.0 * sscalar 7.0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) v5)), v5)))))))"
 
 testSin0ScanD1fwd :: Assertion
 testSin0ScanD1fwd = do
@@ -2157,7 +2157,7 @@ testSin0ScanD8fwdMapAccum = do
     (rconcrete $ Nested.rfromListPrimLinear [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @RepN @Double @0 @3 @Double
        (\a0 -> rreverse $ tproject2
-               $ dmapAccumR Proxy (SNat @4)
+               $ tmapAccumR Proxy (SNat @4)
                    (FTKR (2 :$: 5 :$: ZSR) FTKScalar)
                    (FTKR (2 :$: 5 :$: ZSR) FTKScalar)
                    (FTKR ZSR FTKScalar)
@@ -2212,7 +2212,7 @@ testSin0FoldNestedS1PP = do
   printAstPretty
     IM.empty
     (g @(AstTensor AstMethodLet PrimalSpan) ((sscalar 1.1)))
-    @?= "let v5 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in ssum (tproject2 v5) + tproject1 v5"
+    @?= "let v5 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in ssum (tproject2 v5) + tproject1 v5"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
@@ -2227,7 +2227,7 @@ testSin0FoldNestedR1PP = do
   printAstPretty
     IM.empty
     (g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (let v5 = dmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (dmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in ssum (sfromR (tproject2 v5)) + tproject1 v5)"
+    @?= "rfromS (let v5 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (tconcrete (FTKS [11] FTKScalar) (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate (sscalar 1.1)))), sreplicate (sscalar 1.1)))) in ssum (sfromR (tproject2 v5)) + tproject1 v5)"
 
 testSin0FoldNestedR0LengthPPs :: Assertion
 testSin0FoldNestedR0LengthPPs = do

@@ -403,7 +403,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
-  dmapAccumRDer @accShs @bShs @eShs
+  tmapAccumRDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (knownSTK @accShs)
    , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs)
@@ -452,7 +452,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                   let added = addTarget knownSTK (tproject1 daccRes_deRes)
                                                     (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
-        p = dmapAccumRDer (Proxy @target)
+        p = tmapAccumRDer (Proxy @target)
                           k accShs codomainShs eShs
                           (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
@@ -473,7 +473,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                               q es
                               df rf acc0' es'
     in dD (tpair accFin bs) dual
-  dmapAccumLDer @accShs @bShs @eShs
+  tmapAccumLDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (knownSTK @accShs)
    , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs)
@@ -522,7 +522,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                   let added = addTarget knownSTK (tproject1 daccRes_deRes)
                                                     (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
-        p = dmapAccumLDer (Proxy @target)
+        p = tmapAccumLDer (Proxy @target)
                           k accShs codomainShs eShs
                           (tlambda @target (FTKProduct accShs eShs)
                            $ HFun g)
@@ -555,7 +555,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   tfromDual stk t | Dict <- lemKnownSTK stk =
     dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale _ k = dScale k
-  drev @x _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x) =
+  trev @x _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x) =
     let rf :: forall f. ADReady f
            => f x
            -> f (ADTensorKind x)
@@ -566,7 +566,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare aShared)
     in HFun rf
-  drevDt @x @z _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x)
+  trevDt @x @z _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x)
                       , Dict <- lemKnownSTKOfAD (knownSTK @z) =
     let rf :: forall f. ADReady f
            => f (TKProduct (ADTensorKind z) x)
@@ -578,7 +578,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject2 db_aShared)
     in HFun rf
-  dfwd @x @z _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x)
+  tfwd @x @z _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x)
                     , Dict <- lemKnownSTKOfAD (knownSTK @z) =
     let df :: forall f. ADReady f
            => f (TKProduct (ADTensorKind x) x)
