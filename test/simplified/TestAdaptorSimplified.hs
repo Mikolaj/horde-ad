@@ -1137,11 +1137,11 @@ testMatvecmulPP = do
                  True (uncurry rmatvecmul)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3] FTKScalar))
   printArtifactPretty @_ @(TKR 1 Double) renames artifactRev
-    @?= "\\v3 m1 -> tpair (rfromS (stranspose (stranspose (sreplicate (sfromR (tproject2 m1))) * sreplicate (sfromR v3))), rfromS (ssum (stranspose (stranspose (sfromR (tproject1 m1)) * sreplicate (sfromR v3)))))"
+    @?= "\\v2 m1 -> tpair (rfromS (stranspose (stranspose (sfromR (rreplicate 2 (tproject2 m1))) * sreplicate (sfromR v2))), rsum (rfromS (stranspose (stranspose (sfromR (tproject1 m1)) * sreplicate (sfromR v2)))))"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\m1 -> rfromS (ssum (stranspose (sreplicate (sfromR (tproject2 m1))) * stranspose (sfromR (tproject1 m1))))"
+    @?= "\\m1 -> rfromS (ssum (stranspose (sfromR (rreplicate 2 (tproject2 m1))) * stranspose (sfromR (tproject1 m1))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v3 m1 -> tfromS (tpair (sreplicate (sfromR (tproject2 m1)) * stranspose (sreplicate (sfromR v3)), ssum (sfromR (tproject1 m1) * stranspose (sreplicate (sfromR v3)))))"
+    @?= "\\v2 m1 -> tfromS (tpair (sreplicate (sfromR (tproject2 m1)) * stranspose (sreplicate (sfromR v2)), ssum (sfromR (tproject1 m1) * stranspose (sreplicate (sfromR v2)))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (ssum (stranspose (sreplicate (sfromR (tproject2 m1))) * stranspose (sfromR (tproject1 m1))))"
 
@@ -1175,7 +1175,7 @@ testMatmul2FromMatvecmulPP = do
                  True (uncurry rmatmul2F)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3, 4] FTKScalar))
   printArtifactPretty @_ @(TKR 2 Double) renames artifactRev
-    @?= "\\m7 m1 -> tpair (rfromS (ssum (stranspose (stranspose (sreplicate (sfromR (tproject2 m1))) * sreplicate (sfromR m7)))), rfromS (ssum (stranspose (stranspose (sreplicate (sfromR (tproject1 m1))) * sreplicate (sfromR m7)))))"
+    @?= "\\m3 m1 -> tpair (rfromS (ssum (stranspose (stranspose (sreplicate (sfromR (tproject2 m1))) * sreplicate (sfromR m3)))), rfromS (ssum (stranspose (stranspose (sreplicate (sfromR (tproject1 m1))) * sreplicate (sfromR m3)))))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\m1 -> rfromS (ssum (stranspose (sreplicate (sfromR (tproject1 m1))) * stranspose (sreplicate (sfromR (tproject2 m1)))))"
 

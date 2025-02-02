@@ -479,8 +479,9 @@ class ( Num (IntOf target)
              => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
-  rmatvecmul m v = rbuild1 (rlength m) (\i -> rdot0 v (m ! [i]))
+-- rmatvecmul m v = rbuild1 (rlength m) (\i -> rdot0 v (m ! [i]))
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
+  rmatvecmul m v = rsum (rtranspose [1,0] (rreplicate (rlength m) v * m))
   rmatmul2 :: (GoodScalar r, Numeric r)
            => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
@@ -764,10 +765,11 @@ class ( Num (IntOf target)
           -> target (TKS '[m, n] r) -> target (TKS '[m, n] r)
           -> target (TKS '[m] r)  -- TODO: generalize
   sdot1In _ t u = ssum $ str (t * u)
-  smatvecmul :: (GoodScalar r, KnownNat m, KnownNat n)
+  smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => target (TKS '[m, n] r) -> target (TKS '[n] r)
              -> target (TKS '[m] r)
-  smatvecmul m v = sbuild1 (\i -> sdot0 v (m !$ (i :.$ ZIS)))
+  smatvecmul m v =
+    ssum (stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @_ @m v * m))
   smatmul2 :: forall r n m p.
               (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
            => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
@@ -1147,6 +1149,7 @@ class ( Num (IntOf target)
              => Nested.SMayNat Int SNat mm -> Nested.SMayNat () SNat mn
              -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
              -> target (TKX '[mm] r)
+  -- This variant is not vectorized, so will be slow without vectorization.
   xmatvecmul mm mn u v =
     let mu :: Nested.SMayNat () SNat mm
         mu = fromSMayNat (const $ Nested.SUnknown ()) Nested.SKnown mm

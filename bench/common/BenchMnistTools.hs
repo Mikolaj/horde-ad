@@ -293,26 +293,22 @@ mnistBGroup2VTA xs0 chunkLength =
   env (return $ map mkMnistDataLinearR $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer rank 2 VTA MNIST nn with samples: "
-          ++ show chunkLength)
+          ++ show chunkLength) $
     (if chunkLength <= 1000
      then
        [ mnistTestBench2VTA "30|10 "30 10 0.02 chunkLength xs
            -- toy width
        , mnistTrainBench2VTA "30|10 " 30 10 0.02 chunkLength xs
-       {- This is completely obliterated by the lack of vectorization: ???
        , mnistTestBench2VTA "300|100 " 300 100 0.02 chunkLength xs
            -- ordinary width
        , mnistTrainBench2VTA "300|100 " 300 100 0.02 chunkLength xs
-       -}
        ]
      else
        [])
-       {- This is completely obliterated by the lack of vectorization:
     ++ [ mnistTestBench2VTA "500|150 " 500 150 0.02 chunkLength xs
            -- another common width
        , mnistTrainBench2VTA "500|150 " 500 150 0.02 chunkLength xs
        ]
-       -}
 
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
