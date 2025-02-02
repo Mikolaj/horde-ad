@@ -236,7 +236,6 @@ library benchCommonLibrary
       , inspection-testing
       , ox-arrays
       , random
-      , vector
 
 benchmark longProdBench
     import:           options, exe-options

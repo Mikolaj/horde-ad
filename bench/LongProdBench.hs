@@ -17,7 +17,8 @@ main =
   defaultMain  -- skips the tiny benchmarks
     [ bgroup1e4 allxs
     , bgroup1e5 allxs
+{- heat death of the universe ATM:
     , bgroup1e6 allxs
     , bgroup1e7 allxs
-    , bgroup5e7 allxs
+    , bgroup5e7 allxs -}
     ]

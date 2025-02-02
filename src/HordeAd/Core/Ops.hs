@@ -1615,7 +1615,8 @@ class ( Num (IntOf target)
   sfold
     :: forall rn rm sh shm k.
        (KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm, KnownNat k)
-    => (forall f. ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
+    => (forall f. ADReady f
+        => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
     -> target (TKS2 sh rn)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 sh rn)
@@ -1640,7 +1641,8 @@ class ( Num (IntOf target)
   sscan
     :: forall rn rm sh shm k.
        (KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm, KnownNat k)
-    => (forall f. ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
+    => (forall f.
+        ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
     -> target (TKS2 sh rn)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 (1 + k ': sh) rn)

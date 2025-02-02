@@ -2,6 +2,7 @@
              UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | Some fundamental type families and types.
 module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
@@ -108,6 +109,9 @@ import Data.Array.Nested.Internal.Shape
   )
 
 -- * Definitions to help express and manipulate type-level natural numbers
+
+instance NFData (SNat n) where
+  rnf _ = ()
 
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
 withSNat i f = withSomeSNat (fromIntegral i) $ \case
@@ -771,3 +775,7 @@ sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
 
 listrToNonEmpty :: ListR (n + 1) i -> NonEmpty i
 listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
+
+instance NFData i => NFData (ListR n i) where
+  rnf ZR = ()
+  rnf (x ::: l) = rnf x `seq` rnf l

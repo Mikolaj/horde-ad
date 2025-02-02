@@ -6,25 +6,17 @@ module BenchProdTools where
 
 import Prelude
 
+--import Control.DeepSeq (NFData)
 import Criterion.Main
 import Data.List (foldl1')
-import Data.Type.Equality (gcastWith, (:~:))
-import Data.Vector.Generic qualified as V
-import Data.Vector.Strict qualified as Data.Vector
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import Test.Inspection
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
-
---import qualified Data.Array.ShapedS as OS
---import           HordeAd.Internal.TensorFFI (RowSum)
---import           Numeric.LinearAlgebra (Numeric)
---import           Type.Reflection (Typeable)
---import           Control.DeepSeq (NFData)
-
---import HordeAd.Core.Adaptor
+import Data.Array.Nested (ListR (..))
 
 import HordeAd
+import HordeAd.Core.Adaptor
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
@@ -44,111 +36,163 @@ bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProd args
 
 envProd :: r ~ Double
         => Rational
-        -> (([r], [RepN (TKR 0 r)], Data.Vector.Vector (RepN (TKR 0 r)))
+        -> (forall n.
+            ( SNat n
+            , ListR n (RepN (TKScalar r))
+            , ListR n (RepN (TKS '[] r))
+            , RepN (TKS '[n] r) )
             -> Benchmark)
         -> [r]
         -> Benchmark
-envProd k f allxs =
-  env (return $!
-         let l = take (round k) allxs
-             list = map rscalar l
-             vec :: Data.Vector.Vector (RepN (TKR 0 Double))
-             vec = V.fromList list
-         in (l, list, vec)) f
+envProd rat f allxs =
+  let k = round rat
+  in withSNat k $ \(SNat @k) ->
+    env (return $!
+      let l = take k allxs
+          lt = map sscalar l
+      in ( SNat @k
+         , fromList (map RepN l)
+         , fromList lt
+         , sfromList . fromList $ lt) )
+        (f @k)
 
 benchProd :: r ~ Double
-          => (([r], [RepN (TKR 0 r)], Data.Vector.Vector (RepN (TKR 0 r))))
+          => ( SNat n
+             , ListR n (RepN (TKScalar r))
+             , ListR n (RepN (TKS '[] r))
+             , RepN (TKS '[n] r) )
           -> [Benchmark]
-benchProd ~(_l, list, _vec) = [] {-
-    [ bench "crev List" $ nf crevRankedListProd list
-    , bench "rev List" $ nf revRankedListProd list
-    , bench "r crev List" $ nf crevRankedListProdr list
-    , bench "r rev List" $ nf revRankedListProdr list
--- commented out, because 5 times slower due to allocating a new vector
--- for each multiplication in fromHVector
---    , bench "crev Vec" $ nf (crev rankedVecProd) vec
--- and this costs the same, which means the initial creation of the vector
--- has a negligible cost, so we are creating such vectors below freely
---    , bench "crev List2Vec" $
---        nf (map tunScalarR . V.toList . crev rankedVecProd)
---           (let list2 = map tscalarR l
---                vec2 :: Data.Vector.Vector (RepN (TKR 0 Double))
---                vec2 = V.fromList list2
---            in vec2)
-{- bit-rotten
-    , bench "VecD crev" $
-        let f :: DynamicTensor OR.Array -> RepN (TKR 0 Double)
-            f (DynamicRanked @r2 @n2 d) =
-                 gcastWith (unsafeCoerceRefl :: r2 :~: Double) $
-                 gcastWith (unsafeCoerceRefl :: n2 :~: 0) $
-                 d
-            f _ = error "benchProd: wrong type"
-        in nf (V.map f . fst
-               . crevOnHVector @Double Nothing rankedVecDProd)
-              (V.map DynamicRanked vec)
--}
-    , bench "NoShare List crev" $ nf crevRankedNoShareListProd list
+benchProd ~(snat, l, lt, t) = case snat of
+  SNat ->
+    [ bench "crev l" $ nf crevRankedLProd l
+    , bench "rev l" $ nf revRankedLProd l
+    , bench "r crev l" $ nf crevRankedLProdr l
+    , bench "r rev l" $ nf revRankedLProdr l
+    , bench "NotShared l crev" $ nf crevRankedNotSharedLProd l
+    , bench "crev lt" $ nf crevRankedLtProd lt
+    , bench "rev lt" $ nf revRankedLtProd lt
+    , bench "r crev lt" $ nf crevRankedLtProdr lt
+    , bench "r rev lt" $ nf revRankedLtProdr lt
+    , bench "NotShared lt crev" $ nf crevRankedNotSharedLtProd lt
+    , bench "crev t" $ nf crevRankedTProd t
+    , bench "rev t" $ nf revRankedTProd t
     ]
 
-rankedListProd :: (BaseTensor target, GoodScalar r)
-               => [target (TKR 0 r)] -> target (TKR 0 r)
-rankedListProd = foldl1' (*)
+rankedLProd :: (BaseTensor target, GoodScalar r, KnownNat n)
+            => ListR n (target (TKScalar r)) -> target (TKScalar r)
+rankedLProd = foldl1' (*) . toList
 
-crevRankedListProd :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
-crevRankedListProd = crev rankedListProd
+crevRankedLProd
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
+crevRankedLProd =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  crev rankedLProd
 
-revRankedListProd :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
-revRankedListProd = rev rankedListProd
+revRankedLProd
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
+revRankedLProd =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  rev rankedLProd
 
-rankedListProdr :: (BaseTensor target, GoodScalar r)
-                => [target (TKR 0 r)] -> target (TKR 0 r)
-rankedListProdr = foldr1 (*)
+rankedLProdr :: (BaseTensor target, GoodScalar r)
+             => ListR n (target (TKScalar r)) -> target (TKScalar r)
+rankedLProdr = foldr1 (*)
 
-crevRankedListProdr :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
-crevRankedListProdr = crev rankedListProdr
+crevRankedLProdr
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
+crevRankedLProdr =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  crev rankedLProdr
 
-revRankedListProdr :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
-revRankedListProdr = rev rankedListProdr
+revRankedLProdr
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
+revRankedLProdr =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  rev rankedLProdr
 
-crevRankedNoShareListProd :: [RepN (TKR 0 Double)] -> [RepN (TKR 0 Double)]
-crevRankedNoShareListProd = crev rankedNoShareListProd
+rankedNotSharedLProd :: (BaseTensor target, GoodScalar r)
+                    => ListR n (ADVal target (TKScalar r))
+                    -> ADVal target (TKScalar r)
+rankedNotSharedLProd = foldr1 multNotShared
 
-_rankedVecProd :: (BaseTensor target, GoodScalar r)
-               => Data.Vector.Vector (target (TKR 0 r)) -> target (TKR 0 r)
-_rankedVecProd = V.foldl1' (*)
+crevRankedNotSharedLProd
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
+crevRankedNotSharedLProd =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  crev rankedNotSharedLProd
 
--- This one saves on running the adaptor and on comparing the scalar
--- type for each multiplication. The gain is small, the the major
--- cost must be the allocation and GC of a rank 0 tensor for each
--- minuscule operation that is benig performed.
---
--- Speeding up this one would require adding an extra API to Delta
--- that assumes a single r and so doesn't use DynamicTensor.
--- Then we could try not converting to dynamic tensors.
--- Eventually, we could add another Delta GADT only for scalars
--- and use these instead of rank 0 tensors, but it's probably better
--- to add fold on tensors instead.
-_rankedVecDProd :: forall r target.
-                   (BaseTensor target, GoodScalar r)
-                => HVector target -> target (TKR 0 r)
-_rankedVecDProd =
-  let f acc (DynamicRanked @r2 @n2 d) =
-        gcastWith (unsafeCoerceRefl :: r2 :~: r) $
-        gcastWith (unsafeCoerceRefl :: n2 :~: 0) $
-        d * acc
-      f _ _ = error "rankedVecDProd: wrong type"
-  in V.foldl' f 0
+rankedLtProd :: (BaseTensor target, GoodScalar r, KnownNat n)
+             => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
+rankedLtProd = foldl1' (*) . toList
 
-rankedNoShareListProd :: GoodScalar r
-                      => [ADVal RepN (TKR 0 r)]
-                      -> ADVal RepN (TKR 0 r)
-rankedNoShareListProd = foldl1' multNotShared
+crevRankedLtProd
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
+crevRankedLtProd =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  crev rankedLtProd
 
-_rankedNoShareVecProd :: GoodScalar r
-                      => Data.Vector.Vector (ADVal RepN (TKR 0 r))
-                      -> ADVal RepN (TKR 0 r)
-_rankedNoShareVecProd = V.foldl1' multNotShared
--}
+revRankedLtProd
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
+revRankedLtProd =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  rev rankedLtProd
+
+rankedLtProdr :: (BaseTensor target, GoodScalar r)
+              => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
+rankedLtProdr = foldr1 (*)
+
+crevRankedLtProdr
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
+crevRankedLtProdr =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  crev rankedLtProdr
+
+revRankedLtProdr
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
+revRankedLtProdr =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  rev rankedLtProdr
+
+rankedNotSharedLtProd :: (BaseTensor target, GoodScalar r)
+                      => ListR n (ADVal target (TKS '[] r))
+                      -> ADVal target (TKS '[] r)
+rankedNotSharedLtProd = foldr1 multNotShared
+
+crevRankedNotSharedLtProd
+  :: forall n. KnownNat n
+  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
+crevRankedNotSharedLtProd =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  crev rankedNotSharedLtProd
+
+-- A potential further speedup would be to use dmapAccumL with TKS
+-- and TKScalar, but I don't think we'd gain much, especially for rev.
+-- Another variant, with foldl1' and indexing, would be a disaster.
+-- We can define sproduct if this benchmark ends up used anywhere,
+-- because the current codomain of gradientFromDelta rules out
+-- low-level hacky pipeline tricks that could avoid indexing.
+rankedTProd :: (BaseTensor target, GoodScalar r, KnownNat n)
+            => target (TKS '[n] r) -> target (TKS '[] r)
+rankedTProd = sfold (*) (sscalar 1)
+
+crevRankedTProd
+  :: forall n. KnownNat n
+  => RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+crevRankedTProd = crev rankedTProd
+
+revRankedTProd
+  :: forall n. KnownNat n
+  => RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+revRankedTProd = rev rankedTProd
 
 -- Until new inspection-testing is released, this is commented out.
 -- Below is a dummy to prevent warnings.
@@ -162,10 +206,10 @@ _rankedNoShareVecProd = V.foldl1' multNotShared
 -- to the existential variables in AstRanked that show up, e.g., when
 -- pattern matching on that type, dictionaries seen in the datatype
 -- constructors.
-inspect $ hasNoTypeClassesExcept 'crevRankedListProd [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
-inspect $ hasNoTypeClassesExcept 'revRankedListProd [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''PermC, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
-inspect $ hasNoTypeClassesExcept 'crevRankedListProdr [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
-inspect $ hasNoTypeClassesExcept 'revRankedListProdr [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''PermC, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
+inspect $ hasNoTypeClassesExcept 'crevRankedLtProd [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
+inspect $ hasNoTypeClassesExcept 'revRankedLtProd [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''PermC, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
+inspect $ hasNoTypeClassesExcept 'crevRankedLtProdr [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
+inspect $ hasNoTypeClassesExcept 'revRankedLtProdr [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''PermC, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
 
 -- OD.Storable is needed, for 9.4, only until new orthotope is released
 -}
