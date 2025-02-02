@@ -7,13 +7,17 @@ module BenchProdTools where
 import Prelude
 
 --import Control.DeepSeq (NFData)
+import Control.DeepSeq (NFData (..))
 import Criterion.Main
+import Data.Default qualified as Default
 import Data.List (foldl1')
-import GHC.Exts (IsList (..))
+import GHC.Exts (IsList (..), WithDict)
 import GHC.TypeLits (KnownNat)
 import Test.Inspection
+import Type.Reflection (Typeable)
 
 import Data.Array.Nested (ListR (..))
+import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -194,9 +198,8 @@ revRankedTProd
   => RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
 revRankedTProd = rev rankedTProd
 
--- Until new inspection-testing is released, this is commented out.
--- Below is a dummy to prevent warnings.
-{-
+-- TODO: not enough specialized
+-- TODO: outdated explanation:
 -- The GoodScalar and it's component occurrences are due to creating
 -- a value of an existential type that satisfies GoodScalar,
 -- so it's intended and not a specialization failure.
@@ -206,14 +209,4 @@ revRankedTProd = rev rankedTProd
 -- to the existential variables in AstRanked that show up, e.g., when
 -- pattern matching on that type, dictionaries seen in the datatype
 -- constructors.
-inspect $ hasNoTypeClassesExcept 'crevRankedLtProd [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
-inspect $ hasNoTypeClassesExcept 'revRankedLtProd [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''PermC, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
-inspect $ hasNoTypeClassesExcept 'crevRankedLtProdr [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
-inspect $ hasNoTypeClassesExcept 'revRankedLtProdr [''GoodScalar, ''KnownNat, ''KnownShS, ''AstSpan, ''Show, ''Ord, ''Numeric, ''Num, ''RowSum, ''Typeable, ''IfDifferentiable, ''NFData, ''(~), ''PermC, ''OD.Storable, ''AdaptableTarget, ''OS.Vector]
-
--- OD.Storable is needed, for 9.4, only until new orthotope is released
--}
-
-dummy :: ()
-dummy = ()
-inspect $ hasNoTypeClassesExcept 'dummy [''GoodScalar, ''KnownNat, ''AstSpan]
+inspect $ hasNoTypeClassesExcept 'revRankedTProd [''KnownNat, ''KnownSTK, ''BaseTensor, ''GoodScalar, ''AstSpan, ''Num, ''Show, ''Ord, ''Typeable, ''IfDifferentiable, ''Eq, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Nested.KnownShS, ''Boolean, ''EqF, ''OrdF, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''(~), ''Nested.Storable, ''Nested.KnownShX, ''WithDict, ''RealFrac, ''PermC]

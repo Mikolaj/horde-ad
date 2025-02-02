@@ -233,6 +233,8 @@ library benchCommonLibrary
 
       , base
       , criterion
+      , deepseq
+      , data-default
       , inspection-testing
       , ox-arrays
       , random

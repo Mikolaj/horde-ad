@@ -17,7 +17,7 @@ module HordeAd.Core.Ops
   , sscalar, srepl, singestData
   , xscalar, xrepl, xingestData
     -- * The giga-constraint
-  , ADReady, ADReadyNoLet
+  , ADReady, ADReadyNoLet, AllTargetShow
   ) where
 
 import Prelude
