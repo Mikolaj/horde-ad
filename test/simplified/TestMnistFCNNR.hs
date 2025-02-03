@@ -1,27 +1,20 @@
-module TestMnistFCNNR
-  ( testTrees
+module Main
+  ( main
   ) where
 
 import Prelude
 
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
-import Test.Tasty
-import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested (ListR (..))
 import Data.Array.Nested qualified as Nested
 
-import HordeAd
+import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Types
 
 import MnistData
 import MnistFcnnRanked1 qualified
-
-testTrees :: [TestTree]
-testTrees =
-  [ mnistTestCase1VTA "VTA11"
-  , mnistTestCase1VTA "VTA12"
-  ]
 
 valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters RepN 1 1 Double
 valsInitVTOPP =
@@ -35,10 +28,10 @@ valsInitVTOPP =
     , RepN $ Nested.sfromList1Prim (SNat @SizeMnistLabel)
       $ replicate 10 0 ) )
 
-mnistTestCase1VTA
+main
   :: forall r. r ~ Double
-  => String -> TestTree
-mnistTestCase1VTA prefix = testCase prefix $ do
+  => IO ()
+main = do
   let ftest :: [MnistDataLinearR r]
             -> MnistFcnnRanked1.ADFcnnMnist1Parameters RepN 1 1 Double
             -> Double
