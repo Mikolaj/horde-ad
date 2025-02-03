@@ -4,4 +4,11 @@ packages: ./
 package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
-
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/dependent-enummap
+    tag: b5ac69674eada517052ee9bb046b9f977c42f330
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/ox-arrays
+    tag: 0121c2480b2ea8d34c9d293941283e6c8e2e09dc
