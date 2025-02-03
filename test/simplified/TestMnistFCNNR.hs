@@ -146,11 +146,11 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
 
 tensorADValMnistTests :: TestTree
 tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
-  [ mnistTestCase1VTA "VTA 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+  [ mnistTestCase1VTA "VTA1 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.19499999999999995 :: Double)
-  , mnistTestCase1VTA "VTA artificial 1 2 3 4 5" 1 2 3 4 5 5000
+  , mnistTestCase1VTA "VTA1 artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.8972 :: Float)
-  , mnistTestCase1VTA "VTA 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+  , mnistTestCase1VTA "VTA1 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
 
@@ -263,11 +263,11 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
 
 tensorIntermediateMnistTests :: TestTree
 tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
-  [ mnistTestCase1VTI "VTI 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+  [ mnistTestCase1VTI "VTI1 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.19740000000000002 :: Double)
-  , mnistTestCase1VTI "VTI artificial 1 2 3 4 5" 1 2 3 4 5 5000
+  , mnistTestCase1VTI "VTI1 artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.9108 :: Float)
-  , mnistTestCase1VTI "VTI 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+  , mnistTestCase1VTI "VTI1 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
 
@@ -388,11 +388,11 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
 
 tensorADOnceMnistTests :: TestTree
 tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
-  [ mnistTestCase1VTO "VTO 1 epoch, 1 batch" 1 1 300 100 0.02 5000
+  [ mnistTestCase1VTO "VTO1 1 epoch, 1 batch" 1 1 300 100 0.02 5000
                       (0.19740000000000002 :: Double)
-  , mnistTestCase1VTO "VTO artificial 1 2 3 4 5" 1 2 3 4 5 5000
+  , mnistTestCase1VTO "VTO1 artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.9108 :: Float)
-  , mnistTestCase1VTO "VTO 1 epoch, 0 batch" 1 0 300 100 0.02 5000
+  , mnistTestCase1VTO "VTO1 1 epoch, 0 batch" 1 0 300 100 0.02 5000
                       (1 :: Float)
   ]
 
@@ -699,11 +699,11 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
 
 tensorMnistTestsPP :: TestTree
 tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
-  [ testCase "VTOPP" testVTOPP
-  , testCase "VTOPPNonLin" testVTOPPNonLin
-  , testCase "VT2OPP" testVT2OPP
-  , testCase "VT2OPPNonLin" testVT2OPPNonLin
-  , testCase "VT2OPPNonLin2" testVT2OPPNonLin2
+  [ testCase "VTO1 PP" testVTOPP
+  , testCase "VTO1 PP NonLin" testVTOPPNonLin
+  , testCase "VTO2 PP" testVT2OPP
+  , testCase "VTO2 PP NonLin" testVT2OPPNonLin
+  , testCase "VTO2 PP NonLin2" testVT2OPPNonLin2
   ]
 
 valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters RepN 3 4 Double
