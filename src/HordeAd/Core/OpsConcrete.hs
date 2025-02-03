@@ -28,7 +28,6 @@ import GHC.TypeLits
   (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
@@ -485,35 +484,36 @@ instance BaseTensor RepN where
     RepN . Nested.scastToMixed (knownShX @sh') . unRepN
 
   -- Nesting/unnesting
-  xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x) =
+  xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)
+                       , Refl <- lemRankReplicate (SNat @m) =
     RepN
-    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing)
-                                                      (RepORArray x))
-                    -> Nested.Mixed sh1 (Nested.Ranked m (RepORArray x)))
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing) (RepORArray x)))
+        (Nested.CastXX (Nested.CastXR Nested.CastId))
     . Nested.mnest sh
     . unRepN
   xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN
-    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Mixed (MapJust sh2)
-                                                      (RepORArray x))
-                    -> Nested.Mixed sh1 (Nested.Shaped sh2 (RepORArray x)))
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Mixed (MapJust sh2) (RepORArray x)))
+        (Nested.CastXX (Nested.CastXS Nested.CastId))
     . Nested.mnest sh
     . unRepN
   xnest @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN . Nested.mnest sh . unRepN
-  xunNestR @sh1 @m @x =
+  xunNestR @sh1 @m @x | Dict <- eltDictRep (knownSTK @x) =
     RepN
     . Nested.munNest
-    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Ranked m (RepORArray x))
-                    -> Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing)
-                                                      (RepORArray x)))
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Ranked m (RepORArray x)))
+        (Nested.CastXX (Nested.CastRX Nested.CastId))
     . unRepN
-  xunNestS @sh1 @sh2 @x =
+  xunNestS @sh1 @sh2 @x | Dict <- eltDictRep (knownSTK @x) =
     RepN
     . Nested.munNest
-    . (unsafeCoerce :: Nested.Mixed sh1 (Nested.Shaped m (RepORArray x))
-                    -> Nested.Mixed sh1 (Nested.Mixed (MapJust sh2)
-                                                      (RepORArray x)))
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Shaped sh2 (RepORArray x)))
+        (Nested.CastXX (Nested.CastSX Nested.CastId))
     . unRepN
   xunNest = RepN . Nested.munNest . unRepN
 
