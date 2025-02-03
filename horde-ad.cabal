@@ -191,12 +191,7 @@ library exampleLibrary
     import:           options
 
     exposed-modules:  MnistData
-                      MnistCnnRanked2
-                      MnistCnnShaped2
                       MnistFcnnRanked1
-                      MnistFcnnRanked2
-                      MnistRnnRanked2
-                      MnistRnnShaped2
 
     hs-source-dirs:   example
 
@@ -205,173 +200,11 @@ library exampleLibrary
 
       , base
       , bytestring
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , hmatrix
       , mnist-idx
       , ox-arrays
       , random
       , vector
       , zlib
-
-library benchCommonLibrary
-    import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    exposed-modules:  BenchMnistTools
-                      BenchProdTools
-
-    hs-source-dirs:   bench/common
-
-    build-depends:
-      , horde-ad:exampleLibrary
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , criterion
-      , deepseq
-      , data-default
-      , hmatrix
-      , inspection-testing
-      , ox-arrays
-      , random
-
-benchmark longProdBench
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          LongProdBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-      , deepseq
-      , random
-
-benchmark shortProdForCI
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          ShortProdForCI.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-      , deepseq
-      , random
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-benchmark longMnistBench
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          LongMnistBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
-
-      , base
-      , criterion
-      , random
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-benchmark shortMnistForCI
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          ShortMnistForCI.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
-
-      , base
-      , criterion
-      , random
-
--- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
-benchmark realisticMnistBench
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          RealisticMnistBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
-
-      , base
-      , criterion
-      , random
-
-library testToolLibrary
-    import:           options
-
-    exposed-modules:  CrossTesting
-                      EqEpsilon
-                      Shared
-
-    hs-source-dirs:   test/tool
-
-    build-depends:
-      , horde-ad:horde-ad-simplified
-
-      , base
-      , ox-arrays
-      , tasty >= 1.0
-      , tasty-hunit
-      , vector
 
 executable testCommonLibrary
     import:           options, exe-options-test

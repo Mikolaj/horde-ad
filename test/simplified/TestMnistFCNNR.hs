@@ -13,6 +13,8 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Types
 
+-- import HordeAd
+
 import MnistData
 import MnistFcnnRanked1 qualified
 
