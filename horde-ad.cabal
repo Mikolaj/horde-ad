@@ -376,8 +376,6 @@ library testToolLibrary
 executable testCommonLibrary
     import:           options, exe-options-test
 
-    exposed-modules:  TestMnistFCNNR
-
     hs-source-dirs:   test/simplified
     main-is:          TestMnistFCNNR.hs
 
