@@ -16,6 +16,7 @@ import Prelude
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
@@ -348,8 +349,7 @@ printAstAux cfg d = \case
               then printAst cfg d a
               else printPrefixOp printAst cfg d "tfromDual" [a]
 
-  AstSumOfList _ [] -> error "printAst: empty AstSumOfList"
-  AstSumOfList _ (left : args) ->
+  AstSumOfList (left :| args) ->
     let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
     in showParen (d > 6)
        $ printAst cfg 7 left

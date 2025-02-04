@@ -21,10 +21,12 @@ import Prelude
 
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Int (Int64)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
+import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
@@ -268,16 +270,18 @@ interpretAst !env = \case
   AstFromPrimal @y2 a -> tfromPrimal (knownSTK @y2) (interpretAstPrimal env a)
   AstFromDual @y2 a -> tfromDual (knownSTK @y2) (interpretAstDual env a)
 
-  AstSumOfList stk args ->
-    let args2 = interpretAst env <$> args
-    in case stk of
-      STKScalar{} -> foldr1 (+) args2  -- @sum@ breaks and also reverses order
-      STKR SNat STKScalar{} -> foldr1 (+) args2
-      STKS sh STKScalar{} -> withKnownShS sh $ foldr1 (+) args2
-      STKX sh STKScalar{} -> withKnownShX sh $ foldr1 (+) args2
-      _ -> let v = V.fromList args2
-           in withSNat (V.length v) $ \snat ->
-                tsum snat stk $ tfromVector snat stk v
+  AstSumOfList args -> case args of
+    a :| _ ->
+      let stk = ftkToSTK (ftkAst a)
+          args2 = interpretAst env <$> args
+      in case stk of
+        STKScalar{} -> foldr1 (+) args2  -- @sum@ breaks and also reverses order
+        STKR SNat STKScalar{} -> foldr1 (+) args2
+        STKS sh STKScalar{} -> withKnownShS sh $ foldr1 (+) args2
+        STKX sh STKScalar{} -> withKnownShX sh $ foldr1 (+) args2
+        _ -> let v = V.fromList $ toList args2
+             in withSNat (V.length v) $ \snat ->
+                  tsum snat stk $ tfromVector snat stk v
 
   AstN1K opCode u ->
     let u2 = interpretAst env u

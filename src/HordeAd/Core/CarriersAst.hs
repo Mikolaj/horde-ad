@@ -14,6 +14,8 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
+import Data.List.NonEmpty (NonEmpty (..), (<|))
+
 import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
@@ -57,28 +59,28 @@ instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList stk (AstConcrete ftk u : lu)
-    + AstSumOfList _ (AstConcrete _ v : lv) =
-        AstSumOfList stk (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfList stk lu + AstSumOfList _ (AstConcrete ftk v : lv) =
-    AstSumOfList stk (AstConcrete ftk v : lv ++ lu)
-  AstSumOfList stk lu + AstSumOfList _ lv = AstSumOfList stk (lu ++ lv)
+  AstSumOfList (AstConcrete ftk u :| lu)
+    + AstSumOfList (AstConcrete _ v :| lv) =
+        AstSumOfList (AstConcrete ftk (u + v) :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete ftk v :| lv) =
+    AstSumOfList ((AstConcrete ftk v :| lv) <> lu)
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
-  AstConcrete ftk u + AstSumOfList stk (AstConcrete _ v : lv) =
-    AstSumOfList stk (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfList stk (AstConcrete ftk v : lv) =
-    AstSumOfList stk (AstConcrete ftk v : u : lv)
-  u + AstSumOfList stk lv = AstSumOfList stk (u : lv)
+  AstConcrete ftk u + AstSumOfList (AstConcrete _ v :| lv) =
+    AstSumOfList (AstConcrete ftk (u + v) :| lv)
+  u + AstSumOfList (AstConcrete ftk v :| lv) =
+    AstSumOfList (AstConcrete ftk v :| u : lv)
+  u + AstSumOfList lv = AstSumOfList (u <| lv)
 
-  AstSumOfList stk (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfList stk (AstConcrete ftk (u + v) : lu)
-  AstSumOfList stk (AstConcrete ftk u : lu) + v =
-    AstSumOfList stk (AstConcrete ftk u : v : lu)
-  AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
+  AstSumOfList (AstConcrete ftk u :| lu) + AstConcrete _ v =
+    AstSumOfList (AstConcrete ftk (u + v) :| lu)
+  AstSumOfList (AstConcrete ftk u :| lu) + v =
+    AstSumOfList (AstConcrete ftk u :| v : lu)
+  AstSumOfList lu + v = AstSumOfList (v <| lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList knownSTK [AstConcrete ftk v, u]
-  u + v = AstSumOfList knownSTK [u, v]
+  u + AstConcrete ftk v = AstSumOfList (AstConcrete ftk v :| [u])
+  u + v = AstSumOfList (u :| [v])
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing
@@ -194,28 +196,28 @@ instance (GoodScalar r, KnownShS sh)
          => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList stk (AstConcrete ftk u : lu)
-    + AstSumOfList _ (AstConcrete _ v : lv) =
-        AstSumOfList stk (AstConcrete ftk (u + v) : lu ++ lv)
-  AstSumOfList stk lu + AstSumOfList _ (AstConcrete ftk v : lv) =
-    AstSumOfList stk (AstConcrete ftk v : lv ++ lu)
-  AstSumOfList stk lu + AstSumOfList _ lv = AstSumOfList stk (lu ++ lv)
+  AstSumOfList (AstConcrete ftk u :| lu)
+    + AstSumOfList (AstConcrete _ v :| lv) =
+        AstSumOfList (AstConcrete ftk (u + v) :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete ftk v :| lv) =
+    AstSumOfList ((AstConcrete ftk v :| lv) <> lu)
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
-  AstConcrete ftk u + AstSumOfList stk (AstConcrete _ v : lv) =
-    AstSumOfList stk (AstConcrete ftk (u + v) : lv)
-  u + AstSumOfList stk (AstConcrete ftk v : lv) =
-    AstSumOfList stk (AstConcrete ftk v : u : lv)
-  u + AstSumOfList stk lv = AstSumOfList stk (u : lv)
+  AstConcrete ftk u + AstSumOfList (AstConcrete _ v :| lv) =
+    AstSumOfList (AstConcrete ftk (u + v) :| lv)
+  u + AstSumOfList (AstConcrete ftk v :| lv) =
+    AstSumOfList (AstConcrete ftk v :| u : lv)
+  u + AstSumOfList lv = AstSumOfList (u <| lv)
 
-  AstSumOfList stk (AstConcrete ftk u : lu) + AstConcrete _ v =
-    AstSumOfList stk (AstConcrete ftk (u + v) : lu)
-  AstSumOfList stk (AstConcrete ftk u : lu) + v =
-    AstSumOfList stk (AstConcrete ftk u : v : lu)
-  AstSumOfList stk lu + v = AstSumOfList stk (v : lu)
+  AstSumOfList (AstConcrete ftk u :| lu) + AstConcrete _ v =
+    AstSumOfList (AstConcrete ftk (u + v) :| lu)
+  AstSumOfList (AstConcrete ftk u :| lu) + v =
+    AstSumOfList (AstConcrete ftk u :| v : lu)
+  AstSumOfList lu + v = AstSumOfList (v <| lu)
 
   AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList knownSTK [AstConcrete ftk v, u]
-  u + v = AstSumOfList knownSTK [u, v]
+  u + AstConcrete ftk v = AstSumOfList (AstConcrete ftk v :| [u])
+  u + v = AstSumOfList (u :| [v])
 
   AstConcrete ftk u - AstConcrete _ v =
     AstConcrete ftk (u - v)  -- common in indexing

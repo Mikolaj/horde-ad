@@ -18,6 +18,7 @@ module HordeAd.Core.AstTools
 import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat)
@@ -83,9 +84,8 @@ ftkAst t = case t of
   AstFromPrimal a -> ftkAst a
   AstFromDual a -> ftkAst a
 
-  AstSumOfList _ args -> case args of
-    [] -> error "ftkAst: AstSumOfList with no arguments"
-    v : _ -> ftkAst v
+  AstSumOfList args -> case args of
+    v :| _ -> ftkAst v
 
   AstN1K{} -> FTKScalar
   AstN2K{} -> FTKScalar
@@ -210,7 +210,7 @@ varInAst var = \case
   AstFromPrimal v -> varInAst var v
   AstFromDual v -> varInAst var v
 
-  AstSumOfList _ l -> any (varInAst var) l
+  AstSumOfList l -> any (varInAst var) l
 
   AstN1K _ t -> varInAst var t
   AstN2K _ t u -> varInAst var t || varInAst var u

@@ -181,9 +181,9 @@ inlineAst memo v0 = case v0 of
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ inlineAst memo a
   Ast.AstFromDual a -> second Ast.AstFromDual $ inlineAst memo a
 
-  Ast.AstSumOfList stk args ->
-    let (memo2, args2) = mapAccumR inlineAst memo args
-    in (memo2, Ast.AstSumOfList stk args2)
+  Ast.AstSumOfList args ->
+    let (memo2, args2) = mapAccumR inlineAst memo $ toList args
+    in (memo2, Ast.AstSumOfList $ fromList args2)
 
   Ast.AstN1K opCode u ->
     let (memo2, u2) = inlineAst memo u
@@ -464,9 +464,9 @@ unshareAst memo = \case
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ unshareAst memo a
   Ast.AstFromDual a -> second Ast.AstFromDual $ unshareAst memo a
 
-  Ast.AstSumOfList stk args ->
-    let (memo2, args2) = mapAccumR unshareAst memo args
-    in (memo2, Ast.AstSumOfList stk args2)
+  Ast.AstSumOfList args ->
+    let (memo2, args2) = mapAccumR unshareAst memo $ toList args
+    in (memo2, Ast.AstSumOfList $ fromList args2)
 
   Ast.AstN1K opCode u ->
     let (memo2, u2) = unshareAst memo u

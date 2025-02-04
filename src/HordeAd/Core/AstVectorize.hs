@@ -14,6 +14,8 @@ import Control.Monad (when)
 import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
@@ -274,10 +276,13 @@ build1V snat@SNat (var, v0) =
       traceRule $
         Ast.AstFromDual $ build1V snat (var, v)
 
-    Ast.AstSumOfList stk args
-     | Dict <- lemKnownSTKOfBuild snat stk -> traceRule $
-      astSumOfList knownSTK
-      $ map (\v -> build1VOccurenceUnknown snat (var, v)) args
+    Ast.AstSumOfList args -> case args of
+      a :| _ ->
+        let stk = ftkToSTK (ftkAst a)
+        in case lemKnownSTKOfBuild snat stk of
+          Dict -> traceRule $
+            astSumOfList
+            $ NonEmpty.map (\v -> build1VOccurenceUnknown snat (var, v)) args
 
     Ast.AstN1K opCode u -> traceRule $
       Ast.AstN1S opCode (build1V snat (var, u))

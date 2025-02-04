@@ -59,6 +59,8 @@ import Data.Functor.Const
 import Data.GADT.Compare
 import Data.Int (Int64)
 import Data.List (dropWhileEnd)
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -410,10 +412,10 @@ astSum snat@SNat stk t0 = case (stk, ftkAst t0) of
     Ast.AstFromVector @y2 _ l ->
       gcastWith (unsafeCoerceRefl :: y2 :~: y) $
       case stk of
-        STKScalar{} -> astSumOfList stk $ V.toList l
-        STKR _ STKScalar{} -> astSumOfList stk $ V.toList l
-        STKS _ STKScalar{} -> astSumOfList stk $ V.toList l
-        STKX _ STKScalar{} -> astSumOfList stk $ V.toList l
+        STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
+        STKR _ STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
+        STKS _ STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
+        STKX _ STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
         _ -> Ast.AstSum snat stk t0
     Ast.AstReplicate snat2 (STKR SNat _) v | STKR _ (STKScalar @r _) <- stk ->
       case ftkAst v of
@@ -936,7 +938,7 @@ astPrimalPart t = case t of
     let ftk = ftkAst v
     in astConcrete ftk $ tconstantTarget 0 ftk
 
-  AstSumOfList stk args -> astSumOfList stk (map astPrimalPart args)
+  AstSumOfList args -> astSumOfList (NonEmpty.map astPrimalPart args)
 
   AstN1K opCode u -> AstN1K opCode (astPrimalPart u)
   AstN2K opCode u v -> AstN2K opCode (astPrimalPart u) (astPrimalPart v)
@@ -1022,7 +1024,7 @@ astDualPart t = case t of
   Ast.AstFromPrimal{} -> Ast.AstDualPart t  -- TODO: replace t with something small
   Ast.AstFromDual v -> v
 
-  AstSumOfList stk args -> astSumOfList stk (map astDualPart args)
+  AstSumOfList args -> astSumOfList (NonEmpty.map astDualPart args)
 
   AstN1K opCode u -> AstN1K opCode (astDualPart u)
   AstN2K opCode u v -> AstN2K opCode (astDualPart u) (astDualPart v)
@@ -1077,18 +1079,18 @@ astDualPart t = case t of
   Ast.AstMatmul2S{} -> Ast.AstDualPart t
 
 astSumOfList :: AstSpan s
-             => STensorKind y
-             -> [AstTensor AstMethodLet s y]
+             => NonEmpty (AstTensor AstMethodLet s y)
              -> AstTensor AstMethodLet s y
-astSumOfList stk l = case stk of
-  STKScalar{} -> foldr1 (+) l  -- @sum@ breaks and also reverses order
-  STKR SNat STKScalar{} -> foldr1 (+) l
-  STKS sh STKScalar{} -> withKnownShS sh $ foldr1 (+) l
-  STKX sh STKScalar{} -> withKnownShX sh $ foldr1 (+) l
-  _ | Dict <- lemKnownSTK stk ->
-    let v = V.fromList l
-    in withSNat (V.length v) $ \snat ->
-      astSum snat stk $ astFromVector snat v
+astSumOfList l = case l of
+  a :| _ -> case ftkToSTK (ftkAst a) of
+    STKScalar{} -> foldr1 (+) l  -- @sum@ breaks and also reverses order
+    STKR SNat STKScalar{} -> foldr1 (+) l
+    STKS sh STKScalar{} -> withKnownShS sh $ foldr1 (+) l
+    STKX sh STKScalar{} -> withKnownShX sh $ foldr1 (+) l
+    stk | Dict <- lemKnownSTK stk ->
+      let v = V.fromList $ toList l
+      in withSNat (V.length v) $ \snat ->
+        astSum snat stk $ astFromVector snat v
 
 astFromIntegralK :: (GoodScalar r1, GoodScalar r2, Integral r1)
                 => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
@@ -1279,9 +1281,9 @@ astIndexKnobsS knobs v0 ix@((:.$) @in1 @shm1 i1 rest1)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astIndex v ix
   Ast.AstFromDual v -> Ast.AstFromDual $ astIndex v ix
 
-  AstSumOfList _ args ->
+  AstSumOfList args ->
     shareIx ix $ \ !ix2 ->
-      astSumOfList knownSTK (map (`astIndexRec` ix2) args)
+      astSumOfList (NonEmpty.map (`astIndexRec` ix2) args)
 
   AstN1S opCode u -> AstN1S opCode (astIndexRec u ix)
   AstN2S opCode u v ->
@@ -2292,7 +2294,7 @@ astSFromK t = case t of
     astConcrete (FTKS ZSS FTKScalar) $ sscalar v
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSFromK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v
-  AstSumOfList _ args -> AstSumOfList knownSTK $ map astSFromK args
+  AstSumOfList args -> AstSumOfList $ NonEmpty.map astSFromK args
   AstN1K opCode u -> AstN1S opCode (astSFromK u)
   AstN2K opCode u v -> AstN2S opCode (astSFromK u) (astSFromK v)
 -- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astSFromK u)
@@ -2348,8 +2350,7 @@ astSFromR a0 = case a0 of
   Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astSFromR a
   Ast.AstFromDual a -> Ast.AstFromDual $ astSFromR a
 
-  AstSumOfList (STKR _ x) args ->
-    astSumOfList (STKS knownShS x) (map astSFromR args)
+  AstSumOfList args -> astSumOfList (NonEmpty.map astSFromR args)
 
   Ast.AstFromS _ v -> case sameSTK (ftkToSTK (ftkAst v))
                                    (knownSTK @(TKS2 sh r)) of
@@ -2468,10 +2469,10 @@ astNonIndexStep t = case t of
   Ast.AstFromPrimal{} -> t
   Ast.AstFromDual{} -> t
 
-  AstSumOfList stk args ->
+  AstSumOfList args ->
     case isTensorInt t of
       Just Refl -> foldr1 contractAstPlusOp args
-      _ -> astSumOfList stk args
+      _ -> astSumOfList args
 
   AstN1K opCode u ->
     case isTensorInt u of
@@ -2591,10 +2592,10 @@ expandAst t = case t of
   Ast.AstFromPrimal v -> Ast.AstFromPrimal (expandAst v)
   Ast.AstFromDual v -> Ast.AstFromDual (expandAst v)
 
-  AstSumOfList stk args ->
+  AstSumOfList args ->
     case isTensorInt t of
-      Just Refl -> foldr1 contractAstPlusOp (map expandAst args)
-      _ -> astSumOfList stk (map expandAst args)
+      Just Refl -> foldr1 contractAstPlusOp (NonEmpty.map expandAst args)
+      _ -> astSumOfList (NonEmpty.map expandAst args)
 
   AstN1K opCode u ->
     case isTensorInt u of
@@ -2798,10 +2799,10 @@ simplifyAst t = case t of
   Ast.AstFromPrimal v -> Ast.AstFromPrimal (simplifyAst v)
   Ast.AstFromDual v -> Ast.AstFromDual (simplifyAst v)
 
-  AstSumOfList stk args ->
+  AstSumOfList args ->
     case isTensorInt t of
-      Just Refl -> foldr1 contractAstPlusOp (map simplifyAst args)
-      _ -> astSumOfList stk (map simplifyAst args)
+      Just Refl -> foldr1 contractAstPlusOp (NonEmpty.map simplifyAst args)
+      _ -> astSumOfList (NonEmpty.map simplifyAst args)
 
   AstN1K opCode u ->
     case isTensorInt u of
@@ -3156,10 +3157,10 @@ contractAst t = case t of
   Ast.AstFromPrimal v -> Ast.AstFromPrimal (contractAst v)
   Ast.AstFromDual v -> Ast.AstFromDual (contractAst v)
 
-  AstSumOfList stk args ->
+  AstSumOfList args ->
     case isTensorInt t of
-      Just Refl -> foldr1 contractAstPlusOp (map contractAst args)
-      _ -> astSumOfList stk (map contractAst args)
+      Just Refl -> foldr1 contractAstPlusOp (NonEmpty.map contractAst args)
+      _ -> astSumOfList (NonEmpty.map contractAst args)
 
   AstN1K opCode u ->
     case isTensorInt u of
@@ -3366,37 +3367,36 @@ contractRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
 -- We could use sharing via @tlet@ when terms are duplicated, but it's
 -- unclear if the term bloat is worth it.
 contractAstPlusOp :: AstInt AstMethodLet -> AstInt AstMethodLet -> AstInt AstMethodLet
-contractAstPlusOp (AstSumOfList _ (AstConcrete _ u : lu))
-                  (AstSumOfList _ (AstConcrete _ v : lv)) =
+contractAstPlusOp (AstSumOfList (AstConcrete _ u :| lu))
+                  (AstSumOfList (AstConcrete _ v :| lv)) =
   addConstToList (u + v) (lu ++ lv)
-contractAstPlusOp (AstSumOfList stk lu)
-                  (AstSumOfList _ (AstConcrete ftk v : lv)) =
-  AstSumOfList stk (AstConcrete ftk v : lv ++ lu)
-contractAstPlusOp (AstSumOfList stk lu)
-                  (AstSumOfList _ lv) =
-  AstSumOfList stk (lu ++ lv)
+contractAstPlusOp (AstSumOfList lu)
+                  (AstSumOfList (AstConcrete ftk v :| lv)) =
+  AstSumOfList ((AstConcrete ftk v :| lv) <> lu)
+contractAstPlusOp (AstSumOfList lu)
+                  (AstSumOfList lv) =
+  AstSumOfList (lu <> lv)
 
 contractAstPlusOp (AstConcrete _ u)
-                  (AstSumOfList _ (AstConcrete _ v : lv)) =
+                  (AstSumOfList (AstConcrete _ v :| lv)) =
   addConstToList (u + v) lv
-contractAstPlusOp u
-                  (AstSumOfList stk (AstConcrete ftk v : lv)) =
-  AstSumOfList stk (AstConcrete ftk v : u : lv)
-contractAstPlusOp u
-                  (AstSumOfList stk lv) =
-  AstSumOfList stk (u : lv)
+contractAstPlusOp u (AstSumOfList (AstConcrete ftk v :| lv)) =
+  AstSumOfList (AstConcrete ftk v :| u : lv)
+contractAstPlusOp u (AstSumOfList lv) =
+  AstSumOfList (u NonEmpty.<| lv)
 
-contractAstPlusOp (AstSumOfList _ (AstConcrete _ u : lu))
+contractAstPlusOp (AstSumOfList (AstConcrete _ u :| lu))
                   (AstConcrete _ v) =
   addConstToList (u + v) lu
-contractAstPlusOp (AstSumOfList stk (AstConcrete ftk u : lu))
+contractAstPlusOp (AstSumOfList (AstConcrete ftk u :| lu))
                   v =
-  AstSumOfList stk (AstConcrete ftk u : v : lu)
-contractAstPlusOp (AstSumOfList stk lu)
+  AstSumOfList (AstConcrete ftk u :| v : lu)
+contractAstPlusOp (AstSumOfList lu)
                   v =
-  AstSumOfList stk (v : lu)
+  AstSumOfList (v NonEmpty.<| lu)
 
-contractAstPlusOp (AstConcrete ftk u) (AstConcrete _ v) = AstConcrete ftk $ u + v
+contractAstPlusOp (AstConcrete ftk u) (AstConcrete _ v) =
+  AstConcrete ftk $ u + v
 contractAstPlusOp u (AstConcrete _ v) = addConstToList v [u]
 contractAstPlusOp (AstConcrete _ u) v = addConstToList u [v]
 
@@ -3420,24 +3420,24 @@ contractAstPlusOp
   (Ast.AstI2K RemOp (AstN1K NegateOp (Ast.AstVar _ var)) (AstConcrete _ v))
   | var == var' && v == v' = 0
 
-contractAstPlusOp u v = AstSumOfList knownSTK [u, v]
+contractAstPlusOp u v = AstSumOfList (u :| [v])
 
 addConstToList :: RepN (TKScalar Int64) -> [AstInt AstMethodLet]
                -> AstInt AstMethodLet
-addConstToList _ [] = error "addConstToList: AstSumOfList list too short"
+addConstToList a [] = AstConcrete FTKScalar a
 addConstToList a [i] =
   if unRepN a == 0
   then i
-  else AstSumOfList knownSTK [AstConcrete FTKScalar a, i]
-addConstToList a l =
+  else AstSumOfList (AstConcrete FTKScalar a :| [i])
+addConstToList a l@(b : rest) =
   if unRepN a == 0
-  then AstSumOfList knownSTK l
-  else AstSumOfList knownSTK (AstConcrete FTKScalar a : l)
+  then AstSumOfList (b :| rest)
+  else AstSumOfList (AstConcrete FTKScalar a :| l)
 
 contractAstNumOp1 :: OpCodeNum1 -> AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstNumOp1 NegateOp (AstConcrete ftk u) = AstConcrete ftk $ negate u
-contractAstNumOp1 NegateOp (AstSumOfList _ l) =
-  foldr1 contractAstPlusOp (map (contractAstNumOp1 NegateOp) l)
+contractAstNumOp1 NegateOp (AstSumOfList l) =
+  foldr1 contractAstPlusOp $ NonEmpty.map (contractAstNumOp1 NegateOp) l
 contractAstNumOp1 NegateOp (AstN2K TimesOp (AstConcrete ftk u) v) =
   contractAstNumOp2 TimesOp (AstConcrete ftk $ negate u) v
     -- given a choice, prefer to negate a constant
@@ -3481,10 +3481,12 @@ contractAstNumOp TimesOp (u, AstN2K PlusOp (v, w)) =
   contractAstPlusOp ( contractAstNumOp TimesOp (u, v)
                     , contractAstNumOp TimesOp (u, w) )
 -}
-contractAstNumOp2 TimesOp (AstSumOfList _ l) w@AstConcrete{} =
-  foldr1 contractAstPlusOp (map (\u -> contractAstNumOp2 TimesOp u w) l)
-contractAstNumOp2 TimesOp u@AstConcrete{} (AstSumOfList _ l) =
-  foldr1 contractAstPlusOp (map (contractAstNumOp2 TimesOp u) l)
+contractAstNumOp2 TimesOp (AstSumOfList l) w@AstConcrete{} =
+  foldr1 contractAstPlusOp
+  $ NonEmpty.map (\u -> contractAstNumOp2 TimesOp u w) l
+contractAstNumOp2 TimesOp u@AstConcrete{} (AstSumOfList l) =
+  foldr1 contractAstPlusOp
+  $ NonEmpty.map (contractAstNumOp2 TimesOp u) l
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
 contractAstNumOp2 TimesOp (AstConcrete ftk u) (AstN2K TimesOp (AstConcrete _ v) w) =
@@ -3668,12 +3670,13 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstFromPrimal a -> Ast.AstFromPrimal <$> substitute1Ast i var a
   Ast.AstFromDual a -> Ast.AstFromDual <$> substitute1Ast i var a
 
-  Ast.AstSumOfList stk args ->
-    let margs = map (substitute1Ast i var) args
+  Ast.AstSumOfList args ->
+    let margs = NonEmpty.map (substitute1Ast i var) args
     in if any isJust margs
        then Just $ case isTensorInt v1 of
-         Just Refl -> foldr1 contractAstPlusOp $ zipWith fromMaybe args margs
-         _ -> astSumOfList stk $ zipWith fromMaybe args margs
+         Just Refl -> foldr1 contractAstPlusOp
+                      $ NonEmpty.zipWith fromMaybe args margs
+         _ -> astSumOfList $ NonEmpty.zipWith fromMaybe args margs
        else Nothing
 
   Ast.AstN1K opCode u ->
