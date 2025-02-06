@@ -16,12 +16,10 @@ import Prelude hiding (foldl')
 
 import Data.List.NonEmpty (NonEmpty (..), (<|))
 
-import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -59,42 +57,44 @@ instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcrete ftk u :| lu)
-    + AstSumOfList (AstConcrete _ v :| lv) =
-        AstSumOfList (AstConcrete ftk (u + v) :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete ftk v :| lv) =
-    AstSumOfList ((AstConcrete ftk v :| lv) <> lu)
+  AstSumOfList (AstConcrete (RepF ftk u) :| lu)
+    + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+        AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
+    AstSumOfList ((AstConcrete (RepF ftk v) :| lv) <> lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
-  AstConcrete ftk u + AstSumOfList (AstConcrete _ v :| lv) =
-    AstSumOfList (AstConcrete ftk (u + v) :| lv)
-  u + AstSumOfList (AstConcrete ftk v :| lv) =
-    AstSumOfList (AstConcrete ftk v :| u : lv)
+  AstConcrete (RepF ftk u) + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lv)
+  u + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
+    AstSumOfList (AstConcrete (RepF ftk v) :| u : lv)
   u + AstSumOfList lv = AstSumOfList (u <| lv)
 
-  AstSumOfList (AstConcrete ftk u :| lu) + AstConcrete _ v =
-    AstSumOfList (AstConcrete ftk (u + v) :| lu)
-  AstSumOfList (AstConcrete ftk u :| lu) + v =
-    AstSumOfList (AstConcrete ftk u :| v : lu)
+  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + AstConcrete (RepF _ v) =
+    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu)
+  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + v =
+    AstSumOfList (AstConcrete (RepF ftk u) :| v : lu)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
 
-  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList (AstConcrete ftk v :| [u])
+  AstConcrete (RepF ftk u) + AstConcrete (RepF _ v) =
+    AstConcrete (RepF ftk (u + v))
+  u + AstConcrete (RepF ftk v) = AstSumOfList (AstConcrete (RepF ftk v) :| [u])
   u + v = AstSumOfList (u :| [v])
 
-  AstConcrete ftk u - AstConcrete _ v =
-    AstConcrete ftk (u - v)  -- common in indexing
+  AstConcrete (RepF ftk u) - AstConcrete (RepF _ v) =
+    AstConcrete (RepF ftk (u - v))  -- common in indexing
   u - v = AstN2K MinusOp u v
 
-  AstConcrete ftk u * AstConcrete _ v =
-    AstConcrete ftk (u * v)  -- common in indexing
+  AstConcrete (RepF ftk u) * AstConcrete (RepF _ v) =
+    AstConcrete (RepF ftk (u * v))  -- common in indexing
   u * v = AstN2K TimesOp u v
 
-  negate (AstConcrete ftk u) = AstConcrete ftk $ negate u  -- common in indexing
+  negate (AstConcrete (RepF ftk u)) =
+    AstConcrete (RepF ftk (negate u))  -- common in indexing
   negate u = AstN1K NegateOp u
   abs = AstN1K AbsOp
   signum = AstN1K SignumOp
-  fromInteger i = fromPrimal . AstConcrete FTKScalar . fromInteger $ i
+  fromInteger i = fromPrimal $ AstConcrete (RepF FTKScalar (fromInteger i))
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -108,7 +108,7 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   u / v = AstR2K DivideOp u v
   recip = AstR1K RecipOp
-  fromRational r = fromPrimal . AstConcrete FTKScalar . fromRational $ r
+  fromRational r = fromPrimal $ AstConcrete (RepF FTKScalar (fromRational r))
 
 instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
@@ -192,39 +192,40 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful numeric instances for shaped AST; they are lawful modulo evaluation
 
-instance (GoodScalar r, KnownShS sh)
+instance GoodScalar r
          => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcrete, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcrete ftk u :| lu)
-    + AstSumOfList (AstConcrete _ v :| lv) =
-        AstSumOfList (AstConcrete ftk (u + v) :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete ftk v :| lv) =
-    AstSumOfList ((AstConcrete ftk v :| lv) <> lu)
+  AstSumOfList (AstConcrete (RepF ftk u) :| lu)
+    + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+        AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
+    AstSumOfList ((AstConcrete (RepF ftk v) :| lv) <> lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
-  AstConcrete ftk u + AstSumOfList (AstConcrete _ v :| lv) =
-    AstSumOfList (AstConcrete ftk (u + v) :| lv)
-  u + AstSumOfList (AstConcrete ftk v :| lv) =
-    AstSumOfList (AstConcrete ftk v :| u : lv)
+  AstConcrete (RepF ftk u) + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lv)
+  u + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
+    AstSumOfList (AstConcrete (RepF ftk v) :| u : lv)
   u + AstSumOfList lv = AstSumOfList (u <| lv)
 
-  AstSumOfList (AstConcrete ftk u :| lu) + AstConcrete _ v =
-    AstSumOfList (AstConcrete ftk (u + v) :| lu)
-  AstSumOfList (AstConcrete ftk u :| lu) + v =
-    AstSumOfList (AstConcrete ftk u :| v : lu)
+  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + AstConcrete (RepF _ v) =
+    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu)
+  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + v =
+    AstSumOfList (AstConcrete (RepF ftk u) :| v : lu)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
 
-  AstConcrete ftk u + AstConcrete _ v = AstConcrete ftk (u + v)
-  u + AstConcrete ftk v = AstSumOfList (AstConcrete ftk v :| [u])
+  AstConcrete (RepF ftk u) + AstConcrete (RepF _ v) =
+    AstConcrete (RepF ftk (u + v))
+  u + AstConcrete (RepF ftk v) = AstSumOfList (AstConcrete (RepF ftk v) :| [u])
   u + v = AstSumOfList (u :| [v])
 
-  AstConcrete ftk u - AstConcrete _ v =
-    AstConcrete ftk (u - v)  -- common in indexing
+  AstConcrete (RepF ftk u) - AstConcrete (RepF _ v) =
+    AstConcrete (RepF ftk (u - v))  -- common in indexing
   u - v = AstN2S MinusOp u v
 
-  AstConcrete ftk u * AstConcrete _ v =
-    AstConcrete ftk (u * v)  -- common in indexing
+  AstConcrete (RepF ftk u) * AstConcrete (RepF _ v) =
+    AstConcrete (RepF ftk (u * v))  -- common in indexing
   u * v = AstN2S TimesOp u v
 
   negate = AstN1S NegateOp
@@ -236,21 +237,21 @@ instance (GoodScalar r, KnownShS sh)
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (IntegralF r, GoodScalar r, KnownShS sh)
+instance (IntegralF r, GoodScalar r)
          => IntegralF (AstTensor ms s (TKS sh r)) where
   quotF = AstI2S QuotOp
   remF = AstI2S RemOp
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r)
          => Fractional (AstTensor ms s (TKS sh r)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational r = error $ "fromRational not defined for shaped tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
-  pi = fromPrimal $ AstConcrete (FTKS knownShS FTKScalar) (RepN pi)
+  pi = error "pi not defined for shaped tensors"
   exp = AstR1S ExpOp
   log = AstR1S LogOp
   sqrt = AstR1S SqrtOp
@@ -269,7 +270,7 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh, AstSpan s)
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, KnownShS sh, AstSpan s)
+instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => RealFloatF (AstTensor ms s (TKS sh r)) where
   atan2F = AstR2S Atan2Op
 
@@ -340,24 +341,24 @@ instance Boolean (AstBool ms) where
   b ||* c = AstB2 OrOp b c
 
 instance AstSpan s => EqF (AstTensor AstMethodLet s) where
-  AstConcrete _ u ==. AstConcrete _ v = AstBoolConst $ u ==. v
+  AstConcrete (RepF _ u) ==. AstConcrete (RepF _ v) = AstBoolConst $ u ==. v
     -- common in indexing
   v ==. u = AstRel EqOp (primalPart v) (primalPart u)
-  AstConcrete _ u /=. AstConcrete _ v = AstBoolConst $ u /=. v
+  AstConcrete (RepF _ u) /=. AstConcrete (RepF _ v) = AstBoolConst $ u /=. v
     -- common in indexing
   v /=. u = AstRel NeqOp (primalPart v) (primalPart u)
 
 instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
-  AstConcrete _ u <. AstConcrete _ v = AstBoolConst $ u <. v
+  AstConcrete (RepF _ u) <. AstConcrete (RepF _ v) = AstBoolConst $ u <. v
     -- common in indexing
   v <. u = AstRel LsOp (primalPart v) (primalPart u)
-  AstConcrete _ u <=. AstConcrete _ v = AstBoolConst $ u <=. v
+  AstConcrete (RepF _ u) <=. AstConcrete (RepF _ v) = AstBoolConst $ u <=. v
     -- common in indexing
   v <=. u = AstRel LeqOp (primalPart v) (primalPart u)
-  AstConcrete _ u >. AstConcrete _ v = AstBoolConst $ u >. v
+  AstConcrete (RepF _ u) >. AstConcrete (RepF _ v) = AstBoolConst $ u >. v
     -- common in indexing
   v >. u = AstRel GtOp (primalPart v) (primalPart u)
-  AstConcrete _ u >=. AstConcrete _ v = AstBoolConst $ u >=. v
+  AstConcrete (RepF _ u) >=. AstConcrete (RepF _ v) = AstBoolConst $ u >=. v
     -- common in indexing
   v >=. u = AstRel GeqOp (primalPart v) (primalPart u)
 

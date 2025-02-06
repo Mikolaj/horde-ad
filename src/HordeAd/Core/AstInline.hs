@@ -16,6 +16,7 @@ import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.EnumMap.Strict qualified as EM
+import Data.Foldable qualified as Foldable
 import Data.List (mapAccumR)
 import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
@@ -23,9 +24,8 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
-import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
-import Data.Array.Nested (KnownShS (..), ShS (..))
-import Data.Array.Nested.Internal.Shape (shrRank, shsSize, withKnownShS)
+import Data.Array.Nested (ShS (..))
+import Data.Array.Nested.Internal.Shape (listsToList, shsSize, withKnownShS)
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -37,16 +37,16 @@ import HordeAd.Core.Types
 
 -- * The joint inlining and simplification term transformation
 
-simplifyArtifact :: forall x z. (KnownSTK x, KnownSTK z)
-                 => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifact art | Dict <- lemKnownSTKOfAD (knownSTK @x) =
+simplifyArtifact :: forall x z.
+                    AstArtifactRev x z -> AstArtifactRev x z
+simplifyArtifact art =
   let !der = simplifyInlineContract $ artDerivativeRev art in
   let !prim = simplifyInlineContract $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
-simplifyArtifactGradient :: forall x z. KnownSTK x
-                         => AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactGradient art | Dict <- lemKnownSTKOfAD (knownSTK @x) =
+simplifyArtifactGradient :: forall x z.
+                            AstArtifactRev x z -> AstArtifactRev x z
+simplifyArtifactGradient art =
   art { artDerivativeRev =
         simplifyInlineContract $ artDerivativeRev art }
 
@@ -55,7 +55,7 @@ simplifyArtifactGradient art | Dict <- lemKnownSTKOfAD (knownSTK @x) =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInline
-  :: forall z s. (AstSpan s, KnownSTK z)
+  :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
   snd . inlineAst EM.empty
@@ -68,7 +68,7 @@ simplifyInline =
 -- The second simplification is very likely to trigger, because substitution
 -- often reveals redexes.
 simplifyInlineContract
-  :: forall z s. (AstSpan s, KnownSTK z)
+  :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
   snd . inlineAst EM.empty
@@ -83,7 +83,8 @@ type AstMemo = EM.EnumMap AstVarId Double
 
 inlineAst
   :: forall s y. AstSpan s
-  => AstMemo -> AstTensor AstMethodLet s y -> (AstMemo, AstTensor AstMethodLet s y)
+  => AstMemo -> AstTensor AstMethodLet s y
+  -> (AstMemo, AstTensor AstMethodLet s y)
 inlineAst memo v0 = case v0 of
   Ast.AstPair t1 t2 ->
     let (memo2, v1) = inlineAst memo t1
@@ -107,9 +108,9 @@ inlineAst memo v0 = case v0 of
 -}
   Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
-  Ast.AstFromVector snat l ->
+  Ast.AstFromVector snat stk l ->
     let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
-    in (memo2, Ast.AstFromVector snat $ V.fromList l2)
+    in (memo2, Ast.AstFromVector snat stk $ V.fromList l2)
       -- TODO: emulate mapAccum using mapM?
   Ast.AstSum snat stk v ->
     second (Ast.AstSum snat stk) (inlineAst memo v)
@@ -129,10 +130,10 @@ inlineAst memo v0 = case v0 of
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
     in (memo5, Ast.AstMapAccumLDer k bShs eShs f2 df2 rf2 acc02 es2)
-  Ast.AstApply t ll ->
+  Ast.AstApply stk t ll ->
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
-    in (memo2, Ast.AstApply t2 ll2)
+    in (memo2, Ast.AstApply stk t2 ll2)
   Ast.AstVar _ var ->
     let f Nothing = Just 1
         f (Just count) = Just $ count + 1
@@ -150,11 +151,11 @@ inlineAst memo v0 = case v0 of
         memo4 = EM.unionWith max memoA2 memoA3
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstCond b1 t2 t3)
-  Ast.AstBuild1 k (var, v) ->
+  Ast.AstBuild1 k stk (var, v) ->
     let (memoV0, v2) = inlineAst EM.empty v
         memo1 = EM.unionWith
                   (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
-    in (memo1, Ast.AstBuild1 k (var, v2))
+    in (memo1, Ast.AstBuild1 k stk (var, v2))
   Ast.AstConcrete{} -> (memo, v0)
 
   Ast.AstLet var u v ->
@@ -230,57 +231,55 @@ inlineAst memo v0 = case v0 of
     second Ast.AstFromIntegralS $ inlineAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
 
-  Ast.AstIndexS @sh1 v ix ->
+  Ast.AstIndexS @sh1 shn v ix ->
     let (memo1, v2) = inlineAst memo v
-        (memo2, ix2) = mapAccumR inlineAst memo1
-                                 (toList ix)
-    in (memo2, Ast.AstIndexS @sh1 v2 (fromList ix2))
-  Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
+        (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
+    in withKnownShS (ixsToShS ix) $
+       (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
+  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
-        (memoI0, ix2) = mapAccumR inlineAst EM.empty
-                                  (toList ix)
-        count = fromIntegral
-                $ shsSize (knownShS @shp) * shsSize (knownShS @shn)
+        (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
+        count = fromIntegral $ shsSize (ixsToShS ix) * shsSize shn
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstScatterS @shm @shn @shp v2 (vars, fromList ix2))
-  Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
+    in withKnownShS (ixsToShS ix) $
+       (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, fromList ix2))
+  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
-        (memoI0, ix2) = mapAccumR inlineAst EM.empty
-                                  (toList ix)
-        count = fromIntegral
-                $ shsSize (knownShS @shm) * shsSize (knownShS @shn)
+        (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
+        count = fromIntegral $ shsSize (listsToShS vars) * shsSize shn
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in (memo2, Ast.AstGatherS @shm @shn @shp v2 (vars, fromList ix2))
+    in withKnownShS (ixsToShS ix) $
+       (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, fromList ix2))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
-  Ast.AstIotaS -> (memo, v0)
+  Ast.AstIotaS{} -> (memo, v0)
   Ast.AstAppendS x y ->
     let (memo1, t1) = inlineAst memo x
         (memo2, t2) = inlineAst memo1 y
     in (memo2, Ast.AstAppendS t1 t2)
-  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (inlineAst memo v)
+  Ast.AstSliceS i n k v -> second (Ast.AstSliceS i n k) (inlineAst memo v)
   Ast.AstReverseS v -> second Ast.AstReverseS (inlineAst memo v)
   Ast.AstTransposeS perm v ->
     second (Ast.AstTransposeS perm) $ inlineAst memo v
-  Ast.AstReshapeS v -> second Ast.AstReshapeS (inlineAst memo v)
+  Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (inlineAst memo v)
   Ast.AstZipS v -> second Ast.AstZipS (inlineAst memo v)
   Ast.AstUnzipS v -> second Ast.AstUnzipS (inlineAst memo v)
-  Ast.AstNestS v -> second Ast.AstNestS $ inlineAst memo v
+  Ast.AstNestS sh1 sh2 v -> second (Ast.AstNestS sh1 sh2) $ inlineAst memo v
   Ast.AstUnNestS v -> second Ast.AstUnNestS $ inlineAst memo v
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ inlineAst memo v
   Ast.AstSFromK t -> second Ast.AstSFromK (inlineAst memo t)
-  Ast.AstSFromR v -> second Ast.AstSFromR $ inlineAst memo v
-  Ast.AstSFromX v -> second Ast.AstSFromX $ inlineAst memo v
+  Ast.AstSFromR sh v -> second (Ast.AstSFromR sh) $ inlineAst memo v
+  Ast.AstSFromX sh v -> second (Ast.AstSFromX sh) $ inlineAst memo v
 
-  Ast.AstReplicate0NS sh stk v ->
-    second (Ast.AstReplicate0NS sh stk) (inlineAst memo v)
-  Ast.AstSum0S sh stk v ->
-    second (Ast.AstSum0S sh stk) (inlineAst memo v)
-  Ast.AstDot0S sh u v ->
+  Ast.AstReplicate0NS sh v ->
+    second (Ast.AstReplicate0NS sh) (inlineAst memo v)
+  Ast.AstSum0S v ->
+    second Ast.AstSum0S (inlineAst memo v)
+  Ast.AstDot0S u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstDot0S sh u2 v3)
+    in (memo3, Ast.AstDot0S u2 v3)
   Ast.AstDot1InS m n u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
@@ -323,8 +322,8 @@ inlineAstBool memo v0 = case v0 of
 type AstBindings = DEnumMap (AstVarName PrimalSpan)
                             (AstTensor AstMethodLet PrimalSpan)
 
-bindsToLet :: forall s y. KnownSTK y
-           => AstTensor AstMethodLet s y -> AstBindings
+bindsToLet :: forall s y.
+              AstTensor AstMethodLet s y -> AstBindings
            -> AstTensor AstMethodLet s y
 {-# INLINE bindsToLet #-}  -- help list fusion
 bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
@@ -333,12 +332,9 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
             -> DSum (AstVarName PrimalSpan)
                     (AstTensor AstMethodLet PrimalSpan)
             -> AstTensor AstMethodLet s y
-  bindToLet !u (var :=> w)
-    | Dict <- tensorKindFromAstVarName var =
-      Ast.AstLet var w u
+  bindToLet !u (var :=> w) = Ast.AstLet var w u
 
-unshareAstTensor :: KnownSTK y
-                 => AstTensor AstMethodShare PrimalSpan y
+unshareAstTensor :: AstTensor AstMethodShare PrimalSpan y
                  -> AstTensor AstMethodLet PrimalSpan y
 unshareAstTensor tShare =
   let (memoOut, tLet) = unshareAst DMap.empty tShare
@@ -348,7 +344,7 @@ unshareAstTensor tShare =
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
 unshareAstScoped
-  :: forall z s. (KnownSTK z, AstSpan s)
+  :: forall z s. AstSpan s
   => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s z
   -> (AstBindings, AstTensor AstMethodLet s z)
 unshareAstScoped vars0 memo0 v0 =
@@ -384,9 +380,9 @@ unshareAst memo = \case
     in (memo2, Ast.AstPair v1 v2)
   Ast.AstProject1 t -> second Ast.AstProject1 (unshareAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (unshareAst memo t)
-  Ast.AstFromVector snat l ->
+  Ast.AstFromVector snat stk l ->
     let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
-    in (memo2, Ast.AstFromVector snat $ V.fromList l2)
+    in (memo2, Ast.AstFromVector snat stk $ V.fromList l2)
   Ast.AstSum snat stk v ->
     second (Ast.AstSum snat stk) (unshareAst memo v)
   Ast.AstReplicate snat stk v ->
@@ -399,25 +395,25 @@ unshareAst memo = \case
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es
     in (memo2, Ast.AstMapAccumLDer k bShs eShs f df rf acc02 es2)
-  Ast.AstApply t ll ->
+  Ast.AstApply stk t ll ->
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
-    in (memo2, Ast.AstApply t2 ll2)
+    in (memo2, Ast.AstApply stk t2 ll2)
   Ast.AstVar sh v -> (memo, Ast.AstVar sh v)
   Ast.AstCond b a2 a3 ->
     let (memo1, b1) = unshareAstBool memo b
         (memo2, t2) = unshareAst memo1 a2
         (memo3, t3) = unshareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
-  Ast.AstBuild1 snat (var, v) ->
+  Ast.AstBuild1 snat stk (var, v) ->
     let (memo1, v2) = unshareAstScoped [var] memo v
-    in (memo1, Ast.AstBuild1 snat (var, v2))
-  Ast.AstConcrete ftk t -> (memo, Ast.AstConcrete ftk t)
+    in (memo1, Ast.AstBuild1 snat stk (var, v2))
+  Ast.AstConcrete repF -> (memo, Ast.AstConcrete repF)
 
   -- We assume v is the same if var is the same.
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
-    Ast.AstFromS @y2 stkz v | Dict <- lemKnownSTK (ftkToSTK (ftkAst v)) ->
-      let var = mkAstVarName $ varNameToAstVarId varRaw
+    Ast.AstFromS @y2 stkz v ->
+      let var = mkAstVarName (ftkToSTK (ftkAst v)) $ varNameToAstVarId varRaw
           astVar = Ast.AstFromS @y2 stkz
                    $ Ast.AstVar (ftkAst v) var
       in if var `DMap.member` memo
@@ -427,27 +423,25 @@ unshareAst memo = \case
     -- The PrimalSpan check ensures there's no need to match for
     -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case ftkAst a of
-      ftk@(FTKR @_ @x sh' x) | SNat <- shrRank sh'
-                             , Dict <- lemKnownSTK (ftkToSTK x) ->
+      ftk@(FTKR @_ @x sh' x) ->
         withCastRS sh' $ \(sh :: ShS sh) ->
-          withKnownShS sh $
-          let var = mkAstVarName $ varNameToAstVarId varRaw
+          let var = mkAstVarName (ftkToSTK (FTKS sh x))
+                    $ varNameToAstVarId varRaw
               astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk)
                        $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)
-             else let (memo1, a2) = unshareAst memo (Ast.AstSFromR @sh a)
+             else let (memo1, a2) = unshareAst memo (Ast.AstSFromR @sh sh a)
                   in (DMap.insert var a2 memo1, astVar)
-      ftk@(FTKX @_ @x sh' x) | Dict <- lemKnownSTK (ftkToSTK x) ->
+      ftk@(FTKX @_ @x sh' x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
-          withKnownShX (ssxFromShape sh') $
-          withKnownShS sh $
-          let var = mkAstVarName $ varNameToAstVarId varRaw
+          let var = mkAstVarName (ftkToSTK (FTKS sh x))
+                    $ varNameToAstVarId varRaw
               astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk)
                        $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)
-             else let (memo1, a2) = unshareAst memo (Ast.AstSFromX @sh a)
+             else let (memo1, a2) = unshareAst memo (Ast.AstSFromX @sh sh a)
                   in (DMap.insert var a2 memo1, astVar)
       -- TODO: also recursively product
       ftk -> let var = varRaw
@@ -513,52 +507,55 @@ unshareAst memo = \case
     second Ast.AstFromIntegralS $ unshareAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
 
-  Ast.AstIndexS @sh1 v ix ->
+  Ast.AstIndexS @sh1 shn v ix ->
     let (memo1, v2) = unshareAst memo v
-        (memo2, ix2) = mapAccumR unshareAst memo1 (toList ix)
-    in (memo2, Ast.AstIndexS @sh1 v2 (fromList ix2))
-  Ast.AstScatterS @shm @shn @shp v (vars, ix) ->
+        (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
+    in withKnownShS (ixsToShS ix) $
+       (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
+  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
-          mapAccumR (unshareAstScoped $ toList vars)
-                    memo (toList ix)
+          mapAccumR (unshareAstScoped $ listsToList vars)
+                    memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in (memo2, Ast.AstScatterS @shm @shn @shp v2 (vars, fromList ix2))
-  Ast.AstGatherS @shm @shn @shp v (vars, ix) ->
+    in withKnownShS (ixsToShS ix) $
+       (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, fromList ix2))
+  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
-          mapAccumR (unshareAstScoped $ toList vars)
-                    memo (toList ix)
+          mapAccumR (unshareAstScoped $ listsToList vars)
+                    memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in (memo2, Ast.AstGatherS @shm @shn @shp v2 (vars, fromList ix2))
+    in withKnownShS (ixsToShS ix) $
+       (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, fromList ix2))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a
-  Ast.AstIotaS -> (memo, Ast.AstIotaS)
+  Ast.AstIotaS snat -> (memo, Ast.AstIotaS snat)
   Ast.AstAppendS x y ->
     let (memo1, t1) = unshareAst memo x
         (memo2, t2) = unshareAst memo1 y
     in (memo2, Ast.AstAppendS t1 t2)
-  Ast.AstSliceS @i v -> second (Ast.AstSliceS @i) (unshareAst memo v)
+  Ast.AstSliceS i n k v -> second (Ast.AstSliceS i n k) (unshareAst memo v)
   Ast.AstReverseS v -> second Ast.AstReverseS (unshareAst memo v)
   Ast.AstTransposeS perm v ->
     second (Ast.AstTransposeS perm) $ unshareAst memo v
-  Ast.AstReshapeS v -> second Ast.AstReshapeS (unshareAst memo v)
+  Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (unshareAst memo v)
   Ast.AstZipS v -> second Ast.AstZipS (unshareAst memo v)
   Ast.AstUnzipS v -> second Ast.AstUnzipS (unshareAst memo v)
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ unshareAst memo v
   Ast.AstSFromK t -> second Ast.AstSFromK (unshareAst memo t)
-  Ast.AstSFromR v -> second Ast.AstSFromR $ unshareAst memo v
-  Ast.AstSFromX v -> second Ast.AstSFromX $ unshareAst memo v
-  Ast.AstNestS v -> second Ast.AstNestS $ unshareAst memo v
+  Ast.AstSFromR sh v -> second (Ast.AstSFromR sh) $ unshareAst memo v
+  Ast.AstSFromX sh v -> second (Ast.AstSFromX sh) $ unshareAst memo v
+  Ast.AstNestS sh1 sh2 v -> second (Ast.AstNestS sh1 sh2) $ unshareAst memo v
   Ast.AstUnNestS v -> second Ast.AstUnNestS $ unshareAst memo v
 
-  Ast.AstReplicate0NS sh stk v ->
-    second (Ast.AstReplicate0NS sh stk) (unshareAst memo v)
-  Ast.AstSum0S sh stk v ->
-    second (Ast.AstSum0S sh stk) (unshareAst memo v)
-  Ast.AstDot0S sh u v ->
+  Ast.AstReplicate0NS sh v ->
+    second (Ast.AstReplicate0NS sh) (unshareAst memo v)
+  Ast.AstSum0S v ->
+    second Ast.AstSum0S (unshareAst memo v)
+  Ast.AstDot0S u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstDot0S sh u2 v3)
+    in (memo3, Ast.AstDot0S u2 v3)
   Ast.AstDot1InS m n u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v

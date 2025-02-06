@@ -642,7 +642,9 @@ testCNNOPP3 = do
                    $ AstReplicate (SNat @1) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
-                       (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+                       (AstConcrete (RepF (FTKR ZSR FTKScalar)
+                                          (RepN $ Nested.rscalar 7))
+                        :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3 blackGlyph
   printAstPretty IM.empty afcnn2T
@@ -692,7 +694,9 @@ testCNNOPP4 = do
                    $ AstReplicate (SNat @1) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
-                       (AstConcrete (FTKR ZSR FTKScalar) (RepN $ Nested.rscalar 7) :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+                       (AstConcrete (RepF (FTKR ZSR FTKScalar)
+                                          (RepN $ Nested.rscalar 7))
+                        :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded4 $ conv2dUnpadded4 blackGlyph
   printAstPretty IM.empty afcnn2T

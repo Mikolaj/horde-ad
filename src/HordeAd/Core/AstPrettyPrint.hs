@@ -3,9 +3,8 @@
 -- | Pretty-printing of the AST. Some of the variants of pretty-printing
 -- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.AstPrettyPrint
-  ( -- * Pretty-printing of variables
+  ( -- * Pretty-printing terms in a few useful configurations
     printAstVarName
-    -- * Pretty-printing terms in a few useful configurations
   , printAstSimple, printAstPretty, printAstPrettyButNested
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
@@ -13,20 +12,19 @@ module HordeAd.Core.AstPrettyPrint
 
 import Prelude
 
+import Data.Foldable qualified as Foldable
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
 import Data.Array.Mixed.Shape (StaticShX (..), listxRank)
-import Data.Array.Nested
-  (KnownShS (..), ListS (..), ShR (..), ShS (..), ShX (..))
+import Data.Array.Nested (ListS (..), ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsAppend, shsRank, withKnownShS)
+import Data.Array.Nested.Internal.Shape (listsToList, shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
@@ -75,8 +73,9 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: forall s y. KnownSTK y => PrintConfig -> AstVarName s y -> ShowS
-printAstVar cfg var =
+printAstVar :: forall s y.
+               PrintConfig -> STensorKind y -> AstVarName s y -> ShowS
+printAstVar cfg stk var =
   let rankTensorKind :: STensorKind x -> Int
       rankTensorKind (STKScalar _) = 0
       rankTensorKind (STKR snat _) = fromInteger $ fromSNat snat
@@ -85,7 +84,7 @@ printAstVar cfg var =
         fromInteger $ fromSNat $ listxRank l
       rankTensorKind (STKProduct @y1 @z1 sy sz) =
         rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
-      n = rankTensorKind (knownSTK @y)
+      n = rankTensorKind stk
       varId = varNameToAstVarId var
       prefix = case n of
         -1 -> "h"
@@ -101,19 +100,15 @@ printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
 
 printAstVarFromLet
-  :: forall s y ms. (AstSpan s, KnownSTK y)
+  :: forall s y ms. AstSpan s
   => AstTensor ms s y -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarFromLet u cfg var =
-  if representsIntIndex cfg
-  then case isTensorInt u of
-    Just Refl -> printAstIntVar cfg var
-    _ -> printAstVar cfg var
-  else printAstVar cfg var
-
-printAstVarName :: KnownSTK y
-                => IntMap String -> AstVarName s y -> String
-printAstVarName renames var =
-  printAstVar (defaulPrintConfig False renames) var ""
+  let stk = ftkToSTK (ftkAst u)
+  in if representsIntIndex cfg
+     then case isTensorInt u of
+       Just Refl -> printAstIntVar cfg var
+       _ -> printAstVar cfg stk var
+     else printAstVar cfg stk var
 
 
 -- * General pretty-printing of AST terms
@@ -123,21 +118,21 @@ printAstInt cfgOld d t =
   let cfg = cfgOld {representsIntIndex = True}
   in printAst cfg d t
 
-printAst :: forall s y ms. (KnownSTK y, AstSpan s)
+printAst :: forall s y ms. AstSpan s
          => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
   then case isTensorInt t of
     Just Refl -> case t of
       AstVar _ var -> printAstIntVar cfgOld var
-      AstConcrete _ i -> shows $ unRepN i
+      AstConcrete (RepF _ i) -> shows $ unRepN i
       _ -> printAstAux cfgOld d t
     _ -> let cfg = cfgOld {representsIntIndex = False}
          in printAstAux cfg d t
   else printAstAux cfgOld d t
 
 -- Precedences used are as in Haskell.
-printAstAux :: forall s y ms. (KnownSTK y, AstSpan s)
+printAstAux :: forall s y ms. AstSpan s
             => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAstAux cfg d = \case
   AstPair t1 t2 ->
@@ -149,7 +144,7 @@ printAstAux cfg d = \case
       . showString ")"
   AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
-  AstFromVector @y2 _ l -> case knownSTK @y2 of
+  AstFromVector _ stk l -> case stk of
     STKScalar{} ->
       showParen (d > 10)
       $ showString "tfromVector "
@@ -180,14 +175,14 @@ printAstAux cfg d = \case
         . (showParen True
            $ showString "fromList "
              . showListWith (printAst cfg 0) (V.toList l))
-  AstSum snat stk v | Dict <- lemKnownSTKOfBuild snat stk ->
+  AstSum _snat stk v ->
    case stk of
     STKScalar{} -> printPrefixOp printAst cfg d "tsum" [v]
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
     STKS{} -> printPrefixOp printAst cfg d "ssum" [v]
     STKX{} -> printPrefixOp printAst cfg d "xsum" [v]
     STKProduct{} -> printPrefixOp printAst cfg d "tsum" [v]
-  AstReplicate snat stk v | Dict <- lemKnownSTK stk -> case stk of
+  AstReplicate snat stk v -> case stk of
     STKScalar{} -> printPrefixOp printAst cfg d
                                  ("treplicate " ++ show (sNatValue snat)) [v]
     STKR{} -> printPrefixOp printAst cfg d
@@ -197,11 +192,7 @@ printAstAux cfg d = \case
                             ("xreplicate " ++ show (sNatValue snat)) [v]
     STKProduct{} -> printPrefixOp printAst cfg d
                                   ("treplicate " ++ show (sNatValue snat)) [v]
-  AstMapAccumRDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
-   | Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
+  AstMapAccumRDer k _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "tmapAccumRDer "
       . showParen True (shows k)
@@ -215,11 +206,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  AstMapAccumLDer @accShs @bShs @eShs k _bShs _eShs f df rf acc0 es
-   | Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
+  AstMapAccumLDer k _bShs _eShs f df rf acc0 es ->
     showParen (d > 10)
     $ showString "tmapAccumLDer "
       . showParen True (shows k)
@@ -233,7 +220,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  AstApply t ll ->
+  AstApply _ t ll ->
     if loseRoudtrip cfg
     then showParen (d > 9)
          $ printAstHFunOneUnignore cfg 10 t
@@ -244,7 +231,7 @@ printAstAux cfg d = \case
            . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
-  AstVar _sh var -> printAstVar cfg var
+  AstVar ftk var -> printAstVar cfg (ftkToSTK ftk) var
   AstCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
@@ -253,7 +240,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 a1
       . showString " "
       . printAst cfg 11 a2
-  AstBuild1 k (var, v) ->
+  AstBuild1 k _ (var, v) ->
     showParen (d > 10)
     $ showString "tbuild1 "
       . shows k
@@ -263,20 +250,24 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-  AstConcrete FTKScalar a -> shows a
-  AstConcrete (FTKR ZSR FTKScalar) a -> showParen (d > 10)
-                                        $ showString "rscalar "
-                                          . shows (Nested.runScalar $ unRepN a)
-  AstConcrete (FTKS ZSS FTKScalar) a -> showParen (d > 10)
-                                        $ showString "sscalar "
-                                          . shows (Nested.sunScalar $ unRepN a)
-  AstConcrete (FTKX ZSX FTKScalar) a -> showParen (d > 10)
-                                        $ showString "xscalar "
-                                          . shows (Nested.munScalar $ unRepN a)
-  AstConcrete ftk a -> showParen (d > 10)
-                       $ showString ("tconcrete (" ++ show ftk ++ ") ")
-                         . (showParen True
-                            $ shows a)
+  AstConcrete repF@(RepF FTKScalar _) -> shows repF
+  AstConcrete (RepF (FTKR ZSR FTKScalar) a) ->
+    showParen (d > 10)
+    $ showString "rscalar "
+      . shows (Nested.runScalar $ unRepN a)
+  AstConcrete (RepF (FTKS ZSS FTKScalar) a) ->
+    showParen (d > 10)
+    $ showString "sscalar "
+      . shows (Nested.sunScalar $ unRepN a)
+  AstConcrete (RepF (FTKX ZSX FTKScalar) a) ->
+    showParen (d > 10)
+    $ showString "xscalar "
+      . shows (Nested.munScalar $ unRepN a)
+  AstConcrete repF@(RepF ftk _) ->
+    showParen (d > 10)
+    $ showString ("tconcrete (" ++ show ftk ++ ") ")
+      . (showParen True
+         $ shows repF)
 
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
@@ -307,22 +298,22 @@ printAstAux cfg d = \case
   AstShare var v ->
     showParen (d > 10)
     $ showString "rshare "
-      . printAstVar cfg var
+      . printAstVar cfg (ftkToSTK (ftkAst v)) var
       . showString " "
       . printAst cfg 11 v
   AstToShare v -> printAstAux cfg d v  -- ignored
 
-  AstPrimalPart a -> case knownSTK @y of
+  AstPrimalPart a -> case ftkToSTK (ftkAst a) of
     STKR{} -> printPrefixOp printAst cfg d "rprimalPart" [a]
     STKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
     STKX{} -> printPrefixOp printAst cfg d "xprimalPart" [a]
     _      -> printPrefixOp printAst cfg d "tprimalPart" [a]
-  AstDualPart a -> case knownSTK @y of
+  AstDualPart a -> case ftkToSTK (ftkAst a) of
     STKR{} -> printPrefixOp printAst cfg d "rdualPart" [a]
     STKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
     STKX{} -> printPrefixOp printAst cfg d "xdualPart" [a]
     _      -> printPrefixOp printAst cfg d "tdualPart" [a]
-  AstFromPrimal a -> case knownSTK @y of
+  AstFromPrimal a -> case ftkToSTK (ftkAst a) of
     STKR{} -> if loseRoudtrip cfg
               then printAst cfg d a
               else printPrefixOp printAst cfg d "rfromPrimal" [a]
@@ -335,7 +326,7 @@ printAstAux cfg d = \case
     _      -> if loseRoudtrip cfg
               then printAst cfg d a
               else printPrefixOp printAst cfg d "tfromPrimal" [a]
-  AstFromDual a -> case knownSTK @y of
+  AstFromDual a -> case ftkToSTK (ftkAst a) of
     STKR{} -> if loseRoudtrip cfg
               then printAst cfg d a
               else printPrefixOp printAst cfg d "rfromDual" [a]
@@ -377,20 +368,18 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "sfromIntegral" [a]
   AstCastS v -> printPrefixOp printAst cfg d "scast" [v]
 
-  AstIndexS @sh1 @sh2 v ix ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  AstIndexS _ v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (toList ix)
-  AstScatterS v (ZS, ix) ->
+      . showListWith (printAstInt cfg 0) (Foldable.toList ix)
+  AstScatterS _ v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "
       . printAst cfg 11 v
       . showString " "
-      . showListWith (printAstInt cfg 0) (toList ix)
-  AstScatterS @shm @shn v (vars, ix) ->
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+      . showListWith (printAstInt cfg 0) (Foldable.toList ix)
+  AstScatterS _ v (vars, ix) ->
     showParen (d > 10)
     $ showString "sscatter "
       . printAst cfg 11 v
@@ -398,17 +387,15 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (toList vars)
+                          (listsToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (toList ix))
-  AstGatherS @_ @shn @shp v (ZS, ix) ->
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+           . showListWith (printAstInt cfg 0) (Foldable.toList ix))
+  AstGatherS _ v (ZS, ix) ->
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (toList ix)
-  AstGatherS @_ @shn @shp v (vars, ix) ->
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+      . showListWith (printAstInt cfg 0) (Foldable.toList ix)
+  AstGatherS _ v (vars, ix) ->
     showParen (d > 10)
     $ showString "sgather "
       . printAst cfg 11 v
@@ -416,12 +403,12 @@ printAstAux cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (toList vars)
+                          (listsToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (toList ix))
+           . showListWith (printAstInt cfg 0) (Foldable.toList ix))
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
-  AstIotaS -> showString "siota"
+  AstIotaS{} -> showString "siota"
   AstAppendS x y ->
     -- x and y have different types, unlike in AstAppend, so we
     -- have to inline printPrefixOp:
@@ -430,37 +417,34 @@ printAstAux cfg d = \case
     in showParen (d > 10)
        $ showString "sappend"
          . foldr (.) id rs
-  AstSliceS v -> printPrefixOp printAst cfg d "sslice" [v]
+  AstSliceS _ _ _ v -> printPrefixOp printAst cfg d "sslice" [v]
   AstReverseS v -> printPrefixOp printAst cfg d "sreverse" [v]
   AstTransposeS _perm v ->
     printPrefixOp printAst cfg d "stranspose" [v]
 -- TODO:    printPrefixOp printAst cfg d ("stranspose " ++ show (permToList perm)) [v]
-  AstReshapeS v ->
+  AstReshapeS _ v ->
     printPrefixOp printAst cfg d "sreshape" [v]
   AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
-  AstNestS @sh1 @sh2 v ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+  AstNestS _ _ v ->
     printPrefixOp printAst cfg d "snestS" [v]
   AstUnNestS v -> printPrefixOp printAst cfg d "sunNestS" [v]
 
-  AstFromS stkz v | Dict <- lemKnownSTK (ftkToSTK (ftkAst v)) ->
+  AstFromS stkz v ->
     case stkz of
       STKScalar{} -> printPrefixOp printAst cfg d "kfromS" [v]
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
       STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
       _ -> printPrefixOp printAst cfg d "tfromS" [v]
   AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
-  AstSFromR v -> printPrefixOp printAst cfg d "sfromR" [v]
-  AstSFromX v -> printPrefixOp printAst cfg d "sfromX" [v]
+  AstSFromR _ v -> printPrefixOp printAst cfg d "sfromR" [v]
+  AstSFromX _ v -> printPrefixOp printAst cfg d "sfromX" [v]
 
-  AstReplicate0NS _sh stk v | Dict <- lemKnownSTK stk ->
+  AstReplicate0NS _sh v ->
     printPrefixOp printAst cfg d "sreplicate0N" [v]
-  AstSum0S sh stk v | Dict <- lemKnownSTK stk ->
-    withKnownShS sh $
+  AstSum0S v ->
     printPrefixOp printAst cfg d "ssum0" [v]
-  AstDot0S sh u v ->
-    withKnownShS sh $
+  AstDot0S u v ->
     printPrefixOp printAst cfg d "sdot0" [u, v]
   AstDot1InS SNat SNat u v ->
     printPrefixOp printAst cfg d "ssdot1In" [u, v]
@@ -490,41 +474,39 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
   showl []     = end ++ s
   showl (y:ys) = sep ++ showx y (showl ys)
 
-printAstHFun :: KnownSTK y
-             => PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFun :: PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFun cfg d = \case
-  AstLambda (var, _, l) ->
+  AstLambda (var, ftk, l) ->
     if loseRoudtrip cfg
     then if ignoreNestedLambdas cfg
          then showString "<lambda>"
          else showParen (d > 0)
               $ showString "\\"
-                . printAstVar cfg var
+                . printAstVar cfg (ftkToSTK ftk) var
                 . showString " -> "
                 . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
-           . printAstVar cfg var
+           . printAstVar cfg (ftkToSTK ftk) var
            . showString " -> "
            . printAst cfg 0 l
 
-printAstHFunOneUnignore :: KnownSTK y
-                        => PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
-  AstLambda (var, _, l) ->
+  AstLambda (var, ftk, l) ->
     if loseRoudtrip cfg
     then showParen (d > 0)
          $ showString "\\"
-           . printAstVar cfg var
+           . printAstVar cfg (ftkToSTK ftk) var
            . showString " -> "
            . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
-           . printAstVar cfg var
+           . printAstVar cfg (ftkToSTK ftk) var
            . showString " -> "
            . printAst cfg 0 l
 
@@ -623,61 +605,56 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstSimple :: (KnownSTK y, AstSpan s)
+printAstVarName :: KnownSTK y
+                => IntMap String -> AstVarName s y -> String
+printAstVarName renames var =
+  printAstVar (defaulPrintConfig False renames) knownSTK var ""
+
+printAstSimple :: AstSpan s
                => IntMap String -> AstTensor ms s y -> String
 printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
 
-printAstPretty :: (KnownSTK y, AstSpan s)
+printAstPretty :: AstSpan s
                => IntMap String -> AstTensor ms s y -> String
 printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
 
-printAstPrettyButNested :: (KnownSTK y, AstSpan s)
+printAstPrettyButNested :: AstSpan s
                         => IntMap String -> AstTensor ms s y -> String
 printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
 printArtifactSimple
-  :: forall x z. (KnownSTK x, KnownSTK z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
-printArtifactSimple renames !AstArtifactRev{..}
- | Dict <- lemKnownSTKOfAD (knownSTK @x)
- , Dict <- lemKnownSTKOfAD (knownSTK @z) =
-  let !varsPP = [ printAstVarName renames artVarDtRev
-                , printAstVarName renames artVarDomainRev ]
+  :: forall x z. KnownSTK x
+  => IntMap String -> AstArtifactRev x z -> String
+printArtifactSimple renames !AstArtifactRev{..} =
+  withKnownSTK (adSTK $ ftkToSTK (ftkAst artPrimalRev)) $
+  let !varsPP =
+        [ printAstVarName renames artVarDtRev
+        , printAstVarName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimple renames artDerivativeRev
 
 printArtifactPretty
-  :: forall x z. (KnownSTK x, KnownSTK z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
-printArtifactPretty renames !AstArtifactRev{..}
- | Dict <- lemKnownSTKOfAD (knownSTK @x)
- , Dict <- lemKnownSTKOfAD (knownSTK @z) =
-  let varsPP = [ printAstVarName renames artVarDtRev
-               , printAstVarName renames artVarDomainRev ]
+  :: forall x z. KnownSTK x
+  => IntMap String -> AstArtifactRev x z -> String
+printArtifactPretty renames !AstArtifactRev{..} =
+  withKnownSTK (adSTK $ ftkToSTK (ftkAst artPrimalRev)) $
+  let varsPP =
+        [ printAstVarName renames artVarDtRev
+        , printAstVarName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPretty renames artDerivativeRev
 
 printArtifactPrimalSimple
-  :: forall x z. (KnownSTK x, KnownSTK z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
+  :: forall x z. KnownSTK x
+  => IntMap String -> AstArtifactRev x z -> String
 printArtifactPrimalSimple renames !AstArtifactRev{..} =
-  let !varsPP = [printAstVarName renames artVarDomainRev]
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimple renames artPrimalRev
+  "\\" ++ printAstVarName renames artVarDomainRev
+       ++ " -> " ++ printAstSimple renames artPrimalRev
 
 printArtifactPrimalPretty
-  :: forall x z. (KnownSTK x, KnownSTK z)
-  => IntMap String
-  -> AstArtifactRev x z
-  -> String
+  :: forall x z. KnownSTK x
+  => IntMap String -> AstArtifactRev x z -> String
 printArtifactPrimalPretty renames !AstArtifactRev{..} =
-  let !varsPP = [printAstVarName renames artVarDomainRev]
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPretty renames artPrimalRev
+  "\\" ++ printAstVarName renames artVarDomainRev
+       ++ " -> " ++ printAstPretty renames artPrimalRev

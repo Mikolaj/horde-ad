@@ -37,7 +37,7 @@ module HordeAd.Core.Types
   , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
-  , slistKnown, sixKnown, listrToNonEmpty
+  , ixsToShS, listsToShS, listrToNonEmpty
   ) where
 
 import Prelude
@@ -759,17 +759,21 @@ ixsToIxx :: (KnownShS sh, KnownShX sh')
          => IxS sh i -> IxX sh' i
 ixsToIxx = fromList . toList
 
+-- TODO: this can be retired when we have a conversion from IxS to ShS
+sixKnown :: IxS sh i -> Dict KnownShS sh
+sixKnown ZIS = Dict
+sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
+
+ixsToShS :: IxS sh i -> ShS sh
+ixsToShS ix | Dict <- sixKnown ix = knownShS
+
 -- TODO: this can be retired when we have a conversion from ListS to ShS;
--- then we'd just do withKnownShS (listsToShS l)
 slistKnown :: ListS sh i -> Dict KnownShS sh
 slistKnown ZS = Dict
 slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
 
--- TODO: this can be retired when we have a conversion from IxS to ShS
--- then we'd just do withKnownShS (ixsToShS l)
-sixKnown :: IxS sh i -> Dict KnownShS sh
-sixKnown ZIS = Dict
-sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
+listsToShS :: ListS sh i -> ShS sh
+listsToShS l | Dict <- slistKnown l = knownShS
 
 listrToNonEmpty :: ListR (n + 1) i -> NonEmpty i
 listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)

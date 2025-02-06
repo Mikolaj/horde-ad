@@ -31,7 +31,7 @@ import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Nested (KnownShS (..), ListS (..))
+import Data.Array.Nested (KnownShS (..), ListS (..), ShS (..))
 import Data.Array.Nested.Internal.Shape (shsAppend, shsProduct, withKnownShS)
 
 import HordeAd.Core.Ast
@@ -153,12 +153,24 @@ interpretAst
   => AstEnv target
   -> AstTensor AstMethodLet s y -> target y
 interpretAst !env = \case
-  AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
-  AstProject1 t -> tproject1 (interpretAst env t)
-  AstProject2 t -> tproject2 (interpretAst env t)
-  AstFromVector snat l ->
+  AstPair t1 t2 -> case (ftkToSTK (ftkAst t1), ftkToSTK (ftkAst t2)) of
+    (stk1, stk2) ->
+      withKnownSTK stk1 $
+      withKnownSTK stk2 $
+      tpair (interpretAst env t1) (interpretAst env t2)
+  AstProject1 t -> case ftkToSTK (ftkAst t) of
+    STKProduct stk1 stk2 ->
+      withKnownSTK stk1 $
+      withKnownSTK stk2 $
+      tproject1 (interpretAst env t)
+  AstProject2 t -> case ftkToSTK (ftkAst t) of
+    STKProduct stk1 stk2 ->
+      withKnownSTK stk1 $
+      withKnownSTK stk2 $
+      tproject2 (interpretAst env t)
+  AstFromVector snat stk l ->
     let l2 = V.map (interpretAst env) l
-    in tfromVector snat knownSTK l2
+    in tfromVector snat stk l2
   AstSum snat stk v -> tsum snat stk $ interpretAst env v
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
@@ -174,66 +186,86 @@ interpretAst !env = \case
   --   tconcrete
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  AstMapAccumRDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
-    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
-    , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
-    let f = interpretAstHFun env f0
-        df = interpretAstHFun env df0
-        rf = interpretAstHFun env rf0
-        acc02 = interpretAst env acc0
-        es2 = interpretAst env es
-    in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
-  AstMapAccumLDer @accShs @bShs @eShs k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
-    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
-    , Dict <- lemKnownSTKOfAD (knownSTK @eShs) ->
-    let f = interpretAstHFun env f0
-        df = interpretAstHFun env df0
-        rf = interpretAstHFun env rf0
-        acc02 = interpretAst env acc0
-        es2 = interpretAst env es
-    in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
-  AstApply t ll ->
-    let t2 = interpretAstHFun env t
-          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
-          -- FullSpan terms
-        ll2 = interpretAst env ll
-          -- these are, perhaps, FullSpan terms, interpreted in the same
-          -- as above so that the mixture becomes compatible; if the spans
-          -- agreed, the AstApply would likely be simplified before
-          -- getting interpreted
-    in tApply t2 ll2
-  AstVar @y2 _sh var ->
-   let var2 = mkAstVarName @FullSpan @y2 (varNameToAstVarId var)  -- TODO
+  AstMapAccumRDer k bShs eShs f0 df0 rf0 acc0 es
+    | Dict <- lemKnownSTK (ftkToSTK bShs)
+    , Dict <- lemKnownSTK (ftkToSTK eShs)
+    , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
+    let astk = ftkToSTK (ftkAst acc0)
+    in withKnownSTK astk $
+       withKnownSTK (adSTK astk) $
+       let f = interpretAstHFun env f0
+           df = interpretAstHFun env df0
+           rf = interpretAstHFun env rf0
+           acc02 = interpretAst env acc0
+           es2 = interpretAst env es
+       in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+  AstMapAccumLDer k bShs eShs f0 df0 rf0 acc0 es
+    | Dict <- lemKnownSTK (ftkToSTK bShs)
+    , Dict <- lemKnownSTK (ftkToSTK eShs)
+    , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
+    , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
+    let astk = ftkToSTK (ftkAst acc0)
+    in withKnownSTK astk $
+       withKnownSTK (adSTK astk) $
+       let f = interpretAstHFun env f0
+           df = interpretAstHFun env df0
+           rf = interpretAstHFun env rf0
+           acc02 = interpretAst env acc0
+           es2 = interpretAst env es
+       in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+  AstApply stk t ll ->
+    let tstk = ftkToSTK (ftkAst ll)
+    in withKnownSTK tstk $
+       withKnownSTK stk $
+       let t2 = interpretAstHFun env t
+             -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
+             -- FullSpan terms
+           ll2 = interpretAst env ll
+             -- these are, perhaps, FullSpan terms, interpreted in the same
+             -- as above so that the mixture becomes compatible; if the spans
+             -- agreed, the AstApply would likely be simplified before
+             -- getting interpreted
+       in tApply t2 ll2
+  AstVar ftk var ->
+   let var2 = mkAstVarName @FullSpan (ftkToSTK ftk) (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
     Just (AstEnvElemRep t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
       assert (tftk (knownSTK @y2) t == _sh
-              `blame` (_sh, tftk (knownSTK @y2) t, var, t))
+              `blame` (_sh, tftk (ftkToSTK ftk) t, var, t))
 #endif
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
 -- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstCond @y2 b a1 a2 ->
-    let c = interpretAstBool env b
-    in tcond (knownSTK @y2) c (interpretAst env a1) (interpretAst env a2)
-  AstBuild1 snat (var, v) ->
+    let stk = ftkToSTK (ftkAst a1)
+    in withKnownSTK stk $
+       let c = interpretAstBool env b
+       in tcond (knownSTK @y2) c (interpretAst env a1) (interpretAst env a2)
+  AstBuild1 snat stk (var, v) ->
+    withKnownSTK stk $
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat f
-  AstConcrete ftk a -> tconcrete ftk a
+  AstConcrete (RepF ftk a) -> tconcrete ftk a
 
-  AstLet @y2 var u v -> case knownSTK @y2 of
+  AstLet var u v -> case (ftkToSTK (ftkAst u), ftkToSTK (ftkAst v)) of
     -- We assume there are no nested lets with the same variable.
-    STKR _ STKScalar{} ->
+    (stk@(STKR _ STKScalar{}), vstk) ->
+      withKnownSTK stk $
+      withKnownSTK vstk $
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    STKS _ STKScalar{} ->
+    (stk@(STKS _ STKScalar{}), vstk) ->
+      withKnownSTK stk $
+      withKnownSTK vstk $
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    _ ->
+    (stk, vstk) ->
+      withKnownSTK stk $
+      withKnownSTK vstk $
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
@@ -267,8 +299,14 @@ interpretAst !env = \case
     -- be morally the dual part of a dual numbers type that is the codomain
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
-  AstFromPrimal @y2 a -> tfromPrimal (knownSTK @y2) (interpretAstPrimal env a)
-  AstFromDual @y2 a -> tfromDual (knownSTK @y2) (interpretAstDual env a)
+  AstFromPrimal a ->
+    let stk = ftkToSTK (ftkAst a)
+    in withKnownSTK stk $
+       tfromPrimal stk (interpretAstPrimal env a)
+  AstFromDual a ->
+    let stk = ftkToSTK (ftkAst a)
+    in withKnownSTK stk $
+       tfromDual stk (interpretAstDual env a)
 
   AstSumOfList args -> case args of
     a :| _ ->
@@ -307,53 +345,94 @@ interpretAst !env = \case
     kfromIntegral $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
   AstCastK v -> kcast $ interpretAst env v
 
-  AstN1S opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstN1 opCode u2
-  AstN2S opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstN2 opCode u2 v2
-  AstR1S opCode u ->
-    let u2 = interpretAst env u
-    in interpretAstR1 opCode u2
-  AstR2S opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstR2F opCode u2 v2
-  AstI2S opCode u v ->
-    let u2 = interpretAst env u
-        v2 = interpretAst env v
-    in interpretAstI2F opCode u2 v2
-  AstFloorS v ->
-    sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstFromIntegralS v ->
-    sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
+  AstN1S opCode u -> case ftkToSTK (ftkAst u) of
+    STKS sh _ ->
+      withKnownShS sh $
+      let u2 = interpretAst env u
+      in interpretAstN1 opCode u2
+  AstN2S opCode u v -> case ftkToSTK (ftkAst u) of
+    STKS sh _ ->
+      withKnownShS sh $
+      let u2 = interpretAst env u
+          v2 = interpretAst env v
+      in interpretAstN2 opCode u2 v2
+  AstR1S opCode u -> case ftkToSTK (ftkAst u) of
+    STKS sh _ ->
+      withKnownShS sh $
+      let u2 = interpretAst env u
+      in interpretAstR1 opCode u2
+  AstR2S opCode u v -> case ftkToSTK (ftkAst u) of
+    STKS sh _ ->
+      withKnownShS sh $
+      let u2 = interpretAst env u
+          v2 = interpretAst env v
+      in interpretAstR2F opCode u2 v2
+  AstI2S opCode u v -> case ftkToSTK (ftkAst u) of
+    STKS sh _ ->
+      withKnownShS sh $
+      let u2 = interpretAst env u
+          v2 = interpretAst env v
+      in interpretAstI2F opCode u2 v2
+  AstFloorS v -> case ftkToSTK (ftkAst v) of
+    STKS sh _ ->
+      withKnownShS sh $
+      sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstFromIntegralS v ->case ftkToSTK (ftkAst v) of
+    STKS sh _ ->
+      withKnownShS sh $
+      sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstCastS v -> case ftkToSTK (ftkAst v) of
+    STKS sh _ ->
+      withKnownShS sh $
+      scast $ interpretAstSRuntimeSpecialized env v
 
-  AstIndexS @sh1 @sh2 v ix ->
-    withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    let v2 = interpretAst env v
-        ix3 = interpretAstPrimal env <$> ix
-    in sindex @target @_ @sh1 v2 ix3
+  AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (ixsToShS ix) $
+      withKnownShS sh2 $
+      withKnownSTK x $
+      withKnownShS (ixsToShS ix `shsAppend` sh2) $
+      let v2 = interpretAst env v
+          ix3 = interpretAstPrimal env <$> ix
+      in sindex @target @_ @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
-  AstScatterS @_ @shn @shp v (ZS, ix) ->
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    soneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstScatterS @shm @shn @shp v (vars, ix) ->
-    let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-    in sscatter @_ @_ @shm @shn @shp t1 f2
-  AstGatherS @_ @shn @shp v (ZS, ix) ->
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
-  AstGatherS @shm @shn @shp v (vars, ix) ->
-    let t1 = interpretAst env v
-        f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-    in sgather @_ @_ @shm @shn @shp t1 f2
+  AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (ixsToShS ix `shsAppend` shn) $
+      withKnownShS shn $
+      withKnownShS (ixsToShS ix) $
+      withKnownSTK x $
+      soneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
+  AstScatterS @shm @shn @shp
+              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (listsToShS vars) $
+      withKnownShS shn $
+      withKnownShS (ixsToShS ix) $
+      withKnownSTK x $
+      let t1 = interpretAst env v
+          f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
+      in sscatter @_ @_ @shm @shn @shp t1 f2
+  AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (ixsToShS ix `shsAppend` shn) $
+      withKnownShS shn $
+      withKnownShS (ixsToShS ix) $
+      withKnownSTK x $
+      sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
+  AstGatherS @shm @shn @shp
+             shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (listsToShS vars) $
+      withKnownShS shn $
+      withKnownShS (ixsToShS ix) $
+      withKnownSTK x $
+      let t1 = interpretAst env v
+          f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
+      in sgather @_ @_ @shm @shn @shp t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't
@@ -364,42 +443,100 @@ interpretAst !env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstMinIndexS v ->
-    sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstMaxIndexS v ->
-    smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstIotaS -> siota
-  AstAppendS x y ->
-    let t1 = interpretAst env x
-        t2 = interpretAst env y
-    in sappend t1 t2
-  AstSliceS @i v -> sslice (Proxy @i) Proxy (interpretAst env v)
-  AstReverseS v -> sreverse (interpretAst env v)
-  AstTransposeS perm v -> stranspose perm $ interpretAst env v
-  AstReshapeS v -> sreshape (interpretAst env v)
-  AstZipS v -> szip $ interpretAst env v
-  AstUnzipS v -> sunzip $ interpretAst env v
-  AstNestS v -> snest knownShS $ interpretAst env v
-  AstUnNestS v -> sunNest $ interpretAst env v
+  AstMinIndexS v -> case ftkToSTK (ftkAst v) of
+    STKS (SNat :$$ sh) x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstMaxIndexS v -> case ftkToSTK (ftkAst v) of
+    STKS (SNat :$$ sh) x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+  AstIotaS SNat -> siota
+  AstAppendS a b -> case (ftkToSTK (ftkAst a), ftkToSTK (ftkAst b)) of
+    (STKS (SNat :$$ sh) x, STKS (SNat :$$ _) _) ->
+      withKnownShS sh $
+      withKnownSTK x $
+      let t1 = interpretAst env a
+          t2 = interpretAst env b
+      in sappend t1 t2
+  AstSliceS @i SNat SNat SNat v -> case ftkToSTK (ftkAst v) of
+    STKS (_ :$$ sh) x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      sslice (Proxy @i) Proxy (interpretAst env v)
+  AstReverseS v -> case ftkToSTK (ftkAst v) of
+    STKS (SNat :$$ sh) x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      sreverse (interpretAst env v)
+  AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
+    STKS sh x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      stranspose perm $ interpretAst env v
+  AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
+    STKS sh x ->
+      withKnownShS sh $
+      withKnownShS sh2 $
+      withKnownSTK x $
+      sreshape (interpretAst env v)
+  AstZipS v -> case ftkToSTK (ftkAst v) of
+    STKProduct (STKS sh y) (STKS _ z) ->
+      withKnownShS sh $
+      withKnownSTK y $
+      withKnownSTK z $
+      szip $ interpretAst env v
+  AstUnzipS v -> case ftkToSTK (ftkAst v) of
+    STKS sh (STKProduct y z) ->
+      withKnownShS sh $
+      withKnownSTK y $
+      withKnownSTK z $
+      sunzip $ interpretAst env v
+  AstNestS sh1 sh2 v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS sh1 $
+      withKnownShS sh2 $
+      withKnownSTK x $
+      snest sh1 $ interpretAst env v
+  AstUnNestS v -> case ftkToSTK (ftkAst v) of
+    STKS sh1 (STKS sh2 x) ->
+      withKnownShS sh1 $
+      withKnownShS sh2 $
+      withKnownSTK x $
+      sunNest $ interpretAst env v
 
   AstFromS stkz v | Dict <- lemKnownSTK (ftkToSTK (ftkAst v))
                   , Dict <- lemKnownSTK stkz ->
     tfromS $ interpretAst env v
   AstSFromK t -> sfromK $ interpretAst env t
-  AstSFromR v -> sfromR $ interpretAst env v
-  AstSFromX v -> sfromX $ interpretAst env v
+  AstSFromR sh v -> case ftkToSTK (ftkAst v) of
+    STKR SNat x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      sfromR $ interpretAst env v
+  AstSFromX sh v -> case ftkToSTK (ftkAst v) of
+    STKX sh' x ->
+      withKnownShS sh $
+      withKnownShX sh' $
+      withKnownSTK x $
+      sfromX $ interpretAst env v
 
-  AstReplicate0NS sh stk v | Dict <- lemKnownSTK stk
-                           , SNat <- shsProduct sh ->
-    withKnownShS sh $
-    sreplicate0N (interpretAst env v)
-  AstSum0S sh stk v | Dict <- lemKnownSTK stk
-                    , SNat <- shsProduct sh ->
-    withKnownShS sh $
-    ssum0 (interpretAst env v)
-  AstDot0S sh u v | SNat <- shsProduct sh ->
-    withKnownShS sh $
-    sdot0 (interpretAst env u) (interpretAst env v)
+  AstReplicate0NS sh v -> case ftkToSTK (ftkAst v) of
+    STKS _ x | SNat <- shsProduct sh ->
+      withKnownShS sh $
+      withKnownSTK x $
+      sreplicate0N (interpretAst env v)
+  AstSum0S v -> case ftkToSTK (ftkAst v) of
+    STKS sh x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      ssum0 (interpretAst env v)
+  AstDot0S u v -> case ftkToSTK (ftkAst u) of
+    STKS sh _ ->
+      withKnownShS sh $
+      sdot0 (interpretAst env u) (interpretAst env v)
   AstDot1InS SNat n@SNat u v ->
     sdot1In n (interpretAst env u) (interpretAst env v)
   AstMatvecmulS SNat SNat u v ->
@@ -426,8 +563,8 @@ interpretAstBool !env = \case
         b2 = interpretAstBool env arg2
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
-  AstRel @y3 opCodeRel arg1 arg2 ->
-    case knownSTK @y3 of
+  AstRel opCodeRel arg1 arg2 ->
+    case ftkToSTK (ftkAst arg1) of
       STKR SNat STKScalar{} ->
         let r1 = interpretAstPrimalRuntimeSpecialized env arg1
             r2 = interpretAstPrimalRuntimeSpecialized env arg2
@@ -436,7 +573,7 @@ interpretAstBool !env = \case
         let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
             r2 = interpretAstPrimalSRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      _ ->
+      stk | Dict <- lemKnownSTK stk ->
         let r1 = interpretAstPrimal env arg1
             r2 = interpretAstPrimal env arg2
         in interpretAstRelOp opCodeRel r1 r2

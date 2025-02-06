@@ -145,7 +145,7 @@ revArtifactAdapt hasDt f ftk =
 -}
 
 revProduceArtifactWithoutInterpretation
-  :: forall x z. (KnownSTK x, KnownSTK z)
+  :: forall x z. KnownSTK z
   => Bool
   -> (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)

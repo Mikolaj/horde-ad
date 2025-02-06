@@ -66,7 +66,7 @@ extendEnv :: forall target s y. KnownSTK y
           -> AstEnv target
 extendEnv var !t !env =
   let var2 :: AstVarName FullSpan y
-      var2 = mkAstVarName (varNameToAstVarId var)
+      var2 = mkAstVarName knownSTK (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
                         var2 (AstEnvElemRep t) env

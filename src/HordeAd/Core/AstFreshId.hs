@@ -15,12 +15,14 @@ module HordeAd.Core.AstFreshId
 import Prelude
 
 import Control.Monad (replicateM)
+import Data.Int (Int64)
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import GHC.Exts (IsList (..))
 import System.IO.Unsafe (unsafePerformIO)
+import Type.Reflection (typeRep)
 
-import Data.Array.Nested (KnownShS (..))
-import Data.Array.Nested.Internal.Shape (shsRank)
+import Data.Array.Nested (ShS (..))
+import Data.Array.Nested.Internal.Shape (shsRank, withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
@@ -41,19 +43,19 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarName :: KnownSTK y => IO (AstVarName s y)
+unsafeGetFreshAstVarName :: STensorKind y -> IO (AstVarName s y)
 {-# INLINE unsafeGetFreshAstVarName #-}
-unsafeGetFreshAstVarName =
-  mkAstVarName . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
+unsafeGetFreshAstVarName stk =
+  mkAstVarName stk . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstIO :: forall y z s s2 ms.
               FullTensorKind y
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
-funToAstIO ftk f | Dict <- lemKnownSTK (ftkToSTK ftk) = do
+funToAstIO ftk f = do
   freshId <- unsafeGetFreshAstVarId
-  let varName = mkAstVarName freshId
+  let varName = mkAstVarName (ftkToSTK ftk) freshId
       !x = f (AstVar ftk varName)
   return (varName, x)
 
@@ -63,19 +65,17 @@ funToAst :: FullTensorKind y
 {-# NOINLINE funToAst #-}
 funToAst ftk f = unsafePerformIO $ funToAstIO ftk f
 
-fun1ToAstIO :: KnownSTK y
-            => (AstVarName s y -> AstTensor ms s y)
+fun1ToAstIO :: STensorKind y -> (AstVarName s y -> AstTensor ms s y)
             -> IO (AstTensor ms s y)
 {-# INLINE fun1ToAstIO #-}
-fun1ToAstIO f = do
-  !freshId <- unsafeGetFreshAstVarName
+fun1ToAstIO stk f = do
+  !freshId <- unsafeGetFreshAstVarName stk
   return $! f freshId
 
-fun1ToAst :: KnownSTK y
-          => (AstVarName s y -> AstTensor ms s y)
+fun1ToAst :: STensorKind y -> (AstVarName s y -> AstTensor ms s y)
           -> AstTensor ms s y
 {-# NOINLINE fun1ToAst #-}
-fun1ToAst f = unsafePerformIO $ fun1ToAstIO f
+fun1ToAst stk f = unsafePerformIO $ fun1ToAstIO stk f
 
 funToAstRevIO :: forall x. FullTensorKind x
               -> IO ( AstVarName PrimalSpan x
@@ -83,12 +83,12 @@ funToAstRevIO :: forall x. FullTensorKind x
                     , AstVarName FullSpan x
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstRevIO #-}
-funToAstRevIO ftk | Dict <- lemKnownSTK (ftkToSTK ftk) = do
+funToAstRevIO ftk = do
   freshId <- unsafeGetFreshAstVarId
   let varPrimal :: AstVarName PrimalSpan x
-      varPrimal = mkAstVarName freshId
+      varPrimal = mkAstVarName (ftkToSTK ftk) freshId
       var :: AstVarName FullSpan x
-      var = mkAstVarName freshId
+      var = mkAstVarName (ftkToSTK ftk) freshId
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
       !astVarPrimal = AstVar ftk varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x
@@ -111,16 +111,15 @@ funToAstFwdIO :: forall x. FullTensorKind x
                     , AstVarName FullSpan x
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstFwdIO #-}
-funToAstFwdIO ftk | Dict <- lemKnownSTK (ftkToSTK ftk)
-                  , Dict <- lemKnownSTKOfAD (ftkToSTK ftk) = do
+funToAstFwdIO ftk = do
   freshIdDs <- unsafeGetFreshAstVarId
   freshId <- unsafeGetFreshAstVarId
   let varPrimalD :: AstVarName PrimalSpan (ADTensorKind x)
-      varPrimalD = mkAstVarName freshIdDs
+      varPrimalD = mkAstVarName (adSTK $ ftkToSTK ftk) freshIdDs
       varPrimal :: AstVarName PrimalSpan x
-      varPrimal = mkAstVarName freshId
+      varPrimal = mkAstVarName (ftkToSTK ftk) freshId
       var :: AstVarName FullSpan x
-      var = mkAstVarName freshId
+      var = mkAstVarName (ftkToSTK ftk) freshId
       astVarPrimalD :: AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
       !astVarPrimalD = AstVar (adFTK ftk) varPrimalD
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
@@ -142,7 +141,7 @@ funToAstFwd = unsafePerformIO . funToAstFwdIO
 funToAstIOI :: (AstInt ms -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}
 funToAstIOI f = do
-  !varName <- unsafeGetFreshAstVarName
+  !varName <- unsafeGetFreshAstVarName (STKScalar (typeRep @Int64))
   let !x = f (AstIntVar varName)
   return (varName, x)
 
@@ -153,7 +152,7 @@ funToAstI = unsafePerformIO . funToAstIOI
 funToAstIntVarIO :: ((IntVarName, AstInt ms) -> a) -> IO a
 {-# INLINE funToAstIntVarIO #-}
 funToAstIntVarIO f = do
-  !varName <- unsafeGetFreshAstVarName
+  !varName <- unsafeGetFreshAstVarName (STKScalar (typeRep @Int64))
   let !ast = AstIntVar varName
   return $! f (varName, ast)
 
@@ -162,25 +161,25 @@ funToAstIntVar :: ((IntVarName, AstInt ms) -> a) -> a
 funToAstIntVar = unsafePerformIO . funToAstIntVarIO
 
 funToVarsIxIOS
-  :: forall sh a ms. KnownShS sh
-  => ((AstVarListS sh, AstIxS ms sh) -> a) -> IO a
+  :: forall sh a ms.
+     ShS sh -> ((AstVarListS sh, AstIxS ms sh) -> a) -> IO a
 {-# INLINE funToVarsIxIOS #-}
-funToVarsIxIOS f = do
-  let p = sNatValue $ shsRank $ knownShS @sh
-  varList <- replicateM p unsafeGetFreshAstVarName
-  let !vars = fromList varList
-      !ix = fromList $ map AstIntVar varList
+funToVarsIxIOS sh f = do
+  let p = sNatValue $ shsRank sh
+  varList <- replicateM p
+             $ unsafeGetFreshAstVarName (STKScalar (typeRep @Int64))
+  let !vars = withKnownShS sh $ fromList varList
+      !ix = withKnownShS sh $ fromList $ map AstIntVar varList
   return $! f (vars, ix)
 
 funToVarsIxS
-  :: KnownShS sh
-  => ((AstVarListS sh, AstIxS ms sh) -> a) -> a
+  :: ShS sh -> ((AstVarListS sh, AstIxS ms sh) -> a) -> a
 {-# NOINLINE funToVarsIxS #-}
-funToVarsIxS = unsafePerformIO . funToVarsIxIOS
+funToVarsIxS sh = unsafePerformIO . funToVarsIxIOS sh
 
 funToAstIxS
-  :: KnownShS sh
-  => (AstIxS ms sh -> AstIxS ms sh2) -> (AstVarListS sh, AstIxS ms sh2)
+  :: ShS sh -> (AstIxS ms sh -> AstIxS ms sh2)
+  -> (AstVarListS sh, AstIxS ms sh2)
 {-# NOINLINE funToAstIxS #-}
-funToAstIxS f = unsafePerformIO $ funToVarsIxIOS
+funToAstIxS sh f = unsafePerformIO $ funToVarsIxIOS sh
                    $ \ (!vars, !ix) -> let !x = f ix in (vars, x)
