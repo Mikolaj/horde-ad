@@ -152,7 +152,7 @@ inlineAst memo v0 = case v0 of
         memo5 = EM.unionWith (+) memo1 memo4
     in (memo5, Ast.AstCond b1 t2 t3)
   Ast.AstBuild1 k stk (var, v) ->
-    let (memoV0, v2) = inlineAst EM.empty v
+    let (memoV0, !v2) = inlineAst EM.empty v
         memo1 = EM.unionWith
                   (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
     in (memo1, Ast.AstBuild1 k stk (var, v2))
@@ -241,15 +241,15 @@ inlineAst memo v0 = case v0 of
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
         count = fromIntegral $ shsSize (ixsToShS ix) * shsSize shn
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in withKnownShS (ixsToShS ix) $
-       (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, fromList ix2))
+        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+    in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
         count = fromIntegral $ shsSize (listsToShS vars) * shsSize shn
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-    in withKnownShS (ixsToShS ix) $
-       (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, fromList ix2))
+        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+    in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
   Ast.AstIotaS{} -> (memo, v0)
@@ -406,7 +406,7 @@ unshareAst memo = \case
         (memo3, t3) = unshareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
   Ast.AstBuild1 snat stk (var, v) ->
-    let (memo1, v2) = unshareAstScoped [var] memo v
+    let (memo1, !v2) = unshareAstScoped [var] memo v
     in (memo1, Ast.AstBuild1 snat stk (var, v2))
   Ast.AstConcrete repF -> (memo, Ast.AstConcrete repF)
 
@@ -517,15 +517,15 @@ unshareAst memo = \case
           mapAccumR (unshareAstScoped $ listsToList vars)
                     memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in withKnownShS (ixsToShS ix) $
-       (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, fromList ix2))
+        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+    in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ listsToList vars)
                     memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-    in withKnownShS (ixsToShS ix) $
-       (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, fromList ix2))
+        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+    in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a
   Ast.AstIotaS snat -> (memo, Ast.AstIotaS snat)

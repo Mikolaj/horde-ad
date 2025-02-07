@@ -59,26 +59,29 @@ instance (GoodScalar r, AstSpan s)
   -- All lists fully flattened and length >= 2.
   AstSumOfList (AstConcrete (RepF ftk u) :| lu)
     + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
-        AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
-    AstSumOfList ((AstConcrete (RepF ftk v) :| lv) <> lu)
+        let !w = u + v
+        in AstSumOfList (AstConcrete (RepF ftk w) :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete repF :| lv) =
+    AstSumOfList ((AstConcrete repF :| lv) <> lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
   AstConcrete (RepF ftk u) + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
-    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lv)
-  u + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
-    AstSumOfList (AstConcrete (RepF ftk v) :| u : lv)
+    let !w = u + v
+    in AstSumOfList (AstConcrete (RepF ftk w) :| lv)
+  u + AstSumOfList (AstConcrete repF :| lv) =
+    AstSumOfList (AstConcrete repF :| u : lv)
   u + AstSumOfList lv = AstSumOfList (u <| lv)
 
   AstSumOfList (AstConcrete (RepF ftk u) :| lu) + AstConcrete (RepF _ v) =
-    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu)
-  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + v =
-    AstSumOfList (AstConcrete (RepF ftk u) :| v : lu)
+    let !w = u + v
+    in AstSumOfList (AstConcrete (RepF ftk w) :| lu)
+  AstSumOfList (AstConcrete repF :| lu) + v =
+    AstSumOfList (AstConcrete repF :| v : lu)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
 
   AstConcrete (RepF ftk u) + AstConcrete (RepF _ v) =
     AstConcrete (RepF ftk (u + v))
-  u + AstConcrete (RepF ftk v) = AstSumOfList (AstConcrete (RepF ftk v) :| [u])
+  u + AstConcrete repF = AstSumOfList (AstConcrete repF :| [u])
   u + v = AstSumOfList (u :| [v])
 
   AstConcrete (RepF ftk u) - AstConcrete (RepF _ v) =
@@ -198,26 +201,29 @@ instance GoodScalar r
   -- All lists fully flattened and length >= 2.
   AstSumOfList (AstConcrete (RepF ftk u) :| lu)
     + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
-        AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
-    AstSumOfList ((AstConcrete (RepF ftk v) :| lv) <> lu)
+        let !w = u + v
+        in AstSumOfList (AstConcrete (RepF ftk w) :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcrete repF :| lv) =
+    AstSumOfList ((AstConcrete repF :| lv) <> lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
   AstConcrete (RepF ftk u) + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
-    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lv)
-  u + AstSumOfList (AstConcrete (RepF ftk v) :| lv) =
-    AstSumOfList (AstConcrete (RepF ftk v) :| u : lv)
+    let !w = u + v
+    in AstSumOfList (AstConcrete (RepF ftk w) :| lv)
+  u + AstSumOfList (AstConcrete repF :| lv) =
+    AstSumOfList (AstConcrete repF :| u : lv)
   u + AstSumOfList lv = AstSumOfList (u <| lv)
 
   AstSumOfList (AstConcrete (RepF ftk u) :| lu) + AstConcrete (RepF _ v) =
-    AstSumOfList (AstConcrete (RepF ftk (u + v)) :| lu)
-  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + v =
-    AstSumOfList (AstConcrete (RepF ftk u) :| v : lu)
+    let !w = u + v
+    in AstSumOfList (AstConcrete (RepF ftk w) :| lu)
+  AstSumOfList (AstConcrete repF :| lu) + v =
+    AstSumOfList (AstConcrete repF :| v : lu)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
 
   AstConcrete (RepF ftk u) + AstConcrete (RepF _ v) =
     AstConcrete (RepF ftk (u + v))
-  u + AstConcrete (RepF ftk v) = AstSumOfList (AstConcrete (RepF ftk v) :| [u])
+  u + AstConcrete repF = AstSumOfList (AstConcrete repF :| [u])
   u + v = AstSumOfList (u :| [v])
 
   AstConcrete (RepF ftk u) - AstConcrete (RepF _ v) =
