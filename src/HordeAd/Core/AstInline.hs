@@ -184,6 +184,7 @@ inlineAst memo v0 = case v0 of
 
   Ast.AstSumOfList args ->
     let (memo2, args2) = mapAccumR inlineAst memo $ toList args
+        !_ = foldr seq () args2  -- no strict EmptyList easily available
     in (memo2, Ast.AstSumOfList $ fromList args2)
 
   Ast.AstN1K opCode u ->
@@ -461,6 +462,7 @@ unshareAst memo = \case
 
   Ast.AstSumOfList args ->
     let (memo2, args2) = mapAccumR unshareAst memo $ toList args
+        !_ = foldr seq () args2  -- no strict EmptyList easily available
     in (memo2, Ast.AstSumOfList $ fromList args2)
 
   Ast.AstN1K opCode u ->
