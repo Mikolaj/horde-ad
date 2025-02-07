@@ -418,7 +418,8 @@ unshareAst memo = \case
                    $ Ast.AstVar (ftkAst v) var
       in if var `DMap.member` memo
          then (memo, astVar)
-         else let (memo1, a2) = unshareAst memo v
+         else let (memo1, !a2) = unshareAst memo v
+                    -- DMap is strict, but let's be paranoid
               in (DMap.insert var a2 memo1, astVar)
     -- The PrimalSpan check ensures there's no need to match for
     -- Ast.AstFromPrimal (Ast.AstFromS).
@@ -431,7 +432,7 @@ unshareAst memo = \case
                        $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)
-             else let (memo1, a2) = unshareAst memo (Ast.AstSFromR @sh sh a)
+             else let (memo1, !a2) = unshareAst memo (Ast.AstSFromR @sh sh a)
                   in (DMap.insert var a2 memo1, astVar)
       ftk@(FTKX @_ @x sh' x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
@@ -441,14 +442,14 @@ unshareAst memo = \case
                        $ Ast.AstVar (FTKS sh x) var
           in if var `DMap.member` memo
              then (memo, astVar)
-             else let (memo1, a2) = unshareAst memo (Ast.AstSFromX @sh sh a)
+             else let (memo1, !a2) = unshareAst memo (Ast.AstSFromX @sh sh a)
                   in (DMap.insert var a2 memo1, astVar)
       -- TODO: also recursively product
       ftk -> let var = varRaw
                  astVar = Ast.AstVar ftk var
              in if var `DMap.member` memo
                 then (memo, astVar)  -- TODO: memoize AstVar itself
-                else let (memo1, a2) = unshareAst memo a
+                else let (memo1, !a2) = unshareAst memo a
                      in (DMap.insert var a2 memo1, astVar)
   Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
