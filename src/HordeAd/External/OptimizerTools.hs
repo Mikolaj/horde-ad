@@ -115,9 +115,11 @@ unzip3Rep stk (RepN t) = case stk of
   STKR _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
   STKS _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
   STKX _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
-  STKProduct stk1 stk2 -> let (a1, b1, c1) = unzip3Rep stk1 $ RepN $ fst t
-                              (a2, b2, c2) = unzip3Rep stk2 $ RepN $ snd t
-                          in (RepN (unRepN a1, unRepN a2), RepN (unRepN b1, unRepN b2), RepN (unRepN c1, unRepN c2))
+  STKProduct stk1 stk2 -> let !(!a1, !b1, !c1) = unzip3Rep stk1 $ RepN $ fst t
+                              !(!a2, !b2, !c2) = unzip3Rep stk2 $ RepN $ snd t
+                          in ( RepN (unRepN a1, unRepN a2)
+                             , RepN (unRepN b1, unRepN b2)
+                             , RepN (unRepN c1, unRepN c2))
   _ -> error "TODO"
 
 type role StateAdam nominal
@@ -175,7 +177,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
-                (let (mAN, vAN, pN) =
+                (let !(!mAN, !vAN, !pN) =
                        updateR (Nested.rscalar mA)
                                (Nested.rscalar vA)
                                (Nested.rscalar p)
@@ -190,7 +192,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
-                (let (mAN, vAN, pN) = updateR mA vA p g
+                (let !(!mAN, !vAN, !pN) = updateR mA vA p g
                  in RepN ((mAN, vAN), pN))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
@@ -198,7 +200,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
-                (let (mAN, vAN, pN) =
+                (let !(!mAN, !vAN, !pN) =
                        updateR (Nested.stoRanked mA)
                                (Nested.stoRanked vA)
                                (Nested.stoRanked p)
@@ -213,7 +215,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
-                (let (mAN, vAN, pN) =
+                (let !(!mAN, !vAN, !pN) =
                        updateR (Nested.mtoRanked mA)
                                (Nested.mtoRanked vA)
                                (Nested.mtoRanked p)
@@ -228,9 +230,11 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
         STKProduct stk1 stk2 ->
-          RepN
-            ( unRepN $ updateProd stk1 (RepN $ fst mA) (RepN $ fst vA) (RepN $ fst p) (RepN $ fst g)
-            , unRepN $ updateProd stk2 (RepN $ snd mA) (RepN $ snd vA) (RepN $ snd p) (RepN $ snd g) )
+          let !a1 = unRepN $ updateProd stk1
+                (RepN $ fst mA) (RepN $ fst vA) (RepN $ fst p) (RepN $ fst g)
+              !a2 = unRepN $ updateProd stk2
+                (RepN $ snd mA) (RepN $ snd vA) (RepN $ snd p) (RepN $ snd g)
+          in RepN (a1, a2)
         _ -> error "TODO"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         unzip3Rep knownSTK

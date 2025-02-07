@@ -157,7 +157,8 @@ instance BaseTensor RepN where
   rreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreshape sh . unRepN
   rzip (RepN (a, b)) = RepN $ Nested.rzip a b
-  runzip = RepN . Nested.runzip . unRepN
+  runzip a = let (!a1, !a2) = Nested.runzip $ unRepN a
+             in RepN (a1, a2)
   rbuild1 @r k f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1R k (unRepN . f . RepN)
   rmap0N @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
@@ -312,7 +313,8 @@ instance BaseTensor RepN where
   sreshape @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreshape knownShS . unRepN
   szip (RepN (a, b)) = RepN $ Nested.szip a b
-  sunzip = RepN . Nested.sunzip . unRepN
+  sunzip a = let (!a1, !a2) = Nested.sunzip $ unRepN a
+             in RepN (a1, a2)
   sbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1S (unRepN . f . RepN)
   smap0N @r1 @r @sh f v = case (knownSTK @r1, knownSTK @r) of
@@ -454,7 +456,8 @@ instance BaseTensor RepN where
   xreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreshape sh . unRepN
   xzip (RepN (a, b)) = RepN $ Nested.mzip a b
-  xunzip = RepN . Nested.munzip . unRepN
+  xunzip a = let (!a1, !a2) = Nested.munzip $ unRepN a
+             in RepN (a1, a2)
   xbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1X (unRepN . f . RepN)
 
@@ -520,7 +523,7 @@ instance BaseTensor RepN where
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk (RepN t) = tftkG stk t
   tconcrete _ = id
-  tpair u v = RepN (unRepN u, unRepN v)
+  tpair !u !v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN
   tproject2 = RepN . snd . unRepN
   rfold f x0 as = foldl' f x0 (runravelToList as)
