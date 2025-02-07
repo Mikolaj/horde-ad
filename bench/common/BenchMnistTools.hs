@@ -134,6 +134,7 @@ mnistBGroup1VTA xs0 chunkLength =
        [])
     ++ [ mnistTestBench1VTA "500|150 " 500 150 0.02 chunkLength xs
            -- another common width
+       , mnistTrainBench1VTA "500|150 warm-up " 500 150 0.02 chunkLength xs
        , mnistTrainBench1VTA "500|150 " 500 150 0.02 chunkLength xs
        ]
 
