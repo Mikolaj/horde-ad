@@ -19,7 +19,6 @@ import Data.Int (Int64)
 import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import GHC.Exts (IsList (..))
 import System.IO.Unsafe (unsafePerformIO)
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested (ShS (..))
 import Data.Array.Nested.Internal.Shape (shsRank, withKnownShS)
@@ -141,7 +140,7 @@ funToAstFwd = unsafePerformIO . funToAstFwdIO
 funToAstIOI :: (AstInt ms -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}
 funToAstIOI f = do
-  !varName <- unsafeGetFreshAstVarName (STKScalar (typeRep @Int64))
+  !varName <- unsafeGetFreshAstVarName (STKScalar @Int64)
   let !x = f (AstIntVar varName)
   return (varName, x)
 
@@ -152,7 +151,7 @@ funToAstI = unsafePerformIO . funToAstIOI
 funToAstIntVarIO :: ((IntVarName, AstInt ms) -> a) -> IO a
 {-# INLINE funToAstIntVarIO #-}
 funToAstIntVarIO f = do
-  !varName <- unsafeGetFreshAstVarName (STKScalar (typeRep @Int64))
+  !varName <- unsafeGetFreshAstVarName (STKScalar @Int64)
   let !ast = AstIntVar varName
   return $! f (varName, ast)
 
@@ -167,7 +166,7 @@ funToVarsIxIOS
 funToVarsIxIOS sh f = do
   let p = sNatValue $ shsRank sh
   varList <- replicateM p
-             $ unsafeGetFreshAstVarName (STKScalar (typeRep @Int64))
+             $ unsafeGetFreshAstVarName (STKScalar @Int64)
   let !vars = withKnownShS sh $ fromList varList
       !ix = withKnownShS sh $ fromList $ map AstIntVar varList
   return $! f (vars, ix)

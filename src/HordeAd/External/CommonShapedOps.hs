@@ -18,7 +18,6 @@ import Data.Type.Ord (Compare)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (KnownShS (..), Rank)
@@ -35,9 +34,9 @@ sminIndexN :: forall target sh r.
            => target (TKS sh r) -> IxSOf target sh
 sminIndexN t =
   fromLinearIdxS
-    (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
+    (tprimalPart @target STKScalar . kconcrete . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ kfromS $ sminIndex (sflatten t))
+    (tprimalPart @target STKScalar $ kfromS $ sminIndex (sflatten t))
 
 smaxIndexN :: forall target sh r.
               ( ADReady target, GoodScalar r
@@ -45,9 +44,9 @@ smaxIndexN :: forall target sh r.
            => target (TKS sh r) -> IxSOf target sh
 smaxIndexN t =
   fromLinearIdxS
-    (tprimalPart @target (STKScalar typeRep) . kconcrete . fromIntegral)
+    (tprimalPart @target STKScalar . kconcrete . fromIntegral)
     (sshape t)
-    (tprimalPart @target (STKScalar typeRep) $ kfromS $ smaxIndex (sflatten t))
+    (tprimalPart @target STKScalar $ kfromS $ smaxIndex (sflatten t))
 
 sminimum :: forall r sh target.
             (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))

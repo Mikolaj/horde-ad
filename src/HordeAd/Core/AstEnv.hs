@@ -22,7 +22,6 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum
 import GHC.Exts (IsList (..))
 import Text.Show (showListWith)
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested (KnownShS (..))
 
@@ -74,7 +73,7 @@ extendEnv var !t !env =
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target
            -> AstEnv target
-extendEnvI var !i !env = extendEnv var (tfromPrimal (STKScalar typeRep) i) env
+extendEnvI var !i !env = extendEnv var (tfromPrimal STKScalar i) env
 
 extendEnvVarsS :: forall target sh. (KnownShS sh, BaseTensor target)
                => AstVarListS sh -> IxSOf target sh

@@ -243,13 +243,13 @@ interpretAst !env = \case
 
   AstLet var u v -> case (ftkToSTK (ftkAst u), ftkToSTK (ftkAst v)) of
     -- We assume there are no nested lets with the same variable.
-    (stk@(STKR _ STKScalar{}), vstk) ->
+    (stk@(STKR _ STKScalar), vstk) ->
       withKnownSTK stk $
       withKnownSTK vstk $
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    (stk@(STKS _ STKScalar{}), vstk) ->
+    (stk@(STKS _ STKScalar), vstk) ->
       withKnownSTK stk $
       withKnownSTK vstk $
       let t = interpretAstSRuntimeSpecialized env u
@@ -305,10 +305,10 @@ interpretAst !env = \case
       let stk = ftkToSTK (ftkAst a)
           args2 = interpretAst env <$> args
       in case stk of
-        STKScalar{} -> foldr1 (+) args2  -- @sum@ breaks and also reverses order
-        STKR SNat STKScalar{} -> foldr1 (+) args2
-        STKS sh STKScalar{} -> withKnownShS sh $ foldr1 (+) args2
-        STKX sh STKScalar{} -> withKnownShX sh $ foldr1 (+) args2
+        STKScalar -> foldr1 (+) args2  -- @sum@ breaks and also reverses order
+        STKR SNat STKScalar -> foldr1 (+) args2
+        STKS sh STKScalar -> withKnownShS sh $ foldr1 (+) args2
+        STKX sh STKScalar -> withKnownShX sh $ foldr1 (+) args2
         _ -> let v = V.fromList $ toList args2
              in withSNat (V.length v) $ \snat ->
                   tsum snat stk $ tfromVector snat stk v
@@ -332,9 +332,9 @@ interpretAst !env = \case
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
   AstFloorK v ->
-    kfloor $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
+    kfloor $ tfromPrimal STKScalar $ interpretAstPrimal env v
   AstFromIntegralK v ->
-    kfromIntegral $ tfromPrimal (STKScalar typeRep) $ interpretAstPrimal env v
+    kfromIntegral $ tfromPrimal STKScalar $ interpretAstPrimal env v
   AstCastK v -> kcast $ interpretAst env v
 
   AstN1S opCode u -> case ftkToSTK (ftkAst u) of
@@ -557,11 +557,11 @@ interpretAstBool !env = \case
   AstBoolConst a -> if a then true else false
   AstRel opCodeRel arg1 arg2 ->
     case ftkToSTK (ftkAst arg1) of
-      STKR SNat STKScalar{} ->
+      STKR SNat STKScalar ->
         let r1 = interpretAstPrimalRuntimeSpecialized env arg1
             r2 = interpretAstPrimalRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      STKS sh STKScalar{} -> withKnownShS sh $
+      STKS sh STKScalar -> withKnownShS sh $
         let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
             r2 = interpretAstPrimalSRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2

@@ -20,7 +20,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
@@ -175,15 +174,15 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
   -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
   rindex (D u u') i =
-    let ix = tprimalPart (STKScalar typeRep) <$> i
+    let ix = tprimalPart STKScalar <$> i
     in dD (rindex u ix) (DeltaIndexR u' ix)
   rscatter sh (D u u') f =
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    let g x = tprimalPart STKScalar
+              <$> f (tfromPrimal STKScalar <$> x)
     in dD (rscatter sh u g) (DeltaScatterR sh u' g)
   rgather sh (D u u') f =
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    let g x = tprimalPart STKScalar
+              <$> f (tfromPrimal STKScalar <$> x)
     in dD (rgather sh u g) (DeltaGatherR sh u' g)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
@@ -239,20 +238,20 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in dD (sdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   sreplicate (D u u') = dD (sreplicate u) (DeltaReplicate SNat knownSTK u')
   sindex (D u u') i =
-    let ix = tprimalPart (STKScalar typeRep) <$> i
+    let ix = tprimalPart STKScalar <$> i
     in dD (sindex u ix) (DeltaIndexS u' ix)
   sscatter @r @shm @shn @shp (D u u') f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    let g x = tprimalPart STKScalar
+              <$> f (tfromPrimal STKScalar <$> x)
     in dD (sscatter @_ @r @shm @shn @shp u g)
           (DeltaScatterS @_ @r @shm @shn @shp u' g)
   sgather @r @shm @shn @shp (D u u') f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    let g x = tprimalPart STKScalar
+              <$> f (tfromPrimal STKScalar <$> x)
     in dD (sgather @_ @r @shm @shn @shp u g)
           (DeltaGatherS @_ @r @shm @shn @shp u' g)
   sconcrete a =
@@ -311,20 +310,20 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in dD (xdot0 u v) (dAdd (DeltaDot0X v u') (DeltaDot0X u v'))
   xreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
   xindex (D u u') i =
-    let ix = tprimalPart (STKScalar typeRep) <$> i
+    let ix = tprimalPart STKScalar <$> i
     in dD (xindex u ix) (DeltaIndexX u' ix)
   xscatter @r @shm @shn @shp sh (D u u') f =
     withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    let g x = tprimalPart STKScalar
+              <$> f (tfromPrimal STKScalar <$> x)
     in dD (xscatter @_ @r @shm @shn @shp sh u g)
           (DeltaScatterX @_ @r @shm @shn @shp sh u' g)
   xgather @r @shm @shn @shp sh (D u u') f =
     withKnownShX (ssxFromShape sh) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
-    let g x = tprimalPart (STKScalar typeRep)
-              <$> f (tfromPrimal (STKScalar typeRep) <$> x)
+    let g x = tprimalPart STKScalar
+              <$> f (tfromPrimal STKScalar <$> x)
     in dD (xgather @_ @r @shm @shn @shp sh u g)
           (DeltaGatherX @_ @r @shm @shn @shp sh u' g)
   xconcrete a =

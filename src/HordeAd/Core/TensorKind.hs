@@ -23,7 +23,7 @@ import Data.Kind (Type)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat)
-import Type.Reflection (TypeRep, typeRep)
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
@@ -47,7 +47,7 @@ import HordeAd.Core.Types
 type role STensorKind nominal
 data STensorKind y where
   STKScalar :: GoodScalar r
-            => TypeRep r -> STensorKind (TKScalar r)
+            => STensorKind (TKScalar r)
   STKR :: SNat n -> STensorKind x -> STensorKind (TKR2 n x)
   STKS :: ShS sh -> STensorKind x -> STensorKind (TKS2 sh x)
   STKX :: StaticShX sh -> STensorKind x -> STensorKind (TKX2 sh x)
@@ -60,7 +60,7 @@ class KnownSTK (y :: TensorKindType) where
   knownSTK :: STensorKind y
 
 instance GoodScalar r => KnownSTK (TKScalar r) where
-  knownSTK = STKScalar typeRep
+  knownSTK = STKScalar
 
 instance (KnownSTK x, KnownNat n)
          => KnownSTK (TKR2 n x) where
@@ -83,7 +83,7 @@ withKnownSTK = withDict @(KnownSTK y)
 
 lemKnownSTK :: STensorKind y -> Dict KnownSTK y
 lemKnownSTK = \case
-  STKScalar _ -> Dict
+  STKScalar -> Dict
   STKR SNat x | Dict <- lemKnownSTK x -> Dict
   STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh Dict
   STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh Dict
@@ -96,8 +96,8 @@ sameKnownSTS = sameSTK (knownSTK @y1) (knownSTK @y2)
 
 sameSTK :: STensorKind y1' -> STensorKind y2' -> Maybe (y1' :~: y2')
 sameSTK y1 y2 = case (y1, y2) of
-  (STKScalar tr1, STKScalar tr2) ->
-    case testEquality tr1 tr2 of
+  (STKScalar @r1, STKScalar @r2) ->
+    case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> Just Refl
       Nothing -> Nothing
   (STKR snat1 r1, STKR snat2 r2) ->
@@ -118,11 +118,11 @@ sameSTK y1 y2 = case (y1, y2) of
   _ -> Nothing
 
 stkUnit :: STensorKind TKUnit
-stkUnit = STKScalar typeRep
+stkUnit = STKScalar
 
 buildSTK :: SNat k -> STensorKind y -> STensorKind (BuildTensorKind k y)
 buildSTK snat@SNat = \case
-  stk@(STKScalar{}) -> STKS (snat :$$ ZSS) stk
+  stk@(STKScalar) -> STKS (snat :$$ ZSS) stk
   STKR SNat x -> STKR SNat x
   STKS sh x -> STKS (snat :$$ sh) x
   STKX sh x -> STKX (SKnown snat :!% sh) x
@@ -130,7 +130,7 @@ buildSTK snat@SNat = \case
 
 razeSTK :: STensorKind z -> STensorKind (RazeTensorKind z)
 razeSTK = \case
-  STKScalar{} -> error "razeSTK: impossible argument"
+  STKScalar -> error "razeSTK: impossible argument"
   STKR snat@SNat x ->
     case cmpNat (SNat @1) snat of
       LTI -> STKR SNat x
@@ -146,12 +146,12 @@ razeSTK = \case
 adSTK :: STensorKind y
       -> STensorKind (ADTensorKind y)
 adSTK = \case
-  t@(STKScalar @r tr) -> case testEquality tr (typeRep @Double) of
+  t@(STKScalar @r) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
-    _ -> case testEquality tr (typeRep @Float) of
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           STKScalar (typeRep @Z0)
+           STKScalar
   STKR sh x -> STKR sh $ adSTK x
   STKS sh x -> STKS sh $ adSTK x
   STKX sh x -> STKX sh $ adSTK x
@@ -169,7 +169,7 @@ lemBuildOfAD :: SNat k -> STensorKind y
              -> BuildTensorKind k (ADTensorKind y)
                 :~: ADTensorKind (BuildTensorKind k y)
 lemBuildOfAD snat@SNat = \case
-  STKScalar{} -> Refl
+  STKScalar -> Refl
   STKR{} -> unsafeCoerceRefl
   STKS{} -> unsafeCoerceRefl
   STKX{} -> unsafeCoerceRefl
@@ -205,7 +205,7 @@ instance (KnownFTK y, KnownFTK z)
 
 ftkToSTK :: FullTensorKind y -> STensorKind y
 ftkToSTK = \case
-  FTKScalar -> STKScalar typeRep
+  FTKScalar -> STKScalar
   FTKR sh x -> STKR (shrRank sh) (ftkToSTK x)
   FTKS sh x -> STKS sh (ftkToSTK x)
   FTKX sh x -> STKX (ssxFromShape sh) (ftkToSTK x)
@@ -227,7 +227,7 @@ razeFTK :: forall y k.
         -> FullTensorKind (BuildTensorKind k y)
         -> FullTensorKind y
 razeFTK snat@SNat stk ftk = case (stk, ftk) of
-  (STKScalar{}, FTKS (_ :$$ ZSS) FTKScalar) -> FTKScalar
+  (STKScalar, FTKS (_ :$$ ZSS) FTKScalar) -> FTKScalar
   (STKR{}, FTKR (_ :$: sh) x) -> FTKR sh x
   (STKR{}, FTKR ZSR _) -> error "razeFTK: impossible built tensor kind"
   (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x

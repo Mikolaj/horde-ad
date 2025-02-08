@@ -77,7 +77,7 @@ printAstVar :: forall s y.
                PrintConfig -> STensorKind y -> AstVarName s y -> ShowS
 printAstVar cfg stk var =
   let rankTensorKind :: STensorKind x -> Int
-      rankTensorKind (STKScalar _) = 0
+      rankTensorKind (STKScalar) = 0
       rankTensorKind (STKR snat _) = fromInteger $ fromSNat snat
       rankTensorKind (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
       rankTensorKind (STKX (StaticShX l) _) =
@@ -145,7 +145,7 @@ printAstAux cfg d = \case
   AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
   AstFromVector _ stk l -> case stk of
-    STKScalar{} ->
+    STKScalar ->
       showParen (d > 10)
       $ showString "tfromVector "
         . (showParen True
@@ -177,13 +177,13 @@ printAstAux cfg d = \case
              . showListWith (printAst cfg 0) (V.toList l))
   AstSum _snat stk v ->
    case stk of
-    STKScalar{} -> printPrefixOp printAst cfg d "tsum" [v]
+    STKScalar -> printPrefixOp printAst cfg d "tsum" [v]
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
     STKS{} -> printPrefixOp printAst cfg d "ssum" [v]
     STKX{} -> printPrefixOp printAst cfg d "xsum" [v]
     STKProduct{} -> printPrefixOp printAst cfg d "tsum" [v]
   AstReplicate snat stk v -> case stk of
-    STKScalar{} -> printPrefixOp printAst cfg d
+    STKScalar -> printPrefixOp printAst cfg d
                                  ("treplicate " ++ show (sNatValue snat)) [v]
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
@@ -432,7 +432,7 @@ printAstAux cfg d = \case
 
   AstFromS stkz v ->
     case stkz of
-      STKScalar{} -> printPrefixOp printAst cfg d "kfromS" [v]
+      STKScalar -> printPrefixOp printAst cfg d "kfromS" [v]
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
       STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
       _ -> printPrefixOp printAst cfg d "tfromS" [v]
