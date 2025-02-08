@@ -256,6 +256,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
+  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
   rfloor @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -394,6 +395,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sgather @_ @shm @shn @shp t f =
     astGatherStepS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
+  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
   sfloor = fromPrimal . AstFloorS . primalPart
   sfromIntegral = fromPrimal . astFromIntegralS . primalPart
   scast = astCastS
@@ -484,6 +486,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
+  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
   xfloor @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -594,6 +597,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x)) f
 
   -- Scalar ops
+  kconcrete = tconcrete FTKScalar . RepN
   kfloor = fromPrimal . AstFloorK . primalPart
   kfromIntegral = fromPrimal . astFromIntegralK . primalPart
   kcast = astCastK
@@ -845,6 +849,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
+  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
   rfloor @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -989,6 +994,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstGatherS @shm @shn @shp knownShS (unAstRaw t)
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
+  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
   sfloor = AstRaw . fromPrimal . AstFloorS . primalPart . unAstRaw
   sfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . primalPart . unAstRaw
@@ -1085,6 +1091,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
+  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
   xfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -1199,6 +1206,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                  $ unAstRaw . f . AstRaw
 
   -- Scalar ops
+  kconcrete = tconcrete FTKScalar . RepN
   kfloor = AstRaw . fromPrimal . AstFloorK . primalPart . unAstRaw
   kfromIntegral = AstRaw . fromPrimal . AstFromIntegralK
                   . primalPart . unAstRaw
@@ -1356,6 +1364,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rgather sh t f =
     AstNoVectorize $ rgather sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
+  rconcrete = AstNoVectorize . rconcrete
   rfloor = AstNoVectorize . rfloor . unAstNoVectorize
   rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
   rcast = AstNoVectorize . rcast . unAstNoVectorize
@@ -1387,6 +1396,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sgather @_ @shm @shn @shp t f =
     AstNoVectorize $ sgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
+  sconcrete = AstNoVectorize . sconcrete
   sfloor = AstNoVectorize . sfloor . unAstNoVectorize
   sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
   scast = AstNoVectorize . scast . unAstNoVectorize
@@ -1420,6 +1430,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xgather @_ @shm @shn @shp sh t f =
     AstNoVectorize $ xgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
+  xconcrete = AstNoVectorize . xconcrete
   xfloor = AstNoVectorize . xfloor . unAstNoVectorize
   xfromIntegral = AstNoVectorize . xfromIntegral . unAstNoVectorize
   xcast = AstNoVectorize . xcast . unAstNoVectorize
@@ -1441,6 +1452,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                  $ unAstNoVectorize . f . AstNoVectorize
 
   -- Scalar ops
+  kconcrete = AstNoVectorize . kconcrete
   kfloor = AstNoVectorize . kfloor . unAstNoVectorize
   kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
   kcast = AstNoVectorize . kcast . unAstNoVectorize
@@ -1581,6 +1593,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rgather sh t f =
     wAstNoSimplify $ rgather sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
+  rconcrete = wAstNoSimplify . rconcrete
   rfloor = wAstNoSimplify . rfloor . wunAstNoSimplify
   rfromIntegral = wAstNoSimplify . rfromIntegral . wunAstNoSimplify
   rcast = wAstNoSimplify . rcast . wunAstNoSimplify
@@ -1608,6 +1621,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   sgather @_ @shm @shn @shp t f =
     wAstNoSimplify $ sgather @_ @_ @shm @shn @shp (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
+  sconcrete = wAstNoSimplify . sconcrete
   sfloor = wAstNoSimplify . sfloor . wunAstNoSimplify
   sfromIntegral = wAstNoSimplify . sfromIntegral . wunAstNoSimplify
   scast = wAstNoSimplify . scast . wunAstNoSimplify
@@ -1638,6 +1652,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xgather @_ @shm @shn @shp sh t f =
     wAstNoSimplify $ xgather @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
+  xconcrete = wAstNoSimplify . xconcrete
   xfloor = wAstNoSimplify . xfloor . wunAstNoSimplify
   xfromIntegral = wAstNoSimplify . xfromIntegral . wunAstNoSimplify
   xcast = wAstNoSimplify . xcast . wunAstNoSimplify
@@ -1656,6 +1671,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xunzip = wAstNoSimplify . xunzip . wunAstNoSimplify
 
   -- Scalar ops
+  kconcrete = wAstNoSimplify . kconcrete
   kfloor = wAstNoSimplify . kfloor . wunAstNoSimplify
   kfromIntegral = wAstNoSimplify . kfromIntegral . wunAstNoSimplify
   kcast = wAstNoSimplify . kcast . wunAstNoSimplify

@@ -548,7 +548,6 @@ class ( Num (IntOf target)
                            (\(i :.: ZIR) -> f i)
   rconcrete :: (KnownSTK r, KnownNat n)
             => Nested.Ranked n (RepORArray r) -> target (TKR2 n r)
-  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
          => target (TKR n r) -> target (TKR n r2)
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
@@ -843,7 +842,6 @@ class ( Num (IntOf target)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
   sconcrete :: (KnownSTK r, KnownShS sh)
             => Nested.Shaped sh (RepORArray r) -> target (TKS2 sh r)
-  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
   sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShS sh)
          => target (TKS sh r) -> target (TKS sh r2)
     -- the integer can be negative
@@ -1235,7 +1233,6 @@ class ( Num (IntOf target)
             (\(i :.% ZIX) -> f i)
   xconcrete :: (KnownSTK r, KnownShX sh)
             => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
-  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
   xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShX sh)
          => target (TKX sh r) -> target (TKX sh r2)
   xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
@@ -1333,7 +1330,6 @@ class ( Num (IntOf target)
 
   -- Scalar ops
   kconcrete :: GoodScalar r => r -> target (TKScalar r)
-  kconcrete = tconcrete FTKScalar . RepN
   kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKScalar r) -> target (TKScalar r2)
   kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -1536,6 +1532,17 @@ class ( Num (IntOf target)
   -- General operations that don't require LetTensor nor ShareTensor
   tftk :: STensorKind y -> target y -> FullTensorKind y
   tconcrete :: FullTensorKind y -> RepN y -> target y
+  tconcrete ftk (RepN a) = case (ftk, ftkToSTK ftk) of
+    (FTKScalar, _) -> kconcrete a
+    (FTKR{}, STKR SNat x) | Dict <- lemKnownSTK x ->
+      rconcrete a
+    (FTKS{}, STKS sh x) | Dict <- lemKnownSTK x ->
+      withKnownShS sh $ sconcrete a
+    (FTKX{}, STKX sh x) | Dict <- lemKnownSTK x ->
+      withKnownShX sh $ xconcrete a
+    (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) | Dict <- lemKnownSTK stk1
+                                                 , Dict <- lemKnownSTK stk2 ->
+      tpair (tconcrete ftk1 (RepN $ fst a)) (tconcrete ftk2 (RepN $ snd a))
   tpair :: (KnownSTK x, KnownSTK z)
          => target x -> target z
          -> target (TKProduct x z)
