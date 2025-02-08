@@ -63,9 +63,9 @@ ftkAst t = case t of
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstMapAccumRDer k bShs _eShs _f _df _rf acc0 _es->
-      FTKProduct (ftkAst acc0) (buildFTK k bShs)
+    FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstMapAccumLDer k bShs _eShs _f _df _rf acc0 _es ->
-      FTKProduct (ftkAst acc0) (buildFTK k bShs)
+    FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstApply _ (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
   AstVar ftk _var -> ftk
   AstCond _b v _w -> ftkAst v
@@ -422,11 +422,11 @@ liftXFromS2 f a b = case ftkAst a of
 cAstSFromK :: forall r ms s. GoodScalar r
            => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
 cAstSFromK (AstFromS _ v) =
-  case sameSTK (ftkToSTK (ftkAst v)) (knownSTK @(TKS '[] r)) of
+  case matchingFTK (ftkAst v) (FTKS ZSS FTKScalar) of
     Just Refl -> v
     _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
 cAstSFromK (AstFromPrimal (AstFromS _ v)) =
-  case sameSTK (ftkToSTK (ftkAst v)) (knownSTK @(TKS '[] r)) of
+  case matchingFTK (ftkAst v) (FTKS ZSS FTKScalar) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
 cAstSFromK v = AstSFromK v
@@ -434,13 +434,13 @@ cAstSFromK v = AstSFromK v
 cAstSFromR :: forall sh x ms s.
               ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromR sh w@(AstFromS _ v) | STKR _ x <- ftkToSTK (ftkAst w) =
-  case sameSTK (STKS sh x) (ftkToSTK (ftkAst v)) of
+cAstSFromR sh w@(AstFromS _ v) | FTKR _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> v
     _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
 cAstSFromR sh (AstFromPrimal w@(AstFromS _ v))
- | STKR _ x <- ftkToSTK (ftkAst w) =
-  case sameSTK (STKS sh x) (ftkToSTK (ftkAst v)) of
+ | FTKR _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
 cAstSFromR sh v = AstSFromR sh v
@@ -448,13 +448,13 @@ cAstSFromR sh v = AstSFromR sh v
 cAstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromX sh w@(AstFromS _ v) | STKX _ x <- ftkToSTK (ftkAst w) =
-  case sameSTK (STKS sh x) (ftkToSTK (ftkAst v)) of
+cAstSFromX sh w@(AstFromS _ v) | FTKX _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> v
     _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
 cAstSFromX sh (AstFromPrimal w@(AstFromS _ v))
- | STKX _ x <- ftkToSTK (ftkAst w) =
-  case sameSTK (STKS sh x) (ftkToSTK (ftkAst v)) of
+ | FTKX _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
 cAstSFromX sh v = AstSFromX sh v

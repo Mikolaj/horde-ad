@@ -353,17 +353,17 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (let unFrom :: STensorKind x
+  (let unFrom :: FullTensorKind x
               -> AstTensor AstMethodLet s y
               -> Maybe (AstTensor AstMethodLet s x)
-       unFrom stkx (Ast.AstFromS _ t) =
-         case sameSTK (ftkToSTK (ftkAst t)) stkx of
+       unFrom ftkx (Ast.AstFromS _ t) =
+         case matchingFTK (ftkAst t) ftkx of
            Just Refl -> Just t
            Nothing -> error "astFromVector: impossible shape"
        unFrom _ _ = Nothing
    in case V.uncons l of
      Just (Ast.AstFromS stkz v, _) ->
-       case V.mapM (unFrom (ftkToSTK (ftkAst v))) l of
+       case V.mapM (unFrom (ftkAst v)) l of
          Just l2 ->
            Just $ astFromS (buildSTK snat stkz)
                 $ astFromVector snat (ftkToSTK (ftkAst v)) l2
@@ -774,7 +774,7 @@ astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   Ast.AstFromDual $ astCond b v w
 astCond b (Ast.AstFromS stkzv v) (Ast.AstFromS _ w) =
-  case sameSTK (ftkToSTK (ftkAst v)) (ftkToSTK (ftkAst w)) of
+  case matchingFTK (ftkAst v) (ftkAst w) of
     Just Refl -> astFromS stkzv $ astCond b v w
     Nothing -> error "astCond: shapes don't match"
 astCond b v w = Ast.AstCond b v w
@@ -1029,7 +1029,7 @@ astSumOfList :: AstSpan s
 astSumOfList l = case l of
   a :| _ -> case ftkToSTK (ftkAst a) of
     STKScalar -> foldr1 (+) l  -- @sum@ breaks and also reverses order
-    STKR SNat STKScalar -> foldr1 (+) l
+    STKR _ STKScalar -> foldr1 (+) l
     STKS _ STKScalar -> foldr1 (+) l
     STKX _ STKScalar -> foldr1 (+) l
     stk -> let v = V.fromList $ toList l
@@ -2212,7 +2212,7 @@ astSFromK t = case t of
   Ast.AstI2K opCode u v | Just Refl <- isTensorInt t ->
     Ast.AstI2S opCode (astSFromK u) (astSFromK v)
   Ast.AstFromS _ v ->
-    case sameSTK (ftkToSTK (ftkAst v)) (knownSTK @(TKS '[] r)) of
+    case matchingFTK (ftkAst v) (FTKS ZSS FTKScalar) of
       Just Refl -> v
       _ -> error $ "astSFromK: unexpected tensor kinds"
   _ -> Ast.AstSFromK t
@@ -2261,12 +2261,12 @@ astSFromR sh a0 = case a0 of
 
   AstSumOfList args -> astSumOfList (NonEmpty.map (astSFromR sh) args)
 
-  Ast.AstFromS _ v | STKR _ x <- ftkToSTK (ftkAst a0) ->
-    case sameSTK (STKS sh x) (ftkToSTK (ftkAst v)) of
+  Ast.AstFromS _ v | FTKR _ x <- ftkAst a0 ->
+    case matchingFTK (FTKS sh x) (ftkAst v) of
       Just Refl -> v
       _ -> error $ "astSFromR: different tensor kinds in AstSFromR(AstFromS): "
-                   ++ show (ftkToSTK (ftkAst v)) ++ " vs "
-                   ++ show (STKS sh x)
+                   ++ show (ftkAst v) ++ " vs "
+                   ++ show (FTKS sh x)
 
 -- TODO
 astSFromX :: forall sh sh' s r. Rank sh ~ Rank sh'
@@ -2280,8 +2280,8 @@ astSFromX sh (AstConcrete (RepF ftk t)) = case ftk of
     astConcrete (RepF (FTKS sh x) (sfromX t))
 astSFromX sh (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX sh v
 astSFromX sh (Ast.AstFromDual v) = Ast.AstFromDual $ astSFromX sh v
-astSFromX sh w@(Ast.AstFromS _ v) | STKX _ x <- ftkToSTK (ftkAst w) =
-  case sameSTK (STKS sh x) (ftkToSTK (ftkAst v)) of
+astSFromX sh w@(Ast.AstFromS _ v) | FTKX _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> v
     _ -> error "astSFromX: different shapes in AstSFromX(AstFromS)"
 astSFromX sh v = Ast.AstSFromX sh v
@@ -3474,7 +3474,7 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstVar ftk var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s @s2 of
-        Just Refl -> case sameSTK (ftkToSTK (ftkAst i)) (ftkToSTK ftk) of
+        Just Refl -> case matchingFTK (ftkAst i) ftk of
           Just Refl -> Just i
           _ -> error $ "substitute1Ast: kind of the variable "
                        ++ show var2 ++ ": " ++ show ftk
