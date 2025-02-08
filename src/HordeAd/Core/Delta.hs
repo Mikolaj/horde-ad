@@ -518,8 +518,8 @@ deriving instance ( KnownSTK y
 
 -- * Full tensor kind derivation for delta expressions
 
-ftkDelta :: forall target y. KnownSTK y
-         => Delta target y -> FullTensorKind y
+ftkDelta :: forall target y.
+            Delta target y -> FullTensorKind y
 ftkDelta = \case
   DeltaPair t1 t2 -> FTKProduct (ftkDelta t1) (ftkDelta t2)
   DeltaProject1 v -> case ftkDelta v of
