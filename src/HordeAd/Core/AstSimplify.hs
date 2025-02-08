@@ -795,8 +795,7 @@ astConcrete (RepF ftk v) = case ftk of
       withKnownShX (ssxFromShape sh') $
       withKnownShS sh $
       astFromS (ftkToSTK ftk) $ AstConcrete (RepF (FTKS sh x) (sfromX v))
-  _ -> withKnownSTK (ftkToSTK ftk)
-       $ AstConcrete (RepF ftk v)  -- product case should be too rare to care
+  _ -> AstConcrete (RepF ftk v)  -- product case should be too rare to care
 
 -- Inlining works for this let constructor, because it has just one variable,
 -- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
@@ -2281,8 +2280,7 @@ astSFromX sh (AstConcrete (RepF ftk t)) = case ftk of
     withKnownSTK (ftkToSTK x) $
     withKnownShS sh $
     withKnownShX (ssxFromShape sh') $
-    let u = sfromX t
-    in astConcrete (RepF (FTKS sh x) u)
+    astConcrete (RepF (FTKS sh x) (sfromX t))
 astSFromX sh (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX sh v
 astSFromX sh (Ast.AstFromDual v) = Ast.AstFromDual $ astSFromX sh v
 astSFromX sh w@(Ast.AstFromS _ v) | STKX _ x <- ftkToSTK (ftkAst w) =
@@ -2294,7 +2292,6 @@ astSFromX sh v = Ast.AstSFromX sh v
 
 -- * Helper combinators
 
--- TODO: a new section for this one?
 astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
