@@ -27,7 +27,7 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
   (IShX, IxS (..), ListS (..), Rank, ShS (..), ShX (..), type (++))
 import Data.Array.Nested.Internal.Shape
-  (shrRank, shsLength, shsPermutePrefix, shsRank, shsTail)
+  (shrRank, shsPermutePrefix, shsRank, shsTail)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
@@ -398,13 +398,12 @@ build1VIndexS SNat SNat sh2 (var, v0, ix@(_ :.$ _))
      then case astIndexStepS sh2 v0 ix of  -- push deeper
        Ast.AstIndexS _ v1 ZIS -> traceRule $
          build1VOccurenceUnknown (SNat @k) (var, v1)
-       v@(Ast.AstIndexS @sh1 @sh2 sh2' v1 ix1)
-        | STKS sh1 _ <- ftkToSTK (ftkAst v1) -> traceRule $
+       v@(Ast.AstIndexS @sh1 @sh2 sh2' v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
              ruleD = astGatherStepS @'[k] @sh2 @(k ': sh1)
                        sh2' (build1VOccurenceUnknown (SNat @k) (var, v1))
                        (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
-             len = shsLength sh1
+             len = sNatValue $ ixsRank ix1
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVector{} | len == 1 -> ruleD
