@@ -275,14 +275,8 @@ build1V snat@SNat (var, v0)
     Ast.AstCastS v -> traceRule $
       astCastS $ build1V snat (var, v)
 
-    Ast.AstIndexS @sh1 sh2 v ix -> traceRule $ case stk0 of
-      STKS @sh _ _ ->
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank sh1) (sh1 ++ sh) :~: sh1) $
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank sh1) (sh1 ++ sh) :~: sh) $
-        build1VIndexS (SNat @k) (shsRank (ixsToShS ix)) sh2 (var, v, ix)
-          -- @var@ is in @v@ or @ix@
+    Ast.AstIndexS shn v ix -> traceRule $
+      build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstScatterS @shm @shn @shp shn v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
       in astScatterS @(k ': shm) @shn @(k ': shp) shn
@@ -377,31 +371,27 @@ intBindingRefreshS var ix =
 -- eventually proven unnecessary. The rule changes the index to a gather
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndexS
-  :: forall k p sh s r. AstSpan s
-  => SNat k -> SNat p -> ShS (Drop p sh)
+  :: forall k shm shn x s. AstSpan s
+  => SNat k -> ShS shn
   -> ( IntVarName
-     , AstTensor AstMethodLet s (TKS2 sh r)
-     , AstIxS AstMethodLet (Take p sh) )
-  -> AstTensor AstMethodLet s (TKS2 (k ': Drop p sh) r)
-build1VIndexS SNat SNat _ (var, v0, ZIS) =
-  gcastWith (unsafeCoerceRefl :: p :~: 0)
-    -- otherwise sh would need to be empty, but then Take gets stuck
-    -- so the application of this function wouldn't type-check
-  $ build1VOccurenceUnknown (SNat @k) (var, v0)
-build1VIndexS SNat SNat sh2 (var, v0, ix@(_ :.$ _))
+     , AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
+     , AstIxS AstMethodLet shm )
+  -> AstTensor AstMethodLet s (TKS2 (k ': shn) x)
+build1VIndexS k _ (var, v0, ZIS) =
+  build1VOccurenceUnknown k (var, v0)
+build1VIndexS k@SNat shn (var, v0, ix)
  | STKS _ x <- ftkToSTK (ftkAst v0) =
-  gcastWith (unsafeCoerceRefl :: sh :~: Take p sh ++ Drop p sh) $
-  let vTrace = Ast.AstBuild1 (SNat @k) (STKS sh2 x)
-                             (var, Ast.AstIndexS sh2 v0 ix)
+  let vTrace = Ast.AstBuild1 k (STKS shn x) (var, Ast.AstIndexS shn v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAst var v0
-     then case astIndexStepS sh2 v0 ix of  -- push deeper
+     then case astIndexStepS shn v0 ix of  -- push deeper
        Ast.AstIndexS _ v1 ZIS -> traceRule $
-         build1VOccurenceUnknown (SNat @k) (var, v1)
-       v@(Ast.AstIndexS @sh1 @sh2 sh2' v1 ix1) -> traceRule $
+         build1VOccurenceUnknown k (var, v1)
+       v@(Ast.AstIndexS shn1 v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
-             ruleD = astGatherStepS @'[k] @sh2 @(k ': sh1)
-                       sh2' (build1VOccurenceUnknown (SNat @k) (var, v1))
+             ruleD =
+               astGatherStepS
+                       shn1 (build1VOccurenceUnknown k (var, v1))
                        (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = sNatValue $ ixsRank ix1
          in if varNameInAst var v1
@@ -410,12 +400,12 @@ build1VIndexS SNat SNat sh2 (var, v0, ix@(_ :.$ _))
               Ast.AstScatterS{} -> ruleD
               Ast.AstSFromR{} -> ruleD
               Ast.AstSFromX{} -> ruleD
-              _ -> build1VOccurenceUnknown (SNat @k) (var, v)  -- not a normal form
-            else build1VOccurenceUnknown (SNat @k) (var, v)  -- shortcut
+              _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
+            else build1VOccurenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
-         build1VOccurenceUnknown (SNat @k) (var, v)  -- peel off yet another constructor
+         build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
      else traceRule $
-            astGatherStepS sh2 v0 (Const var ::$ ZS, ix)
+            astGatherStepS shn v0 (Const var ::$ ZS, ix)
 
 build1VHFun
   :: forall k x z.

@@ -42,7 +42,7 @@ type XParams r = X (MnistCnnRanked2.ADCnnMnistParameters RepN r)
 mnistTestCaseCNNA
   :: forall r.
      ( Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -151,7 +151,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 mnistTestCaseCNNI
   :: forall r.
      ( Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree

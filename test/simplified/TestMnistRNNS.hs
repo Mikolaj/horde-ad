@@ -45,7 +45,7 @@ testTrees = [ tensorADValMnistTestsRNNSA
 mnistTestCaseRNNSA
   :: forall width batch_size r.
      ( Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
@@ -154,7 +154,7 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 mnistTestCaseRNNSI
   :: forall width batch_size r.
      ( Differentiable r, GoodScalar r, Numeric r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree

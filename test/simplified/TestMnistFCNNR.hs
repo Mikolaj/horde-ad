@@ -405,7 +405,7 @@ type XParams2 r = X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r)
 -- which side-steps vectorization.
 mnistTestCase2VTA
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r, ADTensorScalar r ~ r
+     ( Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -492,7 +492,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 mnistTestCase2VTI
   :: forall r.
      ( Differentiable r, GoodScalar r, Random r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
