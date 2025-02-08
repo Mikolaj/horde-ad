@@ -10,7 +10,7 @@ module HordeAd.Core.TensorKind
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD
   , FullTensorKind(..), KnownFTK(..)
-  , ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK
+  , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK
   , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..), EqF(..), OrdF(..)
@@ -94,27 +94,23 @@ sameKnownSTS :: forall y1 y2. (KnownSTK y1, KnownSTK y2)
                => Maybe (y1 :~: y2)
 sameKnownSTS = sameSTK (knownSTK @y1) (knownSTK @y2)
 
-sameSTK :: STensorKind y1' -> STensorKind y2' -> Maybe (y1' :~: y2')
-sameSTK y1 y2 = case (y1, y2) of
-  (STKScalar @r1, STKScalar @r2) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> Just Refl
-      Nothing -> Nothing
-  (STKR snat1 r1, STKR snat2 r2) ->
-    case (sameSTK r1 r2, testEquality snat1 snat2) of
-      (Just Refl, Just Refl) -> Just Refl
-      _ -> Nothing
-  (STKS shs1 r1, STKS shs2 r2) ->
-    case (sameSTK r1 r2, testEquality shs1 shs2) of
-      (Just Refl, Just Refl) -> Just Refl
-      _ -> Nothing
-  (STKX shs1 r1, STKX shs2 r2) ->
-    case (sameSTK r1 r2, testEquality shs1 shs2) of
-      (Just Refl, Just Refl) -> Just Refl
-      _ -> Nothing
-  (STKProduct x1 z1, STKProduct x2 z2) -> case (sameSTK x1 x2, sameSTK z1 z2) of
-    (Just Refl, Just Refl) -> Just Refl
-    _ -> Nothing
+sameSTK :: STensorKind y1 -> STensorKind y2 -> Maybe (y1 :~: y2)
+sameSTK stk1 stk2 = case (stk1, stk2) of
+  (STKScalar @r1, STKScalar @r2)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Just Refl
+  (STKR snat1 x1, STKR snat2 x2)
+    | Just Refl <- sameSTK x1 x2, Just Refl <- testEquality snat1 snat2 ->
+      Just Refl
+  (STKS sh1 x1, STKS sh2 x2)
+    | Just Refl <- sameSTK x1 x2, Just Refl <- testEquality sh1 sh2 ->
+      Just Refl
+  (STKX sh1 x1, STKX sh2 x2)
+    | Just Refl <- sameSTK x1 x2, Just Refl <- testEquality sh1 sh2 ->
+      Just Refl
+  (STKProduct x1 y1, STKProduct x2 y2)
+    | Just Refl <- sameSTK x1 x2, Just Refl <- sameSTK y1 y2 ->
+      Just Refl
   _ -> Nothing
 
 stkUnit :: STensorKind TKUnit
@@ -202,6 +198,28 @@ instance (KnownFTK x, KnownShS sh)
 instance (KnownFTK y, KnownFTK z)
          => KnownFTK (TKProduct y z) where
   knownFTK = FTKProduct (knownFTK @y) (knownFTK @z)
+
+matchingFTK :: FullTensorKind y1 -> FullTensorKind y2 -> Maybe (y1 :~: y2)
+matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
+  (FTKScalar @r1, FTKScalar @r2)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Just Refl
+  (FTKR sh1 x1, FTKR sh2 x2)
+    | Just Refl <- matchingFTK x1 x2
+    , Just Refl <- testEquality (shrRank sh1) (shrRank sh2) ->  -- weaker!!!
+      Just Refl
+  (FTKS sh1 x1, FTKS sh2 x2)
+    | Just Refl <- matchingFTK x1 x2
+    , Just Refl <- testEquality sh1 sh2 ->
+      Just Refl
+  (FTKX sh1 x1, FTKX sh2 x2)
+    | Just Refl <- matchingFTK x1 x2
+    , Just Refl <- testEquality (ssxFromShape sh1) (ssxFromShape sh2) ->  -- !!!
+      Just Refl
+  (FTKProduct x1 y1, FTKProduct x2 y2)
+    | Just Refl <- matchingFTK x1 x2, Just Refl <- matchingFTK y1 y2 ->
+      Just Refl
+  _ -> Nothing
 
 ftkToSTK :: FullTensorKind y -> STensorKind y
 ftkToSTK = \case

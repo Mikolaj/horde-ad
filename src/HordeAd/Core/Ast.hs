@@ -439,6 +439,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
 deriving instance Show (AstTensor ms s y)
 
 -- Only needed to be able to derive Show without a KnownSTK y constraint.
+-- Sadly, this costs extra allocation, but in the future it may be
+-- used to insert extra backend-specific meta-data or to have
+-- many variants of concrete representations not captured by the type,
+-- at which point the extra allocation would be needed anyway.
 type role RepF nominal
 data RepF y = RepF (FullTensorKind y) (RepN y)
 

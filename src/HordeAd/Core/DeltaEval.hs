@@ -188,7 +188,7 @@ rebuildInputs els s2 ftk = case ftk of
           error $ "rebuildInputs: wrong Tensor type: "
                   ++ show (tz, show_iMap (iMap s2))
     Some tz@(Zero ftk2) : rest ->
-      case sameSTK (ftkToSTK ftk2) (ftkToSTK ftk) of
+      case matchingFTK ftk2 ftk of
         Just Refl -> (constantTarget 0 ftk, rest)
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
