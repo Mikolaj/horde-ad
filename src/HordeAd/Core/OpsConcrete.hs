@@ -163,12 +163,12 @@ instance BaseTensor RepN where
   rbuild1 @r k f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1R k (unRepN . f . RepN)
   rmap0N @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
-    (STKScalar{}, STKScalar{}) -> RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
+    (STKScalar, STKScalar) -> RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
     _ ->  -- TODO: how to call the default implementation?
       rbuild (rshape t) (f . rindex0 t)
   rzipWith0N @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
-      (STKScalar{}, STKScalar{}, STKScalar{}) ->
+      (STKScalar, STKScalar, STKScalar) ->
         RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
                            (unRepN t) (unRepN u)
       _ ->  -- TODO: how to call the default implementation?
@@ -277,7 +277,7 @@ instance BaseTensor RepN where
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case knownSTK @r of
-      STKScalar{} ->  -- optimized
+      STKScalar ->  -- optimized
         let shm = knownShS @shm
             s = shsSize shm
             l = [ Nested.stoVector $ unRepN
@@ -320,7 +320,7 @@ instance BaseTensor RepN where
   sbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1S (unRepN . f . RepN)
   smap0N @r1 @r @sh f v = case (knownSTK @r1, knownSTK @r) of
-    (STKScalar{}, STKScalar{}) ->
+    (STKScalar, STKScalar) ->
       RepN $ tmap0NS (unRepN . f . RepN) (unRepN v)
     _ ->  -- TODO: how to call the default implementation?
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
@@ -328,7 +328,7 @@ instance BaseTensor RepN where
       $ sbuild @RepN @r @(Rank sh) (f . sindex0 v)
   szipWith0N @r1 @r2 @r @sh f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
-      (STKScalar{}, STKScalar{}, STKScalar{}) ->
+      (STKScalar, STKScalar, STKScalar) ->
         RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
                            (unRepN t) (unRepN u)
       _ ->  -- TODO: how to call the default implementation?
@@ -426,7 +426,7 @@ instance BaseTensor RepN where
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case knownSTK @r of
-      STKScalar{} ->  -- optimized
+      STKScalar ->  -- optimized
         let shm = shxTakeSSX (Proxy @shn) sh (knownShX @shm)
             s = shxSize shm
             l = [ Nested.mtoVector $ unRepN
@@ -578,7 +578,7 @@ ravel :: forall k y. KnownSTK y
       => SNat k -> [RepN y]
       -> RepN (BuildTensorKind k y)
 ravel k@SNat t = case knownSTK @y of
-  STKScalar{} -> sfromList $ sfromK <$> NonEmpty.fromList t
+  STKScalar -> sfromList $ sfromK <$> NonEmpty.fromList t
   STKR SNat x | Dict <- lemKnownSTK x ->
     rfromList $ NonEmpty.fromList t
   STKS sh x | Dict <- lemKnownSTK x ->
@@ -597,7 +597,7 @@ unravel :: forall k y. KnownSTK y
         => SNat k -> RepN (BuildTensorKind k y)
         -> [RepN y]
 unravel k@SNat t = case knownSTK @y of
-  STKScalar{} -> map kfromS $ sunravelToList t
+  STKScalar -> map kfromS $ sunravelToList t
   STKR SNat x | Dict <- lemKnownSTK x ->
     runravelToList t
   STKS sh x | Dict <- lemKnownSTK x ->
@@ -679,7 +679,7 @@ updateNR :: forall n m x. (KnownNat n, KnownNat m, KnownSTK x)
          => RepN (TKR2 (n + m) x) -> [(IxROf RepN n, RepN (TKR2 m x))]
          -> RepN (TKR2 (n + m) x)
 updateNR arr upd = case knownSTK @x of
-  STKScalar{} ->  -- optimized
+  STKScalar ->  -- optimized
     let values = Nested.rtoVector $ unRepN arr
         sh = rshape arr
         f !t (ix, u) =
@@ -909,7 +909,7 @@ tgatherZR :: forall m p n r.
           -> (IxROf RepN m -> IxROf RepN p)
           -> RepN (TKR2 (m + n) r)
 tgatherZR sh t f = case knownSTK @r of
-  STKScalar{} ->  -- optimized
+  STKScalar ->  -- optimized
     let shm = takeShape @m sh
         s = shrSize shm
         l = [ Nested.rtoVector $ unRepN
@@ -924,7 +924,7 @@ tgatherZ1R :: forall p n r.
            -> (IntOf RepN -> IxROf RepN p)
            -> RepN (TKR2 (1 + n) r)
 tgatherZ1R k t f = case knownSTK @r of
-  STKScalar{} ->  -- optimized
+  STKScalar ->  -- optimized
     rfromList $ NonEmpty.map (\i -> t `rindex` f (RepN i))
                              (NonEmpty.fromList [0 .. fromIntegral k - 1])
   _ -> rbuild1 k (\ix -> t ! f ix)
@@ -942,7 +942,7 @@ updateNS :: forall n sh r.
          -> [(IxSOf RepN (Take n sh), RepN (TKS2 (Drop n sh) r))]
          -> RepN (TKS2 sh r)
 updateNS arr upd = case knownSTK @r of
-  STKScalar{} ->
+  STKScalar ->
     let values = Nested.stoVector $ unRepN arr
         sh = knownShS @sh
         f !t (ix, u) =
@@ -1156,7 +1156,7 @@ tgatherZ1S
 tgatherZ1S t f =
   withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
   case knownSTK @r of
-    STKScalar{} ->  -- optimized
+    STKScalar ->  -- optimized
       sfromList $ NonEmpty.map (\i -> t !$ f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
     _ -> sbuild1 (\ix -> t !$ f ix)
@@ -1170,7 +1170,7 @@ updateNX :: forall n sh r.
          -> [(IxXOf RepN (Take n sh), RepN (TKX2 (Drop n sh) r))]
          -> RepN (TKX2 sh r)
 updateNX arr upd = case knownSTK @r of
-  STKScalar{} ->
+  STKScalar ->
     let values = Nested.mtoVector $ unRepN arr
         sh = xshape arr
         f !t (ix, u) =
@@ -1345,7 +1345,7 @@ tgatherZ1X
 tgatherZ1X SNat t f =
   withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
   case knownSTK @r of
-    STKScalar{} ->  -- optimized
+    STKScalar ->  -- optimized
       xfromList $ NonEmpty.map (\i -> t `xindex` f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
     _ -> xbuild1 @_ @n2 (\ix -> t `xindex` f ix)

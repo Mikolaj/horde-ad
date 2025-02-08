@@ -138,8 +138,8 @@ ftkAst t = case t of
     let fromS :: FullTensorKind y2 -> STensorKind z2 -> FullTensorKind z2
         fromS ftk stk = case (ftk, stk) of
           _ | Just Refl <- sameSTK (ftkToSTK ftk) stk -> ftk
-          (FTKS ZSS (FTKScalar @r), STKScalar tr) ->
-            case testEquality (typeRep @r) tr of
+          (FTKS ZSS (FTKScalar @r1), STKScalar @r2) ->
+            case testEquality (typeRep @r1) (typeRep @r2) of
               Just Refl -> FTKScalar
               Nothing -> error "ftkAst: wrong tensor kinds for AstFromS"
           (FTKS sh x, STKR nx zx) ->

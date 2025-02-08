@@ -532,8 +532,8 @@ evalRev !s !c d0 = case d0 of
       evalRev s c d
   DeltaFromS @y7 @z d -> case (knownSTK @y7, knownSTK @z) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev s c d
-    (STKS ZSS yx@(STKScalar try), STKScalar trz) ->
-      case testEquality try trz of
+    (STKS ZSS yx@(STKScalar @ry), STKScalar @rz) ->
+      case testEquality (typeRep @ry) (typeRep @rz) of
         Just Refl -> case sameSTK yx (adSTK yx) of
           Just Refl -> evalRev s (sfromK c) d
           _ -> s
@@ -789,14 +789,14 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
           errorMissing :: a
           errorMissing = error $ "evalRevFromnMap: missing cotangent " ++ show n
           s3 = case knownSTK @y of
-            STKR @n SNat (STKScalar @r _) -> case DMap.lookup n dMap of
+            STKR @n SNat (STKScalar @r) -> case DMap.lookup n dMap of
               Just (Cotangent c) -> evalRevRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
-            STKS @sh sh (STKScalar @r _) ->
+            STKS @sh sh (STKScalar @r) ->
               withKnownShS sh $ case DMap.lookup n dMap of
                 Just (Cotangent c) -> evalSRuntimeSpecialized @sh @r s2 c d
                 Nothing -> errorMissing
-            STKX @sh sh (STKScalar @r _) ->
+            STKX @sh sh (STKScalar @r) ->
               withKnownShX sh $ case DMap.lookup n dMap of
                 Just (Cotangent c) -> evalXRuntimeSpecialized @sh @r s2 c d
                 Nothing -> errorMissing
@@ -987,7 +987,7 @@ evalFwdSame params s = \case
                   in (s3, t + u)
 
   d0@(DeltaCastK @r1 d) ->
-    case sameSTK (STKScalar (typeRep @r1)) (adSTK (STKScalar (typeRep @r1))) of
+    case sameSTK (STKScalar @r1) (adSTK (STKScalar @r1)) of
       Just Refl -> second kcast $ evalFwdSame params s d
       _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
 

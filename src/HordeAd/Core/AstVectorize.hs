@@ -469,7 +469,7 @@ astTrBuild
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrBuild SNat SNat stk t = case stk of
-  STKScalar{} -> astTrS t
+  STKScalar -> astTrS t
   STKR{} -> astTr t
   STKS{} -> astTrS t
   STKX{} -> astTrX t
@@ -485,7 +485,7 @@ astIndexBuild :: forall y k s. AstSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat stk u i = case stk of
-  STKScalar{} -> astFromS stk $ astIndexStepS ZSS u (i :.$ ZIS)
+  STKScalar -> astFromS stk $ astIndexStepS ZSS u (i :.$ ZIS)
   STKR SNat _ -> case ftkAst u of
     FTKR shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->

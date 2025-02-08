@@ -10,7 +10,6 @@ module HordeAd.External.OptimizerTools
 import Prelude
 
 import Data.Type.Equality ((:~:) (Refl))
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Nested (KnownShS (..))
@@ -27,8 +26,8 @@ import HordeAd.Core.Unwind
 updateWithGradient :: forall y. KnownSTK y
                    => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
 updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
-  STKScalar @r _ -> RepN $
-    case sameSTK (knownSTK @y) (STKScalar @Z0 typeRep) of
+  STKScalar @r -> RepN $
+    case sameSTK (knownSTK @y) (STKScalar @Z0) of
       Just Refl -> params
       _ -> error "TODO: unexpected"
            $ case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
@@ -37,7 +36,7 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
             (params - realToFrac gamma * gradient)
             params
         Nothing -> params
-  STKR SNat (STKScalar @r _) -> RepN $
+  STKR SNat (STKScalar @r) -> RepN $
     case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
       Just Refl ->
         ifDifferentiable @r
@@ -46,7 +45,7 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
                     * gradient)
           params
       Nothing -> params
-  STKS sh (STKScalar @r _) -> withKnownShS sh $ RepN $
+  STKS sh (STKScalar @r) -> withKnownShS sh $ RepN $
     case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
       Just Refl ->
         ifDifferentiable @r
@@ -109,10 +108,10 @@ unzip3Rep
   :: STensorKind y -> RepN (Triplify y)
   -> (RepN y, RepN y, RepN y)
 unzip3Rep stk (RepN t) = case stk of
-  STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
-  STKR _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
-  STKS _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
-  STKX _ STKScalar{} -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
+  STKScalar -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
+  STKR _ STKScalar -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
+  STKS _ STKScalar -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
+  STKX _ STKScalar -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
   STKProduct stk1 stk2 -> let !(!a1, !b1, !c1) = unzip3Rep stk1 $ RepN $ fst t
                               !(!a2, !b2, !c2) = unzip3Rep stk2 $ RepN $ snd t
                           in ( RepN (unRepN a1, unRepN a2)
@@ -171,7 +170,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                  -> RepN (Triplify y2)
       updateProd stk (RepN mA) (RepN vA) (RepN p) (RepN g)
        | Dict <- lemKnownSTKOfAD stk = case stk of
-        STKScalar @r _ ->
+        STKScalar @r ->
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -186,7 +185,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                     , Nested.runScalar pN ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKR SNat (STKScalar @r _) ->
+        STKR SNat (STKScalar @r) ->
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -194,7 +193,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                  in RepN ((mAN, vAN), pN))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKS sh (STKScalar @r _) -> withKnownShS sh $
+        STKS sh (STKScalar @r) -> withKnownShS sh $
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r
@@ -209,7 +208,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                     , Nested.rcastToShaped pN knownShS ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKX sh (STKScalar @r _) -> withKnownShX sh $
+        STKX sh (STKScalar @r) -> withKnownShX sh $
           case sameKnownSTS @y2 @(ADTensorKind y2) of
             Just Refl ->
               ifDifferentiable @r

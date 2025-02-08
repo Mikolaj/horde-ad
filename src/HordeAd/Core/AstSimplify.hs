@@ -383,17 +383,17 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromVector @y2 _ _ l ->
     gcastWith (unsafeCoerceRefl :: y2 :~: y) $
     case stk of
-      STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
-      STKR _ STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
-      STKS _ STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
-      STKX _ STKScalar{} -> astSumOfList $ NonEmpty.fromList $ V.toList l
+      STKScalar -> astSumOfList $ NonEmpty.fromList $ V.toList l
+      STKR _ STKScalar -> astSumOfList $ NonEmpty.fromList $ V.toList l
+      STKS _ STKScalar -> astSumOfList $ NonEmpty.fromList $ V.toList l
+      STKX _ STKScalar -> astSumOfList $ NonEmpty.fromList $ V.toList l
       _ -> Ast.AstSum snat stk t0
-  Ast.AstReplicate _ STKScalar{} v | STKScalar{} <- stk ->
+  Ast.AstReplicate _ STKScalar v | STKScalar <- stk ->
     let ftk = FTKScalar
     in v * (fromPrimal
             $ astConcrete (RepF ftk (tconstantTarget (fromInteger
                                                       $ fromSNat snat) ftk)))
-  Ast.AstReplicate _ _ v | STKR _ (STKScalar @r _) <- stk ->
+  Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk ->
     case ftkAst v of
       FTKR sh' FTKScalar ->
         withCastRS sh' $ \(sh :: ShS sh) ->
@@ -403,7 +403,7 @@ astSum snat@SNat stk t0 = case t0 of
                                                    (tconstantTarget
                                                       (fromInteger
                                                        $ fromSNat snat) ftk)))
-  Ast.AstReplicate _ _ v | STKX _ (STKScalar @r _) <- stk ->
+  Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk ->
     case ftkAst v of
       FTKX sh' FTKScalar ->
         withCastXS sh' $ \(sh :: ShS sh) ->
@@ -413,7 +413,7 @@ astSum snat@SNat stk t0 = case t0 of
                                                    (tconstantTarget
                                                       (fromInteger
                                                        $ fromSNat snat) ftk)))
-  Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r _) <- stk ->
+  Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk ->
     let ftk = FTKS sh (FTKScalar @r)
     in v * (fromPrimal $ astConcrete (RepF ftk
                                            (tconstantTarget
@@ -1028,10 +1028,10 @@ astSumOfList :: AstSpan s
              -> AstTensor AstMethodLet s y
 astSumOfList l = case l of
   a :| _ -> case ftkToSTK (ftkAst a) of
-    STKScalar{} -> foldr1 (+) l  -- @sum@ breaks and also reverses order
-    STKR SNat STKScalar{} -> foldr1 (+) l
-    STKS _ STKScalar{} -> foldr1 (+) l
-    STKX _ STKScalar{} -> foldr1 (+) l
+    STKScalar -> foldr1 (+) l  -- @sum@ breaks and also reverses order
+    STKR SNat STKScalar -> foldr1 (+) l
+    STKS _ STKScalar -> foldr1 (+) l
+    STKX _ STKScalar -> foldr1 (+) l
     stk -> let v = V.fromList $ toList l
            in withSNat (V.length v) $ \snat ->
                 astSum snat stk $ astFromVector snat stk v
@@ -1191,14 +1191,14 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   -- TODO: the two below are wrong, should catch out of bounds instead
   Ast.AstReplicate _ STKS{} v -> astIndex shn v rest1
-  Ast.AstReplicate _ STKScalar{} v | ZIS <- rest1 -> astSFromK v
+  Ast.AstReplicate _ STKScalar v | ZIS <- rest1 -> astSFromK v
   Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
   Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 ->
       astCond b (astIndexRec shn v ix2) (astIndexRec shn w ix2)
   Ast.AstBuild1 _snat stk (var2, v) -> case stk of
-    STKScalar{} | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
+    STKScalar | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
     STKS{} -> astIndex shn (astLet var2 i1 v) rest1
   AstConcrete (RepF FTKS{} t) ->
     let unConc :: AstInt AstMethodLet -> Maybe [IntOf RepN]
@@ -1387,7 +1387,7 @@ astScatterS _shn v (ZS, ZIS) = v
 astScatterS _v (_vars, (:.$) @k (AstConcrete _ (RepN it)) _ix)
   | let i = fromIntegral it
   , not (0 <= i && i < valueOf @k)
-  , STKScalar{} <- knownSTK @r =
+  , STKScalar <- knownSTK @r =
       astReplicate0NS def
 -- else update (rzero sh 0) [AstConcreteS it] (astScatter ...) -}
 astScatterS shn v (Const var ::$ (vars :: AstVarListS sh3), ix)
@@ -1605,7 +1605,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
               in fromPrimal $ astConcrete (RepF ftk (constantTarget def ftk))
     Ast.AstReplicate _ STKS{} v ->
       astGather @shm' @shn' @shp1' shn' v (vars4, rest4)
-    Ast.AstReplicate _ STKScalar{} v | ZIS <- rest4 ->
+    Ast.AstReplicate _ STKScalar v | ZIS <- rest4 ->
       astGather @shm' @shn' @shp1' shn' (astSFromK v) (vars4, rest4)
     Ast.AstApply{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
@@ -2176,9 +2176,10 @@ astSFrom stkz (Ast.AstFromS _ v)  -- shortcut
          | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
   (_, stky) | Just Refl <- sameSTK stky stkz -> v
-  (STKS ZSS (STKScalar trz), STKScalar try) -> case testEquality try trz of
-    Just Refl -> astSFromK v
-    Nothing -> error "astSFrom: tensor kinds don't match"
+  (STKS ZSS (STKScalar @rz), STKScalar @ry) ->
+    case testEquality (typeRep @ry) (typeRep @rz) of
+      Just Refl -> astSFromK v
+      Nothing -> error "astSFrom: tensor kinds don't match"
   (STKS shz zx, STKR yn@SNat yx) ->
     case (sameSTK yx zx, testEquality (shsRank shz) yn) of
       (Just Refl, Just Refl) -> astSFromR shz v
@@ -2607,7 +2608,7 @@ expandAstBool t = case t of
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel arg1 arg2 ->
     case ftkToSTK (ftkAst arg1) of
-      STKScalar{} ->
+      STKScalar ->
         contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
           -- Because the scalar tensors sometimes represent indexes,
           -- we expand them a bit more than all the others.
@@ -2744,7 +2745,7 @@ simplifyAstBool t = case t of
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel arg1 arg2 ->
     case ftkToSTK (ftkAst arg1) of
-      STKScalar{} ->
+      STKScalar ->
         contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
           -- Because the scalar tensors sometimes represent indexes,
           -- we simplify them a bit more than all the others.
@@ -2817,7 +2818,7 @@ contractAst t = case t of
                            (Ast.AstTransposeS uperm (contractAst u))))))
   Ast.AstSum
     snat@(SNat @m2)
-    stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) (STKScalar @r rRep))
+    stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) (STKScalar @r))
     v@(AstN2S TimesOp (Ast.AstTransposeS @permt permt
                          (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
                       (Ast.AstTransposeS @permu permu
@@ -2831,19 +2832,19 @@ contractAst t = case t of
         attemptMatmul2 t3 u3 =
           let t4 = contractAst t3
               u4 = contractAst u3
-          in case testEquality rRep (typeRep @Double) of
+          in case testEquality (typeRep @r) (typeRep @Double) of
             Just Refl ->
               Just $ Ast.AstMatmul2S
                        (SNat @m') (SNat @n') (SNat @p') t4 u4
-            _ -> case testEquality rRep (typeRep @Float) of
+            _ -> case testEquality (typeRep @r) (typeRep @Float) of
               Just Refl ->
                 Just $ Ast.AstMatmul2S
                          (SNat @m') (SNat @n') (SNat @p') t4 u4
-              _ -> case testEquality rRep (typeRep @Int64) of
+              _ -> case testEquality (typeRep @r) (typeRep @Int64) of
                 Just Refl ->
                   Just $ Ast.AstMatmul2S
                            (SNat @m') (SNat @n') (SNat @p') t4 u4
-                _ -> case testEquality rRep (typeRep @CInt) of
+                _ -> case testEquality (typeRep @r) (typeRep @CInt) of
                   Just Refl ->
                     Just $ Ast.AstMatmul2S
                              (SNat @m') (SNat @n') (SNat @p') t4 u4
@@ -3091,7 +3092,7 @@ contractAst t = case t of
     Ast.AstReplicate0NS sh (contractAst s)
       -- TODO: maybe move this and others to astReshape and maybe somehow join
       -- with astReplicate0NS and also do this in this case and others:
-      -- Ast.AstReplicate _ (STKR @m _ STKScalar{}) x
+      -- Ast.AstReplicate _ (STKR @m _ STKScalar) x
       --    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
       --      astReplicate0N shOut x
   Ast.AstReshapeS sh (Ast.AstLet var v (Ast.AstReplicate snat stk t2)) ->
@@ -3132,7 +3133,7 @@ contractAstBool t = case t of
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel arg1 arg2 ->
     case ftkToSTK (ftkAst arg1) of
-      STKScalar{} ->
+      STKScalar ->
         contractRelOp opCodeRel (contractAst arg1) (contractAst arg2)
       _ -> Ast.AstRel opCodeRel (contractAst arg1) (contractAst arg2)
 
@@ -3671,7 +3672,7 @@ substitute1AstBool i var = \case
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
        then case ftkToSTK (ftkAst arg1) of
-         STKScalar{} ->
+         STKScalar ->
            Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
                                           (fromMaybe arg2 mr2)
          _ -> Just $ Ast.AstRel opCodeRel (fromMaybe arg1 mr1)

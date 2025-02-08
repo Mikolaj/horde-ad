@@ -138,19 +138,19 @@ fromADTensorKindW
   :: forall y target. BaseTensor target
   => STensorKind y -> RepW target (ADTensorKind y) -> RepW target y
 fromADTensorKindW stk t = case (stk, t) of
-  (STKScalar @r1 _, WTKScalar @r2 _) ->
+  (STKScalar @r1, WTKScalar @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
       _ -> constantRepW 0 WFTKScalar
-  (STKR _ (STKScalar @r1 _), WTKR @r2 v) ->
+  (STKR _ (STKScalar @r1), WTKR @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
       _ -> constantRepW 0 (WFTKR (rshape v))
-  (STKS sh (STKScalar @r1 _), WTKS @r2 _) ->
+  (STKS sh (STKScalar @r1), WTKS @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
       _ -> constantRepW 0 (WFTKS sh)
-  (STKX _ (STKScalar @r1 _), WTKX @r2 v) ->
+  (STKX _ (STKScalar @r1), WTKX @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
       _ -> constantRepW 0 (WFTKX (xshape v))
@@ -198,8 +198,8 @@ type family UnWind y where
 
 unWindSTK :: STensorKind y -> STensorKind (UnWind y)
 unWindSTK = \case
-  stk@STKScalar{} -> stk
-  stk@(STKR _ STKScalar{}) -> stk
+  stk@STKScalar -> stk
+  stk@(STKR _ STKScalar) -> stk
   STKR (SNat @n) (STKR (SNat @m) stk2) ->
     unWindSTK $ STKR (SNat @(n + m)) stk2
   STKR n (STKS sh2 stk2) ->
@@ -209,7 +209,7 @@ unWindSTK = \case
     unWindSTK $ STKX (ssxReplicate n `ssxAppend` sh2) stk2
   STKR n@SNat (STKProduct y z) ->
     unWindSTK $ STKProduct (STKR n y) (STKR n z)
-  stk@(STKS _ STKScalar{}) -> stk
+  stk@(STKS _ STKScalar) -> stk
   STKS sh1 (STKR m stk2) ->
     unWindSTK
     $ STKX (ssxFromShape (shCvtSX sh1) `ssxAppend` ssxReplicate m) stk2
@@ -220,7 +220,7 @@ unWindSTK = \case
   STKS sh1 (STKProduct y z)->
     withKnownShS sh1 $
     unWindSTK $ STKProduct (STKS sh1 y) (STKS sh1 z)
-  stk@(STKX _ STKScalar{}) -> stk
+  stk@(STKX _ STKScalar) -> stk
   STKX sh1 (STKR m stk2) ->
     unWindSTK $ STKX (sh1 `ssxAppend` ssxReplicate m) stk2
   STKX sh1 (STKS sh2 stk2) ->
@@ -283,8 +283,8 @@ unWindFTK = \case
 unWindTarget :: BaseTensor target
              => STensorKind y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
-  STKScalar{} -> WTKScalar t
-  STKR SNat STKScalar{} -> WTKR t
+  STKScalar -> WTKScalar t
+  STKR SNat STKScalar -> WTKR t
   STKR (SNat @n) (STKR (SNat @m) stk2) | Dict <- lemKnownSTK stk2 ->
     unWindTarget (STKR (SNat @(n + m)) stk2) (runNest t)
   STKR n@SNat (STKS sh2 stk2) | Dict <- lemKnownSTK stk2 ->
@@ -299,7 +299,7 @@ unWindTarget stk t = case stk of
   STKR n@SNat (STKProduct stk1 stk2) | Dict <- lemKnownSTK stk1
                                      , Dict <- lemKnownSTK stk2 ->
     unWindTarget (STKProduct (STKR n stk1) (STKR n stk2)) (runzip t)
-  STKS sh1 STKScalar{} -> withKnownShS sh1 $ WTKS t
+  STKS sh1 STKScalar -> withKnownShS sh1 $ WTKS t
   STKS sh1 (STKR m@(SNat @m) stk2) | Dict <- lemKnownSTK stk2 ->
     withKnownShS sh1 $
     unWindTarget (STKX (ssxFromShape (shCvtSX sh1)
@@ -315,7 +315,7 @@ unWindTarget stk t = case stk of
                                   , Dict <- lemKnownSTK stk2 ->
     withKnownShS sh1 $
     unWindTarget (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) (sunzip t)
-  STKX sh1 STKScalar{} -> withKnownShX sh1 $ WTKX t
+  STKX sh1 STKScalar -> withKnownShX sh1 $ WTKX t
   STKX sh1 (STKR m@(SNat @m) stk2) | Dict <- lemKnownSTK stk2 ->
     withKnownShX sh1 $
     unWindTarget (STKX (sh1 `ssxAppend` ssxReplicate m) stk2)
@@ -341,8 +341,8 @@ unWindTarget stk t = case stk of
 windTarget :: BaseTensor target
            => STensorKind y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
-  (STKScalar{}, WTKScalar v) -> v
-  (STKR _ STKScalar{}, WTKR v) -> v
+  (STKScalar, WTKScalar v) -> v
+  (STKR _ STKScalar, WTKR v) -> v
   (STKR n@(SNat @n) (STKR (SNat @m) stk2), _)
    | Dict <- lemKnownSTK stk2 ->
     rnest n $ windTarget (STKR (SNat @(n + m)) stk2) t
@@ -358,7 +358,7 @@ windTarget stk t = case (stk, t) of
   (STKR n@SNat (STKProduct stk1 stk2), _) | Dict <- lemKnownSTK stk1
                                           , Dict <- lemKnownSTK stk2 ->
     rzip $ windTarget (STKProduct (STKR n stk1) (STKR n stk2)) t
-  (STKS _ STKScalar{}, WTKS v) -> v
+  (STKS _ STKScalar, WTKS v) -> v
   (STKS sh1 (STKR m@SNat stk2), _) | Dict <- lemKnownSTK stk2 ->
     snestR sh1
     $ windTarget (STKX (ssxFromShape (shCvtSX sh1)
@@ -374,7 +374,7 @@ windTarget stk t = case (stk, t) of
                                        , Dict <- lemKnownSTK stk2 ->
     withKnownShS sh1 $
     szip $ windTarget (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) t
-  (STKX _ STKScalar{}, WTKX v) -> v
+  (STKX _ STKScalar, WTKX v) -> v
   (STKX sh1 (STKR m@SNat stk2), _) | Dict <- lemKnownSTK stk2 ->
     xnestR sh1
     $ windTarget (STKX (sh1 `ssxAppend` ssxReplicate m) stk2) t

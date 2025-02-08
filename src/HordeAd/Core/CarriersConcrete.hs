@@ -172,7 +172,7 @@ tftkG stk t =
   let repackShapeTree :: STensorKind y -> Mixed.ShapeTree (RepORArray y)
                       -> FullTensorKind y
       repackShapeTree stk0 tree = case stk0 of
-        STKScalar _ -> FTKScalar
+        STKScalar -> FTKScalar
         STKR _ stk1 -> let (sh, rest) = tree
                        in FTKR sh $ repackShapeTree stk1 rest
         STKS _ stk1 -> let (sh, rest) = tree
@@ -184,7 +184,7 @@ tftkG stk t =
                        in FTKProduct (repackShapeTree stk1 tree1)
                                      (repackShapeTree stk2 tree2)
   in case stk of
-    STKScalar _ -> FTKScalar
+    STKScalar -> FTKScalar
     STKR _ stk1 | Dict <- eltDictRep stk1 ->
       FTKR (Nested.rshape t) $ repackShapeTree stk1
       $ snd $ Mixed.mshapeTree t
@@ -201,7 +201,7 @@ tftkG stk t =
 
 eltDictRep :: STensorKind y -> Dict Nested.KnownElt (RepORArray y)
 eltDictRep = \case
-    STKScalar{} -> Dict
+    STKScalar -> Dict
     STKR SNat x | Dict <- eltDictRep x -> Dict
     STKS sh x | Dict <- eltDictRep x -> withKnownShS sh Dict
     STKX sh x | Dict <- eltDictRep x -> withKnownShX sh Dict
@@ -210,7 +210,7 @@ eltDictRep = \case
 
 showDictRep :: STensorKind y -> Dict Show (RepORArray y)
 showDictRep = \case
-    STKScalar{} -> Dict
+    STKScalar -> Dict
     STKR _ x | Dict <- showDictRep x
              , Dict <- eltDictRep x -> Dict
     STKS _ x | Dict <- showDictRep x
@@ -222,7 +222,7 @@ showDictRep = \case
 
 nfdataDictRep :: STensorKind y -> Dict NFData (RepORArray y)
 nfdataDictRep = \case
-    STKScalar{} -> Dict
+    STKScalar -> Dict
     STKR _ x | Dict <- nfdataDictRep x
              , Dict <- eltDictRep x -> Dict
     STKS _ x | Dict <- nfdataDictRep x
@@ -261,10 +261,10 @@ type instance ShareOf RepN = RepN
 instance EqF RepN where
   (==.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
   RepN u ==. RepN v = case knownSTK @y of
-    STKScalar _ -> u == v
-    STKR SNat STKScalar{} -> u == v
-    STKS sh STKScalar{} -> withKnownShS sh $ u == v
-    STKX sh STKScalar{} -> withKnownShX sh $ u == v
+    STKScalar -> u == v
+    STKR SNat STKScalar -> u == v
+    STKS sh STKScalar -> withKnownShS sh $ u == v
+    STKX sh STKScalar -> withKnownShX sh $ u == v
     STKProduct @y1 @y2 stk1 stk2 | Dict <- lemKnownSTK stk1
                                  , Dict <- lemKnownSTK stk2 ->
       RepN @y1 (fst u) ==. RepN @y1 (fst v)
@@ -274,10 +274,10 @@ instance EqF RepN where
 instance OrdF RepN where
   (<.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
   RepN u <. RepN v = case knownSTK @y of
-    STKScalar _ -> u < v
-    STKR SNat STKScalar{} -> u < v
-    STKS sh STKScalar{} -> withKnownShS sh $ u < v
-    STKX sh STKScalar{} -> withKnownShX sh $ u < v
+    STKScalar -> u < v
+    STKR SNat STKScalar -> u < v
+    STKS sh STKScalar -> withKnownShS sh $ u < v
+    STKX sh STKScalar -> withKnownShX sh $ u < v
     STKProduct @y1 @y2 stk1 stk2 | Dict <- lemKnownSTK stk1
                                  , Dict <- lemKnownSTK stk2 ->
       RepN @y1 (fst u) <. RepN @y1 (fst v)
