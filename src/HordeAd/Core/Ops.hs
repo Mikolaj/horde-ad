@@ -1941,7 +1941,7 @@ rscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKR2 0 r)
 rscalar r | Dict <- eltDictRep (knownSTK @r) =
   let a = Nested.rscalar r
-  in tconcrete (tftkG (STKR (SNat @0) (knownSTK @r)) a) (RepN a)
+  in rconcrete a
 
 rrepl :: (GoodScalar r, KnownNat n, BaseTensor target)
       => IShR n -> r -> target (TKR n r)
@@ -1955,7 +1955,7 @@ sscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKS2 '[] r)
 sscalar r | Dict <- eltDictRep (knownSTK @r) =
   let a = Nested.sscalar r
-  in tconcrete (tftkG (STKS ZSS (knownSTK @r)) a) (RepN a)
+  in sconcrete a
 
 srepl :: (KnownShS sh, GoodScalar r, BaseTensor target)
       => r -> target (TKS sh r)
@@ -1975,7 +1975,7 @@ xscalar :: forall r target. (KnownSTK r, BaseTensor target)
         => RepORArray r -> target (TKX2 '[] r)
 xscalar r | Dict <- eltDictRep (knownSTK @r) =
   let a = Nested.mscalar r
-  in tconcrete (tftkG (STKX ZKX (knownSTK @r)) a) (RepN a)
+  in xconcrete a
 
 xrepl :: (KnownShX sh, GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
