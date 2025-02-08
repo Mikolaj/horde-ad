@@ -429,9 +429,6 @@ class ( Num (IntOf target)
   rlength v = case rshape v of
     k :$: _ -> k
 
-  rconcrete :: (KnownSTK r, KnownNat n)
-            => Nested.Ranked n (RepORArray r) -> target (TKR2 n r)
-  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
   rfromList :: (KnownSTK r, KnownNat n)
             => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
@@ -549,6 +546,9 @@ class ( Num (IntOf target)
   rgather1 k v f = rgather @target @r @1
                            (k :$: dropShape (rshape v)) v
                            (\(i :.: ZIR) -> f i)
+  rconcrete :: (KnownSTK r, KnownNat n)
+            => Nested.Ranked n (RepORArray r) -> target (TKR2 n r)
+  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
          => target (TKR n r) -> target (TKR n r2)
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
@@ -717,9 +717,6 @@ class ( Num (IntOf target)
           => target (TKS2 (n ': sh) r) -> Int
   slength _ = valueOf @n
 
-  sconcrete :: (KnownSTK r, KnownShS sh)
-            => Nested.Shaped sh (RepORArray r) -> target (TKS2 sh r)
-  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
   sfromList :: (KnownSTK r, KnownNat n, KnownShS sh)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
@@ -844,6 +841,9 @@ class ( Num (IntOf target)
     -> (IntOf target -> IxSOf target shp)
     -> target (TKS2 (n2 ': shn) r)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
+  sconcrete :: (KnownSTK r, KnownShS sh)
+            => Nested.Shaped sh (RepORArray r) -> target (TKS2 sh r)
+  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
   sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShS sh)
          => target (TKS sh r) -> target (TKS sh r2)
     -- the integer can be negative
@@ -1091,9 +1091,6 @@ class ( Num (IntOf target)
         withKnownShX sh2 $
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
-  xconcrete :: (KnownSTK r, KnownShX sh)
-            => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
-  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
   xfromList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
             => NonEmpty (target (TKX2 sh r)) -> target (TKX2 (Just n ': sh) r)
   xfromList = xfromVector
@@ -1236,6 +1233,9 @@ class ( Num (IntOf target)
     xgather @target @r @'[Just n2]
             (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
             (\(i :.% ZIX) -> f i)
+  xconcrete :: (KnownSTK r, KnownShX sh)
+            => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
+  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
   xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShX sh)
          => target (TKX sh r) -> target (TKX sh r2)
   xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
