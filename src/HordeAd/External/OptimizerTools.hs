@@ -56,9 +56,7 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
           params
       Nothing -> params
   STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
-                       , Dict <- lemKnownSTKOfAD stk1
-                       , Dict <- lemKnownSTK stk2
-                       , Dict <- lemKnownSTKOfAD stk2 ->
+                       , Dict <- lemKnownSTK stk2 ->
     tpair (updateWithGradient gamma (tproject1 p) (tproject1 g))
           (updateWithGradient gamma (tproject2 p) (tproject2 g))
   _ -> error "updateWithGradient: TODO"

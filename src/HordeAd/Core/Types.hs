@@ -527,6 +527,8 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
   Drop 0 xs = xs
   Drop n (x ': xs) = Drop (n - 1) xs
 
+-- BTW, shall we keep *Rank and *Product for each of the 6 list types
+-- and remove *Length and *Size?
 ixsRank :: IxS sh i -> SNat (Rank sh)
 ixsRank (IxS l) = listsRank l
 

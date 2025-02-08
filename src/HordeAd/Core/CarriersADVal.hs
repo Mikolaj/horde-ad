@@ -131,13 +131,16 @@ unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2
 unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
                 in (DeltaProject1 dShared, DeltaProject2 dShared)
 
-unDeltaPairUnshared :: (KnownSTK x, KnownSTK y)
-                    => Delta target (TKProduct x y)
+unDeltaPairUnshared :: Delta target (TKProduct x y)
                     -> (Delta target x, Delta target y)
 unDeltaPairUnshared (DeltaPair a b) = (a, b)
 unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) =
   (DeltaZero ftk1, DeltaZero ftk2)
-unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)
+unDeltaPairUnshared d = case ftkDelta d of
+  FTKProduct ftk1 ftk2 ->
+    withKnownSTK (ftkToSTK ftk1) $
+    withKnownSTK (ftkToSTK ftk2) $
+    (DeltaProject1 d, DeltaProject2 d)
 
 dScale :: Num (f z) => f z -> Delta f z -> Delta f z
 dScale _ (DeltaZero ftk) = DeltaZero ftk

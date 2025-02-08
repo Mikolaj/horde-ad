@@ -282,9 +282,7 @@ astProject1
 astProject1 u = case u of
   Ast.AstPair x _z -> x
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
-  Ast.AstConcrete (RepF (FTKProduct ftk1 ftk2) v) ->
-    withKnownSTK (ftkToSTK ftk1) $
-    withKnownSTK (ftkToSTK ftk2) $
+  Ast.AstConcrete (RepF (FTKProduct ftk1 _ftk2) v) ->
     astConcrete (RepF ftk1 (tproject1 v))
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
@@ -299,9 +297,7 @@ astProject2
 astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
-  Ast.AstConcrete (RepF (FTKProduct ftk1 ftk2) v) ->
-    withKnownSTK (ftkToSTK ftk1) $
-    withKnownSTK (ftkToSTK ftk2) $
+  Ast.AstConcrete (RepF (FTKProduct _ftk1 ftk2) v) ->
     astConcrete (RepF ftk2 (tproject2 v))
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1

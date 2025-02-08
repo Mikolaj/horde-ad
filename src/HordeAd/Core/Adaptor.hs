@@ -254,8 +254,8 @@ instance (RandomValue a, KnownNat n) => RandomValue (ListR n a) where
            in (v ::: rest, g2)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a), KnownSTK (ADTensorKind (X a))
-         , AdaptableTarget target b, KnownSTK (X b), KnownSTK (ADTensorKind (X b)) )
+         , AdaptableTarget target a, KnownSTK (X a)
+         , AdaptableTarget target b, KnownSTK (X b) )
          => AdaptableTarget target (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
   toTarget (a, b) =
@@ -298,9 +298,9 @@ instance ( RandomValue a
     in ((v1, v2), g2)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a), KnownSTK (ADTensorKind (X a))
-         , AdaptableTarget target b, KnownSTK (X b), KnownSTK (ADTensorKind (X b))
-         , AdaptableTarget target c, KnownSTK (X c), KnownSTK (ADTensorKind (X c)) )
+         , AdaptableTarget target a, KnownSTK (X a)
+         , AdaptableTarget target b, KnownSTK (X b)
+         , AdaptableTarget target c, KnownSTK (X c) )
          => AdaptableTarget target (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
   toTarget (a, b, c) =
@@ -353,10 +353,10 @@ instance ( RandomValue a
     in ((v1, v2, v3), g3)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a), KnownSTK (ADTensorKind (X a))
-         , AdaptableTarget target b, KnownSTK (X b), KnownSTK (ADTensorKind (X b))
-         , AdaptableTarget target c, KnownSTK (X c), KnownSTK (ADTensorKind (X c))
-         , AdaptableTarget target d, KnownSTK (X d), KnownSTK (ADTensorKind (X d)) )
+         , AdaptableTarget target a, KnownSTK (X a)
+         , AdaptableTarget target b, KnownSTK (X b)
+         , AdaptableTarget target c, KnownSTK (X c)
+         , AdaptableTarget target d, KnownSTK (X d) )
          => AdaptableTarget target (a, b, c, d) where
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
@@ -423,11 +423,11 @@ instance ( RandomValue a
     in ((v1, v2, v3, v4), g4)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a), KnownSTK (ADTensorKind (X a))
-         , AdaptableTarget target b, KnownSTK (X b), KnownSTK (ADTensorKind (X b))
-         , AdaptableTarget target c, KnownSTK (X c), KnownSTK (ADTensorKind (X c))
-         , AdaptableTarget target d, KnownSTK (X d), KnownSTK (ADTensorKind (X d))
-         , AdaptableTarget target e, KnownSTK (X e), KnownSTK (ADTensorKind (X e)) )
+         , AdaptableTarget target a, KnownSTK (X a)
+         , AdaptableTarget target b, KnownSTK (X b)
+         , AdaptableTarget target c, KnownSTK (X c)
+         , AdaptableTarget target d, KnownSTK (X d)
+         , AdaptableTarget target e, KnownSTK (X e) )
          => AdaptableTarget target (a, b, c, d, e) where
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))

@@ -863,12 +863,10 @@ evalFwd params s d0 = case d0 of
     let (s2, t) = evalFwd params s d1
         (s3, u) = evalFwd params s2 d2
     in (s3, tpair t u)
-  DeltaProject1 @_ @z d | Dict <- lemKnownSTKOfAD (knownSTK @y)
-                    , Dict <- lemKnownSTKOfAD (knownSTK @z) ->
+  DeltaProject1 d ->
     let (s2, v) = evalFwd params s d
     in (s2, tproject1 v)
-  DeltaProject2 @x d | Dict <- lemKnownSTKOfAD (knownSTK @y)
-                 , Dict <- lemKnownSTKOfAD (knownSTK @x) ->
+  DeltaProject2 d ->
     let (s2, v) = evalFwd params s d
     in (s2, tproject2 v)
   DeltaFromVector snat stk lsd | Refl <- lemBuildOfAD snat stk ->

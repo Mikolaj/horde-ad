@@ -158,16 +158,8 @@ interpretAst !env = \case
       withKnownSTK stk1 $
       withKnownSTK stk2 $
       tpair (interpretAst env t1) (interpretAst env t2)
-  AstProject1 t -> case ftkToSTK (ftkAst t) of
-    STKProduct stk1 stk2 ->
-      withKnownSTK stk1 $
-      withKnownSTK stk2 $
-      tproject1 (interpretAst env t)
-  AstProject2 t -> case ftkToSTK (ftkAst t) of
-    STKProduct stk1 stk2 ->
-      withKnownSTK stk1 $
-      withKnownSTK stk2 $
-      tproject2 (interpretAst env t)
+  AstProject1 t -> tproject1 (interpretAst env t)
+  AstProject2 t -> tproject2 (interpretAst env t)
   AstFromVector snat stk l ->
     let l2 = V.map (interpretAst env) l
     in tfromVector snat stk l2

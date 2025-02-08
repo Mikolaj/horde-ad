@@ -133,8 +133,7 @@ class LetTensor (target :: Target) where
     STKR SNat x | Dict <- lemKnownSTK x -> rsize a
     STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssize a
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsize a
-    STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
-                         , Dict <- lemKnownSTK stk2 ->
+    STKProduct stk1 stk2 ->
       tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
   tlet :: (KnownSTK x, KnownSTK z)
        => target x
@@ -1540,12 +1539,8 @@ class ( Num (IntOf target)
   tpair :: (KnownSTK x, KnownSTK z)
          => target x -> target z
          -> target (TKProduct x z)
-  tproject1 :: (KnownSTK x, KnownSTK z)
-            => target (TKProduct x z)
-            -> target x
-  tproject2 :: (KnownSTK x, KnownSTK z)
-            => target (TKProduct x z)
-            -> target z
+  tproject1 :: target (TKProduct x z) -> target x
+  tproject2 :: target (TKProduct x z) -> target z
   tunpairDup :: (KnownSTK x, KnownSTK z)
              => target (TKProduct x z) -> (target x, target z)
   default tunpairDup :: (ShareTensor target, KnownSTK x, KnownSTK z)
