@@ -53,8 +53,8 @@ showsPrecAstEnv d demap =
     showString "fromList "
     . showListWith
         (\(k :=> target) ->
-          case tensorKindFromAstVarName k of
-            Dict -> showsPrec 2 k . showString " :=> " . showsPrec 1 target)
+           withKnownSTK (varNameToSTK k) $
+           showsPrec 2 k . showString " :=> " . showsPrec 1 target)
         (DMap.toList demap)
 
 -- An informal invariant: if s is FullSpan, target is dual numbers,

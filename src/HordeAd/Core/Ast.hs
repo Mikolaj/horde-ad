@@ -11,7 +11,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar
-  , AstVarName, mkAstVarName, varNameToAstVarId, tensorKindFromAstVarName
+  , AstVarName, mkAstVarName, varNameToAstVarId, varNameToSTK
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxR, AstVarList, AstIxS, AstVarListS, AstIndexX
     -- * ASTs
@@ -23,6 +23,7 @@ module HordeAd.Core.Ast
 
 import Prelude hiding (foldl')
 
+import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
 import Data.GADT.Compare
@@ -30,6 +31,7 @@ import Data.GADT.Show
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List.NonEmpty (NonEmpty)
+import Data.Maybe (isJust)
 import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
@@ -111,28 +113,33 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
+-- TODO: this non-strict field is needed for benchmark VTO1.
+-- Once VTO1 is fixed in another way, try making this field strict.
 type role AstVarName nominal nominal
 data AstVarName :: AstSpanType -> TensorKindType -> Type where
-  AstVarName :: forall s y. KnownSTK y => AstVarId -> AstVarName s y
+  AstVarName :: forall s y. ~(STensorKind y) -> AstVarId -> AstVarName s y
 
-deriving instance Eq (AstVarName s y)
+instance Eq (AstVarName s y) where
+  AstVarName stk1 varId1 == AstVarName stk2 varId2 =
+    varId1 == varId2
+    && assert (isJust (sameSTK stk1 stk2)) True
 
 instance Show (AstVarName s y) where
-  showsPrec d (AstVarName varId) =
+  showsPrec d (AstVarName _ varId) =
     showsPrec d varId  -- less verbose, more readable
 
 instance GEq (AstVarName s) where
-  geq (AstVarName @_ @y1 varId1) (AstVarName @_ @y2 varId2) =
+  geq (AstVarName stk1 varId1) (AstVarName stk2 varId2) =
     case varId1 == varId2 of
-      True | Just Refl <- sameKnownSTS @y1 @y2 -> Just Refl
+      True | Just Refl <- sameSTK stk1 stk2 -> Just Refl
       True -> error "geq: different types of same AstVarName"
       False -> Nothing
 
 instance GCompare (AstVarName s) where
-  gcompare (AstVarName @_ @y1 varId1) (AstVarName @_ @y2 varId2) =
+  gcompare (AstVarName stk1 varId1) (AstVarName stk2 varId2) =
     case compare varId1 varId2 of
        LT -> GLT
-       EQ | Just Refl <- sameKnownSTS @y1 @y2 -> GEQ
+       EQ | Just Refl <- sameSTK stk1 stk2 -> GEQ
        EQ -> error "gcompare: different types of same AstVarName"
        GT -> GGT
 
@@ -140,18 +147,18 @@ instance GShow (AstVarName s) where
   gshowsPrec = defaultGshowsPrec
 
 instance DMap.Enum1 (AstVarName s) where
-  type Enum1Info (AstVarName s) = Some (Dict KnownSTK)
-  fromEnum1 (AstVarName @_ @a varId) = (fromEnum varId, Some @_ @a Dict)
-  toEnum1 varIdInt (Some @_ @a Dict) = Some $ AstVarName @s @a $ toEnum varIdInt
+  type Enum1Info (AstVarName s) = Some STensorKind
+  fromEnum1 (AstVarName stk varId) = (fromEnum varId, Some stk)
+  toEnum1 varIdInt (Some stk) = Some $ AstVarName stk $ toEnum varIdInt
 
 mkAstVarName :: forall s y. STensorKind y -> AstVarId -> AstVarName s y
-mkAstVarName stk var = withKnownSTK stk $ AstVarName var
+mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
-varNameToAstVarId (AstVarName varId) = varId
+varNameToAstVarId (AstVarName _ varId) = varId
 
-tensorKindFromAstVarName :: AstVarName s y -> Dict KnownSTK y
-tensorKindFromAstVarName AstVarName{} = Dict
+varNameToSTK :: AstVarName s y -> STensorKind y
+varNameToSTK (AstVarName stk _) = stk
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type role AstArtifactRev nominal nominal
