@@ -139,6 +139,7 @@ instance BaseTensor RepN where
   rscatter1 = tscatterZ1R
   rgather = tgatherZR
   rgather1 = tgatherZ1R
+  rconcrete = RepN
   rfloor = RepN . liftVR (V.map floor) . unRepN
   rfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
   rcast = RepN . liftVR (V.map realToFrac) . unRepN
@@ -288,6 +289,7 @@ instance BaseTensor RepN where
       _ ->
         sbuild @_ @_ @(Rank shm) (\ix -> t !$ f ix)
   sgather1 = tgatherZ1S
+  sconcrete = RepN
   sfloor = RepN . liftVS (V.map floor) . unRepN
   sfromIntegral = RepN . liftVS (V.map fromIntegral) . unRepN
   scast = RepN . liftVS (V.map realToFrac) . unRepN
@@ -436,6 +438,7 @@ instance BaseTensor RepN where
       _ ->
         xbuild @_ @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
   xgather1 = tgatherZ1X
+  xconcrete = RepN
   xfloor = RepN . liftVX (V.map floor) . unRepN
   xfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN
   xcast = RepN . liftVX (V.map realToFrac) . unRepN
@@ -462,6 +465,7 @@ instance BaseTensor RepN where
     RepN $ tbuild1X (unRepN . f . RepN)
 
   -- Scalar ops
+  kconcrete = RepN
   kfloor = RepN . floor . unRepN
   kfromIntegral = RepN . fromIntegral . unRepN
   kcast = RepN . realToFrac . unRepN

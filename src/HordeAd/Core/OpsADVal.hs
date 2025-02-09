@@ -188,6 +188,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on
+  rconcrete a =
+    let v = rconcrete a
+    in fromPrimalADVal v
   rfloor (D u _) =
     let v = rfloor u
     in fromPrimalADVal v
@@ -252,6 +255,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (sgather @_ @r @shm @shn @shp u g)
           (DeltaGatherS @_ @r @shm @shn @shp u' g)
+  sconcrete a =
+    let v = sconcrete a
+    in fromPrimalADVal v
   sfloor (D u _) =
     let v = sfloor u
     in fromPrimalADVal v
@@ -321,6 +327,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
               <$> f (tfromPrimal (STKScalar typeRep) <$> x)
     in dD (xgather @_ @r @shm @shn @shp sh u g)
           (DeltaGatherX @_ @r @shm @shn @shp sh u' g)
+  xconcrete a =
+    let v = xconcrete a
+    in fromPrimalADVal v
   xfloor (D u _) =
     let v = xfloor u
     in fromPrimalADVal v
@@ -359,6 +368,9 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     Just l -> xfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
 
   -- Scalar ops
+  kconcrete a =
+    let v = kconcrete a
+    in fromPrimalADVal v
   kfloor (D u _) =
     let v = kfloor u
     in fromPrimalADVal v
