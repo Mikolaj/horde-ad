@@ -843,8 +843,8 @@ class ( Num (IntOf target)
     -> (IntOf target -> IxSOf target shp)
     -> target (TKS2 (n2 ': shn) r)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
-  sconcrete :: (KnownSTK r, KnownShS sh)
-            => Nested.Shaped sh (RepORArray r) -> target (TKS2 sh r)
+  sconcrete :: GoodScalar r
+            => Nested.Shaped sh r -> target (TKS sh r)
   sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShS sh)
          => target (TKS sh r) -> target (TKS sh r2)
     -- the integer can be negative

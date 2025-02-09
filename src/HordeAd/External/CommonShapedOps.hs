@@ -18,7 +18,6 @@ import Data.Type.Ord (Compare)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
-import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (KnownShS (..), Rank)

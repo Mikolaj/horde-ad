@@ -255,8 +255,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
     in dD (sgather @_ @r @shm @shn @shp u g)
           (DeltaGatherS @_ @r @shm @shn @shp u' g)
   sconcrete a =
-    let v = sconcrete a
-    in fromPrimalADVal v
+    dDnotShared (sconcrete a) (DeltaZero $ FTKS (Nested.sshape a) FTKScalar)
   sfloor (D u _) =
     let v = sfloor u
     in fromPrimalADVal v

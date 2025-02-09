@@ -205,8 +205,6 @@ build1V snat@SNat (var, v0)
       build1VOccurenceUnknown
         snat (var, build1VOccurenceUnknown snat2 (var2, v2))
           -- happens only when testing and mixing different pipelines
-    Ast.AstConcrete{} ->
-      error "build1V: AstConcrete can't have free index variables"
 
     Ast.AstLet var1 u v -> traceRule $
       let ftk2 = ftkAst u
@@ -245,6 +243,8 @@ build1V snat@SNat (var, v0)
     Ast.AstI2K opCode u v -> traceRule $
       Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
+    Ast.AstConcreteK{} ->
+      error "build1V: AstConcreteK can't have free index variables"
     Ast.AstFloorK v -> traceRule $
      Ast.AstFloorS $ build1V snat (var, v)
     Ast.AstFromIntegralK v -> traceRule $
@@ -268,6 +268,8 @@ build1V snat@SNat (var, v0)
     Ast.AstI2S opCode u v -> traceRule $
       Ast.AstI2S opCode (build1VOccurenceUnknown snat (var, u))
                         (build1VOccurenceUnknown snat (var, v))
+    Ast.AstConcreteS{} ->
+      error "build1V: AstConcreteS can't have free index variables"
     Ast.AstFloorS v -> traceRule $
       Ast.AstFloorS $ build1V snat (var, v)
     Ast.AstFromIntegralS v -> traceRule $
