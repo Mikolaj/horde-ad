@@ -12,3 +12,7 @@ source-repository-package
     type: git
     location: https://git.tomsmeding.com/ox-arrays
     tag: f578e36a8ed73268c3e1b91609baa76adfa0693a
+
+constraints:
+  base-orphans < 0.9.3,
+  base-compat < 0.14.1
