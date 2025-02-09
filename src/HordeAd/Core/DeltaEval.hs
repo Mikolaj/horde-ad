@@ -878,6 +878,7 @@ evalFwd params s d0 = case d0 of
     in (s2, treplicateShare snat (adSTK stk) t)
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
                  k accShs bShs eShs q es df _rf acc0' es'
+-- should be     k bShs eShs q es df _rf acc0' es'
    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @eShs)
