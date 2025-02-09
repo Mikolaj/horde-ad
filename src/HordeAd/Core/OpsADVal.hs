@@ -480,9 +480,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
-        dual = DeltaMapAccumR k accShs bShs eShs
-                              q es
-                              df rf acc0' es'
+        dual = DeltaMapAccumR k bShs eShs q es df rf acc0' es'
     in dD (tpair accFin bs) dual
   tmapAccumLDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
@@ -550,9 +548,7 @@ instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target)
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
-        dual = DeltaMapAccumL k accShs bShs eShs
-                              q es
-                              df rf acc0' es'
+        dual = DeltaMapAccumL k bShs eShs q es df rf acc0' es'
     in dD (tpair accFin bs) dual
   tApply (HFun f) = f
   tlambda _ = id

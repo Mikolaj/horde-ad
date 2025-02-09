@@ -414,9 +414,7 @@ evalRev !s !c d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     evalRev s (tsumShare snat (adSTK stk) c) d
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
-            k accShs bShs eShs
-            q es
-            _df rf acc0' es'
+                 k bShs eShs q es _df rf acc0' es'
    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @eShs)
@@ -426,7 +424,8 @@ evalRev !s !c d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (knownSTK @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (knownSTK @bShs)
    , Refl <- lemBuildOfAD k (knownSTK @eShs) ->
-    let accShsAD = adFTK accShs
+    let accShs = ftkDelta acc0'
+        accShsAD = adFTK accShs
         bShsAD = adFTK bShs
         eShsAD = adFTK eShs
         (c0, crest) = tunpair c
@@ -444,9 +443,7 @@ evalRev !s !c d0 = case d0 of
         s2 = evalRev s dacc acc0'
     in evalRev s2 des es'
   DeltaMapAccumL @_ @_ @accShs @bShs @eShs
-            k accShs bShs eShs
-            q es
-            _df rf acc0' es'
+                 k bShs eShs q es _df rf acc0' es'
    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @eShs)
@@ -456,7 +453,8 @@ evalRev !s !c d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (knownSTK @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (knownSTK @bShs)
    , Refl <- lemBuildOfAD k (knownSTK @eShs) ->
-    let accShsAD = adFTK accShs
+    let accShs = ftkDelta acc0'
+        accShsAD = adFTK accShs
         bShsAD = adFTK bShs
         eShsAD = adFTK eShs
         (c0, crest) = tunpair c
@@ -879,9 +877,7 @@ evalFwd params s d0 = case d0 of
     let (s2, t) = evalFwd params s d
     in (s2, treplicateShare snat (adSTK stk) t)
   DeltaMapAccumR @_ @_ @accShs @bShs @eShs
-            k accShs bShs eShs
-            q es
-            df _rf acc0' es'
+                 k bShs eShs q es df _rf acc0' es'
    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @eShs)
@@ -891,7 +887,8 @@ evalFwd params s d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (knownSTK @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (knownSTK @bShs)
    , Refl <- lemBuildOfAD k (knownSTK @eShs) ->
-    let accShsAD = adFTK accShs
+    let accShs = ftkDelta acc0'
+        accShsAD = adFTK accShs
         bShsAD = adFTK bShs
         eShsAD = adFTK eShs
         (s2, cacc0) = evalFwd params s acc0'
@@ -906,9 +903,7 @@ evalFwd params s d0 = case d0 of
                        cacc0
                        (tpair ces (tpair q es)))
   DeltaMapAccumL @_ @_ @accShs @bShs @eShs
-            k accShs bShs eShs
-            q es
-            df _rf acc0' es'
+                 k bShs eShs q es df _rf acc0' es'
    | Dict <- lemKnownSTKOfAD (knownSTK @accShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
    , Dict <- lemKnownSTKOfAD (knownSTK @eShs)
@@ -918,7 +913,8 @@ evalFwd params s d0 = case d0 of
    , Dict <- lemKnownSTKOfBuild k (knownSTK @(ADTensorKind eShs))
    , Refl <- lemBuildOfAD k (knownSTK @bShs)
    , Refl <- lemBuildOfAD k (knownSTK @eShs) ->
-    let accShsAD = adFTK accShs
+    let accShs = ftkDelta acc0'
+        accShsAD = adFTK accShs
         bShsAD = adFTK bShs
         eShsAD = adFTK eShs
         (s2, cacc0) = evalFwd params s acc0'

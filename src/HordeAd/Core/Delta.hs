@@ -221,7 +221,6 @@ data Delta :: Target -> TensorKindType -> Type where
        , KnownSTK (BuildTensorKind k eShs)
        , KnownSTK (BuildTensorKind k accShs) )
     => SNat k
-    -> FullTensorKind accShs
     -> FullTensorKind bShs
     -> FullTensorKind eShs
     -> target (BuildTensorKind k accShs)
@@ -241,7 +240,6 @@ data Delta :: Target -> TensorKindType -> Type where
        , KnownSTK (BuildTensorKind k eShs)
        , KnownSTK (BuildTensorKind k accShs) )
     => SNat k
-    -> FullTensorKind accShs
     -> FullTensorKind bShs
     -> FullTensorKind eShs
     -> target (BuildTensorKind k accShs)
@@ -531,12 +529,12 @@ ftkDelta = \case
     d : _ -> buildFTK snat (ftkDelta d)
   DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
   DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
-  DeltaMapAccumR @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
+  DeltaMapAccumR @_ @_ @_ @bShs k bShs _eShs _q _es _df _rf acc0' _es'
     | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) ->
-      FTKProduct accShs (buildFTK k bShs)
-  DeltaMapAccumL @_ @_ @_ @bShs k accShs bShs _eShs _q _es _df _rf _acc0' _es'
+      FTKProduct (ftkDelta acc0') (buildFTK k bShs)
+  DeltaMapAccumL @_ @_ @_ @bShs k bShs _eShs _q _es _df _rf acc0' _es'
     | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) ->
-      FTKProduct accShs (buildFTK k bShs)
+      FTKProduct (ftkDelta acc0') (buildFTK k bShs)
 
   DeltaShare _ d -> ftkDelta d
   DeltaInput ftk _ -> ftk
