@@ -23,15 +23,11 @@ module HordeAd.Core.Ast
 
 import Prelude hiding (foldl')
 
-import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
-import Data.GADT.Compare
-import Data.GADT.Show
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List.NonEmpty (NonEmpty)
-import Data.Maybe (isJust)
 import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
@@ -120,31 +116,11 @@ data AstVarName :: AstSpanType -> TensorKindType -> Type where
   AstVarName :: forall s y. ~(STensorKind y) -> AstVarId -> AstVarName s y
 
 instance Eq (AstVarName s y) where
-  AstVarName stk1 varId1 == AstVarName stk2 varId2 =
-    varId1 == varId2
-    && assert (isJust (sameSTK stk1 stk2)) True
+  AstVarName _ varId1 == AstVarName _ varId2 = varId1 == varId2
 
 instance Show (AstVarName s y) where
   showsPrec d (AstVarName _ varId) =
     showsPrec d varId  -- less verbose, more readable
-
-instance GEq (AstVarName s) where
-  geq (AstVarName stk1 varId1) (AstVarName stk2 varId2) =
-    case varId1 == varId2 of
-      True | Just Refl <- sameSTK stk1 stk2 -> Just Refl
-      True -> error "geq: different types of same AstVarName"
-      False -> Nothing
-
-instance GCompare (AstVarName s) where
-  gcompare (AstVarName stk1 varId1) (AstVarName stk2 varId2) =
-    case compare varId1 varId2 of
-       LT -> GLT
-       EQ | Just Refl <- sameSTK stk1 stk2 -> GEQ
-       EQ -> error "gcompare: different types of same AstVarName"
-       GT -> GGT
-
-instance GShow (AstVarName s) where
-  gshowsPrec = defaultGshowsPrec
 
 instance DMap.Enum1 (AstVarName s) where
   type Enum1Info (AstVarName s) = Some STensorKind

@@ -310,7 +310,7 @@ astFromVector :: forall y k s. AstSpan s
               => SNat k -> STensorKind y
               -> Data.Vector.Vector (AstTensor AstMethodLet s y)
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astFromVector snat stk v | Just Refl <- geq snat (SNat @1) =
+astFromVector snat stk v | Just Refl <- testEquality snat (SNat @1) =
   astReplicate (SNat @1) stk (v V.! 0)
 astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   (case sameAstSpan @s @PrimalSpan of
@@ -824,23 +824,29 @@ astLet var (Ast.AstFromDual (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (Ast.AstFromDual (Ast.AstPair ast1 ast2)) var v
 astLet var u v@(Ast.AstVar _ var2) =
-  case sameAstSpan @s @s2 of
-    Just Refl -> case geq var2 var of
+  if varNameToAstVarId var2 == varNameToAstVarId var
+  then case sameAstSpan @s @s2 of
+    Just Refl -> case sameSTK (varNameToSTK var) (varNameToSTK var2) of
       Just Refl -> u
       _ -> v
     _ -> v
+  else v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar _ var2)) =  -- a common noop
-  case sameAstSpan @s @FullSpan of
-    Just Refl -> case geq var2 var of
+  if varNameToAstVarId var2 == varNameToAstVarId var
+  then case sameAstSpan @s @FullSpan of
+    Just Refl -> case sameSTK (varNameToSTK var) (varNameToSTK var2) of
       Just Refl -> astPrimalPart u
       _ -> v
     _ -> v
+  else v
 astLet var u v@(Ast.AstDualPart (Ast.AstVar _ var2)) =  -- a noop
-  case sameAstSpan @s @FullSpan of
-    Just Refl -> case geq var2 var of
+  if varNameToAstVarId var2 == varNameToAstVarId var
+  then case sameAstSpan @s @FullSpan of
+    Just Refl -> case sameSTK (varNameToSTK var) (varNameToSTK var2) of
       Just Refl -> astDualPart u
       _ -> v
     _ -> v
+  else v
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
 astLet var u (Ast.AstFromS stkz v) =
@@ -1473,7 +1479,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
              _ -> False
          , kN@SNat <- shsLast shm
          , vkN@SNat <- shsLast (ixsToShS ix0)
-         , case geq kN vkN of
+         , case testEquality kN vkN of
              Just Refl -> True
              _ -> False
            -> gcastWith (unsafeCoerceRefl
@@ -2091,7 +2097,7 @@ astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, AstSpan s)
             -> AstTensor AstMethodLet s (TKS2 sh2 x)
 astReshapeS sh2 = \case
   Ast.AstFromVector snat stk l
-    | Just Refl <- geq snat (SNat @1)
+    | Just Refl <- testEquality snat (SNat @1)
     , STKS{} <- stk ->
       astReshapeS sh2 (l V.! 0)
   Ast.AstReplicate (SNat @k) (STKS _ _) x
@@ -2972,7 +2978,7 @@ contractAst t = case t of
                                 (Ast.AstIndexS _shn
                                    u (((:.$) @m (AstIntVar var2) ZIS)))))
     | STKS ZSS _ <- stk
-    , Just Refl <- geq snat (SNat @m)
+    , Just Refl <- testEquality snat (SNat @m)
     , var == var2
     , not (varNameInAst var t2),  not (varNameInAst var u) ->
         Ast.AstMatvecmulS snat n (contractAst u) (contractAst t2)
@@ -2986,7 +2992,7 @@ contractAst t = case t of
                                   u (((:.$) @m (AstIntVar var2) ZIS))))))
     | STKS ZSS _ <- stk
     , STKS (n :$$ ZSS) _ <- ftkToSTK (ftkAst t2)
-    , Just Refl <- geq snat (SNat @m)
+    , Just Refl <- testEquality snat (SNat @m)
     , var == var2
     , not (varNameInAst var t2),  not (varNameInAst var u) ->
         Ast.AstMatvecmulS snat n (contractAst u) (contractAst t2)
