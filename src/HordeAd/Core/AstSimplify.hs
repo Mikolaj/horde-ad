@@ -2400,7 +2400,7 @@ astNonIndexStep t = case t of
     astScatterS @shm @shn @shp shn v (vars, ix)
   Ast.AstGatherS shn v0 (ZS, ix) ->
     Ast.AstIndexS shn v0 ix
-  Ast.AstGatherS @shm @shn @shp _shn v0 (vars , ZIS) ->
+  Ast.AstGatherS @shm @shn @shp _shn v0 (vars, ZIS) ->
     astReplicateNS @shm @(shp ++ shn) (listsToShS vars) v0
   Ast.AstGatherS{} -> t  -- this is "index" enough
   Ast.AstMinIndexS{} -> t

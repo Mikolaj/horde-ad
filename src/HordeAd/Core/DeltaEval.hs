@@ -184,15 +184,14 @@ rebuildInputs els s2 ftk = case ftk of
         _ | Dict <- lemKnownSTK stk ->
           error $ "rebuildInputs: wrong Tensor type: "
                   ++ show (tz, show_IMap (iMap s2))
-    Some tz@(TOZero ftk2) : rest ->
+    Some (TOZero ftk2) : rest ->
       case matchingFTK ftk2 ftk of
         Just Refl -> (constantTarget 0 ftk, rest)
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
           -- and maybe use elsewhere, too.
-        _ | Dict <- lemKnownSTK (ftkToSTK ftk2) ->
-          error $ "rebuildInputs: wrong Zero type: "
-                  ++ show (tz, show_IMap (iMap s2))
+        _ -> error $ "rebuildInputs: wrong Zero type: "
+                     ++ show (ftk2, show_IMap (iMap s2))
     _ -> error $ "rebuildInputs: illegal TensorOrZero: "
                  ++ show_IMap (iMap s2)
 
@@ -204,8 +203,7 @@ generateDSumsDummy j ftk  = case ftk of
     let (ds1, j1) = generateDSumsDummy j ftk1
         (ds2, j2) = generateDSumsDummy j1 ftk2
     in (ds1 ++ ds2, j2)
-  _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-    ([mkInputId knownSTK j :=> TOZero ftk], j + 1)
+  _ -> ([mkInputId (ftkToSTK ftk) j :=> TOZero ftk], j + 1)
 
 -- Matches generateDeltaInputs.
 generateDSums :: ShareTensor target
@@ -218,8 +216,7 @@ generateDSums j ftk t = case ftk of
         (ds1, j1) = generateDSums j ftk1 t1
         (ds2, j2) = generateDSums j1 ftk2 t2
     in (ds1 ++ ds2, j2)
-  _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-    ([mkInputId knownSTK j :=> TOTensor (ftkToSTK ftk) t], j + 1)
+  _ -> ([mkInputId (ftkToSTK ftk) j :=> TOTensor (ftkToSTK ftk) t], j + 1)
 
 -- * Delta evaluation state
 
@@ -472,7 +469,7 @@ evalRev !s !c d0 = case d0 of
         s2 = evalRev s dacc acc0'
     in evalRev s2 des es'
 
-  DeltaShare n d | Dict <- lemKnownSTKOfAD (ftkToSTK $ ftkDelta d) ->
+  DeltaShare n d ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
     -- considers position (node) p out of possibly multiple positions
@@ -511,7 +508,8 @@ evalRev !s !c d0 = case d0 of
               _ -> True)
     $ case DMap.lookup n $ nMap s of
         Just _ ->
-          let addc x = Cotangent $ addTarget knownSTK c (unCotangent x)
+          let addc x = Cotangent $ addTarget (adSTK $ ftkToSTK $ ftkDelta d)
+                                             c (unCotangent x)
             -- target has a ShareTensor instance, so addTarget arguments
             -- don't need to be duplicable
           in s {dMap = DMap.adjust addc n $ dMap s}
@@ -992,8 +990,7 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
 -- and evaluates shared subexpressions repeatedly, so this state-passing
 -- formulation is adopted.
 evalFwd
-  :: forall target y.
-     (ADReadyNoLet target, ShareTensor target)
+  :: forall target y. (ADReadyNoLet target, ShareTensor target)
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 evalFwd params s d0 = case d0 of
