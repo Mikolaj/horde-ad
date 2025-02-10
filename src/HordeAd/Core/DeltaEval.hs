@@ -52,7 +52,6 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Some
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -90,7 +89,7 @@ gradientFromDelta !parameters0 !dt deltaTopLevel =
       s1 = evalRev s0 dt deltaTopLevel
       s2 = evalRevFromnMap s1
       (res, remainder) =
-        rebuildInputs @(ADTensorKind x) (DMap.elems $ iMap s2) s2
+        rebuildInputs @(ADTensorKind x) (DMap.toAscList $ iMap s2) s2
         $ adFTK parameters0
   in assert (null remainder) res
 
@@ -140,21 +139,22 @@ newtype Cotangent target y =
 -- It also makes (an insignificant) case of addTensorOrZero cheaper.
 type role TensorOrZero nominal nominal
 data TensorOrZero target y =
-    TOTensor (STensorKind y) (target y)
+    TOTensor (target y)
   | TOZero (FullTensorKind y)
   deriving Show
 
 evalTensorOrZero :: forall target x. ADReadyNoLet target
                  => TensorOrZero target x -> target x
 evalTensorOrZero = \case
-  TOTensor _ t -> t
+  TOTensor t -> t
   TOZero ftk -> constantTarget 0 ftk
 
 addTensorOrZero :: forall target y. ADReadyNoLet target
-                => TensorOrZero target y -> TensorOrZero target y
+                => STensorKind y
+                -> TensorOrZero target y -> TensorOrZero target y
                 -> TensorOrZero target y
-addTensorOrZero a b = case (a, b) of
-  (TOTensor stk ta, TOTensor _ tb) -> TOTensor stk $ addTarget stk ta tb
+addTensorOrZero stk a b = case (a, b) of
+  (TOTensor ta, TOTensor tb) -> TOTensor $ addTarget stk ta tb
     -- target has a ShareTensor instance, so ta and tb don't need
     -- to be duplicable
   (TOZero{}, _) -> b
@@ -162,10 +162,10 @@ addTensorOrZero a b = case (a, b) of
 
 -- Matches generateDSumsDummy.
 rebuildInputs :: forall ady target. ADReadyNoLet target
-              => [Some (TensorOrZero target)]
+              => [DSum (InputId target) (TensorOrZero target)]
               -> EvalState target  -- original state; only for error messages
               -> FullTensorKind ady
-              -> (target ady, [Some (TensorOrZero target)])
+              -> (target ady, [DSum (InputId target) (TensorOrZero target)])
 rebuildInputs els s2 ftk = case ftk of
   FTKProduct @y1 @y2 ftk1 ftk2
    | Dict <- lemKnownSTK (ftkToSTK ftk1)
@@ -174,20 +174,21 @@ rebuildInputs els s2 ftk = case ftk of
           (t2, rest2) = rebuildInputs @y2 rest1 s2 ftk2
       in (tpair t1 t2, rest2)
   _ -> case els of
-    Some tz@(TOTensor stk t) : rest ->
-      case sameSTK stk (ftkToSTK ftk) of
+    (n :=> tz@(TOTensor t)) : rest ->
+      case sameSTK (inputIdToSTK n) (ftkToSTK ftk) of
         Just Refl -> (t, rest)
-        _ | Dict <- lemKnownSTK stk ->
+        _ | Dict <- lemKnownSTK (inputIdToSTK n) ->
           error $ "rebuildInputs: wrong Tensor type: "
-                  ++ show (tz, show_IMap (iMap s2))
-    Some (TOZero ftk2) : rest ->
+                  ++ show (n, tz, show_IMap (iMap s2))
+    (n :=> tz@(TOZero ftk2)) : rest ->
       case matchingFTK ftk2 ftk of
         Just Refl -> (constantTarget 0 ftk, rest)
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
           -- and maybe use elsewhere, too.
-        _ -> error $ "rebuildInputs: wrong Zero type: "
-                     ++ show (ftk2, show_IMap (iMap s2))
+        _ | Dict <- lemKnownSTK (inputIdToSTK n) ->
+          error $ "rebuildInputs: wrong Zero type: "
+                  ++ show (n, tz, show_IMap (iMap s2))
     _ -> error $ "rebuildInputs: illegal TensorOrZero: "
                  ++ show_IMap (iMap s2)
 
@@ -212,7 +213,7 @@ generateDSums j ftk t = case ftk of
         (ds1, j1) = generateDSums j ftk1 t1
         (ds2, j2) = generateDSums j1 ftk2 t2
     in (ds1 ++ ds2, j2)
-  _ -> ([mkInputId (ftkToSTK ftk) j :=> TOTensor (ftkToSTK ftk) t], j + 1)
+  _ -> ([mkInputId (ftkToSTK ftk) j :=> TOTensor t], j + 1)
 
 -- * Delta evaluation state
 
@@ -574,8 +575,8 @@ evalRevSame !s !c = \case
   -- can be handled here, where the extra
   -- constraint makes it easier.
   DeltaInput ftk i ->
-    let cs = TOTensor (ftkToSTK ftk) c
-    in s {iMap = DMap.adjust (addTensorOrZero cs) i
+    let cs = TOTensor c
+    in s {iMap = DMap.adjust (addTensorOrZero (ftkToSTK ftk) cs) i
                  $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
