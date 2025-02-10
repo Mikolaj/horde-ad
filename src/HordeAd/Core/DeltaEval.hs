@@ -51,7 +51,6 @@ import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List.NonEmpty qualified as NonEmpty
-import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
 import Data.Traversable (mapAccumL)
@@ -83,14 +82,11 @@ import HordeAd.Core.Unwind
 gradientFromDelta
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => FullTensorKind x
-  -> FullTensorKind z
-  -> Maybe (target (ADTensorKind z))
+  -> target (ADTensorKind z)
   -> Delta target z
   -> target (ADTensorKind x)
-gradientFromDelta !parameters0 zftk !mdt deltaTopLevel =
-  let oneAtF = constantTarget 1 $ adFTK zftk
-      dt = fromMaybe oneAtF mdt
-      s0 = initEvalState parameters0
+gradientFromDelta !parameters0 !dt deltaTopLevel =
+  let s0 = initEvalState parameters0
       s1 = evalRev s0 dt deltaTopLevel
       s2 = evalRevFromnMap s1
       (res, remainder) =

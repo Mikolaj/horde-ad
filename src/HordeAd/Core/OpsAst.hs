@@ -86,9 +86,10 @@ revArtifactFromForwardPass hasDt forwardPass xftk =
       -- before gradientFromDelta allocates new memory and new FFI is started.
       !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
   let zftk = ftkAst $ unAstRaw primalBody
-      (!varDt, !astDt) = funToAst (adFTK zftk) id in
-  let mdt = if hasDt then Just astDt else Nothing
-      !gradient = gradientFromDelta xftk zftk (AstRaw <$> mdt) delta
+      (!varDt, astDt) = funToAst (adFTK zftk) id in
+  let oneAtF = constantTarget 1 $ adFTK zftk
+      !dt = if hasDt then AstRaw astDt else oneAtF in
+  let !gradient = gradientFromDelta xftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal

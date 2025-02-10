@@ -20,6 +20,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
+import Data.Maybe (fromMaybe)
 
 import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
@@ -64,8 +65,9 @@ crevOnADInputs mdt f inputs =
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
   let parameters0 = tftk (knownSTK @x) inputs
-      zftk = tftk (knownSTK @z) v
-      !gradient = gradientFromDelta parameters0 zftk mdt delta
+      oneAtF = constantTarget 1 $ adFTK $ tftk (knownSTK @z) v
+      dt = fromMaybe oneAtF mdt
+      !gradient = gradientFromDelta parameters0 dt delta
   in (gradient, v)
 
 crevOnHVector
@@ -77,8 +79,7 @@ crevOnHVector
   -> target x
   -> (target (ADTensorKind x), target z)
 crevOnHVector mdt f parameters =
-  let deltaInputs = generateDeltaInputs
-                    $ tftk (knownSTK @x) parameters
+  let deltaInputs = generateDeltaInputs $ tftk (knownSTK @x) parameters
       inputs = dDnotShared parameters deltaInputs
   in crevOnADInputs mdt f inputs
 
@@ -104,8 +105,7 @@ cfwdOnHVector
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
 cfwdOnHVector parameters f ds =
-  let deltaInputs = generateDeltaInputs
-                    $ tftk (knownSTK @x) parameters
+  let deltaInputs = generateDeltaInputs $ tftk (knownSTK @x) parameters
       inputs = dDnotShared parameters deltaInputs
   in cfwdOnADInputs inputs f ds
 
@@ -147,7 +147,8 @@ instance (ADReadyNoLet target, ShareTensor target)
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Double and ADVal Float instantiations are only used
 -- in tests. None others are used anywhere.
-instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PrimalOf target))
+instance ( ADReadyNoLet target, ShareTensor target
+         , ShareTensor (PrimalOf target) )
          => BaseTensor (ADVal target) where
   tconstantTarget = constantTarget
   taddTarget = addTarget
