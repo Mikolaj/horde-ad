@@ -81,8 +81,7 @@ import HordeAd.Core.Unwind
 -- * Computing derivatives from delta expressions
 
 gradientFromDelta
-  :: forall x z target.
-     (ADReadyNoLet target, ShareTensor target)
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => FullTensorKind x
   -> FullTensorKind z
   -> Maybe (target (ADTensorKind z))
@@ -99,26 +98,8 @@ gradientFromDelta !parameters0 zftk !mdt deltaTopLevel =
         $ adFTK parameters0
   in assert (null remainder) res
 
-showsPrec_iMap
-  :: (forall y. KnownSTK y => Show (TensorOrZero target y))
-  => Int -> IMap target -> ShowS
-showsPrec_iMap d demap =
-  showParen (d > 10) $
-    showString "fromList "
-    . showListWith
-        (\(k :=> target) ->
-          withKnownSTK (inputIdToSTK k) $
-          showsPrec 2 k . showString " :=> " . showsPrec 1 target)
-        (DMap.toList demap)
-
-show_iMap
-  :: (forall y. KnownSTK y => Show (TensorOrZero target y))
-  => IMap target -> String
-show_iMap iMap = showsPrec_iMap 0 iMap ""
-
 derivativeFromDelta
-  :: forall x z target.
-     (ADReadyNoLet target, ShareTensor target)
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => Delta target z -> FullTensorKind (ADTensorKind x)
   -> target (ADTensorKind x)
   -> target (ADTensorKind z)
@@ -134,6 +115,23 @@ derivativeFromDelta deltaTopLevel ftk ds =
 type ADMap target = DEnumMap (NodeId target) (Cotangent target)
 
 type IMap target = DEnumMap (InputId target) (TensorOrZero target)
+
+showsPrec_IMap
+  :: (forall y. KnownSTK y => Show (TensorOrZero target y))
+  => Int -> IMap target -> ShowS
+showsPrec_IMap d demap =
+  showParen (d > 10) $
+    showString "fromList "
+    . showListWith
+        (\(k :=> target) ->
+          withKnownSTK (inputIdToSTK k) $
+          showsPrec 2 k . showString " :=> " . showsPrec 1 target)
+        (DMap.toList demap)
+
+show_IMap
+  :: (forall y. KnownSTK y => Show (TensorOrZero target y))
+  => IMap target -> String
+show_IMap iMap = showsPrec_IMap 0 iMap ""
 
 type role Cotangent nominal nominal
 newtype Cotangent target y =
@@ -185,7 +183,7 @@ rebuildInputs els s2 ftk = case ftk of
         Just Refl -> (t, rest)
         _ | Dict <- lemKnownSTK stk ->
           error $ "rebuildInputs: wrong Tensor type: "
-                  ++ show (tz, show_iMap (iMap s2))
+                  ++ show (tz, show_IMap (iMap s2))
     Some tz@(TOZero ftk2) : rest ->
       case matchingFTK ftk2 ftk of
         Just Refl -> (constantTarget 0 ftk, rest)
@@ -194,9 +192,9 @@ rebuildInputs els s2 ftk = case ftk of
           -- and maybe use elsewhere, too.
         _ | Dict <- lemKnownSTK (ftkToSTK ftk2) ->
           error $ "rebuildInputs: wrong Zero type: "
-                  ++ show (tz, show_iMap (iMap s2))
+                  ++ show (tz, show_IMap (iMap s2))
     _ -> error $ "rebuildInputs: illegal TensorOrZero: "
-                 ++ show_iMap (iMap s2)
+                 ++ show_IMap (iMap s2)
 
 -- Matches generateDeltaInputs.
 generateDSumsDummy :: Int -> FullTensorKind y
