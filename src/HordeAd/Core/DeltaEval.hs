@@ -146,25 +146,25 @@ newtype Cotangent target y =
 -- It also makes (an insignificant) case of addTensorOrZero cheaper.
 type role TensorOrZero nominal nominal
 data TensorOrZero target y =
-    Tensor (STensorKind y) (target y)
-  | Zero (FullTensorKind y)
+    TOTensor (STensorKind y) (target y)
+  | TOZero (FullTensorKind y)
   deriving Show
 
 evalTensorOrZero :: forall target x. ADReadyNoLet target
                  => TensorOrZero target x -> target x
 evalTensorOrZero = \case
-  Tensor _ t -> t
-  Zero ftk -> constantTarget 0 ftk
+  TOTensor _ t -> t
+  TOZero ftk -> constantTarget 0 ftk
 
 addTensorOrZero :: forall target y. ADReadyNoLet target
                 => TensorOrZero target y -> TensorOrZero target y
                 -> TensorOrZero target y
 addTensorOrZero a b = case (a, b) of
-  (Tensor stk ta, Tensor _ tb) -> Tensor stk $ addTarget stk ta tb
+  (TOTensor stk ta, TOTensor _ tb) -> TOTensor stk $ addTarget stk ta tb
     -- target has a ShareTensor instance, so ta and tb don't need
     -- to be duplicable
-  (Zero{}, _) -> b
-  (_, Zero{}) -> a
+  (TOZero{}, _) -> b
+  (_, TOZero{}) -> a
 
 -- Matches generateDSumsDummy.
 rebuildInputs :: forall ady target. ADReadyNoLet target
@@ -180,13 +180,13 @@ rebuildInputs els s2 ftk = case ftk of
           (t2, rest2) = rebuildInputs @y2 rest1 s2 ftk2
       in (tpair t1 t2, rest2)
   _ -> case els of
-    Some tz@(Tensor stk t) : rest ->
+    Some tz@(TOTensor stk t) : rest ->
       case sameSTK stk (ftkToSTK ftk) of
         Just Refl -> (t, rest)
         _ | Dict <- lemKnownSTK stk ->
           error $ "rebuildInputs: wrong Tensor type: "
                   ++ show (tz, show_iMap (iMap s2))
-    Some tz@(Zero ftk2) : rest ->
+    Some tz@(TOZero ftk2) : rest ->
       case matchingFTK ftk2 ftk of
         Just Refl -> (constantTarget 0 ftk, rest)
           -- TODO: actually pass this ZERO through to optimizers
@@ -207,7 +207,7 @@ generateDSumsDummy j ftk  = case ftk of
         (ds2, j2) = generateDSumsDummy j1 ftk2
     in (ds1 ++ ds2, j2)
   _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-    ([InputId j :=> Zero ftk], j + 1)
+    ([InputId j :=> TOZero ftk], j + 1)
 
 -- Matches generateDeltaInputs.
 generateDSums :: ShareTensor target
@@ -221,7 +221,7 @@ generateDSums j ftk t = case ftk of
         (ds2, j2) = generateDSums j1 ftk2 t2
     in (ds1 ++ ds2, j2)
   _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-    ([InputId j :=> Tensor (ftkToSTK ftk) t], j + 1)
+    ([InputId j :=> TOTensor (ftkToSTK ftk) t], j + 1)
 
 -- * Delta evaluation state
 
@@ -582,7 +582,7 @@ evalRevSame !s !c = \case
   -- can be handled here, where the extra
   -- constraint makes it easier.
   DeltaInput ftk i ->
-    let cs = Tensor (ftkToSTK ftk) c
+    let cs = TOTensor (ftkToSTK ftk) c
     in s {iMap = DMap.adjust (addTensorOrZero cs) i
                  $ iMap s}
     -- This and similar don't need to be runtime-specialized,

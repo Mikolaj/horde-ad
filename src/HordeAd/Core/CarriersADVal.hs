@@ -229,7 +229,7 @@ generateDeltaInputs
      FullTensorKind x -> Delta target x
 generateDeltaInputs =
   let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
-      gen j ftk| Dict <- lemKnownSTK (ftkToSTK ftk) = case ftk of
+      gen j ftk | Dict <- lemKnownSTK (ftkToSTK ftk) = case ftk of
         FTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToSTK ftk1)
                              , Dict <- lemKnownSTK (ftkToSTK ftk2) ->
           let (d1, j1) = gen j ftk1
