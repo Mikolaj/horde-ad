@@ -21,7 +21,6 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (fromSNat)
 
-import Data.Array.Mixed.Shape (StaticShX (..), listxRank)
 import Data.Array.Nested (ListS (..), ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (listsToList, shsRank)
@@ -80,10 +79,9 @@ printAstVar cfg stk var =
       rankTensorKind (STKScalar) = 0
       rankTensorKind (STKR snat _) = fromInteger $ fromSNat snat
       rankTensorKind (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
-      rankTensorKind (STKX (StaticShX l) _) =
-        fromInteger $ fromSNat $ listxRank l
-      rankTensorKind (STKProduct @y1 @z1 sy sz) =
-        rankTensorKind @y1 sy `max` rankTensorKind @z1 sz
+      rankTensorKind (STKX sh _) = fromInteger $ fromSNat $ ssxRank sh
+      rankTensorKind (STKProduct sy sz) =
+        rankTensorKind sy `max` rankTensorKind sz
       n = rankTensorKind stk
       varId = varNameToAstVarId var
       prefix = case n of
