@@ -58,6 +58,4 @@ shareDelta d = unsafePerformIO $ do
     -- the term inside SFromR is most likely shared already, but are we sure?
     DeltaInput{} -> d
     DeltaShare{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ ->
-      withKnownSTK (ftkToSTK $ ftkDelta d) $
-      DeltaShare (NodeId n) d
+    _ -> DeltaShare (mkNodeId (ftkToSTK $ ftkDelta d) n) d

@@ -38,7 +38,8 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Delta identifiers
-    NodeId(..), InputId, pattern InputId, toInputId, tensorKindFromInputId
+    NodeId, mkNodeId, nodeIdToSTK
+  , InputId, mkInputId, inputIdToSTK
     -- * AST of delta expressions
   , Delta(..)
     -- * Full tensor kind derivation for delta expressions
@@ -109,9 +110,19 @@ instance DMap.Enum1 (NodeId target) where
   fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
   toEnum1 n (Some @_ @a Dict) = Some $ NodeId @target @a n
 
+-- | Wrap non-negative (only!) integers in the `NodeId` newtype.
+mkNodeId :: STensorKind y -> Int -> NodeId f y
+mkNodeId stk i | Dict <- lemKnownSTK stk =
+  assert (i >= 0) $ NodeId i
+
+nodeIdToSTK :: NodeId f y -> STensorKind y
+nodeIdToSTK (NodeId _) = knownSTK
+
 type role InputId nominal nominal
 data InputId :: Target -> TensorKindType -> Type where
   InputId :: forall target y. KnownSTK y => Int -> InputId target y
+
+-- No Eq instance to limit hacks outside this module.
 
 deriving instance Show (InputId target y)
 
@@ -121,12 +132,12 @@ instance DMap.Enum1 (InputId target) where
   toEnum1 n (Some @_ @a Dict) = Some $ InputId @target @a n
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-toInputId :: FullTensorKind y -> Int -> InputId f y
-toInputId ftk i | Dict <- lemKnownSTK (ftkToSTK ftk) =
+mkInputId :: STensorKind y -> Int -> InputId f y
+mkInputId stk i | Dict <- lemKnownSTK stk =
   assert (i >= 0) $ InputId i
 
-tensorKindFromInputId :: InputId f y -> Dict KnownSTK y
-tensorKindFromInputId InputId{} = Dict
+inputIdToSTK :: InputId f y -> STensorKind y
+inputIdToSTK (InputId _) = knownSTK
 
 
 -- * AST of delta expressions

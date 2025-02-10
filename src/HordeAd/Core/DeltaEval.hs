@@ -107,8 +107,8 @@ showsPrec_iMap d demap =
     showString "fromList "
     . showListWith
         (\(k :=> target) ->
-          case tensorKindFromInputId k of
-            Dict -> showsPrec 2 k . showString " :=> " . showsPrec 1 target)
+          withKnownSTK (inputIdToSTK k) $
+          showsPrec 2 k . showString " :=> " . showsPrec 1 target)
         (DMap.toList demap)
 
 show_iMap
@@ -207,7 +207,7 @@ generateDSumsDummy j ftk  = case ftk of
         (ds2, j2) = generateDSumsDummy j1 ftk2
     in (ds1 ++ ds2, j2)
   _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-    ([InputId j :=> TOZero ftk], j + 1)
+    ([mkInputId knownSTK j :=> TOZero ftk], j + 1)
 
 -- Matches generateDeltaInputs.
 generateDSums :: ShareTensor target
@@ -221,7 +221,7 @@ generateDSums j ftk t = case ftk of
         (ds2, j2) = generateDSums j1 ftk2 t2
     in (ds1 ++ ds2, j2)
   _ | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-    ([InputId j :=> TOTensor (ftkToSTK ftk) t], j + 1)
+    ([mkInputId knownSTK j :=> TOTensor (ftkToSTK ftk) t], j + 1)
 
 -- * Delta evaluation state
 
@@ -924,11 +924,12 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
   -- the latter tend to create and store more cases and so enlarge
   -- the working set of cases.
   case DMap.maxViewWithKey nMap of
-    Just (n@(NodeId @_ @y _) :=> d, nMap2) ->
-      let s2 = s {nMap = nMap2}
+    Just (n :=> d, nMap2) ->
+      let nstk = nodeIdToSTK n
+          s2 = s {nMap = nMap2}
           errorMissing :: a
           errorMissing = error $ "evalRevFromnMap: missing cotangent " ++ show n
-          s3 = case knownSTK @y of
+          s3 = case nstk of
             STKR @n SNat (STKScalar @r) -> case DMap.lookup n dMap of
               Just (Cotangent c) -> evalRevRuntimeSpecialized @n @r s2 c d
               Nothing -> errorMissing
