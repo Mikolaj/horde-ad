@@ -18,9 +18,8 @@ module HordeAd.Core.CarriersADVal
 import Prelude
 
 import Data.Type.Equality ((:~:) (Refl))
-import GHC.TypeLits (KnownNat)
 
-import Data.Array.Nested (KnownShS (..), KnownShX (..), Rank)
+import Data.Array.Nested (Rank, ShS (..))
 
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
@@ -56,8 +55,8 @@ deriving instance (Show (f z), Show (Delta f z))
 -- of the dual number is an AST term or not).
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: forall f z. KnownSTK z
-   => f z -> Delta f z -> ADVal f z
+dD :: forall f z.
+      f z -> Delta f z -> ADVal f z
 dD !a !dual = dDnotShared a (shareDelta dual)
 
 -- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
@@ -124,8 +123,7 @@ dDnotShared = ADVal
 -- terms get an identifier. Alternatively, 'HordeAd.Core.CarriersADVal.dD'
 -- or library definitions that use it could be made smarter.
 
-unDeltaPair :: (KnownSTK x, KnownSTK y)
-            => Delta target (TKProduct x y) -> (Delta target x, Delta target y)
+unDeltaPair :: Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unDeltaPair (DeltaPair a b) = (a, b)
 unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
@@ -142,7 +140,7 @@ unDeltaPairUnshared d = case ftkDelta d of
     withKnownSTK (ftkToSTK ftk2) $
     (DeltaProject1 d, DeltaProject2 d)
 
-dScale :: Num (f z) => f z -> Delta f z -> Delta f z
+dScale :: (Num (f z), Show (f z)) => f z -> Delta f z -> Delta f z
 dScale _ (DeltaZero ftk) = DeltaZero ftk
 dScale v u' = DeltaScale v u'
 
@@ -152,33 +150,33 @@ dAdd v DeltaZero{} = v
 dAdd v w = DeltaAdd v w
 
 -- Avoids building huge Delta terms, not only evaluating them.
-dFromS :: forall y z target. (KnownSTK y, KnownSTK z)
-       => Delta target y -> Delta target z
-dFromS (DeltaSFromR @sh @x d)
-  | Just Refl <- sameKnownSTS @z @(TKR2 (Rank sh) x) = d
-dFromS (DeltaSFromX @_ @sh' @x d)
-  | Just Refl <- sameKnownSTS @z @(TKX2 sh' x) = d
-dFromS d = DeltaFromS d
+dFromS :: forall y z target.
+          STensorKind z -> Delta target y -> Delta target z
+dFromS stk (DeltaSFromR _sh d)
+  | y2 <- ftkDelta d
+  , Just Refl <- sameSTK stk (ftkToSTK y2) = d
+dFromS stk (DeltaSFromX _sh d)
+    | y2 <- ftkDelta d
+    , Just Refl <- sameSTK stk (ftkToSTK y2) = d
+dFromS stk d = DeltaFromS stk d
 
 dSFromR :: forall sh x target.
-           (KnownShS sh, KnownNat (Rank sh), KnownSTK x)
-        => Delta target (TKR2 (Rank sh) x)
+           ShS sh -> Delta target (TKR2 (Rank sh) x)
         -> Delta target (TKS2 sh x)
-dSFromR (DeltaFromS @y d) =
-  case sameKnownSTS @y @(TKS2 sh x) of
+dSFromR sh (DeltaFromS (STKR _ x) d) = case ftkDelta d of
+  y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
     Just Refl -> d
     _ -> error "sfromR: different shapes in DeltaSFromR(DeltaFromS)"
-dSFromR d = DeltaSFromR d
+dSFromR sh d = DeltaSFromR sh d
 
-dSFromX :: forall sh sh' x target.
-           (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK x)
-        => Delta target (TKX2 sh' x)
+dSFromX :: forall sh sh' x target. Rank sh ~ Rank sh'
+        => ShS sh -> Delta target (TKX2 sh' x)
         -> Delta target (TKS2 sh x)
-dSFromX (DeltaFromS @y d) =
-  case sameKnownSTS @y @(TKS2 sh x) of
+dSFromX sh (DeltaFromS (STKX _ x) d) = case ftkDelta d of
+  y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
     Just Refl -> d
     _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
-dSFromX d = DeltaSFromX d
+dSFromX sh d = DeltaSFromX sh d
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.
@@ -193,10 +191,10 @@ fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
 -- constructed using multiple applications of the `dDnotShared` operation.
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
-ensureToplevelSharing :: KnownSTK z => ADVal f z -> ADVal f z
+ensureToplevelSharing :: ADVal f z -> ADVal f z
 ensureToplevelSharing (D u u') = dD u u'
 
-scaleNotShared :: Num (f z)
+scaleNotShared :: (Num (f z), Show (f z))
                => f z -> ADVal f z -> ADVal f z
 scaleNotShared !a (D u u') = dDnotShared (a * u) (dScale a u')
 
@@ -204,7 +202,7 @@ addNotShared :: forall f z. Num (f z)
              => ADVal f z -> ADVal f z -> ADVal f z
 addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
 
-multNotShared :: forall f z. Num (f z)
+multNotShared :: forall f z. (Num (f z), Show (f z))
               => ADVal f z -> ADVal f z -> ADVal f z
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))

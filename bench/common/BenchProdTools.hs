@@ -119,7 +119,8 @@ revRankedLProdr =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
   rev rankedLProdr
 
-rankedNotSharedLProd :: (BaseTensor target, GoodScalar r)
+rankedNotSharedLProd :: ( BaseTensor target, GoodScalar r
+                        , Show (target (TKScalar r)) )
                     => ListR n (ADVal target (TKScalar r))
                     -> ADVal target (TKScalar r)
 rankedNotSharedLProd = foldr1 multNotShared
@@ -167,7 +168,8 @@ revRankedLtProdr =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
   rev rankedLtProdr
 
-rankedNotSharedLtProd :: (BaseTensor target, GoodScalar r)
+rankedNotSharedLtProd :: ( BaseTensor target, GoodScalar r
+                         , Show (target (TKS '[] r)) )
                       => ListR n (ADVal target (TKS '[] r))
                       -> ADVal target (TKS '[] r)
 rankedNotSharedLtProd = foldr1 multNotShared

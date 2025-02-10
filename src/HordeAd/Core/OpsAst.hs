@@ -68,8 +68,8 @@ forwardPassByInterpretation g envInit hVectorPrimal var hVector =
   in interpretAst env ast
 
 revArtifactFromForwardPass
-  :: forall x z. KnownSTK z
-  => Bool
+  :: forall x z.
+     Bool
   -> (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
@@ -95,7 +95,7 @@ revArtifactFromForwardPass hasDt forwardPass xftk =
      , delta )
 
 revProduceArtifact
-  :: forall x z. (KnownSTK x, KnownSTK z)
+  :: forall x z. KnownSTK x
   => Bool
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
@@ -107,8 +107,8 @@ revProduceArtifact hasDt g envInit =
   revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
 
 fwdArtifactFromForwardPass
-  :: forall x z. (KnownSTK x, KnownSTK z)
-  => (AstTensor AstMethodShare PrimalSpan x
+  :: forall x z.
+     (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
@@ -119,14 +119,14 @@ fwdArtifactFromForwardPass forwardPass ftk =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd ftk in
   let !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
-  let !derivative = derivativeFromDelta @x delta (AstRaw hVectorD)
+  let !derivative = derivativeFromDelta @x delta (adFTK ftk) (AstRaw hVectorD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
      , delta )
 
 fwdProduceArtifact
-  :: forall x z. (KnownSTK x, KnownSTK z)
+  :: forall x z. KnownSTK x
   => (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))

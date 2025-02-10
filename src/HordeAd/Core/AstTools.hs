@@ -106,7 +106,7 @@ ftkAst t = case t of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
 
   AstIndexS shn v _ix -> case ftkAst v of
-    FTKS _sh1sh2 x -> FTKS shn x
+    FTKS _ x -> FTKS shn x
   AstScatterS shn v (_ , ix) -> case ftkAst v of
     FTKS _ x -> FTKS (ixsToShS ix `shsAppend` shn) x
   AstGatherS shn v (vars, _) -> case ftkAst v of
@@ -118,13 +118,13 @@ ftkAst t = case t of
   AstIotaS n@SNat -> FTKS (n :$$ ZSS) FTKScalar
   AstAppendS a b -> case (ftkAst a, ftkAst b) of
     (FTKS (m :$$ sh) x, FTKS (n :$$ _) _) -> FTKS (snatPlus m n :$$ sh) x
-  AstSliceS _ nsnat@SNat _ a -> case ftkAst a of
-    FTKS (_ :$$ sh) x -> FTKS (nsnat :$$ sh) x
+  AstSliceS _ n@SNat _ a -> case ftkAst a of
+    FTKS (_ :$$ sh) x -> FTKS (n :$$ sh) x
   AstReverseS v -> ftkAst v
   AstTransposeS perm v -> case ftkAst v of
     FTKS sh x -> FTKS (shsPermutePrefix perm sh) x
-  AstReshapeS sh v -> case ftkAst v of
-    FTKS _ x -> FTKS sh x
+  AstReshapeS sh2 v -> case ftkAst v of
+    FTKS _ x -> FTKS sh2 x
   AstZipS v -> case ftkAst v of
     FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
   AstUnzipS v -> case ftkAst v of

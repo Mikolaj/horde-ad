@@ -45,8 +45,8 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-shareDelta :: forall y target. KnownSTK y
-           => Delta target y -> Delta target y
+shareDelta :: forall y target.
+              Delta target y -> Delta target y
 {-# NOINLINE shareDelta #-}
 shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
@@ -58,4 +58,6 @@ shareDelta d = unsafePerformIO $ do
     -- the term inside SFromR is most likely shared already, but are we sure?
     DeltaInput{} -> d
     DeltaShare{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> DeltaShare (NodeId n) d
+    _ ->
+      withKnownSTK (ftkToSTK $ ftkDelta d) $
+      DeltaShare (NodeId n) d

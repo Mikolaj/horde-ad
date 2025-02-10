@@ -407,11 +407,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSFromK :: GoodScalar r
             => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
   AstSFromR :: forall sh x ms s.
-               ShS sh
-            -> AstTensor ms s (TKR2 (Rank sh) x) -> AstTensor ms s (TKS2 sh x)
+               ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
+            -> AstTensor ms s (TKS2 sh x)
   AstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
-            => ShS sh
-            -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKS2 sh x)
+            => ShS sh -> AstTensor ms s (TKX2 sh' x)
+            -> AstTensor ms s (TKS2 sh x)
 
   -- Backend-specific primitives
   AstReplicate0NS :: ShS sh -> AstTensor ms s (TKS2 '[] x)

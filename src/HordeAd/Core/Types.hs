@@ -26,7 +26,7 @@ module HordeAd.Core.Types
   , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
   , Head, Take, Drop
-  , ixsRank, ssxRank
+  , ixsRank, ssxRank, ixxRank
   , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
   , takeShape, dropShape, splitAt_Shape
   , splitAt_SizedS, dropIxS, takeShS, dropShS
@@ -37,7 +37,9 @@ module HordeAd.Core.Types
   , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
-  , ixsToShS, listsToShS, listrToNonEmpty
+  , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
+    -- * Ops only needed as a workaround for other ops not provided.
+  , ssxTakeIx
   ) where
 
 import Prelude
@@ -535,6 +537,9 @@ ixsRank (IxS l) = listsRank l
 ssxRank :: StaticShX sh -> SNat (Rank sh)
 ssxRank (StaticShX l) = listxRank l
 
+ixxRank :: IxX sh f -> SNat (Rank sh)
+ixxRank (IxX list) = listxRank list
+
 takeSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
           => ListS sh (Const i) -> ListS (Take len sh) (Const i)
 takeSized ix = fromList $ take (valueOf @len) $ toList ix
@@ -692,6 +697,8 @@ zipIndexS (IxS l1) (IxS l2) = IxS $ zipSizedS l1 l2
 zipWith_IndexS :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
 zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
 
+-- Also permInverse for S would be very handy (see how unreadable
+-- is permInverse applied to S terms in AstSimplify).
 permRInverse :: PermR -> PermR
 permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
 
@@ -766,8 +773,13 @@ sixKnown :: IxS sh i -> Dict KnownShS sh
 sixKnown ZIS = Dict
 sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
 
+-- TODO: ixrToShR :: IxR sh i -> ShR sh i
+
 ixsToShS :: IxS sh i -> ShS sh
 ixsToShS ix | Dict <- sixKnown ix = knownShS
+
+_ixxToSSX :: IxX sh i -> StaticShX sh
+_ixxToSSX (IxX _list) = error "TODO"
 
 -- TODO: this can be retired when we have a conversion from ListS to ShS;
 slistKnown :: ListS sh i -> Dict KnownShS sh
@@ -783,3 +795,13 @@ listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
 instance NFData i => NFData (ListR n i) where
   rnf ZR = ()
   rnf (x ::: l) = rnf x `seq` rnf l
+
+
+-- This is only needed as a workaround for other ops not provided.
+
+listxTake :: forall f g sh sh'. ListX (sh ++ sh') f -> ListX sh g -> ListX sh f
+listxTake _ ZX = ZX
+listxTake (i ::% long') ((::%) @_ @_ @sh2 _ short) = i ::% listxTake @f @g @sh2 @sh' long' short
+
+ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
+ssxTakeIx = coerce (listxTake @(Nested.SMayNat () SNat) @(Const i) @_ @sh')

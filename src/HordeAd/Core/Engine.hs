@@ -145,8 +145,8 @@ revArtifactAdapt hasDt f ftk =
 -}
 
 revProduceArtifactWithoutInterpretation
-  :: forall x z. KnownSTK z
-  => Bool
+  :: forall x z.
+     Bool
   -> (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullTensorKind x
@@ -301,7 +301,7 @@ crevDtMaybe f vals mdt | Dict <- lemKnownSTKOfAD (knownSTK @(X advals)) =
 -- | This takes the sensitivity parameter, by convention.
 cfwd
   :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
