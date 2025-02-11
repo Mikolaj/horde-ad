@@ -219,13 +219,13 @@ interpretAst !env = \case
              -- agreed, the AstApply would likely be simplified before
              -- getting interpreted
        in tApply t2 ll2
-  AstVar ftk var ->
-   let var2 = mkAstVarName @FullSpan (ftkToSTK ftk) (varNameToAstVarId var)  -- TODO
+  AstVar _ftk var ->
+   let var2 = mkAstVarName @FullSpan (varNameToSTK var) (varNameToAstVarId var)  -- TODO
    in case DMap.lookup var2 env of
     Just (AstEnvElemRep t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
-      assert (tftk (knownSTK @y2) t == _sh
-              `blame` (_sh, tftk (ftkToSTK ftk) t, var, t))
+      assert (tftk (varNameToSTK var) t == _ftk
+              `blame` (tftk (varNameToSTK var) t, _ftk, var, t))
 #endif
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var

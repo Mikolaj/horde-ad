@@ -400,7 +400,7 @@ unshareAst memo = \case
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
     in (memo2, Ast.AstApply stk t2 ll2)
-  Ast.AstVar sh v -> (memo, Ast.AstVar sh v)
+  Ast.AstVar ftk v -> (memo, Ast.AstVar ftk v)
   Ast.AstCond b a2 a3 ->
     let (memo1, b1) = unshareAstBool memo b
         (memo2, t2) = unshareAst memo1 a2

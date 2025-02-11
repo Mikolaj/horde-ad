@@ -3352,11 +3352,11 @@ contractAstNumOp2 TimesOp (AstN2K TimesOp u v) w =
 -- that constant, if possible, e.g., in rules for NegateOp.
 contractAstNumOp2
   TimesOp (AstConcrete (RepF ftk v))
-          (Ast.AstI2K QuotOp (Ast.AstVar sh var)
+          (Ast.AstI2K QuotOp (Ast.AstVar ftk2 var)
                              (AstConcrete (RepF _ v'))) | v == v' =
     contractAstNumOp2 MinusOp
-                      (Ast.AstVar sh var)
-                      (Ast.AstI2K RemOp (Ast.AstVar sh var)
+                      (Ast.AstVar ftk2 var)
+                      (Ast.AstI2K RemOp (Ast.AstVar ftk2 var)
                                         (AstConcrete (RepF ftk v)))
 contractAstNumOp2 opCode u v = AstN2K opCode u v
 
