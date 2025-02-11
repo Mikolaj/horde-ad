@@ -69,13 +69,13 @@ benchProd :: r ~ Double
           -> [Benchmark]
 benchProd ~(snat, l, lt, t) = case snat of
   SNat ->
-    [ bench "crev l" $ nf crevRankedLProd l
-    , bench "rev l" $ nf revRankedLProd l
-    , bench "r crev l" $ nf crevRankedLProdr l
-    , bench "r rev l" $ nf revRankedLProdr l
-    , bench "NotShared l crev" $ nf crevRankedNotSharedLProd l
-    , bench "crev lt" $ nf crevRankedLtProd lt
-    , bench "rev lt" $ nf revRankedLtProd lt
+    [ bench "ncrev ls" $ nf crevRankedLProd l
+    , bench "nrev ls" $ nf revRankedLProd l
+    , bench "r crev ls" $ nf crevRankedLProdr l
+    , bench "r rev ls" $ nf revRankedLProdr l
+    , bench "NotShared ls crev" $ nf crevRankedNotSharedLProd l
+    , bench "ncrev lt" $ nf crevRankedLtProd lt
+    , bench "nrev lt" $ nf revRankedLtProd lt
     , bench "r crev lt" $ nf crevRankedLtProdr lt
     , bench "r rev lt" $ nf revRankedLtProdr lt
     , bench "NotShared lt crev" $ nf crevRankedNotSharedLtProd lt
