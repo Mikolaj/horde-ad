@@ -123,14 +123,18 @@ instance (RealFloatF r, Nested.FloatElt r)
 class LetTensor (target :: Target) where
   twidth :: STensorKind y -> Int
   twidth stk = case stk of
-    STKScalar -> 1
+    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+      Just Refl -> 0
+      _ -> 1
     STKR{} -> 1
     STKS{} -> 1
     STKX{} -> 1
     STKProduct stk1 stk2 -> twidth @target stk1 + twidth @target stk2
   tsize :: BaseTensor target => STensorKind y -> target y -> Int
   tsize stk a = case stk of
-    STKScalar -> 1
+    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+      Just Refl -> 0
+      _ -> 1
     STKR SNat x | Dict <- lemKnownSTK x -> rsize a
     STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssize a
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsize a
