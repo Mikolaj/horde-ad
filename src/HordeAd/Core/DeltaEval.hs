@@ -172,17 +172,21 @@ rebuildInputs els s2 ftk = case ftk of
    , Dict <- lemKnownSTK (ftkToSTK ftk2) ->
       let (t1, rest1) = rebuildInputs els s2 ftk1
           (t2, rest2) = rebuildInputs rest1 s2 ftk2
-      in (tpair t1 t2, rest2)
+          !t = tpair t1 t2
+      in (t, rest2)
   _ -> case els of
     (n :=> tz@(TOTensor t)) : rest ->
       case sameSTK (inputIdToSTK n) (ftkToSTK ftk) of
-        Just Refl -> (t, rest)
+        Just Refl ->
+          (t, rest)
         _ | Dict <- lemKnownSTK (inputIdToSTK n) ->
           error $ "rebuildInputs: wrong Tensor type: "
                   ++ show (n, tz, show_IMap (iMap s2))
     (n :=> tz@(TOZero ftk2)) : rest ->
       case matchingFTK ftk2 ftk of
-        Just Refl -> (constantTarget 0 ftk, rest)
+        Just Refl ->
+          let !zero = constantTarget 0 ftk
+          in (zero, rest)
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
           -- and maybe use elsewhere, too.
