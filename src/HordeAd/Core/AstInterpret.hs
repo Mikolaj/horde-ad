@@ -19,7 +19,7 @@ module HordeAd.Core.AstInterpret
 
 import Prelude
 
-import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Dependent.EnumMap.Strict.Unsafe qualified as DMap.Unsafe
 import Data.Int (Int64)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy (Proxy))
@@ -221,7 +221,10 @@ interpretAst !env = \case
        in tApply t2 ll2
   AstVar _ftk var ->
    let var2 = mkAstVarName @FullSpan (varNameToSTK var) (varNameToAstVarId var)  -- TODO
-   in case DMap.lookup var2 env of
+-- TODO: this unsafe call is needed for benchmark VTO1.
+-- Once VTO1 is fixed in another way, try to make it safe.
+-- BTW, the old assertion tests the same thing and more.
+   in case DMap.Unsafe.lookupUnsafe var2 env of
     Just (AstEnvElemRep t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
       assert (tftk (varNameToSTK var) t == _ftk

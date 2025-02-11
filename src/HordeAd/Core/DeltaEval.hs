@@ -507,17 +507,15 @@ evalRev !s !c d0 = case d0 of
               DeltaInput{} -> False
               DeltaShare{} -> False
               _ -> True)
-    $ case DMap.lookup n $ nMap s of
-        Just _ ->
-          let addc x = Cotangent $ addTarget (adSTK $ ftkToSTK $ ftkDelta d)
-                                             c (unCotangent x)
-            -- target has a ShareTensor instance, so addTarget arguments
-            -- don't need to be duplicable
-          in s {dMap = DMap.adjust addc n $ dMap s}
-        Nothing ->
-          let cd = Cotangent c
-          in s { nMap = DMap.insert n d $ nMap s
-               , dMap = DMap.insert n cd $ dMap s }
+    $ if DMap.member n $ nMap s
+      then let addc x = Cotangent $ addTarget (adSTK $ ftkToSTK $ ftkDelta d)
+                                              c (unCotangent x)
+             -- target has a ShareTensor instance, so addTarget arguments
+             -- don't need to be duplicable
+           in s {dMap = DMap.adjust addc n $ dMap s}
+      else let cd = Cotangent c
+           in s { nMap = DMap.insert n d $ nMap s
+                , dMap = DMap.insert n cd $ dMap s }
 
   DeltaFromS stk (DeltaSFromR _ d)
     | y2 <- ftkDelta d
