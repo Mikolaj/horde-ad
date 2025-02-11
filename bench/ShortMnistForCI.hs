@@ -17,5 +17,6 @@ main = do
     [ mnistBGroup1VTA testData 40
     , mnistBGroup1VTO testData 40
     , mnistBGroup2VTA testData 40
+    , mnistBGroup2VTC 40
     , mnistBGroup2VTO testData 40
     ]

@@ -314,35 +314,63 @@ mnistBGroup2VTA xs0 chunkLength =
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTrainBench2VTO
+mnistTrainBench2VTOGradient
   :: forall r. r ~ Double
-  => String
-  -> Int -> Int -> Double -> Int -> [MnistDataLinearR r]
-  -> Benchmark
-mnistTrainBench2VTO prefix widthHidden widthHidden2
-                    gamma batchSize xs =
+  => Int -> Int
+  -> ( RepN (XParams2 r)
+     , AstArtifactRev
+         (TKProduct
+            (XParams2 r)
+            (TKProduct (TKR2 1 (TKScalar Double))
+                       (TKR2 1 (TKScalar Double))))
+         (TKScalar r) )
+mnistTrainBench2VTOGradient widthHidden widthHidden2 =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
+  -- Initial parameter generation is counted as part of compilation time.
   let targetInit =
         forgetShape $ fst
         $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                                    RepN widthHidden widthHidden2 r)))
                       1 (mkStdGen 44)
-  in do
-    let ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
-        ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
-                             (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
-        f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
-                 (AstTensor AstMethodLet FullSpan) r
-             , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
-               , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
-          -> AstTensor AstMethodLet FullSpan (TKScalar r)
-        f (pars, (glyphR, labelR)) =
-          MnistFcnnRanked2.afcnnMnistLoss2TensorData
-            (glyphR, labelR) pars
-        (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
-        art = simplifyArtifactGradient artRaw
-        go :: [MnistDataLinearR r] -> RepN (XParams2 r) -> RepN (XParams2 r)
+      ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
+      ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
+                           (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
+      f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
+               (AstTensor AstMethodLet FullSpan) r
+           , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
+             , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
+        -> AstTensor AstMethodLet FullSpan (TKScalar r)
+      f (pars, (glyphR, labelR)) =
+        MnistFcnnRanked2.afcnnMnistLoss2TensorData
+          (glyphR, labelR) pars
+      (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+  in (targetInit, simplifyArtifactGradient artRaw)
+
+-- Only compilation time.
+mnistTrainBench2VTC
+  :: String
+  -> Int -> Int
+  -> Benchmark
+mnistTrainBench2VTC prefix widthHidden widthHidden2 =
+  bench prefix
+  $ whnf (snd . mnistTrainBench2VTOGradient widthHidden) widthHidden2
+
+-- The same as above, but only runtime.
+mnistTrainBench2VTO
+  :: forall r. r ~ Double
+  => String
+  -> Double -> Int -> [MnistDataLinearR r]
+  -> ( RepN (XParams2 r)
+     , AstArtifactRev
+         (TKProduct
+            (XParams2 r)
+            (TKProduct (TKR2 1 (TKScalar Double))
+                       (TKR2 1 (TKScalar Double))))
+         (TKScalar r) )
+  -> Benchmark
+mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
+    let go :: [MnistDataLinearR r] -> RepN (XParams2 r) -> RepN (XParams2 r)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
@@ -359,34 +387,34 @@ mnistTrainBench2VTO prefix widthHidden widthHidden2
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
 
-mnistTestBench2VTO
-  :: forall r. r ~ Double
-  => String
-  -> Int -> Int -> Double -> Int -> [MnistDataLinearR r]
-  -> Benchmark
-mnistTestBench2VTO = mnistTestBench2VTA
-
-mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
-mnistBGroup2VTO xs0 chunkLength =
-  env (return $ map mkMnistDataLinearR $ take chunkLength xs0) $
-  \ xs ->
-  bgroup ("2-hidden-layer rank 2 VTO MNIST nn with samples: "
+mnistBGroup2VTC :: Int -> Benchmark
+mnistBGroup2VTC chunkLength =
+  bgroup ("2-hidden-layer rank 2 VTC compilation MNIST nn with samples: "
           ++ show chunkLength) $
     (if chunkLength <= 1000
      then
-       [ mnistTestBench2VTO "30|10 " 30 10 0.02 chunkLength xs
+       [ mnistTrainBench2VTC "30|10 " 30 10
            -- toy width
-       , mnistTrainBench2VTO "30|10 " 30 10 0.02 chunkLength xs
-       , mnistTestBench2VTO "300|100 " 300 100 0.02 chunkLength xs
+       , mnistTrainBench2VTC "300|100 " 300 100
            -- ordinary width
-       , mnistTrainBench2VTO "300|100 " 300 100 0.02 chunkLength xs
        ]
      else
        [])
-    ++ [ mnistTestBench2VTO "500|150 " 500 150 0.02 chunkLength xs
+    ++ [ mnistTrainBench2VTC "500|150 " 500 150
            -- another common width
-       , mnistTrainBench2VTO "500|150 " 500 150 0.02 chunkLength xs
-       ]
+      ]
+
+mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
+mnistBGroup2VTO xs0 chunkLength =
+  let (!targetInit, !art) = mnistTrainBench2VTOGradient 500 150
+  in env (return $ map mkMnistDataLinearR $ take chunkLength xs0)
+     $ \ xs ->
+   bgroup ("2-hidden-layer rank 2 VTO runtime MNIST nn with samples: "
+           ++ show chunkLength)
+     [ mnistTrainBench2VTO "500|150 warm-up " 0.02 chunkLength xs
+                           (targetInit, art)
+     , mnistTrainBench2VTO "500|150 " 0.02 chunkLength xs (targetInit, art)
+     ]
 
 -- TODO: not enough specialized
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''RealFrac, ''Nested.FloatElt, ''RealFloatF, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''KnownSTK, ''Boolean, ''EqF, ''OrdF, ''AllTargetShow, ''BaseTensor, ''KnownNat, ''ShareTensor, ''LetTensor, ''Nested.Storable, ''SplitGen, ''RandomGen, ''Nested.KnownShS, ''Nested.KnownShX, ''AdaptableTarget, ''AstSpan, ''WithDict, ''PermC, ''IntegralF, ''Integral, ''Numeric, ''Monoid, ''Fractional, ''Random]
