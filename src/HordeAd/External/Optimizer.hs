@@ -11,11 +11,10 @@ import Prelude
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
+import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsConcrete ()
-import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
-import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 
 -- These functions have their SPECIALIZE pragmas in MnistData.
@@ -73,8 +72,7 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   deltaInputs = generateDeltaInputs ftk
   go :: [a] -> RepN x -> StateAdam x -> (RepN x, StateAdam x)
   go [] parameters stateAdam = (parameters, stateAdam)
-  go (a : rest) !parameters !stateAdam
-   | Dict <- lemKnownSTKOfAD (knownSTK @x) =
+  go (a : rest) !parameters !stateAdam =
     let inputs :: ADVal RepN x
         inputs = dDnotShared parameters deltaInputs
         gradients = fst $ crevOnADInputs Nothing (f a) inputs

@@ -167,11 +167,11 @@ rebuildInputs :: forall ady target. ADReadyNoLet target
               -> FullTensorKind ady
               -> (target ady, [DSum (InputId target) (TensorOrZero target)])
 rebuildInputs els s2 ftk = case ftk of
-  FTKProduct @y1 @y2 ftk1 ftk2
+  FTKProduct ftk1 ftk2
    | Dict <- lemKnownSTK (ftkToSTK ftk1)
    , Dict <- lemKnownSTK (ftkToSTK ftk2) ->
-      let (t1, rest1) = rebuildInputs @y1 els s2 ftk1
-          (t2, rest2) = rebuildInputs @y2 rest1 s2 ftk2
+      let (t1, rest1) = rebuildInputs els s2 ftk1
+          (t2, rest2) = rebuildInputs rest1 s2 ftk2
       in (tpair t1 t2, rest2)
   _ -> case els of
     (n :=> tz@(TOTensor t)) : rest ->

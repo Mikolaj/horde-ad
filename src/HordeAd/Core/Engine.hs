@@ -99,7 +99,7 @@ revDtMaybe
   -> Maybe (RepN (ADTensorKind z))
   -> Value astvals  -- morally (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
-revDtMaybe f vals0 mdt | Dict <- lemKnownSTKOfAD (knownSTK @(X astvals)) =
+revDtMaybe f vals0 mdt =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
@@ -281,7 +281,7 @@ crevDtMaybe
   -> Maybe (RepN (ADTensorKind z))
   -> DValue advals  -- morally (ADTensorKind advals)
 {-# INLINE crevDtMaybe #-}
-crevDtMaybe f vals mdt | Dict <- lemKnownSTKOfAD (knownSTK @(X advals)) =
+crevDtMaybe f vals mdt =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
       valsTarget = toTarget vals
