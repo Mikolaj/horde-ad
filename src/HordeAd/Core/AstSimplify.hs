@@ -155,7 +155,8 @@ astTransposeAsGatherS
 {-# NOINLINE astTransposeAsGatherS #-}
 astTransposeAsGatherS knobs perm v =
   let STKS shn _ = ftkToSTK (ftkAst v)
-  in funToVarsIxS (shsPermute perm (shsTakeLen perm shn)) $ \ (!vars, !ix) ->
+      shnPermuted = shsPermute perm (shsTakeLen perm shn)
+  in funToVarsIxS @_ @AstMethodLet shnPermuted $ \ (!vars, !ix) ->
     -- See astGatherCase.AstTransposeS for an example with more comments.
     gcastWith (lemRankMapJust $ shsTakeLen perm shn) $
     gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
@@ -2218,7 +2219,7 @@ astSFromK t = case t of
   Ast.AstI2K opCode u v | Just Refl <- isTensorInt t ->
     Ast.AstI2S opCode (astSFromK u) (astSFromK v)
   Ast.AstFromS _ v ->
-    case matchingFTK (ftkAst v) (FTKS ZSS FTKScalar) of
+    case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
       Just Refl -> v
       _ -> error $ "astSFromK: unexpected tensor kinds"
   _ -> Ast.AstSFromK t

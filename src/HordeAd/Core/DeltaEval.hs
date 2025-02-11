@@ -632,7 +632,7 @@ evalRevSame !s !c = \case
       in evalRevSame s2 (rslice m n cShared) e
     _ -> error "evalRevSame: impossible pattern needlessly required"
   DeltaSliceR i n d -> case ftkDelta d of
-    FTKR (l :$: rest) x | SNat <- shrRank rest ->
+    FTKR sh@(l :$: rest) x | SNat <- shrRank sh ->
       withKnownSTK (ftkToSTK x) $
       evalRevSame s
                (rconcat $ NonEmpty.fromList

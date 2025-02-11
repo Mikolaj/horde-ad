@@ -422,11 +422,11 @@ liftXFromS2 f a b = case ftkAst a of
 cAstSFromK :: forall r ms s. GoodScalar r
            => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
 cAstSFromK (AstFromS _ v) =
-  case matchingFTK (ftkAst v) (FTKS ZSS FTKScalar) of
+  case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
     Just Refl -> v
     _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
 cAstSFromK (AstFromPrimal (AstFromS _ v)) =
-  case matchingFTK (ftkAst v) (FTKS ZSS FTKScalar) of
+  case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
 cAstSFromK v = AstSFromK v

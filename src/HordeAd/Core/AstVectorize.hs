@@ -389,6 +389,7 @@ build1VIndexS k@SNat shn (var, v0, ix)
          build1VOccurenceUnknown k (var, v1)
        v@(Ast.AstIndexS shn1 v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
+             ruleD :: AstTensor AstMethodLet s (TKS2 (k ': shn) x)
              ruleD =
                astGatherStepS
                        shn1 (build1VOccurenceUnknown k (var, v1))
