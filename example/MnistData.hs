@@ -8,9 +8,10 @@ import Prelude
 import Codec.Compression.GZip (decompress)
 import Data.ByteString.Lazy qualified as LBS
 import Data.IDX
-import Data.List (sortOn)
+import Data.List (sortBy)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
+import Data.Ord (comparing)
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import Data.Vector.Storable qualified as VS
@@ -144,8 +145,10 @@ readMnistData glyphsBS labelsBS =
       -- Copied from library backprop to enable comparison of results.
       -- I have no idea how this is different from @labeledDoubleData@, etc.
       f (labN, v) =
-        ( V.map (\r -> fromIntegral r / 255) $ V.convert v
-        , V.generate sizeMnistLabelInt (\i -> if i == labN then 1 else 0) )
+        let !vGlyph = V.map (\r -> fromIntegral r / 255) $ V.convert v
+            !vLabel = V.generate sizeMnistLabelInt
+                                 (\i -> if i == labN then 1 else 0)
+        in (vGlyph, vLabel)
   in map f intData
 {-# SPECIALIZE readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double] #-}
 {-# SPECIALIZE readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Float] #-}
@@ -172,7 +175,8 @@ loadMnistData glyphsPath labelsPath =
 shuffle :: RandomGen g => g -> [a] -> [a]
 shuffle g l =
   let rnds = randoms g :: [Int]
-  in map fst $ sortOn snd $ zip l rnds
+      res = map fst $ sortBy (comparing snd) $ zip l rnds
+  in foldr seq () res `seq` res
 
 chunksOf :: Int -> [e] -> [[e]]
 chunksOf n = go where
