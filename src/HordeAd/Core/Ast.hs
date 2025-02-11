@@ -29,7 +29,7 @@ import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Some
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (type (+), type (<=))
 import Numeric.LinearAlgebra (Numeric)
@@ -126,6 +126,9 @@ instance DMap.Enum1 (AstVarName s) where
   type Enum1Info (AstVarName s) = Some STensorKind
   fromEnum1 (AstVarName stk varId) = (fromEnum varId, Some stk)
   toEnum1 varIdInt (Some stk) = Some $ AstVarName stk $ toEnum varIdInt
+
+instance TestEquality (AstVarName s) where
+  testEquality (AstVarName stk1 _) (AstVarName stk2 _) = sameSTK stk1 stk2
 
 mkAstVarName :: forall s y. STensorKind y -> AstVarId -> AstVarName s y
 mkAstVarName = AstVarName

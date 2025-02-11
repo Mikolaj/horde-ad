@@ -53,7 +53,8 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Some
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality
+  (TestEquality (..), gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (type (+), type (<=))
@@ -110,6 +111,9 @@ instance DMap.Enum1 (NodeId target) where
   fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
   toEnum1 n (Some @_ @a Dict) = Some $ NodeId @target @a n
 
+instance TestEquality (NodeId target) where
+  testEquality (NodeId @_ @y1 _) (NodeId @_ @y2 _) = sameKnownSTK @y1 @y2
+
 -- | Wrap non-negative (only!) integers in the `NodeId` newtype.
 mkNodeId :: STensorKind y -> Int -> NodeId f y
 mkNodeId stk i | Dict <- lemKnownSTK stk =
@@ -130,6 +134,9 @@ instance DMap.Enum1 (InputId target) where
   type Enum1Info (InputId target) = Some (Dict KnownSTK)
   fromEnum1 (InputId @_ @a n) = (n, Some @_ @a Dict)
   toEnum1 n (Some @_ @a Dict) = Some $ InputId @target @a n
+
+instance TestEquality (InputId target) where
+  testEquality (InputId @_ @y1 _) (InputId @_ @y2 _) = sameKnownSTK @y1 @y2
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 mkInputId :: STensorKind y -> Int -> InputId f y
