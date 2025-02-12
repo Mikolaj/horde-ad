@@ -548,10 +548,10 @@ instance BaseTensor RepN where
   tApply f x = RepN $ f $ unRepN x
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tcond _ b u v = if b then u else v
-  tprimalPart _ = id
+  tprimalPart = id
   tdualPart stk t = DummyDualTarget (tftk stk t)
   tfromPrimal _ t = t
-  tfromDual _ (DummyDualTarget ftk) = constantTarget 0 ftk
+  tfromDual (DummyDualTarget ftk) = constantTarget 0 ftk
   tScale _ _ t = t
   -- The code for trevDt and tfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.

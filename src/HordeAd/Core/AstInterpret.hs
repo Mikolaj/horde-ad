@@ -101,7 +101,7 @@ interpretAstPrimal !env v1 = case v1 of
     in tcond (knownSTK @y2) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
   _ ->
-    tprimalPart (knownSTK @y) (interpretAst env v1)
+    tprimalPart (interpretAst env v1)
 
 interpretAstDual
   :: forall target y. (ADReady target, KnownSTK y)
@@ -294,7 +294,7 @@ interpretAst !env = \case
   AstFromDual a ->
     let stk = ftkToSTK (ftkAst a)
     in withKnownSTK stk $
-       tfromDual stk (interpretAstDual env a)
+       tfromDual (interpretAstDual env a)
 
   AstSumOfList args -> case args of
     a :| _ ->

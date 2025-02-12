@@ -243,7 +243,7 @@ class LetTensor (target :: Target) where
   tD stk p d | Dict <- lemKnownSTK stk =
     -- Lets needed, because raddTarget requires duplicable arguments.
     tlet (tfromPrimal stk p) $ \pShared ->
-    tlet (tfromDual stk d) $ \dShared ->
+    tlet (tfromDual d) $ \dShared ->
       taddTarget stk pShared dShared
 
 class ShareTensor (target :: Target) where
@@ -654,18 +654,16 @@ class ( Num (IntOf target)
     rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix)
                                 (rindex0 x ix))
 
-  rprimalPart :: (KnownSTK r, KnownNat n)
-              => target (TKR2 n r) -> PrimalOf target (TKR2 n r)
-  rprimalPart = tprimalPart knownSTK
+  rprimalPart :: target (TKR2 n r) -> PrimalOf target (TKR2 n r)
+  rprimalPart = tprimalPart
   rdualPart :: (KnownSTK r, KnownNat n)
             => target (TKR2 n r) -> DualOf target (TKR2 n r)
   rdualPart = tdualPart knownSTK
   rfromPrimal :: (KnownSTK r, KnownNat n)
               => PrimalOf target (TKR2 n r) -> target (TKR2 n r)
   rfromPrimal = tfromPrimal knownSTK
-  rfromDual :: (KnownSTK r, KnownNat n)
-            => DualOf target (TKR2 n r) -> target (TKR2 n r)
-  rfromDual = tfromDual knownSTK
+  rfromDual :: DualOf target (TKR2 n r) -> target (TKR2 n r)
+  rfromDual = tfromDual
   rScale :: ( GoodScalar r, KnownNat n
             , Num (target (TKR n r)), Num (PrimalOf target (TKR n r)) )
          => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
@@ -1023,18 +1021,16 @@ class ( Num (IntOf target)
                                                 (sindex0 w ix)
                                                 (sindex0 x ix))
 
-  sprimalPart :: (KnownSTK r, KnownShS sh)
-              => target (TKS2 sh r) -> PrimalOf target (TKS2 sh r)
-  sprimalPart = tprimalPart knownSTK
+  sprimalPart :: target (TKS2 sh r) -> PrimalOf target (TKS2 sh r)
+  sprimalPart = tprimalPart
   sdualPart :: (KnownSTK r, KnownShS sh)
             => target (TKS2 sh r) -> DualOf target (TKS2 sh r)
   sdualPart = tdualPart knownSTK
   sfromPrimal :: (KnownSTK r, KnownShS sh)
               => PrimalOf target (TKS2 sh r) -> target (TKS2 sh r)
   sfromPrimal = tfromPrimal knownSTK
-  sfromDual :: (KnownSTK r, KnownShS sh)
-            => DualOf target (TKS2 sh r) -> target (TKS2 sh r)
-  sfromDual = tfromDual knownSTK
+  sfromDual :: DualOf target (TKS2 sh r) -> target (TKS2 sh r)
+  sfromDual = tfromDual
   sScale :: (GoodScalar r, KnownShS sh, Num (target (TKS sh r)), Num (PrimalOf target (TKS sh r)))
          => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
          -> DualOf target (TKS sh r)
@@ -1282,18 +1278,16 @@ class ( Num (IntOf target)
           -> target (TKX2 (Just k ': sh) r)
   -- xmap and other special cases of build can be defined by the user.
 
-  xprimalPart :: (KnownSTK r, KnownShX sh)
-              => target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
-  xprimalPart = tprimalPart knownSTK
+  xprimalPart :: target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
+  xprimalPart = tprimalPart
   xdualPart :: (KnownSTK r, KnownShX sh)
             => target (TKX2 sh r) -> DualOf target (TKX2 sh r)
   xdualPart = tdualPart knownSTK
   xfromPrimal :: (KnownSTK r, KnownShX sh)
               => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
   xfromPrimal = tfromPrimal knownSTK
-  xfromDual :: (KnownSTK r, KnownShX sh)
-            => DualOf target (TKX2 sh r) -> target (TKX2 sh r)
-  xfromDual = tfromDual knownSTK
+  xfromDual :: DualOf target (TKX2 sh r) -> target (TKX2 sh r)
+  xfromDual = tfromDual
   xScale :: (GoodScalar r, KnownShX sh, Num (target (TKX sh r)), Num (PrimalOf target (TKX sh r)))
          => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
          -> DualOf target (TKX sh r)
@@ -1773,24 +1767,15 @@ class ( Num (IntOf target)
               in tpair (replSTK stk1 f1) (replSTK stk2 f2)
     in replSTK (knownSTK @y) f
 
-  tprimalPart :: STensorKind y
-              -> target y
-              -> PrimalOf target y
-  tdualPart :: STensorKind y
-            -> target y
-            -> DualOf target y
-  tfromPrimal :: STensorKind y
-              -> PrimalOf target y
-              -> target y
-  tfromDual :: STensorKind y
-            -> DualOf target y
-            -> target y
+  tprimalPart :: target y -> PrimalOf target y
+  tdualPart :: STensorKind y -> target y -> DualOf target y
+  tfromPrimal :: STensorKind y -> PrimalOf target y -> target y
+  tfromDual :: DualOf target y -> target y
   tScale :: (Num (target y), Num (PrimalOf target y))
-         => STensorKind y
-         -> PrimalOf target y -> DualOf target y
+         => STensorKind y -> PrimalOf target y -> DualOf target y
          -> DualOf target y
   tScale stk s t =
-    tdualPart stk $ tfromPrimal @target stk s * tfromDual stk t
+    tdualPart stk $ tfromPrimal @target stk s * tfromDual t
 
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally

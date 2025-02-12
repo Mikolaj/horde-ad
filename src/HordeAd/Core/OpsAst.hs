@@ -705,10 +705,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     let (var, ast) = funToAst shss $ \ !ll -> unHFun f ll
     in AstLambda (var, shss, ast)
   tcond _ !b !u !v = astCond b u v
-  tprimalPart _ t = primalPart t
+  tprimalPart t = primalPart t
   tdualPart _ t = dualPart t
   tfromPrimal _ t = fromPrimal t
-  tfromDual _ t = fromDual t
+  tfromDual t = fromDual t
   -- TODO: (still) relevant?
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
@@ -1314,10 +1314,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tApply t ll = AstRaw $ AstApply knownSTK t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
-  tprimalPart _ t = AstRaw $ primalPart $ unAstRaw t
+  tprimalPart t = AstRaw $ primalPart $ unAstRaw t
   tdualPart _ t = dualPart $ unAstRaw t
   tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
-  tfromDual _ t = AstRaw $ fromDual t
+  tfromDual t = AstRaw $ fromDual t
   -- TODO: (still) relevant?
   -- In this instance, these two ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
@@ -1480,10 +1480,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tcond !stk !b !u !v =
     AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
-  tprimalPart stk t = AstNoVectorize $ tprimalPart stk $ unAstNoVectorize t
+  tprimalPart t = AstNoVectorize $ tprimalPart $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
-  tfromDual stk t = AstNoVectorize $ tfromDual stk t
+  tfromDual t = AstNoVectorize $ tfromDual t
   trev = trev @(AstTensor AstMethodLet PrimalSpan)
   trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
@@ -1564,7 +1564,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tcond _ !b !u !v =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
   tdualPart _ t = dualPart $ unAstNoSimplify t
-  tfromDual _ t = AstNoSimplify $ fromDual t
+  tfromDual t = AstNoSimplify $ fromDual t
 
   -- All the following implementations piggy-back on AstRaw implementations.
   tconstantTarget r ftk = wAstNoSimplify $ tconstantTarget r ftk
@@ -1691,7 +1691,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
   tApply t ll = wAstNoSimplify $ tApply t (wunAstNoSimplify ll)
   tlambda = tlambda @(AstRaw PrimalSpan)
-  tprimalPart stk t = wAstNoSimplify $ tprimalPart stk $ wunAstNoSimplify t
+  tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
   trev = trev @(AstRaw PrimalSpan)
   trevDt = trevDt @(AstRaw PrimalSpan)

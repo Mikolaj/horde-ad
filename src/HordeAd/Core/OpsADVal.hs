@@ -172,15 +172,13 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
   rindex (D u u') i =
-    let ix = tprimalPart STKScalar <$> i
+    let ix = tprimalPart <$> i
     in dD (rindex u ix) (DeltaIndexR SNat u' ix)
   rscatter sh (D u u') f =
-    let g x = tprimalPart STKScalar
-              <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (rscatter sh u g) (DeltaScatterR SNat SNat SNat sh u' g)
   rgather sh (D u u') f =
-    let g x = tprimalPart STKScalar
-              <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (rgather sh u g) (DeltaGatherR SNat SNat SNat sh u' g)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
@@ -236,20 +234,18 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (sdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   sreplicate (D u u') = dD (sreplicate u) (DeltaReplicate SNat knownSTK u')
   sindex (D u u') i =
-    let ix = tprimalPart STKScalar <$> i
+    let ix = tprimalPart <$> i
     in dD (sindex u ix) (DeltaIndexS knownShS u' ix)
   sscatter @r @shm @shn @shp (D u u') f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    let g x = tprimalPart STKScalar
-              <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (sscatter @_ @r @shm @shn @shp u g)
           (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' g)
   sgather @r @shm @shn @shp (D u u') f =
     withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
     withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-    let g x = tprimalPart STKScalar
-              <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (sgather @_ @r @shm @shn @shp u g)
           (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
   sconcrete a =
@@ -308,20 +304,18 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (xdot0 u v) (dAdd (DeltaDot0X v u') (DeltaDot0X u v'))
   xreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
   xindex (D u u') i =
-    let ix = tprimalPart STKScalar <$> i
+    let ix = tprimalPart <$> i
     in dD (xindex u ix) (DeltaIndexX knownShX u' ix)
   xscatter @r @shm @shn @shp sh (D u u') f =
     withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
-    let g x = tprimalPart STKScalar
-              <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (xscatter @_ @r @shm @shn @shp sh u g)
           (DeltaScatterX @shm @shn @shp knownShX knownShX knownShX sh u' g)
   xgather @r @shm @shn @shp sh (D u u') f =
     withKnownShX (ssxFromShape sh) $
     withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
-    let g x = tprimalPart STKScalar
-              <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (xgather @_ @r @shm @shn @shp sh u g)
           (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' g)
   xconcrete a =
@@ -554,11 +548,10 @@ instance ( ADReadyNoLet target, ShareTensor target
   tcond !stk !b !u !v =
     let uv = tfromVectorShare (SNat @2) stk (V.fromList [u, v])
     in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
-  tprimalPart _stk (D u _) = u
+  tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t | Dict <- lemKnownSTK stk = fromPrimalADVal t
-  tfromDual stk t | Dict <- lemKnownSTK stk =
-    dDnotShared (constantTarget 0 (ftkDelta t)) t
+  tfromDual t = dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale stk k = withKnownSTK stk $ dScale k
   trev @x _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x) =
     let rf :: forall f. ADReady f
