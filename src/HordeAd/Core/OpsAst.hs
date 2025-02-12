@@ -362,22 +362,25 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
-  rzip @y @z @n a = case ftkAst a of
-    FTKProduct (FTKR sh' _) (FTKR _ _) ->
+  rzip @y @z a = case ftkAst a of
+    FTKProduct (FTKR sh' y) (FTKR _ z) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
           in astFromS @(TKS2 sh (TKProduct y z))
-                      (knownSTK @(TKR2 n (TKProduct y z)))
+                      (STKR (shrRank sh')
+                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
              $ AstZipS $ astPair (astSFromR @sh sh a31)
                                  (astSFromR @sh sh a32)
-  runzip @y @z @n a = case ftkAst a of
-    FTKR sh' _ ->
+  runzip @y @z a = case ftkAst a of
+    FTKR sh' (FTKProduct y z) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astLetFun (AstUnzipS $ astSFromR @sh sh a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
-          in astPair (astFromS @(TKS2 sh y) (knownSTK @(TKR2 n y)) b31)
-                     (astFromS @(TKS2 sh z) (knownSTK @(TKR2 n z)) b32)
+          in astPair (astFromS @(TKS2 sh y)
+                               (STKR (shrRank sh') (ftkToSTK y)) b31)
+                     (astFromS @(TKS2 sh z)
+                               (STKR (shrRank sh') (ftkToSTK z)) b32)
   rbuild1 @x @n k f = withSNat k $ \snat ->
                         astBuild1Vectorize snat (STKR (SNat @n) (knownSTK @x)) f
 
@@ -572,21 +575,24 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
   xzip @y @z @sh' a = case ftkAst a of
-    FTKProduct (FTKX sh' _) (FTKX _ _) ->
+    FTKProduct (FTKX sh' y) (FTKX _ z) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
           in astFromS @(TKS2 sh (TKProduct y z))
-                      (knownSTK @(TKX2 sh' (TKProduct y z)))
+                      (STKX (ssxFromShape sh')
+                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
              $ AstZipS $ astPair (astSFromX @sh @sh' sh a31)
                                  (astSFromX @sh @sh' sh a32)
   xunzip @y @z @sh' a = case ftkAst a of
-    FTKX sh' _ ->
+    FTKX sh' (FTKProduct y z) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astLetFun (AstUnzipS $ astSFromX @sh @sh' sh a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
-          in astPair (astFromS @(TKS2 sh y) (knownSTK @(TKX2 sh' y)) b31)
-                     (astFromS @(TKS2 sh z) (knownSTK @(TKX2 sh' z)) b32)
+          in astPair (astFromS @(TKS2 sh y)
+                               (STKX (ssxFromShape sh') (ftkToSTK y)) b31)
+                     (astFromS @(TKS2 sh z)
+                               (STKX (ssxFromShape sh') (ftkToSTK z)) b32)
   xbuild1 @k @sh @x f =
     astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x)) f
 
@@ -948,22 +954,23 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
-  rzip @y @z @n (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKProduct (FTKR sh' _) (FTKR _ _) ->
+  rzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKProduct (FTKR sh' y) (FTKR _ z) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         let (a31, a32) = tunpair $ AstRaw a
         in AstFromS @(TKS2 sh (TKProduct y z))
-                    (knownSTK @(TKR2 n (TKProduct y z)))
+                      (STKR (shrRank sh')
+                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
            $ AstZipS $ AstPair (AstSFromR @sh sh $ unAstRaw a31)
                                (AstSFromR @sh sh $ unAstRaw a32)
-  runzip @y @z @n (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' _ ->
+  runzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKR sh' (FTKProduct y z) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         let b3 = AstUnzipS $ AstSFromR @sh sh a
             (b31, b32) = tunpair $ AstRaw b3
-        in AstPair (AstFromS @(TKS2 sh y) (knownSTK @(TKR2 n y))
+        in AstPair (AstFromS @(TKS2 sh y) (STKR (shrRank sh') (ftkToSTK y))
                     $ unAstRaw b31)
-                   (AstFromS @(TKS2 sh z) (knownSTK @(TKR2 n z))
+                   (AstFromS @(TKS2 sh z) (STKR (shrRank sh') (ftkToSTK z))
                     $ unAstRaw b32)
   rbuild1 k f = withSNat k $ \snat ->
     AstRaw $ AstBuild1 snat knownSTK
@@ -1169,23 +1176,26 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
   xzip @y @z @sh' (AstRaw a) = case ftkAst a of
-    FTKProduct (FTKX sh' _) (FTKX _ _) ->
+    FTKProduct (FTKX sh' y) (FTKX _ z) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         AstRaw
         $ let (a31, a32) = tunpair $ AstRaw a
           in AstFromS @(TKS2 sh (TKProduct y z))
-                      (knownSTK @(TKX2 sh' (TKProduct y z)))
+                      (STKX (ssxFromShape sh')
+                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
              $ AstZipS $ AstPair (AstSFromX @sh @sh' sh $ unAstRaw a31)
                                  (AstSFromX @sh @sh' sh $ unAstRaw a32)
   xunzip @y @z @sh' (AstRaw a) = case ftkAst a of
-    FTKX sh' _ ->
+    FTKX sh' (FTKProduct y z) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         AstRaw
         $ let b3 = AstRaw $ AstUnzipS $ AstSFromX @sh @sh' sh a
               (b31, b32) = tunpair b3
-          in AstPair (AstFromS @(TKS2 sh y) (knownSTK @(TKX2 sh' y))
+          in AstPair (AstFromS @(TKS2 sh y)
+                               (STKX (ssxFromShape sh') (ftkToSTK y))
                       $ unAstRaw b31)
-                     (AstFromS @(TKS2 sh z) (knownSTK @(TKX2 sh' z))
+                     (AstFromS @(TKS2 sh z)
+                               (STKX (ssxFromShape sh') (ftkToSTK z))
                       $ unAstRaw b32)
   xbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
                  $ funToAstI  -- this introduces new variable names

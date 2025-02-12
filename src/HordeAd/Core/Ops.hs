@@ -135,7 +135,7 @@ class LetTensor (target :: Target) where
     STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
       Just Refl -> 0
       _ -> 1
-    STKR SNat x | Dict <- lemKnownSTK x -> rsize a
+    STKR _ x | Dict <- lemKnownSTK x -> rsize a
     STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssize a
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsize a
     STKProduct stk1 stk2 ->
@@ -143,12 +143,8 @@ class LetTensor (target :: Target) where
   tlet :: target x
        -> (target x -> target z)
        -> target z
-  toShare :: KnownSTK y
-          => target y
-          -> ShareOf target y
-  tunshare :: KnownSTK y
-           => ShareOf target y
-           -> target y
+  toShare :: target y -> ShareOf target y
+  tunshare :: ShareOf target y -> target y
   tunshare = error "tunshare: this instance should never be used"
   tfromVector :: forall y k. BaseTensor target
               => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
@@ -555,11 +551,11 @@ class ( Num (IntOf target)
   rflatten u = rreshape (rsize u :$: ZSR) u
   rreshape :: (KnownSTK r, KnownNat n, KnownNat m)
            => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
-  rzip :: (KnownSTK y, KnownSTK z, KnownNat n)
-       => target (TKProduct (TKR2 n y) (TKR2 n z))
+  rzip :: forall y z n.
+          target (TKProduct (TKR2 n y) (TKR2 n z))
        -> target (TKR2 n (TKProduct y z))
-  runzip :: (KnownSTK y, KnownSTK z, KnownNat n)
-         => target (TKR2 n (TKProduct y z))
+  runzip :: forall y z n.
+            target (TKR2 n (TKProduct y z))
          -> target (TKProduct (TKR2 n y) (TKR2 n z))
 
   rbuild :: forall r m n. (KnownSTK r, KnownNat m, KnownNat n)
@@ -862,11 +858,11 @@ class ( Num (IntOf target)
            => target (TKS2 sh r) -> target (TKS2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  szip :: (KnownSTK y, KnownSTK z, KnownShS sh)
-       => target (TKProduct (TKS2 sh y) (TKS2 sh z))
+  szip :: forall y z sh.
+          target (TKProduct (TKS2 sh y) (TKS2 sh z))
        -> target (TKS2 sh (TKProduct y z))
-  sunzip :: (KnownSTK y, KnownSTK z, KnownShS sh)
-         => target (TKS2 sh (TKProduct y z))
+  sunzip :: forall y z sh.
+            target (TKS2 sh (TKProduct y z))
          -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
 
   sbuild :: forall r m sh. (KnownSTK r, KnownShS sh, KnownShS (Take m sh))
@@ -1255,11 +1251,11 @@ class ( Num (IntOf target)
   xflatten u = xreshape (Nested.SUnknown (xsize u) :$% ZSX) u
   xreshape :: (KnownSTK r, KnownShX sh, KnownShX sh2)
            => IShX sh2 -> target (TKX2 sh r) -> target (TKX2 sh2 r)
-  xzip :: (KnownSTK y, KnownSTK z, KnownShX sh)
-       => target (TKProduct (TKX2 sh y) (TKX2 sh z))
+  xzip :: forall y z sh.
+          target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> target (TKX2 sh (TKProduct y z))
-  xunzip :: (KnownSTK y, KnownSTK z, KnownShX sh)
-         => target (TKX2 sh (TKProduct y z))
+  xunzip :: forall y z sh.
+            target (TKX2 sh (TKProduct y z))
          -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
   xbuild :: forall r m sh.
@@ -1734,11 +1730,10 @@ class ( Num (IntOf target)
     -> target accShs
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
-  tApply :: (KnownSTK x, KnownSTK z)
+  tApply :: KnownSTK z
          => HFunOf target x z -> target x
          -> target z
-  tlambda :: (KnownSTK x, KnownSTK z)
-          => FullTensorKind x -> HFun x z -> HFunOf target x z
+  tlambda :: FullTensorKind x -> HFun x z -> HFunOf target x z
   tcond :: Boolean (BoolOf target)
         => STensorKind y
         -> BoolOf target -> target y -> target y -> target y

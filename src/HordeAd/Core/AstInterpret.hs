@@ -533,7 +533,7 @@ interpretAst !env = \case
     smatmul2 (interpretAst env u) (interpretAst env v)
 
 interpretAstHFun
-  :: forall target x y. (KnownSTK x, KnownSTK y)
+  :: forall target x y. KnownSTK x
   => BaseTensor target
   => AstEnv target -> AstHFun x y -> HFunOf target x y
 interpretAstHFun _env = \case
