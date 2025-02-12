@@ -1650,16 +1650,16 @@ class ( Num (IntOf target)
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
   tmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
-    let shs = FTKProduct accShs eShs
+    let xftk = FTKProduct accShs eShs
         fl :: forall f. ADReady f
            => f (TKProduct accShs eShs)
            -> f (TKProduct accShs bShs)
         fl !args = tlet args $ \ !args1 ->
                      f (tproject1 args1) (tproject2 args1)
     in tmapAccumRDer proxy k accShs bShs eShs
-                     (tlambda @target shs (HFun fl))
-                     (tfwd @target shs $ HFun fl)
-                     (trevDt @target shs $ HFun fl)
+                     (tlambda @target xftk (HFun fl))
+                     (tfwd @target xftk $ HFun fl)
+                     (trevDt @target xftk $ HFun fl)
                      acc0 es
   tmapAccumRDer
     :: (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
@@ -1696,16 +1696,16 @@ class ( Num (IntOf target)
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
   tmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
-    let shs = FTKProduct accShs eShs
+    let xftk = FTKProduct accShs eShs
         fl :: forall f. ADReady f
            => f (TKProduct accShs eShs)
            -> f (TKProduct accShs bShs)
         fl !args = tlet args $ \ !args1 ->
                      f (tproject1 args1) (tproject2 args1)
     in tmapAccumLDer proxy k accShs bShs eShs
-                     (tlambda @target shs (HFun fl))
-                     (tfwd @target shs $ HFun fl)
-                     (trevDt @target shs $ HFun fl)
+                     (tlambda @target xftk (HFun fl))
+                     (tfwd @target xftk $ HFun fl)
+                     (trevDt @target xftk $ HFun fl)
                      acc0 es
   tmapAccumLDer
     :: (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
@@ -1793,68 +1793,57 @@ class ( Num (IntOf target)
   -- use the let operations and also their signatures mention @ADReady@,
   -- so it's awkward to put the methods into @BaseTensor@,
   -- which shouldn't know about lets, etc.
-  rrev :: forall x r n.
-          (KnownSTK x, KnownSTK r, KnownNat n)
+  rrev :: forall x r n. (KnownSTK r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  rrev f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x) =
-    \ !es -> tApply (trev @target ftk $ HFun f) es
+  rrev f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
+    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKR2 n r))) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
-  rrevDt :: forall x r n.
-            (KnownSTK x, KnownSTK r, KnownNat n)
+  rrevDt :: forall x r n. (KnownSTK r, KnownNat n)
          => (forall f. ADReady f => f x -> f (TKR2 n r))
          -> FullTensorKind x
          -> target x
          -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  rrevDt f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
-               , Dict <- lemKnownSTKOfAD (knownSTK @(TKR2 n r)) =
-    \ !es !dt -> tApply (trevDt @target ftk $ HFun f)
+  rrevDt f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
+    \ !es !dt -> tApply (trevDt @target xftk $ HFun f)
                         (tpair dt es)
-  rfwd :: forall x r n.
-          (KnownSTK x, KnownSTK r, KnownNat n)
+  rfwd :: forall x r n. (KnownSTK r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR2 n r))
-  rfwd f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
-             , Dict <- lemKnownSTKOfAD (knownSTK @(TKR2 n r)) =
-    \ !es !ds -> tApply (tfwd @target ftk $ HFun f)
+  rfwd f xftk | Dict <- lemKnownSTKOfAD (knownSTK @(TKR2 n r)) =
+    \ !es !ds -> tApply (tfwd @target xftk $ HFun f)
                         (tpair ds es)
-  srev :: forall x r sh.
-          ( KnownSTK x, KnownSTK r, KnownShS sh
-          , ADTensorKind (TKS2 sh r) ~ TKS2 sh r )
+  srev :: forall x r sh. (KnownSTK r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  srev f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x) =
-    \ !es -> tApply (trev @target ftk $ HFun f) es
-  srevDt :: forall x r sh.
-            (KnownSTK x, KnownSTK r, KnownShS sh)
+  srev f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
+    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKS2 sh r))) es
+  srevDt :: forall x r sh. (KnownSTK r, KnownShS sh)
          => (forall f. ADReady f => f x -> f (TKS2 sh r))
          -> FullTensorKind x
          -> target x
          -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  srevDt f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
-               , Dict <- lemKnownSTKOfAD (knownSTK @(TKS2 sh r)) =
-    \ !es !dt -> tApply (trevDt @target ftk $ HFun f)
+  srevDt f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
+    \ !es !dt -> tApply (trevDt @target xftk $ HFun f)
                         (tpair dt es)
-  sfwd :: forall x r sh.
-          (KnownSTK x, KnownSTK r, KnownShS sh)
+  sfwd :: forall x r sh. (KnownSTK r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS2 sh r))
-  sfwd f ftk | Dict <- lemKnownSTKOfAD (knownSTK @x)
-             , Dict <- lemKnownSTKOfAD (knownSTK @(TKS2 sh r)) =
-    \ !es !ds -> tApply (tfwd @target ftk $ HFun f)
+  sfwd f xftk | Dict <- lemKnownSTKOfAD (knownSTK @(TKS2 sh r)) =
+    \ !es !ds -> tApply (tfwd @target xftk $ HFun f)
                         (tpair ds es)
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
@@ -1866,22 +1855,20 @@ class ( Num (IntOf target)
   -- These methods (and tlambda) are exactly what is needed as arguments
   -- of tmapAccumRDer.
   trev
-    :: (KnownSTK x, KnownSTK z)
-    => FullTensorKind x  -- shape of a and da
-    -> HFun x z  -- a |-> b
-    -> HFunOf target x (ADTensorKind x)  -- a |-> da
+    :: FullTensorKind x  -- shape of x and dx
+    -> HFun x z  -- x |-> z
+    -> STensorKind z
+    -> HFunOf target x (ADTensorKind x)  -- x |-> dx
   trevDt
-    :: (KnownSTK x, KnownSTK z)
-    => FullTensorKind x  -- shape of a and da
-    -> HFun x z  -- a |-> b
+    :: FullTensorKind x  -- shape of x and dx
+    -> HFun x z  -- x |-> z
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
-                 -- [db, a] |-> da
+                 -- [dz, x] |-> dx
   tfwd
-    :: (KnownSTK x, KnownSTK z)
-    => FullTensorKind x  -- shape of a and da
-    -> HFun x z  -- a |-> b
+    :: FullTensorKind x  -- shape of x and dx
+    -> HFun x z  -- x |-> z
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
-                 -- [da, a] |-> db
+                 -- [dx, x] |-> dz
 
 tunit :: BaseTensor target
       => target TKUnit

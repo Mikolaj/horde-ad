@@ -96,16 +96,19 @@ revArtifactFromForwardPass hasDt forwardPass xftk =
      , delta )
 
 revProduceArtifact
-  :: forall x z. KnownSTK x
-  => Bool
+  :: forall x z.
+     Bool
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullTensorKind x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifact #-}
-revProduceArtifact hasDt g envInit =
-  revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit)
+revProduceArtifact hasDt g envInit xftk =
+  revArtifactFromForwardPass hasDt
+    (withKnownSTK (ftkToSTK xftk) $
+     forwardPassByInterpretation g envInit)
+    xftk
 
 fwdArtifactFromForwardPass
   :: forall x z.
@@ -127,15 +130,18 @@ fwdArtifactFromForwardPass forwardPass ftk =
      , delta )
 
 fwdProduceArtifact
-  :: forall x z. KnownSTK x
-  => (AstTensor AstMethodLet FullSpan x
+  :: forall x z.
+     (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullTensorKind x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdProduceArtifact #-}
-fwdProduceArtifact f envInit =
-  fwdArtifactFromForwardPass (forwardPassByInterpretation f envInit)
+fwdProduceArtifact f envInit xftk =
+  fwdArtifactFromForwardPass
+    (withKnownSTK (ftkToSTK xftk) $
+     forwardPassByInterpretation f envInit)
+    xftk
 
 
 -- * AstTensor instances
@@ -713,7 +719,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  trev ftkx f =
+  trev ftkx f _zstk =
     -- we don't have an AST constructor to hold it, so we compute
     --
     -- This computes the (AST of) derivative of f once and interprets it again

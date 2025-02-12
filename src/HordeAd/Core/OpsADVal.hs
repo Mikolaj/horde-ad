@@ -20,7 +20,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
-import Data.Maybe (fromMaybe)
 
 import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
@@ -50,64 +49,56 @@ import HordeAd.Core.Types
 -- * Non-symbolic reverse and forward derivative computation
 
 crevOnADInputs
-  :: forall x z target.
-     ( KnownSTK x, KnownSTK z, ADReadyNoLet target
-     , ShareTensor target, ShareTensor (PrimalOf target) )
-  => Maybe (target (ADTensorKind z))
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  => Either (STensorKind z) (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
-  -> ADVal target x
+  -> FullTensorKind x -> ADVal target x
   -> (target (ADTensorKind x), target z)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE crevOnADInputs #-}
-crevOnADInputs mdt f inputs =
+crevOnADInputs mdt f xftk inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
-  let parameters0 = tftk (knownSTK @x) inputs
-      oneAtF = constantTarget 1 $ adFTK $ tftk (knownSTK @z) v
-      dt = fromMaybe oneAtF mdt
-      !gradient = gradientFromDelta parameters0 dt delta
+  let oneAtF zstk = constantTarget 1 $ adFTK $ tftk zstk v
+      dt = either oneAtF id mdt
+      !gradient = gradientFromDelta xftk dt delta
   in (gradient, v)
 
 crevOnHVector
-  :: forall x z target.
-     ( KnownSTK x, KnownSTK z, ADReadyNoLet target
-     , ShareTensor target, ShareTensor (PrimalOf target) )
-  => Maybe (target (ADTensorKind z))
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  => Either (STensorKind z) (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
-  -> target x
+  -> FullTensorKind x -> target x
   -> (target (ADTensorKind x), target z)
-crevOnHVector mdt f parameters =
-  let deltaInputs = generateDeltaInputs $ tftk (knownSTK @x) parameters
+crevOnHVector edt f xftk parameters =
+  let deltaInputs = generateDeltaInputs xftk
       inputs = dDnotShared parameters deltaInputs
-  in crevOnADInputs mdt f inputs
+  in crevOnADInputs edt f xftk inputs
 
 cfwdOnADInputs
-  :: forall x z target.
-     (KnownSTK x, ADReadyNoLet target, ShareTensor target)
-  => ADVal target x
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  => FullTensorKind x -> ADVal target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
 {-# INLINE cfwdOnADInputs #-}
-cfwdOnADInputs inputs f ds =
+cfwdOnADInputs xftk inputs f ds =
   let !(D v delta) = f inputs in
-  let !derivative =
-        derivativeFromDelta @x delta (tftk (adSTK (knownSTK @x)) ds) ds
+  let !derivative = derivativeFromDelta @x delta (adFTK xftk) ds
   in (derivative, v)
 
 cfwdOnHVector
-  :: forall x z target.
-     (KnownSTK x, ADReadyNoLet target, ShareTensor target)
-  => target x
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  => FullTensorKind x -> target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
-cfwdOnHVector parameters f ds =
-  let deltaInputs = generateDeltaInputs $ tftk (knownSTK @x) parameters
+cfwdOnHVector xftk parameters f ds =
+  let deltaInputs = generateDeltaInputs xftk
       inputs = dDnotShared parameters deltaInputs
-  in cfwdOnADInputs inputs f ds
+  in cfwdOnADInputs xftk inputs f ds
 
 
 -- * Instances
@@ -553,37 +544,38 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromPrimal stk t | Dict <- lemKnownSTK stk = fromPrimalADVal t
   tfromDual t = dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale stk k = withKnownSTK stk $ dScale k
-  trev @x _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x) =
+  trev @x xftk h zstk =
     let rf :: forall f. ADReady f
            => f x
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
         rf !a = tlet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
-                             Nothing
+                             (Left zstk)
                              (unHFun h @(ADVal (ShareOf f)))
+                             xftk
                              (toShare aShared)
     in HFun rf
-  trevDt @x @z _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x)
-                      , Dict <- lemKnownSTKOfAD (knownSTK @z) =
+  trevDt @x @z xftk h =
     let rf :: forall f. ADReady f
            => f (TKProduct (ADTensorKind z) x)
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = tlet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
-                             (Just $ toShare $ tproject1 db_aShared)
+                             (Right $ toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
+                             xftk
                              (toShare $ tproject2 db_aShared)
     in HFun rf
-  tfwd @x @z _ftk h | Dict <- lemKnownSTKOfAD (knownSTK @x)
-                    , Dict <- lemKnownSTKOfAD (knownSTK @z) =
+  tfwd @x @z xftk h =
     let df :: forall f. ADReady f
            => f (TKProduct (ADTensorKind x) x)
            -> f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
         df !da_a = tlet da_a $ \ !da_aShared ->
           tunshare $ fst $ cfwdOnHVector
+                             xftk
                              (toShare $ tproject2 da_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject1 da_aShared)

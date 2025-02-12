@@ -19,7 +19,7 @@ module HordeAd.Core.Engine
 import Prelude
 
 import Data.Int (Int64)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (isJust)
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable)
 
@@ -60,7 +60,7 @@ import HordeAd.Core.Unwind
 -- from different levels of differentiation if it's done multiple times.
 rev
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals), KnownSTK z
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -79,7 +79,7 @@ rev f vals = revDtMaybe f vals Nothing
 -- tensor codomain.
 revDt
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals), KnownSTK z
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -91,7 +91,7 @@ revDt f vals dt = revDtMaybe f vals (Just dt)
 
 revDtMaybe
   :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals), KnownSTK z
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -105,8 +105,8 @@ revDtMaybe f vals0 mdt =
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals0
-      ftk = tftk knownSTK valsTarget
-      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv ftk
+      xftk = tftk (knownSTK @(X astvals)) valsTarget
+      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv xftk
   in fromTargetAD $ fst $ revEvalArtifact artifact valsTarget mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
@@ -121,19 +121,17 @@ revDtMaybe f vals0 mdt =
 -}
 
 revArtifactAdapt
-  :: forall astvals z.
-     ( KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals )
+  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
   => Bool
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
   -> FullTensorKind (X astvals)
   -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
-revArtifactAdapt hasDt f ftk =
+revArtifactAdapt hasDt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
-  in revProduceArtifact hasDt g emptyEnv ftk
+  in revProduceArtifact hasDt g emptyEnv xftk
 {- TODO
 {-# SPECIALIZE revArtifactAdapt
   :: ( KnownNat n
@@ -170,18 +168,23 @@ forwardPassByApplication g hVectorPrimal _var _hVector =
   in g varInputs
 
 revEvalArtifact
-  :: forall x z. (KnownSTK x, KnownSTK z)
+  :: forall x z. KnownSTK x
   => AstArtifactRev x z
   -> RepN x
   -> Maybe (RepN (ADTensorKind z))
   -> (RepN (ADTensorKind x), RepN z)
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact AstArtifactRev{..} parameters mdt
- | Dict <- lemKnownSTKOfAD (knownSTK @z) =
-  let oneAtF = constantTarget 1 $ adFTK $ ftkAst artPrimalRev
-      dt = fromMaybe oneAtF mdt
+revEvalArtifact AstArtifactRev{..} parameters edt =
+  let aftk = adFTK $ ftkAst artPrimalRev
       env = extendEnv artVarDomainRev parameters emptyEnv
-      envDt = extendEnv artVarDtRev dt env
+      envDt =
+        withKnownSTK (ftkToSTK aftk) $
+        case edt of
+          Nothing ->
+            let oneAtF = constantTarget 1 aftk
+            in extendEnv artVarDtRev oneAtF env
+          Just dt ->
+            extendEnv artVarDtRev dt env
       gradient = interpretAst envDt artDerivativeRev
       primal = interpretAst env artPrimalRev
   in (gradient, primal)
@@ -208,15 +211,16 @@ fwd
   -> Value astvals  -- morally (ADTensorKind astvals)
   -> RepN (ADTensorKind z)
 fwd f vals ds =
-  let g :: AstTensor AstMethodLet FullSpan (X astvals) -> AstTensor AstMethodLet FullSpan z
+  let g :: AstTensor AstMethodLet FullSpan (X astvals)
+        -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals
-      ftk = tftk knownSTK valsTarget
-      artifact = fst $ fwdProduceArtifact g emptyEnv ftk
+      xftk = tftk (knownSTK @(X astvals)) valsTarget
+      artifact = fst $ fwdProduceArtifact g emptyEnv xftk
       dsTarget = toTarget ds
   in fst $ fwdEvalArtifact @_ @z artifact valsTarget
-         $ toADTensorKindShared knownSTK dsTarget
+         $ toADTensorKindShared (knownSTK @(X astvals)) dsTarget
 
 fwdEvalArtifact
   :: forall x z. KnownSTK x
@@ -225,16 +229,17 @@ fwdEvalArtifact
   -> RepN (ADTensorKind x)
   -> (RepN (ADTensorKind z), RepN z)
 {-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact AstArtifactFwd{..} parameters ds
- | Dict <- lemKnownSTKOfAD (knownSTK @x) =
-  if adFTK (tftk (knownSTK @x) parameters)
-     == tftk (knownSTK @(ADTensorKind x)) ds then
-    let env = extendEnv artVarDomainFwd parameters emptyEnv
-        envD = extendEnv artVarDsFwd ds env
-        derivative = interpretAst envD artDerivativeFwd
-        primal = interpretAst env artPrimalFwd
-    in (derivative, primal)
- else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shapes"
+fwdEvalArtifact AstArtifactFwd{..} parameters ds =
+  let xstk = knownSTK @x
+      astk = adSTK xstk
+  in if adFTK (tftk xstk parameters) == tftk astk ds then
+       let env = extendEnv artVarDomainFwd parameters emptyEnv
+           envD = withKnownSTK astk $
+                  extendEnv artVarDsFwd ds env
+           derivative = interpretAst envD artDerivativeFwd
+           primal = interpretAst env artPrimalFwd
+       in (derivative, primal)
+     else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shape"
 
 
 -- * Old gradient adaptors, with constant and fixed inputs and dt
@@ -255,12 +260,12 @@ crev
   -> DValue advals
   -> DValue advals
 {-# INLINE crev #-}
-crev f vals = crevDtMaybe f vals Nothing
+crev f vals = crevDtEither f vals (Left (knownSTK @z))
 
 -- | This version additionally takes the sensitivity parameter.
 crevDt
   :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
@@ -268,27 +273,28 @@ crevDt
   -> RepN (ADTensorKind z)
   -> DValue advals
 {-# INLINE crevDt #-}
-crevDt f vals dt = crevDtMaybe f vals (Just dt)
+crevDt f vals dt = crevDtEither f vals (Right dt)
 
-crevDtMaybe
+crevDtEither
   :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
   -> DValue advals
-  -> Maybe (RepN (ADTensorKind z))
+  -> Either (STensorKind z) (RepN (ADTensorKind z))
   -> DValue advals  -- morally (ADTensorKind advals)
-{-# INLINE crevDtMaybe #-}
-crevDtMaybe f vals mdt =
+{-# INLINE crevDtEither #-}
+crevDtEither f vals edt =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
+      xftk = tftk (knownSTK @(X advals)) valsTarget
       valsTarget = toTarget vals
-  in fromTargetAD $ fst $ crevOnHVector mdt g valsTarget
+  in fromTargetAD $ fst $ crevOnHVector edt g xftk valsTarget
 
 {-
 {-# SPECIALIZE crevOnHVector
-  :: Maybe (RepN TKUntyped)
+  :: Either (RepN TKUntyped)
   -> (ADVal RepN TKUntyped
       -> ADVal RepN TKUntyped)
   -> RepN TKUntyped
@@ -308,12 +314,13 @@ cfwd
   -> DValue advals  -- morally (ADTensorKind advals)
   -> RepN (ADTensorKind z)
 cfwd f vals ds =
-  let g :: ADVal RepN (X advals) -> ADVal RepN z
-      g = f . fromTarget
+  let xftk = tftk (knownSTK @(X advals)) valsTarget
       valsTarget = toTarget vals
+      g :: ADVal RepN (X advals) -> ADVal RepN z
+      g = f . fromTarget
       dsTarget = toTarget ds
-  in fst $ cfwdOnHVector valsTarget g
-     $ toADTensorKindShared knownSTK dsTarget
+  in fst $ cfwdOnHVector xftk valsTarget g
+     $ toADTensorKindShared (knownSTK @(X advals)) dsTarget
 
 
 

@@ -40,15 +40,14 @@ crevDtMaybeBoth
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget (ADVal RepN) (ADVal f (TKR y r))
      , AdaptableTarget RepN (DValue advals) )
-  => Maybe (f (ADTensorKind (TKR y r)))
-  -> (advals -> ADVal f (TKR y r)) -> DValue advals
+  => (advals -> ADVal f (TKR y r)) -> DValue advals
   -> (f (ADTensorKind (X advals)), f (TKR y r))
 {-# INLINE crevDtMaybeBoth #-}
-crevDtMaybeBoth mdt f vals =
+crevDtMaybeBoth f vals =
   let g :: ADVal RepN (X advals) -> ADVal RepN (TKR y r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
-  in crevOnHVector mdt g valsH
+  in crevOnHVector (Left knownSTK) g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
         ( KnownNat n, KnownNat m, GoodScalar r
@@ -65,11 +64,10 @@ rev' :: forall r m n v a w.
 rev' f vals =
   let value0 = f vals
       ftk = tftk knownSTK vals
-      dt = Nothing
       g :: ADVal RepN (TKR n r)
         -> ADVal RepN (TKR m r)
       g inputs = f $ fromTarget inputs
-      (gradient1, value1) = crevDtMaybeBoth dt g vals
+      (gradient1, value1) = crevDtMaybeBoth g vals
       gradientRrev1 = rrev1 @RepN @r @n @m f vals
       g9 :: ADVal (AstRaw PrimalSpan) (TKR n r)
          -> ADVal (AstRaw PrimalSpan) (TKR m r)
@@ -104,22 +102,22 @@ rev' f vals =
         hGeneral @(ADVal RepN) fx1 fx2 gx
                  (fromTarget inputs)
       (gradient2, value2) =
-        crevDtMaybeBoth dt (h id id id) vals
+        crevDtMaybeBoth (h id id id) vals
       (gradient3, value3) =
-        crevDtMaybeBoth dt (h id id simplifyInlineContract) vals
+        crevDtMaybeBoth (h id id simplifyInlineContract) vals
       (gradient2UnSimp, value2UnSimp) =
-        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify id) vals
+        crevDtMaybeBoth (h unAstNoSimplify AstNoSimplify id) vals
       gradientRrev2UnSimp =
         rrev1 @RepN @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (gradient3UnSimp, value3UnSimp) =
-        crevDtMaybeBoth dt (h unAstNoSimplify AstNoSimplify simplifyInlineContract)
+        crevDtMaybeBoth (h unAstNoSimplify AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
         rrev1 @RepN @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineContract) vals
       (gradient4, value4) =
-        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize id)
+        crevDtMaybeBoth (h unAstNoVectorize AstNoVectorize id)
                       vals
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
@@ -127,7 +125,7 @@ rev' f vals =
         rrev1 @RepN @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (gradient5, value5) =
-        crevDtMaybeBoth dt (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
+        crevDtMaybeBoth (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
                       vals
       gradientRrev5 =
         rrev1 @RepN @r @n @m @r
@@ -483,11 +481,11 @@ rfwd1 :: forall g r n m r3.
          , GoodScalar r3, KnownNat n, KnownNat m )
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR m r3))
-rfwd1 f u = rfwd1ds f u (rreplicate0N @_ @(TKScalar (ADTensorScalar r)) (rshape u) (rscalar 1))
+rfwd1 f u = rfwd1ds f u (rreplicate0N @_ @(TKScalar (ADTensorScalar r))
+                                      (rshape u) (rscalar 1))
 
 srev1 :: forall g r sh sh2 r3.
-         ( ADReady g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2
-         , ADTensorKind (TKS sh2 r3) ~ TKS sh2 r3 )
+         (ADReady g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
 srev1 f u = srev f (tftk knownSTK u) u
