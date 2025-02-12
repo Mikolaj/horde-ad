@@ -1049,7 +1049,9 @@ astFromIntegralK :: (GoodScalar r1, GoodScalar r2, Integral r1)
 astFromIntegralK (AstConcrete (RepF FTKScalar t)) =
   astConcrete (RepF FTKScalar (kfromIntegral t))
 astFromIntegralK (Ast.AstFromIntegralK v) = astFromIntegralK v
-astFromIntegralK v = Ast.AstFromIntegralK v
+astFromIntegralK @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
+  Just Refl -> v
+  _ -> Ast.AstFromIntegralK v
 
 astCastK :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
          => AstTensor AstMethodLet s (TKScalar r1)
@@ -1060,7 +1062,9 @@ astCastK (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastK v
 astCastK (Ast.AstFromDual v) = Ast.AstFromDual $ astCastK v
 astCastK (Ast.AstFromIntegralK v) = astFromIntegralK v
 astCastK (Ast.AstCastK v) = astCastK v
-astCastK v = Ast.AstCastK v
+astCastK @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
+  Just Refl -> v
+  _ -> Ast.AstCastK v
 
 astFromIntegralS :: (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
@@ -1069,7 +1073,9 @@ astFromIntegralS (AstConcrete (RepF (FTKS sh FTKScalar) t)) =
   withKnownShS sh $
   astConcrete (RepF (FTKS sh FTKScalar) (sfromIntegral t))
 astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
-astFromIntegralS v = Ast.AstFromIntegralS v
+astFromIntegralS @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
+  Just Refl -> v
+  _ -> Ast.AstFromIntegralS v
 
 astCastS :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
          => AstTensor AstMethodLet s (TKS sh r1)
@@ -1081,7 +1087,9 @@ astCastS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastS v
 astCastS (Ast.AstFromDual v) = Ast.AstFromDual $ astCastS v
 astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
 astCastS (Ast.AstCastS v) = astCastS v
-astCastS v = Ast.AstCastS v
+astCastS @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
+  Just Refl -> v
+  _ -> Ast.AstCastS v
 
 astIndexS
   :: forall shm shn s r. AstSpan s
