@@ -334,15 +334,15 @@ testGatherSimpPP23 = do
               gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)
-  length (show t1) @?= 357
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 599
+  length (show t1) @?= 338
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 580
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (FTKR [6, 2] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)
-  length (show t2) @?= 357
-  length (show (simplifyInlineContract @(TKR 3 Float) t2)) @?= 599
+  length (show t2) @?= 338
+  length (show (simplifyInlineContract @(TKR 3 Float) t2)) @?= 580
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -469,16 +469,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)
-  length (show t1) @?= 1832
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 1832
+  length (show t1) @?= 1813
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 1813
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
                                (rreshape @(AstTensor AstMethodLet PrimalSpan) @_ @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)
-  length (show t2) @?= 1078
-  length (show (simplifyInlineContract @(TKR 3 Float) t2)) @?= 1078
+  length (show t2) @?= 1059
+  length (show (simplifyInlineContract @(TKR 3 Float) t2)) @?= 1059
 
 -- scatters instead of gathers
 

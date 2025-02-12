@@ -1742,7 +1742,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
     IM.empty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (stranspose (sreplicate siota) + sreplicate siota)) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
+    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + stranspose (sreplicate siota) + sreplicate siota) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -1768,7 +1768,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
     IM.empty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + sfromIntegral (stranspose (sreplicate siota) + sreplicate siota)) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
+    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate (sreplicate (sscalar 1.1)) + stranspose (sreplicate siota) + sreplicate siota) (stranspose (sreplicate (sreplicate (tconcrete (FTKS [0] FTKScalar) (sfromListLinear [0] [])))))))"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do

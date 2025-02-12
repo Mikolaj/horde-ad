@@ -547,7 +547,7 @@ testFooS = do
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon 1e-5
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
     (rev @_ @(TKS '[3, 534, 3] Float)
          (scast . fooF)
@@ -555,7 +555,7 @@ testFooSToFloat = do
 
 testFooSBoth :: Assertion
 testFooSBoth = do
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon 1e-5
     (srepl 2.439628436155373, srepl (-1.9533749), srepl 0.9654825479484146)
     (rev @_ @(TKS '[3, 534, 3] Float)
          (scast . fooF . (\(d, f, d2) -> (d, scast f, d2)))
@@ -565,7 +565,7 @@ testFooSBoth = do
 
 testFooBoth :: Assertion
 testFooBoth = do
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon 1e-5
     (rscalar 2.439628436155373, rscalar (-1.9533749), rscalar 0.9654825479484146)
     (rev @_ @(TKR 0 Float)
          (rcast . foo . (\(d, f, d2) -> (d, rcast f, d2)))
@@ -2182,7 +2182,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAst (FTKR [3] FTKScalar) $ t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\v1 -> rfromPrimal (rfromS (sfromIntegral (sgather (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4]))))"
+    @?= "\\v1 -> rfromPrimal (rfromS (sgather (sfromVector (fromList [sreplicate siota, sfromIntegral (quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota)))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -2194,6 +2194,6 @@ testConcatBuild3PP2 = do
   printArtifactSimple renames artifactRev
     @?= "\\m8 v1 -> tconcrete (FTKR [3] FTKScalar) (rfromListLinear [3] [0.0,0.0,0.0])"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> rfromS (sfromIntegral (sgather (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))"
+    @?= "\\v1 -> rfromS (sgather (sfromVector (fromList [sreplicate siota, sfromIntegral (quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota)))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (sfromIntegral (sgather (sfromVector (fromList [sreplicate siota, quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7])))"
+    @?= "\\v1 -> rfromS (sgather (sfromVector (fromList [sreplicate siota, sfromIntegral (quotF (stranspose (sreplicate siota)) (sreplicate (sreplicate (sscalar 1) + siota)))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"

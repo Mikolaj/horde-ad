@@ -1043,53 +1043,142 @@ astSumOfList l = case l of
            in withSNat (V.length v) $ \snat ->
                 astSum snat stk $ astFromVector snat stk v
 
-astFromIntegralK :: (GoodScalar r1, GoodScalar r2, Integral r1)
+astFromIntegralK :: forall r1 r2. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
-astFromIntegralK (AstConcrete (RepF FTKScalar t)) =
-  astConcrete (RepF FTKScalar (kfromIntegral t))
-astFromIntegralK (Ast.AstFromIntegralK v) = astFromIntegralK v
-astFromIntegralK @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
-  Just Refl -> v
-  _ -> Ast.AstFromIntegralK v
+astFromIntegralK t = case t of
+  Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astFromIntegralS a)
+  Ast.AstCond b a2 a3 ->
+    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
+  AstConcrete (RepF FTKScalar v) ->
+    astConcrete (RepF FTKScalar (kfromIntegral v))
+  AstSumOfList args -> astSumOfList $ NonEmpty.map astFromIntegralK args
+  AstN1K opCode u -> AstN1K opCode (astFromIntegralK u)
+  AstN2K opCode u v -> AstN2K opCode (astFromIntegralK u) (astFromIntegralK v)
+  Ast.AstFromIntegralK v -> astFromIntegralK v
+  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
+    Just Refl -> t
+    _ -> Ast.AstFromIntegralK t
 
-astCastK :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
+astCastK :: forall r1 r2 s.
+            (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2, AstSpan s)
          => AstTensor AstMethodLet s (TKScalar r1)
          -> AstTensor AstMethodLet s (TKScalar r2)
-astCastK (AstConcrete (RepF FTKScalar t)) =
-  astConcrete (RepF FTKScalar (kcast t))
-astCastK (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastK v
-astCastK (Ast.AstFromDual v) = Ast.AstFromDual $ astCastK v
-astCastK (Ast.AstFromIntegralK v) = astFromIntegralK v
-astCastK (Ast.AstCastK v) = astCastK v
-astCastK @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
-  Just Refl -> v
-  _ -> Ast.AstCastK v
+astCastK t = case t of
+  Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astCastS a)
+  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
+  AstConcrete (RepF FTKScalar v) ->
+    astConcrete (RepF FTKScalar (kcast v))
+  -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
+  -- to make sure both can cancel out? Rethink. For now, astFromPrimal
+  -- is not called to avoid loops. The same with many others
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastK v
+  Ast.AstFromDual v -> Ast.AstFromDual $ astCastK v
+  AstSumOfList args -> astSumOfList $ NonEmpty.map astCastK args
+  AstN1K opCode u -> AstN1K opCode (astCastK u)
+  AstN2K opCode u v -> AstN2K opCode (astCastK u) (astCastK v)
+--  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astCastK u)
+--  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astCastK u) (astCastK v)
+  Ast.AstFromIntegralK v -> astFromIntegralK v
+  Ast.AstCastK v -> astCastK v
+  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
+    Just Refl -> t
+    _ -> Ast.AstCastK t
 
-astFromIntegralS :: (GoodScalar r1, GoodScalar r2, Integral r1)
+astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
-astFromIntegralS (AstConcrete (RepF (FTKS sh FTKScalar) t)) =
-  withKnownShS sh $
-  astConcrete (RepF (FTKS sh FTKScalar) (sfromIntegral t))
-astFromIntegralS (Ast.AstFromIntegralS v) = astFromIntegralS v
-astFromIntegralS @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
-  Just Refl -> v
-  _ -> Ast.AstFromIntegralS v
+astFromIntegralS t = case t of
+  Ast.AstFromVector snat (STKS sh STKScalar) l ->
+   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
+  Ast.AstFromVector snat STKScalar l ->
+   astFromVector snat STKScalar (V.map astFromIntegralK l)
+  Ast.AstSum snat (STKS sh STKScalar) a ->
+    astSum snat (STKS sh STKScalar) (astFromIntegralS a)
+  Ast.AstReplicate snat (STKS sh STKScalar) a ->
+    astReplicate snat (STKS sh STKScalar) (astFromIntegralS a)
+  Ast.AstReplicate snat STKScalar a ->
+    astReplicate snat STKScalar (astFromIntegralK a)
+  Ast.AstCond b v w -> astCond b (astFromIntegralS v) (astFromIntegralS w)
+  Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
+    Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
+  Ast.AstBuild1 snat STKScalar (var, v) ->
+    Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
+  AstConcrete (RepF (FTKS sh FTKScalar) v) ->
+    withKnownShS sh $
+    astConcrete (RepF (FTKS sh FTKScalar) (sfromIntegral v))
+  Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
+  AstSumOfList args -> astSumOfList $ NonEmpty.map astFromIntegralS args
+  AstN1S opCode u -> AstN1S opCode (astFromIntegralS u)
+  AstN2S opCode u v -> AstN2S opCode (astFromIntegralS u) (astFromIntegralS v)
+--  Ast.AstI2S opCode u v ->
+--    Ast.AstI2S opCode (astFromIntegralS u) (astFromIntegralS v)
+  Ast.AstFromIntegralS v -> astFromIntegralS v
+  Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astFromIntegralS v) ix
+  Ast.AstScatterS shn v (vars, ix) ->
+    Ast.AstScatterS shn (astFromIntegralS v) (vars, ix)
+  Ast.AstGatherS shn v (vars, ix) ->
+    Ast.AstGatherS shn (astFromIntegralS v) (vars, ix)
+  Ast.AstIotaS snat -> Ast.AstIotaS snat
+  Ast.AstAppendS u v -> astAppendS (astFromIntegralS u) (astFromIntegralS v)
+  Ast.AstSliceS i n k v -> astSliceS i n k (astFromIntegralS v)
+  Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
+  Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
+  Ast.AstReshapeS sh v -> astReshapeS sh (astFromIntegralS v)
+  Ast.AstSFromK v -> astSFromK (astFromIntegralK v)
+  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
+    Just Refl -> t
+    _ -> Ast.AstFromIntegralS t
 
-astCastS :: (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2)
+astCastS :: forall r1 r2 s sh.
+            (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2, AstSpan s)
          => AstTensor AstMethodLet s (TKS sh r1)
          -> AstTensor AstMethodLet s (TKS sh r2)
-astCastS (AstConcrete (RepF (FTKS sh FTKScalar) t)) =
-  withKnownShS sh $
-  astConcrete (RepF (FTKS sh FTKScalar) (scast t))
-astCastS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astCastS v
-astCastS (Ast.AstFromDual v) = Ast.AstFromDual $ astCastS v
-astCastS (Ast.AstFromIntegralS v) = astFromIntegralS v
-astCastS (Ast.AstCastS v) = astCastS v
-astCastS @r1 @r2 v = case testEquality (typeRep @r1) (typeRep @r2) of
-  Just Refl -> v
-  _ -> Ast.AstCastS v
+astCastS t = case t of
+  Ast.AstFromVector snat (STKS sh STKScalar) l ->
+   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
+  Ast.AstFromVector snat STKScalar l ->
+   astFromVector snat STKScalar (V.map astCastK l)
+  Ast.AstSum snat (STKS sh STKScalar) a ->
+    astSum snat (STKS sh STKScalar) (astCastS a)
+  Ast.AstReplicate snat (STKS sh STKScalar) a ->
+    astReplicate snat (STKS sh STKScalar) (astCastS a)
+  Ast.AstReplicate snat STKScalar a ->
+    astReplicate snat STKScalar (astCastK a)
+  Ast.AstCond b v w -> astCond b (astCastS v) (astCastS w)
+  Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
+    Ast.AstBuild1 snat (STKS sh STKScalar) (var, astCastS v)
+  Ast.AstBuild1 snat STKScalar (var, v) ->
+    Ast.AstBuild1 snat STKScalar (var, astCastK v)
+  AstConcrete (RepF (FTKS sh FTKScalar) v) ->
+    withKnownShS sh $
+    astConcrete (RepF (FTKS sh FTKScalar) (scast v))
+  Ast.AstLet var u v -> astLet var u (astCastS v)
+  Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
+  Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastS v
+  Ast.AstFromDual v -> Ast.AstFromDual $ astCastS v
+  AstSumOfList args -> astSumOfList $ NonEmpty.map astCastS args
+  AstN1S opCode u -> AstN1S opCode (astCastS u)
+  AstN2S opCode u v -> AstN2S opCode (astCastS u) (astCastS v)
+  Ast.AstFromIntegralS v -> astFromIntegralS v
+  Ast.AstCastS v -> astCastS v
+  Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astCastS v) ix
+  Ast.AstScatterS shn v (vars, ix) ->
+    Ast.AstScatterS shn (astCastS v) (vars, ix)
+  Ast.AstGatherS shn v (vars, ix) ->
+    Ast.AstGatherS shn (astCastS v) (vars, ix)
+--  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
+  Ast.AstIotaS snat -> Ast.AstIotaS snat
+  Ast.AstAppendS u v -> astAppendS (astCastS u) (astCastS v)
+  Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
+  Ast.AstReverseS v -> astReverseS (astCastS v)
+  Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
+  Ast.AstReshapeS sh v -> astReshapeS sh (astCastS v)
+  Ast.AstSFromK v -> astSFromK (astCastK v)
+  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
+    Just Refl -> t
+    _ -> Ast.AstCastS t
 
 astIndexS
   :: forall shm shn s r. AstSpan s
@@ -2242,11 +2331,10 @@ astSFromR :: forall sh s r. AstSpan s
 astSFromR sh a0 = case a0 of
   Ast.AstProject1{} -> Ast.AstSFromR sh a0  -- TODO: convert arbitrary tensor?
   Ast.AstProject2{} -> Ast.AstSFromR sh a0
-  Ast.AstFromVector snat@SNat stk l
-   | STKR _ x <- stk -> case sh of
-     snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
-       astFromVector snat (STKS rest x) (V.map (astSFromR rest) l)
-     _ -> error "astSFromR: impossible shape"
+  Ast.AstFromVector snat@SNat (STKR _ x) l -> case sh of
+   snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
+     astFromVector snat (STKS rest x) (V.map (astSFromR rest) l)
+   _ -> error "astSFromR: impossible shape"
   Ast.AstSum snat@SNat (STKR _ x) a ->
     astSum snat (STKS sh x) (astSFromR (snat :$$ sh) a)
   Ast.AstReplicate snat@SNat (STKR SNat x) a -> case sh of
@@ -2547,8 +2635,10 @@ expandAst t = case t of
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstFromDual Ast.AstVar{} -> t  -- normal form
-    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
-    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1{} -> t  -- normal form
+    Ast.AstProject2{} -> t  -- normal form
+    Ast.AstFromIntegralS{} -> t  -- normal form
+    Ast.AstCastS{} -> t  -- normal form
     Ast.AstReplicate{} -> t  -- normal form
       -- TODO: this nf is silly, but right now transposes of replicates
       -- are small OR.Arrays and equivalent gathers are large OR.Arrays,
@@ -2576,8 +2666,10 @@ expandAst t = case t of
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
     Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
     Ast.AstFromDual Ast.AstVar{} -> t  -- normal form
-    Ast.AstProject1 Ast.AstVar{} -> t  -- normal form
-    Ast.AstProject2 Ast.AstVar{} -> t  -- normal form
+    Ast.AstProject1{} -> t  -- normal form
+    Ast.AstProject2{} -> t  -- normal form
+    Ast.AstFromIntegralS{} -> t  -- normal form
+    Ast.AstCastS{} -> t  -- normal form
     AstSumOfList{} -> t  -- normal form
     AstN1S _ w | isVar w -> t  -- normal form
     AstN2S _ x y | isVar x && isVar y -> t  -- normal form
