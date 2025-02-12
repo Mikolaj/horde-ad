@@ -1724,8 +1724,7 @@ class ( Num (IntOf target)
     -> target accShs
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
-  tApply :: KnownSTK z
-         => HFunOf target x z -> target x
+  tApply :: STensorKind z -> HFunOf target x z -> target x
          -> target z
   tlambda :: FullTensorKind x -> HFun x z -> HFunOf target x z
   tcond :: Boolean (BoolOf target)
@@ -1740,11 +1739,10 @@ class ( Num (IntOf target)
   maxF :: (Boolean (BoolOf target), OrdF target, KnownSTK y)
        => target y -> target y -> target y
   maxF u v = ifF (u >=. v) u v
-  tbuild1 :: forall y k. KnownSTK y
-               -- y comes first, because k easy to set via SNat
-          => SNat k -> (IntOf target -> target y)
+  tbuild1 :: forall y k.  -- y comes first, because k easy to set via SNat
+             SNat k -> STensorKind y -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
-  tbuild1 snat@SNat f =
+  tbuild1 snat@SNat stk0 f =
     let replSTK :: STensorKind z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
         replSTK stk g = case stk of
@@ -1765,7 +1763,7 @@ class ( Num (IntOf target)
                     -- TODO: looks expensive, but hard to do better,
                     -- so let's hope g is full of variables
               in tpair (replSTK stk1 f1) (replSTK stk2 f2)
-    in replSTK (knownSTK @y) f
+    in replSTK stk0 f
 
   tprimalPart :: target y -> PrimalOf target y
   tdualPart :: STensorKind y -> target y -> DualOf target y
@@ -1798,8 +1796,9 @@ class ( Num (IntOf target)
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  rrev f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
-    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKR2 n r))) es
+  rrev f xftk =
+    \ !es -> tApply (adSTK $ ftkToSTK xftk)
+                    (trev @target xftk (HFun f) (knownSTK @(TKR2 n r))) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n. (KnownSTK r, KnownNat n)
@@ -1808,43 +1807,44 @@ class ( Num (IntOf target)
          -> target x
          -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  rrevDt f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
-    \ !es !dt -> tApply (trevDt @target xftk $ HFun f)
-                        (tpair dt es)
+  rrevDt f xftk =
+    \ !es !dt -> tApply (adSTK $ ftkToSTK xftk)
+                        (trevDt @target xftk $ HFun f) (tpair dt es)
   rfwd :: forall x r n. (KnownSTK r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR2 n r))
-  rfwd f xftk | Dict <- lemKnownSTKOfAD (knownSTK @(TKR2 n r)) =
-    \ !es !ds -> tApply (tfwd @target xftk $ HFun f)
-                        (tpair ds es)
+  rfwd f xftk =
+    \ !es !ds -> tApply (adSTK $ knownSTK @(TKR2 n r))
+                        (tfwd @target xftk $ HFun f) (tpair ds es)
   srev :: forall x r sh. (KnownSTK r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
-  srev f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
-    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKS2 sh r))) es
+  srev f xftk =
+    \ !es -> tApply (adSTK $ ftkToSTK xftk)
+                    (trev @target xftk (HFun f) (knownSTK @(TKS2 sh r))) es
   srevDt :: forall x r sh. (KnownSTK r, KnownShS sh)
          => (forall f. ADReady f => f x -> f (TKS2 sh r))
          -> FullTensorKind x
          -> target x
          -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
-  srevDt f xftk | Dict <- lemKnownSTKOfAD (ftkToSTK xftk) =
-    \ !es !dt -> tApply (trevDt @target xftk $ HFun f)
-                        (tpair dt es)
+  srevDt f xftk =
+    \ !es !dt -> tApply (adSTK $ ftkToSTK xftk)
+                        (trevDt @target xftk $ HFun f) (tpair dt es)
   sfwd :: forall x r sh. (KnownSTK r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS2 sh r))
-  sfwd f xftk | Dict <- lemKnownSTKOfAD (knownSTK @(TKS2 sh r)) =
-    \ !es !ds -> tApply (tfwd @target xftk $ HFun f)
-                        (tpair ds es)
+  sfwd f xftk =
+    \ !es !ds -> tApply (adSTK $ knownSTK @(TKS2 sh r))
+                        (tfwd @target xftk $ HFun f) (tpair ds es)
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important

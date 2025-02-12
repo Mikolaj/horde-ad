@@ -706,7 +706,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astMapAccumRDer k bShs eShs f df rf acc0 es
   tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumLDer k bShs eShs f df rf acc0 es
-  tApply t ll = astApply knownSTK t ll
+  tApply stk t ll = astApply stk t ll
   tlambda shss f =
     let (var, ast) = funToAst shss $ \ !ll -> unHFun f ll
     in AstLambda (var, shss, ast)
@@ -1317,7 +1317,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
   tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
       AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
-  tApply t ll = AstRaw $ AstApply knownSTK t (unAstRaw ll)
+  tApply stk t ll = AstRaw $ AstApply stk t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
   tprimalPart t = AstRaw $ primalPart $ unAstRaw t
@@ -1482,7 +1482,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     AstNoVectorize $ tmapAccumLDer Proxy k accShs bShs eShs f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
-  tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
+  tApply stk t ll = AstNoVectorize $ tApply stk t (unAstNoVectorize ll)
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tcond !stk !b !u !v =
     AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1695,7 +1695,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     wAstNoSimplify $ tmapAccumLDer Proxy k accShs bShs eShs f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
-  tApply t ll = wAstNoSimplify $ tApply t (wunAstNoSimplify ll)
+  tApply stk t ll = wAstNoSimplify $ tApply stk t (wunAstNoSimplify ll)
   tlambda = tlambda @(AstRaw PrimalSpan)
   tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t

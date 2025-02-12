@@ -214,7 +214,7 @@ interpretAst !env = \case
              -- as above so that the mixture becomes compatible; if the spans
              -- agreed, the AstApply would likely be simplified before
              -- getting interpreted
-       in tApply t2 ll2
+       in tApply stk t2 ll2
   AstVar _ftk var ->
    let var2 = mkAstVarName @FullSpan (varNameToSTK var) (varNameToAstVarId var)  -- TODO
 -- TODO: this unsafe call is needed for benchmark VTO1.
@@ -237,7 +237,7 @@ interpretAst !env = \case
   AstBuild1 snat stk (var, v) ->
     withKnownSTK stk $
     let f i = interpretAst (extendEnvI var i env) v
-    in tbuild1 snat f
+    in tbuild1 snat stk f
   AstConcrete (RepF ftk a) -> tconcrete ftk a
 
   AstLet var u v -> case ftkToSTK (ftkAst u) of

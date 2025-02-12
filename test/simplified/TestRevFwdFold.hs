@@ -1575,7 +1575,7 @@ testSin0rmapAccumRD01SN51 = do
                f x0 = (\res -> ssum @_ @_ @6 (tproject1 $ tproject1 res)
                                + ssum0 @_ @_ @'[6, 5, 4, 3]
                                    (tproject2 res))
-                      $ tbuild1 @f (SNat @6) $ \j ->
+                      $ tbuild1 @f (SNat @6) knownSTK $ \j ->
                          tmapAccumR (Proxy @f) (SNat @5)
                           (FTKProduct (FTKS ZSS FTKScalar)
                                       (FTKS (SNat @3 :$$ ZSS) FTKScalar))
@@ -1625,8 +1625,8 @@ testSin0rmapAccumRD01SN531a = do
                  => f (TKS '[3] Double) -> f (TKS '[2, 2, 2, 3] Double)
                f x0 = (\res -> srepl 2 - sreplicate @_ @2 (tproject1 $ tproject1 res)
                                - (tproject2 res))
-                      $ tbuild1 @f (SNat @2) $ \i ->
-                       (tbuild1 @f (SNat @2) $ \j ->
+                      $ tbuild1 @f (SNat @2) knownSTK $ \i ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \j ->
                          tmapAccumR (Proxy @f) (SNat @2)
                           (FTKProduct (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                                       (FTKS (SNat @6 :$$ ZSS) FTKScalar))
@@ -1677,8 +1677,8 @@ testSin0rmapAccumRD01SN531b0 = do
                  => f (TKR 0 Double)
                  -> f (TKR 2 Double)
                f x0 = rfromS $ tproject1
-                      $ tbuild1 @f (SNat @2) $ \_i ->
-                       (tbuild1 @f (SNat @2) $ \_j ->
+                      $ tbuild1 @f (SNat @2) knownSTK $ \_i ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \_j ->
                          tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1699,8 +1699,8 @@ testSin0rmapAccumRD01SN531b0PP = do
                  => f (TKR 0 Double)
                  -> f (TKR 2 Double)
       f x0 = rfromS $ tproject1
-                      $ tbuild1 @f (SNat @2) $ \_i ->
-                       (tbuild1 @f (SNat @2) $ \_j ->
+                      $ tbuild1 @f (SNat @2) knownSTK $ \_i ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \_j ->
                          tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1724,8 +1724,8 @@ testSin0rmapAccumRD01SN531b0PPj = do
   let f :: forall f. ADReady f
         => f (TKR 0 Double) -> f (TKR 2 Double)
       f x0 = tlet (
-                       (tbuild1 @f (SNat @2) $ \i ->
-                       (tbuild1 @f (SNat @2) $ \j ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \i ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \j ->
                        (tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1750,8 +1750,8 @@ testSin0rmapAccumRD01SN531bRPPj = do
   let f :: forall f. ADReady f
         => f (TKR 0 Double) -> f (TKR 2 Double)
       f x0 = tlet (
-                       (tbuild1 @f (SNat @2) $ \i ->
-                       (tbuild1 @f (SNat @2) $ \j ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \i ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \j ->
                        (tmapAccumR (Proxy @f) (SNat @1)
                           (FTKR ZSR FTKScalar)
                           ftkUnit
@@ -1778,8 +1778,8 @@ testSin0rmapAccumRD01SN531c = do
                  => f (TKS '[] Double) -> f (TKS '[2, 2, 2] Double)
                f x0 = (\res -> srepl 2 - sreplicate @_ @2 (tproject1 res)
                                - tproject2 res)
-                      $ tbuild1 @f (SNat @2) $ \i ->
-                       (tbuild1 @f (SNat @2) $ \j ->
+                      $ tbuild1 @f (SNat @2) knownSTK $ \i ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \j ->
                        (tmapAccumR (Proxy @f) (SNat @2)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
@@ -1802,8 +1802,8 @@ testSin0rmapAccumRD01SN531Slice = do
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[2, 2] Double)
                f x0 = tproject1
-                      $ tbuild1 @f (SNat @2) $ \_i ->
-                       (tbuild1 @f (SNat @2) $ \_j ->
+                      $ tbuild1 @f (SNat @2) knownSTK $ \_i ->
+                       (tbuild1 @f (SNat @2) knownSTK $ \_j ->
                        (tmapAccumR (Proxy @f) (SNat @1)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
