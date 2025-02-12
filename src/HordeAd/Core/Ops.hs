@@ -140,8 +140,7 @@ class LetTensor (target :: Target) where
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsize a
     STKProduct stk1 stk2 ->
       tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
-  tlet :: (KnownSTK x, KnownSTK z)
-       => target x
+  tlet :: target x
        -> (target x -> target z)
        -> target z
   toShare :: KnownSTK y
@@ -162,22 +161,18 @@ class LetTensor (target :: Target) where
       withKnownShS sh $ sfromVector v
     STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xfromVector v
-    STKProduct @y1 @y2 stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        let f :: ([target y1] -> [target y2] -> target (BuildTensorKind k y))
-              -> target y
-              -> ([target y1] -> [target y2] -> target (BuildTensorKind k y))
-            f acc u = \l1 l2 ->
-              tlet u $ \ u3 ->
-                acc (tproject1 u3 : l1) (tproject2 u3 : l2)
-            res :: [target y1] -> [target y2] -> target (BuildTensorKind k y)
-            res l1 l2 =
-              tpair (tfromVector snat stk1 (V.fromList l1))
-                    (tfromVector snat stk2 (V.fromList l2))
-        in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
+    STKProduct @y1 @y2 stk1 stk2 ->
+      let f :: ([target y1] -> [target y2] -> target (BuildTensorKind k y))
+            -> target y
+            -> ([target y1] -> [target y2] -> target (BuildTensorKind k y))
+          f acc u = \l1 l2 ->
+            tlet u $ \ u3 ->
+              acc (tproject1 u3 : l1) (tproject2 u3 : l2)
+          res :: [target y1] -> [target y2] -> target (BuildTensorKind k y)
+          res l1 l2 =
+            tpair (tfromVector snat stk1 (V.fromList l1))
+                  (tfromVector snat stk2 (V.fromList l2))
+      in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
   tfromListR :: forall y k. BaseTensor target
              => STensorKind y -> ListR k (target y)
              -> target (BuildTensorKind k y)
@@ -195,14 +190,10 @@ class LetTensor (target :: Target) where
       withKnownShS sh $ ssum u
     STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xsum u
-    STKProduct stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        tlet u $ \ !u3 ->
-          tpair (tsum snat stk1 (tproject1 u3))
-                (tsum snat stk2 (tproject2 u3))
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (tsum snat stk1 (tproject1 u3))
+              (tsum snat stk2 (tproject2 u3))
   treplicate :: forall z k. BaseTensor target
              => SNat k -> STensorKind z
              -> target z
@@ -212,14 +203,10 @@ class LetTensor (target :: Target) where
     STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sreplicate u
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
-    STKProduct stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        tlet u $ \ !u3 ->
-          tpair (treplicate snat stk1 (tproject1 u3))
-                (treplicate snat stk2 (tproject2 u3))
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (treplicate snat stk1 (tproject1 u3))
+              (treplicate snat stk2 (tproject2 u3))
   -- The semantics for products is element-wise and for others it's either
   -- identity or the domain is shaped and tfromS type-casts to the codomain
   -- by hiding some (or none) type information (so the codomain has to be
@@ -264,10 +251,8 @@ class LetTensor (target :: Target) where
       taddTarget stk pShared dShared
 
 class ShareTensor (target :: Target) where
-  tshare :: KnownSTK y
-         => target y -> target y
-  tunpair :: (KnownSTK x, KnownSTK z)
-          => target (TKProduct x z) -> (target x, target z)
+  tshare :: target y -> target y
+  tunpair :: target (TKProduct x z) -> (target x, target z)
   tfromVectorShare :: forall y k. BaseTensor target
                    => SNat k -> STensorKind y
                    -> Data.Vector.Vector (target y)
@@ -280,14 +265,10 @@ class ShareTensor (target :: Target) where
       withKnownShS sh $ sfromVector v
     STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xfromVector v
-    STKProduct stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        let (v1, v2) = V.unzip $ V.map tunpair v
-        in tpair (tfromVectorShare snat stk1 v1)
-                 (tfromVectorShare snat stk2 v2)
+    STKProduct stk1 stk2 ->
+      let (v1, v2) = V.unzip $ V.map tunpair v
+      in tpair (tfromVectorShare snat stk1 v1)
+               (tfromVectorShare snat stk2 v2)
   tunravelToListShare :: forall y k. BaseTensor target
                       => SNat k -> STensorKind y
                       -> target (BuildTensorKind k y)
@@ -300,14 +281,10 @@ class ShareTensor (target :: Target) where
       withKnownShS sh $ sunravelToList u
     STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xunravelToList u
-    STKProduct stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        let (u1, u2) = tunpair u
-        in zipWith tpair (tunravelToListShare snat stk1 u1)
-                         (tunravelToListShare snat stk2 u2)
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in zipWith tpair (tunravelToListShare snat stk1 u1)
+                       (tunravelToListShare snat stk2 u2)
   tsumShare :: forall z k. BaseTensor target
             => SNat k -> STensorKind z
             -> target (BuildTensorKind k z)
@@ -320,14 +297,10 @@ class ShareTensor (target :: Target) where
       withKnownShS sh $ ssum u
     STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xsum u
-    STKProduct stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        let (u1, u2) = tunpair u
-        in tpair (tsumShare snat stk1 u1)
-                 (tsumShare snat stk2 u2)
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in tpair (tsumShare snat stk1 u1)
+               (tsumShare snat stk2 u2)
   treplicateShare :: BaseTensor target
                   => SNat k -> STensorKind z
                   -> target z
@@ -337,14 +310,10 @@ class ShareTensor (target :: Target) where
     STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sreplicate u
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
-    STKProduct stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        let (u1, u2) = tunpair u
-        in tpair (treplicateShare snat stk1 u1)
-                 (treplicateShare snat stk2 u2)
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in tpair (treplicateShare snat stk1 u1)
+               (treplicateShare snat stk2 u2)
   tindexBuildShare :: forall z k. BaseTensor target
                    => SNat k -> STensorKind z
                    -> target (BuildTensorKind k z) -> IntOf target
@@ -357,14 +326,10 @@ class ShareTensor (target :: Target) where
       withKnownShS sh $ sindex u (i :.$ ZIS)
     STKX sh x | Dict <- lemKnownSTK x ->
       withKnownShX sh $ xindex u (i :.% ZIX)
-    STKProduct stk1 stk2
-      | Dict <- lemKnownSTK stk1
-      , Dict <- lemKnownSTK stk2
-      , Dict <- lemKnownSTKOfBuild snat stk1
-      , Dict <- lemKnownSTKOfBuild snat stk2 ->
-        let (u1, u2) = tunpair u
-        in tpair (tindexBuildShare snat stk1 u1 i)
-                 (tindexBuildShare snat stk2 u2 i)
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in tpair (tindexBuildShare snat stk1 u1 i)
+               (tindexBuildShare snat stk2 u2 i)
   tfromSShare :: forall y z. (BaseTensor target, KnownSTK y, KnownSTK z)
               => target y -> target z
   tfromSShare v = case (knownSTK @y, knownSTK @z) of
@@ -1543,14 +1508,12 @@ class ( Num (IntOf target)
   -- General operations that don't require LetTensor nor ShareTensor
   tftk :: STensorKind y -> target y -> FullTensorKind y
   tconcrete :: FullTensorKind y -> RepN y -> target y
-  tpair :: (KnownSTK x, KnownSTK z)
-         => target x -> target z
-         -> target (TKProduct x z)
+  tpair :: target x -> target z
+        -> target (TKProduct x z)
   tproject1 :: target (TKProduct x z) -> target x
   tproject2 :: target (TKProduct x z) -> target z
-  tunpairDup :: (KnownSTK x, KnownSTK z)
-             => target (TKProduct x z) -> (target x, target z)
-  default tunpairDup :: (ShareTensor target, KnownSTK x, KnownSTK z)
+  tunpairDup :: target (TKProduct x z) -> (target x, target z)
+  default tunpairDup :: ShareTensor target
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
   -- | A strict left fold.

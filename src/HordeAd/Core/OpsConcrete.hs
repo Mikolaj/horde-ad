@@ -615,7 +615,7 @@ unravel k@SNat t = case knownSTK @y of
 
 oRtmapAccumR
   :: forall k accShs bShs eShs.
-     (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
+     (KnownSTK bShs, KnownSTK eShs)
   => SNat k
   -> FullTensorKind accShs
   -> FullTensorKind bShs
@@ -637,7 +637,7 @@ oRtmapAccumR k _ bShs _ f acc0 es
 
 oRtmapAccumL
   :: forall k accShs bShs eShs.
-     (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
+     (KnownSTK bShs, KnownSTK eShs)
   => SNat k
   -> FullTensorKind accShs
   -> FullTensorKind bShs

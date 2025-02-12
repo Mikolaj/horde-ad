@@ -167,9 +167,7 @@ rebuildInputs :: forall ady target. ADReadyNoLet target
               -> FullTensorKind ady
               -> (target ady, [DSum (InputId target) (TensorOrZero target)])
 rebuildInputs els s2 ftk = case ftk of
-  FTKProduct ftk1 ftk2
-   | Dict <- lemKnownSTK (ftkToSTK ftk1)
-   , Dict <- lemKnownSTK (ftkToSTK ftk2) ->
+  FTKProduct ftk1 ftk2 ->
       let (t1, rest1) = rebuildInputs els s2 ftk1
           (t2, rest2) = rebuildInputs rest1 s2 ftk2
           !t = tpair t1 t2
@@ -211,8 +209,7 @@ generateDSums :: ShareTensor target
               => Int -> FullTensorKind y -> target y
               -> ([DSum (InputId target) (TensorOrZero target)], Int)
 generateDSums j ftk t = case ftk of
-  FTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToSTK ftk1)
-                       , Dict <- lemKnownSTK (ftkToSTK ftk2) ->
+  FTKProduct ftk1 ftk2 ->
     let (t1, t2) = tunpair t
         (ds1, j1) = generateDSums j ftk1 t1
         (ds2, j2) = generateDSums j1 ftk2 t2
@@ -380,22 +377,16 @@ evalRev !s !c d0 = case d0 of
   -- All constructors that admit a TKProduct kind need to be handled in evalRev
   -- except for DeltaInput that is always constructed only in basic kinds.
   DeltaPair d1 d2 ->
-    withKnownSTK (adSTK $ ftkToSTK $ ftkDelta d1) $
-    withKnownSTK (adSTK $ ftkToSTK $ ftkDelta d2) $
     let (c1, c2) = tunpair c
     in evalRev (evalRev s c1 d1) c2 d2
   DeltaProject1 d -> case ftkDelta d of
-    FTKProduct ftk1 ftk2 ->
-      withKnownSTK (adSTK $ ftkToSTK ftk1) $
-      withKnownSTK (adSTK $ ftkToSTK ftk2) $
+    FTKProduct _ ftk2 ->
       let zero = constantTarget 0 $ adFTK ftk2
       in evalRev s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
   DeltaProject2 d -> case ftkDelta d of
-    FTKProduct ftk1 ftk2 ->
-      withKnownSTK (adSTK $ ftkToSTK ftk1) $
-      withKnownSTK (adSTK $ ftkToSTK ftk2) $
+    FTKProduct ftk1 _ ->
       let zero = constantTarget 0 $ adFTK ftk1
       in evalRev s (tpair zero c) d
   DeltaFromVector snat stk ld
@@ -546,13 +537,7 @@ evalRev !s !c d0 = case d0 of
           withKnownShX shx $
           evalRev s (sfromX c) d
         _ -> error "evalRev: tensor kinds don't match"
-    (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
-      | Dict <- lemKnownSTK stky1
-      , Dict <- lemKnownSTK stky2
-      , Dict <- lemKnownSTK stkz1
-      , Dict <- lemKnownSTK stkz2
-      , Dict <- lemKnownSTKOfAD stkz1
-      , Dict <- lemKnownSTKOfAD stkz2 ->
+    (STKProduct{}, STKProduct stkz1 stkz2) ->
         let (c1, c2) = tunpair c
         in evalRev (evalRev s c1 (DeltaFromS stkz1 $ DeltaProject1 d))
                    c2 (DeltaFromS stkz2 $ DeltaProject2 d)
@@ -994,8 +979,6 @@ evalFwd
   -> (ADMap target, target (ADTensorKind y))
 evalFwd params s d0 = case d0 of
   DeltaPair d1 d2 ->
-    withKnownSTK (adSTK $ ftkToSTK $ ftkDelta d1) $
-    withKnownSTK (adSTK $ ftkToSTK $ ftkDelta d2) $
     let (s2, t) = evalFwd params s d1
         (s3, u) = evalFwd params s2 d2
     in (s3, tpair t u)

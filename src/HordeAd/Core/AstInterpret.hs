@@ -153,11 +153,7 @@ interpretAst
   => AstEnv target
   -> AstTensor AstMethodLet s y -> target y
 interpretAst !env = \case
-  AstPair t1 t2 -> case (ftkToSTK (ftkAst t1), ftkToSTK (ftkAst t2)) of
-    (stk1, stk2) ->
-      withKnownSTK stk1 $
-      withKnownSTK stk2 $
-      tpair (interpretAst env t1) (interpretAst env t2)
+  AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
   AstFromVector snat stk l ->
@@ -244,23 +240,20 @@ interpretAst !env = \case
     in tbuild1 snat f
   AstConcrete (RepF ftk a) -> tconcrete ftk a
 
-  AstLet var u v -> case (ftkToSTK (ftkAst u), ftkToSTK (ftkAst v)) of
+  AstLet var u v -> case ftkToSTK (ftkAst u) of
     -- We assume there are no nested lets with the same variable.
-    (stk@(STKR _ STKScalar), vstk) ->
+    stk@(STKR _ STKScalar) ->
       withKnownSTK stk $
-      withKnownSTK vstk $
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    (stk@(STKS _ STKScalar), vstk) ->
+    stk@(STKS _ STKScalar) ->
       withKnownSTK stk $
-      withKnownSTK vstk $
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    (stk, vstk) ->
+    stk ->
       withKnownSTK stk $
-      withKnownSTK vstk $
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)

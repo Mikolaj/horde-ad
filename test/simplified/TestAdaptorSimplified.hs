@@ -591,9 +591,7 @@ testFooPP = do
     @?= "\\x1 -> tlet (sin (sfromR (tproject2 (tproject1 x1)))) (\\x -> tlet (sfromR (tproject1 (tproject1 x1)) * x) (\\y -> tlet (sin (sfromR (tproject2 (tproject1 x1)))) (\\x5 -> tlet (sfromR (tproject1 (tproject1 x1)) * x5) (\\x6 -> rfromS (atan2F (sfromR (tproject2 x1)) y + sfromR (tproject2 x1) * x6)))))"
 
 fooLet :: forall target r n.
-          ( RealFloatF (target (TKR n r))
-          , LetTensor target
-          , KnownNat n, GoodScalar r )
+          (RealFloatF (target (TKR n r)), LetTensor target)
        => (target (TKR n r), target (TKR n r), target (TKR n r)) -> target (TKR n r)
 fooLet (x, y, z) =
   let w0 = x * sin y

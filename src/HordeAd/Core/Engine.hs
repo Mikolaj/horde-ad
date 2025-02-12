@@ -122,7 +122,7 @@ revDtMaybe f vals0 mdt =
 
 revArtifactAdapt
   :: forall astvals z.
-     ( KnownSTK (X astvals), KnownSTK z
+     ( KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals )
   => Bool
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
@@ -201,7 +201,6 @@ revEvalArtifact AstArtifactRev{..} parameters mdt
 fwd
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , KnownSTK z
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget RepN (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)

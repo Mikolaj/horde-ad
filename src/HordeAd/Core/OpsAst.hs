@@ -365,7 +365,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rzip @y @z @n a = case ftkAst a of
     FTKProduct (FTKR sh' _) (FTKR _ _) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
         astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
           in astFromS @(TKS2 sh (TKProduct y z))
@@ -375,7 +374,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   runzip @y @z @n a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
         astLetFun (AstUnzipS $ astSFromR @sh sh a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
           in astPair (astFromS @(TKS2 sh y) (knownSTK @(TKR2 n y)) b31)
@@ -576,7 +574,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xzip @y @z @sh' a = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
         astLetFun a $ \a3 ->
           let (a31, a32) = tunpairDup a3
           in astFromS @(TKS2 sh (TKProduct y z))
@@ -586,8 +583,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xunzip @y @z @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        astLetFun (AstUnzipS $ astSFromX @sh @sh' knownShS a) $ \b3 ->
+        astLetFun (AstUnzipS $ astSFromX @sh @sh' sh a) $ \b3 ->
           let (b31, b32) = tunpairDup b3
           in astPair (astFromS @(TKS2 sh y) (knownSTK @(TKX2 sh' y)) b31)
                      (astFromS @(TKS2 sh z) (knownSTK @(TKX2 sh' z)) b32)
@@ -764,7 +760,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
     AstDualPart(AstVar{}) -> t
     AstFromPrimal(AstVar{}) -> t
     AstFromDual(AstVar{}) -> t
-    u -> AstRaw $ fun1ToAst knownSTK $ \ !var -> AstShare var u
+    u -> AstRaw $ fun1ToAst (ftkToSTK $ ftkAst u) $ \ !var -> AstShare var u
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
@@ -955,7 +951,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rzip @y @z @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKR sh' _) (FTKR _ _) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
         let (a31, a32) = tunpair $ AstRaw a
         in AstFromS @(TKS2 sh (TKProduct y z))
                     (knownSTK @(TKR2 n (TKProduct y z)))
@@ -964,7 +959,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   runzip @y @z @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
         let b3 = AstUnzipS $ AstSFromR @sh sh a
             (b31, b32) = tunpair $ AstRaw b3
         in AstPair (AstFromS @(TKS2 sh y) (knownSTK @(TKR2 n y))
@@ -1177,17 +1171,15 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xzip @y @z @sh' (AstRaw a) = case ftkAst a of
     FTKProduct (FTKX sh' _) (FTKX _ _) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
         AstRaw
         $ let (a31, a32) = tunpair $ AstRaw a
           in AstFromS @(TKS2 sh (TKProduct y z))
                       (knownSTK @(TKX2 sh' (TKProduct y z)))
-             $ AstZipS $ AstPair (AstSFromX @sh @sh' knownShS $ unAstRaw a31)
-                                 (AstSFromX @sh @sh' knownShS $ unAstRaw a32)
+             $ AstZipS $ AstPair (AstSFromX @sh @sh' sh $ unAstRaw a31)
+                                 (AstSFromX @sh @sh' sh $ unAstRaw a32)
   xunzip @y @z @sh' (AstRaw a) = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
         AstRaw
         $ let b3 = AstRaw $ AstUnzipS $ AstSFromX @sh @sh' sh a
               (b31, b32) = tunpair b3

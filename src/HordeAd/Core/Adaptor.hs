@@ -155,9 +155,7 @@ type family NoShapeTensorKind tk where
   NoShapeTensorKind (TKProduct y z) =
     TKProduct (NoShapeTensorKind y) (NoShapeTensorKind z)
 
-instance ( KnownSTK a, KnownSTK b
-         , KnownSTK (NoShapeTensorKind a), KnownSTK (NoShapeTensorKind b)
-         , ForgetShape (target a)
+instance ( ForgetShape (target a)
          , ForgetShape (target b)
          , target (NoShapeTensorKind a) ~ NoShape (target a)
          , target (NoShapeTensorKind b) ~ NoShape (target b)
@@ -170,8 +168,7 @@ instance ( KnownSTK a, KnownSTK b
       tpair (forgetShape (tproject1 abShared))
             (forgetShape (tproject2 abShared))
 
-instance ( RandomValue (target a), RandomValue (target b), BaseTensor target
-         , KnownSTK a, KnownSTK b )
+instance (RandomValue (target a), RandomValue (target b), BaseTensor target)
          => RandomValue (target (TKProduct a b)) where
   randomValue range g =
     let (v1, g1) = randomValue range g
@@ -195,8 +192,7 @@ instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
          => AdaptableTarget target (ListR n a) where
   type X (ListR n a) = Tups n (X a)
   toTarget ZR = tunit
-  toTarget ((:::) @n1 a rest)
-   | Dict <- lemKnownSTK (stkOfListR (knownSTK @(X a)) (SNat @n1)) =
+  toTarget ((:::) @n1 a rest) =
     gcastWith (unsafeCoerceRefl
                :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
     let a1 = toTarget a
@@ -254,8 +250,8 @@ instance (RandomValue a, KnownNat n) => RandomValue (ListR n a) where
            in (v ::: rest, g2)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a)
-         , AdaptableTarget target b, KnownSTK (X b) )
+         , AdaptableTarget target a
+         , AdaptableTarget target b )
          => AdaptableTarget target (a, b) where
   type X (a, b) = TKProduct (X a) (X b)
   toTarget (a, b) =
@@ -298,9 +294,9 @@ instance ( RandomValue a
     in ((v1, v2), g2)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a)
-         , AdaptableTarget target b, KnownSTK (X b)
-         , AdaptableTarget target c, KnownSTK (X c) )
+         , AdaptableTarget target a
+         , AdaptableTarget target b
+         , AdaptableTarget target c )
          => AdaptableTarget target (a, b, c) where
   type X (a, b, c) = TKProduct (TKProduct (X a) (X b)) (X c)
   toTarget (a, b, c) =
@@ -353,10 +349,10 @@ instance ( RandomValue a
     in ((v1, v2, v3), g3)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a)
-         , AdaptableTarget target b, KnownSTK (X b)
-         , AdaptableTarget target c, KnownSTK (X c)
-         , AdaptableTarget target d, KnownSTK (X d) )
+         , AdaptableTarget target a
+         , AdaptableTarget target b
+         , AdaptableTarget target c
+         , AdaptableTarget target d)
          => AdaptableTarget target (a, b, c, d) where
   type X (a, b, c, d) = TKProduct (TKProduct (X a) (X b))
                                   (TKProduct (X c) (X d))
@@ -423,11 +419,11 @@ instance ( RandomValue a
     in ((v1, v2, v3, v4), g4)
 
 instance ( BaseTensor target
-         , AdaptableTarget target a, KnownSTK (X a)
-         , AdaptableTarget target b, KnownSTK (X b)
-         , AdaptableTarget target c, KnownSTK (X c)
-         , AdaptableTarget target d, KnownSTK (X d)
-         , AdaptableTarget target e, KnownSTK (X e) )
+         , AdaptableTarget target a
+         , AdaptableTarget target b
+         , AdaptableTarget target c
+         , AdaptableTarget target d
+         , AdaptableTarget target e)
          => AdaptableTarget target (a, b, c, d, e) where
   type X (a, b, c, d, e) = TKProduct (TKProduct (TKProduct (X a) (X b)) (X c))
                                      (TKProduct (X d) (X e))

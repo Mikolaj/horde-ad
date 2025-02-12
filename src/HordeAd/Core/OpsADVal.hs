@@ -118,10 +118,6 @@ cfwdOnHVector parameters f ds =
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => LetTensor (ADVal target) where
-  tlet :: forall x z. KnownSTK x
-       => ADVal target x
-       -> (ADVal target x -> ADVal target z)
-       -> ADVal target z
   tlet (D u u') f =
     let !var2 = tshare u
     in f (dDnotShared var2 u')
