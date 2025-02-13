@@ -681,9 +681,9 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
 
 tensorMnistTestsPP :: TestTree
 tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
-  [ testCase "VTO1 PP" testVTOPP
+  [ testCase "VTO1 PP Lin" testVTOPP
   , testCase "VTO1 PP NonLin" testVTOPPNonLin
-  , testCase "VTO2 PP" testVT2OPP
+  , testCase "VTO2 PP Lin" testVT2OPP
   , testCase "VTO2 PP NonLin" testVT2OPPNonLin
   , testCase "VTO2 PP NonLin2" testVT2OPPNonLin2
   ]

@@ -3019,13 +3019,10 @@ contractAst t = case t of
     n@(SNat @n)
     (STKS (m@(SNat @m) :$$ ZSS) _)
     (Ast.AstTransposeS @perm @sh
-       (SNat @n1 `Permutation.PCons` SNat @n0
+       (SNat' @1 `Permutation.PCons` SNat' @0
         `Permutation.PCons` Permutation.PNil)
-       (AstN2S TimesOp t2 u))
+       (AstN2S TimesOp t2 u)) ->
     -- TODO: generalize
--- TODO:    | Just Refl <- testEquality perm (Permutation.makePerm @'[1, 0]) ->
-    | Just Refl <- sameNat (Proxy @n0) (Proxy @0)
-    , Just Refl <- sameNat (Proxy @n1) (Proxy @1) ->
       -- TODO: Why is this needed? Would a more general lemma suffice?
       gcastWith (unsafeCoerceRefl
                  :: Permutation.PermutePrefix perm [n, m] :~: sh) $
@@ -3135,8 +3132,8 @@ contractAst t = case t of
   AstN1S opCode u -> AstN1S opCode (contractAst u)
   AstN2S TimesOp v (Ast.AstLet var u
                       (Ast.AstReshapeS @_ @sh sh
-                         (Ast.AstReplicate (SNat @m) stk s)))
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
+                         (Ast.AstReplicate (SNat' @0) stk s)))
+    | not (varNameInAst var v) ->
         -- The varNameInAst check is needed, because although variable
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
@@ -3147,23 +3144,23 @@ contractAst t = case t of
           (AstN2S
              TimesOp v (Ast.AstReshapeS @_ @sh sh
                           (Ast.AstReplicate
-                             (SNat @m) stk (contractAst s))))
+                             (SNat @0) stk (contractAst s))))
   AstN2S TimesOp v (Ast.AstReshapeS @_ @sh sh
                       (Ast.AstLet
-                         var u (Ast.AstReplicate (SNat @m) stk s)))
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
+                         var u (Ast.AstReplicate (SNat' @0) stk s)))
+    | not (varNameInAst var v) ->
       Ast.AstLet var
                  (contractAst u)
                  (AstN2S TimesOp
                     v (astReshapeS @_ @sh sh
                          (Ast.AstReplicate
-                           (SNat @m) stk (contractAst s))))
-  AstN2S TimesOp v (Ast.AstLet var u (Ast.AstReplicate (SNat @m) stk s))
-    | Just Refl <- sameNat (Proxy @m) (Proxy @0), not (varNameInAst var v) ->
+                           (SNat @0) stk (contractAst s))))
+  AstN2S TimesOp v (Ast.AstLet var u (Ast.AstReplicate (SNat' @0) stk s))
+    | not (varNameInAst var v) ->
       Ast.AstLet var
                  (contractAst u)
                  (AstN2S TimesOp v (Ast.AstReplicate
-                                     (SNat @m) stk (contractAst s)))
+                                     (SNat @0) stk (contractAst s)))
   AstN2S opCode u v -> AstN2S opCode (contractAst u) (contractAst v)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (contractAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (contractAst u) (contractAst v)
