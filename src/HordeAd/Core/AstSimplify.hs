@@ -3021,11 +3021,25 @@ contractAst t = case t of
     (Ast.AstTransposeS @perm @sh
        (SNat' @1 `Permutation.PCons` SNat' @0
         `Permutation.PCons` Permutation.PNil)
-       (AstN2S TimesOp t2 u)) ->
-    -- TODO: generalize
+       (AstN2S TimesOp t2 u)) ->  -- TODO: generalize
       -- TODO: Why is this needed? Would a more general lemma suffice?
-      gcastWith (unsafeCoerceRefl
-                 :: Permutation.PermutePrefix perm [n, m] :~: sh) $
+      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
+      Ast.AstDot1InS m n (contractAst t2) (contractAst u)
+  Ast.AstSum
+    n@(SNat @n)
+    (STKS (m@(SNat @m) :$$ ZSS) _)
+    (AstN2S TimesOp
+            (Ast.AstTransposeS @perm @sh
+               (SNat' @1 `Permutation.PCons` SNat' @0
+                `Permutation.PCons` Permutation.PNil)
+               t2)
+            (Ast.AstTransposeS @perm2 @sh2
+               (SNat' @1 `Permutation.PCons` SNat' @0
+                `Permutation.PCons` Permutation.PNil)
+               u)) ->  -- TODO: generalize
+          -- TODO: Why is this needed? Would a more general lemma suffice?
+      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
+      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm2 [n, m] :~: sh2) $
       Ast.AstDot1InS m n (contractAst t2) (contractAst u)
   Ast.AstSum
     snat stk@(STKS ZSS _) (Ast.AstReshapeS
