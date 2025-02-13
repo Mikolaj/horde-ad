@@ -719,7 +719,7 @@ evalRevSame !s !c = \case
                      :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
         $ gcastWith (unsafeCoerceRefl
                      :: Rank permR :~: Rank perm)
-        $ evalRevSame s (stranspose permRev c) d
+        $ evalRevSame s (ttranspose permRev c) d
   DeltaReshapeS sh2 d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -811,14 +811,15 @@ evalRevSame !s !c = \case
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX (ssxPermutePrefix perm (ssxFromShape sh)) $
-      permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
+      permInverse perm $ \(permR :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
-        $ gcastWith (unsafeCoerceRefl
-                     :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
-        $ gcastWith (unsafeCoerceRefl
-                     :: Rank permR :~: Rank perm)
-        $ evalRevSame s (xtranspose permRev c) d
+                   :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2) $
+        gcastWith (unsafeCoerceRefl
+                     :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2) $
+        gcastWith (unsafeCoerceRefl
+                     :: Rank permR :~: Rank perm) $
+        withKnownPerm permR $
+        evalRevSame s (xtranspose @_ @permR c) d
   DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -1233,7 +1234,7 @@ evalFwdSame params s = \case
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
-      second (stranspose perm) $ evalFwdSame params s d
+      second (ttranspose perm) $ evalFwdSame params s d
   DeltaReshapeS sh2 d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -1311,11 +1312,12 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       withKnownShX (ssxFromShape sh) $
       second xreverse $ evalFwdSame params s d
-  DeltaTransposeX perm d -> case ftkDelta d of
+  DeltaTransposeX @perm perm d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX (ssxFromShape sh) $
-      second (xtranspose perm) $ evalFwdSame params s d
+      withKnownPerm perm $
+      second (xtranspose @_ @perm) $ evalFwdSame params s d
   DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $

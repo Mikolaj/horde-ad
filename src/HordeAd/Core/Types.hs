@@ -38,6 +38,7 @@ module HordeAd.Core.Types
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
+  , withKnownPerm
     -- * Ops only needed as a workaround for other ops not provided.
   , ssxTakeIx
   ) where
@@ -59,7 +60,7 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
-import GHC.Exts (IsList (..))
+import GHC.Exts (IsList (..), withDict)
 import GHC.Generics (Generic)
 import GHC.TypeLits
   ( KnownNat
@@ -795,6 +796,9 @@ listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
 instance NFData i => NFData (ListR n i) where
   rnf ZR = ()
   rnf (x ::: l) = rnf x `seq` rnf l
+
+withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
+withKnownPerm perm = withDict @(Permutation.KnownPerm perm) perm
 
 
 -- This is only needed as a workaround for other ops not provided.

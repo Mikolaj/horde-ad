@@ -36,6 +36,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsInit, shCvtSX, withKnownShS, shsAppend)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
@@ -264,8 +265,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     dD (sslice i_proxy n_proxy u) (DeltaSliceS @i SNat SNat SNat u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
 
-  stranspose @_ @_ @sh perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
-    dD (stranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
   sreshape @_ @sh @sh2 t@(D u u') = case sameShape @sh2 @sh of
     Just Refl -> t
     _ -> dD (sreshape u) (DeltaReshapeS knownShS u')
@@ -332,9 +331,9 @@ instance ( ADReadyNoLet target, ShareTensor target
     dD (xslice i_proxy n_proxy u) (DeltaSliceX @i SNat SNat SNat u')
   xreverse (D u u') = withKnownShX (ssxFromShape $ xshape u) $
                       dD (xreverse u) (DeltaReverseX u')
-  xtranspose @_ @_ @sh perm (D u u') =
-    withKnownShX (ssxPermutePrefix perm (knownShX @sh)) $
-    dD (xtranspose perm u) (DeltaTransposeX @_ @_ @_ @target perm u')
+  xtranspose @perm @_ @sh (D u u') =
+    withKnownShX (ssxPermutePrefix (Permutation.makePerm @perm) (knownShX @sh)) $
+    dD (xtranspose @_ @perm u) (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
   xreshape @_ @sh sh t@(D u u') =
    case testEquality (knownShX @sh) (ssxFromShape sh) of
     Just Refl | sh == xshape u -> t
@@ -397,6 +396,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
+  ttranspose @_ @_ @sh perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
+    dD (ttranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
   tmapAccumRDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (knownSTK @accShs)

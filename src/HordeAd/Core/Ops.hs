@@ -711,7 +711,7 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKS2 sh r)
         f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. slength t - 1]
-  ssum :: (KnownSTK r, KnownNat n, KnownShS sh)
+  ssum :: (KnownNat n, KnownShS sh, KnownSTK r)
        => target (TKS2 (n ': sh) r) -> target (TKS2 sh r)
   ssum0 :: forall r sh. (KnownSTK r, KnownShS sh)
         => target (TKS2 sh r) -> target (TKS2 '[] r)
@@ -727,15 +727,14 @@ class ( Num (IntOf target)
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => target (TKS '[m, n] r) -> target (TKS '[n] r)
              -> target (TKS '[m] r)
-  smatvecmul m v =
-    ssum (stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @_ @m v * m))
+  smatvecmul m v = ssum (stranspose @_ @'[1, 0] (sreplicate @_ @m v * m))
   smatmul2 :: forall r n m p.
               (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
            => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
            -> target (TKS '[m, p] r)
   smatmul2 m1 m2 =
-    ssum (stranspose (Permutation.makePerm @'[2, 1, 0]) (sreplicate @target @p m1)
-          * stranspose (Permutation.makePerm @'[1, 0]) (sreplicate @target @m m2))
+    ssum (stranspose @_ @'[2, 1, 0] (sreplicate @target @p m1)
+          * stranspose @_ @'[1, 0] (sreplicate @target @m m2))
   sscaleByScalar
     :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
     => target (TKS '[] r) -> target (TKS sh r) -> target (TKS sh r)
@@ -843,11 +842,12 @@ class ( Num (IntOf target)
   str :: ( KnownSTK r, KnownNat n, KnownNat m, KnownShS sh
          , KnownNat (Rank sh) )
       => target (TKS2 (n ': m ': sh) r) -> target (TKS2 (m ': n ': sh) r)
-  str = stranspose (Permutation.makePerm @'[1, 0])
-  stranspose :: ( PermC perm, KnownSTK r, KnownShS sh
-                , Rank perm <= Rank sh  )
-             => Permutation.Perm perm -> target (TKS2 sh r)
+  str = stranspose @_ @'[1, 0]
+  stranspose :: forall perm r sh.
+                (Permutation.KnownPerm perm, PermC perm, KnownSTK r, KnownShS sh, Rank perm <= Rank sh)
+             => target (TKS2 sh r)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
+  stranspose = ttranspose (Permutation.makePerm @perm)
   sflatten :: (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
   sflatten = sreshape
@@ -1087,7 +1087,7 @@ class ( Num (IntOf target)
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
   -- xsum :: (KnownSTK r, KnownShX sh, KnownShX (mn ': sh))
   --     => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
-  xsum :: (KnownSTK r, KnownNat n, KnownShX sh)
+  xsum :: (KnownNat n, KnownShX sh, KnownSTK r)
        => target (TKX2 (Just n ': sh) r) -> target (TKX2 sh r)
   xsum0 :: (KnownSTK r, KnownShX sh)
         => target (TKX2 sh r) -> target (TKX2 '[] r)
@@ -1125,8 +1125,8 @@ class ( Num (IntOf target)
            -> target (TKX '[Just n, Just p] r)
            -> target (TKX '[Just m, Just p] r)
   xmatmul2 m1 m2 =
-    xsum (xtranspose (Permutation.makePerm @'[2, 1, 0]) (xreplicate @target @p m1)
-          * xtranspose (Permutation.makePerm @'[1, 0]) (xreplicate @target @m m2))
+    xsum (xtranspose @_ @'[2, 1, 0] (xreplicate @target @p m1)
+          * xtranspose @_ @'[1, 0] (xreplicate @target @m m2))
   xscaleByScalar
     :: (GoodScalar r, KnownShX sh)
     => target (TKX '[] r) -> target (TKX sh r) -> target (TKX sh r)
@@ -1237,10 +1237,10 @@ class ( Num (IntOf target)
          , KnownNat (Rank sh) )
       => target (TKX2 (Just n ': Just m ': sh) r)
       -> target (TKX2 (Just m ': Just n ': sh) r)
-  xtr = xtranspose (Permutation.makePerm @'[1, 0])
-  xtranspose :: ( PermC perm, KnownSTK r, KnownShX sh
+  xtr = xtranspose @_ @'[1, 0]
+  xtranspose :: ( Permutation.KnownPerm perm, PermC perm, KnownSTK r, KnownShX sh
                 , Rank perm <= Rank sh  )
-             => Permutation.Perm perm -> target (TKX2 sh r)
+             => target (TKX2 sh r)
              -> target (TKX2 (Permutation.PermutePrefix perm sh) r)
   xflatten :: (KnownSTK r, KnownShX sh)
            => target (TKX2 sh r) -> target (TKX2 '[Nothing] r)
@@ -1506,6 +1506,11 @@ class ( Num (IntOf target)
   default tunpairDup :: ShareTensor target
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
+  -- This one is not really general, but takes a singleton at least.
+  ttranspose :: ( PermC perm, KnownSTK r, KnownShS sh
+                , Rank perm <= Rank sh  )
+             => Permutation.Perm perm -> target (TKS2 sh r)
+             -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
   -- | A strict left fold.
   rfold
     :: forall rn rm n m.

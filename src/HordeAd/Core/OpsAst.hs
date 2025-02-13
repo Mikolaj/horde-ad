@@ -411,7 +411,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sappend u v = astAppendS u v
   sslice @_ @i Proxy Proxy = astSliceS @i SNat SNat SNat
   sreverse = astReverseS
-  stranspose perm = astTransposeS perm
   sreshape = astReshapeS knownShS
   szip = AstZipS
   sunzip = AstUnzipS
@@ -559,8 +558,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         _ :$$ _ ->
           astFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
           . astReverseS . astSFromX @sh @sh' sh $ a
-  xtranspose @perm perm a = case ftkAst a of
-    FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
+  xtranspose @perm a = case ftkAst a of
+    FTKX @sh' @x sh' _ -> case shxPermutePrefix (Permutation.makePerm @perm) sh' of
       (sh2' :: IShX sh2') ->
         withKnownShX (ssxFromShape sh2') $
         withCastXS sh' $ \(sh :: ShS sh) ->
@@ -568,7 +567,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
           astFromS (knownSTK @(TKX2 sh2' x))
-          . astTransposeS perm . astSFromX @sh @sh' sh $ a
+          . astTransposeS (Permutation.makePerm @perm) . astSFromX @sh @sh' sh $ a
   xreshape sh2' a = case ftkAst a of
     FTKX @sh' @x sh' x ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -702,6 +701,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   tunpairDup t = (tproject1 t, tproject2 t)
+  ttranspose perm = astTransposeS perm
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumRDer k bShs eShs f df rf acc0 es
   tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
@@ -1007,7 +1007,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   sslice @_ @i Proxy Proxy = AstRaw . AstSliceS @i SNat SNat SNat . unAstRaw
   sreverse = AstRaw . AstReverseS . unAstRaw
-  stranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   sreshape = AstRaw . AstReshapeS knownShS . unAstRaw
   szip = AstRaw . AstZipS . unAstRaw
   sunzip = AstRaw . AstUnzipS . unAstRaw
@@ -1160,8 +1159,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         _ :$$ _ ->
           AstFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
           . AstReverseS . AstSFromX @sh @sh' sh $ a
-  xtranspose @perm perm (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' @x sh' _ -> case shxPermutePrefix perm sh' of
+  xtranspose @perm (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX @sh' @x sh' _ -> case shxPermutePrefix (Permutation.makePerm @perm) sh' of
       (sh2' :: IShX sh2') ->
         withKnownShX (ssxFromShape sh2') $
         withCastXS sh' $ \(sh :: ShS sh) ->
@@ -1169,7 +1168,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm sh :~: sh2) $
           AstFromS @(TKS2 sh2 x) (knownSTK @(TKX2 sh2' x))
-          . AstTransposeS perm . AstSFromX @sh @sh' sh $ a
+          . AstTransposeS (Permutation.makePerm @perm) . AstSFromX @sh @sh' sh $ a
   xreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh' x ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -1313,6 +1312,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
+  ttranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
       AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
   tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
@@ -1407,8 +1407,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sslice proxy1 proxy2 =
     AstNoVectorize . sslice proxy1 proxy2 . unAstNoVectorize
   sreverse = AstNoVectorize . sreverse . unAstNoVectorize
-  stranspose perm =
-    AstNoVectorize . stranspose perm . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
   szip = AstNoVectorize . szip . unAstNoVectorize
   sunzip = AstNoVectorize . sunzip . unAstNoVectorize
@@ -1440,8 +1438,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xslice proxy1 proxy2 =
     AstNoVectorize . xslice proxy1 proxy2 . unAstNoVectorize
   xreverse = AstNoVectorize . xreverse . unAstNoVectorize
-  xtranspose perm =
-    AstNoVectorize . xtranspose perm . unAstNoVectorize
+  xtranspose @perm =
+    AstNoVectorize . xtranspose @_ @perm . unAstNoVectorize
   xreshape sh = AstNoVectorize . xreshape sh . unAstNoVectorize
   xzip = AstNoVectorize . xzip . unAstNoVectorize
   xunzip = AstNoVectorize . xunzip . unAstNoVectorize
@@ -1476,6 +1474,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
   tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
                  in (AstNoVectorize b, AstNoVectorize c)
+  ttranspose perm =
+    AstNoVectorize . ttranspose perm . unAstNoVectorize
   tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     AstNoVectorize $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
@@ -1628,8 +1628,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   sslice proxy1 proxy2 =
     wAstNoSimplify . sslice proxy1 proxy2 . wunAstNoSimplify
   sreverse = wAstNoSimplify . sreverse . wunAstNoSimplify
-  stranspose perm =
-    wAstNoSimplify . stranspose perm . wunAstNoSimplify
   sreshape = wAstNoSimplify . sreshape . wunAstNoSimplify
   szip = wAstNoSimplify . szip . wunAstNoSimplify
   sunzip = wAstNoSimplify . sunzip . wunAstNoSimplify
@@ -1658,8 +1656,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xslice proxy1 proxy2 =
     wAstNoSimplify . xslice proxy1 proxy2 . wunAstNoSimplify
   xreverse = wAstNoSimplify . xreverse . wunAstNoSimplify
-  xtranspose perm =
-    wAstNoSimplify . xtranspose perm . wunAstNoSimplify
+  xtranspose @perm =
+    wAstNoSimplify . xtranspose @_ @perm . wunAstNoSimplify
   xreshape sh = wAstNoSimplify . xreshape sh . wunAstNoSimplify
   xzip = wAstNoSimplify . xzip . wunAstNoSimplify
   xunzip = wAstNoSimplify . xunzip . wunAstNoSimplify
@@ -1689,6 +1687,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
+  ttranspose perm =
+    wAstNoSimplify . ttranspose perm . wunAstNoSimplify
   tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     wAstNoSimplify $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)

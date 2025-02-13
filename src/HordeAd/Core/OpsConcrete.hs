@@ -59,6 +59,7 @@ import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
+import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Unwind
@@ -310,8 +311,6 @@ instance BaseTensor RepN where
     RepN . Nested.sslice (SNat @i) SNat . unRepN
   sreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.srev1 . unRepN
-  stranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.stranspose perm . unRepN
   sreshape @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreshape knownShS . unRepN
   szip (RepN (a, b)) = RepN $ Nested.szip a b
@@ -454,8 +453,8 @@ instance BaseTensor RepN where
     RepN . Nested.mslice (SNat @i) SNat . unRepN
   xreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mrev1 . unRepN
-  xtranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.mtranspose perm . unRepN
+  xtranspose @perm @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.mtranspose (Permutation.makePerm @perm) . unRepN
   xreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreshape sh . unRepN
   xzip (RepN (a, b)) = RepN $ Nested.mzip a b
@@ -530,6 +529,8 @@ instance BaseTensor RepN where
   tpair !u !v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN
   tproject2 = RepN . snd . unRepN
+  ttranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.stranspose perm . unRepN
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =
     rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)

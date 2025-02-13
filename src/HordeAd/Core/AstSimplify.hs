@@ -2124,7 +2124,7 @@ astTransposeS perm t = case perm of
     let shPerm = Nested.Internal.Shape.shsPermutePrefix perm sh
     in withKnownShS sh $
        withKnownSTK (ftkToSTK x) $
-       astConcrete (RepF (FTKS shPerm x) (stranspose perm v))
+       astConcrete (RepF (FTKS shPerm x) (ttranspose perm v))
 
   Ast.AstLet var u v ->
     astLet var u (astTransposeS perm v)

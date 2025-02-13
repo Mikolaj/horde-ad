@@ -60,7 +60,7 @@ convMnistLayerS
 convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
                 ker input bias =
   let yConv = conv2dUnpaddedS ker input
-      biasStretched = stranspose (Permutation.makePerm @'[0, 3, 1, 2])
+      biasStretched = stranspose @_ @'[0, 3, 1, 2]
                       $ sreplicate {-@batch_size-}
                       $ sreplicate {-@h-}
                       $ sreplicate {-@w-} bias
@@ -163,7 +163,7 @@ convMnistTestS kh@SNat kw@SNat
                                input
         in nn testParams
       outputs = map (Nested.stoVector . unRepN) $ sunravelToList
-                $ stranspose (Permutation.makePerm @'[1, 0]) outputS
+                $ stranspose @_ @'[1, 0] outputS
       labels = map (Nested.stoVector . unRepN) $ sunravelToList @_ @(TKScalar r)
                $ sconcrete labelS
       matchesLabels :: Vector r -> Vector r -> Int
