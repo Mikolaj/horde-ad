@@ -444,7 +444,7 @@ class ( Num (IntOf target)
 -- differ in types but all are far from matmul2.
 -- rmatvecmul m v = rbuild1 (rlength m) (\i -> rdot0 v (m ! [i]))
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
-  rmatvecmul m v = rsum (rtranspose [1,0] (rreplicate (rlength m) v * m))
+  rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
   rmatmul2 :: (GoodScalar r, Numeric r)
            => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
@@ -727,7 +727,7 @@ class ( Num (IntOf target)
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => target (TKS '[m, n] r) -> target (TKS '[n] r)
              -> target (TKS '[m] r)
-  smatvecmul m v = ssum (stranspose @_ @'[1, 0] (sreplicate @_ @m v * m))
+  smatvecmul m v = ssum (str (sreplicate @_ @m v * m))
   smatmul2 :: forall r n m p.
               (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
            => target (TKS '[m, n] r) -> target (TKS '[n, p] r)

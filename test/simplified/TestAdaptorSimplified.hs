@@ -1137,9 +1137,9 @@ testMatvecmulPP = do
   printArtifactPrimalPretty renames artifactRev
     @?= "\\m1 -> rfromS (ssum @_ @3 (str (sfromR (rreplicate 2 (tproject2 m1))) * str (sfromR (tproject1 m1))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v2 m1 -> tfromS (tpair (sreplicate @_ @2 (sfromR (tproject2 m1)) * str (sreplicate @_ @3 (sfromR v2)), ssum @_ @2 (sfromR (tproject1 m1) * str (sreplicate @_ @3 (sfromR v2)))))"
+    @?= "\\v2 m1 -> tfromS (tpair (sreplicate @_ @2 (sfromR (tproject2 m1)) * str (sreplicate @_ @3 (sfromR v2)), smatvecmul (str (sfromR (tproject1 m1))) (sfromR v2)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (ssdot1In (sreplicate @_ @2 (sfromR (tproject2 m1))) (sfromR (tproject1 m1)))"
+    @?= "\\m1 -> rfromS (smatvecmul (sfromR (tproject1 m1)) (sfromR (tproject2 m1)))"
 
 testMatmul2PP :: Assertion
 testMatmul2PP = do

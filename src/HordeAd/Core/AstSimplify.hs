@@ -3018,6 +3018,32 @@ contractAst t = case t of
   Ast.AstSum
     n@(SNat @n)
     (STKS (m@(SNat @m) :$$ ZSS) _)
+    (AstN2S TimesOp
+            (Ast.AstTransposeS @perm @sh
+               (SNat' @1 `Permutation.PCons` SNat' @0
+                `Permutation.PCons` Permutation.PNil)
+               (Ast.AstReplicate _ STKS{} t2))
+            u) ->
+      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
+      let perm10 = Permutation.makePerm @'[1, 0]
+      in Ast.AstMatvecmulS m n (contractAst $ astTransposeS perm10 u)
+                               (contractAst t2)
+  Ast.AstSum
+    n@(SNat @n)
+    (STKS (m@(SNat @m) :$$ ZSS) _)
+    (AstN2S TimesOp
+            t2
+            (Ast.AstTransposeS @perm2 @sh2
+               (SNat' @1 `Permutation.PCons` SNat' @0
+                `Permutation.PCons` Permutation.PNil)
+               (Ast.AstReplicate _ STKS{} u))) ->
+      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm2 [n, m] :~: sh2) $
+      let perm10 = Permutation.makePerm @'[1, 0]
+      in Ast.AstMatvecmulS m n (contractAst $ astTransposeS perm10 t2)
+                               (contractAst u)
+  Ast.AstSum
+    n@(SNat @n)
+    (STKS (m@(SNat @m) :$$ ZSS) _)
     (Ast.AstTransposeS @perm @sh
        (SNat' @1 `Permutation.PCons` SNat' @0
         `Permutation.PCons` Permutation.PNil)
