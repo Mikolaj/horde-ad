@@ -461,10 +461,12 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
 
 tensorADValMnistTests2 :: TestTree
 tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
-  [ mnistTestCase2VTA "VTA2 1 epoch, 1 batch" 1 1 300 100 0.02 5
-                       (0.8 :: Double)
+  [ mnistTestCase2VTA "VTA2 1 epoch, 1 batch" 1 1 300 100 0.02 500
+                       (0.536 :: Double)
   , mnistTestCase2VTA "VTA2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.89 :: Float)
+  , mnistTestCase2VTA "VTA2 artificial 5 4 3 2 1" 5 4 3 2 1 500
+                       (0.8145:: Double)
   , mnistTestCase2VTA "VTA2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
@@ -564,8 +566,8 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
                        (0.534 :: Double)
   , mnistTestCase2VTI "VTI2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
-  , mnistTestCase2VTI "VTI2 artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.7439879759519038 :: Double)
+  , mnistTestCase2VTI "VTI2 artificial 5 4 3 2 1" 5 4 3 2 1 500
+                       (0.8195 :: Double)
   , mnistTestCase2VTI "VTI2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
@@ -670,8 +672,8 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                        (0.534 :: Double)
   , mnistTestCase2VTO "VTO2 artificial 1 2 3 4 5" 1 2 3 4 5 500
                        (0.884 :: Float)
-  , mnistTestCase2VTO "VTO2 artificial 5 4 3 2 1" 5 4 3 2 1 499
-                       (0.7670340681362725 :: Double)
+  , mnistTestCase2VTO "VTO2 artificial 5 4 3 2 1" 5 4 3 2 1 500
+                       (0.8225 :: Double)
   , mnistTestCase2VTO "VTO2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
   ]
