@@ -323,7 +323,7 @@ mnistTrainBench2VTC
 mnistTrainBench2VTC prefix widthHidden widthHidden2 =
   bench prefix
   $ whnf (snd . MnistFcnnRanked2.mnistTrainBench2VTOGradient @Double
-                                                             widthHidden)
+                                                             44 widthHidden)
          widthHidden2
 
 -- The same as above, but only runtime.
@@ -376,7 +376,8 @@ mnistBGroup2VTC chunkLength =
 
 mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup2VTO xs0 chunkLength =
-  let (!targetInit, !art) = MnistFcnnRanked2.mnistTrainBench2VTOGradient 500 150
+  let (!targetInit, !art) =
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient 44 500 150
   in env (return $ map mkMnistDataLinearR $ take chunkLength xs0)
      $ \ xs ->
    bgroup ("2-hidden-layer rank 2 VTO runtime MNIST nn with samples: "
