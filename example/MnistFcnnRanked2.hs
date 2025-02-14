@@ -16,7 +16,6 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
-import HordeAd.Core.AstInline
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
 import HordeAd.Core.Ops
@@ -143,4 +142,4 @@ mnistTrainBench2VTOGradient seed widthHidden widthHidden2 =
         afcnnMnistLoss2TensorData
           (glyphR, labelR) pars
       (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
-  in (targetInit, simplifyArtifactGradient artRaw)
+  in (targetInit, artRaw)

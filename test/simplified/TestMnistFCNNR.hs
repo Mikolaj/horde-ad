@@ -583,8 +583,9 @@ mnistTestCase2VTO
   -> TestTree
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
-  let (!targetInit, !art) =
+  let (!targetInit, !artRaw) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient 44 widthHidden widthHidden2
+      !art = simplifyArtifactGradient artRaw
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
