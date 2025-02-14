@@ -101,7 +101,7 @@ afcnnMnistTest2 dataList testParams =
 
 mnistTrainBench2VTOGradient
   :: forall r. (GoodScalar r, Differentiable r, Random r)
-  => Int -> Int -> Int
+  => Double -> StdGen -> Int -> Int
   -> ( RepN (XParams2 r)
      , AstArtifactRev
          (TKProduct
@@ -109,7 +109,7 @@ mnistTrainBench2VTOGradient
             (TKProduct (TKR2 1 (TKScalar r))
                        (TKR2 1 (TKScalar r))))
          (TKScalar r) )
-mnistTrainBench2VTOGradient seed widthHidden widthHidden2 =
+mnistTrainBench2VTOGradient range seed widthHidden widthHidden2 =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   -- Initial parameter generation is counted as part of compilation time.
@@ -117,7 +117,7 @@ mnistTrainBench2VTOGradient seed widthHidden widthHidden2 =
         forgetShape $ fst
         $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
                                    RepN widthHidden widthHidden2 r)))
-                      1 (mkStdGen seed)
+                      range seed
       ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
       ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
                            (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
