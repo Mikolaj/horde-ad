@@ -25,7 +25,9 @@ import Data.Array.Nested qualified as Nested
 
 import MnistData
 import MnistFcnnRanked1 qualified
+import MnistFcnnRanked2 (XParams2)
 import MnistFcnnRanked2 qualified
+
 -- * Using lists of vectors, which is rank 1
 
 type XParams widthHidden widthHidden2 r =
@@ -233,8 +235,6 @@ mnistBGroup1VTO xs0 chunkLength =
 
 -- * Using matrices, which is rank 2
 
-type XParams2 r = X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r)
-
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTrainBench2VTA
@@ -249,10 +249,10 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
   let targetInit =
         forgetShape $ fst
         $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r)))
+                                   RepN widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
   in do
-    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r)
+    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
           -> ADVal RepN (TKScalar r)
         f (glyph, label) adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
@@ -262,7 +262,7 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
         name =
           prefix
           ++ unwords
-               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r))
+               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
 
@@ -278,7 +278,7 @@ mnistTestBench2VTA prefix widthHidden widthHidden2
   let targetInit =
         forgetShape $ fst
         $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r)))
+                                   RepN widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
   in do
     let chunk = take batchSize xs
@@ -286,7 +286,7 @@ mnistTestBench2VTA prefix widthHidden widthHidden2
         name =
           "test " ++ prefix
           ++ unwords
-               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r))
+               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ whnf score chunk
 
@@ -325,7 +325,7 @@ mnistTrainBench2VTC prefix widthHidden widthHidden2 =
   bench prefix
   $ whnf (simplifyArtifactGradient . snd
           . MnistFcnnRanked2.mnistTrainBench2VTOGradient
-              @Double 1 (mkStdGen 44) widthHidden)
+              @Double @Double 1 (mkStdGen 44) widthHidden)
          widthHidden2
 
 -- The same as above, but only runtime.
@@ -333,16 +333,17 @@ mnistTrainBench2VTO
   :: forall r. r ~ Double
   => String
   -> Double -> Int -> [MnistDataLinearR r]
-  -> ( RepN (XParams2 r)
+  -> ( RepN (XParams2 r Float)
      , AstArtifactRev
          (TKProduct
-            (XParams2 r)
+            (XParams2 r Float)
             (TKProduct (TKR2 1 (TKScalar Double))
                        (TKR2 1 (TKScalar Double))))
          (TKScalar r) )
   -> Benchmark
 mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
-    let go :: [MnistDataLinearR r] -> RepN (XParams2 r) -> RepN (XParams2 r)
+    let go :: [MnistDataLinearR r] -> RepN (XParams2 r Float)
+           -> RepN (XParams2 r Float)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
@@ -355,7 +356,7 @@ mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
         name =
           prefix
           ++ unwords
-               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r))
+               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
 

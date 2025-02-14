@@ -27,37 +27,38 @@ import MnistData
 -- | The differentiable type of all trainable parameters of this nn.
 -- Shaped version, statically checking all dimension widths.
 type ADFcnnMnist2ParametersShaped
-       (target :: Target) (widthHidden :: Nat) (widthHidden2 :: Nat) r =
+       (target :: Target) (widthHidden :: Nat) (widthHidden2 :: Nat) r q =
   ( ( target (TKS '[widthHidden, SizeMnistGlyph] r)
     , target (TKS '[widthHidden] r) )
-  , ( target (TKS '[widthHidden2, widthHidden] Float)
+  , ( target (TKS '[widthHidden2, widthHidden] q)
     , target (TKS '[widthHidden2] r) )
   , ( target (TKS '[SizeMnistLabel, widthHidden2] r)
     , target (TKS '[SizeMnistLabel] r) )
   )
 
 -- | The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnist2Parameters (target :: Target) r =
+type ADFcnnMnist2Parameters (target :: Target) r q =
   ( ( target (TKR 2 r)
     , target (TKR 1 r) )
-  , ( target (TKR 2 Float)
+  , ( target (TKR 2 q)
     , target (TKR 1 r) )
   , ( target (TKR 2 r)
     , target (TKR 1 r) )
   )
 
-type XParams2 r = X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r)
+type XParams2 r q = X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r q)
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
 -- The output layer uses a different activation function.
 -- The widths of the two hidden layers are @widthHidden@ and @widthHidden2@,
 -- respectively.
-afcnnMnist2 :: (ADReady target, GoodScalar r, Differentiable r)
+afcnnMnist2 :: ( ADReady target, GoodScalar r, Differentiable r
+               , GoodScalar q, Differentiable q )
             => (target (TKR 1 r) -> target (TKR 1 r))
             -> (target (TKR 1 r) -> target (TKR 1 r))
             -> target (TKR 1 r)
-            -> ADFcnnMnist2Parameters target r
+            -> ADFcnnMnist2Parameters target r q
             -> target (TKR 1 r)
 afcnnMnist2 factivationHidden factivationOutput
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
@@ -71,8 +72,9 @@ afcnnMnist2 factivationHidden factivationOutput
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss2
-  :: (ADReady target, GoodScalar r, Differentiable r)
-  => (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist2Parameters target r
+  :: ( ADReady target, GoodScalar r, Differentiable r
+     , GoodScalar q, Differentiable q )
+  => (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist2Parameters target r q
   -> target (TKScalar r)
 afcnnMnistLoss2 (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
@@ -81,17 +83,18 @@ afcnnMnistLoss2 (datum, target) adparams =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest2
-  :: forall target r.
-     (target ~ RepN, GoodScalar r, Differentiable r)
+  :: forall target r q.
+     ( target ~ RepN, GoodScalar r, Differentiable r
+     , GoodScalar q, Differentiable q )
   => [MnistDataLinearR r]
-  -> ADFcnnMnist2Parameters target r
+  -> ADFcnnMnist2Parameters target r q
   -> r
 afcnnMnistTest2 [] _ = 0
 afcnnMnistTest2 dataList testParams =
   let matchesLabels :: MnistDataLinearR r -> Bool
       matchesLabels (glyph, label) =
         let glyph1 = rconcrete glyph
-            nn :: ADFcnnMnist2Parameters target r
+            nn :: ADFcnnMnist2Parameters target r q
                -> target (TKR 1 r)
             nn = inline afcnnMnist2 logistic softMax1 glyph1
             v = Nested.rtoVector $ unRepN $ nn testParams
@@ -100,12 +103,13 @@ afcnnMnistTest2 dataList testParams =
      / fromIntegral (length dataList)
 
 mnistTrainBench2VTOGradient
-  :: forall r. (GoodScalar r, Differentiable r, Random r)
+  :: forall r q. ( GoodScalar r, Differentiable r, Random r
+                 , GoodScalar q, Differentiable q, Random q )
   => Double -> StdGen -> Int -> Int
-  -> ( RepN (XParams2 r)
+  -> ( RepN (XParams2 r q)
      , AstArtifactRev
          (TKProduct
-            (XParams2 r)
+            (XParams2 r q)
             (TKProduct (TKR2 1 (TKScalar r))
                        (TKR2 1 (TKScalar r))))
          (TKScalar r) )
@@ -116,13 +120,13 @@ mnistTrainBench2VTOGradient range seed widthHidden widthHidden2 =
   let targetInit =
         forgetShape $ fst
         $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r)))
+                                   RepN widthHidden widthHidden2 r q)))
                       range seed
-      ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
+      ftk = tftk @RepN (knownSTK @(XParams2 r q)) targetInit
       ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
                            (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
       f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
-               (AstTensor AstMethodLet FullSpan) r
+               (AstTensor AstMethodLet FullSpan) r q
            , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
              , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
         -> AstTensor AstMethodLet FullSpan (TKScalar r)

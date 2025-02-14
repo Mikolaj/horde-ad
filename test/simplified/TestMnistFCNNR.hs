@@ -144,7 +144,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
 tensorADValMnistTests :: TestTree
 tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
   [ mnistTestCase1VTA "VTA1 1 epoch, 1 batch" 1 1 300 100 0.02 5000
-                      (0.19499999999999995 :: Double)
+                      (0.2146 :: Double)
   , mnistTestCase1VTA "VTA1 artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.8972 :: Float)
   , mnistTestCase1VTA "VTA1 1 epoch, 0 batch" 1 0 300 100 0.02 5000
@@ -255,7 +255,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
 tensorIntermediateMnistTests :: TestTree
 tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
   [ mnistTestCase1VTI "VTI1 1 epoch, 1 batch" 1 1 300 100 0.02 5000
-                      (0.19740000000000002 :: Double)
+                      (0.2116 :: Double)
   , mnistTestCase1VTI "VTI1 artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.9108 :: Float)
   , mnistTestCase1VTI "VTI1 1 epoch, 0 batch" 1 0 300 100 0.02 5000
@@ -374,7 +374,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
 tensorADOnceMnistTests :: TestTree
 tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
   [ mnistTestCase1VTO "VTO1 1 epoch, 1 batch" 1 1 300 100 0.02 5000
-                      (0.19740000000000002 :: Double)
+                      (0.2116 :: Double)
   , mnistTestCase1VTO "VTO1 artificial 1 2 3 4 5" 1 2 3 4 5 5000
                       (0.9108 :: Float)
   , mnistTestCase1VTO "VTO1 1 epoch, 0 batch" 1 0 300 100 0.02 5000
@@ -400,12 +400,12 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
   let targetInit =
         forgetShape $ fst
         $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r)))
+                                   RepN widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show $ twidth @RepN $ knownSTK @(XParams2 r)
+                        , show $ twidth @RepN $ knownSTK @(XParams2 r Float)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
   in testCase name $ do
@@ -415,13 +415,13 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r)
+    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
           -> ADVal RepN (TKScalar r)
         f (glyph, label) adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
-    let runBatch :: RepN (XParams2 r) -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams2 r))
+    let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
+                 -> IO (RepN (XParams2 r Float))
         runBatch !params (k, chunk) = do
           let res = fst $ sgd gamma f chunk params
               trainScore =
@@ -440,7 +440,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
               printf "%s: Validation error: %.2f%%"
                      prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> RepN (XParams2 r) -> IO (RepN (XParams2 r))
+    let runEpoch :: Int -> RepN (XParams2 r Float)
+                 -> IO (RepN (XParams2 r Float))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
@@ -489,12 +490,12 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
   let targetInit =
         forgetShape $ fst
         $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r)))
+                                   RepN widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show $ twidth @RepN $ knownSTK @(XParams2 r)
+                        , show $ twidth @RepN $ knownSTK @(XParams2 r Float)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
   in testCase name $ do
@@ -504,7 +505,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
+    let ftk = tftk @RepN (knownSTK @(XParams2 r Float)) targetInit
     (_, _, var, varAst) <- funToAstRevIO ftk
     (varGlyph, astGlyph) <-
       funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
@@ -514,15 +515,15 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
         ast = MnistFcnnRanked2.afcnnMnistLoss2
                 (astGlyph, astLabel)
                 (fromTarget varAst)
-        f :: MnistDataLinearR r -> ADVal RepN (XParams2 r)
+        f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
           -> ADVal RepN (TKScalar r)
         f (glyph, label) varInputs =
           let env = extendEnv var varInputs emptyEnv
               envMnist = extendEnv varGlyph (rconcrete glyph)
                          $ extendEnv varLabel (rconcrete label) env
           in interpretAst envMnist ast
-    let runBatch :: RepN (XParams2 r) -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams2 r))
+    let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
+                 -> IO (RepN (XParams2 r Float))
         runBatch !params (k, chunk) = do
           let res = fst $ sgd gamma f chunk params
               trainScore =
@@ -541,7 +542,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
               printf "%s: Validation error: %.2f%%"
                      prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> RepN (XParams2 r) -> IO (RepN (XParams2 r))
+    let runEpoch :: Int -> RepN (XParams2 r Float) -> IO (RepN (XParams2 r Float))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
@@ -593,7 +594,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show $ twidth @RepN $ knownSTK @(XParams2 r)
+                        , show $ twidth @RepN $ knownSTK @(XParams2 r Float)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
   in testCase name $ do
@@ -603,7 +604,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let go :: [MnistDataLinearR r] -> RepN (XParams2 r) -> RepN (XParams2 r)
+    let go :: [MnistDataLinearR r] -> RepN (XParams2 r Float)
+           -> RepN (XParams2 r Float)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
@@ -611,8 +613,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma parameters gradient)
-    let runBatch :: RepN (XParams2 r) -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams2 r))
+    let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
+                 -> IO (RepN (XParams2 r Float))
         runBatch !params (k, chunk) = do
           let res = go chunk params
               trainScore =
@@ -631,7 +633,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
               printf "%s: Validation error: %.2f%%"
                      prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> RepN (XParams2 r) -> IO (RepN (XParams2 r))
+    let runEpoch :: Int -> RepN (XParams2 r Float)
+                 -> IO (RepN (XParams2 r Float))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
@@ -669,7 +672,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
     forAllShrink (chooseInt (0, 5)) shrinkIntegral $ \simp ->
     forAll (choose (0.01, 1)) $ \range ->
     forAll (choose (0.01, 1)) $ \range2 ->
-    forAll (choose (1 - 1e-7, 1 + 1e-7)) $ \dt ->  -- TODO: "Gradient and derivative agrees" fails for more varied dt, while ds can vary a lot (though it averages out)); also the two occurences of dt amplify the difference instead of counteracting
+    forAll (choose (1 - 1e-10, 1 + 1e-10)) $ \dt ->  -- TODO: "Gradient and derivative agrees" fails for more varied dt, while ds can vary a lot (though it averages out)); also the two occurences of dt amplify the difference instead of counteracting
     forAll (choose (0, 1e-7)) $ \(perturbation :: Double) ->
     withSNat (1 + width1Hidden) $ \(SNat @widthHidden) ->
     withSNat (1 + width1Hidden2) $ \(SNat @widthHidden2) ->
@@ -679,31 +682,31 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                                       5 seed2
         (glyph, label) = ( rmap1 (rscalar 0.5 +) $ forgetShape glyph0
                          , rmap1 (rscalar 5 + ) $ forgetShape label0 )
-        ds :: RepN (XParams2 Double)
+        ds :: RepN (XParams2 Double Double)
         (ds, seed4) = first forgetShape $
           randomValue
             @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                         RepN widthHidden widthHidden2 Double)))
+                         RepN widthHidden widthHidden2 Double Double)))
             range seed3
         (targetInit, artRaw) =
           MnistFcnnRanked2.mnistTrainBench2VTOGradient
             range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
         art = iterate simplifyArtifactGradient artRaw !! simp
-        stk = knownSTK @(XParams2 Double)
+        stk = knownSTK @(XParams2 Double Double)
         ftk = tftk @RepN stk targetInit
         parametersAndInput = tpair targetInit (tpair glyph label)
         (gradient1, value1) =
           revEvalArtifact art parametersAndInput (Just $ kconcrete dt)
-        f :: ADVal RepN (XParams2 Double) -> ADVal RepN (TKScalar Double)
+        f :: ADVal RepN (XParams2 Double Double) -> ADVal RepN (TKScalar Double)
         f adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rfromPrimal glyph, rfromPrimal label) (fromTarget adinputs)
         (derivative2, value2) = cfwdBoth f targetInit ds
         goodPerturbation :: forall r. GoodScalar r => r
         goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
-        targetPerturbed :: RepN (XParams2 Double)
+        targetPerturbed :: RepN (XParams2 Double Double)
         targetPerturbed = constantTarget goodPerturbation ftk
-        targetInitPerturbed :: RepN (XParams2 Double)
+        targetInitPerturbed :: RepN (XParams2 Double Double)
         targetInitPerturbed = addTarget stk targetInit targetPerturbed
         (derivative3, value3) = cfwdBoth f targetInit targetPerturbed
         value4 :: RepN (TKScalar Double)
@@ -711,18 +714,18 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                    (rfromPrimal glyph, rfromPrimal label)
                    (fromTarget targetInitPerturbed)
     in
-      conjoin  -- if not for the Float in ADFcnnMnist2Parameters 1e-7 would work
+      conjoin
         [ counterexample
             ("Objective function value from rev and fwd matches: "
              ++ show (value1, value2, value1 - value2))
-            (abs (value1 - value2) < 1e-3)
+            (abs (value1 - value2) < 1e-10)
         , counterexample
             ("Gradient and derivative agrees: "
              ++ show ( dt, derivative2, dotTarget stk (tproject1 gradient1) ds
                      , kconcrete dt * derivative2
                        - dotTarget stk (tproject1 gradient1) ds ))
             (abs (kconcrete dt * derivative2
-                  - dotTarget stk (tproject1 gradient1) ds) < 1e-1)
+                  - dotTarget stk (tproject1 gradient1) ds) < 1e-7)
         , counterexample
             "Objective function value unaffected by derivative perturbation"
             (value2 === value3)
@@ -730,7 +733,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
             ("Derivative approximates the perturbation of value: "
              ++ show ( value2, derivative3, value4
                      , (value3 + derivative3) - value4) )
-            (abs ((value3 + derivative3) - value4) < 1e-3)
+            (abs ((value3 + derivative3) - value4) < 1e-6)
         ]
   ]
 
@@ -747,7 +750,8 @@ tensorMnistTestsPP = testGroup "PP tests for Short Ranked MNIST tests"
   , testCase "VTO2 PP NonLin3" testVT2OPPNonLin3
   ]
 
-valsInitVTOPP :: MnistFcnnRanked1.ADFcnnMnist1Parameters RepN 3 4 Double
+valsInitVTOPP :: (Num r, Enum r, Nested.PrimElt r)
+              => MnistFcnnRanked1.ADFcnnMnist1Parameters RepN 3 4 r
 valsInitVTOPP =
   ( ( fromList (replicate 3 (RepN $ Nested.sfromList1Prim
                                       (SNat @SizeMnistGlyph)
@@ -769,12 +773,12 @@ testVTOPP = do
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                   (AstTensor AstMethodLet FullSpan) 3 4 Double
-              -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
+                   (AstTensor AstMethodLet FullSpan) 3 4 Float
+              -> AstTensor AstMethodLet FullSpan (TKR 1 Float)
       afcnn2T =
         MnistFcnnRanked1.afcnnMnist1 id id
                                      (SNat @3) (SNat @4) (sfromR blackGlyph)
-      ftk = tftk @RepN (knownSTK @(XParams 3 4 Double))
+      ftk = tftk @RepN (knownSTK @(XParams 3 4 Float))
                        (toTarget @RepN valsInitVTOPP)
       (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
@@ -803,15 +807,15 @@ testVTOPPNonLin = do
                        (toTarget @RepN valsInitVTOPP)
       (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk
   printArtifactPretty renames artifactRevnonLin
-    @?= "\\v32 v1 -> let v11 = sfromVector (fromList [ssum @_ @784 (tproject1 (tproject1 (tproject1 (tproject1 v1))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1)))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) * sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v12 = exp (negate v11) ; v13 = sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + v12 ; v14 = recip v13 ; v15 = sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) - v14 ; v16 = v14 * v15 ; v18 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) ; v19 = v14 + v18 ; v20 = sfromVector (fromList [ssum @_ @3 (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v19), ssum @_ @3 (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v19), ssum @_ @3 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v19), ssum @_ @3 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v19)]) + tproject2 (tproject2 (tproject1 v1)) ; v21 = exp (negate v20) ; v22 = sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + v21 ; v23 = recip v22 ; v24 = sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) - v23 ; v25 = v23 * v24 ; v27 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) ; v28 = v23 + v27 ; v29 = exp (sfromVector (fromList [ssum @_ @4 (tproject1 (tproject1 (tproject2 v1)) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject1 (tproject2 v1))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v28)]) + tproject2 (tproject2 v1)) ; x30 = ssum @_ @10 v29 ; v31 = sreplicate @_ @10 (recip x30) ; v33 = v29 * (sreplicate @_ @10 (negate (recip (x30 * x30)) * ssum @_ @10 (v29 * sfromR v32)) + v31 * sfromR v32) ; v34 = sreplicate @_ @4 (v33 !$ [9]) ; v35 = sreplicate @_ @4 (v33 !$ [8]) ; v36 = sreplicate @_ @4 (v33 !$ [7]) ; v37 = sreplicate @_ @4 (v33 !$ [6]) ; v38 = sreplicate @_ @4 (v33 !$ [5]) ; v39 = sreplicate @_ @4 (v33 !$ [4]) ; v40 = sreplicate @_ @4 (v33 !$ [3]) ; v41 = sreplicate @_ @4 (v33 !$ [2]) ; v42 = sreplicate @_ @4 (v33 !$ [1]) ; v43 = sreplicate @_ @4 (v33 !$ [0]) ; v44 = v25 * (tproject1 (tproject1 (tproject2 v1)) * v43 + tproject1 (tproject2 (tproject1 (tproject2 v1))) * v42 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v41 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v40 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v39 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v38 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v37 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v36 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v35 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v34) ; v45 = sreplicate @_ @3 (v44 !$ [3]) ; v46 = sreplicate @_ @3 (v44 !$ [2]) ; v47 = sreplicate @_ @3 (v44 !$ [1]) ; v48 = sreplicate @_ @3 (v44 !$ [0]) ; v49 = v16 * (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v48 + tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v47 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v46 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v45) in tpair (tpair (tpair (tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v49 !$ [0]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v49 !$ [1]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v49 !$ [2]), Z0))), v49), tpair (tpair (v19 * v48, tpair (v19 * v47, tpair (v19 * v46, tpair (v19 * v45, Z0)))), v44)), tpair (tpair (v28 * v43, tpair (v28 * v42, tpair (v28 * v41, tpair (v28 * v40, tpair (v28 * v39, tpair (v28 * v38, tpair (v28 * v37, tpair (v28 * v36, tpair (v28 * v35, tpair (v28 * v34, Z0)))))))))), v33))"
+    @?= "\\v40 v1 -> let v11 = sfromVector (fromList [ssum @_ @784 (tproject1 (tproject1 (tproject1 (tproject1 v1))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1)))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) * sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v12 = exp (negate v11) ; v13 = sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + v12 ; v14 = recip v13 ; v15 = sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) - v14 ; v16 = v14 * v15 ; v18 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) ; v19 = scast v14 + scast v18 ; v20 = scast (tproject1 (tproject1 (tproject2 (tproject1 v1)))) ; v21 = scast v19 ; v22 = scast (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) ; v23 = scast v19 ; v24 = scast (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) ; v25 = scast v19 ; v26 = scast (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) ; v27 = scast v19 ; v28 = sfromVector (fromList [ssum @_ @3 (v20 * v21), ssum @_ @3 (v22 * v23), ssum @_ @3 (v24 * v25), ssum @_ @3 (v26 * v27)]) + tproject2 (tproject2 (tproject1 v1)) ; v29 = exp (negate v28) ; v30 = sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + v29 ; v31 = recip v30 ; v32 = sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) - v31 ; v33 = v31 * v32 ; v35 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) ; v36 = v31 + v35 ; v37 = exp (sfromVector (fromList [ssum @_ @4 (tproject1 (tproject1 (tproject2 v1)) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject1 (tproject2 v1))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v36)]) + tproject2 (tproject2 v1)) ; x38 = ssum @_ @10 v37 ; v39 = sreplicate @_ @10 (recip x38) ; v41 = v37 * (sreplicate @_ @10 (negate (recip (x38 * x38)) * ssum @_ @10 (v37 * sfromR v40)) + v39 * sfromR v40) ; v42 = sreplicate @_ @4 (v41 !$ [9]) ; v43 = sreplicate @_ @4 (v41 !$ [8]) ; v44 = sreplicate @_ @4 (v41 !$ [7]) ; v45 = sreplicate @_ @4 (v41 !$ [6]) ; v46 = sreplicate @_ @4 (v41 !$ [5]) ; v47 = sreplicate @_ @4 (v41 !$ [4]) ; v48 = sreplicate @_ @4 (v41 !$ [3]) ; v49 = sreplicate @_ @4 (v41 !$ [2]) ; v50 = sreplicate @_ @4 (v41 !$ [1]) ; v51 = sreplicate @_ @4 (v41 !$ [0]) ; v52 = v33 * (tproject1 (tproject1 (tproject2 v1)) * v51 + tproject1 (tproject2 (tproject1 (tproject2 v1))) * v50 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v49 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v48 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v47 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v46 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v45 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v44 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v43 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v42) ; v53 = sreplicate @_ @3 (v52 !$ [3]) ; v54 = sreplicate @_ @3 (v52 !$ [2]) ; v55 = sreplicate @_ @3 (v52 !$ [1]) ; v56 = sreplicate @_ @3 (v52 !$ [0]) ; v57 = v16 * scast (scast (v20 * v56) + scast (v22 * v55) + scast (v24 * v54) + scast (v26 * v53)) in tpair (tpair (tpair (tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v57 !$ [0]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v57 !$ [1]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v57 !$ [2]), Z0))), v57), tpair (tpair (scast (v21 * v56), tpair (scast (v23 * v55), tpair (scast (v25 * v54), tpair (scast (v27 * v53), Z0)))), v52)), tpair (tpair (v36 * v51, tpair (v36 * v50, tpair (v36 * v49, tpair (v36 * v48, tpair (v36 * v47, tpair (v36 * v46, tpair (v36 * v45, tpair (v36 * v44, tpair (v36 * v43, tpair (v36 * v42, Z0)))))))))), v41))"
   printArtifactPrimalPretty renames artifactRevnonLin
-    @?= "\\v1 -> let v11 = sfromVector (fromList [ssum @_ @784 (tproject1 (tproject1 (tproject1 (tproject1 v1))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1)))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) * sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v12 = exp (negate v11) ; v13 = sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + v12 ; v14 = recip v13 ; v18 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) ; v19 = v14 + v18 ; v20 = sfromVector (fromList [ssum @_ @3 (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v19), ssum @_ @3 (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v19), ssum @_ @3 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v19), ssum @_ @3 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v19)]) + tproject2 (tproject2 (tproject1 v1)) ; v21 = exp (negate v20) ; v22 = sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + v21 ; v23 = recip v22 ; v27 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) ; v28 = v23 + v27 ; v29 = exp (sfromVector (fromList [ssum @_ @4 (tproject1 (tproject1 (tproject2 v1)) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject1 (tproject2 v1))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v28), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v28)]) + tproject2 (tproject2 v1)) ; x30 = ssum @_ @10 v29 ; v31 = sreplicate @_ @10 (recip x30) in rfromS (v31 * v29)"
+    @?= "\\v1 -> let v11 = sfromVector (fromList [ssum @_ @784 (tproject1 (tproject1 (tproject1 (tproject1 v1))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1)))) * sreplicate @_ @784 (sscalar 7.0)), ssum @_ @784 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) * sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v12 = exp (negate v11) ; v13 = sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + v12 ; v14 = recip v13 ; v18 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) ; v19 = scast v14 + scast v18 ; v20 = scast (tproject1 (tproject1 (tproject2 (tproject1 v1)))) ; v21 = scast v19 ; v22 = scast (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) ; v23 = scast v19 ; v24 = scast (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) ; v25 = scast v19 ; v26 = scast (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) ; v27 = scast v19 ; v28 = sfromVector (fromList [ssum @_ @3 (v20 * v21), ssum @_ @3 (v22 * v23), ssum @_ @3 (v24 * v25), ssum @_ @3 (v26 * v27)]) + tproject2 (tproject2 (tproject1 v1)) ; v29 = exp (negate v28) ; v30 = sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + v29 ; v31 = recip v30 ; v35 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) ; v36 = v31 + v35 ; v37 = exp (sfromVector (fromList [ssum @_ @4 (tproject1 (tproject1 (tproject2 v1)) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject1 (tproject2 v1))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v36), ssum @_ @4 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v36)]) + tproject2 (tproject2 v1)) ; x38 = ssum @_ @10 v37 ; v39 = sreplicate @_ @10 (recip x38) in rfromS (v39 * v37)"
   printArtifactPretty renames (simplifyArtifact artifactRevnonLin)
-    @?= "\\v32 v1 -> let v14 = recip (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject1 (tproject1 v1)))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1)))))) (sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1))))) ; v19 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) + v14 ; v23 = recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 (tproject1 v1)))) v19, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) v19, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) v19, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) v19]) + tproject2 (tproject2 (tproject1 v1))))) ; v28 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + v23 ; v29 = exp (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 v1))) v28, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 v1)))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))))) v28]) + tproject2 (tproject2 v1)) ; x30 = ssum @_ @10 v29 ; v33 = v29 * (sreplicate @_ @10 (negate (recip (x30 * x30)) * sdot0 v29 (sfromR v32)) + sreplicate @_ @10 (recip x30) * sfromR v32) ; v34 = sreplicate @_ @4 (v33 !$ [9]) ; v35 = sreplicate @_ @4 (v33 !$ [8]) ; v36 = sreplicate @_ @4 (v33 !$ [7]) ; v37 = sreplicate @_ @4 (v33 !$ [6]) ; v38 = sreplicate @_ @4 (v33 !$ [5]) ; v39 = sreplicate @_ @4 (v33 !$ [4]) ; v40 = sreplicate @_ @4 (v33 !$ [3]) ; v41 = sreplicate @_ @4 (v33 !$ [2]) ; v42 = sreplicate @_ @4 (v33 !$ [1]) ; v43 = sreplicate @_ @4 (v33 !$ [0]) ; v44 = (v23 * (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) - v23)) * (tproject1 (tproject1 (tproject2 v1)) * v43 + tproject1 (tproject2 (tproject1 (tproject2 v1))) * v42 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v41 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v40 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v39 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v38 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v37 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v36 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v35 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v34) ; v45 = sreplicate @_ @3 (v44 !$ [3]) ; v46 = sreplicate @_ @3 (v44 !$ [2]) ; v47 = sreplicate @_ @3 (v44 !$ [1]) ; v48 = sreplicate @_ @3 (v44 !$ [0]) ; v49 = (v14 * (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) - v14)) * (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v48 + tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v47 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v46 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v45) in tpair (tpair (tpair (tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v49 !$ [0]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v49 !$ [1]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v49 !$ [2]), Z0))), v49), tpair (tpair (v19 * v48, tpair (v19 * v47, tpair (v19 * v46, tpair (v19 * v45, Z0)))), v44)), tpair (tpair (v28 * v43, tpair (v28 * v42, tpair (v28 * v41, tpair (v28 * v40, tpair (v28 * v39, tpair (v28 * v38, tpair (v28 * v37, tpair (v28 * v36, tpair (v28 * v35, tpair (v28 * v34, Z0)))))))))), v33))"
+    @?= "\\v40 v1 -> let v14 = recip (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject1 (tproject1 v1)))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1)))))) (sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1))))) ; v19 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) + scast v14 ; v20 = scast (tproject1 (tproject1 (tproject2 (tproject1 v1)))) ; v21 = scast v19 ; v22 = scast (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) ; v23 = scast v19 ; v24 = scast (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) ; v25 = scast v19 ; v26 = scast (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) ; v27 = scast v19 ; v31 = recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 v20 v21, sdot0 v22 v23, sdot0 v24 v25, sdot0 v26 v27]) + tproject2 (tproject2 (tproject1 v1))))) ; v36 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + v31 ; v37 = exp (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 v1))) v36, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 v1)))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))))) v36]) + tproject2 (tproject2 v1)) ; x38 = ssum @_ @10 v37 ; v41 = v37 * (sreplicate @_ @10 (negate (recip (x38 * x38)) * sdot0 v37 (sfromR v40)) + sreplicate @_ @10 (recip x38) * sfromR v40) ; v42 = sreplicate @_ @4 (v41 !$ [9]) ; v43 = sreplicate @_ @4 (v41 !$ [8]) ; v44 = sreplicate @_ @4 (v41 !$ [7]) ; v45 = sreplicate @_ @4 (v41 !$ [6]) ; v46 = sreplicate @_ @4 (v41 !$ [5]) ; v47 = sreplicate @_ @4 (v41 !$ [4]) ; v48 = sreplicate @_ @4 (v41 !$ [3]) ; v49 = sreplicate @_ @4 (v41 !$ [2]) ; v50 = sreplicate @_ @4 (v41 !$ [1]) ; v51 = sreplicate @_ @4 (v41 !$ [0]) ; v52 = (v31 * (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) - v31)) * (tproject1 (tproject1 (tproject2 v1)) * v51 + tproject1 (tproject2 (tproject1 (tproject2 v1))) * v50 + tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v49 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v48 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v47 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v46 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v45 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v44 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v43 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v42) ; v53 = sreplicate @_ @3 (v52 !$ [3]) ; v54 = sreplicate @_ @3 (v52 !$ [2]) ; v55 = sreplicate @_ @3 (v52 !$ [1]) ; v56 = sreplicate @_ @3 (v52 !$ [0]) ; v57 = (v14 * (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) - v14)) * (v20 * v56 + v22 * v55 + v24 * v54 + v26 * v53) in tpair (tpair (tpair (tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v57 !$ [0]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v57 !$ [1]), tpair (sreplicate @_ @784 (sscalar 7.0) * sreplicate @_ @784 (v57 !$ [2]), Z0))), v57), tpair (tpair (scast v21 * scast v56, tpair (scast v23 * scast v55, tpair (scast v25 * scast v54, tpair (scast v27 * scast v53, Z0)))), v52)), tpair (tpair (v36 * v51, tpair (v36 * v50, tpair (v36 * v49, tpair (v36 * v48, tpair (v36 * v47, tpair (v36 * v46, tpair (v36 * v45, tpair (v36 * v44, tpair (v36 * v43, tpair (v36 * v42, Z0)))))))))), v41))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRevnonLin)
-    @?= "\\v1 -> rfromS (let v19 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject1 (tproject1 v1)))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1)))))) (sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1))))) ; v28 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 (tproject1 v1)))) v19, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) v19, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) v19, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) v19]) + tproject2 (tproject2 (tproject1 v1))))) ; v29 = exp (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 v1))) v28, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 v1)))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) v28, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))))) v28]) + tproject2 (tproject2 v1)) in sreplicate @_ @10 (recip (ssum @_ @10 v29)) * v29)"
+    @?= "\\v1 -> rfromS (let v19 = sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) + scast (recip (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject1 (tproject1 v1)))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) (sreplicate @_ @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1)))))) (sreplicate @_ @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)))))) ; v36 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (scast (tproject1 (tproject1 (tproject2 (tproject1 v1))))) (scast v19), sdot0 (scast (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) (scast v19), sdot0 (scast (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) (scast v19), sdot0 (scast (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))))) (scast v19)]) + tproject2 (tproject2 (tproject1 v1))))) ; v37 = exp (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 v1))) v36, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 v1)))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) v36, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))))) v36]) + tproject2 (tproject2 v1)) in sreplicate @_ @10 (recip (ssum @_ @10 v37)) * v37)"
 
-valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters RepN Double
+valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters RepN Double Float
 valsInitVT2OPP =
   ( ( RepN $ Nested.rfromListPrimLinear [4, 3]
                (concat $ replicate 4 [1, 2, 3])
@@ -831,10 +835,10 @@ testVT2OPP = do
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
-                   (AstTensor AstMethodLet FullSpan) Double
+                   (AstTensor AstMethodLet FullSpan) Double Float
               -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2T = MnistFcnnRanked2.afcnnMnist2 id id blackGlyph
-      ftk = tftk @RepN (knownSTK @(XParams2 Double))
+      ftk = tftk @RepN (knownSTK @(XParams2 Double Float))
                        (toTarget @RepN valsInitVT2OPP)
       (artifactRev, _) = revArtifactAdapt True afcnn2T ftk
   printArtifactPretty renames artifactRev
@@ -854,7 +858,7 @@ testVT2OPPNonLin = do
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
-                         (AstTensor AstMethodLet FullSpan) Float
+                         (AstTensor AstMethodLet FullSpan) Float Float
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Float)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant =
@@ -880,10 +884,10 @@ testVT2OPPNonLin2 = do
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
-                         (AstTensor AstMethodLet FullSpan) Double
+                         (AstTensor AstMethodLet FullSpan) Double Float
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
-      ftk = tftk @RepN (knownSTK @(XParams2 Double))
+      ftk = tftk @RepN (knownSTK @(XParams2 Double Float))
                        (toTarget @RepN valsInitVT2OPP)
       (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk
   printArtifactPretty renames artifactRevnonLin
@@ -906,10 +910,10 @@ testVT2OPPNonLin3 = do
                    $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
                    $ RepN $ Nested.rscalar 8
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
-                         (AstTensor AstMethodLet FullSpan) Double
+                         (AstTensor AstMethodLet FullSpan) Double Float
                     -> AstTensor AstMethodLet FullSpan (TKScalar Double)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnistLoss2 (blackGlyph,  blackLabel)
-      ftk = tftk @RepN (knownSTK @(XParams2 Double))
+      ftk = tftk @RepN (knownSTK @(XParams2 Double Float))
                        (toTarget @RepN valsInitVT2OPP)
       (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk
   printArtifactPretty renames artifactRevnonLin
