@@ -8,12 +8,14 @@ module TestMnistFCNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
+import Data.Bifunctor (first)
 import Data.IntMap.Strict qualified as IM
 import GHC.Exts (IsList (..))
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
+import Test.Tasty.QuickCheck hiding (label, shuffle)
 import Text.Printf
 
 import Data.Array.Nested (ShR (..))
@@ -660,6 +662,76 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                        (0.6739999999999999 :: Double)
   , mnistTestCase2VTO "VTO2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
+  , testProperty "VTO2 rev vs fwd" $
+    \seed0 ->
+    forAllShrink (chooseInt (0, 600)) shrinkIntegral $ \width1Hidden ->
+    forAllShrink (chooseInt (0, 200)) shrinkIntegral $ \width1Hidden2 ->
+    forAllShrink (chooseInt (0, 5)) shrinkIntegral $ \simp ->
+    forAll (choose (0.01, 1)) $ \range ->
+    forAll (choose (0.01, 1)) $ \range2 ->
+    forAll (choose (1 - 1e-7, 1 + 1e-7)) $ \dt ->  -- TODO: "Gradient and derivative agrees" fails for more varied dt, while ds can vary a lot (though it averages out)); also the two occurences of dt amplify the difference instead of counteracting
+    forAll (choose (0, 1e-7)) $ \(perturbation :: Double) ->
+    withSNat (1 + width1Hidden) $ \(SNat @widthHidden) ->
+    withSNat (1 + width1Hidden2) $ \(SNat @widthHidden2) ->
+    let (glyph0, seed2) = randomValue @(RepN (TKS '[SizeMnistGlyph] Double))
+                                      0.5 (mkStdGen seed0)
+        (label0, seed3) = randomValue @(RepN (TKS '[SizeMnistLabel] Double))
+                                      5 seed2
+        (glyph, label) = ( rmap1 (rscalar 0.5 +) $ forgetShape glyph0
+                         , rmap1 (rscalar 5 + ) $ forgetShape label0 )
+        ds :: RepN (XParams2 Double)
+        (ds, seed4) = first forgetShape $
+          randomValue
+            @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                         RepN widthHidden widthHidden2 Double)))
+            range seed3
+        (targetInit, artRaw) =
+          MnistFcnnRanked2.mnistTrainBench2VTOGradient
+            range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
+        art = iterate simplifyArtifactGradient artRaw !! simp
+        stk = knownSTK @(XParams2 Double)
+        ftk = tftk @RepN stk targetInit
+        parametersAndInput = tpair targetInit (tpair glyph label)
+        (gradient1, value1) =
+          revEvalArtifact art parametersAndInput (Just $ kconcrete dt)
+        f :: ADVal RepN (XParams2 Double) -> ADVal RepN (TKScalar Double)
+        f adinputs =
+          MnistFcnnRanked2.afcnnMnistLoss2
+            (rfromPrimal glyph, rfromPrimal label) (fromTarget adinputs)
+        (derivative2, value2) = cfwdBoth f targetInit ds
+        goodPerturbation :: forall r. GoodScalar r => r
+        goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
+        targetPerturbed :: RepN (XParams2 Double)
+        targetPerturbed = constantTarget goodPerturbation ftk
+        targetInitPerturbed :: RepN (XParams2 Double)
+        targetInitPerturbed = addTarget stk targetInit targetPerturbed
+        (derivative3, value3) = cfwdBoth f targetInit targetPerturbed
+        value4 :: RepN (TKScalar Double)
+        value4 = MnistFcnnRanked2.afcnnMnistLoss2
+                   (rfromPrimal glyph, rfromPrimal label)
+                   (fromTarget targetInitPerturbed)
+    in
+      conjoin  -- if not for the Float in ADFcnnMnist2Parameters 1e-7 would work
+        [ counterexample
+            ("Objective function value from rev and fwd matches: "
+             ++ show (value1, value2, value1 - value2))
+            (abs (value1 - value2) < 1e-3)
+        , counterexample
+            ("Gradient and derivative agrees: "
+             ++ show ( dt, derivative2, dotTarget stk (tproject1 gradient1) ds
+                     , kconcrete dt * derivative2
+                       - dotTarget stk (tproject1 gradient1) ds ))
+            (abs (kconcrete dt * derivative2
+                  - dotTarget stk (tproject1 gradient1) ds) < 1e-1)
+        , counterexample
+            "Objective function value unaffected by derivative perturbation"
+            (value2 === value3)
+        , counterexample
+            ("Derivative approximates the perturbation of value: "
+             ++ show ( value2, derivative3, value4
+                     , (value3 + derivative3) - value4) )
+            (abs ((value3 + derivative3) - value4) < 1e-3)
+        ]
   ]
 
 

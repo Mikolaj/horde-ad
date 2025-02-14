@@ -13,7 +13,6 @@ import Data.Vector.Storable (Vector)
 import GHC.TypeLits (fromSNat, type (*), type (+), type (<=), type Div)
 import Numeric.LinearAlgebra (Numeric)
 
-import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
