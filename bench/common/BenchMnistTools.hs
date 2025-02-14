@@ -45,7 +45,7 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   withKnownSTK
     (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
@@ -87,7 +87,7 @@ mnistTestBench1VTA prefix widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   withKnownSTK
     (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $
@@ -153,7 +153,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   withKnownSTK
     (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
                         (SNat @widthHidden)) $

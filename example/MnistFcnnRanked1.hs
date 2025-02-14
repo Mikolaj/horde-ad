@@ -25,7 +25,7 @@ type ADFcnnMnist1Parameters
        (target :: Target) (widthHidden :: Nat) (widthHidden2 :: Nat) r =
   ( ( ListR widthHidden (target (TKS '[SizeMnistGlyph] r))
     , target (TKS '[widthHidden] r) )
-  , ( ListR widthHidden2 (target (TKS '[widthHidden] r))
+  , ( ListR widthHidden2 (target (TKS '[widthHidden] Float))
     , target (TKS '[widthHidden2] r) )
   , ( ListR SizeMnistLabel (target (TKS '[widthHidden2] r))
     , target (TKS '[SizeMnistLabel] r) )
@@ -47,7 +47,7 @@ listMatmul1 x0 weights = tlet x0 $ \x ->
 -- The widths of the two hidden layers are @widthHidden@ and @widthHidden2@,
 -- respectively.
 afcnnMnist1 :: forall target r widthHidden widthHidden2.
-               (ADReady target, GoodScalar r)
+               (ADReady target, GoodScalar r, Differentiable r)
             => (forall n. KnownNat n
                 => target (TKS '[n] r) -> target (TKS '[n] r))
             -> (target (TKS '[SizeMnistLabel] r)
@@ -60,7 +60,7 @@ afcnnMnist1 factivationHidden factivationOutput SNat SNat
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let hiddenLayer1 = listMatmul1 datum hidden + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
-      hiddenLayer2 = listMatmul1 nonlinearLayer1 hidden2 + bias2
+      hiddenLayer2 = scast (listMatmul1 (scast nonlinearLayer1) hidden2) + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2
       outputLayer = listMatmul1 nonlinearLayer2 readout + biasr
       result :: target (TKS '[SizeMnistLabel] r)

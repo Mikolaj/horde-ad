@@ -63,7 +63,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -164,7 +164,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -276,7 +276,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] r)) (SNat @widthHidden2)) $
+    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
