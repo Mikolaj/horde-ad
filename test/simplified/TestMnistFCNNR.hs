@@ -29,6 +29,7 @@ import EqEpsilon
 
 import MnistData
 import MnistFcnnRanked1 qualified
+import MnistFcnnRanked2 (XParams2)
 import MnistFcnnRanked2 qualified
 
 testTrees :: [TestTree]
@@ -381,8 +382,6 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 
 -- * Using matrices, which is rank 2
 
-type XParams2 r = X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r)
-
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
 mnistTestCase2VTA
@@ -584,13 +583,8 @@ mnistTestCase2VTO
   -> TestTree
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
-  withSNat widthHidden $ \(SNat @widthHidden) ->
-  withSNat widthHidden2 $ \(SNat @widthHidden2) ->
-  let targetInit =
-        forgetShape $ fst
-        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r)))
-                      1 (mkStdGen 44)
+  let (!targetInit, !art) =
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -604,20 +598,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
-        ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
-                             (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
-        f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
-                 (AstTensor AstMethodLet FullSpan) r
-             , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
-               , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
-          -> AstTensor AstMethodLet FullSpan (TKScalar r)
-        f (pars, (glyphR, labelR)) =
-          MnistFcnnRanked2.afcnnMnistLoss2TensorData
-            (glyphR, labelR) pars
-        (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
-        art = simplifyArtifactGradient artRaw
-        go :: [MnistDataLinearR r] -> RepN (XParams2 r) -> RepN (XParams2 r)
+    let go :: [MnistDataLinearR r] -> RepN (XParams2 r) -> RepN (XParams2 r)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =

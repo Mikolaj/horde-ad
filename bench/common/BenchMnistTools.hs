@@ -314,38 +314,6 @@ mnistBGroup2VTA xs0 chunkLength =
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTrainBench2VTOGradient
-  :: forall r. r ~ Double
-  => Int -> Int
-  -> ( RepN (XParams2 r)
-     , AstArtifactRev
-         (TKProduct
-            (XParams2 r)
-            (TKProduct (TKR2 1 (TKScalar Double))
-                       (TKR2 1 (TKScalar Double))))
-         (TKScalar r) )
-mnistTrainBench2VTOGradient widthHidden widthHidden2 =
-  withSNat widthHidden $ \(SNat @widthHidden) ->
-  withSNat widthHidden2 $ \(SNat @widthHidden2) ->
-  -- Initial parameter generation is counted as part of compilation time.
-  let targetInit =
-        forgetShape $ fst
-        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r)))
-                      1 (mkStdGen 44)
-      ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
-      ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
-                           (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
-      f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
-               (AstTensor AstMethodLet FullSpan) r
-           , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
-             , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
-        -> AstTensor AstMethodLet FullSpan (TKScalar r)
-      f (pars, (glyphR, labelR)) =
-        MnistFcnnRanked2.afcnnMnistLoss2TensorData
-          (glyphR, labelR) pars
-      (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
-  in (targetInit, simplifyArtifactGradient artRaw)
 
 -- Only compilation time.
 mnistTrainBench2VTC
@@ -354,7 +322,9 @@ mnistTrainBench2VTC
   -> Benchmark
 mnistTrainBench2VTC prefix widthHidden widthHidden2 =
   bench prefix
-  $ whnf (snd . mnistTrainBench2VTOGradient widthHidden) widthHidden2
+  $ whnf (snd . MnistFcnnRanked2.mnistTrainBench2VTOGradient @Double
+                                                             widthHidden)
+         widthHidden2
 
 -- The same as above, but only runtime.
 mnistTrainBench2VTO
@@ -406,7 +376,7 @@ mnistBGroup2VTC chunkLength =
 
 mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup2VTO xs0 chunkLength =
-  let (!targetInit, !art) = mnistTrainBench2VTOGradient 500 150
+  let (!targetInit, !art) = MnistFcnnRanked2.mnistTrainBench2VTOGradient 500 150
   in env (return $ map mkMnistDataLinearR $ take chunkLength xs0)
      $ \ xs ->
    bgroup ("2-hidden-layer rank 2 VTO runtime MNIST nn with samples: "

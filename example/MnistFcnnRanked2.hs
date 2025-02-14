@@ -9,11 +9,18 @@ import Prelude
 import Data.Vector.Generic qualified as V
 import GHC.Exts (inline)
 import GHC.TypeLits (Nat)
+import System.Random
 
+import Data.Array.Nested (ShR (..))
 import Data.Array.Nested qualified as Nested
 
+import HordeAd.Core.Adaptor
+import HordeAd.Core.Ast
+import HordeAd.Core.AstInline
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Engine
 import HordeAd.Core.Ops
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import MnistData
@@ -39,6 +46,8 @@ type ADFcnnMnist2Parameters (target :: Target) r =
   , ( target (TKR 2 r)
     , target (TKR 1 r) )
   )
+
+type XParams2 r = X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r)
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
@@ -102,3 +111,36 @@ afcnnMnistTest2 dataList testParams =
         in V.maxIndex v == V.maxIndex (Nested.rtoVector label)
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)
+
+mnistTrainBench2VTOGradient
+  :: forall r. (GoodScalar r, Differentiable r, Random r)
+  => Int -> Int
+  -> ( RepN (XParams2 r)
+     , AstArtifactRev
+         (TKProduct
+            (XParams2 r)
+            (TKProduct (TKR2 1 (TKScalar r))
+                       (TKR2 1 (TKScalar r))))
+         (TKScalar r) )
+mnistTrainBench2VTOGradient widthHidden widthHidden2 =
+  withSNat widthHidden $ \(SNat @widthHidden) ->
+  withSNat widthHidden2 $ \(SNat @widthHidden2) ->
+  -- Initial parameter generation is counted as part of compilation time.
+  let targetInit =
+        forgetShape $ fst
+        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   RepN widthHidden widthHidden2 r)))
+                      1 (mkStdGen 44)
+      ftk = tftk @RepN (knownSTK @(XParams2 r)) targetInit
+      ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
+                           (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
+      f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
+               (AstTensor AstMethodLet FullSpan) r
+           , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
+             , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
+        -> AstTensor AstMethodLet FullSpan (TKScalar r)
+      f (pars, (glyphR, labelR)) =
+        afcnnMnistLoss2TensorData
+          (glyphR, labelR) pars
+      (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+  in (targetInit, simplifyArtifactGradient artRaw)
