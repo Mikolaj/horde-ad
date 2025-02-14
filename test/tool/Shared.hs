@@ -8,7 +8,9 @@ import Prelude
 
 import Data.Char qualified
 import Data.Foldable qualified
+import Data.Int (Int64)
 import Data.Vector.Storable qualified as VS
+import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 
@@ -37,6 +39,18 @@ instance KnownShS sh => HasShape (Nested.Shaped sh a) where
 instance HasShape (RepORArray y) => HasShape (RepN y) where
   shapeL = shapeL . unRepN
 
+instance HasShape Double where
+  shapeL _ = []
+
+instance HasShape Float where
+  shapeL _ = []
+
+instance HasShape Int64 where
+  shapeL _ = []
+
+instance HasShape CInt where
+  shapeL _ = []
+
 instance HasShape Z0 where
   shapeL _ = [0]
 
@@ -61,6 +75,18 @@ instance (VS.Storable a, Nested.PrimElt a)
 instance Linearizable (RepORArray y) a
          => Linearizable (RepN y) a where
   linearize = linearize . unRepN
+
+instance Linearizable Double Double where
+  linearize x = [x]
+
+instance Linearizable Float Float where
+  linearize x = [x]
+
+instance Linearizable Int64 Int64 where
+  linearize x = [x]
+
+instance Linearizable CInt CInt where
+  linearize x = [x]
 
 instance Linearizable Z0 Z0 where
   linearize _ = []
