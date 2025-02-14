@@ -92,10 +92,10 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
     let f :: MnistDataLinearR r
           -> ADVal RepN (XParams widthHidden widthHidden2 r)
           -> ADVal RepN (TKScalar r)
-        f mnist adinputs =
+        f (glyph, label) adinputs =
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
-            mnist (fromTarget adinputs)
+            (rconcrete glyph, rconcrete label) (fromTarget adinputs)
     -- Mimic how backprop tests and display it, even though tests
     -- should not print, in principle.
     let runBatch :: RepN (XParams widthHidden widthHidden2 r)
@@ -198,7 +198,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
     (varLabel, astLabel) <-
       funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
     let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-        ast = MnistFcnnRanked1.afcnnMnistLoss1TensorData
+        ast = MnistFcnnRanked1.afcnnMnistLoss1
                 widthHiddenSNat widthHidden2SNat (astGlyph, astLabel)
                 (fromTarget varAst)
         f :: MnistDataLinearR r
@@ -313,7 +313,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
                , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
           -> AstTensor AstMethodLet FullSpan (TKScalar r)
         f = \ (pars, (glyphR, labelR)) ->
-          MnistFcnnRanked1.afcnnMnistLoss1TensorData
+          MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
         (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
@@ -415,8 +415,9 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
                 <$> loadMnistData testGlyphsPath testLabelsPath
     let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r)
           -> ADVal RepN (TKScalar r)
-        f mnist adinputs = MnistFcnnRanked2.afcnnMnistLoss2
-                             mnist (fromTarget adinputs)
+        f (glyph, label) adinputs =
+          MnistFcnnRanked2.afcnnMnistLoss2
+            (rconcrete glyph, rconcrete label) (fromTarget adinputs)
     let runBatch :: RepN (XParams2 r) -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams2 r))
         runBatch !params (k, chunk) = do
@@ -508,7 +509,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
     (varLabel, astLabel) <-
       funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
     let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-        ast = MnistFcnnRanked2.afcnnMnistLoss2TensorData
+        ast = MnistFcnnRanked2.afcnnMnistLoss2
                 (astGlyph, astLabel)
                 (fromTarget varAst)
         f :: MnistDataLinearR r -> ADVal RepN (XParams2 r)
@@ -834,8 +835,7 @@ testVT2OPPNonLin3 = do
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double
                     -> AstTensor AstMethodLet FullSpan (TKScalar Double)
-      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnistLoss2TensorData
-                        (blackGlyph, blackLabel)
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnistLoss2 (blackGlyph,  blackLabel)
       ftk = tftk @RepN (knownSTK @(XParams2 Double))
                        (toTarget @RepN valsInitVT2OPP)
       (artifactRevnonLin, _) = revArtifactAdapt True afcnn2TnonLin ftk

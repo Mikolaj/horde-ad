@@ -69,30 +69,16 @@ afcnnMnist1 factivationHidden factivationOutput SNat SNat
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-afcnnMnistLoss1TensorData
+afcnnMnistLoss1
   :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat widthHidden -> SNat widthHidden2
   -> (target (TKR 1 r), target (TKR 1 r))
   -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r
   -> target (TKScalar r)
-afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum, target) adparams =
+afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
   let result = afcnnMnist1 logisticS softMax1S
                            widthHidden widthHidden2 (sfromR datum) adparams
   in lossCrossEntropyV target result
-
--- | The neural network applied to concrete activation functions,
--- composed with the appropriate loss function and adapted
--- to the concrete data format.
-afcnnMnistLoss1
-  :: (ADReady target, GoodScalar r, Differentiable r)
-  => SNat widthHidden -> SNat widthHidden2
-  -> MnistDataLinearR r
-  -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r
-  -> target (TKScalar r)
-afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) =
-  let datum1 = rconcrete datum
-      target1 = rconcrete target
-  in afcnnMnistLoss1TensorData widthHidden widthHidden2 (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

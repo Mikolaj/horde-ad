@@ -61,10 +61,10 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
     let f :: MnistDataLinearR r
           -> ADVal RepN (XParams widthHidden widthHidden2 r)
           -> ADVal RepN (TKScalar r)
-        f mnist adinputs =
+        f (glyph, label) adinputs =
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
-            mnist (fromTarget adinputs)
+            (rconcrete glyph, rconcrete label) (fromTarget adinputs)
         chunk = take batchSize xs
         grad c = fst $ sgd gamma f c targetInit
         name =
@@ -177,7 +177,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
                , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
           -> AstTensor AstMethodLet FullSpan (TKScalar r)
         f = \ (pars, (glyphR, labelR)) ->
-          MnistFcnnRanked1.afcnnMnistLoss1TensorData
+          MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
         (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
@@ -254,8 +254,9 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
   in do
     let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r)
           -> ADVal RepN (TKScalar r)
-        f mnist adinputs = MnistFcnnRanked2.afcnnMnistLoss2
-                             mnist (fromTarget adinputs)
+        f (glyph, label) adinputs =
+          MnistFcnnRanked2.afcnnMnistLoss2
+            (rconcrete glyph, rconcrete label) (fromTarget adinputs)
         chunk = take batchSize xs
         grad c = fst $ sgd gamma f c targetInit
         name =

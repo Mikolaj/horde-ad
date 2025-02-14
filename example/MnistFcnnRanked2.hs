@@ -70,25 +70,13 @@ afcnnMnist2 factivationHidden factivationOutput
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-afcnnMnistLoss2TensorData
+afcnnMnistLoss2
   :: (ADReady target, GoodScalar r, Differentiable r)
   => (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist2Parameters target r
   -> target (TKScalar r)
-afcnnMnistLoss2TensorData (datum, target) adparams =
+afcnnMnistLoss2 (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
   in lossCrossEntropyV target result
-
--- | The neural network applied to concrete activation functions,
--- composed with the appropriate loss function and adapted
--- to the concrete data format.
-afcnnMnistLoss2
-  :: (ADReady target, GoodScalar r, Differentiable r)
-  => MnistDataLinearR r -> ADFcnnMnist2Parameters target r
-  -> target (TKScalar r)
-afcnnMnistLoss2 (datum, target) =
-  let datum1 = rconcrete datum
-      target1 = rconcrete target
-  in afcnnMnistLoss2TensorData (datum1, target1)
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -139,7 +127,6 @@ mnistTrainBench2VTOGradient seed widthHidden widthHidden2 =
              , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
         -> AstTensor AstMethodLet FullSpan (TKScalar r)
       f (pars, (glyphR, labelR)) =
-        afcnnMnistLoss2TensorData
-          (glyphR, labelR) pars
+        afcnnMnistLoss2 (glyphR, labelR) pars
       (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
   in (targetInit, artRaw)
