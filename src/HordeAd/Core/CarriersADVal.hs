@@ -11,7 +11,6 @@ module HordeAd.Core.CarriersADVal
   , dFromS, dSFromR, dSFromX
   , fromPrimalADVal
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
---  , addParameters, dotParameters
   , generateDeltaInputs
   ) where
 
@@ -206,23 +205,6 @@ multNotShared :: forall f z. (Num (f z), Show (f z))
               => ADVal f z -> ADVal f z -> ADVal f z
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
-{-
-addParameters :: (DTensorOf r ~ OD.Array r)
-              => HVector r -> HVector r -> HVector r
-addParameters (HVector a0 a1) (HVector b0 b1) =
-  HVector (a0 + b0)
-          (V.zipWith (+) a1 b1)
-
--- Dot product and sum respective ranks and then sum it all.
-dotParameters :: (DTensorOf r ~ OD.Array r)
-              => HVector r -> HVector r -> r
-dotParameters (HVector a0 a1) (HVector b0 b1) =
-  a0 LA.<.> b0
-  + V.sum (V.zipWith (\v1 u1 ->
-      if isTensorDummy v1 || isTensorDummy u1
-      then 0
-      else OD.toVector v1 LA.<.> OD.toVector u1) a1 b1)
--}
 
 generateDeltaInputs
   :: forall x target.

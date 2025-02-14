@@ -6,7 +6,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.Unwind
-  ( addTarget, constantTarget
+  ( addTarget, dotTarget, constantTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -89,6 +89,17 @@ addRepW a b = case (a, b) of
   (WTKX ta, WTKX tb) -> WTKX $ ta + tb
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
+
+-- TODO: maybe instead of ifDifferentiable perform only on ADTensorKind.
+dotRepW :: forall y target. BaseTensor target
+        => RepW target y -> RepW target y -> target (TKScalar Double)
+dotRepW a b = case (a, b) of
+  (WTKScalar @r ta, WTKScalar tb) ->
+    ifDifferentiable @r (kcast $ ta * tb) 0
+  (WTKR @r ta, WTKR tb) -> ifDifferentiable @r (kcast $ kfromR $ rdot0 ta tb) 0
+  (WTKS @r ta, WTKS tb) -> ifDifferentiable @r (kcast $ kfromS $ sdot0 ta tb) 0
+  (WTKX @r ta, WTKX tb) -> ifDifferentiable @r (kcast $ kfromX $ xdot0 ta tb) 0
+  (WTKProduct ta1 ta2, WTKProduct tb1 tb2) -> dotRepW ta1 tb1 + dotRepW ta2 tb2
 
 constantRepW :: forall y target. BaseTensor target
             => (forall r. GoodScalar r => r)
@@ -405,6 +416,14 @@ addTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
   in windTarget stk $ addRepW a2 b2
+
+-- Dot product each component and then sum it all.
+dotTarget :: BaseTensor target
+          => STensorKind y -> target y -> target y -> target (TKScalar Double)
+dotTarget stk a b =
+  let a2 = unWindTarget stk a
+      b2 = unWindTarget stk b
+  in dotRepW a2 b2
 
 constantTarget :: forall y target. BaseTensor target
                => (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
