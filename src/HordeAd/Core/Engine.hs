@@ -13,7 +13,7 @@ module HordeAd.Core.Engine
     -- * Old gradient adaptors
   , crev, crevDt
     -- * Old derivative adaptors
-  , cfwd
+  , cfwd, cfwdBoth
   ) where
 
 import Prelude
@@ -313,15 +313,25 @@ cfwd
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
   -> RepN (ADTensorKind z)
-cfwd f vals ds =
+cfwd f vals ds = fst $ cfwdBoth f vals ds
+
+cfwdBoth
+  :: forall advals z.
+     ( X advals ~ X (DValue advals), KnownSTK (X advals)
+     , AdaptableTarget (ADVal RepN) advals
+     , AdaptableTarget RepN (DValue advals) )
+  => (advals -> ADVal RepN z)
+  -> DValue advals
+  -> DValue advals  -- morally (ADTensorKind advals)
+  -> (RepN (ADTensorKind z), RepN z)
+cfwdBoth f vals ds =
   let xftk = tftk (knownSTK @(X advals)) valsTarget
       valsTarget = toTarget vals
       g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
       dsTarget = toTarget ds
-  in fst $ cfwdOnHVector xftk valsTarget g
+  in cfwdOnHVector xftk valsTarget g
      $ toADTensorKindShared (knownSTK @(X advals)) dsTarget
-
 
 
 
