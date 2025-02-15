@@ -347,7 +347,7 @@ instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
     let !v = tshare ve
     in dD (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
                          (dScale ((u ** v) * log u) v'))
-  logBase x y = log y / log x
+  -- logBase x y = log y / log x
   sin (D ue u') = let !u = tshare ue
                   in dD (sin u) (dScale (cos u) u')
   cos (D ue u') = let !u = tshare ue
