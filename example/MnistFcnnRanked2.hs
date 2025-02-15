@@ -105,7 +105,7 @@ afcnnMnistTest2 dataList testParams =
 mnistTrainBench2VTOGradient
   :: forall r q. ( GoodScalar r, Differentiable r, Random r
                  , GoodScalar q, Differentiable q, Random q )
-  => Double -> StdGen -> Int -> Int
+  => Bool -> Double -> StdGen -> Int -> Int
   -> ( RepN (XParams2 r q)
      , AstArtifactRev
          (TKProduct
@@ -113,7 +113,7 @@ mnistTrainBench2VTOGradient
             (TKProduct (TKR2 1 (TKScalar r))
                        (TKR2 1 (TKScalar r))))
          (TKScalar r) )
-mnistTrainBench2VTOGradient range seed widthHidden widthHidden2 =
+mnistTrainBench2VTOGradient hasDt range seed widthHidden widthHidden2 =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   -- Initial parameter generation is counted as part of compilation time.
@@ -132,5 +132,5 @@ mnistTrainBench2VTOGradient range seed widthHidden widthHidden2 =
         -> AstTensor AstMethodLet FullSpan (TKScalar r)
       f (pars, (glyphR, labelR)) =
         afcnnMnistLoss2 (glyphR, labelR) pars
-      (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+      (artRaw, _) = revArtifactAdapt hasDt f (FTKProduct ftk ftkData)
   in (targetInit, artRaw)

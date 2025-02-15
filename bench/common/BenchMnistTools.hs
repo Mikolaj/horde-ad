@@ -325,7 +325,7 @@ mnistTrainBench2VTC prefix widthHidden widthHidden2 =
   bench prefix
   $ whnf (simplifyArtifactGradient . snd
           . MnistFcnnRanked2.mnistTrainBench2VTOGradient
-              @Double @Double 1 (mkStdGen 44) widthHidden)
+              @Double @Double False 1 (mkStdGen 44) widthHidden)
          widthHidden2
 
 -- The same as above, but only runtime.
@@ -380,7 +380,8 @@ mnistBGroup2VTC chunkLength =
 mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup2VTO xs0 chunkLength =
   let (!targetInit, !artRaw) =
-        MnistFcnnRanked2.mnistTrainBench2VTOGradient 1 (mkStdGen 44) 500 150
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient
+          False 1 (mkStdGen 44) 500 150
       !art = simplifyArtifactGradient artRaw
   in env (return $ map mkMnistDataLinearR $ take chunkLength xs0)
      $ \ xs ->

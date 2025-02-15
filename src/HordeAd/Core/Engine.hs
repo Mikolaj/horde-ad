@@ -174,12 +174,12 @@ revEvalArtifact
   -> Maybe (RepN (ADTensorKind z))
   -> (RepN (ADTensorKind x), RepN z)
 {-# INLINE revEvalArtifact #-}
-revEvalArtifact AstArtifactRev{..} parameters edt =
+revEvalArtifact AstArtifactRev{..} parameters mdt =
   let aftk = adFTK $ ftkAst artPrimalRev
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt =
         withKnownSTK (ftkToSTK aftk) $
-        case edt of
+        case mdt of
           Nothing ->
             let oneAtF = constantTarget 1 aftk
             in extendEnv artVarDtRev oneAtF env

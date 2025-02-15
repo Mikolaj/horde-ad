@@ -588,7 +588,7 @@ mnistTestCase2VTO
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let (!targetInit, !artRaw) =
-        MnistFcnnRanked2.mnistTrainBench2VTOGradient
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient False
           1 (mkStdGen 44) widthHidden widthHidden2
       !art = simplifyArtifactGradient artRaw
       name = prefix ++ ": "
@@ -672,7 +672,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
     forAllShrink (chooseInt (0, 5)) shrinkIntegral $ \simp ->
     forAll (choose (0.01, 1)) $ \range ->
     forAll (choose (0.01, 1)) $ \range2 ->
-    forAll (choose (1 - 1e-10, 1 + 1e-10)) $ \dt ->  -- TODO: "Gradient and derivative agrees" fails for more varied dt, while ds can vary a lot (though it averages out)); also the two occurences of dt amplify the difference instead of counteracting
+    forAll (choose (0.5, 1.5)) $ \dt ->
     forAll (choose (0, 1e-7)) $ \(perturbation :: Double) ->
     withSNat (1 + width1Hidden) $ \(SNat @widthHidden) ->
     withSNat (1 + width1Hidden2) $ \(SNat @widthHidden2) ->
@@ -689,7 +689,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                          RepN widthHidden widthHidden2 Double Double)))
             range seed3
         (targetInit, artRaw) =
-          MnistFcnnRanked2.mnistTrainBench2VTOGradient
+          MnistFcnnRanked2.mnistTrainBench2VTOGradient True
             range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
         art = iterate simplifyArtifactGradient artRaw !! simp
         stk = knownSTK @(XParams2 Double Double)
@@ -699,8 +699,6 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
           revEvalArtifact art parametersAndInput Nothing
         (gradient1, value1) = first tproject1 $
           revEvalArtifact art parametersAndInput (Just $ kconcrete dt)
-        (_gradient10, value10) = first tproject1 $
-          revEvalArtifact art parametersAndInput (Just $ kconcrete $ 2 * range)
         f :: ADVal RepN (XParams2 Double Double) -> ADVal RepN (TKScalar Double)
         f adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
@@ -710,10 +708,6 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
 --        goodDt = ifDifferentiable @r (realToFrac dt) 0
 --        targetDt :: RepN (XParams2 Double Double)
 --        targetDt = constantTarget goodDt ftk
---        goodDt10 :: forall r. GoodScalar r => r
---        goodDt10 = ifDifferentiable @r (realToFrac $ 2 * range) 0
---        targetDt10 :: RepN (XParams2 Double Double)
---        targetDt10 = constantTarget goodDt10 ftk
         goodPerturbation :: forall r. GoodScalar r => r
         goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
         targetPerturbed :: RepN (XParams2 Double Double)
@@ -737,19 +731,13 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                      , dotTarget STKScalar (kconcrete dt) derivative2
                        - dotTarget stk gradient1 ds ))
             (abs (dotTarget STKScalar (kconcrete dt) derivative2
-                  - dotTarget stk gradient1 ds) < 1e-6)
+                  - dotTarget stk gradient1 ds) < 1e-10)
 --        , counterexample
 --            "Gradient is a linear function"
 --            (gradient1 === multTarget stk targetDt gradient0)
---        , counterexample
---            "Gradient is a linear function even for big dt"
---            (gradient10 === multTarget stk targetDt10 gradient0)
         , counterexample
             "Objective function value unaffected by incoming cotangent"
             (value0 === value1)
-        , counterexample
-            "Objective function value unaffected by incoming big cotangent"
-            (value0 === value10)
         , counterexample
             "Objective function value unaffected by derivative perturbation"
             (value2 === value3)
