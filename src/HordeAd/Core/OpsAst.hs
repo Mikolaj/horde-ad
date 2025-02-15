@@ -701,6 +701,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   tunpairDup t = (tproject1 t, tproject2 t)
+  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
   ttranspose perm = astTransposeS perm
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumRDer k bShs eShs f df rf acc0 es
@@ -1312,6 +1314,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
+  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
   ttranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
       AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
@@ -1474,6 +1478,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
   tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
                  in (AstNoVectorize b, AstNoVectorize c)
+  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
   ttranspose perm =
     AstNoVectorize . ttranspose perm . unAstNoVectorize
   tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
@@ -1687,6 +1693,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
+  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
   ttranspose perm =
     wAstNoSimplify . ttranspose perm . wunAstNoSimplify
   tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =

@@ -529,6 +529,8 @@ instance BaseTensor RepN where
   tpair !u !v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN
   tproject2 = RepN . snd . unRepN
+  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
   ttranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stranspose perm . unRepN
   rfold f x0 as = foldl' f x0 (runravelToList as)

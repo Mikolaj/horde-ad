@@ -34,7 +34,6 @@ import Data.Array.Nested
   )
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsInit, shCvtSX, withKnownShS, shsAppend)
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
@@ -396,7 +395,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
-  ttranspose @_ @_ @sh perm (D u u') | Dict <- Nested.Internal.Shape.shsKnownShS (Nested.Internal.Shape.shsPermutePrefix perm (knownShS @sh)) =
+  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
+  ttranspose perm (D u u') =
     dD (ttranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
   tmapAccumRDer @accShs @bShs @eShs
                 _ !k accShs bShs eShs f df rf acc0D esD
