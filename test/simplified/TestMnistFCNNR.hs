@@ -695,13 +695,25 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
         stk = knownSTK @(XParams2 Double Double)
         ftk = tftk @RepN stk targetInit
         parametersAndInput = tpair targetInit (tpair glyph label)
-        (gradient1, value1) =
+        (_gradient0, value0) = first tproject1 $
+          revEvalArtifact art parametersAndInput Nothing
+        (gradient1, value1) = first tproject1 $
           revEvalArtifact art parametersAndInput (Just $ kconcrete dt)
+        (_gradient10, value10) = first tproject1 $
+          revEvalArtifact art parametersAndInput (Just $ kconcrete $ 2 * range)
         f :: ADVal RepN (XParams2 Double Double) -> ADVal RepN (TKScalar Double)
         f adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rfromPrimal glyph, rfromPrimal label) (fromTarget adinputs)
         (derivative2, value2) = cfwdBoth f targetInit ds
+--        goodDt :: forall r. GoodScalar r => r
+--        goodDt = ifDifferentiable @r (realToFrac dt) 0
+--        targetDt :: RepN (XParams2 Double Double)
+--        targetDt = constantTarget goodDt ftk
+--        goodDt10 :: forall r. GoodScalar r => r
+--        goodDt10 = ifDifferentiable @r (realToFrac $ 2 * range) 0
+--        targetDt10 :: RepN (XParams2 Double Double)
+--        targetDt10 = constantTarget goodDt10 ftk
         goodPerturbation :: forall r. GoodScalar r => r
         goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
         targetPerturbed :: RepN (XParams2 Double Double)
@@ -721,11 +733,23 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
             (abs (value1 - value2) < 1e-10)
         , counterexample
             ("Gradient and derivative agrees: "
-             ++ show ( dt, derivative2, dotTarget stk (tproject1 gradient1) ds
-                     , kconcrete dt * derivative2
-                       - dotTarget stk (tproject1 gradient1) ds ))
-            (abs (kconcrete dt * derivative2
-                  - dotTarget stk (tproject1 gradient1) ds) < 1e-7)
+             ++ show ( dt, derivative2, dotTarget stk gradient1 ds
+                     , dotTarget STKScalar (kconcrete dt) derivative2
+                       - dotTarget stk gradient1 ds ))
+            (abs (dotTarget STKScalar (kconcrete dt) derivative2
+                  - dotTarget stk gradient1 ds) < 1e-6)
+--        , counterexample
+--            "Gradient is a linear function"
+--            (gradient1 === multTarget stk targetDt gradient0)
+--        , counterexample
+--            "Gradient is a linear function even for big dt"
+--            (gradient10 === multTarget stk targetDt10 gradient0)
+        , counterexample
+            "Objective function value unaffected by incoming cotangent"
+            (value0 === value1)
+        , counterexample
+            "Objective function value unaffected by incoming big cotangent"
+            (value0 === value10)
         , counterexample
             "Objective function value unaffected by derivative perturbation"
             (value2 === value3)
