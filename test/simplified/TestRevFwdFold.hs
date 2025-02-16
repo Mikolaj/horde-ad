@@ -1973,7 +1973,7 @@ testSin0rmapAccumRD01SN7 = do
            in f @(ADVal RepN)) (sscalar 1.1))
 
 rscanZip :: forall rn n rn2 n2 target.
-            (GoodScalar rn, KnownNat n, GoodScalar rn2, KnownNat n2, ADReady target)
+            (GoodScalar rn, KnownNat n, GoodScalar rn2, ADReady target)
          => (forall f. ADReady f => f (TKR n rn) -> f (TKR n2 rn2) -> f (TKR n rn))
          -> FullTensorKind (TKR n2 rn2)
          -> target (TKR n rn)

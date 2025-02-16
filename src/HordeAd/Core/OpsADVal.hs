@@ -330,8 +330,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
   xreverse (D u u') = withKnownShX (ssxFromShape $ xshape u) $
                       dD (xreverse u) (DeltaReverseX u')
-  xtranspose @perm @_ @sh (D u u') =
-    withKnownShX (ssxPermutePrefix (Permutation.makePerm @perm) (knownShX @sh)) $
+  xtranspose @perm (D u u') =
     dD (xtranspose @_ @perm u) (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
   xreshape @_ @sh sh t@(D u u') =
    case testEquality (knownShX @sh) (ssxFromShape sh) of

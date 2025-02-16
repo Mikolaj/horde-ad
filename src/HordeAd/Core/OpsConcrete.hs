@@ -1105,10 +1105,10 @@ tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
 
 -- TODO: make this strict
 tfromListLinearS
-  :: forall r sh. (Nested.KnownElt r, KnownShS sh, KnownNat (Nested.Product sh))
+  :: forall r sh. (Nested.KnownElt r, KnownShS sh)
   => [Nested.Shaped '[] r] -> Nested.Shaped sh r
 tfromListLinearS l = case NonEmpty.nonEmpty l of
-  Nothing -> case sameNat (Proxy @(Nested.Product sh)) (Proxy @0) of
+  Nothing -> case testEquality (shsProduct (knownShS @sh)) (SNat @0) of
     Just Refl -> Nested.sreshape (knownShS @sh)
                  $ Nested.semptyArray (knownShS @sh)
     Nothing -> error "tfromListLinearS: empty list, but not shape"

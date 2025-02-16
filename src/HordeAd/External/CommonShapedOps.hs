@@ -181,8 +181,7 @@ maxPool1S v =
   in sfromList $ NonEmpty.fromList $ map maxOfSlice l
 
 softMax1S :: forall target sh r.
-             ( KnownShS sh, KnownNat (Nested.Product sh)
-             , BaseTensor target, LetTensor target
+             ( KnownShS sh, BaseTensor target, LetTensor target
              , GoodScalar r, Differentiable r )
           => target (TKS sh r) -> target (TKS sh r)
 softMax1S d =

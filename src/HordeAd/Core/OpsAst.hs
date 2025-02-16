@@ -17,14 +17,13 @@ import Prelude
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-))
+import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-), type (<=?))
 import Data.Type.Equality (gcastWith)
-import Data.Type.Ord (Compare)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxEqual, ssxAppend, ssxReplicate, IShX, ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape (shxEqual, ssxAppend, ssxReplicate, ssxFromShape, withKnownShX)
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
@@ -340,19 +339,17 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           . astReverseS . astSFromR @sh sh $ a
         ZSS -> error "xreverse: impossible shape"
   rtranspose @r @n permr a = case ftkAst a of
-    FTKR sh' _ ->
+    FTKR sh' x ->
       withCastRS sh' $ \(sh :: ShS sh)  ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
           let result :: AstTensor AstMethodLet s (TKR2 n r)
               result =
-                -- A noble lie, partially verified down below.
-                -- A pity there's no LTE.
+                -- A noble lie, verified down below.
                 gcastWith (unsafeCoerceRefl
-                           :: Compare (Rank perm) (Rank sh) :~: LT) $
+                           :: (Rank perm <=? Rank sh) :~: True) $
                 trustMeThisIsAPermutation @perm $
-                gcastWith (Permutation.lemRankPermute (Proxy @sh) perm) $
-                astFromS (knownSTK @(TKR2 n r))
-                . astTransposeS perm . astSFromR @sh sh $ a
+                astFromS (STKR (shsRank sh) (ftkToSTK x))
+                . astTransposeS perm . astSFromR sh $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
               -- TODO: why is the above needed? define cmpSNat?
@@ -562,15 +559,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
           . astReverseS . astSFromX @sh @sh' sh $ a
   xtranspose @perm a = case ftkAst a of
-    FTKX @sh' @x sh' _ -> case shxPermutePrefix (Permutation.makePerm @perm) sh' of
-      (sh2' :: IShX sh2') ->
-        withKnownShX (ssxFromShape sh2') $
-        withCastXS sh' $ \(sh :: ShS sh) ->
-        withCastXS sh2' $ \(_ :: ShS sh2) ->
-          gcastWith (unsafeCoerceRefl
-                     :: Permutation.PermutePrefix perm sh :~: sh2) $
-          astFromS (knownSTK @(TKX2 sh2' x))
-          . astTransposeS (Permutation.makePerm @perm) . astSFromX @sh @sh' sh $ a
+    FTKX sh' x ->
+      let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
+      in withCastXS sh' $ \sh ->
+           astFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
+           . astTransposeS (Permutation.makePerm @perm)
+           . astSFromX sh $ a
   xreshape sh2' a = case ftkAst a of
     FTKX @sh' @x sh' x ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -936,19 +930,17 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           . AstReverseS . AstSFromR @sh sh $ a
         ZSS -> error "xreverse: impossible shape"
   rtranspose @r @n permr (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' _ ->
+    FTKR sh' x ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
           let result :: AstTensor AstMethodShare s (TKR2 n r)
               result =
-                -- A noble lie, partially verified down below.
-                -- A pity there's no LTE.
+                -- A noble lie, verified down below.
                 gcastWith (unsafeCoerceRefl
-                           :: Compare (Rank perm) (Rank sh) :~: LT) $
+                           :: (Rank perm <=? Rank sh) :~: True) $
                 trustMeThisIsAPermutation @perm $
-                gcastWith (Permutation.lemRankPermute (Proxy @sh) perm) $
-                AstFromS (knownSTK @(TKR2 n r))
-                . AstTransposeS perm . AstSFromR @sh sh $ a
+                AstFromS (STKR (shsRank sh) (ftkToSTK x))
+                . AstTransposeS perm . AstSFromR sh $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
               -- TODO: why is the above needed? define cmpSNat?
@@ -1167,15 +1159,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           AstFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
           . AstReverseS . AstSFromX @sh @sh' sh $ a
   xtranspose @perm (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' @x sh' _ -> case shxPermutePrefix (Permutation.makePerm @perm) sh' of
-      (sh2' :: IShX sh2') ->
-        withKnownShX (ssxFromShape sh2') $
-        withCastXS sh' $ \(sh :: ShS sh) ->
-        withCastXS sh2' $ \(_ :: ShS sh2) ->
-          gcastWith (unsafeCoerceRefl
-                     :: Permutation.PermutePrefix perm sh :~: sh2) $
-          AstFromS @(TKS2 sh2 x) (knownSTK @(TKX2 sh2' x))
-          . AstTransposeS (Permutation.makePerm @perm) . AstSFromX @sh @sh' sh $ a
+    FTKX sh' x ->
+      let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
+      in withCastXS sh' $ \sh ->
+           AstFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
+           . AstTransposeS (Permutation.makePerm @perm)
+           . AstSFromX sh $ a
   xreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh' x ->
       withCastXS sh' $ \(sh :: ShS sh) ->

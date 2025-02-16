@@ -458,8 +458,7 @@ interpretAst !env = \case
       withKnownSTK x $
       sreverse (interpretAst env v)
   AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
-    STKS sh x ->
-      withKnownShS sh $
+    STKS _ x ->
       withKnownSTK x $
       ttranspose perm $ interpretAst env v
   AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of

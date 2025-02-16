@@ -33,7 +33,15 @@ import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
-  (KnownNat, Nat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
+  ( KnownNat
+  , Nat
+  , OrderingI (..)
+  , cmpNat
+  , type (+)
+  , type (-)
+  , type (<=)
+  , type (<=?)
+  )
 import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (typeRep)
 
@@ -655,10 +663,10 @@ class ( Num (IntOf target)
                 len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
   rreverse :: (KnownSTK r, KnownNat n)
            => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-  rtr :: (KnownSTK r, KnownNat n)
+  rtr :: KnownSTK r
       => target (TKR2 (2 + n) r) -> target (TKR2 (2 + n) r)
   rtr = rtranspose [1, 0]
-  rtranspose :: (KnownSTK r, KnownNat n)
+  rtranspose :: KnownSTK r
              => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
   rflatten :: (KnownSTK r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (rsize u :$: ZSR) u
@@ -787,7 +795,7 @@ class ( Num (IntOf target)
   sshape :: forall sh r. (KnownSTK r, KnownShS sh)
          => target (TKS2 sh r) -> ShS sh
   sshape _ = knownShS @sh
-  srank :: forall sh r. (KnownSTK r, KnownNat (Rank sh))
+  srank :: forall sh r. KnownNat (Rank sh)
         => target (TKS2 sh r) -> Int
   srank _ = valueOf @(Rank sh)
   ssize :: forall sh r. (KnownSTK r, KnownShS sh) => target (TKS2 sh r) -> Int
@@ -799,18 +807,18 @@ class ( Num (IntOf target)
   sfromList :: (KnownSTK r, KnownNat n, KnownShS sh)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
-  sfromListLinear :: (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
+  sfromListLinear :: (KnownSTK r, KnownShS sh)
                   => [target (TKS2 '[] r)] -> target (TKS2 sh r)
   sfromListLinear = sfromVectorLinear . V.fromList
   -- This is morally non-empty strict vectors:
   sfromVector :: (KnownSTK r, KnownNat n, KnownShS sh)
               => Data.Vector.Vector (target (TKS2 sh r))
               -> target (TKS2 (n ': sh) r)
-  sfromVectorLinear :: forall r sh.
-                       (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
+  sfromVectorLinear :: forall r sh. (KnownSTK r, KnownShS sh)
                     => Data.Vector.Vector (target (TKS2 '[] r))
                     -> target (TKS2 sh r)
-  sfromVectorLinear v | Dict <- eltDictRep (knownSTK @r) =
+  sfromVectorLinear v | Dict <- eltDictRep (knownSTK @r)
+                      , SNat <- shsProduct (knownShS @sh) =
     if V.null v
     then gcastWith (unsafeCoerceRefl :: Nested.Product sh :~: 0) $
          sreshape $ sconcrete $ Nested.semptyArray ZSS
@@ -849,16 +857,16 @@ class ( Num (IntOf target)
     ssum (stranspose @_ @'[2, 1, 0] (sreplicate @target @p m1)
           * stranspose @_ @'[1, 0] (sreplicate @target @m m2))
   sscaleByScalar
-    :: (GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
+    :: (GoodScalar r, KnownShS sh)
     => target (TKS '[] r) -> target (TKS sh r) -> target (TKS sh r)
   sscaleByScalar s v = v * sreplicate0N s
   sreplicate :: (KnownNat k, KnownShS sh, KnownSTK r)
              => target (TKS2 sh r) -> target (TKS2 (k ': sh) r)
-  sreplicate0N :: forall r sh.
-                  (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
+  sreplicate0N :: forall r sh. (KnownSTK r, KnownShS sh)
                => target (TKS2 '[] r) -> target (TKS2 sh r)
-  sreplicate0N = sreshape @target @r @'[Nested.Product sh] @sh
-                 . sreplicate @target @(Nested.Product sh)
+  sreplicate0N | SNat <- shsProduct (knownShS @sh) =
+    sreshape @target @r @'[Nested.Product sh] @sh
+    . sreplicate @target @(Nested.Product sh)
   sindex, (!$) :: ( KnownSTK r, KnownShS shm, KnownShS shn
                   , KnownShS (shm ++ shn) )
                => target (TKS2 (shm ++ shn) r) -> IxSOf target shm
@@ -952,18 +960,18 @@ class ( Num (IntOf target)
     _ -> Nothing
   sreverse :: (KnownSTK r, KnownNat n, KnownShS sh)
            => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
-  str :: ( KnownSTK r, KnownNat n, KnownNat m, KnownShS sh
-         , KnownNat (Rank sh) )
+  str :: forall r n m sh. KnownSTK r
       => target (TKS2 (n ': m ': sh) r) -> target (TKS2 (m ': n ': sh) r)
-  str = stranspose @_ @'[1, 0]
+  str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
+        stranspose @_ @'[1, 0]
   stranspose :: forall perm r sh.
-                (Permutation.KnownPerm perm, PermC perm, KnownSTK r, KnownShS sh, Rank perm <= Rank sh)
+                (Permutation.KnownPerm perm, PermC perm, KnownSTK r, Rank perm <= Rank sh)
              => target (TKS2 sh r)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
   stranspose = ttranspose (Permutation.makePerm @perm)
-  sflatten :: (KnownSTK r, KnownShS sh, KnownNat (Nested.Product sh))
+  sflatten :: forall r sh. (KnownSTK r, KnownShS sh)
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
-  sflatten = sreshape
+  sflatten | SNat <- shsProduct (knownShS @sh) = sreshape
   sreshape :: ( KnownSTK r, KnownShS sh, KnownShS sh2
               , Nested.Product sh ~ Nested.Product sh2 )
            => target (TKS2 sh r) -> target (TKS2 sh2 r)
@@ -1074,7 +1082,7 @@ class ( Num (IntOf target)
                                         (w !$ (i :.$ ZIS)))
   szipWith30N :: forall r1 r2 r3 r sh.
                  ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
-                 , KnownShS sh, KnownNat (Rank sh) )
+                 , KnownShS sh )
               => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r3)
                   -> target (TKS2 '[] r))
               -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r3) -> target (TKS2 sh r)
@@ -1121,7 +1129,7 @@ class ( Num (IntOf target)
                                           (x !$ (i :.$ ZIS)))
   szipWith40N :: forall r1 r2 r3 sh r4 r.
                  ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
-                 , KnownSTK r, KnownShS sh, KnownNat (Rank sh) )
+                 , KnownSTK r, KnownShS sh )
               => (target (TKS2 '[] r1) -> target (TKS2 '[] r2) -> target (TKS2 '[] r3)
                   -> target (TKS2 '[] r4) -> target (TKS2 '[] r))
               -> target (TKS2 sh r1) -> target (TKS2 sh r2) -> target (TKS2 sh r3) -> target (TKS2 sh r4)
@@ -1151,7 +1159,7 @@ class ( Num (IntOf target)
 
   -- Mixed ops
   xshape :: KnownSTK r => target (TKX2 sh r) -> IShX sh
-  xrank :: forall r sh. (KnownSTK r, KnownNat (Rank sh))
+  xrank :: forall r sh. KnownNat (Rank sh)
         => target (TKX2 sh r) -> Int
   xrank _ = valueOf @(Rank sh)
   xsize :: KnownSTK r => target (TKX2 sh r) -> Int
@@ -1358,12 +1366,13 @@ class ( Num (IntOf target)
     _ -> Nothing
   xreverse :: (KnownSTK r, KnownShX sh)
            => target (TKX2 (mn ': sh) r) -> target (TKX2 (mn ': sh) r)
-  xtr :: ( KnownSTK r, KnownNat n, KnownNat m, KnownShX sh
-         , KnownNat (Rank sh) )
+  xtr :: forall r n m sh. KnownSTK r
       => target (TKX2 (Just n ': Just m ': sh) r)
       -> target (TKX2 (Just m ': Just n ': sh) r)
-  xtr = xtranspose @_ @'[1, 0]
-  xtranspose :: ( Permutation.KnownPerm perm, PermC perm, KnownSTK r, KnownShX sh
+  xtr = gcastWith (unsafeCoerceRefl
+                   :: (2 <=? Rank (Just n ': Just m ': sh)) :~: True) $
+        xtranspose @_ @'[1, 0]
+  xtranspose :: ( Permutation.KnownPerm perm, PermC perm, KnownSTK r
                 , Rank perm <= Rank sh  )
              => target (TKX2 sh r)
              -> target (TKX2 (Permutation.PermutePrefix perm sh) r)
@@ -1632,8 +1641,7 @@ class ( Num (IntOf target)
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
   -- This one is not really general, but takes a singleton at least.
-  ttranspose :: ( PermC perm, KnownSTK r, KnownShS sh
-                , Rank perm <= Rank sh  )
+  ttranspose :: (PermC perm, KnownSTK r, Rank perm <= Rank sh)
              => Permutation.Perm perm -> target (TKS2 sh r)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
   -- | A strict right mapAccum.

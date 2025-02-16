@@ -68,7 +68,7 @@ import Data.Array.Nested
   (KnownShS (..), KnownShX (..), Rank, ShR (..), ShS (..), ShX (..), type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (ixrRank, shrRank, shsPermutePrefix, shsProduct, shsRank, withKnownShS)
+  (ixrRank, shrRank, shsProduct, shsRank, withKnownShS)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.Ops
@@ -615,7 +615,7 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (rreverse c) d
   DeltaTransposeR perm d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh ->
+    FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       let permR = permRInverse perm
       in evalRevSame s (rtranspose permR c) d
@@ -690,9 +690,8 @@ evalRevSame !s !c = \case
       withKnownShS sh $
       evalRevSame s (sreverse c) d
   DeltaTransposeS @perm @sh2 perm d -> case ftkDelta d of
-    FTKS sh x ->
+    FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS (shsPermutePrefix perm sh) $
       permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
@@ -782,9 +781,8 @@ evalRevSame !s !c = \case
       withKnownShX (ssxFromShape sh) $
       evalRevSame s (xreverse c) d
   DeltaTransposeX @perm @sh2 perm d -> case ftkDelta d of
-    FTKX sh x ->
+    FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxPermutePrefix perm (ssxFromShape sh)) $
       permInverse perm $ \(permR :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2) $
