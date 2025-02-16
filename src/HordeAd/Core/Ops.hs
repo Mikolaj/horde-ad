@@ -256,6 +256,112 @@ class LetTensor (target :: Target) where
     tlet (tfromPrimal stk p) $ \pShared ->
     tlet (tfromDual d) $ \dShared ->
       taddTarget stk pShared dShared
+  -- | A strict left fold.
+  tfold
+    :: forall yn ym k. (BaseTensor target, KnownSTK yn, KnownSTK ym)
+    => SNat k
+    -> (forall f. ADReady f => f yn -> f ym -> f yn)
+    -> target yn  -- ^ initial value
+    -> target (BuildTensorKind k ym)
+         -- ^ iteration is over the outermost dimension of this tensor
+    -> target yn
+  tfold k f acc0 es =
+    tproject1
+    $ tmapAccumL (Proxy @target)
+       k
+       (tftk knownSTK acc0)
+       (FTKScalar @Z0)
+       (razeFTK k (knownSTK @ym)
+                (tftk (buildSTK k (knownSTK @ym)) es))
+       (let g :: forall f. ADReady f
+              => f yn -> f ym -> f (TKProduct yn TKUnit)
+            g !acc !e = tpair (f acc e) tunit
+        in g)
+       acc0
+       es
+  rfold
+    :: forall rn rm n m.
+       ( BaseTensor target
+       , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
+    => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
+    -> target (TKR2 n rn)
+    -> target (TKR2 (1 + m) rm)
+    -> target (TKR2 n rn)
+  rfold f acc0 es = withSNat (rlength es) $ \k -> tfold k f acc0 es
+  sfold
+    :: forall rn rm sh shm k.
+       ( BaseTensor target, KnownNat k
+       , KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
+    => (forall f. ADReady f
+        => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
+    -> target (TKS2 sh rn)
+    -> target (TKS2 (k ': shm) rm)
+    -> target (TKS2 sh rn)
+  sfold = tfold (SNat @k)
+  xfold
+    :: forall rn rm sh shm k.
+       ( BaseTensor target, KnownNat k
+       , KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
+    => (forall f.
+        ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
+    -> target (TKX2 sh rn)
+    -> target (BuildTensorKind k (TKX2 shm rm))
+    -> target (TKX2 sh rn)
+  xfold = tfold (SNat @k)
+  -- | A strict left scan.
+  tscan
+    :: forall yn ym k. (BaseTensor target, KnownSTK yn, KnownSTK ym)
+    => SNat k
+    -> (forall f. ADReady f => f yn -> f ym -> f yn)
+    -> target yn
+    -> target (BuildTensorKind k ym)
+    -> target (BuildTensorKind (1 + k) yn)
+  tscan k f acc0 es =
+    let bs :: target (BuildTensorKind k yn)
+        bs = tproject2
+             $ tmapAccumL (Proxy @target)
+                k
+                (tftk knownSTK acc0)
+                (tftk knownSTK acc0)
+                (razeFTK k (knownSTK @ym)
+                         (tftk (buildSTK k (knownSTK @ym)) es))
+                (let g :: forall f. ADReady f
+                       => f yn -> f ym -> f (TKProduct yn yn)
+                     g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
+                 in g)
+                acc0
+                es
+    in tappend (SNat @1) k (knownSTK @yn)
+               (tfromVector (SNat @1) knownSTK (V.fromList [acc0])) bs
+  rscan
+    :: forall rn rm n m.
+       ( BaseTensor target
+       , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
+    => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
+    -> target (TKR2 n rn)
+    -> target (TKR2 (1 + m) rm)
+    -> target (TKR2 (1 + n) rn)
+  rscan f acc0 es = withSNat (rlength es) $ \k -> tscan k f acc0 es
+  sscan
+    :: forall rn rm sh shm k.
+       ( BaseTensor target, KnownNat k
+       , KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
+    => (forall f.
+        ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
+    -> target (TKS2 sh rn)
+    -> target (TKS2 (k ': shm) rm)
+    -> target (TKS2 (1 + k ': sh) rn)
+  sscan = tscan (SNat @k)
+  xscan
+    :: forall rn rm sh shm k.
+       ( BaseTensor target, KnownNat k
+       , KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
+    => (forall f.
+        ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
+    -> target (TKX2 sh rn)
+    -> target (BuildTensorKind k (TKX2 shm rm))
+    -> target (BuildTensorKind (1 + k) (TKX2 sh rn))
+  xscan = tscan (SNat @k)
 
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
@@ -1530,121 +1636,6 @@ class ( Num (IntOf target)
                 , Rank perm <= Rank sh  )
              => Permutation.Perm perm -> target (TKS2 sh r)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
-  -- | A strict left fold.
-  rfold
-    :: forall rn rm n m.
-       (KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m)
-    => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
-    -> target (TKR2 n rn)  -- ^ initial value
-    -> target (TKR2 (1 + m) rm)  -- ^ iteration is over the outermost dimension
-    -> target (TKR2 n rn)
-  rfold f acc0 es =
-    let shm :: IShR m
-        (width, shm, xm) = case tftk knownSTK es of
-          FTKR (width2 :$: shm2) x2 -> (width2, shm2, x2)
-          FTKR ZSR _ -> error "rfold: impossible pattern needlessly required"
-        (sh, x) = case tftk knownSTK acc0 of
-          FTKR sh2 x2 -> (sh2, x2)
-    in withSNat width $ \snat ->
-      tproject1
-        (tmapAccumL (Proxy @target)
-           snat
-           (FTKR @_ sh x)
-           (FTKScalar @Z0)
-           (FTKR @_ shm xm)
-           (let g :: forall f. ADReady f
-                  => f (TKR2 n rn) -> f (TKR2 m rm)
-                  -> f (TKProduct (TKR2 n rn) TKUnit)
-                g !acc !e = tpair (f acc e) tunit
-            in g)
-           acc0
-           es)
-  -- | A strict left scan.
-  rscan
-    :: forall rn rm n m.
-       (KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m)
-    => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
-    -> target (TKR2 n rn)
-    -> target (TKR2 (1 + m) rm)
-    -> target (TKR2 (1 + n) rn)
-  rscan f acc0 es =
-    let shm :: IShR m
-        (width, shm, xm) = case tftk knownSTK es of
-          FTKR (width2 :$: shm2) x2 -> (width2, shm2, x2)
-          FTKR ZSR _ -> error "rfold: impossible pattern needlessly required"
-        (sh, x) = case tftk knownSTK acc0 of
-          FTKR sh2 x2 -> (sh2, x2)
-    in withSNat width $ \snat ->
-      let bs =
-            tproject2
-            $ tmapAccumL (Proxy @target)
-                snat
-                (FTKR @_ sh x)
-                (FTKR @_ sh x)
-                (FTKR @_ shm xm)
-                (let g :: forall f. ADReady f
-                       => f (TKR2 n rn) -> f (TKR2 m rm)
-                       -> f (TKProduct (TKR2 n rn) (TKR2 n rn))
-                     g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
-                 in g)
-                acc0
-                es
-      in rappend (rfromList [acc0]) bs
-  -- | A strict left fold.
-  sfold
-    :: forall rn rm sh shm k.
-       (KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm, KnownNat k)
-    => (forall f. ADReady f
-        => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
-    -> target (TKS2 sh rn)
-    -> target (TKS2 (k ': shm) rm)
-    -> target (TKS2 sh rn)
-  sfold f acc0 es =
-    let xm = case tftk knownSTK es of
-          FTKS _ x2 -> x2
-        x = case tftk knownSTK acc0 of
-          FTKS _ x2 -> x2
-    in tproject1
-      (tmapAccumL (Proxy @target)
-         (SNat @k)
-         (FTKS @sh knownShS x)
-         (FTKScalar @Z0)
-         (FTKS @shm knownShS xm)
-         (let g :: forall f. ADReady f
-                => f (TKS2 sh rn) -> f (TKS2 shm rm)
-                -> f (TKProduct (TKS2 sh rn) TKUnit)
-              g !acc !e = tpair (f acc e) tunit
-          in g)
-         acc0
-         es)
-  sscan
-    :: forall rn rm sh shm k.
-       (KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm, KnownNat k)
-    => (forall f.
-        ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
-    -> target (TKS2 sh rn)
-    -> target (TKS2 (k ': shm) rm)
-    -> target (TKS2 (1 + k ': sh) rn)
-  sscan f acc0 es =
-    let xm = case tftk knownSTK es of
-          FTKS _ x2 -> x2
-        x = case tftk knownSTK acc0 of
-          FTKS _ x2 -> x2
-        bs =
-          tproject2
-          $ tmapAccumL (Proxy @target)
-             (SNat @k)
-             (FTKS @sh knownShS x)
-             (FTKS @sh knownShS x)
-             (FTKS @shm knownShS xm)
-             (let g :: forall f. ADReady f
-                    => f (TKS2 sh rn) -> f (TKS2 shm rm)
-                    -> f (TKProduct (TKS2 sh rn) (TKS2 sh rn))
-                  g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
-              in g)
-             acc0
-             es
-    in sappend (sfromList [acc0]) bs
   -- | A strict right mapAccum.
   --
   -- The applications of 'tfwd' and 'trevDt' performed already at this point

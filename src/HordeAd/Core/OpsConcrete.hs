@@ -89,6 +89,12 @@ instance LetTensor RepN where
   toShare = id
   tunshare = id
   tD _stk t DummyDualTarget{} = t
+  rfold f x0 as = foldl' f x0 (runravelToList as)
+  rscan f x0 as =
+    rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)
+  sfold f x0 as = foldl' f x0 (sunravelToList as)
+  sscan f x0 as =
+    sfromList $ NonEmpty.fromList $ scanl' f x0 (sunravelToList as)
 
 instance ShareTensor RepN where
   tshare = id
@@ -533,12 +539,6 @@ instance BaseTensor RepN where
     -- this is needed only to help GHC 9.10 compile the instance
   ttranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stranspose perm . unRepN
-  rfold f x0 as = foldl' f x0 (runravelToList as)
-  rscan f x0 as =
-    rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)
-  sfold f x0 as = foldl' f x0 (sunravelToList as)
-  sscan f x0 as =
-    sfromList $ NonEmpty.fromList $ scanl' f x0 (sunravelToList as)
   -- The eta-expansion below is needed for typing.
   tmapAccumR _ k accShs bShs eShs f acc0 es =
     oRtmapAccumR k accShs bShs eShs f acc0 es
