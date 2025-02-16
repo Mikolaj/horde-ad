@@ -448,9 +448,9 @@ data Delta :: Target -> TensorKindType -> Type where
                -> IShX (shm ++ shn) -> Delta target (TKX2 (shp ++ shn) r)
                -> (IxXOf target shm -> IxXOf target shp)
                -> Delta target (TKX2 (shm ++ shn) r)
-  DeltaAppendX :: Delta target (TKX2 (Nothing ': sh) r)
-               -> Delta target (TKX2 (Nothing ': sh) r)
-               -> Delta target (TKX2 (Nothing ': sh) r)
+  DeltaAppendX :: Delta target (TKX2 (Just m ': sh) r)
+               -> Delta target (TKX2 (Just n ': sh) r)
+               -> Delta target (TKX2 (Just (m + n) ': sh) r)
   DeltaSliceX :: SNat i -> SNat n -> SNat k
               -> Delta target (TKX2 (Just (i + n + k) ': sh) r)
               -> Delta target (TKX2 (Just n ': sh) r)
@@ -601,7 +601,9 @@ ftkDelta = \case
     FTKX _ x -> FTKX sh x
   DeltaGatherX _ _ _ sh d _ -> case ftkDelta d of
     FTKX _ x -> FTKX sh x
-  DeltaAppendX a _ -> ftkDelta a
+  DeltaAppendX a b -> case (ftkDelta a, ftkDelta b) of
+    (FTKX (Nested.SKnown m :$% sh) x, FTKX (Nested.SKnown n :$% _) _) ->
+      FTKX (Nested.SKnown (snatPlus m n) :$% sh) x
   DeltaSliceX _ n@SNat _ d -> case ftkDelta d of
     FTKX (_ :$% sh) x -> FTKX (Nested.SKnown n :$% sh) x
   DeltaReverseX d -> ftkDelta d

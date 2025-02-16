@@ -688,13 +688,13 @@ evalRevSame !s !c = \case
       withKnownShS shn $
       withKnownShS shp $
       evalRevSame s (sscatter @_ @_ @shm @shn c f) d
-  DeltaAppendS @_ @_ @m d e -> case (ftkDelta d, ftkDelta e) of
-    (FTKS (SNat :$$ sh) x, FTKS (SNat :$$ _) _) ->
+  DeltaAppendS d e -> case (ftkDelta d, ftkDelta e) of
+    (FTKS (msnat@SNat :$$ sh) x, FTKS (SNat :$$ _) _) ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
       let cShared = tshare c
           s2 = evalRevSame s (sslice (SNat @0) SNat SNat cShared) d
-      in evalRevSame s2 (sslice (SNat @m) SNat SNat cShared) e
+      in evalRevSame s2 (sslice msnat SNat SNat cShared) e
   DeltaSliceS @i SNat SNat SNat d -> case ftkDelta d of
     FTKS (_ :$$ sh) x ->
       withKnownSTK (ftkToSTK x) $
@@ -779,18 +779,12 @@ evalRevSame !s !c = \case
       withKnownShX shp $
       evalRevSame s (xscatter @_ @_ @shm @shn sh c f) d
   DeltaAppendX d e -> case (ftkDelta d, ftkDelta e) of
-    ( FTKX shd@(Nested.SUnknown m :$% rest) x
-     ,FTKX she@(Nested.SUnknown n :$% _) _ ) ->
+    (FTKX (Nested.SKnown m@SNat :$% sh) x, FTKX (Nested.SKnown SNat :$% _) _) ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape rest) $
-      withSNat m $ \(SNat @m) -> withSNat n $ \(SNat @n) ->
-      let cShared =
-            tshare $ xmcast (ssxFromShape
-                             $ Nested.SKnown (SNat @(m + n)) :$% rest) c
-          s2 = evalRevSame s (xmcast (ssxFromShape shd)
-                              $ xslice (SNat @0) (SNat @m) SNat cShared) d
-      in evalRevSame s2 (xmcast (ssxFromShape she)
-                         $ xslice (SNat @m) (SNat @n) SNat cShared) e
+      withKnownShX (ssxFromShape sh) $
+      let cShared = tshare c
+          s2 = evalRevSame s (xslice (SNat @0) SNat SNat cShared) d
+      in evalRevSame s2 (xslice m SNat SNat cShared) e
   DeltaSliceX @i @n @k SNat SNat SNat d -> case ftkDelta d of
     FTKX (_ :$% rest) x ->
       withKnownSTK (ftkToSTK x) $

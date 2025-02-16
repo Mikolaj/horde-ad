@@ -45,6 +45,7 @@ import Data.Array.Mixed.Shape
   , fromSMayNat'
   , shxAppend
   , shxDropSSX
+  , shxLength
   , shxSize
   , shxTakeSSX
   , ssxAppend
@@ -203,6 +204,19 @@ class LetTensor (target :: Target) where
       tlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
               (treplicate snat stk2 (tproject2 u3))
+  tappend :: forall y m n. BaseTensor target
+          => SNat m -> SNat n -> STensorKind y
+          -> target (BuildTensorKind m y) -> target (BuildTensorKind n y)
+          -> target (BuildTensorKind (m + n) y)
+  tappend msnat@SNat nsnat@SNat stk a b = case stk of
+    STKScalar -> sappend a b
+    STKR _ x | Dict <- lemKnownSTK x -> rappend a b
+    STKS _ x | Dict <- lemKnownSTK x -> sappend a b
+    STKX _ x | Dict <- lemKnownSTK x -> xappend a b
+    STKProduct stk1 stk2 ->
+      tlet a $ \ !aShared -> tlet b $ \ !bShared ->
+        tpair (tappend msnat nsnat stk1 (tproject1 aShared) (tproject1 bShared))
+              (tappend msnat nsnat stk2 (tproject2 aShared) (tproject2 bShared))
   -- The semantics for products is element-wise and for others it's either
   -- identity or the domain is shaped and tfromS type-casts to the codomain
   -- by hiding some (or none) type information (so the codomain has to be
@@ -520,10 +534,10 @@ class ( Num (IntOf target)
     :: (GoodScalar r, GoodScalar r2, KnownNat n)
     => target (TKR (1 + n) r) -> target (TKR n r2)
   riota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
-  rappend :: (KnownSTK r, KnownNat n)
+  rappend :: KnownSTK r
           => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
           -> target (TKR2 (1 + n) r)
-  rconcat :: (KnownSTK r, KnownNat n)
+  rconcat :: KnownSTK r
           => NonEmpty (target (TKR2 (1 + n) r)) -> target (TKR2 (1 + n) r)
   rconcat = foldr1 rappend
   rslice :: (KnownSTK r, KnownNat n)
@@ -815,7 +829,7 @@ class ( Num (IntOf target)
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
   siota :: (KnownNat n, GoodScalar r)
         => target (TKS '[n] r)  -- from 0 to n - 1
-  sappend :: (KnownSTK r, KnownNat m, KnownNat n, KnownShS sh)
+  sappend :: forall r m n sh. KnownSTK r
           => target (TKS2 (m ': sh) r) -> target (TKS2 (n ': sh) r)
           -> target (TKS2 ((m + n) ': sh) r)
   sslice :: forall i n k r sh. (KnownSTK r, KnownShS sh)
@@ -1204,13 +1218,25 @@ class ( Num (IntOf target)
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
   xiota :: (KnownNat n, GoodScalar r)
         => target (TKX '[Just n] r)  -- from 0 to n - 1
-  xappend :: (KnownSTK r, KnownShX sh)
-          => target (TKX2 (Nothing ': sh) r) -> target (TKX2 (Nothing ': sh) r)
-          -> target (TKX2 (Nothing ': sh) r)
-  xconcat :: (KnownSTK r, KnownShX sh)
+  xappend :: forall r m n sh. KnownSTK r
+          => target (TKX2 (Just m ': sh) r) -> target (TKX2 (Just n ': sh) r)
+          -> target (TKX2 (Just (m + n) ': sh) r)
+  xappend0 :: forall r sh. KnownSTK r
+           => target (TKX2 (Nothing ': sh) r) -> target (TKX2 (Nothing ': sh) r)
+           -> target (TKX2 (Nothing ': sh) r)
+  xappend0 a b = case xshape a of
+    mmsnat :$% sh ->
+      withSNat (fromSMayNat' mmsnat) $ \msnat ->
+      withSNat (shxLength $ xshape b) $ \nsnat ->
+      let sh0 = Nested.SUnknown () :!% ssxFromShape sh
+          sha = Nested.SKnown msnat :!% ssxFromShape sh
+          shb = Nested.SKnown nsnat :!% ssxFromShape sh
+      in withKnownShX (ssxFromShape sh) $
+         xmcast sh0 $ xappend (xmcast sha a) (xmcast shb b)
+  xconcat :: KnownSTK r
           => NonEmpty (target (TKX2 (Nothing ': sh) r))
           -> target (TKX2 (Nothing ': sh) r)
-  xconcat = foldr1 xappend
+  xconcat = foldr1 xappend0
   xslice :: forall i n k r sh. (KnownSTK r, KnownShX sh)
          => SNat i -> SNat n -> SNat k
          -> target (TKX2 (Just (i + n + k) ': sh) r)

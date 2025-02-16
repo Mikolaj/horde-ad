@@ -22,11 +22,12 @@ import Data.Type.Equality (gcastWith)
 import Data.Type.Ord (Compare)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
+import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (ssxAppend, ssxReplicate, IShX, ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape (shxEqual, ssxAppend, ssxReplicate, IShX, ssxFromShape, withKnownShX)
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -525,20 +526,21 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           . primalPart . astSFromX @sh @sh' sh $ a
   xiota @n @r = astFromS (knownSTK @(TKX '[Just n] r))
                 $ fromPrimal $ AstIotaS @n @r SNat
-  xappend @r @sh u v = case ftkAst u of
-    FTKX @shu' shu' _ -> case ftkAst v of
-      FTKX @shv' shv' _ ->
-        withCastXS shu' $ \(shu :: ShS shu) -> case shu of
-          _ :$$ restu ->
-            withCastXS shv' $ \(shv :: ShS shv) -> case shv of
-              _ :$$ restv ->
-                case testEquality restu restv of
-                  Just Refl ->
-                    astFromS (knownSTK @(TKX2 (Nothing ': sh) r))
-                    $ astAppendS (astSFromX @shu @shu' shu u)
-                                 (astSFromX @shv @shv' shv v)
-                  _ -> error $ "xappend: shapes don't match: "
-                               ++ show (restu, restv)
+  xappend u v = case ftkAst u of
+    FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
+      FTKX (Nested.SKnown n@SNat :$% shv') _ ->
+        withCastXS shu' $ \(shu :: ShS shu) ->
+          withCastXS shv' $ \(shv :: ShS shv) ->
+            case shxEqual shu' shv' of
+              Just Refl ->
+                gcastWith (unsafeCoerceRefl :: shu :~: shv) $
+                astFromS (STKX (Nested.SKnown (snatPlus m n)
+                                :!% ssxFromShape shu')
+                               (ftkToSTK x))
+                $ astAppendS (astSFromX (m :$$ shu) u)
+                             (astSFromX (n :$$ shv) v)
+              _ -> error $ "xappend: shapes don't match: "
+                           ++ show (shu', shv')
   xslice @_ @n @_ @r @sh2 i n@SNat k a = case ftkAst a of
     FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1128,20 +1130,21 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           . primalPart . AstSFromX @sh @sh' sh $ a
   xiota @n @r = AstRaw $ AstFromS (knownSTK @(TKX '[Just n] r))
                 $ fromPrimal $ AstIotaS @n @r SNat
-  xappend @r @sh (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
-    FTKX @shu' shu' _ -> case ftkAst v of
-      FTKX @shv' shv' _ ->
-        withCastXS shu' $ \(shu :: ShS shu) -> case shu of
-          _ :$$ restu ->
-            withCastXS shv' $ \(shv :: ShS shv) -> case shv of
-              _ :$$ restv ->
-                case testEquality restu restv of
-                  Just Refl ->
-                    AstFromS (knownSTK @(TKX2 (Nothing ': sh) r))
-                    $ AstAppendS (AstSFromX @shu @shu' shu u)
-                                 (AstSFromX @shv @shv' shv v)
-                  _ -> error $ "xappend: shapes don't match: "
-                               ++ show (restu, restv)
+  xappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
+    FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
+      FTKX (Nested.SKnown n@SNat :$% shv') _ ->
+        withCastXS shu' $ \(shu :: ShS shu) ->
+          withCastXS shv' $ \(shv :: ShS shv) ->
+            case shxEqual shu' shv' of
+              Just Refl ->
+                gcastWith (unsafeCoerceRefl :: shu :~: shv) $
+                AstFromS (STKX (Nested.SKnown (snatPlus m n)
+                                :!% ssxFromShape shu')
+                               (ftkToSTK x))
+                $ AstAppendS (AstSFromX (m :$$ shu) u)
+                             (AstSFromX (n :$$ shv) v)
+              _ -> error $ "xappend: shapes don't match: "
+                           ++ show (shu', shv')
   xslice @_ @n @_ @r @sh2 i n@SNat k (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
