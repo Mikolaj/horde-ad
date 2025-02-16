@@ -51,8 +51,8 @@ import HordeAd.Core.Unwind
 -- * Symbolic reverse and forward derivative computation
 
 forwardPassByInterpretation
-  :: forall x z. KnownSTK x
-  => (AstTensor AstMethodLet FullSpan x
+  :: forall x z.
+     (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodShare PrimalSpan x

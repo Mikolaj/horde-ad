@@ -27,12 +27,11 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Nested (KnownShS (..), ListS (..), ShS (..))
-import Data.Array.Nested.Internal.Shape (shsAppend, shsProduct, withKnownShS)
+import Data.Array.Nested (ListS (..), ShS (..))
+import Data.Array.Nested.Internal.Shape (shsAppend, withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -42,8 +41,7 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 interpretAstPrimalRuntimeSpecialized
-  :: forall target n r.
-     (KnownNat n, ADReady target, Typeable r)
+  :: forall target n r. (ADReady target, Typeable r)
   => AstEnv target
   -> AstTensor AstMethodLet PrimalSpan (TKR n r) -> PrimalOf target (TKR n r)
 interpretAstPrimalRuntimeSpecialized !env t =
@@ -65,8 +63,7 @@ interpretAstPrimalRuntimeSpecialized !env t =
           _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 interpretAstPrimalSRuntimeSpecialized
-  :: forall target sh r.
-     (KnownShS sh, ADReady target, Typeable r)
+  :: forall target sh r. (ADReady target, Typeable r)
   => AstEnv target
   -> AstTensor AstMethodLet PrimalSpan (TKS sh r) -> PrimalOf target (TKS sh r)
 interpretAstPrimalSRuntimeSpecialized !env t =
@@ -88,33 +85,32 @@ interpretAstPrimalSRuntimeSpecialized !env t =
 -- It helps that usually the dual part is either trivially computed
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
-  :: forall target y. (ADReady target, KnownSTK y)
+  :: forall target y. ADReady target
   => AstEnv target
   -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstFromPrimal u) -> interpretAstPrimal env u
   AstPrimalPart (AstFromDual u) -> tconstantTarget 0 (ftkAst u)
-  AstCond @y2 b a1 a2 ->
+  AstCond b a1 a2 ->
     -- This avoids multiple ifF expansions in ADVal.
     let c = interpretAstBool env b
-    in tcond (knownSTK @y2) c
+    in tcond (ftkToSTK $ ftkAst a1) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
   _ ->
     tprimalPart (interpretAst env v1)
 
 interpretAstDual
-  :: forall target y. (ADReady target, KnownSTK y)
+  :: forall target y. ADReady target
   => AstEnv target
   -> AstTensor AstMethodLet DualSpan y -> DualOf target y
 interpretAstDual !env v1 = case v1 of
   AstDualPart (AstFromDual u) -> interpretAstDual env u
   _ ->
-    tdualPart (knownSTK @y) (interpretAst env v1)
+    tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
 
 interpretAstRuntimeSpecialized
-  :: forall target n s r.
-     (ADReady target, Typeable r, AstSpan s)
+  :: forall target n s r. (ADReady target, Typeable r, AstSpan s)
   => AstEnv target
   -> AstTensor AstMethodLet s (TKR n r) -> target (TKR n r)
 interpretAstRuntimeSpecialized !env t =
@@ -131,8 +127,7 @@ interpretAstRuntimeSpecialized !env t =
             _ -> error "an unexpected underlying scalar type"
 
 interpretAstSRuntimeSpecialized
-  :: forall target sh s r.
-     (ADReady target, Typeable r, AstSpan s)
+  :: forall target sh s r. (ADReady target, Typeable r, AstSpan s)
   => AstEnv target
   -> AstTensor AstMethodLet s (TKS sh r) -> target (TKS sh r)
 interpretAstSRuntimeSpecialized !env t =
@@ -174,54 +169,37 @@ interpretAst !env = \case
   --   tconcrete
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  AstMapAccumRDer k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemKnownSTK (ftkToSTK bShs)
-    , Dict <- lemKnownSTK (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
-    , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
-    let astk = ftkToSTK (ftkAst acc0)
-    in withKnownSTK astk $
-       withKnownSTK (adSTK astk) $
-       let f = interpretAstHFun env f0
-           df = interpretAstHFun env df0
-           rf = interpretAstHFun env rf0
-           acc02 = interpretAst env acc0
-           es2 = interpretAst env es
-       in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
-  AstMapAccumLDer k bShs eShs f0 df0 rf0 acc0 es
-    | Dict <- lemKnownSTK (ftkToSTK bShs)
-    , Dict <- lemKnownSTK (ftkToSTK eShs)
-    , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
-    , Dict <- lemKnownSTKOfAD (ftkToSTK eShs) ->
-    let astk = ftkToSTK (ftkAst acc0)
-    in withKnownSTK astk $
-       withKnownSTK (adSTK astk) $
-       let f = interpretAstHFun env f0
-           df = interpretAstHFun env df0
-           rf = interpretAstHFun env rf0
-           acc02 = interpretAst env acc0
-           es2 = interpretAst env es
-       in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+  AstMapAccumRDer k bShs eShs f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
+        acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+    in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+  AstMapAccumLDer k bShs eShs f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFun env f0
+        df = interpretAstHFun env df0
+        rf = interpretAstHFun env rf0
+        acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+    in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
   AstApply stk t ll ->
-    let tstk = ftkToSTK (ftkAst ll)
-    in withKnownSTK tstk $
-       withKnownSTK stk $
-       let t2 = interpretAstHFun env t
-             -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
-             -- FullSpan terms
-           ll2 = interpretAst env ll
-             -- these are, perhaps, FullSpan terms, interpreted in the same
-             -- as above so that the mixture becomes compatible; if the spans
-             -- agreed, the AstApply would likely be simplified before
-             -- getting interpreted
-       in tApply stk t2 ll2
+    let t2 = interpretAstHFun env t
+          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
+          -- FullSpan terms
+        ll2 = interpretAst env ll
+          -- these are, perhaps, FullSpan terms, interpreted in the same
+          -- as above so that the mixture becomes compatible; if the spans
+          -- agreed, the AstApply would likely be simplified before
+          -- getting interpreted
+    in tApply stk t2 ll2
   AstVar _ftk var ->
    let var2 = mkAstVarName @FullSpan (varNameToSTK var) (varNameToAstVarId var)  -- TODO
 -- TODO: this unsafe call is needed for benchmark VTO1.
 -- Once VTO1 is fixed in another way, try to make it safe.
 -- BTW, the old assertion tests the same thing and more.
    in case DMap.Unsafe.lookupUnsafe var2 env of
-    Just (AstEnvElemRep t) ->
+    Just (AstEnvElem t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
       assert (tftk (varNameToSTK var) t == _ftk
               `blame` (tftk (varNameToSTK var) t, _ftk, var, t))
@@ -229,31 +207,26 @@ interpretAst !env = \case
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
 -- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
-  AstCond @y2 b a1 a2 ->
-    let stk = ftkToSTK (ftkAst a1)
-    in withKnownSTK stk $
-       let c = interpretAstBool env b
-       in tcond (knownSTK @y2) c (interpretAst env a1) (interpretAst env a2)
+  AstCond b a1 a2 ->
+    let c = interpretAstBool env b
+    in tcond (ftkToSTK (ftkAst a1))
+             c (interpretAst env a1) (interpretAst env a2)
   AstBuild1 snat stk (var, v) ->
-    withKnownSTK stk $
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat stk f
   AstConcrete (RepF ftk a) -> tconcrete ftk a
 
   AstLet var u v -> case ftkToSTK (ftkAst u) of
     -- We assume there are no nested lets with the same variable.
-    stk@(STKR _ STKScalar) ->
-      withKnownSTK stk $
+    STKR _ STKScalar ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    stk@(STKS _ STKScalar) ->
-      withKnownSTK stk $
+    STKS _ STKScalar ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    stk ->
-      withKnownSTK stk $
+    _ ->
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
@@ -288,13 +261,8 @@ interpretAst !env = \case
     -- of the interpretation of the same AST but marked with @FullSpan@.
     -- Consequently, the result is a dual part, despite the appearances.
   AstFromPrimal a ->
-    let stk = ftkToSTK (ftkAst a)
-    in withKnownSTK stk $
-       tfromPrimal stk (interpretAstPrimal env a)
-  AstFromDual a ->
-    let stk = ftkToSTK (ftkAst a)
-    in withKnownSTK stk $
-       tfromDual (interpretAstDual env a)
+    tfromPrimal (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
+  AstFromDual a -> tfromDual (interpretAstDual env a)
 
   AstSumOfList args -> case args of
     a :| _ ->
@@ -507,7 +475,7 @@ interpretAst !env = \case
       sfromX $ interpretAst env v
 
   AstReplicate0NS sh v -> case ftkToSTK (ftkAst v) of
-    STKS _ x | SNat <- shsProduct sh ->
+    STKS _ x ->
       withKnownShS sh $
       withKnownSTK x $
       sreplicate0N (interpretAst env v)
@@ -528,8 +496,7 @@ interpretAst !env = \case
     smatmul2 (interpretAst env u) (interpretAst env v)
 
 interpretAstHFun
-  :: forall target x y. KnownSTK x
-  => BaseTensor target
+  :: forall target x y. BaseTensor target
   => AstEnv target -> AstHFun x y -> HFunOf target x y
 interpretAstHFun _env = \case
   AstLambda ~(var, ftk, l) ->

@@ -20,10 +20,7 @@ import Prelude
 
 import Data.Int (Int64)
 import Data.Maybe (isJust)
-import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable)
-
-import Data.Array.Nested (KnownShS (..))
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -168,8 +165,8 @@ forwardPassByApplication g hVectorPrimal _var _hVector =
   in g varInputs
 
 revEvalArtifact
-  :: forall x z. KnownSTK x
-  => AstArtifactRev x z
+  :: forall x z.
+     AstArtifactRev x z
   -> RepN x
   -> Maybe (RepN (ADTensorKind z))
   -> (RepN (ADTensorKind x), RepN z)
@@ -344,156 +341,132 @@ cfwdBoth f vals ds =
 -- would cause trouble.
 
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
-  :: (KnownNat n, Typeable r)
+  :: Typeable r
   => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR n r)
   -> RepN (TKR n r) #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
-  :: (KnownNat n, Typeable r)
+  :: Typeable r
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR n r)
   -> AstRaw PrimalSpan (TKR n r) #-}
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
-  :: (KnownNat n, Typeable r)
+  :: Typeable r
   => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR n r)
   -> RepN (TKR n r) #-}
 
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: (KnownShS sh, Typeable r)
+  :: Typeable r
   => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
   -> RepN (TKS sh r) #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: (KnownShS sh, Typeable r)
+  :: Typeable r
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
   -> AstRaw PrimalSpan (TKS sh r) #-}
 {-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: (KnownShS sh, Typeable r)
+  :: Typeable r
   => AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
   -> RepN (TKS sh r) #-}
 
 {-# SPECIALIZE interpretAstPrimal
-  :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR n r)
   -> RepN (TKR n r) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR n Double)
   -> RepN (TKR n Double) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR n Float)
   -> RepN (TKR n Float) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet PrimalSpan (TKR n Int64)
   -> RepN (TKR n Int64) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR n r)
   -> AstRaw PrimalSpan (TKR n r) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR n Double)
   -> AstRaw PrimalSpan (TKR n Double) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR n Float)
   -> AstRaw PrimalSpan (TKR n Float) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan (TKR n Int64)
   -> AstRaw PrimalSpan (TKR n Int64) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: (KnownNat n, GoodScalar r)
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR n r)
   -> RepN (TKR n r) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR n Double)
   -> RepN (TKR n Double) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR n Float)
   -> RepN (TKR n Float) #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: KnownNat n
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet PrimalSpan (TKR n Int64)
   -> RepN (TKR n Int64) #-}
 
 {-# SPECIALIZE interpretAstDual
-  :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR n r)
   -> Delta RepN (TKR n r) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR n Double)
   -> Delta RepN (TKR n Double) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR n Float)
   -> Delta RepN (TKR n Float) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv (ADVal RepN)
+  :: AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet DualSpan (TKR n Int64)
   -> Delta RepN (TKR n Int64) #-}
 {-# SPECIALIZE interpretAstDual
-  :: (KnownNat n, GoodScalar r)
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR n r)
   -> Delta (AstRaw PrimalSpan) (TKR n r) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR n Double)
   -> Delta (AstRaw PrimalSpan) (TKR n Double) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR n Float)
   -> Delta (AstRaw PrimalSpan) (TKR n Float) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv (ADVal (AstRaw PrimalSpan))
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan (TKR n Int64)
   -> Delta (AstRaw PrimalSpan) (TKR n Int64) #-}
 {-# SPECIALIZE interpretAstDual
-  :: (KnownNat n, GoodScalar r)
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR n r)
   -> DummyDualTarget (TKR n r) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR n Double)
   -> DummyDualTarget (TKR n Double) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR n Float)
   -> DummyDualTarget (TKR n Float) #-}
 {-# SPECIALIZE interpretAstDual
-  :: KnownNat n
-  => AstEnv RepN
+  :: AstEnv RepN
   -> AstTensor AstMethodLet DualSpan (TKR n Int64)
   -> DummyDualTarget (TKR n Int64) #-}
 

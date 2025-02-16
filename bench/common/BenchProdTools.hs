@@ -187,7 +187,7 @@ crevRankedNotSharedLtProd =
 -- We can define sproduct if this benchmark ends up used anywhere,
 -- because the current codomain of gradientFromDelta rules out
 -- low-level hacky pipeline tricks that could avoid indexing.
-rankedTProd :: (BaseTensor target, GoodScalar r, KnownNat n)
+rankedTProd :: (BaseTensor target, LetTensor target, GoodScalar r, KnownNat n)
             => target (TKS '[n] r) -> target (TKS '[] r)
 rankedTProd = sfold (*) (sscalar 1)
 

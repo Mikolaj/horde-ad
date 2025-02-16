@@ -20,10 +20,10 @@ import Prelude
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum
-import GHC.Exts (IsList (..))
+import Data.Foldable qualified as Foldable
 import Text.Show (showListWith)
 
-import Data.Array.Nested (KnownShS (..))
+import Data.Array.Nested.Internal.Shape (listsToList)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Ops
@@ -38,7 +38,7 @@ type AstEnv target = DEnumMap (AstVarName FullSpan) (AstEnvElem target)
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (target :: Target) (y :: TensorKindType) where
-  AstEnvElemRep :: target y -> AstEnvElem target y
+  AstEnvElem :: target y -> AstEnvElem target y
 
 deriving instance Show (target y) => Show (AstEnvElem target y)
 
@@ -60,34 +60,34 @@ showsPrecAstEnv d demap =
 -- An informal invariant: if s is FullSpan, target is dual numbers,
 -- and if s is PrimalSpan, target is their primal part.
 -- The same for all functions below.
-extendEnv :: forall target s y. KnownSTK y
-          => AstVarName s y -> target y -> AstEnv target
+extendEnv :: forall target s y.
+             AstVarName s y -> target y -> AstEnv target
           -> AstEnv target
 extendEnv var !t !env =
   let var2 :: AstVarName FullSpan y
-      var2 = mkAstVarName knownSTK (varNameToAstVarId var)
+      var2 = mkAstVarName (varNameToSTK var) (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
-                        var2 (AstEnvElemRep t) env
+                        var2 (AstEnvElem t) env
 
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target
            -> AstEnv target
 extendEnvI var !i !env = extendEnv var (tfromPrimal STKScalar i) env
 
-extendEnvVarsS :: forall target sh. (KnownShS sh, BaseTensor target)
+extendEnvVarsS :: forall target sh. BaseTensor target
                => AstVarListS sh -> IxSOf target sh
                -> AstEnv target
                -> AstEnv target
 extendEnvVarsS vars !ix !env =
-  let assocs = zip (toList vars) (toList ix)
+  let assocs = zip (listsToList vars) (Foldable.toList ix)
   in foldr (uncurry extendEnvI) env assocs
 
 
 -- * The operations for interpreting bindings
 
 interpretLambdaIndexToIndexS
-  :: forall target sh sh2 ms. (KnownShS sh, BaseTensor target)
+  :: forall target sh sh2 ms. BaseTensor target
   => (AstEnv target -> AstInt ms -> IntOf target)
   -> AstEnv target -> (AstVarListS sh, AstIxS ms sh2)
   -> IxSOf target sh
@@ -97,8 +97,7 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
 
 interpretLambdaHFun
-  :: KnownSTK x
-  => (forall target z. ADReady target
+  :: (forall target z. ADReady target
       => AstEnv target -> AstTensor ms s z
       -> target z)
   -> (AstVarName s x, AstTensor ms s y)
