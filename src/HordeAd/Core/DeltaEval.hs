@@ -401,16 +401,7 @@ evalRev !s !c d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     evalRev s (tsumShare snat (adSTK stk) c) d
   DeltaMapAccumR k bShs eShs q es _df rf acc0' es'
-   | Dict <- lemKnownSTK (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTK (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (adSTK $ ftkToSTK bShs)
-   , Dict <- lemKnownSTKOfBuild k (adSTK $ ftkToSTK eShs)
-   , Refl <- lemBuildOfAD k (ftkToSTK bShs)
+   | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->
     let accShs = ftkDelta acc0'
         accShsAD = adFTK accShs
@@ -431,16 +422,7 @@ evalRev !s !c d0 = case d0 of
         s2 = evalRev s dacc acc0'
     in evalRev s2 des es'
   DeltaMapAccumL k bShs eShs q es _df rf acc0' es'
-   | Dict <- lemKnownSTK (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTK (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (adSTK $ ftkToSTK bShs)
-   , Dict <- lemKnownSTKOfBuild k (adSTK $ ftkToSTK eShs)
-   , Refl <- lemBuildOfAD k (ftkToSTK bShs)
+   | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->
     let accShs = ftkDelta acc0'
         accShsAD = adFTK accShs
@@ -991,15 +973,7 @@ evalFwd params s d0 = case d0 of
     let (s2, t) = evalFwd params s d
     in (s2, treplicateShare snat (adSTK stk) t)
   DeltaMapAccumR k bShs eShs q es df _rf acc0' es'
-   | Dict <- lemKnownSTK (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTK (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (adSTK $ ftkToSTK eShs)
-   , Refl <- lemBuildOfAD k (ftkToSTK bShs)
+   | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->
     let accShs = ftkDelta acc0'
         accShsAD = adFTK accShs
@@ -1017,15 +991,7 @@ evalFwd params s d0 = case d0 of
                        cacc0
                        (tpair ces (tpair q es)))
   DeltaMapAccumL k bShs eShs q es df _rf acc0' es'
-   | Dict <- lemKnownSTK (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTK (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfAD (ftkToSTK bShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK $ ftkDelta acc0')
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfBuild k (adSTK $ ftkToSTK eShs)
-   , Refl <- lemBuildOfAD k (ftkToSTK bShs)
+   | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->
     let accShs = ftkDelta acc0'
         accShsAD = adFTK accShs

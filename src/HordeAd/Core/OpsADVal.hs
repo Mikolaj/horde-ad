@@ -399,15 +399,9 @@ instance ( ADReadyNoLet target, ShareTensor target
     -- this is needed only to help GHC 9.10 compile the instance
   ttranspose perm (D u u') =
     dD (ttranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
-  tmapAccumRDer @accShs @bShs @eShs
-                _ !k accShs bShs eShs f df rf acc0D esD
-   | Dict <- lemKnownSTKOfBuild k (knownSTK @accShs)
-   , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @eShs) =
+  tmapAccumRDer @accShs @bShs @eShs _ !k accShs bShs eShs f df rf acc0D esD
+   | Dict <- lemKnownSTKOfBuild k (ftkToSTK accShs)
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let es = tshare esNotShared
@@ -422,7 +416,7 @@ instance ( ADReadyNoLet target, ShareTensor target
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
            => f (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                               (TKProduct accShs eShs))
+                           (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
@@ -434,8 +428,8 @@ instance ( ADReadyNoLet target, ShareTensor target
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
            => f (TKProduct (ADTensorKind (TKProduct accShs
-                                                        (TKProduct accShs bShs)))
-                               (TKProduct accShs eShs))
+                                         (TKProduct accShs bShs)))
+                           (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs eShs))
         rg !args =
           tlet args $ \ args1 ->
@@ -445,8 +439,9 @@ instance ( ADReadyNoLet target, ShareTensor target
               in tlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = addTarget knownSTK (tproject1 daccRes_deRes)
-                                                    (tproject1 db1)
+                  let added = addTarget (adSTK $ ftkToSTK accShs)
+                                        (tproject1 daccRes_deRes)
+                                        (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumRDer (Proxy @target)
                           k accShs codomainShs eShs
@@ -467,15 +462,10 @@ instance ( ADReadyNoLet target, ShareTensor target
         (q, bs) = tunpair qbs
         dual = DeltaMapAccumR k bShs eShs q es df rf acc0' es'
     in dD (tpair accFin bs) dual
-  tmapAccumLDer @accShs @bShs @eShs
-                _ !k accShs bShs eShs f df rf acc0D esD
-   | Dict <- lemKnownSTKOfBuild k (knownSTK @accShs)
-   , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfBuild k (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfBuild k (knownSTK @eShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @accShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @bShs)
-   , Dict <- lemKnownSTKOfAD (knownSTK @eShs) =
+  tmapAccumLDer @accShs @bShs @eShs _ !k accShs bShs eShs f df rf acc0D esD
+   | Dict <- lemKnownSTKOfBuild k (ftkToSTK accShs)
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
+   , Dict <- lemKnownSTKOfAD (ftkToSTK accShs) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let es = tshare esNotShared
@@ -490,7 +480,7 @@ instance ( ADReadyNoLet target, ShareTensor target
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
            => f (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                               (TKProduct accShs eShs))
+                           (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
           tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
@@ -502,8 +492,8 @@ instance ( ADReadyNoLet target, ShareTensor target
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
            => f (TKProduct (ADTensorKind (TKProduct accShs
-                                                        (TKProduct accShs bShs)))
-                               (TKProduct accShs eShs))
+                                         (TKProduct accShs bShs)))
+                           (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs eShs))
         rg !args =
           tlet args $ \ args1 ->
@@ -513,8 +503,9 @@ instance ( ADReadyNoLet target, ShareTensor target
               in tlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = addTarget knownSTK (tproject1 daccRes_deRes)
-                                                    (tproject1 db1)
+                  let added = addTarget (adSTK $ ftkToSTK accShs)
+                                        (tproject1 daccRes_deRes)
+                                        (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumLDer (Proxy @target)
                           k accShs codomainShs eShs

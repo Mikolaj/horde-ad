@@ -580,10 +580,10 @@ instance BaseTensor RepN where
 
 -- * MapAccum internal definitions
 
-ravel :: forall k y. KnownSTK y
-      => SNat k -> [RepN y]
+ravel :: forall k y.
+         SNat k -> STensorKind y -> [RepN y]
       -> RepN (BuildTensorKind k y)
-ravel k@SNat t = case knownSTK @y of
+ravel k@SNat stk t = case stk of
   STKScalar -> sfromList $ sfromK <$> NonEmpty.fromList t
   STKR SNat x | Dict <- lemKnownSTK x ->
     rfromList $ NonEmpty.fromList t
@@ -591,18 +591,14 @@ ravel k@SNat t = case knownSTK @y of
     withKnownShS sh $ sfromList $ NonEmpty.fromList t
   STKX sh x | Dict <- lemKnownSTK x ->
     withKnownShX sh $ xfromList $ NonEmpty.fromList t
-  STKProduct @y1 @y2 stk1 stk2
-    | Dict <- lemKnownSTK stk1
-    , Dict <- lemKnownSTK stk2
-    , Dict <- lemKnownSTKOfBuild k (knownSTK @y1)
-    , Dict <- lemKnownSTKOfBuild k (knownSTK @y2) ->
+  STKProduct stk1 stk2 ->
       let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
-      in tpair (ravel k lt1) (ravel k lt2)
+      in tpair (ravel k stk1 lt1) (ravel k stk2 lt2)
 
-unravel :: forall k y. KnownSTK y
-        => SNat k -> RepN (BuildTensorKind k y)
+unravel :: forall k y.
+           SNat k -> STensorKind y -> RepN (BuildTensorKind k y)
         -> [RepN y]
-unravel k@SNat t = case knownSTK @y of
+unravel k@SNat stk t = case stk of
   STKScalar -> map kfromS $ sunravelToList t
   STKR SNat x | Dict <- lemKnownSTK x ->
     runravelToList t
@@ -610,57 +606,47 @@ unravel k@SNat t = case knownSTK @y of
     withKnownShS sh $ sunravelToList t
   STKX sh x | Dict <- lemKnownSTK x ->
     withKnownShX sh $ xunravelToList t
-  STKProduct @y1 @y2 stk1 stk2
-    | Dict <- lemKnownSTK stk1
-    , Dict <- lemKnownSTK stk2
-    , Dict <- lemKnownSTKOfBuild k (knownSTK @y1)
-    , Dict <- lemKnownSTKOfBuild k (knownSTK @y2) ->
-      let lt1 = unravel k $ tproject1 t
-          lt2 = unravel k $ tproject2 t
+  STKProduct stk1 stk2 ->
+      let lt1 = unravel k stk1 $ tproject1 t
+          lt2 = unravel k stk2 $ tproject2 t
       in zipWith tpair lt1 lt2
 
 oRtmapAccumR
   :: forall k accShs bShs eShs.
-     (KnownSTK bShs, KnownSTK eShs)
-  => SNat k
+     SNat k
   -> FullTensorKind accShs
   -> FullTensorKind bShs
   -> FullTensorKind eShs
-  -> (RepN accShs -> RepN eShs
-      -> RepN (TKProduct accShs bShs))
+  -> (RepN accShs -> RepN eShs -> RepN (TKProduct accShs bShs))
   -> RepN accShs
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
-oRtmapAccumR k _ bShs _ f acc0 es
- | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (knownSTK @bShs) (constantTarget 0 bShs))
+oRtmapAccumR k _ bShs eShs f acc0 es = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (ftkToSTK bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
-        (xout, lout) = mapAccumR g acc0 (unravel k es)
-    in tpair xout (ravel k lout)
+        (xout, lout) = mapAccumR g acc0 (unravel k (ftkToSTK eShs) es)
+    in tpair xout (ravel k (ftkToSTK bShs) lout)
       -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
 
 oRtmapAccumL
   :: forall k accShs bShs eShs.
-     (KnownSTK bShs, KnownSTK eShs)
-  => SNat k
+     SNat k
   -> FullTensorKind accShs
   -> FullTensorKind bShs
   -> FullTensorKind eShs
-  -> (RepN accShs -> RepN eShs
-      -> RepN (TKProduct accShs bShs))
+  -> (RepN accShs -> RepN eShs -> RepN (TKProduct accShs bShs))
   -> RepN accShs
   -> RepN (BuildTensorKind k eShs)
   -> RepN (TKProduct accShs (BuildTensorKind k bShs))
-oRtmapAccumL k _ bShs _ f acc0 es
- | Dict <- lemKnownSTKOfBuild k (knownSTK @bShs) = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (knownSTK @bShs) (constantTarget 0 bShs))
+oRtmapAccumL k _ bShs eShs f acc0 es = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (ftkToSTK bShs) (constantTarget 0 bShs))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
-        (xout, lout) = mapAccumL g acc0 (unravel k es)
-    in tpair xout (ravel k lout)
+        (xout, lout) = mapAccumL g acc0 (unravel k (ftkToSTK eShs) es)
+    in tpair xout (ravel k (ftkToSTK bShs) lout)
 
 
 -- * Ranked internal definitions

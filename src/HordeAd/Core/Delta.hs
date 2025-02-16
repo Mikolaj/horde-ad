@@ -517,11 +517,9 @@ ftkDelta = \case
     d : _ -> buildFTK snat (ftkDelta d)
   DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
   DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
-  DeltaMapAccumR k bShs _eShs _q _es _df _rf acc0' _es'
-    | Dict <- lemKnownSTKOfBuild k (ftkToSTK bShs) ->
+  DeltaMapAccumR k bShs _eShs _q _es _df _rf acc0' _es' ->
       FTKProduct (ftkDelta acc0') (buildFTK k bShs)
-  DeltaMapAccumL k bShs _eShs _q _es _df _rf acc0' _es'
-    | Dict <- lemKnownSTKOfBuild k (ftkToSTK bShs) ->
+  DeltaMapAccumL k bShs _eShs _q _es _df _rf acc0' _es' ->
       FTKProduct (ftkDelta acc0') (buildFTK k bShs)
 
   DeltaShare _ d -> ftkDelta d

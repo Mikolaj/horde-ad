@@ -1651,9 +1651,8 @@ class ( Num (IntOf target)
   -- > let f = ...; df = tfwd f; rf = trev f
   -- > in ... (tmapAccumRDer f df rf ...) ... (tmapAccumLDer f df rf ...)
   tmapAccumR
-    :: forall k accShs bShs eShs.
-       (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
-    => Proxy target
+    :: forall accShs bShs eShs k.
+       Proxy target
     -> SNat k
     -> FullTensorKind accShs
     -> FullTensorKind bShs
@@ -1677,8 +1676,8 @@ class ( Num (IntOf target)
                      (trevDt @target xftk $ HFun fl)
                      acc0 es
   tmapAccumRDer
-    :: (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
-    => Proxy target
+    :: forall accShs bShs eShs k.
+       Proxy target
     -> SNat k
     -> FullTensorKind accShs  -- ^ shapes of acc, the accumulator
     -> FullTensorKind bShs -- ^ shapes of b
@@ -1697,9 +1696,8 @@ class ( Num (IntOf target)
          -- ^ (x, bs) :: (accShs, k ': bShs)
   -- | A strict left mapAccum.
   tmapAccumL
-    :: forall k accShs bShs eShs.
-       (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
-    => Proxy target
+    :: forall accShs bShs eShs k.
+       Proxy target
     -> SNat k
     -> FullTensorKind accShs
     -> FullTensorKind bShs
@@ -1723,8 +1721,8 @@ class ( Num (IntOf target)
                      (trevDt @target xftk $ HFun fl)
                      acc0 es
   tmapAccumLDer
-    :: (KnownSTK accShs, KnownSTK bShs, KnownSTK eShs)
-    => Proxy target
+    :: forall accShs bShs eShs k.
+       Proxy target
     -> SNat k
     -> FullTensorKind accShs
     -> FullTensorKind bShs
