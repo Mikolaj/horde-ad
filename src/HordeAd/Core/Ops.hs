@@ -208,9 +208,9 @@ class LetTensor (target :: Target) where
   -- by hiding some (or none) type information (so the codomain has to be
   -- a "subtype" of the domain) or error.
   -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
-  tfromS :: forall y z. (BaseTensor target, KnownSTK y, KnownSTK z)
-         => target y -> target z
-  tfromS v = case (knownSTK @y, knownSTK @z) of
+  tfromS :: BaseTensor target
+         => STensorKind y -> STensorKind z -> target y -> target z
+  tfromS ystk zstk v = case (ystk, zstk) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
       case testEquality (typeRep @ry) (typeRep @rz) of
@@ -229,13 +229,10 @@ class LetTensor (target :: Target) where
           withKnownShX shz $
           xfromS v
         _ -> error "tfromS: tensor kinds don't match"
-    (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
-      | Dict <- lemKnownSTK stky1
-      , Dict <- lemKnownSTK stky2
-      , Dict <- lemKnownSTK stkz1
-      , Dict <- lemKnownSTK stkz2 ->
+    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
         tlet v $ \ !u3 ->
-          tpair (tfromS (tproject1 u3)) (tfromS (tproject2 u3))
+          tpair (tfromS ystk1 zstk1 (tproject1 u3))
+                (tfromS ystk2 zstk2 (tproject2 u3))
     _ -> error "tfromS: wrong tensor kinds"
   tD :: BaseTensor target
      => STensorKind y -> PrimalOf target y -> DualOf target y
@@ -326,9 +323,9 @@ class ShareTensor (target :: Target) where
       let (u1, u2) = tunpair u
       in tpair (tindexBuildShare snat stk1 u1 i)
                (tindexBuildShare snat stk2 u2 i)
-  tfromSShare :: forall y z. (BaseTensor target, KnownSTK y, KnownSTK z)
-              => target y -> target z
-  tfromSShare v = case (knownSTK @y, knownSTK @z) of
+  tfromSShare :: BaseTensor target
+              => STensorKind y -> STensorKind z -> target y -> target z
+  tfromSShare ystk zstk v = case (ystk, zstk) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
       case testEquality (typeRep @ry) (typeRep @rz) of
@@ -347,13 +344,9 @@ class ShareTensor (target :: Target) where
           withKnownShX shx $
           xfromS v
         _ -> error "tfromS: tensor kinds don't match"
-    (STKProduct stky1 stky2, STKProduct stkz1 stkz2)
-      | Dict <- lemKnownSTK stky1
-      , Dict <- lemKnownSTK stky2
-      , Dict <- lemKnownSTK stkz1
-      , Dict <- lemKnownSTK stkz2 ->
+    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
         let (u1, u2) = tunpair v
-        in tpair (tfromSShare u1) (tfromSShare u2)
+        in tpair (tfromSShare ystk1 zstk1 u1) (tfromSShare ystk2 zstk2 u2)
     _ -> error "tfromS: wrong tensor kinds"
 
 -- | The superclasses indicate that it's not only a container array,
@@ -1309,7 +1302,7 @@ class ( Num (IntOf target)
   kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
   default kfromS :: forall r. (LetTensor target, GoodScalar r)
                  => target (TKS '[] r) -> target (TKScalar r)
-  kfromS = tfromS
+  kfromS = tfromS knownSTK knownSTK
   kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
   kfromX = kfromS . sfromX
   rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
@@ -1318,7 +1311,7 @@ class ( Num (IntOf target)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   default rfromS :: forall r sh. (LetTensor target, KnownSTK r, KnownShS sh)
                  => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
-  rfromS | SNat <- shsRank (knownShS @sh) = tfromS
+  rfromS = tfromS knownSTK (STKR (shsRank (knownShS @sh)) (knownSTK @r))
   rfromX :: (KnownShX sh, KnownSTK r)
          => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
   rfromX a = case tftk knownSTK a of
@@ -1327,15 +1320,15 @@ class ( Num (IntOf target)
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
-  sfromR :: (KnownShS sh, KnownNat (Rank sh), KnownSTK r)
+  sfromR :: (KnownShS sh, KnownSTK r)
          => target (TKR2 (Rank sh) r) -> target (TKS2 sh r)
   sfromX :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK r)
          => target (TKX2 sh' r) -> target (TKS2 sh r)
   xfromK :: GoodScalar r => target (TKScalar r) -> target (TKX '[] r)
   xfromK = xfromS . sfromK
-  xfromR :: (KnownShX sh, KnownNat (Rank sh), KnownSTK r)
-         => target (TKR2 (Rank sh) r) -> target (TKX2 sh r)
-  xfromR a = case tftk knownSTK a of
+  xfromR :: forall sh' r. (KnownShX sh', KnownSTK r)
+         => target (TKR2 (Rank sh') r) -> target (TKX2 sh' r)
+  xfromR a = case tftk (STKR (ssxRank (knownShX @sh')) (knownSTK @r)) a of
     FTKR shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
@@ -1344,7 +1337,7 @@ class ( Num (IntOf target)
          => target (TKS2 sh r) -> target (TKX2 sh' r)
   default xfromS :: (LetTensor target, KnownShS sh, KnownShX sh', KnownSTK r)
                  => target (TKS2 sh r) -> target (TKX2 sh' r)
-  xfromS = tfromS
+  xfromS = tfromS knownSTK knownSTK
 
   -- Nesting/unnesting
   rnest :: forall n m x.

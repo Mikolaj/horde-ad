@@ -495,9 +495,7 @@ interpretAst !env = \case
       withKnownSTK x $
       sunNest $ interpretAst env v
 
-  AstFromS stkz v | Dict <- lemKnownSTK (ftkToSTK (ftkAst v))
-                  , Dict <- lemKnownSTK stkz ->
-    tfromS $ interpretAst env v
+  AstFromS stkz v -> tfromS (ftkToSTK (ftkAst v)) stkz (interpretAst env v)
   AstSFromK t -> sfromK $ interpretAst env t
   AstSFromR sh v -> case ftkToSTK (ftkAst v) of
     STKR SNat x ->

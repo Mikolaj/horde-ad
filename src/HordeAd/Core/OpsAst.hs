@@ -187,7 +187,7 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> unshareAstTensor . unAstRaw
       _ -> error "tunshare: used not at PrimalSpan"
-  tfromS @_ @z = astFromS (knownSTK @z)
+  tfromS _ zstk = astFromS zstk
 
 -- The checks and error messages in these function result in complete
 -- shape-checking of the ranked and mixed user code (shaped is already
@@ -778,7 +778,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
-  tfromSShare @_ @z (AstRaw a) = AstRaw $ AstFromS (knownSTK @z) a
+  tfromSShare _ zstk (AstRaw a) = AstRaw $ AstFromS zstk a
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   tconstantTarget = constantTarget
@@ -1349,7 +1349,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
              $ tlet (unAstNoVectorize u)
                     (unAstNoVectorize . f . AstNoVectorize)
   toShare t = toShare $ unAstNoVectorize t
-  tfromS = AstNoVectorize . tfromS . unAstNoVectorize
+  tfromS ystk zstk = AstNoVectorize . tfromS ystk zstk . unAstNoVectorize
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tconstantTarget r ftk = AstNoVectorize $ tconstantTarget r ftk
@@ -1539,7 +1539,7 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
              $ astLetFunNoSimplify (unAstNoSimplify u)
                                    (unAstNoSimplify . f . AstNoSimplify)
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
-  tfromS @_ @z = AstNoSimplify . AstFromS (knownSTK @z) . unAstNoSimplify
+  tfromS _ zstk = AstNoSimplify . AstFromS zstk . unAstNoSimplify
 
 wAstNoSimplify :: AstRaw s y -> AstNoSimplify s y
 wAstNoSimplify =

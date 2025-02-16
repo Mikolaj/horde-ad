@@ -116,7 +116,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   tunshare = id
   -- This avoids product eta-expansions for AST instance primal,
   -- though contangent expands anyway.
-  tfromS (D u u') = dDnotShared (tfromSShare u) (dFromS knownSTK u')
+  tfromS ystk zstk (D u u') =
+    dDnotShared (tfromSShare ystk zstk u) (dFromS zstk u')
   tD stk t d | Dict <- lemKnownSTK stk = dD t d
 
 instance (ADReadyNoLet target, ShareTensor target)
@@ -125,7 +126,8 @@ instance (ADReadyNoLet target, ShareTensor target)
   tunpair (D u u') = let (u1, u2) = tunpair u
                          (d1, d2) = unDeltaPair u'
                      in (dDnotShared u1 d1, dDnotShared u2 d2)
-  tfromSShare (D u u') = dDnotShared (tfromSShare u) (dFromS knownSTK u')
+  tfromSShare ystk zstk (D u u') =
+    dDnotShared (tfromSShare ystk zstk u) (dFromS zstk u')
 
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
