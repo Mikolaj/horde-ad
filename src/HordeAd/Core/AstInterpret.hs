@@ -449,11 +449,11 @@ interpretAst !env = \case
       let t1 = interpretAst env a
           t2 = interpretAst env b
       in sappend t1 t2
-  AstSliceS @i SNat SNat SNat v -> case ftkToSTK (ftkAst v) of
+  AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
     STKS (_ :$$ sh) x ->
       withKnownShS sh $
       withKnownSTK x $
-      sslice (Proxy @i) Proxy (interpretAst env v)
+      sslice i n k $ interpretAst env v
   AstReverseS v -> case ftkToSTK (ftkAst v) of
     STKS (SNat :$$ sh) x ->
       withKnownShS sh $

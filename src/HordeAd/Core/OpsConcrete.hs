@@ -307,8 +307,8 @@ instance BaseTensor RepN where
     Just l -> RepN $ Nested.sfromList1 SNat $ NonEmpty.map fromInteger l
   sappend @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.sappend (unRepN u) (unRepN v)
-  sslice @r @i _ _ | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.sslice (SNat @i) SNat . unRepN
+  sslice @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.sslice i n . unRepN
   sreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.srev1 . unRepN
   sreshape @r | Dict <- eltDictRep (knownSTK @r) =
@@ -449,8 +449,8 @@ instance BaseTensor RepN where
              in RepN $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX) t
   xappend @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.mappend (unRepN u) (unRepN v)
-  xslice @r @i _ _ | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.mslice (SNat @i) SNat . unRepN
+  xslice @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.mslice i n . unRepN
   xreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mrev1 . unRepN
   xtranspose @perm @r | Dict <- eltDictRep (knownSTK @r) =

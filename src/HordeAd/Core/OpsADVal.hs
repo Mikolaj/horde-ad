@@ -262,8 +262,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   siota = fromPrimalADVal siota
   sappend (D u u') (D v v') =
     dD (sappend u v) (DeltaAppendS u' v')
-  sslice @_ @i i_proxy n_proxy (D u u') =
-    dD (sslice i_proxy n_proxy u) (DeltaSliceS @i SNat SNat SNat u')
+  sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
 
   sreshape @_ @sh @sh2 t@(D u u') = case sameShape @sh2 @sh of
@@ -328,8 +327,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   xiota = fromPrimalADVal xiota
   xappend (D u u') (D v v') =
     dD (xappend u v) (DeltaAppendX u' v')
-  xslice @_ @i i_proxy n_proxy (D u u') =
-    dD (xslice i_proxy n_proxy u) (DeltaSliceX @i SNat SNat SNat u')
+  xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
   xreverse (D u u') = withKnownShX (ssxFromShape $ xshape u) $
                       dD (xreverse u) (DeltaReverseX u')
   xtranspose @perm @_ @sh (D u u') =

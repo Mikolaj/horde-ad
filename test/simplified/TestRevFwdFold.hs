@@ -2557,8 +2557,7 @@ testSin0FoldNestedSi = do
                                                         (sreplicate @_ @3 a2)))
                                                 x1 (sreplicate @_ @1 a1))
                                               a (sscan (-) (srepl 0)
-                                                   (sslice (Proxy @0)
-                                                           (Proxy @1) x))))
+                                                   (sslice (SNat @0) (SNat @1) SNat x))))
                             (sreplicate @_ @3 $ srepl 2 * a0) (sreplicate @_ @2 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 

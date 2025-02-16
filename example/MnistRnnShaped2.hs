@@ -9,7 +9,6 @@ import Prelude hiding (foldl')
 
 import Data.Kind (Type)
 import Data.List (foldl')
-import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, fromSNat, type (*))
@@ -86,8 +85,8 @@ rnnMnistTwoS out_width@SNat
              sizeMnistHeightHere@SNat
              s' x ((wX, wS, b), (wX2, wS2, b2)) =
     let s3 = tlet s' $ \s ->
-          let s1 = sslice (Proxy @0) (proxyFromSNat out_width) s
-              s2 = sslice (proxyFromSNat out_width) (proxyFromSNat out_width) s
+          let s1 = sslice (SNat @0) out_width SNat s
+              s2 = sslice out_width out_width SNat s
               vec1 = rnnMnistLayerS sizeMnistHeightHere
                                     out_width
                                     batch_size
@@ -97,7 +96,7 @@ rnnMnistTwoS out_width@SNat
                                     batch_size
                                     s2 vec1 (wX2, wS2, b2)
           in sappend vec1 vec2
-    in (sslice (proxyFromSNat out_width) (proxyFromSNat out_width) s3, s3)
+    in (sslice out_width out_width SNat s3, s3)
 
 rnnMnistZeroS
   :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)

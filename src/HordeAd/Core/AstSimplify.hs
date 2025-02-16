@@ -2039,10 +2039,10 @@ astSliceS SNat SNat SNat (Ast.AstFromVector _ stk l) | STKS{} <- stk =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat SNat SNat (Ast.AstReplicate _ snat@STKS{} v) =
   astReplicate (SNat @n) snat v
-astSliceS SNat SNat SNat (AstConcrete (RepF (FTKS (_ :$$ sh) x) t)) =
+astSliceS i n@SNat k (AstConcrete (RepF (FTKS (_ :$$ sh) x) t)) =
   withKnownSTK (ftkToSTK x) $
   withKnownShS sh $
-  astConcrete (RepF (FTKS (SNat @n :$$ sh) x) (sslice (Proxy @i) (Proxy @n) t))
+  astConcrete (RepF (FTKS (n :$$ sh) x) (sslice i n k t))
 astSliceS i n k (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS i n k v
 astSliceS i n k (Ast.AstFromDual v) = Ast.AstFromDual $ astSliceS i n k v
 astSliceS SNat SNat SNat v | Just Refl <- sameNat (Proxy @i) (Proxy @0)

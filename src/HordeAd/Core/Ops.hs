@@ -818,17 +818,17 @@ class ( Num (IntOf target)
   sappend :: (KnownSTK r, KnownNat m, KnownNat n, KnownShS sh)
           => target (TKS2 (m ': sh) r) -> target (TKS2 (n ': sh) r)
           -> target (TKS2 ((m + n) ': sh) r)
-  sslice :: (KnownSTK r, KnownNat i, KnownNat n, KnownNat k, KnownShS sh)
-         => Proxy i -> Proxy n
+  sslice :: forall i n k r sh. (KnownSTK r, KnownShS sh)
+         => SNat i -> SNat n -> SNat k
          -> target (TKS2 (i + n + k ': sh) r) -> target (TKS2 (n ': sh) r)
   suncons :: forall r n sh. (KnownSTK r, KnownNat n, KnownShS sh)
           => target (TKS2 (n ': sh) r)
           -> Maybe (target (TKS2 sh r), target (TKS2 (n - 1 ': sh) r))
   suncons v = case cmpNat (Proxy @1) (Proxy @n) of
     EQI -> Just ( v !$ (0 :.$ ZIS)
-                , sslice @_ @r @1 @(n - 1) @0 Proxy Proxy v )
+                , sslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
     LTI -> Just ( v !$ (0 :.$ ZIS)
-                , sslice @_ @r @1 @(n - 1) @0 Proxy Proxy v )
+                , sslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
     _ -> Nothing
   sreverse :: (KnownSTK r, KnownNat n, KnownShS sh)
            => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
@@ -1211,8 +1211,8 @@ class ( Num (IntOf target)
           => NonEmpty (target (TKX2 (Nothing ': sh) r))
           -> target (TKX2 (Nothing ': sh) r)
   xconcat = foldr1 xappend
-  xslice :: (KnownSTK r, KnownNat i, KnownNat n, KnownNat k, KnownShX sh)
-         => Proxy i -> Proxy n
+  xslice :: forall i n k r sh. (KnownSTK r, KnownShX sh)
+         => SNat i -> SNat n -> SNat k
          -> target (TKX2 (Just (i + n + k) ': sh) r)
          -> target (TKX2 (Just n ': sh) r)
   xuncons :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
@@ -1220,9 +1220,9 @@ class ( Num (IntOf target)
           -> Maybe (target (TKX2 sh r), target (TKX2 (Just (n - 1) ': sh) r))
   xuncons v = case cmpNat (Proxy @1) (Proxy @n) of
     EQI -> Just ( v `xindex` (0 :.% ZIX)
-                , xslice @_ @r @1 @(n - 1) @0 Proxy Proxy v )
+                , xslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
     LTI -> Just ( v `xindex` (0 :.% ZIX)
-                , xslice @_ @r @1 @(n - 1) @0 Proxy Proxy v )
+                , xslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
     _ -> Nothing
   xreverse :: (KnownSTK r, KnownShX sh)
            => target (TKX2 (mn ': sh) r) -> target (TKX2 (mn ': sh) r)

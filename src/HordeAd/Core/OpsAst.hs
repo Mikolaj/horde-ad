@@ -17,13 +17,13 @@ import Prelude
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (sameNat, cmpNat, OrderingI (..), type (+), type (-))
+import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-))
 import Data.Type.Equality (gcastWith)
 import Data.Type.Ord (Compare)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
-import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
+import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (ssxAppend, ssxReplicate, IShX, ssxFromShape, withKnownShX)
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -409,7 +409,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   smaxIndex = fromPrimal . AstMaxIndexS . primalPart
   siota = fromPrimal $ AstIotaS SNat
   sappend u v = astAppendS u v
-  sslice @_ @i Proxy Proxy = astSliceS @i SNat SNat SNat
+  sslice i n k = astSliceS i n k
   sreverse = astReverseS
   sreshape = astReshapeS knownShS
   szip = AstZipS
@@ -539,18 +539,18 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                                  (astSFromX @shv @shv' shv v)
                   _ -> error $ "xappend: shapes don't match: "
                                ++ show (restu, restv)
-  xslice @r @i @n @k @sh2 Proxy Proxy a = case ftkAst a of
+  xslice @_ @n @_ @r @sh2 i n@SNat k a = case ftkAst a of
     FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest msnat _ ->
-          case sameNat (Proxy @(i + n + k)) msnat of
+          case testEquality (snatPlus i (snatPlus n k)) msnat of
             Just Refl ->
               astFromS @(TKS2 (n ': rest) x)
                        (knownSTK @(TKX2 (Just n ': sh2) r))
-              . astSliceS @i @n @k SNat SNat SNat . astSFromX @sh @sh' sh $ a
+              . astSliceS i n k . astSFromX @sh @sh' sh $ a
             _ -> error $ "xslice: argument tensor too narrow: "
-                         ++ show ( valueOf @i :: Int, valueOf @n :: Int
-                                 , valueOf @k :: Int, sNatValue msnat )
+                         ++ show ( sNatValue i, sNatValue n, sNatValue k
+                                 , sNatValue msnat )
   xreverse a = case ftkAst a of
     FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -1007,7 +1007,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   smaxIndex a = AstRaw . fromPrimal . AstMaxIndexS . primalPart . unAstRaw $ a
   siota = AstRaw . fromPrimal $ AstIotaS SNat
   sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
-  sslice @_ @i Proxy Proxy = AstRaw . AstSliceS @i SNat SNat SNat . unAstRaw
+  sslice i n k = AstRaw . AstSliceS i n k . unAstRaw
   sreverse = AstRaw . AstReverseS . unAstRaw
   sreshape = AstRaw . AstReshapeS knownShS . unAstRaw
   szip = AstRaw . AstZipS . unAstRaw
@@ -1142,18 +1142,18 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                  (AstSFromX @shv @shv' shv v)
                   _ -> error $ "xappend: shapes don't match: "
                                ++ show (restu, restv)
-  xslice @r @i @n @k @sh2 Proxy Proxy (AstRaw a) = AstRaw $ case ftkAst a of
+  xslice @_ @n @_ @r @sh2 i n@SNat k (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh'@(_ :$% _) _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest msnat _ ->
-          case sameNat (Proxy @(i + n + k)) msnat of
+          case testEquality (snatPlus i (snatPlus n k)) msnat of
             Just Refl ->
               AstFromS @(TKS2 (n ': rest) x)
                        (knownSTK @(TKX2 (Just n ': sh2) r))
-              . AstSliceS @i @n @k SNat SNat SNat . AstSFromX @sh @sh' sh $ a
+              . AstSliceS i n k . AstSFromX @sh @sh' sh $ a
             _ -> error $ "xslice: argument tensor too narrow: "
-                         ++ show ( valueOf @i :: Int, valueOf @n :: Int
-                                 , valueOf @k :: Int, sNatValue msnat )
+                         ++ show ( sNatValue i, sNatValue n, sNatValue k
+                                 , sNatValue msnat )
   xreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -1408,8 +1408,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   siota = AstNoVectorize siota
   sappend u v =
     AstNoVectorize $ sappend (unAstNoVectorize u) (unAstNoVectorize v)
-  sslice proxy1 proxy2 =
-    AstNoVectorize . sslice proxy1 proxy2 . unAstNoVectorize
+  sslice i n k = AstNoVectorize . sslice i n k . unAstNoVectorize
   sreverse = AstNoVectorize . sreverse . unAstNoVectorize
   sreshape = AstNoVectorize . sreshape . unAstNoVectorize
   szip = AstNoVectorize . szip . unAstNoVectorize
@@ -1439,8 +1438,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xiota @n = AstNoVectorize $ xiota @_ @n
   xappend u v =
     AstNoVectorize $ xappend (unAstNoVectorize u) (unAstNoVectorize v)
-  xslice proxy1 proxy2 =
-    AstNoVectorize . xslice proxy1 proxy2 . unAstNoVectorize
+  xslice i n k = AstNoVectorize . xslice i n k . unAstNoVectorize
   xreverse = AstNoVectorize . xreverse . unAstNoVectorize
   xtranspose @perm =
     AstNoVectorize . xtranspose @_ @perm . unAstNoVectorize
@@ -1631,8 +1629,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   siota = wAstNoSimplify siota
   sappend u v =
     wAstNoSimplify $ sappend (wunAstNoSimplify u) (wunAstNoSimplify v)
-  sslice proxy1 proxy2 =
-    wAstNoSimplify . sslice proxy1 proxy2 . wunAstNoSimplify
+  sslice i n k = wAstNoSimplify . sslice i n k . wunAstNoSimplify
   sreverse = wAstNoSimplify . sreverse . wunAstNoSimplify
   sreshape = wAstNoSimplify . sreshape . wunAstNoSimplify
   szip = wAstNoSimplify . szip . wunAstNoSimplify
@@ -1659,8 +1656,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xiota @n = wAstNoSimplify $ xiota @_ @n
   xappend u v =
     wAstNoSimplify $ xappend (wunAstNoSimplify u) (wunAstNoSimplify v)
-  xslice proxy1 proxy2 =
-    wAstNoSimplify . xslice proxy1 proxy2 . wunAstNoSimplify
+  xslice i n k = wAstNoSimplify . xslice i n k . wunAstNoSimplify
   xreverse = wAstNoSimplify . xreverse . wunAstNoSimplify
   xtranspose @perm =
     wAstNoSimplify . xtranspose @_ @perm . wunAstNoSimplify
