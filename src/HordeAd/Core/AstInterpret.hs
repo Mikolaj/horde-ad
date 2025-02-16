@@ -442,16 +442,14 @@ interpretAst !env = \case
       withKnownSTK x $
       smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
   AstIotaS SNat -> siota
-  AstAppendS a b -> case (ftkToSTK (ftkAst a), ftkToSTK (ftkAst b)) of
-    (STKS (SNat :$$ sh) x, STKS (SNat :$$ _) _) ->
-      withKnownShS sh $
+  AstAppendS a b -> case ftkToSTK (ftkAst a) of
+    STKS _ x ->
       withKnownSTK x $
       let t1 = interpretAst env a
           t2 = interpretAst env b
       in sappend t1 t2
   AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
-    STKS (_ :$$ sh) x ->
-      withKnownShS sh $
+    STKS _ x ->
       withKnownSTK x $
       sslice i n k $ interpretAst env v
   AstReverseS v -> case ftkToSTK (ftkAst v) of

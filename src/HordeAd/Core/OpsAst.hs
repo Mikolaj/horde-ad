@@ -300,35 +300,37 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   riota @r n =
     withSNat n $ \(SNat @n) ->
       astFromS (knownSTK @(TKR 1 r)) $ fromPrimal $ AstIotaS @n @r SNat
-  rappend @r @n u v = case ftkAst u of
-    FTKR shu' _ | SNat <- shrRank shu' -> case ftkAst v of
+  rappend u v = case ftkAst u of
+    FTKR shu' x -> case ftkAst v of
       FTKR shv' _ ->
-        withCastRS shu' $ \(shu :: ShS shu) -> case shu of
+        withCastRS shu' $ \shu -> case shu of
           _ :$$ restu ->
-            withCastRS shv' $ \(shv :: ShS shv) -> case shv of
+            withCastRS shv' $ \shv -> case shv of
               _ :$$ restv ->
                 case testEquality restu restv of
                   Just Refl ->
-                    astFromS (knownSTK @(TKR2 (1 + n) r))
-                    $ astAppendS (astSFromR @shu shu u) (astSFromR @shv shv v)
+                    astFromS (STKR (shrRank shu') (ftkToSTK x))
+                    $ astAppendS (astSFromR shu u) (astSFromR shv v)
                   _ -> error $ "rappend: shapes don't match: "
                                ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
-  rslice @r @n1 i n a = case ftkAst a of
-    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
-      withCastRS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @m @rest msnat _ ->
-          withSNat i $ \(SNat @i) -> withSNat n $ \(SNat @n) ->
-            case cmpNat (Proxy @(i + n)) msnat of
+  rslice i n a = case ftkAst a of
+    FTKR sh' x ->
+      withCastRS sh' $ \sh -> case sh of
+        msnat@(SNat @m) :$$ _ ->
+          withSNat i $ \isnat@(SNat @i) -> withSNat n $ \nsnat@(SNat @n) ->
+            case cmpNat (snatPlus isnat nsnat) msnat of
               GTI -> error $ "rslice: argument tensor too narrow: "
                              ++ show (i, n, sNatValue msnat)
               EQI ->
-                astFromS @(TKS2 (n ': rest) x) (knownSTK @(TKR2 (1 + n1) r))
-                . astSliceS @i @n @(m - (i + n)) SNat SNat SNat . astSFromR @sh sh $ a
+                astFromS (STKR (shrRank sh') (ftkToSTK x))
+                . astSliceS isnat nsnat (SNat @(m - (i + n)))
+                . astSFromR sh $ a
               LTI ->
-                astFromS @(TKS2 (n ': rest) x) (knownSTK @(TKR2 (1 + n1) r))
-                . astSliceS @i @n @(m - (i + n)) SNat SNat SNat . astSFromR @sh sh $ a
+                astFromS (STKR (shrRank sh') (ftkToSTK x))
+                . astSliceS isnat nsnat (SNat @(m - (i + n)))
+                . astSFromR sh $ a
         ZSS -> error "xslice: impossible shape"
   rreverse @r @n a = case ftkAst a of
     FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
@@ -541,18 +543,17 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                              (astSFromX (n :$$ shv) v)
               _ -> error $ "xappend: shapes don't match: "
                            ++ show (shu', shv')
-  xslice @_ @n @_ @r @sh2 i n@SNat k a = case ftkAst a of
-    FTKX @sh' @x sh'@(_ :$% _) _ ->
-      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @_ @rest msnat _ ->
-          case testEquality (snatPlus i (snatPlus n k)) msnat of
-            Just Refl ->
-              astFromS @(TKS2 (n ': rest) x)
-                       (knownSTK @(TKX2 (Just n ': sh2) r))
-              . astSliceS i n k . astSFromX @sh @sh' sh $ a
-            _ -> error $ "xslice: argument tensor too narrow: "
-                         ++ show ( sNatValue i, sNatValue n, sNatValue k
-                                 , sNatValue msnat )
+  xslice i n@SNat k a = case ftkAst a of
+    FTKX sh'@(_ :$% sh2') x ->
+      withCastXS sh' $ \sh@(msnat :$$ _) ->
+        case testEquality (snatPlus i (snatPlus n k)) msnat of
+          Just Refl ->
+            astFromS (STKX (Nested.SKnown n :!% ssxFromShape sh2')
+                           (ftkToSTK x))
+            . astSliceS i n k . astSFromX sh $ a
+          _ -> error $ "xslice: argument tensor too narrow: "
+                       ++ show ( sNatValue i, sNatValue n, sNatValue k
+                               , sNatValue msnat )
   xreverse a = case ftkAst a of
     FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $
@@ -895,35 +896,37 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw
     $ withSNat n $ \(SNat @n) ->
         AstFromS (knownSTK @(TKR 1 r)) $ fromPrimal $ AstIotaS @n @r SNat
-  rappend @r @n (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
-    FTKR shu' _ | SNat <- shrRank shu' -> case ftkAst v of
+  rappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
+    FTKR shu' x -> case ftkAst v of
       FTKR shv' _ ->
-        withCastRS shu' $ \(shu :: ShS shu) -> case shu of
+        withCastRS shu' $ \shu -> case shu of
           _ :$$ restu ->
-            withCastRS shv' $ \(shv :: ShS shv) -> case shv of
+            withCastRS shv' $ \shv -> case shv of
               _ :$$ restv ->
                 case testEquality restu restv of
                   Just Refl ->
-                    AstFromS (knownSTK @(TKR2 (1 + n) r))
-                    $ AstAppendS (AstSFromR @shu shu u) (AstSFromR @shv shv v)
+                    AstFromS (STKR (shrRank shu') (ftkToSTK x))
+                    $ AstAppendS (AstSFromR shu u) (AstSFromR shv v)
                   _ -> error $ "rappend: shapes don't match: "
                                ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
-  rslice @r @n1 i n (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
-      withCastRS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @m @rest msnat _ ->
-          withSNat i $ \(SNat @i) -> withSNat n $ \(SNat @n) ->
-            case cmpNat (Proxy @(i + n)) msnat of
+  rslice i n (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKR sh' x ->
+      withCastRS sh' $ \sh -> case sh of
+        msnat@(SNat @m) :$$ _ ->
+          withSNat i $ \isnat@(SNat @i) -> withSNat n $ \nsnat@(SNat @n) ->
+            case cmpNat (snatPlus isnat nsnat) msnat of
               GTI -> error $ "rslice: argument tensor too narrow: "
                              ++ show (i, n, sNatValue msnat)
               EQI ->
-                AstFromS @(TKS2 (n ': rest) x) (knownSTK @(TKR2 (1 + n1) r))
-                . AstSliceS @i @n @(m - (i + n)) SNat SNat SNat . AstSFromR @sh sh $ a
+                AstFromS (STKR (shrRank sh') (ftkToSTK x))
+                . AstSliceS isnat nsnat (SNat @(m - (i + n)))
+                . AstSFromR sh $ a
               LTI ->
-                AstFromS @(TKS2 (n ': rest) x) (knownSTK @(TKR2 (1 + n1) r))
-                . AstSliceS @i @n @(m - (i + n)) SNat SNat SNat . AstSFromR @sh sh $ a
+                AstFromS (STKR (shrRank sh') (ftkToSTK x))
+                . AstSliceS isnat nsnat (SNat @(m - (i + n)))
+                . AstSFromR sh $ a
         ZSS -> error "xslice: impossible shape"
   rreverse  @r @n(AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
@@ -1145,18 +1148,17 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                              (AstSFromX (n :$$ shv) v)
               _ -> error $ "xappend: shapes don't match: "
                            ++ show (shu', shv')
-  xslice @_ @n @_ @r @sh2 i n@SNat k (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' @x sh'@(_ :$% _) _ ->
-      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @_ @rest msnat _ ->
-          case testEquality (snatPlus i (snatPlus n k)) msnat of
-            Just Refl ->
-              AstFromS @(TKS2 (n ': rest) x)
-                       (knownSTK @(TKX2 (Just n ': sh2) r))
-              . AstSliceS i n k . AstSFromX @sh @sh' sh $ a
-            _ -> error $ "xslice: argument tensor too narrow: "
-                         ++ show ( sNatValue i, sNatValue n, sNatValue k
-                                 , sNatValue msnat )
+  xslice i n@SNat k (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh'@(_ :$% sh2') x ->
+      withCastXS sh' $ \sh@(msnat :$$ _) ->
+        case testEquality (snatPlus i (snatPlus n k)) msnat of
+          Just Refl ->
+            AstFromS (STKX (Nested.SKnown n :!% ssxFromShape sh2')
+                           (ftkToSTK x))
+            . AstSliceS i n k . AstSFromX sh $ a
+          _ -> error $ "xslice: argument tensor too narrow: "
+                       ++ show ( sNatValue i, sNatValue n, sNatValue k
+                               , sNatValue msnat )
   xreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' @x sh' _ ->
       withKnownShX (ssxFromShape sh') $

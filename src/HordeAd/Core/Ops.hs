@@ -540,7 +540,7 @@ class ( Num (IntOf target)
   rconcat :: KnownSTK r
           => NonEmpty (target (TKR2 (1 + n) r)) -> target (TKR2 (1 + n) r)
   rconcat = foldr1 rappend
-  rslice :: (KnownSTK r, KnownNat n)
+  rslice :: KnownSTK r
          => Int -> Int -> target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
   runcons :: (KnownSTK r, KnownNat n)
           => target (TKR2 (1 + n) r)
@@ -832,7 +832,7 @@ class ( Num (IntOf target)
   sappend :: forall r m n sh. KnownSTK r
           => target (TKS2 (m ': sh) r) -> target (TKS2 (n ': sh) r)
           -> target (TKS2 ((m + n) ': sh) r)
-  sslice :: forall i n k r sh. (KnownSTK r, KnownShS sh)
+  sslice :: forall i n k r sh. KnownSTK r
          => SNat i -> SNat n -> SNat k
          -> target (TKS2 (i + n + k ': sh) r) -> target (TKS2 (n ': sh) r)
   suncons :: forall r n sh. (KnownSTK r, KnownNat n, KnownShS sh)
@@ -1237,7 +1237,7 @@ class ( Num (IntOf target)
           => NonEmpty (target (TKX2 (Nothing ': sh) r))
           -> target (TKX2 (Nothing ': sh) r)
   xconcat = foldr1 xappend0
-  xslice :: forall i n k r sh. (KnownSTK r, KnownShX sh)
+  xslice :: forall i n k r sh. KnownSTK r
          => SNat i -> SNat n -> SNat k
          -> target (TKX2 (Just (i + n + k) ': sh) r)
          -> target (TKX2 (Just n ': sh) r)
