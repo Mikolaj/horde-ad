@@ -20,6 +20,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-), type (<=?))
 import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
+import Data.Maybe (fromMaybe)
 
 import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
@@ -347,9 +348,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 -- A noble lie, verified down below.
                 gcastWith (unsafeCoerceRefl
                            :: (Rank perm <=? Rank sh) :~: True) $
-                trustMeThisIsAPermutation @perm $
-                astFromS (STKR (shsRank sh) (ftkToSTK x))
-                . astTransposeS perm . astSFromR sh $ a
+                fromMaybe (error "rtranspose: impossible non-permutation")
+                $ Permutation.permCheckPermutation perm
+                $ astFromS (STKR (shsRank sh) (ftkToSTK x))
+                  . astTransposeS perm . astSFromR sh $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
               -- TODO: why is the above needed? define cmpSNat?
@@ -937,9 +939,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 -- A noble lie, verified down below.
                 gcastWith (unsafeCoerceRefl
                            :: (Rank perm <=? Rank sh) :~: True) $
-                trustMeThisIsAPermutation @perm $
-                AstFromS (STKR (shsRank sh) (ftkToSTK x))
-                . AstTransposeS perm . AstSFromR sh $ a
+                fromMaybe (error "rtranspose: impossible non-permutation")
+                $ Permutation.permCheckPermutation perm
+                $ AstFromS (STKR (shsRank sh) (ftkToSTK x))
+                  . AstTransposeS perm . AstSFromR sh $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
               -- TODO: why is the above needed? define cmpSNat?

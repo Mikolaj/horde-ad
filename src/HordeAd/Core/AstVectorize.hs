@@ -15,6 +15,7 @@ import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Maybe (fromMaybe)
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
@@ -311,7 +312,8 @@ build1V snat@SNat (var, v0)
            gcastWith (unsafeCoerceRefl
                       :: Rank (0 : Permutation.MapSucc perm)
                          :~: 1 + Rank perm) $
-           trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm)
+           fromMaybe (error "build1V: impossible non-permutation")
+           $ Permutation.permCheckPermutation zsuccPerm
            $ astTransposeS zsuccPerm $ build1V snat (var, v)
     Ast.AstReshapeS sh v -> traceRule $
       astReshapeS (snat :$$ sh) $ build1V snat (var, v)
@@ -434,8 +436,9 @@ astTr a = case ftkAst a of
     withCastRS sh' $ \(sh :: ShS sh) ->
       Permutation.permFromList [1, 0] $ \(perm :: Permutation.Perm perm) ->
         gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
-        trustMeThisIsAPermutation @perm $
-        case shsPermutePrefix perm sh of
+        fromMaybe (error "astTr: impossible non-permutation")
+        $ Permutation.permCheckPermutation perm
+        $ case shsPermutePrefix perm sh of
           (_ :: ShS sh2) ->
             gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
             astFromS @(TKS2 sh2 x) (STKR (SNat @(2 + n)) (ftkToSTK x))

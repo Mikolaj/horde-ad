@@ -464,8 +464,9 @@ astReplicate snat@SNat stk = \case
                                                 (k : sh1) :~: k : sh) $
         gcastWith (unsafeCoerceRefl
                    :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
-        trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-        astTransposeS zsuccPerm $ astReplicate snat (ftkToSTK (ftkAst v)) v
+        fromMaybe (error "astReplicate: impossible non-permutation")
+        $ Permutation.permCheckPermutation zsuccPerm
+        $ astTransposeS zsuccPerm $ astReplicate snat (ftkToSTK (ftkAst v)) v
 {- see the previous comment
   Ast.AstReshape sh v ->
     AstReshape (k :$: sh) $ astReplicate k v
@@ -1273,8 +1274,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm3P (n1 : (shm ++ shn))
                        :~: shm ++ (n1 : shn)) $
-         trustMeThisIsAPermutation @perm3P $
-         astSum snat (STKS shn (ftkToSTK x))
+         fromMaybe (error "astIndexKnobsS: impossible non-permutation")
+         $ Permutation.permCheckPermutation perm
+         $ astSum snat (STKS shn (ftkToSTK x))
          $ astIndex @shm @(n1 : shn) (snat :$$ shn)
                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
                     ix
@@ -1684,23 +1686,25 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm3P (n1 : (shp' ++ shn'))
                        :~: shp' ++ (n1 : shn')) $
-         trustMeThisIsAPermutation @perm3P $
-         Permutation.permFromList perm4 $ \(perm4S :: Permutation.Perm perm4P) ->
+         fromMaybe (error "astGatherCase: impossible non-permutation")
+         $ Permutation.permCheckPermutation perm3S
+         $ Permutation.permFromList perm4 $ \(perm4S :: Permutation.Perm perm4P) ->
          gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm4P) (Rank (shm' ++ (n1 : shn')))
                        :~: LT) $
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm4P (shm' ++ (n1 : shn'))
                        :~: n1 : (shm' ++ shn')) $
-         trustMeThisIsAPermutation @perm4P $
-         let innerGather =
-               astGather @shm' @(n1 : shn') @shp'
-                         (snat :$$ shn') (astTransposeS perm3S v) (vars4, ix4)
-         in astSum snat (STKS (listsToShS vars4 `shsAppend` shn') (ftkToSTK x))
-            $ if not (knobExpand knobs)
-                 || length perm4 <= shsLength (listsToShS vars4)
-              then astTransposeS perm4S innerGather
-              else astTransposeAsGatherS knobs perm4S innerGather
+         fromMaybe (error "astGatherCase: impossible non-permutation")
+         $ Permutation.permCheckPermutation perm4S
+         $ let innerGather =
+                 astGather @shm' @(n1 : shn') @shp'
+                           (snat :$$ shn') (astTransposeS perm3S v) (vars4, ix4)
+           in astSum snat (STKS (listsToShS vars4 `shsAppend` shn') (ftkToSTK x))
+              $ if not (knobExpand knobs)
+                   || length perm4 <= shsLength (listsToShS vars4)
+                then astTransposeS perm4S innerGather
+                else astTransposeAsGatherS knobs perm4S innerGather
     Ast.AstReplicate snat STKS{} v | AstConcrete (RepF _ (RepN it)) <- i4 ->
       let i = fromIntegral it
       in if 0 <= i && i < sNatValue snat
@@ -2117,8 +2121,9 @@ astTransposeS perm t = case perm of
       gcastWith (unsafeCoerceRefl
                  :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm) (n : sh)
                     :~: n : Permutation.PermutePrefix perm sh) $
-      trustMeThisIsAPermutation @(0 : Permutation.MapSucc perm) $
-      astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
+      fromMaybe (error "astTransposeS: impossible non-permutation")
+      $ Permutation.permCheckPermutation zsuccP
+      $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
   AstConcrete (RepF (FTKS sh x) v) ->
     let shPerm = Nested.Internal.Shape.shsPermutePrefix perm sh
     in withKnownShS sh $
@@ -2172,18 +2177,19 @@ astTransposeS perm t = case perm of
         perm3V = normalizePermutationHack
                  $ backpermutePrefixList permV perm2Matched
     in Permutation.permFromList perm3V $ \(perm3 :: Permutation.Perm perm3) ->
-      trustMeThisIsAPermutation @perm3 $
-      gcastWith (unsafeCoerceRefl
-                 :: Permutation.PermutePrefix perm3 sh2
-                    :~: Permutation.PermutePrefix perm sh) $
-      case compare (length perm3V) (Nested.Internal.Shape.shsLength sh2) of
-        LT -> gcastWith (unsafeCoerceRefl
-                         :: Compare (Rank perm3) (Rank sh2) :~: LT) $
-              astTransposeS perm3 u
-        EQ -> gcastWith (unsafeCoerceRefl
-                         :: Compare (Rank perm3) (Rank sh2) :~: EQ) $
-              astTransposeS perm3 u
-        GT -> error "astTransposeS: GT"
+      fromMaybe (error "astTransposeS: impossible non-permutation")
+      $ Permutation.permCheckPermutation perm3
+      $ gcastWith (unsafeCoerceRefl
+                   :: Permutation.PermutePrefix perm3 sh2
+                      :~: Permutation.PermutePrefix perm sh) $
+        case compare (length perm3V) (Nested.Internal.Shape.shsLength sh2) of
+          LT -> gcastWith (unsafeCoerceRefl
+                           :: Compare (Rank perm3) (Rank sh2) :~: LT) $
+                astTransposeS perm3 u
+          EQ -> gcastWith (unsafeCoerceRefl
+                           :: Compare (Rank perm3) (Rank sh2) :~: EQ) $
+                astTransposeS perm3 u
+          GT -> error "astTransposeS: GT"
   u -> Ast.AstTransposeS @perm perm u  -- TODO
 
 -- Beware, this does not do full simplification, which often requires
