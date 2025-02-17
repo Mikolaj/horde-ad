@@ -356,15 +356,15 @@ instance ( ADReadyNoLet target, ShareTensor target
   xnestR @_ @m sh1 (D u u') =
     withKnownShX sh1 $
     withKnownShX (sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    dD (xnestR sh1 u) (DeltaXNestR knownShX SNat u')
+    dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
   xnestS @_ @sh2 sh1 (D u u') =
     withKnownShX sh1 $
     withKnownShX (sh1 `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    dD (xnestS sh1 u) (DeltaXNestS knownShX knownShS u')
+    dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')
   xnest @_ @sh2 sh1 (D u u') =
     withKnownShX sh1 $
     withKnownShX (sh1 `ssxAppend` knownShX @sh2) $
-    dD (xnest sh1 u) (DeltaXNest knownShX knownShX u')
+    dD (xnest sh1 u) (DeltaXNest sh1 knownShX u')
   xunNestR @sh1 @m (D u u') =
     withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
     dD (xunNestR u) (DeltaXUnNestR u')

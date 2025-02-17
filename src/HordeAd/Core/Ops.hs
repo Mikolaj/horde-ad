@@ -660,11 +660,11 @@ class ( Num (IntOf target)
                 len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
   rreverse :: KnownSTK r
            => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-  rtr :: KnownSTK r
-      => target (TKR2 (2 + n) r) -> target (TKR2 (2 + n) r)
+  rtr :: KnownSTK x
+      => target (TKR2 (2 + n) x) -> target (TKR2 (2 + n) x)
   rtr = rtranspose [1, 0]
-  rtranspose :: KnownSTK r
-             => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
+  rtranspose :: KnownSTK x
+             => Permutation.PermR -> target (TKR2 n x) -> target (TKR2 n x)
   rflatten :: (KnownSTK r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (rsize u :$: ZSR) u
   rreshape :: forall r n m. KnownSTK r
@@ -953,14 +953,15 @@ class ( Num (IntOf target)
     _ -> Nothing
   sreverse :: KnownSTK r
            => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
-  str :: forall r n m sh. KnownSTK r
-      => target (TKS2 (n ': m ': sh) r) -> target (TKS2 (m ': n ': sh) r)
+  str :: forall x n m sh. KnownSTK x
+      => target (TKS2 (n ': m ': sh) x) -> target (TKS2 (m ': n ': sh) x)
   str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
         stranspose @_ @'[1, 0]
-  stranspose :: forall perm r sh.
-                (Permutation.KnownPerm perm, PermC perm, KnownSTK r, Rank perm <= Rank sh)
-             => target (TKS2 sh r)
-             -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
+  stranspose :: forall perm x sh.
+                ( Permutation.KnownPerm perm, PermC perm, Rank perm <= Rank sh
+                , KnownSTK x )
+             => target (TKS2 sh x)
+             -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
   stranspose = ttranspose (Permutation.makePerm @perm)
   sflatten :: forall r sh. (KnownSTK r, KnownShS sh)
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
@@ -1355,16 +1356,17 @@ class ( Num (IntOf target)
     _ -> Nothing
   xreverse :: KnownSTK r
            => target (TKX2 (mn ': sh) r) -> target (TKX2 (mn ': sh) r)
-  xtr :: forall r n m sh. KnownSTK r
-      => target (TKX2 (Just n ': Just m ': sh) r)
-      -> target (TKX2 (Just m ': Just n ': sh) r)
+  xtr :: forall x n m sh. KnownSTK x
+      => target (TKX2 (Just n ': Just m ': sh) x)
+      -> target (TKX2 (Just m ': Just n ': sh) x)
   xtr = gcastWith (unsafeCoerceRefl
                    :: (2 <=? Rank (Just n ': Just m ': sh)) :~: True) $
         xtranspose @_ @'[1, 0]
-  xtranspose :: ( Permutation.KnownPerm perm, PermC perm, KnownSTK r
-                , Rank perm <= Rank sh  )
-             => target (TKX2 sh r)
-             -> target (TKX2 (Permutation.PermutePrefix perm sh) r)
+  xtranspose :: forall perm x sh.
+                ( Permutation.KnownPerm perm, PermC perm, Rank perm <= Rank sh
+                , KnownSTK x )
+             => target (TKX2 sh x)
+             -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
   xflatten :: (KnownSTK r, KnownShX sh)
            => target (TKX2 sh r) -> target (TKX2 '[Nothing] r)
   xflatten u = xreshape (Nested.SUnknown (xsize u) :$% ZSX) u
@@ -1630,9 +1632,10 @@ class ( Num (IntOf target)
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
   -- This one is not really general, but takes a singleton at least.
-  ttranspose :: (PermC perm, KnownSTK r, Rank perm <= Rank sh)
-             => Permutation.Perm perm -> target (TKS2 sh r)
-             -> target (TKS2 (Permutation.PermutePrefix perm sh) r)
+  ttranspose :: forall perm x sh.
+                (PermC perm, Rank perm <= Rank sh, KnownSTK x)
+             => Permutation.Perm perm -> target (TKS2 sh x)
+             -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
   -- | A strict right mapAccum.
   --
   -- The applications of 'tfwd' and 'trevDt' performed already at this point
