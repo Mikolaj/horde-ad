@@ -53,12 +53,12 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shsInit, shrRank, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
+  (shsToList, shsInit, shrRank, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
+import Data.Array.Mixed.Shape (shxToList, shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.CarriersConcrete
@@ -230,21 +230,21 @@ instance BaseTensor RepN where
   -- Note how ix being in bounds is checked. The semantics of the operation
   -- permits index out of bounds and then no tensors is added at such an index.
   sscatter @_ @shm @shn @shp t f =
-    case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
+    let shpshn = knownShS @shp `shsAppend` knownShS @shn
+    in case shsProduct shpshn of
       SNat ->
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
         case tftk knownSTK t of
           FTKS _ x@FTKScalar ->  -- optimized
-            withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
             gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
             gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-            let zero = constantTarget 0 (FTKS knownShS x)
+            let zero = constantTarget 0 (FTKS shpshn x)
                 shm = knownShS @shm
                 s = shsSize shm
                 g ix =
                   let ix2 = f $ fmap RepN ix
                   in if ixInBounds (map unRepN $ toList $ ix2)
-                                   (toList $ knownShS @(shp ++ shn))
+                                   (shsToList shpshn)
                      then M.insertWith (V.zipWith (+)) ix2
                             (Nested.stoVector
                              $ tindexNS @_ @shm @shn (unRepN t) ix)
@@ -252,20 +252,20 @@ instance BaseTensor RepN where
                 ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
                                         $ fromIntegral i
                                       | i <- [0 .. s - 1] ]
-            in updateNS @(Rank shp) zero
+            in withKnownShS shpshn $
+               updateNS @(Rank shp) zero
                $ map (second $ RepN . Nested.sfromVector knownShS)
                $ M.assocs ivs
           FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
-            withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
             gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
             gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-            let zero = constantTarget 0 (FTKS knownShS x)
+            let zero = constantTarget 0 (FTKS shpshn x)
                 shm = knownShS @shm
                 s = shsSize shm
                 g ix =
                   let ix2 = f $ fmap RepN ix
                   in if ixInBounds (map unRepN $ toList $ ix2)
-                                   (toList $ knownShS @(shp ++ shn))
+                                   (shsToList shpshn)
                      then M.insertWith (addTarget knownSTK) ix2
                             (RepN
                              $ tindexNS @_ @shm @shn (unRepN t) ix)
@@ -273,7 +273,8 @@ instance BaseTensor RepN where
                 ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
                                         $ fromIntegral i
                                       | i <- [0 .. s - 1] ]
-            in updateNS @(Rank shp) zero
+            in withKnownShS shpshn $
+               updateNS @(Rank shp) zero
                $ M.assocs ivs
   sscatter1 = tscatterZ1S
   -- The semantics of the operation permits index out of bounds
@@ -397,7 +398,7 @@ instance BaseTensor RepN where
             s = shxSize shm
             g ix =
               let ix2 = f $ fmap RepN ix
-              in if ixInBounds (map unRepN $ toList $ ix2) (toList sh)
+              in if ixInBounds (map unRepN $ toList $ ix2) (shxToList sh)
                  then M.insertWith (V.zipWith (+)) ix2
                         (Nested.mtoVector
                          $ tindexNX @_ @shm @shn (unRepN t) ix)
@@ -414,7 +415,7 @@ instance BaseTensor RepN where
             s = shxSize shm
             g ix =
               let ix2 = f $ fmap RepN ix
-              in if ixInBounds (map unRepN $ toList $ ix2) (toList sh)
+              in if ixInBounds (map unRepN $ toList $ ix2) (shxToList sh)
                  then M.insertWith (addTarget knownSTK) ix2
                         (RepN
                          $ tindexNX @_ @shm @shn (unRepN t) ix)

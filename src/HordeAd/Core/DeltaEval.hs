@@ -55,7 +55,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (type (+))
 import Text.Show (showListWith)
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
@@ -65,7 +64,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested
-  (KnownShS (..), KnownShX (..), Rank, ShR (..), ShS (..), ShX (..), type (++))
+  (KnownShX (..), Rank, ShR (..), ShS (..), ShX (..), type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   (ixrRank, shrRank, shsProduct, shsRank, withKnownShS)
@@ -676,14 +675,13 @@ evalRevSame !s !c = \case
       let cShared = tshare c
           s2 = evalRevSame s (sslice (SNat @0) SNat SNat cShared) d
       in evalRevSame s2 (sslice msnat SNat SNat cShared) e
-  DeltaSliceS @i SNat SNat SNat d -> case ftkDelta d of
+  DeltaSliceS i@SNat _ k@SNat d -> case ftkDelta d of
     FTKS (_ :$$ sh) x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
-      evalRevSame s (sappend @_ @_ @i
-                             (constantTarget 0 (FTKS knownShS x))
-                                (sappend
-                                   c (constantTarget 0 (FTKS knownShS x)))) d
+      evalRevSame s (sappend
+                       (constantTarget 0 (FTKS (i :$$ sh) x))
+                          (sappend
+                            c (constantTarget 0 (FTKS (k :$$ sh) x)))) d
   DeltaReverseS d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -762,17 +760,14 @@ evalRevSame !s !c = \case
       let cShared = tshare c
           s2 = evalRevSame s (xslice (SNat @0) SNat SNat cShared) d
       in evalRevSame s2 (xslice m SNat SNat cShared) e
-  DeltaSliceX @i @n @k SNat SNat SNat d -> case ftkDelta d of
-    FTKX (_ :$% rest) x ->
+  DeltaSliceX i@SNat _ k@SNat d -> case ftkDelta d of
+    FTKX (_ :$% sh) x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape rest) $
-      evalRevSame s
-        (xmcast (ssxFromShape $ Nested.SKnown (SNat @(i + n + k)) :$% rest)
-         $ xconcat $ NonEmpty.fromList
-          [ constantTarget 0 (FTKX (Nested.SUnknown (valueOf @i) :$% rest) x)
-          , xmcast (ssxFromShape $ Nested.SUnknown (valueOf @n) :$% rest) c
-          , constantTarget 0 (FTKX (Nested.SUnknown (valueOf @k) :$% rest) x) ])
-        d
+      evalRevSame s (xappend
+                       (constantTarget 0 (FTKX (Nested.SKnown i :$% sh) x))
+                          (xappend
+                            c (constantTarget
+                                 0 (FTKX (Nested.SKnown k :$% sh) x)))) d
   DeltaReverseX d -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -1091,13 +1086,13 @@ evalFwdSame params s = \case
       let (s2, t) = evalFwdSame params s d
       in (s2, rgather sh t f)
   DeltaAppendR d e -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh ->
+    FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       let (s2, t) = evalFwdSame params s d
           (s3, u) = evalFwdSame params s2 e
       in (s3, rappend t u)
   DeltaSliceR i n d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh ->
+    FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       second (rslice i n) $ evalFwdSame params s d
   DeltaReverseR d -> case ftkDelta d of
@@ -1164,13 +1159,13 @@ evalFwdSame params s = \case
       let (s2, t) = evalFwdSame params s d
       in (s2, sgather @_ @_ @shm @shn t f)
   DeltaAppendS d e -> case ftkDelta d of
-    FTKS (SNat :$$ _) x ->
+    FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
       let (s2, t) = evalFwdSame params s d
           (s3, u) = evalFwdSame params s2 e
       in (s3, sappend t u)
   DeltaSliceS i n k d -> case ftkDelta d of
-    FTKS (_ :$$ _) x ->
+    FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
       second (sslice i n k) $ evalFwdSame params s d
   DeltaReverseS d -> case ftkDelta d of
@@ -1242,13 +1237,13 @@ evalFwdSame params s = \case
       let (s2, t) = evalFwdSame params s d
       in (s2, xgather @_ @_ @shm @shn sh t f)
   DeltaAppendX d e -> case ftkDelta d of
-    FTKX (_ :$% _) x ->
+    FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
       let (s2, t) = evalFwdSame params s d
           (s3, u) = evalFwdSame params s2 e
       in (s3, xappend t u)
   DeltaSliceX i n k d -> case ftkDelta d of
-    FTKX (_ :$% _) x ->
+    FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
       second (xslice i n k) $ evalFwdSame params s d
   DeltaReverseX d -> case ftkDelta d of
