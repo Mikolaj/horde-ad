@@ -400,7 +400,7 @@ testSin0RfwdPP4Dual :: Assertion
 testSin0RfwdPP4Dual = do
   let a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet DualSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty IM.empty (simplifyInlineContract a1)
-    @?= "(\\x18 -> rfromS (sfromR (tproject1 x18) * cos (sfromR (tproject2 x18)))) (tfromS (tpair (sdualPart (sscalar 1.0), (\\x14 -> rfromS (sfromR (tproject1 x14) * cos (sfromR (tproject2 x14)))) (tfromS (tpair (sdualPart (sscalar 1.0), rdualPart (rfromS (sscalar 1.1))))))))"
+    @?= "(\\x18 -> rfromS (sfromR (tproject1 x18) * cos (sfromR (tproject2 x18)))) (tpair (rdualPart (rfromS (sscalar 1.0)), (\\x14 -> rfromS (sfromR (tproject1 x14) * cos (sfromR (tproject2 x14)))) (tpair (rdualPart (rfromS (sscalar 1.0)), rdualPart (rfromS (sscalar 1.1))))))"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do

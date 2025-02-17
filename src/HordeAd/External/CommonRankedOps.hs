@@ -123,10 +123,10 @@ logistic :: forall target r n.
          => target (TKR n r) -> target (TKR n r)
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
-      y0 = recip (rreplicate0N sh (rscalar 1) + exp (- rprimalPart @target d))
+      y0 = recip (rrepl sh 1 + exp (- rprimalPart @target d))
   in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
      $ \y1 -> let y = rprimalPart @target y1
-              in tD knownSTK y (rScale @target (y * (rreplicate0N sh (rscalar 1) - y))
+              in tD knownSTK y (rScale @target (y * (rrepl sh 1 - y))
                        $ rdualPart @target d)
 
 -- TODO: verify how faster a @x * x@ version would be
