@@ -619,8 +619,8 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       let permR = permRInverse perm
       in evalRevSame s (rtranspose permR c) d
-  DeltaReshapeR sh2 d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh, SNat <- shrRank sh2 ->
+  DeltaReshapeR _sh2 d -> case ftkDelta d of
+    FTKR sh x ->
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (rreshape sh c) d
   DeltaZipR d -> case ftkDelta d of
@@ -700,11 +700,10 @@ evalRevSame !s !c = \case
         $ gcastWith (unsafeCoerceRefl
                      :: Rank permR :~: Rank perm)
         $ evalRevSame s (ttranspose permRev c) d
-  DeltaReshapeS sh2 d -> case ftkDelta d of
+  DeltaReshapeS _sh2 d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
-      withKnownShS sh2 $
       evalRevSame s (sreshape c) d
   DeltaZipS d -> case ftkDelta d of
     FTKProduct (FTKS sh y) (FTKS _ z) ->
@@ -792,11 +791,10 @@ evalRevSame !s !c = \case
                      :: Rank permR :~: Rank perm) $
         withKnownPerm permR $
         evalRevSame s (xtranspose @_ @permR c) d
-  DeltaReshapeX sh2 d -> case ftkDelta d of
+  DeltaReshapeX _sh2 d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX (ssxFromShape sh) $
-      withKnownShX (ssxFromShape sh2) $
       evalRevSame s (xreshape sh c) d
   DeltaZipX d -> case ftkDelta d of
     FTKProduct (FTKX sh y) (FTKX _ z) ->
@@ -1113,7 +1111,7 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       second (rtranspose perm) $ evalFwdSame params s d
   DeltaReshapeR sh2 d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh, SNat <- shrRank sh2 ->
+    FTKR _sh x ->
       withKnownSTK (ftkToSTK x) $
       second (rreshape sh2) $ evalFwdSame params s d
   DeltaZipR d -> case ftkDelta d of
@@ -1188,9 +1186,8 @@ evalFwdSame params s = \case
       withKnownShS sh $
       second (ttranspose perm) $ evalFwdSame params s d
   DeltaReshapeS sh2 d -> case ftkDelta d of
-    FTKS sh x ->
+    FTKS _sh x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
       withKnownShS sh2 $
       second sreshape $ evalFwdSame params s d
   DeltaZipS d -> case ftkDelta d of
@@ -1269,9 +1266,8 @@ evalFwdSame params s = \case
       withKnownPerm perm $
       second (xtranspose @_ @perm) $ evalFwdSame params s d
   DeltaReshapeX sh2 d -> case ftkDelta d of
-    FTKX sh x ->
+    FTKX _sh x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh) $
       withKnownShX (ssxFromShape sh2) $
       second (xreshape sh2) $ evalFwdSame params s d
   DeltaZipX d -> case ftkDelta d of

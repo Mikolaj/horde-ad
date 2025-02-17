@@ -2201,8 +2201,7 @@ astReshapeS sh2 = \case
   Ast.AstReplicate (SNat @k) (STKS _ _) x
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astReshapeS sh2 x
-  AstConcrete (RepF (FTKS sh x) t) ->
-    withKnownShS sh $
+  AstConcrete (RepF (FTKS _sh x) t) ->
     withKnownShS sh2 $
     withKnownSTK (ftkToSTK x) $
     astConcrete (RepF (FTKS sh2 x) (sreshape t))

@@ -430,10 +430,9 @@ interpretAst !env = \case
       withKnownSTK x $
       ttranspose perm $ interpretAst env v
   AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
-    STKS sh x ->
-      withKnownShS sh $
-      withKnownShS sh2 $
+    STKS _sh x ->
       withKnownSTK x $
+      withKnownShS sh2 $
       sreshape (interpretAst env v)
   AstZipS v -> case ftkToSTK (ftkAst v) of
     STKProduct (STKS sh y) (STKS _ z) ->

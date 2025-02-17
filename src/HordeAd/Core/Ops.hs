@@ -670,7 +670,7 @@ class ( Num (IntOf target)
              => Permutation.PermR -> target (TKR2 n r) -> target (TKR2 n r)
   rflatten :: (KnownSTK r, KnownNat n) => target (TKR2 n r) -> target (TKR2 1 r)
   rflatten u = rreshape (rsize u :$: ZSR) u
-  rreshape :: (KnownSTK r, KnownNat n, KnownNat m)
+  rreshape :: forall r n m. KnownSTK r
            => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
   rzip :: forall y z n.
           target (TKProduct (TKR2 n y) (TKR2 n z))
@@ -972,8 +972,8 @@ class ( Num (IntOf target)
   sflatten :: forall r sh. (KnownSTK r, KnownShS sh)
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
   sflatten | SNat <- shsProduct (knownShS @sh) = sreshape
-  sreshape :: ( KnownSTK r, KnownShS sh, KnownShS sh2
-              , Nested.Product sh ~ Nested.Product sh2 )
+  sreshape :: forall r sh sh2.
+              (KnownSTK r, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2)
            => target (TKS2 sh r) -> target (TKS2 sh2 r)
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
@@ -1379,7 +1379,7 @@ class ( Num (IntOf target)
   xflatten :: (KnownSTK r, KnownShX sh)
            => target (TKX2 sh r) -> target (TKX2 '[Nothing] r)
   xflatten u = xreshape (Nested.SUnknown (xsize u) :$% ZSX) u
-  xreshape :: (KnownSTK r, KnownShX sh, KnownShX sh2)
+  xreshape :: forall r sh sh2. KnownSTK r
            => IShX sh2 -> target (TKX2 sh r) -> target (TKX2 sh2 r)
   xzip :: forall y z sh.
           target (TKProduct (TKX2 sh y) (TKX2 sh z))

@@ -358,13 +358,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                                ++ show (sNatValue psnat, sNatValue shsnat)
                 EQI -> result
                 LTI -> result
-  rreshape @r @_ @m sh2' a = case ftkAst a of
-    FTKR @_ @x sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-      withCastRS sh2' $ \(sh2 :: ShS sh2) ->
+  rreshape sh2' a = case ftkAst a of
+    FTKR sh' x ->
+      withCastRS sh' $ \sh ->
+      withCastRS sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
-          Just Refl -> astFromS @(TKS2 sh2 x) (knownSTK @(TKR2 m r))
-                       . astReshapeS sh2 . astSFromR @sh sh $ a
+          Just Refl -> astFromS (STKR (shrRank sh2') (ftkToSTK x))
+                       . astReshapeS sh2 . astSFromR sh $ a
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
@@ -566,13 +566,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
            . astTransposeS (Permutation.makePerm @perm)
            . astSFromX sh $ a
   xreshape sh2' a = case ftkAst a of
-    FTKX @sh' @x sh' x ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-      withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+    FTKX sh' x ->
+      withCastXS sh' $ \sh ->
+      withCastXS sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
           Just Refl ->
-            astFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToSTK x))
-            . astReshapeS sh2 . astSFromX @sh @sh' sh $ a
+            astFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
+            . astReshapeS sh2 . astSFromX sh $ a
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
@@ -949,13 +949,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                ++ show (sNatValue psnat, sNatValue shsnat)
                 EQI -> result
                 LTI -> result
-  rreshape @r @_ @m sh2' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR @_ @x sh' _ ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-      withCastRS sh2' $ \(sh2 :: ShS sh2) ->
+  rreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKR sh' x ->
+      withCastRS sh' $ \sh ->
+      withCastRS sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
-          Just Refl -> AstFromS @(TKS2 sh2 x) (knownSTK @(TKR2 m r))
-                       . AstReshapeS sh2 . AstSFromR @sh sh $ a
+          Just Refl -> AstFromS (STKR (shrRank sh2') (ftkToSTK x))
+                       . AstReshapeS sh2 . AstSFromR sh $ a
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
@@ -1166,13 +1166,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
            . AstTransposeS (Permutation.makePerm @perm)
            . AstSFromX sh $ a
   xreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' @x sh' x ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-      withCastXS sh2' $ \(sh2 :: ShS sh2) ->
+    FTKX sh' x ->
+      withCastXS sh' $ \sh ->
+      withCastXS sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
           Just Refl ->
-            AstFromS @(TKS2 sh2 x) (STKX (ssxFromShape sh2') (ftkToSTK x))
-            . AstReshapeS sh2 . AstSFromX @sh @sh' sh $ a
+            AstFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
+            . AstReshapeS sh2 . AstSFromX sh $ a
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
