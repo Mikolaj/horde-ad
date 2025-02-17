@@ -360,8 +360,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstReverseS :: forall n sh x ms s.
                  AstTensor ms s (TKS2 (n ': sh) x)
               -> AstTensor ms s (TKS2 (n ': sh) x)
-  AstTransposeS :: (PermC perm,  -- TODO: really needed?
-                    Rank perm <= Rank sh)
+  AstTransposeS :: (Permutation.IsPermutation perm, Rank perm <= Rank sh)
                 => Permutation.Perm perm -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 (Permutation.PermutePrefix perm sh) x)
   AstReshapeS :: Nested.Product sh ~ Nested.Product sh2

@@ -8,8 +8,6 @@ module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
   , pattern SNat'
-    -- * Definitions for type-level list shapes
-  , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
     -- * Some fundamental constraints and types
@@ -19,7 +17,7 @@ module HordeAd.Core.Types
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , IxROf, IxSOf, IxXOf
     -- * Misc
-  , IntegralF(..), RealFloatF(..)
+  , Dict(..), IntegralF(..), RealFloatF(..)
   , backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX
@@ -137,19 +135,6 @@ pattern SNat' <- (matchSNat (Proxy @n) -> Just (Refl :: n :~: m))
 
 matchSNat :: forall n m proxy. KnownNat n => proxy n -> SNat m -> Maybe (n :~: m)
 matchSNat p m@SNat = sameNat p m
-
-
--- * Definitions for type-level list shapes
-
-class Permutation.IsPermutation is => PermC is
-instance Permutation.IsPermutation is => PermC is
-
-trustMeThisIsAPermutationDict :: forall is. Dict PermC is
-trustMeThisIsAPermutationDict = unsafeCoerce (Dict :: Dict PermC '[])
-
-trustMeThisIsAPermutation :: forall is r. (PermC is => r) -> r
-trustMeThisIsAPermutation r = case trustMeThisIsAPermutationDict @is of
-  Dict -> r
 
 
 -- * Types of types of tensors
@@ -794,6 +779,14 @@ instance NFData i => NFData (ListR n i) where
 
 withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
 withKnownPerm perm = withDict @(Permutation.KnownPerm perm) perm
+
+-- TODO:
+_withPermShift1 :: forall is r. -- Permutation.IsPermutation is
+                  Permutation.Perm is
+               -> (Permutation.IsPermutation (0 : Permutation.MapSucc is) =>
+                   Permutation.Perm (0 : Permutation.MapSucc is) -> r)
+               -> r
+_withPermShift1 _perm _f = undefined  -- f (Permutation.permShift1 perm)
 
 
 -- This is only needed as a workaround for other ops not provided.

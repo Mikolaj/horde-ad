@@ -958,8 +958,8 @@ class ( Num (IntOf target)
   str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
         stranspose @_ @'[1, 0]
   stranspose :: forall perm x sh.
-                ( Permutation.KnownPerm perm, PermC perm, Rank perm <= Rank sh
-                , KnownSTK x )
+                ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+                , Rank perm <= Rank sh, KnownSTK x )
              => target (TKS2 sh x)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
   stranspose = ttranspose (Permutation.makePerm @perm)
@@ -1363,8 +1363,8 @@ class ( Num (IntOf target)
                    :: (2 <=? Rank (Just n ': Just m ': sh)) :~: True) $
         xtranspose @_ @'[1, 0]
   xtranspose :: forall perm x sh.
-                ( Permutation.KnownPerm perm, PermC perm, Rank perm <= Rank sh
-                , KnownSTK x )
+                ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+                , Rank perm <= Rank sh, KnownSTK x )
              => target (TKX2 sh x)
              -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
   xflatten :: (KnownSTK r, KnownShX sh)
@@ -1633,7 +1633,7 @@ class ( Num (IntOf target)
   tunpairDup = tunpair
   -- This one is not really general, but takes a singleton at least.
   ttranspose :: forall perm x sh.
-                (PermC perm, Rank perm <= Rank sh, KnownSTK x)
+                (Permutation.IsPermutation perm, Rank perm <= Rank sh, KnownSTK x)
              => Permutation.Perm perm -> target (TKS2 sh x)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
   -- | A strict right mapAccum.

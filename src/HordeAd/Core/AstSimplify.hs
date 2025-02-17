@@ -2105,7 +2105,7 @@ astReverseS v = Ast.AstReverseS v
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
 astTransposeS :: forall perm sh s r.
-                 (PermC perm, Rank perm <= Rank sh, AstSpan s)
+                 (Permutation.IsPermutation perm, Rank perm <= Rank sh, AstSpan s)
               => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
               -> AstTensor
                    AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
