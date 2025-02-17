@@ -193,14 +193,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = rmaxIndex u
     in fromPrimalADVal v
   riota = fromPrimalADVal . riota
-  rappend (D u u') (D v v') =
-    dD (rappend u v) (DeltaAppendR u' v')
+  rappend (D u u') (D v v') = dD (rappend u v) (DeltaAppendR u' v')
   rslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
   rreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (DeltaTransposeR perm u')
-  rreshape @_ @n @m sh t@(D u u') = case sameNat (Proxy @m) (Proxy @n) of
-    Just Refl | sh == rshape u -> t
-    _ -> dD (rreshape sh u) (DeltaReshapeR sh u')
+  rreshape sh (D u u') = dD (rreshape sh u) (DeltaReshapeR sh u')
   rzip (D u u') = dD (rzip u) (DeltaZipR u')
   runzip (D u u') = dD (runzip u) (DeltaUnzipR u')
   rbuild1 @r @n k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
@@ -260,14 +257,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = smaxIndex u
     in fromPrimalADVal v
   siota = fromPrimalADVal siota
-  sappend (D u u') (D v v') =
-    dD (sappend u v) (DeltaAppendS u' v')
+  sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
 
-  sreshape @_ @sh @sh2 t@(D u u') = case sameShape @sh2 @sh of
-    Just Refl -> t
-    _ -> dD (sreshape u) (DeltaReshapeS knownShS u')
+  sreshape (D u u') = dD (sreshape u) (DeltaReshapeS knownShS u')
   szip (D u u') = dD (szip u) (DeltaZipS u')
   sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
   sbuild1 @k @_ @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
@@ -325,17 +319,13 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = xmaxIndex u
     in fromPrimalADVal v
   xiota = fromPrimalADVal xiota
-  xappend (D u u') (D v v') =
-    dD (xappend u v) (DeltaAppendX u' v')
+  xappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
   xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
   xreverse (D u u') = withKnownShX (ssxFromShape $ xshape u) $
                       dD (xreverse u) (DeltaReverseX u')
   xtranspose @perm (D u u') =
     dD (xtranspose @_ @perm u) (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
-  xreshape @_ @sh sh t@(D u u') =
-   case testEquality (knownShX @sh) (ssxFromShape sh) of
-    Just Refl | sh == xshape u -> t
-    _ -> dD (xreshape sh u) (DeltaReshapeX sh u')
+  xreshape sh (D u u') = dD (xreshape sh u) (DeltaReshapeX sh u')
   xzip (D u u') = dD (xzip u) (DeltaZipX u')
   xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
   xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of

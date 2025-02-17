@@ -968,7 +968,7 @@ tminIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead
           . Nested.sminIndexPrim
-  in case sameShape @sh @'[] of
+  in case testEquality (knownShS @sh) ZSS of
     Just Refl -> f @n
     _ ->
       let sh = toList $ knownShS @sh
@@ -993,7 +993,7 @@ tmaxIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead
           . Nested.smaxIndexPrim
-  in case sameShape @sh @'[] of
+  in case testEquality (knownShS @sh) ZSS of
     Just Refl -> f @n
     _ ->
       let sh = toList $ knownShS @sh

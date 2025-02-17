@@ -9,7 +9,6 @@ module HordeAd.Core.Types
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
   , pattern SNat'
     -- * Definitions for type-level list shapes
-  , sameShape
   , Dict(..), PermC, trustMeThisIsAPermutation
     -- * Kinds of the functors that determine the structure of a tensor type
   , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
@@ -56,7 +55,7 @@ import Data.Kind (Type)
 import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -141,10 +140,6 @@ matchSNat p m@SNat = sameNat p m
 
 
 -- * Definitions for type-level list shapes
-
-sameShape :: forall sh1 sh2. (KnownShS sh1, KnownShS sh2)
-          => Maybe (sh1 :~: sh2)
-sameShape = testEquality (knownShS @sh1) (knownShS @sh2)
 
 class Permutation.IsPermutation is => PermC is
 instance Permutation.IsPermutation is => PermC is
