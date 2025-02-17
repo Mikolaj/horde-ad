@@ -154,7 +154,7 @@ astTransposeAsGatherS
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 {-# NOINLINE astTransposeAsGatherS #-}
 astTransposeAsGatherS knobs perm v =
-  let STKS shn _ = ftkToSTK (ftkAst v)
+  let FTKS shn _ = ftkAst v
       shnPermuted = shsPermute perm (shsTakeLen perm shn)
   in funToVarsIxS @_ @AstMethodLet shnPermuted $ \ (!vars, !ix) ->
     -- See astGatherCase.AstTransposeS for an example with more comments.
@@ -222,7 +222,7 @@ astReshapeAsGatherS
 {-# NOINLINE astReshapeAsGatherS #-}
 astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
                                   , Refl <- lemAppNil @sh
-                                  , STKS shIn _ <- ftkToSTK (ftkAst v) =
+                                  , FTKS shIn _ <- ftkAst v =
   funToVarsIxS shOut $ \ (!vars, !ix) ->
     let fromInt :: Int -> AstInt AstMethodLet
         fromInt i = AstConcrete (RepF FTKScalar (RepN $ fromIntegral i))
@@ -1377,8 +1377,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       let w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
           w = astGather @shm71 @shn' @shp' shn' v (vars, ix2)
       in astLet var2 i1 $ astIndexS @shm1 @shn shn w rest1
-  Ast.AstMinIndexS @n1 @shz v -> case ftkToSTK (ftkAst v) of
-    STKS nsh _ -> case shsLast nsh of
+  Ast.AstMinIndexS @n1 @shz v -> case ftkAst v of
+    FTKS nsh _ -> case shsLast nsh of
      nl@(SNat @nl) ->
       let shnl = shn `shsAppend` (nl :$$ ZSS)
       in gcastWith (unsafeCoerceRefl
@@ -1392,8 +1392,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          Ast.AstMinIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
          $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
-  Ast.AstMaxIndexS @n1 @shz v -> case ftkToSTK (ftkAst v) of
-    STKS nsh _ -> case shsLast nsh of
+  Ast.AstMaxIndexS @n1 @shz v -> case ftkAst v of
+    FTKS nsh _ -> case shsLast nsh of
      nl@(SNat @nl) ->
       let shnl = shn `shsAppend` (nl :$$ ZSS)
       in gcastWith (unsafeCoerceRefl
@@ -1415,7 +1415,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 -- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
 --    sfromIntegral . sfromPrimal . sfromR . rfromK $ interpretAstPrimal env i
   Ast.AstIotaS{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstAppendS u v | STKS (SNat @m :$$ _) _ <- ftkToSTK (ftkAst u) ->
+  Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
     let ulen = AstConcrete (RepF FTKScalar (RepN $ valueOf @m))
         ix1 = i1 :.$ rest1
         ix2 = simplifyAstInt (AstN2K MinusOp i1 ulen) :.$ rest1
@@ -1829,8 +1829,8 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @rank4 @rank2) assimilatedGather
-    Ast.AstMinIndexS @n @sh v -> case ftkToSTK (ftkAst v) of
-     STKS nsh _ -> case shsLast nsh of
+    Ast.AstMinIndexS @n @sh v -> case ftkAst v of
+     FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
         let shnl = shn' `shsAppend` (nl :$$ ZSS)
         in gcastWith (unsafeCoerceRefl
@@ -1845,8 +1845,8 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
            Ast.AstMinIndexS @(Head (shm' ++ (shn' ++ '[nl])))
                             @(Tail (shm' ++ (shn' ++ '[nl])))
            $ astGatherKnobsS knobs shnl v (vars4, ix4)
-    Ast.AstMaxIndexS @n @sh v -> case ftkToSTK (ftkAst v) of
-     STKS nsh _ -> case shsLast nsh of
+    Ast.AstMaxIndexS @n @sh v -> case ftkAst v of
+     FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
         let shnl = shn' `shsAppend` (nl :$$ ZSS)
         in gcastWith (unsafeCoerceRefl
@@ -1868,7 +1868,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
            $ astConcrete (RepF ftk (constantTarget (fromIntegral i) ftk))
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
-    Ast.AstAppendS u v | STKS (SNat @m :$$ _) _ <- ftkToSTK (ftkAst u) ->
+    Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
       let ulen = AstConcrete (RepF FTKScalar (RepN $ valueOf @m))
           iu = simplifyAstInt (AstN2K MinusOp i4 ulen)
       in case simplifyAstBool $ Ast.AstRel LsOp i4 ulen of
@@ -1900,7 +1900,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
       let iRev = simplifyAstInt ((valueOf @n - 1) - i4)
         -- we generate this index, so we simplify on the spot
       in astGather @shm' @shn' shn' v (vars4, iRev :.$ rest4)
-    Ast.AstTransposeS @perm @sh perm v | STKS sh _ <- ftkToSTK (ftkAst v) ->
+    Ast.AstTransposeS @perm @sh perm v | FTKS sh _ <- ftkAst v ->
       let rankPerm = Permutation.permRank perm
       in case gcompare (ixsRank ix4) rankPerm of
         GLT ->  -- TODO: this does not provide any proof, so use cmpNat :(
@@ -2056,7 +2056,7 @@ astSliceS i@SNat n@SNat k@SNat
           w@(Ast.AstAppendS
                (u :: AstTensor AstMethodLet s (TKS2 (ulen : sh) r))
                (v :: AstTensor AstMethodLet s (TKS2 (vlen : sh) r)))
- | STKS (SNat :$$ _) _ <- ftkToSTK (ftkAst u) =
+ | FTKS (SNat :$$ _) _ <- ftkAst u =
   case cmpNat (Proxy @(i + n)) (Proxy @ulen) of
     LTI -> astSliceS i n (SNat @(ulen - (i + n))) u
     EQI -> astSliceS i n (SNat @0) u
@@ -2163,7 +2163,7 @@ astTransposeS perm t = case perm of
                          :~: Permutation.PermutePrefix perm (shm ++ shn)) $
            astGatherS @(Permutation.PermutePrefix perm shm) @shn @shp
                       shn v (vars2, ix)
-  Ast.AstTransposeS @_ @sh2 perm2 u | STKS sh2 _ <- ftkToSTK (ftkAst u) ->
+  Ast.AstTransposeS @_ @sh2 perm2 u | FTKS sh2 _ <- ftkAst u ->
     -- TODO: try to perform at type level
     let permV = Permutation.permToList' perm
         perm2V = Permutation.permToList' perm2
@@ -2217,7 +2217,7 @@ astReshapeS sh2 = \case
   Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2S opCode (astReshapeS @_ @sh2 sh2 u) (astReshapeS @_ @sh2 sh2 v)
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
-  v | STKS sh _ <- ftkToSTK (ftkAst v) -> case testEquality sh sh2 of
+  v | FTKS sh _ <- ftkAst v -> case testEquality sh sh2 of
     Just Refl -> v
     _ -> Ast.AstReshapeS sh2 v
 
@@ -2714,8 +2714,8 @@ expandAstBool t = case t of
     contractAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel arg1 arg2 ->
-    case ftkToSTK (ftkAst arg1) of
-      STKScalar ->
+    case ftkAst arg1 of
+      FTKScalar ->
         contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
           -- Because the scalar tensors sometimes represent indexes,
           -- we expand them a bit more than all the others.
@@ -2851,8 +2851,8 @@ simplifyAstBool t = case t of
     contractAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel arg1 arg2 ->
-    case ftkToSTK (ftkAst arg1) of
-      STKScalar ->
+    case ftkAst arg1 of
+      FTKScalar ->
         contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
           -- Because the scalar tensors sometimes represent indexes,
           -- we simplify them a bit more than all the others.
@@ -3129,7 +3129,7 @@ contractAst t = case t of
                                (Ast.AstIndexS _shn
                                   u (((:.$) @m (AstIntVar var2) ZIS))))))
     | STKS ZSS _ <- stk
-    , STKS (n :$$ ZSS) _ <- ftkToSTK (ftkAst t2)
+    , FTKS (n :$$ ZSS) _ <- ftkAst t2
     , Just Refl <- testEquality snat (SNat @m)
     , var == var2
     , not (varNameInAst var t2),  not (varNameInAst var u) ->
@@ -3276,8 +3276,8 @@ contractAstBool t = case t of
     contractAstB2 opCodeBool (contractAstBool arg1) (contractAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRel opCodeRel arg1 arg2 ->
-    case ftkToSTK (ftkAst arg1) of
-      STKScalar ->
+    case ftkAst arg1 of
+      FTKScalar ->
         contractRelOp opCodeRel (contractAst arg1) (contractAst arg2)
       _ -> Ast.AstRel opCodeRel (contractAst arg1) (contractAst arg2)
 
@@ -3815,8 +3815,8 @@ substitute1AstBool i var = \case
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then case ftkToSTK (ftkAst arg1) of
-         STKScalar ->
+       then case ftkAst arg1 of
+         FTKScalar ->
            Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
                                           (fromMaybe arg2 mr2)
          _ -> Just $ Ast.AstRel opCodeRel (fromMaybe arg1 mr1)

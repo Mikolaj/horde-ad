@@ -413,18 +413,18 @@ printAstAux cfg d = \case
 
   AstPrimalPart a ->
     if loseRoudtrip cfg
-    then case ftkToSTK (ftkAst a) of
-      STKR{} -> printPrefixOp printAst cfg d "rprimalPart" [a]
-      STKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
-      STKX{} -> printPrefixOp printAst cfg d "xprimalPart" [a]
+    then case ftkAst a of
+      FTKR{} -> printPrefixOp printAst cfg d "rprimalPart" [a]
+      FTKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
+      FTKX{} -> printPrefixOp printAst cfg d "xprimalPart" [a]
       _      -> printPrefixOp printAst cfg d "tprimalPart" [a]
     else printPrefixOp printAst cfg d "tprimalPart" [a]
   AstDualPart a ->
     if loseRoudtrip cfg
-    then case ftkToSTK (ftkAst a) of
-      STKR{} -> printPrefixOp printAst cfg d "rdualPart" [a]
-      STKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
-      STKX{} -> printPrefixOp printAst cfg d "xdualPart" [a]
+    then case ftkAst a of
+      FTKR{} -> printPrefixOp printAst cfg d "rdualPart" [a]
+      FTKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
+      FTKX{} -> printPrefixOp printAst cfg d "xdualPart" [a]
       _      -> printPrefixOp printAst cfg d "tdualPart" [a]
     else printPrefixOp printAst cfg d
                        ("tdualPart (" ++ show (ftkToSTK (ftkAst a)) ++ ")") [a]

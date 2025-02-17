@@ -444,7 +444,7 @@ astTr a = case ftkAst a of
 astTrS :: forall n m sh s r. AstSpan s
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
        -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
-astTrS a | STKS (_ :$$ _ :$$ sh) _ <- ftkToSTK (ftkAst a)
+astTrS a | FTKS (_ :$$ _ :$$ sh) _ <- ftkAst a
          , SNat <- shsRank sh =
              -- TODO: why on Earth is this needed?
   astTransposeS (Permutation.makePerm @'[1, 0]) a

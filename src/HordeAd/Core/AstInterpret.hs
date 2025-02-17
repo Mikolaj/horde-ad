@@ -216,13 +216,13 @@ interpretAst !env = \case
     in tbuild1 snat stk f
   AstConcrete (RepF ftk a) -> tconcrete ftk a
 
-  AstLet var u v -> case ftkToSTK (ftkAst u) of
+  AstLet var u v -> case ftkAst u of
     -- We assume there are no nested lets with the same variable.
-    STKR _ STKScalar ->
+    FTKR _ FTKScalar ->
       let t = interpretAstRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
-    STKS _ STKScalar ->
+    FTKS _ FTKScalar ->
       let t = interpretAstSRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
@@ -301,44 +301,44 @@ interpretAst !env = \case
     kfromIntegral $ tfromPrimal STKScalar $ interpretAstPrimal env v
   AstCastK v -> kcast $ interpretAst env v
 
-  AstN1S opCode u -> case ftkToSTK (ftkAst u) of
-    STKS sh _ ->
+  AstN1S opCode u -> case ftkAst u of
+    FTKS sh _ ->
       withKnownShS sh $
       let u2 = interpretAst env u
       in interpretAstN1 opCode u2
-  AstN2S opCode u v -> case ftkToSTK (ftkAst u) of
-    STKS sh _ ->
+  AstN2S opCode u v -> case ftkAst u of
+    FTKS sh _ ->
       withKnownShS sh $
       let u2 = interpretAst env u
           v2 = interpretAst env v
       in interpretAstN2 opCode u2 v2
-  AstR1S opCode u -> case ftkToSTK (ftkAst u) of
-    STKS sh _ ->
+  AstR1S opCode u -> case ftkAst u of
+    FTKS sh _ ->
       withKnownShS sh $
       let u2 = interpretAst env u
       in interpretAstR1 opCode u2
-  AstR2S opCode u v -> case ftkToSTK (ftkAst u) of
-    STKS sh _ ->
+  AstR2S opCode u v -> case ftkAst u of
+    FTKS sh _ ->
       withKnownShS sh $
       let u2 = interpretAst env u
           v2 = interpretAst env v
       in interpretAstR2F opCode u2 v2
-  AstI2S opCode u v -> case ftkToSTK (ftkAst u) of
-    STKS sh _ ->
+  AstI2S opCode u v -> case ftkAst u of
+    FTKS sh _ ->
       withKnownShS sh $
       let u2 = interpretAst env u
           v2 = interpretAst env v
       in interpretAstI2F opCode u2 v2
-  AstFloorS v -> case ftkToSTK (ftkAst v) of
-    STKS sh _ ->
+  AstFloorS v -> case ftkAst v of
+    FTKS sh _ ->
       withKnownShS sh $
       sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstFromIntegralS v ->case ftkToSTK (ftkAst v) of
-    STKS sh _ ->
+  AstFromIntegralS v -> case ftkAst v of
+    FTKS sh _ ->
       withKnownShS sh $
       sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstCastS v -> case ftkToSTK (ftkAst v) of
-    STKS sh _ ->
+  AstCastS v -> case ftkAst v of
+    FTKS sh _ ->
       withKnownShS sh $
       scast $ interpretAstSRuntimeSpecialized env v
 
@@ -484,8 +484,8 @@ interpretAst !env = \case
       withKnownShS sh $
       withKnownSTK x $
       ssum0 (interpretAst env v)
-  AstDot0S u v -> case ftkToSTK (ftkAst u) of
-    STKS sh _ ->
+  AstDot0S u v -> case ftkAst u of
+    FTKS sh _ ->
       withKnownShS sh $
       sdot0 (interpretAst env u) (interpretAst env v)
   AstDot1InS SNat n@SNat u v ->
@@ -514,16 +514,16 @@ interpretAstBool !env = \case
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
   AstRel opCodeRel arg1 arg2 ->
-    case ftkToSTK (ftkAst arg1) of
-      STKR SNat STKScalar ->
+    case ftkAst arg1 of
+      ftk@(FTKR _ FTKScalar) | Dict <- lemKnownSTK (ftkToSTK ftk) ->
         let r1 = interpretAstPrimalRuntimeSpecialized env arg1
             r2 = interpretAstPrimalRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      STKS sh STKScalar -> withKnownShS sh $
+      FTKS sh FTKScalar -> withKnownShS sh $
         let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
             r2 = interpretAstPrimalSRuntimeSpecialized env arg2
         in interpretAstRelOp opCodeRel r1 r2
-      stk | Dict <- lemKnownSTK stk ->
+      ftk | Dict <- lemKnownSTK (ftkToSTK ftk) ->
         let r1 = interpretAstPrimal env arg1
             r2 = interpretAstPrimal env arg2
         in interpretAstRelOp opCodeRel r1 r2
