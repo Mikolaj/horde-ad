@@ -145,8 +145,8 @@ class LetTensor (target :: Target) where
       Just Refl -> 0
       _ -> 1
     STKR _ x | Dict <- lemKnownSTK x -> rsize a
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssize a
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsize a
+    STKS _ x | Dict <- lemKnownSTK x -> ssize a
+    STKX _ x | Dict <- lemKnownSTK x -> xsize a
     STKProduct stk1 stk2 ->
       tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
   tlet :: target x
@@ -509,13 +509,17 @@ class ( Num (IntOf target)
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
   -- by 1 dimension.
-  rshape :: KnownSTK r => target (TKR2 n r) -> IShR n
-  rrank :: forall r n. (KnownSTK r, KnownNat n) => target (TKR2 n r) -> Int
+  rshape :: forall n x. KnownSTK x
+         => target (TKR2 n x) -> IShR n
+  rrank :: forall n x. KnownNat n
+        => target (TKR2 n x) -> Int
   rrank _ = valueOf @n
-  rsize :: KnownSTK r => target (TKR2 n r) -> Int
+  rsize :: forall n x. KnownSTK x
+        => target (TKR2 n x) -> Int
   rsize = shrSize . rshape
-  rlength :: KnownSTK r => target (TKR2 (1 + n) r) -> Int
-  rlength v = case rshape v of
+  rlength :: forall n x. KnownSTK x
+          => target (TKR2 (1 + n) x) -> Int
+  rlength a = case rshape a of
     k :$: _ -> k
 
   rfromList :: (KnownSTK r, KnownNat n)
@@ -789,17 +793,18 @@ class ( Num (IntOf target)
   rScale = tScale @target knownSTK
 
   -- Shaped ops
-  sshape :: forall sh r. (KnownSTK r, KnownShS sh)
-         => target (TKS2 sh r) -> ShS sh
-  sshape _ = knownShS @sh
-  srank :: forall sh r. KnownNat (Rank sh)
-        => target (TKS2 sh r) -> Int
+  sshape :: forall sh x. KnownSTK x
+         => target (TKS2 sh x) -> ShS sh
+  srank :: forall sh x. KnownNat (Rank sh)
+        => target (TKS2 sh x) -> Int
   srank _ = valueOf @(Rank sh)
-  ssize :: forall sh r. (KnownSTK r, KnownShS sh) => target (TKS2 sh r) -> Int
-  ssize _ = shsSize (knownShS @sh)
-  slength :: forall r n sh. (KnownSTK r, KnownNat n)
-          => target (TKS2 (n ': sh) r) -> Int
-  slength _ = valueOf @n
+  ssize :: forall sh x. KnownSTK x
+        => target (TKS2 sh x) -> Int
+  ssize = shsSize . sshape
+  slength :: forall sh x n. KnownSTK x
+          => target (TKS2 (n ': sh) x) -> Int
+  slength a = case sshape a of
+    n :$$ _ -> sNatValue n
 
   sfromList :: (KnownSTK r, KnownNat n, KnownShS sh)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
@@ -1152,14 +1157,17 @@ class ( Num (IntOf target)
   sScale = tScale @target knownSTK
 
   -- Mixed ops
-  xshape :: KnownSTK r => target (TKX2 sh r) -> IShX sh
-  xrank :: forall r sh. KnownNat (Rank sh)
-        => target (TKX2 sh r) -> Int
+  xshape :: forall sh x. KnownSTK x
+         => target (TKX2 sh x) -> IShX sh
+  xrank :: forall sh x. KnownNat (Rank sh)
+        => target (TKX2 sh x) -> Int
   xrank _ = valueOf @(Rank sh)
-  xsize :: KnownSTK r => target (TKX2 sh r) -> Int
+  xsize :: forall sh x. KnownSTK x
+        => target (TKX2 sh x) -> Int
   xsize = shxSize . xshape
-  xlength :: KnownSTK r => target (TKX2 (mn ': sh) r) -> Int
-  xlength v = case xshape v of
+  xlength :: forall sh x mn. KnownSTK x
+          => target (TKX2 (mn ': sh) x) -> Int
+  xlength a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
 
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2)

@@ -105,7 +105,7 @@ instance BaseTensor RepN where
   taddTarget = addTarget
 
   -- Ranked ops
-  rshape @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unRepN
+  rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unRepN
   rfromList @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rfromListOuter . NonEmpty.map unRepN
       -- TODO: make this strict
@@ -180,6 +180,7 @@ instance BaseTensor RepN where
         rbuild (rshape u) (\ix -> f (rindex0 t ix) (rindex0 u ix))
 
   -- Shaped ops
+  sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unRepN
   sfromList @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.map unRepN
       -- TODO: make this strict
@@ -339,7 +340,7 @@ instance BaseTensor RepN where
         $ sbuild @RepN @_ @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
 
   -- Shaped ops
-  xshape @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
+  xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
   xfromList @r @n @sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.map unRepN

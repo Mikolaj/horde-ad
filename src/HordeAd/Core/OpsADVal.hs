@@ -208,6 +208,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     Just l -> rfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
 
   -- Shaped ops
+  sshape (D u _) = sshape u
   sfromVector @_ @k lu = assert (length lu == valueOf @k) $
     dD (sfromVector $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector (SNat @k) knownSTK $ V.map (\(D _ u') -> u') lu)

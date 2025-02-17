@@ -393,6 +393,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                         astBuild1Vectorize snat (STKR (SNat @n) (knownSTK @x)) f
 
   -- Shaped ops
+  sshape t = case ftkAst t of
+    FTKS sh _ -> sh
   sfromVector @_ @k l = astFromVector (SNat @k) knownSTK l
   ssum = astSum SNat knownSTK
   sreplicate = astReplicate SNat knownSTK
@@ -985,6 +987,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     $ unAstRaw . f . AstRaw
 
   -- Shaped ops
+  sshape t = case ftkAst $ unAstRaw t of
+    FTKS sh _ -> sh
   sfromVector @_ @k l =
     AstRaw . AstFromVector (SNat @k) knownSTK . V.map unAstRaw $ l
   ssum = AstRaw . AstSum SNat knownSTK . unAstRaw
@@ -1384,6 +1388,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     $ unAstNoVectorize . f . AstNoVectorize
 
   -- Shaped ops
+  sshape = sshape . unAstNoVectorize
   sfromVector = AstNoVectorize . sfromVector . V.map unAstNoVectorize
   ssum = AstNoVectorize . ssum . unAstNoVectorize
   sreplicate = AstNoVectorize . sreplicate . unAstNoVectorize
@@ -1605,6 +1610,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   runzip = wAstNoSimplify . runzip . wunAstNoSimplify
 
   -- Shaped ops
+  sshape = sshape . wunAstNoSimplify
   sfromVector = wAstNoSimplify . sfromVector . V.map wunAstNoSimplify
   ssum = wAstNoSimplify . ssum . wunAstNoSimplify
   sreplicate = wAstNoSimplify . sreplicate . wunAstNoSimplify
