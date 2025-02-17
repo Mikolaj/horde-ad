@@ -661,7 +661,7 @@ class ( Num (IntOf target)
           -> Maybe (target (TKR2 n r), target (TKR2 (1 + n) r))
   runcons v = case rshape v of
                 len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
-  rreverse :: (KnownSTK r, KnownNat n)
+  rreverse :: KnownSTK r
            => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
   rtr :: KnownSTK r
       => target (TKR2 (2 + n) r) -> target (TKR2 (2 + n) r)
@@ -958,7 +958,7 @@ class ( Num (IntOf target)
     LTI -> Just ( v !$ (0 :.$ ZIS)
                 , sslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
     _ -> Nothing
-  sreverse :: (KnownSTK r, KnownNat n, KnownShS sh)
+  sreverse :: KnownSTK r
            => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
   str :: forall r n m sh. KnownSTK r
       => target (TKS2 (n ': m ': sh) r) -> target (TKS2 (m ': n ': sh) r)
@@ -1364,7 +1364,7 @@ class ( Num (IntOf target)
     LTI -> Just ( v `xindex` (0 :.% ZIX)
                 , xslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
     _ -> Nothing
-  xreverse :: (KnownSTK r, KnownShX sh)
+  xreverse :: KnownSTK r
            => target (TKX2 (mn ': sh) r) -> target (TKX2 (mn ': sh) r)
   xtr :: forall r n m sh. KnownSTK r
       => target (TKX2 (Just n ': Just m ': sh) r)

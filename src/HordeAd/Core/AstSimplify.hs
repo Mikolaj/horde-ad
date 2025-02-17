@@ -2083,9 +2083,8 @@ astReverseS :: forall n sh s r. AstSpan s
 astReverseS (Ast.AstFromVector snat stk l) =
   astFromVector snat stk $ V.reverse l
 astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
-astReverseS (AstConcrete (RepF ftk@(FTKS (SNat :$$ sh) x) t)) =
+astReverseS (AstConcrete (RepF ftk@(FTKS _ x) t)) =
   withKnownSTK (ftkToSTK x) $
-  withKnownShS sh $
   astConcrete (RepF ftk (sreverse t))
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v

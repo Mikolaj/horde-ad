@@ -321,8 +321,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   xiota = fromPrimalADVal xiota
   xappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
   xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
-  xreverse (D u u') = withKnownShX (ssxFromShape $ xshape u) $
-                      dD (xreverse u) (DeltaReverseX u')
+  xreverse (D u u') = dD (xreverse u) (DeltaReverseX u')
   xtranspose @perm (D u u') =
     dD (xtranspose @_ @perm u) (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
   xreshape sh (D u u') = dD (xreshape sh u) (DeltaReshapeX sh u')

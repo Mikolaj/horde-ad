@@ -331,12 +331,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 . astSliceS isnat nsnat (SNat @(m - (i + n)))
                 . astSFromR sh $ a
         ZSS -> error "xslice: impossible shape"
-  rreverse @r @n a = case ftkAst a of
-    FTKR @_ @x sh' _ | SNat <- shrRank sh' ->
-      withCastRS sh' $ \(sh :: ShS sh) -> case sh of
+  rreverse a = case ftkAst a of
+    FTKR sh' x ->
+      withCastRS sh' $ \sh -> case sh of
         _ :$$ _ ->
-          astFromS @(TKS2 sh x) (knownSTK @(TKR2 (1 + n) r))
-          . astReverseS . astSFromR @sh sh $ a
+          astFromS (STKR (shrRank sh') (ftkToSTK x))
+          . astReverseS . astSFromR sh $ a
         ZSS -> error "xreverse: impossible shape"
   rtranspose @r @n permr a = case ftkAst a of
     FTKR sh' x ->
@@ -552,12 +552,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                        ++ show ( sNatValue i, sNatValue n, sNatValue k
                                , sNatValue msnat )
   xreverse a = case ftkAst a of
-    FTKX @sh' @x sh' _ ->
+    FTKX sh' x ->
       withKnownShX (ssxFromShape sh') $
-      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
-        _ :$$ _ ->
-          astFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
-          . astReverseS . astSFromX @sh @sh' sh $ a
+      withCastXS sh' $ \sh@(_ :$$ _) ->
+        astFromS (STKX (ssxFromShape sh') (ftkToSTK x))
+        . astReverseS . astSFromX sh $ a
   xtranspose @perm a = case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
@@ -922,12 +921,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 . AstSliceS isnat nsnat (SNat @(m - (i + n)))
                 . AstSFromR sh $ a
         ZSS -> error "xslice: impossible shape"
-  rreverse  @r @n(AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' _ | SNat <- shrRank sh' ->
-      withCastRS sh' $ \(sh :: ShS sh) -> case sh of
+  rreverse (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKR sh' x ->
+      withCastRS sh' $ \sh -> case sh of
         _ :$$ _ ->
-          AstFromS (knownSTK @(TKR2 (1 + n) r))
-          . AstReverseS . AstSFromR @sh sh $ a
+          AstFromS (STKR (shrRank sh') (ftkToSTK x))
+          . AstReverseS . AstSFromR sh $ a
         ZSS -> error "xreverse: impossible shape"
   rtranspose @r @n permr (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
@@ -1152,12 +1151,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                        ++ show ( sNatValue i, sNatValue n, sNatValue k
                                , sNatValue msnat )
   xreverse (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh' @x sh' _ ->
+    FTKX sh' x ->
       withKnownShX (ssxFromShape sh') $
-      withCastXS sh' $ \(sh :: ShS sh) -> case sh of
-        _ :$$ _ ->
-          AstFromS @(TKS2 sh x) (knownSTK @(TKX2 sh' x))
-          . AstReverseS . AstSFromX @sh @sh' sh $ a
+      withCastXS sh' $ \sh@(_ :$$ _) ->
+        AstFromS (STKX (ssxFromShape sh') (ftkToSTK x))
+        . AstReverseS . AstSFromX sh $ a
   xtranspose @perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'

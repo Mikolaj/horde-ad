@@ -421,8 +421,7 @@ interpretAst !env = \case
       withKnownSTK x $
       sslice i n k $ interpretAst env v
   AstReverseS v -> case ftkToSTK (ftkAst v) of
-    STKS (SNat :$$ sh) x ->
-      withKnownShS sh $
+    STKS _ x ->
       withKnownSTK x $
       sreverse (interpretAst env v)
   AstTransposeS perm v -> case ftkToSTK (ftkAst v) of

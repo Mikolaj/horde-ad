@@ -611,7 +611,7 @@ evalRevSame !s !c = \case
                d
     FTKR ZSR _ -> error "evalRevSame: impossible pattern needlessly required"
   DeltaReverseR d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh ->
+    FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (rreverse c) d
   DeltaTransposeR perm d -> case ftkDelta d of
@@ -685,9 +685,8 @@ evalRevSame !s !c = \case
                                 (sappend
                                    c (constantTarget 0 (FTKS knownShS x)))) d
   DeltaReverseS d -> case ftkDelta d of
-    FTKS (_ :$$ sh) x ->
+    FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
       evalRevSame s (sreverse c) d
   DeltaTransposeS @perm @sh2 perm d -> case ftkDelta d of
     FTKS _ x ->
@@ -775,9 +774,8 @@ evalRevSame !s !c = \case
           , constantTarget 0 (FTKX (Nested.SUnknown (valueOf @k) :$% rest) x) ])
         d
   DeltaReverseX d -> case ftkDelta d of
-    FTKX (_ :$% sh) x ->
+    FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh) $
       evalRevSame s (xreverse c) d
   DeltaTransposeX @perm @sh2 perm d -> case ftkDelta d of
     FTKX _ x ->
@@ -1103,7 +1101,7 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       second (rslice i n) $ evalFwdSame params s d
   DeltaReverseR d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh ->
+    FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       second rreverse $ evalFwdSame params s d
   DeltaTransposeR perm d -> case ftkDelta d of
@@ -1176,9 +1174,8 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       second (sslice i n k) $ evalFwdSame params s d
   DeltaReverseS d -> case ftkDelta d of
-    FTKS (_ :$$ sh) x ->
+    FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
       second sreverse $ evalFwdSame params s d
   DeltaTransposeS perm d -> case ftkDelta d of
     FTKS sh x ->
@@ -1255,9 +1252,8 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       second (xslice i n k) $ evalFwdSame params s d
   DeltaReverseX d -> case ftkDelta d of
-    FTKX (_ :$% sh) x ->
+    FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh) $
       second xreverse $ evalFwdSame params s d
   DeltaTransposeX @perm perm d -> case ftkDelta d of
     FTKX sh x ->
