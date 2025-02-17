@@ -576,9 +576,6 @@ class ( Num (IntOf target)
     _ :$: width2 :$: ZSR ->
       rsum (rtranspose [2,1,0] (rreplicate width2 m1)
             * rtranspose [1,0] (rreplicate (rlength m1) m2))
-  rscaleByScalar :: (GoodScalar r, KnownNat n)
-                 => target (TKR 0 r) -> target (TKR n r) -> target (TKR n r)
-  rscaleByScalar s v = v * rreplicate0N (rshape v) s
   rreplicate :: (KnownSTK r, KnownNat n)
              => Int -> target (TKR2 n r) -> target (TKR2 (1 + n) r)
   rreplicate0N :: (KnownSTK r, KnownNat n)
@@ -856,10 +853,6 @@ class ( Num (IntOf target)
   smatmul2 m1 m2 =
     ssum (stranspose @_ @'[2, 1, 0] (sreplicate @target @p m1)
           * stranspose @_ @'[1, 0] (sreplicate @target @m m2))
-  sscaleByScalar
-    :: (GoodScalar r, KnownShS sh)
-    => target (TKS '[] r) -> target (TKS sh r) -> target (TKS sh r)
-  sscaleByScalar s v = v * sreplicate0N s
   sreplicate :: (KnownNat k, KnownShS sh, KnownSTK r)
              => target (TKS2 sh r) -> target (TKS2 (k ': sh) r)
   sreplicate0N :: forall r sh. (KnownSTK r, KnownShS sh)
@@ -1248,10 +1241,6 @@ class ( Num (IntOf target)
   xmatmul2 m1 m2 =
     xsum (xtranspose @_ @'[2, 1, 0] (xreplicate @target @p m1)
           * xtranspose @_ @'[1, 0] (xreplicate @target @m m2))
-  xscaleByScalar
-    :: (GoodScalar r, KnownShX sh)
-    => target (TKX '[] r) -> target (TKX sh r) -> target (TKX sh r)
-  xscaleByScalar s v = v * xreplicate0N (xshape v) s
   xreplicate :: (KnownNat k, KnownShX sh, KnownSTK r)
              => target (TKX2 sh r) -> target (TKX2 (Just k ': sh) r)
   xreplicate0N :: (KnownSTK r, KnownShX sh)

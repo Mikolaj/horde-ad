@@ -134,8 +134,6 @@ instance BaseTensor RepN where
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
-  rscaleByScalar s v =
-    RepN $ liftVR (V.map (* Nested.runScalar (unRepN s))) (unRepN v)
   rreplicate @r k | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate (k :$: ZSR) . unRepN
   rreplicate0N @r sh | Dict <- eltDictRep (knownSTK @r) =
@@ -211,8 +209,6 @@ instance BaseTensor RepN where
   sdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
-  sscaleByScalar s v =
-    RepN $ liftVS (V.map (* Nested.sunScalar (unRepN s))) (unRepN v)
   sreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
   sreplicate0N @r @sh | Refl <- lemAppNil @sh
@@ -376,8 +372,6 @@ instance BaseTensor RepN where
   xdot1In @_ @n u v =
     RepN $ Nested.mdot1Inner (Proxy @(Just n)) (unRepN u) (unRepN v)
   xmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
-  xscaleByScalar s v =
-    RepN $ liftVX (V.map (* Nested.munScalar (unRepN s))) (unRepN v)
   xreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unRepN
   xreplicate0N @r @sh sh | Refl <- lemAppNil @sh

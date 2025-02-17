@@ -289,7 +289,7 @@ fooBuild5 v =
       v' = rreplicate0N (shrTail $ rshape v) $ rminimum $ rflatten v
   in rbuild1 2 $ \ix ->
        r * foo ( rreplicate0N (shrTail $ rshape v) (rscalar 3)
-               , rscaleByScalar (rscalar 5) r
+               , rrepl (rshape r) 5 * r
                , r * v')
        + bar (r, rindex v [minF 1 (ix + 1)])  -- index not out of bounds
 

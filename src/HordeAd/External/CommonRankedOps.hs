@@ -172,7 +172,7 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
         in tlet expU' $ \expU ->
           let sumExpU = rsum0 expU
               recipSum = recip sumExpU
-          in rscaleByScalar recipSum expU
+          in rreplicate0N (rshape u) recipSum * expU
                -- not exposed: LA.scaleRecip sumExpU expU
   in tlet (rfromPrimal @target softMaxU') $ \softMaxU -> kfromR $
     tD knownSTK
