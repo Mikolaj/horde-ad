@@ -72,13 +72,13 @@ data FullTensorKindW y where
   WFTKProduct :: FullTensorKindW y -> FullTensorKindW z
               -> FullTensorKindW (TKProduct y z)
 
-fromFTKW :: FullTensorKindW y -> FullTensorKind y
-fromFTKW = \case
-  WFTKScalar -> FTKScalar
-  WFTKR sh -> FTKR sh FTKScalar
-  WFTKS sh -> FTKS sh FTKScalar
-  WFTKX sh -> FTKX sh FTKScalar
-  WFTKProduct ftk1 ftk2 -> FTKProduct (fromFTKW ftk1) (fromFTKW ftk2)
+ftkwToSTK :: FullTensorKindW y -> STensorKind y
+ftkwToSTK = \case
+  WFTKScalar -> STKScalar
+  WFTKR sh -> STKR (shrRank sh) STKScalar
+  WFTKS sh -> STKS sh STKScalar
+  WFTKX sh -> STKX (ssxFromShape sh) STKScalar
+  WFTKProduct ftk1 ftk2 -> STKProduct (ftkwToSTK ftk1) (ftkwToSTK ftk2)
 
 addRepW :: forall y target. BaseTensor target
         => RepW target y -> RepW target y -> RepW target y
@@ -119,8 +119,8 @@ constantRepW r = \case
   WFTKR sh | SNat <- shrRank sh -> WTKR $ rrepl sh r
   WFTKS sh -> withKnownShS sh $ WTKS $ srepl r
   WFTKX sh -> withKnownShX (ssxFromShape sh) $ WTKX $ xrepl sh r
-  WFTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkToSTK $ fromFTKW ftk1)
-                        , Dict <- lemKnownSTK (ftkToSTK $ fromFTKW ftk2) ->
+  WFTKProduct ftk1 ftk2 | Dict <- lemKnownSTK (ftkwToSTK ftk1)
+                        , Dict <- lemKnownSTK (ftkwToSTK ftk2) ->
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
 
 toADTensorKindW
@@ -289,10 +289,7 @@ unWindFTK = \case
   FTKX sh1 (FTKProduct y z) ->
     withKnownShX (ssxFromShape sh1) $
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
-  FTKProduct y z
-   | Dict <- lemKnownSTK (ftkToSTK $ fromFTKW $ unWindFTK y)
-   , Dict <- lemKnownSTK (ftkToSTK $ fromFTKW $ unWindFTK z) ->
-    WFTKProduct (unWindFTK y) (unWindFTK z)
+  FTKProduct y z -> WFTKProduct (unWindFTK y) (unWindFTK z)
 
 -- This uses tunpairDup so to preserve sharing, `target` either has
 -- to have a ShareTensor instance or the argument has to be duplicable.
