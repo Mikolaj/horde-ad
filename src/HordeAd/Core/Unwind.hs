@@ -262,7 +262,7 @@ unWindFTK = \case
     $ FTKX (shCvtRX sh1 `shxAppend` shCvtSX sh2) ftk2
   FTKR sh1 (FTKX sh2 ftk2) ->
     unWindFTK $ FTKX (shCvtRX sh1 `shxAppend` sh2) ftk2
-  FTKR sh1 (FTKProduct y z) | SNat <- shrRank sh1 ->
+  FTKR sh1 (FTKProduct y z) ->
     unWindFTK $ FTKProduct (FTKR sh1 y) (FTKR sh1 z)
   FTKS sh FTKScalar -> WFTKS sh
   FTKS sh1 (FTKR sh2 ftk2) ->

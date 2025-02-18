@@ -21,7 +21,6 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 
-import Data.Array.Mixed.Shape (ssxAppend, withKnownShX, ssxFromShape, ssxReplicate)
 import Data.Array.Nested
   ( IxR (..)
   , IxS (..)
@@ -33,7 +32,7 @@ import Data.Array.Nested
   , KnownShX (..)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsInit, shCvtSX, withKnownShS, shsAppend)
+import Data.Array.Nested.Internal.Shape (shsInit, withKnownShS)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
@@ -118,7 +117,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- though contangent expands anyway.
   tfromS ystk zstk (D u u') =
     dDnotShared (tfromSShare ystk zstk u) (dFromS zstk u')
-  tD stk t d | Dict <- lemKnownSTK stk = dD t d
+  tD _stk t d = dD t d
 
 instance (ADReadyNoLet target, ShareTensor target)
          => ShareTensor (ADVal target) where
@@ -228,14 +227,10 @@ instance ( ADReadyNoLet target, ShareTensor target
     let ix = tprimalPart <$> i
     in dD (sindex u ix) (DeltaIndexS knownShS u' ix)
   sscatter @r @shm @shn @shp (D u u') f =
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (sscatter @_ @r @shm @shn @shp u g)
           (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' g)
   sgather @r @shm @shn @shp (D u u') f =
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (sgather @_ @r @shm @shn @shp u g)
           (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
@@ -292,14 +287,10 @@ instance ( ADReadyNoLet target, ShareTensor target
     let ix = tprimalPart <$> i
     in dD (xindex u ix) (DeltaIndexX knownShX u' ix)
   xscatter @r @shm @shn @shp sh (D u u') f =
-    withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
-    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (xscatter @_ @r @shm @shn @shp sh u g)
           (DeltaScatterX @shm @shn @shp knownShX knownShX knownShX sh u' g)
   xgather @r @shm @shn @shp sh (D u u') f =
-    withKnownShX (ssxFromShape sh) $
-    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (xgather @_ @r @shm @shn @shp sh u g)
           (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' g)
@@ -354,28 +345,12 @@ instance ( ADReadyNoLet target, ShareTensor target
   sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
 
   -- Nesting/unnesting
-  xnestR @_ @m sh1 (D u u') =
-    withKnownShX sh1 $
-    withKnownShX (sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
-  xnestS @_ @sh2 sh1 (D u u') =
-    withKnownShX sh1 $
-    withKnownShX (sh1 `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')
-  xnest @_ @sh2 sh1 (D u u') =
-    withKnownShX sh1 $
-    withKnownShX (sh1 `ssxAppend` knownShX @sh2) $
-    dD (xnest sh1 u) (DeltaXNest sh1 knownShX u')
-  xunNestR @sh1 @m (D u u') =
-    withKnownShX (knownShX @sh1 `ssxAppend` ssxReplicate (SNat @m)) $
-    dD (xunNestR u) (DeltaXUnNestR u')
-  xunNestS @sh1 @sh2 (D u u') =
-    withKnownShX (knownShX @sh1
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    dD (xunNestS u) (DeltaXUnNestS u')
-  xunNest @sh1 @sh2 (D u u') =
-    withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-    dD (xunNest u) (DeltaXUnNest u')
+  xnestR sh1 (D u u') = dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
+  xnestS sh1 (D u u') = dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')
+  xnest sh1 (D u u') = dD (xnest sh1 u) (DeltaXNest sh1 knownShX u')
+  xunNestR (D u u') = dD (xunNestR u) (DeltaXUnNestR u')
+  xunNestS (D u u') = dD (xunNestS u) (DeltaXUnNestS u')
+  xunNest (D u u') = dD (xunNest u) (DeltaXUnNest u')
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk (D u _) = tftk stk u
@@ -453,8 +428,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (tpair accFin bs) dual
   tmapAccumLDer @accShs @bShs @eShs _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accShs)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs)
-   , Dict <- lemKnownSTKOfAD (ftkToSTK accShs) =
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let es = tshare esNotShared

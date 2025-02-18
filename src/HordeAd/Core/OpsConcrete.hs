@@ -53,7 +53,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shsToList, shsInit, shrRank, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
+  (shsToList, shsInit, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
@@ -294,12 +294,8 @@ instance BaseTensor RepN where
   sfloor = RepN . liftVS (V.map floor) . unRepN
   sfromIntegral = RepN . liftVS (V.map fromIntegral) . unRepN
   scast = RepN . liftVS (V.map realToFrac) . unRepN
-  sminIndex @_ @_ @sh @n a =
-    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
-    RepN . tminIndexS . unRepN $ a
-  smaxIndex @_ @_ @sh @n a =
-    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
-    RepN . tmaxIndexS . unRepN $ a
+  sminIndex a = RepN . tminIndexS . unRepN $ a
+  smaxIndex a = RepN . tmaxIndexS . unRepN $ a
   siota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl -> RepN $ Nested.semptyArray ZSS
@@ -748,8 +744,8 @@ tindexZR v ixRepN | Dict <- showDictRep (knownSTK @r)
                   , Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
   in case tftk knownSTK v of
-    FTKR sh x | SNat <- shrRank sh ->
-     if ixInBounds (toList ix) (toList sh)
+    FTKR sh x ->
+     if ixInBounds (Foldable.toList ix) (Foldable.toList sh)
      then RepN $ tindexNR (unRepN v) ix
      else constantTarget def (FTKR (dropShape @m sh) x)
 
@@ -1038,7 +1034,7 @@ tindexZS v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   in withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
      case tftk knownSTK v of
        FTKS sh x ->
-         if ixInBounds (toList ix) (toList sh)
+         if ixInBounds (Foldable.toList ix) (shsToList sh)
          then RepN $ tindexNS (unRepN v) ix
          else constantTarget def (FTKS knownShS x)
 

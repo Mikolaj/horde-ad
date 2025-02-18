@@ -127,7 +127,11 @@ data InputId :: Target -> TensorKindType -> Type where
 
 -- No Eq instance to limit hacks outside this module.
 
-deriving instance Show (InputId target y)
+instance Show (InputId target y) where  -- backward compatibility
+  showsPrec _ (InputId _ n) =
+    showParen True
+    $ showString "InputId "
+      . shows n
 
 instance DMap.Enum1 (InputId target) where
   type Enum1Info (InputId target) = Some STensorKind

@@ -36,7 +36,7 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
             (params - realToFrac gamma * gradient)
             params
         Nothing -> params
-  STKR SNat (STKScalar @r) -> RepN $
+  STKR _ (STKScalar @r) -> RepN $
     case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
       Just Refl ->
         ifDifferentiable @r
@@ -45,7 +45,7 @@ updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
                     * gradient)
           params
       Nothing -> params
-  STKS sh (STKScalar @r) -> withKnownShS sh $ RepN $
+  STKS _ (STKScalar @r) -> RepN $
     case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
       Just Refl ->
         ifDifferentiable @r

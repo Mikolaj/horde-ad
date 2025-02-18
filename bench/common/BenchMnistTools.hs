@@ -48,12 +48,6 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
-  withKnownSTK
-    (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
-                        (SNat @widthHidden)) $
-  withKnownSTK
-    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden] r))
-                        (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -90,12 +84,6 @@ mnistTestBench1VTA prefix widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
-  withKnownSTK
-    (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
-                        (SNat @widthHidden)) $
-  withKnownSTK
-    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden] r))
-                        (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -156,12 +144,6 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
-  withKnownSTK
-    (adSTK $ stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r))
-                        (SNat @widthHidden)) $
-  withKnownSTK
-    (adSTK $ stkOfListR (knownSTK @(TKS '[widthHidden] r))
-                        (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     RepN widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)

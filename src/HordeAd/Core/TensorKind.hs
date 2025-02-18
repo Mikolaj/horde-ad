@@ -250,10 +250,8 @@ razeFTK snat@SNat stk ftk = case (stk, ftk) of
   (STKR{}, FTKR ZSR _) -> error "razeFTK: impossible built tensor kind"
   (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x
   (STKX{}, FTKX (_ :$% sh) x) -> FTKX sh x
-  (STKProduct stk1 stk2, FTKProduct ftk1 ftk2)
-    | Dict <- lemKnownSTK stk1
-    , Dict <- lemKnownSTK stk2 ->
-      FTKProduct (razeFTK snat stk1 ftk1) (razeFTK snat stk2 ftk2)
+  (STKProduct stk1 stk2, FTKProduct ftk1 ftk2) ->
+    FTKProduct (razeFTK snat stk1 ftk1) (razeFTK snat stk2 ftk2)
 
 adFTK :: FullTensorKind y
       -> FullTensorKind (ADTensorKind y)

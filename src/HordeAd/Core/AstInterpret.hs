@@ -337,17 +337,13 @@ interpretAst !env = \case
     FTKS sh _ ->
       withKnownShS sh $
       sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstCastS v -> case ftkAst v of
-    FTKS sh _ ->
-      withKnownShS sh $
-      scast $ interpretAstSRuntimeSpecialized env v
+  AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
 
   AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS (ixsToShS ix) $
       withKnownShS sh2 $
       withKnownSTK x $
-      withKnownShS (ixsToShS ix `shsAppend` sh2) $
       let v2 = interpretAst env v
           ix3 = interpretAstPrimal env <$> ix
       in sindex @target @_ @sh1 v2 ix3
@@ -357,7 +353,6 @@ interpretAst !env = \case
       -- the indexing is guarded by conditionals
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (ixsToShS ix `shsAppend` shn) $
       withKnownShS shn $
       withKnownShS (ixsToShS ix) $
       withKnownSTK x $
@@ -374,7 +369,6 @@ interpretAst !env = \case
       in sscatter @_ @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (ixsToShS ix `shsAppend` shn) $
       withKnownShS shn $
       withKnownShS (ixsToShS ix) $
       withKnownSTK x $
@@ -400,12 +394,12 @@ interpretAst !env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstMinIndexS v -> case ftkToSTK (ftkAst v) of
-    STKS (SNat :$$ sh) x ->
+    STKS (_ :$$ sh) x ->
       withKnownShS sh $
       withKnownSTK x $
       sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
   AstMaxIndexS v -> case ftkToSTK (ftkAst v) of
-    STKS (SNat :$$ sh) x ->
+    STKS (_ :$$ sh) x ->
       withKnownShS sh $
       withKnownSTK x $
       smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
@@ -433,21 +427,10 @@ interpretAst !env = \case
       withKnownSTK x $
       withKnownShS sh2 $
       sreshape (interpretAst env v)
-  AstZipS v -> case ftkToSTK (ftkAst v) of
-    STKProduct (STKS sh y) (STKS _ z) ->
-      withKnownShS sh $
-      withKnownSTK y $
-      withKnownSTK z $
-      szip $ interpretAst env v
-  AstUnzipS v -> case ftkToSTK (ftkAst v) of
-    STKS sh (STKProduct y z) ->
-      withKnownShS sh $
-      withKnownSTK y $
-      withKnownSTK z $
-      sunzip $ interpretAst env v
+  AstZipS v -> szip $ interpretAst env v
+  AstUnzipS v -> sunzip $ interpretAst env v
   AstNestS sh1 sh2 v -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS sh1 $
       withKnownShS sh2 $
       withKnownSTK x $
       snest sh1 $ interpretAst env v
@@ -461,14 +444,13 @@ interpretAst !env = \case
   AstFromS stkz v -> tfromS (ftkToSTK (ftkAst v)) stkz (interpretAst env v)
   AstSFromK t -> sfromK $ interpretAst env t
   AstSFromR sh v -> case ftkToSTK (ftkAst v) of
-    STKR SNat x ->
+    STKR _ x ->
       withKnownShS sh $
       withKnownSTK x $
       sfromR $ interpretAst env v
   AstSFromX sh v -> case ftkToSTK (ftkAst v) of
-    STKX sh' x ->
+    STKX _ x ->
       withKnownShS sh $
-      withKnownShX sh' $
       withKnownSTK x $
       sfromX $ interpretAst env v
 

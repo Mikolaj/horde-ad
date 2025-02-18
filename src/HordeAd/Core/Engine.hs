@@ -174,14 +174,12 @@ revEvalArtifact
 revEvalArtifact AstArtifactRev{..} parameters mdt =
   let aftk = adFTK $ ftkAst artPrimalRev
       env = extendEnv artVarDomainRev parameters emptyEnv
-      envDt =
-        withKnownSTK (ftkToSTK aftk) $
-        case mdt of
-          Nothing ->
-            let oneAtF = constantTarget 1 aftk
-            in extendEnv artVarDtRev oneAtF env
-          Just dt ->
-            extendEnv artVarDtRev dt env
+      envDt = case mdt of
+        Nothing ->
+          let oneAtF = constantTarget 1 aftk
+          in extendEnv artVarDtRev oneAtF env
+        Just dt ->
+          extendEnv artVarDtRev dt env
       gradient = interpretAst envDt artDerivativeRev
       primal = interpretAst env artPrimalRev
   in (gradient, primal)
@@ -231,8 +229,7 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
       astk = adSTK xstk
   in if adFTK (tftk xstk parameters) == tftk astk ds then
        let env = extendEnv artVarDomainFwd parameters emptyEnv
-           envD = withKnownSTK astk $
-                  extendEnv artVarDsFwd ds env
+           envD = extendEnv artVarDsFwd ds env
            derivative = interpretAst envD artDerivativeFwd
            primal = interpretAst env artPrimalFwd
        in (derivative, primal)

@@ -24,7 +24,7 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape (shxSize, ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape (shxSize)
 import Data.Array.Mixed.Types (snatPlus)
 import Data.Array.Nested (Rank, ShS (..))
 import Data.Array.Nested.Internal.Shape
@@ -388,7 +388,6 @@ liftXFromS1 f (AstFromS stkz@(STKX _ x) u) = case ftkAst u of
   _ -> error "liftXFromS1: unexpected tensor kind"
 liftXFromS1 f a = case ftkAst a of
   ftk@(FTKX sh' _) ->
-    withKnownShX (ssxFromShape sh') $
     withCastXS sh' $ \(sh :: ShS sh) ->
       AstFromS @(TKS2 sh x) (ftkToSTK ftk)
       $ f (cAstSFromX @sh @sh' sh a)
@@ -415,7 +414,6 @@ liftXFromS2 f (AstFromS stkz@(STKX _ x) u) (AstFromS _ v) =
     _ -> error "liftXFromS2: unexpected tensor kinds"
 liftXFromS2 f a b = case ftkAst a of
   ftk@(FTKX sh' _) ->
-    withKnownShX (ssxFromShape sh') $
     withCastXS sh' $ \(sh :: ShS sh) ->
       AstFromS @(TKS2 sh x) (ftkToSTK ftk)
       $ f (cAstSFromX @sh @sh' sh a) (cAstSFromX @sh @sh' sh b)

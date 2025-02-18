@@ -489,7 +489,7 @@ astIndexBuild :: forall y k s. AstSpan s
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat stk u i = case stk of
   STKScalar -> astFromS stk $ astIndexStepS ZSS u (i :.$ ZIS)
-  STKR SNat _ -> case ftkAst u of
+  STKR{} -> case ftkAst u of
     FTKR shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Drop 1 sh :~: sh) $

@@ -133,11 +133,7 @@ unDeltaPairUnshared :: Delta target (TKProduct x y)
 unDeltaPairUnshared (DeltaPair a b) = (a, b)
 unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) =
   (DeltaZero ftk1, DeltaZero ftk2)
-unDeltaPairUnshared d = case ftkDelta d of
-  FTKProduct ftk1 ftk2 ->
-    withKnownSTK (ftkToSTK ftk1) $
-    withKnownSTK (ftkToSTK ftk2) $
-    (DeltaProject1 d, DeltaProject2 d)
+unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)
 
 dScale :: (Num (f z), Show (f z)) => f z -> Delta f z -> Delta f z
 dScale _ (DeltaZero ftk) = DeltaZero ftk
