@@ -274,11 +274,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (knownSTK @(TKR n r2))
         . fromPrimal . astFromIntegralS . primalPart . astSFromR @sh sh $ a
-  rcast @_ @r2 @n a = case ftkAst a of
+  rcast @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        astFromS @(TKS sh r2) (knownSTK @(TKR n r2))
-        . astCastS . astSFromR @sh sh $ a
+        astFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
+        . astCastS . astSFromR sh $ a
   rminIndex @_ @r2 @n a = case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
@@ -506,11 +506,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
         . fromPrimal . astFromIntegralS
         . primalPart . astSFromX @sh @sh' sh $ a
-  xcast @_ @r2 @sh' a = case ftkAst a of
+  xcast @_ @r2 a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        astFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
-        . astCastS . astSFromX @sh @sh' sh $ a
+        astFromS @(TKS sh r2) (STKX (ssxFromShape sh') STKScalar)
+        . astCastS . astSFromX sh $ a
   xminIndex @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -866,11 +866,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastRS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (knownSTK @(TKR n r2))
         . fromPrimal . AstFromIntegralS . primalPart . AstSFromR @sh sh $ a
-  rcast @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
+  rcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        AstFromS @(TKS sh r2) (knownSTK @(TKR n r2))
-        . AstCastS . AstSFromR @sh sh $ a
+        AstFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
+        . AstCastS . AstSFromR sh $ a
   rminIndex @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
@@ -1108,11 +1108,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         AstFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
         . fromPrimal . AstFromIntegralS
         . primalPart . AstSFromX @sh @sh' sh $ a
-  xcast @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+  xcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        AstFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
-        . AstCastS . AstSFromX @sh @sh' sh $ a
+        AstFromS @(TKS sh r2) (STKX (ssxFromShape sh') STKScalar)
+        . AstCastS . AstSFromX sh $ a
   xminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
