@@ -113,7 +113,7 @@ intToAstVarId = AstVarId
 -- Once VTO1 is fixed in another way, try making this field strict.
 type role AstVarName nominal nominal
 data AstVarName :: AstSpanType -> TensorKindType -> Type where
-  AstVarName :: forall s y. ~(STensorKind y) -> AstVarId -> AstVarName s y
+  AstVarName :: forall s y. STensorKind y -> AstVarId -> AstVarName s y
 
 instance Eq (AstVarName s y) where
   AstVarName _ varId1 == AstVarName _ varId2 = varId1 == varId2

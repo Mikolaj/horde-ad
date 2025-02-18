@@ -309,8 +309,7 @@ initEvalState ftk0 =
       -- and especially using them as cotangent accumulators is wasteful.
       -- We take care to keep the scalar type of the dummy correct,
       -- but a shape is not preserved in a dummy, so it's not shape-correct.
-      iMap = DMap.fromDistinctAscList
-             $ fst $ generateDSumsDummy 0 $ adFTK ftk0
+      iMap = DMap.fromDistinctAscList $ fst $ generateDSumsDummy 0 $ adFTK ftk0
       dMap = DMap.empty
       nMap = DMap.empty
   in EvalState {..}
