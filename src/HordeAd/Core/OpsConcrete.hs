@@ -126,11 +126,10 @@ instance BaseTensor RepN where
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKR sh x)) l
         -- RepN has a ShareTensor instance, so addTarget arguments
         -- don't need to be duplicable
-  rsum0 t = case tftk knownSTK t of
-    FTKR _ FTKScalar ->  -- optimized
+  rsum0 @r t = case knownSTK @r of
+    STKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
-    FTKR _ _ ->
-      rsum . rflatten $ t
+    _ -> rsum . rflatten $ t
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
@@ -200,12 +199,11 @@ instance BaseTensor RepN where
       let l = sunravelToList t
           sh = shsTail $ sshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKS sh x)) l
-  ssum0 @_ @sh t | SNat <- shsProduct (knownShS @sh)  = case tftk knownSTK t of
-    FTKS _ FTKScalar ->  -- optimized
+  ssum0 @r @sh t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
+    STKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
-    FTKS _ _ ->
-      ssum . sflatten $ t
-  sdot0 @_ @sh u v | SNat <- shsProduct (knownShS @sh)  =
+    _ -> ssum . sflatten $ t
+  sdot0 u v  =
     RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   sdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
@@ -228,57 +226,53 @@ instance BaseTensor RepN where
   -- permits index out of bounds and then no tensors is added at such an index.
   sscatter @_ @shm @shn @shp t f =
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
-    in case shsProduct shpshn of
-      SNat ->
-        withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-        case tftk knownSTK t of
-          FTKS _ x@FTKScalar ->  -- optimized
-            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-            let zero = constantTarget 0 (FTKS shpshn x)
-                shm = knownShS @shm
-                s = shsSize shm
-                g ix =
-                  let ix2 = f $ fmap RepN ix
-                  in if ixInBounds (map unRepN $ toList $ ix2)
-                                   (shsToList shpshn)
-                     then M.insertWith (V.zipWith (+)) ix2
-                            (Nested.stoVector
-                             $ tindexNS @_ @shm @shn (unRepN t) ix)
-                     else id
-                ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
-                                        $ fromIntegral i
-                                      | i <- [0 .. s - 1] ]
-            in withKnownShS shpshn $
-               updateNS @(Rank shp) zero
-               $ map (second $ RepN . Nested.sfromVector knownShS)
-               $ M.assocs ivs
-          FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
-            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-            let zero = constantTarget 0 (FTKS shpshn x)
-                shm = knownShS @shm
-                s = shsSize shm
-                g ix =
-                  let ix2 = f $ fmap RepN ix
-                  in if ixInBounds (map unRepN $ toList $ ix2)
-                                   (shsToList shpshn)
-                     then M.insertWith (addTarget knownSTK) ix2
-                            (RepN
-                             $ tindexNS @_ @shm @shn (unRepN t) ix)
-                     else id
-                ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
-                                        $ fromIntegral i
-                                      | i <- [0 .. s - 1] ]
-            in withKnownShS shpshn $
-               updateNS @(Rank shp) zero
-               $ M.assocs ivs
+    in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
+       case tftk knownSTK t of
+         FTKS _ x@FTKScalar ->  -- optimized
+           gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+           gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+           let zero = constantTarget 0 (FTKS shpshn x)
+               shm = knownShS @shm
+               s = shsSize shm
+               g ix =
+                 let ix2 = f $ fmap RepN ix
+                 in if ixInBounds (map unRepN $ toList $ ix2)
+                                  (shsToList shpshn)
+                    then M.insertWith (V.zipWith (+)) ix2
+                           (Nested.stoVector
+                            $ tindexNS @_ @shm @shn (unRepN t) ix)
+                    else id
+               ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
+                                       $ fromIntegral i
+                                     | i <- [0 .. s - 1] ]
+           in withKnownShS shpshn $
+              updateNS @(Rank shp) zero
+              $ map (second $ RepN . Nested.sfromVector (knownShS @shn))
+              $ M.assocs ivs
+         FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
+           gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+           gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+           let zero = constantTarget 0 (FTKS shpshn x)
+               shm = knownShS @shm
+               s = shsSize shm
+               g ix =
+                 let ix2 = f $ fmap RepN ix
+                 in if ixInBounds (map unRepN $ toList $ ix2)
+                                  (shsToList shpshn)
+                    then M.insertWith (addTarget knownSTK) ix2
+                           (RepN
+                            $ tindexNS @_ @shm @shn (unRepN t) ix)
+                    else id
+               ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
+                                       $ fromIntegral i
+                                     | i <- [0 .. s - 1] ]
+           in withKnownShS shpshn $
+              updateNS @(Rank shp) zero
+              $ M.assocs ivs
   sscatter1 = tscatterZ1S
   -- The semantics of the operation permits index out of bounds
   -- and the result of such indexing is def.
-  sgather @r @shm @shn @shp t f =
-    withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-    withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
+  sgather @r @shm @shn t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case knownSTK @r of
@@ -290,8 +284,10 @@ instance BaseTensor RepN where
                       t (f (fmap RepN
                             $ fromLinearIdxS fromIntegral shm i))
                 | i <- [0 .. fromIntegral s - 1] ]
-        in RepN $ Nested.sfromVector knownShS $ V.concat l
+        in RepN $ Nested.sfromVector (knownShS @shm `shsAppend` knownShS @shn)
+           $ V.concat l
       _ ->
+        withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
         sbuild @_ @_ @(Rank shm) (\ix -> t !$ f ix)
   sgather1 = tgatherZ1S
   sconcrete = RepN
@@ -362,11 +358,11 @@ instance BaseTensor RepN where
       let l = xunravelToList t
           sh = shxTail $ xshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKX sh x)) l
-  xsum0 t =
-   case tftk knownSTK t of
-    FTKX _ FTKScalar ->  -- optimized
+  xsum0 @r t =
+   case knownSTK @r of
+    STKScalar ->  -- optimized
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
-    FTKX _ _ -> withSNat (shxSize $ xshape t) $ \snat ->
+    _ -> withSNat (shxSize $ xshape t) $ \snat ->
       xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
   xdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
@@ -381,7 +377,6 @@ instance BaseTensor RepN where
   xindex = tindexZX
   xindex0 = tindex0X
   xscatter @_ @shm @shn @shp sh t f =
-    withKnownShX (ssxFromShape sh) $
     withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
@@ -421,9 +416,7 @@ instance BaseTensor RepN where
         in updateNX @(Rank shp) zero
            $ M.assocs ivs
   xscatter1 = tscatterZ1X
-  xgather @r @shm @shn @shp sh t f =
-    withKnownShX (ssxFromShape sh) $
-    withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
+  xgather @r @shm @shn sh t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case knownSTK @r of
@@ -437,6 +430,7 @@ instance BaseTensor RepN where
                 | i <- [0 .. fromIntegral s - 1] ]
         in RepN $ Nested.mfromVector sh $ V.concat l
       _ ->
+        withKnownShX (ssxFromShape sh) $
         xbuild @_ @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
   xgather1 = tgatherZ1X
   xconcrete = RepN
@@ -957,8 +951,8 @@ updateNS arr upd = case knownSTK @r of
 
 tminIndexS
   :: forall n sh r r2.
-     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownShS sh
-     , KnownShS (Init (n ': sh)) )
+     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2
+     , KnownShS sh, KnownNat n )
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
 tminIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
@@ -976,14 +970,16 @@ tminIndexS =
                          :: Init (n ': sh) ++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerceRefl
                          :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
-              Nested.srerank @'[m] @'[] @(Init (n ': sh)) knownShS knownShS (f @m)
+              Nested.srerank @'[m] @'[] @(Init (n ': sh))
+                             (shsInit (SNat @n :$$ knownShS @sh)) knownShS
+                             (f @m)
             Nothing -> error "tminIndexS: impossible someNatVal error"
         Nothing -> error "tminIndexS: impossible someNatVal error"
 
 tmaxIndexS
   :: forall n sh r r2.
-     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownShS sh
-     , KnownShS (Init (n ': sh)) )
+     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2
+     , KnownShS sh, KnownNat n )
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
 tmaxIndexS =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
@@ -1001,7 +997,9 @@ tmaxIndexS =
                          :: Init (n ': sh) ++ '[m] :~: n ': sh) $
               gcastWith (unsafeCoerceRefl
                          :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
-              Nested.srerank @'[m] @'[] @(Init (n ': sh)) knownShS knownShS (f @m)
+              Nested.srerank @'[m] @'[] @(Init (n ': sh))
+                             (shsInit (SNat @n :$$ knownShS @sh)) knownShS
+                             (f @m)
             Nothing -> error "tmaxIndexS: impossible someNatVal error"
         Nothing -> error "tmaxIndexS: impossible someNatVal error"
 
@@ -1083,21 +1081,21 @@ tscatterZ1S
   => RepN (TKS2 (n2 ': shn) r)
   -> (IntOf RepN -> IxSOf RepN shp)
   -> RepN (TKS2 (shp ++ shn) r)
-tscatterZ1S t f = case shsProduct (knownShS @shp `shsAppend` knownShS @shn) of
-  SNat -> case tftk knownSTK t of
-    FTKS _ x ->
-      withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
-      gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-      gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-      let zero = constantTarget 0 (FTKS knownShS x)
-          lt = sunravelToList t
-          g i ti = let ix2 = f $ RepN $ fromIntegral i
-                   in if ixInBounds (map unRepN $ toList ix2)
-                                    (toList $ knownShS @(shp ++ shn))
-                      then updateNS @(Rank shp) zero [(ix2, ti)]
-                      else zero
-          lu = imap g lt
-      in foldr (addTarget knownSTK) zero lu
+tscatterZ1S t f = case tftk knownSTK t of
+  FTKS _ x ->
+    gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
+    gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
+    let shpshn = knownShS @shp `shsAppend` knownShS @shn
+        zero = constantTarget 0 (FTKS shpshn x)
+        lt = sunravelToList t
+        g i ti = let ix2 = f $ RepN $ fromIntegral i
+                 in if ixInBounds (map unRepN $ Foldable.toList ix2)
+                                  (shsToList shpshn)
+                    then withKnownShS shpshn $
+                         updateNS @(Rank shp) zero [(ix2, ti)]
+                    else zero
+        lu = imap g lt
+    in foldr (addTarget (STKS shpshn (knownSTK @r))) zero lu
 
 -- TODO: make this strict
 tfromListLinearS
@@ -1142,7 +1140,6 @@ tgatherZ1S
   -> (IntOf RepN -> IxSOf RepN shp)
   -> RepN (TKS2 (n2 ': shn) r)
 tgatherZ1S t f =
-  withKnownShS (knownShS @shp `shsAppend` knownShS @shn) $
   case knownSTK @r of
     STKScalar ->  -- optimized
       sfromList $ NonEmpty.map (\i -> t !$ f (RepN i))
@@ -1177,7 +1174,7 @@ updateNX arr upd = case knownSTK @r of
           f i v = case lookup (fromLinearIdxX
                                  @(Take n sh) (RepN . fromIntegral)
                                  shNested ((RepN . fromIntegral) i)) upd of
-            Just u -> xnest (knownShX @'[]) u
+            Just u -> xnest ZKX u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
            xunNest @_ @(Take n sh) $ xfromListLinear shNested
@@ -1206,7 +1203,8 @@ tminIndexX t =
                          :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
               gcastWith (unsafeCoerceRefl
                          :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
-              Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh)) knownShX ZSX (f @(Just m)) t
+              Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
+                             knownShX ZSX (f @(Just m)) t
             Nothing -> error "tminIndexX: impossible someNatVal error"
         Nothing -> error "tminIndexX: impossible someNatVal error"
 
@@ -1231,7 +1229,8 @@ tmaxIndexX t =
                          :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
               gcastWith (unsafeCoerceRefl
                          :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
-              Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh)) knownShX ZSX (f @(Just m)) t
+              Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
+                             knownShX ZSX (f @(Just m)) t
             Nothing -> error "tminIndexX: impossible someNatVal error"
         Nothing -> error "tminIndexX: impossible someNatVal error"
 
@@ -1256,7 +1255,7 @@ tindexZX v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   in withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
      case tftk knownSTK v of
        FTKX sh x ->
-         if ixInBounds (toList ix) (toList sh)
+         if ixInBounds (Foldable.toList ix) (shxToList sh)
          then RepN $ tindexNX (unRepN v) ix
          else constantTarget def (FTKX (shxDropSSX sh (knownShX @sh1)) x)
 
@@ -1297,7 +1296,8 @@ tscatterZ1X sh t f =
       let zero = constantTarget 0 (FTKX sh x)
           lt = xunravelToList t
           g i ti = let ix2 = f $ RepN $ fromIntegral i
-                   in if ixInBounds (map unRepN $ toList ix2) (toList sh)
+                   in if ixInBounds (map unRepN $ Foldable.toList ix2)
+                                    (shxToList sh)
                       then updateNX @(Rank shp) zero [(ix2, ti)]
                       else zero
           lu = imap g lt
@@ -1331,7 +1331,6 @@ tgatherZ1X
   -> (IntOf RepN -> IxXOf RepN shp)
   -> RepN (TKX2 (Just n2 ': shn) r)
 tgatherZ1X SNat t f =
-  withKnownShX (knownShX @shp `ssxAppend` knownShX @shn) $
   case knownSTK @r of
     STKScalar ->  -- optimized
       xfromList $ NonEmpty.map (\i -> t `xindex` f (RepN i))

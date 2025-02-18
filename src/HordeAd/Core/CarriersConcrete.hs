@@ -194,8 +194,7 @@ tftkG stk t =
     STKX _ stk1 | Dict <- eltDictRep stk1 ->
       FTKX (Nested.mshape t) $ repackShapeTree stk1
       $ snd $ Mixed.mshapeTree t
-    STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
-                         , Dict <- lemKnownSTK stk2 ->
+    STKProduct stk1 stk2 ->
       FTKProduct (tftkG stk1 (fst t))
                  (tftkG stk2 (snd t))
 

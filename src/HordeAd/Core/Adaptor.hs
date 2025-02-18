@@ -181,14 +181,13 @@ type family Tups n t where
 
 stkOfListR :: forall t n.
               STensorKind t -> SNat n -> STensorKind (Tups n t)
-stkOfListR _ (SNat' @0) = knownSTK
+stkOfListR _ (SNat' @0) = stkUnit
 stkOfListR stk SNat =
   gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
   gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups (n - 1) t)) $
   STKProduct stk (stkOfListR stk (SNat @(n - 1)))
 
-instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
-         , KnownSTK (X a), KnownSTK (ADTensorKind (X a)) )
+instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
          => AdaptableTarget target (ListR n a) where
   type X (ListR n a) = Tups n (X a)
   toTarget ZR = tunit
@@ -204,7 +203,6 @@ instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
       gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
       gcastWith (unsafeCoerceRefl
                  :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
-      withKnownSTK (stkOfListR (knownSTK @(X a)) (SNat @(n - 1))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
           a = fromTarget a1
           rest = fromTarget rest1
@@ -214,12 +212,7 @@ instance ( BaseTensor target, KnownNat n, AdaptableTarget target a
     _ ->
       gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
       gcastWith (unsafeCoerceRefl
-                 :: ADTensorKind (Tups (n - 1) (X a))
-                    :~: Tups (n - 1) (ADTensorKind (X a))) $
-      gcastWith (unsafeCoerceRefl
                  :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
-      withKnownSTK (stkOfListR (knownSTK
-                                    @(ADTensorKind (X a))) (SNat @(n - 1))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
           a = fromTargetAD a1
           rest = fromTargetAD @_ @(ListR (n - 1) a) rest1
