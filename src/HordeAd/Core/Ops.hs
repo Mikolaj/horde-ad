@@ -24,6 +24,7 @@ import Prelude
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Foldable qualified as Foldable
+import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -598,7 +599,7 @@ class ( Num (IntOf target)
   roneHot :: forall r m n.
              ( KnownSTK r, KnownNat m, KnownNat n
              , BoolOf (PrimalOf target) ~ BoolOf target
-             , EqF (PrimalOf target) )
+             , EqF (PrimalOf target) (TKScalar Int64))
           => IShR m -> target (TKR2 n r) -> IxROf target m
           -> target (TKR2 (m + n) r)
   roneHot sh v ix = case knownSTK @r of
@@ -877,7 +878,7 @@ class ( Num (IntOf target)
   soneHot :: forall r sh1 sh2.
              ( KnownSTK r, KnownShS sh1, KnownShS sh2
              , BoolOf (PrimalOf target) ~ BoolOf target
-             , EqF (PrimalOf target) )
+             , EqF (PrimalOf target) (TKScalar Int64) )
           => target (TKS2 sh2 r) -> IxSOf target sh1
           -> target (TKS2 (sh1 ++ sh2) r)
   soneHot v ix | SNat <- shsRank (knownShS @sh1) = case knownSTK @r of
@@ -1265,7 +1266,7 @@ class ( Num (IntOf target)
   xoneHot :: forall r sh1 sh2.
              ( KnownSTK r, KnownShX sh1, KnownShX sh2
              , BoolOf (PrimalOf target) ~ BoolOf target
-             , EqF (PrimalOf target) )
+             , EqF (PrimalOf target) (TKScalar Int64) )
           => IShX sh1 -> target (TKX2 sh2 r) -> IxXOf target sh1
           -> target (TKX2 (sh1 ++ sh2) r)
   xoneHot sh1 v ix | SNat <- ssxRank (knownShX @sh1) = case knownSTK @r of
@@ -1751,10 +1752,10 @@ class ( Num (IntOf target)
   ifF :: (Boolean (BoolOf target), KnownSTK y)
       => BoolOf target -> target y -> target y -> target y
   ifF = tcond knownSTK
-  minF :: (Boolean (BoolOf target), OrdF target, KnownSTK y)
+  minF :: (Boolean (BoolOf target), OrdF target y, KnownSTK y)
        => target y -> target y -> target y
   minF u v = ifF (u <=. v) u v
-  maxF :: (Boolean (BoolOf target), OrdF target, KnownSTK y)
+  maxF :: (Boolean (BoolOf target), OrdF target y, KnownSTK y)
        => target y -> target y -> target y
   maxF u v = ifF (u >=. v) u v
   tbuild1 :: forall y k.  -- y comes first, because k easy to set via SNat
@@ -1976,10 +1977,9 @@ type ADReadyEqs target =
   )
 
 type ADReadyClasses target =
-  ( Boolean (BoolOf target)
-  , EqF target
-  , OrdF target
-  , BaseTensor target
+  ( BaseTensor target
+  , Boolean (BoolOf target)
+  , AllTargetEqOrd target
   , AllTargetShow target
   )
 
@@ -1992,3 +1992,24 @@ class (forall y. KnownSTK y => Show (target y))
 instance
       (forall y. KnownSTK y => Show (target y))
       => AllTargetShow target where
+
+type AllTargetEqOrd :: Target -> Constraint
+class ( forall r. GoodScalar r => EqF target (TKScalar r)
+      , forall r. GoodScalar r => OrdF target (TKScalar r)
+      , forall r n. GoodScalar r => EqF target (TKR n r)
+      , forall r n. GoodScalar r => OrdF target (TKR n r)
+      , forall r sh. GoodScalar r => EqF target (TKS sh r)
+      , forall r sh. GoodScalar r => OrdF target (TKS sh r)
+      , forall r sh. GoodScalar r => EqF target (TKX sh r)
+      , forall r sh. GoodScalar r => OrdF target (TKX sh r) )
+      => AllTargetEqOrd target where
+instance
+      ( forall r. GoodScalar r => EqF target (TKScalar r)
+      , forall r. GoodScalar r => OrdF target (TKScalar r)
+      , forall r n. GoodScalar r => EqF target (TKR n r)
+      , forall r n. GoodScalar r => OrdF target (TKR n r)
+      , forall r sh. GoodScalar r => EqF target (TKS sh r)
+      , forall r sh. GoodScalar r => OrdF target (TKS sh r)
+      , forall r sh. GoodScalar r => EqF target (TKX sh r)
+      , forall r sh. GoodScalar r => OrdF target (TKX sh r) )
+      => AllTargetEqOrd target where

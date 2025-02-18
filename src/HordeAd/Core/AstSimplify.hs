@@ -1421,7 +1421,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let ulen = AstConcrete (RepF FTKScalar (RepN $ valueOf @m))
         ix1 = i1 :.$ rest1
         ix2 = simplifyAstInt (AstN2K MinusOp i1 ulen) :.$ rest1
-    in case simplifyAstBool $ Ast.AstRel LsOp i1 ulen of
+    in case simplifyAstBool $ Ast.AstRelK LsOp i1 ulen of
       AstBoolConst b -> if b then astIndex shn u ix1 else astIndex shn v ix2
       bExpr -> astCond bExpr (astIndexRec shn u ix1) (astIndexRec shn v ix2)
   Ast.AstSliceS (SNat @i) _ SNat v ->
@@ -1875,7 +1875,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
     Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
       let ulen = AstConcrete (RepF FTKScalar (RepN $ valueOf @m))
           iu = simplifyAstInt (AstN2K MinusOp i4 ulen)
-      in case simplifyAstBool $ Ast.AstRel LsOp i4 ulen of
+      in case simplifyAstBool $ Ast.AstRelK LsOp i4 ulen of
         AstBoolConst b -> if b
                           then astGather shn' u (vars4, i4 :.$ rest4)
                           else astGather shn' v (vars4, iu :.$ rest4)
@@ -2717,13 +2717,12 @@ expandAstBool t = case t of
   Ast.AstB2 opCodeBool arg1 arg2 ->
     contractAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
   AstBoolConst{} -> t
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    case ftkAst arg1 of
-      FTKScalar ->
-        contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
-          -- Because the scalar tensors sometimes represent indexes,
-          -- we expand them a bit more than all the others.
-      _ -> Ast.AstRel opCodeRel (expandAst arg1) (expandAst arg2)
+  Ast.AstRelK opCodeRel arg1 arg2 ->
+    contractRelOp opCodeRel (expandAst arg1) (expandAst arg2)
+      -- Because the scalar tensors sometimes represent indexes,
+      -- we expand them a bit more than all the others.
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    Ast.AstRelS opCodeRel (expandAst arg1) (expandAst arg2)
 
 
 -- * The simplifying bottom-up pass
@@ -2854,13 +2853,12 @@ simplifyAstBool t = case t of
   Ast.AstB2 opCodeBool arg1 arg2 ->
     contractAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    case ftkAst arg1 of
-      FTKScalar ->
-        contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
-          -- Because the scalar tensors sometimes represent indexes,
-          -- we simplify them a bit more than all the others.
-      _ -> Ast.AstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+  Ast.AstRelK opCodeRel arg1 arg2 ->
+    contractRelOp opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+      -- Because the scalar tensors sometimes represent indexes,
+      -- we simplify them a bit more than all the others.
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    Ast.AstRelS opCodeRel (simplifyAst arg1) (simplifyAst arg2)
 
 
 -- * The contraction (e.g., from gather expressions) bottom-up pass
@@ -3279,11 +3277,10 @@ contractAstBool t = case t of
   Ast.AstB2 opCodeBool arg1 arg2 ->
     contractAstB2 opCodeBool (contractAstBool arg1) (contractAstBool arg2)
   AstBoolConst{} -> t
-  Ast.AstRel opCodeRel arg1 arg2 ->
-    case ftkAst arg1 of
-      FTKScalar ->
-        contractRelOp opCodeRel (contractAst arg1) (contractAst arg2)
-      _ -> Ast.AstRel opCodeRel (contractAst arg1) (contractAst arg2)
+  Ast.AstRelK opCodeRel arg1 arg2 ->
+    contractRelOp opCodeRel (contractAst arg1) (contractAst arg2)
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    Ast.AstRelS opCodeRel (contractAst arg1) (contractAst arg2)
 
 
 -- * Contraction of arithmetic and boolean operations
@@ -3317,7 +3314,7 @@ contractRelOp LsOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
 contractRelOp GtOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
-contractRelOp opCodeRel arg1 arg2 = Ast.AstRel opCodeRel arg1 arg2
+contractRelOp opCodeRel arg1 arg2 = Ast.AstRelK opCodeRel arg1 arg2
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
@@ -3815,16 +3812,19 @@ substitute1AstBool i var = \case
                                             (fromMaybe arg2 mb2)
        else Nothing
   Ast.AstBoolConst{} -> Nothing
-  Ast.AstRel opCodeRel arg1 arg2 ->
+  Ast.AstRelK opCodeRel arg1 arg2 ->
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then case ftkAst arg1 of
-         FTKScalar ->
-           Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
-                                          (fromMaybe arg2 mr2)
-         _ -> Just $ Ast.AstRel opCodeRel (fromMaybe arg1 mr1)
-                                          (fromMaybe arg2 mr2)
+       then Just $ contractRelOp opCodeRel (fromMaybe arg1 mr1)
+                                           (fromMaybe arg2 mr2)
+       else Nothing
+  Ast.AstRelS opCodeRel arg1 arg2 ->
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
+                                         (fromMaybe arg2 mr2)
        else Nothing
 
 

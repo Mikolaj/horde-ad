@@ -172,7 +172,7 @@ interpretAstB2 :: Boolean b
 interpretAstB2 AndOp u v = u &&* v
 interpretAstB2 OrOp u v = u ||* v
 
-interpretAstRelOp :: (EqF f, OrdF f, KnownSTK y)
+interpretAstRelOp :: (EqF f y, OrdF f y)
                   => OpCodeRel -> f y -> f y -> BoolOf f
 {-# INLINE interpretAstRelOp #-}
 interpretAstRelOp EqOp u v = u ==. v

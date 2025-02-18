@@ -423,9 +423,9 @@ testPiecewiseLinearPP = do
       fT x = ifF (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactAdapt True fT (FTKR ZSR FTKScalar)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x2 x1 -> rfromS (let v3 = soneHot (sfromR x2) [ifF (x1 >. rfromS (sscalar 0.0)) 0 1] in sscalar 5.0 * v3 !$ [1] + sscalar 2.0 * v3 !$ [0])"
+    @?= "\\x2 x1 -> rfromS (let v3 = soneHot (sfromR x2) [ifF (sfromR x1 >. sscalar 0.0) 0 1] in sscalar 5.0 * v3 !$ [1] + sscalar 2.0 * v3 !$ [0])"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> rfromS (sfromVector (fromList [sscalar 2.0 * sfromR x1, sscalar 5.0 * sfromR x1]) !$ [ifF (x1 >. rfromS (sscalar 0.0)) 0 1])"
+    @?= "\\x1 -> rfromS (sfromVector (fromList [sscalar 2.0 * sfromR x1, sscalar 5.0 * sfromR x1]) !$ [ifF (sfromR x1 >. sscalar 0.0) 0 1])"
 
 testPiecewiseLinear2 :: Assertion
 testPiecewiseLinear2 =
@@ -444,9 +444,9 @@ testPiecewiseLinear2PP = do
       fT x = ifF (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
       (artifactRev, _deltas) = revArtifactAdapt True fT (FTKR ZSR FTKScalar)
   printArtifactPretty renames artifactRev
-    @?= "\\x3 x1 -> let x2 = ifF (x1 >. rfromS (sscalar 0.0)) (sscalar 2.0) (sscalar 5.0) in rfromS (x2 * sfromR x3)"
+    @?= "\\x3 x1 -> let x2 = ifF (sfromR x1 >. sscalar 0.0) (sscalar 2.0) (sscalar 5.0) in rfromS (x2 * sfromR x3)"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\x1 -> let x2 = ifF (x1 >. rfromS (sscalar 0.0)) (sscalar 2.0) (sscalar 5.0) in rfromS (x2 * sfromR x1)"
+    @?= "\\x1 -> let x2 = ifF (sfromR x1 >. sscalar 0.0) (sscalar 2.0) (sscalar 5.0) in rfromS (x2 * sfromR x1)"
 
 overleaf :: forall r target. (BaseTensor target, GoodScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
@@ -861,15 +861,15 @@ testReluPP = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) $ reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rfromS (tprimalPart (sfromR m1) !$ [i4, i3]) <=. rfromS (sscalar 0.0)) 0 1])) * sfromR m1)"
+    @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (tprimalPart (sfromR m1) !$ [i4, i3] <=. sscalar 0.0) 0 1])) * sfromR m1)"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (FTKR [3, 4] FTKScalar)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m8 m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (rfromS (sfromR m1 !$ [i5, i6]) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m8)"
+    @?= "\\m8 m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (sfromR m1 !$ [i5, i6] <=. sscalar 0.0) 0 1]) * sfromR m8)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (rfromS (sfromR m1 !$ [i5, i6]) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m1)"
+    @?= "\\m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (sfromR m1 !$ [i5, i6] <=. sscalar 0.0) 0 1]) * sfromR m1)"
   show deltas
-    @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000003 (DeltaScale (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS [] (AstConcrete (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRel LeqOp (AstFromS (STKR (SNat @0) STKScalar) (AstIndexS [] (AstSFromR [3,4] (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)])) (AstFromS (STKR (SNat @0) STKScalar) (AstConcrete (sfromListLinear [] [0.0])))) (AstConcrete 0) (AstConcrete 1)]))}) (DeltaSFromR [3,4] (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0)))))"
+    @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000003 (DeltaScale (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS [] (AstConcrete (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRelS LeqOp (AstIndexS [] (AstSFromR [3,4] (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)]) (AstConcrete (sfromListLinear [] [0.0]))) (AstConcrete 0) (AstConcrete 1)]))}) (DeltaSFromR [3,4] (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0)))))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
@@ -882,13 +882,13 @@ testReluPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rfromS (tfromPrimal (STKS [5] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (rfromS (tprimalPart (sfromR v1) !$ [i2] * sscalar 7.0) <=. rfromS (sscalar 0.0)) 0 1])) * (sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 7.0))))"
+    @?= "\\v1 -> rfromS (tfromPrimal (STKS [5] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifF (tprimalPart (sfromR v1) !$ [i2] * sscalar 7.0 <=. sscalar 0.0) 0 1])) * (sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 7.0))))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v7 v1 -> tfromS (let v8 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rfromS (sfromR (tproject1 v1) !$ [i3] * sfromR (tproject2 v1)) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR v7 in tpair (sreplicate @_ @5 (sfromR (tproject2 v1)) * v8, sdot0 (sfromR (tproject1 v1)) v8))"
+    @?= "\\v7 v1 -> tfromS (let v8 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (sfromR (tproject1 v1) !$ [i3] * sfromR (tproject2 v1) <=. sscalar 0.0) 0 1]) * sfromR v7 in tpair (sreplicate @_ @5 (sfromR (tproject2 v1)) * v8, sdot0 (sfromR (tproject1 v1)) v8))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rfromS (sfromR (tproject1 v1) !$ [i3] * sfromR (tproject2 v1)) <=. rfromS (sscalar 0.0)) 0 1]) * (sfromR (tproject1 v1) * sreplicate @_ @5 (sfromR (tproject2 v1))))"
+    @?= "\\v1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (sfromR (tproject1 v1) !$ [i3] * sfromR (tproject2 v1) <=. sscalar 0.0) 0 1]) * (sfromR (tproject1 v1) * sreplicate @_ @5 (sfromR (tproject2 v1))))"
 
 testReluSimpler :: Assertion
 testReluSimpler = do
@@ -906,15 +906,15 @@ testReluSimplerPP = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) $ reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (rfromS (tprimalPart (sfromR m1) !$ [i4, i3]) <=. rfromS (sscalar 0.0)) 0 1])) * sfromR m1)"
+    @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifF (tprimalPart (sfromR m1) !$ [i4, i3] <=. sscalar 0.0) 0 1])) * sfromR m1)"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (FTKR [3, 4] FTKScalar)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m8 m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (rfromS (sfromR m1 !$ [i5, i6]) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m8)"
+    @?= "\\m8 m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (sfromR m1 !$ [i5, i6] <=. sscalar 0.0) 0 1]) * sfromR m8)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (rfromS (sfromR m1 !$ [i5, i6]) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m1)"
+    @?= "\\m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifF (sfromR m1 !$ [i5, i6] <=. sscalar 0.0) 0 1]) * sfromR m1)"
   show deltas
-    @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000003 (DeltaScale (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS [] (AstConcrete (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRel LeqOp (AstFromS (STKR (SNat @0) STKScalar) (AstIndexS [] (AstSFromR [3,4] (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)])) (AstFromS (STKR (SNat @0) STKScalar) (AstConcrete (sfromListLinear [] [0.0])))) (AstConcrete 0) (AstConcrete 1)]))}) (DeltaSFromR [3,4] (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0)))))"
+    @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000003 (DeltaScale (AstRaw {unAstRaw = AstShare (AstVarId 100000007) (AstGatherS [] (AstConcrete (sfromListLinear [2] [0.0,1.0])) ([Const (AstVarId 100000005),Const (AstVarId 100000006)],[AstCond (AstRelS LeqOp (AstIndexS [] (AstSFromR [3,4] (AstVar (FTKR [3,4] FTKScalar) (AstVarId 100000001))) [AstVar FTKScalar (AstVarId 100000005),AstVar FTKScalar (AstVarId 100000006)]) (AstConcrete (sfromListLinear [] [0.0]))) (AstConcrete 0) (AstConcrete 1)]))}) (DeltaSFromR [3,4] (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0)))))"
 
 testReluSimplerPP2 :: Assertion
 testReluSimplerPP2 = do
@@ -927,13 +927,13 @@ testReluSimplerPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rfromS (tlet (sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 7.0))) (\\i2 -> tfromPrimal (STKS [5] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (rfromS (tprimalPart i2 !$ [i3]) <=. rfromS (sscalar 0.0)) 0 1])) * i2))"
+    @?= "\\v1 -> rfromS (tlet (sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 7.0))) (\\i2 -> tfromPrimal (STKS [5] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifF (tprimalPart i2 !$ [i3] <=. sscalar 0.0) 0 1])) * i2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v7 v1 -> tfromS (let v8 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (rfromS (sfromR (tproject1 v1) !$ [i5] * sfromR (tproject2 v1)) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR v7 in tpair (sreplicate @_ @5 (sfromR (tproject2 v1)) * v8, sdot0 (sfromR (tproject1 v1)) v8))"
+    @?= "\\v7 v1 -> tfromS (let v8 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (sfromR (tproject1 v1) !$ [i5] * sfromR (tproject2 v1) <=. sscalar 0.0) 0 1]) * sfromR v7 in tpair (sreplicate @_ @5 (sfromR (tproject2 v1)) * v8, sdot0 (sfromR (tproject1 v1)) v8))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (let v4 = sfromR (tproject1 v1) * sreplicate @_ @5 (sfromR (tproject2 v1)) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (rfromS (v4 !$ [i5]) <=. rfromS (sscalar 0.0)) 0 1]) * v4)"
+    @?= "\\v1 -> rfromS (let v4 = sfromR (tproject1 v1) * sreplicate @_ @5 (sfromR (tproject2 v1)) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifF (v4 !$ [i5] <=. sscalar 0.0) 0 1]) * v4)"
 
 testReluSimplerPP3 :: Assertion
 testReluSimplerPP3 = do
@@ -946,13 +946,13 @@ testReluSimplerPP3 = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rfromS (tlet (sfromR v1 * tfromPrimal (STKS [3,4] STKScalar) (sreplicate @_ @3 (sreplicate @_ @4 (sscalar 7.0)))) (\\i2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rfromS (tprimalPart i2 !$ [i5, i4]) <=. rfromS (sscalar 0.0)) 0 1])) * i2))"
+    @?= "\\v1 -> rfromS (tlet (sfromR v1 * tfromPrimal (STKS [3,4] STKScalar) (sreplicate @_ @3 (sreplicate @_ @4 (sscalar 7.0)))) (\\i2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (tprimalPart i2 !$ [i5, i4] <=. sscalar 0.0) 0 1])) * i2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m10 m1 -> tfromS (let m11 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (rfromS (sfromR (tproject1 m1) !$ [i7, i8] * sfromR (tproject2 m1)) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m10 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) * m11, ssum0 (sfromR (tproject1 m1) * m11)))"
+    @?= "\\m10 m1 -> tfromS (let m11 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (sfromR (tproject1 m1) !$ [i7, i8] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR m10 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) * m11, ssum0 (sfromR (tproject1 m1) * m11)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (let m6 = sfromR (tproject1 m1) * sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (rfromS (m6 !$ [i7, i8]) <=. rfromS (sscalar 0.0)) 0 1]) * m6)"
+    @?= "\\m1 -> rfromS (let m6 = sfromR (tproject1 m1) * sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifF (m6 !$ [i7, i8] <=. sscalar 0.0) 0 1]) * m6)"
 
 testReluSimpler3 :: Assertion
 testReluSimpler3 = do
@@ -975,13 +975,13 @@ testReluSimplerPP4 = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rfromS (tlet (sfromR v1 * tfromPrimal (STKS [3,4] STKScalar) (sreshape (sreplicate @_ @12 (sscalar 7.0)))) (\\i2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (rfromS (tprimalPart i2 !$ [i5, i4]) <=. rfromS (sscalar 0.0)) 0 1])) * i2))"
+    @?= "\\v1 -> rfromS (tlet (sfromR v1 * tfromPrimal (STKS [3,4] STKScalar) (sreshape (sreplicate @_ @12 (sscalar 7.0)))) (\\i2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (tconcrete (FTKS [2] FTKScalar) (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifF (tprimalPart i2 !$ [i5, i4] <=. sscalar 0.0) 0 1])) * i2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m11 m1 -> tfromS (let m12 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (rfromS (sfromR (tproject1 m1) !$ [i8, i9] * sfromR (tproject2 m1)) <=. rfromS (sscalar 0.0)) 0 1]) * sfromR m11 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) * m12, sdot0 (sreshape (sfromR (tproject1 m1))) (sreshape m12)))"
+    @?= "\\m11 m1 -> tfromS (let m12 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (sfromR (tproject1 m1) !$ [i8, i9] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR m11 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) * m12, sdot0 (sreshape (sfromR (tproject1 m1))) (sreshape m12)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (let m7 = sfromR (tproject1 m1) * sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (rfromS (m7 !$ [i8, i9]) <=. rfromS (sscalar 0.0)) 0 1]) * m7)"
+    @?= "\\m1 -> rfromS (let m7 = sfromR (tproject1 m1) * sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) * m7)"
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
@@ -1055,13 +1055,13 @@ testReluMaxPP = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) $ reluT
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\m1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [3,4] STKScalar) (fromList [tfromPrimal (STKS [3,4] STKScalar) (sreplicate @_ @3 (sreplicate @_ @4 (sscalar 0.0))), sfromR m1])) (\\[i5, i4] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (tprimalPart (sfromR m1) !$ [i5, i4])) 0 1, i5, i4]))"
+    @?= "\\m1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [3,4] STKScalar) (fromList [tfromPrimal (STKS [3,4] STKScalar) (sreplicate @_ @3 (sreplicate @_ @4 (sscalar 0.0))), sfromR m1])) (\\[i5, i4] -> [ifF (sscalar 0.0 >=. tprimalPart (sfromR m1) !$ [i5, i4]) 0 1, i5, i4]))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactAdapt True reluT (FTKR [3, 4] FTKScalar)
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m8 m1 -> rfromS (sscatter (sfromR m8) (\\[i9, i10] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (sfromR m1 !$ [i9, i10])) 0 1, i9, i10]) !$ [1])"
+    @?= "\\m8 m1 -> rfromS (sscatter (sfromR m8) (\\[i9, i10] -> [ifF (sscalar 0.0 >=. sfromR m1 !$ [i9, i10]) 0 1, i9, i10]) !$ [1])"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sreplicate @_ @3 (sreplicate @_ @4 (sscalar 0.0)), sfromR m1])) (\\[i6, i7] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (sfromR m1 !$ [i6, i7])) 0 1, i6, i7]))"
+    @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sreplicate @_ @3 (sreplicate @_ @4 (sscalar 0.0)), sfromR m1])) (\\[i6, i7] -> [ifF (sscalar 0.0 >=. sfromR m1 !$ [i6, i7]) 0 1, i6, i7]))"
   show deltas
     @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000005 (DeltaGatherS [3,4] [] [2,3,4] (DeltaShare 100000003 (DeltaFromVector (SNat @2) (STKS [3,4] STKScalar) [DeltaZero (FTKS [3,4] FTKScalar),DeltaSFromR [3,4] (DeltaInput (FTKR [3,4] FTKScalar) (InputId 0))])) <function>))"
 
@@ -1076,15 +1076,15 @@ testReluMaxPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName renamesNull var3
        ++ " -> " ++ printAstSimple renamesNull ast3
-    @?= "\\v1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [5] STKScalar) (fromList [tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 0.0)), sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 7.0))])) (\\[i3] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (tprimalPart (sfromR v1) !$ [i3] * sscalar 7.0)) 0 1, i3]))"
+    @?= "\\v1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [5] STKScalar) (fromList [tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 0.0)), sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @_ @5 (sscalar 7.0))])) (\\[i3] -> [ifF (sscalar 0.0 >=. tprimalPart (sfromR v1) !$ [i3] * sscalar 7.0) 0 1, i3]))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty renames artifactRev
-    @?= "\\v6 v1 -> let m9 = sscatter (sfromR v6) (\\[i7] -> [let x8 = sfromR (tproject1 v1) !$ [i7] in ifF (rfromS (sscalar 0.0) >=. rfromS (x8 * sfromR (tproject2 v1))) 0 1, i7]) ; v10 = m9 !$ [1] in tpair (rfromS (sreplicate @_ @5 (sfromR (tproject2 v1)) * v10), rfromS (ssum @_ @5 (sfromR (tproject1 v1) * v10)))"
+    @?= "\\v6 v1 -> let m9 = sscatter (sfromR v6) (\\[i7] -> [let x8 = sfromR (tproject1 v1) !$ [i7] in ifF (sscalar 0.0 >=. x8 * sfromR (tproject2 v1)) 0 1, i7]) ; v10 = m9 !$ [1] in tpair (rfromS (sreplicate @_ @5 (sfromR (tproject2 v1)) * v10), rfromS (ssum @_ @5 (sfromR (tproject1 v1) * v10)))"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\v1 -> rfromS (sgather (sfromVector (fromList [sreplicate @_ @5 (sscalar 0.0), sfromR (tproject1 v1) * sreplicate @_ @5 (sfromR (tproject2 v1))])) (\\[i4] -> [let x5 = sfromR (tproject1 v1) !$ [i4] in ifF (rfromS (sscalar 0.0) >=. rfromS (x5 * sfromR (tproject2 v1))) 0 1, i4]))"
+    @?= "\\v1 -> rfromS (sgather (sfromVector (fromList [sreplicate @_ @5 (sscalar 0.0), sfromR (tproject1 v1) * sreplicate @_ @5 (sfromR (tproject2 v1))])) (\\[i4] -> [let x5 = sfromR (tproject1 v1) !$ [i4] in ifF (sscalar 0.0 >=. x5 * sfromR (tproject2 v1)) 0 1, i4]))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?=  "\\v6 v1 -> tfromS (let v10 = sscatter (sfromR v6) (\\[i7] -> [ifF (rfromS (sscalar 0.0) >=. rfromS (sfromR (tproject1 v1) !$ [i7] * sfromR (tproject2 v1))) 0 1, i7]) !$ [1] in tpair (sreplicate @_ @5 (sfromR (tproject2 v1)) * v10, sdot0 (sfromR (tproject1 v1)) v10))"
+    @?=  "\\v6 v1 -> tfromS (let v10 = sscatter (sfromR v6) (\\[i7] -> [ifF (sscalar 0.0 >=. sfromR (tproject1 v1) !$ [i7] * sfromR (tproject2 v1)) 0 1, i7]) !$ [1] in tpair (sreplicate @_ @5 (sfromR (tproject2 v1)) * v10, sdot0 (sfromR (tproject1 v1)) v10))"
 
 testReluMax3 :: Assertion
 testReluMax3 = do

@@ -257,32 +257,29 @@ type instance DualOf RepN = DummyDualTarget
 
 type instance ShareOf RepN = RepN
 
-instance EqF RepN where
-  (==.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
-  RepN u ==. RepN v = case knownSTK @y of
-    STKScalar -> u == v
-    STKR SNat STKScalar -> u == v
-    STKS sh STKScalar -> withKnownShS sh $ u == v
-    STKX sh STKScalar -> withKnownShX sh $ u == v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemKnownSTK stk1
-                                 , Dict <- lemKnownSTK stk2 ->
-      RepN @y1 (fst u) ==. RepN @y1 (fst v)
-      && RepN @y2 (snd u) ==. RepN @y2 (snd v)
-    _ -> error "TODO"
+instance GoodScalar r => EqF RepN (TKScalar r) where
+  RepN u ==. RepN v = u == v
 
-instance OrdF RepN where
-  (<.) :: forall y. KnownSTK y => RepN y -> RepN y -> Bool
-  RepN u <. RepN v = case knownSTK @y of
-    STKScalar -> u < v
-    STKR SNat STKScalar -> u < v
-    STKS sh STKScalar -> withKnownShS sh $ u < v
-    STKX sh STKScalar -> withKnownShX sh $ u < v
-    STKProduct @y1 @y2 stk1 stk2 | Dict <- lemKnownSTK stk1
-                                 , Dict <- lemKnownSTK stk2 ->
-      RepN @y1 (fst u) <. RepN @y1 (fst v)
-      && RepN @y2 (snd u) <. RepN @y2 (snd v)
-        -- lexicographic ordering  -- TODO: is this standard and the same as for <=. ? as for || ?
-    _ -> error "TODO"
+instance GoodScalar r => OrdF RepN (TKScalar r) where
+  RepN u <. RepN v = u < v
+
+instance GoodScalar r => EqF RepN (TKR n r) where
+  RepN u ==. RepN v = u == v
+
+instance GoodScalar r => OrdF RepN (TKR n r) where
+  RepN u <. RepN v = u < v
+
+instance GoodScalar r => EqF RepN (TKS sh r) where
+  RepN u ==. RepN v = u == v
+
+instance GoodScalar r => OrdF RepN (TKS sh r) where
+  RepN u <. RepN v = u < v
+
+instance GoodScalar r => EqF RepN (TKX sh r) where
+  RepN u ==. RepN v = u == v
+
+instance GoodScalar r => OrdF RepN (TKX sh r) where
+  RepN u <. RepN v = u < v
 
 deriving instance Eq (RepORArray y) => Eq (RepN y)
 deriving instance Ord (RepORArray y) => Ord (RepN y)

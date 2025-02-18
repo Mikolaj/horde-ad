@@ -279,15 +279,13 @@ data DummyDualTarget y = DummyDualTarget (FullTensorKind y)
 type family BoolOf (t :: Target) :: Type
 
 infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: Target) where
-  -- The existential variables here are handled in instances, e.g., via AstRel.
-  (==.), (/=.) :: KnownSTK y => f y -> f y -> BoolOf f
+class Boolean (BoolOf f) => EqF (f :: Target) y where
+  (==.), (/=.) :: f y -> f y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: Target) where
-  -- The existential variables here are handled in instances, e.g., via AstRel.
-  (<.), (<=.), (>.), (>=.) :: KnownSTK y => f y -> f y -> BoolOf f
+class Boolean (BoolOf f) => OrdF (f :: Target) y where
+  (<.), (<=.), (>.), (>=.) :: f y -> f y -> BoolOf f
   u >. v = v <. u
   u >=. v = notB (u <. v)
   u <=. v = v >=. u

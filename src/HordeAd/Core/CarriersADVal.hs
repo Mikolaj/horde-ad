@@ -228,11 +228,41 @@ generateDeltaInputs =
 
 type instance BoolOf (ADVal f) = BoolOf f
 
-instance EqF f => EqF (ADVal f) where
+instance EqF f (TKScalar r) => EqF (ADVal f) (TKScalar r) where
   D u _ ==. D v _ = u ==. v
   D u _ /=. D v _ = u /=. v
 
-instance OrdF f => OrdF (ADVal f) where
+instance OrdF f (TKScalar r) => OrdF (ADVal f) (TKScalar r) where
+  D u _ <. D v _ = u <. v
+  D u _ <=. D v _ = u <=. v
+  D u _ >. D v _ = u >. v
+  D u _ >=. D v _ = u >=. v
+
+instance EqF f (TKR n r) => EqF (ADVal f) (TKR n r) where
+  D u _ ==. D v _ = u ==. v
+  D u _ /=. D v _ = u /=. v
+
+instance OrdF f (TKR n r) => OrdF (ADVal f) (TKR n r) where
+  D u _ <. D v _ = u <. v
+  D u _ <=. D v _ = u <=. v
+  D u _ >. D v _ = u >. v
+  D u _ >=. D v _ = u >=. v
+
+instance EqF f (TKS sh r) => EqF (ADVal f) (TKS sh r) where
+  D u _ ==. D v _ = u ==. v
+  D u _ /=. D v _ = u /=. v
+
+instance OrdF f (TKS sh r) => OrdF (ADVal f) (TKS sh r) where
+  D u _ <. D v _ = u <. v
+  D u _ <=. D v _ = u <=. v
+  D u _ >. D v _ = u >. v
+  D u _ >=. D v _ = u >=. v
+
+instance EqF f (TKX sh r) => EqF (ADVal f) (TKX sh r) where
+  D u _ ==. D v _ = u ==. v
+  D u _ /=. D v _ = u /=. v
+
+instance OrdF f (TKX sh r) => OrdF (ADVal f) (TKX sh r) where
   D u _ <. D v _ = u <. v
   D u _ <=. D v _ = u <=. v
   D u _ >. D v _ = u >. v

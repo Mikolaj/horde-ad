@@ -15,6 +15,7 @@ module HordeAd.Core.CarriersAst
 import Prelude hiding (foldl')
 
 import Data.List.NonEmpty (NonEmpty (..), (<|))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 
 import Data.Array.Nested qualified as Nested
 
@@ -40,7 +41,7 @@ type instance ShareOf (AstTensor ms s) = AstRaw s
 -- of the instances, especially after applied to arguments that are terms.
 type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z  -- TODO: PrimalSpan
 
-type instance BoolOf (AstTensor AstMethodLet s) = AstBool AstMethodLet
+type instance BoolOf (AstTensor ms s) = AstBool ms
 
 
 -- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
@@ -346,27 +347,173 @@ instance Boolean (AstBool ms) where
   b &&* c = AstB2 AndOp b c
   b ||* c = AstB2 OrOp b c
 
-instance AstSpan s => EqF (AstTensor AstMethodLet s) where
+-- These are common in indexing, so worth optimizing early via AstConcrete.
+instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKScalar r) where
   AstConcrete (RepF _ u) ==. AstConcrete (RepF _ v) = AstBoolConst $ u ==. v
-    -- common in indexing
-  v ==. u = AstRel EqOp (primalPart v) (primalPart u)
+  v ==. u = AstRelK EqOp (primalPart v) (primalPart u)
   AstConcrete (RepF _ u) /=. AstConcrete (RepF _ v) = AstBoolConst $ u /=. v
-    -- common in indexing
-  v /=. u = AstRel NeqOp (primalPart v) (primalPart u)
+  v /=. u = AstRelK NeqOp (primalPart v) (primalPart u)
 
-instance AstSpan s => OrdF (AstTensor AstMethodLet s) where
+instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKR n r) where
+  v ==. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withCastRS shv' $ \shv ->
+          withCastRS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS EqOp (AstSFromR shu $ primalPart v)
+                             (AstSFromR shv $ primalPart u)
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
+  v /=. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withCastRS shv' $ \shv ->
+          withCastRS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS NeqOp (AstSFromR shu $ primalPart v)
+                             (AstSFromR shv $ primalPart u)
+              _ -> error $ "(/=.): shapes don't match: "
+                           ++ show (shu, shv)
+
+instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKS sh r) where
+  v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
+  v /=. u = AstRelS NeqOp (primalPart v) (primalPart u)
+
+instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKX sh r) where
+  v ==. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withCastXS shv' $ \shv ->
+          withCastXS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS EqOp (AstSFromX shu $ primalPart v)
+                             (AstSFromX shv $ primalPart u)
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
+  v /=. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withCastXS shv' $ \shv ->
+          withCastXS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS NeqOp (AstSFromX shu $ primalPart v)
+                             (AstSFromX shv $ primalPart u)
+              _ -> error $ "(/=.): shapes don't match: "
+                           ++ show (shu, shv)
+
+-- These are common in indexing, so worth optimizing early via AstConcrete.
+instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKScalar r) where
   AstConcrete (RepF _ u) <. AstConcrete (RepF _ v) = AstBoolConst $ u <. v
-    -- common in indexing
-  v <. u = AstRel LsOp (primalPart v) (primalPart u)
+  v <. u = AstRelK LsOp (primalPart v) (primalPart u)
   AstConcrete (RepF _ u) <=. AstConcrete (RepF _ v) = AstBoolConst $ u <=. v
-    -- common in indexing
-  v <=. u = AstRel LeqOp (primalPart v) (primalPart u)
+  v <=. u = AstRelK LeqOp (primalPart v) (primalPart u)
   AstConcrete (RepF _ u) >. AstConcrete (RepF _ v) = AstBoolConst $ u >. v
-    -- common in indexing
-  v >. u = AstRel GtOp (primalPart v) (primalPart u)
+  v >. u = AstRelK GtOp (primalPart v) (primalPart u)
   AstConcrete (RepF _ u) >=. AstConcrete (RepF _ v) = AstBoolConst $ u >=. v
-    -- common in indexing
-  v >=. u = AstRel GeqOp (primalPart v) (primalPart u)
+  v >=. u = AstRelK GeqOp (primalPart v) (primalPart u)
+
+instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKR n r) where
+  v <. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withCastRS shv' $ \shv ->
+          withCastRS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS LsOp (AstSFromR shu $ primalPart v)
+                             (AstSFromR shv $ primalPart u)
+              _ -> error $ "(<.): shapes don't match: "
+                           ++ show (shu, shv)
+  v <=. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withCastRS shv' $ \shv ->
+          withCastRS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS LeqOp (AstSFromR shu $ primalPart v)
+                              (AstSFromR shv $ primalPart u)
+              _ -> error $ "(<=.): shapes don't match: "
+                           ++ show (shu, shv)
+  v >. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withCastRS shv' $ \shv ->
+          withCastRS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS GtOp (AstSFromR shu $ primalPart v)
+                             (AstSFromR shv $ primalPart u)
+              _ -> error $ "(>.): shapes don't match: "
+                           ++ show (shu, shv)
+  v >=. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withCastRS shv' $ \shv ->
+          withCastRS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS GeqOp (AstSFromR shu $ primalPart v)
+                              (AstSFromR shv $ primalPart u)
+              _ -> error $ "(>=.): shapes don't match: "
+                           ++ show (shu, shv)
+
+instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKS sh r) where
+  v <. u = AstRelS LsOp (primalPart v) (primalPart u)
+  v <=. u = AstRelS LeqOp (primalPart v) (primalPart u)
+  v >. u = AstRelS GtOp (primalPart v) (primalPart u)
+  v >=. u = AstRelS GeqOp (primalPart v) (primalPart u)
+
+instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKX sh r) where
+  v <. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withCastXS shv' $ \shv ->
+          withCastXS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS LsOp (AstSFromX shu $ primalPart v)
+                             (AstSFromX shv $ primalPart u)
+              _ -> error $ "(<.): shapes don't match: "
+                           ++ show (shu, shv)
+  v <=. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withCastXS shv' $ \shv ->
+          withCastXS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS LeqOp (AstSFromX shu $ primalPart v)
+                              (AstSFromX shv $ primalPart u)
+              _ -> error $ "(<=.): shapes don't match: "
+                           ++ show (shu, shv)
+  v >. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withCastXS shv' $ \shv ->
+          withCastXS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS GtOp (AstSFromX shu $ primalPart v)
+                             (AstSFromX shv $ primalPart u)
+              _ -> error $ "(>.): shapes don't match: "
+                           ++ show (shu, shv)
+  v >=. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withCastXS shv' $ \shv ->
+          withCastXS shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                AstRelS GeqOp (AstSFromX shu $ primalPart v)
+                              (AstSFromX shv $ primalPart u)
+              _ -> error $ "(>=.): shapes don't match: "
+                           ++ show (shu, shv)
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions
@@ -410,14 +557,14 @@ type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify other instances
 
-instance AstSpan s => EqF (AstRaw s) where
-  AstRaw v ==. AstRaw u = AstRel EqOp (primalPart v) (primalPart u)
-  AstRaw v /=. AstRaw u = AstRel NeqOp (primalPart v) (primalPart u)
-instance AstSpan s => OrdF (AstRaw s) where
-  v <. u = AstRel LsOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
-  v <=. u = AstRel LeqOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
-  v >. u = AstRel GtOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
-  v >=. u = AstRel GeqOp (primalPart (unAstRaw v)) (primalPart (unAstRaw u))
+instance EqF (AstTensor AstMethodShare s) y => EqF (AstRaw s) y where
+  AstRaw v ==. AstRaw u = v ==. u
+  AstRaw v /=. AstRaw u = v /=. u
+instance OrdF (AstTensor AstMethodShare s) y => OrdF (AstRaw s) y where
+  AstRaw v <. AstRaw u = v <. u
+  AstRaw v <=. AstRaw u = v <=. u
+  AstRaw v >. AstRaw u = v >. u
+  AstRaw v >=. AstRaw u = v >=. u
 
 deriving instance Eq (AstRaw s y)
 deriving instance Ord (AstRaw s y)
@@ -431,8 +578,14 @@ deriving instance Floating (AstTensor AstMethodShare s y)
 deriving instance RealFloatF (AstTensor AstMethodShare s y)
                   => RealFloatF (AstRaw s y)
 
-deriving instance AstSpan s => EqF (AstNoVectorize s)
-deriving instance AstSpan s => OrdF (AstNoVectorize s)
+instance EqF (AstTensor AstMethodLet s) y => EqF (AstNoVectorize s) y where
+  AstNoVectorize v ==. AstNoVectorize u = v ==. u
+  AstNoVectorize v /=. AstNoVectorize u = v /=. u
+instance OrdF (AstTensor AstMethodLet s) y => OrdF (AstNoVectorize s) y where
+  AstNoVectorize v <. AstNoVectorize u = v <. u
+  AstNoVectorize v <=. AstNoVectorize u = v <=. u
+  AstNoVectorize v >. AstNoVectorize u = v >. u
+  AstNoVectorize v >=. AstNoVectorize u = v >=. u
 deriving instance Eq (AstNoVectorize s y)
 deriving instance Ord (AstNoVectorize s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoVectorize s y)
@@ -445,8 +598,14 @@ deriving instance Floating (AstTensor AstMethodLet s y)
 deriving instance (RealFloatF (AstTensor AstMethodLet s y))
                   => RealFloatF (AstNoVectorize s y)
 
-deriving instance AstSpan s => EqF (AstNoSimplify s)
-deriving instance AstSpan s => OrdF (AstNoSimplify s)
+instance EqF (AstTensor AstMethodLet s) y => EqF (AstNoSimplify s) y where
+  AstNoSimplify v ==. AstNoSimplify u = v ==. u
+  AstNoSimplify v /=. AstNoSimplify u = v /=. u
+instance OrdF (AstTensor AstMethodLet s) y => OrdF (AstNoSimplify s) y where
+  AstNoSimplify v <. AstNoSimplify u = v <. u
+  AstNoSimplify v <=. AstNoSimplify u = v <=. u
+  AstNoSimplify v >. AstNoSimplify u = v >. u
+  AstNoSimplify v >=. AstNoSimplify u = v >=. u
 deriving instance Eq (AstNoSimplify s y)
 deriving instance Ord (AstNoSimplify s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoSimplify s y)

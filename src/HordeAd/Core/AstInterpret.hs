@@ -511,17 +511,11 @@ interpretAstBool !env = \case
         b2 = interpretAstBool env arg2
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
-  AstRel opCodeRel arg1 arg2 ->
-    case ftkAst arg1 of
-      ftk@(FTKR _ FTKScalar) | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-        let r1 = interpretAstPrimalRuntimeSpecialized env arg1
-            r2 = interpretAstPrimalRuntimeSpecialized env arg2
-        in interpretAstRelOp opCodeRel r1 r2
-      FTKS sh FTKScalar -> withKnownShS sh $
-        let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
-            r2 = interpretAstPrimalSRuntimeSpecialized env arg2
-        in interpretAstRelOp opCodeRel r1 r2
-      ftk | Dict <- lemKnownSTK (ftkToSTK ftk) ->
-        let r1 = interpretAstPrimal env arg1
-            r2 = interpretAstPrimal env arg2
-        in interpretAstRelOp opCodeRel r1 r2
+  AstRelK opCodeRel arg1 arg2 ->
+    let r1 = interpretAst env arg1
+        r2 = interpretAst env arg2
+    in interpretAstRelOp opCodeRel r1 r2
+  AstRelS opCodeRel arg1 arg2 ->
+    let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
+        r2 = interpretAstPrimalSRuntimeSpecialized env arg2
+    in interpretAstRelOp opCodeRel r1 r2

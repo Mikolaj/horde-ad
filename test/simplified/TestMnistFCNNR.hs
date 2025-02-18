@@ -54,7 +54,7 @@ type XParams widthHidden widthHidden2 r =
 -- which side-steps vectorization.
 mnistTestCase1VTA
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r, ADTensorScalar r ~ r
+     ( Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -155,7 +155,7 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase1VTI
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r, ADTensorScalar r ~ r
+     ( Differentiable r, GoodScalar r, Random r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
