@@ -497,9 +497,7 @@ data Delta :: Target -> TensorKindType -> Type where
   DeltaXUnNest :: Delta target (TKX2 sh1 (TKX2 sh2 x))
                -> Delta target (TKX2 (sh1 ++ sh2) x)
 
-deriving instance ( Show (IntOf target)
-                  , (forall y7. KnownSTK y7 => Show (target y7)) )
-                  => Show (Delta target y)
+deriving instance Show (IntOf target) => Show (Delta target y)
 
 
 -- * Full tensor kind derivation for delta expressions
