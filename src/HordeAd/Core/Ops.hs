@@ -1744,7 +1744,7 @@ class ( Num (IntOf target)
     -> target accShs
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
-  tApply :: STensorKind z -> HFunOf target x z -> target x -> target z
+  tApply :: HFunOf target x z -> target x -> target z
   tlambda :: FullTensorKind x -> HFun x z -> HFunOf target x z
   tcond :: Boolean (BoolOf target)
         => STensorKind y
@@ -1812,8 +1812,7 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)
   rrev f xftk =
-    \ !es -> tApply (adSTK $ ftkToSTK xftk)
-                    (trev @target xftk (HFun f) (knownSTK @(TKR2 n r))) es
+    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKR2 n r))) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n.
@@ -1823,8 +1822,7 @@ class ( Num (IntOf target)
          -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
   rrevDt f xftk =
-    \ !es !dt -> tApply (adSTK $ ftkToSTK xftk)
-                        (trevDt @target xftk $ HFun f) (tpair dt es)
+    \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
   rfwd :: forall x r n. (KnownSTK r, KnownNat n)
        => (forall f. ADReady f => f x -> f (TKR2 n r))
        -> FullTensorKind x
@@ -1832,16 +1830,14 @@ class ( Num (IntOf target)
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKR2 n r))
   rfwd f xftk =
-    \ !es !ds -> tApply (adSTK $ knownSTK @(TKR2 n r))
-                        (tfwd @target xftk $ HFun f) (tpair ds es)
+    \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
   srev :: forall x r sh. (KnownSTK r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
        -> target x
        -> target (ADTensorKind x)
   srev f xftk =
-    \ !es -> tApply (adSTK $ ftkToSTK xftk)
-                    (trev @target xftk (HFun f) (knownSTK @(TKS2 sh r))) es
+    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKS2 sh r))) es
   srevDt :: forall x r sh.
             (forall f. ADReady f => f x -> f (TKS2 sh r))
          -> FullTensorKind x
@@ -1849,8 +1845,7 @@ class ( Num (IntOf target)
          -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
          -> target (ADTensorKind x)
   srevDt f xftk =
-    \ !es !dt -> tApply (adSTK $ ftkToSTK xftk)
-                        (trevDt @target xftk $ HFun f) (tpair dt es)
+    \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
   sfwd :: forall x r sh. (KnownSTK r, KnownShS sh)
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
        -> FullTensorKind x
@@ -1858,8 +1853,7 @@ class ( Num (IntOf target)
        -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
        -> target (ADTensorKind (TKS2 sh r))
   sfwd f xftk =
-    \ !es !ds -> tApply (adSTK $ knownSTK @(TKS2 sh r))
-                        (tfwd @target xftk $ HFun f) (tpair ds es)
+    \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important

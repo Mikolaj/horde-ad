@@ -515,7 +515,7 @@ instance ( ADReadyNoLet target, ShareTensor target
         (q, bs) = tunpair qbs
         dual = DeltaMapAccumL k bShs eShs q es df rf acc0' es'
     in dD (tpair accFin bs) dual
-  tApply _ (HFun f) = f
+  tApply (HFun f) = f
   tlambda _ = id
   -- Bangs are for the proper order of sharing stamps.
   tcond !stk !b !u !v =

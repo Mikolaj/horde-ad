@@ -538,7 +538,7 @@ instance BaseTensor RepN where
     oRtmapAccumL k accShs bShs eShs f acc0 es
   tmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRtmapAccumL k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
-  tApply _ f x = RepN $ f $ unRepN x
+  tApply f x = RepN $ f $ unRepN x
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tcond _ b u v = if b then u else v
   tprimalPart = id

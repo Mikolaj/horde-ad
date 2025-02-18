@@ -236,8 +236,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -> AstTensor ms s accShs
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
-  AstApply :: STensorKind z
-           -> AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
+  AstApply :: AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
   AstVar :: FullTensorKind y -> AstVarName s y -> AstTensor ms s y
   AstCond :: forall y ms s.
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y

@@ -183,7 +183,7 @@ interpretAst !env = \case
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
     in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
-  AstApply stk t ll ->
+  AstApply t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
           -- FullSpan terms
@@ -192,7 +192,7 @@ interpretAst !env = \case
           -- as above so that the mixture becomes compatible; if the spans
           -- agreed, the AstApply would likely be simplified before
           -- getting interpreted
-    in tApply stk t2 ll2
+    in tApply t2 ll2
   AstVar _ftk var ->
    let var2 = mkAstVarName @FullSpan (varNameToSTK var) (varNameToAstVarId var)  -- TODO
 -- TODO: this unsafe call is needed for benchmark VTO1.

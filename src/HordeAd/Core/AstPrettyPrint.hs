@@ -276,7 +276,7 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  AstApply stk t ll ->
+  AstApply t ll ->
     if loseRoudtrip cfg
     then showParen (d > 9)
          $ printAstHFunOneUnignore cfg 10 t
@@ -284,8 +284,6 @@ printAstAux cfg d = \case
            . printAst cfg 11 ll
     else showParen (d > 10)
          $ showString "tApply "
-           . showParen True (shows stk)
-           . showString " "
            . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll

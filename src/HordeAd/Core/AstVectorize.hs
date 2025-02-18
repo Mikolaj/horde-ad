@@ -187,10 +187,9 @@ build1V snat@SNat (var, v0)
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrBuild (SNat @k5) (SNat @k)
                                        (ftkToSTK bShs) (astProject2 x1bs1)))
-    Ast.AstApply stk t ll -> traceRule $
-      astApply (buildSTK snat stk)
-        (build1VHFun snat (var, t))
-        (build1VOccurenceUnknown snat (var, ll))
+    Ast.AstApply t ll -> traceRule $
+      astApply (build1VHFun snat (var, t))
+               (build1VOccurenceUnknown snat (var, ll))
     Ast.AstVar _ var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
       then case isTensorInt v0 of

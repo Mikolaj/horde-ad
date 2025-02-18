@@ -66,7 +66,7 @@ ftkAst t = case t of
     FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstMapAccumLDer k bShs _eShs _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bShs)
-  AstApply _ (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
+  AstApply (AstLambda ~(_vvars, _, l)) _ll -> ftkAst l
   AstVar ftk _var -> ftk
   AstCond _b v _w -> ftkAst v
   AstBuild1 snat _ (_var, v) -> buildFTK snat (ftkAst v)
@@ -193,7 +193,7 @@ varInAst var = \case
     varInAst var acc0 || varInAst var es
   AstMapAccumLDer _k _bShs _eShs _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
-  AstApply _ t ll -> varInAstHFun var t || varInAst var ll
+  AstApply t ll -> varInAstHFun var t || varInAst var ll
   AstVar _ var2 -> var == varNameToAstVarId var2
   AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
   AstBuild1 _ _ (var2, v) ->

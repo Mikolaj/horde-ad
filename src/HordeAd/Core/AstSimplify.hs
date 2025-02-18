@@ -759,13 +759,13 @@ astMapAccumLDer k bShs eShs f df rf acc0 es =
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
 
 astApply :: forall s x z. AstSpan s
-         => STensorKind z -> AstHFun x z -> AstTensor AstMethodLet s x
+         => AstHFun x z -> AstTensor AstMethodLet s x
          -> AstTensor AstMethodLet s z
-astApply stk t u = case t of
+astApply t u = case t of
   Ast.AstLambda ~(var, _ftk, v) ->
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astLet var u v
-      _ -> Ast.AstApply stk t u
+      _ -> Ast.AstApply t u
 
 astCond :: AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -886,7 +886,7 @@ astPrimalPart t = case t of
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es ->
       astMapAccumLDer k bShs eShs f df rf
                       (astPrimalPart acc0) (astPrimalPart es)
-  Ast.AstApply stk v ll -> astApply stk v (astPrimalPart ll)
+  Ast.AstApply v ll -> astApply v (astPrimalPart ll)
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -969,7 +969,7 @@ astDualPart t = case t of
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es ->
       astMapAccumLDer k bShs eShs f df rf
                       (astDualPart acc0) (astDualPart es)
-  Ast.AstApply stk v ll -> astApply stk v (astDualPart ll)
+  Ast.AstApply v ll -> astApply v (astDualPart ll)
   Ast.AstVar{} -> Ast.AstDualPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -2451,7 +2451,7 @@ astNonIndexStep t = case t of
     astMapAccumRDer k bShs eShs f df rf acc0 es
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es ->
     astMapAccumLDer k bShs eShs f df rf acc0 es
-  Ast.AstApply stk v ll -> astApply stk v ll
+  Ast.AstApply v ll -> astApply v ll
   Ast.AstVar{} -> t
   Ast.AstCond a b c -> astCond a b c
   Ast.AstBuild1{} -> t
@@ -2563,7 +2563,7 @@ expandAst t = case t of
                     (expandAstHFun rf)
                     (expandAst acc0)
                     (expandAst es)
-  Ast.AstApply stk v ll -> astApply stk (expandAstHFun v) (expandAst ll)
+  Ast.AstApply v ll -> astApply (expandAstHFun v) (expandAst ll)
   Ast.AstVar{} -> t
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
@@ -2760,7 +2760,7 @@ simplifyAst t = case t of
                     (simplifyAstHFun rf)
                     (simplifyAst acc0)
                     (simplifyAst es)
-  Ast.AstApply stk v ll -> astApply stk (simplifyAstHFun v) (simplifyAst ll)
+  Ast.AstApply v ll -> astApply (simplifyAstHFun v) (simplifyAst ll)
   Ast.AstVar{} -> t
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
@@ -3105,7 +3105,7 @@ contractAst t = case t of
                     (contractAstHFun rf)
                     (contractAst acc0)
                     (contractAst es)
-  Ast.AstApply stk v ll -> astApply stk (contractAstHFun v) (contractAst ll)
+  Ast.AstApply v ll -> astApply (contractAstHFun v) (contractAst ll)
   Ast.AstVar{} -> t
   Ast.AstCond b a2 a3 ->
     astCond (contractAstBool b) (contractAst a2) (contractAst a3)
@@ -3611,11 +3611,11 @@ substitute1Ast i var v1 = case v1 of
                                  (fromMaybe rf mrf)
                                  (fromMaybe acc0 macc0)
                                  (fromMaybe es mes)
-  Ast.AstApply stk t ll ->
+  Ast.AstApply t ll ->
     case ( substitute1AstHFun i var t
          , substitute1Ast i var ll ) of
       (Nothing, Nothing) -> Nothing
-      (mt, mll) -> Just $ astApply stk (fromMaybe t mt) (fromMaybe ll mll)
+      (mt, mll) -> Just $ astApply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstVar ftk var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s @s2 of
