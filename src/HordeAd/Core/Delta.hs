@@ -98,53 +98,51 @@ import HordeAd.Core.Types
 
 type role NodeId nominal nominal
 data NodeId :: Target -> TensorKindType -> Type where
-  NodeId :: forall target y. KnownSTK y => Int -> NodeId target y
+  NodeId :: forall target y. STensorKind y -> Int -> NodeId target y
 
 -- No Eq instance to limit hacks outside this module.
 
 instance Show (NodeId target y) where
-  showsPrec d (NodeId n) =
+  showsPrec d (NodeId _ n) =
     showsPrec d n  -- less verbose, more readable
 
 instance DMap.Enum1 (NodeId target) where
-  type Enum1Info (NodeId target) = Some (Dict KnownSTK)
-  fromEnum1 (NodeId @_ @a n) = (n, Some @_ @a Dict)
-  toEnum1 n (Some @_ @a Dict) = Some $ NodeId @target @a n
+  type Enum1Info (NodeId target) = Some STensorKind
+  fromEnum1 (NodeId stk n) = (n, Some stk)
+  toEnum1 n (Some stk) = Some $ NodeId stk n
 
 instance TestEquality (NodeId target) where
-  testEquality (NodeId @_ @y1 _) (NodeId @_ @y2 _) = sameKnownSTK @y1 @y2
+  testEquality (NodeId stk1 _) (NodeId stk2 _) = sameSTK stk1 stk2
 
 -- | Wrap non-negative (only!) integers in the `NodeId` newtype.
 mkNodeId :: STensorKind y -> Int -> NodeId f y
-mkNodeId stk i | Dict <- lemKnownSTK stk =
-  assert (i >= 0) $ NodeId i
+mkNodeId stk i = assert (i >= 0) $ NodeId stk i
 
 nodeIdToSTK :: NodeId f y -> STensorKind y
-nodeIdToSTK (NodeId _) = knownSTK
+nodeIdToSTK (NodeId stk _) = stk
 
 type role InputId nominal nominal
 data InputId :: Target -> TensorKindType -> Type where
-  InputId :: forall target y. KnownSTK y => Int -> InputId target y
+  InputId :: forall target y. STensorKind y -> Int -> InputId target y
 
 -- No Eq instance to limit hacks outside this module.
 
 deriving instance Show (InputId target y)
 
 instance DMap.Enum1 (InputId target) where
-  type Enum1Info (InputId target) = Some (Dict KnownSTK)
-  fromEnum1 (InputId @_ @a n) = (n, Some @_ @a Dict)
-  toEnum1 n (Some @_ @a Dict) = Some $ InputId @target @a n
+  type Enum1Info (InputId target) = Some STensorKind
+  fromEnum1 (InputId stk n) = (n, Some stk)
+  toEnum1 n (Some stk) = Some $ InputId stk n
 
 instance TestEquality (InputId target) where
-  testEquality (InputId @_ @y1 _) (InputId @_ @y2 _) = sameKnownSTK @y1 @y2
+  testEquality (InputId stk1 _) (InputId stk2 _) = sameSTK stk1 stk2
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
 mkInputId :: STensorKind y -> Int -> InputId f y
-mkInputId stk i | Dict <- lemKnownSTK stk =
-  assert (i >= 0) $ InputId i
+mkInputId stk i = assert (i >= 0) $ InputId stk i
 
 inputIdToSTK :: InputId f y -> STensorKind y
-inputIdToSTK (InputId _) = knownSTK
+inputIdToSTK (InputId stk _) = stk
 
 
 -- * AST of delta expressions
