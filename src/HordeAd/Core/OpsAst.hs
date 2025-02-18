@@ -1215,7 +1215,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   -- Conversions
   kfromS = AstRaw . AstFromS knownSTK . unAstRaw
-  rfromS @x @sh | SNat <- shsRank (knownShS @sh) =
+  rfromS @sh @x | SNat <- shsRank (knownShS @sh) =
     AstRaw . AstFromS (knownSTK @(TKR2 (Rank sh) x)) . unAstRaw
   sfromK = AstRaw . cAstSFromK . unAstRaw
   sfromR = AstRaw . cAstSFromR knownShS . unAstRaw

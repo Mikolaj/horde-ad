@@ -25,16 +25,14 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-rminIndexN :: forall target n r.
-              (BaseTensor target, KnownNat n, GoodScalar r)
+rminIndexN :: forall target n r. (BaseTensor target, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rminIndexN t =
   fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
                 (rshape t)
                 (tprimalPart @target $ kfromR $ rminIndex (rflatten t))
 
-rmaxIndexN :: forall target n r.
-              (BaseTensor target, KnownNat n, GoodScalar r)
+rmaxIndexN :: forall target n r. (BaseTensor target, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rmaxIndexN t =
   fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)

@@ -476,7 +476,7 @@ instance BaseTensor RepN where
   kfromS = RepN . Nested.sunScalar . unRepN
   kfromX = RepN . Nested.munScalar . unRepN
   rfromK = RepN . Nested.rscalar . unRepN
-  rfromS @r | Dict <- eltDictRep (knownSTK @r) =
+  rfromS @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stoRanked . unRepN
   rfromX @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mtoRanked . unRepN
