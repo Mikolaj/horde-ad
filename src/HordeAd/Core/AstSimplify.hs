@@ -1041,18 +1041,21 @@ astSumOfList l = case l of
            in withSNat (V.length v) $ \snat ->
                 astSum snat stk $ astFromVector snat stk v
 
+-- Beware that increasing the number of calls to this constructor
+-- sometimes increases runtime, because not enough copies cancel out.
+-- Hence the commented out rules below.
 astFromIntegralK :: forall r1 r2. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFromIntegralK t = case t of
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astFromIntegralS a)
-  Ast.AstCond b a2 a3 ->
-    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
+--  Ast.AstCond b a2 a3 ->
+--    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
   AstConcrete (RepF FTKScalar v) ->
     astConcrete (RepF FTKScalar (kfromIntegral v))
-  AstSumOfList args -> astSumOfList $ NonEmpty.map astFromIntegralK args
+--  AstSumOfList args -> astSumOfList $ NonEmpty.map astFromIntegralK args
   AstN1K opCode u -> AstN1K opCode (astFromIntegralK u)
-  AstN2K opCode u v -> AstN2K opCode (astFromIntegralK u) (astFromIntegralK v)
+--  AstN2K opCode u v -> AstN2K opCode (astFromIntegralK u) (astFromIntegralK v)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   _ -> case testEquality (typeRep @r1) (typeRep @r2) of
     Just Refl -> t
@@ -1064,7 +1067,7 @@ astCastK :: forall r1 r2 s.
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astCastS a)
-  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
+--  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
   AstConcrete (RepF FTKScalar v) ->
     astConcrete (RepF FTKScalar (kcast v))
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
@@ -1072,9 +1075,9 @@ astCastK t = case t of
   -- is not called to avoid loops. The same with many others
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastK v
-  AstSumOfList args -> astSumOfList $ NonEmpty.map astCastK args
+--  AstSumOfList args -> astSumOfList $ NonEmpty.map astCastK args
   AstN1K opCode u -> AstN1K opCode (astCastK u)
-  AstN2K opCode u v -> AstN2K opCode (astCastK u) (astCastK v)
+--  AstN2K opCode u v -> AstN2K opCode (astCastK u) (astCastK v)
 --  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astCastK u)
 --  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astCastK u) (astCastK v)
   Ast.AstFromIntegralK v -> astFromIntegralK v
@@ -1087,17 +1090,17 @@ astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFromIntegralS t = case t of
-  Ast.AstFromVector snat (STKS sh STKScalar) l ->
-   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
-  Ast.AstFromVector snat STKScalar l ->
-   astFromVector snat STKScalar (V.map astFromIntegralK l)
+--  Ast.AstFromVector snat (STKS sh STKScalar) l ->
+--   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
+--  Ast.AstFromVector snat STKScalar l ->
+--   astFromVector snat STKScalar (V.map astFromIntegralK l)
   Ast.AstSum snat (STKS sh STKScalar) a ->
     astSum snat (STKS sh STKScalar) (astFromIntegralS a)
   Ast.AstReplicate snat (STKS sh STKScalar) a ->
     astReplicate snat (STKS sh STKScalar) (astFromIntegralS a)
   Ast.AstReplicate snat STKScalar a ->
     astReplicate snat STKScalar (astFromIntegralK a)
-  Ast.AstCond b v w -> astCond b (astFromIntegralS v) (astFromIntegralS w)
+--  Ast.AstCond b v w -> astCond b (astFromIntegralS v) (astFromIntegralS w)
   Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
@@ -1106,9 +1109,9 @@ astFromIntegralS t = case t of
     withKnownShS sh $
     astConcrete (RepF (FTKS sh FTKScalar) (sfromIntegral v))
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
-  AstSumOfList args -> astSumOfList $ NonEmpty.map astFromIntegralS args
+--  AstSumOfList args -> astSumOfList $ NonEmpty.map astFromIntegralS args
   AstN1S opCode u -> AstN1S opCode (astFromIntegralS u)
-  AstN2S opCode u v -> AstN2S opCode (astFromIntegralS u) (astFromIntegralS v)
+--  AstN2S opCode u v -> AstN2S opCode (astFromIntegralS u) (astFromIntegralS v)
 --  Ast.AstI2S opCode u v ->
 --    Ast.AstI2S opCode (astFromIntegralS u) (astFromIntegralS v)
   Ast.AstFromIntegralS v -> astFromIntegralS v
@@ -1118,7 +1121,7 @@ astFromIntegralS t = case t of
   Ast.AstGatherS shn v (vars, ix) ->
     Ast.AstGatherS shn (astFromIntegralS v) (vars, ix)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
-  Ast.AstAppendS u v -> astAppendS (astFromIntegralS u) (astFromIntegralS v)
+--  Ast.AstAppendS u v -> astAppendS (astFromIntegralS u) (astFromIntegralS v)
   Ast.AstSliceS i n k v -> astSliceS i n k (astFromIntegralS v)
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
@@ -1133,17 +1136,17 @@ astCastS :: forall r1 r2 s sh.
          => AstTensor AstMethodLet s (TKS sh r1)
          -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS t = case t of
-  Ast.AstFromVector snat (STKS sh STKScalar) l ->
-   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
-  Ast.AstFromVector snat STKScalar l ->
-   astFromVector snat STKScalar (V.map astCastK l)
+--  Ast.AstFromVector snat (STKS sh STKScalar) l ->
+--   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
+--  Ast.AstFromVector snat STKScalar l ->
+--   astFromVector snat STKScalar (V.map astCastK l)
   Ast.AstSum snat (STKS sh STKScalar) a ->
     astSum snat (STKS sh STKScalar) (astCastS a)
   Ast.AstReplicate snat (STKS sh STKScalar) a ->
     astReplicate snat (STKS sh STKScalar) (astCastS a)
   Ast.AstReplicate snat STKScalar a ->
     astReplicate snat STKScalar (astCastK a)
-  Ast.AstCond b v w -> astCond b (astCastS v) (astCastS w)
+--  Ast.AstCond b v w -> astCond b (astCastS v) (astCastS w)
   Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astCastS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
@@ -1155,9 +1158,9 @@ astCastS t = case t of
   Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastS v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastS v
-  AstSumOfList args -> astSumOfList $ NonEmpty.map astCastS args
+--  AstSumOfList args -> astSumOfList $ NonEmpty.map astCastS args
   AstN1S opCode u -> AstN1S opCode (astCastS u)
-  AstN2S opCode u v -> AstN2S opCode (astCastS u) (astCastS v)
+--  AstN2S opCode u v -> AstN2S opCode (astCastS u) (astCastS v)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astCastS v) ix
@@ -1167,7 +1170,7 @@ astCastS t = case t of
     Ast.AstGatherS shn (astCastS v) (vars, ix)
 --  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
-  Ast.AstAppendS u v -> astAppendS (astCastS u) (astCastS v)
+--  Ast.AstAppendS u v -> astAppendS (astCastS u) (astCastS v)
   Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
   Ast.AstReverseS v -> astReverseS (astCastS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
@@ -2206,10 +2209,12 @@ astReshapeS sh2 = \case
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
   AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 sh2 u)
+  -- TODO: reshaping can be costly; are we surely duplicating it is fine?
   AstN2S opCode u v | not (isVar u && isVar v) ->
     AstN2S opCode (astReshapeS @_ @sh2 sh2 u) (astReshapeS @_ @sh2 sh2 v)
   Ast.AstR1S opCode u | not (isVar u) ->
     Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
+  -- TODO: reshaping can be costly; are we surely duplicating it is fine?
   Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
     Ast.AstR2S opCode (astReshapeS @_ @sh2 sh2 u) (astReshapeS @_ @sh2 sh2 v)
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
@@ -2217,14 +2222,17 @@ astReshapeS sh2 = \case
     Just Refl -> v
     _ -> Ast.AstReshapeS sh2 v
 
+-- Beware that increasing the number of calls to this constructor
+-- sometimes increases runtime, because not enough copies cancel out.
+-- Hence the commented out rules below.
 astNestS
   :: forall sh1 sh2 x ms s. AstSpan s
   => ShS sh1 -> ShS sh2
   -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)
   -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
 astNestS sh1 sh2 t = case t of
-  Ast.AstCond b v1 v2 ->
-    Ast.AstCond b (astNestS sh1 sh2 v1) (astNestS sh1 sh2 v2)  -- TODO: ??
+--  Ast.AstCond b v1 v2 ->
+--    Ast.AstCond b (astNestS sh1 sh2 v1) (astNestS sh1 sh2 v2)  -- TODO: ??
   Ast.AstLet var u2 d2 ->  -- TODO: good idea?
     astLet var u2 (astNestS sh1 sh2 d2)
   Ast.AstFromPrimal u ->
@@ -2238,8 +2246,8 @@ astUnNestS
   => AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
   -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)
 astUnNestS t = case t of
-  Ast.AstCond b v1 v2 ->
-    Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
+--  Ast.AstCond b v1 v2 ->
+--    Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
   Ast.AstLet var u2 d2 ->  -- TODO: good idea?
     astLet var u2 (astUnNestS d2)
   Ast.AstFromPrimal u ->
