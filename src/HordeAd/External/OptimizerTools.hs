@@ -9,12 +9,10 @@ module HordeAd.External.OptimizerTools
 
 import Prelude
 
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:))
 
-import Data.Array.Mixed.Shape (withKnownShX)
-import Data.Array.Nested (KnownShS (..))
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
@@ -23,41 +21,48 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
 
-updateWithGradient :: forall y. KnownSTK y
-                   => Double -> RepN y -> RepN (ADTensorKind y) -> RepN y
-updateWithGradient gamma p@(RepN params) g@(RepN gradient) = case knownSTK @y of
+updateWithGradient :: forall y.
+                      Double -> STensorKind y -> RepN y -> RepN (ADTensorKind y)
+                   -> RepN y
+updateWithGradient gamma stk p@(RepN params) g@(RepN gradient) = case stk of
   STKScalar @r -> RepN $
-    case sameSTK (knownSTK @y) (STKScalar @Z0) of
-      Just Refl -> params
-      _ -> error "TODO: unexpected"
-           $ case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
-        Just Refl ->
-          ifDifferentiable @r
-            (params - realToFrac gamma * gradient)
-            params
-        Nothing -> params
+    ifDifferentiable @r
+      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
+       params - realToFrac gamma * gradient)
+      params
   STKR _ (STKScalar @r) -> RepN $
-    case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
-      Just Refl ->
-        ifDifferentiable @r
-          (params - Nested.rreplicateScal (Nested.rshape params)
-                                          (realToFrac gamma)
-                    * gradient)
-          params
-      Nothing -> params
+    ifDifferentiable @r
+      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
+       params - Nested.rreplicateScal (Nested.rshape params)
+                                      (realToFrac gamma)
+                * gradient)
+      params
   STKS _ (STKScalar @r) -> RepN $
-    case sameSTK (knownSTK @y) (adSTK $ knownSTK @y) of
+    ifDifferentiable @r
+      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
+       params - Nested.sreplicateScal (Nested.sshape params)
+                                      (realToFrac gamma)
+                * gradient)
+      params
+{- TODO
+  STKR _ x -> RepN $
+    case sameSTK x (adSTK x) of
       Just Refl ->
-        ifDifferentiable @r
-          (params - Nested.sreplicateScal (Nested.sshape params)
-                                          (realToFrac gamma)
-                    * gradient)
-          params
+        (params - Nested.rreplicateScal (Nested.rshape params)
+                                        (realToFrac gamma)
+                  * gradient)
       Nothing -> params
-  STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
-                       , Dict <- lemKnownSTK stk2 ->
-    tpair (updateWithGradient gamma (tproject1 p) (tproject1 g))
-          (updateWithGradient gamma (tproject2 p) (tproject2 g))
+  STKS _ x -> RepN $
+    case sameSTK x (adSTK x) of
+      Just Refl ->
+        (params - Nested.sreplicateScal (Nested.sshape params)
+                                        (realToFrac gamma)
+                  * gradient)
+      Nothing -> params
+-}
+  STKProduct stk1 stk2 ->
+    tpair (updateWithGradient gamma stk1 (tproject1 p) (tproject1 g))
+          (updateWithGradient gamma stk2 (tproject2 p) (tproject2 g))
   _ -> error "updateWithGradient: TODO"
 
 {-
@@ -135,10 +140,9 @@ initialStateAdam ftk =
                 }
 
 updateWithGradientAdam
-  :: KnownSTK y
-  => ArgsAdam -> StateAdam y -> RepN y -> RepN (ADTensorKind y)
+  :: ArgsAdam -> StateAdam y -> STensorKind y -> RepN y -> RepN (ADTensorKind y)
   -> (RepN y, StateAdam y)
-updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
+updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
   let mAdamR = mAdam
       vAdamR = vAdam
       tAdamNew = tAdam + 1
@@ -168,33 +172,67 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                  -> RepN y2 -> RepN y2
                  -> RepN y2 -> RepN (ADTensorKind y2)
                  -> RepN (Triplify y2)
-      updateProd stk (RepN mA) (RepN vA) (RepN p) (RepN g)
-       | Dict <- lemKnownSTKOfAD stk = case stk of
+      updateProd stk (RepN mA) (RepN vA) (RepN p) (RepN g) = case stk of
+        -- TODO: short-circuit like in updateWithGradient
         STKScalar @r ->
-          case sameKnownSTK @y2 @(ADTensorKind y2) of
-            Just Refl ->
-              ifDifferentiable @r
-                (let !(!mAN, !vAN, !pN) =
-                       updateR (Nested.rscalar mA)
-                               (Nested.rscalar vA)
-                               (Nested.rscalar p)
-                               (Nested.rscalar g)
-                 in RepN
-                    (( Nested.runScalar mAN
-                     , Nested.runScalar vAN )
-                    , Nested.runScalar pN ))
-                (RepN ((mA, vA), p))
-            _ -> RepN ((mA, vA), p)
+          ifDifferentiable @r
+            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
+             let !(!mAN, !vAN, !pN) =
+                   updateR (Nested.rscalar mA)
+                           (Nested.rscalar vA)
+                           (Nested.rscalar p)
+                           (Nested.rscalar g)
+             in RepN
+                (( Nested.runScalar mAN
+                 , Nested.runScalar vAN )
+                , Nested.runScalar pN ))
+            (RepN ((mA, vA), p))
         STKR SNat (STKScalar @r) ->
-          case sameKnownSTK @y2 @(ADTensorKind y2) of
+          ifDifferentiable @r
+            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
+             let !(!mAN, !vAN, !pN) = updateR mA vA p g
+             in RepN ((mAN, vAN), pN))
+            (RepN ((mA, vA), p))
+        STKS sh (STKScalar @r) ->
+          ifDifferentiable @r
+            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
+             let !(!mAN, !vAN, !pN) =
+                   updateR (Nested.stoRanked mA)
+                           (Nested.stoRanked vA)
+                           (Nested.stoRanked p)
+                           (Nested.stoRanked g)
+             in RepN
+                ( ( Nested.rcastToShaped mAN sh
+                  , Nested.rcastToShaped vAN sh )
+                , Nested.rcastToShaped pN sh ))
+            (RepN ((mA, vA), p))
+        STKX _ (STKScalar @r) ->
+          ifDifferentiable @r
+            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
+             let !(!mAN, !vAN, !pN) =
+                   updateR (Nested.mtoRanked mA)
+                           (Nested.mtoRanked vA)
+                           (Nested.mtoRanked p)
+                           (Nested.mtoRanked g)
+             in RepN
+                ( ( Nested.mreshape (Nested.mshape mA)
+                    $ Nested.rtoMixed mAN
+                  , Nested.mreshape (Nested.mshape vA)
+                    $ Nested.rtoMixed vAN )
+                , Nested.mreshape (Nested.mshape p)
+                  $ Nested.rtoMixed pN ))
+            (RepN ((mA, vA), p))
+{- TODO
+        STKR SNat (STKScalar @r) ->
+          case sameSTK stk (adSTK stk) of
             Just Refl ->
               ifDifferentiable @r
                 (let !(!mAN, !vAN, !pN) = updateR mA vA p g
                  in RepN ((mAN, vAN), pN))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKS sh (STKScalar @r) -> withKnownShS sh $
-          case sameKnownSTK @y2 @(ADTensorKind y2) of
+        STKS sh (STKScalar @r) ->
+          case sameSTK stk (adSTK stk) of
             Just Refl ->
               ifDifferentiable @r
                 (let !(!mAN, !vAN, !pN) =
@@ -203,13 +241,13 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                                (Nested.stoRanked p)
                                (Nested.stoRanked g)
                  in RepN
-                    ( ( Nested.rcastToShaped mAN knownShS
-                      , Nested.rcastToShaped vAN knownShS )
-                    , Nested.rcastToShaped pN knownShS ))
+                    ( ( Nested.rcastToShaped mAN sh
+                      , Nested.rcastToShaped vAN sh )
+                    , Nested.rcastToShaped pN sh ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
-        STKX sh (STKScalar @r) -> withKnownShX sh $
-          case sameKnownSTK @y2 @(ADTensorKind y2) of
+        STKX _ (STKScalar @r) ->
+          case sameSTK stk (adSTK stk) of
             Just Refl ->
               ifDifferentiable @r
                 (let !(!mAN, !vAN, !pN) =
@@ -226,6 +264,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
                       $ Nested.rtoMixed pN ))
                 (RepN ((mA, vA), p))
             _ -> RepN ((mA, vA), p)
+-}
         STKProduct stk1 stk2 ->
           let !a1 = unRepN $ updateProd stk1
                 (RepN $ fst mA) (RepN $ fst vA) (RepN $ fst p) (RepN $ fst g)
@@ -234,8 +273,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} paramsR gradientR =
           in RepN (a1, a2)
         _ -> error "TODO"
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
-        unzip3Rep knownSTK
-        $ updateProd knownSTK mAdamR vAdamR paramsR gradientR
+        unzip3Rep stk0 $ updateProd stk0 mAdamR vAdamR paramsR gradientR
   in ( paramsRNew
      , StateAdam
          { tAdam = tAdamNew

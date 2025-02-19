@@ -87,7 +87,7 @@ import Type.Reflection (typeRep)
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape (ssxFromShape)
 import Data.Array.Mixed.Types (Init, Last, Tail, unsafeCoerceRefl)
 import Data.Array.Nested
   (IxS (..), ListS (..), Product, Rank, ShS (..), type (++))
@@ -2372,7 +2372,7 @@ astSFromX :: forall sh sh' s r. Rank sh ~ Rank sh'
           => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' r)
           -> AstTensor AstMethodLet s (TKS2 sh r)
 astSFromX sh (AstConcrete (RepF ftk t)) = case ftk of
-  FTKX sh' x ->
+  FTKX _ x ->
     withKnownSTK (ftkToSTK x) $
     withKnownShS sh $
     astConcrete (RepF (FTKS sh x) (sfromX t))

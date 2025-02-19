@@ -175,7 +175,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradient)
+          in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs
         grad c = go c targetInit
         name =
@@ -332,7 +332,7 @@ mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradient)
+          in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs
         grad c = go c targetInit
         name =

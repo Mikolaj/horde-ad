@@ -36,7 +36,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     let inputs :: ADVal RepN x
         inputs = dDnotShared parameters deltaInputs
         (gradients, valueNew) = crevOnADInputs (Left knownSTK) (f a) zftk inputs
-        parametersNew = updateWithGradient gamma parameters gradients
+        parametersNew = updateWithGradient gamma knownSTK parameters gradients
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
@@ -77,5 +77,6 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
         inputs = dDnotShared parameters deltaInputs
         gradients = fst $ crevOnADInputs (Left knownSTK) (f a) zftk inputs
         (parametersNew, stateAdamNew) =
-          updateWithGradientAdam argsAdam stateAdam parameters gradients
+          updateWithGradientAdam
+            argsAdam stateAdam knownSTK parameters gradients
     in go rest parametersNew stateAdamNew

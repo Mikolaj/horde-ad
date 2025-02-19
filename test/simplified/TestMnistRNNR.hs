@@ -352,7 +352,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                             $ revEvalArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam
                            @(X (ADRnnMnistParameters RepN r))
-                           defaultArgsAdam stateAdam parameters gradient)
+                           defaultArgsAdam stateAdam knownSTK parameters
+                           gradient)
            runBatch :: ( RepN (X (ADRnnMnistParameters RepN r))
                        , StateAdam (X (ADRnnMnistParameters RepN r)) )
                     -> (Int, [MnistDataR r])

@@ -22,7 +22,6 @@ module HordeAd.Core.Ops
 
 import Prelude
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Foldable qualified as Foldable
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
@@ -62,7 +61,7 @@ import Data.Array.Mixed.Shape
   , ssxReplicate
   , withKnownShX
   )
-import Data.Array.Mixed.Types (Init)
+import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested
   ( IShR
   , IxR (..)

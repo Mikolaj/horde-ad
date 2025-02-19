@@ -329,7 +329,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradient)
+          in go rest (updateWithGradient gamma knownSTK parameters gradient)
     let runBatch :: RepN (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams widthHidden widthHidden2 r))
@@ -612,7 +612,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
-          in go rest (updateWithGradient gamma parameters gradient)
+          in go rest (updateWithGradient gamma knownSTK parameters gradient)
     let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams2 r Float))
         runBatch !params (k, chunk) = do

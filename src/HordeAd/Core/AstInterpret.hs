@@ -31,7 +31,7 @@ import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Nested (ListS (..), ShS (..))
-import Data.Array.Nested.Internal.Shape (shsAppend, withKnownShS)
+import Data.Array.Nested.Internal.Shape (withKnownShS)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
