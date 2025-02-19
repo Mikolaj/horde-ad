@@ -105,7 +105,6 @@ import Data.Array.Nested.Internal.Shape
   , listsRank
   , listsToList
   , shCvtSX
-  , shrRank
   , shsAppend
   , shsLast
   , shsLength
@@ -783,14 +782,12 @@ astCond b v w = Ast.AstCond b v w
 
 astConcrete :: RepF y -> AstTensor AstMethodLet PrimalSpan y
 astConcrete (RepF ftk v) = case ftk of
-  FTKR sh' x | SNat <- shrRank sh'
-             , Dict <- lemKnownSTK (ftkToSTK x) ->
+  FTKR sh' x | Dict <- lemKnownSTK (ftkToSTK x) ->
     withCastRS sh' $ \sh ->
       withKnownShS sh $
       astFromS (ftkToSTK ftk) $ AstConcrete (RepF (FTKS sh x) (sfromR v))
   FTKX sh' x | Dict <- lemKnownSTK (ftkToSTK x) ->
     withCastXS sh' $ \sh ->
-      withKnownShX (ssxFromShape sh') $
       withKnownShS sh $
       astFromS (ftkToSTK ftk) $ AstConcrete (RepF (FTKS sh x) (sfromX v))
   _ -> AstConcrete (RepF ftk v)  -- product case should be too rare to care
@@ -1152,7 +1149,6 @@ astCastS t = case t of
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astCastK v)
   AstConcrete (RepF (FTKS sh FTKScalar) v) ->
-    withKnownShS sh $
     astConcrete (RepF (FTKS sh FTKScalar) (scast v))
   Ast.AstLet var u v -> astLet var u (astCastS v)
   Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
@@ -1315,7 +1311,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       Just ixInt -> withKnownSTK (ftkToSTK x) $
                     withKnownShS shn $
                     withKnownShS (ixsToShS ix) $
-                    withKnownShS (ixsToShS ix `shsAppend` shn) $
                     astConcrete (RepF (FTKS shn x)
                                       (sindex @_ @_ @shm t (fromList ixInt)))
         -- TODO: we'd need mapM for Index to keep this rank-typed
@@ -2012,8 +2007,8 @@ gatherFromNFS shp vars (i :.$ IxS rest) | SNat <- shsRank shp =
           --varsPM = dropShS @(Rank shp) vars
           intVars = listsFmap (Const . AstIntVar . getConst) varsP
       in case testEquality (takeShS @(Rank shp) (listsToShS vars)) shp of
-           Just Refl -> all cmp (toList $ zipSizedS rest intVars)
-                        && not (any (`varNameInAst` i) $ toList varsPM)
+           Just Refl -> all cmp (listsToList $ zipSizedS rest intVars)
+                        && not (any (`varNameInAst` i) $ listsToList varsPM)
            Nothing -> False
 
 astAppendS :: AstSpan s
@@ -2027,7 +2022,6 @@ astAppendS (Ast.AstFromVector (SNat @k1) stk2 l1)
 astAppendS (AstConcrete (RepF (FTKS (SNat :$$ sh) x) u))
            (AstConcrete (RepF (FTKS (SNat :$$ _) _) v)) =
   withKnownSTK (ftkToSTK x) $
-  withKnownShS sh $
   astConcrete (RepF (FTKS (SNat :$$ sh) x) (sappend u v))
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppendS u v
@@ -2045,7 +2039,6 @@ astSliceS SNat SNat SNat (Ast.AstReplicate _ snat@STKS{} v) =
   astReplicate (SNat @n) snat v
 astSliceS i n@SNat k (AstConcrete (RepF (FTKS (_ :$$ sh) x) t)) =
   withKnownSTK (ftkToSTK x) $
-  withKnownShS sh $
   astConcrete (RepF (FTKS (n :$$ sh) x) (sslice i n k t))
 astSliceS i n k (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS i n k v
 astSliceS i n k (Ast.AstFromDual v) = Ast.AstFromDual $ astSliceS i n k v
@@ -2126,8 +2119,7 @@ astTransposeS perm t = case perm of
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
   AstConcrete (RepF (FTKS sh x) v) ->
     let shPerm = Nested.Internal.Shape.shsPermutePrefix perm sh
-    in withKnownShS sh $
-       withKnownSTK (ftkToSTK x) $
+    in withKnownSTK (ftkToSTK x) $
        astConcrete (RepF (FTKS shPerm x) (ttranspose perm v))
 
   Ast.AstLet var u v ->
@@ -2288,7 +2280,7 @@ astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astSFromK v
       Nothing -> error "astSFrom: tensor kinds don't match"
-  (STKS shz zx, STKR yn@SNat yx) ->
+  (STKS shz zx, STKR yn yx) ->
     case (sameSTK yx zx, testEquality (shsRank shz) yn) of
       (Just Refl, Just Refl) -> astSFromR shz v
       _ -> error "astSFrom: tensor kinds don't match"
@@ -2341,7 +2333,7 @@ astSFromR sh a0 = case a0 of
    _ -> error "astSFromR: impossible shape"
   Ast.AstSum snat@SNat (STKR _ x) a ->
     astSum snat (STKS sh x) (astSFromR (snat :$$ sh) a)
-  Ast.AstReplicate snat@SNat (STKR SNat x) a -> case sh of
+  Ast.AstReplicate snat@SNat (STKR _ x) a -> case sh of
     snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
       astReplicate snat (STKS rest x) (astSFromR rest a)
     _ -> error "astSFromR: impossible shape"
@@ -2354,7 +2346,7 @@ astSFromR sh a0 = case a0 of
         gcastWith (unsafeCoerceRefl :: k ': sh2 :~: sh) $
         let !v2 = astSFromR sh2 v
         in Ast.AstBuild1 snat (STKS sh2 (ftkToSTK x)) (var, v2)
-  AstConcrete (RepF (FTKR _ x) v) | SNat <- shsRank sh ->
+  AstConcrete (RepF (FTKR _ x) v) ->
     withKnownShS sh $
     withKnownSTK (ftkToSTK x) $
     astConcrete (RepF (FTKS sh x) (sfromR v))
@@ -2383,7 +2375,6 @@ astSFromX sh (AstConcrete (RepF ftk t)) = case ftk of
   FTKX sh' x ->
     withKnownSTK (ftkToSTK x) $
     withKnownShS sh $
-    withKnownShX (ssxFromShape sh') $
     astConcrete (RepF (FTKS sh x) (sfromX t))
 astSFromX sh (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX sh v
 astSFromX sh (Ast.AstFromDual v) = Ast.AstFromDual $ astSFromX sh v
@@ -3765,7 +3756,7 @@ substitute1Ast i var v1 = case v1 of
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstDot1InS  m n(fromMaybe u mu) (fromMaybe v mv)
+       then Just $ Ast.AstDot1InS m n (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstMatvecmulS m@SNat n@SNat u v ->
     let mu = substitute1Ast i var u
