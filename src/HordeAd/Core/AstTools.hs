@@ -24,11 +24,10 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape (shxSize)
 import Data.Array.Mixed.Types (snatPlus)
 import Data.Array.Nested (Rank, ShS (..))
 import Data.Array.Nested.Internal.Shape
-  (shrSize, shsAppend, shsInit, shsPermutePrefix, shsRank, shsSize)
+  (shsAppend, shsInit, shsPermutePrefix, shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
@@ -276,39 +275,65 @@ varInAstBool var = \case
 varNameInAst :: AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
 
+-- * Determining if a term requires sharing
 
--- * Determining if a term is too small to require sharing
+-- A term requires sharing if it's too large as a term and so duplicating
+-- it could affect the performance of simplification
+-- or if it's too expensive when interpreted and so duplicating it
+-- would increase the work done at runtime.
 
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
-astIsSmall relaxed = \case
-  AstPair t1 t2 -> astIsSmall relaxed t1 && astIsSmall relaxed t2
-  AstProject1 t -> astIsSmall relaxed t
-  AstProject2 t -> astIsSmall relaxed t
-  AstFromVector snat _ v | sNatValue snat == 1 -> astIsSmall relaxed $ v V.! 0
-  AstReplicate _ _ v ->
-    relaxed && astIsSmall relaxed v  -- materialized via tricks, so prob. safe
-  AstVar{} -> True
-  AstConcrete (RepF FTKScalar _) -> True
-  AstConcrete (RepF (FTKR sh FTKScalar) _) -> shrSize sh <= 1
-  AstConcrete (RepF (FTKS sh FTKScalar) _) -> shsSize sh <= 1
-  AstConcrete (RepF (FTKX sh FTKScalar) _) -> shxSize sh <= 1
-  AstConcrete{} -> False
+astIsSmall True = astIsSmallN 20
+astIsSmall False = astIsSmallN 10
 
-  AstPrimalPart v -> astIsSmall relaxed v
-  AstDualPart v -> astIsSmall relaxed v
-  AstFromPrimal v -> astIsSmall relaxed v
-  AstFromDual v -> astIsSmall relaxed v
+-- The cases with n >= 10 are usually good redex candidates,
+-- so we expose them, but only if they are not burried too deeply.
+-- Some of these constructors change tensor metadata into
+-- a non-canonical form, which sometimes incurs the cost of converting
+-- the vector to canonical form. The cost can be shared only
+-- when the constructor is not the root of the shared term,
+-- so when inlining (the False argument) we share them
+-- unless they are at the root of the term tree.
+astIsSmallN :: Int -> AstTensor ms s y -> Bool
+astIsSmallN n _ | n <= 0 = False
+astIsSmallN n t0 = case t0 of
+  AstPair t1 t2 ->
+    astIsSmallN (n - 2) t1 && astIsSmallN (n - 2) t2
+  AstProject1 t -> astIsSmallN (n - 1) t
+  AstProject2 t -> astIsSmallN (n - 1) t
+  AstFromVector (SNat' @1) _ v -> astIsSmallN (n - 1) $ v V.! 0
+  AstReplicate _ _ v ->
+    astIsSmallN (n - 1) v  -- a really good redex and often in series
+      -- executed as a metadata change, which is however not free
+  AstVar{} -> True
+  AstConcrete _ -> True  -- small term with zero interpretation cost;
+                         -- the physical arrays is shared on GHC heap
+
+  AstPrimalPart v -> astIsSmallN (n - 1) v
+  AstDualPart v -> astIsSmallN (n - 1) v
+  AstFromPrimal v -> astIsSmallN (n - 1) v
+  AstFromDual v -> astIsSmallN (n - 1) v
 
   AstIotaS{} -> True
   AstSliceS _ _ _ v ->
-    relaxed && astIsSmall relaxed v  -- materialized via vector slice; cheap
+    n >= 10 && astIsSmallN (n - 1) v  -- executed as metadata change
+  AstReverseS v ->
+    astIsSmallN (n - 1) v  -- executed as a cheap metadata change
   AstTransposeS _perm v ->
-    relaxed && astIsSmall relaxed v  -- often cheap and often fuses
+    n >= 10 && astIsSmallN (n - 1) v  -- executed as metadata change
+  AstZipS v ->
+    astIsSmallN (n - 1) v  -- executed as a cheap metadata change
+  AstUnzipS v ->
+    astIsSmallN (n - 1) v  -- executed as a cheap metadata change
+  AstNestS _ _ v ->
+    n >= 10 && astIsSmallN (n - 1) v  -- executed as metadata change
+  AstUnNestS v ->
+    astIsSmallN (n - 1) v  -- executed as a cheap metadata change
 
-  AstFromS _ v -> astIsSmall relaxed v
+  AstFromS _ v -> astIsSmallN (n - 1) v
   AstSFromK{} -> True
-  AstSFromR _ v -> astIsSmall relaxed v
-  AstSFromX _ v -> astIsSmall relaxed v
+  AstSFromR _ v -> astIsSmallN (n - 1) v
+  AstSFromX _ v -> astIsSmallN (n - 1) v
 
   _ -> False
 
