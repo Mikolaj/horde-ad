@@ -2110,7 +2110,7 @@ fblowupPP = do
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet (sscalar 0.499999985 * sfromR x7) (\\x8 -> rfromS (soneHot (recip x3 * x8) [0] + soneHot ((negate x2 / (x3 * x3)) * x8) [1] + soneHot (recip x5 * x8) [0] + soneHot ((negate x4 / (x5 * x5)) * x8) [1]))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet ((x2 / x3 + x4 / x5) - sfromIntegral (sscalar 0)) (\\x6 -> rfromS (sscalar 0.499999985 * x6 - sfromIntegral (sscalar 0)))))))"
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet (negate (sfromIntegral (sscalar 0)) + x2 / x3 + x4 / x5) (\\x6 -> rfromS (sscalar 0.499999985 * x6 + negate (sfromIntegral (sscalar 0))))))))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -2121,7 +2121,7 @@ fblowupLetPP = do
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (sscalar 0.499999985 * sfromR x7) (\\x8 -> tlet (x8 + x8) (\\x9 -> rfromS (soneHot (recip x4 * x9) [0] + soneHot ((negate x3 / (x4 * x4)) * x9) [1])))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet ((x5 + x5) - sfromIntegral (sscalar 0)) (\\x6 -> rfromS (sscalar 0.499999985 * x6 - sfromIntegral (sscalar 0))))))"
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet (negate (sfromIntegral (sscalar 0)) + x5 + x5) (\\x6 -> rfromS (sscalar 0.499999985 * x6 + negate (sfromIntegral (sscalar 0)))))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
@@ -2180,7 +2180,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAst (FTKR [3] FTKScalar) $ t
   "\\" ++ printAstVarName renames var3
        ++ " -> " ++ printAstSimple renames ast3
-    @?= "\\v1 -> tfromPrimal (STKR (SNat @2) STKScalar) (rfromS (sgather [] (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @_ @5 (siota (SNat @2)), sfromIntegral (quotF (str (sreplicate @_ @2 (siota (SNat @5)))) (sreplicate @_ @5 (sreplicate @_ @2 (sscalar 1) + siota (SNat @2))))])) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
+    @?= "\\v1 -> tfromPrimal (STKR (SNat @2) STKScalar) (rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @_ @5 (siota (SNat @2)), quotF (str (sreplicate @_ @2 (siota (SNat @5)))) (sreplicate @_ @5 (sreplicate @_ @2 (sscalar 1) + siota (SNat @2)))]))) (\\[i5, i4] -> [ifF (i4 >=. quotF i5 (1 + i4)) 0 1, i5, i4])))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -2192,6 +2192,6 @@ testConcatBuild3PP2 = do
   printArtifactSimple renames artifactRev
     @?= "\\m8 v1 -> tconcrete (FTKR [3] FTKScalar) (rfromListLinear [3] [0.0,0.0,0.0])"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @_ @5 (siota (SNat @2)), sfromIntegral (quotF (str (sreplicate @_ @2 (siota (SNat @5)))) (sreplicate @_ @5 (sreplicate @_ @2 (sscalar 1) + siota (SNat @2))))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
+    @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @_ @5 (siota (SNat @2)), quotF (str (sreplicate @_ @2 (siota (SNat @5)))) (sreplicate @_ @5 (sreplicate @_ @2 (sscalar 1) + siota (SNat @2)))]))) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
   printArtifactPrimalSimple renames (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @_ @5 (siota (SNat @2)), sfromIntegral (quotF (str (sreplicate @_ @2 (siota (SNat @5)))) (sreplicate @_ @5 (sreplicate @_ @2 (sscalar 1) + siota (SNat @2))))])) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
+    @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @_ @5 (siota (SNat @2)), quotF (str (sreplicate @_ @2 (siota (SNat @5)))) (sreplicate @_ @5 (sreplicate @_ @2 (sscalar 1) + siota (SNat @2)))]))) (\\[i6, i7] -> [ifF (i7 >=. quotF i6 (1 + i7)) 0 1, i6, i7]))"
