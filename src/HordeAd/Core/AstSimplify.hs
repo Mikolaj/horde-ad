@@ -900,14 +900,16 @@ astPrimalPart t = case t of
   AstSumOfList args -> astSumOfList (NonEmpty.map astPrimalPart args)
 
   AstN1K opCode u -> AstN1K opCode (astPrimalPart u)
-  AstN2K opCode u v -> AstN2K opCode (astPrimalPart u) (astPrimalPart v)
+  AstN2K opCode u v ->
+    contractAstNumOp2 opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPrimalPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2K opCode u v -> Ast.AstI2K opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstCastK v -> astCastK $ astPrimalPart v
 
   AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
-  AstN2S opCode u v -> AstN2S opCode (astPrimalPart u) (astPrimalPart v)
+  AstN2S MinusOp u v -> astPrimalPart u - astPrimalPart v
+  AstN2S TimesOp u v -> astPrimalPart u * astPrimalPart v
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPrimalPart u)
                                              (astPrimalPart v)
@@ -981,14 +983,16 @@ astDualPart t = case t of
   AstSumOfList args -> astSumOfList (NonEmpty.map astDualPart args)
 
   AstN1K opCode u -> AstN1K opCode (astDualPart u)
-  AstN2K opCode u v -> AstN2K opCode (astDualPart u) (astDualPart v)
+  AstN2K opCode u v ->
+    contractAstNumOp2 opCode (astDualPart u) (astDualPart v)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astDualPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astDualPart u) (astDualPart v)
   Ast.AstI2K opCode u v -> Ast.AstI2K opCode (astDualPart u) (astDualPart v)
   Ast.AstCastK v -> astCastK $ astDualPart v
 
   AstN1S opCode u -> AstN1S opCode (astDualPart u)
-  AstN2S opCode u v -> AstN2S opCode (astDualPart u) (astDualPart v)
+  AstN2S MinusOp u v -> astDualPart u - astDualPart v
+  AstN2S TimesOp u v -> astDualPart u * astDualPart v
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astDualPart u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astDualPart u)
                                              (astDualPart v)
@@ -1331,9 +1335,12 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       astSumOfList (NonEmpty.map (\a -> astIndexRec shn a ix2) args)
 
   AstN1S opCode u -> AstN1S opCode (astIndexRec shn u ix)
-  AstN2S opCode u v ->
+  AstN2S MinusOp u v ->
     shareIx ix $ \ !ix2 ->
-    AstN2S opCode (astIndexRec shn u ix2) (astIndexRec shn v ix2)
+    astIndexRec shn u ix2 - astIndexRec shn v ix2
+  AstN2S TimesOp u v ->
+    shareIx ix $ \ !ix2 ->
+    astIndexRec shn u ix2 * astIndexRec shn v ix2
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndexRec shn u ix)
   Ast.AstR2S opCode u v ->
     shareIx ix
@@ -2135,8 +2142,10 @@ astTransposeS perm t = case perm of
 
   AstN1S opCode u | not (isVar u) ->
     AstN1S opCode (astTransposeS perm u)
-  AstN2S opCode u v | not (isVar u && isVar v) ->
-    AstN2S opCode (astTransposeS perm u) (astTransposeS perm v)
+  AstN2S MinusOp u v | not (isVar u && isVar v) ->
+    astTransposeS perm u - astTransposeS perm v
+  AstN2S TimesOp u v | not (isVar u && isVar v) ->
+    astTransposeS perm u * astTransposeS perm v
   Ast.AstR1S opCode u | not (isVar u) ->
     Ast.AstR1S opCode (astTransposeS perm u)
   Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
@@ -2210,8 +2219,10 @@ astReshapeS sh2 = \case
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
   AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 sh2 u)
   -- TODO: reshaping can be costly; are we surely duplicating it is fine?
-  AstN2S opCode u v | not (isVar u && isVar v) ->
-    AstN2S opCode (astReshapeS @_ @sh2 sh2 u) (astReshapeS @_ @sh2 sh2 v)
+  AstN2S MinusOp u v | not (isVar u && isVar v) ->
+    astReshapeS @_ @sh2 sh2 u - astReshapeS @_ @sh2 sh2 v
+  AstN2S TimesOp u v | not (isVar u && isVar v) ->
+    astReshapeS @_ @sh2 sh2 u * astReshapeS @_ @sh2 sh2 v
   Ast.AstR1S opCode u | not (isVar u) ->
     Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
   -- TODO: reshaping can be costly; are we surely duplicating it is fine?
@@ -2314,7 +2325,8 @@ astSFromK t = case t of
   Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v
   AstSumOfList args -> astSumOfList $ NonEmpty.map astSFromK args
   AstN1K opCode u -> AstN1S opCode (astSFromK u)
-  AstN2K opCode u v -> AstN2S opCode (astSFromK u) (astSFromK v)
+  AstN2K MinusOp u v -> astSFromK u - astSFromK v
+  AstN2K TimesOp u v -> astSFromK u * astSFromK v
 -- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astSFromK u)
 -- TODO:  Ast.AstR2K opCode u v -> Ast.AstR2S opCode (astSFromK u) (astSFromK v)
   Ast.AstI2K opCode u v | Just Refl <- isTensorInt t ->  -- TODO: why Int?
@@ -2569,7 +2581,7 @@ expandAst t = case t of
   AstSumOfList args -> astSumOfList (NonEmpty.map expandAst args)
 
   AstN1K opCode u -> contractAstNumOp1 opCode (expandAst u)
-  AstN2K opCode u v ->contractAstNumOp2 opCode (expandAst u) (expandAst v)
+  AstN2K opCode u v -> contractAstNumOp2 opCode (expandAst u) (expandAst v)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (expandAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (expandAst u) (expandAst v)
   Ast.AstI2K opCode u v ->
@@ -2579,7 +2591,8 @@ expandAst t = case t of
   Ast.AstCastK v -> astCastK $ expandAst v
 
   AstN1S opCode u -> AstN1S opCode (expandAst u)
-  AstN2S opCode u v -> AstN2S opCode (expandAst u) (expandAst v)
+  AstN2S MinusOp u v -> expandAst u - expandAst v
+  AstN2S TimesOp u v -> expandAst u * expandAst v
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
@@ -2750,7 +2763,7 @@ simplifyAst t = case t of
   AstSumOfList args -> astSumOfList (NonEmpty.map simplifyAst args)
 
   AstN1K opCode u -> contractAstNumOp1 opCode (simplifyAst u)
-  AstN2K opCode u v ->contractAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
+  AstN2K opCode u v -> contractAstNumOp2 opCode (simplifyAst u) (simplifyAst v)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (simplifyAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2K opCode u v ->
@@ -2760,7 +2773,8 @@ simplifyAst t = case t of
   Ast.AstCastK v -> astCastK $ simplifyAst v
 
   AstN1S opCode u -> AstN1S opCode (simplifyAst u)
-  AstN2S opCode u v -> AstN2S opCode (simplifyAst u) (simplifyAst v)
+  AstN2S MinusOp u v -> simplifyAst u - simplifyAst v
+  AstN2S TimesOp u v -> simplifyAst u * simplifyAst v
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
@@ -3152,7 +3166,8 @@ contractAst t = case t of
                  (contractAst u)
                  (AstN2S TimesOp v (Ast.AstReplicate
                                      (SNat @0) stk (contractAst s)))
-  AstN2S opCode u v -> AstN2S opCode (contractAst u) (contractAst v)
+  AstN2S MinusOp u v -> contractAst u - contractAst v
+  AstN2S TimesOp u v -> contractAst u * contractAst v
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (contractAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (contractAst u) (contractAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (contractAst u) (contractAst v)
@@ -3641,11 +3656,17 @@ substitute1Ast i var v1 = case v1 of
   Ast.AstCastK v -> astCastK <$> substitute1Ast i var v
 
   Ast.AstN1S opCode u -> Ast.AstN1S opCode <$> substitute1Ast i var u
-  Ast.AstN2S opCode u v ->
+  Ast.AstN2S MinusOp u v ->
     let mu = substitute1Ast i var u
         mv = substitute1Ast i var v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstN2S opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ fromMaybe u mu - fromMaybe v mv
+       else Nothing
+  Ast.AstN2S TimesOp u v ->
+    let mu = substitute1Ast i var u
+        mv = substitute1Ast i var v
+    in if isJust mu || isJust mv
+       then Just $ fromMaybe u mu * fromMaybe v mv
        else Nothing
   Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> substitute1Ast i var u
   Ast.AstR2S opCode u v ->
