@@ -299,8 +299,10 @@ astIsSmallN n _ | n <= 0 = False
 astIsSmallN n t0 = case t0 of
   AstPair t1 t2 ->
     astIsSmallN (n - 2) t1 && astIsSmallN (n - 2) t2
-  AstProject1 t -> astIsSmallN (n - 1) t
-  AstProject2 t -> astIsSmallN (n - 1) t
+  -- Projections are so cheap that the environment machinery is expensive
+  -- in comparison, so no limit to the length of projections chains.
+  AstProject1 t -> astIsSmallN n t
+  AstProject2 t -> astIsSmallN n t
   AstFromVector (SNat' @1) _ v -> astIsSmallN (n - 1) $ v V.! 0
   AstReplicate _ _ v ->
     astIsSmallN (n - 1) v  -- a really good redex and often in series
