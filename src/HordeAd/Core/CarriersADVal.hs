@@ -9,7 +9,6 @@ module HordeAd.Core.CarriersADVal
     -- * Auxiliary definitions
   , unDeltaPair, unDeltaPairUnshared, dScale, dAdd
   , dFromS, dSFromR, dSFromX
-  , fromPrimalADVal
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , generateDeltaInputs
   ) where
@@ -180,9 +179,6 @@ intOfShape :: forall z f. ADReadyNoLet f
            => Delta f z -> Int -> f z
 intOfShape tsh c = constantTarget (fromIntegral c) (ftkDelta tsh)
 
-fromPrimalADVal :: (KnownSTK z, BaseTensor f) => f z -> ADVal f z
-fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
-
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
 -- The resulting term may not have sharing information inside,
@@ -302,10 +298,10 @@ instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
-  fromInteger = fromPrimalADVal . fromInteger
+  fromInteger i = dDnotShared (fromInteger i) (DeltaZero FTKScalar)
 
 instance {-# OVERLAPPABLE #-}
-         (Num (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+         (Num (f z), ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
@@ -331,12 +327,12 @@ instance {-# OVERLAPPABLE #-}
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger = error "fromInteger not defined for tensors"
 
-instance (Real (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+instance (Real (f z), ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (IntegralF (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+instance (IntegralF (f z), ShareTensor f, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
   quotF (D u _) (D v v') = dDnotShared (quotF u v) (DeltaZero $ ftkDelta v')
   remF (D u _) (D v v') = dDnotShared (remF u v) (DeltaZero $ ftkDelta v')
@@ -354,10 +350,10 @@ instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f
     let !v = tshare ve
         minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
-  fromRational = fromPrimalADVal . fromRational
+  fromRational r = dDnotShared (fromRational r) (DeltaZero FTKScalar)
 
 instance {-# OVERLAPPABLE #-}
-         (Fractional (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+         (Fractional (f z), ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -382,7 +378,7 @@ instance {-# OVERLAPPABLE #-}
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = error "fromRational not defined for tensors"
 
-instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+instance (Floating (f z), ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
@@ -441,13 +437,13 @@ instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
                     in dD (atanh u)
                           (dScale (recip (intOfShape u' 1 - u * u)) u')
 
-instance (RealFrac (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+instance (RealFrac (f z), ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Fractional (f z), RealFloatF (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+instance (Fractional (f z), RealFloatF (f z), ShareTensor f, ADReadyNoLet f)
          => RealFloatF (ADVal f z) where
   atan2F (D ue u') (D ve v') =
     let !u = tshare ue in
@@ -455,7 +451,7 @@ instance (Fractional (f z), RealFloatF (f z), KnownSTK z, ShareTensor f, ADReady
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance (RealFloat (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+instance (RealFloat (f z), ShareTensor f, ADReadyNoLet f)
          => RealFloat (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance

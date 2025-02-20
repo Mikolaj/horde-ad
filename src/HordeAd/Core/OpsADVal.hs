@@ -102,6 +102,9 @@ cfwdOnHVector xftk parameters f ds =
 
 -- * Instances
 
+fromPrimalADVal :: (KnownSTK z, BaseTensor f) => f z -> ADVal f z
+fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
+
 -- This instance can be sped up by defining and simplifying all default
 -- methods (or only tfromVector?), but it probably benefits only product
 -- tensor kinds, which are probably not a bottleneck in realistic examples.
