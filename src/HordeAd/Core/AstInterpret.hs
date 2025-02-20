@@ -265,15 +265,20 @@ interpretAst !env = \case
   AstFromDual a -> tfromDual (interpretAstDual env a)
 
   AstSumOfList args -> case args of
-    a :| _ ->
+    a :| rest ->
       let stk = ftkToSTK (ftkAst a)
-          args2 = interpretAst env <$> args
+          -- We have to manually fuse mapping interpretAst and folding (+).
+          interpFold :: Num (target y) => target y
+          {-# INLINE interpFold #-}
+          interpFold = let interpPlus !acc arg = acc + interpretAst env arg
+                       in foldl' interpPlus (interpretAst env a) rest
       in case stk of
-        STKScalar -> foldr1 (+) args2  -- @sum@ breaks and also reverses order
-        STKR SNat STKScalar -> foldr1 (+) args2
-        STKS sh STKScalar -> withKnownShS sh $ foldr1 (+) args2
-        STKX sh STKScalar -> withKnownShX sh $ foldr1 (+) args2
-        _ -> let v = V.fromList $ toList args2
+        -- We use folding, because @sum@ crashes at 0 and also reverses order.
+        STKScalar -> interpFold
+        STKR SNat STKScalar -> interpFold
+        STKS sh STKScalar -> withKnownShS sh $ interpFold
+        STKX sh STKScalar -> withKnownShX sh $ interpFold
+        _ -> let v = V.fromList $ map (interpretAst env) $ toList args
              in withSNat (V.length v) $ \snat ->
                   tsum snat stk $ tfromVector snat stk v
 
