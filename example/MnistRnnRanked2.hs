@@ -49,7 +49,7 @@ type LayerWeigthsRNN (target :: Target) r =
   , target (TKR 1 r) )
 
 zeroStateR
-  :: (BaseTensor target, GoodScalar r, KnownNat n)
+  :: (BaseTensor target, GoodScalar r)
   => IShR n -> (target (TKR n r)  -- state
                     -> a)
   -> a
