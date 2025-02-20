@@ -85,13 +85,11 @@ instance (GoodScalar r, AstSpan s)
   u + AstConcrete repF = AstSumOfList (AstConcrete repF :| [u])
   u + v = AstSumOfList (u :| [v])
 
-  AstConcrete (RepF ftk u) - AstConcrete (RepF _ v) =
-    AstConcrete (RepF ftk (u - v))  -- common in indexing
-  u - v = AstN2K MinusOp u v
-
   AstConcrete (RepF ftk u) * AstConcrete (RepF _ v) =
     AstConcrete (RepF ftk (u * v))  -- common in indexing
-  u * v = AstN2K TimesOp u v
+  AstConcrete (RepF ftk u) * (AstTimesK (AstConcrete (RepF _ v)) w) =
+    AstConcrete (RepF ftk (u * v)) * w
+  u * v = AstTimesK u v
 
   negate (AstConcrete (RepF ftk u)) =
     AstConcrete (RepF ftk (negate u))  -- common in indexing
@@ -227,15 +225,15 @@ instance GoodScalar r
   u + AstConcrete repF = AstSumOfList (AstConcrete repF :| [u])
   u + v = AstSumOfList (u :| [v])
 
-  AstConcrete (RepF ftk u) - AstConcrete (RepF _ v) =
-    AstConcrete (RepF ftk (u - v))  -- common in indexing
-  u - v = AstN2S MinusOp u v
-
   AstConcrete (RepF ftk u) * AstConcrete (RepF _ v) =
     AstConcrete (RepF ftk (u * v))  -- common in indexing
-  u * v = AstN2S TimesOp u v
+  AstConcrete (RepF ftk u) * (AstTimesS (AstConcrete (RepF _ v)) w) =
+    AstConcrete (RepF ftk (u * v)) * w
+  u * v = AstTimesS u v
 
-  negate = AstN1S NegateOp
+  negate (AstConcrete (RepF ftk u)) =
+    AstConcrete (RepF ftk (negate u))  -- common in indexing
+  negate u = AstN1S NegateOp u
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
   fromInteger i = error $ "fromInteger not defined for shaped tensors: "

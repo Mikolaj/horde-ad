@@ -10,7 +10,7 @@ module HordeAd.Core.AstEnv
     -- * The operations for interpreting bindings
   , interpretLambdaIndexToIndexS, interpretLambdaHFun
     -- * Interpretation of arithmetic, boolean and relation operations
-  , interpretAstN1, interpretAstN2, interpretAstR1, interpretAstR2
+  , interpretAstN1, interpretAstR1, interpretAstR2
   , interpretAstR2F
   , interpretAstI2F, interpretAstB2, interpretAstRelOp
   ) where
@@ -117,12 +117,6 @@ interpretAstN1 :: Num a
 interpretAstN1 NegateOp u = negate u
 interpretAstN1 AbsOp u = abs u
 interpretAstN1 SignumOp u = signum u
-
-interpretAstN2 :: Num a
-               => OpCodeNum2 -> a -> a -> a
-{-# INLINE interpretAstN2 #-}
-interpretAstN2 MinusOp u v = u - v
-interpretAstN2 TimesOp u v = u * v
 
 interpretAstR1 :: Floating a
                => OpCode1 -> a -> a

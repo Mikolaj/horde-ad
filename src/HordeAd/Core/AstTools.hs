@@ -83,8 +83,8 @@ ftkAst t = case t of
   AstSumOfList args -> case args of
     v :| _ -> ftkAst v
 
+  AstTimesK{} -> FTKScalar
   AstN1K{} -> FTKScalar
-  AstN2K{} -> FTKScalar
   AstR1K{} -> FTKScalar
   AstR2K{} -> FTKScalar
   AstI2K{} -> FTKScalar
@@ -92,8 +92,8 @@ ftkAst t = case t of
   AstFromIntegralK{} -> FTKScalar
   AstCastK{} -> FTKScalar
 
+  AstTimesS v _ -> ftkAst v
   AstN1S _ v -> ftkAst v
-  AstN2S _ v _ -> ftkAst v
   AstR1S _ v -> ftkAst v
   AstR2S _ v _ -> ftkAst v
   AstI2S _ v _ -> ftkAst v
@@ -211,8 +211,8 @@ varInAst var = \case
 
   AstSumOfList l -> any (varInAst var) l
 
+  AstTimesK t u -> varInAst var t || varInAst var u
   AstN1K _ t -> varInAst var t
-  AstN2K _ t u -> varInAst var t || varInAst var u
   AstR1K _ t -> varInAst var t
   AstR2K _ t u -> varInAst var t || varInAst var u
   AstI2K _ t u -> varInAst var t || varInAst var u
@@ -220,8 +220,8 @@ varInAst var = \case
   AstFromIntegralK t -> varInAst var t
   AstCastK t -> varInAst var t
 
+  AstTimesS t u -> varInAst var t || varInAst var u
   AstN1S _ t -> varInAst var t
-  AstN2S _ t u -> varInAst var t || varInAst var u
   AstR1S _ t -> varInAst var t
   AstR2S _ t u -> varInAst var t || varInAst var u
   AstI2S _ t u -> varInAst var t || varInAst var u

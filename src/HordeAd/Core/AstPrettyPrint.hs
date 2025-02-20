@@ -327,7 +327,7 @@ printAstAux cfg d = \case
       RepF (FTKR ZSR FTKScalar) a ->
         showParen (d > 10)
         $ showString "rscalar "
-          . shows (Nested.runScalar $ unRepN a)
+          . showNumber (Nested.runScalar $ unRepN a)
       RepF (FTKR _ FTKScalar) _ ->
         showParen (d > 10)
         $ showString "rconcrete "
@@ -336,7 +336,7 @@ printAstAux cfg d = \case
       RepF (FTKS ZSS FTKScalar) a ->
         showParen (d > 10)
         $ showString "sscalar "
-          . shows (Nested.sunScalar $ unRepN a)
+          . showNumber (Nested.sunScalar $ unRepN a)
       RepF (FTKS _ FTKScalar) _ ->
         showParen (d > 10)
         $ showString "sconcrete "
@@ -345,7 +345,7 @@ printAstAux cfg d = \case
       RepF (FTKX ZSX FTKScalar) a ->
         showParen (d > 10)
         $ showString "xscalar "
-          . shows (Nested.munScalar $ unRepN a)
+          . showNumber (Nested.munScalar $ unRepN a)
       RepF (FTKX _ FTKScalar) _ ->
         showParen (d > 10)
         $ showString "xconcrete "
@@ -361,15 +361,15 @@ printAstAux cfg d = \case
       RepF (FTKR ZSR FTKScalar) a ->
         showParen (d > 10)
         $ showString "rscalar "
-          . shows (Nested.runScalar $ unRepN a)
+          . showNumber (Nested.runScalar $ unRepN a)
       RepF (FTKS ZSS FTKScalar) a ->
         showParen (d > 10)
         $ showString "sscalar "
-          . shows (Nested.sunScalar $ unRepN a)
+          . showNumber (Nested.sunScalar $ unRepN a)
       RepF (FTKX ZSX FTKScalar) a ->
         showParen (d > 10)
         $ showString "xscalar "
-          . shows (Nested.munScalar $ unRepN a)
+          . showNumber (Nested.munScalar $ unRepN a)
       RepF ftk _ ->
         showParen (d > 10)
         $ showString ("tconcrete (" ++ show ftk ++ ") ")
@@ -442,8 +442,8 @@ printAstAux cfg d = \case
        $ printAst cfg 7 left
          . foldr (.) id rs
 
+  AstTimesK u v -> printBinaryOp printAst cfg d u (7, " * ") v
   AstN1K opCode u -> printAstN1R printAst cfg d opCode u
-  AstN2K opCode u v -> printAstN2R printAst cfg d opCode u v
   AstR1K opCode u -> printAstR1R printAst cfg d opCode u
   AstR2K opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2K opCode u v -> printAstI2R printAst cfg d opCode u v
@@ -454,8 +454,8 @@ printAstAux cfg d = \case
   AstCastK v ->
     printPrefixOp printAst cfg d "kcast" [v]
 
+  AstTimesS u v -> printBinaryOp printAst cfg d u (7, " * ") v
   AstN1S opCode u -> printAstN1R printAst cfg d opCode u
-  AstN2S opCode u v -> printAstN2R printAst cfg d opCode u v
   AstR1S opCode u -> printAstR1R printAst cfg d opCode u
   AstR2S opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2S opCode u v -> printAstI2R printAst cfg d opCode u v
@@ -591,6 +591,10 @@ printAstAux cfg d = \case
       . showString " "
       . printAst cfg 11 v
 
+showNumber :: (Ord a, Num a, Show a) => a -> ShowS
+{-# INLINE showNumber #-}
+showNumber a = showParen (a < 0) $ shows a
+
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS
 {-# INLINE showListWith #-}
@@ -654,12 +658,6 @@ printAstN1R pr cfg d opCode u = case opCode of
   NegateOp -> printPrefixOp pr cfg d "negate" [u]
   AbsOp -> printPrefixOp pr cfg d "abs" [u]
   SignumOp -> printPrefixOp pr cfg d "signum" [u]
-
-printAstN2R :: (PrintConfig -> Int -> a -> ShowS)
-           -> PrintConfig -> Int -> OpCodeNum2 -> a -> a -> ShowS
-printAstN2R pr cfg d opCode u v = case opCode of
-  MinusOp -> printBinaryOp pr cfg d u (6, " - ") v
-  TimesOp -> printBinaryOp pr cfg d u (7, " * ") v
 
 printAstR1R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCode1 -> a -> ShowS

@@ -187,13 +187,13 @@ inlineAst memo v0 = case v0 of
         !_ = foldr seq () args2  -- no strict EmptyList easily available
     in (memo2, Ast.AstSumOfList $ fromList args2)
 
+  Ast.AstTimesK u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstTimesK u2 v3)
   Ast.AstN1K opCode u ->
     let (memo2, u2) = inlineAst memo u
     in (memo2, Ast.AstN1K opCode u2)
-  Ast.AstN2K opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstN2K opCode u2 v3)
   Ast.AstR1K opCode u ->
     let (memo2, u2) = inlineAst memo u
     in (memo2, Ast.AstR1K opCode u2)
@@ -209,13 +209,13 @@ inlineAst memo v0 = case v0 of
   Ast.AstFromIntegralK a -> second Ast.AstFromIntegralK $ inlineAst memo a
   Ast.AstCastK a -> second Ast.AstCastK $ inlineAst memo a
 
+  Ast.AstTimesS u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstTimesS u2 v3)
   Ast.AstN1S opCode u ->
     let (memo2, u2) = inlineAst memo u
     in (memo2, Ast.AstN1S opCode u2)
-  Ast.AstN2S opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstN2S opCode u2 v3)
   Ast.AstR1S opCode u ->
     let (memo2, u2) = inlineAst memo u
     in (memo2, Ast.AstR1S opCode u2)
@@ -469,13 +469,13 @@ unshareAst memo = \case
         !_ = foldr seq () args2  -- no strict EmptyList easily available
     in (memo2, Ast.AstSumOfList $ fromList args2)
 
+  Ast.AstTimesK u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstTimesK u2 v3)
   Ast.AstN1K opCode u ->
     let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstN1K opCode u2)
-  Ast.AstN2K opCode u v ->
-    let (memo2, u2) = unshareAst memo u
-        (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstN2K opCode u2 v3)
   Ast.AstR1K opCode u ->
     let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstR1K opCode u2)
@@ -491,13 +491,13 @@ unshareAst memo = \case
   Ast.AstFromIntegralK v -> second Ast.AstFromIntegralK $ unshareAst memo v
   Ast.AstCastK v -> second Ast.AstCastK $ unshareAst memo v
 
+  Ast.AstTimesS u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstTimesS u2 v3)
   Ast.AstN1S opCode u ->
     let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstN1S opCode u2)
-  Ast.AstN2S opCode u v ->
-    let (memo2, u2) = unshareAst memo u
-        (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstN2S opCode u2 v3)
   Ast.AstR1S opCode u ->
     let (memo2, u2) = unshareAst memo u
     in (memo2, Ast.AstR1S opCode u2)

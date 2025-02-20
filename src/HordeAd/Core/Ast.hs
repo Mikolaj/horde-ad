@@ -17,7 +17,7 @@ module HordeAd.Core.Ast
     -- * ASTs
   , AstMethodOfSharing(..), AstTensor(..), RepF(..)
   , AstHFun(..)
-  , AstBool(..), OpCodeNum1(..), OpCodeNum2(..), OpCode1(..), OpCode2(..)
+  , AstBool(..), OpCodeNum1(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
   ) where
 
@@ -271,12 +271,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstSumOfList :: NonEmpty (AstTensor ms s y) -> AstTensor ms s y
 
   -- Scalar arithmetic
+  AstTimesK :: GoodScalar r
+            => AstTensor ms s (TKScalar r)
+            -> AstTensor ms s (TKScalar r)
+            -> AstTensor ms s (TKScalar r)
   AstN1K :: GoodScalar r
          => OpCodeNum1 -> AstTensor ms s (TKScalar r)
-         -> AstTensor ms s (TKScalar r)
-  AstN2K :: GoodScalar r
-         => OpCodeNum2 -> AstTensor ms s (TKScalar r)
-         -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
   AstR1K :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
          => OpCode1 -> AstTensor ms s (TKScalar r)
@@ -299,12 +299,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
   -- Shaped arithmetic
+  AstTimesS :: GoodScalar r
+            => AstTensor ms s (TKS sh r)
+            -> AstTensor ms s (TKS sh r)
+            -> AstTensor ms s (TKS sh r)
   AstN1S :: GoodScalar r
          => OpCodeNum1 -> AstTensor ms s (TKS sh r)
-         -> AstTensor ms s (TKS sh r)
-  AstN2S :: GoodScalar r
-         => OpCodeNum2 -> AstTensor ms s (TKS sh r)
-         -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
   AstR1S :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
          => OpCode1 -> AstTensor ms s (TKS sh r)
@@ -470,10 +470,6 @@ deriving instance Show (AstBool ms)
 
 data OpCodeNum1 =
     NegateOp | AbsOp | SignumOp
- deriving Show
-
-data OpCodeNum2 =
-    MinusOp | TimesOp
  deriving Show
 
 data OpCode1 =
