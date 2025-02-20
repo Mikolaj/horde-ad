@@ -124,7 +124,8 @@ dDnotShared = ADVal
 
 unDeltaPair :: Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unDeltaPair (DeltaPair a b) = (a, b)
-unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) = (DeltaZero ftk1, DeltaZero ftk2)
+unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) =
+  (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
                 in (DeltaProject1 dShared, DeltaProject2 dShared)
 
@@ -175,9 +176,9 @@ dSFromX sh d = DeltaSFromX sh d
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.
-intOfShape :: forall z f. (ADReadyNoLet f, KnownSTK z)
-           => f z -> Int -> f z
-intOfShape tsh c = constantTarget (fromIntegral c) (tftk knownSTK tsh)
+intOfShape :: forall z f. ADReadyNoLet f
+           => Delta f z -> Int -> f z
+intOfShape tsh c = constantTarget (fromIntegral c) (ftkDelta tsh)
 
 fromPrimalADVal :: (KnownSTK z, BaseTensor f) => f z -> ADVal f z
 fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
@@ -300,16 +301,16 @@ instance (Num (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
 -}
   D u u' + D v v' = dD (u + v) (dAdd u' v')
   D u u' - D v v' =
-    dD (u - v) (dAdd u' (dScale (intOfShape v (-1)) v'))
+    dD (u - v) (dAdd u' (dScale (intOfShape v' (-1)) v'))
   D ue u' * D ve v' =
     -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
     in dD (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D v v') = dD (negate v) (dScale (intOfShape v (-1)) v')
+  negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v _) = dDnotShared (signum v) (DeltaZero $ tftk knownSTK v)
+  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger = fromPrimalADVal . fromInteger
 
 instance (Real (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
@@ -319,8 +320,8 @@ instance (Real (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
 
 instance (IntegralF (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
-  quotF (D u _) (D v _) = dDnotShared (quotF u v) ((DeltaZero $ tftk knownSTK u))
-  remF (D u _) (D v _) = dDnotShared (remF u v) ((DeltaZero $ tftk knownSTK u))
+  quotF (D u _) (D v v') = dDnotShared (quotF u v) (DeltaZero $ ftkDelta v')
+  remF (D u _) (D v v') = dDnotShared (remF u v) (DeltaZero $ ftkDelta v')
 
 instance (Fractional (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
@@ -371,7 +372,7 @@ instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
   D ue u' ** D ve v' =
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v 1))) u')
+    in dD (u ** v) (dAdd (dScale (v * (u ** (v - intOfShape v' 1))) u')
                          (dScale ((u ** v) * log u) v'))
   -- logBase x y = log y / log x
   sin (D ue u') = let !u = tshare ue
@@ -383,28 +384,28 @@ instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
                   in dD (tan u) (dScale (recip (cosU * cosU)) u')
   asin (D ue u') = let !u = tshare ue
                    in dD (asin u)
-                         (dScale (recip (sqrt (intOfShape u 1 - u * u))) u')
+                         (dScale (recip (sqrt (intOfShape u' 1 - u * u))) u')
   acos (D ue u') = let !u = tshare ue
                    in dD (acos u)
-                         (dScale (- recip (sqrt (intOfShape u 1 - u * u))) u')
+                         (dScale (- recip (sqrt (intOfShape u' 1 - u * u))) u')
   atan (D ue u') = let !u = tshare ue
                    in dD (atan u)
-                         (dScale (recip (intOfShape u 1 + u * u)) u')
+                         (dScale (recip (intOfShape u' 1 + u * u)) u')
   sinh (D ue u') = let !u = tshare ue
                    in dD (sinh u) (dScale (cosh u) u')
   cosh (D ue u') = let !u = tshare ue
                    in dD (cosh u) (dScale (sinh u) u')
   tanh (D ue u') = let !y = tshare (tanh ue)
-                   in dD y (dScale (intOfShape y 1 - y * y) u')
+                   in dD y (dScale (intOfShape u' 1 - y * y) u')
   asinh (D ue u') = let !u = tshare ue
                     in dD (asinh u)
-                          (dScale (recip (sqrt (intOfShape u 1 + u * u))) u')
+                          (dScale (recip (sqrt (intOfShape u' 1 + u * u))) u')
   acosh (D ue u') = let !u = tshare ue
                     in dD (acosh u)
-                          (dScale (recip (sqrt (u * u - intOfShape u 1))) u')
+                          (dScale (recip (sqrt (u * u - intOfShape u' 1))) u')
   atanh (D ue u') = let !u = tshare ue
                     in dD (atanh u)
-                          (dScale (recip (intOfShape u 1 - u * u)) u')
+                          (dScale (recip (intOfShape u' 1 - u * u)) u')
 
 instance (RealFrac (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
