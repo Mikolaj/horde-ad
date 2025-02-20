@@ -41,7 +41,7 @@ module HordeAd.Core.Delta
     NodeId, mkNodeId, nodeIdToSTK
   , InputId, mkInputId, inputIdToSTK
     -- * AST of delta expressions
-  , Delta(..)
+  , Delta(..), NestedTarget(..)
     -- * Full tensor kind derivation for delta expressions
   , ftkDelta
   ) where
@@ -287,8 +287,8 @@ data Delta :: Target -> TensorKindType -> Type where
 
   -- Vector space operations
   DeltaZero :: FullTensorKind y -> Delta target y
-  DeltaScale :: (Num (target y), Show (target y))
-             => target y -> Delta target y -> Delta target y
+  DeltaScale :: Num (target y)
+             => NestedTarget target y -> Delta target y -> Delta target y
   DeltaAdd :: Num (target y)
            => Delta target y -> Delta target y -> Delta target y
 
@@ -500,6 +500,16 @@ data Delta :: Target -> TensorKindType -> Type where
                -> Delta target (TKX2 (sh1 ++ sh2) x)
 
 deriving instance Show (IntOf target) => Show (Delta target y)
+
+-- Defined only to cut the knot of Show instances in DeltaScale
+-- that appears in Delta terms a lot (so the primal bloats PP of Delta terms,
+-- though OTOH they are often important) and is used in the engine a lot.
+type NestedTarget :: Target -> TensorKindType -> Type
+type role NestedTarget nominal nominal
+newtype NestedTarget target stk = NestedTarget (target stk)
+
+instance Show (NestedTarget target stk) where
+  showsPrec _ _ = showString "<primal>"
 
 
 -- * Full tensor kind derivation for delta expressions

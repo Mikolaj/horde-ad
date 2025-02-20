@@ -552,7 +552,7 @@ evalRevSame !s !c = \case
   -- This is ensured by the types of the three constructors, assuming that
   -- no Num instances are defined for the non-base type tensors.
   DeltaZero{} -> s
-  DeltaScale k d -> evalRevSame s (k * c) d
+  DeltaScale (NestedTarget k) d -> evalRevSame s (k * c) d
   DeltaAdd d e ->
     let cShared = tshare c
     in evalRevSame (evalRevSame s cShared d) cShared e
@@ -1003,7 +1003,7 @@ evalFwdSame params s = \case
 
   -- See the comment about these three in evalRevSame.
   DeltaZero ftk -> (s, constantTarget 0 $ adFTK ftk)
-  DeltaScale k d -> second (* k) $ evalFwdSame params s d
+  DeltaScale (NestedTarget k) d -> second (* k) $ evalFwdSame params s d
   DeltaAdd d e -> let (s2, t) = evalFwdSame params s d
                       (s3, u) = evalFwdSame params s2 e
                   in (s3, t + u)

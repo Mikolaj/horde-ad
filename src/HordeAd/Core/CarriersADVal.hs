@@ -136,9 +136,9 @@ unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) =
   (DeltaZero ftk1, DeltaZero ftk2)
 unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)
 
-dScale :: (Num (f z), Show (f z)) => f z -> Delta f z -> Delta f z
+dScale :: Num (f z) => f z -> Delta f z -> Delta f z
 dScale _ (DeltaZero ftk) = DeltaZero ftk
-dScale v u' = DeltaScale v u'
+dScale v u' = DeltaScale (NestedTarget v) u'
 
 dAdd :: Num (f z) => Delta f z -> Delta f z -> Delta f z
 dAdd DeltaZero{} w = w
@@ -190,7 +190,7 @@ fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
 ensureToplevelSharing :: ADVal f z -> ADVal f z
 ensureToplevelSharing (D u u') = dD u u'
 
-scaleNotShared :: (Num (f z), Show (f z))
+scaleNotShared :: Num (f z)
                => f z -> ADVal f z -> ADVal f z
 scaleNotShared !a (D u u') = dDnotShared (a * u) (dScale a u')
 
@@ -198,7 +198,7 @@ addNotShared :: forall f z. Num (f z)
              => ADVal f z -> ADVal f z -> ADVal f z
 addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
 
-multNotShared :: forall f z. (Num (f z), Show (f z))
+multNotShared :: forall f z. Num (f z)
               => ADVal f z -> ADVal f z -> ADVal f z
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
