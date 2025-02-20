@@ -329,7 +329,7 @@ instance {-# OVERLAPPABLE #-}
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
-  fromInteger = fromPrimalADVal . fromInteger
+  fromInteger = error "fromInteger not defined for tensors"
 
 instance (Real (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
@@ -380,7 +380,7 @@ instance {-# OVERLAPPABLE #-}
     let !v = tshare ve
         minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
-  fromRational = fromPrimalADVal . fromRational
+  fromRational = error "fromRational not defined for tensors"
 
 instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
