@@ -287,7 +287,25 @@ instance Eq (ADVal f z) where
 instance Ord (ADVal f z) where
   (<=) = error "AST requires that OrdB be used instead"
 
-instance (Num (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+-- This is copied from below to permit fromRational for TKScalar.
+instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
+         => Num (ADVal f (TKScalar r)) where
+  D u u' + D v v' = dD (u + v) (dAdd u' v')
+  D u u' - D v v' =
+    dD (u - v) (dAdd u' (dScale (intOfShape v' (-1)) v'))
+  D ue u' * D ve v' =
+    -- The bangs are neccessary for GHC 9.2.7 test results to match 9.4.
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (u * v) (dAdd (dScale v u') (dScale u v'))
+  negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
+  abs (D ve v') = let !v = tshare ve
+                  in dD (abs v) (dScale (signum v) v')
+  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
+  fromInteger = fromPrimalADVal . fromInteger
+
+instance {-# OVERLAPPABLE #-}
+         (Num (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f z) where
   -- The 0 cases are needed to get GHC 9.6 to use the specialization
   -- (only at rank 0, though; we'd need many more for common ranks and shapes).
@@ -323,7 +341,23 @@ instance (IntegralF (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
   quotF (D u _) (D v v') = dDnotShared (quotF u v) (DeltaZero $ ftkDelta v')
   remF (D u _) (D v v') = dDnotShared (remF u v) (DeltaZero $ ftkDelta v')
 
-instance (Fractional (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
+-- This is copied from below to permit fromRational for TKScalar.
+instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f
+         , ADReadyNoLet f )
+         => Fractional (ADVal f (TKScalar r)) where
+  D ue u' / D ve v' =
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (u / v)
+          (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
+  recip (D ve v') =
+    let !v = tshare ve
+        minusRecipSq = - recip (v * v)
+    in dD (recip v) (dScale minusRecipSq v')
+  fromRational = fromPrimalADVal . fromRational
+
+instance {-# OVERLAPPABLE #-}
+         (Fractional (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
 {- TODO: this causes a cyclic dependency:
   {-# SPECIALIZE instance
