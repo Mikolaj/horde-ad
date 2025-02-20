@@ -111,17 +111,17 @@ type TensorSupports c1 c2 f =
 
 type TensorSupportsR :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
 type TensorSupportsR c1 c2 f =
-  forall r n. (GoodScalar r, KnownNat n)
+  forall r n. GoodScalar r
               => c1 r => c2 (f (TKR n r))
 
 type TensorSupportsS :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
 type TensorSupportsS c1 c2 f =
-  forall r sh. (GoodScalar r, KnownShS sh)
+  forall r sh. GoodScalar r
                => c1 r => c2 (f (TKS sh r))
 
 type TensorSupportsX :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
 type TensorSupportsX c1 c2 f =
-  forall r sh. (GoodScalar r, KnownShX sh)
+  forall r sh. GoodScalar r
                => c1 r => c2 (f (TKX sh r))
 
 class (RealFloatF r, Nested.FloatElt r)
