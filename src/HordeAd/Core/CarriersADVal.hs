@@ -362,7 +362,7 @@ instance (Floating (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
       KnownNat n
       => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
 -}
-  pi = fromPrimalADVal pi
+  pi = error "pi not defined for tensors"
   exp (D ue u') = let !expU = tshare (exp ue)
                   in dD expU (dScale expU u')
   log (D ue u') = let !u = tshare ue
@@ -447,7 +447,8 @@ instance (RealFloat (f z), KnownSTK z, ShareTensor f, ADReadyNoLet f)
   floatDigits (D u _) = floatDigits u
   floatRange (D u _) = floatRange u
   decodeFloat (D u _) = decodeFloat u
-  encodeFloat i j = fromPrimalADVal (encodeFloat i j)
+  encodeFloat _i _j = error "encodeFloat not defined for tensors"
+                      -- fromPrimalADVal (encodeFloat i j)
   isNaN (D u _) = isNaN u
   isInfinite (D u _) = isInfinite u
   isDenormalized (D u _) = isDenormalized u
