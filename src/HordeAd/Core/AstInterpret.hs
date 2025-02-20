@@ -29,7 +29,6 @@ import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 import Type.Reflection (Typeable, typeRep)
 
-import Data.Array.Mixed.Shape (withKnownShX)
 import Data.Array.Nested (ListS (..), ShS (..))
 import Data.Array.Nested.Internal.Shape (withKnownShS)
 
@@ -275,9 +274,9 @@ interpretAst !env = \case
       in case stk of
         -- We use folding, because @sum@ crashes at 0 and also reverses order.
         STKScalar -> interpFold
-        STKR SNat STKScalar -> interpFold
-        STKS sh STKScalar -> withKnownShS sh $ interpFold
-        STKX sh STKScalar -> withKnownShX sh $ interpFold
+        STKR _ STKScalar -> interpFold
+        STKS _ STKScalar -> interpFold
+        STKX _ STKScalar -> interpFold
         _ -> let v = V.fromList $ map (interpretAst env) $ toList args
              in withSNat (V.length v) $ \snat ->
                   tsum snat stk $ tfromVector snat stk v
@@ -303,32 +302,13 @@ interpretAst !env = \case
     kfromIntegral $ tfromPrimal STKScalar $ interpretAstPrimal env v
   AstCastK v -> kcast $ interpretAst env v
 
-  AstTimesS u v -> case ftkAst u of
-    FTKS sh _ ->
-      withKnownShS sh $
-      interpretAst env u * interpretAst env v
-  AstN1S opCode u -> case ftkAst u of
-    FTKS sh _ ->
-      withKnownShS sh $
-      let u2 = interpretAst env u
-      in interpretAstN1 opCode u2
-  AstR1S opCode u -> case ftkAst u of
-    FTKS sh _ ->
-      withKnownShS sh $
-      let u2 = interpretAst env u
-      in interpretAstR1 opCode u2
-  AstR2S opCode u v -> case ftkAst u of
-    FTKS sh _ ->
-      withKnownShS sh $
-      let u2 = interpretAst env u
-          v2 = interpretAst env v
-      in interpretAstR2F opCode u2 v2
-  AstI2S opCode u v -> case ftkAst u of
-    FTKS sh _ ->
-      withKnownShS sh $
-      let u2 = interpretAst env u
-          v2 = interpretAst env v
-      in interpretAstI2F opCode u2 v2
+  AstTimesS u v -> interpretAst env u * interpretAst env v
+  AstN1S opCode u -> interpretAstN1 opCode (interpretAst env u)
+  AstR1S opCode u -> interpretAstR1 opCode (interpretAst env u)
+  AstR2S opCode u v ->
+    interpretAstR2F opCode (interpretAst env u) (interpretAst env v)
+  AstI2S opCode u v ->
+    interpretAstI2F opCode (interpretAst env u) (interpretAst env v)
   AstFloorS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $

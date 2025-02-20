@@ -17,7 +17,7 @@ module HordeAd.Core.Ops
   , sscalar, srepl, singestData
   , xscalar, xrepl, xingestData
     -- * The giga-constraint
-  , ADReady, ADReadyNoLet, AllTargetShow, AllTargetEqOrd
+  , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
   ) where
 
 import Prelude
@@ -1972,7 +1972,7 @@ type ADReadyEqs target =
 type ADReadyClasses target =
   ( BaseTensor target
   , Boolean (BoolOf target)
-  , AllTargetEqOrd target
+  , CommonTargetEqOrd target
   , AllTargetShow target
   )
 
@@ -1986,7 +1986,7 @@ instance
       (forall y. KnownSTK y => Show (target y))
       => AllTargetShow target where
 
-type AllTargetEqOrd :: Target -> Constraint
+type CommonTargetEqOrd :: Target -> Constraint
 class ( forall r. GoodScalar r => EqF target (TKScalar r)
       , forall r. GoodScalar r => OrdF target (TKScalar r)
       , forall r n. GoodScalar r => EqF target (TKR n r)
@@ -1995,7 +1995,7 @@ class ( forall r. GoodScalar r => EqF target (TKScalar r)
       , forall r sh. GoodScalar r => OrdF target (TKS sh r)
       , forall r sh. GoodScalar r => EqF target (TKX sh r)
       , forall r sh. GoodScalar r => OrdF target (TKX sh r) )
-      => AllTargetEqOrd target where
+      => CommonTargetEqOrd target where
 instance
       ( forall r. GoodScalar r => EqF target (TKScalar r)
       , forall r. GoodScalar r => OrdF target (TKScalar r)
@@ -2005,4 +2005,4 @@ instance
       , forall r sh. GoodScalar r => OrdF target (TKS sh r)
       , forall r sh. GoodScalar r => EqF target (TKX sh r)
       , forall r sh. GoodScalar r => OrdF target (TKX sh r) )
-      => AllTargetEqOrd target where
+      => CommonTargetEqOrd target where
