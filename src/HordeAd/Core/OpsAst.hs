@@ -389,7 +389,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKS sh _ -> sh
   sfromVector @_ @k l = astFromVector (SNat @k) knownSTK l
   ssum = astSum SNat knownSTK
-  sreplicate = astReplicate SNat knownSTK
   sindex v ix = astIndexStepS knownShS v ix
   sscatter @_ @shm @shn @shp t f =
     astScatterS @shm @shn @shp knownShS t
@@ -406,7 +405,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sappend u v = astAppendS u v
   sslice i n k = astSliceS i n k
   sreverse = astReverseS
-  sreshape = astReshapeS knownShS
   szip = AstZipS
   sunzip = AstUnzipS
   sbuild1 @k @sh @x f =
@@ -690,9 +688,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   tunpairDup t = (tproject1 t, tproject2 t)
-  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+  tsreplicate sh = astReplicate SNat (STKS sh knownSTK)
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
-  ttranspose perm = astTransposeS perm
+  tstranspose perm = astTransposeS perm
+  tsreshape sh = astReshapeS sh
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumRDer k bShs eShs f df rf acc0 es
   tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
@@ -979,7 +979,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sfromVector @_ @k l =
     AstRaw . AstFromVector (SNat @k) knownSTK . V.map unAstRaw $ l
   ssum = AstRaw . AstSum SNat knownSTK . unAstRaw
-  sreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw
   sindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
   sscatter @_ @shm @shn @shp t f =
     AstRaw $ AstScatterS @shm @shn @shp knownShS (unAstRaw t)
@@ -999,7 +998,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   sslice i n k = AstRaw . AstSliceS i n k . unAstRaw
   sreverse = AstRaw . AstReverseS . unAstRaw
-  sreshape = AstRaw . AstReshapeS knownShS . unAstRaw
   szip = AstRaw . AstZipS . unAstRaw
   sunzip = AstRaw . AstUnzipS . unAstRaw
   sbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
@@ -1297,9 +1295,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+  tsreplicate sh = AstRaw . AstReplicate SNat (STKS sh knownSTK) . unAstRaw
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
-  ttranspose perm = AstRaw . AstTransposeS perm . unAstRaw
+  tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
+  tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
       AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
   tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
@@ -1375,7 +1375,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sshape = sshape . unAstNoVectorize
   sfromVector = AstNoVectorize . sfromVector . V.map unAstNoVectorize
   ssum = AstNoVectorize . ssum . unAstNoVectorize
-  sreplicate = AstNoVectorize . sreplicate . unAstNoVectorize
   sindex v ix =
     AstNoVectorize $ sindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   sscatter @_ @shm @shn @shp t f =
@@ -1394,7 +1393,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ sappend (unAstNoVectorize u) (unAstNoVectorize v)
   sslice i n k = AstNoVectorize . sslice i n k . unAstNoVectorize
   sreverse = AstNoVectorize . sreverse . unAstNoVectorize
-  sreshape = AstNoVectorize . sreshape . unAstNoVectorize
   szip = AstNoVectorize . szip . unAstNoVectorize
   sunzip = AstNoVectorize . sunzip . unAstNoVectorize
   sbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
@@ -1460,10 +1458,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
   tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
                  in (AstNoVectorize b, AstNoVectorize c)
-  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+  tsreplicate sh = AstNoVectorize . tsreplicate sh. unAstNoVectorize
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
-  ttranspose perm =
-    AstNoVectorize . ttranspose perm . unAstNoVectorize
+  tstranspose perm =
+    AstNoVectorize . tstranspose perm . unAstNoVectorize
+  tsreshape sh = AstNoVectorize . tsreshape sh . unAstNoVectorize
   tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     AstNoVectorize $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
@@ -1597,7 +1597,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   sshape = sshape . wunAstNoSimplify
   sfromVector = wAstNoSimplify . sfromVector . V.map wunAstNoSimplify
   ssum = wAstNoSimplify . ssum . wunAstNoSimplify
-  sreplicate = wAstNoSimplify . sreplicate . wunAstNoSimplify
   sindex v ix =
     wAstNoSimplify $ sindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   sscatter @_ @shm @shn @shp t f =
@@ -1616,7 +1615,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ sappend (wunAstNoSimplify u) (wunAstNoSimplify v)
   sslice i n k = wAstNoSimplify . sslice i n k . wunAstNoSimplify
   sreverse = wAstNoSimplify . sreverse . wunAstNoSimplify
-  sreshape = wAstNoSimplify . sreshape . wunAstNoSimplify
   szip = wAstNoSimplify . szip . wunAstNoSimplify
   sunzip = wAstNoSimplify . sunzip . wunAstNoSimplify
 
@@ -1674,10 +1672,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
-  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+  tsreplicate sh = wAstNoSimplify . tsreplicate sh . wunAstNoSimplify
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
-  ttranspose perm =
-    wAstNoSimplify . ttranspose perm . wunAstNoSimplify
+  tstranspose perm =
+    wAstNoSimplify . tstranspose perm . wunAstNoSimplify
+  tsreshape sh = wAstNoSimplify . tsreshape sh . wunAstNoSimplify
   tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
     wAstNoSimplify $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)

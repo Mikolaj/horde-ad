@@ -625,12 +625,10 @@ evalRevSame !s !c = \case
   DeltaSum0S d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
-      evalRevSame s (sreplicate0N c) d
+      evalRevSame s (tsreplicate0N sh c) d
   DeltaDot0S v d -> case ftkDelta d of
     FTKS sh FTKScalar ->
-      withKnownShS sh $
-      evalRevSame s (v * sreplicate0N c) d
+      evalRevSame s (v * tsreplicate0N sh c) d
         -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
   DeltaIndexS shn d ix -> case ftkDelta d of
     FTKS _ x ->
@@ -679,12 +677,11 @@ evalRevSame !s !c = \case
                      :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
         $ gcastWith (unsafeCoerceRefl
                      :: Rank permR :~: Rank perm)
-        $ evalRevSame s (ttranspose permRev c) d
+        $ evalRevSame s (tstranspose permRev c) d
   DeltaReshapeS _sh2 d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
-      evalRevSame s (sreshape c) d
+      evalRevSame s (tsreshape sh c) d
   DeltaZipS d -> evalRevSame s (sunzip c) d
   DeltaUnzipS d -> evalRevSame s (szip c) d
 
@@ -1122,12 +1119,11 @@ evalFwdSame params s = \case
   DeltaTransposeS perm d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      second (ttranspose perm) $ evalFwdSame params s d
+      second (tstranspose perm) $ evalFwdSame params s d
   DeltaReshapeS sh2 d -> case ftkDelta d of
-    FTKS _sh x ->
+    FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShS sh2 $
-      second sreshape $ evalFwdSame params s d
+      second (tsreshape sh2) $ evalFwdSame params s d
   DeltaZipS d -> second szip $ evalFwdSame params s d
   DeltaUnzipS d -> second sunzip $ evalFwdSame params s d
 

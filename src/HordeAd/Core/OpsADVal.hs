@@ -225,7 +225,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     let !u = tshare ue in
     let !v = tshare ve
     in dD (sdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
-  sreplicate (D u u') = dD (sreplicate u) (DeltaReplicate SNat knownSTK u')
   sindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (sindex u ix) (DeltaIndexS knownShS u' ix)
@@ -260,7 +259,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
 
-  sreshape (D u u') = dD (sreshape u) (DeltaReshapeS knownShS u')
   szip (D u u') = dD (szip u) (DeltaZipS u')
   sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
   sbuild1 @k @_ @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
@@ -362,10 +360,13 @@ instance ( ADReadyNoLet target, ShareTensor target
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
-  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+  tsreplicate sh (D u u') =
+    dD (tsreplicate sh u) (DeltaReplicate SNat (STKS sh knownSTK) u')
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
-  ttranspose perm (D u u') =
-    dD (ttranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
+  tstranspose perm (D u u') =
+    dD (tstranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
+  tsreshape sh (D u u') = dD (tsreshape sh u) (DeltaReshapeS sh u')
   tmapAccumRDer @accShs @bShs @eShs _ !k accShs bShs eShs f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accShs)
    , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs) =

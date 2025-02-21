@@ -401,12 +401,11 @@ interpretAst !env = \case
   AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownSTK x $
-      ttranspose perm $ interpretAst env v
+      tstranspose perm $ interpretAst env v
   AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
-    STKS _sh x ->
+    STKS _ x ->
       withKnownSTK x $
-      withKnownShS sh2 $
-      sreshape (interpretAst env v)
+      tsreshape sh2 (interpretAst env v)
   AstZipS v -> szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
   AstNestS sh1 sh2 v -> case ftkToSTK (ftkAst v) of
@@ -436,9 +435,8 @@ interpretAst !env = \case
 
   AstReplicate0NS sh v -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS sh $
       withKnownSTK x $
-      sreplicate0N (interpretAst env v)
+      tsreplicate0N sh (interpretAst env v)
   AstSum0S v -> case ftkToSTK (ftkAst v) of
     STKS sh x ->
       withKnownShS sh $

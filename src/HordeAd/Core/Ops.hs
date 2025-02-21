@@ -204,9 +204,9 @@ class LetTensor (target :: Target) where
              -> target z
              -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
-    STKScalar -> sreplicate $ sfromK u
+    STKScalar -> tsreplicate ZSS $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sreplicate u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
     STKProduct stk1 stk2 ->
       tlet u $ \ !u3 ->
@@ -427,9 +427,9 @@ class ShareTensor (target :: Target) where
                   -> target z
                   -> target (BuildTensorKind k z)
   treplicateShare snat@SNat stk u = case stk of
-    STKScalar -> sreplicate $ sfromK u
+    STKScalar -> tsreplicate ZSS $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sreplicate u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
     STKProduct stk1 stk2 ->
       let (u1, u2) = tunpair u
@@ -860,11 +860,10 @@ class ( Num (IntOf target)
           * stranspose @_ @'[1, 0] (sreplicate @target @m m2))
   sreplicate :: (KnownNat k, KnownShS sh, KnownSTK r)
              => target (TKS2 sh r) -> target (TKS2 (k ': sh) r)
+  sreplicate = tsreplicate knownShS
   sreplicate0N :: forall r sh. (KnownSTK r, KnownShS sh)
                => target (TKS2 '[] r) -> target (TKS2 sh r)
-  sreplicate0N | SNat <- shsProduct (knownShS @sh) =
-    sreshape @target @r @'[Nested.Product sh] @sh
-    . sreplicate @target @(Nested.Product sh)
+  sreplicate0N = tsreplicate0N knownShS
   sindex, (!$) :: (KnownSTK r, KnownShS shm, KnownShS shn)
                => target (TKS2 (shm ++ shn) r) -> IxSOf target shm
                -> target (TKS2 shn r)
@@ -960,19 +959,20 @@ class ( Num (IntOf target)
   str :: forall x n m sh. KnownSTK x
       => target (TKS2 (n ': m ': sh) x) -> target (TKS2 (m ': n ': sh) x)
   str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
-        stranspose @_ @'[1, 0]
+        tstranspose (Permutation.makePerm @'[1, 0])
   stranspose :: forall perm x sh.
                 ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
                 , Rank perm <= Rank sh, KnownSTK x )
              => target (TKS2 sh x)
              -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
-  stranspose = ttranspose (Permutation.makePerm @perm)
+  stranspose = tstranspose (Permutation.makePerm @perm)
   sflatten :: forall r sh. (KnownSTK r, KnownShS sh)
            => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
   sflatten | SNat <- shsProduct (knownShS @sh) = sreshape
   sreshape :: forall r sh sh2.
               (KnownSTK r, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2)
            => target (TKS2 sh r) -> target (TKS2 sh2 r)
+  sreshape = tsreshape knownShS
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
   szip :: forall y z sh.
@@ -1636,12 +1636,23 @@ class ( Num (IntOf target)
   default tunpairDup :: ShareTensor target
                      => target (TKProduct x z) -> (target x, target z)
   tunpairDup = tunpair
-  -- This one is not really general, but takes a singleton at least.
-  ttranspose :: forall perm x sh.
-                ( Permutation.IsPermutation perm
-                , Rank perm <= Rank sh, KnownSTK x )
-             => Permutation.Perm perm -> target (TKS2 sh x)
-             -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
+  -- These are not really general, but they take singletons at least.
+  tsreplicate :: forall k sh x. (KnownNat k, KnownSTK x)
+              => ShS sh -> target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
+  tsreplicate0N :: forall x sh. KnownSTK x
+                => ShS sh -> target (TKS2 '[] x)
+                -> target (TKS2 sh x)
+  tsreplicate0N sh | SNat <- shsProduct sh =
+    tsreshape @target @x @'[Nested.Product sh] @sh sh
+    . tsreplicate @target @(Nested.Product sh) ZSS
+  tstranspose :: forall perm x sh.
+                 ( Permutation.IsPermutation perm
+                 , Rank perm <= Rank sh, KnownSTK x )
+              => Permutation.Perm perm -> target (TKS2 sh x)
+              -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
+  tsreshape :: forall x sh sh2.
+               (KnownSTK x, Nested.Product sh ~ Nested.Product sh2)
+            => ShS sh2 -> target (TKS2 sh x) -> target (TKS2 sh2 x)
   -- | A strict right mapAccum.
   --
   -- The applications of 'tfwd' and 'trevDt' performed already at this point

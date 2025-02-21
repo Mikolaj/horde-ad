@@ -2132,7 +2132,7 @@ astTransposeS perm t = case perm of
   AstConcrete (RepF (FTKS sh x) v) ->
     let shPerm = Nested.Internal.Shape.shsPermutePrefix perm sh
     in withKnownSTK (ftkToSTK x) $
-       astConcrete (RepF (FTKS shPerm x) (ttranspose perm v))
+       astConcrete (RepF (FTKS shPerm x) (tstranspose perm v))
 
   Ast.AstLet var u v ->
     astLet var u (astTransposeS perm v)
@@ -2215,7 +2215,7 @@ astReshapeS sh2 = \case
   AstConcrete (RepF (FTKS _sh x) t) ->
     withKnownShS sh2 $
     withKnownSTK (ftkToSTK x) $
-    astConcrete (RepF (FTKS sh2 x) (sreshape t))
+    astConcrete (RepF (FTKS sh2 x) (tsreshape sh2 t))
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v

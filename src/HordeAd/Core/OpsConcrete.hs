@@ -208,11 +208,6 @@ instance BaseTensor RepN where
   sdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
-  sreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
-  sreplicate0N @r @sh | Refl <- lemAppNil @sh
-                      , Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.sreplicate (knownShS @sh) . unRepN
   sindex = tindexZS
   sindex0 = tindex0S
   -- Performance depends a lot on the number and size of tensors.
@@ -307,8 +302,6 @@ instance BaseTensor RepN where
     RepN . Nested.sslice i n . unRepN
   sreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.srev1 . unRepN
-  sreshape @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.sreshape knownShS . unRepN
   szip (RepN (a, b)) = RepN $ Nested.szip a b
   sunzip a = let (!a1, !a2) = Nested.sunzip $ unRepN a
              in RepN (a1, a2)
@@ -521,10 +514,17 @@ instance BaseTensor RepN where
   tpair !u !v = RepN (unRepN u, unRepN v)
   tproject1 = RepN . fst . unRepN
   tproject2 = RepN . snd . unRepN
-  stranspose @perm = ttranspose (Permutation.makePerm @perm)
+  tsreplicate @_ @_ @x _sh | Dict <- eltDictRep (knownSTK @x) =
+    RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
+  tsreplicate0N @r @sh sh | Refl <- lemAppNil @sh
+                          , Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.sreplicate sh . unRepN
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
-  ttranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
+  tstranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stranspose perm . unRepN
+  tsreshape @x sh | Dict <- eltDictRep (knownSTK @x) =
+    RepN . Nested.sreshape sh . unRepN
   -- The eta-expansion below is needed for typing.
   tmapAccumR _ k accShs bShs eShs f acc0 es =
     oRtmapAccumR k accShs bShs eShs f acc0 es
