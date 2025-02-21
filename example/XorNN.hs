@@ -4,10 +4,10 @@ module TestDescentSimple (testTrees) where
 
 import Prelude
 
-import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Vector)
-import           Test.Tasty
-import           Test.Tasty.HUnit hiding (assert)
+import Data.Vector.Generic qualified as V
+import Numeric.LinearAlgebra (Vector)
+import Test.Tasty
+import Test.Tasty.HUnit hiding (assert)
 
 import EqEpsilon
 import HordeAd
@@ -15,6 +15,12 @@ import Prop (fquad)
 
 testTrees :: [TestTree]
 testTrees = [ xorTests ]
+
+-- TODO: keep here the nn, move tests to the tests directory
+-- and test with all kinds of activation functions and loss functions,
+-- e.g., harmonic loss
+
+
 
 -- This, and other XOR nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
