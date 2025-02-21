@@ -30,7 +30,6 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsSize)
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Unwind
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -47,7 +46,6 @@ class AdaptableTarget (target :: Target) vals where
     -- using the general shape recorded in another collection of the same type;
     -- the remaining data may be used in a another structurally recursive
     -- call working on the same data to build a larger compound collection
-  fromTargetAD :: target (ADTensorKind (X vals)) -> vals
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -78,8 +76,7 @@ class RandomValue vals where
 
 -- * Base instances
 
-instance (KnownSTK y, BaseTensor target) -- TODO: ShareTensor target)
-         => AdaptableTarget target (target y) where
+instance AdaptableTarget target (target y) where
 {-
   {-# SPECIALIZE instance
       (KnownNat n, AstSpan s)
@@ -98,7 +95,6 @@ instance (KnownSTK y, BaseTensor target) -- TODO: ShareTensor target)
   type X (target y) = y
   toTarget = id
   fromTarget t = t
-  fromTargetAD t = fromADTensorKindShared (knownSTK @y) t
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), KnownSTK y)
          => DualNumberValue (target y) where
@@ -207,16 +203,6 @@ instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
           a = fromTarget a1
           rest = fromTarget rest1
       in (a ::: rest)
-  fromTargetAD tups = case SNat @n of
-    SNat' @0 -> ZR
-    _ ->
-      gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
-      gcastWith (unsafeCoerceRefl
-                 :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
-      let (a1, rest1) = (tproject1 tups, tproject2 tups)
-          a = fromTargetAD a1
-          rest = fromTargetAD @_ @(ListR (n - 1) a) rest1
-      in (a ::: rest)
 
 instance TermValue a => TermValue (ListR n a) where
   type Value (ListR n a) = ListR n (Value a)
@@ -258,13 +244,6 @@ instance ( BaseTensor target
         a = fromTarget a1
         b = fromTarget b1
     in (a, b)
-  fromTargetAD ab =
-    let (a1, b1) =
-          ( tproject1 ab
-          , tproject2 ab )
-        a = fromTargetAD a1
-        b = fromTargetAD b1
-    in (a, b)
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
   type Value (a, b) = (Value a, Value b)
@@ -305,15 +284,6 @@ instance ( BaseTensor target
         a = fromTarget a1
         b = fromTarget b1
         c = fromTarget c1
-    in (a, b, c)
-  fromTargetAD abc =
-    let (a1, b1, c1) =
-          ( tproject1 (tproject1 abc)
-          , tproject2 (tproject1 abc)
-          , tproject2 abc )
-        a = fromTargetAD a1
-        b = fromTargetAD b1
-        c = fromTargetAD c1
     in (a, b, c)
 
 instance (TermValue a, TermValue b, TermValue c)
@@ -365,17 +335,6 @@ instance ( BaseTensor target
         b = fromTarget b1
         c = fromTarget c1
         d = fromTarget d1
-    in (a, b, c, d)
-  fromTargetAD abcd =
-    let (a1, b1, c1, d1) =
-          ( tproject1 (tproject1 abcd)
-          , tproject2 (tproject1 abcd)
-          , tproject1 (tproject2 abcd)
-          , tproject2 (tproject2 abcd) )
-        a = fromTargetAD a1
-        b = fromTargetAD b1
-        c = fromTargetAD c1
-        d = fromTargetAD d1
     in (a, b, c, d)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
@@ -439,19 +398,6 @@ instance ( BaseTensor target
         c = fromTarget c1
         d = fromTarget d1
         e = fromTarget e1
-    in (a, b, c, d, e)
-  fromTargetAD abcde =
-    let (a1, b1, c1, d1, e1) =
-          ( tproject1 (tproject1 (tproject1 abcde))
-          , tproject2 (tproject1 (tproject1 abcde))
-          , tproject2 (tproject1 abcde)
-          , tproject1 (tproject2 abcde)
-          , tproject2 (tproject2 abcde) )
-        a = fromTargetAD a1
-        b = fromTargetAD b1
-        c = fromTargetAD c1
-        d = fromTargetAD d1
-        e = fromTargetAD e1
     in (a, b, c, d, e)
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)

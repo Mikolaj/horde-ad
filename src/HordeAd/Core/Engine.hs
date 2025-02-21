@@ -104,7 +104,8 @@ revDtMaybe f vals0 mdt =
       valsTarget = toTarget vals0
       xftk = tftk (knownSTK @(X astvals)) valsTarget
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv xftk
-  in fromTargetAD $ fst $ revEvalArtifact artifact valsTarget mdt
+  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
+     $ fst $ revEvalArtifact artifact valsTarget mdt
 {- TODO
 {-# SPECIALIZE revDtMaybe
   :: ( KnownNat n
@@ -284,7 +285,8 @@ crevDtEither f vals edt =
       g = f . fromTarget
       xftk = tftk (knownSTK @(X advals)) valsTarget
       valsTarget = toTarget vals
-  in fromTargetAD $ fst $ crevOnHVector edt g xftk valsTarget
+  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
+     $ fst $ crevOnHVector edt g xftk valsTarget
 
 {-
 {-# SPECIALIZE crevOnHVector

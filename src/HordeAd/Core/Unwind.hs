@@ -384,6 +384,7 @@ windTarget stk t = case (stk, t) of
 
 -- * Operations defined using unwinding
 
+-- Requires duplicable arguments or a ShareTensor instance.
 addTarget :: BaseTensor target
           => STensorKind y -> target y -> target y -> target y
 addTarget stk a b =
@@ -391,6 +392,7 @@ addTarget stk a b =
       b2 = unWindTarget stk b
   in windTarget stk $ addRepW a2 b2
 
+-- Requires duplicable arguments or a ShareTensor instance.
 multTarget :: BaseTensor target
            => STensorKind y -> target y -> target y -> target y
 multTarget stk a b =
@@ -399,6 +401,7 @@ multTarget stk a b =
   in windTarget stk $ multRepW a2 b2
 
 -- Dot product each component and then sum it all.
+-- Requires duplicable arguments or a ShareTensor instance.
 dotTarget :: BaseTensor target
           => FullTensorKind y -> target y -> target y
           -> target (TKScalar Double)
@@ -426,8 +429,10 @@ toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
   windTarget (adSTK $ ftkToSTK ftk)
   $ toADTensorKindW (unWindTarget (ftkToSTK ftk) a) (unWindFTK ftk)
 
-fromADTensorKindShared  -- TODO: require ShareTensor, as above?
-  :: BaseTensor target
+-- The ShareTensor constraint is needed, despite what GHC says,
+-- in order not to require duplicable arguments.
+fromADTensorKindShared
+  :: (BaseTensor target, ShareTensor target)
   => STensorKind y -> target (ADTensorKind y)
   -> target y
 fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
