@@ -10,6 +10,7 @@ import Prelude
 import Control.Monad (foldM, unless)
 import Data.Bifunctor (first)
 import Data.IntMap.Strict qualified as IM
+import Data.Proxy (Proxy (Proxy))
 import GHC.Exts (IsList (..))
 import System.IO (hPutStrLn, stderr)
 import System.Random
@@ -588,7 +589,7 @@ mnistTestCase2VTO
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let (!targetInit, !artRaw) =
-        MnistFcnnRanked2.mnistTrainBench2VTOGradient False
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient (Proxy @Float) False
           1 (mkStdGen 44) widthHidden widthHidden2
       !art = simplifyArtifactGradient artRaw
       name = prefix ++ ": "
@@ -689,7 +690,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                          RepN widthHidden widthHidden2 Double Double)))
             range seed3
         (targetInit, artRaw) =
-          MnistFcnnRanked2.mnistTrainBench2VTOGradient True
+          MnistFcnnRanked2.mnistTrainBench2VTOGradient (Proxy @Double) True
             range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
         art = iterate simplifyArtifactGradient artRaw !! simp
         stk = knownSTK @(XParams2 Double Double)
@@ -727,11 +728,11 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
             (abs (value1 - value2) < 1e-10)
         , counterexample
             ("Gradient and derivative agrees: "
-             ++ show ( dt, derivative2, dotTarget stk gradient1 ds
-                     , dotTarget STKScalar (kconcrete dt) derivative2
-                       - dotTarget stk gradient1 ds ))
-            (abs (dotTarget STKScalar (kconcrete dt) derivative2
-                  - dotTarget stk gradient1 ds) < 1e-10)
+             ++ show ( dt, derivative2, dotTarget ftk gradient1 ds
+                     , dotTarget FTKScalar (kconcrete dt) derivative2
+                       - dotTarget ftk gradient1 ds ))
+            (abs (dotTarget FTKScalar (kconcrete dt) derivative2
+                  - dotTarget ftk gradient1 ds) < 1e-10)
 --        , counterexample
 --            "Gradient is a linear function"
 --            (gradient1 === multTarget stk targetDt gradient0)

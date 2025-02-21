@@ -78,7 +78,7 @@ class RandomValue vals where
 
 -- * Base instances
 
-instance (KnownSTK y, BaseTensor target)
+instance (KnownSTK y, BaseTensor target) -- TODO: ShareTensor target)
          => AdaptableTarget target (target y) where
 {-
   {-# SPECIALIZE instance

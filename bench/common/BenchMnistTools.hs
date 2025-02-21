@@ -8,6 +8,7 @@ import Prelude
 import Control.DeepSeq (NFData (..))
 import Criterion.Main
 import Data.Default qualified as Default
+import Data.Proxy (Proxy (Proxy))
 import GHC.Exts (WithDict)
 import GHC.TypeLits (KnownNat)
 import Numeric.LinearAlgebra (Numeric)
@@ -307,7 +308,7 @@ mnistTrainBench2VTC prefix widthHidden widthHidden2 =
   bench prefix
   $ whnf (simplifyArtifactGradient . snd
           . MnistFcnnRanked2.mnistTrainBench2VTOGradient
-              @Double @Double False 1 (mkStdGen 44) widthHidden)
+              @Double (Proxy @Float) False 1 (mkStdGen 44) widthHidden)
          widthHidden2
 
 -- The same as above, but only runtime.
@@ -363,7 +364,7 @@ mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
 mnistBGroup2VTO xs0 chunkLength =
   let (!targetInit, !artRaw) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
-          False 1 (mkStdGen 44) 500 150
+          (Proxy @Float) False 1 (mkStdGen 44) 500 150
       !art = simplifyArtifactGradient artRaw
   in env (return $ map mkMnistDataLinearR $ take chunkLength xs0)
      $ \ xs ->

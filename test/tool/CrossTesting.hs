@@ -196,7 +196,7 @@ rev' f vals =
       cderivative = cfwd f vals vals
       derivative = fwd f vals vals
       derivativeRfwd1 = rfwd1ds @RepN @r @n @m @r f vals
-                        $ toADTensorKindShared knownSTK vals
+                        $ toADTensorKindShared ftk vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
      , gradient1, gradientRrev1, gradient2, gradient3
@@ -249,7 +249,8 @@ assertEqualUpToEpsilon'
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1 ) = do
-  let expected = toADTensorKindShared knownSTK expected'
+  let ftk = tftk knownSTK vals
+      expected = toADTensorKindShared ftk expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -328,7 +329,7 @@ assertEqualUpToEpsilon'
   -- and a similar property stated mathematically is in Lemma 1 in
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
-                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared knownSTK vals))
+                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared ftk vals))
   {- TODO: this most probably leaks gigabytes of strings from one test case
   -- to another in -O0 mode, leading to OOMs, so it's disabled for now.
   -- We could also try to stream the strings and compare on the fly.
@@ -377,7 +378,8 @@ assertEqualUpToEpsilonShort
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , _gradient4Ast, _gradient4AstS, _gradient5Ast, _gradient5AstS
     , vals, cderivative, derivative, derivativeRfwd1 ) = do
-  let expected = toADTensorKindShared knownSTK expected'
+  let ftk = tftk knownSTK vals
+      expected = toADTensorKindShared ftk expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
@@ -434,7 +436,7 @@ assertEqualUpToEpsilonShort
   assertEqualUpToEpsilonWithMark "Derivatives rfwd"
                                  errMargin cderivative derivativeRfwd1
   assertEqualUpToEpsilonWithMark "Forward vs reverse"
-                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared knownSTK vals))
+                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared ftk vals))
   {- disabled, see above
   -- No Eq instance, so let's compare the text.
   assertEqual "Idempotence of primal simplification"

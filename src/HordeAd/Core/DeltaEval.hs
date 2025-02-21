@@ -147,7 +147,9 @@ evalTensorOrZero = \case
   TOTensor t -> t
   TOZero ftk -> constantTarget 0 ftk
 
-addTensorOrZero :: forall target y. ADReadyNoLet target
+-- The ShareTensor constraint is needed, despite what GHC says,
+-- in order not to require duplicable arguments.
+addTensorOrZero :: forall target y. (ADReadyNoLet target, ShareTensor target)
                 => STensorKind y
                 -> TensorOrZero target y -> TensorOrZero target y
                 -> TensorOrZero target y
@@ -558,12 +560,12 @@ evalRevSame !s !c = \case
     in evalRevSame (evalRevSame s cShared d) cShared e
 
   DeltaCastK @r1 d ->
-    evalRev s (toADTensorKindShared (STKScalar @r1) $ kcast c) d
+    evalRev s (toADTensorKindShared (FTKScalar @r1) $ kcast c) d
 
   DeltaCastR d -> case ftkDelta d of
     y ->
       evalRevRuntimeSpecialized
-      s (toADTensorKindShared (ftkToSTK y) $ rcast c) d
+      s (toADTensorKindShared y $ rcast c) d
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
       withKnownSTK (ftkToSTK x) $
@@ -621,7 +623,7 @@ evalRevSame !s !c = \case
   DeltaCastS d -> case ftkDelta d of
     y ->
       evalSRuntimeSpecialized
-      s (toADTensorKindShared (ftkToSTK y) $ scast c) d
+      s (toADTensorKindShared y $ scast c) d
   DeltaSum0S d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -688,7 +690,7 @@ evalRevSame !s !c = \case
   DeltaCastX d -> case ftkDelta d of
     y ->
       evalXRuntimeSpecialized
-      s (toADTensorKindShared (ftkToSTK y) $ xcast c) d
+      s (toADTensorKindShared y $ xcast c) d
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -966,7 +968,7 @@ evalFwd params s d0 = case d0 of
         in (s3, cShared)
   DeltaInput ftk inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, toADTensorKindShared (ftkToSTK ftk)
+      Just dtk -> (s, toADTensorKindShared ftk
                       $ evalTensorOrZero dtk)
       Nothing -> error "evalFwd: missing input"
 

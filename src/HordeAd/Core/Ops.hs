@@ -260,7 +260,7 @@ class LetTensor (target :: Target) where
      => STensorKind y -> PrimalOf target y -> DualOf target y
      -> target y
   tD stk p d =
-    -- Lets needed, because raddTarget requires duplicable arguments.
+    -- Lets needed, because taddTarget requires duplicable arguments.
     tlet (tfromPrimal stk p) $ \pShared ->
     tlet (tfromDual d) $ \dShared ->
       taddTarget stk pShared dShared

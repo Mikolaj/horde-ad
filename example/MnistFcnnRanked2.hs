@@ -6,6 +6,7 @@ module MnistFcnnRanked2 where
 
 import Prelude
 
+import Data.Proxy (Proxy (Proxy))
 import Data.Vector.Generic qualified as V
 import GHC.Exts (inline)
 import GHC.TypeLits (Nat)
@@ -105,7 +106,7 @@ afcnnMnistTest2 dataList testParams =
 mnistTrainBench2VTOGradient
   :: forall r q. ( GoodScalar r, Differentiable r, Random r
                  , GoodScalar q, Differentiable q, Random q )
-  => Bool -> Double -> StdGen -> Int -> Int
+  => Proxy q -> Bool -> Double -> StdGen -> Int -> Int
   -> ( RepN (XParams2 r q)
      , AstArtifactRev
          (TKProduct
@@ -113,7 +114,7 @@ mnistTrainBench2VTOGradient
             (TKProduct (TKR2 1 (TKScalar r))
                        (TKR2 1 (TKScalar r))))
          (TKScalar r) )
-mnistTrainBench2VTOGradient hasDt range seed widthHidden widthHidden2 =
+mnistTrainBench2VTOGradient Proxy hasDt range seed widthHidden widthHidden2 =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   -- Initial parameter generation is counted as part of compilation time.

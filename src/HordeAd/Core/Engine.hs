@@ -215,7 +215,7 @@ fwd f vals ds =
       artifact = fst $ fwdProduceArtifact g emptyEnv xftk
       dsTarget = toTarget ds
   in fst $ fwdEvalArtifact @_ @z artifact valsTarget
-         $ toADTensorKindShared (knownSTK @(X astvals)) dsTarget
+         $ toADTensorKindShared xftk dsTarget
 
 fwdEvalArtifact
   :: forall x z. KnownSTK x
@@ -325,7 +325,7 @@ cfwdBoth f vals ds =
       g = f . fromTarget
       dsTarget = toTarget ds
   in cfwdOnHVector xftk valsTarget g
-     $ toADTensorKindShared (knownSTK @(X advals)) dsTarget
+     $ toADTensorKindShared xftk dsTarget
 
 
 
