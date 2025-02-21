@@ -65,7 +65,7 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(X (ADRnnMnistParameters RepN r))
                         , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r
@@ -176,7 +176,7 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(X (ADRnnMnistParameters RepN r))
                         , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r
@@ -303,7 +303,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(X (ADRnnMnistParameters RepN r))
                         , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r

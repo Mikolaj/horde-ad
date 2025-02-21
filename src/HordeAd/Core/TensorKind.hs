@@ -8,7 +8,7 @@ module HordeAd.Core.TensorKind
     STensorKind(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
-  , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD
+  , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, rankSTK, widthSTK
   , FullTensorKind(..), KnownFTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK
   , DummyDualTarget(..)
@@ -22,7 +22,7 @@ import Data.Boolean (Boolean (..))
 import Data.Kind (Type)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.Exts (withDict)
-import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat)
+import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
@@ -38,7 +38,7 @@ import Data.Array.Nested
   , ShX (..)
   , StaticShX (..)
   )
-import Data.Array.Nested.Internal.Shape (shrRank, withKnownShS)
+import Data.Array.Nested.Internal.Shape (shrRank, shsRank, withKnownShS)
 
 import HordeAd.Core.Types
 
@@ -171,6 +171,23 @@ lemBuildOfAD snat@SNat = \case
   STKX{} -> unsafeCoerceRefl
   STKProduct stk1 stk2 | Refl <- lemBuildOfAD snat stk1
                        , Refl <- lemBuildOfAD snat stk2 -> Refl
+
+rankSTK :: STensorKind x -> Int
+rankSTK (STKScalar) = 0
+rankSTK (STKR snat _) = fromInteger $ fromSNat snat
+rankSTK (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
+rankSTK (STKX sh _) = fromInteger $ fromSNat $ ssxRank sh
+rankSTK (STKProduct sy sz) = rankSTK sy `max` rankSTK sz
+
+widthSTK :: STensorKind y -> Int
+widthSTK stk = case stk of
+  STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+    Just Refl -> 0
+    _ -> 1
+  STKR{} -> 1
+  STKS{} -> 1
+  STKX{} -> 1
+  STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
 type role FullTensorKind nominal
 data FullTensorKind y where

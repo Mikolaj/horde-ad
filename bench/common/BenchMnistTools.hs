@@ -67,7 +67,7 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
         name =
           prefix
           ++ unwords
-               [ "v" ++ show (twidth @RepN
+               [ "v" ++ show (widthSTK
                               $ knownSTK @(XParams widthHidden widthHidden2 r))
                , "m0" ++ " =" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
@@ -101,7 +101,7 @@ mnistTestBench1VTA prefix widthHiddenInt widthHidden2Int
         name =
           "test " ++ prefix
           ++ unwords
-               [ "v" ++ show (twidth @RepN
+               [ "v" ++ show (widthSTK
                               $ knownSTK @(XParams widthHidden widthHidden2 r))
                , "m0" ++ " =" ++ show (tsize knownSTK targetInit) ]
     bench name $ whnf score chunk
@@ -182,7 +182,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
         name =
           prefix
           ++ unwords
-               [ "v" ++ show (twidth @RepN
+               [ "v" ++ show (widthSTK
                               $ knownSTK @(XParams widthHidden widthHidden2 r))
                , "m0" ++ " =" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
@@ -245,7 +245,7 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
         name =
           prefix
           ++ unwords
-               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r Float))
+               [ "v0 m" ++ show (widthSTK $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
 
@@ -269,7 +269,7 @@ mnistTestBench2VTA prefix widthHidden widthHidden2
         name =
           "test " ++ prefix
           ++ unwords
-               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r Float))
+               [ "v0 m" ++ show (widthSTK $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ whnf score chunk
 
@@ -339,7 +339,7 @@ mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
         name =
           prefix
           ++ unwords
-               [ "v0 m" ++ show (twidth @RepN $ knownSTK @(XParams2 r Float))
+               [ "v0 m" ++ show (widthSTK $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
 

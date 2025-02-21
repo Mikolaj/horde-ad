@@ -57,7 +57,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue width), show miniBatchSize
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
       ftest :: forall batch_size2. KnownNat batch_size2
@@ -166,7 +166,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue width), show miniBatchSize
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
       ftest :: forall batch_size2. KnownNat batch_size2
@@ -284,7 +284,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (sNatValue width), show miniBatchSize
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
       ftest :: forall batch_size2. KnownNat batch_size2

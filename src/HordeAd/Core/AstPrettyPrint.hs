@@ -19,12 +19,11 @@ import Data.List (intersperse)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (fromSNat)
 
 import Data.Array.Mixed.Permutation (Perm (..), permToList)
 import Data.Array.Nested (ListS (..), ShR (..), ShS (..), ShX (..))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (listsToList, shsRank)
+import Data.Array.Nested.Internal.Shape (listsToList)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
@@ -76,16 +75,8 @@ printAstVarId prefix cfg var =
 printAstVar :: forall s y.
                PrintConfig -> STensorKind y -> AstVarName s y -> ShowS
 printAstVar cfg stk var =
-  let rankTensorKind :: STensorKind x -> Int
-      rankTensorKind (STKScalar) = 0
-      rankTensorKind (STKR snat _) = fromInteger $ fromSNat snat
-      rankTensorKind (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
-      rankTensorKind (STKX sh _) = fromInteger $ fromSNat $ ssxRank sh
-      rankTensorKind (STKProduct sy sz) =
-        rankTensorKind sy `max` rankTensorKind sz
-      n = rankTensorKind stk
-      varId = varNameToAstVarId var
-      prefix = case n of
+  let varId = varNameToAstVarId var
+      prefix = case rankSTK stk of
         -1 -> "h"
         0 -> "x"
         1 -> "v"

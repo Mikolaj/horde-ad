@@ -130,15 +130,6 @@ instance (RealFloatF r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (target :: Target) where
-  twidth :: STensorKind y -> Int
-  twidth stk = case stk of
-    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
-      Just Refl -> 0
-      _ -> 1
-    STKR{} -> 1
-    STKS{} -> 1
-    STKX{} -> 1
-    STKProduct stk1 stk2 -> twidth @target stk1 + twidth @target stk2
   tsize :: BaseTensor target => STensorKind y -> target y -> Int
   tsize stk a = case stk of
     STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of

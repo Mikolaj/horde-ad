@@ -76,7 +76,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(XParams widthHidden widthHidden2 r)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
@@ -179,7 +179,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(XParams widthHidden widthHidden2 r)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
@@ -291,7 +291,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
-                        , show $ twidth @RepN
+                        , show $ widthSTK
                           $ knownSTK @(XParams widthHidden widthHidden2 r)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
@@ -406,7 +406,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show $ twidth @RepN $ knownSTK @(XParams2 r Float)
+                        , show $ widthSTK $ knownSTK @(XParams2 r Float)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
   in testCase name $ do
@@ -496,7 +496,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show $ twidth @RepN $ knownSTK @(XParams2 r Float)
+                        , show $ widthSTK $ knownSTK @(XParams2 r Float)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
   in testCase name $ do
@@ -595,7 +595,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show $ twidth @RepN $ knownSTK @(XParams2 r Float)
+                        , show $ widthSTK $ knownSTK @(XParams2 r Float)
                         , show (tsize knownSTK targetInit)
                         , show gamma ]
   in testCase name $ do

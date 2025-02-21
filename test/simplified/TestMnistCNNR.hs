@@ -63,7 +63,7 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                         , show khInt, show kwInt
                         , show c_outInt, show n_hiddenInt
                         , show miniBatchSize
-                        , show $ twidth @RepN $ knownSTK @(XParams r)
+                        , show $ widthSTK $ knownSTK @(XParams r)
                         , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r -> RepN (XParams r) -> r
       ftest batch_size mnistData pars =
@@ -172,7 +172,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                         , show khInt, show kwInt
                         , show c_outInt, show n_hiddenInt
                         , show miniBatchSize
-                        , show $ twidth @RepN $ knownSTK @(XParams r)
+                        , show $ widthSTK $ knownSTK @(XParams r)
                         , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r -> RepN (XParams r) -> r
       ftest batch_size mnistData pars =
@@ -297,7 +297,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                         , show khInt, show kwInt
                         , show c_outInt, show n_hiddenInt
                         , show miniBatchSize
-                        , show $ twidth @RepN $ knownSTK @(XParams r)
+                        , show $ widthSTK $ knownSTK @(XParams r)
                         , show (tsize knownSTK targetInit) ]
       ftest :: Int -> MnistDataBatchR r -> RepN (XParams r) -> r
       ftest batch_size mnistData pars =
