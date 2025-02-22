@@ -28,6 +28,7 @@ import GHC.TypeLits
   (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
+import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
@@ -53,7 +54,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shsToList, shsInit, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
+  (shsRank, shsToList, shsInit, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
@@ -88,6 +89,30 @@ instance LetTensor RepN where
   tlet = (&)
   toShare = id
   tunshare = id
+  tfromS ystk zstk v = case (ystk, zstk) of
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
+    (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
+      case testEquality (typeRep @ry) (typeRep @rz) of
+        Just Refl -> kfromS v
+        Nothing -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKR zn zx) | Dict <- lemKnownSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) zn) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          rfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKX shz zx) | Dict <- lemKnownSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shz)) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          withKnownShX shz $
+          xfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
+        tlet v $ \ !u3 ->
+          tpair (tfromS ystk1 zstk1 (tproject1 u3))
+                (tfromS ystk2 zstk2 (tproject2 u3))
+    _ -> error "tfromS: wrong tensor kinds"
   tD _stk t DummyDualTarget{} = t
   rfold f x0 as = foldl' f x0 (runravelToList as)
   rscan f x0 as =
@@ -99,6 +124,29 @@ instance LetTensor RepN where
 instance ShareTensor RepN where
   tshare = id
   tunpair (RepN (t1, t2)) = (RepN t1, RepN t2)
+  tfromSShare ystk zstk v = case (ystk, zstk) of
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
+    (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
+      case testEquality (typeRep @ry) (typeRep @rz) of
+        Just Refl -> kfromS v
+        Nothing -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          rfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          withKnownShX shx $
+          xfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
+        let (u1, u2) = tunpair v
+        in tpair (tfromSShare ystk1 zstk1 u1) (tfromSShare ystk2 zstk2 u2)
+    _ -> error "tfromS: wrong tensor kinds"
 
 instance BaseTensor RepN where
   tconstantTarget = constantTarget

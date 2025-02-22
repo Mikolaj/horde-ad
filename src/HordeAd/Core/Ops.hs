@@ -223,30 +223,6 @@ class LetTensor (target :: Target) where
   -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
   tfromS :: BaseTensor target
          => STensorKind y -> STensorKind z -> target y -> target z
-  tfromS ystk zstk v = case (ystk, zstk) of
-    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
-    (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
-      case testEquality (typeRep @ry) (typeRep @rz) of
-        Just Refl -> kfromS v
-        Nothing -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKR zn zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) zn) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          rfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKX shz zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shz)) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          withKnownShX shz $
-          xfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
-        tlet v $ \ !u3 ->
-          tpair (tfromS ystk1 zstk1 (tproject1 u3))
-                (tfromS ystk2 zstk2 (tproject2 u3))
-    _ -> error "tfromS: wrong tensor kinds"
   tD :: BaseTensor target
      => STensorKind y -> PrimalOf target y -> DualOf target y
      -> target y
@@ -444,29 +420,6 @@ class ShareTensor (target :: Target) where
                (tindexBuildShare snat stk2 u2 i)
   tfromSShare :: BaseTensor target
               => STensorKind y -> STensorKind z -> target y -> target z
-  tfromSShare ystk zstk v = case (ystk, zstk) of
-    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
-    (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
-      case testEquality (typeRep @ry) (typeRep @rz) of
-        Just Refl -> kfromS v
-        Nothing -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          rfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          withKnownShX shx $
-          xfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
-        let (u1, u2) = tunpair v
-        in tpair (tfromSShare ystk1 zstk1 u1) (tfromSShare ystk2 zstk2 u2)
-    _ -> error "tfromS: wrong tensor kinds"
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
