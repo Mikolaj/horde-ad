@@ -124,7 +124,7 @@ instance ForgetShape (target (TKR n r)) where
   type NoShape (target (TKR n r)) = target (TKR n r)
   forgetShape = id
 
-instance (KnownShS sh, GoodScalar r, BaseTensor target)
+instance (KnownShS sh, GoodScalar r, ConvertTensor target)
          => ForgetShape (target (TKS sh r)) where
   type NoShape (target (TKS sh r)) = target (TKR (Rank sh) r)
   forgetShape = rfromS

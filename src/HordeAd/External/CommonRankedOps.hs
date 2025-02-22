@@ -25,14 +25,16 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-rminIndexN :: forall target n r. (BaseTensor target, GoodScalar r)
+rminIndexN :: forall target n r.
+              (BaseTensor target, ConvertTensor target, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rminIndexN t =
   fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
                 (rshape t)
                 (tprimalPart @target $ kfromR $ rminIndex (rflatten t))
 
-rmaxIndexN :: forall target n r. (BaseTensor target, GoodScalar r)
+rmaxIndexN :: forall target n r. (
+              BaseTensor target, ConvertTensor target, GoodScalar r)
            => target (TKR n r) -> IxROf target n
 rmaxIndexN t =
   fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
@@ -40,7 +42,8 @@ rmaxIndexN t =
                 (tprimalPart @target $ kfromR $ rmaxIndex (rflatten t))
 
 rminimum :: forall target n r.
-            (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
+            ( BaseTensor target, ConvertTensor target, LetTensor target
+            , KnownNat n, GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in rindex0.
@@ -50,7 +53,8 @@ rminimum t0 = tlet t0 $ \t ->
                                           (tprimalPart @target $ kfromR $ rminIndex (rflatten t))
 
 rmaximum :: forall target n r.
-            (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
+            ( BaseTensor target, ConvertTensor target, LetTensor target
+            , KnownNat n, GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t0 = tlet t0 $ \t ->
                 rindex0 t $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
@@ -58,13 +62,13 @@ rmaximum t0 = tlet t0 $ \t ->
                                           (tprimalPart @target $ kfromR $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r target.
-               (BaseTensor target, GoodScalar r)
+               (BaseTensor target, ConvertTensor target, GoodScalar r)
             => IntOf target -> target (TKR 0 r)
 rfromIndex0 = rfromIntegral . rfromK . tfromPrimal STKScalar
 
 rfromIndex1 :: forall n r target.
-               ( KnownNat n
-               , BaseTensor target, BaseTensor (PrimalOf target)
+               ( KnownNat n , BaseTensor target
+               , BaseTensor (PrimalOf target), ConvertTensor (PrimalOf target)
                , GoodScalar r )
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
@@ -145,7 +149,8 @@ squaredDifference
 squaredDifference targ res = square @target $ res - rfromPrimal @target targ
 
 lossCrossEntropyV
-  :: (BaseTensor target, KnownNat n, GoodScalar r, Differentiable r)
+  :: ( BaseTensor target, ConvertTensor target
+     , KnownNat n, GoodScalar r, Differentiable r )
   => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 lossCrossEntropyV targ res = kfromR $ negate $ log res `rdot0` targ
 
@@ -154,7 +159,8 @@ lossCrossEntropyV targ res = kfromR $ negate $ log res `rdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall target n r.
-     ( BaseTensor target, BaseTensor (PrimalOf target)
+     ( BaseTensor target, ConvertTensor target
+     , BaseTensor (PrimalOf target), ConvertTensor (PrimalOf target)
      , LetTensor target, LetTensor (PrimalOf target)
      , KnownNat n, GoodScalar r, Differentiable r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
@@ -181,7 +187,8 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
          -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
-maxPool1 :: (BaseTensor target, LetTensor target, GoodScalar r)
+maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
+            , GoodScalar r )
          => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rlength v - ksize]]
@@ -281,6 +288,6 @@ maxPool2dUnpadded ksize stride arr =
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
 
 xfromIndex0 :: forall r target.
-               (BaseTensor target, GoodScalar r)
+               (BaseTensor target, ConvertTensor target, GoodScalar r)
             => IntOf target -> target (TKX '[] r)
 xfromIndex0 = xfromIntegral . xfromK . tfromPrimal STKScalar

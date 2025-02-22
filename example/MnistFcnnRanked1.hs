@@ -33,7 +33,7 @@ type ADFcnnMnist1Parameters
 
 listMatmul1
   :: forall target r w1 w2.
-     (BaseTensor target, LetTensor target, GoodScalar r, KnownNat w1)
+     (ADReady target, GoodScalar r, KnownNat w1)
   => target (TKS '[w1] r) -> ListR w2 (target (TKS '[w1] r))
   -> target (TKS '[w2] r)
 listMatmul1 x0 weights = tlet x0 $ \x ->

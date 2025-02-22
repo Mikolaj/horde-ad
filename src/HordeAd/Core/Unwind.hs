@@ -85,7 +85,7 @@ multRepW a b = case (a, b) of
     WTKProduct (multRepW ta1 tb1) (multRepW ta2 tb2)
 
 -- TODO: maybe instead of ifDifferentiable perform only on ADTensorKind?
-dotRepW :: forall y target. BaseTensor target
+dotRepW :: forall y target. (BaseTensor target, ConvertTensor target)
         => FullTensorKindW y -> RepW target y -> RepW target y
         -> target (TKScalar Double)
 dotRepW ftk a b = case (ftk, a, b) of
@@ -282,7 +282,7 @@ unWindFTK = \case
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
-unWindTarget :: BaseTensor target
+unWindTarget :: (BaseTensor target, ConvertTensor target)
              => STensorKind y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
   STKScalar -> WTKScalar t
@@ -292,7 +292,7 @@ unWindTarget stk t = case stk of
   STKR n@SNat (STKS sh2 stk2) | Dict <- lemKnownSTK stk2 ->
     withKnownShS sh2 $
     unWindTarget (STKX (ssxReplicate n
-                       `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2)
+                        `ssxAppend` ssxFromShape (shCvtSX sh2)) stk2)
                  (runNestS t)
   STKR n@SNat (STKX sh2 stk2) | Dict <- lemKnownSTK stk2 ->
     withKnownShX sh2 $
@@ -332,7 +332,7 @@ unWindTarget stk t = case stk of
     let (t1, t2) = tunpairDup t
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
 
-windTarget :: BaseTensor target
+windTarget :: (BaseTensor target, ConvertTensor target)
            => STensorKind y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
   (STKScalar, WTKScalar v) -> v
@@ -385,7 +385,7 @@ windTarget stk t = case (stk, t) of
 -- * Operations defined using unwinding
 
 -- Requires duplicable arguments or a ShareTensor instance.
-addTarget :: BaseTensor target
+addTarget :: (BaseTensor target, ConvertTensor target)
           => STensorKind y -> target y -> target y -> target y
 addTarget stk a b =
   let a2 = unWindTarget stk a
@@ -393,7 +393,7 @@ addTarget stk a b =
   in windTarget stk $ addRepW a2 b2
 
 -- Requires duplicable arguments or a ShareTensor instance.
-multTarget :: BaseTensor target
+multTarget :: (BaseTensor target, ConvertTensor target)
            => STensorKind y -> target y -> target y -> target y
 multTarget stk a b =
   let a2 = unWindTarget stk a
@@ -402,7 +402,7 @@ multTarget stk a b =
 
 -- Dot product each component and then sum it all.
 -- Requires duplicable arguments or a ShareTensor instance.
-dotTarget :: BaseTensor target
+dotTarget :: (BaseTensor target, ConvertTensor target)
           => FullTensorKind y -> target y -> target y
           -> target (TKScalar Double)
 dotTarget ftk a b =
@@ -410,7 +410,7 @@ dotTarget ftk a b =
       b2 = unWindTarget (ftkToSTK ftk) b
   in dotRepW (unWindFTK ftk) a2 b2
 
-constantTarget :: forall y target. BaseTensor target
+constantTarget :: forall y target. (BaseTensor target, ConvertTensor target)
                => (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
 constantTarget r ftk =
   windTarget (ftkToSTK ftk) $ constantRepW r (unWindFTK ftk)
@@ -422,7 +422,7 @@ lemUnWindOfAD _ = unsafeCoerceRefl
 -- The ShareTensor constraint is needed, despite what GHC says,
 -- in order not to require duplicable arguments.
 toADTensorKindShared
-  :: (BaseTensor target, ShareTensor target)
+  :: (BaseTensor target, ConvertTensor target, ShareTensor target)
   => FullTensorKind y -> target y
   -> target (ADTensorKind y)
 toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
@@ -432,7 +432,7 @@ toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
 -- The ShareTensor constraint is needed, despite what GHC says,
 -- in order not to require duplicable arguments.
 fromADTensorKindShared
-  :: (BaseTensor target, ShareTensor target)
+  :: (BaseTensor target, ConvertTensor target, ShareTensor target)
   => STensorKind y -> target (ADTensorKind y)
   -> target y
 fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =

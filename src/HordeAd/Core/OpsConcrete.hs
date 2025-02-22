@@ -455,84 +455,6 @@ instance BaseTensor RepN where
   kfromIntegral = RepN . fromIntegral . unRepN
   kcast = RepN . realToFrac . unRepN
 
-  tfromS ystk zstk v = case (ystk, zstk) of
-    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
-    (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
-      case testEquality (typeRep @ry) (typeRep @rz) of
-        Just Refl -> kfromS v
-        Nothing -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          rfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          withKnownShX shx $
-          xfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
-        let (u1, u2) = tunpair v
-        in tpair (tfromS ystk1 zstk1 u1) (tfromS ystk2 zstk2 u2)
-    _ -> error "tfromS: wrong tensor kinds"
-
-  -- Conversions
-  kfromR = RepN . Nested.runScalar . unRepN
-  kfromS = RepN . Nested.sunScalar . unRepN
-  kfromX = RepN . Nested.munScalar . unRepN
-  rfromK = RepN . Nested.rscalar . unRepN
-  rfromS @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.stoRanked . unRepN
-  rfromX @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.mtoRanked . unRepN
-  sfromK = RepN . Nested.sscalar . unRepN
-  sfromR @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . flip Nested.rcastToShaped knownShS . unRepN
-  sfromX @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . flip Nested.mcastToShaped knownShS . unRepN
-  xfromK = RepN . Nested.mscalar . unRepN
-  xfromR @sh @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.rcastToMixed (knownShX @sh) . unRepN
-  xfromS @_ @sh' @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.scastToMixed (knownShX @sh') . unRepN
-
-  -- Nesting/unnesting
-  xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)
-                       , Refl <- lemRankReplicate (SNat @m) =
-    RepN
-    . Nested.castCastable
-        @(Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing) (RepORArray x)))
-        (Nested.CastXX (Nested.CastXR Nested.CastId))
-    . Nested.mnest sh
-    . unRepN
-  xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (knownSTK @x) =
-    RepN
-    . Nested.castCastable
-        @(Nested.Mixed sh1 (Nested.Mixed (MapJust sh2) (RepORArray x)))
-        (Nested.CastXX (Nested.CastXS Nested.CastId))
-    . Nested.mnest sh
-    . unRepN
-  xnest @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
-    RepN . Nested.mnest sh . unRepN
-  xunNestR @sh1 @m @x | Dict <- eltDictRep (knownSTK @x) =
-    RepN
-    . Nested.munNest
-    . Nested.castCastable
-        @(Nested.Mixed sh1 (Nested.Ranked m (RepORArray x)))
-        (Nested.CastXX (Nested.CastRX Nested.CastId))
-    . unRepN
-  xunNestS @sh1 @sh2 @x | Dict <- eltDictRep (knownSTK @x) =
-    RepN
-    . Nested.munNest
-    . Nested.castCastable
-        @(Nested.Mixed sh1 (Nested.Shaped sh2 (RepORArray x)))
-        (Nested.CastXX (Nested.CastSX Nested.CastId))
-    . unRepN
-  xunNest = RepN . Nested.munNest . unRepN
-
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk (RepN t) = tftkG stk t
   tconcrete _ = id
@@ -587,6 +509,83 @@ instance BaseTensor RepN where
                    $ cfwdOnHVector xftk (RepN $ snd da_a)
                                    (unHFun h) (RepN $ fst da_a)
     in df
+
+instance ConvertTensor RepN where
+  tfromS ystk zstk v = case (ystk, zstk) of
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
+    (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
+      case testEquality (typeRep @ry) (typeRep @rz) of
+        Just Refl -> kfromS v
+        Nothing -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          rfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTK yx ->
+      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
+        (Just Refl, Just Refl) ->
+          withKnownShS shy $
+          withKnownShX shx $
+          xfromS v
+        _ -> error "tfromS: tensor kinds don't match"
+    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
+        let (u1, u2) = tunpair v
+        in tpair (tfromS ystk1 zstk1 u1) (tfromS ystk2 zstk2 u2)
+    _ -> error "tfromS: wrong tensor kinds"
+
+  kfromR = RepN . Nested.runScalar . unRepN
+  kfromS = RepN . Nested.sunScalar . unRepN
+  kfromX = RepN . Nested.munScalar . unRepN
+  rfromK = RepN . Nested.rscalar . unRepN
+  rfromS @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.stoRanked . unRepN
+  rfromX @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.mtoRanked . unRepN
+  sfromK = RepN . Nested.sscalar . unRepN
+  sfromR @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . flip Nested.rcastToShaped knownShS . unRepN
+  sfromX @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . flip Nested.mcastToShaped knownShS . unRepN
+  xfromK = RepN . Nested.mscalar . unRepN
+  xfromR @sh @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.rcastToMixed (knownShX @sh) . unRepN
+  xfromS @_ @sh' @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . Nested.scastToMixed (knownShX @sh') . unRepN
+
+  xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)
+                       , Refl <- lemRankReplicate (SNat @m) =
+    RepN
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing) (RepORArray x)))
+        (Nested.CastXX (Nested.CastXR Nested.CastId))
+    . Nested.mnest sh
+    . unRepN
+  xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (knownSTK @x) =
+    RepN
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Mixed (MapJust sh2) (RepORArray x)))
+        (Nested.CastXX (Nested.CastXS Nested.CastId))
+    . Nested.mnest sh
+    . unRepN
+  xnest @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
+    RepN . Nested.mnest sh . unRepN
+  xunNestR @sh1 @m @x | Dict <- eltDictRep (knownSTK @x) =
+    RepN
+    . Nested.munNest
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Ranked m (RepORArray x)))
+        (Nested.CastXX (Nested.CastRX Nested.CastId))
+    . unRepN
+  xunNestS @sh1 @sh2 @x | Dict <- eltDictRep (knownSTK @x) =
+    RepN
+    . Nested.munNest
+    . Nested.castCastable
+        @(Nested.Mixed sh1 (Nested.Shaped sh2 (RepORArray x)))
+        (Nested.CastXX (Nested.CastSX Nested.CastId))
+    . unRepN
+  xunNest = RepN . Nested.munNest . unRepN
 
 
 -- * MapAccum internal definitions

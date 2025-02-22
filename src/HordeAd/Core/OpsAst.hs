@@ -596,14 +596,91 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kfromIntegral = fromPrimal . astFromIntegralK . primalPart
   kcast = astCastK
 
-  tfromS _ zstk = astFromS zstk
+  -- General operations that don't require LetTensor nor ShareTensor
+  tftk _stk = ftkAst
+  tconcrete ftk a = fromPrimal $ astConcrete (RepF ftk a)
+  tpair t1 t2 = astPair t1 t2
+  tproject1 = astProject1
+  tproject2 = astProject2
+  tunpairDup t = (tproject1 t, tproject2 t)
+  tsreplicate sh = astReplicate SNat (STKS sh knownSTK)
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
+  tstranspose perm = astTransposeS perm
+  tsreshape sh = astReshapeS sh
+  tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
+    astMapAccumRDer k bShs eShs f df rf acc0 es
+  tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
+    astMapAccumLDer k bShs eShs f df rf acc0 es
+  tApply t ll = astApply t ll
+  tlambda shss f =
+    let (var, ast) = funToAst shss $ \ !ll -> unHFun f ll
+    in AstLambda (var, shss, ast)
+  tcond _ !b !u !v = astCond b u v
+  tprimalPart t = primalPart t
+  tdualPart _ t = dualPart t
+  tfromPrimal _ t = fromPrimal t
+  tfromDual t = fromDual t
+  -- TODO: (still) relevant?
+  -- In this instance, these three ops are only used for some rare tests that
+  -- use the non-symbolic pipeline to compute a symbolic
+  -- value of the derivative at a particular fixed input.
+  trev ftkx f _zstk =
+    -- we don't have an AST constructor to hold it, so we compute
+    --
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
+    let -- No bangs here, because this goes under lambda and may be unneeded
+        -- or even incorrect (and so, e.g., trigger
+        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
+        -- should be taken of spans other than PrimalSpan)
+        (AstArtifactRev _varDt var gradient _primal, _delta) =
+          revProduceArtifact False (unHFun f) emptyEnv ftkx
+        (varP, ast) = funToAst ftkx $ \ !astP ->
+          astLet var astP
+          $ simplifyInline gradient
+    in AstLambda (varP, ftkx, ast)
+  trevDt ftkx f =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
+    let (AstArtifactRev varDt var gradient primal, _delta) =
+          revProduceArtifact True (unHFun f) emptyEnv ftkx
+        ftkz = adFTK $ ftkAst primal
+        ftk2 = FTKProduct ftkz ftkx
+        (varP, ast) = funToAst ftk2 $ \ !astP ->
+          astLet varDt (astProject1 astP)
+          $ astLet var (astProject2 astP)
+          $ simplifyInline gradient
+    in AstLambda (varP, ftk2, ast)
+  tfwd ftkx f =
+    -- This computes the (AST of) derivative of f once and interprets it again
+    -- for each new tensor of arguments, which is better than computing it anew.
+    let (AstArtifactFwd varDs var derivative _primal, _delta) =
+          fwdProduceArtifact (unHFun f) emptyEnv ftkx
+        ftk2 = FTKProduct (adFTK ftkx) ftkx
+        (varP, ast) = funToAst ftk2 $ \ !astP ->
+          astLet varDs (astProject1 astP)
+          $ astLet var (astProject2 astP)
+          $ simplifyInline derivative
+    in AstLambda (varP, ftk2, ast)
 
-  -- Conversions
+instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
+  tfromS _ zstk = astFromS zstk
+  rfromX a = case ftkAst a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        rfromS $ sfromX @_ @sh a
+  xfromR a = case ftkAst a of
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        xfromS @_ @sh $ sfromR a
+
   sfromK = astSFromK
   sfromR = astSFromR knownShS
   sfromX = astSFromX knownShS
 
-  -- Nesting/unnesting
   xnestR @sh1' @m @x sh1' a = case ftkAst a of
     FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
       withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
@@ -685,74 +762,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
              :: AstTensor AstMethodLet s (TKX2 sh1' (TKX2 sh2' x))
              -> AstTensor AstMethodLet s (TKX2 sh1' (TKS2 sh2 x)))
             a
-
-  -- General operations that don't require LetTensor nor ShareTensor
-  tftk _stk = ftkAst
-  tconcrete ftk a = fromPrimal $ astConcrete (RepF ftk a)
-  tpair t1 t2 = astPair t1 t2
-  tproject1 = astProject1
-  tproject2 = astProject2
-  tunpairDup t = (tproject1 t, tproject2 t)
-  tsreplicate sh = astReplicate SNat (STKS sh knownSTK)
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
-  tstranspose perm = astTransposeS perm
-  tsreshape sh = astReshapeS sh
-  tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
-    astMapAccumRDer k bShs eShs f df rf acc0 es
-  tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
-    astMapAccumLDer k bShs eShs f df rf acc0 es
-  tApply t ll = astApply t ll
-  tlambda shss f =
-    let (var, ast) = funToAst shss $ \ !ll -> unHFun f ll
-    in AstLambda (var, shss, ast)
-  tcond _ !b !u !v = astCond b u v
-  tprimalPart t = primalPart t
-  tdualPart _ t = dualPart t
-  tfromPrimal _ t = fromPrimal t
-  tfromDual t = fromDual t
-  -- TODO: (still) relevant?
-  -- In this instance, these three ops are only used for some rare tests that
-  -- use the non-symbolic pipeline to compute a symbolic
-  -- value of the derivative at a particular fixed input.
-  trev ftkx f _zstk =
-    -- we don't have an AST constructor to hold it, so we compute
-    --
-    -- This computes the (AST of) derivative of f once and interprets it again
-    -- for each new tensor of arguments, which is better than computing it anew.
-    let -- No bangs here, because this goes under lambda and may be unneeded
-        -- or even incorrect (and so, e.g., trigger
-        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
-        -- should be taken of spans other than PrimalSpan)
-        (AstArtifactRev _varDt var gradient _primal, _delta) =
-          revProduceArtifact False (unHFun f) emptyEnv ftkx
-        (varP, ast) = funToAst ftkx $ \ !astP ->
-          astLet var astP
-          $ simplifyInline gradient
-    in AstLambda (varP, ftkx, ast)
-  trevDt ftkx f =
-    -- This computes the (AST of) derivative of f once and interprets it again
-    -- for each new tensor of arguments, which is better than computing it anew.
-    let (AstArtifactRev varDt var gradient primal, _delta) =
-          revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = adFTK $ ftkAst primal
-        ftk2 = FTKProduct ftkz ftkx
-        (varP, ast) = funToAst ftk2 $ \ !astP ->
-          astLet varDt (astProject1 astP)
-          $ astLet var (astProject2 astP)
-          $ simplifyInline gradient
-    in AstLambda (varP, ftk2, ast)
-  tfwd ftkx f =
-    -- This computes the (AST of) derivative of f once and interprets it again
-    -- for each new tensor of arguments, which is better than computing it anew.
-    let (AstArtifactFwd varDs var derivative _primal, _delta) =
-          fwdProduceArtifact (unHFun f) emptyEnv ftkx
-        ftk2 = FTKProduct (adFTK ftkx) ftkx
-        (varP, ast) = funToAst ftk2 $ \ !astP ->
-          astLet varDs (astProject1 astP)
-          $ astLet var (astProject2 astP)
-          $ simplifyInline derivative
-    in AstLambda (varP, ftk2, ast)
 
 
 -- * AstRaw instances
@@ -1205,9 +1214,54 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                   . primalPart . unAstRaw
   kcast = AstRaw . AstCastK . unAstRaw
 
-  tfromS _ zstk (AstRaw a) = AstRaw $ AstFromS zstk a
+  -- General operations that don't require LetTensor nor ShareTensor
+  tftk _stk = ftkAst . unAstRaw
+  tconcrete ftk a = AstRaw $ fromPrimal $ AstConcrete (RepF ftk a)
+  tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
+  tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
+  tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
+  tsreplicate sh = AstRaw . AstReplicate SNat (STKS sh knownSTK) . unAstRaw
+  stranspose @perm = tstranspose (Permutation.makePerm @perm)
+    -- this is needed only to help GHC 9.10 compile the instance
+  tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
+  tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
+  tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
+      AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
+  tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
+      AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
+  tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
+  tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
+  tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
+  tprimalPart t = AstRaw $ primalPart $ unAstRaw t
+  tdualPart _ t = dualPart $ unAstRaw t
+  tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
+  tfromDual t = AstRaw $ fromDual t
+  -- TODO: (still) relevant?
+  -- In this instance, these two ops are only used for some rare tests that
+  -- use the non-symbolic pipeline to compute a symbolic
+  -- value of the derivative at a particular fixed input.
+  --
+  -- TODO: dupe?
+  -- These three methods are called at this type in delta evaluation via
+  -- tmapAccumR and tmapAccumL, they have to work. We could refrain from
+  -- simplifying the resulting terms, but it's not clear that's more consistent.
+  trev = trev @(AstTensor AstMethodLet PrimalSpan)
+  trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
+  tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
-  -- Conversions
+instance AstSpan s => ConvertTensor (AstRaw s) where
+  tfromS _ zstk (AstRaw a) = AstRaw $ AstFromS zstk a
+  rfromX a = case ftkAst $ unAstRaw a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        rfromS $ sfromX @_ @sh a
+  xfromR a = case ftkAst $ unAstRaw a of
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        xfromS @_ @sh $ sfromR a
+
   kfromS = AstRaw . AstFromS knownSTK . unAstRaw
   rfromS @sh @x | SNat <- shsRank (knownShS @sh) =
     AstRaw . AstFromS (knownSTK @(TKR2 (Rank sh) x)) . unAstRaw
@@ -1216,7 +1270,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
   xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
 
-  -- Nesting/unnesting
   xnestR @sh1' @m @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
       withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
@@ -1298,41 +1351,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
              :: AstTensor AstMethodShare s (TKX2 sh1' (TKX2 sh2' x))
              -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
             a
-
-  -- General operations that don't require LetTensor nor ShareTensor
-  tftk _stk = ftkAst . unAstRaw
-  tconcrete ftk a = AstRaw $ fromPrimal $ AstConcrete (RepF ftk a)
-  tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
-  tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
-  tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  tsreplicate sh = AstRaw . AstReplicate SNat (STKS sh knownSTK) . unAstRaw
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
-  tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
-  tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
-  tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
-      AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
-  tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
-      AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
-  tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
-  tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
-  tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
-  tprimalPart t = AstRaw $ primalPart $ unAstRaw t
-  tdualPart _ t = dualPart $ unAstRaw t
-  tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
-  tfromDual t = AstRaw $ fromDual t
-  -- TODO: (still) relevant?
-  -- In this instance, these two ops are only used for some rare tests that
-  -- use the non-symbolic pipeline to compute a symbolic
-  -- value of the derivative at a particular fixed input.
-  --
-  -- TODO: dupe?
-  -- These three methods are called at this type in delta evaluation via
-  -- tmapAccumR and tmapAccumL, they have to work. We could refrain from
-  -- simplifying the resulting terms, but it's not clear that's more consistent.
-  trev = trev @(AstTensor AstMethodLet PrimalSpan)
-  trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
-  tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
 
 -- * AstNoVectorize instances
@@ -1449,21 +1467,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
   kcast = AstNoVectorize . kcast . unAstNoVectorize
 
-  tfromS ystk zstk = AstNoVectorize . tfromS ystk zstk . unAstNoVectorize
-
-  -- Conversions
-  sfromK = AstNoVectorize . sfromK . unAstNoVectorize
-  sfromR = AstNoVectorize . sfromR . unAstNoVectorize
-  sfromX = AstNoVectorize . sfromX . unAstNoVectorize
-
-  -- Nesting/unnesting
-  xnestR sh = AstNoVectorize . xnestR sh . unAstNoVectorize
-  xnestS sh = AstNoVectorize . xnestS sh . unAstNoVectorize
-  xnest sh = AstNoVectorize . xnest sh . unAstNoVectorize
-  xunNestR = AstNoVectorize . xunNestR . unAstNoVectorize
-  xunNestS = AstNoVectorize . xunNestS . unAstNoVectorize
-  xunNest = AstNoVectorize . xunNest . unAstNoVectorize
-
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . unAstNoVectorize
   tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
@@ -1496,6 +1499,22 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   trev = trev @(AstTensor AstMethodLet PrimalSpan)
   trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
+
+instance AstSpan s => ConvertTensor (AstNoVectorize s) where
+  tfromS ystk zstk = AstNoVectorize . tfromS ystk zstk . unAstNoVectorize
+  rfromX = AstNoVectorize . rfromX . unAstNoVectorize
+  xfromR = AstNoVectorize . xfromR . unAstNoVectorize
+
+  sfromK = AstNoVectorize . sfromK . unAstNoVectorize
+  sfromR = AstNoVectorize . sfromR . unAstNoVectorize
+  sfromX = AstNoVectorize . sfromX . unAstNoVectorize
+
+  xnestR sh = AstNoVectorize . xnestR sh . unAstNoVectorize
+  xnestS sh = AstNoVectorize . xnestS sh . unAstNoVectorize
+  xnest sh = AstNoVectorize . xnest sh . unAstNoVectorize
+  xunNestR = AstNoVectorize . xunNestR . unAstNoVectorize
+  xunNestS = AstNoVectorize . xunNestS . unAstNoVectorize
+  xunNest = AstNoVectorize . xunNest . unAstNoVectorize
 
 
 -- * AstNoSimplify instances
@@ -1670,21 +1689,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   kfromIntegral = wAstNoSimplify . kfromIntegral . wunAstNoSimplify
   kcast = wAstNoSimplify . kcast . wunAstNoSimplify
 
-  tfromS _ zstk = AstNoSimplify . AstFromS zstk . unAstNoSimplify
-
-  -- Conversions
-  sfromK = wAstNoSimplify . sfromK . wunAstNoSimplify
-  sfromR = wAstNoSimplify . sfromR . wunAstNoSimplify
-  sfromX = wAstNoSimplify . sfromX . wunAstNoSimplify
-
-  -- Nesting/unnesting
-  xnestR sh = wAstNoSimplify . xnestR sh . wunAstNoSimplify
-  xnestS sh = wAstNoSimplify . xnestS sh . wunAstNoSimplify
-  xnest sh = wAstNoSimplify . xnest sh . wunAstNoSimplify
-  xunNestR = wAstNoSimplify . xunNestR . wunAstNoSimplify
-  xunNestS = wAstNoSimplify . xunNestS . wunAstNoSimplify
-  xunNest = wAstNoSimplify . xunNest . wunAstNoSimplify
-
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . wunAstNoSimplify
   tconcrete ftk a = wAstNoSimplify $ tconcrete ftk a
@@ -1711,3 +1715,19 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   trev = trev @(AstRaw PrimalSpan)
   trevDt = trevDt @(AstRaw PrimalSpan)
   tfwd = tfwd @(AstRaw PrimalSpan)
+
+instance AstSpan s => ConvertTensor (AstNoSimplify s) where
+  tfromS _ zstk = AstNoSimplify . AstFromS zstk . unAstNoSimplify
+  rfromX = wAstNoSimplify . rfromX . wunAstNoSimplify
+  xfromR = wAstNoSimplify . xfromR . wunAstNoSimplify
+
+  sfromK = wAstNoSimplify . sfromK . wunAstNoSimplify
+  sfromR = wAstNoSimplify . sfromR . wunAstNoSimplify
+  sfromX = wAstNoSimplify . sfromX . wunAstNoSimplify
+
+  xnestR sh = wAstNoSimplify . xnestR sh . wunAstNoSimplify
+  xnestS sh = wAstNoSimplify . xnestS sh . wunAstNoSimplify
+  xnest sh = wAstNoSimplify . xnest sh . wunAstNoSimplify
+  xunNestR = wAstNoSimplify . xunNestR . wunAstNoSimplify
+  xunNestS = wAstNoSimplify . xunNestS . wunAstNoSimplify
+  xunNest = wAstNoSimplify . xunNest . wunAstNoSimplify

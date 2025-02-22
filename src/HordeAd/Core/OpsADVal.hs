@@ -334,24 +334,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     in fromPrimalADVal v
   kcast (D u u') = dD (kcast u) (DeltaCastK u')
 
-  -- This avoids product eta-expansions for AST instance primal,
-  -- though contangent expands anyway.
-  tfromS ystk zstk (D u u') =
-    dDnotShared (tfromS ystk zstk u) (dFromS zstk u')
-
-  -- Conversions
-  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
-  sfromR (D u u') = dDnotShared (sfromR u) (dSFromR knownShS u')
-  sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
-
-  -- Nesting/unnesting
-  xnestR sh1 (D u u') = dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
-  xnestS sh1 (D u u') = dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')
-  xnest sh1 (D u u') = dD (xnest sh1 u) (DeltaXNest sh1 knownShX u')
-  xunNestR (D u u') = dD (xunNestR u) (DeltaXUnNestR u')
-  xunNestS (D u u') = dD (xunNestS u) (DeltaXUnNestS u')
-  xunNest (D u u') = dD (xunNest u) (DeltaXUnNest u')
-
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk (D u _) = tftk stk u
   tconcrete ftk t | Dict <- lemKnownSTK (ftkToSTK ftk) =
@@ -539,3 +521,33 @@ instance ( ADReadyNoLet target, ShareTensor target
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject1 da_aShared)
     in HFun df
+
+instance ( ADReadyNoLet target, ShareTensor target
+         , ShareTensor (PrimalOf target) )
+         => ConvertTensor (ADVal target) where
+  -- This avoids product eta-expansions for AST instance primal,
+  -- though contangent expands anyway.
+  tfromS ystk zstk (D u u') =
+    dDnotShared (tfromS ystk zstk u) (dFromS zstk u')
+  rfromX a = case tftk knownSTK a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        rfromS $ sfromX @_ @sh a
+  xfromR @sh' @r a =
+   case tftk (STKR (ssxRank (knownShX @sh')) (knownSTK @r)) a of
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        xfromS @_ @sh $ sfromR a
+
+  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
+  sfromR (D u u') = dDnotShared (sfromR u) (dSFromR knownShS u')
+  sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
+
+  xnestR sh1 (D u u') = dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
+  xnestS sh1 (D u u') = dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')
+  xnest sh1 (D u u') = dD (xnest sh1 u) (DeltaXNest sh1 knownShX u')
+  xunNestR (D u u') = dD (xunNestR u) (DeltaXUnNestR u')
+  xunNestS (D u u') = dD (xunNestS u) (DeltaXUnNestS u')
+  xunNest (D u u') = dD (xunNest u) (DeltaXUnNest u')
