@@ -21,7 +21,7 @@ import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent.
 sgd :: forall a x z. (KnownSTK x, KnownSTK z)
-    => Double
+    => Double  -- ^ gamma (learning_rate?)
     -> (a -> ADVal RepN x -> ADVal RepN z)
     -> [a]  -- ^ training data
     -> RepN x  -- ^ initial parameters
