@@ -216,13 +216,6 @@ class LetTensor (target :: Target) where
       tlet a $ \ !aShared -> tlet b $ \ !bShared ->
         tpair (tappend msnat nsnat stk1 (tproject1 aShared) (tproject1 bShared))
               (tappend msnat nsnat stk2 (tproject2 aShared) (tproject2 bShared))
-  -- The semantics for products is element-wise and for others it's either
-  -- identity or the domain is shaped and tfromS type-casts to the codomain
-  -- by hiding some (or none) type information (so the codomain has to be
-  -- a "subtype" of the domain) or error.
-  -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
-  tfromS :: BaseTensor target
-         => STensorKind y -> STensorKind z -> target y -> target z
   tD :: BaseTensor target
      => STensorKind y -> PrimalOf target y -> DualOf target y
      -> target y
@@ -418,8 +411,6 @@ class ShareTensor (target :: Target) where
       let (u1, u2) = tunpair u
       in tpair (tindexBuildShare snat stk1 u1 i)
                (tindexBuildShare snat stk2 u2 i)
-  tfromSShare :: BaseTensor target
-              => STensorKind y -> STensorKind z -> target y -> target z
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -1373,6 +1364,14 @@ class ( Num (IntOf target)
                 => target (TKScalar r1) -> target (TKScalar r2)
   kcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
         => target (TKScalar r1) -> target (TKScalar r2)
+
+  -- The semantics for products is element-wise and for others it's either
+  -- identity or the domain is shaped and tfromS type-casts to the codomain
+  -- by hiding some (or none) type information (so the codomain has to be
+  -- a "subtype" of the domain) or error.
+  -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
+  tfromS :: BaseTensor target
+         => STensorKind y -> STensorKind z -> target y -> target z
 
   -- Conversions
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)

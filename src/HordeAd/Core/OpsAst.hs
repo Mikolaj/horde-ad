@@ -182,7 +182,6 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> unshareAstTensor . unAstRaw
       _ -> error "tunshare: used not at PrimalSpan"
-  tfromS _ zstk = astFromS zstk
 
 -- The checks and error messages in these function result in complete
 -- shape-checking of the ranked and mixed user code (shaped is already
@@ -597,6 +596,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   kfromIntegral = fromPrimal . astFromIntegralK . primalPart
   kcast = astCastK
 
+  tfromS _ zstk = astFromS zstk
+
   -- Conversions
   sfromK = astSFromK
   sfromR = astSFromR knownShS
@@ -771,7 +772,6 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
-  tfromSShare _ zstk (AstRaw a) = AstRaw $ AstFromS zstk a
 
 instance AstSpan s => BaseTensor (AstRaw s) where
   tconstantTarget = constantTarget
@@ -1205,6 +1205,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                   . primalPart . unAstRaw
   kcast = AstRaw . AstCastK . unAstRaw
 
+  tfromS _ zstk (AstRaw a) = AstRaw $ AstFromS zstk a
+
   -- Conversions
   kfromS = AstRaw . AstFromS knownSTK . unAstRaw
   rfromS @sh @x | SNat <- shsRank (knownShS @sh) =
@@ -1340,7 +1342,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
              $ tlet (unAstNoVectorize u)
                     (unAstNoVectorize . f . AstNoVectorize)
   toShare t = toShare $ unAstNoVectorize t
-  tfromS ystk zstk = AstNoVectorize . tfromS ystk zstk . unAstNoVectorize
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tconstantTarget r ftk = AstNoVectorize $ tconstantTarget r ftk
@@ -1448,6 +1449,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
   kcast = AstNoVectorize . kcast . unAstNoVectorize
 
+  tfromS ystk zstk = AstNoVectorize . tfromS ystk zstk . unAstNoVectorize
+
   -- Conversions
   sfromK = AstNoVectorize . sfromK . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
@@ -1533,7 +1536,6 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
              $ astLetFunNoSimplify (unAstNoSimplify u)
                                    (unAstNoSimplify . f . AstNoSimplify)
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
-  tfromS _ zstk = AstNoSimplify . AstFromS zstk . unAstNoSimplify
 
 wAstNoSimplify :: AstRaw s y -> AstNoSimplify s y
 wAstNoSimplify =
@@ -1667,6 +1669,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   kfloor = wAstNoSimplify . kfloor . wunAstNoSimplify
   kfromIntegral = wAstNoSimplify . kfromIntegral . wunAstNoSimplify
   kcast = wAstNoSimplify . kcast . wunAstNoSimplify
+
+  tfromS _ zstk = AstNoSimplify . AstFromS zstk . unAstNoSimplify
 
   -- Conversions
   sfromK = wAstNoSimplify . sfromK . wunAstNoSimplify

@@ -982,7 +982,7 @@ evalFwd params s d0 = case d0 of
       evalFwd params s d
   DeltaFromS stk d ->
     let stk2 = ftkToSTK $ ftkDelta d
-    in second (tfromSShare (adSTK stk2) (adSTK stk)) $ evalFwd params s d
+    in second (tfromS (adSTK stk2) (adSTK stk)) $ evalFwd params s d
 
   _ -> case ftkDelta d0 of
     y -> case matchingFTK y (adFTK y) of
