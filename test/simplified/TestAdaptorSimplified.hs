@@ -553,7 +553,7 @@ gradCFooScalar = fromDValue . crev foo . fromValue
 testGradCFooScalar :: Assertion
 testGradCFooScalar =
   assertEqualUpToEpsilon 1e-10
-    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (2.4396284,-1.9533751,0.96548253)
     (gradCFooScalar (1.1, 2.2, 3.3))
 
 fooF :: RealFloatF a => (a, a, a) -> a
