@@ -42,10 +42,7 @@ class AdaptableTarget (target :: Target) vals where
   toTarget :: vals -> target (X vals)
     -- ^ represent a collection of tensors
   fromTarget :: target (X vals) -> vals
-    -- ^ recovers a collection of tensors from its canonical representation,
-    -- using the general shape recorded in another collection of the same type;
-    -- the remaining data may be used in a another structurally recursive
-    -- call working on the same data to build a larger compound collection
+    -- ^ recovers a collection of tensors from its canonical representation
 
 class TermValue vals where
   type Value vals = result | result -> vals
@@ -75,6 +72,23 @@ class RandomValue vals where
 
 
 -- * Base instances
+
+-- TODO: these instances are messy and hard to use
+instance DualNumberValue Double where
+  type DValue Double = RepN (TKScalar Double)
+  fromDValue (RepN d) = d
+
+instance DualNumberValue Float where
+  type DValue Float = RepN (TKScalar Float)
+  fromDValue (RepN d) = d
+
+instance TermValue (RepN (TKScalar Double)) where
+  type Value (RepN (TKScalar Double)) = Double
+  fromValue = RepN
+
+instance TermValue (RepN (TKScalar Float)) where
+  type Value (RepN (TKScalar Float)) = Float
+  fromValue = RepN
 
 instance AdaptableTarget target (target y) where
 {-

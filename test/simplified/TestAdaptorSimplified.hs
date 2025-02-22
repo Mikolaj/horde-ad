@@ -31,6 +31,7 @@ import Data.Array.Nested
 import Data.Array.Nested qualified as Nested
 
 import HordeAd
+import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
 import HordeAd.Core.DeltaFreshId (resetIdCounter)
@@ -77,6 +78,8 @@ testTrees =
   , testCase "2overleafCIntToFloatp" testOverleafCIntToFloatp
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
+  , testCase "2fooGrad" testGradFooScalar
+  , testCase "2fooGradC" testGradCFooScalar
   , testCase "2fooS" testFooS
   , testCase "2fooSToFloat" testFooSToFloat
   , testCase "2fooSBoth" testFooSBoth
@@ -526,17 +529,37 @@ foo (x, y, z) =
   let w = x * sin y
   in atan2F z w + z * w
 
-fooF :: RealFloatF a => (a, a, a) -> a
-fooF (x, y, z) =
-  let w = x * sin y
-  in atan2F z w + z * w
-
 testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
     (rev @_ @(TKR 0 Double)
          foo (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+
+gradFooScalar :: forall r. r ~ Double
+              => (r, r, r) -> (r, r, r)
+gradFooScalar = fromDValue . rev foo . fromValue
+
+testGradFooScalar :: Assertion
+testGradFooScalar =
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (gradFooScalar (1.1, 2.2, 3.3))
+
+gradCFooScalar :: forall r. r ~ Float
+               => (r, r, r) -> (r, r, r)
+gradCFooScalar = fromDValue . crev foo . fromValue
+
+testGradCFooScalar :: Assertion
+testGradCFooScalar =
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (gradCFooScalar (1.1, 2.2, 3.3))
+
+fooF :: RealFloatF a => (a, a, a) -> a
+fooF (x, y, z) =
+  let w = x * sin y
+  in atan2F z w + z * w
 
 testFooS :: Assertion
 testFooS = do

@@ -94,7 +94,7 @@ revDtMaybe
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Maybe (RepN (ADTensorKind z))
-  -> Value astvals  -- morally (ADTensorKind astvals)
+  -> Value astvals  -- morally Value (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
@@ -278,7 +278,7 @@ crevDtEither
   => (advals -> ADVal RepN z)
   -> DValue advals
   -> Either (STensorKind z) (RepN (ADTensorKind z))
-  -> DValue advals  -- morally (ADTensorKind advals)
+  -> DValue advals  -- morally DValue (ADTensorKind advals)
 {-# INLINE crevDtEither #-}
 crevDtEither f vals edt =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
