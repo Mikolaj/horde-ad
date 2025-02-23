@@ -781,9 +781,11 @@ tindex0R v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   let ix = fmap unRepN ixRepN
   in case tftk knownSTK v of
     FTKR sh x ->
-     if ixInBounds (toList ix) (toList sh)
-     then rscalar $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
-     else constantTarget def (FTKR ZSR x)
+      if ixInBounds (toList ix) (toList sh)
+      then let arr = Nested.rscalar
+                     $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
+           in tconcrete (FTKR ZSR x) (RepN arr)
+      else constantTarget def (FTKR ZSR x)
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -1071,7 +1073,9 @@ tindex0S v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   in case tftk knownSTK v of
     FTKS sh x ->
       if ixInBounds (toList ix) (toList sh)
-      then sscalar $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
+      then let arr = Nested.sscalar
+                     $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
+           in tconcrete (FTKS ZSS x) (RepN arr)
       else constantTarget def (FTKS ZSS x)
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
@@ -1288,7 +1292,9 @@ tindex0X v ixRepN | Dict <- eltDictRep (knownSTK @r) =
   in case tftk knownSTK v of
     FTKX sh x ->
       if ixInBounds (toList ix) (toList sh)
-      then xscalar $ Nested.mindex (unRepN v) (fmap fromIntegral ix)
+      then let arr = Nested.mscalar
+                     $ Nested.mindex (unRepN v) (fmap fromIntegral ix)
+           in tconcrete (FTKX ZSX x) (RepN arr)
       else constantTarget def (FTKX ZSX x)
 
 tmatmul2X

@@ -473,7 +473,8 @@ class ( Num (IntOf target)
                     -> target (TKR2 n r)
   rfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
     if V.null v
-    then rreshape sh $ rconcrete Nested.remptyArray
+    then let arr = Nested.remptyArray
+         in rreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else rreshape sh $ rfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
@@ -570,8 +571,8 @@ class ( Num (IntOf target)
   rgather1 k v f = rgather @target @r @1
                            (k :$: dropShape (rshape v)) v
                            (\(i :.: ZIR) -> f i)
-  rconcrete :: (KnownSTK r, KnownNat n)
-            => Nested.Ranked n (RepORArray r) -> target (TKR2 n r)
+  rconcrete :: (GoodScalar r, KnownNat n)
+            => Nested.Ranked n r -> target (TKR n r)
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
          => target (TKR n r) -> target (TKR n r2)
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
@@ -751,7 +752,8 @@ class ( Num (IntOf target)
                       , SNat <- shsProduct (knownShS @sh) =
     if V.null v
     then gcastWith (unsafeCoerceRefl :: Nested.Product sh :~: 0) $
-         sreshape $ sconcrete $ Nested.semptyArray ZSS
+         let arr = Nested.semptyArray ZSS
+         in sreshape $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else sreshape @_ @r @'[Nested.Product sh] @sh $ sfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
@@ -851,8 +853,8 @@ class ( Num (IntOf target)
     -> (IntOf target -> IxSOf target shp)
     -> target (TKS2 (n2 ': shn) r)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
-  sconcrete :: (KnownSTK r, KnownShS sh)
-            => Nested.Shaped sh (RepORArray r) -> target (TKS2 sh r)
+  sconcrete :: GoodScalar r
+            => Nested.Shaped sh r -> target (TKS sh r)
   sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShS sh)
          => target (TKS sh r) -> target (TKS sh r2)
     -- the integer can be negative
@@ -1114,7 +1116,8 @@ class ( Num (IntOf target)
                     -> target (TKX2 sh r)
   xfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
     if V.null v
-    then xreshape sh $ xconcrete $ Nested.memptyArray ZSX
+    then let arr = Nested.memptyArray ZSX
+         in xreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else withSNat (shxSize sh) $ \(SNat @n) ->
            xreshape @_ @_ @'[Just n] sh $ xfromVector v
   -- | Warning: during computation, sharing between the elements
@@ -1235,8 +1238,8 @@ class ( Num (IntOf target)
     xgather @target @r @'[Just n2]
             (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
             (\(i :.% ZIX) -> f i)
-  xconcrete :: (KnownSTK r, KnownShX sh)
-            => Nested.Mixed sh (RepORArray r) -> target (TKX2 sh r)
+  xconcrete :: (GoodScalar r, KnownShX sh)
+            => Nested.Mixed sh r -> target (TKX sh r)
   xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShX sh)
          => target (TKX sh r) -> target (TKX sh r2)
   xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
@@ -1354,15 +1357,16 @@ class ( Num (IntOf target)
   tconcrete :: FullTensorKind y -> RepN y -> target y
   tconcrete ftk (RepN a) = case (ftk, ftkToSTK ftk) of
     (FTKScalar, _) -> kconcrete a
-    (FTKR{}, STKR SNat x) | Dict <- lemKnownSTK x ->
+    (FTKR{}, STKR SNat STKScalar) ->
       rconcrete a
-    (FTKS{}, STKS sh x) | Dict <- lemKnownSTK x ->
+    (FTKS{}, STKS sh STKScalar) ->
       withKnownShS sh $ sconcrete a
-    (FTKX{}, STKX sh x) | Dict <- lemKnownSTK x ->
+    (FTKX{}, STKX sh STKScalar) ->
       withKnownShX sh $ xconcrete a
     (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) | Dict <- lemKnownSTK stk1
                                                  , Dict <- lemKnownSTK stk2 ->
       tpair (tconcrete ftk1 (RepN $ fst a)) (tconcrete ftk2 (RepN $ snd a))
+    _ -> error "TODO"
   tpair :: target x -> target z -> target (TKProduct x z)
   tproject1 :: target (TKProduct x z) -> target x
   tproject2 :: target (TKProduct x z) -> target z
@@ -1835,9 +1839,9 @@ tunit :: BaseTensor target
       => target TKUnit
 tunit = kconcrete Z0
 
-rscalar :: forall r target. (KnownSTK r, BaseTensor target)
-        => RepORArray r -> target (TKR2 0 r)
-rscalar r | Dict <- eltDictRep (knownSTK @r) =
+rscalar :: forall r target. (GoodScalar r, BaseTensor target)
+        => r -> target (TKR 0 r)
+rscalar r =
   let a = Nested.rscalar r
   in rconcrete a
 
@@ -1850,9 +1854,9 @@ ringestData :: forall n r target. (GoodScalar r, BaseTensor target)
 ringestData sh l =
   tconcrete (FTKR sh FTKScalar) (RepN $ Nested.rfromListPrimLinear sh l)
 
-sscalar :: forall r target. (KnownSTK r, BaseTensor target)
-        => RepORArray r -> target (TKS2 '[] r)
-sscalar r | Dict <- eltDictRep (knownSTK @r) =
+sscalar :: forall r target. (GoodScalar r, BaseTensor target)
+        => r -> target (TKS '[] r)
+sscalar r =
   let a = Nested.sscalar r
   in sconcrete a
 
@@ -1870,9 +1874,9 @@ singestData :: (KnownShS sh, GoodScalar r, BaseTensor target)
             => [r] -> target (TKS sh r)
 singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
-xscalar :: forall r target. (KnownSTK r, BaseTensor target)
-        => RepORArray r -> target (TKX2 '[] r)
-xscalar r | Dict <- eltDictRep (knownSTK @r) =
+xscalar :: forall r target. (GoodScalar r, BaseTensor target)
+        => r -> target (TKX '[] r)
+xscalar r =
   let a = Nested.mscalar r
   in xconcrete a
 

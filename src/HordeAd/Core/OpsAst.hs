@@ -377,7 +377,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sgather @_ @shm @shn @shp t f =
     astGatherStepS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
-  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
+  sconcrete a = tconcrete (tftkG (STKS (Nested.sshape a) STKScalar) a) (RepN a)
   sfloor = fromPrimal . AstFloorS . primalPart
   sfromIntegral = fromPrimal . astFromIntegralS . primalPart
   scast = astCastS
@@ -986,7 +986,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstGatherS @shm @shn @shp knownShS (unAstRaw t)
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
-  sconcrete a = tconcrete (tftkG (STKS knownShS knownSTK) a) (RepN a)
+  sconcrete a = tconcrete (tftkG (STKS (Nested.sshape a) STKScalar) a) (RepN a)
   sfloor = AstRaw . fromPrimal . AstFloorS . primalPart . unAstRaw
   sfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . primalPart . unAstRaw

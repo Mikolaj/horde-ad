@@ -197,7 +197,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   rbuild1 @r @n k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-        rconcrete Nested.remptyArray
+        let arr = Nested.remptyArray
+        in tconcrete (tftkG knownSTK arr) (RepN arr)
       Nothing -> error "rbuild1: shape ambiguity"
     Just l -> rfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
 
@@ -230,7 +231,8 @@ instance ( ADReadyNoLet target, ShareTensor target
           (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
   sconcrete a =
     let v = sconcrete a
-    in fromPrimalADVal v
+    in withKnownShS (Nested.sshape a) $
+       fromPrimalADVal v
   sfloor (D u _) =
     let v = sfloor u
     in fromPrimalADVal v
@@ -252,8 +254,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
   sbuild1 @k @_ @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing | Dict <- eltDictRep (knownSTK @r) ->
-      gcastWith (unsafeCoerceRefl :: k :~: 0) $
-      sconcrete $ Nested.semptyArray knownShS
+      let arr = Nested.semptyArray knownShS
+      in gcastWith (unsafeCoerceRefl :: k :~: 0) $
+         tconcrete (tftkG knownSTK arr) (RepN arr)
     Just l -> sfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
 
   -- Mixed ops
@@ -310,8 +313,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing -> case testEquality (knownShX @sh) ZKX of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-        gcastWith (unsafeCoerceRefl :: k :~: 0) $
-        xconcrete $ Nested.memptyArray ZSX
+        let arr = Nested.memptyArray ZSX
+        in gcastWith (unsafeCoerceRefl :: k :~: 0) $
+           tconcrete (tftkG knownSTK arr) (RepN arr)
       Nothing -> error "xbuild1: shape ambiguity"
     Just l -> xfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
 
