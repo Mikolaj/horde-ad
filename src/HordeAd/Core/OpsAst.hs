@@ -562,7 +562,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
   tproject2 = astProject2
-  tunpairDup t = (tproject1 t, tproject2 t)
   tsreplicate sh = astReplicate SNat (STKS sh knownSTK)
   stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
@@ -625,6 +624,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     in AstLambda (varP, ftk2, ast)
 
 instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
+  tunpairDup t = (tproject1 t, tproject2 t)
+
   rzip @y @z a = case ftkAst a of
     FTKProduct (FTKR sh' y) (FTKR _ z) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -1470,8 +1471,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tpair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ tproject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
-  tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
-                 in (AstNoVectorize b, AstNoVectorize c)
   tsreplicate sh = AstNoVectorize . tsreplicate sh. unAstNoVectorize
   stranspose @perm = tstranspose (Permutation.makePerm @perm)
     -- this is needed only to help GHC 9.10 compile the instance
@@ -1497,6 +1496,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
+  tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
+                 in (AstNoVectorize b, AstNoVectorize c)
+
   rzip = AstNoVectorize . rzip . unAstNoVectorize
   runzip = AstNoVectorize . runzip . unAstNoVectorize
   szip = AstNoVectorize . szip . unAstNoVectorize
@@ -1587,9 +1589,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify
     $ astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x))
                          (unAstNoSimplify . f . AstNoSimplify)
-  tunpairDup (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification
-    (AstNoSimplify t1, AstNoSimplify t2)
-  tunpairDup t = (tproject1 t, tproject2 t)
   -- These three have tricky types, so we repaat the AstRaw definitions:
   tcond _ !b !u !v =
     AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
@@ -1714,6 +1713,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tfwd = tfwd @(AstRaw PrimalSpan)
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where
+  tunpairDup (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification
+    (AstNoSimplify t1, AstNoSimplify t2)
+  tunpairDup t = (tproject1 t, tproject2 t)
+
   rzip = wAstNoSimplify . rzip . wunAstNoSimplify
   runzip = wAstNoSimplify . runzip . wunAstNoSimplify
   szip = wAstNoSimplify . szip . wunAstNoSimplify

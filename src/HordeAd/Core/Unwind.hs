@@ -282,7 +282,7 @@ unWindFTK = \case
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
-unWindTarget :: (BaseTensor target, ConvertTensor target)
+unWindTarget :: (ConvertTensor target)
              => STensorKind y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
   STKScalar -> WTKScalar t
@@ -332,7 +332,7 @@ unWindTarget stk t = case stk of
     let (t1, t2) = tunpairDup t
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
 
-windTarget :: (BaseTensor target, ConvertTensor target)
+windTarget :: (ConvertTensor target)
            => STensorKind y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
   (STKScalar, WTKScalar v) -> v
@@ -379,7 +379,7 @@ windTarget stk t = case (stk, t) of
   (STKX sh1 (STKProduct stk1 stk2), _) ->
     xzip $ windTarget (STKProduct (STKX sh1 stk1) (STKX sh1 stk2)) t
   (STKProduct stk1 stk2, WTKProduct t1 t2) ->
-    tpair (windTarget stk1 t1) (windTarget stk2 t2)
+    tpairConv (windTarget stk1 t1) (windTarget stk2 t2)
 
 
 -- * Operations defined using unwinding

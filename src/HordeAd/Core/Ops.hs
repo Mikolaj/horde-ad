@@ -1366,10 +1366,6 @@ class ( Num (IntOf target)
   tpair :: target x -> target z -> target (TKProduct x z)
   tproject1 :: target (TKProduct x z) -> target x
   tproject2 :: target (TKProduct x z) -> target z
-  tunpairDup :: target (TKProduct x z) -> (target x, target z)
-  default tunpairDup :: ShareTensor target
-                     => target (TKProduct x z) -> (target x, target z)
-  tunpairDup = tunpair
   -- These are not really general, but they take singletons at least.
   tsreplicate :: forall k sh x. (KnownNat k, KnownSTK x)
               => ShS sh -> target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
@@ -1625,6 +1621,16 @@ class ( Num (IntOf target)
                  -- [dx, x] |-> dz
 
 class ConvertTensor (target :: Target) where
+  tpairConv :: target x -> target z -> target (TKProduct x z)
+    -- a clone of tpair, to make this class independent of BaseTensor
+  default tpairConv :: BaseTensor target
+                    => target x -> target z -> target (TKProduct x z)
+  tpairConv = tpair
+  tunpairDup :: target (TKProduct x z) -> (target x, target z)
+  default tunpairDup :: ShareTensor target
+                     => target (TKProduct x z) -> (target x, target z)
+  tunpairDup = tunpair
+
   rzip :: forall y z n.
           target (TKProduct (TKR2 n y) (TKR2 n z))
        -> target (TKR2 n (TKProduct y z))
