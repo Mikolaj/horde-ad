@@ -194,8 +194,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   rreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
   rtranspose perm (D u u') = dD (rtranspose perm u) (DeltaTransposeR perm u')
   rreshape sh (D u u') = dD (rreshape sh u) (DeltaReshapeR sh u')
-  rzip (D u u') = dD (rzip u) (DeltaZipR u')
-  runzip (D u u') = dD (runzip u) (DeltaUnzipR u')
   rbuild1 @r @n k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
@@ -252,9 +250,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
-
-  szip (D u u') = dD (szip u) (DeltaZipS u')
-  sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
   sbuild1 @k @_ @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing | Dict <- eltDictRep (knownSTK @r) ->
       gcastWith (unsafeCoerceRefl :: k :~: 0) $
@@ -312,8 +307,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   xtranspose @perm (D u u') =
     dD (xtranspose @_ @perm u) (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
   xreshape sh (D u u') = dD (xreshape sh u) (DeltaReshapeX sh u')
-  xzip (D u u') = dD (xzip u) (DeltaZipX u')
-  xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
   xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing -> case testEquality (knownShX @sh) ZKX of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
@@ -525,6 +518,13 @@ instance ( ADReadyNoLet target, ShareTensor target
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => ConvertTensor (ADVal target) where
+  rzip (D u u') = dD (rzip u) (DeltaZipR u')
+  runzip (D u u') = dD (runzip u) (DeltaUnzipR u')
+  szip (D u u') = dD (szip u) (DeltaZipS u')
+  sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
+  xzip (D u u') = dD (xzip u) (DeltaZipX u')
+  xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
+
   -- This avoids product eta-expansions for AST instance primal,
   -- though contangent expands anyway.
   tfromS ystk zstk (D u u') =

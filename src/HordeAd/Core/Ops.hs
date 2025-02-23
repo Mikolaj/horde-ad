@@ -607,12 +607,6 @@ class ( Num (IntOf target)
   rflatten u = rreshape (rsize u :$: ZSR) u
   rreshape :: forall r n m. KnownSTK r
            => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
-  rzip :: forall y z n.
-          target (TKProduct (TKR2 n y) (TKR2 n z))
-       -> target (TKR2 n (TKProduct y z))
-  runzip :: forall y z n.
-            target (TKR2 n (TKProduct y z))
-         -> target (TKProduct (TKR2 n y) (TKR2 n z))
 
   rbuild :: forall r m n. (KnownSTK r, KnownNat m, KnownNat n)
          => IShR (m + n) -> (IxROf target m -> target (TKR2 n r))
@@ -908,12 +902,6 @@ class ( Num (IntOf target)
   sreshape = tsreshape knownShS
     -- beware that the order of type arguments is different than in orthotope
     -- and than the order of value arguments in the ranked version
-  szip :: forall y z sh.
-          target (TKProduct (TKS2 sh y) (TKS2 sh z))
-       -> target (TKS2 sh (TKProduct y z))
-  sunzip :: forall y z sh.
-            target (TKS2 sh (TKProduct y z))
-         -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
 
   sbuild :: forall r m sh. (KnownSTK r, KnownShS sh, KnownShS (Take m sh))
          => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) r))
@@ -1310,12 +1298,6 @@ class ( Num (IntOf target)
   xflatten u = xreshape (Nested.SUnknown (xsize u) :$% ZSX) u
   xreshape :: forall r sh sh2. KnownSTK r
            => IShX sh2 -> target (TKX2 sh r) -> target (TKX2 sh2 r)
-  xzip :: forall y z sh.
-          target (TKProduct (TKX2 sh y) (TKX2 sh z))
-       -> target (TKX2 sh (TKProduct y z))
-  xunzip :: forall y z sh.
-            target (TKX2 sh (TKProduct y z))
-         -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
   xbuild :: forall r m sh.
             ( KnownSTK r, KnownShX sh, KnownShX (Take m sh)
@@ -1643,6 +1625,25 @@ class ( Num (IntOf target)
                  -- [dx, x] |-> dz
 
 class ConvertTensor (target :: Target) where
+  rzip :: forall y z n.
+          target (TKProduct (TKR2 n y) (TKR2 n z))
+       -> target (TKR2 n (TKProduct y z))
+  runzip :: forall y z n.
+            target (TKR2 n (TKProduct y z))
+         -> target (TKProduct (TKR2 n y) (TKR2 n z))
+  szip :: forall y z sh.
+          target (TKProduct (TKS2 sh y) (TKS2 sh z))
+       -> target (TKS2 sh (TKProduct y z))
+  sunzip :: forall y z sh.
+            target (TKS2 sh (TKProduct y z))
+         -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
+  xzip :: forall y z sh.
+          target (TKProduct (TKX2 sh y) (TKX2 sh z))
+       -> target (TKX2 sh (TKProduct y z))
+  xunzip :: forall y z sh.
+            target (TKX2 sh (TKProduct y z))
+         -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
+
   -- The semantics for products is element-wise and for others it's either
   -- identity or the domain is shaped and tfromS type-casts to the codomain
   -- by hiding some (or none) type information (so the codomain has to be

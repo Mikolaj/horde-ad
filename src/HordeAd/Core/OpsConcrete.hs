@@ -162,9 +162,6 @@ instance BaseTensor RepN where
     RepN . Nested.rtranspose perm . unRepN
   rreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreshape sh . unRepN
-  rzip (RepN (a, b)) = RepN $ Nested.rzip a b
-  runzip a = let (!a1, !a2) = Nested.runzip $ unRepN a
-             in RepN (a1, a2)
   rbuild1 @r k f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1R k (unRepN . f . RepN)
   rmap0N @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
@@ -303,9 +300,6 @@ instance BaseTensor RepN where
     RepN . Nested.sslice i n . unRepN
   sreverse @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.srev1 . unRepN
-  szip (RepN (a, b)) = RepN $ Nested.szip a b
-  sunzip a = let (!a1, !a2) = Nested.sunzip $ unRepN a
-             in RepN (a1, a2)
   sbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1S (unRepN . f . RepN)
   smap0N @r1 @r @sh f v = case (knownSTK @r1, knownSTK @r) of
@@ -443,9 +437,6 @@ instance BaseTensor RepN where
     RepN . Nested.mtranspose (Permutation.makePerm @perm) . unRepN
   xreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreshape sh . unRepN
-  xzip (RepN (a, b)) = RepN $ Nested.mzip a b
-  xunzip a = let (!a1, !a2) = Nested.munzip $ unRepN a
-             in RepN (a1, a2)
   xbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1X (unRepN . f . RepN)
 
@@ -511,6 +502,16 @@ instance BaseTensor RepN where
     in df
 
 instance ConvertTensor RepN where
+  rzip (RepN (a, b)) = RepN $ Nested.rzip a b
+  runzip a = let (!a1, !a2) = Nested.runzip $ unRepN a
+             in RepN (a1, a2)
+  szip (RepN (a, b)) = RepN $ Nested.szip a b
+  sunzip a = let (!a1, !a2) = Nested.sunzip $ unRepN a
+             in RepN (a1, a2)
+  xzip (RepN (a, b)) = RepN $ Nested.mzip a b
+  xunzip a = let (!a1, !a2) = Nested.munzip $ unRepN a
+             in RepN (a1, a2)
+
   tfromS ystk zstk v = case (ystk, zstk) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
