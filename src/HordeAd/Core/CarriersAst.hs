@@ -59,30 +59,21 @@ instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   -- The normal form has AstConcreteK, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcreteK u :| lu)
-    + AstSumOfList (AstConcreteK v :| lv) =
-        let !w = u + v
-        in AstSumOfList (AstConcreteK w :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcreteK v :| lv) =
-    AstSumOfList ((AstConcreteK v :| lv) <> lu)
-  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
-
+  AstConcreteK 0 + v = v
+  AstConcreteK u + AstConcreteK v = AstConcreteK (u + v)
   AstConcreteK u + AstSumOfList (AstConcreteK v :| lv) =
     let !w = u + v
     in AstSumOfList (AstConcreteK w :| lv)
-  u + AstSumOfList (AstConcreteK v :| lv) =
-    AstSumOfList (AstConcreteK v :| u : lv)
-  u + AstSumOfList lv = AstSumOfList (u <| lv)
-
-  AstSumOfList (AstConcreteK u :| lu) + AstConcreteK v =
+  AstSumOfList (AstConcreteK u :| lu) + AstSumOfList (AstConcreteK v :| lv) =
     let !w = u + v
-    in AstSumOfList (AstConcreteK w :| lu)
+    in AstSumOfList (AstConcreteK w :| lu ++ lv)
+  u + w@AstConcreteK{} = w + u
+  u + w@(AstSumOfList (AstConcreteK{} :| _)) = w + u
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
   AstSumOfList (AstConcreteK u :| lu) + v =
     AstSumOfList (AstConcreteK u :| v : lu)
+  u + AstSumOfList lv = AstSumOfList (u <| lv)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
-
-  AstConcreteK u + AstConcreteK v = AstConcreteK (u + v)
-  u + AstConcreteK v = AstSumOfList (AstConcreteK v :| [u])
   u + v = AstSumOfList (u :| [v])
 
   AstConcreteK u * AstConcreteK v = AstConcreteK (u * v)
@@ -195,30 +186,20 @@ instance GoodScalar r
          => Num (AstTensor ms s (TKS sh r)) where
   -- The normal form has AstConcreteS, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcreteS u :| lu)
-    + AstSumOfList (AstConcreteS v :| lv) =
-        let !w = u + v
-        in AstSumOfList (AstConcreteS w :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcreteS v :| lv) =
-    AstSumOfList ((AstConcreteS v :| lv) <> lu)
-  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
-
+  AstConcreteS u + AstConcreteS v = AstConcreteS (u + v)
   AstConcreteS u + AstSumOfList (AstConcreteS v :| lv) =
     let !w = u + v
     in AstSumOfList (AstConcreteS w :| lv)
-  u + AstSumOfList (AstConcreteS v :| lv) =
-    AstSumOfList (AstConcreteS v :| u : lv)
-  u + AstSumOfList lv = AstSumOfList (u <| lv)
-
-  AstSumOfList (AstConcreteS u :| lu) + AstConcreteS v =
+  AstSumOfList (AstConcreteS u :| lu) + AstSumOfList (AstConcreteS v :| lv) =
     let !w = u + v
-    in AstSumOfList (AstConcreteS w :| lu)
+    in AstSumOfList (AstConcreteS w :| lu ++ lv)
+  u + w@AstConcreteS{} = w + u
+  u + w@(AstSumOfList (AstConcreteS{} :| _)) = w + u
+  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
   AstSumOfList (AstConcreteS u :| lu) + v =
     AstSumOfList (AstConcreteS u :| v : lu)
+  u + AstSumOfList lv = AstSumOfList (u <| lv)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
-
-  AstConcreteS u + AstConcreteS v = AstConcreteS (u + v)
-  u + AstConcreteS v = AstSumOfList (AstConcreteS v :| [u])
   u + v = AstSumOfList (u :| [v])
 
   AstConcreteS u * AstConcreteS v = AstConcreteS (u * v)

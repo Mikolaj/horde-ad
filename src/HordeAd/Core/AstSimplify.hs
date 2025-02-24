@@ -3413,15 +3413,13 @@ contractAstNumOp1 SignumOp (AstN1K AbsOp u) =
 
 contractAstNumOp1 opCode u = AstN1K opCode u
 
+-- As with AstSumOfList, AstConcreteK is kept on the left.
 contractAstTimesK :: (GoodScalar r, AstSpan s)
                   => AstTensor AstMethodLet s (TKScalar r)
                   -> AstTensor AstMethodLet s (TKScalar r)
                   -> AstTensor AstMethodLet s (TKScalar r)
-contractAstTimesK (AstConcreteK u) (AstConcreteK v) = AstConcreteK (u * v)
 contractAstTimesK (AstConcreteK 0) _v = AstConcreteK 0
-contractAstTimesK _u (AstConcreteK 0) = AstConcreteK 0
 contractAstTimesK (AstConcreteK 1) v = v
-contractAstTimesK u (AstConcreteK 1) = u
 {- TODO: is it worth adding AstLet with a fresh variables
    to share w and so make these rules safe? Perhaps after we decide
    a normal form (e.g., a polynomial)?
@@ -3432,21 +3430,22 @@ contractAstTimesK (u, AstN2K PlusOp (v, w)) =
   contractAstTimesK ( contractAstTimesK (u, v)
                     , contractAstTimesK (u, w) )
 -}
-contractAstTimesK (AstSumOfList l) w@AstConcreteK{} =
-  foldr1 contractAstPlusOp
-  $ NonEmpty.map (\u -> contractAstTimesK u w) l
+contractAstTimesK (AstConcreteK u) (AstConcreteK v) = AstConcreteK (u * v)
+contractAstTimesK (AstConcreteK u) (AstTimesK (AstConcreteK v) w) =
+  contractAstTimesK (AstConcreteK (u * v)) w
+contractAstTimesK (AstTimesK (AstConcreteK u) v)
+                  (AstTimesK (AstConcreteK w) x) =
+  AstTimesK (AstConcreteK (u * w)) (AstTimesK v x)
+contractAstTimesK u w@AstConcreteK{} = contractAstTimesK w u
+contractAstTimesK u (AstTimesK v@AstConcreteK{} w) =
+  contractAstTimesK v (AstTimesK u w)
+-- TODO: perhaps aim for a polynomial normal form? but that requires global
+-- inspection of the whole expression
 contractAstTimesK u@AstConcreteK{} (AstSumOfList l) =
   foldr1 contractAstPlusOp
   $ NonEmpty.map (contractAstTimesK u) l
--- TODO: perhaps aim for a polynomial normal form? but that requires global
--- inspection of the whole expression
-contractAstTimesK (AstConcreteK u) (AstTimesK (AstConcreteK v) w) =
-  contractAstTimesK (AstConcreteK (u * v)) w
-contractAstTimesK u (AstConcreteK n) =
-  contractAstTimesK (AstConcreteK n) u
 contractAstTimesK (AstTimesK u v) w =
   contractAstTimesK u (contractAstTimesK v w)
-
 -- With static shapes, the second argument to QuotOp and RemOp
 -- is often a constant, which makes such rules worth including,
 -- since they are likely to fire. To help them fire, we avoid changing
