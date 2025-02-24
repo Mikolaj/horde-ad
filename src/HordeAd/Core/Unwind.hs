@@ -6,7 +6,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.Unwind
-  ( addTarget, multTarget, dotTarget, constantTarget
+  ( addTarget, multTarget, dotTarget, constantTarget, concreteTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -24,6 +24,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, withKnownShS)
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -111,6 +112,32 @@ constantRepW r = \case
   WFTKX sh -> WTKX $ xrepl sh r
   WFTKProduct ftk1 ftk2 ->
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
+
+concreteRepW
+  :: forall y target. (ConvertTensor RepN, ConvertTensor target)
+  => (forall r. GoodScalar r => RepN (TKScalar r) -> target (TKScalar r))
+  -> (forall r sh. GoodScalar r => RepN (TKS sh r) -> target (TKS sh r))
+  -> (forall x z. STensorKind z -> target x -> target z)
+  -> RepW RepN y -> RepW target y
+{-# INLINE concreteRepW #-}
+concreteRepW concreteK concreteS fromS w = case w of
+  WTKScalar v -> WTKScalar $ concreteK v
+  WTKR v -> WTKR $
+    let sh' = Nested.rshape $ unRepN v
+    in withCastRS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
+      fromS (STKR (shrRank sh') STKScalar)
+      $ concreteS (sfromR @_ @sh v)
+  WTKS v -> WTKS $ concreteS v
+  WTKX v -> WTKX $
+    let sh' = Nested.mshape $ unRepN v
+    in withCastXS sh' $ \(sh :: ShS sh) ->
+      withKnownShS sh $
+      fromS (STKX (ssxFromShape sh') STKScalar)
+      $ concreteS (sfromX @_ @sh v)
+  WTKProduct v1 v2 ->
+    WTKProduct (concreteRepW concreteK concreteS fromS v1)
+               (concreteRepW concreteK concreteS fromS v2)
 
 toADTensorKindW
   :: forall y target. BaseTensor target
@@ -279,7 +306,7 @@ unWindFTK = \case
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
-unWindTarget :: (ConvertTensor target)
+unWindTarget :: ConvertTensor target
              => STensorKind y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
   STKScalar -> WTKScalar t
@@ -329,7 +356,7 @@ unWindTarget stk t = case stk of
     let (t1, t2) = tunpairDup t
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
 
-windTarget :: (ConvertTensor target)
+windTarget :: ConvertTensor target
            => STensorKind y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
   (STKScalar, WTKScalar v) -> v
@@ -411,6 +438,17 @@ constantTarget :: forall y target. (BaseTensor target, ConvertTensor target)
                => (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
 constantTarget r ftk =
   windTarget (ftkToSTK ftk) $ constantRepW r (unWindFTK ftk)
+
+concreteTarget
+  :: forall y target. (ConvertTensor RepN, ConvertTensor target)
+  => (forall r. GoodScalar r => RepN (TKScalar r) -> target (TKScalar r))
+  -> (forall r sh. GoodScalar r => RepN (TKS sh r) -> target (TKS sh r))
+  -> (forall x z. STensorKind z -> target x -> target z)
+  -> STensorKind y -> RepN y -> target y
+concreteTarget concreteK concreteS fromS stk v =
+  windTarget stk
+  $ concreteRepW concreteK concreteS fromS
+  $ unWindTarget stk v
 
 lemUnWindOfAD :: STensorKind y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)

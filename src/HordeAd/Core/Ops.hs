@@ -1355,18 +1355,6 @@ class ( Num (IntOf target)
   -- General operations that don't require LetTensor nor ShareTensor
   tftk :: STensorKind y -> target y -> FullTensorKind y
   tconcrete :: FullTensorKind y -> RepN y -> target y
-  tconcrete ftk (RepN a) = case (ftk, ftkToSTK ftk) of
-    (FTKScalar, _) -> kconcrete a
-    (FTKR{}, STKR SNat STKScalar) ->
-      rconcrete a
-    (FTKS{}, STKS sh STKScalar) ->
-      withKnownShS sh $ sconcrete a
-    (FTKX{}, STKX sh STKScalar) ->
-      withKnownShX sh $ xconcrete a
-    (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) | Dict <- lemKnownSTK stk1
-                                                 , Dict <- lemKnownSTK stk2 ->
-      tpair (tconcrete ftk1 (RepN $ fst a)) (tconcrete ftk2 (RepN $ snd a))
-    _ -> error "TODO"
   tpair :: target x -> target z -> target (TKProduct x z)
   tproject1 :: target (TKProduct x z) -> target x
   tproject2 :: target (TKProduct x z) -> target z
