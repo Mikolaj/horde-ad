@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxR, AstVarList, AstIxS, AstVarListS, AstIndexX
     -- * ASTs
-  , AstMethodOfSharing(..), AstTensor(..), RepF(..)
+  , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCode1(..), OpCode2(..)
   , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
@@ -42,7 +42,6 @@ import Data.Array.Nested
   (IxR, IxS (..), ListR, ListS (..), Rank, ShS (..), type (++))
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
@@ -245,7 +244,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
                SNat k -> STensorKind y
             -> (IntVarName, AstTensor ms s y)
             -> AstTensor ms s (BuildTensorKind k y)
-  AstConcrete :: RepF y -> AstTensor ms PrimalSpan y
 
   -- Sharing-related operations, mutually exclusive via AstMethodOfSharing
   AstLet :: forall y z s s2. AstSpan s
@@ -270,7 +268,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   -- Extra constructors for optimization of arithmetic
   AstSumOfList :: NonEmpty (AstTensor ms s y) -> AstTensor ms s y
 
-  -- Scalar arithmetic
+  -- Scalar arithmetic (to avoid the slowness of indexes as 1-element tensors)
   AstTimesK :: GoodScalar r
             => AstTensor ms s (TKScalar r)
             -> AstTensor ms s (TKScalar r)
@@ -289,6 +287,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
          => OpCodeIntegral2 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
+  AstConcreteK :: GoodScalar r
+               => r -> AstTensor ms PrimalSpan (TKScalar r)
   AstFloorK :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
             => AstTensor ms PrimalSpan (TKScalar r)
             -> AstTensor ms PrimalSpan (TKScalar r2)
@@ -317,6 +317,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
          => OpCodeIntegral2 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
+  AstConcreteS :: GoodScalar r
+               => Nested.Shaped sh r -> AstTensor ms PrimalSpan (TKS sh r)
   AstFloorS :: (GoodScalar r, RealFrac r, Integral r2, GoodScalar r2)
             => AstTensor ms PrimalSpan (TKS sh r)
             -> AstTensor ms PrimalSpan (TKS sh r2)
@@ -414,18 +416,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
               -> AstTensor ms s (TKS '[m, p] r)
 
 deriving instance Show (AstTensor ms s y)
-
--- Only needed to be able to derive Show without a KnownSTK y constraint.
--- Sadly, this costs extra allocation, but in the future it may be
--- used to insert extra backend-specific meta-data or to have
--- many variants of concrete representations not captured by the type,
--- at which point the extra allocation would be needed anyway.
-type role RepF nominal
-data RepF y = RepF (FullTensorKind y) (RepN y)
-
-instance Show (RepF y) where
- showsPrec d (RepF ftk (RepN a)) | Dict <- showDictRep (ftkToSTK ftk) =
-   showsPrec d a
+  -- for this to work, AstConcreteS can't take a RepN
 
 type role AstHFun nominal nominal
 data AstHFun x z where

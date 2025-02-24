@@ -26,6 +26,7 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Types (snatPlus)
 import Data.Array.Nested (Rank, ShS (..))
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   (shsAppend, shsInit, shsPermutePrefix, shsRank)
 
@@ -69,7 +70,6 @@ ftkAst t = case t of
   AstVar ftk _var -> ftk
   AstCond _b v _w -> ftkAst v
   AstBuild1 snat _ (_var, v) -> buildFTK snat (ftkAst v)
-  AstConcrete (RepF ftk _) -> ftk
 
   AstLet _ _ v -> ftkAst v
   AstShare _ v -> ftkAst v
@@ -88,6 +88,7 @@ ftkAst t = case t of
   AstR1K{} -> FTKScalar
   AstR2K{} -> FTKScalar
   AstI2K{} -> FTKScalar
+  AstConcreteK _ -> FTKScalar
   AstFloorK{} -> FTKScalar
   AstFromIntegralK{} -> FTKScalar
   AstCastK{} -> FTKScalar
@@ -97,6 +98,7 @@ ftkAst t = case t of
   AstR1S _ v -> ftkAst v
   AstR2S _ v _ -> ftkAst v
   AstI2S _ v _ -> ftkAst v
+  AstConcreteS a -> FTKS (Nested.sshape a) FTKScalar
   AstFloorS v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
   AstFromIntegralS v -> case ftkAst v of
@@ -198,7 +200,6 @@ varInAst var = \case
   AstBuild1 _ _ (var2, v) ->
     assert (varNameToAstVarId var2 /= var) $
     varInAst var v
-  AstConcrete{} -> False
 
   AstLet _var2 u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
@@ -216,6 +217,7 @@ varInAst var = \case
   AstR1K _ t -> varInAst var t
   AstR2K _ t u -> varInAst var t || varInAst var u
   AstI2K _ t u -> varInAst var t || varInAst var u
+  AstConcreteK{} -> False
   AstFloorK a -> varInAst var a
   AstFromIntegralK t -> varInAst var t
   AstCastK t -> varInAst var t
@@ -225,6 +227,7 @@ varInAst var = \case
   AstR1S _ t -> varInAst var t
   AstR2S _ t u -> varInAst var t || varInAst var u
   AstI2S _ t u -> varInAst var t || varInAst var u
+  AstConcreteS{} -> False
   AstFloorS a -> varInAst var a
   AstFromIntegralS a -> varInAst var a
   AstCastS t -> varInAst var t
@@ -308,8 +311,9 @@ astIsSmallN n t0 = case t0 of
     astIsSmallN (n - 1) v  -- a really good redex and often in series
       -- executed as a metadata change, which is however not free
   AstVar{} -> True
-  AstConcrete _ -> True  -- small term with zero interpretation cost;
-                         -- the physical arrays is shared on GHC heap
+  AstConcreteK _ -> True  -- small term with zero interpretation cost;
+  AstConcreteS _ -> True  -- small term with zero interpretation cost;
+                          -- the physical arrays is shared on GHC heap
 
   AstPrimalPart v -> astIsSmallN (n - 1) v
   AstDualPart v -> astIsSmallN (n - 1) v

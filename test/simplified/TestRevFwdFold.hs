@@ -2241,7 +2241,7 @@ testSin0FoldNestedR0LengthPPs = do
       IM.empty
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 2358
+    @?= 2337
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -2258,7 +2258,7 @@ testSin0FoldNestedR1LengthPPs = do
       IM.empty
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 26946
+    @?= 26736
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -2277,7 +2277,7 @@ testSin0FoldNestedR2LengthPPs = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 351702
+    @?= 349329
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -2298,7 +2298,7 @@ testSin0FoldNestedR3LengthPPs = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 5277459
+    @?= 5245707
 
 -- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -2368,7 +2368,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
        IM.empty
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 116880
+    @?= 114507
 
 testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
@@ -2758,7 +2758,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple IM.empty (simplifyInlineContract a1))
-    @?= 52779
+    @?= 52254
 
 testSin0revhV :: Assertion
 testSin0revhV = do

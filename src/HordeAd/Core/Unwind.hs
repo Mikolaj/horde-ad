@@ -24,7 +24,6 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, withKnownShS)
 
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -108,8 +107,7 @@ constantRepW :: forall y target. BaseTensor target
 constantRepW r = \case
   WFTKScalar -> WTKScalar $ kconcrete r
   WFTKR sh -> WTKR $ rrepl sh r
-  WFTKS sh -> WTKS $ tconcrete (FTKS sh FTKScalar)
-                               (RepN $ Nested.sreplicateScal sh r)
+  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh r
   WFTKX sh -> WTKX $ xrepl sh r
   WFTKProduct ftk1 ftk2 ->
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
@@ -135,8 +133,7 @@ toADTensorKindW t = \case
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
       _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           WTKS $ tconcrete (FTKS sh FTKScalar)
-                            (RepN $ Nested.sreplicateScal sh Z0)
+           WTKS $ sconcrete $ Nested.sreplicateScal sh Z0
   WFTKX @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of

@@ -213,7 +213,6 @@ interpretAst !env = \case
   AstBuild1 snat stk (var, v) ->
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat stk f
-  AstConcrete (RepF ftk a) -> tconcrete ftk a
 
   AstLet var u v -> case ftkAst u of
     -- We assume there are no nested lets with the same variable.
@@ -296,6 +295,7 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
+  AstConcreteK k -> kconcrete k
   AstFloorK v ->
     kfloor $ tfromPrimal STKScalar $ interpretAstPrimal env v
   AstFromIntegralK v ->
@@ -309,6 +309,7 @@ interpretAst !env = \case
     interpretAstR2F opCode (interpretAst env u) (interpretAst env v)
   AstI2S opCode u v ->
     interpretAstI2F opCode (interpretAst env u) (interpretAst env v)
+  AstConcreteS a -> sconcrete a
   AstFloorS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $

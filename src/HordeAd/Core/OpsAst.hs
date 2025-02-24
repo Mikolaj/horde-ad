@@ -145,7 +145,7 @@ instance KnownSTK y
          => TermValue (AstTensor AstMethodLet FullSpan y) where
   type Value (AstTensor AstMethodLet FullSpan y) = RepN y
   fromValue t =
-    fromPrimal $ astConcrete (RepF (tftkG (knownSTK @y) $ unRepN t) t)
+    fromPrimal $ astConcrete (tftkG (knownSTK @y) $ unRepN t) t
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
@@ -377,7 +377,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sgather @_ @shm @shn @shp t f =
     astGatherStepS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
-  sconcrete a = tconcrete (tftkG (STKS (Nested.sshape a) STKScalar) a) (RepN a)
+  sconcrete = fromPrimal . AstConcreteS
   sfloor = fromPrimal . AstFloorS . primalPart
   sfromIntegral = fromPrimal . astFromIntegralS . primalPart
   scast = astCastS
@@ -551,14 +551,14 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x)) f
 
   -- Scalar ops
-  kconcrete = tconcrete FTKScalar . RepN
+  kconcrete = fromPrimal . AstConcreteK
   kfloor = fromPrimal . AstFloorK . primalPart
   kfromIntegral = fromPrimal . astFromIntegralK . primalPart
   kcast = astCastK
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
-  tconcrete ftk a = fromPrimal $ astConcrete (RepF ftk a)
+  tconcrete ftk a = fromPrimal $ astConcrete ftk a
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
   tproject2 = astProject2
@@ -986,7 +986,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstGatherS @shm @shn @shp knownShS (unAstRaw t)
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
-  sconcrete a = tconcrete (tftkG (STKS (Nested.sshape a) STKScalar) a) (RepN a)
+  sconcrete = AstRaw . fromPrimal . AstConcreteS
   sfloor = AstRaw . fromPrimal . AstFloorS . primalPart . unAstRaw
   sfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . primalPart . unAstRaw
@@ -1168,7 +1168,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                  $ unAstRaw . f . AstRaw
 
   -- Scalar ops
-  kconcrete = tconcrete FTKScalar . RepN
+  kconcrete = AstRaw . fromPrimal . AstConcreteK
   kfloor = AstRaw . fromPrimal . AstFloorK . primalPart . unAstRaw
   kfromIntegral = AstRaw . fromPrimal . AstFromIntegralK
                   . primalPart . unAstRaw
@@ -1176,7 +1176,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst . unAstRaw
-  tconcrete ftk a = AstRaw $ fromPrimal $ AstConcrete (RepF ftk a)
+  tconcrete ftk a = AstRaw $ fromPrimal $ astConcreteRaw ftk a
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t

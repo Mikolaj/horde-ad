@@ -4,7 +4,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for concrete Storable Vector-backed arrays.
 module HordeAd.Core.OpsConcrete
-  () where
+  ( tfromIntegralS
+  ) where
 
 import Prelude hiding (foldl')
 
@@ -285,7 +286,7 @@ instance BaseTensor RepN where
   sgather1 = tgatherZ1S
   sconcrete = RepN
   sfloor = RepN . liftVS (V.map floor) . unRepN
-  sfromIntegral = RepN . liftVS (V.map fromIntegral) . unRepN
+  sfromIntegral = RepN . tfromIntegralS . unRepN
   scast = RepN . liftVS (V.map realToFrac) . unRepN
   sminIndex a = RepN . tminIndexS . unRepN $ a
   smaxIndex a = RepN . tmaxIndexS . unRepN $ a
@@ -784,7 +785,7 @@ tindex0R v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       if ixInBounds (toList ix) (toList sh)
       then let arr = Nested.rscalar
                      $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
-           in tconcrete (FTKR ZSR x) (RepN arr)
+           in RepN arr
       else constantTarget def (FTKR ZSR x)
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
@@ -972,6 +973,10 @@ updateNS arr upd = case knownSTK @r of
       in sunNest @_ @(Take n sh) $ sfromListLinear
          $ imap f $ sunravelToList $ sflatten arrNested
 
+tfromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2)
+               => Nested.Shaped sh r1 -> Nested.Shaped sh r2
+tfromIntegralS = liftVS (V.map fromIntegral)
+
 tminIndexS
   :: forall n sh r r2.
      ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2
@@ -1075,7 +1080,7 @@ tindex0S v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       if ixInBounds (toList ix) (toList sh)
       then let arr = Nested.sscalar
                      $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
-           in tconcrete (FTKS ZSS x) (RepN arr)
+           in RepN arr
       else constantTarget def (FTKS ZSS x)
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
@@ -1294,7 +1299,7 @@ tindex0X v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       if ixInBounds (toList ix) (toList sh)
       then let arr = Nested.mscalar
                      $ Nested.mindex (unRepN v) (fmap fromIntegral ix)
-           in tconcrete (FTKX ZSX x) (RepN arr)
+           in RepN arr
       else constantTarget def (FTKX ZSX x)
 
 tmatmul2X

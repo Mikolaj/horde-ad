@@ -156,7 +156,6 @@ inlineAst memo v0 = case v0 of
         memo1 = EM.unionWith
                   (\c1 c0 -> c1 + fromInteger (fromSNat k) * c0) memo memoV0
     in (memo1, Ast.AstBuild1 k stk (var, v2))
-  Ast.AstConcrete{} -> (memo, v0)
 
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable, hence
@@ -205,6 +204,7 @@ inlineAst memo v0 = case v0 of
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstI2K opCode u2 v3)
+  Ast.AstConcreteK{} -> (memo, v0)
   Ast.AstFloorK a -> second Ast.AstFloorK $ inlineAst memo a
   Ast.AstFromIntegralK a -> second Ast.AstFromIntegralK $ inlineAst memo a
   Ast.AstCastK a -> second Ast.AstCastK $ inlineAst memo a
@@ -227,6 +227,7 @@ inlineAst memo v0 = case v0 of
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstI2S opCode u2 v3)
+  Ast.AstConcreteS{} -> (memo, v0)
   Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst memo a
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ inlineAst memo v
@@ -413,7 +414,6 @@ unshareAst memo = \case
   Ast.AstBuild1 snat stk (var, v) ->
     let (memo1, !v2) = unshareAstScoped [var] memo v
     in (memo1, Ast.AstBuild1 snat stk (var, v2))
-  Ast.AstConcrete repF -> (memo, Ast.AstConcrete repF)
 
   -- We assume v is the same if var is the same.
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
@@ -487,6 +487,7 @@ unshareAst memo = \case
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstI2K opCode u2 v3)
+  Ast.AstConcreteK k -> (memo, Ast.AstConcreteK k)
   Ast.AstFloorK a -> second Ast.AstFloorK $ unshareAst memo a
   Ast.AstFromIntegralK v -> second Ast.AstFromIntegralK $ unshareAst memo v
   Ast.AstCastK v -> second Ast.AstCastK $ unshareAst memo v
@@ -509,6 +510,7 @@ unshareAst memo = \case
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstI2S opCode u2 v3)
+  Ast.AstConcreteS a -> (memo, Ast.AstConcreteS a)
   Ast.AstFloorS a -> second Ast.AstFloorS $ unshareAst memo a
   Ast.AstFromIntegralS v ->
     second Ast.AstFromIntegralS $ unshareAst memo v

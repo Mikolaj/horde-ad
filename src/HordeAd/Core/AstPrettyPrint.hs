@@ -21,13 +21,12 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Permutation (Perm (..), permToList)
-import Data.Array.Nested (ListS (..), ShR (..), ShS (..), ShX (..))
+import Data.Array.Nested (ListS (..), ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (listsToList)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
@@ -115,7 +114,7 @@ printAst cfgOld d t =
   then case isTensorInt t of
     Just Refl -> case t of
       AstVar _ var -> printAstIntVar cfgOld var
-      AstConcrete (RepF _ i) -> shows $ unRepN i
+      AstConcreteK i -> showNumber i
       _ -> printAstAux cfgOld d t
     _ -> let cfg = cfgOld {representsIntIndex = False}
          in printAstAux cfg d t
@@ -311,61 +310,7 @@ printAstAux cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . printAst cfg 0 v)
-  AstConcrete repF ->
-    if loseRoudtrip cfg
-    then case repF of
-      RepF FTKScalar _ -> shows repF
-      RepF (FTKR ZSR FTKScalar) a ->
-        showParen (d > 10)
-        $ showString "rscalar "
-          . showNumber (Nested.runScalar $ unRepN a)
-      RepF (FTKR _ FTKScalar) _ ->
-        showParen (d > 10)
-        $ showString "rconcrete "
-          . (showParen True
-             $ shows repF)
-      RepF (FTKS ZSS FTKScalar) a ->
-        showParen (d > 10)
-        $ showString "sscalar "
-          . showNumber (Nested.sunScalar $ unRepN a)
-      RepF (FTKS _ FTKScalar) _ ->
-        showParen (d > 10)
-        $ showString "sconcrete "
-          . (showParen True
-             $ shows repF)
-      RepF (FTKX ZSX FTKScalar) a ->
-        showParen (d > 10)
-        $ showString "xscalar "
-          . showNumber (Nested.munScalar $ unRepN a)
-      RepF (FTKX _ FTKScalar) _ ->
-        showParen (d > 10)
-        $ showString "xconcrete "
-          . (showParen True
-             $ shows repF)
-      RepF ftk _ ->
-        showParen (d > 10)
-        $ showString ("tconcrete (" ++ show ftk ++ ") ")
-          . (showParen True
-             $ shows repF)
-    else case repF of
-      RepF FTKScalar _ -> shows repF
-      RepF (FTKR ZSR FTKScalar) a ->
-        showParen (d > 10)
-        $ showString "rscalar "
-          . showNumber (Nested.runScalar $ unRepN a)
-      RepF (FTKS ZSS FTKScalar) a ->
-        showParen (d > 10)
-        $ showString "sscalar "
-          . showNumber (Nested.sunScalar $ unRepN a)
-      RepF (FTKX ZSX FTKScalar) a ->
-        showParen (d > 10)
-        $ showString "xscalar "
-          . showNumber (Nested.munScalar $ unRepN a)
-      RepF ftk _ ->
-        showParen (d > 10)
-        $ showString ("tconcrete (" ++ show ftk ++ ") ")
-          . (showParen True
-             $ shows repF)
+
   t@(AstLet var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
@@ -438,6 +383,7 @@ printAstAux cfg d = \case
   AstR1K opCode u -> printAstR1R printAst cfg d opCode u
   AstR2K opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2K opCode u v -> printAstI2R printAst cfg d opCode u v
+  AstConcreteK k -> showNumber k
   AstFloorK v ->
     printPrefixOp printAst cfg d "kfloor" [v]
   AstFromIntegralK v ->
@@ -450,6 +396,14 @@ printAstAux cfg d = \case
   AstR1S opCode u -> printAstR1R printAst cfg d opCode u
   AstR2S opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2S opCode u v -> printAstI2R printAst cfg d opCode u v
+  AstConcreteS a -> case Nested.sshape a of
+    ZSS -> showParen (d > 10)
+           $ showString "sscalar "
+             . showNumber (Nested.sunScalar a)
+    _ -> showParen (d > 10)
+         $ showString "sconcrete "
+           . (showParen True
+              $ shows a)
   AstFloorS a ->  printPrefixOp printAst cfg d "sfloor" [a]
   AstFromIntegralS a ->
     printPrefixOp printAst cfg d "sfromIntegral" [a]

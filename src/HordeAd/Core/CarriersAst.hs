@@ -21,6 +21,7 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -56,47 +57,43 @@ instance Ord (AstTensor ms s y) where
 
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
-  -- The normal form has AstConcrete, if any, as the first element of the list.
+  -- The normal form has AstConcreteK, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcrete (RepF ftk u) :| lu)
-    + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+  AstSumOfList (AstConcreteK u :| lu)
+    + AstSumOfList (AstConcreteK v :| lv) =
         let !w = u + v
-        in AstSumOfList (AstConcrete (RepF ftk w) :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete repF :| lv) =
-    AstSumOfList ((AstConcrete repF :| lv) <> lu)
+        in AstSumOfList (AstConcreteK w :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcreteK v :| lv) =
+    AstSumOfList ((AstConcreteK v :| lv) <> lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
-  AstConcrete (RepF ftk u) + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+  AstConcreteK u + AstSumOfList (AstConcreteK v :| lv) =
     let !w = u + v
-    in AstSumOfList (AstConcrete (RepF ftk w) :| lv)
-  u + AstSumOfList (AstConcrete repF :| lv) =
-    AstSumOfList (AstConcrete repF :| u : lv)
+    in AstSumOfList (AstConcreteK w :| lv)
+  u + AstSumOfList (AstConcreteK v :| lv) =
+    AstSumOfList (AstConcreteK v :| u : lv)
   u + AstSumOfList lv = AstSumOfList (u <| lv)
 
-  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + AstConcrete (RepF _ v) =
+  AstSumOfList (AstConcreteK u :| lu) + AstConcreteK v =
     let !w = u + v
-    in AstSumOfList (AstConcrete (RepF ftk w) :| lu)
-  AstSumOfList (AstConcrete repF :| lu) + v =
-    AstSumOfList (AstConcrete repF :| v : lu)
+    in AstSumOfList (AstConcreteK w :| lu)
+  AstSumOfList (AstConcreteK u :| lu) + v =
+    AstSumOfList (AstConcreteK u :| v : lu)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
 
-  AstConcrete (RepF ftk u) + AstConcrete (RepF _ v) =
-    AstConcrete (RepF ftk (u + v))
-  u + AstConcrete repF = AstSumOfList (AstConcrete repF :| [u])
+  AstConcreteK u + AstConcreteK v = AstConcreteK (u + v)
+  u + AstConcreteK v = AstSumOfList (AstConcreteK v :| [u])
   u + v = AstSumOfList (u :| [v])
 
-  AstConcrete (RepF ftk u) * AstConcrete (RepF _ v) =
-    AstConcrete (RepF ftk (u * v))  -- common in indexing
-  AstConcrete (RepF ftk u) * (AstTimesK (AstConcrete (RepF _ v)) w) =
-    AstConcrete (RepF ftk (u * v)) * w
+  AstConcreteK u * AstConcreteK v = AstConcreteK (u * v)
+  AstConcreteK u * (AstTimesK (AstConcreteK v) w) = AstConcreteK (u * v) * w
   u * v = AstTimesK u v
 
-  negate (AstConcrete (RepF ftk u)) =
-    AstConcrete (RepF ftk (negate u))  -- common in indexing
+  negate (AstConcreteK u) = AstConcreteK (negate u)
   negate u = AstN1K NegateOp u
   abs = AstN1K AbsOp
   signum = AstN1K SignumOp
-  fromInteger i = fromPrimal $ AstConcrete (RepF FTKScalar (fromInteger i))
+  fromInteger i = fromPrimal $ AstConcreteK (fromInteger i)
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -110,7 +107,7 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   u / v = AstR2K DivideOp u v
   recip = AstR1K RecipOp
-  fromRational r = fromPrimal $ AstConcrete (RepF FTKScalar (fromRational r))
+  fromRational r = fromPrimal $ AstConcreteK (fromRational r)
 
 instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
@@ -138,7 +135,7 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
   atan2F = AstR2K Atan2Op
 
 
--- * Unlawful numeric instances for ranked AST; they are lawful modulo evaluation
+-- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
 
 instance GoodScalar r
          => Num (AstTensor ms s (TKR n r)) where
@@ -192,47 +189,43 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
   atan2F = liftRFromS2 atan2F
 
 
--- * Unlawful numeric instances for shaped AST; they are lawful modulo evaluation
+-- * Unlawful numeric instances for shaped AST; lawful modulo evaluation
 
 instance GoodScalar r
          => Num (AstTensor ms s (TKS sh r)) where
-  -- The normal form has AstConcrete, if any, as the first element of the list.
+  -- The normal form has AstConcreteS, if any, as the first element of the list.
   -- All lists fully flattened and length >= 2.
-  AstSumOfList (AstConcrete (RepF ftk u) :| lu)
-    + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+  AstSumOfList (AstConcreteS u :| lu)
+    + AstSumOfList (AstConcreteS v :| lv) =
         let !w = u + v
-        in AstSumOfList (AstConcrete (RepF ftk w) :| lu ++ lv)
-  AstSumOfList lu + AstSumOfList (AstConcrete repF :| lv) =
-    AstSumOfList ((AstConcrete repF :| lv) <> lu)
+        in AstSumOfList (AstConcreteS w :| lu ++ lv)
+  AstSumOfList lu + AstSumOfList (AstConcreteS v :| lv) =
+    AstSumOfList ((AstConcreteS v :| lv) <> lu)
   AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
 
-  AstConcrete (RepF ftk u) + AstSumOfList (AstConcrete (RepF _ v) :| lv) =
+  AstConcreteS u + AstSumOfList (AstConcreteS v :| lv) =
     let !w = u + v
-    in AstSumOfList (AstConcrete (RepF ftk w) :| lv)
-  u + AstSumOfList (AstConcrete repF :| lv) =
-    AstSumOfList (AstConcrete repF :| u : lv)
+    in AstSumOfList (AstConcreteS w :| lv)
+  u + AstSumOfList (AstConcreteS v :| lv) =
+    AstSumOfList (AstConcreteS v :| u : lv)
   u + AstSumOfList lv = AstSumOfList (u <| lv)
 
-  AstSumOfList (AstConcrete (RepF ftk u) :| lu) + AstConcrete (RepF _ v) =
+  AstSumOfList (AstConcreteS u :| lu) + AstConcreteS v =
     let !w = u + v
-    in AstSumOfList (AstConcrete (RepF ftk w) :| lu)
-  AstSumOfList (AstConcrete repF :| lu) + v =
-    AstSumOfList (AstConcrete repF :| v : lu)
+    in AstSumOfList (AstConcreteS w :| lu)
+  AstSumOfList (AstConcreteS u :| lu) + v =
+    AstSumOfList (AstConcreteS u :| v : lu)
   AstSumOfList lu + v = AstSumOfList (v <| lu)
 
-  AstConcrete (RepF ftk u) + AstConcrete (RepF _ v) =
-    AstConcrete (RepF ftk (u + v))
-  u + AstConcrete repF = AstSumOfList (AstConcrete repF :| [u])
+  AstConcreteS u + AstConcreteS v = AstConcreteS (u + v)
+  u + AstConcreteS v = AstSumOfList (AstConcreteS v :| [u])
   u + v = AstSumOfList (u :| [v])
 
-  AstConcrete (RepF ftk u) * AstConcrete (RepF _ v) =
-    AstConcrete (RepF ftk (u * v))  -- common in indexing
-  AstConcrete (RepF ftk u) * (AstTimesS (AstConcrete (RepF _ v)) w) =
-    AstConcrete (RepF ftk (u * v)) * w
+  AstConcreteS u * AstConcreteS v = AstConcreteS (u * v)
+  AstConcreteS u * (AstTimesS (AstConcreteS v) w) = AstConcreteS (u * v) * w
   u * v = AstTimesS u v
 
-  negate (AstConcrete (RepF ftk u)) =
-    AstConcrete (RepF ftk (negate u))  -- common in indexing
+  negate (AstConcreteS u) = AstConcreteS (negate u)
   negate u = AstN1S NegateOp u
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
@@ -280,7 +273,7 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
   atan2F = AstR2S Atan2Op
 
 
--- * Unlawful numeric instances for mixed AST; they are lawful modulo evaluation
+-- * Unlawful numeric instances for mixed AST; lawful modulo evaluation
 
 instance GoodScalar r
          => Num (AstTensor ms s (TKX sh r)) where
@@ -345,13 +338,6 @@ instance Boolean (AstBool ms) where
   b &&* c = AstB2 AndOp b c
   b ||* c = AstB2 OrOp b c
 
--- These are common in indexing, so worth optimizing early via AstConcrete.
-instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKScalar r) where
-  AstConcrete (RepF _ u) ==. AstConcrete (RepF _ v) = AstBoolConst $ u ==. v
-  v ==. u = AstRelK EqOp (primalPart v) (primalPart u)
-  AstConcrete (RepF _ u) /=. AstConcrete (RepF _ v) = AstBoolConst $ u /=. v
-  v /=. u = AstRelK NeqOp (primalPart v) (primalPart u)
-
 instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKR n r) where
   v ==. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
@@ -376,10 +362,6 @@ instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKR n r) where
               _ -> error $ "(/=.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKS sh r) where
-  v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
-  v /=. u = AstRelS NeqOp (primalPart v) (primalPart u)
-
 instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKX sh r) where
   v ==. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
@@ -403,17 +385,6 @@ instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKX sh r) where
                              (AstSFromX shv $ primalPart u)
               _ -> error $ "(/=.): shapes don't match: "
                            ++ show (shu, shv)
-
--- These are common in indexing, so worth optimizing early via AstConcrete.
-instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKScalar r) where
-  AstConcrete (RepF _ u) <. AstConcrete (RepF _ v) = AstBoolConst $ u <. v
-  v <. u = AstRelK LsOp (primalPart v) (primalPart u)
-  AstConcrete (RepF _ u) <=. AstConcrete (RepF _ v) = AstBoolConst $ u <=. v
-  v <=. u = AstRelK LeqOp (primalPart v) (primalPart u)
-  AstConcrete (RepF _ u) >. AstConcrete (RepF _ v) = AstBoolConst $ u >. v
-  v >. u = AstRelK GtOp (primalPart v) (primalPart u)
-  AstConcrete (RepF _ u) >=. AstConcrete (RepF _ v) = AstBoolConst $ u >=. v
-  v >=. u = AstRelK GeqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKR n r) where
   v <. u = case ftkAst v of
@@ -461,12 +432,6 @@ instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKR n r) where
               _ -> error $ "(>=.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKS sh r) where
-  v <. u = AstRelS LsOp (primalPart v) (primalPart u)
-  v <=. u = AstRelS LeqOp (primalPart v) (primalPart u)
-  v >. u = AstRelS GtOp (primalPart v) (primalPart u)
-  v >=. u = AstRelS GeqOp (primalPart v) (primalPart u)
-
 instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKX sh r) where
   v <. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
@@ -512,6 +477,55 @@ instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKX sh r) where
                               (AstSFromX shv $ primalPart u)
               _ -> error $ "(>=.): shapes don't match: "
                            ++ show (shu, shv)
+
+-- These are common in indexing, so worth optimizing early via AstConcrete.
+instance (AstSpan s, GoodScalar r)
+         => EqF (AstTensor ms s) (TKScalar r) where
+  AstConcreteK u ==. AstConcreteK v =
+    AstBoolConst $ RepN @(TKScalar r) u ==. RepN v
+  v ==. u = AstRelK EqOp (primalPart v) (primalPart u)
+  AstConcreteK u /=. AstConcreteK v =
+    AstBoolConst $ RepN @(TKScalar r) u /=. RepN v
+  v /=. u = AstRelK NeqOp (primalPart v) (primalPart u)
+
+instance (AstSpan s, GoodScalar r)
+         => EqF (AstTensor ms s) (TKS sh r) where
+  AstConcreteS u ==. AstConcreteS v =
+    AstBoolConst $ RepN @(TKS sh r) u ==. RepN v
+  v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
+  AstConcreteS u /=. AstConcreteS v =
+    AstBoolConst $ RepN @(TKS sh r) u /=. RepN v
+  v /=. u = AstRelS NeqOp (primalPart v) (primalPart u)
+
+instance (AstSpan s, GoodScalar r)
+         => OrdF (AstTensor ms s) (TKScalar r) where
+  AstConcreteK u <. AstConcreteK v =
+    AstBoolConst $ RepN  @(TKScalar r)u <. RepN v
+  v <. u = AstRelK LsOp (primalPart v) (primalPart u)
+  AstConcreteK u <=. AstConcreteK v =
+    AstBoolConst $ RepN @(TKScalar r) u <=. RepN v
+  v <=. u = AstRelK LeqOp (primalPart v) (primalPart u)
+  AstConcreteK u >. AstConcreteK v =
+    AstBoolConst $ RepN @(TKScalar r) u >. RepN v
+  v >. u = AstRelK GtOp (primalPart v) (primalPart u)
+  AstConcreteK u >=. AstConcreteK v =
+    AstBoolConst $ RepN @(TKScalar r) u >=. RepN v
+  v >=. u = AstRelK GeqOp (primalPart v) (primalPart u)
+
+instance (AstSpan s, GoodScalar r)
+         => OrdF (AstTensor ms s) (TKS sh r) where
+  AstConcreteS u <. AstConcreteS v =
+    AstBoolConst $ RepN @(TKS sh r) u <. RepN v
+  v <. u = AstRelS LsOp (primalPart v) (primalPart u)
+  AstConcreteS u <=. AstConcreteS v =
+    AstBoolConst $ RepN @(TKS sh r) u <=. RepN v
+  v <=. u = AstRelS LeqOp (primalPart v) (primalPart u)
+  AstConcreteS u >. AstConcreteS v =
+    AstBoolConst $ RepN @(TKS sh r) u >. RepN v
+  v >. u = AstRelS GtOp (primalPart v) (primalPart u)
+  AstConcreteS u >=. AstConcreteS v =
+    AstBoolConst $ RepN @(TKS sh r) u >=. RepN v
+  v >=. u = AstRelS GeqOp (primalPart v) (primalPart u)
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions
