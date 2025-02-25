@@ -526,9 +526,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                                , sNatValue msnat )
   xreverse a = case ftkAst a of
     FTKX sh' x ->
-      withCastXS sh' $ \sh@(_ :$$ _) ->
+      withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
         astFromS (STKX (ssxFromShape sh') (ftkToSTK x))
-        . astReverseS . astSFromX sh $ a
+        . astReverseS . astSFromX @sh sh $ a
   xtranspose @perm a = case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
@@ -1000,9 +1000,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                , sNatValue msnat )
   xreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
-      withCastXS sh' $ \sh@(_ :$$ _) ->
+      withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
         AstFromS (STKX (ssxFromShape sh') (ftkToSTK x))
-        . AstReverseS . AstSFromX sh $ a
+        . AstReverseS . AstSFromX @sh sh $ a
   xtranspose @perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'

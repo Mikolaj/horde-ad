@@ -252,9 +252,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
-  sbuild1 @k @_ @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
+  sbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing | Dict <- eltDictRep (knownSTK @r) ->
-      let arr = Nested.semptyArray knownShS
+      let arr = Nested.semptyArray @(RepORArray r) (knownShS @sh)
       in gcastWith (unsafeCoerceRefl :: k :~: 0) $
          tconcrete (tftkG knownSTK arr) (RepN arr)
     Just l -> sfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
@@ -313,7 +313,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing -> case testEquality (knownShX @sh) ZKX of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-        let arr = Nested.memptyArray ZSX
+        let arr = Nested.memptyArray @(RepORArray r) ZSX
         in gcastWith (unsafeCoerceRefl :: k :~: 0) $
            tconcrete (tftkG knownSTK arr) (RepN arr)
       Nothing -> error "xbuild1: shape ambiguity"
