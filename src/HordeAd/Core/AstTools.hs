@@ -19,7 +19,6 @@ import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
 import Data.Int (Int64)
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
@@ -80,9 +79,7 @@ ftkAst t = case t of
   AstFromPrimal a -> ftkAst a
   AstFromDual a -> ftkAst a
 
-  AstSumOfList args -> case args of
-    v :| _ -> ftkAst v
-
+  AstPlusK{} -> FTKScalar
   AstTimesK{} -> FTKScalar
   AstN1K{} -> FTKScalar
   AstR1K{} -> FTKScalar
@@ -93,6 +90,7 @@ ftkAst t = case t of
   AstFromIntegralK{} -> FTKScalar
   AstCastK{} -> FTKScalar
 
+  AstPlusS v _ -> ftkAst v
   AstTimesS v _ -> ftkAst v
   AstN1S _ v -> ftkAst v
   AstR1S _ v -> ftkAst v
@@ -210,8 +208,7 @@ varInAst var = \case
   AstFromPrimal v -> varInAst var v
   AstFromDual v -> varInAst var v
 
-  AstSumOfList l -> any (varInAst var) l
-
+  AstPlusK t u -> varInAst var t || varInAst var u
   AstTimesK t u -> varInAst var t || varInAst var u
   AstN1K _ t -> varInAst var t
   AstR1K _ t -> varInAst var t
@@ -222,6 +219,7 @@ varInAst var = \case
   AstFromIntegralK t -> varInAst var t
   AstCastK t -> varInAst var t
 
+  AstPlusS t u -> varInAst var t || varInAst var u
   AstTimesS t u -> varInAst var t || varInAst var u
   AstN1S _ t -> varInAst var t
   AstR1S _ t -> varInAst var t

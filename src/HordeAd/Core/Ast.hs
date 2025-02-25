@@ -27,7 +27,6 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
-import Data.List.NonEmpty (NonEmpty)
 import Data.Some
 import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
@@ -263,10 +262,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstFromDual :: forall y ms.
                  AstTensor ms DualSpan y -> AstTensor ms FullSpan y
 
-  -- Extra constructors for optimization of arithmetic
-  AstSumOfList :: NonEmpty (AstTensor ms s y) -> AstTensor ms s y
-
   -- Scalar arithmetic (to avoid the slowness of indexes as 1-element tensors)
+  AstPlusK :: GoodScalar r
+           => AstTensor ms s (TKScalar r)
+           -> AstTensor ms s (TKScalar r)
+           -> AstTensor ms s (TKScalar r)
   AstTimesK :: GoodScalar r
             => AstTensor ms s (TKScalar r)
             -> AstTensor ms s (TKScalar r)
@@ -297,6 +297,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
            => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
   -- Shaped arithmetic
+  AstPlusS :: GoodScalar r
+           => AstTensor ms s (TKS sh r)
+           -> AstTensor ms s (TKS sh r)
+           -> AstTensor ms s (TKS sh r)
   AstTimesS :: GoodScalar r
             => AstTensor ms s (TKS sh r)
             -> AstTensor ms s (TKS sh r)

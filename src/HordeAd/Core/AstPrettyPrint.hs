@@ -16,7 +16,6 @@ import Data.Foldable qualified as Foldable
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 
@@ -372,12 +371,8 @@ printAstAux cfg d = \case
     if loseRoudtrip cfg
     then printAst cfg d a
     else printPrefixOp printAst cfg d "tfromDual" [a]
-  AstSumOfList (left :| args) ->
-    let rs = map (\arg -> showString " + " . printAst cfg 7 arg) args
-    in showParen (d > 6)
-       $ printAst cfg 7 left
-         . foldr (.) id rs
 
+  AstPlusK u v -> printBinaryOp printAst cfg d u (6, " + ") v
   AstTimesK u v -> printBinaryOp printAst cfg d u (7, " * ") v
   AstN1K opCode u -> printAstN1R printAst cfg d opCode u
   AstR1K opCode u -> printAstR1R printAst cfg d opCode u
@@ -391,6 +386,7 @@ printAstAux cfg d = \case
   AstCastK v ->
     printPrefixOp printAst cfg d "kcast" [v]
 
+  AstPlusS u v -> printBinaryOp printAst cfg d u (6, " + ") v
   AstTimesS u v -> printBinaryOp printAst cfg d u (7, " * ") v
   AstN1S opCode u -> printAstN1R printAst cfg d opCode u
   AstR1S opCode u -> printAstR1R printAst cfg d opCode u

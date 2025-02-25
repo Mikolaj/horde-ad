@@ -14,7 +14,6 @@ import Control.Monad (when)
 import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
@@ -223,10 +222,9 @@ build1V snat@SNat (var, v0)
     Ast.AstFromDual v -> traceRule $
       Ast.AstFromDual $ build1V snat (var, v)
 
-    Ast.AstSumOfList args -> traceRule $
-      astSumOfList
-      $ NonEmpty.map (\v -> build1VOccurenceUnknown snat (var, v)) args
-
+    Ast.AstPlusK u v -> traceRule $
+      build1VOccurenceUnknown snat (var, u)
+      + build1VOccurenceUnknown snat (var, v)
     Ast.AstTimesK u v -> traceRule $
       build1VOccurenceUnknown snat (var, u)
       * build1VOccurenceUnknown snat (var, v)
@@ -254,6 +252,9 @@ build1V snat@SNat (var, v0)
     Ast.AstCastK v -> traceRule $
       astCastS $ build1V snat (var, v)
 
+    Ast.AstPlusS u v -> traceRule $
+      build1VOccurenceUnknown snat (var, u)
+      + build1VOccurenceUnknown snat (var, v)
     Ast.AstTimesS u v -> traceRule $
       build1VOccurenceUnknown snat (var, u)
       * build1VOccurenceUnknown snat (var, v)

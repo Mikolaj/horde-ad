@@ -21,12 +21,10 @@ import Prelude
 
 import Data.Dependent.EnumMap.Strict.Unsafe qualified as DMap.Unsafe
 import Data.Int (Int64)
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
-import GHC.Exts (IsList (..))
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested (ListS (..), ShS (..))
@@ -262,24 +260,7 @@ interpretAst !env = \case
     tfromPrimal (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
   AstFromDual a -> tfromDual (interpretAstDual env a)
 
-  AstSumOfList args -> case args of
-    a :| rest ->
-      let stk = ftkToSTK (ftkAst a)
-          -- We have to manually fuse mapping interpretAst and folding (+).
-          interpFold :: Num (target y) => target y
-          {-# INLINE interpFold #-}
-          interpFold = let interpPlus !acc arg = acc + interpretAst env arg
-                       in foldl' interpPlus (interpretAst env a) rest
-      in case stk of
-        -- We use folding, because @sum@ crashes at 0 and also reverses order.
-        STKScalar -> interpFold
-        STKR _ STKScalar -> interpFold
-        STKS _ STKScalar -> interpFold
-        STKX _ STKScalar -> interpFold
-        _ -> let v = V.fromList $ map (interpretAst env) $ toList args
-             in withSNat (V.length v) $ \snat ->
-                  tsum snat stk $ tfromVector snat stk v
-
+  AstPlusK u v -> interpretAst env u + interpretAst env v
   AstTimesK u v -> interpretAst env u * interpretAst env v
   AstN1K opCode u ->
     let u2 = interpretAst env u
@@ -302,6 +283,7 @@ interpretAst !env = \case
     kfromIntegral $ tfromPrimal STKScalar $ interpretAstPrimal env v
   AstCastK v -> kcast $ interpretAst env v
 
+  AstPlusS u v -> interpretAst env u + interpretAst env v
   AstTimesS u v -> interpretAst env u * interpretAst env v
   AstN1S opCode u -> interpretAstN1 opCode (interpretAst env u)
   AstR1S opCode u -> interpretAstR1 opCode (interpretAst env u)

@@ -257,7 +257,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
 tensorADValMnistTestsRNNSI :: TestTree
 tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
   [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
-                       (0.92 :: Double)
+                       (0.9 :: Double)
   , mnistTestCaseRNNSI "RNNSI artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNSI "RNNSI artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49

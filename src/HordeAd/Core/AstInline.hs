@@ -181,11 +181,10 @@ inlineAst memo v0 = case v0 of
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ inlineAst memo a
   Ast.AstFromDual a -> second Ast.AstFromDual $ inlineAst memo a
 
-  Ast.AstSumOfList args ->
-    let (memo2, args2) = mapAccumR inlineAst memo $ toList args
-        !_ = foldr seq () args2  -- no strict EmptyList easily available
-    in (memo2, Ast.AstSumOfList $ fromList args2)
-
+  Ast.AstPlusK u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstPlusK u2 v3)
   Ast.AstTimesK u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
@@ -209,6 +208,10 @@ inlineAst memo v0 = case v0 of
   Ast.AstFromIntegralK a -> second Ast.AstFromIntegralK $ inlineAst memo a
   Ast.AstCastK a -> second Ast.AstCastK $ inlineAst memo a
 
+  Ast.AstPlusS u v ->
+    let (memo2, u2) = inlineAst memo u
+        (memo3, v3) = inlineAst memo2 v
+    in (memo3, Ast.AstPlusS u2 v3)
   Ast.AstTimesS u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
@@ -464,11 +467,10 @@ unshareAst memo = \case
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ unshareAst memo a
   Ast.AstFromDual a -> second Ast.AstFromDual $ unshareAst memo a
 
-  Ast.AstSumOfList args ->
-    let (memo2, args2) = mapAccumR unshareAst memo $ toList args
-        !_ = foldr seq () args2  -- no strict EmptyList easily available
-    in (memo2, Ast.AstSumOfList $ fromList args2)
-
+  Ast.AstPlusK u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstPlusK u2 v3)
   Ast.AstTimesK u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
@@ -492,6 +494,10 @@ unshareAst memo = \case
   Ast.AstFromIntegralK v -> second Ast.AstFromIntegralK $ unshareAst memo v
   Ast.AstCastK v -> second Ast.AstCastK $ unshareAst memo v
 
+  Ast.AstPlusS u v ->
+    let (memo2, u2) = unshareAst memo u
+        (memo3, v3) = unshareAst memo2 v
+    in (memo3, Ast.AstPlusS u2 v3)
   Ast.AstTimesS u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v

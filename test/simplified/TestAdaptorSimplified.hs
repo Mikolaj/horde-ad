@@ -185,6 +185,8 @@ testTrees =
   , testCase "2filterPositiveFail" testFilterPositiveFail
   , testCase "2blowupPP" fblowupPP
   , testCase "2blowup2LetPP" fblowupLetPP
+  , testCase "2blowup2LetPP23" fblowupLetPP23
+  , testCase "2blowup2LetPP10" fblowupLetPP10
   , blowupTests
   , testCase "22concatBuild3PP" testConcatBuild3PP
   , testCase "22concatBuild3PP2" testConcatBuild3PP2
@@ -727,9 +729,9 @@ testListSumrPP = do
   printArtifactPretty renames (simplifyArtifact artifactRev)
     @?= "\\x2 x1 -> tpair (x2, tpair (x2, tpair (x2, tpair (x2, Z0))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x1 -> rfromS (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) + sfromR (tproject1 (tproject2 (tproject2 x1))) + sfromR (tproject1 x1) + sfromR (tproject1 (tproject2 x1)))"
+    @?= "\\x1 -> rfromS (sfromR (tproject1 x1) + (sfromR (tproject1 (tproject2 x1)) + (sfromR (tproject1 (tproject2 (tproject2 x1))) + sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
   show deltas
-    @?= "DeltaFromS (STKR (SNat @0) STKScalar) (DeltaShare 100000003 (DeltaAdd (DeltaShare 100000002 (DeltaAdd (DeltaShare 100000001 (DeltaAdd (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 0))) (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 1))))) (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 2))))) (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 3)))))"
+    @?= "DeltaFromS (STKR (SNat @0) STKScalar) (DeltaShare 100000003 (DeltaAdd (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 0))) (DeltaShare 100000002 (DeltaAdd (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 1))) (DeltaShare 100000001 (DeltaAdd (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 2))) (DeltaSFromR [] (DeltaInput (FTKR [] FTKScalar) (InputId 3)))))))))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (BaseTensor target, GoodScalar r)
@@ -2131,9 +2133,9 @@ fblowupPP = do
       fblowupT = fblowup @(AstTensor AstMethodLet FullSpan) @Double 1
   let (artifactRev, _) = revArtifactAdapt True fblowupT (FTKR [4] FTKScalar)
   printArtifactSimple renames artifactRev
-    @?= "\\x7 v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet (sscalar 0.499999985 * sfromR x7) (\\x8 -> rfromS (soneHot (recip x3 * x8) [0] + soneHot ((negate x2 / (x3 * x3)) * x8) [1] + soneHot (recip x5 * x8) [0] + soneHot ((negate x4 / (x5 * x5)) * x8) [1]))))))"
+    @?= "\\x7 v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet (sscalar 0.499999985 * sfromR x7) (\\x8 -> rfromS (soneHot (recip x3 * x8) [0] + (soneHot ((negate x2 / (x3 * x3)) * x8) [1] + (soneHot (recip x5 * x8) [0] + soneHot ((negate x4 / (x5 * x5)) * x8) [1]))))))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet (x4 / x5 + negate (sfromIntegral (sscalar 0)) + x2 / x3) (\\x6 -> rfromS (sscalar 0.499999985 * x6 + negate (sfromIntegral (sscalar 0))))))))"
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet ((x2 / x3 + x4 / x5) + negate (sfromIntegral (sscalar 0))) (\\x6 -> rfromS (sscalar 0.499999985 * x6 + negate (sfromIntegral (sscalar 0))))))))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -2144,7 +2146,33 @@ fblowupLetPP = do
   printArtifactSimple renames artifactRev
     @?= "\\x7 v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (sscalar 0.499999985 * sfromR x7) (\\x8 -> tlet (x8 + x8) (\\x9 -> rfromS (soneHot (recip x4 * x9) [0] + soneHot ((negate x3 / (x4 * x4)) * x9) [1])))))"
   printArtifactPrimalSimple renames artifactRev
-    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet (x5 + negate (sfromIntegral (sscalar 0)) + x5) (\\x6 -> rfromS (sscalar 0.499999985 * x6 + negate (sfromIntegral (sscalar 0)))))))"
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet ((x5 + x5) + negate (sfromIntegral (sscalar 0))) (\\x6 -> rfromS (sscalar 0.499999985 * x6 + negate (sfromIntegral (sscalar 0)))))))"
+
+fblowupLetPP23 :: Assertion
+fblowupLetPP23 = do
+  resetVarCounter
+  let renames = IM.empty
+      fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 2 3
+  let (artifactRev, _) = revArtifactAdapt True fblowupLetT (FTKR [4] FTKScalar)
+  printArtifactSimple renames artifactRev
+    @?= "\\x13 v1 -> tlet (sfromR v1 !$ [0]) (\\x5 -> tlet (sfromR v1 !$ [1]) (\\x6 -> tlet (sscalar 0.499999985 * sfromR x13) (\\x14 -> tlet (sscalar 0.499999985 * (x14 + x14)) (\\x15 -> tlet (sscalar 0.499999985 * (x15 + x15)) (\\x16 -> tlet (x16 + x16) (\\x17 -> rfromS (soneHot (recip x6 * x17) [0] + soneHot ((negate x5 / (x6 * x6)) * x17) [1])))))))"
+  printArtifactPrimalSimple renames artifactRev
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x5 -> tlet (sfromR v1 !$ [1]) (\\x6 -> tlet (x5 / x6) (\\x7 -> tlet ((x7 + x7) + negate (sfromIntegral (sscalar 2))) (\\x8 -> tlet (sscalar 0.499999985 * x8) (\\x9 -> tlet ((x9 + x9) + negate (sfromIntegral (sscalar 2))) (\\x10 -> tlet (sscalar 0.499999985 * x10) (\\x11 -> tlet ((x11 + x11) + negate (sfromIntegral (sscalar 2))) (\\x12 -> rfromS (sscalar 0.499999985 * x12 + negate (sfromIntegral (sscalar 2)))))))))))"
+  printArtifactSimple renames (simplifyArtifact artifactRev)
+    @?= "\\x13 v1 -> rfromS (tlet (sfromR v1 !$ [1]) (\\x6 -> tlet (sscalar 0.499999985 * sfromR x13) (\\x14 -> tlet (sscalar 0.499999985 * (x14 + x14)) (\\x15 -> tlet (sscalar 0.499999985 * (x15 + x15)) (\\x16 -> tlet (x16 + x16) (\\x17 -> soneHot (recip x6 * x17) [0] + soneHot ((negate (sfromR v1 !$ [0]) / (x6 * x6)) * x17) [1]))))))"
+
+fblowupLetPP10 :: Assertion
+fblowupLetPP10 = do
+  resetVarCounter
+  let renames = IM.empty
+      fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 6
+  let (artifactRev, _) = revArtifactAdapt True fblowupLetT (FTKR [2] FTKScalar)
+  printArtifactSimple renames artifactRev
+    @?= "\\x22 v1 -> tlet (sfromR v1 !$ [0]) (\\x8 -> tlet (sfromR v1 !$ [1]) (\\x9 -> tlet (sscalar 0.499999985 * sfromR x22) (\\x23 -> tlet (sscalar 0.499999985 * (x23 + x23)) (\\x24 -> tlet (sscalar 0.499999985 * (x24 + x24)) (\\x25 -> tlet (sscalar 0.499999985 * (x25 + x25)) (\\x26 -> tlet (sscalar 0.499999985 * (x26 + x26)) (\\x27 -> tlet (sscalar 0.499999985 * (x27 + x27)) (\\x28 -> tlet (x28 + x28) (\\x29 -> rfromS (soneHot (recip x9 * x29) [0] + soneHot ((negate x8 / (x9 * x9)) * x29) [1]))))))))))"
+  printArtifactPrimalSimple renames artifactRev
+    @?= "\\v1 -> tlet (sfromR v1 !$ [0]) (\\x8 -> tlet (sfromR v1 !$ [1]) (\\x9 -> tlet (x8 / x9) (\\x10 -> tlet ((x10 + x10) + negate (sfromIntegral (sscalar 0))) (\\x11 -> tlet (sscalar 0.499999985 * x11) (\\x12 -> tlet ((x12 + x12) + negate (sfromIntegral (sscalar 0))) (\\x13 -> tlet (sscalar 0.499999985 * x13) (\\x14 -> tlet ((x14 + x14) + negate (sfromIntegral (sscalar 0))) (\\x15 -> tlet (sscalar 0.499999985 * x15) (\\x16 -> tlet ((x16 + x16) + negate (sfromIntegral (sscalar 0))) (\\x17 -> tlet (sscalar 0.499999985 * x17) (\\x18 -> tlet ((x18 + x18) + negate (sfromIntegral (sscalar 0))) (\\x19 -> tlet (sscalar 0.499999985 * x19) (\\x20 -> tlet ((x20 + x20) + negate (sfromIntegral (sscalar 0))) (\\x21 -> rfromS (sscalar 0.499999985 * x21 + negate (sfromIntegral (sscalar 0)))))))))))))))))"
+  printArtifactSimple renames (simplifyArtifact artifactRev)
+    @?= "\\x22 v1 -> rfromS (tlet (sfromR v1 !$ [1]) (\\x9 -> tlet (sscalar 0.499999985 * sfromR x22) (\\x23 -> tlet (sscalar 0.499999985 * (x23 + x23)) (\\x24 -> tlet (sscalar 0.499999985 * (x24 + x24)) (\\x25 -> tlet (sscalar 0.499999985 * (x25 + x25)) (\\x26 -> tlet (sscalar 0.499999985 * (x26 + x26)) (\\x27 -> tlet (sscalar 0.499999985 * (x27 + x27)) (\\x28 -> tlet (x28 + x28) (\\x29 -> soneHot (recip x9 * x29) [0] + soneHot ((negate (sfromR v1 !$ [0]) / (x9 * x9)) * x29) [1])))))))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree

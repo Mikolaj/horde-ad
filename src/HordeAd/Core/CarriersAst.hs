@@ -14,7 +14,6 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
-import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 
 import Data.Array.Nested qualified as Nested
@@ -57,30 +56,53 @@ instance Ord (AstTensor ms s y) where
 
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
-  -- The normal form has AstConcreteK, if any, as the first element of the list.
-  -- All lists fully flattened and length >= 2.
-  AstConcreteK 0 + v = v
-  AstConcreteK u + AstConcreteK v = AstConcreteK (u + v)
-  AstConcreteK u + AstSumOfList (AstConcreteK v :| lv) =
-    let !w = u + v
-    in AstSumOfList (AstConcreteK w :| lv)
-  AstSumOfList (AstConcreteK u :| lu) + AstSumOfList (AstConcreteK v :| lv) =
-    let !w = u + v
-    in AstSumOfList (AstConcreteK w :| lu ++ lv)
-  u + w@AstConcreteK{} = w + u
-  u + w@(AstSumOfList (AstConcreteK{} :| _)) = w + u
-  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
-  AstSumOfList (AstConcreteK u :| lu) + v =
-    AstSumOfList (AstConcreteK u :| v : lu)
-  u + AstSumOfList lv = AstSumOfList (u <| lv)
-  AstSumOfList lu + v = AstSumOfList (v <| lu)
-  u + v = AstSumOfList (u :| [v])
+  -- The normal form has AstConcreteK, if any, as the first argument
+  -- of the constructor. No flattening is performed beyond that.
+  AstConcreteK 0 + u = u
+  u + AstConcreteK 0 = u
+  AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
+  AstConcreteK n + AstPlusK (AstConcreteK k) u = AstConcreteK (n + k) + u
+  AstPlusK (AstConcreteK n) u + AstConcreteK k =
+    AstConcreteK (n + k) + u
+  AstPlusK (AstConcreteK n) u + AstPlusK (AstConcreteK k) v =
+    AstConcreteK (n + k) + AstPlusK u v  -- u and v can cancel, but unlikely
+  AstPlusK u@AstConcreteK{} v + w = AstPlusK u (AstPlusK v w)  -- as above
 
-  AstConcreteK u * AstConcreteK v = AstConcreteK (u * v)
-  AstConcreteK u * (AstTimesK (AstConcreteK v) w) = AstConcreteK (u * v) * w
+  -- Unfortunately, these only fire if the required subterms are at the top
+  -- of the reduced term, which happens rarely except in small terms.
+  -- We could keep variables at the top, but they'd compete with AstConcreteK.
+  AstN1K NegateOp (AstVar _ var) + AstVar _ var'
+    | var == var' = 0
+  AstN1K NegateOp (AstVar _ var) + AstPlusK (AstVar _ var') u
+    | var == var' = u
+  AstVar _ var' + AstN1K NegateOp (AstVar _ var)
+    | var == var' = 0
+  AstVar _ var' + AstPlusK (AstN1K NegateOp (AstVar _ var)) u
+    | var == var' = u
+
+  AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)
+   + AstI2K RemOp (AstVar _ var') (AstConcreteK n')
+     | var == var' && n == n' = 0
+  AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)
+   + AstPlusK (AstI2K RemOp (AstVar _ var') (AstConcreteK n')) u
+     | var == var' && n == n' = u
+  AstI2K RemOp (AstVar _ var') (AstConcreteK n')
+   + AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)
+     | var == var' && n == n' = 0
+  AstI2K RemOp (AstVar _ var') (AstConcreteK n')
+   + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)) u
+     | var == var' && n == n' = u
+
+  u + v@AstConcreteK{} = AstPlusK v u
+  u + AstPlusK v@AstConcreteK{} w = AstPlusK v (AstPlusK u w)  -- as above
+  u + v = AstPlusK u v
+
+  AstConcreteK n * AstConcreteK k = AstConcreteK (n * k)
+  AstConcreteK n * (AstTimesK (AstConcreteK k) u) =
+    AstTimesK (AstConcreteK (n * k)) u
   u * v = AstTimesK u v
 
-  negate (AstConcreteK u) = AstConcreteK (negate u)
+  negate (AstConcreteK n) = AstConcreteK (negate n)
   negate u = AstN1K NegateOp u
   abs = AstN1K AbsOp
   signum = AstN1K SignumOp
@@ -184,29 +206,36 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
 
 instance GoodScalar r
          => Num (AstTensor ms s (TKS sh r)) where
-  -- The normal form has AstConcreteS, if any, as the first element of the list.
-  -- All lists fully flattened and length >= 2.
-  AstConcreteS u + AstConcreteS v = AstConcreteS (u + v)
-  AstConcreteS u + AstSumOfList (AstConcreteS v :| lv) =
-    let !w = u + v
-    in AstSumOfList (AstConcreteS w :| lv)
-  AstSumOfList (AstConcreteS u :| lu) + AstSumOfList (AstConcreteS v :| lv) =
-    let !w = u + v
-    in AstSumOfList (AstConcreteS w :| lu ++ lv)
-  u + w@AstConcreteS{} = w + u
-  u + w@(AstSumOfList (AstConcreteS{} :| _)) = w + u
-  AstSumOfList lu + AstSumOfList lv = AstSumOfList (lu <> lv)
-  AstSumOfList (AstConcreteS u :| lu) + v =
-    AstSumOfList (AstConcreteS u :| v : lu)
-  u + AstSumOfList lv = AstSumOfList (u <| lv)
-  AstSumOfList lu + v = AstSumOfList (v <| lu)
-  u + v = AstSumOfList (u :| [v])
+--  AstConcreteS 0 + u = u
+--  u + AstConcreteS 0 = u
+  AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
+  AstConcreteS n + AstPlusS (AstConcreteS k) u =
+    AstPlusS (AstConcreteS (n + k)) u
+  AstPlusS (AstConcreteS n) u + AstConcreteS k =
+    AstPlusS (AstConcreteS (n + k)) u
+  AstPlusS (AstConcreteS n) u + AstPlusS (AstConcreteS k) v =
+    AstPlusS (AstConcreteS (n + k)) (AstPlusS u v)
+  AstPlusS u@AstConcreteS{} v + w = AstPlusS u (AstPlusS v w)
 
-  AstConcreteS u * AstConcreteS v = AstConcreteS (u * v)
-  AstConcreteS u * (AstTimesS (AstConcreteS v) w) = AstConcreteS (u * v) * w
+--  AstN1S NegateOp (AstVar _ var) + AstVar _ var'
+--    | var == var' = 0
+  AstN1S NegateOp (AstVar _ var) + AstPlusS (AstVar _ var') u
+    | var == var' = u
+--  AstVar _ var' + AstN1S NegateOp (AstVar _ var)
+--    | var == var' = 0
+  AstVar _ var' + AstPlusS (AstN1S NegateOp (AstVar _ var)) u
+    | var == var' = u
+
+  u + v@AstConcreteS{} = AstPlusS v u
+  u + AstPlusS v@AstConcreteS{} w = AstPlusS v (AstPlusS u w)
+  u + v = AstPlusS u v
+
+  AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
+  AstConcreteS n * (AstTimesS (AstConcreteS k) u) =
+    AstTimesS (AstConcreteS (n * k)) u
   u * v = AstTimesS u v
 
-  negate (AstConcreteS u) = AstConcreteS (negate u)
+  negate (AstConcreteS n) = AstConcreteS (negate n)
   negate u = AstN1S NegateOp u
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp
