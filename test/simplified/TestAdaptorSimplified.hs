@@ -1002,7 +1002,7 @@ testReluSimplerPP4 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactAdapt True reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m11 m1 -> tfromS (let m12 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (sfromR (tproject1 m1) !$ [i8, i9] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR m11 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) * m12, sdot0 (sreshape (sfromR (tproject1 m1))) (sreshape m12)))"
+    @?= "\\m11 m1 -> tfromS (let m12 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (sfromR (tproject1 m1) !$ [i8, i9] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR m11 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) * m12, sdot0 (sfromR (tproject1 m1)) m12))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (let m7 = sfromR (tproject1 m1) * sreplicate @_ @3 (sreplicate @_ @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) * m7)"
 
@@ -1043,7 +1043,7 @@ testReluSimplerPP4s2 = do
   printArtifactPrimalPretty renames artifactRev
     @?= "\\m1 -> let m6 = sreshape (sreplicate @_ @12 (tproject2 m1)) ; m7 = tproject1 m1 * m6 ; m10 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) in m10 * m7"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m11 m1 -> let m12 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (tproject1 m1 !$ [i8, i9] * tproject2 m1 <=. sscalar 0.0) 0 1]) * m11 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (tproject2 m1)) * m12, sdot0 (sreshape (tproject1 m1)) (sreshape m12))"
+    @?= "\\m11 m1 -> let m12 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (tproject1 m1 !$ [i8, i9] * tproject2 m1 <=. sscalar 0.0) 0 1]) * m11 in tpair (sreplicate @_ @3 (sreplicate @_ @4 (tproject2 m1)) * m12, sdot0 (tproject1 m1) m12)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> let m7 = tproject1 m1 * sreplicate @_ @3 (sreplicate @_ @4 (tproject2 m1)) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifF (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) * m7"
 
@@ -1139,13 +1139,13 @@ testDot2PP = do
         revArtifactAdapt True (uncurry (rdot0 @(AstTensor AstMethodLet FullSpan) @Double @2))
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [2, 3] FTKScalar))
   printArtifactPretty renames artifactRev
-    @?= "\\x4 m1 -> let v2 = sreshape (sfromR (tproject1 m1)) ; v3 = sreshape (sfromR (tproject2 m1)) in tpair (rfromS (sreshape (v3 * sreplicate @_ @6 (sfromR x4))), rfromS (sreshape (v2 * sreplicate @_ @6 (sfromR x4))))"
+    @?= "\\x2 m1 -> let m3 = sreshape (sreplicate @_ @6 (sfromR x2)) in tpair (rfromS (sfromR (tproject2 m1) * m3), rfromS (sfromR (tproject1 m1) * m3))"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\m1 -> let v2 = sreshape (sfromR (tproject1 m1)) ; v3 = sreshape (sfromR (tproject2 m1)) in rfromS (ssum @_ @6 (v2 * v3))"
+    @?= "\\m1 -> rfromS (ssum @_ @6 (sreshape (sfromR (tproject1 m1) * sfromR (tproject2 m1))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x4 m1 -> tfromS (tpair (sfromR (tproject2 m1) * sreplicate @_ @2 (sreplicate @_ @3 (sfromR x4)), sfromR (tproject1 m1) * sreplicate @_ @2 (sreplicate @_ @3 (sfromR x4))))"
+    @?= "\\x2 m1 -> tfromS (tpair (sfromR (tproject2 m1) * sreplicate @_ @2 (sreplicate @_ @3 (sfromR x2)), sfromR (tproject1 m1) * sreplicate @_ @2 (sreplicate @_ @3 (sfromR x2))))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (sdot0 (sreshape (sfromR (tproject1 m1))) (sreshape (sfromR (tproject2 m1))))"
+    @?= "\\m1 -> rfromS (sdot0 (sfromR (tproject1 m1)) (sfromR (tproject2 m1)))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do

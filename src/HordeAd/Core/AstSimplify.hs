@@ -2203,16 +2203,11 @@ astReshapeS sh2 = \case
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
-  -- TODO: reshaping can be costly; are we surely duplicating it is fine?
-  AstTimesS u v | not (isVar u && isVar v) ->
-    astReshapeS @_ @sh2 sh2 u * astReshapeS @_ @sh2 sh2 v
+  -- Reshaping can be costly, so we don't touch AstTimesS, etc.
   AstN1S NegateOp u | not (isVar u) -> negate (astReshapeS @_ @sh2 sh2 u)
   AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 sh2 u)
   Ast.AstR1S opCode u | not (isVar u) ->
     Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
-  -- TODO: reshaping can be costly; are we surely duplicating it is fine?
-  Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
-    Ast.AstR2S opCode (astReshapeS @_ @sh2 sh2 u) (astReshapeS @_ @sh2 sh2 v)
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
   v | FTKS sh _ <- ftkAst v -> case testEquality sh sh2 of
     Just Refl -> v
@@ -2757,7 +2752,7 @@ expandAst t = case t of
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS i n k v -> astSliceS i n k (expandAst v)
   Ast.AstReverseS v -> astReverseS (expandAst v)
-  Ast.AstTransposeS perm v -> case v of
+  Ast.AstTransposeS perm v -> case expandAst v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
@@ -2774,6 +2769,7 @@ expandAst t = case t of
       -- to transposes of replicates (not only to replicates). Or maybe
       -- we should extend orthotope to any gather schemes, not only
       -- the simple ones.
+      -- TODO: review also other nfs here and for AstReshapeS below
     AstSumOfList{} -> t  -- normal form
     AstTimesS x y | isVar x && isVar y -> t  -- normal form
     AstN1S _ w | isVar w -> t  -- normal form
@@ -2783,12 +2779,11 @@ expandAst t = case t of
      | gcompare (Permutation.permRank perm) (ixsRank ix) == GGT -> t  -- nf
     Ast.AstSFromR{} -> t  -- normal form
     Ast.AstSFromX{} -> t  -- normal form
-    _ ->  -- not nf, let's express all as a gather
+    v2 ->  -- not nf, let's express all as a gather
       astTransposeAsGatherS (defaultKnobs {knobExpand = True})
-                            perm  -- TODO: (normalizePermutation perm)
-                            (expandAst v)
+                            perm v2  -- TODO: (normalizePermutation perm)
         -- this is expensive but the only way to guarantee full simplification
-  Ast.AstReshapeS sh v -> case v of
+  Ast.AstReshapeS sh v -> case expandAst v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
@@ -2799,16 +2794,16 @@ expandAst t = case t of
     Ast.AstFromIntegralS{} -> t  -- normal form
     Ast.AstCastS{} -> t  -- normal form
     AstSumOfList{} -> t  -- normal form
-    AstTimesS x y | isVar x && isVar y -> t  -- normal form
+    AstTimesS{} -> t  -- normal form
     AstN1S _ w | isVar w -> t  -- normal form
     Ast.AstR1S _ w | isVar w -> t  -- normal form
-    Ast.AstR2S _ x y | isVar x && isVar y -> t  -- normal form
+    Ast.AstR2S{} -> t  -- normal form
     Ast.AstScatterS{} -> t  -- normal form
     Ast.AstSFromR{} -> t  -- normal form
     Ast.AstSFromX{} -> t  -- normal form
-    _ ->  -- not nf, let's express all as a gather
+    v2 ->  -- not nf, let's express all as a gather
       astReshapeAsGatherS (defaultKnobs {knobExpand = True})
-                          sh (expandAst v)
+                          sh v2
         -- this is expensive but the only way to guarantee full simplification
   Ast.AstZipS v -> Ast.AstZipS (expandAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)

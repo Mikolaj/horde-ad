@@ -108,8 +108,6 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
--- TODO: this non-strict field is needed for benchmark VTO1.
--- Once VTO1 is fixed in another way, try making this field strict.
 type role AstVarName nominal nominal
 data AstVarName :: AstSpanType -> TensorKindType -> Type where
   AstVarName :: forall s y. STensorKind y -> AstVarId -> AstVarName s y
