@@ -62,11 +62,9 @@ instance (GoodScalar r, AstSpan s)
   u + AstConcreteK 0 = u
   AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
   AstConcreteK n + AstPlusK (AstConcreteK k) u = AstConcreteK (n + k) + u
-  AstPlusK (AstConcreteK n) u + AstConcreteK k =
-    AstConcreteK (n + k) + u
+  AstPlusK (AstConcreteK n) u + AstConcreteK k = AstConcreteK (n + k) + u
   AstPlusK (AstConcreteK n) u + AstPlusK (AstConcreteK k) v =
     AstConcreteK (n + k) + AstPlusK u v  -- u and v can cancel, but unlikely
-  AstPlusK u@AstConcreteK{} v + w = AstPlusK u (AstPlusK v w)  -- as above
 
   -- Unfortunately, these only fire if the required subterms are at the top
   -- of the reduced term, which happens rarely except in small terms.
@@ -93,16 +91,75 @@ instance (GoodScalar r, AstSpan s)
    + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)) u
      | var == var' && n == n' = u
 
+  AstPlusK u@AstConcreteK{} v + w = AstPlusK u (AstPlusK v w)  -- as above
   u + v@AstConcreteK{} = AstPlusK v u
   u + AstPlusK v@AstConcreteK{} w = AstPlusK v (AstPlusK u w)  -- as above
   u + v = AstPlusK u v
 
+  AstConcreteK 0 * _ = 0
+  _ * AstConcreteK 0 = 0
+  AstConcreteK 1 * u = u
+  u * AstConcreteK 1 = u
   AstConcreteK n * AstConcreteK k = AstConcreteK (n * k)
-  AstConcreteK n * (AstTimesK (AstConcreteK k) u) =
-    AstTimesK (AstConcreteK (n * k)) u
+  AstConcreteK n * AstTimesK (AstConcreteK k) u = AstConcreteK (n * k) * u
+  AstTimesK (AstConcreteK n) u * AstConcreteK k = AstConcreteK (n * k) * u
+  AstTimesK (AstConcreteK n) u * AstTimesK (AstConcreteK k) v =
+    AstConcreteK (n * k) * AstTimesK u v  -- u and v can cancel, but unlikely
+
+  u@AstConcreteK{} * AstPlusK v w = AstPlusK (u * v) (u * w)
+  AstTimesK u@AstConcreteK{} x * AstPlusK v w =
+    AstTimesK x (AstPlusK (u * v) (u * w))
+  AstPlusK v w * u@AstConcreteK{} = AstPlusK (v * u) (w * u)
+  AstPlusK v w * AstTimesK u@AstConcreteK{} x =
+    AstTimesK (AstPlusK (v * u) (w * u)) x
+
+  AstN1K NegateOp u * AstN1K NegateOp v = AstTimesK u v
+
+  -- With static shapes, the second argument to QuotOp and RemOp
+  -- is often a constant, which makes such rules worth including,
+  -- since they are likely to fire. To help them fire, we avoid changing
+  -- that constant, if possible, e.g., in rules for NegateOp.
+  AstConcreteK n * AstI2K QuotOp (AstVar ftk2 var) (AstConcreteK n')
+    | n == n' =
+      AstPlusK
+        (AstVar ftk2 var)
+        (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n)))
+  AstTimesK (AstConcreteK n) x * AstI2K QuotOp (AstVar ftk2 var)
+                                               (AstConcreteK n')
+    | n == n' =
+      AstTimesK
+        x
+        (AstPlusK
+           (AstVar ftk2 var)
+           (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n))))
+  AstI2K QuotOp (AstVar ftk2 var) (AstConcreteK n') * AstConcreteK n
+    | n == n' =
+      AstPlusK
+        (AstVar ftk2 var)
+        (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n)))
+  AstI2K QuotOp (AstVar ftk2 var)
+                (AstConcreteK n') * AstTimesK (AstConcreteK n) x
+    | n == n' =
+      AstTimesK
+        (AstPlusK
+           (AstVar ftk2 var)
+           (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n))))
+        x
+
+  AstTimesK u@AstConcreteK{} v * w = AstTimesK u (AstTimesK v w)  -- as above
+  u * v@AstConcreteK{} = AstTimesK v u
+  u * AstTimesK v@AstConcreteK{} w = AstTimesK v (AstTimesK u w)  -- as above
   u * v = AstTimesK u v
 
   negate (AstConcreteK n) = AstConcreteK (negate n)
+  negate (AstPlusK u v) = AstPlusK (negate u) (negate v)
+  negate (AstTimesK u v) = negate u * v
+  negate (AstN1K NegateOp u) = u
+  negate (AstN1K SignumOp u) = AstN1K SignumOp (negate u)
+  negate (AstI2K QuotOp u v) = AstI2K QuotOp (negate u) v
+    -- v is likely positive and let's keep it so
+  negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
+    -- v is likely positive and let's keep it so
   negate u = AstN1K NegateOp u
   abs = AstN1K AbsOp
   signum = AstN1K SignumOp
@@ -215,7 +272,6 @@ instance GoodScalar r
     AstPlusS (AstConcreteS (n + k)) u
   AstPlusS (AstConcreteS n) u + AstPlusS (AstConcreteS k) v =
     AstPlusS (AstConcreteS (n + k)) (AstPlusS u v)
-  AstPlusS u@AstConcreteS{} v + w = AstPlusS u (AstPlusS v w)
 
 --  AstN1S NegateOp (AstVar _ var) + AstVar _ var'
 --    | var == var' = 0
@@ -226,16 +282,42 @@ instance GoodScalar r
   AstVar _ var' + AstPlusS (AstN1S NegateOp (AstVar _ var)) u
     | var == var' = u
 
+  AstPlusS u@AstConcreteS{} v + w = AstPlusS u (AstPlusS v w)
   u + v@AstConcreteS{} = AstPlusS v u
   u + AstPlusS v@AstConcreteS{} w = AstPlusS v (AstPlusS u w)
   u + v = AstPlusS u v
 
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
-  AstConcreteS n * (AstTimesS (AstConcreteS k) u) =
+  AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
+  AstTimesS (AstConcreteS n) u * AstConcreteS k =
+    AstTimesS (AstConcreteS (n * k)) u
+  AstTimesS (AstConcreteS n) u * AstTimesS (AstConcreteS k) v =
+    AstTimesS (AstConcreteS (n * k)) (AstTimesS u v)
+
+  u@AstConcreteS{} * AstPlusS v w = AstPlusS (u * v) (u * w)
+  AstTimesS u@AstConcreteS{} x * AstPlusS v w =
+    AstTimesS x (AstPlusS (u * v) (u * w))
+  AstPlusS v w * u@AstConcreteS{} = AstPlusS (v * u) (w * u)
+  AstPlusS v w * AstTimesS u@AstConcreteS{} x =
+    AstTimesS (AstPlusS (v * u) (w * u)) x
+
+  AstN1S NegateOp u * AstN1S NegateOp v = AstTimesS u v
+
+  AstTimesS u@AstConcreteS{} v * w = AstTimesS u (AstTimesS v w)
+  u * v@AstConcreteS{} = AstTimesS v u
+  u * AstTimesS v@AstConcreteS{} w = AstTimesS v (AstTimesS u w)
   u * v = AstTimesS u v
 
   negate (AstConcreteS n) = AstConcreteS (negate n)
+  negate (AstPlusS u v) = AstPlusS (negate u) (negate v)
+  negate (AstTimesS u v) = AstTimesS (negate u) v
+  negate (AstN1S NegateOp u) = u
+  negate (AstN1S SignumOp u) = AstN1S SignumOp (negate u)
+  negate (AstI2S QuotOp u v) = AstI2S QuotOp (negate u) v
+    -- v is likely positive and let's keep it so
+  negate (AstI2S RemOp u v) = AstI2S RemOp (negate u) v
+    -- v is likely positive and let's keep it so
   negate u = AstN1S NegateOp u
   abs = AstN1S AbsOp
   signum = AstN1S SignumOp

@@ -887,7 +887,7 @@ astPrimalPart t = case t of
     in astConcrete ftk (tconstantTarget 0 ftk)
 
   AstPlusK u v -> astPrimalPart u + astPrimalPart v
-  AstTimesK u v -> contractAstTimesK (astPrimalPart u) (astPrimalPart v)
+  AstTimesK u v -> astPrimalPart u * astPrimalPart v
   AstN1K opCode u -> contractAstNumOp1 opCode (astPrimalPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPrimalPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
@@ -970,7 +970,7 @@ astDualPart t = case t of
   Ast.AstFromDual v -> v
 
   AstPlusK u v -> astDualPart u + astDualPart v
-  AstTimesK u v -> contractAstTimesK (astDualPart u) (astDualPart v)
+  AstTimesK u v -> astDualPart u * astDualPart v
   AstN1K opCode u -> contractAstNumOp1 opCode (astDualPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astDualPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astDualPart u) (astDualPart v)
@@ -1093,7 +1093,7 @@ astFromIntegralS t = case t of
     Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
   AstConcreteS a -> AstConcreteS (tfromIntegralS a)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
-  AstN1S NegateOp u ->negate (astFromIntegralS u)
+  AstN1S NegateOp u -> negate (astFromIntegralS u)
   AstN1S opCode u -> AstN1S opCode (astFromIntegralS u)
 --  AstN2S opCode u v -> AstN2S opCode (astFromIntegralS u) (astFromIntegralS v)
 --  Ast.AstI2S opCode u v ->
@@ -2585,7 +2585,7 @@ astNonIndexStep t = case t of
   Ast.AstFromDual{} -> t
 
   AstPlusK u v -> u + v
-  AstTimesK u v -> contractAstTimesK u v
+  AstTimesK u v -> u * v
   AstN1K opCode u -> contractAstNumOp1 opCode u
   Ast.AstR1K{} -> t
   Ast.AstR2K{} -> t
@@ -2689,7 +2689,7 @@ expandAst t = case t of
   Ast.AstFromDual v -> Ast.AstFromDual (expandAst v)
 
   AstPlusK u v -> expandAst u + expandAst v
-  AstTimesK u v -> contractAstTimesK (expandAst u) (expandAst v)
+  AstTimesK u v -> expandAst u * expandAst v
   AstN1K opCode u -> contractAstNumOp1 opCode (expandAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (expandAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (expandAst u) (expandAst v)
@@ -2872,7 +2872,7 @@ simplifyAst t = case t of
   Ast.AstFromDual v -> Ast.AstFromDual (simplifyAst v)
 
   AstPlusK u v -> simplifyAst u + simplifyAst v
-  AstTimesK u v -> contractAstTimesK (simplifyAst u) (simplifyAst v)
+  AstTimesK u v -> simplifyAst u * simplifyAst v
   AstN1K opCode u -> contractAstNumOp1 opCode (simplifyAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (simplifyAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (simplifyAst u) (simplifyAst v)
@@ -3227,7 +3227,7 @@ contractAst t = case t of
   Ast.AstFromDual v -> Ast.AstFromDual (contractAst v)
 
   AstPlusK u v -> contractAst u + contractAst v
-  AstTimesK u v -> contractAstTimesK (contractAst u) (contractAst v)
+  AstTimesK u v -> contractAst u * contractAst v
   AstN1K opCode u -> contractAstNumOp1 opCode (contractAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (contractAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (contractAst u) (contractAst v)
@@ -3384,9 +3384,12 @@ contractRelOp GtOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
 contractRelOp opCodeRel arg1 arg2 = Ast.AstRelK opCodeRel arg1 arg2
 
+-- TODO: perhaps aim for a polynomial normal form? but that requires global
+-- inspection of the whole expression
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
 -- and let's push negation down.
+-- TODO: these docs are outdated
 --
 -- | Normally, we wouldn't simplify tensor arithmetic so much, but some
 -- of these ranked tensors can represent integers in indexes, so we have to.
@@ -3420,24 +3423,7 @@ contractRelOp opCodeRel arg1 arg2 = Ast.AstRelK opCodeRel arg1 arg2
 contractAstNumOp1 :: (GoodScalar r, AstSpan s)
                   => OpCodeNum1 -> AstTensor AstMethodLet s (TKScalar r)
                   -> AstTensor AstMethodLet s (TKScalar r)
-contractAstNumOp1 NegateOp (AstConcreteK u) = AstConcreteK (negate u)
-contractAstNumOp1 NegateOp (AstPlusK u v) =
-  AstPlusK (contractAstNumOp1 NegateOp u) (contractAstNumOp1 NegateOp v)
-contractAstNumOp1 NegateOp (AstTimesK (AstConcreteK u) v) =
-  contractAstTimesK (AstConcreteK (negate u)) v
-    -- given a choice, prefer to negate a constant
-contractAstNumOp1 NegateOp (AstTimesK u v) =
-  contractAstTimesK u (contractAstNumOp1 NegateOp v)
-contractAstNumOp1 NegateOp (AstN1K NegateOp u) = u
-contractAstNumOp1 NegateOp (AstN1K SignumOp u) =
-  contractAstNumOp1 SignumOp (contractAstNumOp1 NegateOp u)
-contractAstNumOp1 NegateOp (Ast.AstI2K QuotOp u v) =
-  contractAstIntegralOp2 QuotOp (contractAstNumOp1 NegateOp u) v
-    -- v is likely positive and let's keep it so
-contractAstNumOp1 NegateOp (Ast.AstI2K RemOp u v) =
-  contractAstIntegralOp2 RemOp (contractAstNumOp1 NegateOp u) v
-    -- v is likely positive and let's keep it so
-
+contractAstNumOp1 NegateOp u = negate u
 contractAstNumOp1 AbsOp (AstConcreteK u) = AstConcreteK (abs u)
 contractAstNumOp1 AbsOp (AstN1K AbsOp u) = AstN1K AbsOp u
 contractAstNumOp1 AbsOp (AstN1K NegateOp u) = contractAstNumOp1 AbsOp u
@@ -3445,53 +3431,7 @@ contractAstNumOp1 SignumOp (AstConcreteK u) = AstConcreteK (signum u)
 contractAstNumOp1 SignumOp (AstN1K SignumOp u) = AstN1K SignumOp u
 contractAstNumOp1 SignumOp (AstN1K AbsOp u) =
   contractAstNumOp1 AbsOp (AstN1K SignumOp u)
-
 contractAstNumOp1 opCode u = AstN1K opCode u
-
--- As with AstPlusK, AstConcreteK is kept on the left.
-contractAstTimesK :: (GoodScalar r, AstSpan s)
-                  => AstTensor AstMethodLet s (TKScalar r)
-                  -> AstTensor AstMethodLet s (TKScalar r)
-                  -> AstTensor AstMethodLet s (TKScalar r)
-contractAstTimesK (AstConcreteK 0) _v = AstConcreteK 0
-contractAstTimesK (AstConcreteK 1) v = v
-{- TODO: is it worth adding AstLet with a fresh variables
-   to share w and so make these rules safe? Perhaps after we decide
-   a normal form (e.g., a polynomial)?
-contractAstTimesK (AstN2K PlusOp (u, v), w) =
-  contractAstTimesK ( contractAstTimesK (u, w)
-                    , contractAstTimesK (v, w) )
-contractAstTimesK (u, AstN2K PlusOp (v, w)) =
-  contractAstTimesK ( contractAstTimesK (u, v)
-                    , contractAstTimesK (u, w) )
--}
-contractAstTimesK (AstConcreteK u) (AstConcreteK v) = AstConcreteK (u * v)
-contractAstTimesK (AstConcreteK u) (AstTimesK (AstConcreteK v) w) =
-  contractAstTimesK (AstConcreteK (u * v)) w
-contractAstTimesK (AstTimesK (AstConcreteK u) v)
-                  (AstTimesK (AstConcreteK w) x) =
-  AstTimesK (AstConcreteK (u * w)) (AstTimesK v x)
-contractAstTimesK u w@AstConcreteK{} = contractAstTimesK w u
-contractAstTimesK u (AstTimesK v@AstConcreteK{} w) =
-  contractAstTimesK v (AstTimesK u w)
--- TODO: perhaps aim for a polynomial normal form? but that requires global
--- inspection of the whole expression
-contractAstTimesK u@AstConcreteK{} (AstPlusK v w) = AstPlusK (contractAstTimesK u v) (contractAstTimesK u w)
-contractAstTimesK (AstTimesK u v) w =
-  contractAstTimesK u (contractAstTimesK v w)
--- With static shapes, the second argument to QuotOp and RemOp
--- is often a constant, which makes such rules worth including,
--- since they are likely to fire. To help them fire, we avoid changing
--- that constant, if possible, e.g., in rules for NegateOp.
-contractAstTimesK
-          (AstConcreteK v)
-          (Ast.AstI2K QuotOp (Ast.AstVar ftk2 var)
-                             (AstConcreteK v')) | v == v' =
-    Ast.AstVar ftk2 var
-    + contractAstNumOp1 NegateOp
-                         (Ast.AstI2K RemOp (Ast.AstVar ftk2 var)
-                                           (AstConcreteK v))
-contractAstTimesK u v = AstTimesK u v
 
 contractAstIntegralOp2 :: (GoodScalar r, AstSpan s, IntegralF r)
                        => OpCodeIntegral2
@@ -3506,7 +3446,7 @@ contractAstIntegralOp2 QuotOp (Ast.AstI2K RemOp _u (AstConcreteK v))
                               (AstConcreteK v')
   | v' >= v && v >= 0 = 0
 contractAstIntegralOp2 QuotOp (Ast.AstI2K QuotOp u v) w =
-  contractAstIntegralOp2 QuotOp u (contractAstTimesK v w)
+  contractAstIntegralOp2 QuotOp u (v * w)
 contractAstIntegralOp2 QuotOp (AstTimesK (AstConcreteK u) v)
                               (AstConcreteK u')
   | u == u' = v
@@ -3665,7 +3605,7 @@ substitute1Ast i var = subst where
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ contractAstTimesK (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ fromMaybe u mu * fromMaybe v mv
        else Nothing
   Ast.AstN1K opCode u -> (\u2 -> contractAstNumOp1 opCode u2)
                          <$> subst u
