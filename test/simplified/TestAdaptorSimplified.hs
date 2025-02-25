@@ -184,7 +184,7 @@ testTrees =
   , testCase "2emptyArgs4" testEmptyArgs4
   , testCase "2filterPositiveFail" testFilterPositiveFail
   , testCase "2blowupPP" fblowupPP
-  , testCase "2blowupLetPP" fblowupLetPP
+  , testCase "2blowup2LetPP" fblowupLetPP
   , blowupTests
   , testCase "22concatBuild3PP" testConcatBuild3PP
   , testCase "22concatBuild3PP2" testConcatBuild3PP2
@@ -2153,19 +2153,44 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
       assertEqualUpToEpsilon' 1e-5
         (ringestData [2] [0.3333332333333467,-0.22222215555556446])
         (rev' @Double @0 (fblowup 7) (ringestData [2] [2, 3]))
-  , testCase "blowupLet 15" $ do
+  , testCase "blowupLet 2000" $ do
       assertEqualUpToEpsilon' 1e-10
-        (ringestData [2] [0.3333331833333646,-0.22222212222224305])
-        (rev' @Double @0 (fblowupLet 0 15) (ringestData [2] [2, 3]))
-  , testCase "blowupLet 1000" $ do
-      assertEqualUpToEpsilon' 1e-10
-        (ringestData [2] [0.3333233334831686,-0.22221555565544573])
-        (rev' @Double @0 (fblowupLet 0 1000) (ringestData [2] [2, 3]))
-  , testCase "blowupLet tbuild1" $ do
-      assertEqualUpToEpsilonShort 1e-10
-        (ringestData [2] [33.332333348316844,-22.221555565544556])
+        (ringestData [2] [0.3333133339329949,-0.22220888928866325])
+        (rev' @Double @0 (fblowupLet 1 2000) (ringestData [2] [2, 3]))
+  , testCase "blowupLet 7000" $ do
+      assertEqualUpToEpsilon 1e-10
+        (ringestData [2] [0.3332633406816766,-0.22217556045445108])
+        (rev @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
+             (fblowupLet 0 7000) (ringestData [2] [2, 3]))
+  , testCase "blowupLet tbuild0" $ do
+      assertEqualUpToEpsilon 1e-10
+        (ringestData [2] [333.2633406816765,-222.175560454451])
+        (rev @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
+              (\intputs -> rbuild1 1000 (\_ -> fblowupLet 0 7000 intputs))
+              (ringestData [2] [2, 3]))
+  , testCase "blowupLet tbuild2" $ do
+      assertEqualUpToEpsilon 1e-10
+        (ringestData [2] [333.2633406816765,-222.175560454451])
+        (rev @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
+              (\intputs -> rbuild1 1000 (\_ -> fblowupLet 2 7000 intputs))
+              (ringestData [2] [2, 3]))
+  , testCase "blowupLet tbuildi" $ do
+      assertEqualUpToEpsilon 1e-10
+        (ringestData [2] [333.2983351701977,-222.19889011346513])
+        (rev @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
+              (\intputs -> rbuild1 1000 (\i -> fblowupLet i 3500 intputs))
+              (ringestData [2] [2, 3]))
+  , testCase "blowupLet tbuildc" $ do
+      assertEqualUpToEpsilon 1e-7
+        (ringestData [2] [333.326333406717,-222.21755560448116])
+        (crev @(ADVal RepN (TKR 1 Double))
+              (\intputs -> rbuild1 1000 (\i -> fblowupLet i 700 intputs))
+              (ringestData [2] [2, 3]))
+  , testCase "blowupLet prim tbuild" $ do
+      assertEqualUpToEpsilonShort 1e-7
+        (ringestData [2] [33.33263334067178,-22.221755560447928])
         (rev' @Double @1
-              (\intputs -> rbuild1 100 (\i -> fblowupLet i 1000 intputs))
+              (\intputs -> rbuild1 100 (\i -> fblowupLet i 700 intputs))
               (ringestData [2] [2, 3]))
   , testCase "blowupMult 3" $ do
       assertEqualUpToEpsilon' 1e-5

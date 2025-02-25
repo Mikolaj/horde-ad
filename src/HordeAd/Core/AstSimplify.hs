@@ -3667,25 +3667,29 @@ substitute1Ast :: forall s s2 y z. (AstSpan s, AstSpan s2)
                => AstTensor AstMethodLet s2 z -> AstVarName s2 z
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
-substitute1Ast i var v1 = case v1 of
+substitute1Ast i var = subst where
+ subst :: forall s3 y2. AstSpan s3
+       => AstTensor AstMethodLet s3 y2
+       -> Maybe (AstTensor AstMethodLet s3 y2)
+ subst = \case
   Ast.AstPair u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
+    case (subst u, subst v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astPair (fromMaybe u mu) (fromMaybe v mv)
-  Ast.AstProject1 a -> astProject1 <$> substitute1Ast i var a
-  Ast.AstProject2 a -> astProject2 <$> substitute1Ast i var a
+  Ast.AstProject1 a -> astProject1 <$> subst a
+  Ast.AstProject2 a -> astProject2 <$> subst a
   Ast.AstFromVector snat stk args ->
-    let margs = V.map (substitute1Ast i var) args
+    let margs = V.map (subst) args
     in if V.any isJust margs
        then Just $ astFromVector snat stk $ V.zipWith fromMaybe args margs
        else Nothing
-  Ast.AstSum snat stk v -> astSum snat stk <$> substitute1Ast i var v
+  Ast.AstSum snat stk v -> astSum snat stk <$> subst v
   Ast.AstReplicate snat stk v ->
-    astReplicate snat stk <$> substitute1Ast i var v
+    astReplicate snat stk <$> subst v
   Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-           , substitute1AstHFun i var rf, substitute1Ast i var acc0
-           , substitute1Ast i var es ) of
+           , substitute1AstHFun i var rf, subst acc0
+           , subst es ) of
         (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
         (mf, mdf, mrf, macc0, mes) ->
           Just $ astMapAccumRDer k bShs eShs
@@ -3696,8 +3700,8 @@ substitute1Ast i var v1 = case v1 of
                                  (fromMaybe es mes)
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
-           , substitute1AstHFun i var rf, substitute1Ast i var acc0
-           , substitute1Ast i var es ) of
+           , substitute1AstHFun i var rf, subst acc0
+           , subst es ) of
         (Nothing, Nothing, Nothing, Nothing, Nothing) -> Nothing
         (mf, mdf, mrf, macc0, mes) ->
           Just $ astMapAccumLDer k bShs eShs
@@ -3708,12 +3712,12 @@ substitute1Ast i var v1 = case v1 of
                                  (fromMaybe es mes)
   Ast.AstApply t ll ->
     case ( substitute1AstHFun i var t
-         , substitute1Ast i var ll ) of
+         , subst ll ) of
       (Nothing, Nothing) -> Nothing
       (mt, mll) -> Just $ astApply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstVar ftk var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
-    then case sameAstSpan @s @s2 of
+    then case sameAstSpan @s3 @s2 of
         Just Refl -> case matchingFTK (ftkAst i) ftk of
           Just Refl -> Just i
           _ -> error $ "substitute1Ast: kind of the variable "
@@ -3724,145 +3728,145 @@ substitute1Ast i var v1 = case v1 of
     else Nothing
   Ast.AstCond b v w ->
     case ( substitute1AstBool i var b
-         , substitute1Ast i var v
-         , substitute1Ast i var w ) of
+         , subst v
+         , subst w ) of
       (Nothing, Nothing, Nothing) -> Nothing
       (mb, mv, mw) ->
         Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
   Ast.AstBuild1 k stk (var2, v) ->
     assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
-    Ast.AstBuild1 k stk . (var2,) <$> substitute1Ast i var v
+    Ast.AstBuild1 k stk . (var2,) <$> subst v
 
   Ast.AstLet var2 u v ->
-    case (substitute1Ast i var u, substitute1Ast i var v) of
+    case (subst u, subst v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
 
-  Ast.AstPrimalPart a -> astPrimalPart <$> substitute1Ast i var a
-  Ast.AstDualPart a -> astDualPart <$> substitute1Ast i var a
-  Ast.AstFromPrimal a -> Ast.AstFromPrimal <$> substitute1Ast i var a
-  Ast.AstFromDual a -> Ast.AstFromDual <$> substitute1Ast i var a
+  Ast.AstPrimalPart a -> astPrimalPart <$> subst a
+  Ast.AstDualPart a -> astDualPart <$> subst a
+  Ast.AstFromPrimal a -> Ast.AstFromPrimal <$> subst a
+  Ast.AstFromDual a -> Ast.AstFromDual <$> subst a
 
   Ast.AstSumOfList args ->
-    let margs = NonEmpty.map (substitute1Ast i var) args
+    let margs = NonEmpty.map (subst) args
     in if any isJust margs
        then Just $ astSumOfList $ NonEmpty.zipWith fromMaybe args margs
        else Nothing
 
   AstTimesK u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ contractAstTimesK (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstN1K opCode u -> (\u2 -> contractAstNumOp1 opCode u2)
-                         <$> substitute1Ast i var u
-  Ast.AstR1K opCode u -> Ast.AstR1K opCode <$> substitute1Ast i var u
+                         <$> subst u
+  Ast.AstR1K opCode u -> Ast.AstR1K opCode <$> subst u
   Ast.AstR2K opCode u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstR2K opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstI2K opCode u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just
             $ contractAstIntegralOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstConcreteK{} -> Nothing
-  Ast.AstFloorK a -> Ast.AstFloorK <$> substitute1Ast i var a
-  Ast.AstFromIntegralK v -> astFromIntegralK <$> substitute1Ast i var v
-  Ast.AstCastK v -> astCastK <$> substitute1Ast i var v
+  Ast.AstFloorK a -> Ast.AstFloorK <$> subst a
+  Ast.AstFromIntegralK v -> astFromIntegralK <$> subst v
+  Ast.AstCastK v -> astCastK <$> subst v
 
   AstTimesS u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ fromMaybe u mu * fromMaybe v mv
        else Nothing
-  Ast.AstN1S NegateOp u -> negate <$> substitute1Ast i var u
-  Ast.AstN1S opCode u -> Ast.AstN1S opCode <$> substitute1Ast i var u
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> substitute1Ast i var u
+  Ast.AstN1S NegateOp u -> negate <$> subst u
+  Ast.AstN1S opCode u -> Ast.AstN1S opCode <$> subst u
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> subst u
   Ast.AstR2S opCode u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstR2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstI2S opCode u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstConcreteS{} -> Nothing
-  Ast.AstFloorS a -> Ast.AstFloorS <$> substitute1Ast i var a
-  Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1Ast i var a
-  Ast.AstCastS v -> astCastS <$> substitute1Ast i var v
+  Ast.AstFloorS a -> Ast.AstFloorS <$> subst a
+  Ast.AstFromIntegralS a -> astFromIntegralS <$> subst a
+  Ast.AstCastS v -> astCastS <$> subst v
 
   Ast.AstIndexS shn v ix ->
-    case (substitute1Ast i var v, substitute1AstIxS i var ix) of
+    case (subst v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexS shn (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstScatterS shn v (vars, ix) ->
-    case (substitute1Ast i var v, substitute1AstIxS i var ix) of
+    case (subst v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astScatterS shn
                                       (fromMaybe v mv)
                                       (vars, fromMaybe ix mix)
   Ast.AstGatherS shn v (vars, ix) ->
-    case (substitute1Ast i var v, substitute1AstIxS i var ix) of
+    case (subst v, substitute1AstIxS i var ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astGatherS shn
                                      (fromMaybe v mv)
                                      (vars, fromMaybe ix mix)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> substitute1Ast i var a
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> substitute1Ast i var a
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> subst a
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> subst a
   Ast.AstIotaS{} -> Nothing
   Ast.AstAppendS x y ->
-    case (substitute1Ast i var x, substitute1Ast i var y) of
+    case (subst x, subst y) of
       (Nothing, Nothing) -> Nothing
       (mx, my) -> Just $ astAppendS (fromMaybe x mx) (fromMaybe y my)
-  Ast.AstSliceS i2 n k v -> astSliceS i2 n k <$> substitute1Ast i var v
-  Ast.AstReverseS v -> astReverseS <$> substitute1Ast i var v
-  Ast.AstTransposeS perm v -> astTransposeS perm <$> substitute1Ast i var v
-  Ast.AstReshapeS sh v -> astReshapeS sh <$> substitute1Ast i var v
-  Ast.AstZipS v -> Ast.AstZipS <$> substitute1Ast i var v
-  Ast.AstUnzipS v -> Ast.AstUnzipS <$> substitute1Ast i var v
+  Ast.AstSliceS i2 n k v -> astSliceS i2 n k <$> subst v
+  Ast.AstReverseS v -> astReverseS <$> subst v
+  Ast.AstTransposeS perm v -> astTransposeS perm <$> subst v
+  Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
+  Ast.AstZipS v -> Ast.AstZipS <$> subst v
+  Ast.AstUnzipS v -> Ast.AstUnzipS <$> subst v
   Ast.AstNestS sh1 sh2 v ->
-    astNestS sh1 sh2 <$> substitute1Ast i var v
-  Ast.AstUnNestS v -> astUnNestS <$> substitute1Ast i var v
+    astNestS sh1 sh2 <$> subst v
+  Ast.AstUnNestS v -> astUnNestS <$> subst v
 
-  Ast.AstFromS stkz v -> astFromS stkz <$> substitute1Ast i var v
-  Ast.AstSFromK u -> astSFromK <$> substitute1Ast i var u
-  Ast.AstSFromR sh v -> astSFromR sh <$> substitute1Ast i var v
-  Ast.AstSFromX sh v -> astSFromX sh <$> substitute1Ast i var v
+  Ast.AstFromS stkz v -> astFromS stkz <$> subst v
+  Ast.AstSFromK u -> astSFromK <$> subst u
+  Ast.AstSFromR sh v -> astSFromR sh <$> subst v
+  Ast.AstSFromX sh v -> astSFromX sh <$> subst v
 
-  Ast.AstReplicate0NS sh v -> Ast.AstReplicate0NS sh <$> substitute1Ast i var v
-  Ast.AstSum0S v -> Ast.AstSum0S <$> substitute1Ast i var v
+  Ast.AstReplicate0NS sh v -> Ast.AstReplicate0NS sh <$> subst v
+  Ast.AstSum0S v -> Ast.AstSum0S <$> subst v
   Ast.AstDot0S u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstDot0S (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstDot1InS m@SNat n@SNat u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstDot1InS m n (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstMatvecmulS m@SNat n@SNat u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstMatvecmulS m n (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstMatmul2S m@SNat n@SNat p@SNat u v ->
-    let mu = substitute1Ast i var u
-        mv = substitute1Ast i var v
+    let mu = subst u
+        mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
@@ -3888,12 +3892,15 @@ substitute1AstBool :: AstSpan s2
                    => AstTensor AstMethodLet s2 y -> AstVarName s2 y
                    -> AstBool AstMethodLet
                    -> Maybe (AstBool AstMethodLet)
-substitute1AstBool i var = \case
-  Ast.AstBoolNot arg -> Ast.AstBoolNot <$> substitute1AstBool i var arg
+substitute1AstBool i var = subst where
+ subst :: AstBool AstMethodLet
+       -> Maybe (AstBool AstMethodLet)
+ subst = \case
+  Ast.AstBoolNot arg -> Ast.AstBoolNot <$> subst arg
     -- this can't be simplified, because constant boolean can't have variables
   Ast.AstB2 opCodeBool arg1 arg2 ->
-    let mb1 = substitute1AstBool i var arg1
-        mb2 = substitute1AstBool i var arg2
+    let mb1 = subst arg1
+        mb2 = subst arg2
     in if isJust mb1 || isJust mb2
        then Just $ contractAstB2 opCodeBool (fromMaybe arg1 mb1)
                                             (fromMaybe arg2 mb2)
