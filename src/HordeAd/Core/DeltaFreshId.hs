@@ -19,7 +19,6 @@ import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
-import HordeAd.Core.TensorKind
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -58,4 +57,4 @@ shareDelta d = unsafePerformIO $ do
     -- the term inside SFromR is most likely shared already, but are we sure?
     DeltaInput{} -> d
     DeltaShare{} -> d  -- should not happen, but older/lower id is safer anyway
-    _ -> DeltaShare (mkNodeId (ftkToSTK $ ftkDelta d) n) d
+    _ -> DeltaShare (mkNodeId (ftkDelta d) n) d

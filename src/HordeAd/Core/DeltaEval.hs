@@ -826,7 +826,7 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
   -- the working set of cases.
   case DMap.maxViewWithKey nMap of
     Just (n :=> d, nMap2) ->
-      let nstk = nodeIdToSTK n
+      let nstk = ftkToSTK $ nodeIdToFTK n
           s2 = s {nMap = nMap2}
           errorMissing :: a
           errorMissing = error $ "evalRevFromnMap: missing cotangent " ++ show n

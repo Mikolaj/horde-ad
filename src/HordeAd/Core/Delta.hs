@@ -38,7 +38,7 @@
 -- to understand.
 module HordeAd.Core.Delta
   ( -- * Delta identifiers
-    NodeId, mkNodeId, nodeIdToSTK
+    NodeId, mkNodeId, nodeIdToFTK
   , InputId, mkInputId, inputIdToSTK
     -- * AST of delta expressions
   , Delta(..), NestedTarget(..)
@@ -98,7 +98,7 @@ import HordeAd.Core.Types
 
 type role NodeId nominal nominal
 data NodeId :: Target -> TensorKindType -> Type where
-  NodeId :: forall target y. STensorKind y -> Int -> NodeId target y
+  NodeId :: forall target y. FullTensorKind y -> Int -> NodeId target y
 
 -- No Eq instance to limit hacks outside this module.
 
@@ -107,19 +107,19 @@ instance Show (NodeId target y) where
     showsPrec d n  -- less verbose, more readable
 
 instance DMap.Enum1 (NodeId target) where
-  type Enum1Info (NodeId target) = Some STensorKind
-  fromEnum1 (NodeId stk n) = (n, Some stk)
-  toEnum1 n (Some stk) = Some $ NodeId stk n
+  type Enum1Info (NodeId target) = Some FullTensorKind
+  fromEnum1 (NodeId ftk n) = (n, Some ftk)
+  toEnum1 n (Some ftk) = Some $ NodeId ftk n
 
 instance TestEquality (NodeId target) where
-  testEquality (NodeId stk1 _) (NodeId stk2 _) = sameSTK stk1 stk2
+  testEquality (NodeId ftk1 _) (NodeId ftk2 _) = matchingFTK ftk1 ftk2
 
 -- | Wrap non-negative (only!) integers in the `NodeId` newtype.
-mkNodeId :: STensorKind y -> Int -> NodeId f y
-mkNodeId stk i = assert (i >= 0) $ NodeId stk i
+mkNodeId :: FullTensorKind y -> Int -> NodeId f y
+mkNodeId ftk i = assert (i >= 0) $ NodeId ftk i
 
-nodeIdToSTK :: NodeId f y -> STensorKind y
-nodeIdToSTK (NodeId stk _) = stk
+nodeIdToFTK :: NodeId f y -> FullTensorKind y
+nodeIdToFTK (NodeId ftk _) = ftk
 
 type role InputId nominal nominal
 data InputId :: Target -> TensorKindType -> Type where
