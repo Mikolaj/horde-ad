@@ -56,13 +56,14 @@ forwardPassByInterpretation
      (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> FullTensorKind x
   -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByInterpretation #-}
-forwardPassByInterpretation g envInit hVectorPrimal var hVector =
-  let deltaInputs = generateDeltaInputs $ ftkAst hVectorPrimal
+forwardPassByInterpretation g envInit xftk hVectorPrimal var hVector =
+  let deltaInputs = generateDeltaInputs xftk
       varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit
@@ -106,7 +107,8 @@ revProduceArtifact
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit xftk =
-  revArtifactFromForwardPass hasDt (forwardPassByInterpretation g envInit) xftk
+  revArtifactFromForwardPass
+    hasDt (forwardPassByInterpretation g envInit xftk) xftk
 
 fwdArtifactFromForwardPass
   :: forall x z.
@@ -117,11 +119,11 @@ fwdArtifactFromForwardPass
   -> FullTensorKind x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdArtifactFromForwardPass #-}
-fwdArtifactFromForwardPass forwardPass ftk =
+fwdArtifactFromForwardPass forwardPass xftk =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
-        funToAstFwd ftk in
+        funToAstFwd xftk in
   let !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
-  let !derivative = derivativeFromDelta @x delta (adFTK ftk) (AstRaw hVectorD)
+  let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw hVectorD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
@@ -136,7 +138,7 @@ fwdProduceArtifact
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact f envInit xftk =
-  fwdArtifactFromForwardPass (forwardPassByInterpretation f envInit) xftk
+  fwdArtifactFromForwardPass (forwardPassByInterpretation f envInit xftk) xftk
 
 
 -- * AstTensor instances

@@ -148,20 +148,21 @@ revProduceArtifactWithoutInterpretation
   -> FullTensorKind x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
-revProduceArtifactWithoutInterpretation hasDt f =
-  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f)
+revProduceArtifactWithoutInterpretation hasDt f xftk =
+  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f xftk) xftk
 
 forwardPassByApplication
   :: forall x z.
      (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
+  -> FullTensorKind x
   -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByApplication #-}
-forwardPassByApplication g hVectorPrimal _var _hVector =
-  let deltaInputs = generateDeltaInputs $ ftkAst hVectorPrimal
+forwardPassByApplication g xftk hVectorPrimal _var _hVector =
+  let deltaInputs = generateDeltaInputs xftk
       varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
   in g varInputs
 
@@ -173,11 +174,10 @@ revEvalArtifact
   -> (RepN (ADTensorKind x), RepN z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt =
-  let aftk = adFTK $ ftkAst artPrimalRev
-      env = extendEnv artVarDomainRev parameters emptyEnv
+  let env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = case mdt of
         Nothing ->
-          let oneAtF = constantTarget 1 aftk
+          let oneAtF = constantTarget 1 $ adFTK $ ftkAst artPrimalRev
           in extendEnv artVarDtRev oneAtF env
         Just dt ->
           extendEnv artVarDtRev dt env
