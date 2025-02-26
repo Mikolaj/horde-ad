@@ -161,8 +161,13 @@ instance (GoodScalar r, AstSpan s)
   negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate u = AstN1K NegateOp u
-  abs = AstN1K AbsOp
-  signum = AstN1K SignumOp
+  abs (AstConcreteK u) = AstConcreteK (abs u)
+  abs (AstN1K AbsOp u) = AstN1K AbsOp u
+  abs (AstN1K NegateOp u) = abs u
+  abs u = AstN1K AbsOp u
+  signum (AstConcreteK u) = AstConcreteK (signum u)
+  signum (AstN1K SignumOp u) = AstN1K SignumOp u
+  signum u = AstN1K SignumOp u
   fromInteger i = fromPrimal $ AstConcreteK (fromInteger i)
 
 -- Warning: div and mod operations are very costly (simplifying them
@@ -319,8 +324,13 @@ instance GoodScalar r
   negate (AstI2S RemOp u v) = AstI2S RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate u = AstN1S NegateOp u
-  abs = AstN1S AbsOp
-  signum = AstN1S SignumOp
+  abs (AstConcreteS u) = AstConcreteS (abs u)
+  abs (AstN1S AbsOp u) = AstN1S AbsOp u
+  abs (AstN1S NegateOp u) = abs u
+  abs u = AstN1S AbsOp u
+  signum (AstConcreteS u) = AstConcreteS (signum u)
+  signum (AstN1S SignumOp u) = AstN1S SignumOp u
+  signum u = AstN1S SignumOp u
   fromInteger i = error $ "fromInteger not defined for shaped tensors: "
                           ++ show i
 

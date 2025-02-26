@@ -116,7 +116,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
-  , AstTensor (AstConcreteK, AstConcreteS, AstN1K, AstN1S, AstPlusK, AstTimesK, AstPlusS, AstTimesS)
+  , AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstTimesK, AstPlusS, AstTimesS)
   )
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -888,7 +888,9 @@ astPrimalPart t = case t of
 
   AstPlusK u v -> astPrimalPart u + astPrimalPart v
   AstTimesK u v -> astPrimalPart u * astPrimalPart v
-  AstN1K opCode u -> contractAstNumOp1 opCode (astPrimalPart u)
+  Ast.AstN1K NegateOp u -> negate (astPrimalPart u)
+  Ast.AstN1K AbsOp u -> abs (astPrimalPart u)
+  Ast.AstN1K SignumOp u -> signum (astPrimalPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPrimalPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2K opCode u v ->
@@ -897,8 +899,9 @@ astPrimalPart t = case t of
 
   AstPlusS u v -> astPrimalPart u + astPrimalPart v
   AstTimesS u v -> astPrimalPart u * astPrimalPart v
-  AstN1S NegateOp u -> negate (astPrimalPart u)
-  AstN1S opCode u -> AstN1S opCode (astPrimalPart u)
+  Ast.AstN1S NegateOp u -> negate (astPrimalPart u)
+  Ast.AstN1S AbsOp u -> abs (astPrimalPart u)
+  Ast.AstN1S SignumOp u -> signum (astPrimalPart u)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPrimalPart u)
                                              (astPrimalPart v)
@@ -971,7 +974,9 @@ astDualPart t = case t of
 
   AstPlusK u v -> astDualPart u + astDualPart v
   AstTimesK u v -> astDualPart u * astDualPart v
-  AstN1K opCode u -> contractAstNumOp1 opCode (astDualPart u)
+  Ast.AstN1K NegateOp u -> negate (astDualPart u)
+  Ast.AstN1K AbsOp u -> abs (astDualPart u)
+  Ast.AstN1K SignumOp u -> signum (astDualPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astDualPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astDualPart u) (astDualPart v)
   Ast.AstI2K opCode u v ->
@@ -980,8 +985,9 @@ astDualPart t = case t of
 
   AstPlusS u v -> astDualPart u + astDualPart v
   AstTimesS u v -> astDualPart u * astDualPart v
-  AstN1S NegateOp u -> negate (astDualPart u)
-  AstN1S opCode u -> AstN1S opCode (astDualPart u)
+  Ast.AstN1S NegateOp u -> negate (astDualPart u)
+  Ast.AstN1S AbsOp u -> abs (astDualPart u)
+  Ast.AstN1S SignumOp u -> signum (astDualPart u)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astDualPart u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astDualPart u)
                                              (astDualPart v)
@@ -1037,7 +1043,9 @@ astFromIntegralK t = case t of
 --  Ast.AstCond b a2 a3 ->
 --    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
   AstConcreteK k -> astConcreteK (kfromIntegral $ RepN k)
-  AstN1K opCode u -> contractAstNumOp1 opCode (astFromIntegralK u)
+  Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
+  Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
+  Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
 --  AstN2K opCode u v -> AstN2K opCode (astFromIntegralK u) (astFromIntegralK v)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   _ -> case testEquality (typeRep @r1) (typeRep @r2) of
@@ -1057,7 +1065,9 @@ astCastK t = case t of
   -- is not called to avoid loops. The same with many others
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastK v
-  AstN1K opCode u -> contractAstNumOp1 opCode (astCastK u)
+  Ast.AstN1K NegateOp u -> negate (astCastK u)
+  Ast.AstN1K AbsOp u -> abs (astCastK u)
+  Ast.AstN1K SignumOp u -> signum (astCastK u)
 --  AstN2K opCode u v -> AstN2K opCode (astCastK u) (astCastK v)
 --  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astCastK u)
 --  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astCastK u) (astCastK v)
@@ -1093,8 +1103,9 @@ astFromIntegralS t = case t of
     Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
   AstConcreteS a -> AstConcreteS (tfromIntegralS a)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
-  AstN1S NegateOp u -> negate (astFromIntegralS u)
-  AstN1S opCode u -> AstN1S opCode (astFromIntegralS u)
+  Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
+  Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
+  Ast.AstN1S SignumOp u -> signum (astFromIntegralS u)
 --  AstN2S opCode u v -> AstN2S opCode (astFromIntegralS u) (astFromIntegralS v)
 --  Ast.AstI2S opCode u v ->
 --    Ast.AstI2S opCode (astFromIntegralS u) (astFromIntegralS v)
@@ -1141,8 +1152,9 @@ astCastS t = case t of
   Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastS v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastS v
-  AstN1S NegateOp u -> negate (astCastS u)
-  AstN1S opCode u -> AstN1S opCode (astCastS u)
+  Ast.AstN1S NegateOp u -> negate (astCastS u)
+  Ast.AstN1S AbsOp u -> abs (astCastS u)
+  Ast.AstN1S SignumOp u -> signum (astCastS u)
 --  AstN2S opCode u v -> AstN2S opCode (astCastS u) (astCastS v)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
@@ -1302,8 +1314,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   AstTimesS u v ->
     shareIx ix $ \ !ix2 ->
     astIndexRec shn u ix2 * astIndexRec shn v ix2
-  AstN1S NegateOp u -> negate (astIndexRec shn u ix)
-  AstN1S opCode u -> AstN1S opCode (astIndexRec shn u ix)
+  Ast.AstN1S NegateOp u -> negate (astIndexRec shn u ix)
+  Ast.AstN1S AbsOp u -> abs (astIndexRec shn u ix)
+  Ast.AstN1S SignumOp u -> signum (astIndexRec shn u ix)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndexRec shn u ix)
   Ast.AstR2S opCode u v ->
     shareIx ix
@@ -1719,11 +1732,13 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
       -- Going inside AstTimesS usually makes term more expensive to interpret
       -- and reverting this transformation requires comparing two arguments,
       -- so it's not practical.
-    AstN1S NegateOp v | not (isVar v) ->
+    Ast.AstN1S NegateOp v | not (isVar v) ->
       negate (astGatherRec @shm' @shn' @shp' shn' v (vars4, ix4))
-    AstN1S opCode v | not (isVar v) ->
-      AstN1S opCode (astGatherRec @shm' @shn' @shp' shn' v (vars4, ix4))
-    AstN1S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+    Ast.AstN1S AbsOp v | not (isVar v) ->
+      abs (astGatherRec @shm' @shn' @shp' shn' v (vars4, ix4))
+    Ast.AstN1S SignumOp v | not (isVar v) ->
+      signum (astGatherRec @shm' @shn' @shp' shn' v (vars4, ix4))
+    Ast.AstN1S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstR1S opCode v | not (isVar v) ->
       Ast.AstR1S opCode (astGatherRec @shm' @shn' @shp' shn' v (vars4, ix4))
     Ast.AstR1S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
@@ -2110,10 +2125,12 @@ astTransposeS perm t = case perm of
     astTransposeS perm u + astTransposeS perm v
   AstTimesS u v | not (isVar u && isVar v) ->
     astTransposeS perm u * astTransposeS perm v
-  AstN1S NegateOp u | not (isVar u) ->
+  Ast.AstN1S NegateOp u | not (isVar u) ->
     negate (astTransposeS perm u)
-  AstN1S opCode u | not (isVar u) ->
-    AstN1S opCode (astTransposeS perm u)
+  Ast.AstN1S AbsOp u | not (isVar u) ->
+    abs (astTransposeS perm u)
+  Ast.AstN1S SignumOp u | not (isVar u) ->
+    signum (astTransposeS perm u)
   Ast.AstR1S opCode u | not (isVar u) ->
     Ast.AstR1S opCode (astTransposeS perm u)
   Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
@@ -2183,8 +2200,9 @@ astReshapeS sh2 = \case
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
   -- Reshaping can be costly, so we don't touch AstTimesS, etc.
-  AstN1S NegateOp u | not (isVar u) -> negate (astReshapeS @_ @sh2 sh2 u)
-  AstN1S opCode u | not (isVar u) -> AstN1S opCode (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstN1S NegateOp u | not (isVar u) -> negate (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstN1S AbsOp u | not (isVar u) -> abs (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstN1S SignumOp u | not (isVar u) -> signum (astReshapeS @_ @sh2 sh2 u)
   Ast.AstR1S opCode u | not (isVar u) ->
     Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
@@ -2283,8 +2301,9 @@ astSFromK t = case t of
   Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v
   AstPlusK u v -> astSFromK u + astSFromK v
   AstTimesK u v -> astSFromK u * astSFromK v
-  AstN1K NegateOp u -> negate (astSFromK u)
-  AstN1K opCode u -> AstN1S opCode (astSFromK u)
+  Ast.AstN1K NegateOp u -> negate (astSFromK u)
+  Ast.AstN1K AbsOp u -> abs (astSFromK u)
+  Ast.AstN1K SignumOp u -> signum (astSFromK u)
 -- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astSFromK u)
 -- TODO:  Ast.AstR2K opCode u v -> Ast.AstR2S opCode (astSFromK u) (astSFromK v)
   Ast.AstI2K opCode u v -> Ast.AstI2S opCode (astSFromK u) (astSFromK v)
@@ -2584,9 +2603,9 @@ astNonIndexStep t = case t of
   Ast.AstFromPrimal{} -> t
   Ast.AstFromDual{} -> t
 
-  AstPlusK u v -> u + v
-  AstTimesK u v -> u * v
-  AstN1K opCode u -> contractAstNumOp1 opCode u
+  AstPlusK{} -> t  -- already reduced upon creation in CarriersAst
+  AstTimesK{} -> t
+  Ast.AstN1K{} -> t
   Ast.AstR1K{} -> t
   Ast.AstR2K{} -> t
   Ast.AstI2K opCode u v -> contractAstIntegralOp2 opCode u v
@@ -2595,9 +2614,9 @@ astNonIndexStep t = case t of
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astCastK v
 
-  AstPlusS u v -> u + v
-  AstTimesS u v -> u * v
-  AstN1S{} -> t
+  AstPlusS{} -> t
+  AstTimesS{} -> t
+  Ast.AstN1S{} -> t
   Ast.AstR1S{} -> t
   Ast.AstR2S{} -> t
   Ast.AstI2S{} -> t
@@ -2690,7 +2709,9 @@ expandAst t = case t of
 
   AstPlusK u v -> expandAst u + expandAst v
   AstTimesK u v -> expandAst u * expandAst v
-  AstN1K opCode u -> contractAstNumOp1 opCode (expandAst u)
+  Ast.AstN1K NegateOp u -> negate (expandAst u)
+  Ast.AstN1K AbsOp u -> abs (expandAst u)
+  Ast.AstN1K SignumOp u -> signum (expandAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (expandAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (expandAst u) (expandAst v)
   Ast.AstI2K opCode u v ->
@@ -2702,8 +2723,9 @@ expandAst t = case t of
 
   AstPlusS u v -> expandAst u + expandAst v
   AstTimesS u v -> expandAst u * expandAst v
-  AstN1S NegateOp u -> negate (expandAst u)
-  AstN1S opCode u -> AstN1S opCode (expandAst u)
+  Ast.AstN1S NegateOp u -> negate (expandAst u)
+  Ast.AstN1S AbsOp u -> abs (expandAst u)
+  Ast.AstN1S SignumOp u -> signum (expandAst u)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (expandAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
@@ -2749,7 +2771,7 @@ expandAst t = case t of
       -- TODO: review also other nfs here and for AstReshapeS below
     AstPlusS x y | isVar x && isVar y -> t  -- normal form
     AstTimesS x y | isVar x && isVar y -> t  -- normal form
-    AstN1S _ w | isVar w -> t  -- normal form
+    Ast.AstN1S _ w | isVar w -> t  -- normal form
     Ast.AstR1S _ w | isVar w -> t  -- normal form
     Ast.AstR2S _ x y | isVar x && isVar y -> t  -- normal form
     Ast.AstScatterS _ _ (_, ix)
@@ -2772,7 +2794,7 @@ expandAst t = case t of
     Ast.AstCastS{} -> t  -- normal form
     AstPlusS{} -> t  -- normal form
     AstTimesS{} -> t  -- normal form
-    AstN1S _ w | isVar w -> t  -- normal form
+    Ast.AstN1S _ w | isVar w -> t  -- normal form
     Ast.AstR1S _ w | isVar w -> t  -- normal form
     Ast.AstR2S{} -> t  -- normal form
     Ast.AstScatterS{} -> t  -- normal form
@@ -2873,7 +2895,9 @@ simplifyAst t = case t of
 
   AstPlusK u v -> simplifyAst u + simplifyAst v
   AstTimesK u v -> simplifyAst u * simplifyAst v
-  AstN1K opCode u -> contractAstNumOp1 opCode (simplifyAst u)
+  Ast.AstN1K NegateOp u -> negate (simplifyAst u)
+  Ast.AstN1K AbsOp u -> abs (simplifyAst u)
+  Ast.AstN1K SignumOp u -> signum (simplifyAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (simplifyAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2K opCode u v ->
@@ -2885,8 +2909,9 @@ simplifyAst t = case t of
 
   AstPlusS u v -> simplifyAst u + simplifyAst v
   AstTimesS u v -> simplifyAst u * simplifyAst v
-  AstN1S NegateOp u -> negate (simplifyAst u)
-  AstN1S opCode u -> AstN1S opCode (simplifyAst u)
+  Ast.AstN1S NegateOp u -> negate (simplifyAst u)
+  Ast.AstN1S AbsOp u -> abs (simplifyAst u)
+  Ast.AstN1S SignumOp u -> signum (simplifyAst u)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
@@ -3228,7 +3253,9 @@ contractAst t = case t of
 
   AstPlusK u v -> contractAst u + contractAst v
   AstTimesK u v -> contractAst u * contractAst v
-  AstN1K opCode u -> contractAstNumOp1 opCode (contractAst u)
+  Ast.AstN1K NegateOp u -> negate (contractAst u)
+  Ast.AstN1K AbsOp u -> abs (contractAst u)
+  Ast.AstN1K SignumOp u -> signum (contractAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (contractAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (contractAst u) (contractAst v)
   Ast.AstI2K opCode u v ->
@@ -3269,8 +3296,9 @@ contractAst t = case t of
                  (v * Ast.AstReplicate
                                      (SNat @0) stk (contractAst s))
   AstTimesS u v -> contractAst u * contractAst v
-  AstN1S NegateOp u -> negate (contractAst u)
-  AstN1S opCode u -> AstN1S opCode (contractAst u)
+  Ast.AstN1S NegateOp u -> negate (contractAst u)
+  Ast.AstN1S AbsOp u -> abs (contractAst u)
+  Ast.AstN1S SignumOp u -> signum (contractAst u)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (contractAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (contractAst u) (contractAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (contractAst u) (contractAst v)
@@ -3420,19 +3448,6 @@ contractRelOp opCodeRel arg1 arg2 = Ast.AstRelK opCodeRel arg1 arg2
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
 -- We could use sharing via @tlet@ when terms are duplicated, but it's
 -- unclear if the term bloat is worth it.
-contractAstNumOp1 :: (GoodScalar r, AstSpan s)
-                  => OpCodeNum1 -> AstTensor AstMethodLet s (TKScalar r)
-                  -> AstTensor AstMethodLet s (TKScalar r)
-contractAstNumOp1 NegateOp u = negate u
-contractAstNumOp1 AbsOp (AstConcreteK u) = AstConcreteK (abs u)
-contractAstNumOp1 AbsOp (AstN1K AbsOp u) = AstN1K AbsOp u
-contractAstNumOp1 AbsOp (AstN1K NegateOp u) = contractAstNumOp1 AbsOp u
-contractAstNumOp1 SignumOp (AstConcreteK u) = AstConcreteK (signum u)
-contractAstNumOp1 SignumOp (AstN1K SignumOp u) = AstN1K SignumOp u
-contractAstNumOp1 SignumOp (AstN1K AbsOp u) =
-  contractAstNumOp1 AbsOp (AstN1K SignumOp u)
-contractAstNumOp1 opCode u = AstN1K opCode u
-
 contractAstIntegralOp2 :: (GoodScalar r, AstSpan s, IntegralF r)
                        => OpCodeIntegral2
                        -> AstTensor AstMethodLet s (TKScalar r)
@@ -3607,8 +3622,9 @@ substitute1Ast i var = subst where
     in if isJust mu || isJust mv
        then Just $ fromMaybe u mu * fromMaybe v mv
        else Nothing
-  Ast.AstN1K opCode u -> (\u2 -> contractAstNumOp1 opCode u2)
-                         <$> subst u
+  Ast.AstN1K NegateOp u -> (\u2 -> negate u2) <$> subst u
+  Ast.AstN1K AbsOp u -> (\u2 -> abs u2) <$> subst u
+  Ast.AstN1K SignumOp u -> (\u2 -> signum u2) <$> subst u
   Ast.AstR1K opCode u -> Ast.AstR1K opCode <$> subst u
   Ast.AstR2K opCode u v ->
     let mu = subst u
@@ -3641,7 +3657,8 @@ substitute1Ast i var = subst where
        then Just $ fromMaybe u mu * fromMaybe v mv
        else Nothing
   Ast.AstN1S NegateOp u -> negate <$> subst u
-  Ast.AstN1S opCode u -> Ast.AstN1S opCode <$> subst u
+  Ast.AstN1S AbsOp u -> (\u2 -> abs u2) <$> subst u
+  Ast.AstN1S SignumOp u -> (\u2 -> signum u2) <$> subst u
   Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> subst u
   Ast.AstR2S opCode u v ->
     let mu = subst u
