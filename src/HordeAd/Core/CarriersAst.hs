@@ -54,6 +54,42 @@ instance Eq (AstTensor ms s y) where
 instance Ord (AstTensor ms s y) where
   (<=) = error "AST requires that OrdF be used instead"
 
+-- TODO: perhaps aim for a polynomial normal form? but that requires global
+-- inspection of the whole expression
+-- TODO: let's aim at SOP (Sum-of-Products) form, just as
+-- ghc-typelits-natnormalise does. Also, let's associate to the right
+-- and let's push negation down.
+-- TODO: these docs are outdated
+--
+-- | Normally, we wouldn't simplify tensor arithmetic so much, but some
+-- of these ranked tensors can represent integers in indexes, so we have to.
+-- Integer terms need to be simplified, because large ones they are sometimes
+-- created due to vectorization, e.g., via astTransposeAsGather
+-- or astReshapeAsGather and can be a deciding factor in whether
+-- the other tensor terms can be simplified in turn.
+--
+-- We mix Num and Integral operations in the code below, so we have
+-- to limit out underling scalar to @Int64@, which is very well,
+-- because we mutiply by zero and compare (big) tensors there,
+-- which are both problematic operations with floats.
+-- Another problematic operations is comparing big tensors,
+-- but we don't have to limit tensor rank to 0, because we compare
+-- only tensors from inside bare AstConcreteK and float tensors are always
+-- wrapped in AstFromPrimal, so they can't be involved.
+--
+-- Rank has to be 0 so that the value expressions @0@ below don't crash.
+--
+-- Several first paragraphs are modelled on @Num@ instance for @AstRanked@
+-- and depend on the normal form where @AstConcreteK@, if any, is the first element
+-- and the list if fully flattened and of length >= 2.
+-- Additionally we here ensure the @AstConcreteK@ is never zero.
+--
+-- Not considered are rules that would require comparing non-constant terms
+-- or that would duplicate a non-constant term, as well as most rules
+-- informed by inequalities, expressed via max or min, such as
+-- max n (signum (abs x)) | n <= 0 --> signum (abs x).
+-- We could use sharing via @tlet@ when terms are duplicated, but it's
+-- unclear if the term bloat is worth it.
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   -- The normal form has AstConcreteK, if any, as the first argument
@@ -161,11 +197,11 @@ instance (GoodScalar r, AstSpan s)
   negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate u = AstN1K NegateOp u
-  abs (AstConcreteK u) = AstConcreteK (abs u)
+  abs (AstConcreteK n) = AstConcreteK (abs n)
   abs (AstN1K AbsOp u) = AstN1K AbsOp u
   abs (AstN1K NegateOp u) = abs u
   abs u = AstN1K AbsOp u
-  signum (AstConcreteK u) = AstConcreteK (signum u)
+  signum (AstConcreteK n) = AstConcreteK (signum n)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
   signum u = AstN1K SignumOp u
   fromInteger i = fromPrimal $ AstConcreteK (fromInteger i)
@@ -175,8 +211,26 @@ instance (GoodScalar r, AstSpan s)
 -- they are going to work, but slowly.
 instance (GoodScalar r, IntegralF r, AstSpan s)
          => IntegralF (AstTensor ms s (TKScalar r)) where
-  quotF = AstI2K QuotOp
-  remF = AstI2K RemOp
+  quotF (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotF n k)
+  quotF (AstConcreteK 0) _ = AstConcreteK 0
+  quotF u (AstConcreteK 1) = u
+  quotF (AstI2K RemOp _ (AstConcreteK k)) (AstConcreteK k')
+    | k' >= k && k >= 0 = 0
+  quotF (AstI2K QuotOp u v) w = quotF u (v * w)
+  quotF (AstTimesK (AstConcreteK n) v) (AstConcreteK n')
+    | n == n' = v
+  quotF u v = AstI2K QuotOp u v
+
+  remF (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remF n k)
+  remF (AstConcreteK 0) _ = AstConcreteK 0
+  remF _ (AstConcreteK 1) = AstConcreteK 0
+  remF (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
+    | k' >= k && k >= 0 = AstI2K RemOp u (AstConcreteK k)
+  remF (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
+    | remF k k' == 0 && k > 0 = remF u (AstConcreteK k')
+  remF (AstTimesK (AstConcreteK n) _) (AstConcreteK n')
+    | remF n n' == 0 = 0
+  remF u v = AstI2K RemOp u v
 
 instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where

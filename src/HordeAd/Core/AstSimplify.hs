@@ -893,8 +893,8 @@ astPrimalPart t = case t of
   Ast.AstN1K SignumOp u -> signum (astPrimalPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPrimalPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2K opCode u v ->
-    contractAstIntegralOp2 opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2K QuotOp u v -> quotF (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2K RemOp u v -> remF (astPrimalPart u) (astPrimalPart v)
   Ast.AstCastK v -> astCastK $ astPrimalPart v
 
   AstPlusS u v -> astPrimalPart u + astPrimalPart v
@@ -979,8 +979,8 @@ astDualPart t = case t of
   Ast.AstN1K SignumOp u -> signum (astDualPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astDualPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astDualPart u) (astDualPart v)
-  Ast.AstI2K opCode u v ->
-    contractAstIntegralOp2 opCode (astDualPart u) (astDualPart v)
+  Ast.AstI2K QuotOp u v -> quotF (astDualPart u) (astDualPart v)
+  Ast.AstI2K RemOp u v -> remF (astDualPart u) (astDualPart v)
   Ast.AstCastK v -> astCastK $ astDualPart v
 
   AstPlusS u v -> astDualPart u + astDualPart v
@@ -2608,7 +2608,8 @@ astNonIndexStep t = case t of
   Ast.AstN1K{} -> t
   Ast.AstR1K{} -> t
   Ast.AstR2K{} -> t
-  Ast.AstI2K opCode u v -> contractAstIntegralOp2 opCode u v
+  Ast.AstI2K QuotOp u v -> quotF u v
+  Ast.AstI2K RemOp u v -> remF u v
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK{} -> t
   Ast.AstFromIntegralK v -> astFromIntegralK v
@@ -2714,8 +2715,8 @@ expandAst t = case t of
   Ast.AstN1K SignumOp u -> signum (expandAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (expandAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (expandAst u) (expandAst v)
-  Ast.AstI2K opCode u v ->
-    contractAstIntegralOp2 opCode (expandAst u) (expandAst v)
+  Ast.AstI2K QuotOp u v -> quotF (expandAst u) (expandAst v)
+  Ast.AstI2K RemOp u v -> remF (expandAst u) (expandAst v)
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK a -> Ast.AstFloorK (expandAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ expandAst v
@@ -2900,8 +2901,8 @@ simplifyAst t = case t of
   Ast.AstN1K SignumOp u -> signum (simplifyAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (simplifyAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2K opCode u v ->
-    contractAstIntegralOp2 opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2K QuotOp u v -> quotF (simplifyAst u) (simplifyAst v)
+  Ast.AstI2K RemOp u v -> remF (simplifyAst u) (simplifyAst v)
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK a -> Ast.AstFloorK (simplifyAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ simplifyAst v
@@ -3258,8 +3259,8 @@ contractAst t = case t of
   Ast.AstN1K SignumOp u -> signum (contractAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (contractAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (contractAst u) (contractAst v)
-  Ast.AstI2K opCode u v ->
-    contractAstIntegralOp2 opCode (contractAst u) (contractAst v)
+  Ast.AstI2K QuotOp u v -> quotF (contractAst u) (contractAst v)
+  Ast.AstI2K RemOp u v -> remF (contractAst u) (contractAst v)
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK a -> Ast.AstFloorK (contractAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ contractAst v
@@ -3378,9 +3379,6 @@ contractAstBool t = case t of
   Ast.AstRelS opCodeRel arg1 arg2 ->
     Ast.AstRelS opCodeRel (contractAst arg1) (contractAst arg2)
 
-
--- * Contraction of arithmetic and boolean operations
-
 contractRelOp :: GoodScalar r
               => OpCodeRel
               -> AstTensor AstMethodLet PrimalSpan (TKScalar r)
@@ -3411,75 +3409,6 @@ contractRelOp LsOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
 contractRelOp GtOp (Ast.AstVar _ u) (Ast.AstVar _ v) | u == v =
   AstBoolConst False
 contractRelOp opCodeRel arg1 arg2 = Ast.AstRelK opCodeRel arg1 arg2
-
--- TODO: perhaps aim for a polynomial normal form? but that requires global
--- inspection of the whole expression
--- TODO: let's aim at SOP (Sum-of-Products) form, just as
--- ghc-typelits-natnormalise does. Also, let's associate to the right
--- and let's push negation down.
--- TODO: these docs are outdated
---
--- | Normally, we wouldn't simplify tensor arithmetic so much, but some
--- of these ranked tensors can represent integers in indexes, so we have to.
--- Integer terms need to be simplified, because large ones they are sometimes
--- created due to vectorization, e.g., via astTransposeAsGather
--- or astReshapeAsGather and can be a deciding factor in whether
--- the other tensor terms can be simplified in turn.
---
--- We mix Num and Integral operations in the code below, so we have
--- to limit out underling scalar to @Int64@, which is very well,
--- because we mutiply by zero and compare (big) tensors there,
--- which are both problematic operations with floats.
--- Another problematic operations is comparing big tensors,
--- but we don't have to limit tensor rank to 0, because we compare
--- only tensors from inside bare AstConcreteK and float tensors are always
--- wrapped in AstFromPrimal, so they can't be involved.
---
--- Rank has to be 0 so that the value expressions @0@ below don't crash.
---
--- Several first paragraphs are modelled on @Num@ instance for @AstRanked@
--- and depend on the normal form where @AstConcreteK@, if any, is the first element
--- and the list if fully flattened and of length >= 2.
--- Additionally we here ensure the @AstConcreteK@ is never zero.
---
--- Not considered are rules that would require comparing non-constant terms
--- or that would duplicate a non-constant term, as well as most rules
--- informed by inequalities, expressed via max or min, such as
--- max n (signum (abs x)) | n <= 0 --> signum (abs x).
--- We could use sharing via @tlet@ when terms are duplicated, but it's
--- unclear if the term bloat is worth it.
-contractAstIntegralOp2 :: (GoodScalar r, AstSpan s, IntegralF r)
-                       => OpCodeIntegral2
-                       -> AstTensor AstMethodLet s (TKScalar r)
-                       -> AstTensor AstMethodLet s (TKScalar r)
-                       -> AstTensor AstMethodLet s (TKScalar r)
-contractAstIntegralOp2 QuotOp (AstConcreteK u) (AstConcreteK v) =
-  AstConcreteK (quotF u v)
-contractAstIntegralOp2 QuotOp (AstConcreteK 0) _v = AstConcreteK 0
-contractAstIntegralOp2 QuotOp u (AstConcreteK 1) = u
-contractAstIntegralOp2 QuotOp (Ast.AstI2K RemOp _u (AstConcreteK v))
-                              (AstConcreteK v')
-  | v' >= v && v >= 0 = 0
-contractAstIntegralOp2 QuotOp (Ast.AstI2K QuotOp u v) w =
-  contractAstIntegralOp2 QuotOp u (v * w)
-contractAstIntegralOp2 QuotOp (AstTimesK (AstConcreteK u) v)
-                              (AstConcreteK u')
-  | u == u' = v
-
-contractAstIntegralOp2 RemOp (AstConcreteK u) (AstConcreteK v) =
-  AstConcreteK (remF u v)
-contractAstIntegralOp2 RemOp (AstConcreteK 0) _v = AstConcreteK 0
-contractAstIntegralOp2 RemOp _u (AstConcreteK 1) = AstConcreteK 0
-contractAstIntegralOp2 RemOp (Ast.AstI2K RemOp u (AstConcreteK v))
-                             (AstConcreteK v')
-  | v' >= v && v >= 0 = Ast.AstI2K RemOp u (AstConcreteK v)
-contractAstIntegralOp2 RemOp (Ast.AstI2K RemOp u (AstConcreteK v))
-                             (AstConcreteK v')
-  | remF v v' == 0 && v > 0 = contractAstIntegralOp2 RemOp u (AstConcreteK v')
-contractAstIntegralOp2 RemOp (AstTimesK (AstConcreteK u) _v) (AstConcreteK u')
-  | remF u u' == 0 = 0
-
-contractAstIntegralOp2 opCode u v = Ast.AstI2K opCode u v
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
@@ -3632,12 +3561,17 @@ substitute1Ast i var = subst where
     in if isJust mu || isJust mv
        then Just $ Ast.AstR2K opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstI2K opCode u v ->
+  Ast.AstI2K QuotOp u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just
-            $ contractAstIntegralOp2 opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ quotF (fromMaybe u mu) (fromMaybe v mv)
+       else Nothing
+  Ast.AstI2K RemOp u v ->
+    let mu = subst u
+        mv = subst v
+    in if isJust mu || isJust mv
+       then Just $ remF (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstConcreteK{} -> Nothing
   Ast.AstFloorK a -> Ast.AstFloorK <$> subst a
