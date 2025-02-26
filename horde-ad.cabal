@@ -407,7 +407,7 @@ library testCommonLibrary
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
-test-suite simplifiedOnlyTest
+test-suite fullTest
     import:           options, exe-options-test
 
     if flag(release)
@@ -419,7 +419,28 @@ test-suite simplifiedOnlyTest
 
     hs-source-dirs:   test
 
-    main-is:          SimplifiedOnlyTest.hs
+    main-is:          FullTest.hs
+
+    build-depends:
+      , horde-ad:testCommonLibrary
+      , horde-ad:testToolLibrary
+
+      , base
+      , tasty >= 1.0
+
+test-suite CAFlessTest
+    import:           options, exe-options-test
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+
+    main-is:          CAFlessTest.hs
 
     build-depends:
       , horde-ad:testCommonLibrary

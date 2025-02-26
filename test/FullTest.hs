@@ -32,7 +32,7 @@ main = do
 
 tests :: TestTree
 tests =
-  testGroup "Tests for simplified horde-ad"
+  testGroup "Full set of tests for simplified horde-ad"
     [ testGroup "Short_tests"
         (TestAdaptorSimplified.testTrees
          ++ TestConvSimplified.testTrees

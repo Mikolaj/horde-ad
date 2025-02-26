@@ -471,7 +471,7 @@ evalRev !s !c d0 = case d0 of
     -- For @Input@ terms, the eventual lists of cotangents end up
     -- in the cells of the gradient vectors that are the final
     -- result of the evaluation.
-    assert (case d of  -- shouold match shareDelta
+    assert (case d of  -- should match shareDelta
               DeltaZero{} -> False
               DeltaPair{} -> False
               DeltaInput{} -> False
