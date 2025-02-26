@@ -60,9 +60,11 @@ crevOnADInputs mdt f xftk inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
-  let oneAtF zstk = constantTarget 1 $ adFTK $ tftk zstk v
-      dt = either oneAtF id mdt
-      !gradient = gradientFromDelta xftk dt delta
+  let !gradient = case mdt of
+        Left zstk -> let zftk = tftk zstk v
+                         dt = constantTarget 1 $ adFTK zftk
+                     in gradientFromDelta xftk (Just zftk) dt delta
+        Right dt -> gradientFromDelta xftk Nothing dt delta
   in (gradient, v)
 
 crevOnHVector

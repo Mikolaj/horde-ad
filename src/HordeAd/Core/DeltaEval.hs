@@ -51,6 +51,7 @@ import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -79,16 +80,18 @@ import HordeAd.Core.Unwind
 gradientFromDelta
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => FullTensorKind x
+  -> Maybe (FullTensorKind z)
   -> target (ADTensorKind z)
   -> Delta target z
   -> target (ADTensorKind x)
-gradientFromDelta !parameters0 !dt deltaTopLevel =
-  let s0 = initEvalState parameters0
-      s1 = evalRev s0 dt deltaTopLevel
+gradientFromDelta !xftk mzftk !dt deltaTopLevel =
+  let s0 = initEvalState xftk
+      zftk = fromMaybe (ftkDelta deltaTopLevel) mzftk
+      s1 = evalRev zftk s0 dt deltaTopLevel
       s2 = evalRevFromnMap s1
       (res, remainder) =
         rebuildInputs @(ADTensorKind x) (DMap.toAscList $ iMap s2) s2
-        $ adFTK parameters0
+        $ adFTK xftk
   in assert (null remainder) res
 
 derivativeFromDelta
@@ -370,33 +373,45 @@ evalXRuntimeSpecialized !s !c =
 evalRev
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target)
+  => FullTensorKind y
+  -> EvalState target -> target (ADTensorKind y) -> Delta target y
+  -> EvalState target
+evalRev ftk !s !c d = case ftk of
+  FTKR @n _ (FTKScalar @r) -> evalRevRuntimeSpecialized @n @r s c d
+  FTKS @sh _ (FTKScalar @r) -> evalSRuntimeSpecialized @sh @r s c d
+  FTKX @sh _ (FTKScalar @r) -> evalXRuntimeSpecialized @sh @r s c d
+  _ -> evalRevFTK s c d
+
+evalRevFTK
+  :: forall y target.
+     (ADReadyNoLet target, ShareTensor target)
   => EvalState target -> target (ADTensorKind y) -> Delta target y
   -> EvalState target
-evalRev !s !c d0 = case d0 of
+evalRevFTK !s !c d0 = case d0 of
   -- All constructors that admit a TKProduct kind need to be handled in evalRev
   -- except for DeltaInput that is always constructed only in basic kinds.
   DeltaPair d1 d2 ->
     let (c1, c2) = tunpair c
-    in evalRev (evalRev s c1 d1) c2 d2
+    in evalRevFTK (evalRevFTK s c1 d1) c2 d2
   DeltaProject1 d -> case ftkDelta d of
     FTKProduct _ ftk2 ->
       let zero = constantTarget 0 $ adFTK ftk2
-      in evalRev s (tpair c zero) d
+      in evalRevFTK s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
   DeltaProject2 d -> case ftkDelta d of
     FTKProduct ftk1 _ ->
       let zero = constantTarget 0 $ adFTK ftk1
-      in evalRev s (tpair zero c) d
+      in evalRevFTK s (tpair zero c) d
   DeltaFromVector snat stk ld | Refl <- lemBuildOfAD snat stk ->
     let cShared = tshare c
         cxs = tunravelToListShare snat (adSTK stk) cShared
-    in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+    in foldl' (\ !s2 (cx, d2) -> evalRevFTK s2 cx d2) s
        $ zip cxs (V.toList ld)
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalRev s (treplicateShare snat (adSTK stk) c) d
+    evalRevFTK s (treplicateShare snat (adSTK stk) c) d
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalRev s (tsumShare snat (adSTK stk) c) d
+    evalRevFTK s (tsumShare snat (adSTK stk) c) d
   DeltaMapAccumR k bShs eShs q es _df rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->
@@ -416,8 +431,8 @@ evalRev !s !c d0 = case d0 of
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
-        s2 = evalRev s dacc acc0'
-    in evalRev s2 des es'
+        s2 = evalRevFTK s dacc acc0'
+    in evalRevFTK s2 des es'
   DeltaMapAccumL k bShs eShs q es _df rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->
@@ -437,8 +452,8 @@ evalRev !s !c d0 = case d0 of
                      c0
                      (tpair crest (tpair q es))
         (dacc, des) = tunpair dacc_des
-        s2 = evalRev s dacc acc0'
-    in evalRev s2 des es'
+        s2 = evalRevFTK s dacc acc0'
+    in evalRevFTK s2 des es'
 
   DeltaShare n d ->
     -- In this context, by construction, @d@ is the dual component
@@ -490,44 +505,44 @@ evalRev !s !c d0 = case d0 of
   DeltaFromS stk (DeltaSFromR _ d)
     | y2 <- ftkDelta d
     , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalRev s c d
+      evalRevFTK s c d
   DeltaFromS stk (DeltaSFromX _ d)
     | y2 <- ftkDelta d
     , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalRev s c d
+      evalRevFTK s c d
   DeltaFromS stk d -> case (ftkToSTK $ ftkDelta d, stk) of
-    (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev s c d
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRevFTK s c d
     (STKS ZSS yx@(STKScalar @ry), STKScalar @rz) ->
       case testEquality (typeRep @ry) (typeRep @rz) of
         Just Refl -> case sameSTK yx (adSTK yx) of
-          Just Refl -> evalRev s (sfromK c) d
+          Just Refl -> evalRevFTK s (sfromK c) d
           _ -> s
         Nothing -> error "evalRev: tensor kinds don't match"
     (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTKOfAD yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) nx) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
-          evalRev s (sfromR c) d
+          evalRevFTK s (sfromR c) d
         _ -> error "evalRev: tensor kinds don't match"
     (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTKOfAD yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
-          evalRev s (sfromX c) d
+          evalRevFTK s (sfromX c) d
         _ -> error "evalRev: tensor kinds don't match"
     (STKProduct{}, STKProduct stkz1 stkz2) ->
         let (c1, c2) = tunpair c
-        in evalRev (evalRev s c1 (DeltaFromS stkz1 $ DeltaProject1 d))
-                   c2 (DeltaFromS stkz2 $ DeltaProject2 d)
+        in evalRevFTK (evalRevFTK s c1 (DeltaFromS stkz1 $ DeltaProject1 d))
+                      c2 (DeltaFromS stkz2 $ DeltaProject2 d)
              -- TODO: costly
     _ -> error "evalRev: wrong tensor kinds"
 
   _ -> case ftkDelta d0 of
     y -> case matchingFTK y (adFTK y) of
-        Just Refl -> evalRevSame s c d0
-        _ -> s  -- the constructors remaining here have y that is a non-TKProduct
-                -- so if y is equal to ADTensorKind y, the latter has
-                -- the () scalar type and so no influence on the derivative.
+      Just Refl -> evalRevSame s c d0
+      _ -> s  -- the constructors remaining here have y that is a non-TKProduct
+              -- so if y is equal to ADTensorKind y, the latter has
+              -- the Z0 scalar type and so no influence on the derivative.
 
 evalRevSame
   :: forall y target.
@@ -560,7 +575,7 @@ evalRevSame !s !c = \case
     in evalRevSame (evalRevSame s cShared d) cShared e
 
   DeltaCastK @r1 d ->
-    evalRev s (toADTensorKindShared (FTKScalar @r1) $ kcast c) d
+    evalRev (FTKScalar @r1) s (toADTensorKindShared (FTKScalar @r1) $ kcast c) d
 
   DeltaCastR d -> case ftkDelta d of
     y ->
@@ -815,36 +830,18 @@ evalRevSame !s !c = \case
       withKnownShX (ssxFromShape sh2) $
       evalRevSame s (xnest (ssxFromShape sh1) c) d
 
-  d -> evalRev s c d
-    -- the remaining constructors are already handled in evalRev, so let's use that
+  d -> evalRevFTK s c d
+    -- the remaining constructors are already handled in evalRevFTK
 
 evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
                 => EvalState target -> EvalState target
 evalRevFromnMap s@EvalState{nMap, dMap} =
-  -- We discharge the non-vector cases before the vector ones, because
-  -- the latter tend to create and store more cases and so enlarge
-  -- the working set of cases.
   case DMap.maxViewWithKey nMap of
     Just (n :=> d, nMap2) ->
-      let nstk = ftkToSTK $ nodeIdToFTK n
-          s2 = s {nMap = nMap2}
-          errorMissing :: a
-          errorMissing = error $ "evalRevFromnMap: missing cotangent " ++ show n
-          s3 = case nstk of
-            STKR @n _ (STKScalar @r) -> case DMap.lookup n dMap of
-              Just (Cotangent c) -> evalRevRuntimeSpecialized @n @r s2 c d
-              Nothing -> errorMissing
-            STKS @sh _ (STKScalar @r) ->
-              case DMap.lookup n dMap of
-                Just (Cotangent c) -> evalSRuntimeSpecialized @sh @r s2 c d
-                Nothing -> errorMissing
-            STKX @sh _ (STKScalar @r) ->
-              case DMap.lookup n dMap of
-                Just (Cotangent c) -> evalXRuntimeSpecialized @sh @r s2 c d
-                Nothing -> errorMissing
-            _ -> case DMap.lookup n dMap of
-              Just (Cotangent c) -> evalRev s2 c d
-              Nothing -> errorMissing
+      let s2 = s {nMap = nMap2}
+          s3 = case DMap.lookup n dMap of
+            Just (Cotangent c) -> evalRev (nodeIdToFTK n) s2 c d
+            Nothing -> error $ "evalRevFromnMap: missing cotangent " ++ show n
       in evalRevFromnMap s3
     Nothing -> s  -- loop ends
 
