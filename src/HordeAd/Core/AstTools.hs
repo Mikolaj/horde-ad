@@ -71,7 +71,7 @@ ftkAst t = case t of
   AstBuild1 snat _ (_var, v) -> buildFTK snat (ftkAst v)
 
   AstLet _ _ v -> ftkAst v
-  AstShare _ v -> ftkAst v
+  AstShare var _ -> varNameToFTK var
   AstToShare v -> ftkAst v
 
   AstPrimalPart a -> ftkAst a
@@ -199,7 +199,7 @@ varInAst var = \case
     assert (varNameToAstVarId var2 /= var) $
     varInAst var v
 
-  AstLet _var2 u v -> varInAst var u || varInAst var v
+  AstLet _ u v -> varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
   AstToShare v -> varInAst var v
 

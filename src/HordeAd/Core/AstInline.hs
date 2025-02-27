@@ -422,8 +422,7 @@ unshareAst memo = \case
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
     Ast.AstFromS @y2 stkz v ->
       let var = mkAstVarName (ftkAst v) $ varNameToAstVarId varRaw
-          astVar = Ast.AstFromS @y2 stkz
-                   $ Ast.AstVar var
+          astVar = Ast.AstFromS @y2 stkz $ Ast.AstVar var
       in if var `DMap.member` memo
          then (memo, astVar)
          else let (memo1, !a2) = unshareAst memo v
