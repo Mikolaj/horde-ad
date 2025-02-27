@@ -414,7 +414,8 @@ deriving instance Show (AstTensor ms s y)
 
 type role AstHFun nominal nominal
 data AstHFun x z where
-  AstLambda :: ~(AstVarName PrimalSpan x, AstTensor AstMethodLet PrimalSpan z)
+  AstLambda :: ~(AstVarName PrimalSpan x)
+            -> ~(AstTensor AstMethodLet PrimalSpan z)
             -> AstHFun x z
     -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects

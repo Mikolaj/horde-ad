@@ -301,10 +301,10 @@ inlineAst memo v0 = case v0 of
 inlineAstHFun
   :: AstMemo -> AstHFun x y -> (AstMemo, AstHFun x y)
 inlineAstHFun memo v0 = case v0 of
-  Ast.AstLambda ~(var, l) ->
+  Ast.AstLambda var l ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
-    (memo, Ast.AstLambda (var, snd $ inlineAst EM.empty l))
+    (memo, Ast.AstLambda var (snd $ inlineAst EM.empty l))
 
 inlineAstBool :: AstMemo -> AstBool AstMethodLet -> (AstMemo, AstBool AstMethodLet)
 inlineAstBool memo v0 = case v0 of

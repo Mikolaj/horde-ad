@@ -7,12 +7,10 @@ module HordeAd.Core.AstEnv
   ( -- * The environment and operations for extending it
     AstEnv, AstEnvElem(..), emptyEnv, showsPrecAstEnv
   , extendEnv, extendEnvI
-    -- * The operations for interpreting bindings
-  , interpretLambdaIndexToIndexS, interpretLambdaHFun
+  , interpretLambdaIndexToIndexS
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstR1, interpretAstR2
-  , interpretAstR2F
-  , interpretAstI2F, interpretAstB2, interpretAstRelOp
+  , interpretAstR2F, interpretAstI2F, interpretAstB2, interpretAstRelOp
   ) where
 
 import Prelude
@@ -84,9 +82,6 @@ extendEnvVarsS vars !ix !env =
   let assocs = zip (listsToList vars) (Foldable.toList ix)
   in foldr (uncurry extendEnvI) env assocs
 
-
--- * The operations for interpreting bindings
-
 interpretLambdaIndexToIndexS
   :: forall target sh sh2 ms. BaseTensor target
   => (AstEnv target -> AstInt ms -> IntOf target)
@@ -96,16 +91,6 @@ interpretLambdaIndexToIndexS
 {-# INLINE interpretLambdaIndexToIndexS #-}
 interpretLambdaIndexToIndexS f !env (!vars, !asts) =
   \ix -> f (extendEnvVarsS vars ix env) <$> asts
-
-interpretLambdaHFun
-  :: (forall target z. ADReady target
-      => AstEnv target -> AstTensor ms s z
-      -> target z)
-  -> (AstVarName s x, AstTensor ms s y)
-  -> HFun x y
-{-# INLINE interpretLambdaHFun #-}
-interpretLambdaHFun interpret ~(var, ast) =
-  HFun $ \ws -> interpret (extendEnv var ws emptyEnv) ast
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

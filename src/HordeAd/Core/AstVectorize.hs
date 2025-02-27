@@ -420,14 +420,14 @@ build1VHFun
      SNat k -> (IntVarName, AstHFun x z)
   -> AstHFun (BuildTensorKind k x) (BuildTensorKind k z)
 build1VHFun snat@SNat (var, v0) = case v0 of
-  Ast.AstLambda ~(var1, l) ->
+  Ast.AstLambda var1 l ->
     -- This handles the case of l having free variables beyond var1,
     -- which is not possible for lambdas used in folds, etc.
     -- But note that, due to substProjVars, l2 has var occurences,
     -- so build1VOccurenceUnknownRefresh is neccessary to handle
     -- them and to eliminate them so that the function is closed again.
     let (var2, l2) = substProjRep snat var var1 l
-    in Ast.AstLambda (var2, build1VOccurenceUnknownRefresh snat (var, l2))
+    in Ast.AstLambda var2 (build1VOccurenceUnknownRefresh snat (var, l2))
 
 
 -- * Auxiliary operations

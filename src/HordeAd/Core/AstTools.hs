@@ -67,7 +67,7 @@ ftkAst t = case t of
     FTKProduct (ftkAst acc0) (buildFTK k bShs)
   AstMapAccumLDer k bShs _eShs _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bShs)
-  AstApply (AstLambda ~(_var, l)) _ -> ftkAst l
+  AstApply (AstLambda !_ !l) _ -> ftkAst l
   AstVar var -> varNameToFTK var
   AstCond _b v _w -> ftkAst v
   AstBuild1 snat _ (_var, v) -> buildFTK snat (ftkAst v)

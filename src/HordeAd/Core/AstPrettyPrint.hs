@@ -549,7 +549,7 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
 
 printAstHFun :: PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFun cfg d = \case
-  AstLambda (var, l) ->
+  AstLambda var l ->
     if loseRoudtrip cfg
     then if ignoreNestedLambdas cfg
          then showString "<lambda>"
@@ -568,7 +568,7 @@ printAstHFun cfg d = \case
 
 printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
-  AstLambda (var, l) ->
+  AstLambda var l ->
     if loseRoudtrip cfg
     then showParen (d > 0)
          $ showString "\\"

@@ -490,9 +490,9 @@ astMapAccumRDer
   -> AstTensor AstMethodLet s accShs
   -> AstTensor AstMethodLet s (BuildTensorKind k eShs)
   -> AstTensor AstMethodLet s (TKProduct accShs (BuildTensorKind k bShs))
-astMapAccumRDer k bShs eShs (AstLambda (varf, vf))
-                            (AstLambda (vard, vd))
-                            (AstLambda (varr, vr))
+astMapAccumRDer k bShs eShs (AstLambda varf vf)
+                            (AstLambda vard vd)
+                            (AstLambda varr vr)
                 (Ast.AstFromS @accShsFrom accShsSTK acc0From) es =
   let accShsFrom = ftkAst acc0From
       accShsFromSTK = ftkToSTK accShsFrom
@@ -548,13 +548,13 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, vf))
                     subbed
   in astFromS @(TKProduct accShsFrom (BuildTensorKind k bShs))
               (STKProduct accShsSTK (buildSTK k (ftkToSTK bShs)))
-     $ astMapAccumRDer k bShs eShs (AstLambda (varf2, vf2))
-                                   (AstLambda (vard2, vd2))
-                                   (AstLambda (varr2, vr2))
+     $ astMapAccumRDer k bShs eShs (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
                                    acc0From es
-astMapAccumRDer k bShs eShs (AstLambda (varf, vf))
-                            (AstLambda (vard, vd))
-                            (AstLambda (varr, vr))
+astMapAccumRDer k bShs eShs (AstLambda varf vf)
+                            (AstLambda vard vd)
+                            (AstLambda varr vr)
                 acc0 (Ast.AstFromS @esShsFrom _esShsSTK esFrom) =
   let accShs = ftkAst acc0
       accShsSTK = ftkToSTK accShs
@@ -609,9 +609,9 @@ astMapAccumRDer k bShs eShs (AstLambda (varf, vf))
             in astSFrom @(ADTensorKind (TKProduct accShs eShs))
                         (adSTK $ STKProduct accShsSTK eShsFromSTK)
                         subbed
-      in astMapAccumRDer k bShs eShsFrom (AstLambda (varf2, vf2))
-                                         (AstLambda (vard2, vd2))
-                                         (AstLambda (varr2, vr2))
+      in astMapAccumRDer k bShs eShsFrom (AstLambda varf2 vf2)
+                                         (AstLambda vard2 vd2)
+                                         (AstLambda varr2 vr2)
                                          acc0 esFrom
 astMapAccumRDer k bShs eShs f df rf acc0 es =
   Ast.AstMapAccumRDer k bShs eShs f df rf acc0 es
@@ -631,9 +631,9 @@ astMapAccumLDer
   -> AstTensor AstMethodLet s accShs
   -> AstTensor AstMethodLet s (BuildTensorKind k eShs)
   -> AstTensor AstMethodLet s (TKProduct accShs (BuildTensorKind k bShs))
-astMapAccumLDer k bShs eShs (AstLambda (varf, vf))
-                            (AstLambda (vard, vd))
-                            (AstLambda (varr, vr))
+astMapAccumLDer k bShs eShs (AstLambda varf vf)
+                            (AstLambda vard vd)
+                            (AstLambda varr vr)
                 (Ast.AstFromS @accShsFrom accShsSTK acc0From) es =
   let accShsFrom = ftkAst acc0From
       accShsFromSTK = ftkToSTK accShsFrom
@@ -689,13 +689,13 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, vf))
                     subbed
   in astFromS @(TKProduct accShsFrom (BuildTensorKind k bShs))
               (STKProduct accShsSTK (buildSTK k (ftkToSTK bShs)))
-     $ astMapAccumLDer k bShs eShs (AstLambda (varf2, vf2))
-                                   (AstLambda (vard2, vd2))
-                                   (AstLambda (varr2, vr2))
+     $ astMapAccumLDer k bShs eShs (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
                                    acc0From es
-astMapAccumLDer k bShs eShs (AstLambda (varf, vf))
-                            (AstLambda (vard, vd))
-                            (AstLambda (varr, vr))
+astMapAccumLDer k bShs eShs (AstLambda varf vf)
+                            (AstLambda vard vd)
+                            (AstLambda varr vr)
                 acc0 (Ast.AstFromS @esShsFrom _esShsSTK esFrom) =
   let accShs = ftkAst acc0
       accShsSTK = ftkToSTK accShs
@@ -750,9 +750,9 @@ astMapAccumLDer k bShs eShs (AstLambda (varf, vf))
             in astSFrom @(ADTensorKind (TKProduct accShs eShs))
                         (adSTK $ STKProduct accShsSTK eShsFromSTK)
                         subbed
-      in astMapAccumLDer k bShs eShsFrom (AstLambda (varf2, vf2))
-                                         (AstLambda (vard2, vd2))
-                                         (AstLambda (varr2, vr2))
+      in astMapAccumLDer k bShs eShsFrom (AstLambda varf2 vf2)
+                                         (AstLambda vard2 vd2)
+                                         (AstLambda varr2 vr2)
                                          acc0 esFrom
 astMapAccumLDer k bShs eShs f df rf acc0 es =
   Ast.AstMapAccumLDer k bShs eShs f df rf acc0 es
@@ -761,7 +761,7 @@ astApply :: forall s x z. AstSpan s
          => AstHFun x z -> AstTensor AstMethodLet s x
          -> AstTensor AstMethodLet s z
 astApply t u = case t of
-  Ast.AstLambda ~(var, v) ->
+  Ast.AstLambda !var !v ->
     case sameAstSpan @s @PrimalSpan of
       Just Refl -> astLet var u v
       _ -> Ast.AstApply t u
@@ -2826,7 +2826,7 @@ expandAst t = case t of
 
 expandAstHFun :: AstHFun x y -> AstHFun x y
 expandAstHFun = \case
-  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, expandAst l)
+  Ast.AstLambda var l -> Ast.AstLambda var (expandAst l)
 
 expandAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 expandAstBool t = case t of
@@ -2955,7 +2955,7 @@ simplifyAst t = case t of
 
 simplifyAstHFun :: AstHFun x y -> AstHFun x y
 simplifyAstHFun = \case
-  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, simplifyAst l)
+  Ast.AstLambda var l -> Ast.AstLambda var (simplifyAst l)
 
 simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 simplifyAstBool t = case t of
@@ -3362,7 +3362,7 @@ contractAst t = case t of
 
 contractAstHFun :: AstHFun x y -> AstHFun x y
 contractAstHFun = \case
-  Ast.AstLambda ~(vvars, l) -> Ast.AstLambda (vvars, contractAst l)
+  Ast.AstLambda var l -> Ast.AstLambda var (contractAst l)
 
 contractAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 contractAstBool t = case t of

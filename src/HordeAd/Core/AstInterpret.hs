@@ -443,9 +443,9 @@ interpretAstHFun
   :: forall target x y. BaseTensor target
   => AstEnv target -> AstHFun x y -> HFunOf target x y
 interpretAstHFun _env = \case
-  AstLambda ~(var, l) ->
+  AstLambda var l ->
     tlambda @target (varNameToFTK var)
-    $ interpretLambdaHFun interpretAst (var, l)
+    $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
       -- interpretation in empty environment; makes sense here, because
       -- there are no free variables outside of those listed
 
