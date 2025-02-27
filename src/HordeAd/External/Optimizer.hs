@@ -11,7 +11,6 @@ import Prelude
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
@@ -27,7 +26,7 @@ sgd :: forall a x z. (KnownSTK x, KnownSTK z)
     -> RepN x  -- ^ initial parameters
     -> (RepN x, RepN z)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  zftk = tftk knownSTK parameters0
+  zftk = tftkG knownSTK $ unRepN parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs zftk
   go :: [a] -> RepN x -> (RepN x, RepN z)
@@ -67,7 +66,7 @@ sgdAdamArgs
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  zftk = tftk knownSTK parameters0
+  zftk = tftkG knownSTK $ unRepN parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs zftk
   go :: [a] -> RepN x -> StateAdam x -> (RepN x, StateAdam x)

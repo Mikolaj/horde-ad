@@ -109,6 +109,9 @@ cfwdOnHVector xftk parameters f ds =
 fromPrimalADVal :: (KnownSTK z, BaseTensor f) => f z -> ADVal f z
 fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
 
+fromPrimalFTK :: FullTensorKind z -> f z -> ADVal f z
+fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
+
 -- This instance can be sped up by defining and simplifying all default
 -- methods (or only tfromVector?), but it probably benefits only product
 -- tensor kinds, which are probably not a bottleneck in realistic examples.
@@ -235,8 +238,7 @@ instance ( ADReadyNoLet target, ShareTensor target
           (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
   sconcrete a =
     let v = sconcrete a
-    in withKnownShS (Nested.sshape a) $
-       fromPrimalADVal v
+    in fromPrimalFTK (FTKS (Nested.sshape a) FTKScalar) v
   sfloor (D u _) =
     let v = sfloor u
     in fromPrimalADVal v
@@ -245,13 +247,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     in fromPrimalADVal v
   scast (D u u') = dD (scast u) (DeltaCastS u')
   sminIndex @_ @_ @sh @n (D u _) =
-    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
     let v = sminIndex u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKS (shsInit (SNat @n :$$ knownShS @sh)) FTKScalar) v
   smaxIndex @_ @_ @sh @n (D u _) =
-    withKnownShS (shsInit (SNat @n :$$ knownShS @sh)) $
     let v = smaxIndex u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKS (shsInit (SNat @n :$$ knownShS @sh)) FTKScalar)  v
   siota = fromPrimalADVal siota
   sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
@@ -326,7 +326,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- Scalar ops
   kconcrete a =
     let v = kconcrete a
-    in fromPrimalADVal v
+    in fromPrimalFTK FTKScalar v
   kfloor (D u _) =
     let v = kfloor u
     in fromPrimalADVal v
@@ -336,9 +336,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   kcast (D u u') = dD (kcast u) (DeltaCastK u')
 
   -- General operations that don't require LetTensor nor ShareTensor
-  tftk stk (D u _) = tftk stk u
+  tftk _stk (D _ u') = ftkDelta u'
   tconcrete ftk t | Dict <- lemKnownSTK (ftkToSTK ftk) =
-    fromPrimalADVal $ tconcrete ftk t
+    fromPrimalFTK ftk $ tconcrete ftk t
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')

@@ -101,7 +101,7 @@ revDtMaybe f vals0 mdt =
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals0
-      xftk = tftk (knownSTK @(X astvals)) valsTarget
+      xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv xftk
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ revEvalArtifact artifact valsTarget mdt
@@ -210,7 +210,7 @@ fwd f vals ds =
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals
-      xftk = tftk (knownSTK @(X astvals)) valsTarget
+      xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
       artifact = fst $ fwdProduceArtifact g emptyEnv xftk
       dsTarget = toTarget ds
   in fst $ fwdEvalArtifact @_ @z artifact valsTarget
@@ -226,7 +226,7 @@ fwdEvalArtifact
 fwdEvalArtifact AstArtifactFwd{..} parameters ds =
   let xstk = knownSTK @x
       astk = adSTK xstk
-  in if adFTK (tftk xstk parameters) == tftk astk ds then
+  in if adFTK (tftkG xstk (unRepN parameters)) == tftkG astk (unRepN ds) then
        let env = extendEnv artVarDomainFwd parameters emptyEnv
            envD = extendEnv artVarDsFwd ds env
            derivative = interpretAst envD artDerivativeFwd
@@ -281,7 +281,7 @@ crevDtEither
 crevDtEither f vals edt =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
-      xftk = tftk (knownSTK @(X advals)) valsTarget
+      xftk = tftkG (knownSTK @(X advals)) $ unRepN valsTarget
       valsTarget = toTarget vals
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ crevOnHVector edt g xftk valsTarget
@@ -319,7 +319,7 @@ cfwdBoth
   -> DValue advals  -- morally (ADTensorKind advals)
   -> (RepN (ADTensorKind z), RepN z)
 cfwdBoth f vals ds =
-  let xftk = tftk (knownSTK @(X advals)) valsTarget
+  let xftk = tftkG (knownSTK @(X advals)) $ unRepN valsTarget
       valsTarget = toTarget vals
       g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget

@@ -1002,7 +1002,7 @@ evalFwd params s d0 = case d0 of
   _ -> case ftkDelta d0 of
     y -> case matchingFTK y (adFTK y) of
         Just Refl -> evalFwdSame params s d0
-        _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
+        _ -> (s, constantTarget 0 $ adFTK y)
 
 evalFwdSame
   :: forall target y.
