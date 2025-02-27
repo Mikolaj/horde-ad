@@ -2177,11 +2177,11 @@ fblowupLetPP10 = do
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
 blowupTests = testGroup "Catastrophic blowup avoidance tests"
-  [ testCase "blowup 7" $ do
+  [ testCase "blowup prim 7" $ do
       assertEqualUpToEpsilon' 1e-5
         (ringestData [2] [0.3333332333333467,-0.22222215555556446])
         (rev' @Double @0 (fblowup 7) (ringestData [2] [2, 3]))
-  , testCase "blowupLet 2000" $ do
+  , testCase "blowupLet prim 2000" $ do
       assertEqualUpToEpsilon' 1e-10
         (ringestData [2] [0.3333133339329949,-0.22220888928866325])
         (rev' @Double @0 (fblowupLet 1 2000) (ringestData [2] [2, 3]))
