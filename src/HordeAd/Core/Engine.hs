@@ -246,14 +246,14 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
 -- These work for @f@ both ranked and shaped.
 crev
   :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals), KnownSTK z
+     ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
   -> DValue advals
   -> DValue advals
 {-# INLINE crev #-}
-crev f vals = crevDtEither f vals (Left (knownSTK @z))
+crev f vals = crevDtMaybe f vals Nothing
 
 -- | This version additionally takes the sensitivity parameter.
 crevDt
@@ -266,29 +266,29 @@ crevDt
   -> RepN (ADTensorKind z)
   -> DValue advals
 {-# INLINE crevDt #-}
-crevDt f vals dt = crevDtEither f vals (Right dt)
+crevDt f vals dt = crevDtMaybe f vals (Just dt)
 
-crevDtEither
+crevDtMaybe
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget RepN (DValue advals) )
   => (advals -> ADVal RepN z)
   -> DValue advals
-  -> Either (STensorKind z) (RepN (ADTensorKind z))
+  -> Maybe (RepN (ADTensorKind z))
   -> DValue advals  -- morally DValue (ADTensorKind advals)
-{-# INLINE crevDtEither #-}
-crevDtEither f vals edt =
+{-# INLINE crevDtMaybe #-}
+crevDtMaybe f vals mdt =
   let g :: ADVal RepN (X advals) -> ADVal RepN z
       g = f . fromTarget
       xftk = tftkG (knownSTK @(X advals)) $ unRepN valsTarget
       valsTarget = toTarget vals
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
-     $ fst $ crevOnHVector edt g xftk valsTarget
+     $ fst $ crevOnHVector mdt g xftk valsTarget
 
 {-
 {-# SPECIALIZE crevOnHVector
-  :: Either (RepN TKUntyped)
+  :: Maybe (RepN (ADTensorKind z))
   -> (ADVal RepN TKUntyped
       -> ADVal RepN TKUntyped)
   -> RepN TKUntyped

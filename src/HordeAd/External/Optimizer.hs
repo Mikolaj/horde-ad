@@ -19,7 +19,7 @@ import HordeAd.External.OptimizerTools
 -- These functions have their SPECIALIZE pragmas in MnistData.
 
 -- | Stochastic Gradient Descent.
-sgd :: forall a x z. (KnownSTK x, KnownSTK z)
+sgd :: forall a x z. KnownSTK x
     => Double  -- ^ gamma (learning_rate?)
     -> (a -> ADVal RepN x -> ADVal RepN z)
     -> [a]  -- ^ training data
@@ -34,7 +34,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go (a : rest) !parameters =
     let inputs :: ADVal RepN x
         inputs = dDnotShared parameters deltaInputs
-        (gradients, valueNew) = crevOnADInputs (Left knownSTK) (f a) zftk inputs
+        (gradients, valueNew) = crevOnADInputs Nothing (f a) zftk inputs
         parametersNew = updateWithGradient gamma knownSTK parameters gradients
     in if null rest
        then (parametersNew, valueNew)
@@ -45,7 +45,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
 -- and specialize.
 -- | An implementation of the Adam gradient descent.
 sgdAdam
-  :: forall a x z . (KnownSTK x, KnownSTK z)
+  :: forall a x z . KnownSTK x
   => (a -> ADVal RepN x -> ADVal RepN z)
   -> [a]
   -> RepN x
@@ -55,7 +55,7 @@ sgdAdam
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs
-  :: forall a x z. (KnownSTK x, KnownSTK z)
+  :: forall a x z. KnownSTK x
   => ArgsAdam
   -> (a -> ADVal RepN x -> ADVal RepN z)
   -> [a]
@@ -74,7 +74,7 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go (a : rest) !parameters !stateAdam =
     let inputs :: ADVal RepN x
         inputs = dDnotShared parameters deltaInputs
-        gradients = fst $ crevOnADInputs (Left knownSTK) (f a) zftk inputs
+        gradients = fst $ crevOnADInputs Nothing (f a) zftk inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam
             argsAdam stateAdam knownSTK parameters gradients

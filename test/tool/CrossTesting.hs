@@ -36,7 +36,6 @@ import EqEpsilon
 crevDtMaybeBoth
   :: forall r y f advals.
      ( f ~ RepN, X advals ~ X (DValue advals), KnownSTK (X advals)
-     , GoodScalar r, KnownNat y
      , AdaptableTarget (ADVal RepN) advals
      , AdaptableTarget (ADVal RepN) (ADVal f (TKR y r))
      , AdaptableTarget RepN (DValue advals) )
@@ -47,7 +46,7 @@ crevDtMaybeBoth f vals =
   let g :: ADVal RepN (X advals) -> ADVal RepN (TKR y r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
-  in crevOnHVector (Left knownSTK) g (tftk knownSTK valsH) valsH
+  in crevOnHVector Nothing g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
         ( KnownNat n, KnownNat m, GoodScalar r

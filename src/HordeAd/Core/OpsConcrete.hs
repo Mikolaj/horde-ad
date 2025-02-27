@@ -483,15 +483,15 @@ instance BaseTensor RepN where
   tScale _ _ t = t
   -- The code for trevDt and tfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
-  trev @x xftk h zstk =
+  trev @x xftk h _zstk =
     let rf :: RepORArray x -> RepORArray (ADTensorKind x)
-        rf !a = unRepN $ fst $ crevOnHVector (Left zstk) (unHFun h)
+        rf !a = unRepN $ fst $ crevOnHVector Nothing (unHFun h)
                                              xftk (RepN a)
     in rf
   trevDt @x @z xftk h =
     let rf :: RepORArray (TKProduct (ADTensorKind z) x) -> RepORArray (ADTensorKind x)
         rf !db_a = unRepN $ fst
-                   $ crevOnHVector (Right $ RepN $ fst db_a) (unHFun h)
+                   $ crevOnHVector (Just $ RepN $ fst db_a) (unHFun h)
                                    xftk (RepN $ snd db_a)
     in rf
   tfwd @x @z xftk h =

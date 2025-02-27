@@ -20,6 +20,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
+import Data.Maybe (fromMaybe)
 
 import Data.Array.Nested
   ( IxR (..)
@@ -51,7 +52,7 @@ import HordeAd.Core.Types
 -- argument has to be duplicable.
 crevOnADInputs
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
-  => Either (STensorKind z) (target (ADTensorKind z))
+  => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
   -> FullTensorKind x -> ADVal target x
   -> (target (ADTensorKind x), target z)
@@ -62,16 +63,14 @@ crevOnADInputs mdt f xftk inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
-  let !gradient = case mdt of
-        Left zstk -> let zftk = tftk zstk v
-                         dt = constantTarget 1 $ adFTK zftk
-                     in gradientFromDelta xftk (Just zftk) dt delta
-        Right dt -> gradientFromDelta xftk Nothing dt delta
+  let zftk = ftkDelta delta
+      dt = fromMaybe (constantTarget 1 $ adFTK zftk) mdt
+      !gradient = gradientFromDelta xftk zftk dt delta
   in (gradient, v)
 
 crevOnHVector
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
-  => Either (STensorKind z) (target (ADTensorKind z))
+  => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
   -> FullTensorKind x -> target x
   -> (target (ADTensorKind x), target z)
@@ -486,14 +485,14 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromPrimal stk t | Dict <- lemKnownSTK stk = fromPrimalADVal t
   tfromDual t = dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale stk k = withKnownSTK stk $ dScale k
-  trev @x xftk h zstk =
+  trev @x xftk h _zstk =
     let rf :: forall f. ADReady f
            => f x
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
         rf !a = tlet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
-                             (Left zstk)
+                             Nothing
                              (unHFun h @(ADVal (ShareOf f)))
                              xftk
                              (toShare aShared)
@@ -505,7 +504,7 @@ instance ( ADReadyNoLet target, ShareTensor target
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = tlet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
-                             (Right $ toShare $ tproject1 db_aShared)
+                             (Just $ toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
                              xftk
                              (toShare $ tproject2 db_aShared)
@@ -537,13 +536,13 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- though contangent expands anyway.
   tfromS ystk zstk (D u u') =
     dDnotShared (tfromS ystk zstk u) (dFromS zstk u')
-  rfromX a = case tftk knownSTK a of
+  rfromX a@(D _ u') = case ftkDelta u' of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
-  xfromR @sh' @r a =
-   case tftk (STKR (ssxRank (knownShX @sh')) (knownSTK @r)) a of
+  xfromR a@(D _ u') =
+   case ftkDelta u' of
     FTKR shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $

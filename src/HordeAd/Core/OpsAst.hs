@@ -90,7 +90,7 @@ revArtifactFromForwardPass hasDt forwardPass xftk =
       (!varDt, astDt) = funToAst (adFTK zftk) id in
   let oneAtF = constantTarget 1 $ adFTK zftk
       !dt = if hasDt then AstRaw astDt else oneAtF in
-  let !gradient = gradientFromDelta xftk (Just zftk) dt delta
+  let !gradient = gradientFromDelta xftk zftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
