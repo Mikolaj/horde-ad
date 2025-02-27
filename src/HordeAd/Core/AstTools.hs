@@ -19,6 +19,7 @@ import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
 import Data.Int (Int64)
+import Data.Proxy (Proxy)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
@@ -36,8 +37,9 @@ import HordeAd.Core.Types
 -- * Full tensor kind derivation
 
 isTensorInt :: forall s y ms. AstSpan s
-            => AstTensor ms s y -> Maybe (AstTensor ms s y :~: AstInt ms)
-isTensorInt a = case ftkAst a of
+            => Proxy s -> FullTensorKind y
+            -> Maybe (AstTensor ms s y :~: AstInt ms)
+isTensorInt _ ftk = case ftk of
   FTKScalar @r -> case ( testEquality (typeRep @r) (typeRep @Int64)
                        , sameAstSpan @s @PrimalSpan ) of
                     (Just Refl, Just Refl) -> Just Refl

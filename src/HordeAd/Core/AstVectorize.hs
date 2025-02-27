@@ -15,6 +15,7 @@ import Data.Functor.Const
 import Data.IntMap.Strict qualified as IM
 import Data.IORef
 import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
@@ -191,7 +192,7 @@ build1V snat@SNat (var, v0)
                (build1VOccurenceUnknown snat (var, ll))
     Ast.AstVar var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
-      then case isTensorInt v0 of
+      then case isTensorInt (Proxy @s) (varNameToFTK var2) of
         Just Refl -> fromPrimal @s $ Ast.AstIotaS (SNat @k)
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"

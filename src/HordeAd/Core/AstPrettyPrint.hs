@@ -16,6 +16,7 @@ import Data.Foldable qualified as Foldable
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 
@@ -86,11 +87,11 @@ printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
 
 printAstVarFromLet
-  :: forall s y ms. AstSpan s
-  => AstTensor ms s y -> PrintConfig -> AstVarName s y -> ShowS
-printAstVarFromLet u cfg var =
+  :: forall s y. AstSpan s
+  => PrintConfig -> AstVarName s y -> ShowS
+printAstVarFromLet cfg var =
   if representsIntIndex cfg
-  then case isTensorInt u of
+  then case isTensorInt (Proxy @s) (varNameToFTK var) of
     Just Refl -> printAstIntVar cfg var
     _ -> printAstVar cfg var
   else printAstVar cfg var
@@ -107,7 +108,7 @@ printAst :: forall s y ms. AstSpan s
          => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAst cfgOld d t =
   if representsIntIndex cfgOld
-  then case isTensorInt t of
+  then case isTensorInt (Proxy @s) (ftkAst t) of
     Just Refl -> case t of
       AstVar var -> printAstIntVar cfgOld var
       AstConcreteK i -> showNumber i
@@ -311,7 +312,7 @@ printAstAux cfg d = \case
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
-               let name = printAstVarFromLet u cfg var
+               let name = printAstVarFromLet cfg var
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -330,7 +331,7 @@ printAstAux cfg d = \case
         . showString " "
         . (showParen True
            $ showString "\\"
-             . printAstVarFromLet u0 cfg var0
+             . printAstVarFromLet cfg var0
              . showString " -> "
              . printAst cfg 0 v0)
   AstShare var v ->
