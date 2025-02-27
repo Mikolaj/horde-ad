@@ -26,7 +26,6 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
@@ -149,20 +148,19 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f xftk =
-  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f xftk) xftk
+  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f) xftk
 
 forwardPassByApplication
   :: forall x z.
      (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
-  -> FullTensorKind x
   -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByApplication #-}
-forwardPassByApplication g xftk hVectorPrimal _var _hVector =
-  let deltaInputs = generateDeltaInputs xftk
+forwardPassByApplication g hVectorPrimal var _hVector =
+  let deltaInputs = generateDeltaInputs $ varNameToFTK var
       varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
   in g varInputs
 
@@ -177,7 +175,7 @@ revEvalArtifact AstArtifactRev{..} parameters mdt =
   let env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = case mdt of
         Nothing ->
-          let oneAtF = constantTarget 1 $ adFTK $ ftkAst artPrimalRev
+          let oneAtF = constantTarget 1 $ varNameToFTK artVarDtRev
           in extendEnv artVarDtRev oneAtF env
         Just dt ->
           extendEnv artVarDtRev dt env

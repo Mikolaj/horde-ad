@@ -26,6 +26,7 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
 import Type.Reflection (Typeable, typeRep)
+import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (ListS (..), ShS (..))
 import Data.Array.Nested.Internal.Shape (withKnownShS)
@@ -191,7 +192,8 @@ interpretAst !env = \case
           -- getting interpreted
     in tApply t2 ll2
   AstVar var ->
-   let var2 = mkAstVarName @FullSpan (varNameToFTK var) (varNameToAstVarId var)  -- TODO
+   let var2 :: AstVarName FullSpan y
+       var2 = unsafeCoerce var
 -- TODO: this unsafe call is needed for benchmark VTO1.
 -- Once VTO1 is fixed in another way, try to make it safe.
 -- BTW, the old assertion tests the same thing and more.
@@ -213,7 +215,7 @@ interpretAst !env = \case
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat stk f
 
-  AstLet var u v -> case ftkAst u of
+  AstLet var u v -> case varNameToFTK var of
     -- We assume there are no nested lets with the same variable.
     FTKR _ FTKScalar ->
       let t = interpretAstRuntimeSpecialized env u

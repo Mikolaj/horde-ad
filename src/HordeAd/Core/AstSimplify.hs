@@ -802,7 +802,7 @@ astLet var (Ast.AstFromDual (Ast.AstPair u1 u2)) v =
 astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst ( Ast.AstPair ast1 ast2) var v
+      substituteAst (Ast.AstPair ast1 ast2) var v
 astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
@@ -814,7 +814,7 @@ astLet var (Ast.AstFromDual (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
 astLet var u v@(Ast.AstVar var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @s2 of
-    Just Refl -> case matchingFTK (varNameToFTK var) (varNameToFTK var2) of
+    Just Refl -> case testEquality var var2 of
       Just Refl -> u
       _ -> v
     _ -> v
@@ -822,7 +822,7 @@ astLet var u v@(Ast.AstVar var2) =
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
-    Just Refl -> case matchingFTK (varNameToFTK var) (varNameToFTK var2) of
+    Just Refl -> case testEquality var var2 of
       Just Refl -> astPrimalPart u
       _ -> v
     _ -> v
@@ -830,7 +830,7 @@ astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
 astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
-    Just Refl -> case matchingFTK (varNameToFTK var) (varNameToFTK var2) of
+    Just Refl -> case testEquality var var2 of
       Just Refl -> astDualPart u
       _ -> v
     _ -> v
@@ -3507,11 +3507,11 @@ substitute1Ast i var = subst where
   Ast.AstVar var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s3 @s2 of
-        Just Refl -> case matchingFTK (ftkAst i) (varNameToFTK var2) of
+        Just Refl -> case testEquality var var2 of
           Just Refl -> Just i
           _ -> error $ "substitute1Ast: kind of the variable "
                        ++ show var2 ++ ": " ++ show (varNameToFTK var)
-                       ++ ", payload kind: " ++ show (ftkAst i)
+                       ++ ", payload kind: " ++ show (varNameToFTK var2)
                        ++ ", payload: " ++ show i
         _ -> error "substitute1Ast: span"
     else Nothing

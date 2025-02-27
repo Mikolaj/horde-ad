@@ -56,14 +56,13 @@ forwardPassByInterpretation
      (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> FullTensorKind x
   -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByInterpretation #-}
-forwardPassByInterpretation g envInit xftk hVectorPrimal var hVector =
-  let deltaInputs = generateDeltaInputs xftk
+forwardPassByInterpretation g envInit hVectorPrimal var hVector =
+  let deltaInputs = generateDeltaInputs $ varNameToFTK var
       varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit
@@ -108,7 +107,7 @@ revProduceArtifact
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit xftk =
   revArtifactFromForwardPass
-    hasDt (forwardPassByInterpretation g envInit xftk) xftk
+    hasDt (forwardPassByInterpretation g envInit) xftk
 
 fwdArtifactFromForwardPass
   :: forall x z.
@@ -138,7 +137,7 @@ fwdProduceArtifact
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact f envInit xftk =
-  fwdArtifactFromForwardPass (forwardPassByInterpretation f envInit xftk) xftk
+  fwdArtifactFromForwardPass (forwardPassByInterpretation f envInit) xftk
 
 
 -- * AstTensor instances
@@ -595,34 +594,34 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         -- or even incorrect (and so, e.g., trigger
         -- `error "tunshare: used not at PrimalSpan"`, because no derivative
         -- should be taken of spans other than PrimalSpan)
-        (AstArtifactRev _varDt var gradient _primal, _delta) =
+        (AstArtifactRev{..}, _delta) =
           revProduceArtifact False (unHFun f) emptyEnv ftkx
         (varP, ast) = funToAst ftkx $ \ !astP ->
-          astLet var astP
-          $ simplifyInline gradient
+          astLet artVarDomainRev astP
+          $ simplifyInline artDerivativeRev
     in AstLambda (varP, ast)
   trevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let (AstArtifactRev varDt var gradient primal, _delta) =
+    let (AstArtifactRev{..}, _delta) =
           revProduceArtifact True (unHFun f) emptyEnv ftkx
-        ftkz = adFTK $ ftkAst primal
+        ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
-          astLet varDt (astProject1 astP)
-          $ astLet var (astProject2 astP)
-          $ simplifyInline gradient
+          astLet artVarDtRev (astProject1 astP)
+          $ astLet artVarDomainRev (astProject2 astP)
+          $ simplifyInline artDerivativeRev
     in AstLambda (varP, ast)
   tfwd ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let (AstArtifactFwd varDs var derivative _primal, _delta) =
+    let (AstArtifactFwd{..}, _delta) =
           fwdProduceArtifact (unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
-          astLet varDs (astProject1 astP)
-          $ astLet var (astProject2 astP)
-          $ simplifyInline derivative
+          astLet artVarDsFwd (astProject1 astP)
+          $ astLet artVarDomainFwd (astProject2 astP)
+          $ simplifyInline artDerivativeFwd
     in AstLambda (varP, ast)
 
 
@@ -1433,8 +1432,8 @@ astLetFunNoSimplify a f = case a of
               funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x) (ftkToSTK ftk))
         in AstLet var (AstSFromX @sh sh a) ast
     -- TODO: also recursively product, though may be not worth it
-    ftk  -> let (var, ast) = funToAst ftk f
-            in AstLet var a ast
+    ftk -> let (var, ast) = funToAst ftk f
+           in AstLet var a ast
 
 instance AstSpan s => LetTensor (AstNoSimplify s) where
   tlet u f = AstNoSimplify

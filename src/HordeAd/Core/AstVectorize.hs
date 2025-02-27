@@ -206,8 +206,7 @@ build1V snat@SNat (var, v0)
           -- happens only when testing and mixing different pipelines
 
     Ast.AstLet var1 u v -> traceRule $
-      let ftk2 = ftkAst u
-          (var3, v2) = substProjRep snat var ftk2 var1 v
+      let (var3, v2) = substProjRep snat var var1 v
       in astLet var3 (build1VOccurenceUnknown snat (var, u))
                      (build1VOccurenceUnknownRefresh snat (var, v2))
            -- ensures no duplicated bindings, see below
@@ -426,7 +425,7 @@ build1VHFun snat@SNat (var, v0) = case v0 of
     -- But note that, due to substProjVars, l2 has var occurences,
     -- so build1VOccurenceUnknownRefresh is neccessary to handle
     -- them and to eliminate them so that the function is closed again.
-    let (var2, l2) = substProjRep snat var (varNameToFTK var1) var1 l
+    let (var2, l2) = substProjRep snat var var1 l
     in Ast.AstLambda (var2, build1VOccurenceUnknownRefresh snat (var, l2))
 
 
@@ -516,15 +515,16 @@ astIndexBuild snat@SNat stk u i = case stk of
 substProjRep
   :: forall k s s2 y2 y. (AstSpan s, AstSpan s2)
   => SNat k -> IntVarName
-  -> FullTensorKind y2 -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
+  -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
   -> (AstVarName s2 (BuildTensorKind k y2), AstTensor AstMethodLet s y)
-substProjRep snat@SNat var ftk2 var1 v =
+substProjRep snat@SNat var var1 v =
   let var3 :: AstVarName s2 (BuildTensorKind k y2)
       var3 = mkAstVarName ftk3 (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
-      ftk3 = buildFTK snat ftk2
+      ftk3 = buildFTK snat $ varNameToFTK var1
       astVar3 = Ast.AstVar var3
       v2 = substituteAst
-             (astIndexBuild snat (ftkToSTK ftk2) astVar3 (Ast.AstIntVar var))
+             (astIndexBuild snat (ftkToSTK $ varNameToFTK var1)
+                            astVar3 (Ast.AstIntVar var))
              var1 v
         -- The subsitutions of projections don't break sharing,
         -- because they don't duplicate variables and the added var

@@ -22,6 +22,7 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum
 import Data.Foldable qualified as Foldable
 import Text.Show (showListWith)
+import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested.Internal.Shape (listsToList)
 
@@ -65,7 +66,7 @@ extendEnv :: forall target s y.
           -> AstEnv target
 extendEnv var !t !env =
   let var2 :: AstVarName FullSpan y
-      var2 = mkAstVarName (varNameToFTK var) (varNameToAstVarId var)
+      var2 = unsafeCoerce var
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
                         var2 (AstEnvElem t) env

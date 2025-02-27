@@ -430,7 +430,7 @@ unshareAst memo = \case
               in (DMap.insert var a2 memo1, astVar)
     -- The PrimalSpan check ensures there's no need to match for
     -- Ast.AstFromPrimal (Ast.AstFromS).
-    _ -> case ftkAst a of
+    _ -> case varNameToFTK varRaw of
       ftk@(FTKR @_ @x sh' x) ->
         withCastRS sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x)
