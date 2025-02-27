@@ -47,6 +47,8 @@ import HordeAd.Core.Types
 
 -- * Non-symbolic reverse and forward derivative computation
 
+-- The user-written function f can do anything, so the inputs
+-- argument has to be duplicable.
 crevOnADInputs
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => Either (STensorKind z) (target (ADTensorKind z))

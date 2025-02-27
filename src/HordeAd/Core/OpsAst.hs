@@ -585,7 +585,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  trev ftkx f _zstk =
+  trev xftk f _zstk =
     -- we don't have an AST constructor to hold it, so we compute
     --
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -595,11 +595,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         -- `error "tunshare: used not at PrimalSpan"`, because no derivative
         -- should be taken of spans other than PrimalSpan)
         (AstArtifactRev{..}, _delta) =
-          revProduceArtifact False (unHFun f) emptyEnv ftkx
-        (varP, ast) = funToAst ftkx $ \ !astP ->
-          astLet artVarDomainRev astP
-          $ simplifyInline artDerivativeRev
-    in AstLambda (varP, ast)
+          revProduceArtifact False (unHFun f) emptyEnv xftk
+    in AstLambda (artVarDomainRev, simplifyInline artDerivativeRev)
   trevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
