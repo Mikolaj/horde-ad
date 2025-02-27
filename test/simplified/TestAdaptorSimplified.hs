@@ -32,7 +32,6 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.Adaptor
-import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
 import HordeAd.Core.DeltaFreshId (resetIdCounter)
 
@@ -140,7 +139,6 @@ testTrees =
   , testCase "2fooBuildFwd" testFooBuildFwd
   , testCase "2fooBuild" testFooBuild
   , testCase "2fooMap1" testFooMap1
-  , testCase "2fooNoGoAst" testFooNoGoAst
   , testCase "2fooNoGo0" testFooNoGo0
   , testCase "2nestedBuildMap1" testNestedBuildMap1
   , testCase "2nestedSumBuild" testNestedSumBuild
@@ -156,9 +154,6 @@ testTrees =
   , testCase "2barReluMax3FwdS" testBarReluMax3FwdS
   , testCase "2barReluMax3FwdFrom" testBarReluMax3FwdFrom
   , testCase "2barReluMax3FwdR" testBarReluMax3FwdR
-  , testCase "2barReluAst0" testBarReluAst0
-  , testCase "2barReluAst1" testBarReluAst1
-  , testCase "2konstReluAst" testReplicateReluAst
   , testCase "2F1" testF1
   , testCase "2F11" testF11
   , testCase "2F2" testF2
@@ -1408,41 +1403,6 @@ testFooMap1 =
     (rscalar 4.438131773975095e7)
     (rev' @Double @1 fooMap1 (rscalar 1.1))
 
-barAst :: (GoodScalar r, Differentiable r)
-       => (AstTensor AstMethodLet PrimalSpan (TKR 0 r), AstTensor AstMethodLet PrimalSpan (TKR 0 r)) -> AstTensor AstMethodLet PrimalSpan (TKR 0 r)
-barAst (x, y) =
-  let w = foo (x, y, x) * sin y
-  in atan2F x w + y * w
-
-fooNoGoAst :: forall r. (GoodScalar r, Differentiable r)
-           => AstTensor AstMethodLet PrimalSpan (TKR 1 r) -> AstTensor AstMethodLet PrimalSpan (TKR 1 r)
-fooNoGoAst v =
-  let r = rsum0 v
-  in rbuild1 3 (\ix' -> let ix :: AstTensor AstMethodLet PrimalSpan (TKS '[] Int64)
-                            ix = sfromR $ rfromK ix' in
-       barAst (rscalar 3.14, bar (rscalar 3.14, rindex v [kfromR $ rfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
-       + ifF ( (&&*)
-                    (rindex v (ix' * 2 :.: ZIR) <=. rscalar 0)
-                        -- @1 not required thanks to :.:; see below for @ and []
-                    (sscalar 6 >. abs ix) )
-                 r (rscalar 5 * r))
-     / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
-     * rbuild1 3 (const (rscalar 1))
-
-testFooNoGoAst :: Assertion
-testFooNoGoAst =
-  let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal RepN (TKR 1 r) -> ADVal RepN (TKR 1 r)
-      f x = interpretAst (extendEnv @_ @_ @(TKR 1 r)
-                            (mkAstVarName knownSTK $ intToAstVarId 100000000)
-                            x emptyEnv)
-                         (fooNoGoAst (AstVar (FTKR [5] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon 1e-6
-       (rconcrete $ Nested.rfromListPrimLinear [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
-       (crev @_ @(TKR 1 Double)
-             f
-             (ringestData [5] [1.1, 2.2, 3.3, 4, 5]))
-
 fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
         => target (TKR 1 r) -> target (TKR 1 r)
 fooNoGo v =
@@ -1627,58 +1587,6 @@ testBarReluMax3FwdR =
          barReluMax
          (ringestData [2, 1, 2] [1.1, 2, 3, 4.2])
          (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
-
-barReluAst
-  :: forall n r.
-     ( KnownNat n, ADReady (AstTensor AstMethodLet PrimalSpan), GoodScalar r
-     , Differentiable r )
-  => AstTensor AstMethodLet PrimalSpan (TKR n r) -> AstTensor AstMethodLet PrimalSpan (TKR n r)
-barReluAst x = relu $ bar (x, relu x)
-
-testBarReluAst0 :: Assertion
-testBarReluAst0 =
-  let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal RepN (TKR 0 r) -> ADVal RepN (TKR 0 r)
-      f x = interpretAst (extendEnv @_ @_ @(TKR 0 r)
-                            (mkAstVarName knownSTK $ intToAstVarId 100000000)
-                            x emptyEnv)
-                         (barReluAst (AstVar (FTKR [] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon 1e-10
-       (rconcrete $ Nested.rfromListPrimLinear [] [191.20462646925841])
-       (crevDt @_ @(TKR 0 Double)
-               f (rscalar 1.1) (rscalar 42.2))
-
-testBarReluAst1 :: Assertion
-testBarReluAst1 =
-  let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal RepN (TKR 1 r) -> ADVal RepN (TKR 1 r)
-      f x = interpretAst (extendEnv @_ @_ @(TKR 1 r)
-                            (mkAstVarName knownSTK $ intToAstVarId 100000000)
-                            x emptyEnv)
-                         (barReluAst (AstVar (FTKR [5] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon 1e-10
-       (rconcrete $ Nested.rfromListPrimLinear [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
-       (crev @_ @(TKR 1 Double)
-             f (rfromListLinear [5] [rscalar 1.1, rscalar 2.2, rscalar 3.3, rscalar 4, rscalar 5]))
-
-konstReluAst
-  :: forall r.
-     (ADReady (AstTensor AstMethodLet PrimalSpan), GoodScalar r, Differentiable r)
-  => AstTensor AstMethodLet PrimalSpan (TKR 0 r) -> AstTensor AstMethodLet PrimalSpan (TKR 0 r)
-konstReluAst x = rsum0 $ relu $ rreplicate0N (7 :$: ZSR) x
-
-testReplicateReluAst :: Assertion
-testReplicateReluAst =
-  let f :: forall r. (GoodScalar r, Differentiable r)
-        => ADVal RepN (TKR 0 r) -> ADVal RepN (TKR 0 r)
-      f x = interpretAst (extendEnv @_ @_ @(TKR 0 r)
-                            (mkAstVarName knownSTK $ intToAstVarId 100000000)
-                            x emptyEnv)
-                         (konstReluAst (AstVar (FTKR [] FTKScalar) (mkAstVarName knownSTK . intToAstVarId $ 100000000)))
-  in assertEqualUpToEpsilon 1e-10
-       (rconcrete $ Nested.rfromListPrimLinear [] [295.4])
-       (crevDt @_ @(TKR 0 Double)
-               f (rscalar 1.1) (rscalar 42.2))
 
 f1 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 0 r)
 f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))

@@ -53,7 +53,7 @@ showsPrecAstEnv d demap =
     showString "fromList "
     . showListWith
         (\(k :=> target) ->
-           withKnownSTK (varNameToSTK k) $
+           withKnownSTK (ftkToSTK $ varNameToFTK k) $
            showsPrec 2 k . showString " :=> " . showsPrec 1 target)
         (DMap.toList demap)
 
@@ -65,7 +65,7 @@ extendEnv :: forall target s y.
           -> AstEnv target
 extendEnv var !t !env =
   let var2 :: AstVarName FullSpan y
-      var2 = mkAstVarName (varNameToSTK var) (varNameToAstVarId var)
+      var2 = mkAstVarName (varNameToFTK var) (varNameToAstVarId var)
         -- to uphold the lie about FullSpan
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
                         var2 (AstEnvElem t) env

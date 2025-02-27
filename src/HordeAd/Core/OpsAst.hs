@@ -639,7 +639,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
     AstDualPart(AstVar{}) -> t
     AstFromPrimal(AstVar{}) -> t
     AstFromDual(AstVar{}) -> t
-    u -> AstRaw $ fun1ToAst (ftkToSTK $ ftkAst u) $ \ !var -> AstShare var u
+    u -> AstRaw $ fun1ToAst (ftkAst u) $ \ !var -> AstShare var u
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)

@@ -191,15 +191,15 @@ interpretAst !env = \case
           -- getting interpreted
     in tApply t2 ll2
   AstVar _ftk var ->
-   let var2 = mkAstVarName @FullSpan (varNameToSTK var) (varNameToAstVarId var)  -- TODO
+   let var2 = mkAstVarName @FullSpan (varNameToFTK var) (varNameToAstVarId var)  -- TODO
 -- TODO: this unsafe call is needed for benchmark VTO1.
 -- Once VTO1 is fixed in another way, try to make it safe.
 -- BTW, the old assertion tests the same thing and more.
    in case DMap.Unsafe.lookupUnsafe var2 env of
     Just (AstEnvElem t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
-      assert (tftk (varNameToSTK var) t == _ftk
-              `blame` (tftk (varNameToSTK var) t, _ftk, var, t))
+      assert (tftk (ftkToSTK $ varNameToFTK var) t == _ftk
+              `blame` (tftk (ftkToSTK $ varNameToFTK var) t, _ftk, var, t))
 #endif
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var

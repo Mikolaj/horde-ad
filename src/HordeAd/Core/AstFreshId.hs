@@ -42,10 +42,10 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarName :: STensorKind y -> IO (AstVarName s y)
+unsafeGetFreshAstVarName :: FullTensorKind y -> IO (AstVarName s y)
 {-# INLINE unsafeGetFreshAstVarName #-}
-unsafeGetFreshAstVarName stk =
-  mkAstVarName stk . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
+unsafeGetFreshAstVarName ftk =
+  mkAstVarName ftk . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 funToAstIO :: forall y z s s2 ms.
               FullTensorKind y
@@ -54,7 +54,7 @@ funToAstIO :: forall y z s s2 ms.
 {-# INLINE funToAstIO #-}
 funToAstIO ftk f = do
   freshId <- unsafeGetFreshAstVarId
-  let varName = mkAstVarName (ftkToSTK ftk) freshId
+  let varName = mkAstVarName ftk freshId
       !x = f (AstVar ftk varName)
   return (varName, x)
 
@@ -64,17 +64,17 @@ funToAst :: FullTensorKind y
 {-# NOINLINE funToAst #-}
 funToAst ftk f = unsafePerformIO $ funToAstIO ftk f
 
-fun1ToAstIO :: STensorKind y -> (AstVarName s y -> AstTensor ms s y)
+fun1ToAstIO :: FullTensorKind y -> (AstVarName s y -> AstTensor ms s y)
             -> IO (AstTensor ms s y)
 {-# INLINE fun1ToAstIO #-}
-fun1ToAstIO stk f = do
-  !freshId <- unsafeGetFreshAstVarName stk
+fun1ToAstIO ftk f = do
+  !freshId <- unsafeGetFreshAstVarName ftk
   return $! f freshId
 
-fun1ToAst :: STensorKind y -> (AstVarName s y -> AstTensor ms s y)
+fun1ToAst :: FullTensorKind y -> (AstVarName s y -> AstTensor ms s y)
           -> AstTensor ms s y
 {-# NOINLINE fun1ToAst #-}
-fun1ToAst stk f = unsafePerformIO $ fun1ToAstIO stk f
+fun1ToAst ftk f = unsafePerformIO $ fun1ToAstIO ftk f
 
 funToAstRevIO :: forall x. FullTensorKind x
               -> IO ( AstVarName PrimalSpan x
@@ -85,9 +85,9 @@ funToAstRevIO :: forall x. FullTensorKind x
 funToAstRevIO ftk = do
   freshId <- unsafeGetFreshAstVarId
   let varPrimal :: AstVarName PrimalSpan x
-      varPrimal = mkAstVarName (ftkToSTK ftk) freshId
+      varPrimal = mkAstVarName ftk freshId
       var :: AstVarName FullSpan x
-      var = mkAstVarName (ftkToSTK ftk) freshId
+      var = mkAstVarName ftk freshId
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
       !astVarPrimal = AstVar ftk varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x
@@ -114,11 +114,11 @@ funToAstFwdIO ftk = do
   freshIdDs <- unsafeGetFreshAstVarId
   freshId <- unsafeGetFreshAstVarId
   let varPrimalD :: AstVarName PrimalSpan (ADTensorKind x)
-      varPrimalD = mkAstVarName (adSTK $ ftkToSTK ftk) freshIdDs
+      varPrimalD = mkAstVarName (adFTK ftk) freshIdDs
       varPrimal :: AstVarName PrimalSpan x
-      varPrimal = mkAstVarName (ftkToSTK ftk) freshId
+      varPrimal = mkAstVarName ftk freshId
       var :: AstVarName FullSpan x
-      var = mkAstVarName (ftkToSTK ftk) freshId
+      var = mkAstVarName ftk freshId
       astVarPrimalD :: AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
       !astVarPrimalD = AstVar (adFTK ftk) varPrimalD
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
@@ -140,7 +140,7 @@ funToAstFwd = unsafePerformIO . funToAstFwdIO
 funToAstIOI :: (AstInt ms -> t) -> IO (IntVarName, t)
 {-# INLINE funToAstIOI #-}
 funToAstIOI f = do
-  !varName <- unsafeGetFreshAstVarName (STKScalar @Int64)
+  !varName <- unsafeGetFreshAstVarName (FTKScalar @Int64)
   let !x = f (AstIntVar varName)
   return (varName, x)
 
@@ -151,7 +151,7 @@ funToAstI = unsafePerformIO . funToAstIOI
 funToAstIntVarIO :: ((IntVarName, AstInt ms) -> a) -> IO a
 {-# INLINE funToAstIntVarIO #-}
 funToAstIntVarIO f = do
-  !varName <- unsafeGetFreshAstVarName (STKScalar @Int64)
+  !varName <- unsafeGetFreshAstVarName (FTKScalar @Int64)
   let !ast = AstIntVar varName
   return $! f (varName, ast)
 
@@ -165,8 +165,7 @@ funToVarsIxIOS
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS sh f = do
   let p = sNatValue $ shsRank sh
-  varList <- replicateM p
-             $ unsafeGetFreshAstVarName (STKScalar @Int64)
+  varList <- replicateM p $ unsafeGetFreshAstVarName (FTKScalar @Int64)
   let !vars = withKnownShS sh $ fromList varList
       !ix = withKnownShS sh $ fromList $ map AstIntVar varList
   return $! f (vars, ix)

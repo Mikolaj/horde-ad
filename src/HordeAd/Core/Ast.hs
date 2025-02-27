@@ -11,7 +11,7 @@ module HordeAd.Core.Ast
     -- * More and less typed variables and related type synonyms
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar
-  , AstVarName, mkAstVarName, varNameToAstVarId, varNameToSTK
+  , AstVarName, mkAstVarName, varNameToAstVarId, varNameToFTK
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS
     -- * ASTs
@@ -107,7 +107,7 @@ intToAstVarId = AstVarId
 
 type role AstVarName nominal nominal
 data AstVarName :: AstSpanType -> TensorKindType -> Type where
-  AstVarName :: forall s y. STensorKind y -> AstVarId -> AstVarName s y
+  AstVarName :: forall s y. FullTensorKind y -> AstVarId -> AstVarName s y
 
 instance Eq (AstVarName s y) where
   AstVarName _ varId1 == AstVarName _ varId2 = varId1 == varId2
@@ -117,21 +117,21 @@ instance Show (AstVarName s y) where
     showsPrec d varId  -- less verbose, more readable
 
 instance DMap.Enum1 (AstVarName s) where
-  type Enum1Info (AstVarName s) = Some STensorKind
-  fromEnum1 (AstVarName stk varId) = (fromEnum varId, Some stk)
-  toEnum1 varIdInt (Some stk) = Some $ AstVarName stk $ toEnum varIdInt
+  type Enum1Info (AstVarName s) = Some FullTensorKind
+  fromEnum1 (AstVarName ftk varId) = (fromEnum varId, Some ftk)
+  toEnum1 varIdInt (Some ftk) = Some $ AstVarName ftk $ toEnum varIdInt
 
 instance TestEquality (AstVarName s) where
-  testEquality (AstVarName stk1 _) (AstVarName stk2 _) = sameSTK stk1 stk2
+  testEquality (AstVarName ftk1 _) (AstVarName ftk2 _) = matchingFTK ftk1 ftk2
 
-mkAstVarName :: forall s y. STensorKind y -> AstVarId -> AstVarName s y
+mkAstVarName :: forall s y. FullTensorKind y -> AstVarId -> AstVarName s y
 mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
 varNameToAstVarId (AstVarName _ varId) = varId
 
-varNameToSTK :: AstVarName s y -> STensorKind y
-varNameToSTK (AstVarName stk _) = stk
+varNameToFTK :: AstVarName s y -> FullTensorKind y
+varNameToFTK (AstVarName ftk _) = ftk
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
 type role AstArtifactRev nominal nominal

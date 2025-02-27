@@ -524,7 +524,7 @@ substProjRep
      , AstTensor AstMethodLet s y )
 substProjRep snat@SNat var ftk2 var1 v =
   let var3 :: AstVarName s2 (BuildTensorKind k y2)
-      var3 = mkAstVarName (ftkToSTK ftk3) (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+      var3 = mkAstVarName ftk3 (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
       ftk3 = buildFTK snat ftk2
       astVar3 = Ast.AstVar ftk3 var3
       v2 = substituteAst
