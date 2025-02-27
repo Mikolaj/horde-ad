@@ -282,8 +282,7 @@ data Delta :: Target -> TensorKindType -> Type where
 
   -- Sharing-related operations
   DeltaShare :: NodeId target y -> Delta target y -> Delta target y
-  DeltaInput :: forall target y.
-                FullTensorKind y -> InputId target y -> Delta target y
+  DeltaInput :: InputId target y -> Delta target y
 
   -- Vector space operations
   DeltaZero :: FullTensorKind y -> Delta target y
@@ -532,8 +531,8 @@ ftkDelta = \case
   DeltaMapAccumL k bShs _eShs _q _es _df _rf acc0' _es' ->
     FTKProduct (ftkDelta acc0') (buildFTK k bShs)
 
-  DeltaShare _ d -> ftkDelta d
-  DeltaInput ftk _ -> ftk
+  DeltaShare i _ -> nodeIdToFTK i
+  DeltaInput i -> inputIdToFTK i
 
   DeltaZero ftk -> ftk
   DeltaScale _ d -> ftkDelta d

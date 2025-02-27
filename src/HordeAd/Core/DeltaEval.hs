@@ -509,7 +509,7 @@ evalRevFTK !s !c d0 = case d0 of
               DeltaShare{} -> False
               _ -> True)
     $ if DMap.member n $ nMap s
-      then let addc x = Cotangent $ addTarget (adSTK $ ftkToSTK $ ftkDelta d)
+      then let addc x = Cotangent $ addTarget (adSTK $ ftkToSTK $ nodeIdToFTK n)
                                               c (unCotangent x)
              -- target has a ShareTensor instance, so addTarget arguments
              -- don't need to be duplicable
@@ -572,9 +572,9 @@ evalRevSame !s !c = \case
   -- (and the DeltaInput constructor and the vector space constructors)
   -- can be handled here, where the extra
   -- constraint makes it easier.
-  DeltaInput ftk i ->
+  DeltaInput i ->
     let cs = TOTensor c
-    in s {iMap = DMap.adjust (addTensorOrZero (ftkToSTK ftk) cs) i
+    in s {iMap = DMap.adjust (addTensorOrZero (ftkToSTK $ inputIdToFTK i) cs) i
                  $ iMap s}
     -- This and similar don't need to be runtime-specialized,
     -- because the type of c determines the Num instance for (+).
@@ -981,9 +981,9 @@ evalFwd params s d0 = case d0 of
               -- potentially looked up many times, so it'd get duplicated
             s3 = DMap.insert n cd s2
         in (s3, cShared)
-  DeltaInput ftk inputId ->
+  DeltaInput inputId ->
     case DMap.lookup inputId params of
-      Just dtk -> (s, toADTensorKindShared ftk
+      Just dtk -> (s, toADTensorKindShared (inputIdToFTK inputId)
                       $ evalTensorOrZero dtk)
       Nothing -> error "evalFwd: missing input"
 
@@ -1010,7 +1010,7 @@ evalFwdSame
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 evalFwdSame params s = \case
-  DeltaInput _ftk inputId ->
+  DeltaInput inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalTensorOrZero dtk)
       Nothing -> error "evalFwdSame: missing input"

@@ -209,7 +209,7 @@ generateDeltaInputs =
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
           in (DeltaPair d1 d2, j2)
-        _ -> (DeltaInput ftk (mkInputId ftk j), j + 1)
+        _ -> (DeltaInput (mkInputId ftk j), j + 1)
   in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs
