@@ -13,7 +13,7 @@ module HordeAd.Core.Ast
   , AstInt, IntVarName, pattern AstIntVar
   , AstVarName, mkAstVarName, varNameToAstVarId, varNameToSTK
   , AstArtifactRev(..), AstArtifactFwd(..)
-  , AstIxR, AstVarList, AstIxS, AstVarListS, AstIndexX
+  , AstIxS, AstVarListS
     -- * ASTs
   , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
@@ -35,10 +35,8 @@ import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (IxX)
 import Data.Array.Mixed.Types (Init)
-import Data.Array.Nested
-  (IxR, IxS (..), ListR, ListS (..), Rank, ShS (..), type (++))
+import Data.Array.Nested (IxS (..), ListS (..), Rank, ShS (..), type (++))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.TensorKind
@@ -163,15 +161,9 @@ type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
 pattern AstIntVar :: IntVarName -> AstInt ms
 pattern AstIntVar var = AstVar FTKScalar var
 
-type AstIxR ms n = IxR n (AstInt ms)
-
-type AstVarList n = ListR n IntVarName
-
 type AstIxS ms sh = IxS sh (AstInt ms)
 
 type AstVarListS sh = ListS sh (Const IntVarName)
-
-type AstIndexX ms sh = IxX sh (AstInt ms)
 
 
 -- * AST
