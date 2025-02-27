@@ -485,7 +485,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromPrimal stk t | Dict <- lemKnownSTK stk = fromPrimalADVal t
   tfromDual t = dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale stk k = withKnownSTK stk $ dScale k
-  trev @x xftk h _zstk =
+  trev @x xftk h =
     let rf :: forall f. ADReady f
            => f x
            -> f (ADTensorKind x)

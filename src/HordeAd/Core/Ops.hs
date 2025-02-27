@@ -1545,7 +1545,7 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)
   rrev f xftk =
-    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKR2 n r))) es
+    \ !es -> tApply (trev @target xftk (HFun f)) es
   -- We can't get sh from anywhere, so this is not possible:
   -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
   rrevDt :: forall x r n.
@@ -1570,7 +1570,7 @@ class ( Num (IntOf target)
        -> target x
        -> target (ADTensorKind x)
   srev f xftk =
-    \ !es -> tApply (trev @target xftk (HFun f) (knownSTK @(TKS2 sh r))) es
+    \ !es -> tApply (trev @target xftk (HFun f)) es
   srevDt :: forall x r sh.
             (forall f. ADReady f => f x -> f (TKS2 sh r))
          -> FullTensorKind x
@@ -1599,7 +1599,6 @@ class ( Num (IntOf target)
   trev
     :: FullTensorKind x  -- shape of x and dx
     -> HFun x z  -- x |-> z
-    -> STensorKind z
     -> HFunOf target x (ADTensorKind x)  -- x |-> dx
   trevDt
     :: FullTensorKind x  -- shape of x and dx
@@ -1660,7 +1659,7 @@ class ConvertTensor (target :: Target) where
   rfromS :: forall sh r. (KnownShS sh, KnownSTK r)
          => target (TKS2 sh r) -> target (TKR2 (Rank sh) r)
   rfromS = tfromS knownSTK (STKR (shsRank (knownShS @sh)) (knownSTK @r))
-  rfromX :: (KnownShX sh, KnownSTK r)
+  rfromX :: forall sh r. KnownSTK r
          => target (TKX2 sh r) -> target (TKR2 (Rank sh) r)
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
   sfromR :: (KnownShS sh, KnownSTK r)
