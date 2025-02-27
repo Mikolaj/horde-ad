@@ -321,17 +321,30 @@ initEvalState ftk0 =
 
 -- * Reverse pass, transpose/evaluation of the delta expressions
 
+evalRevScalarRuntimeSpecialized
+  :: forall r target.
+     (GoodScalar r, ADReadyNoLet target, ShareTensor target)
+  => EvalState target -> target (ADTensorKind (TKScalar r))
+  -> Delta target (TKScalar r)
+  -> EvalState target
+evalRevScalarRuntimeSpecialized !s !c =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> evalRevSame @(TKScalar Double) s c
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> evalRevSame @(TKScalar Float) s c
+      _ -> const s
+
 -- The first argument is the evaluation state being modified,
 -- the second is the cotangent accumulator that will become an actual
 -- cotangent contribution when complete (see below for an explanation)
 -- and the third argument is the node to evaluate.
-evalRevRuntimeSpecialized
+evalRevRRuntimeSpecialized
   :: forall n r target.
      (GoodScalar r, ADReadyNoLet target, ShareTensor target)
   => EvalState target -> target (ADTensorKind (TKR n r))
   -> Delta target (TKR n r)
   -> EvalState target
-evalRevRuntimeSpecialized !s !c =
+evalRevRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
   -- an existential type. All IfDifferentiable and RowSum instances should
@@ -377,7 +390,8 @@ evalRev
   -> EvalState target -> target (ADTensorKind y) -> Delta target y
   -> EvalState target
 evalRev ftk !s !c d = case ftk of
-  FTKR @n _ (FTKScalar @r) -> evalRevRuntimeSpecialized @n @r s c d
+  FTKScalar @r -> evalRevScalarRuntimeSpecialized @r s c d
+  FTKR @n _ (FTKScalar @r) -> evalRevRRuntimeSpecialized @n @r s c d
   FTKS @sh _ (FTKScalar @r) -> evalSRuntimeSpecialized @sh @r s c d
   FTKX @sh _ (FTKScalar @r) -> evalXRuntimeSpecialized @sh @r s c d
   _ -> evalRevFTK s c d
@@ -575,11 +589,11 @@ evalRevSame !s !c = \case
     in evalRevSame (evalRevSame s cShared d) cShared e
 
   DeltaCastK @r1 d ->
-    evalRev (FTKScalar @r1) s (toADTensorKindShared (FTKScalar @r1) $ kcast c) d
-
+    evalRevScalarRuntimeSpecialized
+    s (toADTensorKindShared (FTKScalar @r1) $ kcast c) d
   DeltaCastR d -> case ftkDelta d of
     y ->
-      evalRevRuntimeSpecialized
+      evalRevRRuntimeSpecialized
       s (toADTensorKindShared y $ rcast c) d
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
