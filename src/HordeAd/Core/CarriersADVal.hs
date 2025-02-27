@@ -133,7 +133,7 @@ unDeltaPairUnshared :: Delta target (TKProduct x y)
 unDeltaPairUnshared (DeltaPair a b) = (a, b)
 unDeltaPairUnshared (DeltaZero (FTKProduct ftk1 ftk2)) =
   (DeltaZero ftk1, DeltaZero ftk2)
-unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)
+unDeltaPairUnshared d = (DeltaProject1 d, DeltaProject2 d)  -- duplicated
 
 dScale :: Num (f z) => f z -> Delta f z -> Delta f z
 dScale _ (DeltaZero ftk) = DeltaZero ftk
@@ -209,7 +209,7 @@ generateDeltaInputs =
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
           in (DeltaPair d1 d2, j2)
-        _ -> (DeltaInput ftk (mkInputId (ftkToSTK ftk) j), j + 1)
+        _ -> (DeltaInput ftk (mkInputId ftk j), j + 1)
   in fst . gen 0
 {- TODO: this causes a cyclic dependency:
 {-# SPECIALIZE generateDeltaInputs

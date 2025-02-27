@@ -69,6 +69,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
   (ixrRank, shrRank, shsRank, withKnownShS)
 
+import HordeAd.Core.CarriersADVal (unDeltaPairUnshared)
 import HordeAd.Core.Delta
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
@@ -120,7 +121,7 @@ showsPrec_IMap d demap =
     showString "fromList "
     . showListWith
         (\(k :=> target) ->
-          withKnownSTK (inputIdToSTK k) $
+          withKnownSTK (ftkToSTK $ inputIdToFTK k) $
           showsPrec 2 k . showString " :=> " . showsPrec 1 target)
         (DMap.toList demap)
 
@@ -177,10 +178,10 @@ rebuildInputs els s2 ftk = case ftk of
       in (t, rest2)
   _ -> case els of
     (n :=> tz@(TOTensor t)) : rest ->
-      case sameSTK (inputIdToSTK n) (ftkToSTK ftk) of
+      case matchingFTK (inputIdToFTK n) ftk of
         Just Refl ->
           (t, rest)
-        _ | Dict <- lemKnownSTK (inputIdToSTK n) ->
+        _ | Dict <- lemKnownSTK (ftkToSTK $ inputIdToFTK n) ->
           error $ "rebuildInputs: wrong Tensor type: "
                   ++ show (n, tz, show_IMap (iMap s2))
     (n :=> tz@(TOZero ftk2)) : rest ->
@@ -191,7 +192,7 @@ rebuildInputs els s2 ftk = case ftk of
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
           -- and maybe use elsewhere, too.
-        _ | Dict <- lemKnownSTK (inputIdToSTK n) ->
+        _ | Dict <- lemKnownSTK (ftkToSTK $ inputIdToFTK n) ->
           error $ "rebuildInputs: wrong Zero type: "
                   ++ show (n, tz, show_IMap (iMap s2))
     _ -> error $ "rebuildInputs: illegal TensorOrZero: "
@@ -205,7 +206,7 @@ generateDSumsDummy j ftk  = case ftk of
     let (ds1, j1) = generateDSumsDummy j ftk1
         (ds2, j2) = generateDSumsDummy j1 ftk2
     in (ds1 ++ ds2, j2)
-  _ -> ([mkInputId (ftkToSTK ftk) j :=> TOZero ftk], j + 1)
+  _ -> ([mkInputId ftk j :=> TOZero ftk], j + 1)
 
 -- Matches generateDeltaInputs.
 generateDSums :: ShareTensor target
@@ -217,7 +218,7 @@ generateDSums j ftk t = case ftk of
         (ds1, j1) = generateDSums j ftk1 t1
         (ds2, j2) = generateDSums j1 ftk2 t2
     in (ds1 ++ ds2, j2)
-  _ -> ([mkInputId (ftkToSTK ftk) j :=> TOTensor t], j + 1)
+  _ -> ([mkInputId ftk j :=> TOTensor t], j + 1)
 
 -- * Delta evaluation state
 
@@ -396,6 +397,7 @@ evalRev ftk !s !c d = case ftk of
   FTKX @sh _ (FTKScalar @r) -> evalXRuntimeSpecialized @sh @r s c d
   _ -> evalRevFTK s c d
 
+-- The "FTK" denotes it doesn't get an FTK but reconstructs it as needed.
 evalRevFTK
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target)
@@ -519,36 +521,38 @@ evalRevFTK !s !c d0 = case d0 of
   DeltaFromS stk (DeltaSFromR _ d)
     | y2 <- ftkDelta d
     , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalRevFTK s c d
+      evalRev y2 s c d
   DeltaFromS stk (DeltaSFromX _ d)
     | y2 <- ftkDelta d
     , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalRevFTK s c d
-  DeltaFromS stk d -> case (ftkToSTK $ ftkDelta d, stk) of
-    (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRevFTK s c d
+      evalRev y2 s c d
+  DeltaFromS stk d
+    | y2 <- ftkDelta d -> case (ftkToSTK y2, stk) of
+    (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev y2 s c d
     (STKS ZSS yx@(STKScalar @ry), STKScalar @rz) ->
       case testEquality (typeRep @ry) (typeRep @rz) of
         Just Refl -> case sameSTK yx (adSTK yx) of
-          Just Refl -> evalRevFTK s (sfromK c) d
+          Just Refl -> evalRev y2 s (sfromK c) d
           _ -> s
         Nothing -> error "evalRev: tensor kinds don't match"
     (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTKOfAD yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) nx) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
-          evalRevFTK s (sfromR c) d
+          evalRev y2 s (sfromR c) d
         _ -> error "evalRev: tensor kinds don't match"
     (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTKOfAD yx ->
       case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
         (Just Refl, Just Refl) ->
           withKnownShS shy $
-          evalRevFTK s (sfromX c) d
+          evalRev y2 s (sfromX c) d
         _ -> error "evalRev: tensor kinds don't match"
     (STKProduct{}, STKProduct stkz1 stkz2) ->
         let (c1, c2) = tunpair c
-        in evalRevFTK (evalRevFTK s c1 (DeltaFromS stkz1 $ DeltaProject1 d))
-                      c2 (DeltaFromS stkz2 $ DeltaProject2 d)
-             -- TODO: costly
+            (d1, d2) = unDeltaPairUnshared d
+        in evalRevFTK (evalRevFTK s c1 (DeltaFromS stkz1 d1))
+                      c2 (DeltaFromS stkz2 d2)
+             -- TODO: make this compositional and evaluated d only once
     _ -> error "evalRev: wrong tensor kinds"
 
   _ -> case ftkDelta d0 of

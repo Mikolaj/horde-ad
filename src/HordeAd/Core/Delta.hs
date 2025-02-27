@@ -39,7 +39,7 @@
 module HordeAd.Core.Delta
   ( -- * Delta identifiers
     NodeId, mkNodeId, nodeIdToFTK
-  , InputId, mkInputId, inputIdToSTK
+  , InputId, mkInputId, inputIdToFTK
     -- * AST of delta expressions
   , Delta(..), NestedTarget(..)
     -- * Full tensor kind derivation for delta expressions
@@ -123,7 +123,7 @@ nodeIdToFTK (NodeId ftk _) = ftk
 
 type role InputId nominal nominal
 data InputId :: Target -> TensorKindType -> Type where
-  InputId :: forall target y. STensorKind y -> Int -> InputId target y
+  InputId :: forall target y. FullTensorKind y -> Int -> InputId target y
 
 -- No Eq instance to limit hacks outside this module.
 
@@ -134,19 +134,19 @@ instance Show (InputId target y) where  -- backward compatibility
       . shows n
 
 instance DMap.Enum1 (InputId target) where
-  type Enum1Info (InputId target) = Some STensorKind
-  fromEnum1 (InputId stk n) = (n, Some stk)
-  toEnum1 n (Some stk) = Some $ InputId stk n
+  type Enum1Info (InputId target) = Some FullTensorKind
+  fromEnum1 (InputId ftk n) = (n, Some ftk)
+  toEnum1 n (Some ftk) = Some $ InputId ftk n
 
 instance TestEquality (InputId target) where
-  testEquality (InputId stk1 _) (InputId stk2 _) = sameSTK stk1 stk2
+  testEquality (InputId ftk1 _) (InputId ftk2 _) = matchingFTK ftk1 ftk2
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-mkInputId :: STensorKind y -> Int -> InputId f y
-mkInputId stk i = assert (i >= 0) $ InputId stk i
+mkInputId :: FullTensorKind y -> Int -> InputId f y
+mkInputId ftk i = assert (i >= 0) $ InputId ftk i
 
-inputIdToSTK :: InputId f y -> STensorKind y
-inputIdToSTK (InputId stk _) = stk
+inputIdToFTK :: InputId f y -> FullTensorKind y
+inputIdToFTK (InputId ftk _) = ftk
 
 
 -- * AST of delta expressions
@@ -506,9 +506,9 @@ deriving instance Show (IntOf target) => Show (Delta target y)
 -- though OTOH they are often important) and is used in the engine a lot.
 type NestedTarget :: Target -> TensorKindType -> Type
 type role NestedTarget nominal nominal
-newtype NestedTarget target stk = NestedTarget (target stk)
+newtype NestedTarget target y = NestedTarget (target y)
 
-instance Show (NestedTarget target stk) where
+instance Show (NestedTarget target y) where
   showsPrec _ _ = showString "<primal>"
 
 
