@@ -406,6 +406,53 @@ evalRevFTK
 evalRevFTK !s !c d0 = case d0 of
   -- All constructors that admit a TKProduct kind need to be handled in evalRev
   -- except for DeltaInput that is always constructed only in basic kinds.
+  DeltaShare n d ->
+    -- In this context, by construction, @d@ is the dual component
+    -- of a dual number term. Let's say that, at this point, evaluation
+    -- considers position (node) p out of possibly multiple positions
+    -- at which that dual number resides in the whole term tree
+    -- of the dual number representation of the objective function.
+    -- (Equivalently, considers edges p, one of many leading to the only
+    -- node with identifier @n@ in the DAG representing the term).
+    -- If so, the @c@ argument of @eval0@ is the cotangent
+    -- contribution for position p, that is, the partial derivative
+    -- of the objective function with respect to position p.
+    --
+    -- If there are indeed multiple such positions (the term is shared)
+    -- then, over the course of evaluation, cotangent contributions
+    -- of them all are gradually accumulated in the finite
+    -- maps and eventually their total sum represents the total
+    -- influence of the objective function's subcomputation
+    -- (more precisely, subgraph of the data flow graph in question)
+    -- corresponding to the shared term @DeltaShare n d@. This total
+    -- influence over the objective function's behaviour is called
+    -- in short the cotangent of the node identifier @n@.
+    -- In other words, the cotangent of @n@ is the sum,
+    -- over all positions (edges) q in the global delta-expression DAG
+    -- that are a reference to node @n@, of the partial derivative
+    -- of the objective function with respect to the subcomputation
+    -- corresponding to @q@ (meaning, subcomputations denoted by
+    -- Haskell terms whose dual components are @Share n ...@).
+    --
+    -- For @Input@ terms, the eventual lists of cotangents end up
+    -- in the cells of the gradient vectors that are the final
+    -- result of the evaluation.
+    assert (case d of  -- should match shareDelta
+              DeltaZero{} -> False
+              DeltaPair{} -> False
+              DeltaInput{} -> False
+              DeltaShare{} -> False
+              _ -> True)
+    $ if DMap.member n $ nMap s
+      then let addc x = Cotangent $ addTarget (adSTK $ ftkToSTK $ nodeIdToFTK n)
+                                              c (unCotangent x)
+             -- target has a ShareTensor instance, so addTarget arguments
+             -- don't need to be duplicable
+           in s {dMap = DMap.adjust addc n $ dMap s}
+      else let cd = Cotangent c
+           in s { nMap = DMap.insert n d $ nMap s
+                , dMap = DMap.insert n cd $ dMap s }
+
   DeltaPair d1 d2 ->
     let (c1, c2) = tunpair c
     in evalRevFTK (evalRevFTK s c1 d1) c2 d2
@@ -470,53 +517,6 @@ evalRevFTK !s !c d0 = case d0 of
         (dacc, des) = tunpair dacc_des
         s2 = evalRevFTK s dacc acc0'
     in evalRevFTK s2 des es'
-
-  DeltaShare n d ->
-    -- In this context, by construction, @d@ is the dual component
-    -- of a dual number term. Let's say that, at this point, evaluation
-    -- considers position (node) p out of possibly multiple positions
-    -- at which that dual number resides in the whole term tree
-    -- of the dual number representation of the objective function.
-    -- (Equivalently, considers edges p, one of many leading to the only
-    -- node with identifier @n@ in the DAG representing the term).
-    -- If so, the @c@ argument of @eval0@ is the cotangent
-    -- contribution for position p, that is, the partial derivative
-    -- of the objective function with respect to position p.
-    --
-    -- If there are indeed multiple such positions (the term is shared)
-    -- then, over the course of evaluation, cotangent contributions
-    -- of them all are gradually accumulated in the finite
-    -- maps and eventually their total sum represents the total
-    -- influence of the objective function's subcomputation
-    -- (more precisely, subgraph of the data flow graph in question)
-    -- corresponding to the shared term @DeltaShare n d@. This total
-    -- influence over the objective function's behaviour is called
-    -- in short the cotangent of the node identifier @n@.
-    -- In other words, the cotangent of @n@ is the sum,
-    -- over all positions (edges) q in the global delta-expression DAG
-    -- that are a reference to node @n@, of the partial derivative
-    -- of the objective function with respect to the subcomputation
-    -- corresponding to @q@ (meaning, subcomputations denoted by
-    -- Haskell terms whose dual components are @Share n ...@).
-    --
-    -- For @Input@ terms, the eventual lists of cotangents end up
-    -- in the cells of the gradient vectors that are the final
-    -- result of the evaluation.
-    assert (case d of  -- should match shareDelta
-              DeltaZero{} -> False
-              DeltaPair{} -> False
-              DeltaInput{} -> False
-              DeltaShare{} -> False
-              _ -> True)
-    $ if DMap.member n $ nMap s
-      then let addc x = Cotangent $ addTarget (adSTK $ ftkToSTK $ nodeIdToFTK n)
-                                              c (unCotangent x)
-             -- target has a ShareTensor instance, so addTarget arguments
-             -- don't need to be duplicable
-           in s {dMap = DMap.adjust addc n $ dMap s}
-      else let cd = Cotangent c
-           in s { nMap = DMap.insert n d $ nMap s
-                , dMap = DMap.insert n cd $ dMap s }
 
   DeltaFromS stk (DeltaSFromR _ d)
     | y2 <- ftkDelta d
@@ -914,6 +914,23 @@ evalFwd
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
 evalFwd params s d0 = case d0 of
+  DeltaShare n d ->
+    case DMap.lookup n s of
+      Just e1 -> (s, unCotangent e1)
+      Nothing ->
+        let (s2, cRaw) = evalFwd params s d
+            cShared = tshare cRaw
+            cd = Cotangent cShared
+              -- cRaw is shared, because it's put into the map and then
+              -- potentially looked up many times, so it'd get duplicated
+            s3 = DMap.insert n cd s2
+        in (s3, cShared)
+  DeltaInput inputId ->
+    case DMap.lookup inputId params of
+      Just dtk -> (s, toADTensorKindShared (inputIdToFTK inputId)
+                      $ evalTensorOrZero dtk)
+      Nothing -> error "evalFwd: missing input"
+
   DeltaPair d1 d2 ->
     let (s2, t) = evalFwd params s d1
         (s3, u) = evalFwd params s2 d2
@@ -969,23 +986,6 @@ evalFwd params s d0 = case d0 of
                                            (tproject2 de_acc_e1)))
                        cacc0
                        (tpair ces (tpair q es)))
-
-  DeltaShare n d ->
-    case DMap.lookup n s of
-      Just e1 -> (s, unCotangent e1)
-      Nothing ->
-        let (s2, cRaw) = evalFwd params s d
-            cShared = tshare cRaw
-            cd = Cotangent cShared
-              -- cRaw is shared, because it's put into the map and then
-              -- potentially looked up many times, so it'd get duplicated
-            s3 = DMap.insert n cd s2
-        in (s3, cShared)
-  DeltaInput inputId ->
-    case DMap.lookup inputId params of
-      Just dtk -> (s, toADTensorKindShared (inputIdToFTK inputId)
-                      $ evalTensorOrZero dtk)
-      Nothing -> error "evalFwd: missing input"
 
   DeltaFromS stk (DeltaSFromR _ d)
     | y2 <- ftkDelta d

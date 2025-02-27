@@ -221,6 +221,10 @@ inputIdToFTK (InputId ftk _) = ftk
 
 type role Delta nominal nominal
 data Delta :: Target -> TensorKindType -> Type where
+  -- Sharing-related operations
+  DeltaShare :: NodeId target y -> Delta target y -> Delta target y
+  DeltaInput :: InputId target y -> Delta target y
+
   -- General operations, for scalar, ranked, shared and other tensors at once
   DeltaPair :: forall y z target.
                Delta target y -> Delta target z
@@ -279,10 +283,6 @@ data Delta :: Target -> TensorKindType -> Type where
     -> Delta target accShs
     -> Delta target (BuildTensorKind k eShs)
     -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
-
-  -- Sharing-related operations
-  DeltaShare :: NodeId target y -> Delta target y -> Delta target y
-  DeltaInput :: InputId target y -> Delta target y
 
   -- Vector space operations
   DeltaZero :: FullTensorKind y -> Delta target y
@@ -516,6 +516,9 @@ instance Show (NestedTarget target y) where
 ftkDelta :: forall target y.
             Delta target y -> FullTensorKind y
 ftkDelta = \case
+  DeltaShare i _ -> nodeIdToFTK i
+  DeltaInput i -> inputIdToFTK i
+
   DeltaPair t1 t2 -> FTKProduct (ftkDelta t1) (ftkDelta t2)
   DeltaProject1 v -> case ftkDelta v of
     FTKProduct ftk1 _ -> ftk1
@@ -530,9 +533,6 @@ ftkDelta = \case
     FTKProduct (ftkDelta acc0') (buildFTK k bShs)
   DeltaMapAccumL k bShs _eShs _q _es _df _rf acc0' _es' ->
     FTKProduct (ftkDelta acc0') (buildFTK k bShs)
-
-  DeltaShare i _ -> nodeIdToFTK i
-  DeltaInput i -> inputIdToFTK i
 
   DeltaZero ftk -> ftk
   DeltaScale _ d -> ftkDelta d
