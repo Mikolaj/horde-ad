@@ -97,11 +97,11 @@ inlineAst memo v0 = case v0 of
   -- examples become unreadable
   -- TODO: these trigger variable capture and real duplication
 {-
-  Ast.AstProject1 (Ast.AstVar _ var) ->
+  Ast.AstProject1 (Ast.AstVar var) ->
     let f Nothing = Just 0.5
         f (Just count) = Just $ count + 0.5
     in (EM.alter f (varNameToAstVarId var) memo, v0)
-  Ast.AstProject2 (Ast.AstVar _ var) ->
+  Ast.AstProject2 (Ast.AstVar var) ->
     let f Nothing = Just 0.5
         f (Just count) = Just $ count + 0.5
     in (EM.alter f (varNameToAstVarId var) memo, v0)
@@ -134,7 +134,7 @@ inlineAst memo v0 = case v0 of
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
-  Ast.AstVar _ var ->
+  Ast.AstVar var ->
     let f Nothing = Just 1
         f (Just count) = Just $ count + 1
     in (EM.alter f (varNameToAstVarId var) memo, v0)
@@ -301,10 +301,10 @@ inlineAst memo v0 = case v0 of
 inlineAstHFun
   :: AstMemo -> AstHFun x y -> (AstMemo, AstHFun x y)
 inlineAstHFun memo v0 = case v0 of
-  Ast.AstLambda ~(var, ftk, l) ->
+  Ast.AstLambda ~(var, l) ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
-    (memo, Ast.AstLambda (var, ftk, snd $ inlineAst EM.empty l))
+    (memo, Ast.AstLambda (var, snd $ inlineAst EM.empty l))
 
 inlineAstBool :: AstMemo -> AstBool AstMethodLet -> (AstMemo, AstBool AstMethodLet)
 inlineAstBool memo v0 = case v0 of
@@ -408,7 +408,7 @@ unshareAst memo = \case
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
-  Ast.AstVar ftk v -> (memo, Ast.AstVar ftk v)
+  Ast.AstVar v -> (memo, Ast.AstVar v)
   Ast.AstCond b a2 a3 ->
     let (memo1, b1) = unshareAstBool memo b
         (memo2, t2) = unshareAst memo1 a2
@@ -423,7 +423,7 @@ unshareAst memo = \case
     Ast.AstFromS @y2 stkz v ->
       let var = mkAstVarName (ftkAst v) $ varNameToAstVarId varRaw
           astVar = Ast.AstFromS @y2 stkz
-                   $ Ast.AstVar (ftkAst v) var
+                   $ Ast.AstVar var
       in if var `DMap.member` memo
          then (memo, astVar)
          else let (memo1, !a2) = unshareAst memo v
@@ -437,7 +437,7 @@ unshareAst memo = \case
           let var = mkAstVarName (FTKS sh x)
                     $ varNameToAstVarId varRaw
               astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk)
-                       $ Ast.AstVar (FTKS sh x) var
+                       $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar)
              else let (memo1, !a2) = unshareAst memo (Ast.AstSFromR @sh sh a)
@@ -447,18 +447,18 @@ unshareAst memo = \case
           let var = mkAstVarName (FTKS sh x)
                     $ varNameToAstVarId varRaw
               astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk)
-                       $ Ast.AstVar (FTKS sh x) var
+                       $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar)
              else let (memo1, !a2) = unshareAst memo (Ast.AstSFromX @sh sh a)
                   in (DMap.insert var a2 memo1, astVar)
       -- TODO: also recursively product
-      ftk -> let var = varRaw
-                 astVar = Ast.AstVar ftk var
-             in if var `DMap.member` memo
-                then (memo, astVar)  -- TODO: memoize AstVar itself
-                else let (memo1, !a2) = unshareAst memo a
-                     in (DMap.insert var a2 memo1, astVar)
+      _ -> let var = varRaw
+               astVar = Ast.AstVar var
+           in if var `DMap.member` memo
+              then (memo, astVar)  -- TODO: memoize AstVar itself
+              else let (memo1, !a2) = unshareAst memo a
+                   in (DMap.insert var a2 memo1, astVar)
   Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
 

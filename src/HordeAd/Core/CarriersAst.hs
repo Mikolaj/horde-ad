@@ -105,26 +105,26 @@ instance (GoodScalar r, AstSpan s)
   -- Unfortunately, these only fire if the required subterms are at the top
   -- of the reduced term, which happens rarely except in small terms.
   -- We could keep variables at the top, but they'd compete with AstConcreteK.
-  AstN1K NegateOp (AstVar _ var) + AstVar _ var'
+  AstN1K NegateOp (AstVar var) + AstVar var'
     | var == var' = 0
-  AstN1K NegateOp (AstVar _ var) + AstPlusK (AstVar _ var') u
+  AstN1K NegateOp (AstVar var) + AstPlusK (AstVar var') u
     | var == var' = u
-  AstVar _ var' + AstN1K NegateOp (AstVar _ var)
+  AstVar var' + AstN1K NegateOp (AstVar var)
     | var == var' = 0
-  AstVar _ var' + AstPlusK (AstN1K NegateOp (AstVar _ var)) u
+  AstVar var' + AstPlusK (AstN1K NegateOp (AstVar var)) u
     | var == var' = u
 
-  AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)
-   + AstI2K RemOp (AstVar _ var') (AstConcreteK n')
+  AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
+   + AstI2K RemOp (AstVar var') (AstConcreteK n')
      | var == var' && n == n' = 0
-  AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)
-   + AstPlusK (AstI2K RemOp (AstVar _ var') (AstConcreteK n')) u
+  AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
+   + AstPlusK (AstI2K RemOp (AstVar var') (AstConcreteK n')) u
      | var == var' && n == n' = u
-  AstI2K RemOp (AstVar _ var') (AstConcreteK n')
-   + AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)
+  AstI2K RemOp (AstVar var') (AstConcreteK n')
+   + AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
      | var == var' && n == n' = 0
-  AstI2K RemOp (AstVar _ var') (AstConcreteK n')
-   + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstVar _ var)) (AstConcreteK n)) u
+  AstI2K RemOp (AstVar var') (AstConcreteK n')
+   + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)) u
      | var == var' && n == n' = u
 
   AstPlusK u@AstConcreteK{} v + w = AstPlusK u (AstPlusK v w)  -- as above
@@ -155,31 +155,31 @@ instance (GoodScalar r, AstSpan s)
   -- is often a constant, which makes such rules worth including,
   -- since they are likely to fire. To help them fire, we avoid changing
   -- that constant, if possible, e.g., in rules for NegateOp.
-  AstConcreteK n * AstI2K QuotOp (AstVar ftk2 var) (AstConcreteK n')
+  AstConcreteK n * AstI2K QuotOp (AstVar var) (AstConcreteK n')
     | n == n' =
       AstPlusK
-        (AstVar ftk2 var)
-        (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n)))
-  AstTimesK (AstConcreteK n) x * AstI2K QuotOp (AstVar ftk2 var)
+        (AstVar var)
+        (negate (AstI2K RemOp (AstVar var) (AstConcreteK n)))
+  AstTimesK (AstConcreteK n) x * AstI2K QuotOp (AstVar var)
                                                (AstConcreteK n')
     | n == n' =
       AstTimesK
         x
         (AstPlusK
-           (AstVar ftk2 var)
-           (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n))))
-  AstI2K QuotOp (AstVar ftk2 var) (AstConcreteK n') * AstConcreteK n
+           (AstVar var)
+           (negate (AstI2K RemOp (AstVar var) (AstConcreteK n))))
+  AstI2K QuotOp (AstVar var) (AstConcreteK n') * AstConcreteK n
     | n == n' =
       AstPlusK
-        (AstVar ftk2 var)
-        (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n)))
-  AstI2K QuotOp (AstVar ftk2 var)
+        (AstVar var)
+        (negate (AstI2K RemOp (AstVar var) (AstConcreteK n)))
+  AstI2K QuotOp (AstVar var)
                 (AstConcreteK n') * AstTimesK (AstConcreteK n) x
     | n == n' =
       AstTimesK
         (AstPlusK
-           (AstVar ftk2 var)
-           (negate (AstI2K RemOp (AstVar ftk2 var) (AstConcreteK n))))
+           (AstVar var)
+           (negate (AstI2K RemOp (AstVar var) (AstConcreteK n))))
         x
 
   AstTimesK u@AstConcreteK{} v * w = AstTimesK u (AstTimesK v w)  -- as above
@@ -332,13 +332,13 @@ instance GoodScalar r
   AstPlusS (AstConcreteS n) u + AstPlusS (AstConcreteS k) v =
     AstPlusS (AstConcreteS (n + k)) (AstPlusS u v)
 
---  AstN1S NegateOp (AstVar _ var) + AstVar _ var'
+--  AstN1S NegateOp (AstVar var) + AstVar var'
 --    | var == var' = 0
-  AstN1S NegateOp (AstVar _ var) + AstPlusS (AstVar _ var') u
+  AstN1S NegateOp (AstVar var) + AstPlusS (AstVar var') u
     | var == var' = u
---  AstVar _ var' + AstN1S NegateOp (AstVar _ var)
+--  AstVar var' + AstN1S NegateOp (AstVar var)
 --    | var == var' = 0
-  AstVar _ var' + AstPlusS (AstN1S NegateOp (AstVar _ var)) u
+  AstVar var' + AstPlusS (AstN1S NegateOp (AstVar var)) u
     | var == var' = u
 
   AstPlusS u@AstConcreteS{} v + w = AstPlusS u (AstPlusS v w)

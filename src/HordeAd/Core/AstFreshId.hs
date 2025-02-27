@@ -55,7 +55,7 @@ funToAstIO :: forall y z s s2 ms.
 funToAstIO ftk f = do
   freshId <- unsafeGetFreshAstVarId
   let varName = mkAstVarName ftk freshId
-      !x = f (AstVar ftk varName)
+      !x = f (AstVar varName)
   return (varName, x)
 
 funToAst :: FullTensorKind y
@@ -89,9 +89,9 @@ funToAstRevIO ftk = do
       var :: AstVarName FullSpan x
       var = mkAstVarName ftk freshId
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
-      !astVarPrimal = AstVar ftk varPrimal
+      !astVarPrimal = AstVar varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x
-      !astVar = AstVar ftk var
+      !astVar = AstVar var
   return (varPrimal, astVarPrimal, var, astVar)
 
 funToAstRev :: FullTensorKind x
@@ -120,11 +120,11 @@ funToAstFwdIO ftk = do
       var :: AstVarName FullSpan x
       var = mkAstVarName ftk freshId
       astVarPrimalD :: AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
-      !astVarPrimalD = AstVar (adFTK ftk) varPrimalD
+      !astVarPrimalD = AstVar varPrimalD
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
-      !astVarPrimal = AstVar ftk varPrimal
+      !astVarPrimal = AstVar varPrimal
       astVar :: AstTensor AstMethodLet FullSpan x
-      !astVar = AstVar ftk var
+      !astVar = AstVar var
   return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
 
 funToAstFwd :: FullTensorKind x

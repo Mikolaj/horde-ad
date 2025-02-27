@@ -189,7 +189,7 @@ build1V snat@SNat (var, v0)
     Ast.AstApply t ll -> traceRule $
       astApply (build1VHFun snat (var, t))
                (build1VOccurenceUnknown snat (var, ll))
-    Ast.AstVar _ var2 -> traceRule $
+    Ast.AstVar var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
       then case isTensorInt v0 of
         Just Refl -> fromPrimal @s $ Ast.AstIotaS (SNat @k)
@@ -207,8 +207,7 @@ build1V snat@SNat (var, v0)
 
     Ast.AstLet var1 u v -> traceRule $
       let ftk2 = ftkAst u
-          (var3, _ftk3, v2) =
-            substProjRep snat var ftk2 var1 v
+          (var3, v2) = substProjRep snat var ftk2 var1 v
       in astLet var3 (build1VOccurenceUnknown snat (var, u))
                      (build1VOccurenceUnknownRefresh snat (var, v2))
            -- ensures no duplicated bindings, see below
@@ -421,15 +420,14 @@ build1VHFun
      SNat k -> (IntVarName, AstHFun x z)
   -> AstHFun (BuildTensorKind k x) (BuildTensorKind k z)
 build1VHFun snat@SNat (var, v0) = case v0 of
-  Ast.AstLambda ~(var1, ftk, l) ->
+  Ast.AstLambda ~(var1, l) ->
     -- This handles the case of l having free variables beyond var1,
     -- which is not possible for lambdas used in folds, etc.
     -- But note that, due to substProjVars, l2 has var occurences,
     -- so build1VOccurenceUnknownRefresh is neccessary to handle
     -- them and to eliminate them so that the function is closed again.
-    let (var2, ftk2, l2) = substProjRep snat var ftk var1 l
-    in Ast.AstLambda
-         (var2, ftk2, build1VOccurenceUnknownRefresh snat (var, l2))
+    let (var2, l2) = substProjRep snat var (varNameToFTK var1) var1 l
+    in Ast.AstLambda (var2, build1VOccurenceUnknownRefresh snat (var, l2))
 
 
 -- * Auxiliary operations
@@ -519,21 +517,19 @@ substProjRep
   :: forall k s s2 y2 y. (AstSpan s, AstSpan s2)
   => SNat k -> IntVarName
   -> FullTensorKind y2 -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
-  -> ( AstVarName s2 (BuildTensorKind k y2)
-     , FullTensorKind (BuildTensorKind k y2)
-     , AstTensor AstMethodLet s y )
+  -> (AstVarName s2 (BuildTensorKind k y2), AstTensor AstMethodLet s y)
 substProjRep snat@SNat var ftk2 var1 v =
   let var3 :: AstVarName s2 (BuildTensorKind k y2)
       var3 = mkAstVarName ftk3 (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
       ftk3 = buildFTK snat ftk2
-      astVar3 = Ast.AstVar ftk3 var3
+      astVar3 = Ast.AstVar var3
       v2 = substituteAst
              (astIndexBuild snat (ftkToSTK ftk2) astVar3 (Ast.AstIntVar var))
              var1 v
         -- The subsitutions of projections don't break sharing,
         -- because they don't duplicate variables and the added var
         -- is eventually being eliminated instead of substituted for.
-  in (var3, ftk3, v2)
+  in (var3, v2)
 
 
 -- * Rule tracing machinery

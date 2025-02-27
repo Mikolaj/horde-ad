@@ -574,9 +574,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
     astMapAccumLDer k bShs eShs f df rf acc0 es
   tApply t ll = astApply t ll
-  tlambda shss f =
-    let (var, ast) = funToAst shss $ \ !ll -> unHFun f ll
-    in AstLambda (var, shss, ast)
+  tlambda ftk f =
+    let (var, ast) = funToAst ftk $ \ !ll -> unHFun f ll
+    in AstLambda (var, ast)
   tcond _ !b !u !v = astCond b u v
   tprimalPart t = primalPart t
   tdualPart _ t = dualPart t
@@ -600,7 +600,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         (varP, ast) = funToAst ftkx $ \ !astP ->
           astLet var astP
           $ simplifyInline gradient
-    in AstLambda (varP, ftkx, ast)
+    in AstLambda (varP, ast)
   trevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -612,7 +612,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astLet varDt (astProject1 astP)
           $ astLet var (astProject2 astP)
           $ simplifyInline gradient
-    in AstLambda (varP, ftk2, ast)
+    in AstLambda (varP, ast)
   tfwd ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -623,7 +623,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astLet varDs (astProject1 astP)
           $ astLet var (astProject2 astP)
           $ simplifyInline derivative
-    in AstLambda (varP, ftk2, ast)
+    in AstLambda (varP, ast)
 
 
 -- * AstRaw instances

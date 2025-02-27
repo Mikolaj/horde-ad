@@ -159,7 +159,7 @@ type AstInt ms = AstTensor ms PrimalSpan (TKScalar Int64)
 type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
-pattern AstIntVar var = AstVar FTKScalar var
+pattern AstIntVar var = AstVar var
 
 type AstIxS ms sh = IxS sh (AstInt ms)
 
@@ -225,7 +225,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
     -> AstTensor ms s (BuildTensorKind k eShs)
     -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
   AstApply :: AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
-  AstVar :: FullTensorKind y -> AstVarName s y -> AstTensor ms s y
+  AstVar :: AstVarName s y -> AstTensor ms s y
   AstCond :: forall y ms s.
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y
           -> AstTensor ms s y
@@ -414,8 +414,7 @@ deriving instance Show (AstTensor ms s y)
 
 type role AstHFun nominal nominal
 data AstHFun x z where
-  AstLambda :: ~( AstVarName PrimalSpan x, FullTensorKind x
-                , AstTensor AstMethodLet PrimalSpan z )
+  AstLambda :: ~(AstVarName PrimalSpan x, AstTensor AstMethodLet PrimalSpan z)
             -> AstHFun x z
     -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects

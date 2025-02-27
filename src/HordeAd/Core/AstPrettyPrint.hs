@@ -70,11 +70,9 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: forall s y.
-               PrintConfig -> STensorKind y -> AstVarName s y -> ShowS
-printAstVar cfg stk var =
-  let varId = varNameToAstVarId var
-      prefix = case rankSTK stk of
+printAstVar :: PrintConfig -> AstVarName s y -> ShowS
+printAstVar cfg var =
+  let prefix = case rankSTK (ftkToSTK $ varNameToFTK var) of
         -1 -> "h"
         0 -> "x"
         1 -> "v"
@@ -82,7 +80,7 @@ printAstVar cfg stk var =
         3 -> "t"
         4 -> "u"
         _ -> "w"
-  in printAstVarId prefix cfg varId
+  in printAstVarId prefix cfg (varNameToAstVarId var)
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
@@ -91,12 +89,11 @@ printAstVarFromLet
   :: forall s y ms. AstSpan s
   => AstTensor ms s y -> PrintConfig -> AstVarName s y -> ShowS
 printAstVarFromLet u cfg var =
-  let stk = ftkToSTK (ftkAst u)
-  in if representsIntIndex cfg
-     then case isTensorInt u of
-       Just Refl -> printAstIntVar cfg var
-       _ -> printAstVar cfg stk var
-     else printAstVar cfg stk var
+  if representsIntIndex cfg
+  then case isTensorInt u of
+    Just Refl -> printAstIntVar cfg var
+    _ -> printAstVar cfg var
+  else printAstVar cfg var
 
 
 -- * General pretty-printing of AST terms
@@ -112,7 +109,7 @@ printAst cfgOld d t =
   if representsIntIndex cfgOld
   then case isTensorInt t of
     Just Refl -> case t of
-      AstVar _ var -> printAstIntVar cfgOld var
+      AstVar var -> printAstIntVar cfgOld var
       AstConcreteK i -> showNumber i
       _ -> printAstAux cfgOld d t
     _ -> let cfg = cfgOld {representsIntIndex = False}
@@ -276,7 +273,7 @@ printAstAux cfg d = \case
            . printAstHFunOneUnignore cfg 10 t
            . showString " "
            . printAst cfg 11 ll
-  AstVar ftk var -> printAstVar cfg (ftkToSTK ftk) var
+  AstVar var -> printAstVar cfg var
   AstCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifF "
@@ -339,7 +336,7 @@ printAstAux cfg d = \case
   AstShare var v ->
     showParen (d > 10)
     $ showString "rshare "
-      . printAstVar cfg (ftkToSTK (ftkAst v)) var
+      . printAstVar cfg var
       . showString " "
       . printAst cfg 11 v
   AstToShare v -> printAstAux cfg d v  -- ignored
@@ -551,37 +548,37 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
 
 printAstHFun :: PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFun cfg d = \case
-  AstLambda (var, ftk, l) ->
+  AstLambda (var, l) ->
     if loseRoudtrip cfg
     then if ignoreNestedLambdas cfg
          then showString "<lambda>"
          else showParen (d > 0)
               $ showString "\\"
-                . printAstVar cfg (ftkToSTK ftk) var
+                . printAstVar cfg var
                 . showString " -> "
                 . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
-           . printAstVar cfg (ftkToSTK ftk) var
+           . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
 
 printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
-  AstLambda (var, ftk, l) ->
+  AstLambda (var, l) ->
     if loseRoudtrip cfg
     then showParen (d > 0)
          $ showString "\\"
-           . printAstVar cfg (ftkToSTK ftk) var
+           . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
     else showParen (d > 0)
          $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
            . -}
            showString "\\"
-           . printAstVar cfg (ftkToSTK ftk) var
+           . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
 
@@ -675,10 +672,9 @@ printAstRelOp pr cfg d opCode u v = case opCode of
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstVarName :: KnownSTK y
-                => IntMap String -> AstVarName s y -> String
+printAstVarName :: IntMap String -> AstVarName s y -> String
 printAstVarName renames var =
-  printAstVar (defaulPrintConfig False renames) knownSTK var ""
+  printAstVar (defaulPrintConfig False renames) var ""
 
 printAstSimple :: AstSpan s
                => IntMap String -> AstTensor ms s y -> String
@@ -694,10 +690,9 @@ printAstPrettyButNested renames t =
   printAst (defaulPrintConfig2 True False renames) 0 t ""
 
 printArtifactSimple
-  :: forall x z. KnownSTK x
-  => IntMap String -> AstArtifactRev x z -> String
+  :: forall x z.
+     IntMap String -> AstArtifactRev x z -> String
 printArtifactSimple renames !AstArtifactRev{..} =
-  withKnownSTK (adSTK $ ftkToSTK (ftkAst artPrimalRev)) $
   let !varsPP =
         [ printAstVarName renames artVarDtRev
         , printAstVarName renames artVarDomainRev ]
@@ -705,10 +700,9 @@ printArtifactSimple renames !AstArtifactRev{..} =
           ++ " -> " ++ printAstSimple renames artDerivativeRev
 
 printArtifactPretty
-  :: forall x z. KnownSTK x
-  => IntMap String -> AstArtifactRev x z -> String
+  :: forall x z.
+     IntMap String -> AstArtifactRev x z -> String
 printArtifactPretty renames !AstArtifactRev{..} =
-  withKnownSTK (adSTK $ ftkToSTK (ftkAst artPrimalRev)) $
   let varsPP =
         [ printAstVarName renames artVarDtRev
         , printAstVarName renames artVarDomainRev ]
@@ -716,15 +710,15 @@ printArtifactPretty renames !AstArtifactRev{..} =
           ++ " -> " ++ printAstPretty renames artDerivativeRev
 
 printArtifactPrimalSimple
-  :: forall x z. KnownSTK x
-  => IntMap String -> AstArtifactRev x z -> String
+  :: forall x z.
+     IntMap String -> AstArtifactRev x z -> String
 printArtifactPrimalSimple renames !AstArtifactRev{..} =
   "\\" ++ printAstVarName renames artVarDomainRev
        ++ " -> " ++ printAstSimple renames artPrimalRev
 
 printArtifactPrimalPretty
-  :: forall x z. KnownSTK x
-  => IntMap String -> AstArtifactRev x z -> String
+  :: forall x z.
+     IntMap String -> AstArtifactRev x z -> String
 printArtifactPrimalPretty renames !AstArtifactRev{..} =
   "\\" ++ printAstVarName renames artVarDomainRev
        ++ " -> " ++ printAstPretty renames artPrimalRev
