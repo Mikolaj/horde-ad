@@ -112,17 +112,6 @@ revDtMaybe f vals0 mdt =
       artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv xftk
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ revEvalArtifact artifact valsTarget mdt
-{- TODO
-{-# SPECIALIZE revDtMaybe
-  :: ( KnownNat n
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget RepN (Value astvals)
-     , TermValue astvals )
-  => (astvals -> AstTensor AstMethodLet FullSpan n Double)
-  -> Value astvals
-  -> Maybe (RepN (TKR n Double))
-  -> Value astvals #-}
--}
 
 revArtifactAdapt
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -130,14 +119,13 @@ revArtifactAdapt
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
   -> FullTensorKind (X astvals)
   -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
+{-# INLINE revArtifactAdapt #-}
 revArtifactAdapt hasDt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
   in revProduceArtifact hasDt g emptyEnv xftk
-{-# SPECIALIZE revArtifactAdapt :: forall astvals. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals => Bool -> (astvals -> AstTensor AstMethodLet FullSpan (TKScalar Double)) -> FullTensorKind (X astvals) -> (AstArtifactRev (X astvals) (TKScalar Double), Delta (AstRaw PrimalSpan) (TKScalar Double)) #-}
-{-# SPECIALIZE revArtifactAdapt :: forall astvals. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals => Bool -> (astvals -> AstTensor AstMethodLet FullSpan (TKScalar Float)) -> FullTensorKind (X astvals) -> (AstArtifactRev (X astvals) (TKScalar Float), Delta (AstRaw PrimalSpan) (TKScalar Float)) #-}
 
 revProduceArtifactWithoutInterpretation
   :: forall x z.
@@ -204,6 +192,7 @@ fwd
   -> Value astvals
   -> Value astvals  -- morally (ADTensorKind astvals)
   -> RepN (ADTensorKind z)
+{-# INLINE fwd #-}
 fwd f vals ds =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
@@ -286,14 +275,6 @@ crevDtMaybe f vals mdt =
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ crevOnHVector mdt g xftk valsTarget
 
-{-
-{-# SPECIALIZE crevOnHVector
-  :: Maybe (RepN (ADTensorKind z))
-  -> (ADVal RepN TKUntyped
-      -> ADVal RepN TKUntyped)
-  -> RepN TKUntyped
-  -> (RepN TKUntyped, RepN TKUntyped) #-}
--}
 
 -- * Old derivative adaptors, with constant and fixed inputs
 
@@ -307,6 +288,7 @@ cfwd
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
   -> RepN (ADTensorKind z)
+{-# INLINE cfwd #-}
 cfwd f vals ds = fst $ cfwdBoth f vals ds
 
 cfwdBoth
@@ -318,6 +300,7 @@ cfwdBoth
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
   -> (RepN (ADTensorKind z), RepN z)
+{-# INLINE cfwdBoth #-}
 cfwdBoth f vals ds =
   let xftk = tftkG (knownSTK @(X advals)) $ unRepN valsTarget
       valsTarget = toTarget vals

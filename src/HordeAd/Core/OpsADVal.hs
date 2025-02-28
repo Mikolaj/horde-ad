@@ -56,9 +56,8 @@ crevOnADInputs
   -> (ADVal target x -> ADVal target z)
   -> FullTensorKind x -> ADVal target x
   -> (target (ADTensorKind x), target z)
--- The functions in which @revOnADInputs@ inlines are not inlined themselves
--- in client code, so the bloat is limited.
-{-# INLINE crevOnADInputs #-}
+-- Break the inline chain to prevent false positives in inspection testing.
+-- {-# INLINE crevOnADInputs #-}
 crevOnADInputs mdt f xftk inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
@@ -74,6 +73,7 @@ crevOnHVector
   -> (ADVal target x -> ADVal target z)
   -> FullTensorKind x -> target x
   -> (target (ADTensorKind x), target z)
+{-# INLINE crevOnHVector #-}
 crevOnHVector edt f xftk parameters =
   let deltaInputs = generateDeltaInputs xftk
       inputs = dDnotShared parameters deltaInputs
@@ -85,7 +85,8 @@ cfwdOnADInputs
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
-{-# INLINE cfwdOnADInputs #-}
+-- Break the inline chain to prevent false positives in inspection testing.
+-- {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs xftk inputs f ds =
   let !(D v delta) = f inputs in
   let !derivative = derivativeFromDelta @x delta (adFTK xftk) ds
@@ -97,6 +98,7 @@ cfwdOnHVector
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
+{-# INLINE cfwdOnHVector #-}
 cfwdOnHVector xftk parameters f ds =
   let deltaInputs = generateDeltaInputs xftk
       inputs = dDnotShared parameters deltaInputs

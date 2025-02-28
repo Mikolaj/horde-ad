@@ -76,7 +76,8 @@ revArtifactFromForwardPass
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullTensorKind x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
-{-# INLINE revArtifactFromForwardPass #-}
+-- Break the inline chain to prevent false positives in inspection testing.
+-- {-# INLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass hasDt forwardPass xftk =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
@@ -116,7 +117,8 @@ fwdArtifactFromForwardPass
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullTensorKind x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
-{-# INLINE fwdArtifactFromForwardPass #-}
+-- Break the inline chain to prevent false positives in inspection testing.
+-- {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass xftk =
   let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
         funToAstFwd xftk in
