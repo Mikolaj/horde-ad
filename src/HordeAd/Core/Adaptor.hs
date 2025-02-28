@@ -33,6 +33,9 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.OpsConcrete ()
+import HordeAd.Core.OpsAst ()
+import HordeAd.Core.Ast
 
 -- * Adaptor classes
 
@@ -109,6 +112,9 @@ instance AdaptableTarget target (target y) where
   type X (target y) = y
   toTarget = id
   fromTarget t = t
+  {-# SPECIALIZE instance AdaptableTarget RepN (RepN (TKS sh Double)) #-}
+  {-# SPECIALIZE instance AdaptableTarget RepN (RepN (TKS sh Float)) #-}
+    -- a failed attempt to specialize without -fpolymorphic-specialisation
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), KnownSTK y)
          => DualNumberValue (target y) where
@@ -153,6 +159,8 @@ instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
         (g1, g2) = splitGen g
         arr = createRandomVector (shsSize (knownShS @sh)) g1
     in (arr, g2)
+  {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Double)) #-}
+  {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Float)) #-}
 
 
 -- * Compound instances
@@ -217,6 +225,7 @@ instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
           a = fromTarget a1
           rest = fromTarget rest1
       in (a ::: rest)
+  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (AstTensor AstMethodLet FullSpan) a) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (ListR n a) #-}
 
 instance TermValue a => TermValue (ListR n a) where
   type Value (ListR n a) = ListR n (Value a)
@@ -258,6 +267,7 @@ instance ( BaseTensor target
         a = fromTarget a1
         b = fromTarget b1
     in (a, b)
+  {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b) #-}
 
 instance (TermValue a, TermValue b) => TermValue (a, b) where
   type Value (a, b) = (Value a, Value b)
@@ -299,6 +309,7 @@ instance ( BaseTensor target
         b = fromTarget b1
         c = fromTarget c1
     in (a, b, c)
+  {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b, AdaptableTarget (AstTensor AstMethodLet FullSpan) c) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b, c) #-}
 
 instance (TermValue a, TermValue b, TermValue c)
          => TermValue (a, b, c) where
@@ -350,6 +361,7 @@ instance ( BaseTensor target
         c = fromTarget c1
         d = fromTarget d1
     in (a, b, c, d)
+  {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b, AdaptableTarget (AstTensor AstMethodLet FullSpan) c, AdaptableTarget (AstTensor AstMethodLet FullSpan) d) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b, c, d) #-}
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d)
          => TermValue (a, b, c, d) where
@@ -413,6 +425,7 @@ instance ( BaseTensor target
         d = fromTarget d1
         e = fromTarget e1
     in (a, b, c, d, e)
+  {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b, AdaptableTarget (AstTensor AstMethodLet FullSpan) c, AdaptableTarget (AstTensor AstMethodLet FullSpan) d, AdaptableTarget (AstTensor AstMethodLet FullSpan) e) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b, c, d, e) #-}
 
 instance (TermValue a, TermValue b, TermValue c, TermValue d, TermValue e)
          => TermValue (a, b, c, d, e) where

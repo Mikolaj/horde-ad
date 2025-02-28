@@ -29,7 +29,6 @@ import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
 
-import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
@@ -141,12 +140,6 @@ fwdProduceArtifact f envInit xftk =
 
 
 -- * AstTensor instances
-
-instance KnownSTK y
-         => TermValue (AstTensor AstMethodLet FullSpan y) where
-  type Value (AstTensor AstMethodLet FullSpan y) = RepN y
-  fromValue t =
-    fromPrimal $ astConcrete (tftkG (knownSTK @y) $ unRepN t) t
 
 -- This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.

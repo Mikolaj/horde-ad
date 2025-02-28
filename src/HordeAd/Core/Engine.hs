@@ -38,6 +38,13 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
 
+-- An orphan needed to tweak dependencies to specialize better.
+instance KnownSTK y
+         => TermValue (AstTensor AstMethodLet FullSpan y) where
+  type Value (AstTensor AstMethodLet FullSpan y) = RepN y
+  fromValue t = tconcrete (tftkG (knownSTK @y) $ unRepN t) t
+
+
 -- * Reverse derivative adaptors
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
@@ -129,15 +136,8 @@ revArtifactAdapt hasDt f xftk =
       g !hv = tlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
   in revProduceArtifact hasDt g emptyEnv xftk
-{- TODO
-{-# SPECIALIZE revArtifactAdapt
-  :: ( KnownNat n
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget RepN (Value astvals)
-     , TermValue astvals )
-  => Bool -> (astvals -> AstTensor AstMethodLet FullSpan n Double) -> FullTensorKind (X astvals)
-  -> (AstArtifactRev TKUntyped (TKR n Double), Delta (AstRaw PrimalSpan) (TKR n Double)) #-}
--}
+{-# SPECIALIZE revArtifactAdapt :: forall astvals. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals => Bool -> (astvals -> AstTensor AstMethodLet FullSpan (TKScalar Double)) -> FullTensorKind (X astvals) -> (AstArtifactRev (X astvals) (TKScalar Double), Delta (AstRaw PrimalSpan) (TKScalar Double)) #-}
+{-# SPECIALIZE revArtifactAdapt :: forall astvals. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals => Bool -> (astvals -> AstTensor AstMethodLet FullSpan (TKScalar Float)) -> FullTensorKind (X astvals) -> (AstArtifactRev (X astvals) (TKScalar Float), Delta (AstRaw PrimalSpan) (TKScalar Float)) #-}
 
 revProduceArtifactWithoutInterpretation
   :: forall x z.

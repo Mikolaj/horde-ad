@@ -12,6 +12,7 @@ import GHC.TypeLits (KnownNat, Nat)
 import Data.Array.Nested (ListR (..))
 import Data.Array.Nested qualified as Nested
 
+import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
@@ -79,6 +80,9 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
   let result = afcnnMnist1 logisticS softMax1S
                            widthHidden widthHidden2 (sfromR datum) adparams
   in lossCrossEntropyV target result
+-- {-# SPECIALIZE afcnnMnistLoss1 :: (GoodScalar r, Differentiable r) => SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 r), AstTensor AstMethodLet FullSpan (TKR 1 r)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 r -> AstTensor AstMethodLet FullSpan (TKScalar r) #-}
+{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 1 Double)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Double -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
+{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Float), AstTensor AstMethodLet FullSpan (TKR 1 Float)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Float -> AstTensor AstMethodLet FullSpan (TKScalar Float) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

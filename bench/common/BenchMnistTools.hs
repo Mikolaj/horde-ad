@@ -155,6 +155,8 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
   in do
     let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
                              (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
+{-      -- g is not enough to specialize to Double instead of to r,
+        -- despite the declaration of r ~ Double above
         f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
                  (AstTensor AstMethodLet FullSpan)
                  widthHidden widthHidden2 r
@@ -163,6 +165,19 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
           -> AstTensor AstMethodLet FullSpan (TKScalar r)
         f = \ (pars, (glyphR, labelR)) ->
           MnistFcnnRanked1.afcnnMnistLoss1
+            widthHiddenSNat widthHidden2SNat
+            (glyphR, labelR) pars
+        g :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Double, ( AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 1 Double) ) ) -> AstTensor AstMethodLet FullSpan (TKScalar Double)
+        g = f
+-}
+        f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
+                 (AstTensor AstMethodLet FullSpan)
+                 widthHidden widthHidden2 Double
+             , ( AstTensor AstMethodLet FullSpan (TKR 1 Double)
+               , AstTensor AstMethodLet FullSpan (TKR 1 Double) ) )
+          -> AstTensor AstMethodLet FullSpan (TKScalar Double)
+        f = \ (pars, (glyphR, labelR)) ->
+          MnistFcnnRanked1.afcnnMnistLoss1 @_ @Double
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
         (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
@@ -375,8 +390,9 @@ mnistBGroup2VTO xs0 chunkLength =
      , mnistTrainBench2VTO "500|150 " 0.02 chunkLength xs (targetInit, art)
      ]
 
--- This is expected to fail with -O0 and to pass with -O1.
+-- This is expected to fail with -O0 and to pass with -O1 and -fpolymorphic-specialisation.
 -- This prevents running benchmarks without optimization, which is a good thing.
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''GoodScalar, ''Show, ''Num, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTC [''(~), ''RealFrac, ''Nested.FloatElt, ''RealFloatF, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''BaseTensor, ''KnownNat, ''Nested.Storable, ''IntegralF, ''Nested.KnownShX, ''WithDict, ''Integral, ''AstSpan, ''Nested.KnownShS, ''Numeric, ''SplitGen, ''RandomGen, ''Fractional, ''Random, ''KnownSTK]
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTO [''(~), ''RealFrac, ''Nested.FloatElt, ''RealFloatF, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''BaseTensor, ''KnownNat, ''Nested.Storable, ''IntegralF, ''Nested.KnownShX, ''WithDict, ''Integral, ''AstSpan, ''Nested.KnownShS, ''Numeric, ''SplitGen, ''RandomGen, ''Fractional, ''Random, ''AdaptableTarget, ''Nested.KnownPerm, ''CommonTargetEqOrd, ''ConvertTensor, ''KnownSTK, ''Boolean, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''RandomValue]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTO [''(~), ''RealFrac, ''Nested.FloatElt, ''RealFloatF, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''KnownNat, ''Nested.Storable, ''IntegralF, ''Nested.KnownShX, ''WithDict, ''Integral, ''AstSpan, ''Nested.KnownShS, ''Numeric, ''SplitGen, ''RandomGen, ''Fractional, ''Random, ''AdaptableTarget, ''Nested.KnownPerm, ''CommonTargetEqOrd, ''ConvertTensor, ''KnownSTK, ''Boolean, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''RandomValue]
+-- inspect $ coreOf 'mnistTrainBench1VTO
