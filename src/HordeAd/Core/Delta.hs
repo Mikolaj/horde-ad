@@ -536,7 +536,8 @@ ftkDelta = \case
 
   DeltaZero ftk -> ftk
   DeltaScale _ d -> ftkDelta d
-  DeltaAdd d _ -> ftkDelta d
+  DeltaAdd (DeltaShare i _) _ -> nodeIdToFTK i
+  DeltaAdd _ e -> ftkDelta e
 
   DeltaCastK{} -> FTKScalar
 

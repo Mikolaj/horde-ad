@@ -50,11 +50,13 @@ shareDelta :: forall y target.
 shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! case d of
-    DeltaZero{} -> d
-    DeltaPair d1 d2 -> DeltaPair (shareDelta d1) (shareDelta d2)
-      -- DeltaPair is only a container; all work is done inside; TODO: more cases
-    -- SFromR{} -> d
-    -- the term inside SFromR is most likely shared already, but are we sure?
-    DeltaInput{} -> d
     DeltaShare{} -> d  -- should not happen, but older/lower id is safer anyway
+    DeltaInput{} -> d
+    DeltaPair DeltaShare{} DeltaShare{} -> d  -- all work done inside
+    DeltaProject1 DeltaShare{} -> d
+    DeltaProject2 DeltaShare{} -> d
+    DeltaZero{} -> d
+    DeltaSFromK{} -> d  -- only metadata changes
+    DeltaSFromR{} -> d
+    DeltaSFromX{} -> d
     _ -> DeltaShare (mkNodeId (ftkDelta d) n) d
