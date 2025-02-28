@@ -100,7 +100,8 @@ common options
   -- Disabling this breaks performance:
   ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
   -- Disabling hurts performance to some extent:
-  -- ghc-options: -O2 -fdicts-cheap -flate-dmd-anal
+  ghc-options: -fdicts-cheap -flate-dmd-anal
+  -- ghc-options: -O2
 
   ghc-options:        -Wmissed-specialisations
 
