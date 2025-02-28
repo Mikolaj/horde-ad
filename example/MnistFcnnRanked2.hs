@@ -135,3 +135,4 @@ mnistTrainBench2VTOGradient Proxy hasDt range seed widthHidden widthHidden2 =
         afcnnMnistLoss2 (glyphR, labelR) pars
       (artRaw, _) = revArtifactAdapt hasDt f (FTKProduct ftk ftkData)
   in (targetInit, artRaw)
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> Bool -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}

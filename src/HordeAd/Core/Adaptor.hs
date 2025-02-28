@@ -159,6 +159,7 @@ instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
         (g1, g2) = splitGen g
         arr = createRandomVector (shsSize (knownShS @sh)) g1
     in (arr, g2)
+  -- {-# SPECIALIZE instance (KnownShS sh, GoodScalar r, Fractional r, Random r) => RandomValue (RepN (TKS sh r)) #-}
   {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Double)) #-}
   {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Float)) #-}
 
