@@ -27,6 +27,7 @@ import Data.Array.Nested
   , IxS (..)
   , IxX (..)
   , StaticShX(..)
+  , ShR (..)
   , ShX (..)
   , ShS (..)
   , KnownShS (..)
@@ -36,6 +37,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsInit, withKnownShS)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape (withKnownShX, ssxFromShape, fromSMayNat')
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
@@ -163,6 +165,13 @@ instance ( ADReadyNoLet target, ShareTensor target
     let !u = tshare ue in
     let !v = tshare ve
     in dD (rdot0 u v) (dAdd (DeltaDot0R v u') (DeltaDot0R u v'))
+  -- These two are manually vectorized to avoid delta blowup when run
+  -- via primitive pipelines.
+  rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
+  rmatmul2 m1 m2 = case rshape m2 of
+    _ :$: width2 :$: ZSR ->
+      rsum (rtranspose [2,1,0] (rreplicate width2 m1)
+            * rtranspose [1,0] (rreplicate (rlength m1) m2))
   rreplicate k (D u u') = withSNat k $ \snat ->
     dD (rreplicate k u) (DeltaReplicate snat knownSTK u')
   -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
@@ -226,6 +235,12 @@ instance ( ADReadyNoLet target, ShareTensor target
     let !u = tshare ue in
     let !v = tshare ve
     in dD (sdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
+  -- These two are manually vectorized to avoid delta blowup when run
+  -- via primitive pipelines.
+  smatvecmul m v = ssum (str (sreplicate v * m))
+  smatmul2 m1 m2 =
+    ssum (stranspose @_ @'[2, 1, 0] (sreplicate m1)
+          * stranspose @_ @'[1, 0] (sreplicate m2))
   sindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (sindex u ix) (DeltaIndexS knownShS u' ix)
@@ -280,6 +295,23 @@ instance ( ADReadyNoLet target, ShareTensor target
     let !u = tshare ue in
     let !v = tshare ve
     in dD (xdot0 u v) (dAdd (DeltaDot0X v u') (DeltaDot0X u v'))
+  -- These two are manually vectorized to avoid delta blowup when run
+  -- via primitive pipelines.
+  xmatvecmul mm mn m v =
+    withKnownShX (ssxFromShape $ mn :$% ZSX) $
+    withKnownShX (ssxFromShape $ mm :$% mn :$% ZSX) $
+    withSNat (fromSMayNat' mm) $ \(SNat @m) ->
+    withSNat (fromSMayNat' mn) $ \(SNat @n) ->
+      xmcast (ssxFromShape (mm :$% ZSX))
+      $ xsum (xtr (xreplicate @_ @m
+                     (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
+                                            :$% ZSX)) v)
+                   * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
+                                           :$% Nested.SKnown (SNat @n)
+                                           :$% ZSX)) m))
+  xmatmul2 m1 m2 =
+    xsum (xtranspose @_ @'[2, 1, 0] (xreplicate m1)
+          * xtranspose @_ @'[1, 0] (xreplicate m2))
   xreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
   xindex (D u u') i =
     let ix = tprimalPart <$> i

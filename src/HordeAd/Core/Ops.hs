@@ -49,7 +49,6 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
   ( IShX
-  , fromSMayNat
   , fromSMayNat'
   , shxAppend
   , shxDropSSX
@@ -511,19 +510,14 @@ class ( Num (IntOf target)
              => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
--- rmatvecmul m v = rbuild1 (rlength m) (\i -> rdot0 v (m ! [i]))
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
-  rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
+  rmatvecmul m v = rbuild1 (rlength m) (\i -> rdot0 v (m ! [i]))
   rmatmul2 :: (GoodScalar r, Numeric r)
            => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
 -- Just rmatmul2 the two outermost dimensions?
 -- rmatmul2 m1 m2 = rmap1 (rmatvecmul (rtr m2)) m1
--- rmatmul2 m1 m2 = rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
-  rmatmul2 m1 m2 = case rshape m2 of
-    _ :$: width2 :$: ZSR ->
-      rsum (rtranspose [2,1,0] (rreplicate width2 m1)
-            * rtranspose [1,0] (rreplicate (rlength m1) m2))
+  rmatmul2 m1 m2 = rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
   rreplicate :: (KnownSTK r, KnownNat n)
              => Int -> target (TKR2 n r) -> target (TKR2 (1 + n) r)
   rreplicate0N :: (KnownSTK r, KnownNat n)
@@ -788,14 +782,13 @@ class ( Num (IntOf target)
   smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
              => target (TKS '[m, n] r) -> target (TKS '[n] r)
              -> target (TKS '[m] r)
-  smatvecmul m v = ssum (str (sreplicate @_ @m v * m))
+  smatvecmul m v = sbuild1 @_ @m (\i -> sdot0 v (m `sindex` (i :.$ ZIS)))
   smatmul2 :: forall r n m p.
               (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
            => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
            -> target (TKS '[m, p] r)
   smatmul2 m1 m2 =
-    ssum (stranspose @_ @'[2, 1, 0] (sreplicate @target @p m1)
-          * stranspose @_ @'[1, 0] (sreplicate @target @m m2))
+    sbuild1 @_ @m (\i -> smatvecmul (str m2) (m1 `sindex` (i :.$ ZIS)))
   sreplicate :: (KnownNat k, KnownShS sh, KnownSTK r)
              => target (TKS2 sh r) -> target (TKS2 (k ': sh) r)
   sreplicate = tsreplicate knownShS
@@ -1157,30 +1150,25 @@ class ( Num (IntOf target)
           -> target (TKX '[Just m] r)  -- TODO: generalize
   xdot1In t u = xsum $ xtr (t * u)
   xmatvecmul :: forall r mm mn. (GoodScalar r, ConvertTensor target)
-             => Nested.SMayNat Int SNat mm -> Nested.SMayNat () SNat mn
+             => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
              -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
              -> target (TKX '[mm] r)
-  -- This variant is not vectorized, so will be slow without vectorization.
-  xmatvecmul mm mn u v =
-    let mu :: Nested.SMayNat () SNat mm
-        mu = fromSMayNat (const $ Nested.SUnknown ()) Nested.SKnown mm
-    in withKnownShX (mu :!% ZKX) $
-       withKnownShX (mu :!% mn :!% ZKX) $
-       withKnownShX (mn :!% ZKX) $
-       withSNat (fromSMayNat' mm) $ \(SNat @n) ->
-         xmcast (mu :!% ZKX)
-         $ xbuild1 @_ @n @'[] (\i -> xdot0 v (u `xindex` (i :.% ZIX)))
-  -- TODO: when we switch to singletons, generalize this to non-Just types
-  -- or split into ranked-style and shaped-style variants or provide
-  -- convenient ways to lift ranked and shaped operations into mixed.
+  xmatvecmul mm mn m v =
+    withKnownShX (ssxFromShape $ mm :$% ZSX) $
+    withKnownShX (ssxFromShape $ mn :$% ZSX) $
+    withSNat (fromSMayNat' mm) $ \(SNat @k) ->
+      xmcast (ssxFromShape $ mm :$% ZSX)
+      $ xbuild1 @_ @k (\i -> xdot0 v (m `xindex` (i :.% ZIX)))
   xmatmul2 :: forall r n m p.
-              (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
+              ( GoodScalar r, ConvertTensor target
+              , Numeric r, KnownNat n, KnownNat m, KnownNat p )
            => target (TKX '[Just m, Just n] r)
            -> target (TKX '[Just n, Just p] r)
            -> target (TKX '[Just m, Just p] r)
   xmatmul2 m1 m2 =
-    xsum (xtranspose @_ @'[2, 1, 0] (xreplicate @target @p m1)
-          * xtranspose @_ @'[1, 0] (xreplicate @target @m m2))
+    xbuild1 @_ @m (\i ->
+      xmatvecmul (Nested.SKnown (SNat @p)) (Nested.SKnown (SNat @n))
+                 (xtr m2) (m1 `xindex` (i :.% ZIX)))
   xreplicate :: (KnownNat k, KnownShX sh, KnownSTK r)
              => target (TKX2 sh r) -> target (TKX2 (Just k ': sh) r)
   xreplicate0N :: (KnownSTK r, KnownShX sh)

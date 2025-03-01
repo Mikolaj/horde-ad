@@ -1153,11 +1153,11 @@ testMatvecmulPP = do
                  True (uncurry rmatvecmul)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3] FTKScalar))
   printArtifactPretty @_ @(TKR 1 Double) renames artifactRev
-    @?= "\\v2 m1 -> tpair (rfromS (str (str (sfromR (rreplicate 2 (tproject2 m1))) * sreplicate @_ @3 (sfromR v2))), rsum (rfromS (str (str (sfromR (tproject1 m1)) * sreplicate @_ @3 (sfromR v2)))))"
+    @?= "\\v3 m1 -> tpair (rfromS (str (str (sreplicate @_ @2 (sfromR (tproject2 m1))) * sreplicate @_ @3 (sfromR v3))), rfromS (ssum @_ @2 (str (str (sfromR (tproject1 m1)) * sreplicate @_ @3 (sfromR v3)))))"
   printArtifactPrimalPretty renames artifactRev
-    @?= "\\m1 -> rfromS (ssum @_ @3 (str (sfromR (rreplicate 2 (tproject2 m1))) * str (sfromR (tproject1 m1))))"
+    @?= "\\m1 -> rfromS (ssum @_ @3 (str (sreplicate @_ @2 (sfromR (tproject2 m1))) * str (sfromR (tproject1 m1))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\v2 m1 -> tfromS (tpair (sreplicate @_ @2 (sfromR (tproject2 m1)) * str (sreplicate @_ @3 (sfromR v2)), smatvecmul (str (sfromR (tproject1 m1))) (sfromR v2)))"
+    @?= "\\v3 m1 -> tfromS (tpair (sreplicate @_ @2 (sfromR (tproject2 m1)) * str (sreplicate @_ @3 (sfromR v3)), smatvecmul (str (sfromR (tproject1 m1))) (sfromR v3)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (smatvecmul (sfromR (tproject1 m1)) (sfromR (tproject2 m1)))"
 
@@ -1170,11 +1170,11 @@ testMatmul2PP = do
                  True (uncurry rmatmul2)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3, 4] FTKScalar))
   printArtifactPretty @_ @(TKR 2 Double) renames artifactRev
-    @?= "\\m2 m1 -> tpair (rfromS (ssum @_ @4 (stranspose @_ @[2,1,0] (str (sreplicate @_ @2 (sfromR (tproject2 m1))) * sreplicate @_ @3 (sfromR m2)))), rfromS (ssum @_ @2 (str (stranspose @_ @[2,1,0] (sreplicate @_ @4 (sfromR (tproject1 m1))) * sreplicate @_ @3 (sfromR m2)))))"
+    @?= "\\m7 m1 -> tpair (rfromS (ssum @_ @4 (stranspose @_ @[2,1,0] (str (sreplicate @_ @2 (sfromR (tproject2 m1))) * sreplicate @_ @3 (sfromR m7)))), rfromS (ssum @_ @2 (str (stranspose @_ @[2,1,0] (sreplicate @_ @4 (sfromR (tproject1 m1))) * sreplicate @_ @3 (sfromR m7)))))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\m1 -> rfromS (ssum @_ @3 (stranspose @_ @[2,1,0] (sreplicate @_ @4 (sfromR (tproject1 m1))) * str (sreplicate @_ @2 (sfromR (tproject2 m1)))))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m2 m1 -> tfromS (tpair (smatmul2 (sfromR m2) (str (sfromR (tproject2 m1))), smatmul2 (str (sfromR (tproject1 m1))) (sfromR m2)))"
+    @?= "\\m7 m1 -> tfromS (tpair (smatmul2 (sfromR m7) (str (sfromR (tproject2 m1))), smatmul2 (str (sfromR (tproject1 m1))) (sfromR m7)))"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (smatmul2 (sfromR (tproject1 m1)) (sfromR (tproject2 m1)))"
 
@@ -1191,7 +1191,7 @@ testMatmul2FromMatvecmulPP = do
                  True (uncurry rmatmul2F)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3, 4] FTKScalar))
   printArtifactPretty @_ @(TKR 2 Double) renames artifactRev
-    @?= "\\m3 m1 -> tpair (rfromS (ssum @_ @4 (stranspose @_ @[2,1,0] (str (sreplicate @_ @2 (sfromR (tproject2 m1))) * sreplicate @_ @3 (sfromR m3)))), rfromS (ssum @_ @2 (str (stranspose @_ @[2,1,0] (sreplicate @_ @4 (sfromR (tproject1 m1))) * sreplicate @_ @3 (sfromR m3)))))"
+    @?= "\\m7 m1 -> tpair (rfromS (ssum @_ @4 (stranspose @_ @[2,1,0] (str (sreplicate @_ @2 (sfromR (tproject2 m1))) * sreplicate @_ @3 (sfromR m7)))), rfromS (ssum @_ @2 (str (stranspose @_ @[2,1,0] (sreplicate @_ @4 (sfromR (tproject1 m1))) * sreplicate @_ @3 (sfromR m7)))))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\m1 -> rfromS (ssum @_ @3 (stranspose @_ @[2,1,0] (sreplicate @_ @4 (sfromR (tproject1 m1))) * str (sreplicate @_ @2 (sfromR (tproject2 m1)))))"
 
@@ -1225,11 +1225,11 @@ testMatmul2PPS = do
                  True (uncurry smatmul2)
                  (FTKProduct (FTKS (SNat @2 :$$ SNat @3 :$$ ZSS) (FTKScalar @Float)) (FTKS (SNat @3 :$$ SNat @4 :$$ ZSS) (FTKScalar @Float)))
   printArtifactPretty renames artifactRev
-    @?= "\\m2 m1 -> tpair (ssum @_ @4 (stranspose @_ @[2,1,0] (str (sreplicate @_ @2 (tproject2 m1)) * sreplicate @_ @3 m2)), ssum @_ @2 (str (stranspose @_ @[2,1,0] (sreplicate @_ @4 (tproject1 m1)) * sreplicate @_ @3 m2)))"
+    @?= "\\m7 m1 -> tpair (ssum @_ @4 (stranspose @_ @[2,1,0] (str (sreplicate @_ @2 (tproject2 m1)) * sreplicate @_ @3 m7)), ssum @_ @2 (str (stranspose @_ @[2,1,0] (sreplicate @_ @4 (tproject1 m1)) * sreplicate @_ @3 m7)))"
   printArtifactPrimalPretty renames artifactRev
     @?= "\\m1 -> ssum @_ @3 (stranspose @_ @[2,1,0] (sreplicate @_ @4 (tproject1 m1)) * str (sreplicate @_ @2 (tproject2 m1)))"
   printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\m2 m1 -> tpair (smatmul2 m2 (str (tproject2 m1)), smatmul2 (str (tproject1 m1)) m2)"
+    @?= "\\m7 m1 -> tpair (smatmul2 m7 (str (tproject2 m1)), smatmul2 (str (tproject1 m1)) m7)"
   printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
     @?= "\\m1 -> smatmul2 (tproject1 m1) (tproject2 m1)"
 

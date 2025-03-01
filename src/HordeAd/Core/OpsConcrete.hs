@@ -59,7 +59,7 @@ import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxToList, shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
+import Data.Array.Mixed.Shape (shxToList, fromSMayNat', shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.CarriersConcrete
@@ -119,6 +119,7 @@ instance BaseTensor RepN where
     _ -> rsum . rflatten $ t
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
+  rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   rreplicate @r k | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate (k :$: ZSR) . unRepN
@@ -191,6 +192,7 @@ instance BaseTensor RepN where
     RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   sdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
+  smatvecmul m v = ssum (str (sreplicate v * m))
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   sindex = tindexZS
   sindex0 = tindex0S
@@ -338,6 +340,18 @@ instance BaseTensor RepN where
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
   xdot1In @_ @n u v =
     RepN $ Nested.mdot1Inner (Proxy @(Just n)) (unRepN u) (unRepN v)
+  xmatvecmul mm mn m v =
+    withKnownShX (ssxFromShape $ mn :$% ZSX) $
+    withKnownShX (ssxFromShape $ mm :$% mn :$% ZSX) $
+    withSNat (fromSMayNat' mm) $ \(SNat @m) ->
+    withSNat (fromSMayNat' mn) $ \(SNat @n) ->
+      xmcast (ssxFromShape (mm :$% ZSX))
+      $ xsum (xtr (xreplicate @_ @m
+                     (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
+                                            :$% ZSX)) v)
+                   * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
+                                           :$% Nested.SKnown (SNat @n)
+                                           :$% ZSX)) m))
   xmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
   xreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unRepN
