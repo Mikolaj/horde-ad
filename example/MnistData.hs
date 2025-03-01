@@ -172,7 +172,7 @@ loadMnistData glyphsPath labelsPath =
 {-# SPECIALIZE loadMnistData :: FilePath -> FilePath -> IO [MnistData Float] #-}
 
 -- Good enough for QuickCheck, so good enough for me.
-shuffle :: RandomGen g => g -> [a] -> [a]
+shuffle :: StdGen -> [a] -> [a]
 shuffle g l =
   let rnds = randoms g :: [Int]
       res = map fst $ sortBy (comparing snd) $ zip l rnds

@@ -20,22 +20,22 @@ import Prelude
 
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
+import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
-import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Nested (ListR (..), KnownShS (..), Rank)
+import Data.Array.Nested (KnownShS (..), ListR (..), Rank)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsSize)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
+import HordeAd.Core.OpsAst ()
+import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.OpsConcrete ()
-import HordeAd.Core.OpsAst ()
-import HordeAd.Core.Ast
 
 -- * Adaptor classes
 
@@ -71,7 +71,7 @@ class ForgetShape vals where
 
 -- | A helper class for randomly generating initial parameters.
 class RandomValue vals where
-  randomValue :: SplitGen g => Double -> g -> (vals, g)
+  randomValue :: Double -> StdGen -> (vals, StdGen)
 
 
 -- * Base instances
@@ -149,8 +149,8 @@ instance (GoodScalar r, Fractional r, Random r, BaseTensor target)
 instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
          , BaseTensor target )
          => RandomValue (target (TKS sh r)) where
-  randomValue @g range g =
-    let createRandomVector :: Int -> g -> target (TKS sh r)
+  randomValue range g =
+    let createRandomVector :: Int -> StdGen -> target (TKS sh r)
         createRandomVector n seed =
           srepl (2 * realToFrac range)
           * (sconcrete
