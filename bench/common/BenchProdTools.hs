@@ -13,7 +13,6 @@ import Data.Default qualified as Default
 import Data.List (foldl1')
 import GHC.Exts (IsList (..), WithDict)
 import GHC.TypeLits (KnownNat)
-import Numeric.LinearAlgebra (Numeric)
 import Test.Inspection
 import Type.Reflection (Typeable)
 
@@ -188,6 +187,8 @@ crevRankedNotSharedLtProd =
 rankedTProd :: (BaseTensor target, LetTensor target, GoodScalar r, KnownNat n)
             => target (TKS '[n] r) -> target (TKS '[] r)
 rankedTProd = sfold (*) (sscalar 1)
+{-# SPECIALIZE rankedTProd :: KnownNat n => ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKS '[] Double) #-}
+{-# SPECIALIZE rankedTProd :: KnownNat n => AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
 
 crevRankedTProd
   :: forall n. KnownNat n
@@ -206,14 +207,15 @@ revRankedTProd = rev rankedTProd
 -- so it's intended and not a specialization failure.
 -- OTOH, KnownNat and AstSpan are tag types, so it's fine not to specialize
 -- for them.
--- The numeric type classes in two of the cases are needed due
--- to the existential variables in AstRanked that show up, e.g., when
--- pattern matching on that type, dictionaries seen in the datatype
--- constructors.
-{-
-inspect $ hasNoTypeClassesExcept 'revRankedTProd [''KnownNat, ''KnownSTK, ''BaseTensor, ''GoodScalar, ''AstSpan, ''Num, ''Show, ''Ord, ''Typeable, ''IfDifferentiable, ''Eq, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Nested.KnownShS, ''Boolean, ''EqF, ''OrdF, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''(~), ''Nested.Storable, ''Nested.KnownShX, ''WithDict, ''RealFrac]
--}
-
-{- with --ghc-options="-fpolymorphic-specialisation"
-additional classes appear (at the end): -}
-inspect $ hasNoTypeClassesExcept 'revRankedTProd [''KnownNat, ''KnownSTK, ''BaseTensor, ''GoodScalar, ''AstSpan, ''Num, ''Show, ''Ord, ''Typeable, ''IfDifferentiable, ''Eq, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Nested.KnownShS, ''Boolean, ''EqF, ''OrdF, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''(~), ''Nested.Storable, ''Nested.KnownShX, ''WithDict, ''RealFrac, ''RealFloatF, ''Nested.FloatElt, ''IntegralF, ''Integral, ''Numeric, ''IsList, ''AdaptableTarget, ''Nested.KnownPerm, ''CommonTargetEqOrd, ''ConvertTensor]
+--
+-- This is expected to fail with -O0 and to pass with -O1
+-- and -fpolymorphic-specialisation.
+-- This prevents running benchmarks without optimization, which is a good thing.
+inspect $ hasNoTypeClassesExcept 'crevRankedLProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'revRankedLProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'crevRankedNotSharedLProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'crevRankedLtProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.Storable]
+inspect $ hasNoTypeClassesExcept 'revRankedLtProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'crevRankedTProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+inspect $ hasNoTypeClassesExcept 'revRankedTProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+-- inspect $ coreOf 'revRankedTProd

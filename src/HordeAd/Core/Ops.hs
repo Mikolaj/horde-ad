@@ -233,6 +233,7 @@ class LetTensor (target :: Target) where
     -> target (BuildTensorKind k ym)
          -- ^ iteration is over the outermost dimension of this tensor
     -> target yn
+  {-# INLINE tfold #-}  -- this doesn't want to specialize
   tfold k nstk mstk f acc0 es =
     tproject1
     $ tmapAccumL (Proxy @target)
@@ -254,6 +255,7 @@ class LetTensor (target :: Target) where
     -> target (TKR2 n rn)
     -> target (TKR2 (1 + m) rm)
     -> target (TKR2 n rn)
+  {-# INLINE rfold #-}  -- this doesn't want to specialize
   rfold f acc0 es =
     withSNat (rlength es) $ \k -> tfold k knownSTK knownSTK f acc0 es
   sfold
@@ -265,6 +267,7 @@ class LetTensor (target :: Target) where
     -> target (TKS2 sh rn)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 sh rn)
+  {-# INLINE sfold #-}  -- this doesn't want to specialize
   sfold = tfold (SNat @k) knownSTK knownSTK
   xfold
     :: forall rn rm sh shm k.
@@ -275,6 +278,7 @@ class LetTensor (target :: Target) where
     -> target (TKX2 sh rn)
     -> target (BuildTensorKind k (TKX2 shm rm))
     -> target (TKX2 sh rn)
+  {-# INLINE xfold #-}  -- this doesn't want to specialize
   xfold = tfold (SNat @k) knownSTK knownSTK
   -- | A strict left scan.
   tscan
@@ -284,6 +288,7 @@ class LetTensor (target :: Target) where
     -> target yn
     -> target (BuildTensorKind k ym)
     -> target (BuildTensorKind (1 + k) yn)
+  {-# INLINE tscan #-}  -- this doesn't want to specialize
   tscan k nstk mstk f acc0 es =
     let bs :: target (BuildTensorKind k yn)
         bs = tproject2
@@ -308,6 +313,7 @@ class LetTensor (target :: Target) where
     -> target (TKR2 n rn)
     -> target (TKR2 (1 + m) rm)
     -> target (TKR2 (1 + n) rn)
+  {-# INLINE rscan #-}  -- this doesn't want to specialize
   rscan f acc0 es =
     withSNat (rlength es) $ \k -> tscan k knownSTK knownSTK f acc0 es
   sscan
@@ -319,6 +325,7 @@ class LetTensor (target :: Target) where
     -> target (TKS2 sh rn)
     -> target (TKS2 (k ': shm) rm)
     -> target (TKS2 (1 + k ': sh) rn)
+  {-# INLINE sscan #-}  -- this doesn't want to specialize
   sscan = tscan (SNat @k) knownSTK knownSTK
   xscan
     :: forall rn rm sh shm k.
@@ -329,6 +336,7 @@ class LetTensor (target :: Target) where
     -> target (TKX2 sh rn)
     -> target (BuildTensorKind k (TKX2 shm rm))
     -> target (BuildTensorKind (1 + k) (TKX2 sh rn))
+  {-# INLINE xscan #-}  -- this doesn't want to specialize
   xscan = tscan (SNat @k) knownSTK knownSTK
 
 class ShareTensor (target :: Target) where
@@ -1402,6 +1410,7 @@ class ( Num (IntOf target)
     -> target accShs
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
+  {-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
   tmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
     let xftk = FTKProduct accShs eShs
         fl :: forall f. ADReady f
@@ -1447,6 +1456,7 @@ class ( Num (IntOf target)
     -> target accShs
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
+  {-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
   tmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
     let xftk = FTKProduct accShs eShs
         fl :: forall f. ADReady f

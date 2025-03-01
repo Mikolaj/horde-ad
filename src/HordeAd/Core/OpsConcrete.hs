@@ -69,20 +69,6 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-{-
--- This specialization is not possible where the functions are defined,
--- but is possible here:
-{-# SPECIALIZE gradientFromDelta
-  :: FullTensorKind TKUntyped
-  -> RepN TKUntyped
-  -> Maybe (RepN TKUntyped)
-  -> Delta RepN TKUntyped
-  -> RepN TKUntyped #-}
-{-# SPECIALIZE evalRevFromnMap
-  :: EvalState RepN -> EvalState RepN #-}
--}
-
-
 -- * Tensor classes instance
 
 instance LetTensor RepN where

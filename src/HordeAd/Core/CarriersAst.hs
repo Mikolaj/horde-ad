@@ -14,7 +14,9 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
+import Data.Int (Int64)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Foreign.C (CInt)
 
 import Data.Array.Nested qualified as Nested
 
@@ -205,6 +207,14 @@ instance (GoodScalar r, AstSpan s)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
   signum u = AstN1K SignumOp u
   fromInteger i = fromPrimal $ AstConcreteK (fromInteger i)
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar CInt)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Double)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Double)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Float)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Float)) #-}
 
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
@@ -231,6 +241,10 @@ instance (GoodScalar r, IntegralF r, AstSpan s)
   remF (AstTimesK (AstConcreteK n) _) (AstConcreteK n')
     | remF n n' == 0 = 0
   remF u v = AstI2K RemOp u v
+  {-# SPECIALIZE instance IntegralF (AstTensor ms FullSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance IntegralF (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance IntegralF (AstTensor ms FullSpan (TKScalar CInt)) #-}
+  {-# SPECIALIZE instance IntegralF (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
 
 instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where

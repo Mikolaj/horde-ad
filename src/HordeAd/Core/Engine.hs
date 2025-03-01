@@ -30,6 +30,7 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
+import HordeAd.Core.DeltaEval
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsAst
@@ -313,9 +314,21 @@ cfwdBoth f vals ds =
 
 
 
+
+-- This specialization is not possible where the functions are defined,
+-- due to dependency cycles, but it's possible here:
+{-# SPECIALIZE gradientFromDelta :: FullTensorKind x -> FullTensorKind z -> RepN (ADTensorKind z) -> Delta RepN z -> RepN (ADTensorKind x) #-}
+{-# SPECIALIZE evalRev :: FullTensorKind y -> EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
+{-# SPECIALIZE evalRevFTK :: EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
+-- RULE left-hand side too complicated to desugar:
+-- {-# SPECIALIZE evalRevSame :: y ~ ADTensorKind y => EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
+{-# SPECIALIZE evalRevFromnMap :: EvalState RepN -> EvalState RepN #-}
+
+
+
 -- These and all other SPECIALIZE pragmas are needed due to the already
 -- mostly fixed issues #21286 and others, even just to compare
--- the output with the and without.
+-- the output with them and without.
 -- We need pragmas on shaped operations even for ranked benchmarks,
 -- because threading the dictionaries through mutual recursive functions
 -- would cause trouble.
