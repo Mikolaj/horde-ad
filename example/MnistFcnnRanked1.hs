@@ -13,6 +13,7 @@ import Data.Array.Nested (ListR (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Ast
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
@@ -83,6 +84,8 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
 -- {-# SPECIALIZE afcnnMnistLoss1 :: (GoodScalar r, Differentiable r) => SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 r), AstTensor AstMethodLet FullSpan (TKR 1 r)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 r -> AstTensor AstMethodLet FullSpan (TKScalar r) #-}
 {-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 1 Double)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Double -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
 {-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Float), AstTensor AstMethodLet FullSpan (TKR 1 Float)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Float -> AstTensor AstMethodLet FullSpan (TKScalar Float) #-}
+{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (ADVal RepN (TKR 1 Double), ADVal RepN (TKR 1 Double)) -> ADFcnnMnist1Parameters (ADVal RepN) widthHidden widthHidden2 Double -> ADVal RepN (TKScalar Double) #-}
+{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (ADVal RepN (TKR 1 Float), ADVal RepN (TKR 1 Float)) -> ADFcnnMnist1Parameters (ADVal RepN) widthHidden widthHidden2 Float -> ADVal RepN (TKScalar Float) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

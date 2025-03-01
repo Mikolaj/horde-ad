@@ -30,6 +30,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape (shsSize)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsAst ()
@@ -227,6 +228,7 @@ instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
           rest = fromTarget rest1
       in (a ::: rest)
   {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (AstTensor AstMethodLet FullSpan) a) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (ListR n a) #-}
+  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (ADVal RepN) a) => AdaptableTarget (ADVal RepN) (ListR n a) #-}
 
 instance TermValue a => TermValue (ListR n a) where
   type Value (ListR n a) = ListR n (Value a)
