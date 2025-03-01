@@ -11,7 +11,6 @@ import Data.Default qualified as Default
 import Data.Proxy (Proxy (Proxy))
 import GHC.Exts (WithDict)
 import GHC.TypeLits (KnownNat)
-import Numeric.LinearAlgebra (Numeric)
 import System.Random
 import Test.Inspection
 import Type.Reflection (Typeable)
@@ -392,7 +391,9 @@ mnistBGroup2VTO xs0 chunkLength =
 
 -- This is expected to fail with -O0 and to pass with -O1 and -fpolymorphic-specialisation.
 -- This prevents running benchmarks without optimization, which is a good thing.
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''GoodScalar, ''Show, ''Num, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTC [''(~), ''Nested.FloatElt, ''RealFloatF, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.Elt, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''KnownNat, ''Nested.KnownShX, ''WithDict, ''AstSpan, ''Nested.KnownShS, ''Numeric, ''Random, ''KnownSTK]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTA [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''RealFloatF, ''Nested.FloatElt, ''RealFrac, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor, ''LetTensor]
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTO [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTA [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''RealFloatF, ''Nested.FloatElt, ''RealFrac, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTC [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''GoodScalar, ''Show, ''Num, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
 -- inspect $ coreOf 'mnistTrainBench1VTO
