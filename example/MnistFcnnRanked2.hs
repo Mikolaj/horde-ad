@@ -17,6 +17,7 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
+import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
 import HordeAd.Core.Ops
@@ -80,6 +81,9 @@ afcnnMnistLoss2
 afcnnMnistLoss2 (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
   in lossCrossEntropyV target result
+{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal RepN (TKR 1 Double), ADVal RepN (TKR 1 Double)) -> ADFcnnMnist2Parameters (ADVal RepN) Double Float -> ADVal RepN (TKScalar Double) #-}
+{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal RepN (TKR 1 Float), ADVal RepN (TKR 1 Float)) -> ADFcnnMnist2Parameters (ADVal RepN) Float Float -> ADVal RepN (TKScalar Float) #-}
+{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal RepN (TKR 1 Double), ADVal RepN (TKR 1 Double)) -> ADFcnnMnist2Parameters (ADVal RepN) Double Double -> ADVal RepN (TKScalar Double) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -136,3 +140,5 @@ mnistTrainBench2VTOGradient Proxy hasDt range seed widthHidden widthHidden2 =
       (artRaw, _) = revArtifactAdapt hasDt f (FTKProduct ftk ftkData)
   in (targetInit, artRaw)
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> Bool -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> Bool -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Double -> Bool -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}

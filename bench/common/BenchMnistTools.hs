@@ -249,8 +249,13 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
                                    RepN widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
   in do
-    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
+{-    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
           -> ADVal RepN (TKScalar r)
+        f (glyph, label) adinputs =
+          MnistFcnnRanked2.afcnnMnistLoss2
+            (rconcrete glyph, rconcrete label) (fromTarget adinputs) -}
+    let f :: MnistDataLinearR Double -> ADVal RepN (XParams2 Double Float)
+          -> ADVal RepN (TKScalar Double)
         f (glyph, label) adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
@@ -393,7 +398,7 @@ mnistBGroup2VTO xs0 chunkLength =
 -- This prevents running benchmarks without optimization, which is a good thing.
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTA [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''RealFloatF, ''Nested.FloatElt, ''RealFrac, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor, ''LetTensor]
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTO [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTA [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''RealFloatF, ''Nested.FloatElt, ''RealFrac, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor, ''LetTensor, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTA [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTC [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''GoodScalar, ''Show, ''Num, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
--- inspect $ coreOf 'mnistTrainBench1VTO
+-- inspect $ coreOf 'mnistTrainBench2VTA

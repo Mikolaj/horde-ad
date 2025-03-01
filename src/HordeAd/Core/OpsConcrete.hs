@@ -542,6 +542,8 @@ instance ConvertTensor RepN where
   rfromK = RepN . Nested.rscalar . unRepN
   rfromS @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stoRanked . unRepN
+  {-# SPECIALIZE rfromS :: KnownShS sh => RepN (TKS sh Double) -> RepN (TKR (Rank sh) Double) #-}
+  {-# SPECIALIZE rfromS :: KnownShS sh => RepN (TKS sh Float) -> RepN (TKR (Rank sh) Float) #-}
   rfromX @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mtoRanked . unRepN
   sfromK = RepN . Nested.sscalar . unRepN
