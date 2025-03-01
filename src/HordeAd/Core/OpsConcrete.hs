@@ -11,7 +11,6 @@ import Prelude hiding (foldl')
 
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
-import Data.Default
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
 import Data.Int (Int64)
@@ -773,7 +772,7 @@ tindexZR v ixRepN | Dict <- showDictRep (knownSTK @r)
     FTKR sh x ->
      if ixInBounds (Foldable.toList ix) (Foldable.toList sh)
      then RepN $ tindexNR (unRepN v) ix
-     else constantTarget def (FTKR (dropShape @m sh) x)
+     else defTarget (FTKR (dropShape @m sh) x)
 
 tindex0R
   :: forall r m. (KnownSTK r, KnownNat m)
@@ -786,7 +785,7 @@ tindex0R v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       then let arr = Nested.rscalar
                      $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
            in RepN arr
-      else constantTarget def (FTKR ZSR x)
+      else defTarget (FTKR ZSR x)
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -1068,7 +1067,7 @@ tindexZS v ixRepN | Dict <- eltDictRep (knownSTK @r) =
        FTKS sh x ->
          if ixInBounds (Foldable.toList ix) (shsToList sh)
          then RepN $ tindexNS (unRepN v) ix
-         else constantTarget def (FTKS knownShS x)
+         else defTarget (FTKS knownShS x)
 
 tindex0S
   :: forall r sh. (KnownSTK r, KnownShS sh)
@@ -1081,7 +1080,7 @@ tindex0S v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       then let arr = Nested.sscalar
                      $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
            in RepN arr
-      else constantTarget def (FTKS ZSS x)
+      else defTarget (FTKS ZSS x)
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
 tindex0S (SS.A (SG.A OI.T{..})) ix =
@@ -1287,7 +1286,7 @@ tindexZX v ixRepN | Dict <- eltDictRep (knownSTK @r) =
        FTKX sh x ->
          if ixInBounds (Foldable.toList ix) (shxToList sh)
          then RepN $ tindexNX (unRepN v) ix
-         else constantTarget def (FTKX (shxDropSSX sh (knownShX @sh1)) x)
+         else defTarget (FTKX (shxDropSSX sh (knownShX @sh1)) x)
 
 tindex0X
   :: forall r sh. (KnownSTK r, KnownShX sh)
@@ -1300,7 +1299,7 @@ tindex0X v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       then let arr = Nested.mscalar
                      $ Nested.mindex (unRepN v) (fmap fromIntegral ix)
            in RepN arr
-      else constantTarget def (FTKX ZSX x)
+      else defTarget (FTKX ZSX x)
 
 tmatmul2X
   :: forall m n p r.

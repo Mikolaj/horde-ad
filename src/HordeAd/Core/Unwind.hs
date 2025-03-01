@@ -6,12 +6,13 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.Unwind
-  ( addTarget, multTarget, dotTarget, constantTarget, concreteTarget
+  ( addTarget, multTarget, dotTarget, constantTarget, defTarget, concreteTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
 import Prelude
 
+import Data.Default
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.TypeLits (type (+))
 import Type.Reflection (typeRep)
@@ -112,6 +113,16 @@ constantRepW r = \case
   WFTKX sh -> WTKX $ xrepl sh r
   WFTKProduct ftk1 ftk2 ->
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
+
+defRepW :: forall y target. BaseTensor target
+        => FullTensorKindW y -> RepW target y
+defRepW = \case
+  WFTKScalar -> WTKScalar $ kconcrete def
+  WFTKR sh -> WTKR $ rrepl sh def
+  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh def
+  WFTKX sh -> WTKX $ xrepl sh def
+  WFTKProduct ftk1 ftk2 ->
+    WTKProduct (defRepW ftk1) (defRepW ftk2)
 
 concreteRepW
   :: forall y target. (ConvertTensor RepN, ConvertTensor target)
@@ -435,9 +446,15 @@ dotTarget ftk a b =
   in dotRepW (unWindFTK ftk) a2 b2
 
 constantTarget :: forall y target. (BaseTensor target, ConvertTensor target)
-               => (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
+               => (forall r. GoodScalar r => r)
+               -> FullTensorKind y -> target y
 constantTarget r ftk =
   windTarget (ftkToSTK ftk) $ constantRepW r (unWindFTK ftk)
+
+defTarget :: forall y target. (BaseTensor target, ConvertTensor target)
+          => FullTensorKind y -> target y
+defTarget ftk =
+  windTarget (ftkToSTK ftk) $ defRepW (unWindFTK ftk)
 
 concreteTarget
   :: forall y target. (ConvertTensor RepN, ConvertTensor target)
