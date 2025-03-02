@@ -13,7 +13,8 @@ module HordeAd.Core.AstInterpret
   -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
   , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
   , interpretAstDual
-  , interpretAstRuntimeSpecialized, interpretAstSRuntimeSpecialized
+  , interpretAstScalarRuntimeSpecialized, interpretAstRRuntimeSpecialized
+  , interpretAstSRuntimeSpecialized, interpretAstXRuntimeSpecialized
   , interpretAstBool
   ) where
 
@@ -107,11 +108,30 @@ interpretAstDual !env v1 = case v1 of
   _ ->
     tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
 
-interpretAstRuntimeSpecialized
+interpretAstScalarRuntimeSpecialized
+  :: forall target s r. (ADReady target, Typeable r, AstSpan s)
+  => AstEnv target
+  -> AstTensor AstMethodLet s (TKScalar r) -> target (TKScalar r)
+{-# INLINE interpretAstScalarRuntimeSpecialized #-}
+interpretAstScalarRuntimeSpecialized !env t =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAst @target @s @(TKScalar Double) env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAst @target @s @(TKScalar Float) env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAst @target @s @(TKScalar Int64) env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAst @target @s @(TKScalar CInt) env t
+          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
+            Just Refl -> interpretAst @target @s @(TKScalar Z0) env t
+            _ -> error "an unexpected underlying scalar type"
+
+interpretAstRRuntimeSpecialized
   :: forall target n s r. (ADReady target, Typeable r, AstSpan s)
   => AstEnv target
   -> AstTensor AstMethodLet s (TKR n r) -> target (TKR n r)
-interpretAstRuntimeSpecialized !env t =
+{-# INLINE interpretAstRRuntimeSpecialized #-}
+interpretAstRRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAst @target @s @(TKR n Double) env t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -128,6 +148,7 @@ interpretAstSRuntimeSpecialized
   :: forall target sh s r. (ADReady target, Typeable r, AstSpan s)
   => AstEnv target
   -> AstTensor AstMethodLet s (TKS sh r) -> target (TKS sh r)
+{-# INLINE interpretAstSRuntimeSpecialized #-}
 interpretAstSRuntimeSpecialized !env t =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> interpretAst @target @s @(TKS sh Double) env t
@@ -139,6 +160,24 @@ interpretAstSRuntimeSpecialized !env t =
           Just Refl -> interpretAst @target @s @(TKS sh CInt) env t
           _ -> case testEquality (typeRep @r) (typeRep @Z0) of
             Just Refl -> interpretAst @target @s @(TKS sh Z0) env t
+            _ -> error "an unexpected underlying scalar type"
+
+interpretAstXRuntimeSpecialized
+  :: forall target sh s r. (ADReady target, Typeable r, AstSpan s)
+  => AstEnv target
+  -> AstTensor AstMethodLet s (TKX sh r) -> target (TKX sh r)
+{-# INLINE interpretAstXRuntimeSpecialized #-}
+interpretAstXRuntimeSpecialized !env t =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> interpretAst @target @s @(TKX sh Double) env t
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> interpretAst @target @s @(TKX sh Float) env t
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl -> interpretAst @target @s @(TKX sh Int64) env t
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl -> interpretAst @target @s @(TKX sh CInt) env t
+          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
+            Just Refl -> interpretAst @target @s @(TKX sh Z0) env t
             _ -> error "an unexpected underlying scalar type"
 
 interpretAst
@@ -217,12 +256,20 @@ interpretAst !env = \case
 
   AstLet var u v -> case varNameToFTK var of
     -- We assume there are no nested lets with the same variable.
+    FTKScalar ->
+      let t = interpretAstScalarRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in tlet t (\w -> interpretAst (env2 w) v)
     FTKR _ FTKScalar ->
-      let t = interpretAstRuntimeSpecialized env u
+      let t = interpretAstRRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
     FTKS _ FTKScalar ->
       let t = interpretAstSRuntimeSpecialized env u
+          env2 w = extendEnv var w env
+      in tlet t (\w -> interpretAst (env2 w) v)
+    FTKX _ FTKScalar ->
+      let t = interpretAstXRuntimeSpecialized env u
           env2 w = extendEnv var w env
       in tlet t (\w -> interpretAst (env2 w) v)
     _ ->

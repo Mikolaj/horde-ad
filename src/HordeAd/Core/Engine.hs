@@ -465,17 +465,17 @@ cfwdBoth f vals ds =
 
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
-{-# SPECIALIZE interpretAstRuntimeSpecialized
+{-# SPECIALIZE interpretAstRRuntimeSpecialized
   :: (Typeable r, AstSpan s)
   => AstEnv (ADVal RepN)
   -> AstTensor AstMethodLet s (TKR n r)
   -> ADVal RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAstRuntimeSpecialized
+{-# SPECIALIZE interpretAstRRuntimeSpecialized
   :: (Typeable r, AstSpan s)
   => AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet s (TKR n r)
   -> ADVal (AstRaw PrimalSpan) (TKR n r) #-}
-{-# SPECIALIZE interpretAstRuntimeSpecialized
+{-# SPECIALIZE interpretAstRRuntimeSpecialized
   :: (Typeable r, AstSpan s)
   => AstEnv RepN
   -> AstTensor AstMethodLet s (TKR n r)
