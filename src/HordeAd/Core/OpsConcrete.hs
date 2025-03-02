@@ -113,10 +113,12 @@ instance BaseTensor RepN where
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKR sh x)) l
         -- RepN has a ShareTensor instance, so addTarget arguments
         -- don't need to be duplicable
+  {-# INLINE rsum0 #-}  -- this doesn't want to specialize
   rsum0 @r t = case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
     _ -> rsum . rflatten $ t
+  {-# INLINE rdot0 #-}  -- this doesn't want to specialize
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
   rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
@@ -184,10 +186,12 @@ instance BaseTensor RepN where
       let l = sunravelToList t
           sh = shsTail $ sshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKS sh x)) l
+  {-# INLINE ssum0 #-}  -- this doesn't want to specialize
   ssum0 @r @sh t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
     _ -> ssum . sflatten $ t
+  {-# INLINE sdot0 #-}  -- this doesn't want to specialize
   sdot0 u v  =
     RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   sdot1In (SNat @n) u v =
@@ -330,12 +334,14 @@ instance BaseTensor RepN where
       let l = xunravelToList t
           sh = shxTail $ xshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKX sh x)) l
+  {-# INLINE xsum0 #-}  -- this doesn't want to specialize
   xsum0 @r t =
    case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
     _ -> withSNat (shxSize $ xshape t) $ \snat ->
       xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+  {-# INLINE xdot0 #-}  -- this doesn't want to specialize
   xdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
   xdot1In @_ @n u v =

@@ -498,9 +498,11 @@ class ( Num (IntOf target)
   -- is O(n) sometimes, unlike transpose, etc.
   rsum0 :: (KnownSTK r, KnownNat n)
         => target (TKR2 n r) -> target (TKR2 0 r)
+  {-# INLINE rsum0 #-}  -- this doesn't want to specialize
   rsum0 = rsum . rflatten
   rdot0 :: (GoodScalar r, KnownNat n)
         => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
+  {-# INLINE rdot0 #-}  -- this doesn't want to specialize
   rdot0 t u = rsum (rflatten (t * u))
   rdot1In :: GoodScalar r
           => target (TKR 2 r) -> target (TKR 2 r)
@@ -770,9 +772,11 @@ class ( Num (IntOf target)
        => target (TKS2 (n ': sh) r) -> target (TKS2 sh r)
   ssum0 :: forall r sh. (KnownSTK r, KnownShS sh)
         => target (TKS2 sh r) -> target (TKS2 '[] r)
+  {-# INLINE ssum0 #-}  -- this doesn't want to specialize
   ssum0 | SNat <- shsProduct (knownShS @sh) = ssum . sflatten
   sdot0 :: forall r sh. (GoodScalar r, KnownShS sh)
         => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
+  {-# INLINE sdot0 #-}  -- this doesn't want to specialize
   sdot0 t u | SNat <- shsProduct (knownShS @sh) = ssum (sflatten (t * u))
   sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
           => SNat n
@@ -1136,10 +1140,12 @@ class ( Num (IntOf target)
   --     => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
   xsum :: (KnownNat n, KnownShX sh, KnownSTK r)
        => target (TKX2 (Just n ': sh) r) -> target (TKX2 sh r)
+  {-# INLINE xsum0 #-}  -- this doesn't want to specialize
   xsum0 :: (KnownSTK r, KnownShX sh, ConvertTensor target)
         => target (TKX2 sh r) -> target (TKX2 '[] r)
   xsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
     xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+  {-# INLINE xdot0 #-}  -- this doesn't want to specialize
   xdot0 :: (GoodScalar r, KnownShX sh, ConvertTensor target)
         => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
   xdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
