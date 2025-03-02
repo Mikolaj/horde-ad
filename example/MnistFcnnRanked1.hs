@@ -38,6 +38,7 @@ listMatmul1
      (ADReady target, GoodScalar r, KnownNat w1)
   => target (TKS '[w1] r) -> ListR w2 (target (TKS '[w1] r))
   -> target (TKS '[w2] r)
+{-# INLINE listMatmul1 #-}  -- this doesn't want to specialize
 listMatmul1 x0 weights = tlet x0 $ \x ->
   let f :: target (TKS '[w1] r) -> target (TKS '[] r)
       f v = v `sdot0` x
