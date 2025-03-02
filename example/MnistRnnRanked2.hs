@@ -72,7 +72,7 @@ rnnMnistLayerR
   -> target (TKR 2 r)  -- output state, [out_width, batch_size]
 rnnMnistLayerR s x (wX, wS, b) = case rshape s of
   _out_width :$: batch_size :$: ZSR ->
-    let y = wX `rmatmul2` x + wS `rmatmul2` s
+    let y = wX `rmatmul2m` x + wS `rmatmul2m` s
             + rtr (rreplicate batch_size b)
     in tanh y
 
@@ -107,7 +107,27 @@ rnnMnistZeroR batch_size xs
     let sh = 2 * out_width :$: batch_size :$: ZSR
         (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR) xs
                                   ((wX, wS, b), (wX2, wS2, b2))
-    in w3 `rmatmul2` out + rtr (rreplicate batch_size b3)
+    in w3 `rmatmul2m` out + rtr (rreplicate batch_size b3)
+
+-- This manual vectorization performs much better with the current
+-- implementations of concrete matmul, matvecmul and basic operations.
+-- The manual vectorization results in
+-- smatmul2 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1))))) (sreplicate @_ @1 (sreplicate @_ @1 (sscalar 7.0)))
+-- vs
+-- str (sreplicate @_ @1 (smatvecmul (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))))
+-- and
+-- smatmul2 m21 (str (sreplicate @_ @1 (sreplicate @_ @1 (sscalar 7.0))))
+-- vs
+-- sreplicate @_ @1 (sreplicate @_ @1 (sscalar 7.0)) * str (sreplicate @_ @1 (ssum @_ @1 (str m21)))
+-- TODO: Investigate. Either one of those is always better once
+-- enough good primitives are available or we need a way to guide
+-- term rewriting to one of these depending on the backend.
+rmatmul2m :: (BaseTensor target, GoodScalar r, Numeric r)
+          => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
+rmatmul2m m1 m2 = case rshape m2 of
+  _ :$: width2 :$: ZSR ->
+    rsum (rtranspose [2,1,0] (rreplicate width2 m1)
+          * rtranspose [1,0] (rreplicate (rlength m1) m2))
 
 rnnMnistLossFusedR
   :: ( ADReady target, ADReady (PrimalOf target), GoodScalar r
@@ -124,6 +144,55 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   in tfromPrimal knownSTK
                  (recip $ kconcrete $ fromIntegral batch_size) * loss
 
+-- TODO: theses three require the use of `rmatmul2` method so that
+-- the RepN instance can use the hmatrix implementation and avoid
+-- the order of magnitude slowdown. Remove as soon as `rmatmul2m`
+-- is not needed.
+rnnMnistLayerR2
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  => target (TKR 2 r)  -- in state, [out_width, batch_size]
+  -> target (TKR 2 r)  -- input, [in_width, batch_size]
+  -> LayerWeigthsRNN target r  -- in_width out_width
+  -> target (TKR 2 r)  -- output state, [out_width, batch_size]
+rnnMnistLayerR2 s x (wX, wS, b) = case rshape s of
+  _out_width :$: batch_size :$: ZSR ->
+    let y = wX `rmatmul2` x + wS `rmatmul2` s
+            + rtr (rreplicate batch_size b)
+    in tanh y
+
+rnnMnistTwoR2
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  => target (TKR 2 r)  -- initial state, [2 * out_width, batch_size]
+  -> PrimalOf target (TKR 2 r)  -- [sizeMnistHeight, batch_size]
+  -> ( LayerWeigthsRNN target r  -- sizeMnistHeight out_width
+     , LayerWeigthsRNN target r )  -- out_width out_width
+  -> ( target (TKR 2 r)  -- [out_width, batch_size]
+     , target (TKR 2 r) )  -- final state, [2 * out_width, batch_size]
+rnnMnistTwoR2 s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
+  out_width_x_2 :$: _batch_size :$: ZSR ->
+    let out_width = out_width_x_2 `div` 2
+        s3 = tlet s' $ \s ->
+          let s1 = rslice 0 out_width s
+              s2 = rslice out_width out_width s
+              vec1 = rnnMnistLayerR2 s1 (rfromPrimal x) (wX, wS, b)
+              vec2 = rnnMnistLayerR2 s2 vec1 (wX2, wS2, b2)
+          in rappend vec1 vec2
+    in (rslice out_width out_width s3, s3)
+
+rnnMnistZeroR2
+  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  => Int
+  -> PrimalOf target (TKR 3 r)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
+  -> ADRnnMnistParameters target r  -- sizeMnistHeight out_width
+  -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
+rnnMnistZeroR2 batch_size xs
+              ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case rshape b of
+  out_width :$: ZSR ->
+    let sh = 2 * out_width :$: batch_size :$: ZSR
+        (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR2) xs
+                                  ((wX, wS, b), (wX2, wS2, b2))
+    in w3 `rmatmul2` out + rtr (rreplicate batch_size b3)
+
 rnnMnistTestR
   :: forall target r.
      (target ~ RepN, GoodScalar r, Numeric r, Differentiable r)
@@ -139,7 +208,7 @@ rnnMnistTestR batch_size (glyphR, labelR) testParams =
       outputR =
         let nn :: ADRnnMnistParameters target r  -- SizeMnistHeight out_width
                -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
-            nn = rnnMnistZeroR batch_size input
+            nn = rnnMnistZeroR2 batch_size input
         in nn testParams
       outputs = map (Nested.rtoVector . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
