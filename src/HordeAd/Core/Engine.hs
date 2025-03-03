@@ -329,9 +329,6 @@ cfwdBoth f vals ds =
 -- These and all other SPECIALIZE pragmas are needed due to the already
 -- mostly fixed issues #21286 and others, even just to compare
 -- the output with them and without.
--- We need pragmas on shaped operations even for ranked benchmarks,
--- because threading the dictionaries through mutual recursive functions
--- would cause trouble.
 
 {-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
   :: Typeable r
@@ -621,25 +618,6 @@ cfwdBoth f vals ds =
   -> AstTensor AstMethodLet s (TKS sh Int64)
   -> RepN (TKS sh Int64) #-}
 
--- This is needed for all three AstSpan values, to handle recursive calls
--- from interpretAstDual, etc.
-{-
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s TKUntyped
-  -> ADVal RepN TKUntyped #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s TKUntyped
-  -> ADVal (AstRaw PrimalSpan) TKUntyped #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s TKUntyped
-  -> RepN TKUntyped #-}
--}
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal RepN)
   -> AstBool AstMethodLet

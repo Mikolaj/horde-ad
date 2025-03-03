@@ -119,6 +119,7 @@ instance BaseTensor RepN where
     _ -> rsum . rflatten $ t
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
+  {-# INLINE rmatvecmul #-}  -- this doesn't want to specialize
   rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   rreplicate @r k | Dict <- eltDictRep (knownSTK @r) =
@@ -134,6 +135,7 @@ instance BaseTensor RepN where
   rconcrete = RepN
   rfloor = RepN . liftVR (V.map floor) . unRepN
   rfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
+  {-# INLINE rcast #-}  -- this doesn't want to specialize
   rcast = RepN . liftVR (V.map realToFrac) . unRepN
   rminIndex = RepN . tminIndexR . unRepN
   rmaxIndex = RepN . tmaxIndexR . unRepN
@@ -192,6 +194,7 @@ instance BaseTensor RepN where
     RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   sdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
+  {-# INLINE smatvecmul #-}  -- this doesn't want to specialize
   smatvecmul m v = ssum (str (sreplicate v * m))
   smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   sindex = tindexZS
@@ -274,6 +277,7 @@ instance BaseTensor RepN where
   sconcrete = RepN
   sfloor = RepN . liftVS (V.map floor) . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
+  {-# INLINE scast #-}  -- this doesn't want to specialize
   scast = RepN . liftVS (V.map realToFrac) . unRepN
   sminIndex a = RepN . tminIndexS . unRepN $ a
   smaxIndex a = RepN . tmaxIndexS . unRepN $ a
@@ -352,6 +356,7 @@ instance BaseTensor RepN where
                    * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
                                            :$% Nested.SKnown (SNat @n)
                                            :$% ZSX)) m))
+  {-# INLINE xmatvecmul #-}  -- this doesn't want to specialize
   xmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
   xreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unRepN
@@ -420,6 +425,7 @@ instance BaseTensor RepN where
   xconcrete = RepN
   xfloor = RepN . liftVX (V.map floor) . unRepN
   xfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN
+  {-# INLINE xcast #-}  -- this doesn't want to specialize
   xcast = RepN . liftVX (V.map realToFrac) . unRepN
   xminIndex = RepN . tminIndexX . unRepN
   xmaxIndex = RepN . tmaxIndexX . unRepN
@@ -728,7 +734,7 @@ tmaxIndexR =
 -- by this one", which makes things too complicated.
 --
 -- We could also expose `liftVR` in the user API, but in addition
--- to the main function argument, such as floor or cast, it'd need the function's
+-- to the main function argument such as floor or cast, it'd need the function's
 -- derivative, just as with mapAccums. Maybe it's better to generalize even more
 -- and permit arbitrary extra ops if given their derivatives.
 liftVR
@@ -739,6 +745,10 @@ liftVR f =
   Nested.Internal.arithPromoteRanked
     (Nested.Internal.Mixed.mliftNumElt1
        (`Mixed.Internal.Arith.liftVEltwise1` f))
+{-# SPECIALIZE liftVR :: (VS.Vector Double -> VS.Vector Double) -> Nested.Ranked n Double -> Nested.Ranked n Double #-}
+{-# SPECIALIZE liftVR :: (VS.Vector Float -> VS.Vector Float) -> Nested.Ranked n Float -> Nested.Ranked n Float #-}
+{-# SPECIALIZE liftVR :: (VS.Vector Double -> VS.Vector Float) -> Nested.Ranked n Double -> Nested.Ranked n Float #-}
+{-# SPECIALIZE liftVR :: (VS.Vector Float -> VS.Vector Double) -> Nested.Ranked n Float -> Nested.Ranked n Double #-}
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -1040,6 +1050,10 @@ liftVS f =
   Nested.Internal.arithPromoteShaped
     (Nested.Internal.Mixed.mliftNumElt1
        (`Mixed.Internal.Arith.liftVEltwise1` f))
+{-# SPECIALIZE liftVS :: (VS.Vector Double -> VS.Vector Double) -> Nested.Shaped sh Double -> Nested.Shaped sh Double #-}
+{-# SPECIALIZE liftVS :: (VS.Vector Float -> VS.Vector Float) -> Nested.Shaped sh Float -> Nested.Shaped sh Float #-}
+{-# SPECIALIZE liftVS :: (VS.Vector Double -> VS.Vector Float) -> Nested.Shaped sh Double -> Nested.Shaped sh Float #-}
+{-# SPECIALIZE liftVS :: (VS.Vector Float -> VS.Vector Double) -> Nested.Shaped sh Float -> Nested.Shaped sh Double #-}
 
 tindexNS
   :: Nested.Elt r
@@ -1272,6 +1286,10 @@ liftVX
 liftVX f =
   Nested.Internal.Mixed.mliftNumElt1
     (`Mixed.Internal.Arith.liftVEltwise1` f)
+{-# SPECIALIZE liftVX :: (VS.Vector Double -> VS.Vector Double) -> Nested.Mixed sh Double -> Nested.Mixed sh Double #-}
+{-# SPECIALIZE liftVX :: (VS.Vector Float -> VS.Vector Float) -> Nested.Mixed sh Float -> Nested.Mixed sh Float #-}
+{-# SPECIALIZE liftVX :: (VS.Vector Double -> VS.Vector Float) -> Nested.Mixed sh Double -> Nested.Mixed sh Float #-}
+{-# SPECIALIZE liftVX :: (VS.Vector Float -> VS.Vector Double) -> Nested.Mixed sh Float -> Nested.Mixed sh Double #-}
 
 tindexNX
   :: Nested.Elt r

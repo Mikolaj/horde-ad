@@ -46,8 +46,7 @@ interpretAstPrimalRuntimeSpecialized
 interpretAstPrimalRuntimeSpecialized !env t =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
-  -- an existential type. All IfDifferentiable and RowSum instances should
-  -- be included in the list of expected underlying scalar types.
+  -- an existential type.
   -- If the scalar type is not on the list, performance suffers greatly.
   -- TODO: revisit using TypeRepOf to pattern match
   -- instead of nesting conditionals
@@ -350,7 +349,17 @@ interpretAst !env = \case
     FTKS sh _ ->
       withKnownShS sh $
       sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
-  AstCastS v -> scast $ interpretAstSRuntimeSpecialized env v
+  AstCastS @r1 @r2 v ->
+    -- Specializing for the cases covered by rules in GHC.Internal.Float.
+    case testEquality (typeRep @r1) (typeRep @Double) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @Float) of
+        Just Refl -> scast @_ @Double @Float $ interpretAst env v
+        _ -> scast @_ @Double $ interpretAst env v
+      _ -> case testEquality (typeRep @r1) (typeRep @Float) of
+        Just Refl -> case testEquality (typeRep @r2) (typeRep @Double) of
+          Just Refl -> scast @_ @Float @Double $ interpretAst env v
+          _ -> scast @_ @Float $ interpretAst env v
+        _ -> scast $ interpretAst env v
 
   AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -481,8 +490,14 @@ interpretAst !env = \case
       sdot0 (interpretAst env u) (interpretAst env v)
   AstDot1InS SNat n@SNat u v ->
     sdot1In n (interpretAst env u) (interpretAst env v)
-  AstMatvecmulS SNat SNat u v ->
-    smatvecmul (interpretAst env u) (interpretAst env v)
+  AstMatvecmulS @r SNat SNat u v ->
+    case testEquality (typeRep @r) (typeRep @Double) of
+      Just Refl ->
+        smatvecmul @_ @Double (interpretAst env u) (interpretAst env v)
+      _ -> case testEquality (typeRep @r) (typeRep @Float) of
+        Just Refl ->
+          smatvecmul @_ @Float (interpretAst env u) (interpretAst env v)
+        _ -> smatvecmul (interpretAst env u) (interpretAst env v)
   AstMatmul2S SNat SNat SNat u v ->
     smatmul2 (interpretAst env u) (interpretAst env v)
 
