@@ -15,10 +15,12 @@ module HordeAd.Core.CarriersADVal
 
 import Prelude
 
+import Data.Int (Int64)
 import Data.Type.Equality ((:~:) (Refl))
 
 import Data.Array.Nested (Rank, ShS (..))
 
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
 import HordeAd.Core.Ops
@@ -295,6 +297,9 @@ instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger i = dDnotShared (fromInteger i) (DeltaZero FTKScalar)
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKScalar Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKScalar Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKScalar Int64)) #-}
 
 instance {-# OVERLAPPABLE #-}
          (Num (f z), ShareTensor f, ADReadyNoLet f)
@@ -312,6 +317,15 @@ instance {-# OVERLAPPABLE #-}
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger = error "fromInteger not defined for tensors"
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKR n Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKR n Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKR n Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKS sh Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKS sh Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKS sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKX sh Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKX sh Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKX sh Int64)) #-}
 
 instance (Real (f z), ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
@@ -322,6 +336,9 @@ instance (IntegralF (f z), ShareTensor f, ADReadyNoLet f)
          => IntegralF (ADVal f z) where
   quotF (D u _) (D v v') = dDnotShared (quotF u v) (DeltaZero $ ftkDelta v')
   remF (D u _) (D v v') = dDnotShared (remF u v) (DeltaZero $ ftkDelta v')
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralF (ADVal RepN (TKR n Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralF (ADVal RepN (TKS sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralF (ADVal RepN (TKX sh Int64)) #-}
 
 -- This is copied from below to permit fromRational for TKScalar.
 instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f

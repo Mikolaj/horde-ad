@@ -10,6 +10,7 @@ import Prelude
 import Control.DeepSeq (NFData (..))
 import Criterion.Main
 import Data.Default qualified as Default
+import Data.Foldable qualified as Foldable
 import Data.List (foldl1')
 import GHC.Exts (IsList (..), WithDict)
 import GHC.TypeLits (KnownNat)
@@ -68,36 +69,36 @@ benchProd :: r ~ Double
           -> [Benchmark]
 benchProd ~(snat, l, lt, t) = case snat of
   SNat ->
-    [ bench "ncrev ls" $ nf crevRankedLProd l
-    , bench "nrev ls" $ nf revRankedLProd l
-    , bench "r crev ls" $ nf crevRankedLProdr l
-    , bench "r rev ls" $ nf revRankedLProdr l
-    , bench "NotShared ls crev" $ nf crevRankedNotSharedLProd l
-    , bench "ncrev lt" $ nf crevRankedLtProd lt
-    , bench "nrev lt" $ nf revRankedLtProd lt
-    , bench "r crev lt" $ nf crevRankedLtProdr lt
-    , bench "r rev lt" $ nf revRankedLtProdr lt
-    , bench "NotShared lt crev" $ nf crevRankedNotSharedLtProd lt
-    , bench "crev t" $ nf crevRankedTProd t
-    , bench "rev t" $ nf revRankedTProd t
+    [ bench "ncrev ls" $ nf (crevRankedLProd snat) l
+    , bench "nrev ls" $ nf (revRankedLProd snat) l
+    , bench "r crev ls" $ nf (crevRankedLProdr snat) l
+    , bench "r rev ls" $ nf (revRankedLProdr snat) l
+    , bench "NotShared ls crev" $ nf (crevRankedNotSharedLProd snat) l
+    , bench "ncrev lt" $ nf (crevRankedLtProd snat) lt
+    , bench "nrev lt" $ nf (revRankedLtProd snat) lt
+    , bench "r crev lt" $ nf (crevRankedLtProdr snat) lt
+    , bench "r rev lt" $ nf (revRankedLtProdr snat) lt
+    , bench "NotShared lt crev" $ nf (crevRankedNotSharedLtProd snat) lt
+    , bench "crev t" $ nf (crevRankedTProd snat) t
+    , bench "rev t" $ nf (revRankedTProd snat) t
     ]
 
-rankedLProd :: (BaseTensor target, GoodScalar r, KnownNat n)
+rankedLProd :: (BaseTensor target, GoodScalar r)
             => ListR n (target (TKScalar r)) -> target (TKScalar r)
-rankedLProd = foldl1' (*) . toList
+rankedLProd = foldl1' (*) . Foldable.toList
 
 crevRankedLProd
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
-crevRankedLProd =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKScalar Double))
+  -> ListR n (RepN (TKScalar Double))
+crevRankedLProd snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   crev rankedLProd
 
 revRankedLProd
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
-revRankedLProd =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKScalar Double))
+  -> ListR n (RepN (TKScalar Double))
+revRankedLProd snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   rev rankedLProd
 
 rankedLProdr :: (BaseTensor target, GoodScalar r)
@@ -105,17 +106,17 @@ rankedLProdr :: (BaseTensor target, GoodScalar r)
 rankedLProdr = foldr1 (*)
 
 crevRankedLProdr
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
-crevRankedLProdr =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKScalar Double))
+  -> ListR n (RepN (TKScalar Double))
+crevRankedLProdr snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   crev rankedLProdr
 
 revRankedLProdr
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
-revRankedLProdr =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKScalar Double))
+  -> ListR n (RepN (TKScalar Double))
+revRankedLProdr snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   rev rankedLProdr
 
 rankedNotSharedLProd :: (BaseTensor target, GoodScalar r)
@@ -124,28 +125,28 @@ rankedNotSharedLProd :: (BaseTensor target, GoodScalar r)
 rankedNotSharedLProd = foldr1 multNotShared
 
 crevRankedNotSharedLProd
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKScalar Double)) -> ListR n (RepN (TKScalar Double))
-crevRankedNotSharedLProd =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKScalar Double))
+  -> ListR n (RepN (TKScalar Double))
+crevRankedNotSharedLProd snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   crev rankedNotSharedLProd
 
-rankedLtProd :: (BaseTensor target, GoodScalar r, KnownNat n)
+rankedLtProd :: (BaseTensor target, GoodScalar r)
              => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
-rankedLtProd = foldl1' (*) . toList
+rankedLtProd = foldl1' (*) . Foldable.toList
 
 crevRankedLtProd
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
-crevRankedLtProd =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKS '[] Double))
+  -> ListR n (RepN (TKS '[] Double))
+crevRankedLtProd snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   crev rankedLtProd
 
 revRankedLtProd
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
-revRankedLtProd =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKS '[] Double))
+  -> ListR n (RepN (TKS '[] Double))
+revRankedLtProd snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   rev rankedLtProd
 
 rankedLtProdr :: (BaseTensor target, GoodScalar r)
@@ -153,17 +154,17 @@ rankedLtProdr :: (BaseTensor target, GoodScalar r)
 rankedLtProdr = foldr1 (*)
 
 crevRankedLtProdr
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
-crevRankedLtProdr =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKS '[] Double))
+  -> ListR n (RepN (TKS '[] Double))
+crevRankedLtProdr snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   crev rankedLtProdr
 
 revRankedLtProdr
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
-revRankedLtProdr =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKS '[] Double))
+  -> ListR n (RepN (TKS '[] Double))
+revRankedLtProdr snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   rev rankedLtProdr
 
 rankedNotSharedLtProd :: (BaseTensor target, GoodScalar r)
@@ -172,10 +173,10 @@ rankedNotSharedLtProd :: (BaseTensor target, GoodScalar r)
 rankedNotSharedLtProd = foldr1 multNotShared
 
 crevRankedNotSharedLtProd
-  :: forall n. KnownNat n
-  => ListR n (RepN (TKS '[] Double)) -> ListR n (RepN (TKS '[] Double))
-crevRankedNotSharedLtProd =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) (SNat @n)) $
+  :: SNat n -> ListR n (RepN (TKS '[] Double))
+  -> ListR n (RepN (TKS '[] Double))
+crevRankedNotSharedLtProd snat@SNat =
+  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   crev rankedNotSharedLtProd
 
 -- A potential further speedup would be to use tmapAccumL with TKS
@@ -184,21 +185,19 @@ crevRankedNotSharedLtProd =
 -- We can define sproduct if this benchmark ends up used anywhere,
 -- because the current codomain of gradientFromDelta rules out
 -- low-level hacky pipeline tricks that could avoid indexing.
-rankedTProd :: (BaseTensor target, LetTensor target, GoodScalar r, KnownNat n)
-            => target (TKS '[n] r) -> target (TKS '[] r)
-rankedTProd = sfold (*) (sscalar 1)
-{-# SPECIALIZE rankedTProd :: KnownNat n => ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKS '[] Double) #-}
-{-# SPECIALIZE rankedTProd :: KnownNat n => AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
+rankedTProd :: (BaseTensor target, LetTensor target, GoodScalar r)
+            => SNat n -> target (TKS '[n] r) -> target (TKS '[] r)
+rankedTProd SNat = sfold (*) (sscalar 1)
+{-# SPECIALIZE rankedTProd :: SNat n -> ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKS '[] Double) #-}
+{-# SPECIALIZE rankedTProd :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
 
 crevRankedTProd
-  :: forall n. KnownNat n
-  => RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
-crevRankedTProd = crev rankedTProd
+  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+crevRankedTProd snat@SNat = crev (rankedTProd snat)
 
 revRankedTProd
-  :: forall n. KnownNat n
-  => RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
-revRankedTProd = rev rankedTProd
+  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+revRankedTProd snat@SNat = rev (rankedTProd snat)
 
 -- TODO: not enough specialized
 -- TODO: outdated explanation:
