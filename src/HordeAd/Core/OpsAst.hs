@@ -156,19 +156,6 @@ astBuild1Vectorize
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astBuild1Vectorize k stk f = build1Vectorize k stk $ funToAstI f
 
-{-
--- This specialization is not possible where the functions are defined,
--- but is possible here:
-{-# SPECIALIZE gradientFromDelta
-  :: FullTensorKind TKUntyped
-  -> HVectorPseudoTensor (AstRaw PrimalSpan) Float '()
-  -> Maybe (HVectorPseudoTensor (AstRaw PrimalSpan) Float '())
-  -> Delta (AstRaw PrimalSpan) TKUntyped
-  -> AstRaw PrimalSpan TKUntyped #-}
-{-# SPECIALIZE evalFromnMap
-  :: EvalState (AstRaw PrimalSpan) -> EvalState (AstRaw PrimalSpan) #-}
--}
-
 instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
   tlet u f = astLetFun u f
   toShare t = AstRaw $ AstToShare t

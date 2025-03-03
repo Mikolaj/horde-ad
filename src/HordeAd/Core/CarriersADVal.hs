@@ -211,10 +211,6 @@ generateDeltaInputs =
           in (DeltaPair d1 d2, j2)
         _ -> (DeltaInput (mkInputId ftk j), j + 1)
   in fst . gen 0
-{- TODO: this causes a cyclic dependency:
-{-# SPECIALIZE generateDeltaInputs
-  :: HVector (FlipR OR.Array) -> HVector (Delta (FlipR OR.Array)) #-}
--}
 
 
 -- * Assorted instances
@@ -303,16 +299,6 @@ instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
 instance {-# OVERLAPPABLE #-}
          (Num (f z), ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f z) where
-  -- The 0 cases are needed to get GHC 9.6 to use the specialization
-  -- (only at rank 0, though; we'd need many more for common ranks and shapes).
-{- TODO: this causes a cyclic dependency:
-  {-# SPECIALIZE instance Num (ADVal (FlipR OR.Array) Double 0) #-}
-  {-# SPECIALIZE instance Num (ADVal (AstRanked PrimalSpan) Double 0) #-}
-  {-# SPECIALIZE instance KnownNat n
-                          => Num (ADVal (FlipR OR.Array) Double n) #-}
-  {-# SPECIALIZE instance KnownNat n
-                          => Num (ADVal (AstRanked PrimalSpan) Double n) #-}
--}
   D u u' + D v v' = dD (u + v) (dAdd u' v')
   D u u' - D v v' =
     dD (u - v) (dAdd u' (dScale (intOfShape v' (-1)) v'))
@@ -355,18 +341,6 @@ instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f
 instance {-# OVERLAPPABLE #-}
          (Fractional (f z), ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
-{- TODO: this causes a cyclic dependency:
-  {-# SPECIALIZE instance
-      Fractional (ADVal (FlipR OR.Array) Double 0) #-}
-  {-# SPECIALIZE instance
-      Fractional (ADVal (AstRanked PrimalSpan) Double 0) #-}
-  {-# SPECIALIZE instance
-      KnownNat n
-      => Fractional (ADVal (FlipR OR.Array) Double n) #-}
-  {-# SPECIALIZE instance
-      KnownNat n
-      => Fractional (ADVal (AstRanked PrimalSpan) Double n) #-}
--}
   D ue u' / D ve v' =
     let !u = tshare ue in
     let !v = tshare ve
@@ -380,18 +354,6 @@ instance {-# OVERLAPPABLE #-}
 
 instance (Floating (f z), ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
-{- TODO: this causes a cyclic dependency:
-  {-# SPECIALIZE instance
-      Floating (ADVal (FlipR OR.Array) Double 0) #-}
-  {-# SPECIALIZE instance
-      Floating (ADVal (AstRanked PrimalSpan) Double 0) #-}
-  {-# SPECIALIZE instance
-      KnownNat n
-      => Floating (ADVal (FlipR OR.Array) Double n) #-}
-  {-# SPECIALIZE instance
-      KnownNat n
-      => Floating (ADVal (AstRanked PrimalSpan) Double n) #-}
--}
   pi = error "pi not defined for tensors"
   exp (D ue u') = let !expU = tshare (exp ue)
                   in dD expU (dScale expU u')
@@ -453,18 +415,6 @@ instance (Fractional (f z), RealFloatF (f z), ShareTensor f, ADReadyNoLet f)
 
 instance (RealFloat (f z), ShareTensor f, ADReadyNoLet f)
          => RealFloat (ADVal f z) where
-{- TODO: this causes a cyclic dependency:
-  {-# SPECIALIZE instance
-      RealFloat (ADVal (FlipR OR.Array) Double 0) #-}
-  {-# SPECIALIZE instance
-      RealFloat (ADVal (AstRanked PrimalSpan) Double 0) #-}
-  {-# SPECIALIZE instance
-      KnownNat n
-      => RealFloat (ADVal (FlipR OR.Array) Double n) #-}
-  {-# SPECIALIZE instance
-      KnownNat n
-      => RealFloat (ADVal (AstRanked PrimalSpan) Double n) #-}
--}
   atan2 (D ue u') (D ve v') =
     let !u = tshare ue in
     let !v = tshare ve in

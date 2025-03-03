@@ -16,8 +16,6 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.External.OptimizerTools
 
--- These functions have their SPECIALIZE pragmas in MnistData.
-
 -- | Stochastic Gradient Descent.
 sgdSTK :: forall a x z.
           STensorKind x

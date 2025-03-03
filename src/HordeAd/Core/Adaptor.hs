@@ -95,21 +95,6 @@ instance TermValue (RepN (TKScalar Float)) where
   fromValue = RepN
 
 instance AdaptableTarget target (target y) where
-{-
-  {-# SPECIALIZE instance
-      (KnownNat n, AstSpan s)
-      => AdaptableTarget (AstTensor AstMethodLet s) (AstTensor AstMethodLet s (TKR n Double)) #-}
-  TODO: RULE left-hand side too complicated to desugar in GHC 9.6.4
-    with -O0, but not -O1
-  {-# SPECIALIZE instance
-      (KnownNat n, ADReadyNoLet Nested.Ranked)
-      => AdaptableTarget (ADVal Nested.Ranked)
-                          (ADVal Nested.Ranked Double n) #-}
-  {-# SPECIALIZE instance
-      (KnownNat n, ADReadyNoLet (AstRanked PrimalSpan))
-      => AdaptableTarget (ADVal (AstRanked PrimalSpan))
-                          (ADVal (AstRanked PrimalSpan) Double n) #-}
--}
   type X (target y) = y
   toTarget = id
   fromTarget t = t
