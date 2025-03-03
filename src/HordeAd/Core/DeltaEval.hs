@@ -326,6 +326,7 @@ evalRevScalarRuntimeSpecialized
   => EvalState target -> target (ADTensorKind (TKScalar r))
   -> Delta target (TKScalar r)
   -> EvalState target
+{-# INLINE evalRevScalarRuntimeSpecialized #-}
 evalRevScalarRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> evalRevSame @(TKScalar Double) s c
@@ -343,6 +344,7 @@ evalRevRRuntimeSpecialized
   => EvalState target -> target (ADTensorKind (TKR n r))
   -> Delta target (TKR n r)
   -> EvalState target
+{-# INLINE evalRevRRuntimeSpecialized #-}
 evalRevRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
@@ -362,6 +364,7 @@ evalSRuntimeSpecialized
   => EvalState target -> target (ADTensorKind (TKS sh r))
   -> Delta target (TKS sh r)
   -> EvalState target
+{-# INLINE evalSRuntimeSpecialized #-}
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> evalRevSame @(TKS sh Double) s c
@@ -375,6 +378,7 @@ evalXRuntimeSpecialized
   => EvalState target -> target (ADTensorKind (TKX sh r))
   -> Delta target (TKX sh r)
   -> EvalState target
+{-# INLINE evalXRuntimeSpecialized #-}
 evalXRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> evalRevSame @(TKX sh Double) s c

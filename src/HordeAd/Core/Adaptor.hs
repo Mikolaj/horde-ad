@@ -147,8 +147,7 @@ instance (GoodScalar r, Fractional r, Random r, BaseTensor target)
         m = 2 * realToFrac range * (r - 0.5)
     in (kconcrete m, g2)
 
-instance ( KnownShS sh, GoodScalar r, Fractional r, Random r
-         , BaseTensor target )
+instance (KnownShS sh, GoodScalar r, Fractional r, Random r, BaseTensor target)
          => RandomValue (target (TKS sh r)) where
   randomValue range g =
     let createRandomVector :: Int -> StdGen -> target (TKS sh r)

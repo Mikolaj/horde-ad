@@ -62,7 +62,7 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
             widthHiddenSNat widthHidden2SNat
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
         chunk = take batchSize xs
-        grad c = fst $ sgd gamma f c targetInit
+        grad c = fst $ sgdSTK knownSTK gamma f c targetInit
         name =
           prefix
           ++ unwords
@@ -392,7 +392,7 @@ mnistBGroup2VTO :: Int -> Benchmark
 mnistBGroup2VTO chunkLength =
   let (!targetInit, !artRaw) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
-          (Proxy @Float) False 1 (mkStdGen 44) 500 150
+          @Double (Proxy @Float) False 1 (mkStdGen 44) 500 150
       !art = simplifyArtifactGradient artRaw  -- no NFData for AST
   in env (do
     testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total

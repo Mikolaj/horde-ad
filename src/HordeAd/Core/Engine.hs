@@ -322,6 +322,14 @@ cfwdBoth f vals ds =
 -- {-# SPECIALIZE evalRevSame :: y ~ ADTensorKind y => EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
 {-# SPECIALIZE evalRevFromnMap :: EvalState RepN -> EvalState RepN #-}
 
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKScalar Double) -> Delta RepN (TKScalar Double) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKScalar Float) -> Delta RepN (TKScalar Float) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKR n Double) -> Delta RepN (TKR n Double) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKR n Float) -> Delta RepN (TKR n Float) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKS sh Double) -> Delta RepN (TKS sh Double) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKS sh Float) -> Delta RepN (TKS sh Float) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKX sh Double) -> Delta RepN (TKX sh Double) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKX sh Float) -> Delta RepN (TKX sh Float) -> EvalState RepN #-}
 
 
 -- These and all other SPECIALIZE pragmas are needed due to the already

@@ -1,6 +1,6 @@
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.External.Optimizer
-  ( sgd
+  ( sgd, sgdSTK
   , sgdAdam, sgdAdamArgs
   , StateAdam, initialStateAdam
   , defaultArgsAdam
@@ -19,14 +19,15 @@ import HordeAd.External.OptimizerTools
 -- These functions have their SPECIALIZE pragmas in MnistData.
 
 -- | Stochastic Gradient Descent.
-sgd :: forall a x z. KnownSTK x
-    => Double  -- ^ gamma (learning_rate?)
-    -> (a -> ADVal RepN x -> ADVal RepN z)
-    -> [a]  -- ^ training data
-    -> RepN x  -- ^ initial parameters
-    -> (RepN x, RepN z)
-sgd gamma f trainingData parameters0 = go trainingData parameters0 where
-  zftk = tftkG knownSTK $ unRepN parameters0
+sgdSTK :: forall a x z.
+          STensorKind x
+       -> Double  -- ^ gamma (learning_rate?)
+       -> (a -> ADVal RepN x -> ADVal RepN z)
+       -> [a]  -- ^ training data
+       -> RepN x  -- ^ initial parameters
+       -> (RepN x, RepN z)
+sgdSTK stk gamma f trainingData parameters0 = go trainingData parameters0 where
+  zftk = tftkG stk $ unRepN parameters0
   deltaInputs :: Delta RepN x
   deltaInputs = generateDeltaInputs zftk
   go :: [a] -> RepN x -> (RepN x, RepN z)
@@ -35,10 +36,18 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     let inputs :: ADVal RepN x
         inputs = dDnotShared parameters deltaInputs
         (gradients, valueNew) = crevOnADInputs Nothing (f a) zftk inputs
-        parametersNew = updateWithGradient gamma knownSTK parameters gradients
+        parametersNew = updateWithGradient gamma stk parameters gradients
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
+
+sgd :: forall a x z. KnownSTK x
+    => Double  -- ^ gamma (learning_rate?)
+    -> (a -> ADVal RepN x -> ADVal RepN z)
+    -> [a]  -- ^ training data
+    -> RepN x  -- ^ initial parameters
+    -> (RepN x, RepN z)
+sgd = sgdSTK knownSTK
 
 -- We inline (possibly causing a binary blowup) until we are able to work around
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/23798

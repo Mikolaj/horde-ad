@@ -589,7 +589,7 @@ mnistTestCase2VTO
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let (!targetInit, !artRaw) =
-        MnistFcnnRanked2.mnistTrainBench2VTOGradient (Proxy @Float) False
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient @r (Proxy @Float) False
           1 (mkStdGen 44) widthHidden widthHidden2
       !art = simplifyArtifactGradient artRaw
       name = prefix ++ ": "
@@ -690,7 +690,8 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                          RepN widthHidden widthHidden2 Double Double)))
             range seed3
         (targetInit, artRaw) =
-          MnistFcnnRanked2.mnistTrainBench2VTOGradient (Proxy @Double) True
+          MnistFcnnRanked2.mnistTrainBench2VTOGradient
+            @Double (Proxy @Double) True
             range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
         art = iterate simplifyArtifactGradient artRaw !! simp
         stk = knownSTK @(XParams2 Double Double)

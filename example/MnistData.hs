@@ -183,28 +183,3 @@ chunksOf n = go where
   go [] = []
   go l = let (chunk, rest) = splitAt n l
          in chunk : go rest
-
-{-
-{-# SPECIALIZE sgd
-  :: KnownNat n
-  => Double
-  -> (MnistData Double
-      -> HVector (ADVal RepN)
-      -> ADVal RepN (TKR n Double))
-  -> [MnistData Double]
-  -> HVector RepN
-  -> (HVector RepN, RepN (TKR n Double)) #-}
--}
-
-{- TODO: RULE left-hand side too complicated to desugar
-
-{-# SPECIALIZE sgdAdam
-  :: KnownNat y
-  => (MnistDataBatchR Double -> HVector (ADVal Nested.Ranked)
-      -> ADVal Nested.Ranked Double y)
-  -> [MnistDataBatchR Double]
-  -> HVector Nested.Ranked
-  -> StateAdam
-  -> (HVector Nested.Ranked, StateAdam) #-}
-
--}

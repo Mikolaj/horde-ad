@@ -117,6 +117,7 @@ instance BaseTensor RepN where
     STKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
     _ -> rsum . rflatten $ t
+  {-# INLINE rdot0 #-}  -- this doesn't want to specialize
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
   {-# INLINE rmatvecmul #-}  -- this doesn't want to specialize
@@ -190,6 +191,7 @@ instance BaseTensor RepN where
     STKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
     _ -> ssum . sflatten $ t
+  {-# INLINE sdot0 #-}  -- this doesn't want to specialize
   sdot0 u v  =
     RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   sdot1In (SNat @n) u v =
@@ -340,6 +342,7 @@ instance BaseTensor RepN where
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
     _ -> withSNat (shxSize $ xshape t) $ \snat ->
       xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+  {-# INLINE xdot0 #-}  -- this doesn't want to specialize
   xdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
   xdot1In @_ @n u v =
