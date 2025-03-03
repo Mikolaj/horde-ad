@@ -18,9 +18,7 @@ module HordeAd.Core.Engine
 
 import Prelude
 
-import Data.Int (Int64)
 import Data.Maybe (isJust)
-import Type.Reflection (Typeable)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -329,304 +327,41 @@ cfwdBoth f vals ds =
 -- These and all other SPECIALIZE pragmas are needed due to the already
 -- mostly fixed issues #21286 and others, even just to compare
 -- the output with them and without.
-
-{-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
-  :: Typeable r
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet PrimalSpan (TKR n r)
-  -> RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
-  :: Typeable r
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan (TKR n r)
-  -> AstRaw PrimalSpan (TKR n r) #-}
-{-# SPECIALIZE interpretAstPrimalRuntimeSpecialized
-  :: Typeable r
-  => AstEnv RepN
-  -> AstTensor AstMethodLet PrimalSpan (TKR n r)
-  -> RepN (TKR n r) #-}
-
-{-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: Typeable r
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
-  -> RepN (TKS sh r) #-}
-{-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: Typeable r
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
-  -> AstRaw PrimalSpan (TKS sh r) #-}
-{-# SPECIALIZE interpretAstPrimalSRuntimeSpecialized
-  :: Typeable r
-  => AstEnv RepN
-  -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
-  -> RepN (TKS sh r) #-}
-
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet PrimalSpan (TKR n r)
-  -> RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Double)
-  -> RepN (TKR n Double) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Float)
-  -> RepN (TKR n Float) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Int64)
-  -> RepN (TKR n Int64) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan (TKR n r)
-  -> AstRaw PrimalSpan (TKR n r) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Double)
-  -> AstRaw PrimalSpan (TKR n Double) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Float)
-  -> AstRaw PrimalSpan (TKR n Float) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Int64)
-  -> AstRaw PrimalSpan (TKR n Int64) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet PrimalSpan (TKR n r)
-  -> RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Double)
-  -> RepN (TKR n Double) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Float)
-  -> RepN (TKR n Float) #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet PrimalSpan (TKR n Int64)
-  -> RepN (TKR n Int64) #-}
-
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet DualSpan (TKR n r)
-  -> Delta RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet DualSpan (TKR n Double)
-  -> Delta RepN (TKR n Double) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet DualSpan (TKR n Float)
-  -> Delta RepN (TKR n Float) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet DualSpan (TKR n Int64)
-  -> Delta RepN (TKR n Int64) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet DualSpan (TKR n r)
-  -> Delta (AstRaw PrimalSpan) (TKR n r) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet DualSpan (TKR n Double)
-  -> Delta (AstRaw PrimalSpan) (TKR n Double) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet DualSpan (TKR n Float)
-  -> Delta (AstRaw PrimalSpan) (TKR n Float) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet DualSpan (TKR n Int64)
-  -> Delta (AstRaw PrimalSpan) (TKR n Int64) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet DualSpan (TKR n r)
-  -> DummyDualTarget (TKR n r) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet DualSpan (TKR n Double)
-  -> DummyDualTarget (TKR n Double) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet DualSpan (TKR n Float)
-  -> DummyDualTarget (TKR n Float) #-}
-{-# SPECIALIZE interpretAstDual
-  :: AstEnv RepN
-  -> AstTensor AstMethodLet DualSpan (TKR n Int64)
-  -> DummyDualTarget (TKR n Int64) #-}
-
--- This is needed for all three AstSpan values, to handle recursive calls
--- from interpretAstDual, etc.
-{-# SPECIALIZE interpretAstRRuntimeSpecialized
-  :: (Typeable r, AstSpan s)
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKR n r)
-  -> ADVal RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAstRRuntimeSpecialized
-  :: (Typeable r, AstSpan s)
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKR n r)
-  -> ADVal (AstRaw PrimalSpan) (TKR n r) #-}
-{-# SPECIALIZE interpretAstRRuntimeSpecialized
-  :: (Typeable r, AstSpan s)
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKR n r)
-  -> RepN (TKR n r) #-}
-
-{-# SPECIALIZE interpretAstSRuntimeSpecialized
-  :: (Typeable r, AstSpan s)
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKS sh r)
-  -> ADVal RepN (TKS sh r) #-}
-{-# SPECIALIZE interpretAstSRuntimeSpecialized
-  :: (Typeable r, AstSpan s)
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKS sh r)
-  -> ADVal (AstRaw PrimalSpan) (TKS sh r) #-}
-{-# SPECIALIZE interpretAstSRuntimeSpecialized
-  :: (Typeable r, AstSpan s)
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKS sh r)
-  -> RepN (TKS sh r) #-}
-
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKR n r)
-  -> ADVal RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKR n Double)
-  -> ADVal RepN (TKR n Double) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKR n Float)
-  -> ADVal RepN (TKR n Float) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKR n Int64)
-  -> ADVal RepN (TKR n Int64) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKR n r)
-  -> ADVal (AstRaw PrimalSpan) (TKR n r) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKR n Double)
-  -> ADVal (AstRaw PrimalSpan) (TKR n Double) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKR n Float)
-  -> ADVal (AstRaw PrimalSpan) (TKR n Float) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKR n Int64)
-  -> ADVal (AstRaw PrimalSpan) (TKR n Int64) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKR n r)
-  -> RepN (TKR n r) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKR n Double)
-  -> RepN (TKR n Double) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKR n Float)
-  -> RepN (TKR n Float) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKR n Int64)
-  -> RepN (TKR n Int64) #-}
-
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKS sh r)
-  -> ADVal RepN (TKS sh r) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKS sh Double)
-  -> ADVal RepN (TKS sh Double) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKS sh Float)
-  -> ADVal RepN (TKS sh Float) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal RepN)
-  -> AstTensor AstMethodLet s (TKS sh Int64)
-  -> ADVal RepN (TKS sh Int64) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKS sh r)
-  -> ADVal (AstRaw PrimalSpan) (TKS sh r) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKS sh Double)
-  -> ADVal (AstRaw PrimalSpan) (TKS sh Double) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKS sh Float)
-  -> ADVal (AstRaw PrimalSpan) (TKS sh Float) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet s (TKS sh Int64)
-  -> ADVal (AstRaw PrimalSpan) (TKS sh Int64) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKS sh r)
-  -> RepN (TKS sh r) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKS sh Double)
-  -> RepN (TKS sh Double) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKS sh Float)
-  -> RepN (TKS sh Float) #-}
-{-# SPECIALIZE interpretAst
-  :: AstSpan s
-  => AstEnv RepN
-  -> AstTensor AstMethodLet s (TKS sh Int64)
-  -> RepN (TKS sh Int64) #-}
-
-{-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal RepN)
-  -> AstBool AstMethodLet
-  -> Bool #-}
-{-# SPECIALIZE interpretAstBool
+  -> AstTensor AstMethodLet PrimalSpan y
+  -> ADVal RepN y #-}
+{-# SPECIALIZE interpretAst
   :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstBool AstMethodLet
-  -> AstBool AstMethodShare #-}
-{-# SPECIALIZE interpretAstBool
+  -> AstTensor AstMethodLet PrimalSpan y
+  -> ADVal (AstRaw PrimalSpan) y #-}
+{-# SPECIALIZE interpretAst
   :: AstEnv RepN
-  -> AstBool AstMethodLet
-  -> Bool #-}
+  -> AstTensor AstMethodLet PrimalSpan y
+  -> RepN y #-}
+{-# SPECIALIZE interpretAst
+  :: AstEnv (ADVal RepN)
+  -> AstTensor AstMethodLet DualSpan y
+  -> ADVal RepN y #-}
+{-# SPECIALIZE interpretAst
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
+  -> AstTensor AstMethodLet DualSpan y
+  -> ADVal (AstRaw PrimalSpan) y #-}
+{-# SPECIALIZE interpretAst
+  :: AstEnv RepN
+  -> AstTensor AstMethodLet DualSpan y
+  -> RepN y #-}
+{-# SPECIALIZE interpretAst
+  :: AstEnv (ADVal RepN)
+  -> AstTensor AstMethodLet FullSpan y
+  -> ADVal RepN y #-}
+{-# SPECIALIZE interpretAst
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
+  -> AstTensor AstMethodLet FullSpan y
+  -> ADVal (AstRaw PrimalSpan) y #-}
+{-# SPECIALIZE interpretAst
+  :: AstEnv RepN
+  -> AstTensor AstMethodLet FullSpan y
+  -> RepN y #-}

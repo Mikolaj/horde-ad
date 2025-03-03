@@ -9,24 +9,16 @@
 -- The sharing mechanisms are translated so as to preserve sharing in case
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
-  ( interpretAstPrimal, interpretAst
-  -- * Exported only to specialize elsewhere (because transitive specialization may not work, possibly)
-  , interpretAstPrimalRuntimeSpecialized, interpretAstPrimalSRuntimeSpecialized
-  , interpretAstDual
-  , interpretAstScalarRuntimeSpecialized, interpretAstRRuntimeSpecialized
-  , interpretAstSRuntimeSpecialized, interpretAstXRuntimeSpecialized
-  , interpretAstBool
+  ( interpretAst
   ) where
 
 import Prelude
 
 import Data.Dependent.EnumMap.Strict.Unsafe qualified as DMap.Unsafe
-import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import Foreign.C (CInt)
-import Type.Reflection (Typeable, typeRep)
+import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (ListS (..), ShS (..))
@@ -38,42 +30,6 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-
-interpretAstPrimalRuntimeSpecialized
-  :: forall target n r. (ADReady target, Typeable r)
-  => AstEnv target
-  -> AstTensor AstMethodLet PrimalSpan (TKR n r) -> PrimalOf target (TKR n r)
-interpretAstPrimalRuntimeSpecialized !env t =
-  -- We dispatch on all expected underyling scalar types, which is
-  -- necessary to run the correct specialization when unpacking
-  -- an existential type.
-  -- If the scalar type is not on the list, performance suffers greatly.
-  -- TODO: revisit using TypeRepOf to pattern match
-  -- instead of nesting conditionals
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimal @target @(TKR n Double) env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimal @target @(TKR n Float) env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimal @target @(TKR n Int64) env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimal @target @(TKR n CInt) env t
-          _ -> error "an unexpected underlying scalar type"  -- catch absurd
-
-interpretAstPrimalSRuntimeSpecialized
-  :: forall target sh r. (ADReady target, Typeable r)
-  => AstEnv target
-  -> AstTensor AstMethodLet PrimalSpan (TKS sh r) -> PrimalOf target (TKS sh r)
-interpretAstPrimalSRuntimeSpecialized !env t =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAstPrimal @target @(TKS sh Double) env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAstPrimal @target @(TKS sh Float) env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAstPrimal @target @(TKS sh Int64) env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAstPrimal @target @(TKS sh CInt) env t
-          _ -> error "an unexpected underlying scalar type"  -- catch absurd
 
 -- Strict environment and strict ADVal and Delta make this is hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
@@ -106,78 +62,6 @@ interpretAstDual !env v1 = case v1 of
   AstDualPart (AstFromDual u) -> interpretAstDual env u
   _ ->
     tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
-
-interpretAstScalarRuntimeSpecialized
-  :: forall target s r. (ADReady target, Typeable r, AstSpan s)
-  => AstEnv target
-  -> AstTensor AstMethodLet s (TKScalar r) -> target (TKScalar r)
-{-# INLINE interpretAstScalarRuntimeSpecialized #-}
-interpretAstScalarRuntimeSpecialized !env t =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @target @s @(TKScalar Double) env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @target @s @(TKScalar Float) env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @target @s @(TKScalar Int64) env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @target @s @(TKScalar CInt) env t
-          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
-            Just Refl -> interpretAst @target @s @(TKScalar Z0) env t
-            _ -> error "an unexpected underlying scalar type"
-
-interpretAstRRuntimeSpecialized
-  :: forall target n s r. (ADReady target, Typeable r, AstSpan s)
-  => AstEnv target
-  -> AstTensor AstMethodLet s (TKR n r) -> target (TKR n r)
-{-# INLINE interpretAstRRuntimeSpecialized #-}
-interpretAstRRuntimeSpecialized !env t =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @target @s @(TKR n Double) env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @target @s @(TKR n Float) env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @target @s @(TKR n Int64) env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @target @s @(TKR n CInt) env t
-          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
-            Just Refl -> interpretAst @target @s @(TKR n Z0) env t
-            _ -> error "an unexpected underlying scalar type"
-
-interpretAstSRuntimeSpecialized
-  :: forall target sh s r. (ADReady target, Typeable r, AstSpan s)
-  => AstEnv target
-  -> AstTensor AstMethodLet s (TKS sh r) -> target (TKS sh r)
-{-# INLINE interpretAstSRuntimeSpecialized #-}
-interpretAstSRuntimeSpecialized !env t =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @target @s @(TKS sh Double) env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @target @s @(TKS sh Float) env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @target @s @(TKS sh Int64) env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @target @s @(TKS sh CInt) env t
-          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
-            Just Refl -> interpretAst @target @s @(TKS sh Z0) env t
-            _ -> error "an unexpected underlying scalar type"
-
-interpretAstXRuntimeSpecialized
-  :: forall target sh s r. (ADReady target, Typeable r, AstSpan s)
-  => AstEnv target
-  -> AstTensor AstMethodLet s (TKX sh r) -> target (TKX sh r)
-{-# INLINE interpretAstXRuntimeSpecialized #-}
-interpretAstXRuntimeSpecialized !env t =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> interpretAst @target @s @(TKX sh Double) env t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> interpretAst @target @s @(TKX sh Float) env t
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl -> interpretAst @target @s @(TKX sh Int64) env t
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-          Just Refl -> interpretAst @target @s @(TKX sh CInt) env t
-          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
-            Just Refl -> interpretAst @target @s @(TKX sh Z0) env t
-            _ -> error "an unexpected underlying scalar type"
 
 interpretAst
   :: forall target s y. (ADReady target, AstSpan s)
@@ -253,28 +137,11 @@ interpretAst !env = \case
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat stk f
 
-  AstLet var u v -> case varNameToFTK var of
-    -- We assume there are no nested lets with the same variable.
-    FTKScalar ->
-      let t = interpretAstScalarRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    FTKR _ FTKScalar ->
-      let t = interpretAstRRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    FTKS _ FTKScalar ->
-      let t = interpretAstSRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    FTKX _ FTKScalar ->
-      let t = interpretAstXRuntimeSpecialized env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
-    _ ->
-      let t = interpretAst env u
-          env2 w = extendEnv var w env
-      in tlet t (\w -> interpretAst (env2 w) v)
+  -- We assume there are no nested lets with the same variable.
+  AstLet var u v ->
+    let t = interpretAst env u
+        env2 w = extendEnv var w env
+    in tlet t (\w -> interpretAst (env2 w) v)
 
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @target@ must
@@ -344,11 +211,11 @@ interpretAst !env = \case
   AstFloorS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
-      sfloor $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+      sfloor $ sfromPrimal $ interpretAstPrimal env v
   AstFromIntegralS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
-      sfromIntegral $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+      sfromIntegral $ sfromPrimal $ interpretAstPrimal env v
   AstCastS @r1 @r2 v ->
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
     case testEquality (typeRep @r1) (typeRep @Double) of
@@ -419,12 +286,12 @@ interpretAst !env = \case
     STKS (_ :$$ sh) x ->
       withKnownShS sh $
       withKnownSTK x $
-      sminIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+      sminIndex $ sfromPrimal $ interpretAstPrimal env v
   AstMaxIndexS v -> case ftkToSTK (ftkAst v) of
     STKS (_ :$$ sh) x ->
       withKnownShS sh $
       withKnownSTK x $
-      smaxIndex $ sfromPrimal $ interpretAstPrimalSRuntimeSpecialized env v
+      smaxIndex $ sfromPrimal $ interpretAstPrimal env v
   AstIotaS SNat -> siota
   AstAppendS a b -> case ftkToSTK (ftkAst a) of
     STKS _ x ->
@@ -521,10 +388,10 @@ interpretAstBool !env = \case
     in interpretAstB2 opCodeBool b1 b2
   AstBoolConst a -> if a then true else false
   AstRelK opCodeRel arg1 arg2 ->
-    let r1 = interpretAst env arg1
-        r2 = interpretAst env arg2
+    let r1 = interpretAstPrimal env arg1
+        r2 = interpretAstPrimal env arg2
     in interpretAstRelOp opCodeRel r1 r2
   AstRelS opCodeRel arg1 arg2 ->
-    let r1 = interpretAstPrimalSRuntimeSpecialized env arg1
-        r2 = interpretAstPrimalSRuntimeSpecialized env arg2
+    let r1 = interpretAstPrimal env arg1
+        r2 = interpretAstPrimal env arg2
     in interpretAstRelOp opCodeRel r1 r2
