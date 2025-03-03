@@ -302,11 +302,9 @@ benchmark longMnistBench
 
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
 
       , base
       , criterion
-      , random
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
@@ -326,11 +324,9 @@ benchmark shortMnistForCI
 
     build-depends:
       , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
 
       , base
       , criterion
-      , random
 
 -- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
 benchmark realisticMnistBench

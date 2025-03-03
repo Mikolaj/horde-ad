@@ -105,9 +105,12 @@ mnistTestBench1VTA prefix widthHiddenInt widthHidden2Int
                , "m0" ++ " =" ++ show (tsize knownSTK targetInit) ]
     bench name $ whnf score chunk
 
-mnistBGroup1VTA :: [MnistData Double] -> Int -> Benchmark
-mnistBGroup1VTA xs0 chunkLength =
-  env (return $ map mkMnistDataLinearR $ take chunkLength xs0) $
+mnistBGroup1VTA :: Int -> Benchmark
+mnistBGroup1VTA chunkLength =
+  env (do
+    testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
+    let testData = shuffle (mkStdGen 42) testData0
+    return $! map mkMnistDataLinearR $ take chunkLength testData) $
   \ xs ->
   bgroup ("2-hidden-layer rank 1 VTA MNIST nn with samples: "
           ++ show chunkLength) $
@@ -208,9 +211,12 @@ mnistTestBench1VTO
   -> Benchmark
 mnistTestBench1VTO = mnistTestBench1VTA
 
-mnistBGroup1VTO :: [MnistData Double] -> Int -> Benchmark
-mnistBGroup1VTO xs0 chunkLength =
-  env (return $ map mkMnistDataLinearR $ take chunkLength xs0) $
+mnistBGroup1VTO :: Int -> Benchmark
+mnistBGroup1VTO chunkLength =
+  env (do
+    testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
+    let testData = shuffle (mkStdGen 42) testData0
+    return $! map mkMnistDataLinearR $ take chunkLength testData) $
   \ xs ->
   bgroup ("2-hidden-layer rank 1 VTO MNIST nn with samples: "
           ++ show chunkLength) $
@@ -292,9 +298,12 @@ mnistTestBench2VTA prefix widthHidden widthHidden2
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ whnf score chunk
 
-mnistBGroup2VTA :: [MnistData Double] -> Int -> Benchmark
-mnistBGroup2VTA xs0 chunkLength =
-  env (return $ map mkMnistDataLinearR $ take chunkLength xs0) $
+mnistBGroup2VTA :: Int -> Benchmark
+mnistBGroup2VTA chunkLength =
+  env (do
+    testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
+    let testData = shuffle (mkStdGen 42) testData0
+    return $! map mkMnistDataLinearR $ take chunkLength testData) $
   \ xs ->
   bgroup ("2-hidden-layer rank 2 VTA MNIST nn with samples: "
           ++ show chunkLength) $
@@ -330,6 +339,23 @@ mnistTrainBench2VTC prefix widthHidden widthHidden2 =
               @Double (Proxy @Float) False 1 (mkStdGen 44) widthHidden)
          widthHidden2
 
+mnistBGroup2VTC :: Int -> Benchmark
+mnistBGroup2VTC chunkLength =
+  bgroup ("2-hidden-layer rank 2 VTC compilation MNIST nn with samples: "
+          ++ show chunkLength) $
+    (if chunkLength <= 1000
+     then
+       [ mnistTrainBench2VTC "30|10 " 30 10
+           -- toy width
+       , mnistTrainBench2VTC "300|100 " 300 100
+           -- ordinary width
+       ]
+     else
+       [])
+    ++ [ mnistTrainBench2VTC "500|150 " 500 150
+           -- another common width
+       ]
+
 -- The same as above, but only runtime.
 mnistTrainBench2VTO
   :: forall r. r ~ Double
@@ -362,36 +388,20 @@ mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf grad chunk
 
-mnistBGroup2VTC :: Int -> Benchmark
-mnistBGroup2VTC chunkLength =
-  bgroup ("2-hidden-layer rank 2 VTC compilation MNIST nn with samples: "
-          ++ show chunkLength) $
-    (if chunkLength <= 1000
-     then
-       [ mnistTrainBench2VTC "30|10 " 30 10
-           -- toy width
-       , mnistTrainBench2VTC "300|100 " 300 100
-           -- ordinary width
-       ]
-     else
-       [])
-    ++ [ mnistTrainBench2VTC "500|150 " 500 150
-           -- another common width
-      ]
-
-mnistBGroup2VTO :: [MnistData Double] -> Int -> Benchmark
-mnistBGroup2VTO xs0 chunkLength =
+mnistBGroup2VTO :: Int -> Benchmark
+mnistBGroup2VTO chunkLength =
   let (!targetInit, !artRaw) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
           (Proxy @Float) False 1 (mkStdGen 44) 500 150
-      !art = simplifyArtifactGradient artRaw
-  in env (return $ map mkMnistDataLinearR $ take chunkLength xs0)
-     $ \ xs ->
+      !art = simplifyArtifactGradient artRaw  -- no NFData for AST
+  in env (do
+    testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
+    let testData = shuffle (mkStdGen 42) testData0
+    return $! map mkMnistDataLinearR $ take chunkLength testData) $
+  \ xs ->
    bgroup ("2-hidden-layer rank 2 VTO runtime MNIST nn with samples: "
            ++ show chunkLength)
-     [ mnistTrainBench2VTO "500|150 warm-up " 0.02 chunkLength xs
-                           (targetInit, art)
-     , mnistTrainBench2VTO "500|150 " 0.02 chunkLength xs (targetInit, art)
+     [ mnistTrainBench2VTO "500|150 " 0.02 chunkLength xs (targetInit, art)
      ]
 
 -- This is expected to fail with -O0 and to pass with -O1
