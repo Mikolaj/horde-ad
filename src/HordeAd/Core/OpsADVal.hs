@@ -109,9 +109,6 @@ cfwdOnHVector xftk parameters f ds =
 
 -- * Instances
 
-fromPrimalADVal :: (KnownSTK z, BaseTensor f) => f z -> ADVal f z
-fromPrimalADVal a = dDnotShared a (DeltaZero $ tftk knownSTK a)
-
 fromPrimalFTK :: FullTensorKind z -> f z -> ADVal f z
 fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
 
@@ -205,7 +202,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   rmaxIndex (D u _) =
     let v = rmaxIndex u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  riota = fromPrimalADVal . riota
+  riota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ riota n
   rappend (D u u') (D v v') = dD (rappend u v) (DeltaAppendR u' v')
   rslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
   rreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
@@ -268,7 +265,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   smaxIndex (D u _) =
     let v = smaxIndex u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  siota = fromPrimalADVal siota
+  siota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) siota
   sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
@@ -340,7 +337,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   xmaxIndex (D u _) =
     let v = xmaxIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  xiota = fromPrimalADVal xiota
+  xiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) xiota
   xappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
   xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
   xreverse (D u u') = dD (xreverse u) (DeltaReverseX u')
@@ -516,7 +513,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     in tindexBuildShare (SNat @2) stk uv (ifF b 0 1)
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
-  tfromPrimal stk t | Dict <- lemKnownSTK stk = fromPrimalADVal t
+  tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
   tfromDual t = dDnotShared (constantTarget 0 (ftkDelta t)) t
   tScale stk k = withKnownSTK stk $ dScale k
   trev @x xftk h =

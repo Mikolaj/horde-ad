@@ -28,9 +28,7 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-sminIndexN :: forall target sh r.
-              ( ADReady target, GoodScalar r
-              , KnownShS sh, KnownNat (Nested.Product sh) )
+sminIndexN :: forall target sh r. (ADReady target, GoodScalar r, KnownShS sh)
            => target (TKS sh r) -> IxSOf target sh
 sminIndexN t =
   fromLinearIdxS
@@ -38,9 +36,7 @@ sminIndexN t =
     (sshape t)
     (tprimalPart @target $ kfromS $ sminIndex (sflatten t))
 
-smaxIndexN :: forall target sh r.
-              ( ADReady target, GoodScalar r
-              , KnownShS sh, KnownNat (Nested.Product sh) )
+smaxIndexN :: forall target sh r. (ADReady target, GoodScalar r, KnownShS sh)
            => target (TKS sh r) -> IxSOf target sh
 smaxIndexN t =
   fromLinearIdxS
@@ -48,13 +44,11 @@ smaxIndexN t =
     (sshape t)
     (tprimalPart @target $ kfromS $ smaxIndex (sflatten t))
 
-sminimum :: forall r sh target.
-            (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
+sminimum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 sminimum t = sindex0 t (sminIndexN t)
 
-smaximum :: forall r sh target.
-            (ADReady target, GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh))
+smaximum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 smaximum t = sindex0 t (smaxIndexN t)
 
@@ -138,8 +132,7 @@ lossCrossEntropyVS targ res = kfromS $ negate $ log res `sdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
   :: forall target sh r.
-     ( ADReady target, ADReady (PrimalOf target)
-     , GoodScalar r, KnownShS sh, KnownNat (Nested.Product sh)
+     ( ADReady target, ADReady (PrimalOf target), GoodScalar r, KnownShS sh
      , Differentiable r )
   => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
 lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
