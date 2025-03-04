@@ -6,12 +6,12 @@ module BenchProdTools where
 
 import Prelude
 
---import Control.DeepSeq (NFData)
 import Control.DeepSeq (NFData (..))
 import Criterion.Main
 import Data.Default qualified as Default
 import Data.Foldable qualified as Foldable
 import Data.List (foldl1')
+import Data.Proxy (Proxy (Proxy))
 import GHC.Exts (IsList (..), WithDict)
 import GHC.TypeLits (KnownNat)
 import Test.Inspection
@@ -69,135 +69,162 @@ benchProd :: r ~ Double
           -> [Benchmark]
 benchProd ~(snat, l, lt, t) = case snat of
   SNat ->
-    [ bench "ncrev ls" $ nf (crevRankedLProd snat) l
-    , bench "nrev ls" $ nf (revRankedLProd snat) l
-    , bench "r crev ls" $ nf (crevRankedLProdr snat) l
-    , bench "r rev ls" $ nf (revRankedLProdr snat) l
-    , bench "NotShared ls crev" $ nf (crevRankedNotSharedLProd snat) l
-    , bench "ncrev lt" $ nf (crevRankedLtProd snat) lt
-    , bench "nrev lt" $ nf (revRankedLtProd snat) lt
-    , bench "r crev lt" $ nf (crevRankedLtProdr snat) lt
-    , bench "r rev lt" $ nf (revRankedLtProdr snat) lt
-    , bench "NotShared lt crev" $ nf (crevRankedNotSharedLtProd snat) lt
-    , bench "crev t" $ nf (crevRankedTProd snat) t
-    , bench "rev t" $ nf (revRankedTProd snat) t
+    [ bench "crev s MapAccum" $ nf (crevSMapAccum snat) t
+    , bench "rev s MapAccum" $ nf (revSMapAccum snat) t
+    , bench "crev scalar MapAccum" $ nf (crevScalarMapAccum snat) t
+    , bench "rev scalar MapAccum" $ nf (revScalarMapAccum snat) t
+    , bench "crev scalar l" $ nf (crevScalarL snat) l
+    , bench "rev scalar l" $ nf (revScalarL snat) l
+    , bench "crev scalar r" $ nf (crevScalarR snat) l
+    , bench "rev scalar r" $ nf (revScalarR snat) l
+    , bench "crev scalar NotShared" $ nf (crevScalarNotShared snat) l
+    , bench "crev s l" $ nf (crevSL snat) lt
+    , bench "rev s l" $ nf (revSL snat) lt
+    , bench "crev s r" $ nf (crevSR snat) lt
+    , bench "rev s r" $ nf (revSR snat) lt
+    , bench "crev s NotShared" $ nf (crevSNotShared snat) lt
     ]
 
-rankedLProd :: (BaseTensor target, GoodScalar r)
+multScalarL :: (BaseTensor target, GoodScalar r)
             => ListR n (target (TKScalar r)) -> target (TKScalar r)
-rankedLProd = foldl1' (*) . Foldable.toList
+multScalarL = foldl1' (*) . Foldable.toList
 
-crevRankedLProd
+crevScalarL
   :: SNat n -> ListR n (RepN (TKScalar Double))
   -> ListR n (RepN (TKScalar Double))
-crevRankedLProd snat@SNat =
+crevScalarL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  crev rankedLProd
+  crev multScalarL
 
-revRankedLProd
+revScalarL
   :: SNat n -> ListR n (RepN (TKScalar Double))
   -> ListR n (RepN (TKScalar Double))
-revRankedLProd snat@SNat =
+revScalarL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  rev rankedLProd
+  rev multScalarL
 
-rankedLProdr :: (BaseTensor target, GoodScalar r)
-             => ListR n (target (TKScalar r)) -> target (TKScalar r)
-rankedLProdr = foldr1 (*)
+multScalarR :: (BaseTensor target, GoodScalar r)
+            => ListR n (target (TKScalar r)) -> target (TKScalar r)
+multScalarR = foldr1 (*)
 
-crevRankedLProdr
+crevScalarR
   :: SNat n -> ListR n (RepN (TKScalar Double))
   -> ListR n (RepN (TKScalar Double))
-crevRankedLProdr snat@SNat =
+crevScalarR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  crev rankedLProdr
+  crev multScalarR
 
-revRankedLProdr
+revScalarR
   :: SNat n -> ListR n (RepN (TKScalar Double))
   -> ListR n (RepN (TKScalar Double))
-revRankedLProdr snat@SNat =
+revScalarR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  rev rankedLProdr
+  rev multScalarR
 
-rankedNotSharedLProd :: (BaseTensor target, GoodScalar r)
+multScalarNotShared :: (BaseTensor target, GoodScalar r)
                     => ListR n (ADVal target (TKScalar r))
                     -> ADVal target (TKScalar r)
-rankedNotSharedLProd = foldr1 multNotShared
+multScalarNotShared = foldr1 multNotShared
 
-crevRankedNotSharedLProd
+crevScalarNotShared
   :: SNat n -> ListR n (RepN (TKScalar Double))
   -> ListR n (RepN (TKScalar Double))
-crevRankedNotSharedLProd snat@SNat =
+crevScalarNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  crev rankedNotSharedLProd
+  crev multScalarNotShared
 
-rankedLtProd :: (BaseTensor target, GoodScalar r)
-             => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
-rankedLtProd = foldl1' (*) . Foldable.toList
+multSL :: (BaseTensor target, GoodScalar r)
+       => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
+multSL = foldl1' (*) . Foldable.toList
 
-crevRankedLtProd
+crevSL
   :: SNat n -> ListR n (RepN (TKS '[] Double))
   -> ListR n (RepN (TKS '[] Double))
-crevRankedLtProd snat@SNat =
+crevSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  crev rankedLtProd
+  crev multSL
 
-revRankedLtProd
+revSL
   :: SNat n -> ListR n (RepN (TKS '[] Double))
   -> ListR n (RepN (TKS '[] Double))
-revRankedLtProd snat@SNat =
+revSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  rev rankedLtProd
+  rev multSL
 
-rankedLtProdr :: (BaseTensor target, GoodScalar r)
-              => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
-rankedLtProdr = foldr1 (*)
+multSR :: (BaseTensor target, GoodScalar r)
+       => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
+multSR = foldr1 (*)
 
-crevRankedLtProdr
+crevSR
   :: SNat n -> ListR n (RepN (TKS '[] Double))
   -> ListR n (RepN (TKS '[] Double))
-crevRankedLtProdr snat@SNat =
+crevSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  crev rankedLtProdr
+  crev multSR
 
-revRankedLtProdr
+revSR
   :: SNat n -> ListR n (RepN (TKS '[] Double))
   -> ListR n (RepN (TKS '[] Double))
-revRankedLtProdr snat@SNat =
+revSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  rev rankedLtProdr
+  rev multSR
 
-rankedNotSharedLtProd :: (BaseTensor target, GoodScalar r)
-                      => ListR n (ADVal target (TKS '[] r))
-                      -> ADVal target (TKS '[] r)
-rankedNotSharedLtProd = foldr1 multNotShared
+multSNotShared :: (BaseTensor target, GoodScalar r)
+               => ListR n (ADVal target (TKS '[] r))
+               -> ADVal target (TKS '[] r)
+multSNotShared = foldr1 multNotShared
 
-crevRankedNotSharedLtProd
+crevSNotShared
   :: SNat n -> ListR n (RepN (TKS '[] Double))
   -> ListR n (RepN (TKS '[] Double))
-crevRankedNotSharedLtProd snat@SNat =
+crevSNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  crev rankedNotSharedLtProd
+  crev multSNotShared
 
--- A potential further speedup would be to use tmapAccumL with TKS
--- and TKScalar, but I don't think we'd gain much, especially for rev.
 -- Another variant, with foldl1' and indexing, would be a disaster.
 -- We can define sproduct if this benchmark ends up used anywhere,
 -- because the current codomain of gradientFromDelta rules out
 -- low-level hacky pipeline tricks that could avoid indexing.
-rankedTProd :: (BaseTensor target, LetTensor target, GoodScalar r)
-            => SNat n -> target (TKS '[n] r) -> target (TKS '[] r)
-rankedTProd SNat = sfold (*) (sscalar 1)
-{-# SPECIALIZE rankedTProd :: SNat n -> ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKS '[] Double) #-}
-{-# SPECIALIZE rankedTProd :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
+multSMapAccum :: (BaseTensor target, LetTensor target, GoodScalar r)
+              => SNat n -> target (TKS '[n] r) -> target (TKS '[] r)
+multSMapAccum SNat = sfold (*) (sscalar 1)
+{-# SPECIALIZE multSMapAccum :: SNat n -> ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKS '[] Double) #-}
+{-# SPECIALIZE multSMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
 
-crevRankedTProd
+crevSMapAccum
   :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
-crevRankedTProd snat@SNat = crev (rankedTProd snat)
+crevSMapAccum snat@SNat = crev (multSMapAccum snat)
 
-revRankedTProd
+revSMapAccum
   :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
-revRankedTProd snat@SNat = rev (rankedTProd snat)
+revSMapAccum snat@SNat = rev (multSMapAccum snat)
+
+multScalarMapAccum :: forall target n r.
+                      (BaseTensor target, GoodScalar r)
+                   => SNat n -> target (TKS '[n] r) -> target (TKScalar r)
+multScalarMapAccum snat@SNat  =
+  tproject1
+  . tmapAccumL (Proxy @target)
+     snat
+     (FTKScalar @r)
+     (FTKScalar @Z0)
+     (FTKScalar @r)
+     (let g :: forall f. ADReady f
+            => f (TKScalar r) -> f (TKScalar r)
+            -> f (TKProduct (TKScalar r) TKUnit)
+          g !acc !e = tpair (acc * e) tunit
+      in g)
+     1
+{-# SPECIALIZE multScalarMapAccum :: SNat n -> ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKScalar Double) #-}
+{-# SPECIALIZE multScalarMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
+
+crevScalarMapAccum
+  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+crevScalarMapAccum snat@SNat = crev (multScalarMapAccum snat)
+
+revScalarMapAccum
+  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+revScalarMapAccum snat@SNat = rev (multScalarMapAccum snat)
 
 -- TODO: not enough specialized
 -- TODO: outdated explanation:
@@ -210,11 +237,13 @@ revRankedTProd snat@SNat = rev (rankedTProd snat)
 -- This is expected to fail with -O0 and to pass with -O1
 -- and -fpolymorphic-specialisation.
 -- This prevents running benchmarks without optimization, which is a good thing.
-inspect $ hasNoTypeClassesExcept 'crevRankedLProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
-inspect $ hasNoTypeClassesExcept 'revRankedLProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
-inspect $ hasNoTypeClassesExcept 'crevRankedNotSharedLProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
-inspect $ hasNoTypeClassesExcept 'crevRankedLtProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.Storable]
-inspect $ hasNoTypeClassesExcept 'revRankedLtProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
-inspect $ hasNoTypeClassesExcept 'crevRankedTProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
-inspect $ hasNoTypeClassesExcept 'revRankedTProd [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
--- inspect $ coreOf 'revRankedTProd
+inspect $ hasNoTypeClassesExcept 'crevScalarL [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'revScalarL [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'crevScalarNotShared [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'crevSL [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.Storable]
+inspect $ hasNoTypeClassesExcept 'revSL [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'crevSMapAccum [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+inspect $ hasNoTypeClassesExcept 'revSMapAccum [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+inspect $ hasNoTypeClassesExcept 'crevScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+inspect $ hasNoTypeClassesExcept 'revScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+-- inspect $ coreOf 'revSMapAccum
