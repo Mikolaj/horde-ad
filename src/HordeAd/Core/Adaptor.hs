@@ -18,9 +18,11 @@ module HordeAd.Core.Adaptor
 
 import Prelude
 
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
+import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
 
@@ -178,6 +180,48 @@ instance (RandomValue (target a), RandomValue (target b), BaseTensor target)
     let (v1, g1) = randomValue range g
         (v2, g2) = randomValue range g1
     in (tpair v1 v2, g2)
+
+instance (BaseTensor target, ConvertTensor target, GoodScalar r)
+         => AdaptableTarget target [target (TKScalar r)] where
+  type X [target (TKScalar r)] = TKR 1 r
+  toTarget l = case NonEmpty.nonEmpty l of
+    Nothing -> rconcrete Nested.remptyArray
+    Just nl -> rfromList $ NonEmpty.map rfromK nl
+  fromTarget = map kfromR . runravelToList  -- TODO: inefficient (indexing)
+
+instance TermValue a => TermValue [a] where
+  type Value [a] = [Value a]
+  fromValue = map fromValue
+
+instance DualNumberValue a => DualNumberValue [a] where
+  type DValue [a] = [DValue a]
+  fromDValue = map fromDValue
+
+instance ForgetShape [a] where
+  type NoShape [a] = [a]
+  forgetShape = id
+
+instance (BaseTensor target, ConvertTensor target, GoodScalar r)
+         => AdaptableTarget target
+                            (Data.Vector.Vector (target (TKScalar r))) where
+  type X (Data.Vector.Vector (target (TKScalar r))) = TKR 1 r
+  toTarget v = if V.null v
+               then rconcrete Nested.remptyArray
+               else rfromVector $ V.map rfromK v
+  fromTarget = V.fromList . map kfromR . runravelToList
+                                           -- TODO: inefficient (indexing)
+
+instance TermValue a => TermValue (Data.Vector.Vector a) where
+  type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
+  fromValue = V.map fromValue
+
+instance DualNumberValue a => DualNumberValue (Data.Vector.Vector a) where
+  type DValue (Data.Vector.Vector a) = Data.Vector.Vector (DValue a)
+  fromDValue = V.map fromDValue
+
+instance ForgetShape (Data.Vector.Vector a) where
+  type NoShape (Data.Vector.Vector a) = Data.Vector.Vector a
+  forgetShape = id
 
 type family Tups n t where
   Tups 0 t = TKUnit
