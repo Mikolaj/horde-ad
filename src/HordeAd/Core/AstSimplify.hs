@@ -124,7 +124,6 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst ()
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
-import HordeAd.Core.OpsConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
@@ -1100,7 +1099,7 @@ astFromIntegralS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
-  AstConcreteS a -> AstConcreteS (tfromIntegralS a)
+  AstConcreteS a -> astConcreteS (sfromIntegral $ RepN a)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
   Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
   Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)

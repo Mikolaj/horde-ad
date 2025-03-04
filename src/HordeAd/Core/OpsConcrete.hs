@@ -4,8 +4,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for concrete Storable Vector-backed arrays.
 module HordeAd.Core.OpsConcrete
-  ( tfromIntegralS
-  ) where
+  () where
 
 import Prelude hiding (foldl')
 
@@ -25,7 +24,7 @@ import Data.Vector.Storable qualified as VS
 import GHC.Exts (IsList (..))
 import GHC.IsList qualified as IsList
 import GHC.TypeLits
-  (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
+  (KnownNat, sameNat, type (+))
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import Type.Reflection (typeRep)
@@ -54,12 +53,12 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  (shsRank, shsToList, shsInit, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
+  (shsRank, shsToList, shsInit, shsLast, shrSize, shsTail, withKnownShS, shrTail, shsAppend, shsProduct, shsSize)
 import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 import Data.Array.Mixed.Types (Init)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxToList, fromSMayNat', shxSize, shxTakeSSX, shxTail, ssxFromShape, shxDropSSX, ssxAppend, withKnownShX)
+import Data.Array.Mixed.Shape (shxInit, shxToList, fromSMayNat', shxSize, shxTakeSSX, shxTail, ssxFromShape, shxLast, shxDropSSX, ssxAppend, withKnownShX)
 import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.CarriersConcrete
@@ -714,23 +713,23 @@ updateNR arr upd = case knownSTK @x of
 
 tminIndexR
   :: forall r r2 n.
-     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownNat n)
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
-tminIndexR =
+tminIndexR v | SNat <- Nested.rrank v =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
       f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead
           . Nested.rminIndexPrim
-  in Nested.rrerank SNat ZSR f
+  in Nested.rrerank SNat ZSR f v
 
 tmaxIndexR
   :: forall r r2 n.
-     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownNat n)
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n r2
-tmaxIndexR =
+tmaxIndexR v | SNat <- Nested.rrank v =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
       f = Nested.rscalar . fromIntegral . Nested.Internal.Shape.ixrHead
           . Nested.rmaxIndexPrim
-  in Nested.rrerank SNat ZSR f
+  in Nested.rrerank SNat ZSR f v
 
 -- We could generalize by unwinding and only then doing the PrimElt things,
 -- but we'd need a type family that says "replace this underlying scalars
@@ -993,57 +992,39 @@ tfromIntegralS = liftVS (V.map fromIntegral)
 
 tminIndexS
   :: forall n sh r r2.
-     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2
-     , KnownShS sh, KnownNat n )
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
-tminIndexS =
+tminIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead
           . Nested.sminIndexPrim
-  in case testEquality (knownShS @sh) ZSS of
-    Just Refl -> f @n
-    _ ->
-      let sh = toList $ knownShS @sh
-      in case someNatVal $ toInteger $ last sh of
-        Just (SomeNat @m _proxy) ->
-          case someNatVal $ toInteger $ length sh of
-            Just (SomeNat _proxy) ->
-              gcastWith (unsafeCoerceRefl
-                         :: Init (n ': sh) ++ '[m] :~: n ': sh) $
-              gcastWith (unsafeCoerceRefl
-                         :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
-              Nested.srerank @'[m] @'[] @(Init (n ': sh))
-                             (shsInit (SNat @n :$$ knownShS @sh)) knownShS
-                             (f @m)
-            Nothing -> error "tminIndexS: impossible someNatVal error"
-        Nothing -> error "tminIndexS: impossible someNatVal error"
+  in case sh of
+    ZSS -> f @n v
+    _ | SNat @m <- shsLast sh1 ->
+      gcastWith (unsafeCoerceRefl
+                 :: Init (n ': sh) ++ '[m] :~: n ': sh) $
+      gcastWith (unsafeCoerceRefl
+                 :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
+      Nested.srerank @'[m] @'[] @(Init (n ': sh))
+                     (shsInit sh1) ZSS (f @m) v
 
 tmaxIndexS
   :: forall n sh r r2.
-     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2
-     , KnownShS sh, KnownNat n )
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) r2
-tmaxIndexS =
+tmaxIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] r2
       f = Nested.sscalar . fromIntegral . Nested.Internal.Shape.ixsHead
           . Nested.smaxIndexPrim
-  in case testEquality (knownShS @sh) ZSS of
-    Just Refl -> f @n
-    _ ->
-      let sh = toList $ knownShS @sh
-      in case someNatVal $ toInteger $ last sh of
-        Just (SomeNat @m _proxy) ->
-          case someNatVal $ toInteger $ length sh of
-            Just (SomeNat _proxy) ->
-              gcastWith (unsafeCoerceRefl
-                         :: Init (n ': sh) ++ '[m] :~: n ': sh) $
-              gcastWith (unsafeCoerceRefl
-                         :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
-              Nested.srerank @'[m] @'[] @(Init (n ': sh))
-                             (shsInit (SNat @n :$$ knownShS @sh)) knownShS
-                             (f @m)
-            Nothing -> error "tmaxIndexS: impossible someNatVal error"
-        Nothing -> error "tmaxIndexS: impossible someNatVal error"
+  in case sh of
+    ZSS -> f @n v
+    _ | SNat @m <- shsLast sh1 ->
+      gcastWith (unsafeCoerceRefl
+                 :: Init (n ': sh) ++ '[m] :~: n ': sh) $
+      gcastWith (unsafeCoerceRefl
+                 :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
+      Nested.srerank @'[m] @'[] @(Init (n ': sh))
+                     (shsInit sh1) ZSS (f @m) v
 
 liftVS
   :: (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1232,55 +1213,39 @@ updateNX arr upd = case knownSTK @r of
 
 tminIndexX
   :: forall mn sh r r2.
-     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownShX sh
-     , KnownShX (Init (mn ': sh)) )
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Mixed (mn ': sh) r -> Nested.Mixed (Init (mn ': sh)) r2
-tminIndexX t =
+tminIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
   let f :: Nested.Mixed '[mm] r -> Nested.Mixed '[] r2
       f = Nested.mscalar . fromIntegral . ixxHead
           . Nested.mminIndexPrim
-  in case testEquality (knownShX @sh) ZKX of
-    Just Refl -> f @mn t
-    _ ->
-      let sh = toList $ shxTail $ Nested.mshape t
-      in case someNatVal $ toInteger $ last sh of
-        Just (SomeNat @m _proxy) ->
-          case someNatVal $ toInteger $ length sh of
-            Just (SomeNat _proxy) ->
-              gcastWith (unsafeCoerceRefl
-                         :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
-              gcastWith (unsafeCoerceRefl
-                         :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
-              Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
-                             knownShX ZSX (f @(Just m)) t
-            Nothing -> error "tminIndexX: impossible someNatVal error"
-        Nothing -> error "tminIndexX: impossible someNatVal error"
+  in case sh of
+    ZSX -> f @mn v
+    _ -> withSNat (fromSMayNat' (shxLast sh1)) $ \(_ :: SNat m) ->
+      gcastWith (unsafeCoerceRefl
+                 :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
+      gcastWith (unsafeCoerceRefl
+                 :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
+      Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
+                     (ssxFromShape $ shxInit sh1) ZSX (f @(Just m)) v
 
 tmaxIndexX
   :: forall mn sh r r2.
-     ( Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2, KnownShX sh
-     , KnownShX (Init (mn ': sh)) )
+     (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Mixed (mn ': sh) r -> Nested.Mixed (Init (mn ': sh)) r2
-tmaxIndexX t =
+tmaxIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
   let f :: Nested.Mixed '[mm] r -> Nested.Mixed '[] r2
       f = Nested.mscalar . fromIntegral . ixxHead
           . Nested.mmaxIndexPrim
-  in case testEquality (knownShX @sh) ZKX of
-    Just Refl -> f @mn t
-    _ ->
-      let sh = toList $ shxTail $ Nested.mshape t
-      in case someNatVal $ toInteger $ last sh of
-        Just (SomeNat @m _proxy) ->
-          case someNatVal $ toInteger $ length sh of
-            Just (SomeNat _proxy) ->
-              gcastWith (unsafeCoerceRefl
-                         :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
-              gcastWith (unsafeCoerceRefl
-                         :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
-              Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
-                             knownShX ZSX (f @(Just m)) t
-            Nothing -> error "tminIndexX: impossible someNatVal error"
-        Nothing -> error "tminIndexX: impossible someNatVal error"
+  in case sh of
+    ZSX -> f @mn v
+    _ -> withSNat (fromSMayNat' (shxLast sh1)) $ \(_ :: SNat m) ->
+      gcastWith (unsafeCoerceRefl
+                 :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
+      gcastWith (unsafeCoerceRefl
+                 :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
+      Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
+                     (ssxFromShape $ shxInit sh1) ZSX (f @(Just m)) v
 
 liftVX
   :: (Nested.PrimElt r1, Nested.PrimElt r)

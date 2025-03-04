@@ -34,7 +34,7 @@ import Data.Array.Nested
   , KnownShX (..)
   )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsInit, withKnownShS)
+import Data.Array.Nested.Internal.Shape (withKnownShS)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape (withKnownShX, ssxFromShape, fromSMayNat')
@@ -191,20 +191,20 @@ instance ( ADReadyNoLet target, ShareTensor target
       -- of f have to be computed and stored in contangent maps later on
   rconcrete a =
     let v = rconcrete a
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKR (Nested.rshape a) FTKScalar) v
   rfloor (D u _) =
     let v = rfloor u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   rfromIntegral (D u _) =
     let v = rfromIntegral u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   rcast (D u u') = dD (rcast u) (DeltaCastR u')
   rminIndex (D u _) =
     let v = rminIndex u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   rmaxIndex (D u _) =
     let v = rmaxIndex u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   riota = fromPrimalADVal . riota
   rappend (D u u') (D v v') = dD (rappend u v) (DeltaAppendR u' v')
   rslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
@@ -257,17 +257,17 @@ instance ( ADReadyNoLet target, ShareTensor target
     in fromPrimalFTK (FTKS (Nested.sshape a) FTKScalar) v
   sfloor (D u _) =
     let v = sfloor u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
   sfromIntegral (D u _) =
     let v = sfromIntegral u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
   scast (D u u') = dD (scast u) (DeltaCastS u')
-  sminIndex @_ @_ @sh @n (D u _) =
+  sminIndex (D u _) =
     let v = sminIndex u
-    in fromPrimalFTK (FTKS (shsInit (SNat @n :$$ knownShS @sh)) FTKScalar) v
-  smaxIndex @_ @_ @sh @n (D u _) =
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
+  smaxIndex (D u _) =
     let v = smaxIndex u
-    in fromPrimalFTK (FTKS (shsInit (SNat @n :$$ knownShS @sh)) FTKScalar)  v
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
   siota = fromPrimalADVal siota
   sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
@@ -326,20 +326,20 @@ instance ( ADReadyNoLet target, ShareTensor target
           (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' g)
   xconcrete a =
     let v = xconcrete a
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
   xfloor (D u _) =
     let v = xfloor u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   xfromIntegral (D u _) =
     let v = xfromIntegral u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   xcast (D u u') = dD (xcast u) (DeltaCastX u')
   xminIndex (D u _) =
     let v = xminIndex u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   xmaxIndex (D u _) =
     let v = xmaxIndex u
-    in fromPrimalADVal v
+    in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   xiota = fromPrimalADVal xiota
   xappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
   xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
@@ -362,10 +362,10 @@ instance ( ADReadyNoLet target, ShareTensor target
     in fromPrimalFTK FTKScalar v
   kfloor (D u _) =
     let v = kfloor u
-    in fromPrimalADVal v
+    in fromPrimalFTK FTKScalar v
   kfromIntegral (D u _) =
     let v = kfromIntegral u
-    in fromPrimalADVal v
+    in fromPrimalFTK FTKScalar v
   kcast (D u u') = dD (kcast u) (DeltaCastK u')
 
   -- General operations that don't require LetTensor nor ShareTensor

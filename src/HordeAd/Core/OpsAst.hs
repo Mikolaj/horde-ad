@@ -24,7 +24,7 @@ import Data.Maybe (fromMaybe)
 
 import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
+import Data.Array.Mixed.Shape (shxInit, shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
@@ -238,40 +238,40 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
-  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
-  rfloor @_ @r2 @n a = case ftkAst a of
+  rconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
+  rfloor @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        astFromS @(TKS sh r2) (knownSTK @(TKR n r2))
+        astFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . astSFromR @sh sh $ a
-  rfromIntegral @_ @r2 @n a = case ftkAst a of
+  rfromIntegral @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        astFromS @(TKS sh r2) (knownSTK @(TKR n r2))
+        astFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . astFromIntegralS . primalPart . astSFromR @sh sh $ a
   rcast @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
         . astCastS . astSFromR sh $ a
-  rminIndex @_ @r2 @n a = case ftkAst a of
+  rminIndex @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @_ @rest _ _ ->
+        (:$$) @_ @rest _ rest ->
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          astFromS @(TKS (Init sh) r2) (knownSTK @(TKR n r2))
+          astFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMinIndexS . primalPart . astSFromR @sh sh $ a
-        ZSS -> error "xminIndex: impossible empty shape"
-  rmaxIndex @_ @r2 @n a = case ftkAst a of
+        ZSS -> error "rminIndex: impossible empty shape"
+  rmaxIndex @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @_ @rest _ _ ->
+        (:$$) @_ @rest _ rest ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          astFromS @(TKS (Init sh) r2) (knownSTK @(TKR n r2))
+          astFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMaxIndexS . primalPart . astSFromR @sh sh $ a
-        ZSS -> error "xmaxIndex: impossible empty shape"
+        ZSS -> error "rmaxIndex: impossible empty shape"
   riota @r n =
     withSNat n $ \(SNat @n) ->
       astFromS (knownSTK @(TKR 1 r)) $ fromPrimal $ AstIotaS @n @r SNat
@@ -446,16 +446,16 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
-  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
+  xconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
   xfloor @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        astFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
+        astFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . astSFromX @sh @sh' sh $ a
   xfromIntegral @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        astFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
+        astFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . astFromIntegralS
         . primalPart . astSFromX @sh @sh' sh $ a
   xcast @_ @r2 a = case ftkAst a of
@@ -468,7 +468,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          astFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
+          astFromS @(TKS (Init sh) r2)
+                   (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMinIndexS @n @rest
           . primalPart . astSFromX @sh @sh' sh $ a
   xmaxIndex @_ @r2 a = case ftkAst a of
@@ -476,7 +477,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          astFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
+          astFromS @(TKS (Init sh) r2)
+                   (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMaxIndexS @n @rest
           . primalPart . astSFromX @sh @sh' sh $ a
   xiota @n @r = astFromS (knownSTK @(TKX '[Just n] r))
@@ -696,40 +698,40 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
-  rconcrete a = tconcrete (tftkG (STKR SNat knownSTK) a) (RepN a)
-  rfloor @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
+  rconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
+  rfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        AstFromS @(TKS sh r2) (knownSTK @(TKR n r2))
+        AstFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . AstSFromR @sh sh $ a
-  rfromIntegral @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
+  rfromIntegral @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
-        AstFromS @(TKS sh r2) (knownSTK @(TKR n r2))
+        AstFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . AstFromIntegralS . primalPart . AstSFromR @sh sh $ a
   rcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
         . AstCastS . AstSFromR sh $ a
-  rminIndex @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
+  rminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @_ @rest _ _ ->
+        (:$$) @_ @rest _ rest ->
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          AstFromS @(TKS (Init sh) r2) (knownSTK @(TKR n r2))
+          AstFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMinIndexS . primalPart . AstSFromR @sh sh $ a
-        ZSS -> error "xminIndex: impossible shape"
-  rmaxIndex @_ @r2 @n (AstRaw a) = AstRaw $ case ftkAst a of
+        ZSS -> error "rminIndex: impossible shape"
+  rmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
-        (:$$) @_ @rest _ _ ->
+        (:$$) @_ @rest _ rest ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          AstFromS @(TKS (Init sh) r2) (knownSTK @(TKR n r2))
+          AstFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMaxIndexS . primalPart . AstSFromR @sh sh $ a
-        ZSS -> error "xmaxIndex: impossible shape"
+        ZSS -> error "rmaxIndex: impossible shape"
   riota @r n =
     AstRaw
     $ withSNat n $ \(SNat @n) ->
@@ -917,16 +919,16 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
-  xconcrete a = tconcrete (tftkG (STKX knownShX knownSTK) a) (RepN a)
+  xconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
   xfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        AstFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
+        AstFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . AstSFromX @sh @sh' sh $ a
   xfromIntegral @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
-        AstFromS @(TKS sh r2) (knownSTK @(TKX sh' r2))
+        AstFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . AstFromIntegralS
         . primalPart . AstSFromX @sh @sh' sh $ a
   xcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
@@ -939,7 +941,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          AstFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
+          AstFromS @(TKS (Init sh) r2)
+                   (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMinIndexS @n @rest
           . primalPart . AstSFromX @sh @sh' sh $ a
   xmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
@@ -947,7 +950,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          AstFromS @(TKS (Init sh) r2) (knownSTK @(TKX (Init sh') r2))
+          AstFromS @(TKS (Init sh) r2)
+                   (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMaxIndexS @n @rest
           . primalPart . AstSFromX @sh @sh' sh $ a
   xiota @n @r = AstRaw $ AstFromS (knownSTK @(TKX '[Just n] r))

@@ -573,16 +573,16 @@ class ( Num (IntOf target)
   rgather1 k v f = rgather @target @r @1
                            (k :$: dropShape (rshape v)) v
                            (\(i :.: ZIR) -> f i)
-  rconcrete :: (GoodScalar r, KnownNat n)
+  rconcrete :: GoodScalar r
             => Nested.Ranked n r -> target (TKR n r)
-  rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownNat n)
+  rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKR n r) -> target (TKR n r2)
-  rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownNat n)
+  rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                 => target (TKR n r1) -> target (TKR n r2)
   rcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
         => target (TKR n r1) -> target (TKR n r2)
   rminIndex, rmaxIndex  -- partial
-    :: (GoodScalar r, GoodScalar r2, KnownNat n)
+    :: (GoodScalar r, GoodScalar r2)
     => target (TKR (1 + n) r) -> target (TKR n r2)
   riota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
   rappend :: KnownSTK r
@@ -856,16 +856,16 @@ class ( Num (IntOf target)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
   sconcrete :: GoodScalar r
             => Nested.Shaped sh r -> target (TKS sh r)
-  sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShS sh)
+  sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKS sh r) -> target (TKS sh r2)
     -- the integer can be negative
     -- TODO: shall we make it abs (floor v)?
-  sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShS sh)
+  sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                 => target (TKS sh r1) -> target (TKS sh r2)
   scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
         => target (TKS sh r1) -> target (TKS sh r2)
   sminIndex, smaxIndex  -- partial
-    :: (GoodScalar r, GoodScalar r2, KnownShS sh, KnownNat n)
+    :: forall r r2 sh n. (GoodScalar r, GoodScalar r2)
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
   siota :: (KnownNat n, GoodScalar r)
         => target (TKS '[n] r)  -- from 0 to n - 1
@@ -1234,16 +1234,16 @@ class ( Num (IntOf target)
     xgather @target @r @'[Just n2]
             (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
             (\(i :.% ZIX) -> f i)
-  xconcrete :: (GoodScalar r, KnownShX sh)
+  xconcrete :: GoodScalar r
             => Nested.Mixed sh r -> target (TKX sh r)
-  xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2, KnownShX sh)
+  xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKX sh r) -> target (TKX sh r2)
-  xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, KnownShX sh)
+  xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                 => target (TKX sh r1) -> target (TKX sh r2)
   xcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
         => target (TKX sh r1) -> target (TKX sh r2)
   xminIndex, xmaxIndex  -- partial
-    :: (GoodScalar r, GoodScalar r2, KnownShX sh, KnownShX (Init (mn ': sh)))
+    :: forall r r2 sh mn. (GoodScalar r, GoodScalar r2)
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
   xiota :: (KnownNat n, GoodScalar r)
         => target (TKX '[Just n] r)  -- from 0 to n - 1
