@@ -70,6 +70,7 @@ import GHC.TypeLits
   , type (-)
   , withSomeSNat
   )
+import System.Random
 import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -171,7 +172,7 @@ class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
 type Differentiable r =
-  (RealFloatF r, Nested.FloatElt r, RealFrac r)
+  (RealFloatF r, Nested.FloatElt r, RealFrac r, Random r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates

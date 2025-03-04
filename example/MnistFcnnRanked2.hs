@@ -108,8 +108,8 @@ afcnnMnistTest2 dataList testParams =
      / fromIntegral (length dataList)
 
 mnistTrainBench2VTOGradient
-  :: forall r q. ( GoodScalar r, Differentiable r, Random r
-                 , GoodScalar q, Differentiable q, Random q )
+  :: forall r q. ( GoodScalar r, Differentiable r
+                 , GoodScalar q, Differentiable q )
   => Proxy q -> Bool -> Double -> StdGen -> Int -> Int
   -> ( RepN (XParams2 r q)
      , AstArtifactRev

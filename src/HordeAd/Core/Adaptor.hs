@@ -18,6 +18,7 @@ module HordeAd.Core.Adaptor
 
 import Prelude
 
+import Data.Default
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
@@ -127,25 +128,29 @@ instance ForgetShape (target (TKX sh r)) where
   type NoShape (target (TKX sh r)) = target (TKX sh r)
   forgetShape = id
 
-instance (GoodScalar r, Fractional r, Random r, BaseTensor target)
+instance forall r target. (GoodScalar r, BaseTensor target)
          => RandomValue (target (TKScalar r)) where
   randomValue range g =
-    let (r, g2) = random g
-        m = 2 * realToFrac range * (r - 0.5)
-    in (kconcrete m, g2)
+    ifDifferentiable @r
+      (let (r, g2) = random g
+           m = 2 * realToFrac range * (r - 0.5)
+       in (kconcrete m, g2))
+      (kconcrete def, g)
 
-instance (KnownShS sh, GoodScalar r, Fractional r, Random r, BaseTensor target)
+instance forall sh r target. (KnownShS sh, GoodScalar r, BaseTensor target)
          => RandomValue (target (TKS sh r)) where
   randomValue range g =
-    let createRandomVector :: Int -> StdGen -> target (TKS sh r)
-        createRandomVector n seed =
-          srepl (2 * realToFrac range)
-          * (sconcrete
-               (Nested.sfromVector knownShS (V.fromListN n (randoms seed)))
-             - srepl 0.5)
-        (g1, g2) = splitGen g
-        arr = createRandomVector (shsSize (knownShS @sh)) g1
-    in (arr, g2)
+    ifDifferentiable @r
+      (let createRandomVector :: Int -> StdGen -> target (TKS sh r)
+           createRandomVector n seed =
+             srepl (2 * realToFrac range)
+             * (sconcrete
+                  (Nested.sfromVector knownShS (V.fromListN n (randoms seed)))
+                - srepl 0.5)
+           (g1, g2) = splitGen g
+           arr = createRandomVector (shsSize (knownShS @sh)) g1
+       in (arr, g2))
+      (sconcrete $ Nested.sreplicateScal (knownShS @sh) def, g)
   -- {-# SPECIALIZE instance (KnownShS sh, GoodScalar r, Fractional r, Random r) => RandomValue (RepN (TKS sh r)) #-}
   {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Double)) #-}
   {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Float)) #-}

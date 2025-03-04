@@ -50,7 +50,7 @@ testTrees = [ tensorADValMnistTestsRNNA
 -- which side-steps vectorization.
 mnistTestCaseRNNA
   :: forall r.
-     ( Differentiable r, GoodScalar r, Numeric r, Random r
+     ( Differentiable r, GoodScalar r, Numeric r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -161,7 +161,7 @@ tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNI
   :: forall r.
-     ( Differentiable r, GoodScalar r, Numeric r, Random r
+     ( Differentiable r, GoodScalar r, Numeric r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
@@ -288,7 +288,7 @@ tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNO
   :: forall r.
-     ( Differentiable r, GoodScalar r, Numeric r, Random r
+     ( Differentiable r, GoodScalar r, Numeric r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r

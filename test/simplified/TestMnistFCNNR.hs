@@ -55,7 +55,7 @@ type XParams widthHidden widthHidden2 r =
 -- which side-steps vectorization.
 mnistTestCase1VTA
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r
+     ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -156,7 +156,7 @@ tensorADValMnistTests = testGroup "Ranked ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase1VTI
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r
+     ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -268,7 +268,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCase1VTO
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r, ADTensorScalar r ~ r
+     ( Differentiable r, GoodScalar r, ADTensorScalar r ~ r
      , PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -389,7 +389,7 @@ tensorADOnceMnistTests = testGroup "Ranked Once MNIST tests"
 -- which side-steps vectorization.
 mnistTestCase2VTA
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r
+     ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -479,7 +479,7 @@ tensorADValMnistTests2 = testGroup "Ranked2 ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCase2VTI
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r
+     ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
@@ -581,7 +581,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCase2VTO
   :: forall r.
-     ( Differentiable r, GoodScalar r, Random r
+     ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
