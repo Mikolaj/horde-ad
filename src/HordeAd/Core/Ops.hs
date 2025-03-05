@@ -129,66 +129,12 @@ instance (RealFloatF r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (target :: Target) where
-  tsize :: BaseTensor target => STensorKind y -> target y -> Int
-  tsize stk a = case stk of
-    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
-      Just Refl -> 0
-      _ -> 1
-    STKR _ x | Dict <- lemKnownSTK x -> rsize a
-    STKS _ x | Dict <- lemKnownSTK x -> ssize a
-    STKX _ x | Dict <- lemKnownSTK x -> xsize a
-    STKProduct stk1 stk2 ->
-      tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
   tlet :: target x
        -> (target x -> target z)
        -> target z
   toShare :: target y -> ShareOf target y
   tunshare :: ShareOf target y -> target y
   tunshare = error "tunshare: this instance should never be used"
-  tfromVector :: forall y k. (BaseTensor target, ConvertTensor target)
-              => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
-              -> target (BuildTensorKind k y)
-  tfromVector snat@SNat stk v = case stk of
-    STKScalar -> sfromVector $ V.map sfromK v
-    STKR SNat x | Dict <- lemKnownSTK x ->
-      rfromVector v
-    STKS sh x | Dict <- lemKnownSTK x ->
-      withKnownShS sh $ sfromVector v
-    STKX sh x | Dict <- lemKnownSTK x ->
-      withKnownShX sh $ xfromVector v
-    STKProduct @y1 @y2 stk1 stk2 ->
-      let f :: ([target y1] -> [target y2] -> target (BuildTensorKind k y))
-            -> target y
-            -> ([target y1] -> [target y2] -> target (BuildTensorKind k y))
-          f acc u = \l1 l2 ->
-            tlet u $ \ u3 ->
-              acc (tproject1 u3 : l1) (tproject2 u3 : l2)
-          res :: [target y1] -> [target y2] -> target (BuildTensorKind k y)
-          res l1 l2 =
-            tpair (tfromVector snat stk1 (V.fromList l1))
-                  (tfromVector snat stk2 (V.fromList l2))
-      in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
-  tfromListR :: forall y k. (BaseTensor target, ConvertTensor target)
-             => STensorKind y -> ListR k (target y)
-             -> target (BuildTensorKind k y)
-  tfromListR stk l =
-    tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
-  tsum :: forall z k. (BaseTensor target, ConvertTensor target)
-       => SNat k -> STensorKind z
-       -> target (BuildTensorKind k z)
-       -> target z
-  tsum snat@SNat stk u = case stk of
-    STKScalar -> kfromS $ ssum u
-    STKR SNat x | Dict <- lemKnownSTK x ->
-      rsum u
-    STKS sh x | Dict <- lemKnownSTK x ->
-      withKnownShS sh $ ssum u
-    STKX sh x | Dict <- lemKnownSTK x ->
-      withKnownShX sh $ xsum u
-    STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
-        tpair (tsum snat stk1 (tproject1 u3))
-              (tsum snat stk2 (tproject2 u3))
   treplicate :: forall z k. (BaseTensor target, ConvertTensor target)
              => SNat k -> STensorKind z
              -> target z
@@ -341,22 +287,8 @@ class LetTensor (target :: Target) where
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
   tunpair :: target (TKProduct x z) -> (target x, target z)
-  tfromVectorShare :: forall y k. (BaseTensor target, ConvertTensor target)
-                   => SNat k -> STensorKind y
-                   -> Data.Vector.Vector (target y)
-                   -> target (BuildTensorKind k y)
-  tfromVectorShare snat@SNat stk v = case stk of
-    STKScalar -> sfromVector $ V.map sfromK v
-    STKR SNat x | Dict <- lemKnownSTK x ->
-      rfromVector v
-    STKS sh x | Dict <- lemKnownSTK x ->
-      withKnownShS sh $ sfromVector v
-    STKX sh x | Dict <- lemKnownSTK x ->
-      withKnownShX sh $ xfromVector v
-    STKProduct stk1 stk2 ->
-      let (v1, v2) = V.unzip $ V.map tunpair v
-      in tpair (tfromVectorShare snat stk1 v1)
-               (tfromVectorShare snat stk2 v2)
+  -- This would suffers from lack of sharing with LetTensor, because
+  -- tlet doesn't work over a list. Here it's fine.
   tunravelToListShare :: forall y k. (BaseTensor target, ConvertTensor target)
                       => SNat k -> STensorKind y
                       -> target (BuildTensorKind k y)
@@ -373,22 +305,6 @@ class ShareTensor (target :: Target) where
       let (u1, u2) = tunpair u
       in zipWith tpair (tunravelToListShare snat stk1 u1)
                        (tunravelToListShare snat stk2 u2)
-  tsumShare :: forall z k. (BaseTensor target, ConvertTensor target)
-            => SNat k -> STensorKind z
-            -> target (BuildTensorKind k z)
-            -> target z
-  tsumShare snat@SNat stk u = case stk of
-    STKScalar -> kfromS $ ssum u
-    STKR SNat x | Dict <- lemKnownSTK x ->
-      rsum u
-    STKS sh x | Dict <- lemKnownSTK x ->
-      withKnownShS sh $ ssum u
-    STKX sh x | Dict <- lemKnownSTK x ->
-      withKnownShX sh $ xsum u
-    STKProduct stk1 stk2 ->
-      let (u1, u2) = tunpair u
-      in tpair (tsumShare snat stk1 u1)
-               (tsumShare snat stk2 u2)
   treplicateShare :: (BaseTensor target, ConvertTensor target)
                   => SNat k -> STensorKind z
                   -> target z
@@ -1349,6 +1265,16 @@ class ( Num (IntOf target)
         => target (TKScalar r1) -> target (TKScalar r2)
 
   -- General operations that don't require LetTensor nor ShareTensor
+  tsize :: BaseTensor target => STensorKind y -> target y -> Int
+  tsize stk a = case stk of
+    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+      Just Refl -> 0
+      _ -> 1
+    STKR _ x | Dict <- lemKnownSTK x -> rsize a
+    STKS _ x | Dict <- lemKnownSTK x -> ssize a
+    STKX _ x | Dict <- lemKnownSTK x -> xsize a
+    STKProduct stk1 stk2 ->
+      tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
   tftk :: STensorKind y -> target y -> FullTensorKind y
   tconcrete :: FullTensorKind y -> RepN y -> target y
   tpair :: target x -> target z -> target (TKProduct x z)
@@ -1608,6 +1534,47 @@ class ( Num (IntOf target)
     -> HFun x z  -- x |-> z
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
                  -- [dx, x] |-> dz
+
+  -- Operations that use ShareTensor if available, LetTensor otherwise
+  tfromVector
+    :: forall y k. ConvertTensor target
+    => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
+    -> target (BuildTensorKind k y)
+  default tfromVector
+    :: forall y k.
+       (ShareTensor target, ConvertTensor target)
+    => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
+    -> target (BuildTensorKind k y)
+  tfromVector snat@SNat stk v = case stk of
+    STKScalar -> sfromVector $ V.map sfromK v
+    STKR SNat x | Dict <- lemKnownSTK x -> rfromVector v
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sfromVector v
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xfromVector v
+    STKProduct stk1 stk2 ->
+      let (v1, v2) = V.unzip $ V.map tunpair v
+      in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
+  tfromListR :: forall y k. (BaseTensor target, ConvertTensor target)
+             => STensorKind y -> ListR k (target y)
+             -> target (BuildTensorKind k y)
+  tfromListR stk l =
+    tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
+  tsum
+    :: forall z k. ConvertTensor target
+    => SNat k -> STensorKind z -> target (BuildTensorKind k z)
+    -> target z
+  default tsum
+    :: forall z k. (ShareTensor target, ConvertTensor target)
+    => SNat k -> STensorKind z -> target (BuildTensorKind k z)
+    -> target z
+  tsum snat@SNat stk u = case stk of
+    STKScalar -> kfromS $ ssum u
+    STKR SNat x | Dict <- lemKnownSTK x -> rsum u
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssum u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsum u
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in tpair (tsum snat stk1 u1)
+               (tsum snat stk2 u2)
 
 class ConvertTensor (target :: Target) where
   tpairConv :: target x -> target z -> target (TKProduct x z)

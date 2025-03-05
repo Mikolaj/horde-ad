@@ -21,10 +21,11 @@ import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-), type (<=?))
 import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Maybe (fromMaybe)
+import Data.Vector.Strict qualified as Data.Vector
 
 import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxInit, shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
+import Data.Array.Mixed.Shape (withKnownShX, shxInit, shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
@@ -604,6 +605,44 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet artVarDomainFwd (astProject2 astP)
           $ simplifyInline artDerivativeFwd
     in AstLambda varP ast
+
+  tfromVector
+    :: forall y k.
+       SNat k -> STensorKind y
+    -> Data.Vector.Vector (AstTensor AstMethodLet s y)
+    -> AstTensor AstMethodLet s (BuildTensorKind k y)
+  tfromVector snat@SNat stk v = case stk of
+    STKScalar -> sfromVector $ V.map sfromK v
+    STKR SNat x | Dict <- lemKnownSTK x -> rfromVector v
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sfromVector v
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xfromVector v
+    STKProduct @y1 @y2 stk1 stk2 ->
+      let f :: ([AstTensor AstMethodLet s y1]
+                -> [AstTensor AstMethodLet s y2]
+                -> AstTensor AstMethodLet s (BuildTensorKind k y))
+            -> AstTensor AstMethodLet s y
+            -> ([AstTensor AstMethodLet s y1]
+                -> [AstTensor AstMethodLet s y2]
+                -> AstTensor AstMethodLet s (BuildTensorKind k y))
+          f acc u = \l1 l2 ->
+            tlet u $ \ u3 ->
+              acc (tproject1 u3 : l1) (tproject2 u3 : l2)
+          res :: [AstTensor AstMethodLet s y1]
+              -> [AstTensor AstMethodLet s y2]
+              -> AstTensor AstMethodLet s (BuildTensorKind k y)
+          res l1 l2 =
+            tpair (tfromVector snat stk1 (V.fromList l1))
+                  (tfromVector snat stk2 (V.fromList l2))
+      in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
+  tsum snat@SNat stk u = case stk of
+    STKScalar -> kfromS $ ssum u
+    STKR SNat x | Dict <- lemKnownSTK x -> rsum u
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssum u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsum u
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (tsum snat stk1 (tproject1 u3))
+              (tsum snat stk2 (tproject2 u3))
 
 
 -- * AstRaw instances
@@ -1358,6 +1397,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
+  tfromVector k stk =
+    AstNoVectorize . tfromVector k stk . V.map unAstNoVectorize
+  tsum k stk =
+    AstNoVectorize . tsum k stk . unAstNoVectorize
+
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
                  in (AstNoVectorize b, AstNoVectorize c)
@@ -1574,6 +1618,44 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   trev = trev @(AstRaw PrimalSpan)
   trevDt = trevDt @(AstRaw PrimalSpan)
   tfwd = tfwd @(AstRaw PrimalSpan)
+
+  tfromVector
+    :: forall y k.
+       SNat k -> STensorKind y
+    -> Data.Vector.Vector (AstNoSimplify s y)
+    -> AstNoSimplify s (BuildTensorKind k y)
+  tfromVector snat@SNat stk v = case stk of
+    STKScalar -> sfromVector $ V.map sfromK v
+    STKR SNat x | Dict <- lemKnownSTK x -> rfromVector v
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sfromVector v
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xfromVector v
+    STKProduct @y1 @y2 stk1 stk2 ->
+      let f :: ([AstNoSimplify s y1]
+                -> [AstNoSimplify s y2]
+                -> AstNoSimplify s (BuildTensorKind k y))
+            -> AstNoSimplify s y
+            -> ([AstNoSimplify s y1]
+                -> [AstNoSimplify s y2]
+                -> AstNoSimplify s (BuildTensorKind k y))
+          f acc u = \l1 l2 ->
+            tlet u $ \ u3 ->
+              acc (tproject1 u3 : l1) (tproject2 u3 : l2)
+          res :: [AstNoSimplify s y1]
+              -> [AstNoSimplify s y2]
+              -> AstNoSimplify s (BuildTensorKind k y)
+          res l1 l2 =
+            tpair (tfromVector snat stk1 (V.fromList l1))
+                  (tfromVector snat stk2 (V.fromList l2))
+      in V.foldl' f res v [] []
+  tsum snat@SNat stk u = case stk of
+    STKScalar -> kfromS $ ssum u
+    STKR SNat x | Dict <- lemKnownSTK x -> rsum u
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssum u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsum u
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (tsum snat stk1 (tproject1 u3))
+              (tsum snat stk2 (tproject2 u3))
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where
   tunpairDup (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification

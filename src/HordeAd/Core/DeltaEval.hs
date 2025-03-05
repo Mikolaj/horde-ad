@@ -476,7 +476,7 @@ evalRevFTK !s !c d0 = case d0 of
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->
     evalRevFTK s (treplicateShare snat (adSTK stk) c) d
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalRevFTK s (tsumShare snat (adSTK stk) c) d
+    evalRevFTK s (tsum snat (adSTK stk) c) d
   DeltaMapAccumR k bShs eShs q es _df rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->
@@ -945,10 +945,10 @@ evalFwd params s d0 = case d0 of
     in (s2, tproject2 v)
   DeltaFromVector snat stk lsd | Refl <- lemBuildOfAD snat stk ->
     let (s2, l) = mapAccumL (evalFwd params) s lsd
-    in (s2, tfromVectorShare snat (adSTK stk) l)
+    in (s2, tfromVector snat (adSTK stk) l)
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
-    in (s2, tsumShare snat (adSTK stk) t)
+    in (s2, tsum snat (adSTK stk) t)
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
     in (s2, treplicateShare snat (adSTK stk) t)
