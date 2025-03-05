@@ -218,7 +218,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Shaped ops
   sshape (D u _) = sshape u
-  sfromVector @_ @k lu = assert (length lu == valueOf @k) $
+  sfromVector @k lu = assert (length lu == valueOf @k) $
     dD (sfromVector $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector (SNat @k) knownSTK $ V.map (\(D _ u') -> u') lu)
   sunravelToList (D u u') =
@@ -278,7 +278,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Mixed ops
   xshape (D u _) = xshape u
-  xfromVector @_ @k lu = assert (length lu == valueOf @k) $  -- TODO: Move these assertions to the base instances, that is concrete and AST
+  xfromVector @k lu = assert (length lu == valueOf @k) $  -- TODO: Move these assertions to the base instances, that is concrete and AST
     dD (xfromVector $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector (SNat @k) knownSTK $ V.map (\(D _ u') -> u') lu)
   xunravelToList (D u u') =

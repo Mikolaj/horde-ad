@@ -275,18 +275,20 @@ class ( Num (IntOf target)
   rlength a = case rshape a of
     k :$: _ -> k
 
-  rfromList :: (KnownSTK r, KnownNat n)
+  rfromList :: (KnownNat n, KnownSTK r, ConvertTensor target)
             => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
   rfromList = rfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
   -- This is morally non-empty strict vectors:
-  rfromVector :: (KnownSTK r, KnownNat n)
+  rfromVector :: (KnownNat n, KnownSTK r, ConvertTensor target)
               => Data.Vector.Vector (target (TKR2 n r))
               -> target (TKR2 (1 + n) r)
-  rfromListLinear :: KnownSTK r
+  rfromVector v = withSNat (V.length v) $ \k ->
+    tfromVector k (STKR SNat knownSTK) v
+  rfromListLinear :: forall n r. (KnownSTK r, ConvertTensor target)
                   => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
   rfromListLinear sh = rfromVectorLinear sh . V.fromList
-  rfromVectorLinear :: forall r n. KnownSTK r
+  rfromVectorLinear :: forall n r. (KnownSTK r, ConvertTensor target)
                     => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
                     -> target (TKR2 n r)
   rfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
@@ -297,7 +299,7 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  runravelToList :: forall r n. (KnownSTK r, KnownNat n)
+  runravelToList :: forall n r. (KnownSTK r, KnownNat n)
                  => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
   runravelToList t =
     let f :: Int -> target (TKR2 n r)
@@ -548,17 +550,19 @@ class ( Num (IntOf target)
   slength a = case sshape a of
     n :$$ _ -> sNatValue n
 
-  sfromList :: (KnownSTK r, KnownNat n, KnownShS sh)
+  sfromList :: (KnownNat n, KnownShS sh, KnownSTK r, ConvertTensor target)
             => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
   sfromList = sfromVector . V.fromList . NonEmpty.toList
   -- This is morally non-empty strict vectors:
-  sfromVector :: (KnownSTK r, KnownNat n, KnownShS sh)
+  sfromVector :: (KnownNat n, KnownShS sh, KnownSTK r, ConvertTensor target)
               => Data.Vector.Vector (target (TKS2 sh r))
               -> target (TKS2 (n ': sh) r)
-  sfromListLinear :: (KnownSTK r, KnownShS sh)
+  sfromVector v = tfromVector SNat (STKS knownShS knownSTK) v
+  sfromListLinear :: (KnownShS sh, KnownSTK r, ConvertTensor target)
                   => [target (TKS2 '[] r)] -> target (TKS2 sh r)
   sfromListLinear = sfromVectorLinear . V.fromList
-  sfromVectorLinear :: forall r sh. (KnownSTK r, KnownShS sh)
+  sfromVectorLinear :: forall sh r.
+                       (KnownSTK r, KnownShS sh, ConvertTensor target)
                     => Data.Vector.Vector (target (TKS2 '[] r))
                     -> target (TKS2 sh r)
   sfromVectorLinear v | Dict <- eltDictRep (knownSTK @r)
@@ -571,7 +575,7 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  sunravelToList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShS sh)
+  sunravelToList :: forall n sh r. (KnownSTK r, KnownNat n, KnownShS sh)
                  => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
   sunravelToList t =
     let f :: Int -> target (TKS2 sh r)
@@ -913,17 +917,19 @@ class ( Num (IntOf target)
         withKnownShX sh2 $
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
-  xfromList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
+  xfromList :: forall n sh r.
+               (KnownSTK r, KnownNat n, KnownShX sh, ConvertTensor target)
             => NonEmpty (target (TKX2 sh r)) -> target (TKX2 (Just n ': sh) r)
   xfromList = xfromVector . V.fromList . NonEmpty.toList
     -- going through strict vectors, because laziness is risky with impurity
-  xfromVector :: (KnownSTK r, KnownNat n, KnownShX sh)
+  xfromVector :: (KnownNat n, KnownShX sh, KnownSTK r, ConvertTensor target)
               => Data.Vector.Vector (target (TKX2 sh r))
               -> target (TKX2 (Just n ': sh) r)
-  xfromListLinear :: KnownSTK r
+  xfromVector v = tfromVector SNat (STKX knownShX knownSTK) v
+  xfromListLinear :: forall sh r. (KnownSTK r, ConvertTensor target)
                   => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
   xfromListLinear sh = xfromVectorLinear sh . V.fromList
-  xfromVectorLinear :: forall r sh. KnownSTK r
+  xfromVectorLinear :: forall sh r. (KnownSTK r, ConvertTensor target)
                     => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
                     -> target (TKX2 sh r)
   xfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
@@ -935,7 +941,7 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'tlet'.
-  xunravelToList :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
+  xunravelToList :: forall n sh r. (KnownSTK r, KnownNat n, KnownShX sh)
                  => target (TKX2 (Just n ': sh) r) -> [target (TKX2 sh r)]
   xunravelToList t =
     let f :: Int -> target (TKX2 sh r)

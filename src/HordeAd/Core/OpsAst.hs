@@ -352,7 +352,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Shaped ops
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
-  sfromVector @_ @k l = astFromVector (SNat @k) knownSTK l
+  sfromVector @k l = astFromVector (SNat @k) knownSTK l
   ssum = astSum SNat knownSTK
   sindex v ix = astIndexStepS knownShS v ix
   sscatter @_ @shm @shn @shp t f =
@@ -377,7 +377,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Mixed ops
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
-  xfromVector @_ @k l = astFromVector (SNat @k) knownSTK l
+  xfromVector @k l = astFromVector (SNat @k) knownSTK l
   xsum = astSum SNat knownSTK
   xreplicate = astReplicate SNat knownSTK
   xindex @_ @sh1 @sh2 a ix = case ftkAst a of
@@ -871,7 +871,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Shaped ops
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
-  sfromVector @_ @k l =
+  sfromVector @k l =
     AstRaw . AstFromVector (SNat @k) knownSTK . V.map unAstRaw $ l
   ssum = AstRaw . AstSum SNat knownSTK . unAstRaw
   sindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
@@ -901,7 +901,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
-  xfromVector @_ @k l =
+  xfromVector @k l =
     AstRaw . AstFromVector (SNat @k) knownSTK . V.map unAstRaw $ l
   xsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   xreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw

@@ -139,7 +139,8 @@ convMnistTestR batch_size (glyphR, labelR) testParams =
         in nn testParams
       outputs = map (Nested.rtoVector . unRepN) $ runravelToList
                 $ rtranspose [1, 0] outputR
-      labels = map (Nested.rtoVector . unRepN) $ runravelToList @_ @(TKScalar r)
+      labels = map (Nested.rtoVector . unRepN)
+               $ runravelToList @_ @_ @(TKScalar r)
                $ rconcrete labelR
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1

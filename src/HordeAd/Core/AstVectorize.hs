@@ -135,12 +135,12 @@ build1V snat@SNat (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
     Ast.AstPair t1 t2 -> traceRule $
-        astPair (build1VOccurenceUnknown snat (var, t1))
-                (build1VOccurenceUnknown snat (var, t2))
+      astPair (build1VOccurenceUnknown snat (var, t1))
+              (build1VOccurenceUnknown snat (var, t2))
     Ast.AstProject1 t -> traceRule $
-        astProject1 (build1V snat (var, t))
+      astProject1 (build1V snat (var, t))
     Ast.AstProject2 t -> traceRule $
-        astProject2 (build1V snat (var, t))
+      astProject2 (build1V snat (var, t))
     Ast.AstFromVector snat1@(SNat @k1) stk l -> traceRule $
       astTrBuild (SNat @k1) (SNat @k) stk
       $ astFromVector snat1 (buildSTK snat stk) (V.map (\v ->

@@ -163,7 +163,8 @@ convMnistTestS kh@SNat kw@SNat
         in nn testParams
       outputs = map (Nested.stoVector . unRepN) $ sunravelToList
                 $ stranspose @_ @'[1, 0] outputS
-      labels = map (Nested.stoVector . unRepN) $ sunravelToList @_ @(TKScalar r)
+      labels = map (Nested.stoVector . unRepN)
+               $ sunravelToList @_ @_ @_ @(TKScalar r)
                $ sconcrete labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1

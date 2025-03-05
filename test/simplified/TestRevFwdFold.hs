@@ -2804,7 +2804,7 @@ testSin0revhV5 = do
                (\v -> sfromR @_ @'[4] $ rscanZip const doms (rscalar 5) (rfromS v))
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
-    (sfromList @_ @_ @3 [sscalar 0, sscalar 0, sscalar 0])
+    (sfromList @_ @3 [sscalar 0, sscalar 0, sscalar 0])
     (crev f (sreplicate @_ @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
