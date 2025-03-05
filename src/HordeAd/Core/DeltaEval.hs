@@ -474,7 +474,7 @@ evalRevFTK !s !c d0 = case d0 of
     in foldl' (\ !s2 (cx, d2) -> evalRevFTK s2 cx d2) s
        $ zip cxs (V.toList ld)
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalRevFTK s (treplicateShare snat (adSTK stk) c) d
+    evalRevFTK s (treplicate snat (adSTK stk) c) d
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     evalRevFTK s (tsum snat (adSTK stk) c) d
   DeltaMapAccumR k bShs eShs q es _df rf acc0' es'
@@ -951,7 +951,7 @@ evalFwd params s d0 = case d0 of
     in (s2, tsum snat (adSTK stk) t)
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
-    in (s2, treplicateShare snat (adSTK stk) t)
+    in (s2, treplicate snat (adSTK stk) t)
   DeltaMapAccumR k bShs eShs q es df _rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bShs)
    , Refl <- lemBuildOfAD k (ftkToSTK eShs) ->

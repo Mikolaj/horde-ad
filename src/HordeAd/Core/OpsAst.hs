@@ -23,7 +23,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Maybe (fromMaybe)
 import Data.Vector.Strict qualified as Data.Vector
 
-import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..))
+import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..), IxR (..), IxS (..), IxX (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
 import Data.Array.Mixed.Shape (withKnownShX, shxInit, shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
@@ -643,6 +643,24 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       tlet u $ \ !u3 ->
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
+  treplicate snat@SNat stk u = case stk of
+    STKScalar -> tsreplicate ZSS $ sfromK u
+    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (treplicate snat stk1 (tproject1 u3))
+              (treplicate snat stk2 (tproject2 u3))
+  tindexBuild snat@SNat stk u i = case stk of
+    STKScalar -> kfromS $ sindex u (i :.$ ZIS)
+    STKR SNat x | Dict <- lemKnownSTK x -> rindex u (i :.: ZIR)
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sindex u (i :.$ ZIS)
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xindex u (i :.% ZIX)
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (tindexBuild snat stk1 (tproject1 u3) i)
+              (tindexBuild snat stk2 (tproject2 u3) i)
 
 
 -- * AstRaw instances
@@ -1401,6 +1419,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize . tfromVector k stk . V.map unAstNoVectorize
   tsum k stk =
     AstNoVectorize . tsum k stk . unAstNoVectorize
+  treplicate k stk =
+    AstNoVectorize . treplicate k stk . unAstNoVectorize
+  tindexBuild k stk u i =
+    AstNoVectorize $ tindexBuild k stk (unAstNoVectorize u) (unAstNoVectorize i)
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
@@ -1656,6 +1678,24 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
       tlet u $ \ !u3 ->
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
+  treplicate snat@SNat stk u = case stk of
+    STKScalar -> tsreplicate ZSS $ sfromK u
+    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (treplicate snat stk1 (tproject1 u3))
+              (treplicate snat stk2 (tproject2 u3))
+  tindexBuild snat@SNat stk u i = case stk of
+    STKScalar -> kfromS $ sindex u (i :.$ ZIS)
+    STKR SNat x | Dict <- lemKnownSTK x -> rindex u (i :.: ZIR)
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sindex u (i :.$ ZIS)
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xindex u (i :.% ZIX)
+    STKProduct stk1 stk2 ->
+      tlet u $ \ !u3 ->
+        tpair (tindexBuild snat stk1 (tproject1 u3) i)
+              (tindexBuild snat stk2 (tproject2 u3) i)
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where
   tunpairDup (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification

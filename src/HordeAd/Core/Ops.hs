@@ -135,19 +135,6 @@ class LetTensor (target :: Target) where
   toShare :: target y -> ShareOf target y
   tunshare :: ShareOf target y -> target y
   tunshare = error "tunshare: this instance should never be used"
-  treplicate :: forall z k. (BaseTensor target, ConvertTensor target)
-             => SNat k -> STensorKind z
-             -> target z
-             -> target (BuildTensorKind k z)
-  treplicate snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate ZSS $ sfromK u
-    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
-    STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
-        tpair (treplicate snat stk1 (tproject1 u3))
-              (treplicate snat stk2 (tproject2 u3))
   tappend :: forall y m n. BaseTensor target
           => SNat m -> SNat n -> STensorKind y
           -> target (BuildTensorKind m y) -> target (BuildTensorKind n y)
@@ -305,35 +292,6 @@ class ShareTensor (target :: Target) where
       let (u1, u2) = tunpair u
       in zipWith tpair (tunravelToListShare snat stk1 u1)
                        (tunravelToListShare snat stk2 u2)
-  treplicateShare :: (BaseTensor target, ConvertTensor target)
-                  => SNat k -> STensorKind z
-                  -> target z
-                  -> target (BuildTensorKind k z)
-  treplicateShare snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate ZSS $ sfromK u
-    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
-    STKProduct stk1 stk2 ->
-      let (u1, u2) = tunpair u
-      in tpair (treplicateShare snat stk1 u1)
-               (treplicateShare snat stk2 u2)
-  tindexBuildShare :: forall z k. (BaseTensor target, ConvertTensor target)
-                   => SNat k -> STensorKind z
-                   -> target (BuildTensorKind k z) -> IntOf target
-                   -> target z
-  tindexBuildShare snat@SNat stk u i = case stk of
-    STKScalar -> kfromS $ sindex u (i :.$ ZIS)
-    STKR SNat x | Dict <- lemKnownSTK x ->
-      rindex u (i :.: ZIR)
-    STKS sh x | Dict <- lemKnownSTK x ->
-      withKnownShS sh $ sindex u (i :.$ ZIS)
-    STKX sh x | Dict <- lemKnownSTK x ->
-      withKnownShX sh $ xindex u (i :.% ZIX)
-    STKProduct stk1 stk2 ->
-      let (u1, u2) = tunpair u
-      in tpair (tindexBuildShare snat stk1 u1 i)
-               (tindexBuildShare snat stk2 u2 i)
 
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
@@ -1575,6 +1533,40 @@ class ( Num (IntOf target)
       let (u1, u2) = tunpair u
       in tpair (tsum snat stk1 u1)
                (tsum snat stk2 u2)
+  treplicate
+    :: ConvertTensor target
+    => SNat k -> STensorKind z -> target z
+    -> target (BuildTensorKind k z)
+  default treplicate
+    :: (ShareTensor target, ConvertTensor target)
+    => SNat k -> STensorKind z -> target z
+    -> target (BuildTensorKind k z)
+  treplicate snat@SNat stk u = case stk of
+    STKScalar -> tsreplicate ZSS $ sfromK u
+    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in tpair (treplicate snat stk1 u1)
+               (treplicate snat stk2 u2)
+  tindexBuild
+    :: forall z k. ConvertTensor target
+    => SNat k -> STensorKind z -> target (BuildTensorKind k z) -> IntOf target
+    -> target z
+  default tindexBuild
+    :: forall z k. (ShareTensor target, ConvertTensor target)
+    => SNat k -> STensorKind z -> target (BuildTensorKind k z) -> IntOf target
+    -> target z
+  tindexBuild snat@SNat stk u i = case stk of
+    STKScalar -> kfromS $ sindex u (i :.$ ZIS)
+    STKR SNat x | Dict <- lemKnownSTK x -> rindex u (i :.: ZIR)
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sindex u (i :.$ ZIS)
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xindex u (i :.% ZIX)
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in tpair (tindexBuild snat stk1 u1 i)
+               (tindexBuild snat stk2 u2 i)
 
 class ConvertTensor (target :: Target) where
   tpairConv :: target x -> target z -> target (TKProduct x z)
