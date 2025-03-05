@@ -1,10 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Commonly used operations on tensors. Too large, too ad hoc or too unlikely
--- to have specialized implementations to be included in the 'BaseTensor'
--- class. Some of the operations may also depend on more than 'BaseTensor',
--- e.g., also on the 'ConvertTensor' class.
+-- | Commonly used operations on tensors.
 module HordeAd.External.CommonRankedOps
   ( module HordeAd.External.CommonRankedOps
   ) where

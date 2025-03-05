@@ -13,7 +13,7 @@ import Control.Exception.Assert.Sugar
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
 import Data.Int (Int64)
-import Data.List (foldl', mapAccumL, mapAccumR, scanl')
+import Data.List (foldl', mapAccumL, mapAccumR)
 import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict qualified as M
@@ -75,15 +75,10 @@ instance LetTensor RepN where
   toShare = id
   tunshare = id
   tD _stk t DummyDualTarget{} = t
-  rfold f x0 as = foldl' f x0 (runravelToList as)
-  sfold f x0 as = foldl' f x0 (sunravelToList as)
-  xfold f x0 as = foldl' f x0 (xunravelToList as)
-  rscan f x0 as =
-    rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)
-  sscan f x0 as =
-    sfromList $ NonEmpty.fromList $ scanl' f x0 (sunravelToList as)
-  xscan f x0 as =
-    xfromList $ NonEmpty.fromList $ scanl' f x0 (xunravelToList as)
+  tfold k _ stk f x0 as = foldl' f x0 (tunravelToListShare k stk as)
+  tscan k@(SNat @k) nstk stk f x0 as =
+    tfromVector (SNat @(1 + k)) nstk
+    $ V.scanl' f x0 (V.fromList $ tunravelToListShare k stk as)
 
 instance ShareTensor RepN where
   tshare = id

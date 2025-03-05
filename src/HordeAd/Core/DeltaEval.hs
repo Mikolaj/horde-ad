@@ -1157,7 +1157,7 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       withKnownShX (ssxFromShape sh) $
       second xsum0 $ evalFwdSame params s d
-  DeltaDot0X _ DeltaZero{} -> (s, xrepl ZSX 0)
+  DeltaDot0X _ DeltaZero{} -> (s, xscalar 0)
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShape sh) $

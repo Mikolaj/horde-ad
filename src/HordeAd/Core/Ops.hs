@@ -16,6 +16,8 @@ module HordeAd.Core.Ops
   , rscalar, rrepl, ringestData
   , sscalar, srepl, singestData
   , xscalar, xrepl, xingestData
+  , rfold, sfold, xfold
+  , rscan, sscan, xscan
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
   ) where
@@ -156,7 +158,6 @@ class LetTensor (target :: Target) where
     tlet (tfromPrimal stk p) $ \pShared ->
     tlet (tfromDual d) $ \dShared ->
       taddTarget stk pShared dShared
-
   -- | A strict left fold.
   tfold
     :: forall yn ym k. BaseTensor target
@@ -180,41 +181,6 @@ class LetTensor (target :: Target) where
         in g)
        acc0
        es
-  -- The methods are overriden in the concrete instance, so can't be functions.
-  rfold
-    :: forall n m rn rm.
-       ( BaseTensor target
-       , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
-    => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
-    -> target (TKR2 n rn)
-    -> target (TKR2 (1 + m) rm)
-    -> target (TKR2 n rn)
-  {-# INLINE rfold #-}  -- this doesn't want to specialize
-  rfold f acc0 es =
-    withSNat (rlength es) $ \k -> tfold k knownSTK knownSTK f acc0 es
-  sfold
-    :: forall k sh shm rn rm.
-       ( BaseTensor target
-       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
-    => (forall f. ADReady f
-        => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
-    -> target (TKS2 sh rn)
-    -> target (TKS2 (k ': shm) rm)
-    -> target (TKS2 sh rn)
-  {-# INLINE sfold #-}  -- this doesn't want to specialize
-  sfold = tfold (SNat @k) knownSTK knownSTK
-  xfold
-    :: forall k sh shm rn rm.
-       ( BaseTensor target
-       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
-    => (forall f.
-        ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
-    -> target (TKX2 sh rn)
-    -> target (BuildTensorKind k (TKX2 shm rm))
-    -> target (TKX2 sh rn)
-  {-# INLINE xfold #-}  -- this doesn't want to specialize
-  xfold = tfold (SNat @k) knownSTK knownSTK
-
   -- | A strict left scan.
   tscan
     :: forall yn ym k.
@@ -241,40 +207,6 @@ class LetTensor (target :: Target) where
               es
     in tappend (SNat @1) k nstk
                (tfromVector (SNat @1) nstk (V.fromList [acc0])) bs
-  -- The methods are overriden in the concrete instance, so can't be functions.
-  rscan
-    :: forall n m rn rm.
-       ( BaseTensor target, ConvertTensor target
-       , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
-    => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
-    -> target (TKR2 n rn)
-    -> target (TKR2 (1 + m) rm)
-    -> target (TKR2 (1 + n) rn)
-  {-# INLINE rscan #-}  -- this doesn't want to specialize
-  rscan f acc0 es =
-    withSNat (rlength es) $ \k -> tscan k knownSTK knownSTK f acc0 es
-  sscan
-    :: forall k sh shm rn rm.
-       ( BaseTensor target, ConvertTensor target
-       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
-    => (forall f.
-        ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
-    -> target (TKS2 sh rn)
-    -> target (TKS2 (k ': shm) rm)
-    -> target (TKS2 (1 + k ': sh) rn)
-  {-# INLINE sscan #-}  -- this doesn't want to specialize
-  sscan = tscan (SNat @k) knownSTK knownSTK
-  xscan
-    :: forall k sh shm rn rm.
-       ( BaseTensor target, ConvertTensor target
-       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
-    => (forall f.
-        ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
-    -> target (TKX2 sh rn)
-    -> target (BuildTensorKind k (TKX2 shm rm))
-    -> target (BuildTensorKind (1 + k) (TKX2 sh rn))
-  {-# INLINE xscan #-}  -- this doesn't want to specialize
-  xscan = tscan (SNat @k) knownSTK knownSTK
 
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
@@ -1790,9 +1722,7 @@ tunit = kconcrete Z0
 
 rscalar :: forall r target. (GoodScalar r, BaseTensor target)
         => r -> target (TKR 0 r)
-rscalar r =
-  let a = Nested.rscalar r
-  in rconcrete a
+rscalar r = rconcrete $ Nested.rscalar r
 
 rrepl :: forall n r target. (GoodScalar r, BaseTensor target)
       => IShR n -> r -> target (TKR n r)
@@ -1805,9 +1735,7 @@ ringestData sh l =
 
 sscalar :: forall r target. (GoodScalar r, BaseTensor target)
         => r -> target (TKS '[] r)
-sscalar r =
-  let a = Nested.sscalar r
-  in sconcrete a
+sscalar r = sconcrete $ Nested.sscalar r
 
 srepl :: (KnownShS sh, GoodScalar r, BaseTensor target)
       => r -> target (TKS sh r)
@@ -1825,9 +1753,7 @@ singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
 xscalar :: forall r target. (GoodScalar r, BaseTensor target)
         => r -> target (TKX '[] r)
-xscalar r =
-  let a = Nested.mscalar r
-  in xconcrete a
+xscalar r = xconcrete $ Nested.mscalar r
 
 xrepl :: forall sh r target. (GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
@@ -1837,6 +1763,73 @@ xingestData :: forall sh r target. (GoodScalar r, BaseTensor target)
             => IShX sh -> [r] -> target (TKX sh r)
 xingestData sh l =
   tconcrete (FTKX sh FTKScalar) (RepN $ Nested.mfromListPrimLinear sh l)
+
+rfold
+  :: forall n m rn rm target.
+     ( BaseTensor target, LetTensor target
+     , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
+  => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
+  -> target (TKR2 n rn)
+  -> target (TKR2 (1 + m) rm)
+  -> target (TKR2 n rn)
+{-# INLINE rfold #-}
+rfold f acc0 es =
+  withSNat (rlength es) $ \k -> tfold k knownSTK knownSTK f acc0 es
+sfold
+  :: forall k sh shm rn rm target.
+     ( BaseTensor target, LetTensor target
+     , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
+  => (forall f. ADReady f
+      => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
+  -> target (TKS2 sh rn)
+  -> target (TKS2 (k ': shm) rm)
+  -> target (TKS2 sh rn)
+{-# INLINE sfold #-}
+sfold = tfold (SNat @k) knownSTK knownSTK
+xfold
+  :: forall k sh shm rn rm target.
+     ( BaseTensor target, LetTensor target
+     , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
+  => (forall f.
+      ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
+  -> target (TKX2 sh rn)
+  -> target (BuildTensorKind k (TKX2 shm rm))
+  -> target (TKX2 sh rn)
+{-# INLINE xfold #-}
+xfold = tfold (SNat @k) knownSTK knownSTK
+rscan
+  :: forall n m rn rm target.
+     ( BaseTensor target, ConvertTensor target, LetTensor target
+     , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
+  => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
+  -> target (TKR2 n rn)
+  -> target (TKR2 (1 + m) rm)
+  -> target (TKR2 (1 + n) rn)
+{-# INLINE rscan #-}
+rscan f acc0 es =
+  withSNat (rlength es) $ \k -> tscan k knownSTK knownSTK f acc0 es
+sscan
+  :: forall k sh shm rn rm target.
+     ( BaseTensor target, ConvertTensor target, LetTensor target
+     , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
+  => (forall f.
+      ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
+  -> target (TKS2 sh rn)
+  -> target (TKS2 (k ': shm) rm)
+  -> target (TKS2 (1 + k ': sh) rn)
+{-# INLINE sscan #-}
+sscan = tscan (SNat @k) knownSTK knownSTK
+xscan
+  :: forall k sh shm rn rm target.
+     ( BaseTensor target, ConvertTensor target, LetTensor target
+     , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
+  => (forall f.
+      ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
+  -> target (TKX2 sh rn)
+  -> target (BuildTensorKind k (TKX2 shm rm))
+  -> target (BuildTensorKind (1 + k) (TKX2 sh rn))
+{-# INLINE xscan #-}
+xscan = tscan (SNat @k) knownSTK knownSTK
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.
