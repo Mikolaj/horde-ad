@@ -21,7 +21,6 @@ import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-), type (<=?))
 import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Maybe (fromMaybe)
-import Data.Vector.Strict qualified as Data.Vector
 
 import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..), IxR (..), IxS (..), IxX (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
@@ -177,7 +176,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
-  rfromVector l = withSNat (V.length l) $ \snat -> astFromVector snat knownSTK l
   rsum v = withSNat (rlength v) $ \snat -> astSum snat knownSTK v
   rreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
   rindex @_ @m @n a ix = case ftkAst a of
@@ -352,7 +350,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Shaped ops
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
-  sfromVector @k l = astFromVector (SNat @k) knownSTK l
   ssum = astSum SNat knownSTK
   sindex v ix = astIndexStepS knownShS v ix
   sscatter @_ @shm @shn @shp t f =
@@ -377,7 +374,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Mixed ops
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
-  xfromVector @k l = astFromVector (SNat @k) knownSTK l
   xsum = astSum SNat knownSTK
   xreplicate = astReplicate SNat knownSTK
   xindex @_ @sh1 @sh2 a ix = case ftkAst a of
@@ -606,34 +602,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ simplifyInline artDerivativeFwd
     in AstLambda varP ast
 
-  tfromVector
-    :: forall y k.
-       SNat k -> STensorKind y
-    -> Data.Vector.Vector (AstTensor AstMethodLet s y)
-    -> AstTensor AstMethodLet s (BuildTensorKind k y)
-  tfromVector snat@SNat stk v = case stk of
-    STKScalar -> sfromVector $ V.map sfromK v
-    STKR SNat x | Dict <- lemKnownSTK x -> rfromVector v
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sfromVector v
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xfromVector v
-    STKProduct @y1 @y2 stk1 stk2 ->
-      let f :: ([AstTensor AstMethodLet s y1]
-                -> [AstTensor AstMethodLet s y2]
-                -> AstTensor AstMethodLet s (BuildTensorKind k y))
-            -> AstTensor AstMethodLet s y
-            -> ([AstTensor AstMethodLet s y1]
-                -> [AstTensor AstMethodLet s y2]
-                -> AstTensor AstMethodLet s (BuildTensorKind k y))
-          f acc u = \l1 l2 ->
-            tlet u $ \ u3 ->
-              acc (tproject1 u3 : l1) (tproject2 u3 : l2)
-          res :: [AstTensor AstMethodLet s y1]
-              -> [AstTensor AstMethodLet s y2]
-              -> AstTensor AstMethodLet s (BuildTensorKind k y)
-          res l1 l2 =
-            tpair (tfromVector snat stk1 (V.fromList l1))
-                  (tfromVector snat stk2 (V.fromList l2))
-      in V.foldl' f res v [] []  -- TODO: verify via tests this is not reversed
+  tfromVector = astFromVector
   tsum snat@SNat stk u = case stk of
     STKScalar -> kfromS $ ssum u
     STKR SNat x | Dict <- lemKnownSTK x -> rsum u
@@ -688,8 +657,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
-  rfromVector l = withSNat (V.length l) $ \snat ->
-    AstRaw . AstFromVector snat knownSTK . V.map unAstRaw $ l
   rsum v = withSNat (rlength v) $ \snat ->
              AstRaw . AstSum snat knownSTK . unAstRaw $ v
   rreplicate k = withSNat k $ \snat ->
@@ -871,8 +838,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Shaped ops
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
-  sfromVector @k l =
-    AstRaw . AstFromVector (SNat @k) knownSTK . V.map unAstRaw $ l
   ssum = AstRaw . AstSum SNat knownSTK . unAstRaw
   sindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
   sscatter @_ @shm @shn @shp t f =
@@ -901,8 +866,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
-  xfromVector @k l =
-    AstRaw . AstFromVector (SNat @k) knownSTK . V.map unAstRaw $ l
   xsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   xreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw
   xindex @_ @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
@@ -1108,6 +1071,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
+  tfromVector k stk =
+    AstRaw . AstFromVector k stk . V.map unAstRaw
+
 instance AstSpan s => ConvertTensor (AstRaw s) where
   rzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKR sh' y) (FTKR _ z) ->
@@ -1291,7 +1257,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
-  rfromVector = AstNoVectorize . rfromVector . V.map unAstNoVectorize
   rsum = AstNoVectorize . rsum . unAstNoVectorize
   rreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
   rindex v ix =
@@ -1322,7 +1287,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
-  sfromVector = AstNoVectorize . sfromVector . V.map unAstNoVectorize
   ssum = AstNoVectorize . ssum . unAstNoVectorize
   sindex v ix =
     AstNoVectorize $ sindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
@@ -1349,7 +1313,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
-  xfromVector = AstNoVectorize . xfromVector . V.map unAstNoVectorize
   xsum = AstNoVectorize . xsum . unAstNoVectorize
   xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
   xindex v ix =
@@ -1531,7 +1494,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
-  rfromVector = wAstNoSimplify . rfromVector . V.map wunAstNoSimplify
   rsum = wAstNoSimplify . rsum . wunAstNoSimplify
   rreplicate k = wAstNoSimplify . rreplicate k . wunAstNoSimplify
   rindex v ix =
@@ -1558,7 +1520,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
-  sfromVector = wAstNoSimplify . sfromVector . V.map wunAstNoSimplify
   ssum = wAstNoSimplify . ssum . wunAstNoSimplify
   sindex v ix =
     wAstNoSimplify $ sindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
@@ -1582,7 +1543,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
-  xfromVector = wAstNoSimplify . xfromVector . V.map wunAstNoSimplify
   xsum = wAstNoSimplify . xsum . wunAstNoSimplify
   xreplicate = wAstNoSimplify . xreplicate . wunAstNoSimplify
   xindex v ix =
@@ -1641,34 +1601,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   trevDt = trevDt @(AstRaw PrimalSpan)
   tfwd = tfwd @(AstRaw PrimalSpan)
 
-  tfromVector
-    :: forall y k.
-       SNat k -> STensorKind y
-    -> Data.Vector.Vector (AstNoSimplify s y)
-    -> AstNoSimplify s (BuildTensorKind k y)
-  tfromVector snat@SNat stk v = case stk of
-    STKScalar -> sfromVector $ V.map sfromK v
-    STKR SNat x | Dict <- lemKnownSTK x -> rfromVector v
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sfromVector v
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xfromVector v
-    STKProduct @y1 @y2 stk1 stk2 ->
-      let f :: ([AstNoSimplify s y1]
-                -> [AstNoSimplify s y2]
-                -> AstNoSimplify s (BuildTensorKind k y))
-            -> AstNoSimplify s y
-            -> ([AstNoSimplify s y1]
-                -> [AstNoSimplify s y2]
-                -> AstNoSimplify s (BuildTensorKind k y))
-          f acc u = \l1 l2 ->
-            tlet u $ \ u3 ->
-              acc (tproject1 u3 : l1) (tproject2 u3 : l2)
-          res :: [AstNoSimplify s y1]
-              -> [AstNoSimplify s y2]
-              -> AstNoSimplify s (BuildTensorKind k y)
-          res l1 l2 =
-            tpair (tfromVector snat stk1 (V.fromList l1))
-                  (tfromVector snat stk2 (V.fromList l2))
-      in V.foldl' f res v [] []
+  tfromVector k stk =
+    wAstNoSimplify . tfromVector k stk . V.map wunAstNoSimplify
   tsum snat@SNat stk u = case stk of
     STKScalar -> kfromS $ ssum u
     STKR SNat x | Dict <- lemKnownSTK x -> rsum u

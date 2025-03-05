@@ -91,11 +91,11 @@ instance BaseTensor RepN where
 
   -- Ranked ops
   rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unRepN
-  rfromVector @_ @r | Dict <- eltDictRep (knownSTK @r) =
+  trfromVector @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
-  rfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
+  trfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromVectorLinearR sh . V.map unRepN
-  runravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
+  trunravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.rtoListOuter . unRepN
   rsum t = case tftk knownSTK t of
     FTKR _ FTKScalar ->  -- optimized
@@ -161,12 +161,12 @@ instance BaseTensor RepN where
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unRepN
-  sfromVector @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
+  tsfromVector @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . V.map unRepN
-  sfromVectorLinear @_ @r | Dict <- eltDictRep (knownSTK @r) =
+  tsfromVectorLinear @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromVectorLinearS . V.map unRepN
-  sunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
+  tsunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.stoListOuter . unRepN
   ssum t = case tftk knownSTK t of
     FTKS _ FTKScalar ->  -- optimized
@@ -303,13 +303,13 @@ instance BaseTensor RepN where
 
   -- Shaped ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
-  xfromVector @n @sh @r | Dict <- eltDictRep (knownSTK @r) =
+  txfromVector @n @sh @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList
     . V.map unRepN
-  xfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
+  txfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . tfromVectorLinearX sh . V.map unRepN
-  xunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
+  txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.mtoListOuter . unRepN
   xsum t = case tftk knownSTK t of
     FTKX _ FTKScalar ->  -- optimized
@@ -491,6 +491,16 @@ instance BaseTensor RepN where
                    $ cfwdOnHVector xftk (RepN $ snd da_a)
                                    (unHFun h) (RepN $ fst da_a)
     in df
+
+  tfromVector snat@SNat stk v = assert (V.length v == sNatValue snat)
+                                $ case stk of
+    STKScalar -> tsfromVector $ V.map sfromK v
+    STKR SNat x | Dict <- lemKnownSTK x -> trfromVector v
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsfromVector v
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txfromVector v
+    STKProduct stk1 stk2 ->
+      let (v1, v2) = V.unzip $ V.map tunpair v
+      in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
 
 instance ConvertTensor RepN where
   rzip (RepN (a, b)) = RepN $ Nested.rzip a b

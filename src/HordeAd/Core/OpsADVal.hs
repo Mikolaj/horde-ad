@@ -13,8 +13,6 @@ module HordeAd.Core.OpsADVal
 
 import Prelude hiding (foldl')
 
-import Control.Exception.Assert.Sugar
-import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -23,10 +21,7 @@ import GHC.TypeLits (sameNat)
 import Data.Maybe (fromMaybe)
 
 import Data.Array.Nested
-  ( IxR (..)
-  , IxS (..)
-  , IxX (..)
-  , StaticShX(..)
+  ( StaticShX(..)
   , ShR (..)
   , ShX (..)
   , ShS (..)
@@ -147,13 +142,6 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Ranked ops
   rshape (D u _) = rshape u
-  rfromVector lu = withSNat (V.length lu) $ \snat ->
-    dD (rfromVector $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector snat knownSTK $ V.map (\(D _ u') -> u') lu)
-  runravelToList (D u u') =
-    let lu = runravelToList u
-        f i ui = dD ui (DeltaIndexR SNat u' (fromIntegral i :.: ZIR))
-    in imap f lu
   rsum (D u u') = withSNat (rlength u) $ \snat ->
     dD (rsum u) (DeltaSum snat knownSTK u')
   rsum0 (D u u') = dD (rsum0 u) (DeltaSum0R u')
@@ -218,13 +206,6 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Shaped ops
   sshape (D u _) = sshape u
-  sfromVector @k lu = assert (length lu == valueOf @k) $
-    dD (sfromVector $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector (SNat @k) knownSTK $ V.map (\(D _ u') -> u') lu)
-  sunravelToList (D u u') =
-    let lu = sunravelToList u
-        f i ui = dD ui (DeltaIndexS knownShS u' (fromIntegral i :.$ ZIS))
-    in imap f lu
   ssum (D u u') = dD (ssum u) (DeltaSum SNat knownSTK u')
   ssum0 (D u u') = dD (ssum0 u) (DeltaSum0S u')
   sdot0 (D ue u') (D ve v') =
@@ -278,13 +259,6 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Mixed ops
   xshape (D u _) = xshape u
-  xfromVector @k lu = assert (length lu == valueOf @k) $  -- TODO: Move these assertions to the base instances, that is concrete and AST
-    dD (xfromVector $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector (SNat @k) knownSTK $ V.map (\(D _ u') -> u') lu)
-  xunravelToList (D u u') =
-    let lu = xunravelToList u
-        f i ui = dD ui (DeltaIndexX knownShX u' (fromIntegral i :.% ZIX))
-    in imap f lu
   xsum (D u u') = dD (xsum u) (DeltaSum SNat knownSTK u')
   xsum0 (D u u') = dD (xsum0 u) (DeltaSum0X u')
   xdot0 (D ue u') (D ve v') =
@@ -552,6 +526,10 @@ instance ( ADReadyNoLet target, ShareTensor target
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject1 da_aShared)
     in HFun df
+
+  tfromVector snat stk lu =
+    dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
