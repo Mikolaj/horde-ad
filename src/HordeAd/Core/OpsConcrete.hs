@@ -76,11 +76,14 @@ instance LetTensor RepN where
   tunshare = id
   tD _stk t DummyDualTarget{} = t
   rfold f x0 as = foldl' f x0 (runravelToList as)
+  sfold f x0 as = foldl' f x0 (sunravelToList as)
+  xfold f x0 as = foldl' f x0 (xunravelToList as)
   rscan f x0 as =
     rfromList $ NonEmpty.fromList $ scanl' f x0 (runravelToList as)
-  sfold f x0 as = foldl' f x0 (sunravelToList as)
   sscan f x0 as =
     sfromList $ NonEmpty.fromList $ scanl' f x0 (sunravelToList as)
+  xscan f x0 as =
+    xfromList $ NonEmpty.fromList $ scanl' f x0 (xunravelToList as)
 
 instance ShareTensor RepN where
   tshare = id

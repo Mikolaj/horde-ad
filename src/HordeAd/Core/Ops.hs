@@ -156,6 +156,7 @@ class LetTensor (target :: Target) where
     tlet (tfromPrimal stk p) $ \pShared ->
     tlet (tfromDual d) $ \dShared ->
       taddTarget stk pShared dShared
+
   -- | A strict left fold.
   tfold
     :: forall yn ym k. BaseTensor target
@@ -179,8 +180,9 @@ class LetTensor (target :: Target) where
         in g)
        acc0
        es
+  -- The methods are overriden in the concrete instance, so can't be functions.
   rfold
-    :: forall rn rm n m.
+    :: forall n m rn rm.
        ( BaseTensor target
        , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
     => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
@@ -191,9 +193,9 @@ class LetTensor (target :: Target) where
   rfold f acc0 es =
     withSNat (rlength es) $ \k -> tfold k knownSTK knownSTK f acc0 es
   sfold
-    :: forall rn rm sh shm k.
-       ( BaseTensor target, KnownNat k
-       , KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
+    :: forall k sh shm rn rm.
+       ( BaseTensor target
+       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
     => (forall f. ADReady f
         => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
     -> target (TKS2 sh rn)
@@ -202,9 +204,9 @@ class LetTensor (target :: Target) where
   {-# INLINE sfold #-}  -- this doesn't want to specialize
   sfold = tfold (SNat @k) knownSTK knownSTK
   xfold
-    :: forall rn rm sh shm k.
-       ( BaseTensor target, KnownNat k
-       , KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
+    :: forall k sh shm rn rm.
+       ( BaseTensor target
+       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
     => (forall f.
         ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
     -> target (TKX2 sh rn)
@@ -212,9 +214,11 @@ class LetTensor (target :: Target) where
     -> target (TKX2 sh rn)
   {-# INLINE xfold #-}  -- this doesn't want to specialize
   xfold = tfold (SNat @k) knownSTK knownSTK
+
   -- | A strict left scan.
   tscan
-    :: forall yn ym k. (BaseTensor target, ConvertTensor target)
+    :: forall yn ym k.
+       (BaseTensor target, ConvertTensor target)
     => SNat k -> STensorKind yn -> STensorKind ym
     -> (forall f. ADReady f => f yn -> f ym -> f yn)
     -> target yn
@@ -229,16 +233,17 @@ class LetTensor (target :: Target) where
                 (tftk nstk acc0)
                 (tftk nstk acc0)
                 (razeFTK k mstk (tftk (buildSTK k mstk) es))
-                (let g :: forall f. ADReady f
-                       => f yn -> f ym -> f (TKProduct yn yn)
-                     g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
-                 in g)
-                acc0
-                es
+              (let g :: forall f. ADReady f
+                     => f yn -> f ym -> f (TKProduct yn yn)
+                   g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
+               in g)
+              acc0
+              es
     in tappend (SNat @1) k nstk
                (tfromVector (SNat @1) nstk (V.fromList [acc0])) bs
+  -- The methods are overriden in the concrete instance, so can't be functions.
   rscan
-    :: forall rn rm n m.
+    :: forall n m rn rm.
        ( BaseTensor target, ConvertTensor target
        , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
     => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
@@ -249,9 +254,9 @@ class LetTensor (target :: Target) where
   rscan f acc0 es =
     withSNat (rlength es) $ \k -> tscan k knownSTK knownSTK f acc0 es
   sscan
-    :: forall rn rm sh shm k.
-       ( BaseTensor target, ConvertTensor target, KnownNat k
-       , KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
+    :: forall k sh shm rn rm.
+       ( BaseTensor target, ConvertTensor target
+       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
     => (forall f.
         ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
     -> target (TKS2 sh rn)
@@ -260,9 +265,9 @@ class LetTensor (target :: Target) where
   {-# INLINE sscan #-}  -- this doesn't want to specialize
   sscan = tscan (SNat @k) knownSTK knownSTK
   xscan
-    :: forall rn rm sh shm k.
-       ( BaseTensor target, ConvertTensor target, KnownNat k
-       , KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
+    :: forall k sh shm rn rm.
+       ( BaseTensor target, ConvertTensor target
+       , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
     => (forall f.
         ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))
     -> target (TKX2 sh rn)
