@@ -28,6 +28,7 @@ import GHC.TypeLits
 import Numeric.LinearAlgebra (Numeric)
 import Numeric.LinearAlgebra qualified as LA
 import Type.Reflection (typeRep)
+import Data.Vector.Strict qualified as Data.Vector
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
@@ -90,15 +91,10 @@ instance BaseTensor RepN where
 
   -- Ranked ops
   rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unRepN
-  rfromList @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.rfromListOuter . NonEmpty.map unRepN
-      -- TODO: make this strict
-  rfromListLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromListLinearR sh . map unRepN
   rfromVector @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
   rfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromListLinearR sh . V.toList . V.map unRepN
+    RepN . tfromVectorLinearR sh . V.map unRepN
   runravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.rtoListOuter . unRepN
   rsum t = case tftk knownSTK t of
@@ -165,16 +161,11 @@ instance BaseTensor RepN where
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unRepN
-  sfromList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.sfromListOuter SNat . NonEmpty.map unRepN
-      -- TODO: make this strict
-  sfromListLinear @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromListLinearS . map unRepN
   sfromVector @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . V.map unRepN
   sfromVectorLinear @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromListLinearS . V.toList . V.map unRepN
+    RepN . tfromVectorLinearS . V.map unRepN
   sunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.stoListOuter . unRepN
   ssum t = case tftk knownSTK t of
@@ -312,18 +303,12 @@ instance BaseTensor RepN where
 
   -- Shaped ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
-  xfromList @n @sh @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
-    . Nested.mfromListOuter . NonEmpty.map unRepN
-      -- TODO: make this strict
-  xfromListLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromListLinearX sh . map unRepN
   xfromVector @n @sh @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList
     . V.map unRepN
   xfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromListLinearX sh . V.toList . V.map unRepN
+    RepN . tfromVectorLinearX sh . V.map unRepN
   xunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.mtoListOuter . unRepN
   xsum t = case tftk knownSTK t of
@@ -884,11 +869,10 @@ tscatterZ1R sh t f = case tftk knownSTK t of
         lu = imap g lt
     in foldr (addTarget knownSTK) zero lu
 
--- TODO: make this strict
-tfromListLinearR
+tfromVectorLinearR
   :: Nested.KnownElt r
-  => IShR n -> [Nested.Ranked 0 r] -> Nested.Ranked n r
-tfromListLinearR sh l = case NonEmpty.nonEmpty l of
+  => IShR n -> Data.Vector.Vector (Nested.Ranked 0 r) -> Nested.Ranked n r
+tfromVectorLinearR sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> Nested.rreshape sh Nested.remptyArray
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
@@ -1124,11 +1108,10 @@ tscatterZ1S t f = case tftk knownSTK t of
         lu = imap g lt
     in foldr (addTarget (STKS shpshn (knownSTK @r))) zero lu
 
--- TODO: make this strict
-tfromListLinearS
+tfromVectorLinearS
   :: forall r sh. (Nested.KnownElt r, KnownShS sh)
-  => [Nested.Shaped '[] r] -> Nested.Shaped sh r
-tfromListLinearS l = case NonEmpty.nonEmpty l of
+  => Data.Vector.Vector (Nested.Shaped '[] r) -> Nested.Shaped sh r
+tfromVectorLinearS l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> case testEquality (shsProduct (knownShS @sh)) (SNat @0) of
     Just Refl -> Nested.sreshape (knownShS @sh)
                  $ Nested.semptyArray (knownShS @sh)
@@ -1320,10 +1303,10 @@ tscatterZ1X sh t f =
           lu = imap g lt
       in foldr (addTarget knownSTK) zero lu
 
-tfromListLinearX
+tfromVectorLinearX
   :: forall r sh. Nested.KnownElt r
-  => IShX sh -> [Nested.Mixed '[] r] -> Nested.Mixed sh r
-tfromListLinearX sh l = case NonEmpty.nonEmpty l of
+  => IShX sh -> Data.Vector.Vector (Nested.Mixed '[] r) -> Nested.Mixed sh r
+tfromVectorLinearX sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> if shxSize sh == 0
              then Nested.mreshape sh $ Nested.memptyArray sh
              else error "tfromListLinearS: empty list, but not shape"
