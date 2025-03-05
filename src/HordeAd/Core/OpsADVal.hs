@@ -174,8 +174,8 @@ instance ( ADReadyNoLet target, ShareTensor target
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on
-  rconcrete a =
-    let v = rconcrete a
+  trconcrete a =
+    let v = trconcrete a
     in fromPrimalFTK (FTKR (Nested.rshape a) FTKScalar) v
   rfloor (D u _) =
     let v = rfloor u
@@ -230,8 +230,8 @@ instance ( ADReadyNoLet target, ShareTensor target
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (sgather @_ @r @shm @shn @shp u g)
           (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
-  sconcrete a =
-    let v = sconcrete a
+  tsconcrete a =
+    let v = tsconcrete a
     in fromPrimalFTK (FTKS (Nested.sshape a) FTKScalar) v
   sfloor (D u _) =
     let v = sfloor u
@@ -295,8 +295,8 @@ instance ( ADReadyNoLet target, ShareTensor target
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (xgather @_ @r @shm @shn @shp sh u g)
           (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' g)
-  xconcrete a =
-    let v = xconcrete a
+  txconcrete a =
+    let v = txconcrete a
     in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
   xfloor (D u _) =
     let v = xfloor u
@@ -328,8 +328,8 @@ instance ( ADReadyNoLet target, ShareTensor target
     Just l -> xfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
 
   -- Scalar ops
-  kconcrete a =
-    let v = kconcrete a
+  tkconcrete a =
+    let v = tkconcrete a
     in fromPrimalFTK FTKScalar v
   kfloor (D u _) =
     let v = kfloor u

@@ -230,9 +230,9 @@ fooRrev (x, y, z) =
       fHVector v = foo (tproject1 (tproject1 v), tproject2 (tproject1 v), tproject2 v)
       shapes = FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar)
       domsOf = rrev @g fHVector shapes
-                    (tpair (tpair (rconcrete @g $ Nested.rscalar x)
-                                  (rconcrete @g $ Nested.rscalar y))
-                           (rconcrete @g $ Nested.rscalar z))
+                    (tpair (tpair (rconcrete $ Nested.rscalar x)
+                                  (rconcrete $ Nested.rscalar y))
+                           (rconcrete $ Nested.rscalar z))
   in ( tlet domsOf (\v -> tproject1 (tproject1 v))
      , tlet domsOf (\v -> tproject2 (tproject1 v))
      , tlet domsOf (\v -> tproject2 v) )

@@ -126,7 +126,7 @@ instance BaseTensor RepN where
   rscatter1 = tscatterZ1R
   rgather = tgatherZR
   rgather1 = tgatherZ1R
-  rconcrete = RepN
+  trconcrete = RepN
   rfloor = RepN . liftVR (V.map floor) . unRepN
   rfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
   {-# INLINE rcast #-}  -- this doesn't want to specialize
@@ -264,7 +264,7 @@ instance BaseTensor RepN where
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
         sbuild @_ @_ @(Rank shm) (\ix -> t !$ f ix)
   sgather1 = tgatherZ1S
-  sconcrete = RepN
+  tsconcrete = RepN
   sfloor = RepN . liftVS (V.map floor) . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
   {-# INLINE scast #-}  -- this doesn't want to specialize
@@ -407,7 +407,7 @@ instance BaseTensor RepN where
         withKnownShX (ssxFromShape sh) $
         xbuild @_ @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
   xgather1 = tgatherZ1X
-  xconcrete = RepN
+  txconcrete = RepN
   xfloor = RepN . liftVX (V.map floor) . unRepN
   xfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN
   {-# INLINE xcast #-}  -- this doesn't want to specialize
@@ -432,7 +432,7 @@ instance BaseTensor RepN where
     RepN $ tbuild1X (unRepN . f . RepN)
 
   -- Scalar ops
-  kconcrete = RepN
+  tkconcrete = RepN
   kfloor = RepN . floor . unRepN
   kfromIntegral = RepN . fromIntegral . unRepN
   kcast = RepN . realToFrac . unRepN

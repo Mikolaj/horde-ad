@@ -13,9 +13,10 @@ module HordeAd.Core.Ops
     LetTensor(..), ShareTensor(..), BaseTensor(..), ConvertTensor(..)
   , HFun(..)
   , tunit
-  , rscalar, rrepl, ringestData
-  , sscalar, srepl, singestData
-  , xscalar, xrepl, xingestData
+  , rconcrete, rscalar, rrepl, ringestData
+  , sconcrete, sscalar, srepl, singestData
+  , xconcrete, xscalar, xrepl, xingestData
+  , kconcrete
   , rfromList, rfromVector, rfromListLinear, rfromVectorLinear, runravelToList
   , sfromList, sfromVector, sfromListLinear, sfromVectorLinear, sunravelToList
   , xfromList, xfromVector, xfromListLinear, xfromVectorLinear, xunravelToList
@@ -430,8 +431,8 @@ class ( Num (IntOf target)
   rgather1 k v f = rgather @target @r @1
                            (k :$: dropShape (rshape v)) v
                            (\(i :.: ZIR) -> f i)
-  rconcrete :: GoodScalar r
-            => Nested.Ranked n r -> target (TKR n r)
+  trconcrete :: GoodScalar r
+             => Nested.Ranked n r -> target (TKR n r)
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKR n r) -> target (TKR n r2)
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -682,8 +683,8 @@ class ( Num (IntOf target)
     -> (IntOf target -> IxSOf target shp)
     -> target (TKS2 (n2 ': shn) r)
   sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
-  sconcrete :: GoodScalar r
-            => Nested.Shaped sh r -> target (TKS sh r)
+  tsconcrete :: GoodScalar r
+             => Nested.Shaped sh r -> target (TKS sh r)
   sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKS sh r) -> target (TKS sh r2)
     -- the integer can be negative
@@ -1035,8 +1036,8 @@ class ( Num (IntOf target)
     xgather @target @r @'[Just n2]
             (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
             (\(i :.% ZIX) -> f i)
-  xconcrete :: GoodScalar r
-            => Nested.Mixed sh r -> target (TKX sh r)
+  txconcrete :: GoodScalar r
+             => Nested.Mixed sh r -> target (TKX sh r)
   xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKX sh r) -> target (TKX sh r2)
   xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -1141,7 +1142,7 @@ class ( Num (IntOf target)
   xScale = tScale @target knownSTK
 
   -- Scalar ops
-  kconcrete :: GoodScalar r => r -> target (TKScalar r)
+  tkconcrete :: GoodScalar r => r -> target (TKScalar r)
   kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKScalar r) -> target (TKScalar r2)
   kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -1697,23 +1698,26 @@ tunit :: BaseTensor target
       => target TKUnit
 tunit = kconcrete Z0
 
+rconcrete :: (GoodScalar r, BaseTensor target)
+          => Nested.Ranked n r -> target (TKR n r)
+rconcrete = trconcrete
 rscalar :: forall r target. (GoodScalar r, BaseTensor target)
         => r -> target (TKR 0 r)
 rscalar r = rconcrete $ Nested.rscalar r
-
 rrepl :: forall n r target. (GoodScalar r, BaseTensor target)
       => IShR n -> r -> target (TKR n r)
 rrepl sh a = tconcrete (FTKR sh FTKScalar) (RepN $ Nested.rreplicateScal sh a)
-
 ringestData :: forall n r target. (GoodScalar r, BaseTensor target)
             => IShR n -> [r] -> target (TKR n r)
 ringestData sh l =
   tconcrete (FTKR sh FTKScalar) (RepN $ Nested.rfromListPrimLinear sh l)
 
+sconcrete :: (GoodScalar r, BaseTensor target)
+          => Nested.Shaped sh r -> target (TKS sh r)
+sconcrete = tsconcrete
 sscalar :: forall r target. (GoodScalar r, BaseTensor target)
         => r -> target (TKS '[] r)
 sscalar r = sconcrete $ Nested.sscalar r
-
 srepl :: (KnownShS sh, GoodScalar r, BaseTensor target)
       => r -> target (TKS sh r)
 srepl = sconcrete . Nested.sreplicateScal knownShS
@@ -1723,23 +1727,27 @@ srepl = sconcrete . Nested.sreplicateScal knownShS
   --   sreplicate0N . sscalar
   -- though we could also look at the low level in @isSmall@ and mark
   -- replicated fromPrimals as small
-
 singestData :: (KnownShS sh, GoodScalar r, BaseTensor target)
             => [r] -> target (TKS sh r)
 singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
 
+xconcrete :: (GoodScalar r, BaseTensor target)
+          => Nested.Mixed sh r -> target (TKX sh r)
+xconcrete = txconcrete
 xscalar :: forall r target. (GoodScalar r, BaseTensor target)
         => r -> target (TKX '[] r)
 xscalar r = xconcrete $ Nested.mscalar r
-
 xrepl :: forall sh r target. (GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
 xrepl sh a = tconcrete (FTKX sh FTKScalar) (RepN $ Nested.mreplicateScal sh a)
-
 xingestData :: forall sh r target. (GoodScalar r, BaseTensor target)
             => IShX sh -> [r] -> target (TKX sh r)
 xingestData sh l =
   tconcrete (FTKX sh FTKScalar) (RepN $ Nested.mfromListPrimLinear sh l)
+
+kconcrete :: (GoodScalar r, BaseTensor target)
+          => r -> target (TKScalar r)
+kconcrete = tkconcrete
 
 rfromList :: (KnownNat n, KnownSTK r, BaseTensor target, ConvertTensor target)
           => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
