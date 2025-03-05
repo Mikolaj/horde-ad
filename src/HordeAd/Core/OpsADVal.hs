@@ -113,7 +113,7 @@ fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => LetTensor (ADVal target) where
-  tlet (D u u') f =
+  ttlet (D u u') f =
     let !var2 = tshare u
     in f (dDnotShared var2 u')
   toShare = id

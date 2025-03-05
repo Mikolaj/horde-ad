@@ -72,7 +72,7 @@ import HordeAd.Core.Types
 -- * Tensor classes instance
 
 instance LetTensor RepN where
-  tlet = (&)
+  ttlet = (&)
   toShare = id
   tunshare = id
   tD _stk t DummyDualTarget{} = t

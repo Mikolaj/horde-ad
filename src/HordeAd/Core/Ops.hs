@@ -12,7 +12,7 @@ module HordeAd.Core.Ops
   ( -- * The tensor classes
     LetTensor(..), ShareTensor(..), BaseTensor(..), ConvertTensor(..)
   , HFun(..)
-  , tunit
+  , tunit, tlet
   , rconcrete, rscalar, rrepl, ringestData
   , sconcrete, sscalar, srepl, singestData
   , xconcrete, xscalar, xrepl, xingestData
@@ -134,9 +134,7 @@ instance (RealFloatF r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (target :: Target) where
-  tlet :: target x
-       -> (target x -> target z)
-       -> target z
+  ttlet :: target x -> (target x -> target z) -> target z
   toShare :: target y -> ShareOf target y
   tunshare :: ShareOf target y -> target y
   tunshare = error "tunshare: this instance should never be used"
@@ -150,7 +148,7 @@ class LetTensor (target :: Target) where
     STKS _ x | Dict <- lemKnownSTK x -> sappend a b
     STKX _ x | Dict <- lemKnownSTK x -> xappend a b
     STKProduct stk1 stk2 ->
-      tlet a $ \ !aShared -> tlet b $ \ !bShared ->
+      ttlet a $ \ !aShared -> ttlet b $ \ !bShared ->
         tpair (tappend msnat nsnat stk1 (tproject1 aShared) (tproject1 bShared))
               (tappend msnat nsnat stk2 (tproject2 aShared) (tproject2 bShared))
   tD :: BaseTensor target
@@ -158,8 +156,8 @@ class LetTensor (target :: Target) where
      -> target y
   tD stk p d =
     -- Lets needed, because taddTarget requires duplicable arguments.
-    tlet (tfromPrimal stk p) $ \pShared ->
-    tlet (tfromDual d) $ \dShared ->
+    ttlet (tfromPrimal stk p) $ \pShared ->
+    ttlet (tfromDual d) $ \dShared ->
       taddTarget stk pShared dShared
   -- | A strict left fold.
   tfold
@@ -204,7 +202,7 @@ class LetTensor (target :: Target) where
                 (razeFTK k mstk (tftk (buildSTK k mstk) es))
               (let g :: forall f. ADReady f
                      => f yn -> f ym -> f (TKProduct yn yn)
-                   g !acc !e = tlet (f acc e) $ \ !res -> tpair res res
+                   g !acc !e = ttlet (f acc e) $ \ !res -> tpair res res
                in g)
               acc0
               es
@@ -215,7 +213,7 @@ class ShareTensor (target :: Target) where
   tshare :: target y -> target y
   tunpair :: target (TKProduct x z) -> (target x, target z)
   -- This would suffers from lack of sharing with LetTensor, because
-  -- tlet doesn't work over a list. Here it's fine.
+  -- ttlet doesn't work over a list. Here it's fine.
   tunravelToListShare :: forall y k. (BaseTensor target, ConvertTensor target)
                       => SNat k -> STensorKind y
                       -> target (BuildTensorKind k y)
@@ -296,7 +294,7 @@ class ( Num (IntOf target)
     else rreshape sh $ rfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
-  -- by explicit sharing, e.g., 'tlet'.
+  -- by explicit sharing, e.g., 'ttlet'.
   trunravelToList :: forall n r. (KnownSTK r, KnownNat n)
                   => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
   trunravelToList t =
@@ -318,9 +316,6 @@ class ( Num (IntOf target)
          let arr = Nested.semptyArray ZSS
          in sreshape $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else sreshape @_ @r @'[Nested.Product sh] @sh $ sfromVector v
-  -- | Warning: during computation, sharing between the elements
-  -- of the resulting list is likely to be lost, so it needs to be ensured
-  -- by explicit sharing, e.g., 'tlet'.
   tsunravelToList :: forall n sh r. (KnownSTK r, KnownNat n, KnownShS sh)
                   => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
   tsunravelToList t =
@@ -340,9 +335,6 @@ class ( Num (IntOf target)
          in xreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else withSNat (shxSize sh) $ \(SNat @n) ->
            xreshape @_ @_ @'[Just n] sh $ xfromVector v
-  -- | Warning: during computation, sharing between the elements
-  -- of the resulting list is likely to be lost, so it needs to be ensured
-  -- by explicit sharing, e.g., 'tlet'.
   txunravelToList :: forall n sh r. (KnownSTK r, KnownNat n, KnownShX sh)
                   => target (TKX2 (Just n ': sh) r) -> [target (TKX2 sh r)]
   txunravelToList t =
@@ -1216,7 +1208,7 @@ class ( Num (IntOf target)
         fl :: forall f. ADReady f
            => f (TKProduct accShs eShs)
            -> f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ !args1 ->
+        fl !args = ttlet args $ \ !args1 ->
                      f (tproject1 args1) (tproject2 args1)
     in tmapAccumRDer proxy k accShs bShs eShs
                      (tlambda @target xftk (HFun fl))
@@ -1262,7 +1254,7 @@ class ( Num (IntOf target)
         fl :: forall f. ADReady f
            => f (TKProduct accShs eShs)
            -> f (TKProduct accShs bShs)
-        fl !args = tlet args $ \ !args1 ->
+        fl !args = ttlet args $ \ !args1 ->
                      f (tproject1 args1) (tproject2 args1)
     in tmapAccumLDer proxy k accShs bShs eShs
                      (tlambda @target xftk (HFun fl))
@@ -1697,6 +1689,9 @@ class ConvertTensor (target :: Target) where
 tunit :: BaseTensor target
       => target TKUnit
 tunit = kconcrete Z0
+tlet :: forall x z target. LetTensor target
+     => target x -> (target x -> target z) -> target z
+tlet = ttlet
 
 rconcrete :: (GoodScalar r, BaseTensor target)
           => Nested.Ranked n r -> target (TKR n r)
@@ -1790,9 +1785,6 @@ sfromVectorLinear :: forall sh r target.
                   => Data.Vector.Vector (target (TKS2 '[] r))
                   -> target (TKS2 sh r)
 sfromVectorLinear = tsfromVectorLinear
--- | Warning: during computation, sharing between the elements
--- of the resulting list is likely to be lost, so it needs to be ensured
--- by explicit sharing, e.g., 'tlet'.
 sunravelToList :: forall n sh r target.
                   (KnownSTK r, KnownNat n, KnownShS sh, BaseTensor target)
                => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
