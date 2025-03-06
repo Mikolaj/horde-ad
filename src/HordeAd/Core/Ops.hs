@@ -2364,8 +2364,8 @@ type ADReadyClasses target =
   ( BaseTensor target
   , ConvertTensor target
   , Boolean (BoolOf target)
-  , CommonTargetEqOrd target
   , AllTargetShow target
+  , CommonTargetEqOrd target
   )
 
 -- This is illegal:

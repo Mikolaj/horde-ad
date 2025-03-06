@@ -174,8 +174,8 @@ printAstAux cfg d = \case
       printPrefixOp printAst cfg d
                     ("tsum (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
-    STKS{} -> printPrefixOp printAst cfg d ("ssum @_ @" ++ show (sNatValue snat)) [v]
-    STKX{} -> printPrefixOp printAst cfg d ("xsum @_ @" ++ show (sNatValue snat)) [v]
+    STKS{} -> printPrefixOp printAst cfg d ("ssum @" ++ show (sNatValue snat)) [v]
+    STKX{} -> printPrefixOp printAst cfg d ("xsum @" ++ show (sNatValue snat)) [v]
     STKProduct{} ->
       printPrefixOp printAst cfg d
                     ("tsum (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
@@ -188,9 +188,9 @@ printAstAux cfg d = \case
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d
-                            ("sreplicate @_ @" ++ show (sNatValue snat)) [v]
+                            ("sreplicate @" ++ show (sNatValue snat)) [v]
     STKX{} -> printPrefixOp printAst cfg d
-                            ("xreplicate @_ @" ++ show (sNatValue snat)) [v]
+                            ("xreplicate @" ++ show (sNatValue snat)) [v]
     STKProduct{} ->
       printPrefixOp
         printAst cfg d
@@ -487,7 +487,7 @@ printAstAux cfg d = \case
   AstTransposeS perm v ->
    if loseRoudtrip cfg
    then printPrefixOp printAst cfg d
-                      ("stranspose @_ @" ++ show (permToList perm)) [v]
+                      ("stranspose @" ++ show (permToList perm)) [v]
    else printPrefixOp
           printAst cfg d
          ("ttranspose (makePerm @" ++ show (permToList perm) ++ ")") [v]
