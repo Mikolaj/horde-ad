@@ -142,6 +142,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Ranked ops
   rshape (D u _) = rshape u
+  rlength (D u _) = rlength u
   rsum (D u u') = withSNat (rwidth u) $ \snat ->
     dD (rsum u) (DeltaSum snat knownSTK u')
   rsum0 (D u u') = dD (rsum0 u) (DeltaSum0R u')
@@ -206,6 +207,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Shaped ops
   sshape (D u _) = sshape u
+  slength (D u _) = slength u
   ssum (D u u') = dD (ssum u) (DeltaSum SNat knownSTK u')
   ssum0 (D u u') = dD (ssum0 u) (DeltaSum0S u')
   sdot0 (D ue u') (D ve v') =
@@ -259,6 +261,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Mixed ops
   xshape (D u _) = xshape u
+  xlength (D u _) = xlength u
   xsum (D u u') = dD (xsum u) (DeltaSum SNat knownSTK u')
   xsum0 (D u u') = dD (xsum0 u) (DeltaSum0X u')
   xdot0 (D ue u') (D ve v') =

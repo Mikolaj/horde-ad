@@ -1860,7 +1860,7 @@ emptyArgs t =
 --  - rsum (rgather @target @(TKScalar r) @2 @0 @1 [0, 0] emptyTensor (const [0]))
 --  * rflatten (rtr (rgather1 0 t (const ZIR)))
   + rbuild1 0 (\i -> t ! (i :.: ZIR))
-  + rbuild1 0 (\i -> t ! [fromIntegral (rrank t) `quotF` i] / rfromIndex0 i)
+  + rbuild1 0 (\i -> t ! [fromIntegral (rlength t) `quotF` i] / rfromIndex0 i)
   + rbuild @target @(TKScalar r) @1 (0 :$: ZSR) (const $ rscalar 73)
   - rsum (rbuild @target @(TKScalar r) @0 (0 :$: 0 :$: ZSR)
                  (const (rreplicate 1 emptyTensor)))
@@ -1882,7 +1882,7 @@ emptyArgs t =
        - ssum (sreshape @target @_ @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
        * sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
        + sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
-                              !$ (fromIntegral (rrank t) `quotF` i :.$ ZIS)
+                              !$ (fromIntegral (rlength t) `quotF` i :.$ ZIS)
                               / sfromIndex0 i)
        + sbuild @target @(TKScalar r) @1 (const $ sscalar 73)
        - ssum (sbuild @target @(TKScalar r) @0
@@ -1924,7 +1924,7 @@ emptyArgs t =
                             `xindex` (i :.% ZIX))
        + xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
                               `xindex`
-                              (fromIntegral (rrank t) `quotF` i :.% ZIX)
+                              (fromIntegral (rlength t) `quotF` i :.% ZIX)
                               / xfromIndex0 i)
        + xbuild @target @(TKScalar r) @1 (SKnown (SNat @0) :$% ZSX)
                 (const $ xscalar 73)

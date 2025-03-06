@@ -464,7 +464,7 @@ nestedSumBuildB v =
              [ rbuild1 2 rfromIndex0
              , rsum $ rbuild [9, 2] $ const $ rfromIndex0 ix
              , rindex v (fromList
-                         $ replicate (rrank v - 1)
+                         $ replicate (rlength v - 1)
                              (maxF 0 $ minF 1 $ ix2 `quotF` 2 + ix `quotF` 4 - 1))
              , rbuild1 2 (\_ -> rsum0 v)
              , rsum (rbuild1 7 (\ix7 ->

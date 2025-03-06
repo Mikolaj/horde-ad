@@ -24,7 +24,7 @@ import Data.Maybe (fromMaybe)
 
 import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..), IxR (..), IxS (..), IxX (..))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (withKnownShX, shxInit, shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
+import Data.Array.Mixed.Shape (shxRank, withKnownShX, shxInit, shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
 import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
@@ -176,6 +176,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
+  rlength t = case ftkAst t of
+    FTKR sh _ -> sNatValue $ shrRank sh
   rsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
   rreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
   rindex @_ @m @n a ix = case ftkAst a of
@@ -350,6 +352,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Shaped ops
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
+  slength t = case ftkAst t of
+    FTKS sh _ -> sNatValue $ shsRank sh
   ssum = astSum SNat knownSTK
   sindex v ix = astIndexStepS knownShS v ix
   sscatter @_ @shm @shn @shp t f =
@@ -374,6 +378,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Mixed ops
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
+  xlength t = case ftkAst t of
+    FTKX sh _ -> sNatValue $ shxRank sh
   xsum = astSum SNat knownSTK
   xreplicate = astReplicate SNat knownSTK
   xindex @_ @sh1 @sh2 a ix = case ftkAst a of
@@ -657,6 +663,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
+  rlength t = case ftkAst $ unAstRaw t of
+    FTKR sh _ -> sNatValue $ shrRank sh
   rsum v = withSNat (rwidth v) $ \snat ->
              AstRaw . AstSum snat knownSTK . unAstRaw $ v
   rreplicate k = withSNat k $ \snat ->
@@ -838,6 +846,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Shaped ops
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
+  slength t = case ftkAst $ unAstRaw t of
+    FTKS sh _ -> sNatValue $ shsRank sh
   ssum = AstRaw . AstSum SNat knownSTK . unAstRaw
   sindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
   sscatter @_ @shm @shn @shp t f =
@@ -866,6 +876,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
+  xlength t = case ftkAst $ unAstRaw t of
+    FTKX sh _ -> sNatValue $ shxRank sh
   xsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   xreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw
   xindex @_ @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
@@ -1257,6 +1269,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
+  rlength = rlength . unAstNoVectorize
   rsum = AstNoVectorize . rsum . unAstNoVectorize
   rreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
   rindex v ix =
@@ -1287,6 +1300,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
+  slength = slength . unAstNoVectorize
   ssum = AstNoVectorize . ssum . unAstNoVectorize
   sindex v ix =
     AstNoVectorize $ sindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
@@ -1313,6 +1327,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
+  xlength = xlength . unAstNoVectorize
   xsum = AstNoVectorize . xsum . unAstNoVectorize
   xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
   xindex v ix =
@@ -1494,6 +1509,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
+  rlength = rlength . wunAstNoSimplify
   rsum = wAstNoSimplify . rsum . wunAstNoSimplify
   rreplicate k = wAstNoSimplify . rreplicate k . wunAstNoSimplify
   rindex v ix =
@@ -1520,6 +1536,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
+  slength = slength . wunAstNoSimplify
   ssum = wAstNoSimplify . ssum . wunAstNoSimplify
   sindex v ix =
     wAstNoSimplify $ sindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
@@ -1543,6 +1560,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
+  xlength = xlength . wunAstNoSimplify
   xsum = wAstNoSimplify . xsum . wunAstNoSimplify
   xreplicate = wAstNoSimplify . xreplicate . wunAstNoSimplify
   xindex v ix =

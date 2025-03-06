@@ -91,6 +91,8 @@ instance BaseTensor RepN where
 
   -- Ranked ops
   rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unRepN
+  rlength @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    sNatValue . Nested.rrank . unRepN
   trfromVector @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
   trfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
@@ -161,6 +163,8 @@ instance BaseTensor RepN where
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unRepN
+  slength @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    sNatValue . Nested.srank . unRepN
   tsfromVector @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . V.map unRepN
@@ -303,6 +307,8 @@ instance BaseTensor RepN where
 
   -- Shaped ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
+  xlength @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    sNatValue . Nested.mrank . unRepN
   txfromVector @n @sh @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList

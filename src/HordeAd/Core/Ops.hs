@@ -265,9 +265,8 @@ class ( Num (IntOf target)
   -- by 1 dimension.
   rshape :: forall n x. KnownSTK x
          => target (TKR2 n x) -> IShR n
-  rrank :: forall n x. KnownNat n
-        => target (TKR2 n x) -> Int
-  rrank _ = valueOf @n
+  rlength :: forall n x. KnownSTK x
+          => target (TKR2 n x) -> Int
   rsize :: forall n x. KnownSTK x
         => target (TKR2 n x) -> Int
   rsize = shrSize . rshape
@@ -576,9 +575,8 @@ class ( Num (IntOf target)
   -- Shaped ops
   sshape :: forall sh x. KnownSTK x
          => target (TKS2 sh x) -> ShS sh
-  srank :: forall sh x. KnownNat (Rank sh)
-        => target (TKS2 sh x) -> Int
-  srank _ = valueOf @(Rank sh)
+  slength :: forall sh x. KnownSTK x
+          => target (TKS2 sh x) -> Int
   ssize :: forall sh x. KnownSTK x
         => target (TKS2 sh x) -> Int
   ssize = shsSize . sshape
@@ -904,9 +902,8 @@ class ( Num (IntOf target)
   -- Mixed ops
   xshape :: forall sh x. KnownSTK x
          => target (TKX2 sh x) -> IShX sh
-  xrank :: forall sh x. KnownNat (Rank sh)
-        => target (TKX2 sh x) -> Int
-  xrank _ = valueOf @(Rank sh)
+  xlength :: forall sh x. KnownSTK x
+          => target (TKX2 sh x) -> Int
   xsize :: forall sh x. KnownSTK x
         => target (TKX2 sh x) -> Int
   xsize = shxSize . xshape

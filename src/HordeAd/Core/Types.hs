@@ -513,7 +513,7 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
 
 -- BTW, shall we keep *Rank and *Product for each of the 6 list types
 -- and remove *Length and *Size? If not remove, define it for all shape types?
--- Related: I think rsize, etc., can be safely removed.
+-- Related: I think rsize, ssize and msize can be safely removed.
 ixsRank :: IxS sh i -> SNat (Rank sh)
 ixsRank (IxS l) = listsRank l
 
