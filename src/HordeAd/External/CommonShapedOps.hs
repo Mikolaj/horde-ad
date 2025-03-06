@@ -160,7 +160,7 @@ maxPool1S :: forall ksize stride m target r.
              , KnownNat ksize, KnownNat stride, KnownNat m )
           => target (TKS '[m] r) -> target (TKS '[m] r)
 maxPool1S v =
-  let l = [0, valueOf @stride .. slength v - valueOf @ksize]
+  let l = [0, valueOf @stride .. swidth v - valueOf @ksize]
       maxOfSlice i =
         case someNatVal $ toInteger i of
           Just (SomeNat @i _proxy) ->

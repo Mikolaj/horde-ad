@@ -127,7 +127,7 @@ rmatmul2m :: (BaseTensor target, GoodScalar r, Numeric r)
 rmatmul2m m1 m2 = case rshape m2 of
   _ :$: width2 :$: ZSR ->
     rsum (rtranspose [2,1,0] (rreplicate width2 m1)
-          * rtranspose [1,0] (rreplicate (rlength m1) m2))
+          * rtranspose [1,0] (rreplicate (rwidth m1) m2))
 
 rnnMnistLossFusedR
   :: ( ADReady target, ADReady (PrimalOf target), GoodScalar r

@@ -1979,7 +1979,7 @@ rscanZip :: forall rn n rn2 n2 target.
          -> target (TKR (1 + n2) rn2)
          -> target (TKR (1 + n) rn)
 rscanZip f eShs acc0 es =
-  let width = rlength es
+  let width = rwidth es
       ftk = tftk knownSTK acc0
   in withSNat width $ \snat ->
     tlet

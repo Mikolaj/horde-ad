@@ -579,7 +579,7 @@ concatBuild r =
                          (kfromR $ rprimalPart $ rminIndex (rflatten r))
                          ((kfromR . rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `remF` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->
-                rsum $ rtr $ rreplicate (rlength r) (rslice 0 1 r)) ])
+                rsum $ rtr $ rreplicate (rwidth r) (rslice 0 1 r)) ])
 
 testConcatBuild0 :: Assertion
 testConcatBuild0 =

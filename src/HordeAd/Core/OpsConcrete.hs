@@ -114,7 +114,7 @@ instance BaseTensor RepN where
   rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
   {-# INLINE rmatvecmul #-}  -- this doesn't want to specialize
-  rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
+  rmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
   rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   rreplicate @r k | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate (k :$: ZSR) . unRepN

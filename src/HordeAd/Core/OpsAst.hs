@@ -176,7 +176,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
-  rsum v = withSNat (rlength v) $ \snat -> astSum snat knownSTK v
+  rsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
   rreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
   rindex @_ @m @n a ix = case ftkAst a of
     FTKR @_ @x shmshn _ ->
@@ -657,7 +657,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
-  rsum v = withSNat (rlength v) $ \snat ->
+  rsum v = withSNat (rwidth v) $ \snat ->
              AstRaw . AstSum snat knownSTK . unAstRaw $ v
   rreplicate k = withSNat k $ \snat ->
     AstRaw . AstReplicate snat knownSTK . unAstRaw

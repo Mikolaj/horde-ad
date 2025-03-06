@@ -450,7 +450,7 @@ testPiecewiseLinear2PP = do
 
 overleaf :: forall r target. (BaseTensor target, GoodScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
-overleaf v = let wrap i = i `remF` fromIntegral (rlength v)
+overleaf v = let wrap i = i `remF` fromIntegral (rwidth v)
              in rsum (rbuild @target @(TKScalar r) @1 [50] (\[i] -> rindex v [wrap i]))
 
 testOverleaf :: Assertion
@@ -1185,7 +1185,7 @@ testMatmul2FromMatvecmulPP = do
       rmatmul2F :: (BaseTensor target, GoodScalar r)
                 => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
       rmatmul2F m1 m2 =
-        rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
+        rbuild1 (rwidth m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
       (artifactRev, _) =
         revArtifactAdapt
                  True (uncurry rmatmul2F)

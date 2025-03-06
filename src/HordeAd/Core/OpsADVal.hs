@@ -142,7 +142,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   -- Ranked ops
   rshape (D u _) = rshape u
-  rsum (D u u') = withSNat (rlength u) $ \snat ->
+  rsum (D u u') = withSNat (rwidth u) $ \snat ->
     dD (rsum u) (DeltaSum snat knownSTK u')
   rsum0 (D u u') = dD (rsum0 u) (DeltaSum0R u')
   rdot0 (D ue u') (D ve v') =
@@ -152,11 +152,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (rdot0 u v) (dAdd (DeltaDot0R v u') (DeltaDot0R u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  rmatvecmul m v = rsum (rtr (rreplicate (rlength m) v * m))
+  rmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
   rmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR ->
       rsum (rtranspose [2,1,0] (rreplicate width2 m1)
-            * rtranspose [1,0] (rreplicate (rlength m1) m2))
+            * rtranspose [1,0] (rreplicate (rwidth m1) m2))
   rreplicate k (D u u') = withSNat k $ \snat ->
     dD (rreplicate k u) (DeltaReplicate snat knownSTK u')
   -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0

@@ -271,9 +271,9 @@ class ( Num (IntOf target)
   rsize :: forall n x. KnownSTK x
         => target (TKR2 n x) -> Int
   rsize = shrSize . rshape
-  rlength :: forall n x. KnownSTK x
+  rwidth :: forall n x. KnownSTK x
           => target (TKR2 (1 + n) x) -> Int
-  rlength a = case rshape a of
+  rwidth a = case rshape a of
     k :$: _ -> k
 
   -- These nine methods can't be replaced by tfromVector, because the concrete
@@ -300,7 +300,7 @@ class ( Num (IntOf target)
   trunravelToList t =
     let f :: Int -> target (TKR2 n r)
         f i = rindex t (fromIntegral i :.: ZIR)
-    in map f [0 .. rlength t - 1]
+    in map f [0 .. rwidth t - 1]
   tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK r, ConvertTensor target)
                => Data.Vector.Vector (target (TKS2 sh r))
                -> target (TKS2 (n ': sh) r)
@@ -321,7 +321,7 @@ class ( Num (IntOf target)
   tsunravelToList t =
     let f :: Int -> target (TKS2 sh r)
         f i = sindex t (fromIntegral i :.$ ZIS)
-    in map f [0 .. slength t - 1]
+    in map f [0 .. swidth t - 1]
   txfromVector :: (KnownNat n, KnownShX sh, KnownSTK r, ConvertTensor target)
                => Data.Vector.Vector (target (TKX2 sh r))
                -> target (TKX2 (Just n ': sh) r)
@@ -340,7 +340,7 @@ class ( Num (IntOf target)
   txunravelToList t =
     let f :: Int -> target (TKX2 sh r)
         f i = xindex t (fromIntegral i :.% ZIX)
-    in map f [0 .. xlength t - 1]
+    in map f [0 .. xwidth t - 1]
 
   rsum :: (KnownSTK r, KnownNat n)
        => target (TKR2 (1 + n) r) -> target (TKR2 n r)
@@ -361,13 +361,13 @@ class ( Num (IntOf target)
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
-  rmatvecmul m v = rbuild1 (rlength m) (\i -> rdot0 v (m ! [i]))
+  rmatvecmul m v = rbuild1 (rwidth m) (\i -> rdot0 v (m ! [i]))
   rmatmul2 :: (GoodScalar r, Numeric r)
            => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
 -- Just rmatmul2 the two outermost dimensions?
 -- rmatmul2 m1 m2 = rmap1 (rmatvecmul (rtr m2)) m1
-  rmatmul2 m1 m2 = rbuild1 (rlength m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
+  rmatmul2 m1 m2 = rbuild1 (rwidth m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
   rreplicate :: (KnownSTK r, KnownNat n)
              => Int -> target (TKR2 n r) -> target (TKR2 (1 + n) r)
   rreplicate0N :: (KnownSTK r, KnownNat n)
@@ -482,7 +482,7 @@ class ( Num (IntOf target)
   rmap1 :: (KnownSTK r, KnownSTK r2, KnownNat n)
         => (target (TKR2 n r) -> target (TKR2 n r2))
         -> target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r2)
-  rmap1 f u = rbuild1 (rlength u) (\i -> f (u ! [i]))
+  rmap1 f u = rbuild1 (rwidth u) (\i -> f (u ! [i]))
   rmap0N :: (KnownSTK r, KnownSTK r1, KnownNat n)
          => (target (TKR2 0 r1) -> target (TKR2 0 r)) -> target (TKR2 n r1)
          -> target (TKR2 n r)
@@ -498,7 +498,7 @@ class ( Num (IntOf target)
                , KnownNat n1, KnownNat n2, KnownNat n )
             => (target (TKR2 n1 r1) -> target (TKR2 n2 r2) -> target (TKR2 n r))
             -> target (TKR2 (1 + n1) r1) -> target (TKR2 (1 + n2) r2) -> target (TKR2 (1 + n) r)
-  rzipWith1 f u v = rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]))
+  rzipWith1 f u v = rbuild1 (rwidth u) (\i -> f (u ! [i]) (v ! [i]))
   rzipWith0N :: (KnownSTK r1, KnownSTK r2, KnownSTK r, KnownNat n)
              => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r))
              -> target (TKR2 n r1) -> target (TKR2 n r2) -> target (TKR2 n r)
@@ -516,7 +516,7 @@ class ( Num (IntOf target)
              -> target (TKR2 (1 + n1) r1) -> target (TKR2 (1 + n2) r2) -> target (TKR2 (1 + n3) r3)
              -> target (TKR2 (1 + n) r)
   rzipWith31 f u v w =
-    rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]))
+    rbuild1 (rwidth u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]))
   rzipWith30N :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r
                  , KnownNat n )
               => (target (TKR2 0 r1) -> target (TKR2 0 r2) -> target (TKR2 0 r3) -> target (TKR2 0 r))
@@ -545,7 +545,7 @@ class ( Num (IntOf target)
              -> target (TKR2 (1 + n4) r4)
              -> target (TKR2 (1 + n) r)
   rzipWith41 f u v w x =
-    rbuild1 (rlength u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]) (x ! [i]))
+    rbuild1 (rwidth u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]) (x ! [i]))
   rzipWith40N :: ( KnownSTK r1, KnownSTK r2, KnownSTK r3, KnownSTK r4
                  , KnownSTK r
                  , KnownNat n )
@@ -582,9 +582,9 @@ class ( Num (IntOf target)
   ssize :: forall sh x. KnownSTK x
         => target (TKS2 sh x) -> Int
   ssize = shsSize . sshape
-  slength :: forall sh x n. KnownSTK x
+  swidth :: forall sh x n. KnownSTK x
           => target (TKS2 (n ': sh) x) -> Int
-  slength a = case sshape a of
+  swidth a = case sshape a of
     n :$$ _ -> sNatValue n
 
   ssum :: (KnownNat n, KnownShS sh, KnownSTK r)
@@ -910,9 +910,9 @@ class ( Num (IntOf target)
   xsize :: forall sh x. KnownSTK x
         => target (TKX2 sh x) -> Int
   xsize = shxSize . xshape
-  xlength :: forall sh x mn. KnownSTK x
+  xwidth :: forall sh x mn. KnownSTK x
           => target (TKX2 (mn ': sh) x) -> Int
-  xlength a = case xshape a of
+  xwidth a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
 
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
@@ -1825,7 +1825,7 @@ rfold
   -> target (TKR2 n rn)
 {-# INLINE rfold #-}
 rfold f acc0 es =
-  withSNat (rlength es) $ \k -> tfold k knownSTK knownSTK f acc0 es
+  withSNat (rwidth es) $ \k -> tfold k knownSTK knownSTK f acc0 es
 rscan
   :: forall n m rn rm target.
      ( BaseTensor target, ConvertTensor target, LetTensor target
@@ -1836,7 +1836,7 @@ rscan
   -> target (TKR2 (1 + n) rn)
 {-# INLINE rscan #-}
 rscan f acc0 es =
-  withSNat (rlength es) $ \k -> tscan k knownSTK knownSTK f acc0 es
+  withSNat (rwidth es) $ \k -> tscan k knownSTK knownSTK f acc0 es
 sfold
   :: forall k sh shm rn rm target.
      ( BaseTensor target, LetTensor target

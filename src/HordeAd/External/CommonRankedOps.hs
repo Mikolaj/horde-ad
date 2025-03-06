@@ -188,7 +188,7 @@ maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
             , GoodScalar r )
          => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
 maxPool1 ksize stride v =
-  let slices = [rslice i ksize v | i <- [0, stride .. rlength v - ksize]]
+  let slices = [rslice i ksize v | i <- [0, stride .. rwidth v - ksize]]
   in rfromList $ NonEmpty.fromList $ map rmaximum slices
 
 softMax1 :: ( BaseTensor target, LetTensor target

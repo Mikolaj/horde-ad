@@ -80,7 +80,7 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
       t2 = convMnistLayerR ker2 t1 bias2
              -- [ batch_size, c_out
              -- , SizeMnistHeight `Div` 4, SizeMnistWidth `Div` 2 ]
-      c_out = rlength bias1
+      c_out = rwidth bias1
       m1 = rreshape (batch_size
                      :$: c_out * (sizeMnistHeightI `div` 4)
                                * (sizeMnistWidthI `div` 4)
