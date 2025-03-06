@@ -229,7 +229,7 @@ fooRrev (x, y, z) =
   let fHVector :: forall f. ADReady f => f (TKProduct (TKProduct (TKR 0 a) (TKR 0 a)) (TKR 0 a)) -> f (TKR 0 a)
       fHVector v = foo (tproject1 (tproject1 v), tproject2 (tproject1 v), tproject2 v)
       shapes = FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar)
-      domsOf = rrev @g fHVector shapes
+      domsOf = rrev fHVector shapes
                     (tpair (tpair (rconcrete $ Nested.rscalar x)
                                   (rconcrete $ Nested.rscalar y))
                            (rconcrete $ Nested.rscalar z))
@@ -2764,7 +2764,7 @@ testSin0revhV :: Assertion
 testSin0revhV = do
   let f :: forall g. BaseTensor g
         => g (TKR 0 Double) -> g (TKR 0 Double)
-      f x = rrev @g @_ @(TKScalar Double) @0 sin (FTKR ZSR FTKScalar) x
+      f x = rrev @0 @_ @(TKScalar Double) @g sin (FTKR ZSR FTKScalar) x
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
     (f @RepN (rscalar 1.1))
@@ -2774,7 +2774,7 @@ testSin0revhVPP = do
   resetVarCounter
   let f :: forall g. BaseTensor g
         => g (TKR 0 Double) -> g (TKR 0 Double)
-      f x = rrev @g @_ @(TKScalar Double) @0 sin (FTKR ZSR FTKScalar) x
+      f x = rrev @0 @_ @(TKScalar Double) @g sin (FTKR ZSR FTKScalar) x
   printAstSimple IM.empty (f @(AstTensor AstMethodLet PrimalSpan)
                                     (rscalar 1.1))
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
@@ -2786,7 +2786,7 @@ testSin0revhV4 = do
       f :: forall g. (BaseTensor g)
         => g (TKR 1 Double) -> g (TKR 1 Double)
       f x =
-        rrevDt @g @_ @(TKScalar Double) @1
+        rrevDt @1 @_ @(TKScalar Double) @g
                (\v -> rscanZip const doms (rscalar 5) v)
                 doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
@@ -2800,7 +2800,7 @@ testSin0revhV5 = do
       f :: forall g. (BaseTensor g)
         => g (TKS '[3] Double) -> g (TKS '[3] Double)
       f x =
-        srevDt @g @_ @(TKScalar Double)
+        srevDt @_ @_ @(TKScalar Double) @g
                (\v -> sfromR @_ @'[4] $ rscanZip const doms (rscalar 5) (rfromS v))
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
@@ -2814,7 +2814,7 @@ testSin0revhV6 = do
       f :: forall g. (BaseTensor g)
         => g (TKR 1 Double) -> g (TKR 1 Double)
       f x =
-        rrevDt @g @_ @(TKScalar Double) @1
+        rrevDt @1 @_ @(TKScalar Double) @g
                (\v -> rscanZip (\_ z -> z * z) doms (rscalar 5) v)
                 doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
@@ -2828,7 +2828,7 @@ testSin0revhV7 = do
       f :: forall g. (BaseTensor g)
         => g (TKS '[3] Double) -> g (TKS '[3] Double)
       f x =
-        srevDt @g @_ @(TKScalar Double)
+        srevDt @_ @_ @(TKScalar Double) @g
                (\v -> sfromR @_ @'[4] $ rscanZip (\_ z -> z * z) doms (rscalar 5) (rfromS v))
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10

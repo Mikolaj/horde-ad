@@ -42,6 +42,7 @@ module HordeAd.Core.Ops
   , szipWith3, szipWith31, szipWith30N, szipWith4, szipWith41, szipWith40N
   , xbuild, xbuild1
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
+  , rrev, rrevDt, rfwd, srev, srevDt, sfwd
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
@@ -926,6 +927,30 @@ class ( Num (IntOf target)
   tApply :: HFunOf target x z -> target x -> target z
   tlambda :: FullTensorKind x -> HFun x z -> HFunOf target x z
 
+  -- If the result of the argument function is not a scalar, the result
+  -- of this operation is the gradient of a function that additionally
+  -- sums all elements of the result. If all elements are equally important
+  -- for optimization, this may be exactly what is needed for gradient descent,
+  -- unless there are floats of different resolution among the elements and,
+  -- e.g., one wants to compensate for that.
+  --
+  -- These methods (and tlambda) are exactly what is needed as arguments
+  -- of tmapAccumRDer.
+  trev
+    :: FullTensorKind x  -- shape of x and dx
+    -> HFun x z  -- x |-> z
+    -> HFunOf target x (ADTensorKind x)  -- x |-> dx
+  trevDt
+    :: FullTensorKind x  -- shape of x and dx
+    -> HFun x z  -- x |-> z
+    -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
+                 -- [dz, x] |-> dx
+  tfwd
+    :: FullTensorKind x  -- shape of x and dx
+    -> HFun x z  -- x |-> z
+    -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
+                 -- [dx, x] |-> dz
+
   tprimalPart :: target y -> PrimalOf target y
   tdualPart :: STensorKind y -> target y -> DualOf target y
   tfromPrimal :: STensorKind y -> PrimalOf target y -> target y
@@ -973,94 +998,6 @@ class ( Num (IntOf target)
         withKnownShX sh2 $
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
-
-  -- If the result of the argument function is not a scalar,
-  -- the result of this operation is the gradient of a function that additionally
-  -- sums all elements of the result. If all elements are equally important
-  -- for optimization, this may be exactly what is needed for gradient descent.
-  --
-  -- The second argument is only used to determine tensor shapes
-  -- and the third has to have the same shapes as the second.
-  --
-  -- The function argument needs to be quantified,
-  -- because otherwise in the ADVal instance one could put an illegal
-  -- InputR there, confusing the two levels of contangents.
-  --
-  -- These methods are in this class, because their implementations
-  -- use the let operations and also their signatures mention @ADReady@,
-  -- so it's awkward to put the methods into @BaseTensor@,
-  -- which shouldn't know about lets, etc.
-  rrev :: forall x r n. (KnownSTK r, KnownNat n)
-       => (forall f. ADReady f => f x -> f (TKR2 n r))
-       -> FullTensorKind x
-       -> target x
-       -> target (ADTensorKind x)
-  rrev f xftk =
-    \ !es -> tApply (trev @target xftk (HFun f)) es
-  -- We can't get sh from anywhere, so this is not possible:
-  -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
-  rrevDt :: forall x r n.
-            (forall f. ADReady f => f x -> f (TKR2 n r))
-         -> FullTensorKind x
-         -> target x
-         -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
-         -> target (ADTensorKind x)
-  rrevDt f xftk =
-    \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
-  rfwd :: forall x r n. (KnownSTK r, KnownNat n)
-       => (forall f. ADReady f => f x -> f (TKR2 n r))
-       -> FullTensorKind x
-       -> target x
-       -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
-       -> target (ADTensorKind (TKR2 n r))
-  rfwd f xftk =
-    \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
-  srev :: forall x r sh. (KnownSTK r, KnownShS sh)
-       => (forall f. ADReady f => f x -> f (TKS2 sh r))
-       -> FullTensorKind x
-       -> target x
-       -> target (ADTensorKind x)
-  srev f xftk =
-    \ !es -> tApply (trev @target xftk (HFun f)) es
-  srevDt :: forall x r sh.
-            (forall f. ADReady f => f x -> f (TKS2 sh r))
-         -> FullTensorKind x
-         -> target x
-         -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
-         -> target (ADTensorKind x)
-  srevDt f xftk =
-    \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
-  sfwd :: forall x r sh. (KnownSTK r, KnownShS sh)
-       => (forall f. ADReady f => f x -> f (TKS2 sh r))
-       -> FullTensorKind x
-       -> target x
-       -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
-       -> target (ADTensorKind (TKS2 sh r))
-  sfwd f xftk =
-    \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
-  -- If the result of the argument function is not a scalar,
-  -- the result of this operation is the gradient of a function that additionally
-  -- sums all elements of the result. If all elements are equally important
-  -- for optimization, this may be exactly what is needed for gradient descent,
-  -- unless there are floats of different resolution among the elements and,
-  -- e.g., one wants to compensate for that.
-  --
-  -- These methods (and tlambda) are exactly what is needed as arguments
-  -- of tmapAccumRDer.
-  trev
-    :: FullTensorKind x  -- shape of x and dx
-    -> HFun x z  -- x |-> z
-    -> HFunOf target x (ADTensorKind x)  -- x |-> dx
-  trevDt
-    :: FullTensorKind x  -- shape of x and dx
-    -> HFun x z  -- x |-> z
-    -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
-                 -- [dz, x] |-> dx
-  tfwd
-    :: FullTensorKind x  -- shape of x and dx
-    -> HFun x z  -- x |-> z
-    -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
-                 -- [dx, x] |-> dz
 
   -- General operations that use ShareTensor if available, LetTensor otherwise
   tfromVector
@@ -2264,6 +2201,71 @@ tmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
                    (tfwd @target xftk $ HFun fl)
                    (trevDt @target xftk $ HFun fl)
                    acc0 es
+
+-- If the result of the argument function is not a scalar,
+-- the result of this operation is the gradient of a function that additionally
+-- sums all elements of the result. If all elements are equally important
+-- for optimization, this may be exactly what is needed for gradient descent.
+--
+-- The second argument is only used to determine tensor shapes
+-- and the third has to have the same shapes as the second.
+--
+-- The function argument needs to be quantified,
+-- because otherwise in the ADVal instance one could put an illegal
+-- InputR there, confusing the two levels of contangents.
+--
+-- These methods are in this class, because their implementations
+-- use the let operations and also their signatures mention @ADReady@,
+-- so it's awkward to put the methods into @BaseTensor@,
+-- which shouldn't know about lets, etc.
+rrev :: forall n x r target. BaseTensor target
+     => (forall f. ADReady f => f x -> f (TKR2 n r))
+     -> FullTensorKind x
+     -> target x
+     -> target (ADTensorKind x)
+rrev f xftk =
+  \ !es -> tApply (trev @target xftk (HFun f)) es
+-- We can't get sh from anywhere, so this is not possible:
+-- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
+rrevDt :: forall n x r target. BaseTensor target
+       => (forall f. ADReady f => f x -> f (TKR2 n r))
+       -> FullTensorKind x
+       -> target x
+       -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
+       -> target (ADTensorKind x)
+rrevDt f xftk =
+  \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
+rfwd :: forall n x r target. BaseTensor target
+     => (forall f. ADReady f => f x -> f (TKR2 n r))
+     -> FullTensorKind x
+     -> target x
+     -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
+     -> target (ADTensorKind (TKR2 n r))
+rfwd f xftk =
+  \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
+srev :: forall sh x r target. BaseTensor target
+     => (forall f. ADReady f => f x -> f (TKS2 sh r))
+     -> FullTensorKind x
+     -> target x
+     -> target (ADTensorKind x)
+srev f xftk =
+  \ !es -> tApply (trev @target xftk (HFun f)) es
+srevDt :: forall sh x r target. BaseTensor target
+       => (forall f. ADReady f => f x -> f (TKS2 sh r))
+       -> FullTensorKind x
+       -> target x
+       -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
+       -> target (ADTensorKind x)
+srevDt f xftk =
+  \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
+sfwd :: forall sh x r target. BaseTensor target
+     => (forall f. ADReady f => f x -> f (TKS2 sh r))
+     -> FullTensorKind x
+     -> target x
+     -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
+     -> target (ADTensorKind (TKS2 sh r))
+sfwd f xftk =
+  \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
 
 -- These take @target@ first, because they change the target.
 rprimalPart :: BaseTensor target
