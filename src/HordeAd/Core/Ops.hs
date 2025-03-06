@@ -209,8 +209,7 @@ class LetTensor (target :: Target) where
        es
   -- | A strict left scan.
   tscan
-    :: forall yn ym k.
-       (BaseTensor target, ConvertTensor target)
+    :: forall yn ym k. BaseTensor target
     => SNat k -> STensorKind yn -> STensorKind ym
     -> (forall f. ADReady f => f yn -> f ym -> f yn)
     -> target yn
@@ -329,19 +328,19 @@ class ( Num (IntOf target)
   -- instance has much faster implementations.
   --
   -- This is morally non-empty strict vectors:
-  trfromVector :: (KnownNat n, KnownSTK x, ConvertTensor target)
+  trfromVector :: (KnownNat n, KnownSTK x)
                => Data.Vector.Vector (target (TKR2 n x))
                -> target (TKR2 (1 + n) x)
   trfromVector v = withSNat (V.length v) $ \k ->
     tfromVector k (STKR SNat knownSTK) v
-  trfromVectorLinear :: forall n x. (KnownSTK x, ConvertTensor target)
+  trfromVectorLinear :: forall n x. KnownSTK x
                      => IShR n -> Data.Vector.Vector (target (TKR2 0 x))
                      -> target (TKR2 n x)
   trfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @x) =
     if V.null v
     then let arr = Nested.remptyArray
          in rreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
-    else rreshape sh $ rfromVector v
+    else rreshape sh $ trfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'ttlet'.
@@ -352,12 +351,11 @@ class ( Num (IntOf target)
         f i = rindex t (fromIntegral i :.: ZIR)
     in map f [0 .. rwidth t - 1]
 
-  tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK x, ConvertTensor target)
+  tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK x)
                => Data.Vector.Vector (target (TKS2 sh x))
                -> target (TKS2 (n ': sh) x)
   tsfromVector v = tfromVector SNat (STKS knownShS knownSTK) v
-  tsfromVectorLinear :: forall sh x.
-                        (KnownSTK x, KnownShS sh, ConvertTensor target)
+  tsfromVectorLinear :: forall sh x. (KnownSTK x, KnownShS sh)
                      => Data.Vector.Vector (target (TKS2 '[] x))
                      -> target (TKS2 sh x)
   tsfromVectorLinear v | Dict <- eltDictRep (knownSTK @x)
@@ -366,7 +364,7 @@ class ( Num (IntOf target)
     then gcastWith (unsafeCoerceRefl :: Nested.Product sh :~: 0) $
          let arr = Nested.semptyArray ZSS
          in tsreshape knownShS $ tconcrete (tftkG knownSTK arr) (RepN arr)
-    else tsreshape (knownShS @sh) $ sfromVector v
+    else tsreshape (knownShS @sh) $ tsfromVector v
   tsunravelToList :: forall n sh x. (KnownSTK x, KnownNat n, KnownShS sh)
                   => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
   tsunravelToList t =
@@ -374,11 +372,11 @@ class ( Num (IntOf target)
         f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. swidth t - 1]
 
-  txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x, ConvertTensor target)
+  txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x)
                => Data.Vector.Vector (target (TKX2 sh x))
                -> target (TKX2 (Just n ': sh) x)
   txfromVector v = tfromVector SNat (STKX knownShX knownSTK) v
-  txfromVectorLinear :: forall sh x. (KnownSTK x, ConvertTensor target)
+  txfromVectorLinear :: forall sh x. KnownSTK x
                      => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
                      -> target (TKX2 sh x)
   txfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @x) =
@@ -386,7 +384,7 @@ class ( Num (IntOf target)
     then let arr = Nested.memptyArray ZSX
          in xreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else withSNat (shxSize sh) $ \(SNat @n) ->
-           txreshape @_ @'[Just n] sh $ xfromVector v
+           txreshape @_ @'[Just n] sh $ txfromVector v
   txunravelToList :: forall n sh x. (KnownSTK x, KnownNat n, KnownShX sh)
                   => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
   txunravelToList t =
@@ -395,11 +393,10 @@ class ( Num (IntOf target)
     in map f [0 .. xwidth t - 1]
 
   tfromVector
-    :: forall y k. ConvertTensor target
-    => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
+    :: forall y k.
+       SNat k -> STensorKind y -> Data.Vector.Vector (target y)
     -> target (BuildTensorKind k y)
-  tfromListR :: forall y k. ConvertTensor target
-             => STensorKind y -> ListR k (target y)
+  tfromListR :: STensorKind y -> ListR k (target y)
              -> target (BuildTensorKind k y)
   tfromListR stk l =
     tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
@@ -1337,21 +1334,18 @@ kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
 kconcrete = tkconcrete
 
-rfromList :: (KnownNat n, KnownSTK x, BaseTensor target, ConvertTensor target)
+rfromList :: (KnownNat n, KnownSTK x, BaseTensor target)
           => NonEmpty (target (TKR2 n x)) -> target (TKR2 (1 + n) x)
 rfromList = trfromVector . V.fromList . NonEmpty.toList
   -- going through strict vectors, because laziness is risky with impurity
-rfromVector :: ( KnownNat n, KnownSTK x
-               , BaseTensor target, ConvertTensor target )
+rfromVector :: (KnownNat n, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKR2 n x))
             -> target (TKR2 (1 + n) x)
 rfromVector = trfromVector
-rfromListLinear :: forall n x target.
-                   (KnownSTK x, BaseTensor target, ConvertTensor target)
+rfromListLinear :: forall n x target. (KnownSTK x, BaseTensor target)
                 => IShR n -> [target (TKR2 0 x)] -> target (TKR2 n x)
 rfromListLinear sh = trfromVectorLinear sh . V.fromList
-rfromVectorLinear :: forall n x target.
-                     (KnownSTK x, BaseTensor target, ConvertTensor target)
+rfromVectorLinear :: forall n x target. (KnownSTK x, BaseTensor target)
                   => IShR n -> Data.Vector.Vector (target (TKR2 0 x))
                   -> target (TKR2 n x)
 rfromVectorLinear = trfromVectorLinear
@@ -1360,23 +1354,19 @@ runravelToList :: forall n x target.
                => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
 runravelToList = trunravelToList
 
-sfromList :: ( KnownNat n, KnownShS sh, KnownSTK x
-             , BaseTensor target, ConvertTensor target )
+sfromList :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
           => NonEmpty (target (TKS2 sh x)) -> target (TKS2 (n ': sh) x)
 sfromList = tsfromVector . V.fromList . NonEmpty.toList
 -- This is morally non-empty strict vectors:
-sfromVector :: ( KnownNat n, KnownShS sh, KnownSTK x
-               , BaseTensor target, ConvertTensor target )
+sfromVector :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKS2 sh x))
             -> target (TKS2 (n ': sh) x)
 sfromVector = tsfromVector
-sfromListLinear :: ( KnownShS sh, KnownSTK x
-                   , BaseTensor target, ConvertTensor target )
+sfromListLinear :: (KnownShS sh, KnownSTK x, BaseTensor target)
                 => [target (TKS2 '[] x)] -> target (TKS2 sh x)
 sfromListLinear = tsfromVectorLinear . V.fromList
 sfromVectorLinear :: forall sh x target.
-                     ( KnownSTK x, KnownShS sh
-                     , BaseTensor target, ConvertTensor target )
+                     (KnownSTK x, KnownShS sh, BaseTensor target)
                   => Data.Vector.Vector (target (TKS2 '[] x))
                   -> target (TKS2 sh x)
 sfromVectorLinear = tsfromVectorLinear
@@ -1386,22 +1376,18 @@ sunravelToList :: forall n sh x target.
 sunravelToList = tsunravelToList
 
 xfromList :: forall n sh x target.
-             ( KnownSTK x, KnownNat n, KnownShX sh
-             , BaseTensor target, ConvertTensor target )
+             (KnownSTK x, KnownNat n, KnownShX sh, BaseTensor target)
           => NonEmpty (target (TKX2 sh x)) -> target (TKX2 (Just n ': sh) x)
 xfromList = txfromVector . V.fromList . NonEmpty.toList
   -- going through strict vectors, because laziness is risky with impurity
-xfromVector :: ( KnownNat n, KnownShX sh, KnownSTK x
-               , BaseTensor target, ConvertTensor target )
+xfromVector :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKX2 sh x))
             -> target (TKX2 (Just n ': sh) x)
 xfromVector = txfromVector
-xfromListLinear :: forall sh x target.
-                   (KnownSTK x, BaseTensor target, ConvertTensor target)
+xfromListLinear :: forall sh x target. (KnownSTK x, BaseTensor target)
                 => IShX sh -> [target (TKX2 '[] x)] -> target (TKX2 sh x)
 xfromListLinear sh = txfromVectorLinear sh . V.fromList
-xfromVectorLinear :: forall sh x target.
-                     (KnownSTK x, BaseTensor target, ConvertTensor target)
+xfromVectorLinear :: forall sh x target. (KnownSTK x, BaseTensor target)
                   => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
                   -> target (TKX2 sh x)
 xfromVectorLinear = txfromVectorLinear
@@ -2094,7 +2080,7 @@ rfold f acc0 es =
   withSNat (rwidth es) $ \k -> tfold k knownSTK knownSTK f acc0 es
 rscan
   :: forall n m rn rm target.
-     ( BaseTensor target, ConvertTensor target, LetTensor target
+     ( BaseTensor target, LetTensor target
      , KnownSTK rn, KnownSTK rm, KnownNat n, KnownNat m )
   => (forall f. ADReady f => f (TKR2 n rn) -> f (TKR2 m rm) -> f (TKR2 n rn))
   -> target (TKR2 n rn)
@@ -2116,7 +2102,7 @@ sfold
 sfold = tfold (SNat @k) knownSTK knownSTK
 sscan
   :: forall k sh shm rn rm target.
-     ( BaseTensor target, ConvertTensor target, LetTensor target
+     ( BaseTensor target, LetTensor target
      , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShS sh, KnownShS shm )
   => (forall f.
       ADReady f => f (TKS2 sh rn) -> f (TKS2 shm rm) -> f (TKS2 sh rn))
@@ -2138,7 +2124,7 @@ xfold
 xfold = tfold (SNat @k) knownSTK knownSTK
 xscan
   :: forall k sh shm rn rm target.
-     ( BaseTensor target, ConvertTensor target, LetTensor target
+     ( BaseTensor target, LetTensor target
      , KnownNat k, KnownSTK rn, KnownSTK rm, KnownShX sh, KnownShX shm )
   => (forall f.
       ADReady f => f (TKX2 sh rn) -> f (TKX2 shm rm) -> f (TKX2 sh rn))

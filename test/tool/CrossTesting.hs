@@ -49,7 +49,7 @@ crevDtMaybeBoth f vals =
   in crevOnHVector Nothing g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
-        ( KnownNat n, KnownNat m, GoodScalar r
+        ( KnownNat n, GoodScalar r
         , v ~ RepN (TKR m r)
         , w ~ RepN (ADTensorKind (TKR m r))
         , a ~ RepN (ADTensorKind (TKR n r)) )
@@ -465,34 +465,32 @@ t128c :: (GoodScalar r, Fractional r) => RepN (TKR 4 r)
 t128c = rreshape (2 :$: 2 :$: 8 :$: 4 :$: ZSR) t128
 
 rrev1 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+         (ADReady g, GoodScalar r, KnownNat n)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
 rrev1 f u = rrev f (tftk knownSTK u) u
 
 rfwd1ds :: forall g r n m r3.
-           (ADReady g, GoodScalar r, GoodScalar r3, KnownNat n, KnownNat m)
+           (ADReady g, GoodScalar r, KnownNat n)
         => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
         -> g (ADTensorKind (TKR n r))
         -> g (ADTensorKind (TKR m r3))
 rfwd1ds f u ds = rfwd f (tftk knownSTK u) u ds
 
 rfwd1 :: forall g r n m r3.
-         ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
-         , GoodScalar r3, KnownNat n, KnownNat m )
+         (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownNat n)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR m r3))
 rfwd1 f u = rfwd1ds f u (rrepl (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
-         (ADReady g, GoodScalar r, GoodScalar r3, KnownShS sh, KnownShS sh2)
+         (ADReady g, GoodScalar r, KnownShS sh)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
 srev1 f u = srev f (tftk knownSTK u) u
 
 sfwd1 :: forall g r sh sh2 r3.
-         ( ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r)
-         , GoodScalar r3, KnownShS sh, KnownShS sh2 )
+         (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownShS sh)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh2 r3))
 sfwd1 f u = sfwd f (tftk knownSTK u) u (srepl @_ @(ADTensorScalar r) 1)
