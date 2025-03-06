@@ -41,6 +41,9 @@ module HordeAd.Core.Ops
   , szipWith3, szipWith31, szipWith30N, szipWith4, szipWith41, szipWith40N
   , xbuild, xbuild1
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
+  , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
+  , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
+  , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
   ) where
@@ -838,63 +841,6 @@ class ( Num (IntOf target)
            => (IntOf target -> target (TKX2 sh x))
            -> target (TKX2 (Just k ': sh) x)
 
-  rprimalPart :: target (TKR2 n r) -> PrimalOf target (TKR2 n r)
-  rprimalPart = tprimalPart
-  rdualPart :: (KnownSTK r, KnownNat n)
-            => target (TKR2 n r) -> DualOf target (TKR2 n r)
-  rdualPart = tdualPart knownSTK
-  rfromPrimal :: (KnownSTK r, KnownNat n)
-              => PrimalOf target (TKR2 n r) -> target (TKR2 n r)
-  rfromPrimal = tfromPrimal knownSTK
-  rfromDual :: DualOf target (TKR2 n r) -> target (TKR2 n r)
-  rfromDual = tfromDual
-  rScale :: ( GoodScalar r, KnownNat n
-            , Num (target (TKR n r)), Num (PrimalOf target (TKR n r)) )
-         => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
-         -> DualOf target (TKR n r)
-  rScale = tScale @target knownSTK
-
-  sprimalPart :: target (TKS2 sh r) -> PrimalOf target (TKS2 sh r)
-  sprimalPart = tprimalPart
-  sdualPart :: (KnownSTK r, KnownShS sh)
-            => target (TKS2 sh r) -> DualOf target (TKS2 sh r)
-  sdualPart = tdualPart knownSTK
-  sfromPrimal :: (KnownSTK r, KnownShS sh)
-              => PrimalOf target (TKS2 sh r) -> target (TKS2 sh r)
-  sfromPrimal = tfromPrimal knownSTK
-  sfromDual :: DualOf target (TKS2 sh r) -> target (TKS2 sh r)
-  sfromDual = tfromDual
-  sScale :: ( GoodScalar r, KnownShS sh
-            , Num (target (TKS sh r)), Num (PrimalOf target (TKS sh r)) )
-         => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
-         -> DualOf target (TKS sh r)
-  sScale = tScale @target knownSTK
-
-  xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
-         => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
-  xmcast sh2 a = case tftk knownSTK a of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShX sh2 $
-        withKnownShS sh $
-        xfromS $ sfromX @_ @sh a
-
-  xprimalPart :: target (TKX2 sh r) -> PrimalOf target (TKX2 sh r)
-  xprimalPart = tprimalPart
-  xdualPart :: (KnownSTK r, KnownShX sh)
-            => target (TKX2 sh r) -> DualOf target (TKX2 sh r)
-  xdualPart = tdualPart knownSTK
-  xfromPrimal :: (KnownSTK r, KnownShX sh)
-              => PrimalOf target (TKX2 sh r) -> target (TKX2 sh r)
-  xfromPrimal = tfromPrimal knownSTK
-  xfromDual :: DualOf target (TKX2 sh r) -> target (TKX2 sh r)
-  xfromDual = tfromDual
-  xScale :: ( GoodScalar r, KnownShX sh
-            , Num (target (TKX sh r)), Num (PrimalOf target (TKX sh r)) )
-         => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
-         -> DualOf target (TKX sh r)
-  xScale = tScale @target knownSTK
-
   -- Scalar ops
   kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKScalar r) -> target (TKScalar r2)
@@ -1015,6 +961,15 @@ class ( Num (IntOf target)
          -> DualOf target y
   tScale stk s t =
     tdualPart stk $ tfromPrimal @target stk s * tfromDual t
+
+  xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
+         => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
+  xmcast sh2 a = case tftk knownSTK a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShX sh2 $
+        withKnownShS sh $
+        xfromS $ sfromX @_ @sh a
 
   -- If the result of the argument function is not a scalar,
   -- the result of this operation is the gradient of a function that additionally
@@ -2294,6 +2249,64 @@ tmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
                    (tfwd @target xftk $ HFun fl)
                    (trevDt @target xftk $ HFun fl)
                    acc0 es
+
+-- These take @target@ first, because they change the target.
+rprimalPart :: BaseTensor target
+            => target (TKR2 n x) -> PrimalOf target (TKR2 n x)
+rprimalPart = tprimalPart
+rdualPart :: (BaseTensor target, KnownNat n, KnownSTK x)
+          => target (TKR2 n x) -> DualOf target (TKR2 n x)
+rdualPart = tdualPart knownSTK
+rfromPrimal :: (BaseTensor target, KnownNat n, KnownSTK x)
+            => PrimalOf target (TKR2 n x) -> target (TKR2 n x)
+rfromPrimal = tfromPrimal knownSTK
+rfromDual :: BaseTensor target
+          => DualOf target (TKR2 n x) -> target (TKR2 n x)
+rfromDual = tfromDual
+rScale :: forall target n r.
+          ( BaseTensor target, KnownNat n, GoodScalar r
+          , Num (target (TKR n r)), Num (PrimalOf target (TKR n r)) )
+       => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
+       -> DualOf target (TKR n r)
+rScale = tScale @target knownSTK
+
+sprimalPart :: BaseTensor target
+            => target (TKS2 sh x) -> PrimalOf target (TKS2 sh x)
+sprimalPart = tprimalPart
+sdualPart :: (BaseTensor target, KnownShS sh, KnownSTK x)
+          => target (TKS2 sh x) -> DualOf target (TKS2 sh x)
+sdualPart = tdualPart knownSTK
+sfromPrimal :: (BaseTensor target, KnownShS sh, KnownSTK x)
+            => PrimalOf target (TKS2 sh x) -> target (TKS2 sh x)
+sfromPrimal = tfromPrimal knownSTK
+sfromDual :: BaseTensor target
+          => DualOf target (TKS2 sh x) -> target (TKS2 sh x)
+sfromDual = tfromDual
+sScale :: forall target sh r.
+          ( BaseTensor target, KnownShS sh, GoodScalar r
+          , Num (target (TKS sh r)), Num (PrimalOf target (TKS sh r)) )
+       => PrimalOf target (TKS sh r) -> DualOf target (TKS sh r)
+       -> DualOf target (TKS sh r)
+sScale = tScale @target knownSTK
+
+xprimalPart :: BaseTensor target
+            => target (TKX2 sh x) -> PrimalOf target (TKX2 sh x)
+xprimalPart = tprimalPart
+xdualPart :: (BaseTensor target, KnownShX sh, KnownSTK x)
+          => target (TKX2 sh x) -> DualOf target (TKX2 sh x)
+xdualPart = tdualPart knownSTK
+xfromPrimal :: (BaseTensor target, KnownShX sh, KnownSTK x)
+            => PrimalOf target (TKX2 sh x) -> target (TKX2 sh x)
+xfromPrimal = tfromPrimal knownSTK
+xfromDual :: BaseTensor target
+          => DualOf target (TKX2 sh x) -> target (TKX2 sh x)
+xfromDual = tfromDual
+xScale :: forall target sh r.
+          ( BaseTensor target, KnownShX sh, GoodScalar r
+          , Num (target (TKX sh r)), Num (PrimalOf target (TKX sh r)) )
+       => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
+       -> DualOf target (TKX sh r)
+xScale = tScale @target knownSTK
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.
