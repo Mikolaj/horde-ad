@@ -29,6 +29,7 @@ module HordeAd.Core.Ops
   , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , xfloor, xfromIntegral, xcast, xminIndex, xmaxIndex, xiota
+  , kfloor, kfromIntegral, kcast
   , rappend, rconcat, rslice, runcons, rreverse
   , rtr, rtranspose, rflatten, rreshape
   , sappend, sslice, suncons, sreverse
@@ -707,6 +708,13 @@ class ( Num (IntOf target)
   txiota :: (KnownNat n, GoodScalar r)
          => target (TKX '[Just n] r)  -- from 0 to n - 1
 
+  tkfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+          => target (TKScalar r) -> target (TKScalar r2)
+  tkfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+                 => target (TKScalar r1) -> target (TKScalar r2)
+  tkcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
+         => target (TKScalar r1) -> target (TKScalar r2)
+
   trappend :: forall n x. KnownSTK x
            => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
            -> target (TKR2 (1 + n) x)
@@ -841,29 +849,29 @@ class ( Num (IntOf target)
            => (IntOf target -> target (TKX2 sh x))
            -> target (TKX2 (Just k ': sh) x)
 
-  -- Scalar ops
-  kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
-         => target (TKScalar r) -> target (TKScalar r2)
-  kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
-                => target (TKScalar r1) -> target (TKScalar r2)
-  kcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
-        => target (TKScalar r1) -> target (TKScalar r2)
+  tbuild1 :: forall y k. ConvertTensor target
+               -- y comes first, because k easy to set via SNat
+          => SNat k -> STensorKind y -> (IntOf target -> target y)
+          -> target (BuildTensorKind k y)
+  tbuild1 snat@SNat stk0 f =
+    let replSTK :: STensorKind z -> (IntOf target -> target z)
+                -> target (BuildTensorKind k z)
+        replSTK stk g = case stk of
+          STKScalar -> sbuild1 (sfromK . g)
+          STKR SNat x | Dict <- lemKnownSTK x ->
+            rbuild1 (sNatValue snat) g
+          STKS sh x | Dict <- lemKnownSTK x ->
+            withKnownShS sh $ sbuild1 g
+          STKX sh x | Dict <- lemKnownSTK x ->
+            withKnownShX sh $ xbuild1 g
+          STKProduct @z1 @z2 stk1 stk2 ->
+              let f1 i = tproject1 @_ @z1 @z2 $ g i
+                  f2 i = tproject2 @_ @z1 @z2 $ g i
+                    -- TODO: looks expensive, but hard to do better,
+                    -- so let's hope g is full of variables
+              in tpair (replSTK stk1 f1) (replSTK stk2 f2)
+    in replSTK stk0 f
 
-  -- General operations that don't require LetTensor nor ShareTensor
-  tsize :: BaseTensor target => STensorKind y -> target y -> Int
-  tsize stk a = case stk of
-    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
-      Just Refl -> 0
-      _ -> 1
-    STKR _ x | Dict <- lemKnownSTK x -> rsize a
-    STKS _ x | Dict <- lemKnownSTK x -> ssize a
-    STKX _ x | Dict <- lemKnownSTK x -> xsize a
-    STKProduct stk1 stk2 ->
-      tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
-  tftk :: STensorKind y -> target y -> FullTensorKind y
-  tpair :: target x -> target z -> target (TKProduct x z)
-  tproject1 :: target (TKProduct x z) -> target x
-  tproject2 :: target (TKProduct x z) -> target z
   -- | A strict right mapAccum.
   --
   -- The applications of 'tfwd' and 'trevDt' performed already at this point
@@ -917,6 +925,33 @@ class ( Num (IntOf target)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
   tApply :: HFunOf target x z -> target x -> target z
   tlambda :: FullTensorKind x -> HFun x z -> HFunOf target x z
+
+  tprimalPart :: target y -> PrimalOf target y
+  tdualPart :: STensorKind y -> target y -> DualOf target y
+  tfromPrimal :: STensorKind y -> PrimalOf target y -> target y
+  tfromDual :: DualOf target y -> target y
+  tScale :: (Num (target y), Num (PrimalOf target y))
+         => STensorKind y -> PrimalOf target y -> DualOf target y
+         -> DualOf target y
+  tScale stk s t =
+    tdualPart stk $ tfromPrimal @target stk s * tfromDual t
+
+
+  -- General operations that don't require LetTensor nor ShareTensor
+  tsize :: BaseTensor target => STensorKind y -> target y -> Int
+  tsize stk a = case stk of
+    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+      Just Refl -> 0
+      _ -> 1
+    STKR _ x | Dict <- lemKnownSTK x -> rsize a
+    STKS _ x | Dict <- lemKnownSTK x -> ssize a
+    STKX _ x | Dict <- lemKnownSTK x -> xsize a
+    STKProduct stk1 stk2 ->
+      tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
+  tftk :: STensorKind y -> target y -> FullTensorKind y
+  tpair :: target x -> target z -> target (TKProduct x z)
+  tproject1 :: target (TKProduct x z) -> target x
+  tproject2 :: target (TKProduct x z) -> target z
   tcond :: Boolean (BoolOf target)
         => STensorKind y
         -> BoolOf target -> target y -> target y -> target y
@@ -929,38 +964,6 @@ class ( Num (IntOf target)
   maxF :: (Boolean (BoolOf target), OrdF target y, KnownSTK y)
        => target y -> target y -> target y
   maxF u v = ifF (u >=. v) u v
-  tbuild1 :: forall y k. ConvertTensor target
-               -- y comes first, because k easy to set via SNat
-          => SNat k -> STensorKind y -> (IntOf target -> target y)
-          -> target (BuildTensorKind k y)
-  tbuild1 snat@SNat stk0 f =
-    let replSTK :: STensorKind z -> (IntOf target -> target z)
-                -> target (BuildTensorKind k z)
-        replSTK stk g = case stk of
-          STKScalar -> sbuild1 (sfromK . g)
-          STKR SNat x | Dict <- lemKnownSTK x ->
-            rbuild1 (sNatValue snat) g
-          STKS sh x | Dict <- lemKnownSTK x ->
-            withKnownShS sh $ sbuild1 g
-          STKX sh x | Dict <- lemKnownSTK x ->
-            withKnownShX sh $ xbuild1 g
-          STKProduct @z1 @z2 stk1 stk2 ->
-              let f1 i = tproject1 @_ @z1 @z2 $ g i
-                  f2 i = tproject2 @_ @z1 @z2 $ g i
-                    -- TODO: looks expensive, but hard to do better,
-                    -- so let's hope g is full of variables
-              in tpair (replSTK stk1 f1) (replSTK stk2 f2)
-    in replSTK stk0 f
-
-  tprimalPart :: target y -> PrimalOf target y
-  tdualPart :: STensorKind y -> target y -> DualOf target y
-  tfromPrimal :: STensorKind y -> PrimalOf target y -> target y
-  tfromDual :: DualOf target y -> target y
-  tScale :: (Num (target y), Num (PrimalOf target y))
-         => STensorKind y -> PrimalOf target y -> DualOf target y
-         -> DualOf target y
-  tScale stk s t =
-    tdualPart stk $ tfromPrimal @target stk s * tfromDual t
 
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
@@ -1059,7 +1062,7 @@ class ( Num (IntOf target)
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
                  -- [dx, x] |-> dz
 
-  -- Operations that use ShareTensor if available, LetTensor otherwise
+  -- General operations that use ShareTensor if available, LetTensor otherwise
   tfromVector
     :: forall y k. ConvertTensor target
     => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
@@ -1748,6 +1751,18 @@ xmaxIndex = txmaxIndex
 xiota :: (KnownNat n, GoodScalar r, BaseTensor target)
       => target (TKX '[Just n] r)  -- from 0 to n - 1
 xiota = txiota
+
+kfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+          , BaseTensor target )
+       => target (TKScalar r) -> target (TKScalar r2)
+kfloor = tkfloor
+kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+              => target (TKScalar r1) -> target (TKScalar r2)
+kfromIntegral = tkfromIntegral
+kcast :: ( RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2
+         , BaseTensor target )
+      => target (TKScalar r1) -> target (TKScalar r2)
+kcast = tkcast
 
 rappend :: forall n x target. (KnownSTK x, BaseTensor target)
         => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)

@@ -335,13 +335,13 @@ instance ( ADReadyNoLet target, ShareTensor target
   tkconcrete a =
     let v = tkconcrete a
     in fromPrimalFTK FTKScalar v
-  kfloor (D u _) =
-    let v = kfloor u
+  tkfloor (D u _) =
+    let v = tkfloor u
     in fromPrimalFTK FTKScalar v
-  kfromIntegral (D u _) =
-    let v = kfromIntegral u
+  tkfromIntegral (D u _) =
+    let v = tkfromIntegral u
     in fromPrimalFTK FTKScalar v
-  kcast (D u u') = dD (kcast u) (DeltaCastK u')
+  tkcast (D u u') = dD (tkcast u) (DeltaCastK u')
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk (D _ u') = ftkDelta u'

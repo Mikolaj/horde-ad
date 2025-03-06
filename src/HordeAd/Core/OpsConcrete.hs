@@ -439,9 +439,9 @@ instance BaseTensor RepN where
 
   -- Scalar ops
   tkconcrete = RepN
-  kfloor = RepN . floor . unRepN
-  kfromIntegral = RepN . fromIntegral . unRepN
-  kcast = RepN . realToFrac . unRepN
+  tkfloor = RepN . floor . unRepN
+  tkfromIntegral = RepN . fromIntegral . unRepN
+  tkcast = RepN . realToFrac . unRepN
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk (RepN t) = tftkG stk t

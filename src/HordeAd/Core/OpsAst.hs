@@ -540,9 +540,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   -- Scalar ops
   tkconcrete = fromPrimal . AstConcreteK
-  kfloor = fromPrimal . AstFloorK . primalPart
-  kfromIntegral = fromPrimal . astFromIntegralK . primalPart
-  kcast = astCastK
+  tkfloor = fromPrimal . AstFloorK . primalPart
+  tkfromIntegral = fromPrimal . astFromIntegralK . primalPart
+  tkcast = astCastK
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
@@ -1041,10 +1041,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   -- Scalar ops
   tkconcrete = AstRaw . fromPrimal . AstConcreteK
-  kfloor = AstRaw . fromPrimal . AstFloorK . primalPart . unAstRaw
-  kfromIntegral = AstRaw . fromPrimal . AstFromIntegralK
-                  . primalPart . unAstRaw
-  kcast = AstRaw . AstCastK . unAstRaw
+  tkfloor = AstRaw . fromPrimal . AstFloorK . primalPart . unAstRaw
+  tkfromIntegral = AstRaw . fromPrimal . AstFromIntegralK
+                   . primalPart . unAstRaw
+  tkcast = AstRaw . AstCastK . unAstRaw
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst . unAstRaw
@@ -1354,9 +1354,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Scalar ops
   tkconcrete = AstNoVectorize . tkconcrete
-  kfloor = AstNoVectorize . kfloor . unAstNoVectorize
-  kfromIntegral = AstNoVectorize . kfromIntegral . unAstNoVectorize
-  kcast = AstNoVectorize . kcast . unAstNoVectorize
+  tkfloor = AstNoVectorize . tkfloor . unAstNoVectorize
+  tkfromIntegral = AstNoVectorize . tkfromIntegral . unAstNoVectorize
+  tkcast = AstNoVectorize . tkcast . unAstNoVectorize
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . unAstNoVectorize
@@ -1582,9 +1582,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Scalar ops
   tkconcrete = wAstNoSimplify . tkconcrete
-  kfloor = wAstNoSimplify . kfloor . wunAstNoSimplify
-  kfromIntegral = wAstNoSimplify . kfromIntegral . wunAstNoSimplify
-  kcast = wAstNoSimplify . kcast . wunAstNoSimplify
+  tkfloor = wAstNoSimplify . tkfloor . wunAstNoSimplify
+  tkfromIntegral = wAstNoSimplify . tkfromIntegral . wunAstNoSimplify
+  tkcast = wAstNoSimplify . tkcast . wunAstNoSimplify
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . wunAstNoSimplify
