@@ -13,6 +13,7 @@ import TestAdaptorSimplified qualified
 import TestConvSimplified qualified
 import TestGatherSimplified qualified
 import TestHighRankSimplified qualified
+import TestMnistPP qualified
 import TestRevFwdFold qualified
 
 main :: IO ()
@@ -34,5 +35,6 @@ tests =
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees
-         ++ TestRevFwdFold.testTrees)
+         ++ TestRevFwdFold.testTrees
+         ++ TestMnistPP.testTrees)
     ]

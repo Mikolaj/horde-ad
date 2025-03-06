@@ -15,6 +15,7 @@ import TestGatherSimplified qualified
 import TestHighRankSimplified qualified
 import TestMnistCNNR qualified
 import TestMnistFCNNR qualified
+import TestMnistPP qualified
 import TestMnistRNNR qualified
 import TestMnistRNNS qualified
 import TestRevFwdFold qualified
@@ -38,8 +39,9 @@ tests =
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees
-         ++ TestRevFwdFold.testTrees)
-    , testGroup "Neural_network_tests"
+         ++ TestRevFwdFold.testTrees
+         ++ TestMnistPP.testTrees)
+    , testGroup "Long_tests"
         (TestMnistCNNR.testTrees
          ++ TestMnistFCNNR.testTrees
          ++ TestMnistRNNR.testTrees

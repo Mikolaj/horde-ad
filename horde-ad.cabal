@@ -378,6 +378,7 @@ library testCommonLibrary
                       TestHighRankSimplified
                       TestMnistCNNR
                       TestMnistFCNNR
+                      TestMnistPP
                       TestMnistRNNR
                       TestMnistRNNS
                       TestRevFwdFold
