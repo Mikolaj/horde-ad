@@ -70,7 +70,7 @@ flag release
 
 flag test_seq
   description:        run the test suite in sequential mode
-  default:            False
+  default:            True
   manual:             True
 
 common options
@@ -438,6 +438,29 @@ test-suite CAFlessTest
     hs-source-dirs:   test
 
     main-is:          CAFlessTest.hs
+
+    build-depends:
+      , horde-ad:testCommonLibrary
+      , horde-ad:testToolLibrary
+
+      , base
+      , tasty >= 1.0
+
+test-suite parallelTest
+    import:           options
+    ghc-options:      -rtsopts -threaded
+    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N"
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+
+    main-is:          ParallelTest.hs
 
     build-depends:
       , horde-ad:testCommonLibrary
