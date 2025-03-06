@@ -346,8 +346,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
-  rbuild1 @x @n k f = withSNat k $ \snat ->
-                        astBuild1Vectorize snat (STKR (SNat @n) (knownSTK @x)) f
+  trbuild1 @n @x k f = withSNat k $ \snat ->
+    astBuild1Vectorize snat (STKR (SNat @n) (knownSTK @x)) f
 
   -- Shaped ops
   sshape t = case ftkAst t of
@@ -372,7 +372,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsappend u v = astAppendS u v
   tsslice i n k = astSliceS i n k
   tsreverse = astReverseS
-  sbuild1 @k @sh @x f =
+  tsbuild1 @k @sh @x f =
     astBuild1Vectorize (SNat @k) (STKS (knownShS @sh) (knownSTK @x)) f
 
   -- Mixed ops
@@ -535,7 +535,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
-  xbuild1 @k @sh @x f =
+  txbuild1 @k @sh @x f =
     astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x)) f
 
   -- Scalar ops
@@ -836,7 +836,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
-  rbuild1 k f = withSNat k $ \snat ->
+  trbuild1 k f = withSNat k $ \snat ->
     AstRaw $ AstBuild1 snat knownSTK
     $ funToAstI  -- this introduces new variable names
     $ unAstRaw . f . AstRaw
@@ -867,9 +867,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tsappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   tsslice i n k = AstRaw . AstSliceS i n k . unAstRaw
   tsreverse = AstRaw . AstReverseS . unAstRaw
-  sbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
-                 $ funToAstI  -- this introduces new variable names
-                 $ unAstRaw . f . AstRaw
+  tsbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
+                  $ funToAstI  -- this introduces new variable names
+                  $ unAstRaw . f . AstRaw
 
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
@@ -1035,9 +1035,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
-  xbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
-                 $ funToAstI  -- this introduces new variable names
-                 $ unAstRaw . f . AstRaw
+  txbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
+                  $ funToAstI  -- this introduces new variable names
+                  $ unAstRaw . f . AstRaw
 
   -- Scalar ops
   tkconcrete = AstRaw . fromPrimal . AstConcreteK
@@ -1289,7 +1289,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   trreverse = AstNoVectorize . trreverse . unAstNoVectorize
   trtranspose perm = AstNoVectorize . trtranspose perm . unAstNoVectorize
   trreshape sh = AstNoVectorize . trreshape sh . unAstNoVectorize
-  rbuild1 k f = withSNat k $ \snat ->
+  trbuild1 k f = withSNat k $ \snat ->
     AstNoVectorize $ AstBuild1 snat knownSTK
     $ funToAstI  -- this introduces new variable names
     $ unAstNoVectorize . f . AstNoVectorize
@@ -1317,9 +1317,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tsappend (unAstNoVectorize u) (unAstNoVectorize v)
   tsslice i n k = AstNoVectorize . tsslice i n k . unAstNoVectorize
   tsreverse = AstNoVectorize . tsreverse . unAstNoVectorize
-  sbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
-                 $ funToAstI  -- this introduces new variable names
-                 $ unAstNoVectorize . f . AstNoVectorize
+  tsbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
+                  $ funToAstI  -- this introduces new variable names
+                  $ unAstNoVectorize . f . AstNoVectorize
 
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
@@ -1348,9 +1348,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   txtranspose @perm =
     AstNoVectorize . txtranspose @_ @perm . unAstNoVectorize
   txreshape sh = AstNoVectorize . txreshape sh . unAstNoVectorize
-  xbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
-                 $ funToAstI  -- this introduces new variable names
-                 $ unAstNoVectorize . f . AstNoVectorize
+  txbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
+                  $ funToAstI  -- this introduces new variable names
+                  $ unAstNoVectorize . f . AstNoVectorize
 
   -- Scalar ops
   tkconcrete = AstNoVectorize . tkconcrete
@@ -1478,15 +1478,15 @@ wunAstNoSimplify =
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- The implementation of these methods differs from the AstRaw instance:
-  rbuild1 @x @n k f = withSNat k $ \snat ->
+  trbuild1 @n @x k f = withSNat k $ \snat ->
     AstNoSimplify
     $ astBuild1Vectorize snat (STKR (SNat @n) (knownSTK @x))
                          (unAstNoSimplify . f . AstNoSimplify)
-  sbuild1 @k @sh @x f =
+  tsbuild1 @k @sh @x f =
     AstNoSimplify
     $ astBuild1Vectorize (SNat @k) (STKS (knownShS @sh) (knownSTK @x))
                          (unAstNoSimplify . f . AstNoSimplify)
-  xbuild1 @k @sh @x f =
+  txbuild1 @k @sh @x f =
     AstNoSimplify
     $ astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x))
                          (unAstNoSimplify . f . AstNoSimplify)

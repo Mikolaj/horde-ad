@@ -200,7 +200,7 @@ conv2dUnpaddedS
   -> target (TKS '[nImgs, nCinpA, nAh, nAw] r)
   -> target (TKS shB r)
 conv2dUnpaddedS arrK arrA =
-  sbuild @target @(TKScalar r) @(Rank shB) $ \case
+  sbuild @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK [iCout, 0, 0, 0]
@@ -222,7 +222,7 @@ slicezS d ixBase =
   gcastWith (unsafeCoerceRefl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
-  sbuild @target @(TKScalar r) @(Rank shOut)
+  sbuild @(Rank shOut)
   $ \ixResult ->
       indexz0S @shOut d (zipWith_Index (+)
                                        (ixsToIxr ixBase)
@@ -299,7 +299,7 @@ maxPool2dUnpaddedS
   -> target (TKS shOut r)
 maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
-  in sbuild @target @(TKScalar r) @(Rank shOut) $ \case
+  in sbuild @(Rank shOut) $ \case
     [iImg, iChan, iBh, iBw] ->
       let arrt = slicezS @shK1
                          arr [ iImg, iChan

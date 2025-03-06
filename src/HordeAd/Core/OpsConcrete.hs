@@ -147,19 +147,19 @@ instance BaseTensor RepN where
     RepN . Nested.rtranspose perm . unRepN
   trreshape @_ @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreshape sh . unRepN
-  rbuild1 @r k f | Dict <- eltDictRep (knownSTK @r) =
+  trbuild1 @_ @r k f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1R k (unRepN . f . RepN)
-  rmap0N @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
+  trmap0N @_ @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
     (STKScalar, STKScalar) -> RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
     _ ->  -- TODO: how to call the default implementation?
-      rbuild (rshape t) (f . rindex0 t)
-  rzipWith0N @r1 @r2 @r f t u =
+      trbuild (rshape t) (f . rindex0 t)
+  trzipWith0N @_ @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar, STKScalar, STKScalar) ->
         RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
                            (unRepN t) (unRepN u)
       _ ->  -- TODO: how to call the default implementation?
-        rbuild (rshape u) (\ix -> f (rindex0 t ix) (rindex0 u ix))
+        trbuild (rshape u) (\ix -> f (rindex0 t ix) (rindex0 u ix))
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unRepN
@@ -266,7 +266,7 @@ instance BaseTensor RepN where
            $ V.concat l
       _ ->
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-        sbuild @_ @_ @(Rank shm) (\ix -> t !$ f ix)
+        tsbuild @_ @(Rank shm) (\ix -> t !$ f ix)
   tsgather1 = tgatherZ1S
   tsconcrete = RepN
   tsfloor = RepN . liftVS (V.map floor) . unRepN
@@ -286,16 +286,16 @@ instance BaseTensor RepN where
     RepN . Nested.sslice i n . unRepN
   tsreverse @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.srev1 . unRepN
-  sbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
+  tsbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1S (unRepN . f . RepN)
-  smap0N @r1 @r @sh f v = case (knownSTK @r1, knownSTK @r) of
+  tsmap0N @sh @r @r1 f v = case (knownSTK @r1, knownSTK @r) of
     (STKScalar, STKScalar) ->
       RepN $ tmap0NS (unRepN . f . RepN) (unRepN v)
     _ ->  -- TODO: how to call the default implementation?
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
       $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-      $ sbuild @RepN @r @(Rank sh) (f . sindex0 v)
-  szipWith0N @r1 @r2 @r @sh f t u =
+      $ tsbuild @RepN @(Rank sh) (f . sindex0 v)
+  tszipWith0N @sh @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar, STKScalar, STKScalar) ->
         RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
@@ -303,7 +303,7 @@ instance BaseTensor RepN where
       _ ->  -- TODO: how to call the default implementation?
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
         $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-        $ sbuild @RepN @_ @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
+        $ tsbuild @RepN @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
 
   -- Shaped ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
@@ -411,7 +411,7 @@ instance BaseTensor RepN where
         in RepN $ Nested.mfromVector sh $ V.concat l
       _ ->
         withKnownShX (ssxFromShape sh) $
-        xbuild @_ @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
+        txbuild @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
   txgather1 = tgatherZ1X
   txconcrete = RepN
   txfloor = RepN . liftVX (V.map floor) . unRepN
@@ -434,7 +434,7 @@ instance BaseTensor RepN where
     RepN . Nested.mtranspose (Permutation.makePerm @perm) . unRepN
   txreshape @_ @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreshape sh . unRepN
-  xbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
+  txbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1X (unRepN . f . RepN)
 
   -- Scalar ops
@@ -927,7 +927,7 @@ tgatherZR sh t f = case knownSTK @r of
               $ t `rindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
             | i <- [0 .. fromIntegral s - 1] ]
     in RepN $ Nested.rfromVector sh $ V.concat l
-  _ -> rbuild sh (\ix -> t ! f ix)
+  _ -> trbuild sh (\ix -> t ! f ix)
 
 tgatherZ1R :: forall p n r.
               (KnownNat p, KnownNat n, KnownSTK r)
@@ -938,7 +938,7 @@ tgatherZ1R k t f = case knownSTK @r of
   STKScalar ->  -- optimized
     rfromList $ NonEmpty.map (\i -> t `rindex` f (RepN i))
                              (NonEmpty.fromList [0 .. fromIntegral k - 1])
-  _ -> rbuild1 k (\ix -> t ! f ix)
+  _ -> trbuild1 k (\ix -> t ! f ix)
 
 
 -- * Shaped internal definitions
@@ -1164,7 +1164,7 @@ tgatherZ1S t f =
     STKScalar ->  -- optimized
       sfromList $ NonEmpty.map (\i -> t !$ f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
-    _ -> sbuild1 (\ix -> t !$ f ix)
+    _ -> tsbuild1 (\ix -> t !$ f ix)
 
 
 -- * Mixed internal definitions
@@ -1345,4 +1345,4 @@ tgatherZ1X SNat t f =
     STKScalar ->  -- optimized
       xfromList $ NonEmpty.map (\i -> t `xindex` f (RepN i))
                                (NonEmpty.fromList [0 .. valueOf @n2 - 1])
-    _ -> xbuild1 @_ @n2 (\ix -> t `xindex` f ix)
+    _ -> txbuild1 @_ @n2 (\ix -> t `xindex` f ix)

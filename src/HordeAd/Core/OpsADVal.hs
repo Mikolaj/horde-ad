@@ -197,9 +197,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   trreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
   trtranspose perm (D u u') = dD (rtranspose perm u) (DeltaTransposeR perm u')
   trreshape sh (D u u') = dD (rreshape sh u) (DeltaReshapeR sh u')
-  rbuild1 @r @n k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
+  trbuild1 @n @x k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl | Dict <- eltDictRep (knownSTK @r) ->
+      Just Refl | Dict <- eltDictRep (knownSTK @x) ->
         let arr = Nested.remptyArray
         in tconcrete (tftkG knownSTK arr) (RepN arr)
       Nothing -> error "rbuild1: shape ambiguity"
@@ -252,7 +252,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   tsslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   tsreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
-  sbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
+  tsbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing | Dict <- eltDictRep (knownSTK @r) ->
       let arr = Nested.semptyArray @(RepORArray r) (knownShS @sh)
       in gcastWith (unsafeCoerceRefl :: k :~: 0) $
@@ -322,7 +322,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     dD (txtranspose @_ @perm u)
        (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
-  xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
+  txbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing -> case testEquality (knownShX @sh) ZKX of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
         let arr = Nested.memptyArray @(RepORArray r) ZSX

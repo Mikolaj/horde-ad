@@ -1190,7 +1190,7 @@ testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
   resetVarCounter
   let k = 1000000
-      a1 = rbuild1 @(AstTensor AstMethodLet PrimalSpan) @(TKScalar Double) @1 k
+      a1 = rbuild1 @1 @(TKScalar Double)  @(AstTensor AstMethodLet PrimalSpan) k
            $ \i -> rbuild1 k
            $ \j -> ifF (i <=. j) (rscalar 0) (rscalar 1)
   printAstPretty IM.empty (simplifyInlineContract a1)
@@ -1603,7 +1603,7 @@ testSin0rmapAccumRD01SN51 = do
                                              (sindex0 @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3)))
-                                         (sbuild1 @_ @4 $ \i ->
+                                         (sbuild1 @4 $ \i ->
                                              (tproject2 $ tproject1 a)
                                              - sin x1 / sreplicate @3
                                                      (srepl 1 + sfromIndex0 i))

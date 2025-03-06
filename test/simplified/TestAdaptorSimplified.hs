@@ -451,7 +451,7 @@ testPiecewiseLinear2PP = do
 overleaf :: forall r target. (BaseTensor target, GoodScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
 overleaf v = let wrap i = i `remF` fromIntegral (rwidth v)
-             in rsum (rbuild @target @(TKScalar r) @1 [50] (\[i] -> rindex v [wrap i]))
+             in rsum (rbuild @1 [50] (\[i] -> rindex v [wrap i]))
 
 testOverleaf :: Assertion
 testOverleaf =
@@ -1861,8 +1861,8 @@ emptyArgs t =
 --  * rflatten (rtr (rgather1 0 t (const ZIR)))
   + rbuild1 0 (\i -> t ! (i :.: ZIR))
   + rbuild1 0 (\i -> t ! [fromIntegral (rlength t) `quotF` i] / rfromIndex0 i)
-  + rbuild @target @(TKScalar r) @1 (0 :$: ZSR) (const $ rscalar 73)
-  - rsum (rbuild @target @(TKScalar r) @0 (0 :$: 0 :$: ZSR)
+  + rbuild @1 (0 :$: ZSR) (const $ rscalar 73)
+  - rsum (rbuild @0 (0 :$: 0 :$: ZSR)
                  (const (rreplicate 1 emptyTensor)))
   + rfromS
       (sfromListLinear []
@@ -1880,12 +1880,12 @@ emptyArgs t =
        - sindex @'[0] (sfromListLinear []) (42 :.$ ZIS)
        - sreshape @_ @'[0] (sfromR @_ @'[0] emptyTensor)
        - ssum (sreshape @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
-       * sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
-       + sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
+       * sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
+       + sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
                               !$ (fromIntegral (rlength t) `quotF` i :.$ ZIS)
                               / sfromIndex0 i)
-       + sbuild @target @(TKScalar r) @1 (const $ sscalar 73)
-       - ssum (sbuild @target @(TKScalar r) @0
+       + sbuild @1 (const $ sscalar 73)
+       - ssum (sbuild @0
                       (const (sreplicate @1 (sfromR emptyTensor)))))
   + rfromX
       (xfromListLinear (SKnown (SNat @0) :$% ZSX) []
@@ -1920,20 +1920,20 @@ emptyArgs t =
                                                 emptyTensor)) []) (42 :.% ZIX)
        - xreshape (SKnown (SNat @0) :$% ZSX) (xfromR @_ @'[Just 0] emptyTensor)
        - xsum (xreshape (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX) (xfromR @_ @'[Just 0] emptyTensor))
-       * xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
+       * xbuild1 @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
                             `xindex` (i :.% ZIX))
-       + xbuild1 @_ @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
+       + xbuild1 @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
                               `xindex`
                               (fromIntegral (rlength t) `quotF` i :.% ZIX)
                               / xfromIndex0 i)
-       + xbuild @target @(TKScalar r) @1 (SKnown (SNat @0) :$% ZSX)
+       + xbuild @1 (SKnown (SNat @0) :$% ZSX)
                 (const $ xscalar 73)
-       - xsum (xbuild @target @(TKScalar r) @0 (SKnown (SNat @0)
+       - xsum (xbuild @0 (SKnown (SNat @0)
                                                 :$% SKnown (SNat @0)
                                                 :$% ZSX)
                       (const (xreplicate (xfromR emptyTensor)))))
-  -- - rsum (rbuild @target @(TKScalar r) @2 (0 :$: 0 :$: ZSR) (const 73))
-  -- - rsum (rbuild @target @(TKScalar r) @1 (0 :$: 0 :$: ZSR) (const emptyTensor))
+  -- - rsum (rbuild @2 (0 :$: 0 :$: ZSR) (const 73))
+  -- - rsum (rbuild @1 (0 :$: 0 :$: ZSR) (const emptyTensor))
        -- these two fail and rightly so; TODO: make them fail earlier
  where
   emptyTensor :: target (TKR 1 r)

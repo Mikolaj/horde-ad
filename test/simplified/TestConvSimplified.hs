@@ -737,7 +737,7 @@ codeTomsSlice a =
   let (n, m) = case rshape a of
         [n', m'] -> (n', m')
         _ -> error "codeTomsSlice"
-      a1 = rbuild @_ @_ @2 @0 [n,m-1] (\[i',j'] -> rindex0 a [i',j'])
+      a1 = rbuild @2 @0 [n,m-1] (\[i',j'] -> rindex0 a [i',j'])
       a2 = rbuild [n,m-1] (\[i',j'] -> rindex0 a [i',j' + 1])
   in rsum0 @2 $ rbuild [n,m] $ \[i, _j] ->
        rfromIndex0 i * rsum0 (a1 * a2)
