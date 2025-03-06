@@ -12,7 +12,7 @@ module HordeAd.Core.Ops
   ( -- * The tensor classes and derived operations
     LetTensor(..), ShareTensor(..), BaseTensor(..), ConvertTensor(..)
   , HFun(..)
-  , tunit, tlet
+  , tunit, tlet, ifF, minF, maxF
   , rconcrete, rscalar, rrepl, ringestData
   , sconcrete, sscalar, srepl, singestData
   , xconcrete, xscalar, xrepl, xingestData
@@ -278,7 +278,8 @@ class ( Num (IntOf target)
       => BaseTensor (target :: Target) where
 
   -- First type argument being @target@ is acceptable here, since these
-  -- operations are mostly used when the shape is not known at the type level.
+  -- operations are mostly used when the shape is not known at the type level,
+  -- so it can't be used as an explicit type argument.
   rshape :: forall n x. KnownSTK x
          => target (TKR2 n x) -> IShR n
   rlength :: forall n x. KnownSTK x
@@ -314,6 +315,31 @@ class ( Num (IntOf target)
           => target (TKX2 (mn ': sh) x) -> Int
   xwidth a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
+
+  tsize :: STensorKind y -> target y -> Int
+  tsize stk a = case stk of
+    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+      Just Refl -> 0
+      _ -> 1
+    STKR _ x | Dict <- lemKnownSTK x -> rsize a
+    STKS _ x | Dict <- lemKnownSTK x -> ssize a
+    STKX _ x | Dict <- lemKnownSTK x -> xsize a
+    STKProduct stk1 stk2 ->
+      tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
+  tftk :: STensorKind y -> target y -> FullTensorKind y
+
+  -- Unlikely to require type applications at all
+  tpair :: target x -> target z -> target (TKProduct x z)
+  tproject1 :: target (TKProduct x z) -> target x
+  tproject2 :: target (TKProduct x z) -> target z
+  tcond :: Boolean (BoolOf target)
+        => STensorKind y
+        -> BoolOf target -> target y -> target y -> target y
+
+  -----------
+  -- Everything below is indended to be rarely used and usually there are
+  -- more specific and/or more convienient functions that do the same job.
+  --------------
 
   trconcrete :: GoodScalar r
              => Nested.Ranked n r -> target (TKR n r)
@@ -968,44 +994,6 @@ class ( Num (IntOf target)
   tScale stk s t =
     tdualPart stk $ tfromPrimal @target stk s * tfromDual t
 
-
-  -- General operations that don't require LetTensor nor ShareTensor
-  tsize :: STensorKind y -> target y -> Int
-  tsize stk a = case stk of
-    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
-      Just Refl -> 0
-      _ -> 1
-    STKR _ x | Dict <- lemKnownSTK x -> rsize a
-    STKS _ x | Dict <- lemKnownSTK x -> ssize a
-    STKX _ x | Dict <- lemKnownSTK x -> xsize a
-    STKProduct stk1 stk2 ->
-      tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
-  tftk :: STensorKind y -> target y -> FullTensorKind y
-  tpair :: target x -> target z -> target (TKProduct x z)
-  tproject1 :: target (TKProduct x z) -> target x
-  tproject2 :: target (TKProduct x z) -> target z
-  tcond :: Boolean (BoolOf target)
-        => STensorKind y
-        -> BoolOf target -> target y -> target y -> target y
-  ifF :: (Boolean (BoolOf target), KnownSTK y)
-      => BoolOf target -> target y -> target y -> target y
-  ifF = tcond knownSTK
-  minF :: (Boolean (BoolOf target), OrdF target y, KnownSTK y)
-       => target y -> target y -> target y
-  minF u v = ifF (u <=. v) u v
-  maxF :: (Boolean (BoolOf target), OrdF target y, KnownSTK y)
-       => target y -> target y -> target y
-  maxF u v = ifF (u >=. v) u v
-
-  xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
-         => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
-  xmcast sh2 a = case tftk knownSTK a of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShX sh2 $
-        withKnownShS sh $
-        xfromS $ sfromX @_ @sh a
-
   -- General operations that use ShareTensor if available, LetTensor otherwise
   tsum
     :: forall z k. ConvertTensor target
@@ -1064,6 +1052,16 @@ class ( Num (IntOf target)
     :: (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
   -- The arguments need to be duplicable
   taddTarget :: STensorKind y -> target y -> target y -> target y
+
+  -- TODO: express without ConvertTensor or move there
+  xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
+         => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
+  xmcast sh2 a = case tftk knownSTK a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShX sh2 $
+        withKnownShS sh $
+        xfromS $ sfromX @_ @sh a
 
 class ConvertTensor (target :: Target) where
   tpairConv :: target x -> target z -> target (TKProduct x z)
@@ -1282,6 +1280,17 @@ tunit = kconcrete Z0
 tlet :: forall x z target. LetTensor target
      => target x -> (target x -> target z) -> target z
 tlet = ttlet
+
+ifF :: forall y target.
+       (Boolean (BoolOf target), KnownSTK y, BaseTensor target)
+    => BoolOf target -> target y -> target y -> target y
+ifF = tcond knownSTK
+minF :: forall y target. (OrdF target y, KnownSTK y, BaseTensor target)
+     => target y -> target y -> target y
+minF u v = ifF (u <=. v) u v
+maxF :: forall y target. (OrdF target y, KnownSTK y, BaseTensor target)
+     => target y -> target y -> target y
+maxF u v = ifF (u >=. v) u v
 
 rconcrete :: (GoodScalar r, BaseTensor target)
           => Nested.Ranked n r -> target (TKR n r)
