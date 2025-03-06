@@ -213,7 +213,7 @@ class ShareTensor (target :: Target) where
   tshare :: target y -> target y
   tunpair :: target (TKProduct x z) -> (target x, target z)
   -- This would suffers from lack of sharing with LetTensor, because
-  -- ttlet doesn't work over a list. Here it's fine.
+  -- ttlet doesn't work over a list. With sharing it's fine.
   tunravelToListShare :: forall y k. (BaseTensor target, ConvertTensor target)
                       => SNat k -> STensorKind y
                       -> target (BuildTensorKind k y)
@@ -253,16 +253,8 @@ class ( Num (IntOf target)
       , TensorSupportsX IntegralF IntegralF target )
       => BaseTensor (target :: Target) where
 
-  -- Methods needed only to split off the module that defines them
-  tconstantTarget
-    :: (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
-  -- The arguments need to be duplicable
-  taddTarget :: STensorKind y -> target y -> target y -> target y
-
-  -- Ranked ops
-  -- A number suffix in the name may indicate the rank of the codomain,
-  -- if bounded. Suffix 1 may also mean the operations builds up codomain
-  -- by 1 dimension.
+  -- First type argument being @target@ is acceptable here, since these
+  -- operations are mostly used when the shape is not known at the type level.
   rshape :: forall n x. KnownSTK x
          => target (TKR2 n x) -> IShR n
   rlength :: forall n x. KnownSTK x
@@ -275,8 +267,33 @@ class ( Num (IntOf target)
   rwidth a = case rshape a of
     k :$: _ -> k
 
+  sshape :: forall sh x. KnownSTK x
+         => target (TKS2 sh x) -> ShS sh
+  slength :: forall sh x. KnownSTK x
+          => target (TKS2 sh x) -> Int
+  ssize :: forall sh x. KnownSTK x
+        => target (TKS2 sh x) -> Int
+  ssize = shsSize . sshape
+  swidth :: forall sh x n. KnownSTK x
+          => target (TKS2 (n ': sh) x) -> Int
+  swidth a = case sshape a of
+    n :$$ _ -> sNatValue n
+
+  xshape :: forall sh x. KnownSTK x
+         => target (TKX2 sh x) -> IShX sh
+  xlength :: forall sh x. KnownSTK x
+          => target (TKX2 sh x) -> Int
+  xsize :: forall sh x. KnownSTK x
+        => target (TKX2 sh x) -> Int
+  xsize = shxSize . xshape
+  xwidth :: forall sh x mn. KnownSTK x
+          => target (TKX2 (mn ': sh) x) -> Int
+  xwidth a = case xshape a of
+    mn :$% _ -> fromSMayNat' mn
+
   -- These nine methods can't be replaced by tfromVector, because the concrete
   -- instance has much faster implementations.
+  --
   -- This is morally non-empty strict vectors:
   trfromVector :: (KnownNat n, KnownSTK r, ConvertTensor target)
                => Data.Vector.Vector (target (TKR2 n r))
@@ -300,6 +317,7 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKR2 n r)
         f i = rindex t (fromIntegral i :.: ZIR)
     in map f [0 .. rwidth t - 1]
+
   tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK r, ConvertTensor target)
                => Data.Vector.Vector (target (TKS2 sh r))
                -> target (TKS2 (n ': sh) r)
@@ -321,6 +339,7 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKS2 sh r)
         f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. swidth t - 1]
+
   txfromVector :: (KnownNat n, KnownShX sh, KnownSTK r, ConvertTensor target)
                => Data.Vector.Vector (target (TKX2 sh r))
                -> target (TKX2 (Just n ': sh) r)
@@ -341,6 +360,10 @@ class ( Num (IntOf target)
         f i = xindex t (fromIntegral i :.% ZIX)
     in map f [0 .. xwidth t - 1]
 
+  -- Ranked ops
+  -- A number suffix in the name may indicate the rank of the codomain,
+  -- if bounded. Suffix 1 may also mean the operations builds up codomain
+  -- by 1 dimension.
   rsum :: (KnownSTK r, KnownNat n)
        => target (TKR2 (1 + n) r) -> target (TKR2 n r)
   -- This op (and it's Delta constructor) is worthwhile, because flattening
@@ -573,18 +596,6 @@ class ( Num (IntOf target)
   rScale = tScale @target knownSTK
 
   -- Shaped ops
-  sshape :: forall sh x. KnownSTK x
-         => target (TKS2 sh x) -> ShS sh
-  slength :: forall sh x. KnownSTK x
-          => target (TKS2 sh x) -> Int
-  ssize :: forall sh x. KnownSTK x
-        => target (TKS2 sh x) -> Int
-  ssize = shsSize . sshape
-  swidth :: forall sh x n. KnownSTK x
-          => target (TKS2 (n ': sh) x) -> Int
-  swidth a = case sshape a of
-    n :$$ _ -> sNatValue n
-
   ssum :: (KnownNat n, KnownShS sh, KnownSTK r)
        => target (TKS2 (n ': sh) r) -> target (TKS2 sh r)
   ssum0 :: forall r sh. (KnownSTK r, KnownShS sh)
@@ -900,18 +911,6 @@ class ( Num (IntOf target)
   sScale = tScale @target knownSTK
 
   -- Mixed ops
-  xshape :: forall sh x. KnownSTK x
-         => target (TKX2 sh x) -> IShX sh
-  xlength :: forall sh x. KnownSTK x
-          => target (TKX2 sh x) -> Int
-  xsize :: forall sh x. KnownSTK x
-        => target (TKX2 sh x) -> Int
-  xsize = shxSize . xshape
-  xwidth :: forall sh x mn. KnownSTK x
-          => target (TKX2 (mn ': sh) x) -> Int
-  xwidth a = case xshape a of
-    mn :$% _ -> fromSMayNat' mn
-
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
   xmcast sh2 a = case tftk knownSTK a of
@@ -1471,6 +1470,12 @@ class ( Num (IntOf target)
       let (u1, u2) = tunpair u
       in tpair (tindexBuild snat stk1 u1 i)
                (tindexBuild snat stk2 u2 i)
+
+  -- Methods needed only to split off the module that defines them
+  tconstantTarget
+    :: (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
+  -- The arguments need to be duplicable
+  taddTarget :: STensorKind y -> target y -> target y -> target y
 
 class ConvertTensor (target :: Target) where
   tpairConv :: target x -> target z -> target (TKProduct x z)
