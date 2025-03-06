@@ -433,7 +433,7 @@ testGatherTransposeBuild335 =
     (ringestData [2, 1] [1,1])
     (rev' @Double @3
           (\t ->
-             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @_ @Int64 (rconcrete $ Nested.rfromListPrimLinear (fromList [2]) [0, 1])))))
+             rreplicate 2 t * rtranspose [2,0,1] (rreplicate 2 (rreplicate 1 (rfromIntegral @Int64 (rconcrete $ Nested.rfromListPrimLinear (fromList [2]) [0, 1])))))
          (ringestData [2, 1] [1,2]))
 
 testGatherTransposeBuild336 :: Assertion

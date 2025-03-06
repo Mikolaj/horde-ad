@@ -26,6 +26,9 @@ module HordeAd.Core.Ops
   , rindex, (!), rindex0, roneHot, rscatter, rscatter1, rgather, rgather1
   , sindex, (!$), sindex0, soneHot, sscatter, sscatter1, sgather, sgather1
   , xindex, xindex0, xoneHot, xscatter, xscatter1, xgather, xgather1
+  , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
+  , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
+  , xfloor, xfromIntegral, xcast, xminIndex, xmaxIndex, xiota
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
@@ -654,16 +657,43 @@ class ( Num (IntOf target)
              (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
              (\(i :.% ZIX) -> f i)
 
-  rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
-         => target (TKR n r) -> target (TKR n r2)
-  rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
-                => target (TKR n r1) -> target (TKR n r2)
-  rcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
-        => target (TKR n r1) -> target (TKR n r2)
-  rminIndex, rmaxIndex  -- partial
-    :: (GoodScalar r, GoodScalar r2)
+  trfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+          => target (TKR n r) -> target (TKR n r2)
+  trfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+                 => target (TKR n r1) -> target (TKR n r2)
+  trcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
+         => target (TKR n r1) -> target (TKR n r2)
+  trminIndex, trmaxIndex  -- partial
+    :: forall n r r2. (GoodScalar r, GoodScalar r2)
     => target (TKR (1 + n) r) -> target (TKR n r2)
-  riota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
+  triota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
+
+  tsfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+          => target (TKS sh r) -> target (TKS sh r2)
+    -- the integer can be negative
+    -- TODO: shall we make it abs (floor v)?
+  tsfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+                 => target (TKS sh r1) -> target (TKS sh r2)
+  tscast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
+         => target (TKS sh r1) -> target (TKS sh r2)
+  tsminIndex, tsmaxIndex  -- partial
+    :: forall sh n r r2. (GoodScalar r, GoodScalar r2)
+    => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
+  tsiota :: (KnownNat n, GoodScalar r)
+         => target (TKS '[n] r)  -- from 0 to n - 1
+
+  txfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+          => target (TKX sh r) -> target (TKX sh r2)
+  txfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+                 => target (TKX sh r1) -> target (TKX sh r2)
+  txcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
+         => target (TKX sh r1) -> target (TKX sh r2)
+  txminIndex, txmaxIndex  -- partial
+    :: forall sh mn r r2. (GoodScalar r, GoodScalar r2)
+    => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
+  txiota :: (KnownNat n, GoodScalar r)
+         => target (TKX '[Just n] r)  -- from 0 to n - 1
+
   rappend :: KnownSTK r
           => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
           -> target (TKR2 (1 + n) r)
@@ -802,19 +832,6 @@ class ( Num (IntOf target)
          -> DualOf target (TKR n r)
   rScale = tScale @target knownSTK
 
-  sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
-         => target (TKS sh r) -> target (TKS sh r2)
-    -- the integer can be negative
-    -- TODO: shall we make it abs (floor v)?
-  sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
-                => target (TKS sh r1) -> target (TKS sh r2)
-  scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
-        => target (TKS sh r1) -> target (TKS sh r2)
-  sminIndex, smaxIndex  -- partial
-    :: forall r r2 sh n. (GoodScalar r, GoodScalar r2)
-    => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
-  siota :: (KnownNat n, GoodScalar r)
-        => target (TKS '[n] r)  -- from 0 to n - 1
   sappend :: forall r m n sh. KnownSTK r
           => target (TKS2 (m ': sh) r) -> target (TKS2 (n ': sh) r)
           -> target (TKS2 ((m + n) ': sh) r)
@@ -1035,17 +1052,6 @@ class ( Num (IntOf target)
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
 
-  xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
-         => target (TKX sh r) -> target (TKX sh r2)
-  xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
-                => target (TKX sh r1) -> target (TKX sh r2)
-  xcast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2)
-        => target (TKX sh r1) -> target (TKX sh r2)
-  xminIndex, xmaxIndex  -- partial
-    :: forall r r2 sh mn. (GoodScalar r, GoodScalar r2)
-    => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
-  xiota :: (KnownNat n, GoodScalar r)
-        => target (TKX '[Just n] r)  -- from 0 to n - 1
   xappend :: forall r m n sh. KnownSTK r
           => target (TKX2 (Just m ': sh) r) -> target (TKX2 (Just n ': sh) r)
           -> target (TKX2 (Just (m + n) ': sh) r)
@@ -1985,6 +1991,66 @@ xgather1 :: forall n2 shn shp x target.
          -> (IntOf target -> IxXOf target shp)
          -> target (TKX2 (Just n2 ': shn) x)
 xgather1 = txgather1
+
+rfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+          , BaseTensor target )
+       => target (TKR n r) -> target (TKR n r2)
+rfloor = trfloor
+rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+              => target (TKR n r1) -> target (TKR n r2)
+rfromIntegral = trfromIntegral
+rcast :: ( RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2
+         , BaseTensor target )
+      => target (TKR n r1) -> target (TKR n r2)
+rcast = trcast
+rminIndex, rmaxIndex  -- partial
+  :: forall n r r2 target. (GoodScalar r, GoodScalar r2, BaseTensor target)
+  => target (TKR (1 + n) r) -> target (TKR n r2)
+rminIndex = trminIndex
+rmaxIndex = trmaxIndex
+riota :: (GoodScalar r, BaseTensor target)
+      => Int -> target (TKR 1 r)  -- from 0 to n - 1
+riota = triota
+
+sfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+          , BaseTensor target )
+       => target (TKS sh r) -> target (TKS sh r2)
+sfloor = tsfloor
+sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+              => target (TKS sh r1) -> target (TKS sh r2)
+sfromIntegral = tsfromIntegral
+scast :: ( RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2
+         , BaseTensor target )
+      => target (TKS sh r1) -> target (TKS sh r2)
+scast = tscast
+sminIndex, smaxIndex  -- partial
+  :: forall sh n r r2 target. (GoodScalar r, GoodScalar r2, BaseTensor target)
+  => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
+sminIndex = tsminIndex
+smaxIndex = tsmaxIndex
+siota :: (KnownNat n, GoodScalar r, BaseTensor target)
+      => target (TKS '[n] r)  -- from 0 to n - 1
+siota = tsiota
+
+xfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+          , BaseTensor target )
+       => target (TKX sh r) -> target (TKX sh r2)
+xfloor = txfloor
+xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+              => target (TKX sh r1) -> target (TKX sh r2)
+xfromIntegral = txfromIntegral
+xcast :: ( RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2
+         , BaseTensor target )
+      => target (TKX sh r1) -> target (TKX sh r2)
+xcast = txcast
+xminIndex, xmaxIndex  -- partial
+  :: forall sh mn r r2 target. (GoodScalar r, GoodScalar r2, BaseTensor target)
+  => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
+xminIndex = txminIndex
+xmaxIndex = txmaxIndex
+xiota :: (KnownNat n, GoodScalar r, BaseTensor target)
+      => target (TKX '[Just n] r)  -- from 0 to n - 1
+xiota = txiota
 
 rfold
   :: forall n m rn rm target.

@@ -240,22 +240,22 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
   trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
-  rfloor @_ @r2 a = case ftkAst a of
+  trfloor @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . astSFromR @sh sh $ a
-  rfromIntegral @_ @r2 a = case ftkAst a of
+  trfromIntegral @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . astFromIntegralS . primalPart . astSFromR @sh sh $ a
-  rcast @_ @r2 a = case ftkAst a of
+  trcast @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
         . astCastS . astSFromR sh $ a
-  rminIndex @_ @r2 a = case ftkAst a of
+  trminIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -265,7 +265,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMinIndexS . primalPart . astSFromR @sh sh $ a
         ZSS -> error "rminIndex: impossible empty shape"
-  rmaxIndex @_ @r2 a = case ftkAst a of
+  trmaxIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -273,7 +273,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMaxIndexS . primalPart . astSFromR @sh sh $ a
         ZSS -> error "rmaxIndex: impossible empty shape"
-  riota @r n =
+  triota @r n =
     withSNat n $ \(SNat @n) ->
       astFromS (knownSTK @(TKR 1 r)) $ fromPrimal $ AstIotaS @n @r SNat
   rappend u v = case ftkAst u of
@@ -363,12 +363,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astGatherStepS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
   tsconcrete = fromPrimal . AstConcreteS
-  sfloor = fromPrimal . AstFloorS . primalPart
-  sfromIntegral = fromPrimal . astFromIntegralS . primalPart
-  scast = astCastS
-  sminIndex = fromPrimal . AstMinIndexS . primalPart
-  smaxIndex = fromPrimal . AstMaxIndexS . primalPart
-  siota = fromPrimal $ AstIotaS SNat
+  tsfloor = fromPrimal . AstFloorS . primalPart
+  tsfromIntegral = fromPrimal . astFromIntegralS . primalPart
+  tscast = astCastS
+  tsminIndex = fromPrimal . AstMinIndexS . primalPart
+  tsmaxIndex = fromPrimal . AstMaxIndexS . primalPart
+  tsiota = fromPrimal $ AstIotaS SNat
   sappend u v = astAppendS u v
   sslice i n k = astSliceS i n k
   sreverse = astReverseS
@@ -450,23 +450,23 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
   txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
-  xfloor @_ @r2 @sh' a = case ftkAst a of
+  txfloor @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . astSFromX @sh @sh' sh $ a
-  xfromIntegral @_ @r2 @sh' a = case ftkAst a of
+  txfromIntegral @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . astFromIntegralS
         . primalPart . astSFromX @sh @sh' sh $ a
-  xcast @_ @r2 a = case ftkAst a of
+  txcast @_ @r2 a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKX (ssxFromShape sh') STKScalar)
         . astCastS . astSFromX sh $ a
-  xminIndex @_ @r2 a = case ftkAst a of
+  txminIndex @_ @_ @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -475,7 +475,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                    (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMinIndexS @n @rest
           . primalPart . astSFromX @sh @sh' sh $ a
-  xmaxIndex @_ @r2 a = case ftkAst a of
+  txmaxIndex @_ @_ @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -484,8 +484,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                    (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMaxIndexS @n @rest
           . primalPart . astSFromX @sh @sh' sh $ a
-  xiota @n @r = astFromS (knownSTK @(TKX '[Just n] r))
-                $ fromPrimal $ AstIotaS @n @r SNat
+  txiota @n @r = astFromS (knownSTK @(TKX '[Just n] r))
+                 $ fromPrimal $ AstIotaS @n @r SNat
   xappend u v = case ftkAst u of
     FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
       FTKX (Nested.SKnown n@SNat :$% shv') _ ->
@@ -731,22 +731,22 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
   trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
-  rfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . AstSFromR @sh sh $ a
-  rfromIntegral @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trfromIntegral @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
         . fromPrimal . AstFromIntegralS . primalPart . AstSFromR @sh sh $ a
-  rcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
         . AstCastS . AstSFromR sh $ a
-  rminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -756,7 +756,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           AstFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMinIndexS . primalPart . AstSFromR @sh sh $ a
         ZSS -> error "rminIndex: impossible shape"
-  rmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -764,7 +764,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           AstFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMaxIndexS . primalPart . AstSFromR @sh sh $ a
         ZSS -> error "rmaxIndex: impossible shape"
-  riota @r n =
+  triota @r n =
     AstRaw
     $ withSNat n $ \(SNat @n) ->
         AstFromS (knownSTK @(TKR 1 r)) $ fromPrimal $ AstIotaS @n @r SNat
@@ -859,13 +859,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
   tsconcrete = AstRaw . fromPrimal . AstConcreteS
-  sfloor = AstRaw . fromPrimal . AstFloorS . primalPart . unAstRaw
-  sfromIntegral =
+  tsfloor = AstRaw . fromPrimal . AstFloorS . primalPart . unAstRaw
+  tsfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . primalPart . unAstRaw
-  scast = AstRaw . AstCastS . unAstRaw
-  sminIndex a = AstRaw . fromPrimal . AstMinIndexS . primalPart . unAstRaw $ a
-  smaxIndex a = AstRaw . fromPrimal . AstMaxIndexS . primalPart . unAstRaw $ a
-  siota = AstRaw . fromPrimal $ AstIotaS SNat
+  tscast = AstRaw . AstCastS . unAstRaw
+  tsminIndex a = AstRaw . fromPrimal . AstMinIndexS . primalPart . unAstRaw $ a
+  tsmaxIndex a = AstRaw . fromPrimal . AstMaxIndexS . primalPart . unAstRaw $ a
+  tsiota = AstRaw . fromPrimal $ AstIotaS SNat
   sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   sslice i n k = AstRaw . AstSliceS i n k . unAstRaw
   sreverse = AstRaw . AstReverseS . unAstRaw
@@ -952,23 +952,23 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
   txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
-  xfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+  txfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . AstFloorS . primalPart . AstSFromX @sh @sh' sh $ a
-  xfromIntegral @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+  txfromIntegral @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
         . fromPrimal . AstFromIntegralS
         . primalPart . AstSFromX @sh @sh' sh $ a
-  xcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  txcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKX (ssxFromShape sh') STKScalar)
         . AstCastS . AstSFromX sh $ a
-  xminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  txminIndex @_ @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -977,7 +977,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                    (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMinIndexS @n @rest
           . primalPart . AstSFromX @sh @sh' sh $ a
-  xmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  txmaxIndex @_ @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -986,8 +986,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                    (STKX (ssxFromShape $ shxInit sh') STKScalar)
           . fromPrimal . AstMaxIndexS @n @rest
           . primalPart . AstSFromX @sh @sh' sh $ a
-  xiota @n @r = AstRaw $ AstFromS (knownSTK @(TKX '[Just n] r))
-                $ fromPrimal $ AstIotaS @n @r SNat
+  txiota @n @r = AstRaw $ AstFromS (knownSTK @(TKX '[Just n] r))
+                 $ fromPrimal $ AstIotaS @n @r SNat
   xappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
     FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
       FTKX (Nested.SKnown n@SNat :$% shv') _ ->
@@ -1281,12 +1281,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ trgather sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   trconcrete = AstNoVectorize . trconcrete
-  rfloor = AstNoVectorize . rfloor . unAstNoVectorize
-  rfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
-  rcast = AstNoVectorize . rcast . unAstNoVectorize
-  rminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
-  rmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
-  riota = AstNoVectorize . riota
+  trfloor = AstNoVectorize . rfloor . unAstNoVectorize
+  trfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
+  trcast = AstNoVectorize . rcast . unAstNoVectorize
+  trminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
+  trmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
+  triota = AstNoVectorize . riota
   rappend u v =
     AstNoVectorize $ rappend (unAstNoVectorize u) (unAstNoVectorize v)
   rslice i n = AstNoVectorize . rslice i n . unAstNoVectorize
@@ -1311,12 +1311,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tsgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   tsconcrete = AstNoVectorize . tsconcrete
-  sfloor = AstNoVectorize . sfloor . unAstNoVectorize
-  sfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
-  scast = AstNoVectorize . scast . unAstNoVectorize
-  sminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
-  smaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
-  siota = AstNoVectorize siota
+  tsfloor = AstNoVectorize . sfloor . unAstNoVectorize
+  tsfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
+  tscast = AstNoVectorize . scast . unAstNoVectorize
+  tsminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
+  tsmaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
+  tsiota = AstNoVectorize siota
   sappend u v =
     AstNoVectorize $ sappend (unAstNoVectorize u) (unAstNoVectorize v)
   sslice i n k = AstNoVectorize . sslice i n k . unAstNoVectorize
@@ -1339,12 +1339,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ txgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   txconcrete = AstNoVectorize . txconcrete
-  xfloor = AstNoVectorize . xfloor . unAstNoVectorize
-  xfromIntegral = AstNoVectorize . xfromIntegral . unAstNoVectorize
-  xcast = AstNoVectorize . xcast . unAstNoVectorize
-  xminIndex = AstNoVectorize . xminIndex . unAstNoVectorize
-  xmaxIndex = AstNoVectorize . xmaxIndex . unAstNoVectorize
-  xiota @n = AstNoVectorize $ xiota @_ @n
+  txfloor = AstNoVectorize . xfloor . unAstNoVectorize
+  txfromIntegral = AstNoVectorize . xfromIntegral . unAstNoVectorize
+  txcast = AstNoVectorize . xcast . unAstNoVectorize
+  txminIndex = AstNoVectorize . xminIndex . unAstNoVectorize
+  txmaxIndex = AstNoVectorize . xmaxIndex . unAstNoVectorize
+  txiota @n = AstNoVectorize $ txiota @_ @n
   xappend u v =
     AstNoVectorize $ xappend (unAstNoVectorize u) (unAstNoVectorize v)
   xslice i n k = AstNoVectorize . xslice i n k . unAstNoVectorize
@@ -1521,12 +1521,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ trgather sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
   trconcrete = wAstNoSimplify . trconcrete
-  rfloor = wAstNoSimplify . rfloor . wunAstNoSimplify
-  rfromIntegral = wAstNoSimplify . rfromIntegral . wunAstNoSimplify
-  rcast = wAstNoSimplify . rcast . wunAstNoSimplify
-  rminIndex = wAstNoSimplify . rminIndex . wunAstNoSimplify
-  rmaxIndex = wAstNoSimplify . rmaxIndex . wunAstNoSimplify
-  riota = wAstNoSimplify . riota
+  trfloor = wAstNoSimplify . trfloor . wunAstNoSimplify
+  trfromIntegral = wAstNoSimplify . trfromIntegral . wunAstNoSimplify
+  trcast = wAstNoSimplify . trcast . wunAstNoSimplify
+  trminIndex = wAstNoSimplify . trminIndex . wunAstNoSimplify
+  trmaxIndex = wAstNoSimplify . trmaxIndex . wunAstNoSimplify
+  triota = wAstNoSimplify . triota
   rappend u v =
     wAstNoSimplify $ rappend (wunAstNoSimplify u) (wunAstNoSimplify v)
   rslice i n = wAstNoSimplify . rslice i n . wunAstNoSimplify
@@ -1547,12 +1547,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tsgather @_ @_ @shm @shn @shp (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
   tsconcrete = wAstNoSimplify . tsconcrete
-  sfloor = wAstNoSimplify . sfloor . wunAstNoSimplify
-  sfromIntegral = wAstNoSimplify . sfromIntegral . wunAstNoSimplify
-  scast = wAstNoSimplify . scast . wunAstNoSimplify
-  sminIndex = wAstNoSimplify . sminIndex . wunAstNoSimplify
-  smaxIndex = wAstNoSimplify . smaxIndex . wunAstNoSimplify
-  siota = wAstNoSimplify siota
+  tsfloor = wAstNoSimplify . tsfloor . wunAstNoSimplify
+  tsfromIntegral = wAstNoSimplify . tsfromIntegral . wunAstNoSimplify
+  tscast = wAstNoSimplify . tscast . wunAstNoSimplify
+  tsminIndex = wAstNoSimplify . tsminIndex . wunAstNoSimplify
+  tsmaxIndex = wAstNoSimplify . tsmaxIndex . wunAstNoSimplify
+  tsiota = wAstNoSimplify tsiota
   sappend u v =
     wAstNoSimplify $ sappend (wunAstNoSimplify u) (wunAstNoSimplify v)
   sslice i n k = wAstNoSimplify . sslice i n k . wunAstNoSimplify
@@ -1572,12 +1572,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ txgather @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
   txconcrete = wAstNoSimplify . txconcrete
-  xfloor = wAstNoSimplify . xfloor . wunAstNoSimplify
-  xfromIntegral = wAstNoSimplify . xfromIntegral . wunAstNoSimplify
-  xcast = wAstNoSimplify . xcast . wunAstNoSimplify
-  xminIndex = wAstNoSimplify . xminIndex . wunAstNoSimplify
-  xmaxIndex = wAstNoSimplify . xmaxIndex . wunAstNoSimplify
-  xiota @n = wAstNoSimplify $ xiota @_ @n
+  txfloor = wAstNoSimplify . txfloor . wunAstNoSimplify
+  txfromIntegral = wAstNoSimplify . txfromIntegral . wunAstNoSimplify
+  txcast = wAstNoSimplify . txcast . wunAstNoSimplify
+  txminIndex = wAstNoSimplify . txminIndex . wunAstNoSimplify
+  txmaxIndex = wAstNoSimplify . txmaxIndex . wunAstNoSimplify
+  txiota @n = wAstNoSimplify $ txiota @_ @n
   xappend u v =
     wAstNoSimplify $ xappend (wunAstNoSimplify u) (wunAstNoSimplify v)
   xslice i n k = wAstNoSimplify . xslice i n k . wunAstNoSimplify

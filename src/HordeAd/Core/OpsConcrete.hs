@@ -129,14 +129,14 @@ instance BaseTensor RepN where
   trgather = tgatherZR
   trgather1 = tgatherZ1R
   trconcrete = RepN
-  rfloor = RepN . liftVR (V.map floor) . unRepN
-  rfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
-  {-# INLINE rcast #-}  -- this doesn't want to specialize
-  rcast = RepN . liftVR (V.map realToFrac) . unRepN
-  rminIndex = RepN . tminIndexR . unRepN
-  rmaxIndex = RepN . tmaxIndexR . unRepN
-  riota n = RepN $ Nested.rfromList1 $ NonEmpty.map fromInteger
-            $ NonEmpty.fromList [0 .. fromIntegral n - 1]
+  trfloor = RepN . liftVR (V.map floor) . unRepN
+  trfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
+  {-# INLINE trcast #-}  -- this doesn't want to specialize
+  trcast = RepN . liftVR (V.map realToFrac) . unRepN
+  trminIndex = RepN . tminIndexR . unRepN
+  trmaxIndex = RepN . tmaxIndexR . unRepN
+  triota n = RepN $ Nested.rfromList1 $ NonEmpty.map fromInteger
+             $ NonEmpty.fromList [0 .. fromIntegral n - 1]
   rappend @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.rappend (unRepN u) (unRepN v)
   rslice @r i n | Dict <- eltDictRep (knownSTK @r) =
@@ -269,13 +269,13 @@ instance BaseTensor RepN where
         sbuild @_ @_ @(Rank shm) (\ix -> t !$ f ix)
   tsgather1 = tgatherZ1S
   tsconcrete = RepN
-  sfloor = RepN . liftVS (V.map floor) . unRepN
-  sfromIntegral = RepN . tfromIntegralS . unRepN
-  {-# INLINE scast #-}  -- this doesn't want to specialize
-  scast = RepN . liftVS (V.map realToFrac) . unRepN
-  sminIndex a = RepN . tminIndexS . unRepN $ a
-  smaxIndex a = RepN . tmaxIndexS . unRepN $ a
-  siota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
+  tsfloor = RepN . liftVS (V.map floor) . unRepN
+  tsfromIntegral = RepN . tfromIntegralS . unRepN
+  {-# INLINE tscast #-}  -- this doesn't want to specialize
+  tscast = RepN . liftVS (V.map realToFrac) . unRepN
+  tsminIndex a = RepN . tminIndexS . unRepN $ a
+  tsmaxIndex a = RepN . tmaxIndexS . unRepN $ a
+  tsiota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl -> RepN $ Nested.semptyArray ZSS
       Nothing -> error "siota: wrong rank"
@@ -414,16 +414,16 @@ instance BaseTensor RepN where
         xbuild @_ @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
   txgather1 = tgatherZ1X
   txconcrete = RepN
-  xfloor = RepN . liftVX (V.map floor) . unRepN
-  xfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN
-  {-# INLINE xcast #-}  -- this doesn't want to specialize
-  xcast = RepN . liftVX (V.map realToFrac) . unRepN
-  xminIndex = RepN . tminIndexX . unRepN
-  xmaxIndex = RepN . tmaxIndexX . unRepN
-  xiota @n = let n = valueOf @n
-                 t = Nested.mfromList1 $ NonEmpty.map fromInteger
-                     $ NonEmpty.fromList [0 .. n - 1]
-             in RepN $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX) t
+  txfloor = RepN . liftVX (V.map floor) . unRepN
+  txfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN
+  {-# INLINE txcast #-}  -- this doesn't want to specialize
+  txcast = RepN . liftVX (V.map realToFrac) . unRepN
+  txminIndex = RepN . tminIndexX . unRepN
+  txmaxIndex = RepN . tmaxIndexX . unRepN
+  txiota @n = let n = valueOf @n
+                  t = Nested.mfromList1 $ NonEmpty.map fromInteger
+                      $ NonEmpty.fromList [0 .. n - 1]
+              in RepN $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX) t
   xappend @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.mappend (unRepN u) (unRepN v)
   xslice @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =

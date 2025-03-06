@@ -178,20 +178,20 @@ instance ( ADReadyNoLet target, ShareTensor target
   trconcrete a =
     let v = trconcrete a
     in fromPrimalFTK (FTKR (Nested.rshape a) FTKScalar) v
-  rfloor (D u _) =
-    let v = rfloor u
+  trfloor (D u _) =
+    let v = trfloor u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  rfromIntegral (D u _) =
-    let v = rfromIntegral u
+  trfromIntegral (D u _) =
+    let v = trfromIntegral u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  rcast (D u u') = dD (rcast u) (DeltaCastR u')
-  rminIndex (D u _) =
-    let v = rminIndex u
+  trcast (D u u') = dD (rcast u) (DeltaCastR u')
+  trminIndex (D u _) =
+    let v = trminIndex u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  rmaxIndex (D u _) =
-    let v = rmaxIndex u
+  trmaxIndex (D u _) =
+    let v = trmaxIndex u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  riota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ riota n
+  triota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ triota n
   rappend (D u u') (D v v') = dD (rappend u v) (DeltaAppendR u' v')
   rslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
   rreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
@@ -235,20 +235,20 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsconcrete a =
     let v = tsconcrete a
     in fromPrimalFTK (FTKS (Nested.sshape a) FTKScalar) v
-  sfloor (D u _) =
-    let v = sfloor u
+  tsfloor (D u _) =
+    let v = tsfloor u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  sfromIntegral (D u _) =
-    let v = sfromIntegral u
+  tsfromIntegral (D u _) =
+    let v = tsfromIntegral u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  scast (D u u') = dD (scast u) (DeltaCastS u')
-  sminIndex (D u _) =
-    let v = sminIndex u
+  tscast (D u u') = dD (scast u) (DeltaCastS u')
+  tsminIndex (D u _) =
+    let v = tsminIndex u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  smaxIndex (D u _) =
-    let v = smaxIndex u
+  tsmaxIndex (D u _) =
+    let v = tsmaxIndex u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  siota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) siota
+  tsiota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) tsiota
   sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
   sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
   sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
@@ -301,20 +301,20 @@ instance ( ADReadyNoLet target, ShareTensor target
   txconcrete a =
     let v = txconcrete a
     in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
-  xfloor (D u _) =
-    let v = xfloor u
+  txfloor (D u _) =
+    let v = txfloor u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  xfromIntegral (D u _) =
-    let v = xfromIntegral u
+  txfromIntegral (D u _) =
+    let v = txfromIntegral u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  xcast (D u u') = dD (xcast u) (DeltaCastX u')
-  xminIndex (D u _) =
-    let v = xminIndex u
+  txcast (D u u') = dD (xcast u) (DeltaCastX u')
+  txminIndex (D u _) =
+    let v = txminIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  xmaxIndex (D u _) =
-    let v = xmaxIndex u
+  txmaxIndex (D u _) =
+    let v = txmaxIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  xiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) xiota
+  txiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) txiota
   xappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
   xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
   xreverse (D u u') = dD (xreverse u) (DeltaReverseX u')

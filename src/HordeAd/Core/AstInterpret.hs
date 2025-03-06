@@ -220,13 +220,13 @@ interpretAst !env = \case
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
     case testEquality (typeRep @r1) (typeRep @Double) of
       Just Refl -> case testEquality (typeRep @r2) (typeRep @Float) of
-        Just Refl -> scast @_ @Double @Float $ interpretAst env v
-        _ -> scast @_ @Double $ interpretAst env v
+        Just Refl -> tscast @_ @Double @Float $ interpretAst env v
+        _ -> tscast @_ @Double $ interpretAst env v
       _ -> case testEquality (typeRep @r1) (typeRep @Float) of
         Just Refl -> case testEquality (typeRep @r2) (typeRep @Double) of
-          Just Refl -> scast @_ @Float @Double $ interpretAst env v
-          _ -> scast @_ @Float $ interpretAst env v
-        _ -> scast $ interpretAst env v
+          Just Refl -> tscast @_ @Float @Double $ interpretAst env v
+          _ -> tscast @_ @Float $ interpretAst env v
+        _ -> tscast $ interpretAst env v
 
   AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
