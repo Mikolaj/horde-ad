@@ -394,6 +394,16 @@ class ( Num (IntOf target)
         f i = xindex t (fromIntegral i :.% ZIX)
     in map f [0 .. xwidth t - 1]
 
+  tfromVector
+    :: forall y k. ConvertTensor target
+    => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
+    -> target (BuildTensorKind k y)
+  tfromListR :: forall y k. ConvertTensor target
+             => STensorKind y -> ListR k (target y)
+             -> target (BuildTensorKind k y)
+  tfromListR stk l =
+    tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
+
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
   -- by 1 dimension.
@@ -963,7 +973,7 @@ class ( Num (IntOf target)
 
 
   -- General operations that don't require LetTensor nor ShareTensor
-  tsize :: BaseTensor target => STensorKind y -> target y -> Int
+  tsize :: STensorKind y -> target y -> Int
   tsize stk a = case stk of
     STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
       Just Refl -> 0
@@ -1000,15 +1010,6 @@ class ( Num (IntOf target)
         xfromS $ sfromX @_ @sh a
 
   -- General operations that use ShareTensor if available, LetTensor otherwise
-  tfromVector
-    :: forall y k. ConvertTensor target
-    => SNat k -> STensorKind y -> Data.Vector.Vector (target y)
-    -> target (BuildTensorKind k y)
-  tfromListR :: forall y k. (BaseTensor target, ConvertTensor target)
-             => STensorKind y -> ListR k (target y)
-             -> target (BuildTensorKind k y)
-  tfromListR stk l =
-    tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
   tsum
     :: forall z k. ConvertTensor target
     => SNat k -> STensorKind z -> target (BuildTensorKind k z)
