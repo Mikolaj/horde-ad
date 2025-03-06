@@ -99,7 +99,7 @@ instance BaseTensor RepN where
     RepN . tfromVectorLinearR sh . V.map unRepN
   trunravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.rtoListOuter . unRepN
-  rsum t = case tftk knownSTK t of
+  trsum t = case tftk knownSTK t of
     FTKR _ FTKScalar ->  -- optimized
       RepN . Nested.rsumOuter1 . unRepN $ t
     FTKR _ x ->
@@ -108,19 +108,19 @@ instance BaseTensor RepN where
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKR sh x)) l
         -- RepN has a ShareTensor instance, so addTarget arguments
         -- don't need to be duplicable
-  rsum0 @r t = case knownSTK @r of
+  trsum0 @_ @r t = case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
     _ -> rsum . rflatten $ t
-  {-# INLINE rdot0 #-}  -- this doesn't want to specialize
-  rdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
-  rdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
-  {-# INLINE rmatvecmul #-}  -- this doesn't want to specialize
-  rmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
-  rmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
-  rreplicate @r k | Dict <- eltDictRep (knownSTK @r) =
+  {-# INLINE trdot0 #-}  -- this doesn't want to specialize
+  trdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
+  trdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
+  {-# INLINE trmatvecmul #-}  -- this doesn't want to specialize
+  trmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
+  trmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
+  trreplicate @_ @r k | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate (k :$: ZSR) . unRepN
-  rreplicate0N @r sh | Dict <- eltDictRep (knownSTK @r) =
+  trreplicate0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate sh . unRepN
   rindex = tindexZR
   rindex0 = tindex0R
@@ -172,25 +172,25 @@ instance BaseTensor RepN where
     RepN . tfromVectorLinearS . V.map unRepN
   tsunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.stoListOuter . unRepN
-  ssum t = case tftk knownSTK t of
+  tssum t = case tftk knownSTK t of
     FTKS _ FTKScalar ->  -- optimized
       RepN . Nested.ssumOuter1 . unRepN $ t
     FTKS _ x ->
       let l = sunravelToList t
           sh = shsTail $ sshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKS sh x)) l
-  ssum0 @r @sh t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
+  tssum0 @sh @r t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
     _ -> ssum . sflatten $ t
-  {-# INLINE sdot0 #-}  -- this doesn't want to specialize
-  sdot0 u v  =
+  {-# INLINE tsdot0 #-}  -- this doesn't want to specialize
+  tsdot0 u v  =
     RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
-  sdot1In (SNat @n) u v =
+  tsdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
-  {-# INLINE smatvecmul #-}  -- this doesn't want to specialize
-  smatvecmul m v = ssum (str (sreplicate v * m))
-  smatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
+  {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
+  tsmatvecmul m v = ssum (str (sreplicate v * m))
+  tsmatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   sindex = tindexZS
   sindex0 = tindex0S
   -- Performance depends a lot on the number and size of tensors.
@@ -317,42 +317,42 @@ instance BaseTensor RepN where
     RepN . tfromVectorLinearX sh . V.map unRepN
   txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.mtoListOuter . unRepN
-  xsum t = case tftk knownSTK t of
+  txsum t = case tftk knownSTK t of
     FTKX _ FTKScalar ->  -- optimized
       RepN . Nested.msumOuter1 . unRepN $ t
     FTKX _ x ->
       let l = xunravelToList t
           sh = shxTail $ xshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKX sh x)) l
-  xsum0 @r t =
+  txsum0 @_ @r t =
    case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
     _ -> withSNat (shxSize $ xshape t) $ \snat ->
       xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
-  {-# INLINE xdot0 #-}  -- this doesn't want to specialize
-  xdot0 u v =
+  {-# INLINE txdot0 #-}  -- this doesn't want to specialize
+  txdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
-  xdot1In @_ @n u v =
+  txdot1In @n u v =
     RepN $ Nested.mdot1Inner (Proxy @(Just n)) (unRepN u) (unRepN v)
-  xmatvecmul mm mn m v =
+  txmatvecmul mm mn m v =
     withKnownShX (ssxFromShape $ mn :$% ZSX) $
     withKnownShX (ssxFromShape $ mm :$% mn :$% ZSX) $
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShape (mm :$% ZSX))
-      $ xsum (xtr (xreplicate @_ @m
+      $ xsum (xtr (txreplicate @_ @m
                      (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
                                             :$% ZSX)) v)
                    * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
                                            :$% Nested.SKnown (SNat @n)
                                            :$% ZSX)) m))
-  {-# INLINE xmatvecmul #-}  -- this doesn't want to specialize
-  xmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
-  xreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
+  {-# INLINE txmatvecmul #-}  -- this doesn't want to specialize
+  txmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
+  txreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unRepN
-  xreplicate0N @r @sh sh | Refl <- lemAppNil @sh
-                         , Dict <- eltDictRep (knownSTK @r) =
+  txreplicate0N @sh @r sh | Refl <- lemAppNil @sh
+                          , Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate sh . unRepN
   xindex = tindexZX
   xindex0 = tindex0X
@@ -451,7 +451,7 @@ instance BaseTensor RepN where
   tproject2 = RepN . snd . unRepN
   tsreplicate @_ @_ @x _sh | Dict <- eltDictRep (knownSTK @x) =
     RepN . Nested.sreplicate (SNat :$$ ZSS) . unRepN
-  tsreplicate0N @r @sh sh | Refl <- lemAppNil @sh
+  tsreplicate0N @sh @r sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreplicate sh . unRepN
   stranspose @perm = tstranspose (Permutation.makePerm @perm)

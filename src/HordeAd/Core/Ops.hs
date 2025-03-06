@@ -20,6 +20,9 @@ module HordeAd.Core.Ops
   , rfromList, rfromVector, rfromListLinear, rfromVectorLinear, runravelToList
   , sfromList, sfromVector, sfromListLinear, sfromVectorLinear, sunravelToList
   , xfromList, xfromVector, xfromListLinear, xfromVectorLinear, xunravelToList
+  , rsum, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2, rreplicate, rreplicate0N
+  , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
+  , xsum, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2, xreplicate, xreplicate0N
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
@@ -274,7 +277,7 @@ class ( Num (IntOf target)
   ssize :: forall sh x. KnownSTK x
         => target (TKS2 sh x) -> Int
   ssize = shsSize . sshape
-  swidth :: forall sh x n. KnownSTK x
+  swidth :: forall sh n x. KnownSTK x
           => target (TKS2 (n ': sh) x) -> Int
   swidth a = case sshape a of
     n :$$ _ -> sNatValue n
@@ -286,7 +289,7 @@ class ( Num (IntOf target)
   xsize :: forall sh x. KnownSTK x
         => target (TKX2 sh x) -> Int
   xsize = shxSize . xshape
-  xwidth :: forall sh x mn. KnownSTK x
+  xwidth :: forall sh mn x. KnownSTK x
           => target (TKX2 (mn ': sh) x) -> Int
   xwidth a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
@@ -295,15 +298,15 @@ class ( Num (IntOf target)
   -- instance has much faster implementations.
   --
   -- This is morally non-empty strict vectors:
-  trfromVector :: (KnownNat n, KnownSTK r, ConvertTensor target)
-               => Data.Vector.Vector (target (TKR2 n r))
-               -> target (TKR2 (1 + n) r)
+  trfromVector :: (KnownNat n, KnownSTK x, ConvertTensor target)
+               => Data.Vector.Vector (target (TKR2 n x))
+               -> target (TKR2 (1 + n) x)
   trfromVector v = withSNat (V.length v) $ \k ->
     tfromVector k (STKR SNat knownSTK) v
-  trfromVectorLinear :: forall n r. (KnownSTK r, ConvertTensor target)
-                     => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
-                     -> target (TKR2 n r)
-  trfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
+  trfromVectorLinear :: forall n x. (KnownSTK x, ConvertTensor target)
+                     => IShR n -> Data.Vector.Vector (target (TKR2 0 x))
+                     -> target (TKR2 n x)
+  trfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @x) =
     if V.null v
     then let arr = Nested.remptyArray
          in rreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
@@ -311,90 +314,168 @@ class ( Num (IntOf target)
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
   -- by explicit sharing, e.g., 'ttlet'.
-  trunravelToList :: forall n r. (KnownSTK r, KnownNat n)
-                  => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
+  trunravelToList :: forall n x. (KnownSTK x, KnownNat n)
+                  => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
   trunravelToList t =
-    let f :: Int -> target (TKR2 n r)
+    let f :: Int -> target (TKR2 n x)
         f i = rindex t (fromIntegral i :.: ZIR)
     in map f [0 .. rwidth t - 1]
 
-  tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK r, ConvertTensor target)
-               => Data.Vector.Vector (target (TKS2 sh r))
-               -> target (TKS2 (n ': sh) r)
+  tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK x, ConvertTensor target)
+               => Data.Vector.Vector (target (TKS2 sh x))
+               -> target (TKS2 (n ': sh) x)
   tsfromVector v = tfromVector SNat (STKS knownShS knownSTK) v
-  tsfromVectorLinear :: forall sh r.
-                        (KnownSTK r, KnownShS sh, ConvertTensor target)
-                     => Data.Vector.Vector (target (TKS2 '[] r))
-                     -> target (TKS2 sh r)
-  tsfromVectorLinear v | Dict <- eltDictRep (knownSTK @r)
+  tsfromVectorLinear :: forall sh x.
+                        (KnownSTK x, KnownShS sh, ConvertTensor target)
+                     => Data.Vector.Vector (target (TKS2 '[] x))
+                     -> target (TKS2 sh x)
+  tsfromVectorLinear v | Dict <- eltDictRep (knownSTK @x)
                        , SNat <- shsProduct (knownShS @sh) =
     if V.null v
     then gcastWith (unsafeCoerceRefl :: Nested.Product sh :~: 0) $
          let arr = Nested.semptyArray ZSS
          in sreshape $ tconcrete (tftkG knownSTK arr) (RepN arr)
-    else sreshape @_ @r @'[Nested.Product sh] @sh $ sfromVector v
-  tsunravelToList :: forall n sh r. (KnownSTK r, KnownNat n, KnownShS sh)
-                  => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
+    else sreshape @_ @x @'[Nested.Product sh] @sh $ sfromVector v
+  tsunravelToList :: forall n sh x. (KnownSTK x, KnownNat n, KnownShS sh)
+                  => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
   tsunravelToList t =
-    let f :: Int -> target (TKS2 sh r)
+    let f :: Int -> target (TKS2 sh x)
         f i = sindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. swidth t - 1]
 
-  txfromVector :: (KnownNat n, KnownShX sh, KnownSTK r, ConvertTensor target)
-               => Data.Vector.Vector (target (TKX2 sh r))
-               -> target (TKX2 (Just n ': sh) r)
+  txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x, ConvertTensor target)
+               => Data.Vector.Vector (target (TKX2 sh x))
+               -> target (TKX2 (Just n ': sh) x)
   txfromVector v = tfromVector SNat (STKX knownShX knownSTK) v
-  txfromVectorLinear :: forall sh r. (KnownSTK r, ConvertTensor target)
-                     => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
-                     -> target (TKX2 sh r)
-  txfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @r) =
+  txfromVectorLinear :: forall sh x. (KnownSTK x, ConvertTensor target)
+                     => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
+                     -> target (TKX2 sh x)
+  txfromVectorLinear sh v | Dict <- eltDictRep (knownSTK @x) =
     if V.null v
     then let arr = Nested.memptyArray ZSX
          in xreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else withSNat (shxSize sh) $ \(SNat @n) ->
            xreshape @_ @_ @'[Just n] sh $ xfromVector v
-  txunravelToList :: forall n sh r. (KnownSTK r, KnownNat n, KnownShX sh)
-                  => target (TKX2 (Just n ': sh) r) -> [target (TKX2 sh r)]
+  txunravelToList :: forall n sh x. (KnownSTK x, KnownNat n, KnownShX sh)
+                  => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
   txunravelToList t =
-    let f :: Int -> target (TKX2 sh r)
+    let f :: Int -> target (TKX2 sh x)
         f i = xindex t (fromIntegral i :.% ZIX)
     in map f [0 .. xwidth t - 1]
 
-  -- Ranked ops
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
   -- by 1 dimension.
-  rsum :: (KnownSTK r, KnownNat n)
-       => target (TKR2 (1 + n) r) -> target (TKR2 n r)
+  trsum :: (KnownNat n, KnownSTK x)
+        => target (TKR2 (1 + n) x) -> target (TKR2 n x)
   -- This op (and it's Delta constructor) is worthwhile, because flattening
   -- is O(n) sometimes, unlike transpose, etc.
-  rsum0 :: (KnownSTK r, KnownNat n)
-        => target (TKR2 n r) -> target (TKR2 0 r)
-  rsum0 = rsum . rflatten
-  rdot0 :: (GoodScalar r, KnownNat n)
-        => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
-  rdot0 t u = rsum (rflatten (t * u))
-  rdot1In :: GoodScalar r
-          => target (TKR 2 r) -> target (TKR 2 r)
-          -> target (TKR 1 r)  -- TODO: generalize
-  rdot1In t u = rsum $ rtr (t * u)
-  rmatvecmul :: GoodScalar r
-             => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
+  trsum0 :: (KnownNat n, KnownSTK x)
+         => target (TKR2 n x) -> target (TKR2 0 x)
+  trsum0 = rsum . rflatten
+  trdot0 :: (KnownNat n, GoodScalar r)
+         => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
+  trdot0 t u = rsum (rflatten (t * u))
+  trdot1In :: GoodScalar r
+           => target (TKR 2 r) -> target (TKR 2 r)
+           -> target (TKR 1 r)  -- TODO: generalize
+  trdot1In t u = rsum $ rtr (t * u)
+  trmatvecmul :: GoodScalar r
+              => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
-  rmatvecmul m v = rbuild1 (rwidth m) (\i -> rdot0 v (m ! [i]))
-  rmatmul2 :: (GoodScalar r, Numeric r)
-           => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
+  trmatvecmul m v = rbuild1 (rwidth m) (\i -> rdot0 v (m ! [i]))
+  trmatmul2 :: (GoodScalar r, Numeric r)
+            => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
 -- Just rmatmul2 the two outermost dimensions?
 -- rmatmul2 m1 m2 = rmap1 (rmatvecmul (rtr m2)) m1
-  rmatmul2 m1 m2 = rbuild1 (rwidth m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
-  rreplicate :: (KnownSTK r, KnownNat n)
-             => Int -> target (TKR2 n r) -> target (TKR2 (1 + n) r)
-  rreplicate0N :: (KnownSTK r, KnownNat n)
-               => IShR n -> target (TKR2 0 r) -> target (TKR2 n r)
-  rreplicate0N sh = rreshape sh . rreplicate (shrSize sh)
+  trmatmul2 m1 m2 = rbuild1 (rwidth m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
+  trreplicate :: (KnownNat n, KnownSTK x)
+              => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
+  trreplicate0N :: (KnownNat n, KnownSTK x)
+                => IShR n -> target (TKR2 0 x) -> target (TKR2 n x)
+  trreplicate0N sh = rreshape sh . trreplicate (shrSize sh)
+
+  tssum :: (KnownNat n, KnownShS sh, KnownSTK x)
+        => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
+  tssum0 :: forall sh x. (KnownSTK x, KnownShS sh)
+         => target (TKS2 sh x) -> target (TKS2 '[] x)
+  tssum0 | SNat <- shsProduct (knownShS @sh) = ssum . sflatten
+  tsdot0 :: forall sh r. (GoodScalar r, KnownShS sh)
+         => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
+  tsdot0 t u | SNat <- shsProduct (knownShS @sh) = ssum (sflatten (t * u))
+  tsdot1In :: (KnownNat n, KnownNat m, GoodScalar r)
+           => SNat n
+           -> target (TKS '[m, n] r) -> target (TKS '[m, n] r)
+           -> target (TKS '[m] r)  -- TODO: generalize
+  tsdot1In _ t u = ssum $ str (t * u)
+  tsmatvecmul :: forall m n r. (GoodScalar r, KnownNat m, KnownNat n)
+              => target (TKS '[m, n] r) -> target (TKS '[n] r)
+              -> target (TKS '[m] r)
+  tsmatvecmul m v = sbuild1 @_ @m (\i -> sdot0 v (m `sindex` (i :.$ ZIS)))
+  tsmatmul2 :: forall n m p r.
+               (KnownNat n, KnownNat m, KnownNat p, GoodScalar r, Numeric r)
+            => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
+            -> target (TKS '[m, p] r)
+  tsmatmul2 m1 m2 =
+    sbuild1 @_ @m (\i -> smatvecmul (str m2) (m1 `sindex` (i :.$ ZIS)))
+  tsreplicate :: forall k sh x. (KnownNat k, KnownSTK x)
+              => ShS sh -> target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
+  tsreplicate0N :: forall sh x. KnownSTK x
+                => ShS sh -> target (TKS2 '[] x)
+                -> target (TKS2 sh x)
+  tsreplicate0N sh | SNat <- shsProduct sh =
+    tsreshape @target @x @'[Nested.Product sh] @sh sh
+    . tsreplicate @target @(Nested.Product sh) ZSS
+
+  -- The choice in BuildTensorKind makes it hard to support this one,
+  -- due to DeltaSum and AstSum being typed with BuildTensorKind:
+  -- xsum :: (KnownShX sh, KnownShX (mn ': sh), KnownSTK x)
+  --     => target (TKX2 (mn ': sh) x) -> target (TKX2 sh x)
+  txsum :: (KnownNat n, KnownShX sh, KnownSTK x)
+        => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
+  txsum0 :: (KnownShX sh, KnownSTK x, ConvertTensor target)
+         => target (TKX2 sh x) -> target (TKX2 '[] x)
+  txsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
+    xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+  txdot0 :: (KnownShX sh, GoodScalar r, ConvertTensor target)
+         => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
+  txdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
+    xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten (t * u))
+  txdot1In :: (KnownNat n, KnownNat m, GoodScalar r)
+           => target (TKX '[Just m, Just n] r)
+           -> target (TKX '[Just m, Just n] r)
+           -> target (TKX '[Just m] r)  -- TODO: generalize
+  txdot1In t u = xsum $ xtr (t * u)
+  txmatvecmul :: forall mm mn r. (GoodScalar r, ConvertTensor target)
+              => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
+              -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
+              -> target (TKX '[mm] r)
+  txmatvecmul mm mn m v =
+    withKnownShX (ssxFromShape $ mm :$% ZSX) $
+    withKnownShX (ssxFromShape $ mn :$% ZSX) $
+    withSNat (fromSMayNat' mm) $ \(SNat @k) ->
+      xmcast (ssxFromShape $ mm :$% ZSX)
+      $ xbuild1 @_ @k (\i -> xdot0 v (m `xindex` (i :.% ZIX)))
+  txmatmul2 :: forall n m p r.
+               ( GoodScalar r, ConvertTensor target
+               , Numeric r, KnownNat n, KnownNat m, KnownNat p )
+            => target (TKX '[Just m, Just n] r)
+            -> target (TKX '[Just n, Just p] r)
+            -> target (TKX '[Just m, Just p] r)
+  txmatmul2 m1 m2 =
+    xbuild1 @_ @m (\i ->
+      xmatvecmul (Nested.SKnown (SNat @p)) (Nested.SKnown (SNat @n))
+                 (xtr m2) (m1 `xindex` (i :.% ZIX)))
+  txreplicate :: (KnownNat k, KnownShX sh, KnownSTK x)
+              => target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
+  txreplicate0N :: (KnownShX sh, KnownSTK x)
+                => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
+  txreplicate0N sh = withSNat (shxSize sh) $ \ (SNat @k) ->
+    xreshape sh . txreplicate @_ @k
+
   -- First index is for outermost dimension; empty index means identity,
   -- if index is out of bounds, the result is defined and is 0,
   -- but vectorization is permitted to change the value.
@@ -595,36 +676,6 @@ class ( Num (IntOf target)
          -> DualOf target (TKR n r)
   rScale = tScale @target knownSTK
 
-  -- Shaped ops
-  ssum :: (KnownNat n, KnownShS sh, KnownSTK r)
-       => target (TKS2 (n ': sh) r) -> target (TKS2 sh r)
-  ssum0 :: forall r sh. (KnownSTK r, KnownShS sh)
-        => target (TKS2 sh r) -> target (TKS2 '[] r)
-  ssum0 | SNat <- shsProduct (knownShS @sh) = ssum . sflatten
-  sdot0 :: forall r sh. (GoodScalar r, KnownShS sh)
-        => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
-  sdot0 t u | SNat <- shsProduct (knownShS @sh) = ssum (sflatten (t * u))
-  sdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
-          => SNat n
-          -> target (TKS '[m, n] r) -> target (TKS '[m, n] r)
-          -> target (TKS '[m] r)  -- TODO: generalize
-  sdot1In _ t u = ssum $ str (t * u)
-  smatvecmul :: forall r m n. (GoodScalar r, KnownNat m, KnownNat n)
-             => target (TKS '[m, n] r) -> target (TKS '[n] r)
-             -> target (TKS '[m] r)
-  smatvecmul m v = sbuild1 @_ @m (\i -> sdot0 v (m `sindex` (i :.$ ZIS)))
-  smatmul2 :: forall r n m p.
-              (GoodScalar r, Numeric r, KnownNat n, KnownNat m, KnownNat p)
-           => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
-           -> target (TKS '[m, p] r)
-  smatmul2 m1 m2 =
-    sbuild1 @_ @m (\i -> smatvecmul (str m2) (m1 `sindex` (i :.$ ZIS)))
-  sreplicate :: (KnownNat k, KnownShS sh, KnownSTK r)
-             => target (TKS2 sh r) -> target (TKS2 (k ': sh) r)
-  sreplicate = tsreplicate knownShS
-  sreplicate0N :: forall r sh. (KnownSTK r, KnownShS sh)
-               => target (TKS2 '[] r) -> target (TKS2 sh r)
-  sreplicate0N = tsreplicate0N knownShS
   sindex, (!$) :: (KnownSTK r, KnownShS shm, KnownShS shn)
                => target (TKS2 (shm ++ shn) r) -> IxSOf target shm
                -> target (TKS2 shn r)
@@ -920,51 +971,6 @@ class ( Num (IntOf target)
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
 
-  -- The choice in BuildTensorKind makes it hard to support this one,
-  -- due to DeltaSum and AstSum being typed with BuildTensorKind:
-  -- xsum :: (KnownSTK r, KnownShX sh, KnownShX (mn ': sh))
-  --     => target (TKX2 (mn ': sh) r) -> target (TKX2 sh r)
-  xsum :: (KnownNat n, KnownShX sh, KnownSTK r)
-       => target (TKX2 (Just n ': sh) r) -> target (TKX2 sh r)
-  xsum0 :: (KnownSTK r, KnownShX sh, ConvertTensor target)
-        => target (TKX2 sh r) -> target (TKX2 '[] r)
-  xsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
-    xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
-  xdot0 :: (GoodScalar r, KnownShX sh, ConvertTensor target)
-        => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
-  xdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
-    xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten (t * u))
-  xdot1In :: (GoodScalar r, KnownNat n, KnownNat m)
-          => target (TKX '[Just m, Just n] r)
-          -> target (TKX '[Just m, Just n] r)
-          -> target (TKX '[Just m] r)  -- TODO: generalize
-  xdot1In t u = xsum $ xtr (t * u)
-  xmatvecmul :: forall r mm mn. (GoodScalar r, ConvertTensor target)
-             => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
-             -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
-             -> target (TKX '[mm] r)
-  xmatvecmul mm mn m v =
-    withKnownShX (ssxFromShape $ mm :$% ZSX) $
-    withKnownShX (ssxFromShape $ mn :$% ZSX) $
-    withSNat (fromSMayNat' mm) $ \(SNat @k) ->
-      xmcast (ssxFromShape $ mm :$% ZSX)
-      $ xbuild1 @_ @k (\i -> xdot0 v (m `xindex` (i :.% ZIX)))
-  xmatmul2 :: forall r n m p.
-              ( GoodScalar r, ConvertTensor target
-              , Numeric r, KnownNat n, KnownNat m, KnownNat p )
-           => target (TKX '[Just m, Just n] r)
-           -> target (TKX '[Just n, Just p] r)
-           -> target (TKX '[Just m, Just p] r)
-  xmatmul2 m1 m2 =
-    xbuild1 @_ @m (\i ->
-      xmatvecmul (Nested.SKnown (SNat @p)) (Nested.SKnown (SNat @n))
-                 (xtr m2) (m1 `xindex` (i :.% ZIX)))
-  xreplicate :: (KnownNat k, KnownShX sh, KnownSTK r)
-             => target (TKX2 sh r) -> target (TKX2 (Just k ': sh) r)
-  xreplicate0N :: (KnownSTK r, KnownShX sh)
-               => IShX sh -> target (TKX2 '[] r) -> target (TKX2 sh r)
-  xreplicate0N sh = withSNat (shxSize sh) $ \ (SNat @k) ->
-    xreshape sh . xreplicate @_ @k
   xindex :: (KnownSTK r, KnownShX sh1, KnownShX sh2)
          => target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
          -> target (TKX2 sh2 r)
@@ -1155,14 +1161,6 @@ class ( Num (IntOf target)
   tproject1 :: target (TKProduct x z) -> target x
   tproject2 :: target (TKProduct x z) -> target z
   -- These are not really general, but they take singletons at least.
-  tsreplicate :: forall k sh x. (KnownNat k, KnownSTK x)
-              => ShS sh -> target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
-  tsreplicate0N :: forall x sh. KnownSTK x
-                => ShS sh -> target (TKS2 '[] x)
-                -> target (TKS2 sh x)
-  tsreplicate0N sh | SNat <- shsProduct sh =
-    tsreshape @target @x @'[Nested.Product sh] @sh sh
-    . tsreplicate @target @(Nested.Product sh) ZSS
   tstranspose :: forall perm x sh.
                  ( Permutation.IsPermutation perm
                  , Rank perm <= Rank sh, KnownSTK x )
@@ -1385,11 +1383,11 @@ class ( Num (IntOf target)
       in tpair (tsum snat stk1 u1)
                (tsum snat stk2 u2)
   treplicate
-    :: ConvertTensor target
+    :: forall z k. ConvertTensor target
     => SNat k -> STensorKind z -> target z
     -> target (BuildTensorKind k z)
   default treplicate
-    :: (ShareTensor target, ConvertTensor target)
+    :: forall z k. (ShareTensor target, ConvertTensor target)
     => SNat k -> STensorKind z -> target z
     -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
@@ -1694,76 +1692,172 @@ kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
 kconcrete = tkconcrete
 
-rfromList :: (KnownNat n, KnownSTK r, BaseTensor target, ConvertTensor target)
-          => NonEmpty (target (TKR2 n r)) -> target (TKR2 (1 + n) r)
+rfromList :: (KnownNat n, KnownSTK x, BaseTensor target, ConvertTensor target)
+          => NonEmpty (target (TKR2 n x)) -> target (TKR2 (1 + n) x)
 rfromList = trfromVector . V.fromList . NonEmpty.toList
   -- going through strict vectors, because laziness is risky with impurity
-rfromVector :: (KnownNat n, KnownSTK r, BaseTensor target, ConvertTensor target)
-            => Data.Vector.Vector (target (TKR2 n r))
-            -> target (TKR2 (1 + n) r)
+rfromVector :: ( KnownNat n, KnownSTK x
+               , BaseTensor target, ConvertTensor target )
+            => Data.Vector.Vector (target (TKR2 n x))
+            -> target (TKR2 (1 + n) x)
 rfromVector = trfromVector
-rfromListLinear :: forall n r target.
-                   (KnownSTK r, BaseTensor target, ConvertTensor target)
-                => IShR n -> [target (TKR2 0 r)] -> target (TKR2 n r)
+rfromListLinear :: forall n x target.
+                   (KnownSTK x, BaseTensor target, ConvertTensor target)
+                => IShR n -> [target (TKR2 0 x)] -> target (TKR2 n x)
 rfromListLinear sh = trfromVectorLinear sh . V.fromList
-rfromVectorLinear :: forall n r target.
-                     (KnownSTK r, BaseTensor target, ConvertTensor target)
-                  => IShR n -> Data.Vector.Vector (target (TKR2 0 r))
-                  -> target (TKR2 n r)
+rfromVectorLinear :: forall n x target.
+                     (KnownSTK x, BaseTensor target, ConvertTensor target)
+                  => IShR n -> Data.Vector.Vector (target (TKR2 0 x))
+                  -> target (TKR2 n x)
 rfromVectorLinear = trfromVectorLinear
-runravelToList :: forall n r target. (KnownSTK r, KnownNat n, BaseTensor target)
-               => target (TKR2 (1 + n) r) -> [target (TKR2 n r)]
+runravelToList :: forall n x target.
+                  (KnownSTK x, KnownNat n, BaseTensor target)
+               => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
 runravelToList = trunravelToList
 
-sfromList :: ( KnownNat n, KnownShS sh, KnownSTK r
+sfromList :: ( KnownNat n, KnownShS sh, KnownSTK x
              , BaseTensor target, ConvertTensor target )
-          => NonEmpty (target (TKS2 sh r)) -> target (TKS2 (n ': sh) r)
+          => NonEmpty (target (TKS2 sh x)) -> target (TKS2 (n ': sh) x)
 sfromList = tsfromVector . V.fromList . NonEmpty.toList
 -- This is morally non-empty strict vectors:
-sfromVector :: ( KnownNat n, KnownShS sh, KnownSTK r
+sfromVector :: ( KnownNat n, KnownShS sh, KnownSTK x
                , BaseTensor target, ConvertTensor target )
-            => Data.Vector.Vector (target (TKS2 sh r))
-            -> target (TKS2 (n ': sh) r)
+            => Data.Vector.Vector (target (TKS2 sh x))
+            -> target (TKS2 (n ': sh) x)
 sfromVector = tsfromVector
-sfromListLinear :: ( KnownShS sh, KnownSTK r
+sfromListLinear :: ( KnownShS sh, KnownSTK x
                    , BaseTensor target, ConvertTensor target )
-                => [target (TKS2 '[] r)] -> target (TKS2 sh r)
+                => [target (TKS2 '[] x)] -> target (TKS2 sh x)
 sfromListLinear = tsfromVectorLinear . V.fromList
-sfromVectorLinear :: forall sh r target.
-                     ( KnownSTK r, KnownShS sh
+sfromVectorLinear :: forall sh x target.
+                     ( KnownSTK x, KnownShS sh
                      , BaseTensor target, ConvertTensor target )
-                  => Data.Vector.Vector (target (TKS2 '[] r))
-                  -> target (TKS2 sh r)
+                  => Data.Vector.Vector (target (TKS2 '[] x))
+                  -> target (TKS2 sh x)
 sfromVectorLinear = tsfromVectorLinear
-sunravelToList :: forall n sh r target.
-                  (KnownSTK r, KnownNat n, KnownShS sh, BaseTensor target)
-               => target (TKS2 (n ': sh) r) -> [target (TKS2 sh r)]
+sunravelToList :: forall n sh x target.
+                  (KnownSTK x, KnownNat n, KnownShS sh, BaseTensor target)
+               => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
 sunravelToList = tsunravelToList
 
-xfromList :: forall n sh r target.
-             ( KnownSTK r, KnownNat n, KnownShX sh
+xfromList :: forall n sh x target.
+             ( KnownSTK x, KnownNat n, KnownShX sh
              , BaseTensor target, ConvertTensor target )
-          => NonEmpty (target (TKX2 sh r)) -> target (TKX2 (Just n ': sh) r)
+          => NonEmpty (target (TKX2 sh x)) -> target (TKX2 (Just n ': sh) x)
 xfromList = txfromVector . V.fromList . NonEmpty.toList
   -- going through strict vectors, because laziness is risky with impurity
-xfromVector :: ( KnownNat n, KnownShX sh, KnownSTK r
+xfromVector :: ( KnownNat n, KnownShX sh, KnownSTK x
                , BaseTensor target, ConvertTensor target )
-            => Data.Vector.Vector (target (TKX2 sh r))
-            -> target (TKX2 (Just n ': sh) r)
+            => Data.Vector.Vector (target (TKX2 sh x))
+            -> target (TKX2 (Just n ': sh) x)
 xfromVector = txfromVector
-xfromListLinear :: forall sh r target.
-                   (KnownSTK r, BaseTensor target, ConvertTensor target)
-                => IShX sh -> [target (TKX2 '[] r)] -> target (TKX2 sh r)
+xfromListLinear :: forall sh x target.
+                   (KnownSTK x, BaseTensor target, ConvertTensor target)
+                => IShX sh -> [target (TKX2 '[] x)] -> target (TKX2 sh x)
 xfromListLinear sh = txfromVectorLinear sh . V.fromList
-xfromVectorLinear :: forall sh r target.
-                     (KnownSTK r, BaseTensor target, ConvertTensor target)
-                  => IShX sh -> Data.Vector.Vector (target (TKX2 '[] r))
-                  -> target (TKX2 sh r)
+xfromVectorLinear :: forall sh x target.
+                     (KnownSTK x, BaseTensor target, ConvertTensor target)
+                  => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
+                  -> target (TKX2 sh x)
 xfromVectorLinear = txfromVectorLinear
-xunravelToList :: forall n sh r target.
-                  (KnownSTK r, KnownNat n, KnownShX sh, BaseTensor target)
-               => target (TKX2 (Just n ': sh) r) -> [target (TKX2 sh r)]
+xunravelToList :: forall n sh x target.
+                  (KnownSTK x, KnownNat n, KnownShX sh, BaseTensor target)
+               => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
 xunravelToList = txunravelToList
+
+rsum :: (KnownNat n, KnownSTK x, BaseTensor target)
+     => target (TKR2 (1 + n) x) -> target (TKR2 n x)
+rsum = trsum
+rsum0 :: (KnownNat n, KnownSTK x, BaseTensor target)
+      => target (TKR2 n x) -> target (TKR2 0 x)
+rsum0 = trsum0
+rdot0 :: ( KnownNat n, GoodScalar x, BaseTensor target)
+      => target (TKR n x) -> target (TKR n x) -> target (TKR 0 x)
+rdot0 = trdot0
+rdot1In :: (GoodScalar r, BaseTensor target)
+        => target (TKR 2 r) -> target (TKR 2 r)
+        -> target (TKR 1 r)
+rdot1In = trdot1In
+rmatvecmul :: (GoodScalar r, BaseTensor target)
+           => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
+rmatvecmul = trmatvecmul
+rmatmul2 :: (GoodScalar r, Numeric r, BaseTensor target)
+         => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
+rmatmul2 = trmatmul2
+rreplicate :: (KnownNat n, KnownSTK x, BaseTensor target)
+           => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
+rreplicate = trreplicate
+rreplicate0N :: (KnownNat n, KnownSTK x, BaseTensor target)
+             => IShR n -> target (TKR2 0 x) -> target (TKR2 n x)
+rreplicate0N = trreplicate0N
+
+ssum :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
+     => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
+ssum = tssum
+ssum0 :: forall sh x target. (KnownSTK x, KnownShS sh, BaseTensor target)
+      => target (TKS2 sh x) -> target (TKS2 '[] x)
+ssum0 = tssum0
+sdot0 :: forall sh r target. (GoodScalar r, KnownShS sh, BaseTensor target)
+      => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
+sdot0 = tsdot0
+sdot1In :: (KnownNat n, KnownNat m, GoodScalar r, BaseTensor target)
+        => SNat n
+        -> target (TKS '[m, n] r) -> target (TKS '[m, n] r)
+        -> target (TKS '[m] r)  -- TODO: generalize
+sdot1In = tsdot1In
+smatvecmul :: forall m n r target.
+              (GoodScalar r, KnownNat m, KnownNat n, BaseTensor target)
+           => target (TKS '[m, n] r) -> target (TKS '[n] r)
+           -> target (TKS '[m] r)
+smatvecmul = tsmatvecmul
+smatmul2 :: forall n m p r target.
+            ( KnownNat n, KnownNat m, KnownNat p, GoodScalar r, Numeric r
+            , BaseTensor target )
+         => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
+         -> target (TKS '[m, p] r)
+smatmul2 = tsmatmul2
+sreplicate :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
+           => target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
+sreplicate = tsreplicate knownShS
+sreplicate0N :: forall sh x target.
+                (KnownSTK x, KnownShS sh, BaseTensor target)
+             => target (TKS2 '[] x) -> target (TKS2 sh x)
+sreplicate0N = tsreplicate0N knownShS
+
+xsum :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
+     => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
+xsum = txsum
+xsum0 :: (KnownShX sh, KnownSTK x, BaseTensor target, ConvertTensor target)
+      => target (TKX2 sh x) -> target (TKX2 '[] x)
+xsum0 = txsum0
+xdot0 :: ( KnownShX sh, GoodScalar r
+         , BaseTensor target, ConvertTensor target )
+      => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
+xdot0 = txdot0
+xdot1In :: (KnownNat n, KnownNat m, GoodScalar r, BaseTensor target)
+        => target (TKX '[Just m, Just n] r)
+        -> target (TKX '[Just m, Just n] r)
+        -> target (TKX '[Just m] r)
+xdot1In = txdot1In
+xmatvecmul :: forall mm mn r target.
+              (GoodScalar r, BaseTensor target, ConvertTensor target)
+           => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
+           -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
+           -> target (TKX '[mm] r)
+xmatvecmul = txmatvecmul
+xmatmul2 :: forall n m p r target.
+            ( GoodScalar r, BaseTensor target, ConvertTensor target
+            , Numeric r, KnownNat n, KnownNat m, KnownNat p )
+         => target (TKX '[Just m, Just n] r)
+         -> target (TKX '[Just n, Just p] r)
+         -> target (TKX '[Just m, Just p] r)
+xmatmul2 = txmatmul2
+xreplicate :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
+           => target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
+xreplicate = txreplicate
+xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
+             => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
+xreplicate0N = txreplicate0N
 
 rfold
   :: forall n m rn rm target.

@@ -360,11 +360,11 @@ interpretAst !env = \case
   AstMatvecmulS @r SNat SNat u v ->
     case testEquality (typeRep @r) (typeRep @Double) of
       Just Refl ->
-        smatvecmul @_ @Double (interpretAst env u) (interpretAst env v)
+        tsmatvecmul @_ @_ @_ @Double (interpretAst env u) (interpretAst env v)
       _ -> case testEquality (typeRep @r) (typeRep @Float) of
         Just Refl ->
-          smatvecmul @_ @Float (interpretAst env u) (interpretAst env v)
-        _ -> smatvecmul (interpretAst env u) (interpretAst env v)
+          tsmatvecmul @_ @_ @_ @Float (interpretAst env u) (interpretAst env v)
+        _ -> tsmatvecmul (interpretAst env u) (interpretAst env v)
   AstMatmul2S SNat SNat SNat u v ->
     smatmul2 (interpretAst env u) (interpretAst env v)
 

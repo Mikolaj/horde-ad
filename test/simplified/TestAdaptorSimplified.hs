@@ -1121,7 +1121,7 @@ testDot1PP = do
   resetVarCounter
   let renames = IM.empty
       (artifactRev, _) =
-        revArtifactAdapt True (uncurry (rdot0 @(AstTensor AstMethodLet FullSpan) @Double @1))
+        revArtifactAdapt True (uncurry (rdot0 @1 @Double))
                  (FTKProduct (FTKR [3] FTKScalar) (FTKR [3] FTKScalar))
   printArtifactPretty renames artifactRev
     @?= "\\x2 v1 -> tpair (rfromS (sfromR (tproject2 v1) * sreplicate @_ @3 (sfromR x2)), rfromS (sfromR (tproject1 v1) * sreplicate @_ @3 (sfromR x2)))"
@@ -1133,7 +1133,7 @@ testDot2PP = do
   resetVarCounter >> resetIdCounter
   let renames = IM.empty
       (artifactRev, _deltas) =
-        revArtifactAdapt True (uncurry (rdot0 @(AstTensor AstMethodLet FullSpan) @Double @2))
+        revArtifactAdapt True (uncurry (rdot0 @2 @Double))
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [2, 3] FTKScalar))
   printArtifactPretty renames artifactRev
     @?= "\\x2 m1 -> let m3 = sreshape (sreplicate @_ @6 (sfromR x2)) in tpair (rfromS (sfromR (tproject2 m1) * m3), rfromS (sfromR (tproject1 m1) * m3))"
@@ -1427,7 +1427,7 @@ nestedBuildMap :: forall target r.
                   (ADReady target, GoodScalar r, Differentiable r)
                => target (TKR 0 r) -> target (TKR 1 r)
 nestedBuildMap r =
-  let w = rreplicate0N @target [4]
+  let w = rreplicate0N [4]
       v0' = rreplicate0N [177] r :: target (TKR 1 r)
   in tlet v0' $ \v' ->
     let nestedMap x0 = tlet x0 $ \x -> rmap0N (x /) (w x)
@@ -1867,15 +1867,15 @@ emptyArgs t =
   + rfromS
       (sfromListLinear []
        + sconcrete (Nested.semptyArray ZSS)
-       - ssum @_ @0 (sfromListLinear [])
-       * ssum @_ @0 (sconcrete $ Nested.semptyArray (SNat @0 :$$ ZSS))
+       - ssum @0 (sfromListLinear [])
+       * ssum @0 (sconcrete $ Nested.semptyArray (SNat @0 :$$ ZSS))
        * sconcrete (Nested.ssumOuter1 $ Nested.sfromListOuter (SNat @1)
                     $ NonEmpty.fromList [Nested.semptyArray ZSS])
-       * ssum @_ @1 (sconcrete $ Nested.sfromListOuter SNat
+       * ssum @1 (sconcrete $ Nested.sfromListOuter SNat
                         $ NonEmpty.fromList [Nested.semptyArray ZSS])
-       * ssum @_ @1 (sfromList [sconcrete $ Nested.semptyArray ZSS])
-       * ssum @_ @1 (sfromList [sfromR @_ @'[0] emptyTensor])
-       * ssum @_ @1 (sfromList [ssum @_ @0 (sfromListLinear [])])
+       * ssum @1 (sfromList [sconcrete $ Nested.semptyArray ZSS])
+       * ssum @1 (sfromList [sfromR @_ @'[0] emptyTensor])
+       * ssum @1 (sfromList [ssum @0 (sfromListLinear [])])
        - sindex @_ @_ @'[0] (sfromListLinear []) (42 :.$ ZIS)
        - sindex @_ @_ @'[0] (sfromListLinear []) (42 :.$ ZIS)
        - sreshape @target @_ @_ @'[0] (sfromR @_ @'[0] emptyTensor)
@@ -1886,24 +1886,24 @@ emptyArgs t =
                               / sfromIndex0 i)
        + sbuild @target @(TKScalar r) @1 (const $ sscalar 73)
        - ssum (sbuild @target @(TKScalar r) @0
-                      (const (sreplicate @_ @1 (sfromR emptyTensor)))))
+                      (const (sreplicate @1 (sfromR emptyTensor)))))
   + rfromX
       (xfromListLinear (SKnown (SNat @0) :$% ZSX) []
        + xconcrete (Nested.memptyArray ZSX)
-       - xsum @_ @0 (xfromListLinear
+       - xsum @0 (xfromListLinear
                           (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX) [])
-       * xsum @_ @0 (xconcrete
+       * xsum @0 (xconcrete
                         $ Nested.memptyArray (SKnown (SNat @0) :$% ZSX))
        * xconcrete (Nested.msumOuter1 $ Nested.mfromListOuter
                     $ NonEmpty.fromList [Nested.memptyArray ZSX])
-       * xsum @_ @1 (xconcrete
+       * xsum @1 (xconcrete
                         $ Nested.mcast
                             (SKnown (SNat @1) :!% SKnown (SNat @0) :!% ZKX)
                         $ Nested.mfromListOuter
                         $ NonEmpty.fromList [Nested.memptyArray ZSX])
-       * xsum @_ @1 (xfromList [xconcrete $ Nested.memptyArray ZSX])
-       * xsum @_ @1 (xfromList [xfromR @_ @'[Just 0] emptyTensor])
-       * xsum @_ @1 (xfromList [xsum @_ @0
+       * xsum @1 (xfromList [xconcrete $ Nested.memptyArray ZSX])
+       * xsum @1 (xfromList [xfromR @_ @'[Just 0] emptyTensor])
+       * xsum @1 (xfromList [xsum @0
                                      (xfromListLinear
                                         (SKnown (SNat @0)
                                          :$% xshape @target @_ @(TKScalar r)

@@ -143,22 +143,22 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- Ranked ops
   rshape (D u _) = rshape u
   rlength (D u _) = rlength u
-  rsum (D u u') = withSNat (rwidth u) $ \snat ->
+  trsum (D u u') = withSNat (rwidth u) $ \snat ->
     dD (rsum u) (DeltaSum snat knownSTK u')
-  rsum0 (D u u') = dD (rsum0 u) (DeltaSum0R u')
-  rdot0 (D ue u') (D ve v') =
+  trsum0 (D u u') = dD (rsum0 u) (DeltaSum0R u')
+  trdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
     in dD (rdot0 u v) (dAdd (DeltaDot0R v u') (DeltaDot0R u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  rmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
-  rmatmul2 m1 m2 = case rshape m2 of
+  trmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
+  trmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR ->
       rsum (rtranspose [2,1,0] (rreplicate width2 m1)
             * rtranspose [1,0] (rreplicate (rwidth m1) m2))
-  rreplicate k (D u u') = withSNat k $ \snat ->
+  trreplicate k (D u u') = withSNat k $ \snat ->
     dD (rreplicate k u) (DeltaReplicate snat knownSTK u')
   -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
@@ -208,17 +208,17 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- Shaped ops
   sshape (D u _) = sshape u
   slength (D u _) = slength u
-  ssum (D u u') = dD (ssum u) (DeltaSum SNat knownSTK u')
-  ssum0 (D u u') = dD (ssum0 u) (DeltaSum0S u')
-  sdot0 (D ue u') (D ve v') =
+  tssum (D u u') = dD (ssum u) (DeltaSum SNat knownSTK u')
+  tssum0 (D u u') = dD (ssum0 u) (DeltaSum0S u')
+  tsdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
     in dD (sdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  smatvecmul m v = ssum (str (sreplicate v * m))
-  smatmul2 m1 m2 =
+  tsmatvecmul m v = ssum (str (sreplicate v * m))
+  tsmatmul2 m1 m2 =
     ssum (stranspose @_ @'[2, 1, 0] (sreplicate m1)
           * stranspose @_ @'[1, 0] (sreplicate m2))
   sindex (D u u') i =
@@ -262,31 +262,31 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- Mixed ops
   xshape (D u _) = xshape u
   xlength (D u _) = xlength u
-  xsum (D u u') = dD (xsum u) (DeltaSum SNat knownSTK u')
-  xsum0 (D u u') = dD (xsum0 u) (DeltaSum0X u')
-  xdot0 (D ue u') (D ve v') =
+  txsum (D u u') = dD (xsum u) (DeltaSum SNat knownSTK u')
+  txsum0 (D u u') = dD (xsum0 u) (DeltaSum0X u')
+  txdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
     in dD (xdot0 u v) (dAdd (DeltaDot0X v u') (DeltaDot0X u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  xmatvecmul mm mn m v =
+  txmatvecmul mm mn m v =
     withKnownShX (ssxFromShape $ mn :$% ZSX) $
     withKnownShX (ssxFromShape $ mm :$% mn :$% ZSX) $
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShape (mm :$% ZSX))
-      $ xsum (xtr (xreplicate @_ @m
+      $ xsum (xtr (txreplicate @_ @m
                      (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
                                             :$% ZSX)) v)
                    * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
                                            :$% Nested.SKnown (SNat @n)
                                            :$% ZSX)) m))
-  xmatmul2 m1 m2 =
+  txmatmul2 m1 m2 =
     xsum (xtranspose @_ @'[2, 1, 0] (xreplicate m1)
           * xtranspose @_ @'[1, 0] (xreplicate m2))
-  xreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
+  txreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
   xindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (xindex u ix) (DeltaIndexX knownShX u' ix)

@@ -628,7 +628,7 @@ testSin0Fold3S = do
     (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\_x a -> sin a)
-                        (srepl 84) (sreplicate @f @3 a0)
+                        (srepl 84) (sreplicate @3 @_ @_ @f a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold4S :: Assertion
@@ -637,7 +637,7 @@ testSin0Fold4S = do
     (rscalar  (-0.7053476446727861) :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a -> atan2F (sin x) (sin a))
-                        (srepl 2 * a0) (sreplicate @f @3 a0)
+                        (srepl 2 * a0) (sreplicate @3 @_ @_ @f a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold5S :: Assertion
@@ -649,14 +649,14 @@ testSin0Fold5S = do
                                    => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
                                    -> f2 (TKS '[] Double)
                                  g x a = ssum
-                                   $ atan2F (sin $ sreplicate @f2 @5 x)
+                                   $ atan2F (sin $ sreplicate @5 @_ @_ @f2 x)
                                             (ssum $ sin $ ssum
-                                             $ str $ sreplicate @f2 @7 a)
+                                             $ str $ sreplicate @7 @_ @_ @f2 a)
                              in g)
                         (srepl 2 * a0)
-                        (sreplicate @f @3
-                                    (sreplicate @f @2
-                                                (sreplicate @f @5 a0)))
+                        (sreplicate @3 @_ @_ @f
+                                    (sreplicate @2 @_ @_ @f
+                                                (sreplicate @5 @_ @_ @f a0)))
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold6S :: Assertion
@@ -666,10 +666,10 @@ testSin0Fold6S = do
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 1] Double)
                f a0 = sfold @2 @'[2, 1] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\x a -> str
-                                 $ str x + sreplicate @_ @1
-                                                      (sreplicate @_ @2 a))
-                        (sreplicate @_ @2 (sreplicate @_ @1 a0))
-                        (sreplicate @_ @2 a0)
+                                 $ str x + sreplicate @1
+                                                      (sreplicate @2 a))
+                        (sreplicate @2 (sreplicate @1 a0))
+                        (sreplicate @2 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold7S :: Assertion
@@ -678,9 +678,9 @@ testSin0Fold7S = do
     (rscalar 250 :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                f a0 = sfold @2 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\x _a -> str $ sreplicate @_ @5 $ ssum (str x))
-                        (sreplicate @_ @2 (sreplicate @_ @5 a0))
-                        (sreplicate @_ @2 a0)
+                        (\x _a -> str $ sreplicate @5 $ ssum (str x))
+                        (sreplicate @2 (sreplicate @5 a0))
+                        (sreplicate @2 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8S :: Assertion
@@ -689,12 +689,12 @@ testSin0Fold8S = do
     (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\x a -> str $ sreplicate @_ @5
+                        (\x a -> str $ sreplicate @5
                                  $ atan2F (ssum (str $ sin x))
-                                          (sreplicate @_ @2
-                                           $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
-                        (sreplicate @_ @3 a0)
+                                          (sreplicate @2
+                                           $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @2 (sreplicate @5 (srepl 2 * a0)))
+                        (sreplicate @3 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8rev :: Assertion
@@ -728,12 +728,12 @@ testSin0Fold8Srev = do
     (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\x a -> str $ sreplicate @_ @5
+                        (\x a -> str $ sreplicate @5
                                  $ atan2F (ssum (str $ sin x))
-                                          (sreplicate @_ @2
-                                           $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
-                        (sreplicate @_ @3 a0)
+                                          (sreplicate @2
+                                           $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @2 (sreplicate @5 (srepl 2 * a0)))
+                        (sreplicate @3 a0)
             in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8Srev2 :: Assertion
@@ -742,12 +742,12 @@ testSin0Fold8Srev2 = do
                 (let f :: forall f. ADReady f
                        => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                      f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\x a -> str $ sreplicate @_ @5
+                        (\x a -> str $ sreplicate @5
                                  $ atan2F (ssum (str $ sin x))
-                                          (sreplicate @_ @2
-                                           $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @2 (sreplicate @_ @5 (sscalar 2 * a0)))
-                        (sreplicate @_ @3 a0)
+                                          (sreplicate @2
+                                           $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @2 (sreplicate @5 (sscalar 2 * a0)))
+                        (sreplicate @3 a0)
                  in f)
   assertEqualUpToEpsilon 1e-10
     (RepN $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
@@ -759,11 +759,11 @@ testSin0Fold182Srev = do
     (rscalar (-0.4409160296923509) :: RepN (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
                 f a0 = sfold @1 @'[5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\_x a -> atan2F (sreplicate @_ @5 a)
-                                         (sreplicate @_ @5
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @5 a0)
-                        (sreplicate @_ @1 a0)
+                        (\_x a -> atan2F (sreplicate @5 a)
+                                         (sreplicate @5
+                                          $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @5 a0)
+                        (sreplicate @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold182SrevPP :: Assertion
@@ -772,11 +772,11 @@ testSin0Fold182SrevPP = do
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan)
            (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
                 f a0 = sfold @1 @'[5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\_x a -> atan2F (sreplicate @_ @5 a)
-                                         (sreplicate @_ @5
-                                          $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @5 a0)
-                        (sreplicate @_ @1 a0)
+                        (\_x a -> atan2F (sreplicate @5 a)
+                                         (sreplicate @5
+                                          $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @5 a0)
+                        (sreplicate @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty IM.empty a1
     @?= "rfromS (let v4 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0])) (tpair (sconcrete (sfromListLinear [1] [Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @_ @5 (sscalar 1.1)) (sreplicate @_ @1 (sscalar 1.1)))), sreplicate @_ @1 (sscalar 1.1)))) in ssum @_ @5 (tproject1 v4) + ssum @_ @1 (tproject2 v4))"
@@ -787,12 +787,12 @@ testSin0Fold18Srev = do
     (rscalar (-2.4026418024701366) :: RepN (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @2 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\x a -> str $ sreplicate @_ @5
+                        (\x a -> str $ sreplicate @5
                                  $ atan2F (ssum (str $ sin x))
-                                          (sreplicate @_ @2
-                                           $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
-                        (sreplicate @_ @2 a0)
+                                          (sreplicate @2
+                                           $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @2 (sreplicate @5 (srepl 2 * a0)))
+                        (sreplicate @2 a0)
             in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8fwd :: Assertion
@@ -827,12 +827,12 @@ testSin0Fold8Sfwd = do
     (rfwd1 @RepN
            (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @3  @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\x a -> str $ sreplicate @_ @5
+                        (\x a -> str $ sreplicate @5
                                  $ atan2F (ssum (str $ sin x))
-                                          (sreplicate @_ @2
-                                           $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
-                        (sreplicate @_ @3 a0)
+                                          (sreplicate @2
+                                           $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @2 (sreplicate @5 (srepl 2 * a0)))
+                        (sreplicate @3 a0)
             in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0Fold8Sfwd2 :: Assertion
@@ -841,12 +841,12 @@ testSin0Fold8Sfwd2 = do
                 (let f :: forall f. ADReady f
                        => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                      f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
-                        (\x a -> str $ sreplicate @_ @5
+                        (\x a -> str $ sreplicate @5
                                  $ atan2F (ssum (str $ sin x))
-                                          (sreplicate @_ @2
-                                           $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @2 (sreplicate @_ @5 (srepl 2 * a0)))
-                        (sreplicate @_ @3 a0)
+                                          (sreplicate @2
+                                           $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @2 (sreplicate @5 (srepl 2 * a0)))
+                        (sreplicate @3 a0)
                  in rfromS . f . sfromR)
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 10.859933116775313))
@@ -861,14 +861,14 @@ testSin0Fold5Sfwd = do
                                    => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
                                    -> f2 (TKS '[] Double)
                                  g x a = ssum
-                                   $ atan2F (sin $ sreplicate @f2 @5 x)
+                                   $ atan2F (sin $ sreplicate @5 @_ @_ @f2 x)
                                             (ssum $ sin $ ssum
-                                             $ str $ sreplicate @f2 @7 a)
+                                             $ str $ sreplicate @7 @_ @_ @f2 a)
                              in g)
                         (srepl 2 * a0)
-                        (sreplicate @f @3
-                                    (sreplicate @f @2
-                                                (sreplicate @f @5 a0)))
+                        (sreplicate @3 @_ @_ @f
+                                    (sreplicate @2 @_ @_ @f
+                                                (sreplicate @5 @_ @_ @f a0)))
            in rfromS . f . sfromR) (rscalar 1.1) (rscalar 1.1))
 
 testSin0Fold5Sfwds :: Assertion
@@ -880,14 +880,14 @@ testSin0Fold5Sfwds = do
                                    => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
                                    -> f2 (TKS '[] Double)
                                  g x a = ssum
-                                   $ atan2F (sin $ sreplicate @f2 @5 x)
+                                   $ atan2F (sin $ sreplicate @5 @_ @_ @f2 x)
                                             (ssum $ sin $ ssum
-                                             $ str $ sreplicate @f2 @7 a)
+                                             $ str $ sreplicate @7 @_ @_ @f2 a)
                              in g)
                         (srepl 2 * a0)
-                        (sreplicate @f @3
-                                    (sreplicate @f @2
-                                                (sreplicate @f @5 a0)))
+                        (sreplicate @3 @_ @_ @f
+                                    (sreplicate @2 @_ @_ @f
+                                                (sreplicate @5 @_ @_ @f a0)))
            in f) (srepl 1.1) (srepl 1.1))
 
 testSin0Scan0 :: Assertion
@@ -1006,12 +1006,12 @@ testSin0Scan8rev2 = do
 testSin0Scan8Srev2 :: Assertion
 testSin0Scan8Srev2 = do
   let h = srev1 @(ADVal RepN) @Double @'[]
-        (\a0 -> sscan (\x a -> str $ sreplicate @_ @5
+        (\a0 -> sscan (\x a -> str $ sreplicate @5
                                $ atan2F (ssum (str $ sin x))
-                                        (sreplicate @_ @2
-                                         $ sin (ssum $ sreplicate @_ @7 a)))
-                        (sreplicate @_ @2 (sreplicate @_ @5 ((sscalar 2) * a0)))
-                        (sreplicate @_ @3 a0))
+                                        (sreplicate @2
+                                         $ sin (ssum $ sreplicate @7 a)))
+                        (sreplicate @2 (sreplicate @5 ((sscalar 2) * a0)))
+                        (sreplicate @3 a0))
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear [] [285.9579482947575])
     (crev h (sscalar 1.1))
@@ -1521,7 +1521,7 @@ testSin0rmapAccumRD01SN3 = do
                                  -> g (TKProduct (TKS '[] Double)
                                                  (TKS '[3] Double))
                                g x _a = tpair (sin x)
-                                              (sreplicate @_ @3 (sin x / srepl 3))
+                                              (sreplicate @3 (sin x / srepl 3))
                            in g)
                           x0
                           (srepl 0)
@@ -1552,12 +1552,12 @@ testSin0rmapAccumRD01SN5 = do
                                            - smaxIndex
                                                @_ @Double @Double @'[] @2
                                                (tproject2 $ tproject1 a))
-                                   (tpair (sreplicate @_ @3
+                                   (tpair (sreplicate @3
                                              (sindex0 @_ @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3))
-                                          (sreplicate @_ @3
-                                             (ssum @_ @2 (tproject2 $ tproject1 a)
+                                          (sreplicate @3
+                                             (ssum @2 (tproject2 $ tproject1 a)
                                               + sin x / srepl 3)))
                            in g)
                           x0
@@ -1571,8 +1571,8 @@ testSin0rmapAccumRD01SN51 = do
     (rscalar (-69.90586521651421))
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = (\res -> ssum @_ @6 (tproject1 $ tproject1 res)
-                               + ssum0 @_ @_ @'[6, 5, 4, 3]
+               f x0 = (\res -> ssum @6 (tproject1 $ tproject1 res)
+                               + ssum0 @'[6, 5, 4, 3]
                                    (tproject2 res))
                       $ tbuild1 @f (SNat @6) knownSTK $ \j ->
                          tmapAccumR (Proxy @f) (SNat @5)
@@ -1599,18 +1599,18 @@ testSin0rmapAccumRD01SN51 = do
                                            - smaxIndex
                                                @_ @Double @Double @'[] @2
                                                (tproject2 $ tproject2 a))
-                                            (sreplicate @_ @3
+                                            (sreplicate @3
                                              (sindex0 @_ @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3)))
                                          (sbuild1 @_ @4 $ \i ->
                                              (tproject2 $ tproject1 a)
-                                             - sin x1 / sreplicate @_ @3
+                                             - sin x1 / sreplicate @3
                                                      (srepl 1 + sfromIndex0 i))
                            in g)
                           (tpair (x0 / (srepl 1 + sfromIndex0 j))
-                                 (sreplicate @_ @3 x0))
-                          (tpair (tpair (srepl 1) (sreplicate0N @_ @_ @'[5, 3]
+                                 (sreplicate @3 x0))
+                          (tpair (tpair (srepl 1) (sreplicate0N @'[5, 3]
                                                (sfromIndex0 j)))
                                  (tpair (srepl 3) (srepl 4)))
            in rfromS . f . sfromR) (rscalar 1.1))
@@ -1622,7 +1622,7 @@ testSin0rmapAccumRD01SN531a = do
        [1.8478609886246988,-22.194216099801963,-40.72162125038692])
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[3] Double) -> f (TKS '[2, 2, 2, 3] Double)
-               f x0 = (\res -> srepl 2 - sreplicate @_ @2 (tproject1 $ tproject1 res)
+               f x0 = (\res -> srepl 2 - sreplicate @2 (tproject1 $ tproject1 res)
                                - (tproject2 res))
                       $ tbuild1 @f (SNat @2) knownSTK $ \i ->
                        (tbuild1 @f (SNat @2) knownSTK $ \j ->
@@ -1645,23 +1645,23 @@ testSin0rmapAccumRD01SN531a = do
                                      x2 = tproject2 xh
                                  in tpair (tpair
                                             (sfromList
-                                             [srepl 0.01, ssum @_ @6 x2, srepl 0.3]
+                                             [srepl 0.01, ssum @6 x2, srepl 0.3]
                                            - sin x - (tproject2 a))
                                             (srepl 1 - x2
-                                           - sreplicate @_ @6
+                                           - sreplicate @6
                                                  (ssum (sin x - (tproject2 a)))))
-                                         (srepl 1 - sreplicate @_ @3
-                                             (ssum @_ @1 (tproject1 a))
+                                         (srepl 1 - sreplicate @3
+                                             (ssum @1 (tproject1 a))
                                            - sin x / srepl 3
-                                           - sreplicate @_ @3
+                                           - sreplicate @3
                                              (sindex0 @_ @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
                                                  (sin x / srepl 3)))
                            in g)
-                          (tpair (x0 / (srepl 1 + sreplicate @_ @3 (sfromIndex0 j)))
-                                 (sreplicate @_ @6 (sfromIndex0 i)
+                          (tpair (x0 / (srepl 1 + sreplicate @3 (sfromIndex0 j)))
+                                 (sreplicate @6 (sfromIndex0 i)
                                           - sflatten (sappend x0 x0)))
                           (tpair (sfromList [srepl (-0.1), sreshape @_ @_ @'[] @'[1] $ sfromIndex0 j])
                                  ((sfromListLinear
@@ -1775,7 +1775,7 @@ testSin0rmapAccumRD01SN531c = do
     (rscalar (-1.8866871148429984))
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[2, 2, 2] Double)
-               f x0 = (\res -> srepl 2 - sreplicate @_ @2 (tproject1 res)
+               f x0 = (\res -> srepl 2 - sreplicate @2 (tproject1 res)
                                - tproject2 res)
                       $ tbuild1 @f (SNat @2) knownSTK $ \i ->
                        (tbuild1 @f (SNat @2) knownSTK $ \j ->
@@ -1823,7 +1823,7 @@ testSin0rmapAccumRD01SN55 = do
     (rscalar 4.1200926532396815)
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[5, 3] Double)
-               f x0 = (\res -> sreplicate @_ @5 (tproject1 res)
+               f x0 = (\res -> sreplicate @5 (tproject1 res)
                                * (tproject1 $ tproject2 res)
                                + (tproject2 $ tproject2 res))
                       $ tmapAccumL (Proxy @f) (SNat @5)
@@ -1839,16 +1839,16 @@ testSin0rmapAccumRD01SN55 = do
                                                             (TKS '[3] Double)))
                                g x _a =
                                  tpair (sin x - x)
-                                       (tpair (sreplicate @_ @3
+                                       (tpair (sreplicate @3
                                              (sindex0 @_ @'[3] x [1]
                                               - smaxIndex
                                                   @_ @Double @Double @'[] @3
                                                   (x / sin x / srepl 3)))
-                                          (sreplicate @_ @3
-                                             (ssum @_ @3 x)
+                                          (sreplicate @3
+                                             (ssum @3 x)
                                            + sin x / srepl 3))
                            in g)
-                          (sreplicate @_ @3 x0)
+                          (sreplicate @3 x0)
                           (treplicate (SNat @5) stkUnit tunit)
            in rfromS . f . sfromR) (rscalar 1.1))
 
@@ -1858,8 +1858,8 @@ testSin0rmapAccumRD01SN55acc = do
     (ringestData [3] [-21.0,-42.0,-21.0])
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[3] Double) -> f (TKS '[2, 3] Double)
-               f x0 = (\res -> srepl 2 - str (sreplicate @_ @3
-                                         $ ssum @_ @7
+               f x0 = (\res -> srepl 2 - str (sreplicate @3
+                                         $ ssum @7
                                          $ str (tproject2 $ tproject1 $ tproject2 res))
                                - (tproject2 $ tproject2 res))
                       $ tmapAccumR (Proxy @f) (SNat @2)
@@ -1878,20 +1878,20 @@ testSin0rmapAccumRD01SN55acc = do
                                                               (TKS '[7] Double))
                                                     (TKS '[3] Double)))
                                g _xh a =
-                                let x = sreplicate @g @3 (sscalar 2)
+                                let x = sreplicate @3 @_ @_ @g (sscalar 2)
                                 in tpair tunit
                                      (tpair
                                         (tpair
                                            (singestData [0.1, 0.2, 0.3]
                                             - sin x - tproject2 a)
-                                           (srepl 1 - sreplicate @_ @7
+                                           (srepl 1 - sreplicate @7
                                                  (ssum
                                                   $ sin x - tproject2 a)))
                                         (sreplicate0N (sscalar 1)
-                                         - sreplicate @_ @3
-                                             (ssum @_ @1 (tproject1 a))
+                                         - sreplicate @3
+                                             (ssum @1 (tproject1 a))
                                            - sin x / sreplicate0N (sscalar 3)
-                                           - sreplicate @_ @3
+                                           - sreplicate @3
                                              (sindex0 @_ @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
@@ -1954,13 +1954,13 @@ testSin0rmapAccumRD01SN7 = do
                                            ** smaxIndex
                                                @_ @Double @Double @'[] @2
                                                (tproject2 $ tproject1 a))
-                                    (tpair (sreplicate @_ @3
+                                    (tpair (sreplicate @3
                                              (sin x / srepl 6
                                               + sindex0 @_ @'[2]
                                                         (tproject1 $ tproject2 a) [1]
                                                 / sin x / srepl 3))
-                                       (sreplicate @_ @3
-                                             (ssum @_ @2 (tproject2 $ tproject1 a)
+                                       (sreplicate @3
+                                             (ssum @2 (tproject2 $ tproject1 a)
                                               + sin x / srepl 6)))
                            in g)
                           x0
@@ -2194,8 +2194,8 @@ testSin0FoldNestedS1 = do
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
-                              a (sreplicate @_ @7 x))
-                            a0 (sreplicate @_ @3 a0)
+                              a (sreplicate @7 x))
+                            a0 (sreplicate @3 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS1PP :: Assertion
@@ -2204,8 +2204,8 @@ testSin0FoldNestedS1PP = do
   let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
       f z = sfold (\x a ->
                sfold (\x2 a2 -> x2 + tan a2)
-                     a (sreplicate @_ @22 x))
-                  z (sreplicate @_ @11 z)
+                     a (sreplicate @22 x))
+                  z (sreplicate @11 z)
       g :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
       g x = srev f (FTKS ZSS FTKScalar) x
   printAstPretty
@@ -2408,8 +2408,8 @@ testSin0FoldNestedS1FwdFwd0 = do
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
-                              a (sreplicate @_ @7 x))
-                            a0 (sreplicate @_ @3 a0)
+                              a (sreplicate @7 x))
+                            a0 (sreplicate @3 a0)
            in rfromS . sfwd1 f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS1FwdFwd :: Assertion
@@ -2420,8 +2420,8 @@ testSin0FoldNestedS1FwdFwd = do
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                                  x2 * sfwd1 (sfwd1 (\b2 -> srepl 0.7 * b2)) a2)
-                              a (sreplicate @_ @7 x))
-                            a0 (sreplicate @_ @3 a0)
+                              a (sreplicate @7 x))
+                            a0 (sreplicate @3 a0)
            in rfwd1 $ rfromS . sfwd1 f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS1RevRev :: Assertion
@@ -2432,8 +2432,8 @@ testSin0FoldNestedS1RevRev = do
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                                  x2 * srev1 (srev1 (\b2 -> srepl 0.7 * b2)) a2)
-                              a (sreplicate @_ @7 x))
-                            a0 (sreplicate @_ @3 a0)
+                              a (sreplicate @7 x))
+                            a0 (sreplicate @3 a0)
            in rrev1 $ rfromS . srev1 f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS2 :: Assertion
@@ -2444,9 +2444,9 @@ testSin0FoldNestedS2 = do
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 -> srepl 0.7 * x3 * a3)
-                                a2 (sreplicate @_ @4 x2))
-                              a (sreplicate @_ @3 x))
-                            a0 (sreplicate @_ @2 a0)
+                                a2 (sreplicate @4 x2))
+                              a (sreplicate @3 x))
+                            a0 (sreplicate @2 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS3 :: Assertion
@@ -2458,10 +2458,10 @@ testSin0FoldNestedS3 = do
                         sfold (\x2 a2 ->
                           sfold (\x3 a3 ->
                             sfold (\x4 a4 -> srepl 0.1 * x4 * a4)
-                                  a3 (sreplicate @_ @1 x3))
-                                a2 (sreplicate @_ @2 x2))
-                              a (sreplicate @_ @1 x))
-                            a0 (sreplicate @_ @2 a0)
+                                  a3 (sreplicate @1 x3))
+                                a2 (sreplicate @2 x2))
+                              a (sreplicate @1 x))
+                            a0 (sreplicate @2 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS4 :: Assertion
@@ -2474,11 +2474,11 @@ testSin0FoldNestedS4 = do
                           sfold (\x3 a3 ->
                             sfold (\x4 a4 ->
                               sfold (\x5 a5 -> srepl 0.1 * x5 * a5)
-                                    a4 (sreplicate @_ @2 x4))
-                                  a3 (sreplicate @_ @1 x3))
-                                a2 (sreplicate @_ @1 x2))
-                              a (sreplicate @_ @2 x))
-                            a0 (sreplicate @_ @1 a0)
+                                    a4 (sreplicate @2 x4))
+                                  a3 (sreplicate @1 x3))
+                                a2 (sreplicate @1 x2))
+                              a (sreplicate @2 x))
+                            a0 (sreplicate @1 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedS5 :: Assertion
@@ -2492,12 +2492,12 @@ testSin0FoldNestedS5 = do
                             sfold (\x4 a4 ->
                               sfold (\x5 a5 ->
                                 sfold (\x6 a6 -> sscalar 0.1 * x6 * a6)
-                                      a5 (sreplicate @_ @1 x5))
-                                    a4 (sreplicate @_ @1 x4))
-                                  a3 (sreplicate @_ @1 x3))
-                                a2 (sreplicate @_ @1 x2))
-                              a (sreplicate @_ @1 x))
-                            a0 (sreplicate @_ @1 a0)
+                                      a5 (sreplicate @1 x5))
+                                    a4 (sreplicate @1 x4))
+                                  a3 (sreplicate @1 x3))
+                                a2 (sreplicate @1 x2))
+                              a (sreplicate @1 x))
+                            a0 (sreplicate @1 a0)
 
            in rfromS . f . sfromR) (rscalar 1.1))
 
@@ -2510,12 +2510,12 @@ testSin0FoldNestedS5rev = do
                             sfold (\x4 a4 ->
                               sfold (\x5 a5 ->
                                 sfold (\x6 a6 -> sscalar 0.1 * x6 * a6)
-                                      a5 (sreplicate @_ @1 x5))
-                                    a4 (sreplicate @_ @1 x4))
-                                  a3 (sreplicate @_ @1 x3))
-                                a2 (sreplicate @_ @1 x2))
-                              a (sreplicate @_ @1 x))
-                            a0 (sreplicate @_ @1 a0)
+                                      a5 (sreplicate @1 x5))
+                                    a4 (sreplicate @1 x4))
+                                  a3 (sreplicate @1 x3))
+                                a2 (sreplicate @1 x2))
+                              a (sreplicate @1 x))
+                            a0 (sreplicate @1 a0)
   assertEqualUpToEpsilon 1e-10
     (srepl 0.22000000000000003)
     (srev1 @RepN @Double @'[] @'[] f (sscalar 1.1))
@@ -2529,12 +2529,12 @@ testSin0FoldNestedS5fwd = do
                             sfold (\x4 a4 ->
                               sfold (\x5 a5 ->
                                 sfold (\x6 a6 -> sscalar 0.1 * x6 * a6)
-                                      a5 (sreplicate @_ @1 x5))
-                                    a4 (sreplicate @_ @1 x4))
-                                  a3 (sreplicate @_ @1 x3))
-                                a2 (sreplicate @_ @1 x2))
-                              a (sreplicate @_ @1 x))
-                            a0 (sreplicate @_ @1 a0)
+                                      a5 (sreplicate @1 x5))
+                                    a4 (sreplicate @1 x4))
+                                  a3 (sreplicate @1 x3))
+                                a2 (sreplicate @1 x2))
+                              a (sreplicate @1 x))
+                            a0 (sreplicate @1 a0)
   assertEqualUpToEpsilon 1e-10
     (srepl 0.22000000000000003)
     (sfwd1 @RepN @Double @'[] @'[] f (sscalar 1.1))
@@ -2547,17 +2547,17 @@ testSin0FoldNestedSi = do
                f a0 = sfold (\x a -> atan2F
                                        (sscan (+) (ssum x)
                                           (sscan (*) (srepl 2)
-                                                 (sreplicate @_ @1 a)))
+                                                 (sreplicate @1 a)))
                                        (sscan (\x1 a1 ->
                                           sfold (\x2 a2 ->
                                             sfold (\x3 a3 ->
                                                      (srepl 0.001) * (x3 * a3 - x3))
                                                   a2 (sscan (+) x2
-                                                        (sreplicate @_ @3 a2)))
-                                                x1 (sreplicate @_ @1 a1))
+                                                        (sreplicate @3 a2)))
+                                                x1 (sreplicate @1 a1))
                                               a (sscan (-) (srepl 0)
                                                    (sslice (SNat @0) (SNat @1) SNat x))))
-                            (sreplicate @_ @3 $ srepl 2 * a0) (sreplicate @_ @2 a0)
+                            (sreplicate @3 $ srepl 2 * a0) (sreplicate @2 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0FoldNestedR1 :: Assertion
@@ -2805,7 +2805,7 @@ testSin0revhV5 = do
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (sfromList @3 [sscalar 0, sscalar 0, sscalar 0])
-    (crev f (sreplicate @_ @3 (sscalar 1.1)))
+    (crev f (sreplicate @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
@@ -2833,4 +2833,4 @@ testSin0revhV7 = do
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (singestData @'[3] [4.0,6.0,8.0])
-    (crev f (sreplicate @_ @3 (sscalar 1.1)))
+    (crev f (sreplicate @3 (sscalar 1.1)))

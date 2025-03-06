@@ -178,8 +178,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR sh _ -> sh
   rlength t = case ftkAst t of
     FTKR sh _ -> sNatValue $ shrRank sh
-  rsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
-  rreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
+  trsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
+  trreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
   rindex @_ @m @n a ix = case ftkAst a of
     FTKR @_ @x shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
@@ -354,7 +354,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKS sh _ -> sh
   slength t = case ftkAst t of
     FTKS sh _ -> sNatValue $ shsRank sh
-  ssum = astSum SNat knownSTK
+  tssum = astSum SNat knownSTK
   sindex v ix = astIndexStepS knownShS v ix
   sscatter @_ @shm @shn @shp t f =
     astScatterS @shm @shn @shp knownShS t
@@ -380,8 +380,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh _ -> sh
   xlength t = case ftkAst t of
     FTKX sh _ -> sNatValue $ shxRank sh
-  xsum = astSum SNat knownSTK
-  xreplicate = astReplicate SNat knownSTK
+  txsum = astSum SNat knownSTK
+  txreplicate = astReplicate SNat knownSTK
   xindex @_ @sh1 @sh2 a ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
@@ -665,9 +665,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKR sh _ -> sh
   rlength t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sNatValue $ shrRank sh
-  rsum v = withSNat (rwidth v) $ \snat ->
+  trsum v = withSNat (rwidth v) $ \snat ->
              AstRaw . AstSum snat knownSTK . unAstRaw $ v
-  rreplicate k = withSNat k $ \snat ->
+  trreplicate k = withSNat k $ \snat ->
     AstRaw . AstReplicate snat knownSTK . unAstRaw
   rindex @_ @m @n (AstRaw a) ix = AstRaw $ case ftkAst a of
     FTKR @_ @x shmshn _ ->
@@ -848,7 +848,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKS sh _ -> sh
   slength t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sNatValue $ shsRank sh
-  ssum = AstRaw . AstSum SNat knownSTK . unAstRaw
+  tssum = AstRaw . AstSum SNat knownSTK . unAstRaw
   sindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
   sscatter @_ @shm @shn @shp t f =
     AstRaw $ AstScatterS @shm @shn @shp knownShS (unAstRaw t)
@@ -878,8 +878,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKX sh _ -> sh
   xlength t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sNatValue $ shxRank sh
-  xsum = AstRaw . AstSum SNat knownSTK . unAstRaw
-  xreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw
+  txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
+  txreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw
   xindex @_ @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
@@ -1270,8 +1270,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
   rlength = rlength . unAstNoVectorize
-  rsum = AstNoVectorize . rsum . unAstNoVectorize
-  rreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
+  trsum = AstNoVectorize . rsum . unAstNoVectorize
+  trreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
   rindex v ix =
     AstNoVectorize $ rindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   rscatter sh t f =
@@ -1301,7 +1301,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
   slength = slength . unAstNoVectorize
-  ssum = AstNoVectorize . ssum . unAstNoVectorize
+  tssum = AstNoVectorize . ssum . unAstNoVectorize
   sindex v ix =
     AstNoVectorize $ sindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   sscatter @_ @shm @shn @shp t f =
@@ -1328,8 +1328,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
   xlength = xlength . unAstNoVectorize
-  xsum = AstNoVectorize . xsum . unAstNoVectorize
-  xreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
+  txsum = AstNoVectorize . xsum . unAstNoVectorize
+  txreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
   xindex v ix =
     AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   xscatter @_ @shm @shn @shp sh t f =
@@ -1510,8 +1510,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
   rlength = rlength . wunAstNoSimplify
-  rsum = wAstNoSimplify . rsum . wunAstNoSimplify
-  rreplicate k = wAstNoSimplify . rreplicate k . wunAstNoSimplify
+  trsum = wAstNoSimplify . rsum . wunAstNoSimplify
+  trreplicate k = wAstNoSimplify . rreplicate k . wunAstNoSimplify
   rindex v ix =
     wAstNoSimplify $ rindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   rscatter sh t f =
@@ -1537,7 +1537,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
   slength = slength . wunAstNoSimplify
-  ssum = wAstNoSimplify . ssum . wunAstNoSimplify
+  tssum = wAstNoSimplify . ssum . wunAstNoSimplify
   sindex v ix =
     wAstNoSimplify $ sindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   sscatter @_ @shm @shn @shp t f =
@@ -1561,8 +1561,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
   xlength = xlength . wunAstNoSimplify
-  xsum = wAstNoSimplify . xsum . wunAstNoSimplify
-  xreplicate = wAstNoSimplify . xreplicate . wunAstNoSimplify
+  txsum = wAstNoSimplify . xsum . wunAstNoSimplify
+  txreplicate = wAstNoSimplify . xreplicate . wunAstNoSimplify
   xindex v ix =
     wAstNoSimplify $ xindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   xscatter @_ @shm @shn @shp sh t f =
