@@ -1851,8 +1851,8 @@ emptyArgs t =
   - rindex (rfromListLinear (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
   - rindex (rfromListLinear (0 :$: rshape @target @_ @(TKScalar r)
                                      emptyTensor) []) (42 :.: ZIR)
-  - rreshape @target @_ @1 [0] emptyTensor
-  - rsum (rreshape @target @_ @1 [0, 0] emptyTensor)
+  - rreshape @1 [0] emptyTensor
+  - rsum (rreshape @1 [0, 0] emptyTensor)
 -- TODO:
 --  - rgather1 0 emptyTensor (:.: ZIR)
 --  - rsum (rgather1 0 emptyTensor (const ZIR))
@@ -1878,8 +1878,8 @@ emptyArgs t =
        * ssum @1 (sfromList [ssum @0 (sfromListLinear [])])
        - sindex @'[0] (sfromListLinear []) (42 :.$ ZIS)
        - sindex @'[0] (sfromListLinear []) (42 :.$ ZIS)
-       - sreshape @target @_ @_ @'[0] (sfromR @_ @'[0] emptyTensor)
-       - ssum (sreshape @target @_ @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
+       - sreshape @_ @'[0] (sfromR @_ @'[0] emptyTensor)
+       - ssum (sreshape @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
        * sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
        + sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
                               !$ (fromIntegral (rlength t) `quotF` i :.$ ZIS)

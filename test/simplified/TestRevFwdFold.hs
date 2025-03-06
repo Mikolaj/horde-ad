@@ -1663,7 +1663,7 @@ testSin0rmapAccumRD01SN531a = do
                           (tpair (x0 / (srepl 1 + sreplicate @3 (sfromIndex0 j)))
                                  (sreplicate @6 (sfromIndex0 i)
                                           - sflatten (sappend x0 x0)))
-                          (tpair (sfromList [srepl (-0.1), sreshape @_ @_ @'[] @'[1] $ sfromIndex0 j])
+                          (tpair (sfromList [srepl (-0.1), sreshape @'[] @'[1] $ sfromIndex0 j])
                                  ((sfromListLinear
                                            [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIndex0 i, sscalar 0.5, sscalar 1.3]))))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))

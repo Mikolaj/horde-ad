@@ -128,7 +128,7 @@ rnnMnistLossFusedS
 rnnMnistLossFusedS out_width@SNat
                    batch_size@SNat
                    (glyphS, labelS) adparameters =
-  let xs = stranspose @_ @'[2, 1, 0] glyphS
+  let xs = stranspose @'[2, 1, 0] glyphS
       result = rnnMnistZeroS out_width
                              batch_size
                              (SNat @h) (SNat @w)
@@ -163,7 +163,7 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                input
         in nn testParams
       outputs = map (Nested.stoVector . unRepN) $ sunravelToList
-                $ stranspose @_ @'[1, 0] outputS
+                $ stranspose @'[1, 0] outputS
       labels = map (Nested.stoVector . unRepN)
                $ sunravelToList @_ @_ @(TKScalar r)
                $ sconcrete labelS

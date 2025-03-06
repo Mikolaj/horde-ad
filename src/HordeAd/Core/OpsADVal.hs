@@ -192,11 +192,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = trmaxIndex u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   triota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ triota n
-  rappend (D u u') (D v v') = dD (rappend u v) (DeltaAppendR u' v')
-  rslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
-  rreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
-  rtranspose perm (D u u') = dD (rtranspose perm u) (DeltaTransposeR perm u')
-  rreshape sh (D u u') = dD (rreshape sh u) (DeltaReshapeR sh u')
+  trappend (D u u') (D v v') = dD (rappend u v) (DeltaAppendR u' v')
+  trslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
+  trreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
+  trtranspose perm (D u u') = dD (rtranspose perm u) (DeltaTransposeR perm u')
+  trreshape sh (D u u') = dD (rreshape sh u) (DeltaReshapeR sh u')
   rbuild1 @r @n k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
@@ -214,16 +214,16 @@ instance ( ADReadyNoLet target, ShareTensor target
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (sdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
+    in dD (tsdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
   tsmatvecmul m v = ssum (str (sreplicate v * m))
   tsmatmul2 m1 m2 =
-    ssum (stranspose @_ @'[2, 1, 0] (sreplicate m1)
-          * stranspose @_ @'[1, 0] (sreplicate m2))
+    ssum (tstranspose (Permutation.makePerm @'[2, 1, 0]) (sreplicate m1)
+          * tstranspose (Permutation.makePerm @'[1, 0]) (sreplicate m2))
   tsindex (D u u') i =
     let ix = tprimalPart <$> i
-    in dD (sindex u ix) (DeltaIndexS knownShS u' ix)
+    in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
   tsscatter @shm @shn @shp (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (tsscatter @_ @shm @shn @shp u g)
@@ -249,9 +249,9 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = tsmaxIndex u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
   tsiota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) tsiota
-  sappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
-  sslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
-  sreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
+  tsappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
+  tsslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
+  tsreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
   sbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing | Dict <- eltDictRep (knownSTK @r) ->
       let arr = Nested.semptyArray @(RepORArray r) (knownShS @sh)
@@ -284,8 +284,8 @@ instance ( ADReadyNoLet target, ShareTensor target
                                            :$% Nested.SKnown (SNat @n)
                                            :$% ZSX)) m))
   txmatmul2 m1 m2 =
-    xsum (xtranspose @_ @'[2, 1, 0] (xreplicate m1)
-          * xtranspose @_ @'[1, 0] (xreplicate m2))
+    xsum (txtranspose @_ @'[2, 1, 0] (xreplicate m1)
+          * txtranspose @_ @'[1, 0] (xreplicate m2))
   txreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
   txindex (D u u') i =
     let ix = tprimalPart <$> i
@@ -315,12 +315,13 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = txmaxIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   txiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) txiota
-  xappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
-  xslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
-  xreverse (D u u') = dD (xreverse u) (DeltaReverseX u')
-  xtranspose @perm (D u u') =
-    dD (xtranspose @_ @perm u) (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
-  xreshape sh (D u u') = dD (xreshape sh u) (DeltaReshapeX sh u')
+  txappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
+  txslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
+  txreverse (D u u') = dD (xreverse u) (DeltaReverseX u')
+  txtranspose @perm (D u u') =
+    dD (txtranspose @_ @perm u)
+       (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
+  txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
   xbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
     Nothing -> case testEquality (knownShX @sh) ZKX of
       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
@@ -351,8 +352,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
   tsreplicate sh (D u u') =
     dD (tsreplicate sh u) (DeltaReplicate SNat (STKS sh knownSTK) u')
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
   tstranspose perm (D u u') =
     dD (tstranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
   tsreshape sh (D u u') = dD (tsreshape sh u) (DeltaReshapeS sh u')

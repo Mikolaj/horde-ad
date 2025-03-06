@@ -29,6 +29,12 @@ module HordeAd.Core.Ops
   , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , xfloor, xfromIntegral, xcast, xminIndex, xmaxIndex, xiota
+  , rappend, rconcat, rslice, runcons, rreverse
+  , rtr, rtranspose, rflatten, rreshape
+  , sappend, sslice, suncons, sreverse
+  , str, stranspose, sflatten, sreshape
+  , xappend, xappend0, xconcat, xslice, xuncons, xreverse
+  , xtr, xtranspose, xflatten, xreshape
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
@@ -349,8 +355,8 @@ class ( Num (IntOf target)
     if V.null v
     then gcastWith (unsafeCoerceRefl :: Nested.Product sh :~: 0) $
          let arr = Nested.semptyArray ZSS
-         in sreshape $ tconcrete (tftkG knownSTK arr) (RepN arr)
-    else sreshape @_ @x @'[Nested.Product sh] @sh $ sfromVector v
+         in tsreshape knownShS $ tconcrete (tftkG knownSTK arr) (RepN arr)
+    else tsreshape (knownShS @sh) $ sfromVector v
   tsunravelToList :: forall n sh x. (KnownSTK x, KnownNat n, KnownShS sh)
                   => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
   tsunravelToList t =
@@ -370,7 +376,7 @@ class ( Num (IntOf target)
     then let arr = Nested.memptyArray ZSX
          in xreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
     else withSNat (shxSize sh) $ \(SNat @n) ->
-           xreshape @_ @_ @'[Just n] sh $ xfromVector v
+           txreshape @_ @'[Just n] sh $ xfromVector v
   txunravelToList :: forall n sh x. (KnownSTK x, KnownNat n, KnownShX sh)
                   => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
   txunravelToList t =
@@ -442,8 +448,7 @@ class ( Num (IntOf target)
                 => ShS sh -> target (TKS2 '[] x)
                 -> target (TKS2 sh x)
   tsreplicate0N sh | SNat <- shsProduct sh =
-    tsreshape @target @x @'[Nested.Product sh] @sh sh
-    . tsreplicate @target @(Nested.Product sh) ZSS
+    tsreshape sh . tsreplicate @target @(Nested.Product sh) ZSS
 
   -- The choice in BuildTensorKind makes it hard to support this one,
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
@@ -694,31 +699,51 @@ class ( Num (IntOf target)
   txiota :: (KnownNat n, GoodScalar r)
          => target (TKX '[Just n] r)  -- from 0 to n - 1
 
-  rappend :: KnownSTK r
-          => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-          -> target (TKR2 (1 + n) r)
-  rconcat :: KnownSTK r
-          => NonEmpty (target (TKR2 (1 + n) r)) -> target (TKR2 (1 + n) r)
-  rconcat = foldr1 rappend
-  rslice :: KnownSTK r
-         => Int -> Int -> target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-  runcons :: (KnownSTK r, KnownNat n)
-          => target (TKR2 (1 + n) r)
-          -> Maybe (target (TKR2 n r), target (TKR2 (1 + n) r))
-  runcons v = case rshape v of
-                len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
-  rreverse :: KnownSTK r
-           => target (TKR2 (1 + n) r) -> target (TKR2 (1 + n) r)
-  rtr :: KnownSTK x
-      => target (TKR2 (2 + n) x) -> target (TKR2 (2 + n) x)
-  rtr = rtranspose [1, 0]
-  rtranspose :: KnownSTK x
-             => Permutation.PermR -> target (TKR2 n x) -> target (TKR2 n x)
-  rflatten :: KnownSTK r
-           => target (TKR2 n r) -> target (TKR2 1 r)
-  rflatten u = rreshape (rsize u :$: ZSR) u
-  rreshape :: forall r n m. KnownSTK r
-           => IShR m -> target (TKR2 n r) -> target (TKR2 m r)
+  trappend :: forall n x. KnownSTK x
+           => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
+           -> target (TKR2 (1 + n) x)
+  trslice :: forall n x. KnownSTK x
+          => Int -> Int -> target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
+  trreverse :: forall n x. KnownSTK x
+            => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
+  trtranspose :: forall n x. KnownSTK x
+              => Permutation.PermR -> target (TKR2 n x) -> target (TKR2 n x)
+  trreshape :: forall n m x. KnownSTK x
+            => IShR m -> target (TKR2 n x) -> target (TKR2 m x)
+
+  tsappend :: forall m n sh x. KnownSTK x
+           => target (TKS2 (m ': sh) x) -> target (TKS2 (n ': sh) x)
+           -> target (TKS2 ((m + n) ': sh) x)
+  tsslice :: forall i n k sh x. KnownSTK x
+          => SNat i -> SNat n -> SNat k
+          -> target (TKS2 (i + n + k ': sh) x) -> target (TKS2 (n ': sh) x)
+  tsreverse :: forall n sh x. KnownSTK x
+            => target (TKS2 (n ': sh) x) -> target (TKS2 (n ': sh) x)
+  tstranspose :: forall perm sh x.
+                 ( Permutation.IsPermutation perm
+                 , Rank perm <= Rank sh, KnownSTK x )
+              => Permutation.Perm perm -> target (TKS2 sh x)
+              -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
+  tsreshape :: forall sh sh2 x.
+               (KnownSTK x, Nested.Product sh ~ Nested.Product sh2)
+            => ShS sh2 -> target (TKS2 sh x) -> target (TKS2 sh2 x)
+
+  txappend :: forall m n sh x. KnownSTK x
+           => target (TKX2 (Just m ': sh) x) -> target (TKX2 (Just n ': sh) x)
+           -> target (TKX2 (Just (m + n) ': sh) x)
+  txslice :: forall i n k sh x. KnownSTK x
+          => SNat i -> SNat n -> SNat k
+          -> target (TKX2 (Just (i + n + k) ': sh) x)
+          -> target (TKX2 (Just n ': sh) x)
+  txreverse :: forall mn sh x. KnownSTK x
+            => target (TKX2 (mn ': sh) x) -> target (TKX2 (mn ': sh) x)
+  txtranspose :: forall perm sh x.
+                 ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+                 , Rank perm <= Rank sh, KnownSTK x )
+              => target (TKX2 sh x)
+              -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
+  txreshape :: forall sh sh2 x. KnownSTK x
+            => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
 
   rbuild :: forall r m n. (KnownSTK r, KnownNat m, KnownNat n)
          => IShR (m + n) -> (IxROf target m -> target (TKR2 n r))
@@ -831,43 +856,6 @@ class ( Num (IntOf target)
          => PrimalOf target (TKR n r) -> DualOf target (TKR n r)
          -> DualOf target (TKR n r)
   rScale = tScale @target knownSTK
-
-  sappend :: forall r m n sh. KnownSTK r
-          => target (TKS2 (m ': sh) r) -> target (TKS2 (n ': sh) r)
-          -> target (TKS2 ((m + n) ': sh) r)
-  sslice :: forall i n k r sh. KnownSTK r
-         => SNat i -> SNat n -> SNat k
-         -> target (TKS2 (i + n + k ': sh) r) -> target (TKS2 (n ': sh) r)
-  suncons :: forall r n sh. (KnownSTK r, KnownNat n, KnownShS sh)
-          => target (TKS2 (n ': sh) r)
-          -> Maybe (target (TKS2 sh r), target (TKS2 (n - 1 ': sh) r))
-  suncons v = case cmpNat (Proxy @1) (Proxy @n) of
-    EQI -> Just ( v !$ (0 :.$ ZIS)
-                , sslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
-    LTI -> Just ( v !$ (0 :.$ ZIS)
-                , sslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
-    _ -> Nothing
-  sreverse :: KnownSTK r
-           => target (TKS2 (n ': sh) r) -> target (TKS2 (n ': sh) r)
-  str :: forall x n m sh. KnownSTK x
-      => target (TKS2 (n ': m ': sh) x) -> target (TKS2 (m ': n ': sh) x)
-  str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
-        tstranspose (Permutation.makePerm @'[1, 0])
-  stranspose :: forall perm x sh.
-                ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
-                , Rank perm <= Rank sh, KnownSTK x )
-             => target (TKS2 sh x)
-             -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
-  stranspose = tstranspose (Permutation.makePerm @perm)
-  sflatten :: forall r sh. (KnownSTK r, KnownShS sh)
-           => target (TKS2 sh r) -> target (TKS2 '[Nested.Product sh] r)
-  sflatten | SNat <- shsProduct (knownShS @sh) = sreshape
-  sreshape :: forall r sh sh2.
-              (KnownSTK r, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2)
-           => target (TKS2 sh r) -> target (TKS2 sh2 r)
-  sreshape = tsreshape knownShS
-    -- beware that the order of type arguments is different than in orthotope
-    -- and than the order of value arguments in the ranked version
 
   sbuild :: forall r m sh. (KnownSTK r, KnownShS sh, KnownShS (Take m sh))
          => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) r))
@@ -1052,57 +1040,6 @@ class ( Num (IntOf target)
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
 
-  xappend :: forall r m n sh. KnownSTK r
-          => target (TKX2 (Just m ': sh) r) -> target (TKX2 (Just n ': sh) r)
-          -> target (TKX2 (Just (m + n) ': sh) r)
-  xappend0 :: forall r sh. (KnownSTK r, ConvertTensor target)
-           => target (TKX2 (Nothing ': sh) r) -> target (TKX2 (Nothing ': sh) r)
-           -> target (TKX2 (Nothing ': sh) r)
-  xappend0 a b = case xshape a of
-    mmsnat :$% sh ->
-      withSNat (fromSMayNat' mmsnat) $ \msnat ->
-      withSNat (shxLength $ xshape b) $ \nsnat ->
-      let sh0 = Nested.SUnknown () :!% ssxFromShape sh
-          sha = Nested.SKnown msnat :!% ssxFromShape sh
-          shb = Nested.SKnown nsnat :!% ssxFromShape sh
-      in withKnownShX (ssxFromShape sh) $
-         xmcast sh0 $ xappend (xmcast sha a) (xmcast shb b)
-  xconcat :: (KnownSTK r, ConvertTensor target)
-          => NonEmpty (target (TKX2 (Nothing ': sh) r))
-          -> target (TKX2 (Nothing ': sh) r)
-  xconcat = foldr1 xappend0
-  xslice :: forall i n k r sh. KnownSTK r
-         => SNat i -> SNat n -> SNat k
-         -> target (TKX2 (Just (i + n + k) ': sh) r)
-         -> target (TKX2 (Just n ': sh) r)
-  xuncons :: forall r n sh. (KnownSTK r, KnownNat n, KnownShX sh)
-          => target (TKX2 (Just n ': sh) r)
-          -> Maybe (target (TKX2 sh r), target (TKX2 (Just (n - 1) ': sh) r))
-  xuncons v = case cmpNat (Proxy @1) (Proxy @n) of
-    EQI -> Just ( v `xindex` (0 :.% ZIX)
-                , xslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
-    LTI -> Just ( v `xindex` (0 :.% ZIX)
-                , xslice @_ @1 @(n - 1) @0 SNat SNat SNat v )
-    _ -> Nothing
-  xreverse :: KnownSTK r
-           => target (TKX2 (mn ': sh) r) -> target (TKX2 (mn ': sh) r)
-  xtr :: forall x n m sh. KnownSTK x
-      => target (TKX2 (Just n ': Just m ': sh) x)
-      -> target (TKX2 (Just m ': Just n ': sh) x)
-  xtr = gcastWith (unsafeCoerceRefl
-                   :: (2 <=? Rank (Just n ': Just m ': sh)) :~: True) $
-        xtranspose @_ @'[1, 0]
-  xtranspose :: forall perm x sh.
-                ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
-                , Rank perm <= Rank sh, KnownSTK x )
-             => target (TKX2 sh x)
-             -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
-  xflatten :: KnownSTK r
-           => target (TKX2 sh r) -> target (TKX2 '[Nothing] r)
-  xflatten u = xreshape (Nested.SUnknown (xsize u) :$% ZSX) u
-  xreshape :: forall r sh sh2. KnownSTK r
-           => IShX sh2 -> target (TKX2 sh r) -> target (TKX2 sh2 r)
-
   xbuild :: forall r m sh.
             ( KnownSTK r, KnownShX sh, KnownShX (Take m sh)
             , ConvertTensor target )
@@ -1167,15 +1104,6 @@ class ( Num (IntOf target)
   tpair :: target x -> target z -> target (TKProduct x z)
   tproject1 :: target (TKProduct x z) -> target x
   tproject2 :: target (TKProduct x z) -> target z
-  -- These are not really general, but they take singletons at least.
-  tstranspose :: forall perm x sh.
-                 ( Permutation.IsPermutation perm
-                 , Rank perm <= Rank sh, KnownSTK x )
-              => Permutation.Perm perm -> target (TKS2 sh x)
-              -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
-  tsreshape :: forall x sh sh2.
-               (KnownSTK x, Nested.Product sh ~ Nested.Product sh2)
-            => ShS sh2 -> target (TKS2 sh x) -> target (TKS2 sh2 x)
   -- | A strict right mapAccum.
   --
   -- The applications of 'tfwd' and 'trevDt' performed already at this point
@@ -2051,6 +1979,136 @@ xmaxIndex = txmaxIndex
 xiota :: (KnownNat n, GoodScalar r, BaseTensor target)
       => target (TKX '[Just n] r)  -- from 0 to n - 1
 xiota = txiota
+
+rappend :: forall n x target. (KnownSTK x, BaseTensor target)
+        => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
+        -> target (TKR2 (1 + n) x)
+rappend = trappend
+rconcat :: forall n x target. (KnownSTK x, BaseTensor target)
+        => NonEmpty (target (TKR2 (1 + n) x)) -> target (TKR2 (1 + n) x)
+rconcat = foldr1 rappend
+rslice :: forall n x target. (KnownSTK x, BaseTensor target)
+       => Int -> Int -> target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
+rslice = trslice
+runcons :: (KnownNat n, KnownSTK x, BaseTensor target)
+        => target (TKR2 (1 + n) x)
+        -> Maybe (target (TKR2 n x), target (TKR2 (1 + n) x))
+runcons v = case rshape v of
+              len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
+rreverse :: forall n x target. (KnownSTK x, BaseTensor target)
+         => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
+rreverse = trreverse
+rtr :: forall n x target. (KnownSTK x, BaseTensor target)
+    => target (TKR2 (2 + n) x) -> target (TKR2 (2 + n) x)
+rtr = trtranspose [1, 0]
+rtranspose :: forall n x target. (KnownSTK x, BaseTensor target)
+           => Permutation.PermR -> target (TKR2 n x) -> target (TKR2 n x)
+rtranspose = trtranspose
+rflatten :: forall n x target. (KnownSTK x, BaseTensor target)
+         => target (TKR2 n x) -> target (TKR2 1 x)
+rflatten u = trreshape (rsize u :$: ZSR) u
+rreshape :: forall n m x target. (KnownSTK x, BaseTensor target)
+         => IShR m -> target (TKR2 n x) -> target (TKR2 m x)
+rreshape = trreshape
+
+sappend :: forall m n sh x target. (KnownSTK x, BaseTensor target)
+        => target (TKS2 (m ': sh) x) -> target (TKS2 (n ': sh) x)
+        -> target (TKS2 ((m + n) ': sh) x)
+sappend = tsappend
+sslice :: forall i n k sh x target. (KnownSTK x, BaseTensor target)
+       => SNat i -> SNat n -> SNat k
+       -> target (TKS2 (i + n + k ': sh) x) -> target (TKS2 (n ': sh) x)
+sslice = tsslice
+suncons :: forall n sh x target.
+           (KnownSTK x, KnownNat n, KnownShS sh, BaseTensor target)
+        => target (TKS2 (n ': sh) x)
+        -> Maybe (target (TKS2 sh x), target (TKS2 (n - 1 ': sh) x))
+suncons v = case cmpNat (Proxy @1) (Proxy @n) of
+ EQI -> Just ( v !$ (0 :.$ ZIS)
+             , sslice @1 @(n - 1) @0 SNat SNat SNat v )
+ LTI -> Just ( v !$ (0 :.$ ZIS)
+             , sslice @1 @(n - 1) @0 SNat SNat SNat v )
+ _ -> Nothing
+sreverse :: forall n sh x target. (KnownSTK x, BaseTensor target)
+         => target (TKS2 (n ': sh) x) -> target (TKS2 (n ': sh) x)
+sreverse = tsreverse
+str :: forall n m sh x target. (KnownSTK x, BaseTensor target)
+    => target (TKS2 (n ': m ': sh) x) -> target (TKS2 (m ': n ': sh) x)
+str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
+      tstranspose (Permutation.makePerm @'[1, 0])
+stranspose :: forall perm sh x target.
+              ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+              , Rank perm <= Rank sh, KnownSTK x, BaseTensor target )
+           => target (TKS2 sh x)
+           -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
+stranspose = tstranspose (Permutation.makePerm @perm)
+sflatten :: forall sh x target. (KnownSTK x, KnownShS sh, BaseTensor target )
+         => target (TKS2 sh x) -> target (TKS2 '[Nested.Product sh] x)
+sflatten | SNat <- shsProduct (knownShS @sh) = sreshape
+sreshape :: forall sh sh2 x target.
+            ( KnownSTK x, KnownShS sh2, Nested.Product sh ~ Nested.Product sh2
+            , BaseTensor target )
+         => target (TKS2 sh x) -> target (TKS2 sh2 x)
+sreshape = tsreshape knownShS
+
+xappend :: forall m n sh x target. (KnownSTK x, BaseTensor target)
+        => target (TKX2 (Just m ': sh) x) -> target (TKX2 (Just n ': sh) x)
+        -> target (TKX2 (Just (m + n) ': sh) x)
+xappend = txappend
+xappend0 :: forall sh x target.
+            (KnownSTK x, BaseTensor target, ConvertTensor target)
+         => target (TKX2 (Nothing ': sh) x) -> target (TKX2 (Nothing ': sh) x)
+        -> target (TKX2 (Nothing ': sh) x)
+xappend0 a b = case xshape a of
+ mmsnat :$% sh ->
+   withSNat (fromSMayNat' mmsnat) $ \msnat ->
+   withSNat (shxLength $ xshape b) $ \nsnat ->
+   let sh0 = Nested.SUnknown () :!% ssxFromShape sh
+       sha = Nested.SKnown msnat :!% ssxFromShape sh
+       shb = Nested.SKnown nsnat :!% ssxFromShape sh
+   in withKnownShX (ssxFromShape sh) $
+      xmcast sh0 $ xappend (xmcast sha a) (xmcast shb b)
+xconcat :: forall sh x target.
+           (KnownSTK x, BaseTensor target, ConvertTensor target)
+        => NonEmpty (target (TKX2 (Nothing ': sh) x))
+        -> target (TKX2 (Nothing ': sh) x)
+xconcat = foldr1 xappend0
+xslice :: forall i n k sh x target. (KnownSTK x, BaseTensor target)
+       => SNat i -> SNat n -> SNat k
+       -> target (TKX2 (Just (i + n + k) ': sh) x)
+       -> target (TKX2 (Just n ': sh) x)
+xslice = txslice
+xuncons :: forall n sh x target.
+           (KnownSTK x, KnownNat n, KnownShX sh, BaseTensor target)
+        => target (TKX2 (Just n ': sh) x)
+        -> Maybe (target (TKX2 sh x), target (TKX2 (Just (n - 1) ': sh) x))
+xuncons v = case cmpNat (Proxy @1) (Proxy @n) of
+ EQI -> Just ( v `xindex` (0 :.% ZIX)
+             , xslice @1 @(n - 1) @0 SNat SNat SNat v )
+ LTI -> Just ( v `xindex` (0 :.% ZIX)
+             , xslice @1 @(n - 1) @0 SNat SNat SNat v )
+ _ -> Nothing
+xreverse :: forall mn sh x target. (KnownSTK x, BaseTensor target)
+         => target (TKX2 (mn ': sh) x) -> target (TKX2 (mn ': sh) x)
+xreverse = txreverse
+xtr :: forall n m sh x target. (KnownSTK x, BaseTensor target)
+    => target (TKX2 (Just n ': Just m ': sh) x)
+    -> target (TKX2 (Just m ': Just n ': sh) x)
+xtr = gcastWith (unsafeCoerceRefl
+                 :: (2 <=? Rank (Just n ': Just m ': sh)) :~: True) $
+      txtranspose @_ @'[1, 0]
+xtranspose :: forall perm sh x target.
+              ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+              , Rank perm <= Rank sh, KnownSTK x, BaseTensor target )
+           => target (TKX2 sh x)
+           -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
+xtranspose = txtranspose @_ @perm
+xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
+         => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
+xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
+xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
+         => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
+xreshape = txreshape
 
 rfold
   :: forall n m rn rm target.

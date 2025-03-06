@@ -276,7 +276,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   triota @r n =
     withSNat n $ \(SNat @n) ->
       astFromS (knownSTK @(TKR 1 r)) $ fromPrimal $ AstIotaS @n @r SNat
-  rappend u v = case ftkAst u of
+  trappend u v = case ftkAst u of
     FTKR shu' x -> case ftkAst v of
       FTKR shv' _ ->
         withCastRS shu' $ \shu -> case shu of
@@ -291,7 +291,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                                ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
-  rslice i n a = case ftkAst a of
+  trslice i n a = case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \sh -> case sh of
         msnat@(SNat @m) :$$ _ ->
@@ -308,14 +308,14 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 . astSliceS isnat nsnat (SNat @(m - (i + n)))
                 . astSFromR sh $ a
         ZSS -> error "xslice: impossible shape"
-  rreverse a = case ftkAst a of
+  trreverse a = case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \sh -> case sh of
         _ :$$ _ ->
           astFromS (STKR (shrRank sh') (ftkToSTK x))
           . astReverseS . astSFromR sh $ a
         ZSS -> error "xreverse: impossible shape"
-  rtranspose @r @n permr a = case ftkAst a of
+  trtranspose @n @r permr a = case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \(sh :: ShS sh)  ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
@@ -336,7 +336,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                                ++ show (sNatValue psnat, sNatValue shsnat)
                 EQI -> result
                 LTI -> result
-  rreshape sh2' a = case ftkAst a of
+  trreshape sh2' a = case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \sh ->
       withCastRS sh2' $ \sh2 ->
@@ -369,9 +369,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsminIndex = fromPrimal . AstMinIndexS . primalPart
   tsmaxIndex = fromPrimal . AstMaxIndexS . primalPart
   tsiota = fromPrimal $ AstIotaS SNat
-  sappend u v = astAppendS u v
-  sslice i n k = astSliceS i n k
-  sreverse = astReverseS
+  tsappend u v = astAppendS u v
+  tsslice i n k = astSliceS i n k
+  tsreverse = astReverseS
   sbuild1 @k @sh @x f =
     astBuild1Vectorize (SNat @k) (STKS (knownShS @sh) (knownSTK @x)) f
 
@@ -486,7 +486,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           . primalPart . astSFromX @sh @sh' sh $ a
   txiota @n @r = astFromS (knownSTK @(TKX '[Just n] r))
                  $ fromPrimal $ AstIotaS @n @r SNat
-  xappend u v = case ftkAst u of
+  txappend u v = case ftkAst u of
     FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
       FTKX (Nested.SKnown n@SNat :$% shv') _ ->
         withCastXS shu' $ \(shu :: ShS shu) ->
@@ -501,7 +501,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                              (astSFromX (n :$$ shv) v)
               _ -> error $ "xappend: shapes don't match: "
                            ++ show (shu', shv')
-  xslice i n@SNat k a = case ftkAst a of
+  txslice i n@SNat k a = case ftkAst a of
     FTKX sh'@(_ :$% sh2') x ->
       withCastXS sh' $ \sh@(msnat :$$ _) ->
         case testEquality (snatPlus i (snatPlus n k)) msnat of
@@ -512,19 +512,19 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xslice: argument tensor too narrow: "
                        ++ show ( sNatValue i, sNatValue n, sNatValue k
                                , sNatValue msnat )
-  xreverse a = case ftkAst a of
+  txreverse a = case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
         astFromS (STKX (ssxFromShape sh') (ftkToSTK x))
         . astReverseS . astSFromX @sh sh $ a
-  xtranspose @perm a = case ftkAst a of
+  txtranspose @perm a = case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
       in withCastXS sh' $ \sh ->
            astFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
            . astTransposeS (Permutation.makePerm @perm)
            . astSFromX sh $ a
-  xreshape sh2' a = case ftkAst a of
+  txreshape sh2' a = case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \sh ->
       withCastXS sh2' $ \sh2 ->
@@ -551,8 +551,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject1 = astProject1
   tproject2 = astProject2
   tsreplicate sh = astReplicate SNat (STKS sh knownSTK)
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
   tstranspose perm = astTransposeS perm
   tsreshape sh = astReshapeS sh
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
@@ -768,7 +766,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw
     $ withSNat n $ \(SNat @n) ->
         AstFromS (knownSTK @(TKR 1 r)) $ fromPrimal $ AstIotaS @n @r SNat
-  rappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
+  trappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
     FTKR shu' x -> case ftkAst v of
       FTKR shv' _ ->
         withCastRS shu' $ \shu -> case shu of
@@ -783,7 +781,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
           ZSS -> error "rappend: impossible shape"
-  rslice i n (AstRaw a) = AstRaw $ case ftkAst a of
+  trslice i n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \sh -> case sh of
         msnat@(SNat @m) :$$ _ ->
@@ -800,14 +798,14 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 . AstSliceS isnat nsnat (SNat @(m - (i + n)))
                 . AstSFromR sh $ a
         ZSS -> error "xslice: impossible shape"
-  rreverse (AstRaw a) = AstRaw $ case ftkAst a of
+  trreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \sh -> case sh of
         _ :$$ _ ->
           AstFromS (STKR (shrRank sh') (ftkToSTK x))
           . AstReverseS . AstSFromR sh $ a
         ZSS -> error "xreverse: impossible shape"
-  rtranspose @r @n permr (AstRaw a) = AstRaw $ case ftkAst a of
+  trtranspose @n @r permr (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
@@ -828,7 +826,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                ++ show (sNatValue psnat, sNatValue shsnat)
                 EQI -> result
                 LTI -> result
-  rreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
+  trreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \sh ->
       withCastRS sh2' $ \sh2 ->
@@ -866,9 +864,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tsminIndex a = AstRaw . fromPrimal . AstMinIndexS . primalPart . unAstRaw $ a
   tsmaxIndex a = AstRaw . fromPrimal . AstMaxIndexS . primalPart . unAstRaw $ a
   tsiota = AstRaw . fromPrimal $ AstIotaS SNat
-  sappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
-  sslice i n k = AstRaw . AstSliceS i n k . unAstRaw
-  sreverse = AstRaw . AstReverseS . unAstRaw
+  tsappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
+  tsslice i n k = AstRaw . AstSliceS i n k . unAstRaw
+  tsreverse = AstRaw . AstReverseS . unAstRaw
   sbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
                  $ funToAstI  -- this introduces new variable names
                  $ unAstRaw . f . AstRaw
@@ -988,7 +986,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           . primalPart . AstSFromX @sh @sh' sh $ a
   txiota @n @r = AstRaw $ AstFromS (knownSTK @(TKX '[Just n] r))
                  $ fromPrimal $ AstIotaS @n @r SNat
-  xappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
+  txappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
     FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
       FTKX (Nested.SKnown n@SNat :$% shv') _ ->
         withCastXS shu' $ \(shu :: ShS shu) ->
@@ -1003,7 +1001,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                              (AstSFromX (n :$$ shv) v)
               _ -> error $ "xappend: shapes don't match: "
                            ++ show (shu', shv')
-  xslice i n@SNat k (AstRaw a) = AstRaw $ case ftkAst a of
+  txslice i n@SNat k (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh'@(_ :$% sh2') x ->
       withCastXS sh' $ \sh@(msnat :$$ _) ->
         case testEquality (snatPlus i (snatPlus n k)) msnat of
@@ -1014,19 +1012,19 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "xslice: argument tensor too narrow: "
                        ++ show ( sNatValue i, sNatValue n, sNatValue k
                                , sNatValue msnat )
-  xreverse (AstRaw a) = AstRaw $ case ftkAst a of
+  txreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
         AstFromS (STKX (ssxFromShape sh') (ftkToSTK x))
         . AstReverseS . AstSFromX @sh sh $ a
-  xtranspose @perm (AstRaw a) = AstRaw $ case ftkAst a of
+  txtranspose @perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
       in withCastXS sh' $ \sh ->
            AstFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
            . AstTransposeS (Permutation.makePerm @perm)
            . AstSFromX sh $ a
-  xreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
+  txreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \sh ->
       withCastXS sh2' $ \sh2 ->
@@ -1055,8 +1053,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
   tsreplicate sh = AstRaw . AstReplicate SNat (STKS sh knownSTK) . unAstRaw
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
   tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
   tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
@@ -1287,12 +1283,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   trminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
   trmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
   triota = AstNoVectorize . riota
-  rappend u v =
-    AstNoVectorize $ rappend (unAstNoVectorize u) (unAstNoVectorize v)
-  rslice i n = AstNoVectorize . rslice i n . unAstNoVectorize
-  rreverse = AstNoVectorize . rreverse . unAstNoVectorize
-  rtranspose perm = AstNoVectorize . rtranspose perm . unAstNoVectorize
-  rreshape sh = AstNoVectorize . rreshape sh . unAstNoVectorize
+  trappend u v =
+    AstNoVectorize $ trappend (unAstNoVectorize u) (unAstNoVectorize v)
+  trslice i n = AstNoVectorize . trslice i n . unAstNoVectorize
+  trreverse = AstNoVectorize . trreverse . unAstNoVectorize
+  trtranspose perm = AstNoVectorize . trtranspose perm . unAstNoVectorize
+  trreshape sh = AstNoVectorize . trreshape sh . unAstNoVectorize
   rbuild1 k f = withSNat k $ \snat ->
     AstNoVectorize $ AstBuild1 snat knownSTK
     $ funToAstI  -- this introduces new variable names
@@ -1317,10 +1313,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tsminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
   tsmaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
   tsiota = AstNoVectorize siota
-  sappend u v =
-    AstNoVectorize $ sappend (unAstNoVectorize u) (unAstNoVectorize v)
-  sslice i n k = AstNoVectorize . sslice i n k . unAstNoVectorize
-  sreverse = AstNoVectorize . sreverse . unAstNoVectorize
+  tsappend u v =
+    AstNoVectorize $ tsappend (unAstNoVectorize u) (unAstNoVectorize v)
+  tsslice i n k = AstNoVectorize . tsslice i n k . unAstNoVectorize
+  tsreverse = AstNoVectorize . tsreverse . unAstNoVectorize
   sbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
                  $ funToAstI  -- this introduces new variable names
                  $ unAstNoVectorize . f . AstNoVectorize
@@ -1345,13 +1341,13 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   txminIndex = AstNoVectorize . xminIndex . unAstNoVectorize
   txmaxIndex = AstNoVectorize . xmaxIndex . unAstNoVectorize
   txiota @n = AstNoVectorize $ txiota @_ @n
-  xappend u v =
-    AstNoVectorize $ xappend (unAstNoVectorize u) (unAstNoVectorize v)
-  xslice i n k = AstNoVectorize . xslice i n k . unAstNoVectorize
-  xreverse = AstNoVectorize . xreverse . unAstNoVectorize
-  xtranspose @perm =
-    AstNoVectorize . xtranspose @_ @perm . unAstNoVectorize
-  xreshape sh = AstNoVectorize . xreshape sh . unAstNoVectorize
+  txappend u v =
+    AstNoVectorize $ txappend (unAstNoVectorize u) (unAstNoVectorize v)
+  txslice i n k = AstNoVectorize . txslice i n k . unAstNoVectorize
+  txreverse = AstNoVectorize . txreverse . unAstNoVectorize
+  txtranspose @perm =
+    AstNoVectorize . txtranspose @_ @perm . unAstNoVectorize
+  txreshape sh = AstNoVectorize . txreshape sh . unAstNoVectorize
   xbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
                  $ funToAstI  -- this introduces new variable names
                  $ unAstNoVectorize . f . AstNoVectorize
@@ -1370,8 +1366,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tproject1 t = AstNoVectorize $ tproject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
   tsreplicate sh = AstNoVectorize . tsreplicate sh. unAstNoVectorize
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
   tstranspose perm =
     AstNoVectorize . tstranspose perm . unAstNoVectorize
   tsreshape sh = AstNoVectorize . tsreshape sh . unAstNoVectorize
@@ -1527,12 +1521,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   trminIndex = wAstNoSimplify . trminIndex . wunAstNoSimplify
   trmaxIndex = wAstNoSimplify . trmaxIndex . wunAstNoSimplify
   triota = wAstNoSimplify . triota
-  rappend u v =
-    wAstNoSimplify $ rappend (wunAstNoSimplify u) (wunAstNoSimplify v)
-  rslice i n = wAstNoSimplify . rslice i n . wunAstNoSimplify
-  rreverse = wAstNoSimplify . rreverse . wunAstNoSimplify
-  rtranspose perm = wAstNoSimplify . rtranspose perm . wunAstNoSimplify
-  rreshape sh = wAstNoSimplify . rreshape sh . wunAstNoSimplify
+  trappend u v =
+    wAstNoSimplify $ trappend (wunAstNoSimplify u) (wunAstNoSimplify v)
+  trslice i n = wAstNoSimplify . trslice i n . wunAstNoSimplify
+  trreverse = wAstNoSimplify . trreverse . wunAstNoSimplify
+  trtranspose perm = wAstNoSimplify . trtranspose perm . wunAstNoSimplify
+  trreshape sh = wAstNoSimplify . trreshape sh . wunAstNoSimplify
 
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
@@ -1553,10 +1547,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tsminIndex = wAstNoSimplify . tsminIndex . wunAstNoSimplify
   tsmaxIndex = wAstNoSimplify . tsmaxIndex . wunAstNoSimplify
   tsiota = wAstNoSimplify tsiota
-  sappend u v =
-    wAstNoSimplify $ sappend (wunAstNoSimplify u) (wunAstNoSimplify v)
-  sslice i n k = wAstNoSimplify . sslice i n k . wunAstNoSimplify
-  sreverse = wAstNoSimplify . sreverse . wunAstNoSimplify
+  tsappend u v =
+    wAstNoSimplify $ tsappend (wunAstNoSimplify u) (wunAstNoSimplify v)
+  tsslice i n k = wAstNoSimplify . tsslice i n k . wunAstNoSimplify
+  tsreverse = wAstNoSimplify . tsreverse . wunAstNoSimplify
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
@@ -1578,13 +1572,13 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   txminIndex = wAstNoSimplify . txminIndex . wunAstNoSimplify
   txmaxIndex = wAstNoSimplify . txmaxIndex . wunAstNoSimplify
   txiota @n = wAstNoSimplify $ txiota @_ @n
-  xappend u v =
-    wAstNoSimplify $ xappend (wunAstNoSimplify u) (wunAstNoSimplify v)
-  xslice i n k = wAstNoSimplify . xslice i n k . wunAstNoSimplify
-  xreverse = wAstNoSimplify . xreverse . wunAstNoSimplify
-  xtranspose @perm =
-    wAstNoSimplify . xtranspose @_ @perm . wunAstNoSimplify
-  xreshape sh = wAstNoSimplify . xreshape sh . wunAstNoSimplify
+  txappend u v =
+    wAstNoSimplify $ txappend (wunAstNoSimplify u) (wunAstNoSimplify v)
+  txslice i n k = wAstNoSimplify . txslice i n k . wunAstNoSimplify
+  txreverse = wAstNoSimplify . txreverse . wunAstNoSimplify
+  txtranspose @perm =
+    wAstNoSimplify . txtranspose @_ @perm . wunAstNoSimplify
+  txreshape sh = wAstNoSimplify . txreshape sh . wunAstNoSimplify
 
   -- Scalar ops
   tkconcrete = wAstNoSimplify . tkconcrete
@@ -1600,8 +1594,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
   tsreplicate sh = wAstNoSimplify . tsreplicate sh . wunAstNoSimplify
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
   tstranspose perm =
     wAstNoSimplify . tstranspose perm . wunAstNoSimplify
   tsreshape sh = wAstNoSimplify . tsreshape sh . wunAstNoSimplify

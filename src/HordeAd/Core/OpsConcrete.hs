@@ -137,15 +137,15 @@ instance BaseTensor RepN where
   trmaxIndex = RepN . tmaxIndexR . unRepN
   triota n = RepN $ Nested.rfromList1 $ NonEmpty.map fromInteger
              $ NonEmpty.fromList [0 .. fromIntegral n - 1]
-  rappend @r u v | Dict <- eltDictRep (knownSTK @r) =
+  trappend @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.rappend (unRepN u) (unRepN v)
-  rslice @r i n | Dict <- eltDictRep (knownSTK @r) =
+  trslice @_ @r i n | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rslice i n . unRepN
-  rreverse @r | Dict <- eltDictRep (knownSTK @r) =
+  trreverse @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rrev1 . unRepN
-  rtranspose @r perm | Dict <- eltDictRep (knownSTK @r) =
+  trtranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rtranspose perm . unRepN
-  rreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
+  trreshape @_ @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreshape sh . unRepN
   rbuild1 @r k f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1R k (unRepN . f . RepN)
@@ -280,11 +280,11 @@ instance BaseTensor RepN where
       Just Refl -> RepN $ Nested.semptyArray ZSS
       Nothing -> error "siota: wrong rank"
     Just l -> RepN $ Nested.sfromList1 SNat $ NonEmpty.map fromInteger l
-  sappend @r u v | Dict <- eltDictRep (knownSTK @r) =
+  tsappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.sappend (unRepN u) (unRepN v)
-  sslice @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
+  tsslice @_ @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sslice i n . unRepN
-  sreverse @r | Dict <- eltDictRep (knownSTK @r) =
+  tsreverse @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.srev1 . unRepN
   sbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1S (unRepN . f . RepN)
@@ -424,15 +424,15 @@ instance BaseTensor RepN where
                   t = Nested.mfromList1 $ NonEmpty.map fromInteger
                       $ NonEmpty.fromList [0 .. n - 1]
               in RepN $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX) t
-  xappend @r u v | Dict <- eltDictRep (knownSTK @r) =
+  txappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     RepN $ Nested.mappend (unRepN u) (unRepN v)
-  xslice @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
+  txslice @_ @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mslice i n . unRepN
-  xreverse @r | Dict <- eltDictRep (knownSTK @r) =
+  txreverse @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mrev1 . unRepN
-  xtranspose @perm @r | Dict <- eltDictRep (knownSTK @r) =
+  txtranspose @perm @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mtranspose (Permutation.makePerm @perm) . unRepN
-  xreshape @r sh | Dict <- eltDictRep (knownSTK @r) =
+  txreshape @_ @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreshape sh . unRepN
   xbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     RepN $ tbuild1X (unRepN . f . RepN)
@@ -454,11 +454,9 @@ instance BaseTensor RepN where
   tsreplicate0N @sh @r sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sreplicate sh . unRepN
-  stranspose @perm = tstranspose (Permutation.makePerm @perm)
-    -- this is needed only to help GHC 9.10 compile the instance
-  tstranspose @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
+  tstranspose @_ @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.stranspose perm . unRepN
-  tsreshape @x sh | Dict <- eltDictRep (knownSTK @x) =
+  tsreshape @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN . Nested.sreshape sh . unRepN
   -- The eta-expansion below is needed for typing.
   tmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =

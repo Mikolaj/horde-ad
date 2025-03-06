@@ -59,7 +59,7 @@ convMnistLayerS
 convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
                 ker input bias =
   let yConv = conv2dUnpaddedS ker input
-      biasStretched = stranspose @_ @'[0, 3, 1, 2]
+      biasStretched = stranspose @'[0, 3, 1, 2]
                       $ sreplicate {-@batch_size-}
                       $ sreplicate {-@h-}
                       $ sreplicate {-@w-} bias
@@ -162,7 +162,7 @@ convMnistTestS kh@SNat kw@SNat
                                input
         in nn testParams
       outputs = map (Nested.stoVector . unRepN) $ sunravelToList
-                $ stranspose @_ @'[1, 0] outputS
+                $ stranspose @'[1, 0] outputS
       labels = map (Nested.stoVector . unRepN)
                $ sunravelToList @_ @_ @(TKScalar r)
                $ sconcrete labelS
