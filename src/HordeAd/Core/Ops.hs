@@ -20,7 +20,7 @@ module HordeAd.Core.Ops
   , rfromList, rfromVector, rfromListLinear, rfromVectorLinear, runravelToList
   , sfromList, sfromVector, sfromListLinear, sfromVectorLinear, sunravelToList
   , xfromList, xfromVector, xfromListLinear, xfromVectorLinear, xunravelToList
-  , rfold, rscan, sfold, sscan, xfold, xscan
+  , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
   ) where
@@ -1179,38 +1179,12 @@ class ( Num (IntOf target)
   -- the computation is unnneeded, so the AST instance uses a non-strict
   -- constructor 'AstLambda' for it's instance of 'HFunOf'.
   --
-  -- If the same argument functions are passed to many dmapAccum calls, as in
+  -- If the same argument functions are passed to many mapAccum calls, as in
   -- > let f = ... in ... (tmapAccumR ... f ...) ... (tmapAccumL ... f ...)
   -- extra care is needed to prevent double derivative computation.
   -- One needs to use tmapAccumRDer manually as in (simplified)
   -- > let f = ...; df = tfwd f; rf = trev f
   -- > in ... (tmapAccumRDer f df rf ...) ... (tmapAccumLDer f df rf ...)
-  tmapAccumR
-    :: forall accShs bShs eShs k.
-       Proxy target
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> (forall f. ADReady f
-        => f accShs -> f eShs
-        -> f (TKProduct accShs bShs))
-    -> target accShs
-    -> target (BuildTensorKind k eShs)
-    -> target (TKProduct accShs (BuildTensorKind k bShs))
-  {-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
-  tmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
-    let xftk = FTKProduct accShs eShs
-        fl :: forall f. ADReady f
-           => f (TKProduct accShs eShs)
-           -> f (TKProduct accShs bShs)
-        fl !args = ttlet args $ \ !args1 ->
-                     f (tproject1 args1) (tproject2 args1)
-    in tmapAccumRDer proxy k accShs bShs eShs
-                     (tlambda @target xftk (HFun fl))
-                     (tfwd @target xftk $ HFun fl)
-                     (trevDt @target xftk $ HFun fl)
-                     acc0 es
   tmapAccumRDer
     :: forall accShs bShs eShs k.
        Proxy target
@@ -1231,32 +1205,6 @@ class ( Num (IntOf target)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
          -- ^ (x, bs) :: (accShs, k ': bShs)
   -- | A strict left mapAccum.
-  tmapAccumL
-    :: forall accShs bShs eShs k.
-       Proxy target
-    -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
-    -> (forall f. ADReady f
-        => f accShs -> f eShs
-        -> f (TKProduct accShs bShs))
-    -> target accShs
-    -> target (BuildTensorKind k eShs)
-    -> target (TKProduct accShs (BuildTensorKind k bShs))
-  {-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
-  tmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
-    let xftk = FTKProduct accShs eShs
-        fl :: forall f. ADReady f
-           => f (TKProduct accShs eShs)
-           -> f (TKProduct accShs bShs)
-        fl !args = ttlet args $ \ !args1 ->
-                     f (tproject1 args1) (tproject2 args1)
-    in tmapAccumLDer proxy k accShs bShs eShs
-                     (tlambda @target xftk (HFun fl))
-                     (tfwd @target xftk $ HFun fl)
-                     (trevDt @target xftk $ HFun fl)
-                     acc0 es
   tmapAccumLDer
     :: forall accShs bShs eShs k.
        Proxy target
@@ -1883,6 +1831,61 @@ xscan
   -> target (BuildTensorKind (1 + k) (TKX2 sh rn))
 {-# INLINE xscan #-}
 xscan = tscan (SNat @k) knownSTK knownSTK
+
+-- | A strict right mapAccum.
+tmapAccumR
+  :: forall accShs bShs eShs k target. BaseTensor target
+  => Proxy target
+  -> SNat k
+  -> FullTensorKind accShs
+  -> FullTensorKind bShs
+  -> FullTensorKind eShs
+  -> (forall f. ADReady f
+      => f accShs -> f eShs
+      -> f (TKProduct accShs bShs))
+  -> target accShs
+  -> target (BuildTensorKind k eShs)
+  -> target (TKProduct accShs (BuildTensorKind k bShs))
+{-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
+tmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
+  let xftk = FTKProduct accShs eShs
+      fl :: forall f. ADReady f
+         => f (TKProduct accShs eShs)
+         -> f (TKProduct accShs bShs)
+      fl !args = ttlet args $ \ !args1 ->
+                   f (tproject1 args1) (tproject2 args1)
+  in tmapAccumRDer proxy k accShs bShs eShs
+                   (tlambda @target xftk (HFun fl))
+                   (tfwd @target xftk $ HFun fl)
+                   (trevDt @target xftk $ HFun fl)
+                   acc0 es
+-- | A strict left mapAccum.
+tmapAccumL
+  :: forall accShs bShs eShs k target. BaseTensor target
+  => Proxy target
+  -> SNat k
+  -> FullTensorKind accShs
+  -> FullTensorKind bShs
+  -> FullTensorKind eShs
+  -> (forall f. ADReady f
+      => f accShs -> f eShs
+      -> f (TKProduct accShs bShs))
+  -> target accShs
+  -> target (BuildTensorKind k eShs)
+  -> target (TKProduct accShs (BuildTensorKind k bShs))
+{-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
+tmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
+  let xftk = FTKProduct accShs eShs
+      fl :: forall f. ADReady f
+         => f (TKProduct accShs eShs)
+         -> f (TKProduct accShs bShs)
+      fl !args = ttlet args $ \ !args1 ->
+                   f (tproject1 args1) (tproject2 args1)
+  in tmapAccumLDer proxy k accShs bShs eShs
+                   (tlambda @target xftk (HFun fl))
+                   (tfwd @target xftk $ HFun fl)
+                   (trevDt @target xftk $ HFun fl)
+                   acc0 es
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

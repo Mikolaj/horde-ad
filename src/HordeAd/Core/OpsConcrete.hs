@@ -461,12 +461,8 @@ instance BaseTensor RepN where
   tsreshape @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN . Nested.sreshape sh . unRepN
   -- The eta-expansion below is needed for typing.
-  tmapAccumR _ k accShs bShs eShs f acc0 es =
-    oRtmapAccumR k accShs bShs eShs f acc0 es
   tmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRtmapAccumR k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
-  tmapAccumL _ k accShs bShs eShs f acc0 es =
-    oRtmapAccumL k accShs bShs eShs f acc0 es
   tmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
     oRtmapAccumL k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
   tApply f x = RepN $ f $ unRepN x
